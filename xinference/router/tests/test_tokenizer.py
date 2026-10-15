@@ -1,3 +1,5 @@
+import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -161,6 +163,72 @@ def test_extra_body_thinking_is_normalized(tmp_path: Path) -> None:
 
     assert result.enable_thinking is True
     assert result.prompt_tokens == 4
+
+
+@pytest.mark.parametrize(
+    "template_kwargs,overrides,expected",
+    [
+        ({"thinking": True}, {}, True),
+        (json.dumps({"thinking": True}), {}, True),
+        ({"thinking": False}, {}, False),
+        ({"thinking": True, "enable_thinking": False}, {}, False),
+        ({"thinking": True, "enable_thinking": None}, {}, False),
+        ({"thinking": True}, {"enable_thinking": False}, False),
+        ({"thinking": True}, {"extra_body": {"enable_thinking": False}}, False),
+        (
+            {"thinking": True},
+            {"enable_thinking": True, "extra_body": {"enable_thinking": False}},
+            True,
+        ),
+        ({"thinking": True}, {"enable_thinking": None}, True),
+        ({"thinking": True}, {"enable_thinking": "invalid"}, True),
+        ({"thinking": "true"}, {}, False),
+        ({"thinking": 1}, {}, False),
+        ({"thinking": None}, {}, False),
+        ({"enable_thinking": True}, {}, True),
+        (json.dumps({"enable_thinking": True}), {}, True),
+        ({}, {}, False),
+        (None, {}, False),
+    ],
+)
+def test_thinking_alias_normalization(
+    tmp_path: Path, template_kwargs, overrides, expected: bool
+) -> None:
+    from xinference.router.app import _payload_thinking
+
+    estimator = DeepSeekV4TokenEstimator(
+        make_assets(tmp_path), reserve_tokens=0, default_output_tokens=1
+    )
+    payload = {
+        "messages": [{"role": "user", "content": "hello"}],
+        "chat_template_kwargs": template_kwargs,
+        **overrides,
+    }
+    original = deepcopy(payload)
+
+    result = estimator.estimate(payload)
+
+    assert result.enable_thinking is expected
+    assert result.prompt_tokens == (4 if expected else 1)
+    assert _payload_thinking(payload) is expected
+    assert payload == original
+
+
+@pytest.mark.parametrize("template_kwargs", ["{", "null", "[]", [1], True])
+def test_thinking_alias_invalid_kwargs(tmp_path: Path, template_kwargs) -> None:
+    from xinference.router.app import _payload_thinking
+
+    estimator = DeepSeekV4TokenEstimator(
+        make_assets(tmp_path), reserve_tokens=0, default_output_tokens=1
+    )
+    payload = {
+        "messages": [{"role": "user", "content": "hello"}],
+        "chat_template_kwargs": template_kwargs,
+        "enable_thinking": True,
+    }
+    with pytest.raises(TokenizationError):
+        estimator.estimate(payload)
+    assert _payload_thinking(payload) is False
 
 
 def test_max_completion_tokens_overrides_max_tokens(tmp_path: Path) -> None:

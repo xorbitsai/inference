@@ -39,7 +39,7 @@ from .metrics import RouterMetrics
 from .process_metrics import ProcessMetricsCollector
 from .runtime import RouterDisabled, RouterRuntime, RuntimeSnapshot
 from .tokenization import TokenizationWorkerUnavailable
-from .tokenizer import TokenizationError
+from .tokenizer import TokenizationError, normalize_thinking_alias
 
 logger = logging.getLogger("xinference.router")
 
@@ -124,7 +124,7 @@ def _payload_thinking(payload: dict) -> bool:
     if not isinstance(template_kwargs, dict):
         return False
 
-    normalized = dict(template_kwargs)
+    normalized = normalize_thinking_alias(template_kwargs)
     value = payload.get("enable_thinking")
     if value is None:
         extra_body = payload.get("extra_body")
