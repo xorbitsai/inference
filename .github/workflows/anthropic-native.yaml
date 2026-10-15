@@ -2,6 +2,9 @@ name: Anthropic native regression
 
 on:
   pull_request:
+    types: ['opened', 'reopened', 'synchronize', 'ready_for_review']
+    # Engine and Anthropic adapter changes require a manual dispatch for the
+    # matching engine; keep automatic GPU runs limited to this suite/workflow.
     paths:
       - '.github/workflows/anthropic-native.yaml'
       - 'xinference/model/llm/tests/test_anthropic_engine_integration.py'
@@ -21,12 +24,16 @@ on:
         type: string
         default: ''
 
+permissions:
+  contents: read
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.engine || 'vLLM' }}
   cancel-in-progress: true
 
 jobs:
   native:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     # PRs run one small vLLM smoke test on the existing GPU runner. The same
     # suite can be dispatched for the other engines without adding PR jobs.
     runs-on: ${{ inputs.engine == 'MLX' && 'macos-latest' || 'gpu-t4' }}

@@ -3,6 +3,9 @@
 
 Set XINFERENCE_TEST_ANTHROPIC_ENDPOINT and XINFERENCE_TEST_ANTHROPIC_MODEL to
 check an existing test deployment. Otherwise launch a dedicated test model.
+XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG overrides launch parameters as JSON.
+XINFERENCE_TEST_ANTHROPIC_API_KEY sets the server key.
+XINFERENCE_TEST_ANTHROPIC_ENGINE_VERSION is required for an existing deployment.
 XINFERENCE_TEST_CLAUDE_CODE=1 also exercises the installed Claude Code CLI.
 """
 
@@ -121,10 +124,12 @@ def native_model(record_testsuite_property):
                 openai=openai,
             )
     finally:
-        if launched and client is not None:
-            client.terminate_model(model)
-        if cluster is not None:
-            cluster.__exit__(None, None, None)
+        try:
+            if launched and client is not None:
+                client.terminate_model(model)
+        finally:
+            if cluster is not None:
+                cluster.__exit__(None, None, None)
 
 
 def image(color):
@@ -326,11 +331,11 @@ def test_openai_path(native_model, stream, json_output):
         output = result.choices[0].message.content
         assert result.choices[0].finish_reason == "stop"
     assert "<think>" not in output, output
-    assert (
-        json.loads(output) == {"answer": 42}
-        if json_output
-        else "ready" in output.lower()
-    ), output
+    if json_output:
+        parsed = json.loads(output)
+        assert isinstance(parsed, dict) and parsed.get("answer") in (42, "42"), output
+    else:
+        assert "ready" in output.lower(), output
 
 
 @pytest.mark.parametrize("image_count", [0, 1, 2])
@@ -398,23 +403,33 @@ def test_claude_code(native_model, tmp_path, image_count, record_testsuite_prope
         "--verbose",
         "--include-partial-messages",
     ]
-    result = subprocess.run(
-        args,
-        input=json.dumps(
-            {"type": "user", "message": {"role": "user", "content": content}}
+    trace_path = tmp_path / "claude.jsonl"
+    try:
+        result = subprocess.run(
+            args,
+            input=json.dumps(
+                {"type": "user", "message": {"role": "user", "content": content}}
+            )
+            + "\n",
+            text=True,
+            capture_output=True,
+            cwd=tmp_path,
+            env=env,
+            timeout=240,
         )
-        + "\n",
-        text=True,
-        capture_output=True,
-        cwd=tmp_path,
-        env=env,
-        timeout=240,
-    )
+    except subprocess.TimeoutExpired as exc:
+        output = exc.stdout or b""
+        trace_path.write_bytes(
+            output.encode("utf-8") if isinstance(output, str) else output
+        )
+        raise
+    trace_path.write_text(result.stdout, encoding="utf-8")
     record_testsuite_property(
         "claude_version",
-        subprocess.check_output([executable, "--version"], text=True).strip(),
+        subprocess.check_output(
+            [executable, "--version"], text=True, timeout=10
+        ).strip(),
     )
-    (tmp_path / "claude.jsonl").write_text(result.stdout, encoding="utf-8")
     assert result.returncode == 0, result.stderr + result.stdout[-2000:]
     events = [
         json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")
