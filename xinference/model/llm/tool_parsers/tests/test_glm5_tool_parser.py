@@ -1,3 +1,5 @@
+import pytest
+
 from ..glm5_tool_parser import Glm5ToolParser
 
 
@@ -138,6 +140,65 @@ def test_tool_parser_streaming_suppresses_split_start_token():
         ["<tool"],
         "<tool_call>get_weather<arg_key>location</arg_key><arg_value>Beijing</arg_value>",
         "_call>get_weather<arg_key>location</arg_key><arg_value>Beijing</arg_value>",
+    )
+
+    assert result is None
+
+
+TWO_CALLS_OUTPUT = (
+    "Let me check. "
+    "<tool_call>get_weather<arg_key>location</arg_key>"
+    "<arg_value>Beijing</arg_value></tool_call>"
+    "<tool_call>get_time</tool_call>"
+    " Done."
+)
+
+
+def _stream(parser, deltas):
+    previous = [""]
+    content = ""
+    calls = []
+    for delta in deltas:
+        current = previous[-1] + delta
+        result = parser.extract_tool_calls_streaming(previous, current, delta)
+        previous[-1] = current
+        if result is None:
+            continue
+        for text, name, args in result if isinstance(result, list) else [result]:
+            if text:
+                content += text
+            if name:
+                calls.append((name, args))
+    return content, calls
+
+
+@pytest.mark.parametrize("size", [1, 5, 13, len(TWO_CALLS_OUTPUT)])
+def test_tool_parser_streaming_keeps_every_call_and_text(size):
+    deltas = [
+        TWO_CALLS_OUTPUT[i : i + size] for i in range(0, len(TWO_CALLS_OUTPUT), size)
+    ]
+
+    content, calls = _stream(Glm5ToolParser(), deltas)
+
+    assert content == "Let me check.  Done."
+    assert calls == [("get_weather", {"location": "Beijing"}), ("get_time", {})]
+
+
+def test_tool_parser_streaming_returns_text_and_call_from_one_delta():
+    parser = Glm5ToolParser()
+    current_text = "Before <tool_call>get_time</tool_call>"
+
+    result = parser.extract_tool_calls_streaming([""], current_text, current_text)
+
+    assert result == [("Before ", None, None), (None, "get_time", {})]
+
+
+def test_tool_parser_streaming_holds_partial_start_after_a_call():
+    parser = Glm5ToolParser()
+    previous_text = "<tool_call>get_time</tool_call>"
+
+    result = parser.extract_tool_calls_streaming(
+        [previous_text], previous_text + "<tool_call", "<tool_call"
     )
 
     assert result is None
