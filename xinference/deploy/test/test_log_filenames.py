@@ -102,3 +102,42 @@ finally:
         capture_output=True,
         text=True,
     )
+
+
+@pytest.mark.parametrize("path_kind", ["bare", "nested", "absolute"])
+@pytest.mark.parametrize(
+    "handler_class,options",
+    [
+        (SafeRotatingFileHandler, {"maxBytes": 1024}),
+        (SafeTimedRotatingFileHandler, {"when": "midnight"}),
+        (
+            SafeTimedAndSizeRotatingFileHandler,
+            {"when": "midnight", "maxBytes": 1024},
+        ),
+    ],
+)
+def test_safe_handler_after_chdir(
+    handler_class, options, path_kind, tmp_path, monkeypatch
+):
+    original_cwd = tmp_path / "original"
+    original_cwd.mkdir()
+    monkeypatch.chdir(original_cwd)
+    filename = _log_filename(path_kind, original_cwd)
+    handler = handler_class(filename, backupCount=2, encoding="utf8", **options)
+    log_path = original_cwd / filename
+    lock_path = log_path.with_name(log_path.name + ".rotate.lock")
+    other_cwd = tmp_path / "other"
+    other_cwd.mkdir()
+    try:
+        assert lock_path.is_file()
+        monkeypatch.chdir(other_cwd)
+        handler.emit(logging.makeLogRecord({"msg": "before rollover"}))
+        handler.doRollover()
+        handler.emit(logging.makeLogRecord({"msg": "after chdir rollover"}))
+        handler.flush()
+        assert "after chdir rollover" in log_path.read_text()
+        # Rollover must update the original lock's coordination state.
+        assert lock_path.stat().st_size > 1
+        assert not list(other_cwd.iterdir())
+    finally:
+        handler.close()
