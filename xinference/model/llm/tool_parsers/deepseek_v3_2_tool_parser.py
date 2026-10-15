@@ -122,14 +122,25 @@ class DeepseekV3_2ToolParser(ToolParser):
             []
         )
 
-        for tool_call_match in tool_call_regex.findall(model_output):
-            for invoke_name, invoke_content in invoke_regex.findall(tool_call_match):
+        content_start = 0
+        for tool_call_match in tool_call_regex.finditer(model_output):
+            invokes = invoke_regex.findall(tool_call_match.group(1))
+            if not invokes:
+                continue
+            content = model_output[content_start : tool_call_match.start()]
+            if content:
+                results.append((content, None, None))
+            for invoke_name, invoke_content in invokes:
                 param_dict = self._parse_invoke_params(invoke_content, parameter_regex)
                 results.append((None, invoke_name, param_dict))
+            content_start = tool_call_match.end()
 
         if not results:
             return [(model_output, None, None)]
 
+        content = model_output[content_start:]
+        if content:
+            results.append((content, None, None))
         return results
 
     def extract_tool_calls_streaming(

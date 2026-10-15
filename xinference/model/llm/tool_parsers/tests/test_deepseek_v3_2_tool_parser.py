@@ -2,6 +2,50 @@ import pytest
 
 from ..deepseek_v3_2_tool_parser import DeepseekV3_2ToolParser
 
+_WEATHER_CALL = (
+    '<function_calls><invoke name="weather">'
+    '<parameter name="city" string="true">上海</parameter></invoke></function_calls>'
+)
+
+
+@pytest.mark.parametrize("dsml", [True, False])
+@pytest.mark.parametrize(
+    "before, after", [("Checking. ", ""), ("", " Done."), (" \n", "\t")]
+)
+def test_nonstreaming_preserves_surrounding_content(dsml, before, after):
+    block = (
+        _WEATHER_CALL.replace("<", "<｜DSML｜").replace("<｜DSML｜/", "</｜DSML｜")
+        if dsml
+        else _WEATHER_CALL
+    )
+    assert DeepseekV3_2ToolParser().extract_tool_calls(before + block + after) == [
+        *([(before, None, None)] if before else []),
+        (None, "weather", {"city": "上海"}),
+        *([(after, None, None)] if after else []),
+    ]
+
+
+@pytest.mark.parametrize("between", [" Next. ", " \n"])
+def test_nonstreaming_preserves_content_between_call_blocks(between):
+    text = _WEATHER_CALL + between + _WEATHER_CALL.replace("上海", "北京")
+    assert DeepseekV3_2ToolParser().extract_tool_calls(text) == [
+        (None, "weather", {"city": "上海"}),
+        (between, None, None),
+        (None, "weather", {"city": "北京"}),
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "plain text",
+        _WEATHER_CALL[: -len("</function_calls>")],
+        "<function_calls>broken</function_calls>",
+    ],
+)
+def test_nonstreaming_keeps_unparseable_content(text):
+    assert DeepseekV3_2ToolParser().extract_tool_calls(text) == [(text, None, None)]
+
 
 def test_extract_tool_calls_single_call():
     """Test extracting a single tool call."""
