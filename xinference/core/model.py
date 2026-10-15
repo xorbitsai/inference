@@ -930,6 +930,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     @log_async(logger=logger)
     async def generate(self, prompt: str, *args, **kwargs):
         self._require_ready()
+        start_time = time.time()
         # Directly delegate to model, let model decide how to handle (batching or not)
         kwargs.pop("raw_params", None)
         if hasattr(self._model, "generate"):
@@ -947,21 +948,25 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     args = (generate_config, *args[1:])
                 else:
                     kwargs["generate_config"] = generate_config
-            return await self._call_wrapper_json(
+            response = await self._call_wrapper_json(
                 self._model.generate, prompt, *args, **kwargs
             )
+            await self._record_non_stream_completion_metrics(response, start_time)
+            return response
         if hasattr(self._model, "async_generate"):
             if "request_id" not in kwargs:
                 kwargs["request_id"] = str(uuid.uuid1())
             else:
                 # model only accept string
                 kwargs["request_id"] = str(kwargs["request_id"])
-            return await self._call_wrapper_json(
+            response = await self._call_wrapper_json(
                 self._model.async_generate,
                 prompt,
                 *args,
                 **kwargs,
             )
+            await self._record_non_stream_completion_metrics(response, start_time)
+            return response
         raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
 
     @request_limit
@@ -997,32 +1002,37 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 return response
             raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
         finally:
-            # For the non stream result.
-            record = None
-            if isinstance(response, Generator) or isinstance(response, AsyncGenerator):
-                record = response
-            elif isinstance(response, bytes):
-                record = json.loads(response)
-            if record and isinstance(record, dict):
-                usage = record.get("usage")
-                # Some backends may not have a valid usage, we just skip them.
-                if isinstance(usage, dict):
-                    completion_tokens = usage.get("completion_tokens")
-                    prompt_tokens = usage.get("prompt_tokens")
-                    if completion_tokens is not None and prompt_tokens is not None:
-                        await self._record_completion_metrics(
-                            time.time() - start_time,
-                            completion_tokens,
-                            prompt_tokens,
-                        )
-                await self.record_metrics(
-                    "time_to_first_token_seconds",
-                    "observe",
-                    {
-                        "labels": {**self._metrics_labels, "stream": "false"},
-                        "value": time.time() - start_time,
-                    },
-                )
+            await self._record_non_stream_completion_metrics(response, start_time)
+
+    async def _record_non_stream_completion_metrics(
+        self, response: Any, start_time: float
+    ) -> None:
+        # For the non stream result.
+        record = None
+        if isinstance(response, Generator) or isinstance(response, AsyncGenerator):
+            record = response
+        elif isinstance(response, bytes):
+            record = json.loads(response)
+        if record and isinstance(record, dict):
+            usage = record.get("usage")
+            # Some backends may not have a valid usage, we just skip them.
+            if isinstance(usage, dict):
+                completion_tokens = usage.get("completion_tokens")
+                prompt_tokens = usage.get("prompt_tokens")
+                if completion_tokens is not None and prompt_tokens is not None:
+                    await self._record_completion_metrics(
+                        time.time() - start_time,
+                        completion_tokens,
+                        prompt_tokens,
+                    )
+            await self.record_metrics(
+                "time_to_first_token_seconds",
+                "observe",
+                {
+                    "labels": {**self._metrics_labels, "stream": "false"},
+                    "value": time.time() - start_time,
+                },
+            )
 
     @log_async(logger=logger)
     async def abort_request(
