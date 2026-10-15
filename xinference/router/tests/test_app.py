@@ -10,7 +10,7 @@ from fastapi import Request
 from tokenizers import Tokenizer, models, pre_tokenizers
 
 from xinference.router.admission import GateSnapshot
-from xinference.router.app import create_app
+from xinference.router.app import _payload_thinking, create_app
 from xinference.router.backend import request_headers
 from xinference.router.config import (
     BackendConfig,
@@ -831,9 +831,16 @@ async def test_tools_request_rejected_when_asset_lacks_tools_capability(
     )
 
 
+@pytest.mark.parametrize("key", ["enable_thinking", "thinking"])
+def test_payload_thinking_alias(key: str) -> None:
+    assert _payload_thinking({"chat_template_kwargs": {key: True}}) is True
+    assert _payload_thinking({"chat_template_kwargs": json.dumps({key: True})}) is True
+
+
 @pytest.mark.asyncio
+@pytest.mark.parametrize("key", ["enable_thinking", "thinking"])
 async def test_thinking_request_is_rejected_before_tokenization(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:
     from dataclasses import replace
 
@@ -856,7 +863,7 @@ async def test_thinking_request_is_rejected_before_tokenization(
                 json={
                     "model": "router-model",
                     "messages": [{"role": "user", "content": "hello"}],
-                    "chat_template_kwargs": json.dumps({"enable_thinking": True}),
+                    "chat_template_kwargs": json.dumps({key: True}),
                     "max_tokens": 8,
                 },
             )
