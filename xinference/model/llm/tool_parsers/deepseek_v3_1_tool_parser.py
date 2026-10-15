@@ -29,6 +29,12 @@ class DeepseekV3_1ToolParser(ToolParser):
             r"(?:<｜tool▁calls▁begin｜>|<｜tool▁call▁begin｜>)(?:<｜tool▁call▁begin｜>)?\s*(.*?)\s*<｜tool▁sep｜>\s*(.*?)\s*<｜tool▁call▁end｜>",
             re.DOTALL,
         )
+        # One call plus a trailing end-of-calls token, so the text around it
+        # can be returned as content.
+        self.tool_call_span_regex = re.compile(
+            self.new_tool_calls_regex.pattern + r"(?:\s*<｜tool▁calls▁end｜>)?",
+            re.DOTALL,
+        )
 
     def extract_tool_calls(
         self, model_output: str
@@ -57,7 +63,7 @@ class DeepseekV3_1ToolParser(ToolParser):
             >>> print(result)
             [(None, 'get_weather', {'location': 'Beijing'})]
         """
-        new_matches = self.new_tool_calls_regex.findall(model_output)
+        new_matches = list(self.tool_call_span_regex.finditer(model_output))
 
         if not new_matches:
             # No tool calls found, return the original output as content
@@ -69,7 +75,13 @@ class DeepseekV3_1ToolParser(ToolParser):
             []
         )
 
-        for name, args_json in new_matches:
+        content_start = 0
+        for match in new_matches:
+            content = model_output[content_start : match.start()]
+            if content:
+                results.append((content, None, None))
+            name, args_json = match.groups()
+            content_start = match.end()
             tool_call_tuple: Tuple[
                 Optional[str], Optional[str], Optional[Dict[str, Any]]
             ]
@@ -101,6 +113,9 @@ class DeepseekV3_1ToolParser(ToolParser):
                 tool_calls.add(dedup_key)
                 results.append(tool_call_tuple)
 
+        content = model_output[content_start:]
+        if content:
+            results.append((content, None, None))
         return results
 
     def extract_tool_calls_streaming(

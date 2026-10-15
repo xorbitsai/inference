@@ -12,12 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from itertools import count
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from ..core import MLXModel, MLXVisionModel
+
+
+@pytest.fixture(autouse=True)
+def generation_clock(monkeypatch):
+    from .. import core
+
+    # Mock generation can finish within one Windows clock tick. Context tests
+    # need a nonzero duration, without changing the process-wide wall clock.
+    clock = Mock(wraps=core.time)
+    clock.time.side_effect = count(100.0, 0.01)
+    monkeypatch.setattr(core, "time", clock)
 
 
 def make_model(vision=False, override=4096):

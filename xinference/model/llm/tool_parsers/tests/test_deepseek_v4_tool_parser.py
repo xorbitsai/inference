@@ -28,6 +28,42 @@ def _tool_calls(invokes, dsml=True):
 
 
 @pytest.mark.parametrize("dsml", [True, False])
+@pytest.mark.parametrize(
+    "before, after", [("Checking. ", ""), ("", " Done."), (" \n", "\t")]
+)
+def test_nonstreaming_preserves_surrounding_content(dsml, before, after):
+    block = _tool_calls([("weather", [("city", True, "上海")])], dsml=dsml)
+    assert DeepseekV4ToolParser().extract_tool_calls(before + block + after) == [
+        *([(before, None, None)] if before else []),
+        (None, "weather", {"city": "上海"}),
+        *([(after, None, None)] if after else []),
+    ]
+
+
+@pytest.mark.parametrize("between", [" Next. ", " \n"])
+def test_nonstreaming_preserves_content_between_call_blocks(between):
+    block = _tool_calls([("weather", [("city", True, "上海")])])
+    text = block + between + block.replace("上海", "北京")
+    assert DeepseekV4ToolParser().extract_tool_calls(text) == [
+        (None, "weather", {"city": "上海"}),
+        (between, None, None),
+        (None, "weather", {"city": "北京"}),
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "plain text",
+        '<tool_calls><invoke name="weather">',
+        "<tool_calls>broken</tool_calls>",
+    ],
+)
+def test_nonstreaming_keeps_unparseable_content(text):
+    assert DeepseekV4ToolParser().extract_tool_calls(text) == [(text, None, None)]
+
+
+@pytest.mark.parametrize("dsml", [True, False])
 def test_extract_tool_calls_preserves_json_parameter_types(dsml):
     parser = DeepseekV4ToolParser()
     model_output = _tool_calls(
