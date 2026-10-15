@@ -19,6 +19,7 @@ import pytest
 
 from ..core import chat_context_var
 from ..reasoning_parser import ReasoningParser
+from ..tool_parsers.deepseek_v4_tool_parser import DeepseekV4ToolParser
 from ..tool_parsers.llama3_tool_parser import Llama3ToolParser
 from ..tool_parsers.qwen_tool_parser import QwenToolParser
 from ..utils import ChatModelMixin
@@ -2649,6 +2650,27 @@ def test_post_process_completion_chunk_with_parser():
             assert (
                 result_filtered == expected_filtered
             ), f"Mismatch at case {i}: expected {expected_filtered}, got {result_filtered}"
+
+
+def test_post_process_completion_preserves_deepseek_content():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = DeepseekV4ToolParser()
+    preamble = "Let me check the weather. "
+    text = preamble + (
+        '<tool_calls><invoke name="weather">'
+        '<parameter name="city" string="true">上海</parameter></invoke></tool_calls>'
+    )
+    result = mixin._post_process_completion(
+        None, "deepseek-v4", {"choices": [{"text": text, "finish_reason": "stop"}]}
+    )
+    choice = result["choices"][0]
+    message = choice["message"]
+    assert message["content"] == preamble
+    assert choice["finish_reason"] == "tool_calls"
+    assert len(message["tool_calls"]) == 1
+    call = message["tool_calls"][0]
+    assert call["type"] == "function"
+    assert call["function"] == {"name": "weather", "arguments": '{"city": "上海"}'}
 
 
 def test_post_process_completion_without_thinking():
