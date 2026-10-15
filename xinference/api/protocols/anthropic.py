@@ -17,6 +17,8 @@ from typing import Any, AsyncIterator, Dict, FrozenSet, List, Optional
 from .anthropic_content import ContentBudget, normalize_content
 from .anthropic_thinking import sign_thinking, verify_thinking
 
+MAX_ANTHROPIC_IMAGES_PER_REQUEST = 64
+
 
 class AnthropicProtocolError(ValueError):
     def __init__(
@@ -53,6 +55,7 @@ class CanonicalChatRequest:
     reasoning_effort: Optional[str] = None
     parallel_tool_calls: Optional[bool] = None
     cache_control: Optional[Dict[str, Any]] = None
+    content_metrics: Optional[Dict[str, int]] = None
 
     def to_openai_body(self) -> Dict[str, Any]:
         body: Dict[str, Any] = {
@@ -233,7 +236,10 @@ def _normalize_messages(
                 if isinstance(result_content, list):
                     try:
                         result_content = normalize_content(
-                            result_content, tool_names, budget
+                            result_content,
+                            tool_names,
+                            budget,
+                            image_origin="tool_result",
                         )
                     except ValueError as exc:
                         raise _invalid(str(exc)) from exc
@@ -654,6 +660,13 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         cache_control["messages"] = _apply_context_management(
             cache_control["messages"], clear_assistant_ordinals
         )
+    content_metrics = budget.metrics()
+    if content_metrics["total_images"] > MAX_ANTHROPIC_IMAGES_PER_REQUEST:
+        raise _invalid(
+            "Anthropic requests support at most "
+            f"{MAX_ANTHROPIC_IMAGES_PER_REQUEST} rendered images, including "
+            "direct images, tool-result images, and PDF pages"
+        )
     return CanonicalChatRequest(
         requested_model=model,
         messages=messages,
@@ -672,6 +685,7 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         reasoning_effort=effort,
         parallel_tool_calls=parallel,
         cache_control=cache_control,
+        content_metrics=content_metrics,
     )
 
 
