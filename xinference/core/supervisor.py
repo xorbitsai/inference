@@ -3958,6 +3958,7 @@ class SupervisorActor(xo.StatelessActor):
                 raise ValueError(
                     "n_worker cannot be larger than the number of available workers."
                 )
+            pending_shards: Dict[str, List[xo.ActorRefType["WorkerActor"]]] = {}
             try:
                 # Pre-check: ensure no replica uid already exists before
                 # launching, preventing partial-deploy-then-rollback.
@@ -4041,11 +4042,14 @@ class SupervisorActor(xo.StatelessActor):
                             driver_info=driver_info,
                             **kwargs,
                         )
+                        # Keep acknowledged shards local until launch completes or fails.
+                        pending_shards[rep_model_uid] = worker_refs[: i_worker + 1]
                         if i_worker == 0:
                             # info will be subpool address + driver info
                             # for shard 0
                             driver_info = info[1]
                     self._replica_model_uid_to_worker[rep_model_uid] = worker_refs
+                    pending_shards.pop(rep_model_uid, None)
 
                     # for distributed inference,
                     # launch will run asynchronously,
@@ -4053,6 +4057,7 @@ class SupervisorActor(xo.StatelessActor):
                     for worker_ref in worker_refs:
                         await worker_ref.wait_for_load(rep_model_uid)
             except (Exception, asyncio.CancelledError):
+                self._replica_model_uid_to_worker.update(pending_shards)
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
                 await self._status_guard_ref.update_instance_info(
