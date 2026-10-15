@@ -8,10 +8,11 @@ canonical request and produce the same Anthropic response representation.
 
 from __future__ import annotations
 
+import copy
 import json
 import uuid
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, FrozenSet, List, Optional
 
 from .anthropic_content import ContentBudget, normalize_content
 from .anthropic_thinking import sign_thinking, verify_thinking
@@ -452,6 +453,105 @@ def anthropic_request_model(raw_body: Any) -> str:
     return model.strip()
 
 
+def _parse_context_management(raw_value: Any) -> Optional[Dict[str, Any]]:
+    if raw_value is None:
+        return None
+    if not isinstance(raw_value, dict):
+        raise _invalid("context_management must be an object")
+    edits = raw_value.get("edits", [])
+    if not isinstance(edits, list):
+        raise _invalid("context_management.edits must be an array")
+
+    clear_thinking = None
+    seen = set()
+    for edit in edits:
+        if not isinstance(edit, dict):
+            raise _invalid("Every context management edit must be an object")
+        edit_type = edit.get("type")
+        if not isinstance(edit_type, str) or not edit_type:
+            raise _invalid("Context management edits require a string 'type'")
+        if edit_type in seen:
+            raise _invalid(f"Duplicate Anthropic context management edit: {edit_type}")
+        seen.add(edit_type)
+        if edit_type != "clear_thinking_20251015":
+            raise _invalid(
+                f"Unsupported Anthropic context management edit type: {edit_type}"
+            )
+
+        keep = edit.get("keep", "all")
+        if keep == "all" or (isinstance(keep, dict) and keep.get("type") == "all"):
+            clear_thinking = {"keep_all": True}
+        elif (
+            isinstance(keep, dict)
+            and keep.get("type") == "thinking_turns"
+            and isinstance(keep.get("value"), int)
+            and not isinstance(keep.get("value"), bool)
+            and keep["value"] > 0
+        ):
+            clear_thinking = {"keep_turns": keep["value"]}
+        else:
+            raise _invalid(
+                "clear_thinking_20251015.keep must be 'all' or a positive "
+                "thinking_turns value"
+            )
+    return clear_thinking
+
+
+def _plan_context_management(
+    messages: List[Dict[str, Any]], clear_thinking: Optional[Dict[str, Any]]
+) -> FrozenSet[int]:
+    if clear_thinking is None or clear_thinking.get("keep_all"):
+        return frozenset()
+
+    resolved_tool_ids = {
+        message.get("tool_call_id")
+        for message in messages
+        if message.get("role") == "tool"
+    }
+    assistant_ordinal = 0
+    turn = 0
+    thinking_messages = []
+    unresolved_turns = set()
+    for message in messages:
+        if message.get("role") == "user":
+            turn += 1
+            continue
+        if message.get("role") != "assistant":
+            continue
+        tool_calls = message.get("tool_calls") or []
+        if any(call.get("id") not in resolved_tool_ids for call in tool_calls):
+            unresolved_turns.add(turn)
+        if message.get("reasoning_content"):
+            thinking_messages.append((assistant_ordinal, turn))
+        assistant_ordinal += 1
+
+    thinking_turns = list(dict.fromkeys(turn for _, turn in thinking_messages))
+    keep_turns = set(thinking_turns[-clear_thinking["keep_turns"] :])
+    keep_turns.update(unresolved_turns)
+    return frozenset(
+        ordinal
+        for ordinal, message_turn in thinking_messages
+        if message_turn not in keep_turns
+    )
+
+
+def _apply_context_management(
+    messages: List[Dict[str, Any]], clear_assistant_ordinals: FrozenSet[int]
+) -> List[Dict[str, Any]]:
+    if not clear_assistant_ordinals:
+        return messages
+
+    prepared = copy.deepcopy(messages)
+    assistant_ordinal = 0
+    for message in prepared:
+        if message.get("role") != "assistant":
+            continue
+        if assistant_ordinal in clear_assistant_ordinals:
+            message.pop("reasoning_content", None)
+        assistant_ordinal += 1
+    return prepared
+
+
 def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
     model = anthropic_request_model(raw_body)
     max_tokens = raw_body.get("max_tokens")
@@ -506,6 +606,7 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
             if thinking_budget >= max_tokens:
                 raise _invalid("thinking.budget_tokens must be less than max_tokens")
 
+    clear_thinking = _parse_context_management(raw_body.get("context_management"))
     tools = _normalize_tools(raw_body.get("tools"))
     tool_names = {tool["function"]["name"] for tool in tools or []}
     budget = ContentBudget()
@@ -516,6 +617,8 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         budget=budget,
         model=model,
     )
+    clear_assistant_ordinals = _plan_context_management(messages, clear_thinking)
+    messages = _apply_context_management(messages, clear_assistant_ordinals)
     output_config = raw_body.get("output_config") or {}
     if not isinstance(output_config, dict):
         raise _invalid("output_config must be an object")
@@ -546,6 +649,11 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         if not isinstance(disabled, bool):
             raise _invalid("disable_parallel_tool_use must be a boolean")
         parallel = not disabled
+    cache_control = _parse_cache_control(raw_body, tool_names, messages, budget)
+    if cache_control is not None:
+        cache_control["messages"] = _apply_context_management(
+            cache_control["messages"], clear_assistant_ordinals
+        )
     return CanonicalChatRequest(
         requested_model=model,
         messages=messages,
@@ -563,7 +671,7 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         response_format=response_format,
         reasoning_effort=effort,
         parallel_tool_calls=parallel,
-        cache_control=_parse_cache_control(raw_body, tool_names, messages, budget),
+        cache_control=cache_control,
     )
 
 
