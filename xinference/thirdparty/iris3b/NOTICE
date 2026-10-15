@@ -1,0 +1,10 @@
+Iris-3B
+Copyright 2026 Speridlabs
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Runtime dependencies that are downloaded, not redistributed, keep their own
+licenses, including:
+  - Qwen3-VL-4B-Instruct (text encoder), Alibaba Cloud, Apache License 2.0
+  - DINOv2 (REPA teacher, training only), Meta Platforms, Apache License 2.0
+  - Dion (Muon optimizer implementation), Microsoft, MIT License

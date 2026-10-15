@@ -19,6 +19,7 @@ from ..utils import has_cuda_device
 from .docanalyze.mineru25 import Mineru2_5Model
 from .engine_family import SUPPORTED_ENGINES, ImageEngineModel
 from .hidream_o1 import HIDREAM_O1_MODEL_NAMES, HiDreamO1Model
+from .iris import IrisModel
 from .ming_image import MingImageModel
 from .sensenova_u1 import SenseNovaU1Model
 from .sglang.core import SGLANG_SUPPORTED_IMAGE_MODELS, SGLangDiffusionModel
@@ -41,6 +42,7 @@ class DiffusersImageModel(DiffusionModel, ImageEngineModel):
             "sensenova_u1",
             "docanalyze",
             "ming_image",
+            "iris",
         )
 
 
@@ -65,6 +67,16 @@ class HiDreamO1ImageModel(HiDreamO1Model, ImageEngineModel):
             model_family.model_family == "hidream_o1"
             and model_family.model_name in HIDREAM_O1_MODEL_NAMES
         )
+
+
+class TransformersIrisImageModel(IrisModel, ImageEngineModel):
+    engine_model_format = "pytorch"
+    engine_quantization = "none"
+    required_libs = ("torch", "torchvision", "transformers", "omegaconf", "safetensors")
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        return model_family.model_family == "iris"
 
 
 class MingImageEngineModel(MingImageModel, ImageEngineModel):
@@ -134,6 +146,7 @@ def register_builtin_image_engines() -> None:
     SUPPORTED_ENGINES["transformers"] = [
         TransformersSenseNovaU1ImageModel,
         TransformersMinerUImageModel,
+        TransformersIrisImageModel,
     ]
     SUPPORTED_ENGINES["vLLM"] = [
         VLLMImageModel,
