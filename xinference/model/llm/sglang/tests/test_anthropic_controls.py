@@ -218,14 +218,23 @@ def test_non_reasoning_model_does_not_require_reasoning_plugin():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("image_count", [0, 1, 2])
 async def test_vision_preparation_includes_tools_and_consumes_template_kwargs(
     monkeypatch,
+    image_count,
 ):
+    import base64
+    from io import BytesIO
+
+    from PIL import Image
+
     instance = model(SGLANGVisionModel)
+    colors = [(255, 0, 0), (0, 0, 255)][:image_count]
+    source_images = [Image.new("RGB", (16, 16), color) for color in colors]
     monkeypatch.setitem(
         sys.modules,
         "qwen_vl_utils",
-        SimpleNamespace(process_vision_info=lambda messages: (None, None)),
+        SimpleNamespace(process_vision_info=lambda messages: (source_images, None)),
     )
     instance._transform_messages = lambda messages: messages
     captured = {}
@@ -239,7 +248,17 @@ async def test_vision_preparation_includes_tools_and_consumes_template_kwargs(
         [{"role": "user", "content": "read a"}],
         {"tools": tools(), "chat_template_kwargs": {"enable_thinking": False}},
     )
-    assert prompt == "prompt" and images is None
+    assert prompt == "prompt"
+    if image_count:
+        assert len(images) == image_count
+        for image, color in zip(images, colors):
+            header, encoded = image.split(",", 1)
+            assert header == "data:image/jpeg;base64"
+            decoded = Image.open(BytesIO(base64.b64decode(encoded)))
+            assert decoded.size == (16, 16)
+            assert all(abs(a - b) <= 1 for a, b in zip(decoded.getpixel((0, 0)), color))
+    else:
+        assert images is None
     assert captured["tools"] == render_tools == tools()
     assert context["enable_thinking"] is False
     assert "chat_template_kwargs" not in config
