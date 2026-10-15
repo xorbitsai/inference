@@ -1134,7 +1134,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             from dataclasses import asdict, is_dataclass
 
             capabilities = self._model.get_anthropic_capabilities()
-            return asdict(capabilities) if is_dataclass(capabilities) else capabilities
+            description = (
+                asdict(capabilities) if is_dataclass(capabilities) else capabilities
+            )
+            if isinstance(description, dict):
+                context_edits = description.get("supported_context_edits")
+                if isinstance(context_edits, (set, frozenset)):
+                    description["supported_context_edits"] = sorted(context_edits)
+            return description
 
         return await self._call_wrapper_json(_describe)
 
