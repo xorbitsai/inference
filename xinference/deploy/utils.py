@@ -203,9 +203,11 @@ class SafeRotatingFileHandler(
     """
 
     def __init__(self, filename, *args, **kwargs):
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        parent_dir = os.path.dirname(filename)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
         super().__init__(filename, *args, **kwargs)
-        self._init_rotation_coordination(filename)
+        self._init_rotation_coordination(self.baseFilename)
 
     def _check_inode_and_reopen(self):
         """Reopen stream if another process renamed the base file.
@@ -293,9 +295,11 @@ class SafeTimedRotatingFileHandler(
     """Timed handler with cross-platform, cross-process rotation safety."""
 
     def __init__(self, filename, *args, **kwargs):
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        parent_dir = os.path.dirname(filename)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
         super().__init__(filename, *args, **kwargs)
-        self._init_rotation_coordination(filename)
+        self._init_rotation_coordination(self.baseFilename)
 
     def _check_inode_and_reopen(self):
         if self.stream is None:
