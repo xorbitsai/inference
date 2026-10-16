@@ -39,6 +39,8 @@ async def test_vllm_image_count_reload():
     if not torch.cuda.is_available():
         pytest.skip("CUDA/ROCm GPU required")
     pytest.importorskip("vllm")
+    from vllm.exceptions import VLLMValidationError
+
     family = match_llm("qwen2.5-vl-instruct", "pytorch", "3", "none", "modelscope")
     image = io.BytesIO()
     Image.new("RGB", (56, 56), "red").save(image, format="PNG")
@@ -95,7 +97,7 @@ async def test_vllm_image_count_reload():
             pid = daemon.process.pid
             sockets = {p: p.stat().st_ino for p in daemon._socket_paths}
             with pytest.raises(
-                ValueError,
+                VLLMValidationError,
                 match=r"(?i)(at most|maximum|limit).*(image)|image.*(at most|maximum|limit)",
             ):
                 await generate(2)

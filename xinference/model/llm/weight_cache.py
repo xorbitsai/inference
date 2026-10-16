@@ -15,6 +15,7 @@
 """Engine-owned clients of a persistent, upstream GPU weight cache daemon."""
 
 import copy
+import dataclasses
 import json
 import logging
 import math
@@ -200,6 +201,12 @@ def _watcher_command(parent_pid: int, command: list[str]) -> list[str]:
     return [sys.executable, str(Path(__file__).resolve()), str(parent_pid), *command]
 
 
+def _config_json_default(value: Any) -> Any:
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return dataclasses.asdict(value)
+    raise TypeError(f"Config value {type(value).__name__} is not JSON serializable")
+
+
 class WeightCacheDaemon:
     """Keep GPU weights alive across engine restarts within one ModelActor.
 
@@ -264,7 +271,9 @@ class WeightCacheDaemon:
         # JSON is a YAML subset, preserving nested engine configs and booleans.
         config_path = self.directory / "config.yaml"
         try:
-            config_path.write_text(json.dumps(config), encoding="utf-8")
+            config_path.write_text(
+                json.dumps(config, default=_config_json_default), encoding="utf-8"
+            )
             self._log = (self.directory / "daemon.log").open("w+")
             baseline = None
             if self.engine == "vllm" and not self.config.get("kv_cache_memory_bytes"):

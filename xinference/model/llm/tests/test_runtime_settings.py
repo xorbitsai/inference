@@ -5,6 +5,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 
 import sys
+from dataclasses import dataclass
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -16,6 +17,45 @@ from ..sglang.core import SGLANGChatModel
 from ..vllm.core import VLLMChatModel
 from ..weight_cache import WeightCachedModel, validate_reload_patch
 from .test_weight_cache import FakeCachedModel
+
+
+def test_reasoning_config_dataclass_is_written_to_daemon_config(monkeypatch):
+    import json
+
+    from .. import weight_cache
+
+    @dataclass
+    class StructuredConfig:
+        backend: str = "auto"
+        reasoning_parser: str = "/models/reasoning_parser.py"
+
+    config = StructuredConfig()
+    daemon = weight_cache.WeightCacheDaemon(
+        "vllm",
+        "/models/test",
+        {"structured_outputs_config": config, "kv_cache_memory_bytes": 1},
+    )
+    process = MagicMock()
+    process.poll.return_value = None
+
+    def start(*args, **kwargs):
+        (daemon.directory / "rank.sock").touch()
+        return process
+
+    monkeypatch.setattr(weight_cache.subprocess, "Popen", start)
+    monkeypatch.setattr(
+        weight_cache, "_terminate_process_group", lambda *args, **kwargs: None
+    )
+    try:
+        daemon.start()
+        saved = json.loads((daemon.directory / "config.yaml").read_text())
+        assert saved["structured_outputs_config"] == {
+            "backend": "auto",
+            "reasoning_parser": config.reasoning_parser,
+        }
+        assert daemon.config["structured_outputs_config"] == config
+    finally:
+        daemon.stop()
 
 
 @pytest.mark.parametrize("engine", [VLLMChatModel, SGLANGChatModel])
