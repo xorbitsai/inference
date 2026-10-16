@@ -104,7 +104,15 @@ async def calls(monkeypatch):
             # Preserve actor admission/serialization while consuming the
             # registered generator locally, without opening an actor pool.
             result._gc_destroy = False
-            return actor._generators.pop(result._uid)
+            call = entries[args[0][0]["content"]]
+            if call.rpc_iterator:
+                result._actor_ref = actor
+                result.destroy = AsyncMock(side_effect=result.destroy)
+                call.iterator = result
+            else:
+                call.iterator = actor._generators.pop(result._uid)
+            call.acquired.set()
+            return call.iterator
         return result
 
     actor.chat = AsyncMock(side_effect=local_chat)
@@ -124,7 +132,14 @@ async def calls(monkeypatch):
         asyncio, "to_thread", AsyncMock(side_effect=lambda fn, *a, **kw: fn(*a, **kw))
     )
 
-    def make(stream=False, key="operation", block_send=False, wait_creation=False):
+    def make(
+        stream=False,
+        key="operation",
+        block_send=False,
+        wait_creation=False,
+        block_start=False,
+        rpc_iterator=False,
+    ):
         c = SimpleNamespace(
             model=actor,
             api=api,
@@ -133,10 +148,13 @@ async def calls(monkeypatch):
             engine_id=None,
             sent=[],
             wait_creation=wait_creation,
+            iterator=None,
+            rpc_iterator=rpc_iterator,
         )
         c.started, c.next_item, c.closed, c.release, c.disconnected, c.body_sent = (
             asyncio.Event() for _ in range(6)
         )
+        c.acquired, c.response_started = asyncio.Event(), asyncio.Event()
         entries[key] = c
         body = json.dumps(
             {
@@ -159,6 +177,10 @@ async def calls(monkeypatch):
 
         async def send(message):
             c.sent.append(message)
+            if message["type"] == "http.response.start":
+                c.response_started.set()
+                if block_start:
+                    await asyncio.Event().wait()
             if message["type"] == "http.response.body" and message.get("body"):
                 c.body_sent.set()
                 if block_send:
@@ -187,6 +209,7 @@ async def calls(monkeypatch):
     await asyncio.gather(*pending, return_exceptions=True)
     assert not pending - timers, "request left owned tasks running"
     assert actor._serve_count == 0
+    assert not actor._generators
 
 
 @pytest.mark.parametrize("phase", ["nonstream", "creation", "send", "next_item"])
@@ -232,6 +255,51 @@ async def test_connected_response_keeps_protocol_and_headers(calls, stream):
         assert message["usage"] == {"input_tokens": 7, "output_tokens": 3}
         c.model.decrease_serve_count.assert_not_awaited()
     c.model.abort_request.assert_not_awaited()
+
+
+@pytest.mark.parametrize("rpc_iterator", [False, True])
+async def test_disconnect_releases_stream_returned_during_startup_abort(
+    calls, rpc_iterator
+):
+    c = calls(stream=True, wait_creation=True, rpc_iterator=rpc_iterator)
+    abort = c.model.abort_request.side_effect
+
+    async def finish_startup_during_abort(request_id):
+        c.release.set()
+        await c.acquired.wait()
+        await abort(request_id)
+
+    c.model.abort_request.side_effect = finish_startup_during_abort
+    task = c.start()
+    await c.started.wait()
+    c.disconnected.set()
+    await asyncio.wait_for(task, 5)
+    assert c.sent[0]["status"] == 499
+    c.model.abort_request.assert_awaited_once_with(c.engine_id)
+    c.model.decrease_serve_count.assert_awaited_once()
+    if rpc_iterator:
+        c.iterator.destroy.assert_awaited_once()
+    else:
+        assert c.iterator.ag_frame is None
+
+
+@pytest.mark.parametrize("rpc_iterator", [False, True])
+async def test_disconnect_before_first_body_pull_releases_stream(calls, rpc_iterator):
+    c = calls(stream=True, block_start=True, rpc_iterator=rpc_iterator)
+    task = c.start()
+    await c.response_started.wait()
+    assert c.acquired.is_set()
+    assert not c.started.is_set()
+    c.disconnected.set()
+    await asyncio.wait_for(task, 5)
+    assert c.sent[0]["status"] == 200
+    assert not c.body_sent.is_set()
+    c.model.abort_request.assert_awaited_once_with(c.engine_id)
+    c.model.decrease_serve_count.assert_awaited_once()
+    if rpc_iterator:
+        c.iterator.destroy.assert_awaited_once()
+    else:
+        assert c.iterator.ag_frame is None
 
 
 @pytest.mark.parametrize(

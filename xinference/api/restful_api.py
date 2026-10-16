@@ -278,8 +278,10 @@ async def _run_non_streaming_request(
     request_id: str,
     kind: str,
     operation: Awaitable[Any],
+    *,
+    abort_controller: Optional[_SSERequestAbortController] = None,
 ) -> Response:
-    """Race direct vLLM generation against disconnect, owning all cleanup."""
+    """Race a direct vLLM model call against disconnect and join owned tasks."""
 
     async def wait_for_disconnect() -> None:
         while True:
@@ -288,9 +290,10 @@ async def _run_non_streaming_request(
 
     generation = asyncio.ensure_future(operation)
     listener = asyncio.create_task(wait_for_disconnect())
-    abort_controller = _SSERequestAbortController(
-        model, request_id, request, kind, abort_timeout=5
-    )
+    if abort_controller is None:
+        abort_controller = _SSERequestAbortController(
+            model, request_id, request, kind, abort_timeout=5
+        )
     interrupted = True
     cancellation: Optional[asyncio.CancelledError] = None
 
@@ -302,7 +305,8 @@ async def _run_non_streaming_request(
             except asyncio.CancelledError:
                 logger.exception("Abort cancelled for %s request %s", kind, request_id)
             finally:
-                # The actor's request_limit wrapper owns the serve count.
+                # Non-stream results retain actor-owned serve counts; callers
+                # returning a stream must release it if the response is discarded.
                 # Cancel/join both tasks even if abort fails or times out.
                 for task in (generation, listener):
                     if not task.done():
@@ -402,7 +406,11 @@ def _observe_sse_disconnect(
 
 
 async def _close_async_iterator(iterator: Any) -> None:
+    from xoscar.api import IteratorWrapper
+
     close = getattr(iterator, "aclose", None)
+    if close is None and isinstance(iterator, IteratorWrapper):
+        close = iterator.destroy
     if close is None:
         return
     result = close()
@@ -2770,31 +2778,61 @@ class RESTfulAPI(CancelMixin):
             model_call_kwargs["request_id"] = model_request_id
 
         if canonical.stream:
-            iterator: AsyncIterator[Any]
+            iterator: Optional[AsyncIterator[Any]] = None
             abort_controller = (
-                _SSERequestAbortController(model, model_request_id, request, "chat")
+                _SSERequestAbortController(
+                    model, model_request_id, request, "chat", abort_timeout=5
+                )
                 if is_vllm_backend
                 else None
             )
+            protocol_chunks: Optional[AsyncIterator[Any]] = None
+            completed = False
+            stream_cleanup_task: Optional[asyncio.Task[None]] = None
+
+            # Startup may acquire a stream that the response never consumes.
+            async def release_stream_resources() -> None:
+                nonlocal stream_cleanup_task
+                if iterator is None or abort_controller is None:
+                    return
+                with anyio.CancelScope(shield=True):
+                    if stream_cleanup_task is None:
+                        stream_cleanup_task = asyncio.create_task(
+                            _cleanup_model_stream(
+                                abort_controller=abort_controller,
+                                interrupted=not completed,
+                                observed_iterator=(
+                                    protocol_chunks
+                                    if protocol_chunks is not None
+                                    else iterator
+                                ),
+                                model_iterator=iterator,
+                                model=model,
+                                request_id=model_request_id,
+                                kind="chat",
+                            )
+                        )
+                    await asyncio.shield(stream_cleanup_task)
 
             async def physical_chunks() -> AsyncIterator[Dict[str, Any]]:
+                nonlocal protocol_chunks, completed
                 if abort_controller is not None:
                     abort_controller.bind_stream_task()
                 reporter = get_stream_outcome_reporter(request)
-                protocol_chunks = None
-                completed = False
                 try:
+                    assert iterator is not None
                     model_chunks = observe_stream(
                         iterator,
                         reporter,
                         failure_origin=FailureOrigin.MODEL_GENERATOR,
                     )
-                    protocol_chunks = observe_stream(
+                    chunks = observe_stream(
                         self._iter_model_openai_chunks(model_chunks),
                         reporter,
                         failure_origin=FailureOrigin.PROTOCOL,
                     )
-                    async for chunk in protocol_chunks:
+                    protocol_chunks = chunks
+                    async for chunk in chunks:
                         if abort_controller is None and await request.is_disconnected():
                             report_client_disconnect(request)
                             break
@@ -2811,15 +2849,7 @@ class RESTfulAPI(CancelMixin):
                     yield {"error": {"type": "api_error", "message": str(exc)}}
                 finally:
                     if abort_controller is not None:
-                        await _cleanup_model_stream(
-                            abort_controller=abort_controller,
-                            interrupted=not completed,
-                            observed_iterator=protocol_chunks,
-                            model_iterator=iterator,
-                            model=model,
-                            request_id=model_request_id,
-                            kind="chat",
-                        )
+                        await release_stream_resources()
                     elif iterator is not None:
                         from xoscar.api import IteratorWrapper
 
@@ -2847,10 +2877,22 @@ class RESTfulAPI(CancelMixin):
                 body_iterator,
                 ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
                 headers=response_headers,
+                background=(
+                    BackgroundTask(release_stream_resources)
+                    if abort_controller is not None
+                    else None
+                ),
             )
             if abort_controller is not None:
                 abort_controller.bind_body_iterator(body_iterator)
-                _observe_sse_disconnect(response, abort_controller.handle_disconnect)
+
+                async def handle_disconnect(message: Dict[str, Any]) -> None:
+                    try:
+                        await abort_controller.handle_disconnect(message)
+                    finally:
+                        await release_stream_resources()
+
+                _observe_sse_disconnect(response, handle_disconnect)
 
             async def start_streaming_response() -> Response:
                 nonlocal iterator
@@ -2858,15 +2900,19 @@ class RESTfulAPI(CancelMixin):
                 return response
 
             # Commit SSE headers only after model admission/startup succeeds.
+            stream_transferred = False
             try:
                 if is_vllm_backend:
-                    return await _run_non_streaming_request(
+                    result = await _run_non_streaming_request(
                         request,
                         model,
                         model_request_id,
                         "chat",
                         start_streaming_response(),
+                        abort_controller=abort_controller,
                     )
+                    stream_transferred = result is response
+                    return result
                 return await start_streaming_response()
             except NotImplementedError as exc:
                 return self._anthropic_error(501, str(exc), request_id)
@@ -2876,6 +2922,9 @@ class RESTfulAPI(CancelMixin):
                 await self._report_error_event(model_uid, str(exc))
                 status_code = 429 if "Rate limit reached" in str(exc) else 500
                 return self._anthropic_error(status_code, str(exc), request_id)
+            finally:
+                if is_vllm_backend and not stream_transferred:
+                    await release_stream_resources()
 
         async def generate_message_response() -> Response:
             data = await model.chat(messages, kwargs, **model_call_kwargs)
