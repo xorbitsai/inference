@@ -58,6 +58,7 @@ from ...types import (
 from .core import chat_context_var
 from .media import load_media_bytes
 from .reasoning_parser import ReasoningParser
+from .tool_parsers.abstract_tool_parser import request_tools_var
 from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 
 logger = logging.getLogger(__name__)
@@ -1079,6 +1080,7 @@ class ChatModelMixin:
         chunk_id=None,
         previous_texts: List[str] = [""],
         tool_call_state: Optional[Dict[str, Any]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ):
         if not c.get("choices"):
             return c
@@ -1087,24 +1089,28 @@ class ChatModelMixin:
         _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
         tool_result = None
         finish_reason = None
-        if isinstance(self.tool_parser, Glm4ToolParser) and "name" in c:
-            tool_result = self.tool_parser.extract_tool_calls_streaming(
-                [],
-                c,
-                c,
-            )
-        else:
-            finish_reason = c["choices"][0]["finish_reason"]
-            delta_text = c["choices"][0]["delta"].get("content") or ""
-            current_text = (
-                previous_texts[-1] + delta_text if previous_texts else delta_text
-            )
-            tool_result = self.tool_parser.extract_tool_calls_streaming(
-                previous_texts,
-                current_text,
-                delta_text,
-            )
-            previous_texts[-1] = current_text
+        token = request_tools_var.set(tools)
+        try:
+            if isinstance(self.tool_parser, Glm4ToolParser) and "name" in c:
+                tool_result = self.tool_parser.extract_tool_calls_streaming(
+                    [],
+                    c,
+                    c,
+                )
+            else:
+                finish_reason = c["choices"][0]["finish_reason"]
+                delta_text = c["choices"][0]["delta"].get("content") or ""
+                current_text = (
+                    previous_texts[-1] + delta_text if previous_texts else delta_text
+                )
+                tool_result = self.tool_parser.extract_tool_calls_streaming(
+                    previous_texts,
+                    current_text,
+                    delta_text,
+                )
+                previous_texts[-1] = current_text
+        finally:
+            request_tools_var.reset(token)
         if tool_result is None and not finish_reason:
             return None
         tool_calls: List[Dict[str, Any]] = []
@@ -1230,6 +1236,7 @@ class ChatModelMixin:
         model_family,
         model_uid,
         c,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ):
         if not self.tool_parser:
             return self._to_chat_completion(c, self.reasoning_parser)
@@ -1254,10 +1261,14 @@ class ChatModelMixin:
         # Then, extract tool calls from the processed text (without thinking tags)
         tool_calls = []
         failed_contents = []
-        if isinstance(self.tool_parser, Glm4ToolParser) and "name" in c:
-            tool_result = self.tool_parser.extract_tool_calls(c)
-        else:
-            tool_result = self.tool_parser.extract_tool_calls(text)
+        token = request_tools_var.set(tools)
+        try:
+            if isinstance(self.tool_parser, Glm4ToolParser) and "name" in c:
+                tool_result = self.tool_parser.extract_tool_calls(c)
+            else:
+                tool_result = self.tool_parser.extract_tool_calls(text)
+        finally:
+            request_tools_var.reset(token)
 
         # Process tool results
         for tool_content, func, args in tool_result:
@@ -1463,6 +1474,7 @@ class ChatModelMixin:
         self,
         chunks: Iterator[CompletionChunk],
         ctx: Optional[Dict[str, Any]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> Iterator[ChatCompletionChunk]:
         def set_context():
             if ctx:
@@ -1508,6 +1520,7 @@ class ChatModelMixin:
                 tool_chunk,
                 previous_texts=previous_tools_texts,
                 tool_call_state=tool_call_state,
+                tools=tools,
             )
             if processed_chunk:
                 yield processed_chunk
@@ -1516,6 +1529,7 @@ class ChatModelMixin:
         self,
         chunks: AsyncGenerator[CompletionChunk, None],
         ctx: Optional[Dict[str, Any]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         def set_context():
             if ctx:
@@ -1572,6 +1586,7 @@ class ChatModelMixin:
                     tool_chunk,
                     previous_texts=previous_tools_texts,
                     tool_call_state=tool_call_state,
+                    tools=tools,
                 )
                 if processed_chunk:
                     yield processed_chunk

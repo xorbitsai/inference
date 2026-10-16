@@ -2874,7 +2874,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             assert isinstance(agen, AsyncGenerator)
             if tools:
                 result_stream = self._async_to_tool_completion_chunks(
-                    agen, chat_template_kwargs
+                    agen, chat_template_kwargs, tools
                 )
             else:
                 result_stream = self._async_to_chat_completion_chunks(
@@ -2893,7 +2893,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             assert not isinstance(c, AsyncGenerator)
             if tools:
                 result = self._post_process_completion(
-                    self.model_family, self.model_uid, c
+                    self.model_family, self.model_uid, c, tools
                 )
             else:
                 result = self._to_chat_completion(c, parser)
@@ -3439,7 +3439,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             assert isinstance(agen, AsyncGenerator)
             if tools:
                 result_stream = self._async_to_tool_completion_chunks(
-                    agen, chat_template_kwargs
+                    agen, chat_template_kwargs, tools
                 )
             else:
                 result_stream = self._async_to_chat_completion_chunks(
@@ -3461,7 +3461,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             assert not isinstance(c, AsyncGenerator)
             if tools:
                 result = self._post_process_completion(
-                    self.model_family, self.model_uid, c
+                    self.model_family, self.model_uid, c, tools
                 )
             else:
                 result = self._to_chat_completion(c, parser)

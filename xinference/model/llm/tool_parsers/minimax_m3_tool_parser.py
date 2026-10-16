@@ -46,10 +46,10 @@ class MiniMaxM3ToolParser(ToolParser):
             r"<parameter\s+name=[\"']([^\"']+)[\"']>(.*?)</parameter>", re.DOTALL
         )
 
-    def _parse_param_value(self, value: str) -> Any:
+    def _parse_param_value(self, value: str, is_string: bool = False) -> Any:
         value = value.strip()
-        if not value:
-            return ""
+        if not value or is_string:
+            return value
         try:
             return json.loads(value)
         except Exception:
@@ -76,7 +76,7 @@ class MiniMaxM3ToolParser(ToolParser):
                 duplicate_tags.add(child.tag)
         return result
 
-    def _parse_invoke_args(self, body: str) -> Dict[str, Any]:
+    def _parse_invoke_args(self, name: str, body: str) -> Dict[str, Any]:
         # Model output is often XML-like rather than strictly valid XML. Escape
         # bare ampersands while preserving the five predefined XML entities and
         # numeric character references.
@@ -91,7 +91,9 @@ class MiniMaxM3ToolParser(ToolParser):
             # Keep compatibility with the legacy MiniMax parameter format if
             # the model emits text that is not valid nested XML.
             return {
-                key: self._parse_param_value(value)
+                key: self._parse_param_value(
+                    value, self._is_string_parameter(name, key)
+                )
                 for key, value in self.param_regex.findall(body)
             }
 
@@ -102,7 +104,10 @@ class MiniMaxM3ToolParser(ToolParser):
                 key = element.attrib["name"]
             else:
                 key = element.tag
-            value = self._parse_xml_element(element)
+            if len(element) == 0 and self._is_string_parameter(name, key):
+                value = self._parse_param_value(element.text or "", is_string=True)
+            else:
+                value = self._parse_xml_element(element)
             if key not in args:
                 args[key] = value
             elif key in duplicate_keys:
@@ -115,7 +120,7 @@ class MiniMaxM3ToolParser(ToolParser):
     def _parse_invoke_calls(self, tool_block: str) -> List[Tuple[str, Dict[str, Any]]]:
         results = []
         for name, body in self.invoke_regex.findall(tool_block):
-            results.append((name, self._parse_invoke_args(body)))
+            results.append((name, self._parse_invoke_args(name, body)))
         return results
 
     def _get_function_calls(self, model_output: str) -> List[str]:

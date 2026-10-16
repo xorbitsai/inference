@@ -32,10 +32,12 @@ class MiniCPM5ToolParser(ToolParser):
     _PARAM_OPEN_RE = re.compile(r"<param\s+name=['\"]([^'\"]+)['\"]\s*>")
 
     @staticmethod
-    def _parse_value(value: str) -> Any:
+    def _parse_value(value: str, is_string: bool = False) -> Any:
         value = value.strip()
         if value.startswith("<![CDATA[") and value.endswith("]]>"):
             value = value[9:-3]
+        if is_string:
+            return value
         try:
             return json.loads(value)
         except (TypeError, ValueError):
@@ -84,7 +86,8 @@ class MiniCPM5ToolParser(ToolParser):
                 if param_end is None or param_end > function_end:
                     break
                 arguments[param_match.group(1)] = cls._parse_value(
-                    model_output[param_match.end() : param_end]
+                    model_output[param_match.end() : param_end],
+                    cls._is_string_parameter(match.group(1), param_match.group(1)),
                 )
                 param_position = param_end + len("</param>")
             results.append((None, match.group(1), arguments))

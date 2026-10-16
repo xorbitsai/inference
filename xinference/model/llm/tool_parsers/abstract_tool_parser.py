@@ -1,4 +1,12 @@
-from typing import Iterable, Optional
+from contextvars import ContextVar
+from typing import Any, Dict, Iterable, List, Optional
+
+# Tools of the request whose output is being parsed. One parser instance serves
+# every request to a model, so the chat helpers set this around each parse call
+# instead of storing the tools on the parser.
+request_tools_var: ContextVar[Optional[List[Dict[str, Any]]]] = ContextVar(
+    "request_tools", default=None
+)
 
 
 class ToolParser:
@@ -34,6 +42,30 @@ class ToolParser:
             "AbstractToolParser.extract_tool_calls_streaming has not been "
             "implemented!"
         )
+
+    @staticmethod
+    def _is_string_parameter(function_name: Optional[str], parameter_name: str) -> bool:
+        """
+        Return True when the request's tools declare the parameter as
+        ``"type": "string"``.
+
+        Formats that write every argument as raw text cannot tell the string
+        ``404`` from the number ``404``. Their parsers keep such values as text
+        and decode the others as JSON.
+        """
+        for tool in request_tools_var.get() or ():
+            function = tool.get("function", tool) if isinstance(tool, dict) else None
+            if not isinstance(function, dict) or function.get("name") != function_name:
+                continue
+            parameters = function.get("parameters")
+            properties = (
+                parameters.get("properties") if isinstance(parameters, dict) else None
+            )
+            schema = (
+                properties.get(parameter_name) if isinstance(properties, dict) else None
+            )
+            return isinstance(schema, dict) and schema.get("type") == "string"
+        return False
 
     @staticmethod
     def _partial_marker_length(text: str, markers: Iterable[str]) -> int:

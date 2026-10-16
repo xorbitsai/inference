@@ -1830,7 +1830,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
             if tools:
                 return self._async_to_tool_completion_chunks(
-                    _log_streaming_chunks(), chat_template_kwargs
+                    _log_streaming_chunks(), chat_template_kwargs, tools
                 )
             return self._async_to_chat_completion_chunks(
                 _log_streaming_chunks(), self.reasoning_parser, chat_template_kwargs
@@ -1849,7 +1849,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
                 return result
             if tools:
                 return self._post_process_completion(
-                    self.model_family, self.model_uid, c
+                    self.model_family, self.model_uid, c, tools
                 )
             return self._to_chat_completion(c, self.reasoning_parser)
 
@@ -2617,7 +2617,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
             if tools:
                 return self._to_tool_completion_chunks(
-                    _log_streaming_chunks(), chat_template_kwargs
+                    _log_streaming_chunks(), chat_template_kwargs, tools
                 )
             return self._to_chat_completion_chunks(
                 _log_streaming_chunks(), self.reasoning_parser, chat_template_kwargs
@@ -2627,6 +2627,6 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             assert not isinstance(c, Iterator)
             if tools:
                 return self._post_process_completion(
-                    self.model_family, self.model_uid, c
+                    self.model_family, self.model_uid, c, tools
                 )
             return self._to_chat_completion(c, self.reasoning_parser)

@@ -108,6 +108,7 @@ class PytorchDirectChatMixin(ChatModelMixin):
                 self.model_family,
                 self.model_uid,
                 completion,
+                tools,
             )
         return self._to_chat_completion(completion, self.reasoning_parser)
 
@@ -169,6 +170,7 @@ class PytorchDirectChatMixin(ChatModelMixin):
                         chat_chunk,
                         previous_texts=previous_tools_texts,
                         tool_call_state=tool_call_state,
+                        tools=tools,
                     )
                     if processed_chunk:
                         yield cast(CompletionChunk, processed_chunk)
@@ -200,6 +202,7 @@ class PytorchDirectChatMixin(ChatModelMixin):
                 chat_chunk,
                 previous_texts=previous_tools_texts,
                 tool_call_state=tool_call_state,
+                tools=tools,
             )
             if processed_chunk:
                 yield cast(CompletionChunk, processed_chunk)
@@ -231,6 +234,7 @@ class PytorchDirectChatMixin(ChatModelMixin):
                     chat_chunk,
                     previous_texts=previous_tools_texts,
                     tool_call_state=tool_call_state,
+                    tools=tools,
                 )
                 if processed_chunk:
                     yield cast(CompletionChunk, processed_chunk)
