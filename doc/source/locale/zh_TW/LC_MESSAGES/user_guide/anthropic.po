@@ -206,10 +206,13 @@ msgstr ""
 msgid ""
 "On vLLM reasoning models, ``stop_sequences`` applies to both streaming and "
 "non-streaming requests, including when thinking is disabled. A stop match "
-"during thinking can end the response before a final answer is produced."
+"during thinking can end the response before a final answer is produced. "
+"Native stop matches currently report ``stop_reason: \"end_turn\"`` and "
+"``stop_sequence: null`` in the response."
 msgstr ""
 "對於 vLLM 推理模型，``stop_sequences`` "
-"同時適用於串流和非串流請求，關閉思考時也生效。如果在思考過程中符合停止序列，回應可能在產生最終答案前結束。"
+"同時適用於串流和非串流請求，關閉思考時也生效。如果在思考過程中符合停止序列，回應可能在產生最終答案前結束。 原生停止條件匹配目前會在回應中回報 "
+"``stop_reason: \"end_turn\"`` 和 ``stop_sequence: null``。"
 
 #: ../source/user_guide/anthropic.rst:118
 msgid "Context management"
@@ -226,15 +229,17 @@ msgstr ""
 "``\"all\"`` 或 ``{\"type\": \"all\"}`` 可保留全部思考內容（預設行為），也可以用正整數 "
 "``thinking_turns`` 保留最近的思考回合："
 
-#: ../source/user_guide/anthropic.rst:135
+#: ../source/user_guide/anthropic.rst:137
 msgid ""
-"A complete tool-use loop counts as one assistant turn. Thinking attached to "
-"unresolved tool calls is retained. Generation, cache-prefix processing and "
-"token counting use the same edited history. Omitting ``edits`` is a no-op; "
-"unsupported edit types return HTTP 400."
+"User messages containing only ``tool_result`` blocks do not start a new "
+"assistant turn. Additional user content starts a new turn. Thinking attached"
+" to unresolved tool calls is retained. Generation, cache-prefix processing "
+"and token counting use the same edited history. Omitting ``edits`` is a no-"
+"op; unsupported edit types return HTTP 400."
 msgstr ""
-"完整的工具使用迴圈計為一個助理回合，尚未完成的工具呼叫所關聯的思考內容會被保留。生成、快取前綴處理和 token 計數使用相同的編輯後歷史。省略 "
-"``edits`` 時不做修改；不支援的編輯類型回傳 HTTP 400。"
+"僅包含 ``tool_result`` "
+"區塊的使用者訊息不會開始新的助理回合。額外的使用者內容會開始新的回合。尚未完成的工具呼叫所關聯的思考內容會被保留。生成、快取前綴處理和 token "
+"計數使用相同的編輯後歷史。省略 ``edits`` 時不做修改；不支援的編輯類型回傳 HTTP 400。"
 
 #: ../source/user_guide/anthropic.rst:156
 msgid "Backend capabilities"
@@ -321,4 +326,4 @@ msgstr "獨立推理 token 預算"
 #: ../source/user_guide/anthropic.rst:193
 #: ../source/user_guide/anthropic.rst:194
 msgid "Not enforced"
-msgstr "不嚴格執行"
+msgstr "不強制執行"

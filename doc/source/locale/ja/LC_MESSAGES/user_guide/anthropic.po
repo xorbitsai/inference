@@ -218,10 +218,13 @@ msgstr ""
 msgid ""
 "On vLLM reasoning models, ``stop_sequences`` applies to both streaming and "
 "non-streaming requests, including when thinking is disabled. A stop match "
-"during thinking can end the response before a final answer is produced."
+"during thinking can end the response before a final answer is produced. "
+"Native stop matches currently report ``stop_reason: \"end_turn\"`` and "
+"``stop_sequence: null`` in the response."
 msgstr ""
 "vLLM の推論モデルでは、思考を無効にした場合も、ストリーミングと非ストリーミングの両方で ``stop_sequences`` "
-"が適用されます。思考中に一致すると、最終回答が生成される前に応答が終了する場合があります。"
+"が適用されます。思考中に一致すると、最終回答が生成される前に応答が終了する場合があります。 ネイティブの停止条件に一致した場合、応答には現在 "
+"``stop_reason: \"end_turn\"`` と ``stop_sequence: null`` が返されます。"
 
 #: ../source/user_guide/anthropic.rst:118
 msgid "Context management"
@@ -238,15 +241,16 @@ msgstr ""
 "``\"all\"`` または ``{\"type\": \"all\"}`` にすると、すべての思考を保持します（既定値）。正の "
 "``thinking_turns`` 値を指定すると、直近の思考ターンを保持します。"
 
-#: ../source/user_guide/anthropic.rst:135
+#: ../source/user_guide/anthropic.rst:137
 msgid ""
-"A complete tool-use loop counts as one assistant turn. Thinking attached to "
-"unresolved tool calls is retained. Generation, cache-prefix processing and "
-"token counting use the same edited history. Omitting ``edits`` is a no-op; "
-"unsupported edit types return HTTP 400."
+"User messages containing only ``tool_result`` blocks do not start a new "
+"assistant turn. Additional user content starts a new turn. Thinking attached"
+" to unresolved tool calls is retained. Generation, cache-prefix processing "
+"and token counting use the same edited history. Omitting ``edits`` is a no-"
+"op; unsupported edit types return HTTP 400."
 msgstr ""
-"一連のツール使用ループ全体を、アシスタントの 1 "
-"ターンとして数えます。未解決のツール呼び出しに関連する思考は保持されます。生成、キャッシュプレフィックス処理、トークン数の計算には、同じ編集済み履歴を使用します。``edits``"
+"``tool_result`` "
+"ブロックのみを含むユーザーメッセージは、新しいアシスタントターンを開始しません。追加のユーザーコンテンツは新しいターンを開始します。未解決のツール呼び出しに関連する思考は保持されます。生成、キャッシュプレフィックス処理、トークン数の計算には、同じ編集済み履歴を使用します。``edits``"
 " を省略すると変更しません。未対応の編集タイプには HTTP 400 を返します。"
 
 #: ../source/user_guide/anthropic.rst:156
@@ -335,4 +339,4 @@ msgstr "推論トークンの個別予算"
 #: ../source/user_guide/anthropic.rst:193
 #: ../source/user_guide/anthropic.rst:194
 msgid "Not enforced"
-msgstr "厳密な適用なし"
+msgstr "適用なし"

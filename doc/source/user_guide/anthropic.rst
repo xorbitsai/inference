@@ -113,6 +113,8 @@ accompanying answers and tool calls are preserved.
 On vLLM reasoning models, ``stop_sequences`` applies to both streaming and
 non-streaming requests, including when thinking is disabled. A stop match
 during thinking can end the response before a final answer is produced.
+Native stop matches currently report ``stop_reason: "end_turn"`` and
+``stop_sequence: null`` in the response.
 
 Context management
 ------------------
@@ -132,9 +134,10 @@ a positive ``thinking_turns`` value to retain recent thinking turns:
       }
     }
 
-A complete tool-use loop counts as one assistant turn. Thinking attached to
-unresolved tool calls is retained. Generation, cache-prefix processing and
-token counting use the same edited history. Omitting ``edits`` is a no-op;
+User messages containing only ``tool_result`` blocks do not start a new
+assistant turn. Additional user content starts a new turn. Thinking attached
+to unresolved tool calls is retained. Generation, cache-prefix processing
+and token counting use the same edited history. Omitting ``edits`` is a no-op;
 unsupported edit types return HTTP 400.
 
 Tool choice and structured output
