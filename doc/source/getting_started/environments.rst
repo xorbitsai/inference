@@ -9,6 +9,40 @@ XINFERENCE_ENDPOINT
 Endpoint of Xinference, used to connect to Xinference service.
 Default value is http://127.0.0.1:9997 , you can get it through logs.
 
+.. _actor_transport_authentication:
+
+XOSCAR_AUTH_KEY
+~~~~~~~~~~~~~~~
+Shared secret for Xoscar actor transport authentication, supported by Xoscar
+0.12.0 and later. Unset or empty keeps the legacy unauthenticated transport;
+upgrading alone does not enable protection. HTTP API authentication does not
+protect actor ports. See the `security advisory
+<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-mmvj-m246-m9vf>`_.
+
+Generate one random secret per deployment with the following command. Distribute
+the same value through your secret-management system before starting
+``xinference-local``, ``xinference-supervisor``, every ``xinference-worker``,
+and any direct Xoscar actor clients. Child processes, including model virtual
+environments, inherit the variable. HTTP clients do not need this secret.
+
+.. code-block:: bash
+
+   python -c "import secrets; print(secrets.token_hex(32))"
+   export XOSCAR_AUTH_KEY='<same-random-deployment-secret>'
+
+Upgrade all actor peers to Xoscar 0.12.0 or later before enabling the key, then
+coordinate a restart with the same key on every peer. Keyed and unkeyed peers
+cannot communicate; there is no automatic downgrade or mixed-mode rolling
+upgrade. Key rotation also requires a coordinated restart. For ``docker run``,
+pass the exported variable with ``-e XOSCAR_AUTH_KEY``; for Kubernetes, inject
+the same Secret into each server container's environment.
+
+Socket and UCX messages are authenticated before deserialization. Anyone holding
+the key is a trusted peer with Python execution privileges. Deployment
+administrators must restrict actor ports to intended cluster peers. Authentication
+does not encrypt traffic or prevent replay; authenticated GPU transfers stage
+device buffers in host memory for hashing and add CPU and host-memory overhead.
+
 XINFERENCE_MODEL_SRC
 ~~~~~~~~~~~~~~~~~~~~~
 Modelhub used for downloading models. Options are "huggingface", "modelscope"

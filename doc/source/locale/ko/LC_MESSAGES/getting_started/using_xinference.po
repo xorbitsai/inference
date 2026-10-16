@@ -594,3 +594,17 @@ msgstr ""
 #: ../../source/getting_started/using_xinference.rst:138
 msgid "For LLM, embedding and rerank models, engine discovery combines results from all registered workers. Engine names and parameter combinations retain their first-seen order, with duplicate combinations removed; an available engine takes precedence over another worker's unavailability message. Empty worker results are skipped, and local discovery is used if all results are empty. A worker query error fails the request instead of returning an incomplete capability list."
 msgstr "LLM, embedding, rerank 모델의 엔진 검색은 등록된 모든 worker의 결과를 통합합니다. 엔진 이름과 매개변수 조합은 처음 나타난 순서를 유지하며 중복 조합은 제거됩니다. 사용 가능한 엔진 정보는 다른 worker의 사용 불가 메시지보다 우선합니다. 빈 결과는 건너뛰고, 모든 결과가 비어 있으면 로컬에서 엔진을 검색합니다. worker 조회 중 오류가 발생하면 불완전한 기능 목록을 반환하는 대신 요청이 실패합니다."
+
+#: ../../source/getting_started/using_xinference.rst:426
+msgid ""
+"Before starting the cluster, configure the same ``XOSCAR_AUTH_KEY`` on the "
+"supervisor and every worker as described in "
+":ref:`actor_transport_authentication`. HTTP API authentication does not "
+"protect actor ports; an unset or empty key leaves the actor transport "
+"unauthenticated. Limit actor-port access to trusted cluster peers using your"
+" deployment's network controls."
+msgstr ""
+"클러스터를 시작하기 전에 :ref:`actor_transport_authentication` 에 따라 supervisor와 모든 "
+"worker에 동일한 ``XOSCAR_AUTH_KEY`` 를 설정하세요. HTTP API 인증은 actor 포트를 보호하지 않으며, 키를"
+" 설정하지 않거나 비워 두면 actor 전송은 인증되지 않습니다. 배포 환경의 네트워크 제어로 actor 포트 접근을 신뢰된 클러스터 "
+"피어로 제한하세요."
