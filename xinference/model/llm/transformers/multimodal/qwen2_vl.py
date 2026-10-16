@@ -208,7 +208,14 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
     def build_generate_kwargs(self, generate_config: Dict) -> Dict[str, Any]:
         max_new_tokens = generate_config.get("max_tokens") or 512
         temperature = generate_config.get("temperature", 1)
-        return {"max_new_tokens": max_new_tokens, "temperature": temperature}
+        # Only zero selects greedy decoding; every positive temperature samples.
+        kwargs: Dict[str, Any] = {
+            "max_new_tokens": max_new_tokens,
+            "do_sample": temperature != 0,
+        }
+        if kwargs["do_sample"]:
+            kwargs["temperature"] = temperature
+        return kwargs
 
     def build_streaming_iter(
         self,
@@ -226,17 +233,30 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
 
         inputs = self.build_inputs_from_messages(messages, generate_config)
         config = self.build_generate_kwargs(generate_config)
+        errors: List[Exception] = []
 
         def model_generate():
             try:
                 return self._model.generate(**inputs, **config, streamer=streamer)
-            except Exception:
+            except Exception as exc:
+                errors.append(exc)
                 streamer.end()
-                raise
 
-        thread = Thread(target=model_generate)
+        thread = Thread(target=model_generate, daemon=True)
         thread.start()
-        return streamer, len(inputs.input_ids[0])
+
+        def iterate() -> Iterator[str]:
+            yield from streamer
+            # The streamer may end before generate returns or raises.
+            thread.join(timeout=streamer.timeout)
+            if thread.is_alive():
+                raise TimeoutError(
+                    "Qwen2-VL generation did not finish after stream end"
+                )
+            if errors:
+                raise errors[0]
+
+        return iterate(), len(inputs.input_ids[0])
 
     def prepare_sanitize_generate_config(self, req: InferenceRequest):
         """
