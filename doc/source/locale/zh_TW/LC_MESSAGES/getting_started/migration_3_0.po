@@ -46,11 +46,13 @@ msgstr "自 v3.0 起，以資料庫為後端的身分驗證系統**預設啟用*
 
 #: ../../source/getting_started/migration_3_0.rst:19
 msgid ""
-"On first startup, open the web UI (or call ``POST /v1/admin/setup``) to "
-"create the initial admin account. See :ref:`user_guide_auth_system` for "
-"the full flow."
+"On first startup, copy the setup token from the server startup log. Enter"
+" it in the web UI, or include it as ``setup_token`` alongside "
+"``username`` and ``password`` when calling ``POST /v1/admin/setup``. See "
+":ref:`user_guide_auth_system` for the full flow."
 msgstr ""
-"首次啟動時，請開啟 Web UI（或呼叫 ``POST /v1/admin/setup``）建立初始管理員帳號。完整流程參見 "
+"首次啟動時，請從服務啟動日誌複製初始化權杖。在 Web UI 中輸入權杖，或在呼叫 ``POST /v1/admin/setup`` 時將其作為 "
+"``setup_token``，連同 ``username`` 和 ``password`` 一併提交。完整流程參見 "
 ":ref:`user_guide_auth_system`。"
 
 #: ../../source/getting_started/migration_3_0.rst:22
@@ -239,7 +241,7 @@ msgid ""
 "engines."
 msgstr ""
 "官方 3.0 GPU 映像現在是以 ``nvidia/cuda:13.0.2-devel-ubuntu22.04`` 為基礎的精簡映像。它需要 "
-"**580 或更新版本**的 NVIDIA 驅動程式。映像仍包含 Python 3.12、共用的 CUDA PyTorch 軟體堆疊及 "
+"**580 或更新版本**\\ 的 NVIDIA 驅動程式。映像仍包含 Python 3.12、共用的 CUDA PyTorch 軟體堆疊及 "
 "Transformers 引擎，但不再預先安裝 vLLM、SGLang、llama.cpp 或其他選用的推論引擎。"
 
 msgid ""

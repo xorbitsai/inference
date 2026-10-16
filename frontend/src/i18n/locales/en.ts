@@ -1742,6 +1742,8 @@ const en = {
     ssoLogin: 'Sign in with SSO',
   },
   setup: {
+    token: 'Setup token',
+    tokenHelp: 'Copy the setup token from the Xinference server startup log.',
     welcome: 'Welcome to Xinference',
     welcomeDesc:
       'This instance has no accounts yet. Create the first administrator account to finish setting up your deployment.',

@@ -51,13 +51,16 @@ msgstr ""
 
 #: ../../source/getting_started/migration_3_0.rst:19
 msgid ""
-"On first startup, open the web UI (or call ``POST /v1/admin/setup``) to "
-"create the initial admin account. See :ref:`user_guide_auth_system` for "
-"the full flow."
+"On first startup, copy the setup token from the server startup log. Enter"
+" it in the web UI, or include it as ``setup_token`` alongside "
+"``username`` and ``password`` when calling ``POST /v1/admin/setup``. See "
+":ref:`user_guide_auth_system` for the full flow."
 msgstr ""
-"Au premier démarrage, ouvrez l'interface Web (ou appelez ``POST "
-"/v1/admin/setup``) pour créer le compte administrateur initial. Voir "
-":ref:`user_guide_auth_system` pour le déroulement complet."
+"Au premier démarrage, copiez le jeton de configuration du journal de "
+"démarrage du serveur. Saisissez-le dans l’interface Web ou transmettez-le"
+" comme ``setup_token`` avec ``username`` et ``password`` lors de l’appel "
+"à ``POST /v1/admin/setup``. Consultez :ref:`user_guide_auth_system` pour "
+"la procédure complète."
 
 #: ../../source/getting_started/migration_3_0.rst:22
 msgid "To restore the previous unauthenticated behavior, set:"

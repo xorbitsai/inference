@@ -84,9 +84,10 @@ msgstr "初始管理员账号"
 #: ../../source/user_guide/auth_system.rst:44
 msgid ""
 "On first startup with authentication enabled, the user table is empty and"
-" Xinference does **not** create an admin account automatically. Instead, "
-"two unauthenticated endpoints handle first-run setup:"
-msgstr "启用身份验证后首次启动时，用户表为空，Xinference **不会** 自动创建管理员账号。首次运行的初始化由两个无需鉴权的接口完成："
+" Xinference does **not** create an admin account automatically. Two "
+"endpoints handle first-run setup without requiring an existing login:"
+msgstr ""
+"启用身份验证后首次启动时，用户表为空，Xinference **不会** 自动创建管理员账号。以下两个接口无需已有登录即可完成首次初始化："
 
 #: ../../source/user_guide/auth_system.rst:48
 #, python-brace-format
@@ -100,31 +101,33 @@ msgstr ""
 #: ../../source/user_guide/auth_system.rst:50
 msgid ""
 "``POST /v1/admin/setup``: creates the first admin account (with all "
-"permissions) given a ``username`` and ``password``."
+"permissions) given a ``username``, ``password``, and the ``setup_token`` "
+"printed in the server startup log."
 msgstr ""
-"``POST /v1/admin/setup``：根据给定的 ``username`` 和 ``password`` "
-"创建第一个管理员账号（拥有所有权限）。"
+"``POST /v1/admin/setup``：提供 ``username``、``password`` 和服务启动日志中输出的 "
+"``setup_token``，创建拥有全部权限的首个管理员账号。"
 
 #: ../../source/user_guide/auth_system.rst:59
 msgid ""
-"The web UI drives this automatically: opening it for the first time "
-"redirects to a setup page that asks for the new admin's username and "
-"password, then to the login page."
-msgstr "Web UI 会自动引导这一流程：首次打开时会重定向到初始化页面，要求输入新管理员的用户名和密码，随后跳转到登录页面。"
+"The web UI redirects to a setup page that asks for the setup token from "
+"the server startup log and the new admin's username and password, then to"
+" the login page."
+msgstr "Web UI 会跳转到初始化页面，要求填写服务启动日志中的初始化令牌以及新管理员的用户名和密码，然后跳转到登录页面。"
 
 #: ../../source/user_guide/auth_system.rst:63
 msgid ""
-"``/v1/admin/setup`` permanently refuses to create a second account once "
-"one exists — the first successful call wins. On an instance exposed to "
-"untrusted networks before setup completes, whoever reaches this endpoint "
-"first becomes the administrator. If that isn't you, an operator with "
-"shell access to the deployment can take control back with ``xinference-"
-"reset-auth-password`` (see `Resetting a lost admin password`_)."
+"Only a caller with the setup token can create the initial administrator. "
+"The token is stored in the auth database, shared across API processes "
+"using that database, and remains valid across restarts until setup "
+"completes. It is never returned by the setup status API. Once an account "
+"exists, ``/v1/admin/setup`` refuses further calls. An operator with shell"
+" access can recover a lost admin password with ``xinference-reset-auth-"
+"password``."
 msgstr ""
-"一旦已有账号存在， ``/v1/admin/setup`` "
-"将永久拒绝创建第二个账号——第一次成功的调用即获胜。如果实例在完成初始化之前就暴露在不受信任的网络中，最先访问该接口的人将成为管理员。如果那个人不是你，拥有部署环境"
-" shell 访问权限的运维人员可以通过 ``xinference-reset-auth-password`` 夺回控制权（参见 "
-"`重置丢失的管理员密码`_）。"
+"只有持有初始化令牌的调用者才能创建首个管理员。令牌保存在认证数据库中，使用同一数据库的 API "
+"进程共享该令牌；重启后仍然有效，直至完成初始化。初始化状态 API 不会返回令牌。已有账号后，``/v1/admin/setup`` "
+"会拒绝后续调用。拥有部署环境 Shell 访问权限的运维人员可使用 ``xinference-reset-auth-password`` "
+"恢复丢失的管理员密码。"
 
 #: ../../source/user_guide/auth_system.rst:71
 msgid "Resetting a lost admin password"
@@ -132,13 +135,11 @@ msgstr "重置丢失的管理员密码"
 
 #: ../../source/user_guide/auth_system.rst:72
 msgid ""
-"If the admin password is lost — or someone else won the first-run setup "
-"race — an operator with shell access to the machine running the RESTful "
-"API can reset an admin's password directly against the auth database, "
-"without logging in:"
+"If the admin password is lost, an operator with shell access to the "
+"machine running the RESTful API can reset an admin password directly "
+"against the auth database, without logging in:"
 msgstr ""
-"如果管理员密码丢失——或者首次初始化被他人抢先——拥有运行 RESTful API 的机器 shell "
-"访问权限的运维人员可以在不登录的情况下，直接对认证数据库重置管理员密码："
+"如果管理员密码丢失，拥有运行 RESTful API 的机器的 Shell 访问权限的运维人员，可以直接操作认证数据库重置管理员密码，无需登录："
 
 #: ../../source/user_guide/auth_system.rst:81
 msgid ""
@@ -772,3 +773,11 @@ msgstr "本地用户无需 ``users:manage`` 权限，即可通过 ``PUT /v1/admi
 #: ../../source/user_guide/auth_system.rst
 msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
 msgstr "管理员和具有 ``users:manage`` 权限的调用者可以不提供 ``current_password`` 重置密码，包括自己的密码。如果修改自己的密码时提供了该字段，系统会校验它。"
+
+#: ../../source/user_guide/auth_system.rst:71
+msgid ""
+"Deleting the final account starts a new setup cycle with a new token in "
+"the server log; consumed tokens stay invalid. Recreating a container "
+"without its auth database also requires the new instance's token."
+msgstr ""
+"删除最后一个账号会开始新的初始化流程，并在服务日志中输出新的令牌；已经使用过的令牌仍然无效。如果重建容器时没有保留认证数据库，也必须使用新实例的令牌。"
