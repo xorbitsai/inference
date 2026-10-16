@@ -270,7 +270,10 @@ def tools():
         }
         for name, description in [
             ("lookup", "Look up a value."),
-            ("finish", "Record the value returned by lookup."),
+            (
+                "finish",
+                "Copy the latest lookup tool result verbatim into value.",
+            ),
         ]
     ]
 
@@ -281,7 +284,10 @@ def test_thinking_replay_and_tool_loop(native_model, stream):
     messages = [
         {
             "role": "user",
-            "content": "Look up alpha, then record the value that lookup returns.",
+            "content": (
+                "Call lookup with value alpha. Then call finish, copying the text "
+                "returned by lookup verbatim into finish.value."
+            ),
         }
     ]
     kwargs = dict(
