@@ -179,11 +179,19 @@ _TOKEN_ROUTER_REQUEST_HEADERS = {
 class _SSERequestAbortController:
     """Abort and close an interrupted model stream exactly once."""
 
-    def __init__(self, model: Any, request_id: str, request: Request, kind: str):
+    def __init__(
+        self,
+        model: Any,
+        request_id: str,
+        request: Request,
+        kind: str,
+        abort_timeout: Optional[float] = None,
+    ):
         self._model = model
         self._request_id = request_id
         self._request = request
         self._kind = kind
+        self._abort_timeout = abort_timeout
         self._abort_task: Optional[asyncio.Task] = None
         self._body_iterator: Optional[AsyncIterator[Any]] = None
         self._stream_task: Optional[asyncio.Task] = None
@@ -196,9 +204,10 @@ class _SSERequestAbortController:
 
     async def abort(self) -> None:
         if self._abort_task is None:
-            self._abort_task = asyncio.create_task(
-                self._model.abort_request(self._request_id)
-            )
+            operation = self._model.abort_request(self._request_id)
+            if self._abort_timeout is not None:
+                operation = asyncio.wait_for(operation, timeout=self._abort_timeout)
+            self._abort_task = asyncio.create_task(operation)
         try:
             await asyncio.shield(self._abort_task)
         except asyncio.CancelledError:
@@ -261,6 +270,83 @@ class _SSERequestAbortController:
                         self._request_id,
                         exc_info=True,
                     )
+
+
+async def _run_non_streaming_request(
+    request: Request,
+    model: Any,
+    request_id: str,
+    kind: str,
+    operation: Awaitable[Any],
+) -> Response:
+    """Race direct vLLM generation against disconnect, owning all cleanup."""
+
+    async def wait_for_disconnect() -> None:
+        while True:
+            if (await request.receive())["type"] == "http.disconnect":
+                return
+
+    generation = asyncio.ensure_future(operation)
+    listener = asyncio.create_task(wait_for_disconnect())
+    abort_controller = _SSERequestAbortController(
+        model, request_id, request, kind, abort_timeout=5
+    )
+    interrupted = True
+    cancellation: Optional[asyncio.CancelledError] = None
+
+    async def cleanup() -> None:
+        with anyio.CancelScope(shield=True):
+            try:
+                if interrupted:
+                    await abort_controller.abort()
+            except asyncio.CancelledError:
+                logger.exception("Abort cancelled for %s request %s", kind, request_id)
+            finally:
+                # The actor's request_limit wrapper owns the serve count.
+                # Cancel/join both tasks even if abort fails or times out.
+                for task in (generation, listener):
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(generation, listener, return_exceptions=True)
+
+    try:
+        try:
+            await asyncio.wait(
+                (generation, listener), return_when=asyncio.FIRST_COMPLETED
+            )
+        except asyncio.CancelledError as exc:
+            cancellation = exc
+            get_stream_outcome_reporter(request).cancelled(exc)
+            raise
+        # Prefer generation even when both tasks are ready. Its own
+        # cancellation is a result, not cancellation of the handler's wait.
+        if generation.done():
+            interrupted = False
+            return Response(generation.result(), media_type="application/json")
+        listener.result()  # Propagate receive failures without claiming disconnect.
+        report_client_disconnect(request)
+        logger.info(
+            "Disconnected from client (via refresh/close) %s during %s.",
+            request.client,
+            kind,
+        )
+        return Response(status_code=499)
+    finally:
+        cleanup_task = asyncio.create_task(cleanup())
+        with anyio.CancelScope(shield=True):
+            while True:
+                try:
+                    await asyncio.shield(cleanup_task)
+                    break
+                except asyncio.CancelledError as exc:
+                    # Repeated handler cancellations must not abandon cleanup.
+                    if cancellation is None:
+                        cancellation = exc
+                        get_stream_outcome_reporter(request).cancelled(exc)
+                    if cleanup_task.cancelled():
+                        break
+        if cancellation is not None:
+            raise cancellation
 
 
 def _observe_sse_disconnect(
@@ -2238,6 +2324,14 @@ class RESTfulAPI(CancelMixin):
             return response
         else:
             try:
+                if is_vllm_backend:
+                    return await _run_non_streaming_request(
+                        request,
+                        model,
+                        request_id,
+                        "generate",
+                        model.generate(body.prompt, kwargs, **model_call_kwargs),
+                    )
                 data = await model.generate(
                     body.prompt,
                     kwargs,
@@ -4601,6 +4695,14 @@ class RESTfulAPI(CancelMixin):
             return response
         else:
             try:
+                if is_vllm_backend:
+                    return await _run_non_streaming_request(
+                        request,
+                        model,
+                        request_id,
+                        "chat",
+                        model.chat(messages, kwargs, **model_call_kwargs),
+                    )
                 data = await model.chat(
                     messages,
                     kwargs,
