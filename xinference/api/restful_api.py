@@ -410,6 +410,9 @@ async def _close_async_iterator(iterator: Any) -> None:
 
     close = getattr(iterator, "aclose", None)
     if close is None and isinstance(iterator, IteratorWrapper):
+        # This await owns cleanup; __del__ would synchronously join a thread
+        # on the API event loop and retry even after an explicit destroy.
+        iterator._gc_destroy = False
         close = iterator.destroy
     if close is None:
         return
@@ -452,6 +455,18 @@ async def _cleanup_model_stream(
                 exc_info=True,
             )
         finally:
+            if model_iterator is not observed_iterator and isinstance(
+                model_iterator, IteratorWrapper
+            ):
+                try:
+                    await _close_async_iterator(model_iterator)
+                except (asyncio.CancelledError, Exception):
+                    logger.debug(
+                        "Failed to destroy %s stream %s",
+                        kind,
+                        request_id,
+                        exc_info=True,
+                    )
             if model_iterator is not None and (
                 inspect.isasyncgen(model_iterator)
                 or inspect.isgenerator(model_iterator)

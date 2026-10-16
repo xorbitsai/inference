@@ -19,7 +19,16 @@ import logging
 import time
 import uuid
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncIterator,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+)
 
 import xoscar as xo
 
@@ -32,6 +41,14 @@ if TYPE_CHECKING:
     from .model import ModelActor
 
 logger = logging.getLogger(__name__)
+
+
+async def _own_stream(stream: AsyncIterator[Any]) -> AsyncIterator[Any]:
+    # Enter the stream's finally under its RPC context before handing it off.
+    # Closing an unstarted async generator would otherwise skip its cleanup.
+    owned_stream = wrap_async_iterator(stream, get_current_rpc_metadata())
+    await anext(owned_stream)
+    return owned_stream
 
 
 class SchedulingPolicy(ABC):
@@ -125,7 +142,12 @@ class PDModelActor(xo.StatelessActor):
         # stream's cleanup so its selected decode slot is released before return.
         stream = self._generators.pop(generator_uid, None)
         if stream is not None and not stream.ag_running:
-            await stream.aclose()
+            try:
+                await stream.aclose()
+            except Exception:
+                logger.warning(
+                    "Failed to close P/D stream %s", generator_uid, exc_info=True
+                )
 
     async def __pre_destroy__(self):
         await asyncio.gather(
@@ -497,8 +519,6 @@ class PDModelActor(xo.StatelessActor):
 
         async def stream():
             try:
-                # Enter the finally before transferring ownership to the caller;
-                # closing an unstarted async generator never runs its finally.
                 yield None
                 async for chunk in result:
                     yield chunk
@@ -519,9 +539,7 @@ class PDModelActor(xo.StatelessActor):
                     finally:
                         await self.free_prefill_model_cache(request_id)
 
-        owned_stream = wrap_async_iterator(stream(), get_current_rpc_metadata())
-        await anext(owned_stream)
-        return owned_stream
+        return await _own_stream(stream())
 
     async def _infer_sglang(self, method, inputs, args, kwargs, request_id):
         """Native SGLang owns live P/D slots until the selected transport drains."""
@@ -676,9 +694,7 @@ class PDModelActor(xo.StatelessActor):
                     else:
                         await stop()
 
-        owned_stream = wrap_async_iterator(stream(), get_current_rpc_metadata())
-        await anext(owned_stream)
-        return owned_stream
+        return await _own_stream(stream())
 
     @xo.generator
     # _infer enters the stream's RPC-context wrapper before handing it off.

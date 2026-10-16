@@ -435,16 +435,35 @@ async def test_unconsumed_stream_releases_decode_slot(
         stream = await getattr(actor, method)([], config, request_id="r")
         stream._gc_destroy = False
         stream._actor_ref = actor
+        assert stream._uid in actor._generators
         if close_mode == "abort_destroy":
             await actor.abort_request("r")
         await stream.destroy()
         await stream.destroy()
+        assert not actor._generators
     assert serve_count == 0
     decode.decrease_serve_count.assert_awaited_once()
     source.aclose.assert_awaited_once()
     source.__aiter__.assert_not_called()
-    assert not actor._generators
     assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+async def test_destroy_logs_cleanup_failure_and_releases_slot(router, caplog):
+    actor, prefill, decode = router
+    source = MagicMock()
+    source.aclose = AsyncMock(side_effect=RuntimeError("close failed"))
+    decode.chat.return_value = source
+    stream = await actor.chat([], {"stream": True}, request_id="r")
+    stream._gc_destroy = False
+    stream._actor_ref = actor
+    await stream.destroy()
+    await stream.destroy()
+    source.aclose.assert_awaited_once()
+    decode.decrease_serve_count.assert_awaited_once()
+    assert not actor._generators and not actor._request_set
+    assert "Failed to close P/D stream" in caplog.text
+    assert "close failed" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -476,8 +495,9 @@ async def test_destroy_during_next_does_not_close_running_generator(router):
 
 
 class FakeStage(xo.StatelessActor):
-    def __init__(self):
+    def __init__(self, wait_after_first=False):
         super().__init__()
+        self._wait_after_first = wait_after_first
         self._serve_count = 0
         self._released = 0
         self._release_metadata = None
@@ -502,6 +522,7 @@ class FakeStage(xo.StatelessActor):
 
     @rpc_context
     async def decrease_serve_count(self):
+        await asyncio.sleep(0)
         self._serve_count -= 1
         self._released += 1
         metadata = get_current_rpc_metadata()
@@ -519,6 +540,9 @@ class FakeStage(xo.StatelessActor):
     async def free_model_cache(self, request_id):
         pass
 
+    async def get_sglang_pd_bootstrap(self):
+        return dict(host="producer", port=12345)
+
     @xo.generator
     @rpc_context
     async def chat(self, messages, config, **kwargs):
@@ -530,9 +554,13 @@ class FakeStage(xo.StatelessActor):
 
         async def chunks():
             yield b"one"
+            if self._wait_after_first:
+                await asyncio.Event().wait()
             yield b"two"
 
         return chunks()
+
+    generate = chat
 
 
 @pytest.mark.asyncio
@@ -558,7 +586,9 @@ async def test_nested_actor_streaming():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("abort", [False, True])
-async def test_nested_actor_destroys_unconsumed_stream(abort):
+@pytest.mark.parametrize("method", ["chat", "generate"])
+@pytest.mark.parametrize("engine", ["vllm", "sglang"])
+async def test_nested_actor_destroys_unconsumed_stream(abort, method, engine):
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
     async with pool:
         prefill = await xo.create_actor(
@@ -568,13 +598,17 @@ async def test_nested_actor_destroys_unconsumed_stream(abort):
             FakeStage, address=pool.external_address, uid="d"
         )
         router = await xo.create_actor(
-            PDModelActor, "pd", address=pool.external_address
+            PDModelActor,
+            "pd",
+            model_engine=engine,
+            transport_backend="nixl",
+            address=pool.external_address,
         )
         await router.add_prefill_actor("p", prefill)
         await router.add_decode_actor("d", decode)
         stream = await actor_call(
             router,
-            "chat",
+            method,
             [],
             {"stream": True},
             request_id="r",
