@@ -36,6 +36,9 @@ def make_api():
         {"model_config": []},
         {"model_config": {"max_num_seqs": True}},
         {"model_config": {"dtype": "float16"}},
+        {"model_config": {"reasoning_content": "true"}},
+        {"model_config": {"limit_mm_per_prompt": {"image": 0}}},
+        {"model_config": {"limit_mm_per_prompt": {"image": True}}},
         {"model_config": {"max_num_seqs": 8}, "drain_timeout": True},
         {"model_config": {"max_num_seqs": 8}, "drain_timeout": float("inf")},
         {"model_config": {"max_num_seqs": 8}, "ignored": 1},
@@ -64,6 +67,18 @@ async def test_reload_accepted_and_duplicate_conflict():
     with pytest.raises(HTTPException) as exc:
         await api.reload_model("test", request)
     assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "patch", [{"reasoning_content": True}, {"limit_mm_per_prompt": {"image": 8}}]
+)
+async def test_runtime_settings_are_forwarded_without_coercion(patch):
+    api, supervisor = make_api()
+    request = MagicMock(json=AsyncMock(return_value={"model_config": patch}))
+    response = await api.reload_model("test", request)
+    assert response.status_code == 202
+    supervisor.reload_model.assert_awaited_once_with("test", patch, 300)
 
 
 @pytest.mark.asyncio

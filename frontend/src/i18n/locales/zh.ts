@@ -739,11 +739,12 @@ const zh = {
   runningModels: {
     reload: {
       title: '重载参数',
-      description:
-        '保留 GPU 权重并重建引擎。当前请求完成后暂停服务；不能修改并行度、精度和量化方式。',
-      disabled: '启动模型时启用保留 GPU 权重，才能使用重载。',
+      description: '引擎参数变更会保留 GPU 权重并重建引擎；不能修改并行度、精度和量化方式。',
+      disabled: '修改其他引擎参数需要在启动时启用保留 GPU 权重。',
+      reasoningHint: '思考内容解析仅更新解析器，不重启引擎；当前请求完成后生效。',
+      imageLimit: '每个请求最多图片数',
       default: '引擎默认值',
-      apply: '应用并重载',
+      apply: '应用',
       queued: '重载已排队',
       draining: '等待当前请求完成',
       loading: '正在重建引擎',

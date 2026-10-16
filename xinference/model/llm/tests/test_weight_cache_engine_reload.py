@@ -119,9 +119,6 @@ async def test_real_model_class_reloads_on_same_instance(
         monkeypatch.setattr(model._gc_freeze, "close", gc_close)
         field = "max_running_requests"
     monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
-    monkeypatch.setattr(
-        model, "prepare_parse_reasoning_content", lambda *args, **kwargs: None
-    )
     monkeypatch.setattr(model, "prepare_parse_tool_calls", lambda: None)
     cache = SimpleNamespace(
         client_config=lambda: {}, engine_config=lambda config: config, stop=MagicMock()
@@ -144,7 +141,9 @@ async def test_real_model_class_reloads_on_same_instance(
         old_thread = model._loading_thread
         health = getattr(model, "_check_health_task", None)
         model._loading_error = (RuntimeError, RuntimeError("stale error"), None)
-        await asyncio.to_thread(model.reload, {field: 32}, lambda stage: None)
+        await asyncio.to_thread(
+            model.reload, {field: 32, "reasoning_content": True}, lambda stage: None
+        )
         await asyncio.sleep(0)
         assert model._weight_cache is cache
         assert model._engine is engines[1]
@@ -153,6 +152,7 @@ async def test_real_model_class_reloads_on_same_instance(
         assert model._loading_error is None
         assert constructors[1][field] == 32
         assert model.get_reload_config()["model_config"][field] == 32
+        assert model.reasoning_parser.reasoning_content is True
         if backend == "vllm":
             assert model._loading_thread is not old_thread
             assert health.cancelled()

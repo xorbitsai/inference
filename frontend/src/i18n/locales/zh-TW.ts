@@ -751,11 +751,12 @@ const zhTW = {
   runningModels: {
     reload: {
       title: '重載參數',
-      description:
-        '保留 GPU 權重並重建引擎。目前請求完成後暫停服務；不能修改平行度、精度和量化方式。',
-      disabled: '啟動模型時啟用保留 GPU 權重，才能使用重載。',
+      description: '引擎參數變更會保留 GPU 權重並重新建立引擎；不能修改平行度、精度和量化方式。',
+      disabled: '修改其他引擎參數需要在啟動時啟用保留 GPU 權重。',
+      reasoningHint: '思考內容解析僅更新解析器，不重新啟動引擎；目前請求完成後生效。',
+      imageLimit: '每個請求最多圖片數',
       default: '引擎預設值',
-      apply: '套用並重載',
+      apply: '套用',
       queued: '重載已排入佇列',
       draining: '等待目前請求完成',
       loading: '正在重建引擎',

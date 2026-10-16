@@ -6002,7 +6002,7 @@ class WorkerActor(xo.StatelessActor):
         return await self._model_uid_to_model[model_uid].get_reload_status()
 
     async def validate_model_reload(self, model_uid: str, config: Dict[str, Any]):
-        await self._model_uid_to_model[model_uid].validate_reload(config)
+        return await self._model_uid_to_model[model_uid].validate_reload(config)
 
     async def reload_model(
         self, model_uid: str, config: Dict[str, Any], drain_timeout: float

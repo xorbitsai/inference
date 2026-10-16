@@ -115,8 +115,12 @@ def _cached_memory_fraction(
 # Only execution parameters may change while the daemon owns the weights.
 # In particular, do not accept arbitrary engine arguments: some change packed
 # weight layouts without changing a model name (attention/MoE backends, RoPE).
+HOT_RELOAD_FIELDS = {"reasoning_content": "bool"}
+
 RELOAD_FIELDS = {
     "vllm": {
+        **HOT_RELOAD_FIELDS,
+        "limit_mm_per_prompt": "image_limits",
         "max_num_seqs": "positive_int",
         "max_num_batched_tokens": "positive_int",
         "max_model_len": "positive_int",
@@ -124,6 +128,7 @@ RELOAD_FIELDS = {
         "enforce_eager": "bool",
     },
     "sglang": {
+        **HOT_RELOAD_FIELDS,
         "max_running_requests": "positive_int",
         "max_prefill_tokens": "positive_int",
         "context_length": "positive_int",
@@ -165,6 +170,14 @@ def validate_reload_patch(engine: str, patch: Dict[str, Any]) -> None:
             )
         if kind == "bool":
             valid = isinstance(value, bool)
+        elif kind == "image_limits":
+            valid = (
+                isinstance(value, dict)
+                and "image" in value
+                and not set(value) - {"image", "video", "audio"}
+                and all(type(v) is int and v >= 0 for v in value.values())
+                and value["image"] > 0
+            )
         elif kind in ("positive_int", "chunk_size"):
             valid = type(value) is int and (
                 value > 0 or (kind == "chunk_size" and value == -1)
@@ -375,6 +388,7 @@ class WeightCachedModel:
     model_spec: Any
     _loading_error: Any
     _loading_thread: Any
+    reasoning_parser: Any
 
     if TYPE_CHECKING:
 
@@ -459,19 +473,35 @@ class WeightCachedModel:
         if initial:
             self._reload_config = {
                 **self._reload_config,
-                **{k: v for k, v in config.items() if k in RELOAD_FIELDS[engine]},
+                **{
+                    k: copy.deepcopy(v)
+                    for k, v in config.items()
+                    if k in RELOAD_FIELDS[engine]
+                },
             }
 
     def get_reload_config(self) -> Dict[str, Any]:
+        parameters = dict(RELOAD_FIELDS[self._weight_cache_engine])
+        abilities = getattr(getattr(self, "model_family", None), "model_ability", [])
+        if not {"vision", "omni"}.intersection(abilities):
+            parameters.pop("limit_mm_per_prompt", None)
+        config = {
+            k: copy.deepcopy(v)
+            for k, v in self._reload_config.items()
+            if k in parameters and v is not None
+        }
+        config.setdefault(
+            "reasoning_content",
+            getattr(
+                getattr(self, "reasoning_parser", None), "reasoning_content", False
+            ),
+        )
         return {
             "enabled": self._enable_weight_cache,
             "engine": self._weight_cache_engine,
-            "model_config": {
-                k: v
-                for k, v in self._reload_config.items()
-                if k in RELOAD_FIELDS[self._weight_cache_engine] and v is not None
-            },
-            "parameters": RELOAD_FIELDS[self._weight_cache_engine],
+            "model_config": config,
+            "parameters": parameters,
+            "hot_parameters": list(HOT_RELOAD_FIELDS),
         }
 
     def _weight_cache_engine_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -480,13 +510,32 @@ class WeightCachedModel:
         return self._weight_cache.engine_config(config)
 
     def validate_reload(self, patch: Dict[str, Any]) -> Dict[str, Any]:
+        validate_reload_patch(self._weight_cache_engine, patch)
+        config = {**copy.deepcopy(self._reload_config), **copy.deepcopy(patch)}
+        if set(patch) <= HOT_RELOAD_FIELDS.keys():
+            if getattr(self, "reasoning_parser", None) is None:
+                raise ValueError("Reasoning parser is not initialized")
+            return config
         if self._weight_cache is None:
             raise ValueError(
                 "Launch this model with enable_weight_cache=true before reloading"
             )
         self._weight_cache.client_config()
-        validate_reload_patch(self._weight_cache_engine, patch)
-        config = {**copy.deepcopy(self._reload_config), **patch}
+        if "limit_mm_per_prompt" in patch:
+            if "limit_mm_per_prompt" not in self.get_reload_config()["parameters"]:
+                raise ValueError("Image-limit reload requires a vision model")
+            previous = self._sanitize_model_config(copy.deepcopy(self._reload_config))
+            limits = previous.get("limit_mm_per_prompt") or {}
+            image_limit = limits.get("image")
+            if type(image_limit) is not int or image_limit <= 0:
+                raise ValueError(
+                    "Image-limit reload requires an existing positive image limit; "
+                    "switching between disabled and enabled encoders is not supported"
+                )
+            requested = patch["limit_mm_per_prompt"]
+            if any(k != "image" and v != limits.get(k) for k, v in requested.items()):
+                raise ValueError("Only the image count can change through reload")
+            config["limit_mm_per_prompt"] = {**limits, **requested}
         candidate = self._sanitize_model_config(copy.deepcopy(config))
         candidate.pop("reasoning_content", None)
         candidate.pop("enable_thinking", None)
@@ -505,6 +554,14 @@ class WeightCachedModel:
 
     def reload(self, patch: Dict[str, Any], progress: Callable[[str], None]) -> None:
         config = self.validate_reload(patch)
+        if set(patch) <= HOT_RELOAD_FIELDS.keys():
+            # Replace the parser rather than mutating an object held by a response.
+            parser = copy.copy(self.reasoning_parser)
+            parser.reasoning_content = config["reasoning_content"]
+            self.reasoning_parser = parser
+            self._reload_config = config
+            progress("ready")
+            return
         previous = copy.deepcopy(self._reload_config)
 
         def load(config: Dict[str, Any]) -> None:

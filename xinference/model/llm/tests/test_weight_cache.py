@@ -254,7 +254,10 @@ def test_reload_config_reads_committed_snapshot_during_engine_mutation():
             raise RuntimeError("dictionary changed size during iteration")
 
     model._model_config = MutatingConfig(max_num_seqs=32)
-    assert model.get_reload_config()["model_config"] == {"max_num_seqs": 16}
+    assert model.get_reload_config()["model_config"] == {
+        "max_num_seqs": 16,
+        "reasoning_content": False,
+    }
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="AF_UNIX daemon")

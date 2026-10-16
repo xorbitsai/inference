@@ -4917,7 +4917,9 @@ class SupervisorActor(xo.StatelessActor):
                 raise RuntimeError("This model already has a reload in progress")
             replica_uid, worker = self._get_reload_target(model_uid)
             # Preflight runs before scheduling any operation that stops serving.
-            await worker.validate_model_reload(replica_uid, config)
+            normalized = await worker.validate_model_reload(replica_uid, config)
+            if normalized is not None:
+                config = normalized
             status = {
                 "operation_id": str(uuid.uuid4()),
                 "model_uid": model_uid,

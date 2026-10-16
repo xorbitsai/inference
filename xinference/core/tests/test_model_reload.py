@@ -119,6 +119,70 @@ async def test_drain_timeout_preserves_engine():
 
 
 @pytest.mark.asyncio
+async def test_reasoning_update_drains_streams_without_restarting_or_cached_weights():
+    from ...model.llm.reasoning_parser import ReasoningParser
+    from ...model.llm.weight_cache import WeightCachedModel
+
+    actor = make_actor()
+    model = actor._model
+    model._enable_weight_cache = False
+    model._weight_cache = None
+    parser = model.reasoning_parser = ReasoningParser(False, "<think>", "</think>")
+    model.validate_reload = lambda patch: WeightCachedModel.validate_reload(
+        model, patch
+    )
+    actor._serve_count = 1
+    supervisor, worker = make_pipeline(actor)
+    engine = model.engine
+    await supervisor.reload_model("test", {"reasoning_content": True}, drain_timeout=2)
+    await asyncio.sleep(0.05)
+    assert model.reasoning_parser is parser
+    assert not parser.reasoning_content
+    actor._serve_count = 0
+    await supervisor._model_reload_tasks["test"]
+    assert model.engine is engine
+    assert model.stops == 0 and not model.loads
+    assert model.reasoning_parser.reasoning_content
+    assert not parser.reasoning_content
+    assert worker._model_uid_to_launch_args["test-replica"]["reasoning_content"] is True
+    supervisor._launch_history_store.update_autostart_launch_config.assert_called_once_with(
+        "test", {"reasoning_content": True}
+    )
+
+
+@pytest.mark.asyncio
+async def test_normalized_image_limits_are_persisted_for_recovery_and_autostart():
+    actor = make_actor()
+    model = actor._model
+    model._reload_config["limit_mm_per_prompt"] = {"image": 2, "video": 0}
+    validate = model.validate_reload
+
+    def normalize(patch):
+        config = validate(patch)
+        config["limit_mm_per_prompt"] = {
+            "image": patch["limit_mm_per_prompt"]["image"],
+            "video": 0,
+        }
+        return config
+
+    model.validate_reload = normalize
+    supervisor, worker = make_pipeline(actor)
+    worker._model_uid_to_launch_args["test-replica"]["limit_mm_per_prompt"] = {
+        "image": 2,
+        "video": 0,
+    }
+    await supervisor.reload_model("test", {"limit_mm_per_prompt": {"image": 8}})
+    await supervisor._model_reload_tasks["test"]
+    assert worker._model_uid_to_launch_args["test-replica"]["limit_mm_per_prompt"] == {
+        "image": 8,
+        "video": 0,
+    }
+    supervisor._launch_history_store.update_autostart_launch_config.assert_called_once_with(
+        "test", {"limit_mm_per_prompt": {"image": 8, "video": 0}}
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("fail_restore", [False, True])
 async def test_failed_job_reports_restoration_and_does_not_persist(fail_restore):
     actor = make_actor()
