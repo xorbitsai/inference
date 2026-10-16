@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, Optional
 
@@ -166,9 +167,22 @@ def _reject_admin_target_takeover(
 
 async def advanced_login(request: Request) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
-    body = await request.json()
+    try:
+        body = await request.json()
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise HTTPException(
+            status_code=400, detail="Request body must be a JSON object"
+        )
+    if not isinstance(body, dict):
+        raise HTTPException(
+            status_code=400, detail="Request body must be a JSON object"
+        )
     username = body.get("username", "")
     password = body.get("password", "")
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise HTTPException(
+            status_code=400, detail="username and password must be strings"
+        )
     request.state.audit_identity = {
         "user": username,
         "api_key_name": "",

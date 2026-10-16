@@ -788,3 +788,15 @@ msgstr "ローカルユーザーは ``users:manage`` なしで、``PUT /v1/admin
 #: ../../source/user_guide/auth_system.rst
 msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
 msgstr "管理者と ``users:manage`` を持つ呼び出し元は、``current_password`` なしで自分を含むユーザーのパスワードをリセットできます。自分のパスワード変更時にこの値を指定した場合は検証されます。"
+
+#: ../../source/user_guide/auth_system.rst:173
+msgid ""
+"Direct HTTP clients must send ``POST /token`` a JSON object with string "
+"``username`` and ``password`` fields. Form-encoded, malformed, or non-"
+"object bodies and non-string credentials return ``400 Bad Request``; "
+"incorrect credentials return ``401 Unauthorized``."
+msgstr ""
+"HTTP を直接使用するクライアントは、文字列の ``username`` および ``password`` フィールドを持つ JSON "
+"オブジェクトを ``POST /token`` "
+"に送信する必要があります。フォームエンコード、不正な形式、オブジェクト以外の本文、文字列以外の認証情報には ``400 Bad Request``"
+" が返されます。認証情報が正しくない場合は ``401 Unauthorized`` が返されます。"

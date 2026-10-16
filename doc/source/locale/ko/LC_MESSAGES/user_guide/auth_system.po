@@ -823,3 +823,15 @@ msgstr "로컬 사용자는 ``users:manage`` 없이 ``PUT /v1/admin/users/{user_
 #: ../../source/user_guide/auth_system.rst
 msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
 msgstr "관리자와 ``users:manage`` 권한이 있는 호출자는 ``current_password`` 없이 본인을 포함한 사용자의 비밀번호를 재설정할 수 있습니다. 자신의 비밀번호를 변경하면서 이 값을 제공하면 검증합니다."
+
+#: ../../source/user_guide/auth_system.rst:173
+msgid ""
+"Direct HTTP clients must send ``POST /token`` a JSON object with string "
+"``username`` and ``password`` fields. Form-encoded, malformed, or non-"
+"object bodies and non-string credentials return ``400 Bad Request``; "
+"incorrect credentials return ``401 Unauthorized``."
+msgstr ""
+"HTTP를 직접 사용하는 클라이언트는 문자열 형식의 ``username`` 및 ``password`` 필드가 있는 JSON 객체를 "
+"``POST /token`` 경로로 보내야 합니다. 폼 인코딩된 본문, 잘못된 형식이나 객체가 아닌 본문, 문자열이 아닌 자격 "
+"증명에는 ``400 Bad Request`` 응답을 반환합니다. 자격 증명이 올바르지 않으면 ``401 Unauthorized`` "
+"응답을 반환합니다."

@@ -971,3 +971,16 @@ msgstr "Los usuarios locales pueden cambiar su propia contraseña mediante ``PUT
 #: ../../source/user_guide/auth_system.rst
 msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
 msgstr "Los administradores y quienes tengan ``users:manage`` pueden restablecer contraseñas, incluida la propia, sin ``current_password``. Si se proporciona al cambiar la propia contraseña, se verifica."
+
+#: ../../source/user_guide/auth_system.rst:173
+msgid ""
+"Direct HTTP clients must send ``POST /token`` a JSON object with string "
+"``username`` and ``password`` fields. Form-encoded, malformed, or non-"
+"object bodies and non-string credentials return ``400 Bad Request``; "
+"incorrect credentials return ``401 Unauthorized``."
+msgstr ""
+"Los clientes HTTP directos deben enviar a ``POST /token`` un objeto JSON "
+"con los campos ``username`` y ``password`` de tipo cadena. Los cuerpos "
+"codificados como formulario, mal formados o que no sean objetos, así como"
+" las credenciales que no sean cadenas, devuelven ``400 Bad Request``; las"
+" credenciales incorrectas devuelven ``401 Unauthorized``."

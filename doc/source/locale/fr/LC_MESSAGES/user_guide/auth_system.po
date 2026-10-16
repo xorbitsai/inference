@@ -988,3 +988,17 @@ msgstr "Les utilisateurs locaux peuvent modifier leur propre mot de passe via ``
 #: ../../source/user_guide/auth_system.rst
 msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
 msgstr "Les administrateurs et les appelants disposant de ``users:manage`` peuvent réinitialiser les mots de passe, y compris le leur, sans ``current_password``. Si ce champ est fourni lors du changement de leur propre mot de passe, il est vérifié."
+
+#: ../../source/user_guide/auth_system.rst:173
+msgid ""
+"Direct HTTP clients must send ``POST /token`` a JSON object with string "
+"``username`` and ``password`` fields. Form-encoded, malformed, or non-"
+"object bodies and non-string credentials return ``400 Bad Request``; "
+"incorrect credentials return ``401 Unauthorized``."
+msgstr ""
+"Les clients HTTP directs doivent envoyer à ``POST /token`` un objet JSON "
+"contenant les champs ``username`` et ``password`` sous forme de chaînes. "
+"Les corps encodés comme formulaire, mal formés ou autres que des objets, "
+"ainsi que les identifiants qui ne sont pas des chaînes, renvoient ``400 "
+"Bad Request`` ; les identifiants incorrects renvoient ``401 "
+"Unauthorized``."

@@ -772,3 +772,14 @@ msgstr "本地用户无需 ``users:manage`` 权限，即可通过 ``PUT /v1/admi
 #: ../../source/user_guide/auth_system.rst
 msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
 msgstr "管理员和具有 ``users:manage`` 权限的调用者可以不提供 ``current_password`` 重置密码，包括自己的密码。如果修改自己的密码时提供了该字段，系统会校验它。"
+
+#: ../../source/user_guide/auth_system.rst:173
+msgid ""
+"Direct HTTP clients must send ``POST /token`` a JSON object with string "
+"``username`` and ``password`` fields. Form-encoded, malformed, or non-"
+"object bodies and non-string credentials return ``400 Bad Request``; "
+"incorrect credentials return ``401 Unauthorized``."
+msgstr ""
+"直接使用 HTTP 的客户端必须向 ``POST /token`` 发送 JSON 对象，其中 ``username`` 和 "
+"``password`` 字段必须为字符串。表单编码、格式错误或非对象的请求体以及非字符串凭据会返回 ``400 Bad "
+"Request``；凭据错误会返回 ``401 Unauthorized``。"
