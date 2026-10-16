@@ -168,9 +168,12 @@ export function ReloadDialog({
         {config?.enabled === false && (
           <p className="text-sm">{t('runningModels.reload.disabled')}</p>
         )}
-        {config?.hot_parameters?.includes('reasoning_content') && (
-          <p className="text-sm text-muted-foreground">{t('runningModels.reload.reasoningHint')}</p>
-        )}
+        {config?.hot_parameters?.includes('reasoning_content') &&
+          Object.keys(patch).every((key) => config.hot_parameters?.includes(key)) && (
+            <p className="text-sm text-muted-foreground">
+              {t('runningModels.reload.reasoningHint')}
+            </p>
+          )}
         {parameters.map(([key, kind]) => (
           <label key={key} className="flex items-center justify-between gap-4 text-sm">
             <span>

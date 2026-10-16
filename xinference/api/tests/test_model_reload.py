@@ -82,6 +82,22 @@ async def test_runtime_settings_are_forwarded_without_coercion(patch):
 
 
 @pytest.mark.asyncio
+async def test_reasoning_patch_absent_from_metadata_is_rejected():
+    api, supervisor = make_api()
+    supervisor.get_model_reload_config.return_value = {
+        "engine": "vllm",
+        "parameters": {"max_num_seqs": "positive_int"},
+    }
+    request = MagicMock(
+        json=AsyncMock(return_value={"model_config": {"reasoning_content": True}})
+    )
+    with pytest.raises(HTTPException) as exc:
+        await api.reload_model("test", request)
+    assert exc.value.status_code == 400
+    supervisor.reload_model.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_loading_model_returns_retryable_status():
     from ...core.exceptions import ModelNotReadyError
 

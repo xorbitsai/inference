@@ -4885,13 +4885,13 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model not found: {model_uid}")
         replicas = list(self._iter_active_replica_model_uids(model_uid))
         if len(replicas) != 1:
-            raise ValueError("Weight-preserving reload currently requires one replica")
+            raise ValueError("Parameter reload currently requires one replica")
         replica_uid = replicas[0]
         workers = self._replica_model_uid_to_worker.get(replica_uid)
         if not isinstance(workers, (list, tuple)):
             workers = [workers]
         if len(workers) != 1 or workers[0] is None:
-            raise ValueError("Weight-preserving reload currently requires one worker")
+            raise ValueError("Parameter reload currently requires one worker")
         return replica_uid, workers[0]
 
     async def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
@@ -4935,8 +4935,9 @@ class SupervisorActor(xo.StatelessActor):
                     if self._get_reload_target(model_uid) != (replica_uid, worker):
                         raise ValueError("Model placement changed before reload")
                     status["stage"] = "draining"
-                    await worker.reload_model(replica_uid, config, drain_timeout)
-                    status["weights_reused"] = True
+                    status["weights_reused"] = (
+                        await worker.reload_model(replica_uid, config, drain_timeout)
+                    ) is True
                     async with self._autostart_store_lock:
                         await asyncio.to_thread(
                             self._launch_history_store.update_autostart_launch_config,
@@ -4954,7 +4955,7 @@ class SupervisorActor(xo.StatelessActor):
                         pass
                     logger.exception("Reload of %s failed", model_uid)
                 else:
-                    status.update(status="ready", stage="ready", weights_reused=True)
+                    status.update(status="ready", stage="ready")
                 finally:
                     status["finished_at"] = time.time()
                     if (

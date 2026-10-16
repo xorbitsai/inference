@@ -739,9 +739,10 @@ const zh = {
   runningModels: {
     reload: {
       title: '重载参数',
-      description: '引擎参数变更会保留 GPU 权重并重建引擎；不能修改并行度、精度和量化方式。',
-      disabled: '修改其他引擎参数需要在启动时启用保留 GPU 权重。',
-      reasoningHint: '思考内容解析仅更新解析器，不重启引擎；当前请求完成后生效。',
+      description:
+        '引擎参数变更会保留 GPU 权重并重建引擎。等待当前请求结束并应用变更期间，服务暂停，新请求返回 HTTP 503。不能修改并行度、精度和量化方式。',
+      disabled: '修改引擎参数需要在启动时启用保留 GPU 权重。',
+      reasoningHint: '推理内容解析仅更新解析器，不重启引擎；当前请求完成后生效。',
       imageLimit: '每个请求最多图片数',
       default: '引擎默认值',
       apply: '应用',

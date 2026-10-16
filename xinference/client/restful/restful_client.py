@@ -1449,9 +1449,10 @@ class Client:
     def reload_model(
         self, model_uid: str, model_config: Dict[str, Any], drain_timeout: float = 300
     ) -> Dict[str, Any]:
-        """Start an asynchronous reload, retaining GPU weights and model UID.
+        """Start an asynchronous parameter reload with the same model UID.
 
-        Launch with ``enable_weight_cache=True`` first. Use
+        Engine changes require launch-time ``enable_weight_cache=True``;
+        a standalone ``reasoning_content`` update does not. Use
         ``get_model_reload_status`` to wait for ready/error after HTTP 202.
         """
         url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"

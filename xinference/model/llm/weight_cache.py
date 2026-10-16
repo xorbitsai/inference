@@ -113,11 +113,11 @@ def _cached_memory_fraction(
     return max(fractions)
 
 
+HOT_RELOAD_FIELDS = {"reasoning_content": "bool"}
+
 # Only execution parameters may change while the daemon owns the weights.
 # In particular, do not accept arbitrary engine arguments: some change packed
 # weight layouts without changing a model name (attention/MoE backends, RoPE).
-HOT_RELOAD_FIELDS = {"reasoning_content": "bool"}
-
 RELOAD_FIELDS = {
     "vllm": {
         **HOT_RELOAD_FIELDS,
@@ -201,12 +201,6 @@ def _watcher_command(parent_pid: int, command: list[str]) -> list[str]:
     return [sys.executable, str(Path(__file__).resolve()), str(parent_pid), *command]
 
 
-def _config_json_default(value: Any) -> Any:
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return dataclasses.asdict(value)
-    raise TypeError(f"Config value {type(value).__name__} is not JSON serializable")
-
-
 class WeightCacheDaemon:
     """Keep GPU weights alive across engine restarts within one ModelActor.
 
@@ -272,7 +266,7 @@ class WeightCacheDaemon:
         config_path = self.directory / "config.yaml"
         try:
             config_path.write_text(
-                json.dumps(config, default=_config_json_default), encoding="utf-8"
+                json.dumps(config, default=dataclasses.asdict), encoding="utf-8"
             )
             self._log = (self.directory / "daemon.log").open("w+")
             baseline = None
@@ -489,15 +483,30 @@ class WeightCachedModel:
                 },
             }
 
-    def get_reload_config(self) -> Dict[str, Any]:
+    @staticmethod
+    def _is_hot_patch(patch: Dict[str, Any]) -> bool:
+        return bool(patch) and set(patch) <= HOT_RELOAD_FIELDS.keys()
+
+    def _reload_parameters(self) -> Dict[str, str]:
         parameters = dict(RELOAD_FIELDS[self._weight_cache_engine])
         abilities = getattr(getattr(self, "model_family", None), "model_ability", [])
-        if not {"vision", "omni"}.intersection(abilities):
+        limits = self._reload_config.get("limit_mm_per_prompt")
+        image_limit = limits.get("image") if isinstance(limits, dict) else None
+        if (
+            not self._enable_weight_cache
+            or not {"vision", "omni"}.intersection(abilities)
+            or type(image_limit) is not int
+            or image_limit <= 0
+        ):
             parameters.pop("limit_mm_per_prompt", None)
         if not getattr(
             getattr(self, "reasoning_parser", None), "reasoning_end_tag", None
         ):
             parameters.pop("reasoning_content", None)
+        return parameters
+
+    def get_reload_config(self) -> Dict[str, Any]:
+        parameters = self._reload_parameters()
         config = {
             k: copy.deepcopy(v)
             for k, v in self._reload_config.items()
@@ -523,12 +532,10 @@ class WeightCachedModel:
     def validate_reload(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         validate_reload_patch(self._weight_cache_engine, patch)
         config = {**copy.deepcopy(self._reload_config), **copy.deepcopy(patch)}
-        if (
-            "reasoning_content" in patch
-            and "reasoning_content" not in self.get_reload_config()["hot_parameters"]
-        ):
+        parameters = self._reload_parameters()
+        if "reasoning_content" in patch and "reasoning_content" not in parameters:
             raise ValueError("This model does not support reasoning-content parsing")
-        if set(patch) <= HOT_RELOAD_FIELDS.keys():
+        if self._is_hot_patch(patch):
             return config
         if self._weight_cache is None:
             raise ValueError(
@@ -536,7 +543,10 @@ class WeightCachedModel:
             )
         self._weight_cache.client_config()
         if "limit_mm_per_prompt" in patch:
-            if "limit_mm_per_prompt" not in self.get_reload_config()["parameters"]:
+            abilities = getattr(
+                getattr(self, "model_family", None), "model_ability", []
+            )
+            if not {"vision", "omni"}.intersection(abilities):
                 raise ValueError("Image-limit reload requires a vision model")
             previous = self._sanitize_model_config(copy.deepcopy(self._reload_config))
             limits = previous.get("limit_mm_per_prompt") or {}
@@ -550,6 +560,10 @@ class WeightCachedModel:
             if any(k != "image" and v != limits.get(k) for k, v in requested.items()):
                 raise ValueError("Only the image count can change through reload")
             config["limit_mm_per_prompt"] = {**limits, **requested}
+            validate_reload_patch(
+                self._weight_cache_engine,
+                {"limit_mm_per_prompt": config["limit_mm_per_prompt"]},
+            )
         candidate = self._sanitize_model_config(copy.deepcopy(config))
         candidate.pop("reasoning_content", None)
         candidate.pop("enable_thinking", None)
@@ -568,7 +582,7 @@ class WeightCachedModel:
 
     def reload(self, patch: Dict[str, Any], progress: Callable[[str], None]) -> None:
         config = self.validate_reload(patch)
-        if set(patch) <= HOT_RELOAD_FIELDS.keys():
+        if self._is_hot_patch(patch):
             # Replace the parser rather than mutating an object held by a response.
             parser = copy.copy(self.reasoning_parser)
             parser.reasoning_content = config["reasoning_content"]

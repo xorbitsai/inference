@@ -13,10 +13,7 @@ XINFERENCE_TEST_VISION_WEIGHT_CACHE_MODEL_PATH=/models/Qwen2.5-VL-3B-Instruct \
 import asyncio
 import base64
 import io
-import json
 import os
-import time
-from pathlib import Path
 
 import pytest
 
@@ -56,77 +53,69 @@ async def test_vllm_image_count_reload():
         "limit_mm_per_prompt": {"image": 1, "video": 0},
         "mm_processor_cache_gb": 0,
     }
-    records = []
-    for cached in (True,):
-        model = VLLMMultiModel(
-            "runtime-settings-test",
-            family,
-            os.environ["XINFERENCE_TEST_VISION_WEIGHT_CACHE_MODEL_PATH"],
-            {**config, "enable_weight_cache": cached},
+    model = VLLMMultiModel(
+        "runtime-settings-test",
+        family,
+        os.environ["XINFERENCE_TEST_VISION_WEIGHT_CACHE_MODEL_PATH"],
+        {**config, "enable_weight_cache": True},
+    )
+    model.set_loop(asyncio.get_running_loop())
+    actor = ModelActor.__new__(ModelActor)
+    actor._model, actor._model_state, actor._serve_count = model, "ready", 0
+
+    async def generate(count):
+        content = [
+            {"type": "image_url", "image_url": {"url": image_url}} for _ in range(count)
+        ]
+        content.append({"type": "text", "text": "Name the main color."})
+        output = await model.async_chat(
+            [{"role": "user", "content": content}],
+            {"temperature": 0, "max_tokens": 8},
         )
-        model.set_loop(asyncio.get_running_loop())
-        actor = ModelActor.__new__(ModelActor)
-        actor._model, actor._model_state, actor._serve_count = model, "ready", 0
+        text = output["choices"][0]["message"]["content"]
+        assert text
+        return text
 
-        async def generate(count):
-            content = [
-                {"type": "image_url", "image_url": {"url": image_url}}
-                for _ in range(count)
-            ]
-            content.append({"type": "text", "text": "Name the main color."})
-            output = await model.async_chat(
-                [{"role": "user", "content": content}],
-                {"temperature": 0, "max_tokens": 8},
-            )
-            text = output["choices"][0]["message"]["content"]
-            assert text
-            return text
-
-        try:
-            await asyncio.to_thread(model.load)
-            await asyncio.to_thread(model.wait_for_load)
-            before = await generate(1)
-            engine = model._engine
-            assert "reasoning_content" not in model.get_reload_config()["parameters"]
-            with pytest.raises(ValueError, match="does not support reasoning-content"):
-                await actor.reload({"reasoning_content": True}, drain_timeout=30)
-            assert model._engine is engine
-            record = {"cached": cached, "output": before}
-            records.append(record)
-            daemon = model._weight_cache
-            pid = daemon.process.pid
-            sockets = {p: p.stat().st_ino for p in daemon._socket_paths}
-            with pytest.raises(
-                VLLMValidationError,
-                match=r"(?i)(at most|maximum|limit).*(image)|image.*(at most|maximum|limit)",
-            ):
-                await generate(2)
-            with pytest.raises(ValueError, match="image_limits"):
-                await actor.reload(
-                    {"limit_mm_per_prompt": {"image": 0}}, drain_timeout=30
-                )
-            assert model._engine is engine
-            started = time.perf_counter()
-            await actor.reload({"limit_mm_per_prompt": {"image": 2}}, drain_timeout=30)
-            record["reload_seconds"] = time.perf_counter() - started
-            assert model._engine is not engine
-            assert model._weight_cache is daemon
-            assert daemon.process.pid == pid and daemon.process.poll() is None
-            assert {p: p.stat().st_ino for p in sockets} == sockets
-            assert model.get_reload_config()["model_config"]["limit_mm_per_prompt"] == {
-                "image": 2,
-                "video": 0,
-            }
-            record["two_image_output"] = await generate(2)
-            assert await generate(1) == before
-            record["daemon_pid"] = pid
-            record["socket_inodes"] = {str(p): inode for p, inode in sockets.items()}
-            record["strict_ipc_config"] = daemon.client_config()
-        finally:
-            await asyncio.to_thread(model.stop)
-            await asyncio.sleep(0)
-    if path := os.getenv("XINFERENCE_TEST_RUNTIME_SETTINGS_RESULT"):
-        Path(path).write_text(json.dumps(records, indent=2))
+    try:
+        await asyncio.to_thread(model.load)
+        await asyncio.to_thread(model.wait_for_load)
+        before = await generate(1)
+        engine = model._engine
+        assert "reasoning_content" not in model.get_reload_config()["parameters"]
+        with pytest.raises(ValueError, match="does not support reasoning-content"):
+            await actor.reload({"reasoning_content": True}, drain_timeout=30)
+        assert model._engine is engine
+        daemon = model._weight_cache
+        pid = daemon.process.pid
+        sockets = {p: p.stat().st_ino for p in daemon._socket_paths}
+        with pytest.raises(
+            VLLMValidationError,
+            match=r"(?i)(at most|maximum|limit).*(image)|image.*(at most|maximum|limit)",
+        ):
+            await generate(2)
+        with pytest.raises(ValueError, match="image_limits"):
+            await actor.reload({"limit_mm_per_prompt": {"image": 0}}, drain_timeout=30)
+        assert model._engine is engine
+        assert await actor.reload(
+            {"limit_mm_per_prompt": {"image": 2}}, drain_timeout=30
+        )
+        assert model._engine is not engine
+        assert model._weight_cache is daemon
+        assert daemon.process.pid == pid and daemon.process.poll() is None
+        assert {p: p.stat().st_ino for p in sockets} == sockets
+        ipc = daemon.client_config()
+        assert ipc["load_format"] == "ipc_cache"
+        assert ipc["model_loader_extra_config"]["mode"] == "zero_copy"
+        assert ipc["model_loader_extra_config"]["fallback"] is False
+        assert model.get_reload_config()["model_config"]["limit_mm_per_prompt"] == {
+            "image": 2,
+            "video": 0,
+        }
+        assert await generate(2)
+        assert await generate(1) == before
+    finally:
+        await asyncio.to_thread(model.stop)
+        await asyncio.sleep(0)
 
 
 @pytest.mark.asyncio
@@ -145,7 +134,6 @@ async def test_reasoning_hot_update_with_and_without_weight_retention():
         pytest.skip("CUDA/ROCm GPU required")
     pytest.importorskip("vllm")
     family = match_llm("qwen3", "pytorch", "0_6", "none", "modelscope")
-    records = []
     for cached in (False, True):
         model = VLLMChatModel(
             "reasoning-settings-test",
@@ -186,9 +174,7 @@ async def test_reasoning_hot_update_with_and_without_weight_retention():
             before, message = await generate()
             assert before and not message.get("reasoning_content")
             parser, engine = model.reasoning_parser, model._engine
-            started = time.perf_counter()
-            await actor.reload({"reasoning_content": True}, drain_timeout=30)
-            elapsed = time.perf_counter() - started
+            assert not await actor.reload({"reasoning_content": True}, drain_timeout=30)
             assert model._engine is engine and not parser.reasoning_content
             after, message = await generate()
             assert message.get("reasoning_content") and after == before
@@ -196,9 +182,6 @@ async def test_reasoning_hot_update_with_and_without_weight_retention():
             assert model._engine is engine
             after, message = await generate()
             assert not message.get("reasoning_content") and after == before
-            records.append({"cached": cached, "hot_seconds": elapsed, "output": after})
         finally:
             await asyncio.to_thread(model.stop)
             await asyncio.sleep(0)
-    if path := os.getenv("XINFERENCE_TEST_RUNTIME_SETTINGS_RESULT"):
-        Path(path + ".reasoning.json").write_text(json.dumps(records, indent=2))

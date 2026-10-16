@@ -101,8 +101,7 @@ def test_nonreasoning_model_does_not_advertise_or_accept_parser_updates():
         model.reload({"reasoning_content": True}, lambda stage: None)
 
 
-@pytest.fixture
-def vision_model(monkeypatch):
+def make_vision_model(monkeypatch):
     class EngineArgs:
         def __init__(self, **config):
             self.config = config
@@ -124,6 +123,48 @@ def vision_model(monkeypatch):
         model, patch
     )
     return model
+
+
+@pytest.fixture
+def vision_model(monkeypatch):
+    return make_vision_model(monkeypatch)
+
+
+def test_mixed_reasoning_and_engine_patch_requires_weight_cache():
+    family = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none")
+    model = VLLMChatModel("test", family, "/models/test", {})
+    model.reasoning_parser = ReasoningParser(False, "<think>", "</think>")
+    model._stop_engine = MagicMock()
+    with pytest.raises(ValueError, match="enable_weight_cache=true"):
+        model.reload({"reasoning_content": True, "max_num_seqs": 8}, lambda stage: None)
+    model._stop_engine.assert_not_called()
+    assert not model.reasoning_parser.reasoning_content
+
+
+@pytest.mark.parametrize(
+    "limits", ['{"image": 2}', ['{"image": 2}'], {"image": {"count": 2}}]
+)
+@pytest.mark.parametrize("cached", [False, True])
+def test_unsupported_image_metadata_is_not_advertised(vision_model, limits, cached):
+    vision_model._enable_weight_cache = cached
+    vision_model._reload_config["limit_mm_per_prompt"] = limits
+    metadata = vision_model.get_reload_config()
+    assert "limit_mm_per_prompt" not in metadata["parameters"]
+    assert "limit_mm_per_prompt" not in metadata["model_config"]
+
+
+def test_image_reload_requires_vision_model(vision_model):
+    vision_model.model_family.model_ability = ["chat"]
+    with pytest.raises(ValueError, match="requires a vision model"):
+        vision_model.reload({"limit_mm_per_prompt": {"image": 8}}, lambda stage: None)
+    assert vision_model.stops == 0
+
+
+def test_merged_rich_modality_limit_is_rejected_in_preflight(vision_model):
+    vision_model._reload_config["limit_mm_per_prompt"]["video"] = {"count": 1}
+    with pytest.raises(ValueError, match="image_limits"):
+        vision_model.validate_reload({"limit_mm_per_prompt": {"image": 8}})
+    assert vision_model.stops == 0
 
 
 def test_image_reload_preserves_other_limits_and_weight_cache(vision_model):

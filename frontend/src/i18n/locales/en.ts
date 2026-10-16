@@ -776,8 +776,8 @@ const en = {
     reload: {
       title: 'Reload parameters',
       description:
-        'Engine parameter changes rebuild the engine using retained GPU weights. Parallelism, precision and quantization cannot change.',
-      disabled: 'Other engine parameters require GPU weight retention at launch.',
+        'Engine parameter changes rebuild the engine using retained GPU weights. Serving pauses while current requests finish and the change is applied; new requests receive HTTP 503. Parallelism, precision and quantization cannot change.',
+      disabled: 'Engine parameter changes require GPU weight retention at launch.',
       reasoningHint:
         'Reasoning parsing changes without restarting the engine. Current requests finish before applying the change.',
       imageLimit: 'Maximum images per request',

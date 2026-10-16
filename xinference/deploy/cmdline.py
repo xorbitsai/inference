@@ -1365,7 +1365,11 @@ def model_terminate(
     client.terminate_model(model_uid=model_uid)
 
 
-@cli.command("reload", help="Reload engine parameters while retaining GPU weights.")
+@cli.command(
+    "reload",
+    help="Reload parameters; engine changes require launch-time weight retention, "
+    "while standalone reasoning_content changes do not.",
+)
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option("--model-uid", required=True, type=str)
 @click.option(

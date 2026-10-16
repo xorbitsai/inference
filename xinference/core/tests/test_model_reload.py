@@ -119,14 +119,16 @@ async def test_drain_timeout_preserves_engine():
 
 
 @pytest.mark.asyncio
-async def test_reasoning_update_drains_streams_without_restarting_or_cached_weights():
+@pytest.mark.parametrize("cached", [False, True])
+async def test_reasoning_update_drains_streams_without_restarting(cached):
     from ...model.llm.reasoning_parser import ReasoningParser
     from ...model.llm.weight_cache import WeightCachedModel
 
     actor = make_actor()
     model = actor._model
-    model._enable_weight_cache = False
-    model._weight_cache = None
+    model._enable_weight_cache = cached
+    if not cached:
+        model._weight_cache = None
     parser = model.reasoning_parser = ReasoningParser(False, "<think>", "</think>")
     model.validate_reload = lambda patch: WeightCachedModel.validate_reload(
         model, patch
@@ -144,6 +146,8 @@ async def test_reasoning_update_drains_streams_without_restarting_or_cached_weig
     assert model.stops == 0 and not model.loads
     assert model.reasoning_parser.reasoning_content
     assert not parser.reasoning_content
+    status = await supervisor.get_model_reload_status("test")
+    assert status["status"] == "ready" and status["weights_reused"] is False
     assert worker._model_uid_to_launch_args["test-replica"]["reasoning_content"] is True
     supervisor._launch_history_store.update_autostart_launch_config.assert_called_once_with(
         "test", {"reasoning_content": True}
@@ -151,21 +155,13 @@ async def test_reasoning_update_drains_streams_without_restarting_or_cached_weig
 
 
 @pytest.mark.asyncio
-async def test_normalized_image_limits_are_persisted_for_recovery_and_autostart():
+async def test_normalized_image_limits_are_persisted_for_recovery_and_autostart(
+    monkeypatch,
+):
+    from ...model.llm.tests.test_runtime_settings import make_vision_model
+
     actor = make_actor()
-    model = actor._model
-    model._reload_config["limit_mm_per_prompt"] = {"image": 2, "video": 0}
-    validate = model.validate_reload
-
-    def normalize(patch):
-        config = validate(patch)
-        config["limit_mm_per_prompt"] = {
-            "image": patch["limit_mm_per_prompt"]["image"],
-            "video": 0,
-        }
-        return config
-
-    model.validate_reload = normalize
+    actor._model = make_vision_model(monkeypatch)
     supervisor, worker = make_pipeline(actor)
     worker._model_uid_to_launch_args["test-replica"]["limit_mm_per_prompt"] = {
         "image": 2,
@@ -180,6 +176,21 @@ async def test_normalized_image_limits_are_persisted_for_recovery_and_autostart(
     supervisor._launch_history_store.update_autostart_launch_config.assert_called_once_with(
         "test", {"limit_mm_per_prompt": {"image": 8, "video": 0}}
     )
+
+
+@pytest.mark.asyncio
+async def test_merged_rich_limits_fail_before_scheduling_reload(monkeypatch):
+    from ...model.llm.tests.test_runtime_settings import make_vision_model
+
+    actor = make_actor()
+    actor._model = make_vision_model(monkeypatch)
+    actor._model._reload_config["limit_mm_per_prompt"]["video"] = {"count": 1}
+    supervisor, worker = make_pipeline(actor)
+    with pytest.raises(ValueError, match="image_limits"):
+        await supervisor.reload_model("test", {"limit_mm_per_prompt": {"image": 8}})
+    assert actor._model_state == "ready" and actor._model.stops == 0
+    assert not supervisor._model_reload_tasks
+    worker._persist_launch_args.assert_not_called()
 
 
 @pytest.mark.asyncio
