@@ -1377,6 +1377,7 @@ const zh = {
     loginDesc: '请输入你的账号信息以访问',
     username: '用户名',
     password: '密码',
+    currentPassword: '当前密码',
     mustChangePasswordDesc: '首次登录，需要先修改密码才能继续使用。',
     changePasswordUserMissing: '无法识别当前用户，请重新登录后再试。',
     or: '或',

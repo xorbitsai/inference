@@ -1543,6 +1543,7 @@ const ja = {
     loginDesc: '続行するにはアカウント情報を入力してください',
     username: 'ユーザー名',
     password: 'パスワード',
+    currentPassword: '現在のパスワード',
     mustChangePasswordDesc: '初回ログイン時は、続行する前にパスワードを変更してください。',
     changePasswordUserMissing: '現在のユーザーを識別できません。もう一度ログインしてください。',
     or: 'または',

@@ -94,7 +94,11 @@ def should_skip_audit(endpoint: str) -> bool:
 
 def should_skip_completed_audit(method: str, endpoint: str, status_code: int) -> bool:
     """Return whether a completed request is routine audit noise."""
-    return method == "GET" and endpoint == "/metrics" and status_code < 400
+    return (
+        method == "GET"
+        and endpoint in ("/metrics", "/v1/auth/me")
+        and status_code < 400
+    )
 
 
 def classify_endpoint(endpoint: str) -> str:

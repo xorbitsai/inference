@@ -1225,6 +1225,7 @@ const zhTW = {
     loginDesc: '請輸入你的帳號資訊以訪問',
     username: '使用者名稱',
     password: '密碼',
+    currentPassword: '目前密碼',
     mustChangePasswordDesc: '首次登入，需要先修改密碼才能繼續使用。',
     changePasswordUserMissing: '無法識別當前使用者，請重新登入後再試。',
     or: '或',

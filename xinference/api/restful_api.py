@@ -919,7 +919,7 @@ class RESTfulAPI(CancelMixin):
                 audit_status = "success"
             elif model_uid and status_code == 404:
                 audit_status = "model_not_found"
-            elif request.url.path.startswith(("/token", "/v1/auth/")):
+            elif request.method == "POST" and request.url.path == "/token":
                 audit_status = "login_failed"
             else:
                 audit_status = "error"

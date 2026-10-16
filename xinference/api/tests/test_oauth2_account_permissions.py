@@ -208,3 +208,34 @@ def test_privileged_self_change_checks_supplied_password_but_keeps_reset_contrac
         == 403
     )
     assert client.put(path, json={"new_password": "new-password"}).status_code == 200
+
+
+def test_non_admin_user_manager_can_reset_another_local_user(account):
+    auth, uid, client, _ = account
+    auth.db.set_user_permissions(uid, ["users:manage"])
+    other = auth.db.create_user(
+        "bob", get_password_hash("bob-password"), permissions=["models:read"]
+    )
+    login = auth.login("bob", "bob-password")
+    response = client.put(
+        f"/v1/admin/users/{other}/password", json={"new_password": "new-password"}
+    )
+    assert response.status_code == 200
+    assert auth.verify_access_token(login["access_token"]) is None
+    assert auth.refresh_access_token(login["refresh_token"]) is None
+    assert auth.login("bob", "new-password")["access_token"]
+
+
+@pytest.mark.parametrize("scheme", ["Bearer", "bearer"])
+def test_api_key_cannot_change_password_even_with_admin_owner(account, scheme):
+    auth, uid, client, _ = account
+    auth.db.set_user_permissions(uid, ["admin"])
+    key = auth.create_api_key_for_user(uid, name="password-key")["key"]
+    response = client.put(
+        f"/v1/admin/users/{uid}/password",
+        json={"current_password": "old-password", "new_password": "new-password"},
+        headers={"Authorization": scheme + " " + key},
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Cannot change another user's password"
+    assert auth.login("alice", "old-password")["access_token"]

@@ -109,6 +109,7 @@ it('refreshes menus and direct-page grants from the server while JWT scopes rema
       );
     });
     assert.equal(host.querySelector('output')?.getAttribute('data-admin'), 'true');
+    assert.equal(host.querySelector('output')?.getAttribute('data-password'), 'true');
     assert.ok(host.querySelector('#monitor'));
     permissions = ['pages:restricted'];
     await act(async () => {
@@ -128,6 +129,68 @@ it('refreshes menus and direct-page grants from the server while JWT scopes rema
       removeAuthTokens();
     });
     assert.equal(host.querySelector('output')?.getAttribute('data-admin'), 'false');
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+    request.get = originalGet;
+  }
+});
+
+it('ignores old account responses and out-of-order polls within the current account', async () => {
+  const originalGet = request.get;
+  const pending: ((profile: unknown) => void)[] = [];
+  request.get = async <T,>(url: string) => {
+    if (url === '/v1/cluster/ui_config') return { auth_advanced: true } as T;
+    if (url === '/v1/auth/me') {
+      return (await new Promise<unknown>((resolve) => {
+        pending.push(resolve);
+      })) as T;
+    }
+    return {} as T;
+  };
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  setAccessToken(tokenFor(1));
+  try {
+    await act(async () => {
+      root.render(
+        <GlobalProvider initClusterAuth={{ auth: true }}>
+          <Probe />
+        </GlobalProvider>
+      );
+    });
+    assert.equal(pending.length, 1);
+    await act(async () => {
+      setAccessToken(tokenFor(2));
+    });
+    assert.equal(pending.length, 2);
+    await act(async () => {
+      pending[1]({ permissions: ['models:read'], source: 'oidc' });
+    });
+    await act(async () => {
+      pending[0]({ permissions: ['admin'], source: 'local' });
+    });
+    assert.equal(host.querySelector('output')?.getAttribute('data-admin'), 'false');
+    assert.equal(host.querySelector('output')?.getAttribute('data-read'), 'true');
+    assert.equal(host.querySelector('output')?.getAttribute('data-password'), 'false');
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+      window.dispatchEvent(new Event('focus'));
+    });
+    assert.equal(pending.length, 4);
+    await act(async () => {
+      pending[3]({ permissions: [], source: 'local' });
+    });
+    await act(async () => {
+      pending[2]({ permissions: ['admin'], source: 'oidc' });
+    });
+    assert.equal(host.querySelector('output')?.getAttribute('data-admin'), 'false');
+    assert.equal(host.querySelector('output')?.getAttribute('data-read'), 'false');
+    assert.equal(host.querySelector('output')?.getAttribute('data-password'), 'true');
   } finally {
     await act(async () => {
       root.unmount();
@@ -341,10 +404,12 @@ it('reports each wrong-current-password response without the generic 403 notific
     require('@/components/pages/login/change-password-dialog') as typeof import('@/components/pages/login/change-password-dialog');
   const { toast } = require('sonner') as typeof import('sonner');
   const originalPut = request.put;
+  const originalFetch = globalThis.fetch;
   const originalError = toast.error;
   const errors: string[] = [];
   let attempts = 0;
   let changed = 0;
+  globalThis.fetch = async () => Response.json({ password_min_length: 8 });
   toast.error = (message) => {
     errors.push(String(message));
     return 0;
@@ -398,6 +463,72 @@ it('reports each wrong-current-password response without the generic 403 notific
     });
     host.remove();
     request.put = originalPut;
+    globalThis.fetch = originalFetch;
     toast.error = originalError;
   }
 });
+
+for (const minLength of [8, 12]) {
+  it(`accepts exactly the configured ${minLength}-character password and rejects shorter input`, async () => {
+    const { ChangePasswordDialog } =
+      require('@/components/pages/login/change-password-dialog') as typeof import('@/components/pages/login/change-password-dialog');
+    const originalPut = request.put;
+    const originalFetch = globalThis.fetch;
+    const attempts: string[] = [];
+    let changed = 0;
+    globalThis.fetch = async (url) => {
+      assert.ok(String(url).endsWith('/v1/admin/setup/status'));
+      return Response.json({ password_min_length: minLength });
+    };
+    request.put = async <T,>(_url: string, body: { new_password: string }) => {
+      attempts.push(body.new_password);
+      return { ok: true } as T;
+    };
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    try {
+      await act(async () => {
+        root.render(
+          <ChangePasswordDialog
+            open
+            userId={1}
+            forced={false}
+            onChanged={() => {
+              changed += 1;
+            }}
+          />
+        );
+      });
+      assert.match(document.body.textContent!, /login.currentPassword/);
+      const inputs = [...document.querySelectorAll<HTMLInputElement>('input[type="password"]')];
+      assert.equal(inputs.length, 3);
+      for (const length of [minLength - 1, minLength]) {
+        await act(async () => {
+          inputs.forEach((input, index) => {
+            Object.getOwnPropertyDescriptor(
+              dom.window.HTMLInputElement.prototype,
+              'value'
+            )!.set!.call(input, index === 0 ? 'current-password' : 'x'.repeat(length));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          });
+        });
+        await act(async () => {
+          document
+            .querySelector('form')!
+            .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        });
+        assert.equal(attempts.length, length < minLength ? 0 : 1);
+      }
+      assert.deepEqual(attempts, ['x'.repeat(minLength)]);
+      assert.equal(changed, 1);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+      request.put = originalPut;
+      globalThis.fetch = originalFetch;
+    }
+  });
+}

@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { useI18n } from '@/contexts/i18n-context';
 import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
+import { getApiUrl } from '@/lib/utils';
 
 interface ChangePasswordDialogProps {
   open: boolean;
@@ -37,12 +38,31 @@ export function ChangePasswordDialog({
   const { t } = useI18n();
   const [form] = useForm();
   const [loading, setLoading] = useState(false);
+  const [passwordMinLength, setPasswordMinLength] = useState(8);
 
   useEffect(() => {
     if (open) {
       form.resetFields();
     }
   }, [form, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch(getApiUrl() + '/v1/admin/setup/status')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && typeof data?.password_min_length === 'number') {
+          setPasswordMinLength(data.password_min_length);
+        }
+      })
+      .catch(() => {
+        // Keep the default; the backend still enforces the configured minimum.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const handleChangePassword = async (values: Record<string, unknown>) => {
     if (userId == null) return;
@@ -90,7 +110,7 @@ export function ChangePasswordDialog({
           {!forced && (
             <FormField
               name="current_password"
-              label={t('login.password')}
+              label={t('login.currentPassword')}
               rules={[{ required: true }]}
             >
               <Input type="password" autoComplete="current-password" />
@@ -103,8 +123,9 @@ export function ChangePasswordDialog({
             rules={[
               { required: true, message: t('userManagement.passwordRequired') },
               {
-                validator: (val: unknown) => typeof val === 'string' && val.length > 8,
-                message: t('userManagement.passwordTooShort'),
+                validator: (val: unknown) =>
+                  typeof val === 'string' && val.length >= passwordMinLength,
+                message: t('setup.passwordTooShort', { min: passwordMinLength }),
               },
             ]}
           >

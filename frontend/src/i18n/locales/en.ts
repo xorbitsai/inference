@@ -1727,6 +1727,7 @@ const en = {
     loginDesc: 'Enter your account information to continue',
     username: 'Username',
     password: 'Password',
+    currentPassword: 'Current password',
     mustChangePasswordDesc: 'You need to change your password before continuing on first login.',
     changePasswordUserMissing: 'Unable to identify the current user. Please log in again.',
     or: 'or',
