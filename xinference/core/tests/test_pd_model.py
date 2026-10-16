@@ -10,7 +10,7 @@ import xoscar as xo
 
 from ..pd_model import PDModelActor, RoundRobinSchedulingPolicy
 from ..replica_config import ReplicaConfig, validate_pd_replica_configs
-from ..rpc_context import rpc_context
+from ..rpc_context import actor_call, get_current_rpc_metadata, rpc_context
 
 
 def test_round_robin_updates():
@@ -397,7 +397,101 @@ async def test_abort_both_stages(router):
     assert not actor._request_set
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["chat", "generate"])
+@pytest.mark.parametrize("engine", ["vllm", "sglang"])
+@pytest.mark.parametrize("backend", ["xavier", "nixl"])
+@pytest.mark.parametrize("close_mode", ["local", "destroy", "abort_destroy"])
+async def test_unconsumed_stream_releases_decode_slot(
+    router, monkeypatch, method, engine, backend, close_mode
+):
+    actor, prefill, decode = router
+    actor._model_engine = engine
+    actor._transport_backend = backend
+    actor._direct_handoff = backend == "xavier"
+    actor._sglang_bootstrap["p"] = dict(host="producer", port=12345)
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=AsyncMock()))
+    source = MagicMock()
+    source.aclose = AsyncMock()
+    serve_count = 0
+
+    async def start_decode(*args, **kwargs):
+        nonlocal serve_count
+        serve_count += 1
+        return source
+
+    async def decrease(**kwargs):
+        nonlocal serve_count
+        serve_count -= 1
+
+    getattr(decode, method).side_effect = start_decode
+    decode.decrease_serve_count.side_effect = decrease
+    config = {"stream": True}
+    if close_mode == "local":
+        stream = await actor._infer(method, [], config, request_id="r")
+        await stream.aclose()
+        await stream.aclose()
+    else:
+        stream = await getattr(actor, method)([], config, request_id="r")
+        stream._gc_destroy = False
+        stream._actor_ref = actor
+        if close_mode == "abort_destroy":
+            await actor.abort_request("r")
+        await stream.destroy()
+        await stream.destroy()
+    assert serve_count == 0
+    decode.decrease_serve_count.assert_awaited_once()
+    source.aclose.assert_awaited_once()
+    source.__aiter__.assert_not_called()
+    assert not actor._generators
+    assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+async def test_destroy_during_next_does_not_close_running_generator(router):
+    actor, prefill, decode = router
+    entered, release, cleaned = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+    async def chunks():
+        entered.set()
+        await release.wait()
+        yield b"first"
+
+    async def decrease(**kwargs):
+        cleaned.set()
+
+    decode.chat.return_value = chunks()
+    decode.decrease_serve_count.side_effect = decrease
+    stream = await actor.chat([], {"stream": True}, request_id="r")
+    stream._gc_destroy = False
+    stream._actor_ref = actor
+    next_chunk = asyncio.create_task(anext(stream))
+    await entered.wait()
+    await stream.destroy()
+    release.set()
+    assert await next_chunk == b"first"
+    await asyncio.wait_for(cleaned.wait(), 1)
+    decode.decrease_serve_count.assert_awaited_once()
+    assert not actor._request_set
+
+
 class FakeStage(xo.StatelessActor):
+    def __init__(self):
+        super().__init__()
+        self._serve_count = 0
+        self._released = 0
+        self._release_metadata = None
+
+    async def get_stream_counts(self):
+        return self._serve_count, self._released
+
+    async def get_release_metadata(self):
+        return self._release_metadata
+
+    @rpc_context
+    async def abort_request(self, request_id, block_duration=30):
+        return "DONE"
+
     async def prepare_anthropic_request(self, messages, config):
         return json.dumps(
             {"messages": messages, "generate_config": config, "input_tokens": 13}
@@ -408,7 +502,14 @@ class FakeStage(xo.StatelessActor):
 
     @rpc_context
     async def decrease_serve_count(self):
-        pass
+        self._serve_count -= 1
+        self._released += 1
+        metadata = get_current_rpc_metadata()
+        self._release_metadata = (
+            (metadata.correlation_id, metadata.operation_request_id)
+            if metadata
+            else None
+        )
 
     @rpc_context
     async def set_unpin_handler(self, *args):
@@ -425,6 +526,7 @@ class FakeStage(xo.StatelessActor):
             return {"_pd_kv_transfer_params": {"do_remote_prefill": True}}
         if not config.get("stream"):
             return b"non-stream"
+        self._serve_count += 1
 
         async def chunks():
             yield b"one"
@@ -452,6 +554,40 @@ async def test_nested_actor_streaming():
         assert await router.chat([], {"stream": False}) == b"non-stream"
         stream = await router.chat([], {"stream": True})
         assert [chunk async for chunk in stream] == [b"one", b"two"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("abort", [False, True])
+async def test_nested_actor_destroys_unconsumed_stream(abort):
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        prefill = await xo.create_actor(
+            FakeStage, address=pool.external_address, uid="p"
+        )
+        decode = await xo.create_actor(
+            FakeStage, address=pool.external_address, uid="d"
+        )
+        router = await xo.create_actor(
+            PDModelActor, "pd", address=pool.external_address
+        )
+        await router.add_prefill_actor("p", prefill)
+        await router.add_decode_actor("d", decode)
+        stream = await actor_call(
+            router,
+            "chat",
+            [],
+            {"stream": True},
+            request_id="r",
+            _rpc_correlation_id="stream-client",
+        )
+        stream._gc_destroy = False
+        assert await decode.get_stream_counts() == (1, 0)
+        if abort:
+            await router.abort_request("r")
+        await stream.destroy()
+        await stream.destroy()
+        assert await decode.get_stream_counts() == (0, 1)
+        assert await decode.get_release_metadata() == ("stream-client", "r")
 
 
 @pytest.mark.asyncio

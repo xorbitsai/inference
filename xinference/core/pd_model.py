@@ -25,7 +25,7 @@ import xoscar as xo
 
 from ..model.llm.tool_controls import is_forced_tool_choice
 from ..model.llm.xavier.constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
-from .rpc_context import actor_call
+from .rpc_context import actor_call, get_current_rpc_metadata, wrap_async_iterator
 from .utils import log_async
 
 if TYPE_CHECKING:
@@ -119,6 +119,13 @@ class PDModelActor(xo.StatelessActor):
 
     async def __post_create__(self):
         pass
+
+    async def __xoscar_destroy_generator__(self, generator_uid: str):
+        # xoscar's default destroy only drops the reference. Await the router
+        # stream's cleanup so its selected decode slot is released before return.
+        stream = self._generators.pop(generator_uid, None)
+        if stream is not None and not stream.ag_running:
+            await stream.aclose()
 
     async def __pre_destroy__(self):
         await asyncio.gather(
@@ -490,6 +497,9 @@ class PDModelActor(xo.StatelessActor):
 
         async def stream():
             try:
+                # Enter the finally before transferring ownership to the caller;
+                # closing an unstarted async generator never runs its finally.
+                yield None
                 async for chunk in result:
                     yield chunk
                 self._direct_transfers.pop(request_id, None)
@@ -509,7 +519,9 @@ class PDModelActor(xo.StatelessActor):
                     finally:
                         await self.free_prefill_model_cache(request_id)
 
-        return stream()
+        owned_stream = wrap_async_iterator(stream(), get_current_rpc_metadata())
+        await anext(owned_stream)
+        return owned_stream
 
     async def _infer_sglang(self, method, inputs, args, kwargs, request_id):
         """Native SGLang owns live P/D slots until the selected transport drains."""
@@ -632,6 +644,7 @@ class PDModelActor(xo.StatelessActor):
             completed = False
             next_chunk = None
             try:
+                yield None
                 iterator = result.__aiter__()
                 while True:
                     next_chunk = asyncio.create_task(anext(iterator))
@@ -663,15 +676,19 @@ class PDModelActor(xo.StatelessActor):
                     else:
                         await stop()
 
-        return stream()
+        owned_stream = wrap_async_iterator(stream(), get_current_rpc_metadata())
+        await anext(owned_stream)
+        return owned_stream
 
     @xo.generator
-    @log_async(logger=logger)
+    # _infer enters the stream's RPC-context wrapper before handing it off.
+    # A second, unstarted wrapper would hide its cleanup from destroy().
+    @log_async(logger=logger, wrap_result=False)
     async def generate(self, prompt: str, *args, **kwargs):
         return await self._infer("generate", prompt, *args, **kwargs)
 
     @xo.generator
-    @log_async(logger=logger)
+    @log_async(logger=logger, wrap_result=False)
     async def chat(self, messages, *args, **kwargs):
         return await self._infer("chat", messages, *args, **kwargs)
 
