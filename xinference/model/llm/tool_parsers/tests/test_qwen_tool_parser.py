@@ -1,3 +1,6 @@
+import json
+import re
+
 import pytest
 
 from ..qwen_tool_parser import QwenToolParser
@@ -927,3 +930,67 @@ def test_streaming_tool_calls_skip_malformed_sibling(malformed_call):
         {"x": 1},
         1,
     )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "plain text",
+        "<tool_call>",
+        "<tool_call>\n",
+        '<tool_call>\n{"name": "f", "arguments": {}}\n',
+        '<tool_call>\n{"name": "f", "arguments": {}}\n</tool_call>',
+        "a</tool_call>b<tool_call>c",
+        "<tool_call>a<tool_call>b</tool_call>c</tool_call>",
+        "<tool_call>a</tool_call>\n<tool_call>b</tool_call>\n<tool_call>c\n",
+        "<tool_call><tool_call></tool_call></tool_call><tool_call>",
+    ],
+)
+def test_scan_tool_calls_matches_regexes(text):
+    parser = QwenToolParser()
+    blocks, partial_start = parser._scan_tool_calls(text)
+
+    start_len = len(parser.tool_call_start_token)
+    end_len = len(parser.tool_call_end_token)
+    assert [
+        text[start + start_len : end - end_len] for start, end in blocks
+    ] == parser.tool_call_complete_regex.findall(text)
+
+    function_calls = parser._get_function_calls_streaming(text)
+    assert parser._last_function_call(text, blocks, partial_start) == (
+        function_calls[-1] if function_calls else ""
+    )
+
+    tags = [
+        (match.start(), match.end(), match.group() == parser.tool_call_start_token)
+        for match in re.finditer(r"<tool_call>|</tool_call>", text)
+    ]
+    assert list(parser._iter_tool_call_tags(text)) == tags
+
+
+def test_streaming_long_tool_call_in_small_deltas():
+    parser = QwenToolParser()
+    arguments = {"path": "main.py", "content": "print(1)\n" * 500}
+    call = json.dumps({"name": "write_file", "arguments": arguments})
+    # The tags are single tokens; the arguments arrive a few characters at a time.
+    deltas = ["Let me write it.", "<tool_call>", "\n"]
+    deltas += [call[i : i + 3] for i in range(0, len(call), 3)]
+    deltas += ["\n", "</tool_call>"]
+
+    events = []
+    previous_texts = [""]
+    for delta in deltas:
+        current_text = previous_texts[-1] + delta
+        result = parser.extract_tool_calls_streaming(
+            previous_texts, current_text, delta
+        )
+        previous_texts[-1] = current_text
+        if result is not None:
+            events.extend(result if isinstance(result, list) else [result])
+
+    assert events == [
+        ("Let me write it.", None, None),
+        (None, "write_file", None, 0),
+        (None, "write_file", arguments, 0),
+    ]
