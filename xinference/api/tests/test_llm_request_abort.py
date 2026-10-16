@@ -57,6 +57,7 @@ async def _create_streaming_response(
         abort_request=AsyncMock(return_value="DONE"),
         decrease_serve_count=AsyncMock(side_effect=decrease_serve_count),
         is_vllm_backend=AsyncMock(return_value=is_vllm),
+        is_transformers_batching_enabled=AsyncMock(return_value=False),
         **{method: AsyncMock(return_value=source)},
     )
 
@@ -320,6 +321,7 @@ async def test_non_vllm_chat_keeps_request_id_in_generation_config(monkeypatch):
         uid=b"chat-model",
         chat=AsyncMock(return_value=b'{"choices": []}'),
         is_vllm_backend=AsyncMock(return_value=False),
+        is_transformers_batching_enabled=AsyncMock(return_value=False),
     )
     supervisor = SimpleNamespace(
         describe_model=AsyncMock(return_value={"model_family": "test-family"})

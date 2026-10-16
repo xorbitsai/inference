@@ -481,6 +481,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
         return isinstance(self._model, VLLMModel)
 
+    def is_transformers_batching_enabled(self) -> bool:
+        return bool(getattr(self._model, "_batch_scheduler", None))
+
     def is_sglang_backend(self) -> bool:
         from ..model.llm.sglang.core import SGLANGModel
 
@@ -980,12 +983,18 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             # Directly delegate to model, let model decide how to handle (batching or not)
             kwargs.pop("raw_params", None)
             if hasattr(self._model, "chat"):
-                # Only remove request_id if model doesn't have batch scheduler
-                if not (
-                    hasattr(self._model, "_batch_scheduler")
-                    and self._model._batch_scheduler
+                request_id = kwargs.pop("request_id", None)
+                if request_id is not None and getattr(
+                    self._model, "_batch_scheduler", None
                 ):
-                    kwargs.pop("request_id", None)
+                    # Match generate(): batching reads IDs from a copied config.
+                    generate_config = args[0] if args else kwargs.get("generate_config")
+                    generate_config = dict(generate_config or {})
+                    generate_config["request_id"] = str(request_id)
+                    if args:
+                        args = (generate_config, *args[1:])
+                    else:
+                        kwargs["generate_config"] = generate_config
                 response = await self._call_wrapper_json(
                     self._model.chat, messages, *args, **kwargs
                 )

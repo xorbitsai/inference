@@ -151,15 +151,41 @@ class BatchScheduler:
         if not req_list:
             return
         try:
-            self._model.batch_inference(req_list)
+            # Fresh prefills precede running requests, but have no cache row yet.
+            cached_requests = [
+                r for r in req_list if not r.is_prefill and r.kv_cache is not None
+            ]
+            aborted_indexes = {
+                idx for idx, r in enumerate(cached_requests) if r.aborted
+            }
+            if aborted_indexes:
+                surviving_requests = [r for r in cached_requests if not r.aborted]
+                if surviving_requests:
+                    reduced_kv_cache = self._model.build_reduced_kv_cache(
+                        cached_requests[0].kv_cache, aborted_indexes
+                    )
+                    for r in surviving_requests:
+                        r.kv_cache = reduced_kv_cache
+                for r in cached_requests:
+                    if r.aborted:
+                        r.kv_cache = None
+
+            active_requests = [r for r in req_list if not r.aborted]
+            if active_requests:
+                self._model.batch_inference(active_requests)
         except Exception as e:
             logger.exception("Batch inference failed: %s", e)
             await self._fail_batch_requests(req_list, e)
             self._empty_cache()
             return
 
-        stopped_batch_indexes = set()
-        for idx, r in enumerate(req_list):
+        # Snapshot row ownership before terminal delivery clears cache references.
+        # Retired aborts and invalid prefills must not shift completion indexes.
+        cached_requests = [r for r in req_list if r.kv_cache is not None]
+        stopped_batch_indexes = {
+            idx for idx, r in enumerate(cached_requests) if r.stopped
+        }
+        for r in req_list:
             if r.stream:
                 for completion in r.completion:
                     await r.future_or_queue.put(completion)
@@ -168,8 +194,6 @@ class BatchScheduler:
             if not r.stopped:
                 self._running_queue.append(r)
             else:
-                if r.new_tokens:
-                    stopped_batch_indexes.add(idx)
                 # set kv_cache to None for collection
                 r.kv_cache = None
                 rid = r.request_id

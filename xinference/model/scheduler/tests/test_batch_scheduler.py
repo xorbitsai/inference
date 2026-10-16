@@ -123,7 +123,7 @@ async def test_cache_reduction_failure_fails_active_requests(no_empty_cache):
             completed.stopped = True
             completed.new_tokens.append(1)
             completed.completion = [{"text": "done"}]
-            active.kv_cache = object()
+            completed.kv_cache = active.kv_cache = object()
 
         def build_reduced_kv_cache(self, cache, skipped_indexes):
             raise RuntimeError("reduction failure")
