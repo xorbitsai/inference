@@ -1548,6 +1548,8 @@ const ko = {
     ssoLogin: 'SSO로 로그인',
   },
   setup: {
+    token: '설정 토큰',
+    tokenHelp: 'Xinference 서버 시작 로그에서 설정 토큰을 복사하세요.',
     welcome: 'Xinference에 오신 것을 환영합니다',
     welcomeDesc:
       '이 인스턴스에는 아직 계정이 없습니다. 배포 설정을 완료하려면 첫 번째 관리자 계정을 생성하세요.',

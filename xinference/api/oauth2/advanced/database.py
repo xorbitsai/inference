@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import secrets
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -302,11 +303,32 @@ class Database:
                     permissions,
                 )
 
+    def get_or_create_setup_token(self) -> Optional[str]:
+        """Share one bootstrap secret across restarts and concurrent API processes."""
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                if conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is not None:
+                    conn.execute("DELETE FROM system_config WHERE key = 'setup_token'")
+                    return None
+                row = conn.execute(
+                    "SELECT value FROM system_config WHERE key = 'setup_token'"
+                ).fetchone()
+                if row is not None:
+                    return row["value"]
+                token = secrets.token_urlsafe(32)
+                conn.execute(
+                    "INSERT INTO system_config (key, value) VALUES ('setup_token', ?)",
+                    (token,),
+                )
+                return token
+
     def create_first_user(
         self,
         username: str,
         password_hash: Optional[str],
         permissions: Optional[List[str]] = None,
+        setup_token: Optional[str] = None,
     ) -> Optional[int]:
         """Atomically create ``username`` only if the users table is still
         empty. Returns the new user id, or None if a user already exists.
@@ -316,6 +338,9 @@ class Database:
         across multiple processes (e.g. supervisor + worker) sharing the same
         database file -- a plain SELECT would not block a concurrent writer
         until the following INSERT, leaving a race window.
+
+        The HTTP setup handler supplies setup_token, which is checked again
+        under this lock before insertion. Trusted local callers may omit it.
         """
         with self._lock:
             with self._get_conn() as conn:
@@ -323,7 +348,17 @@ class Database:
                 existing = conn.execute("SELECT COUNT(*) AS cnt FROM users").fetchone()
                 if existing["cnt"] > 0:
                     return None
-                return self._insert_user(
+                if setup_token is not None:
+                    row = conn.execute(
+                        "SELECT value FROM system_config WHERE key = 'setup_token'"
+                    ).fetchone()
+                    if (
+                        row is None
+                        or not setup_token.isascii()
+                        or not secrets.compare_digest(setup_token.strip(), row["value"])
+                    ):
+                        return None
+                user_id = self._insert_user(
                     conn,
                     username,
                     password_hash,
@@ -333,6 +368,7 @@ class Database:
                     0,
                     permissions,
                 )
+                return user_id
 
     @staticmethod
     def _insert_user(
@@ -363,6 +399,9 @@ class Database:
                     "INSERT INTO user_permissions (user_id, permission) VALUES (?, ?)",
                     (user_id, perm),
                 )
+        # Any first-user path (including external identity providers) completes
+        # setup. Never leave its bootstrap credential available for later reuse.
+        conn.execute("DELETE FROM system_config WHERE key = 'setup_token'")
         return user_id
 
     def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
@@ -464,10 +503,26 @@ class Database:
                 return True
 
     def delete_user(self, user_id: int) -> bool:
+        setup_token = None
         with self._lock:
             with self._get_conn() as conn:
-                conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
-                return True
+                conn.execute("BEGIN IMMEDIATE")
+                deleted = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+                if (
+                    deleted.rowcount
+                    and conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is None
+                ):
+                    setup_token = secrets.token_urlsafe(32)
+                    conn.execute(
+                        "INSERT OR REPLACE INTO system_config (key, value) "
+                        "VALUES ('setup_token', ?)",
+                        (setup_token,),
+                    )
+        if setup_token is not None:
+            logger.warning(
+                "Initial administrator setup reopened. Setup token: %s", setup_token
+            )
+        return True
 
     def set_user_permissions(self, user_id: int, permissions: List[str]):
         with self._lock:

@@ -1558,6 +1558,8 @@ const ja = {
     ssoLogin: 'SSO でログイン',
   },
   setup: {
+    token: 'セットアップトークン',
+    tokenHelp: 'Xinference サーバーの起動ログからセットアップトークンをコピーしてください。',
     welcome: 'Xinference へようこそ',
     welcomeDesc:
       'このインスタンスにはまだアカウントがありません。最初の管理者アカウントを作成してセットアップを完了してください。',

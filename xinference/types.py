@@ -218,6 +218,7 @@ class CompletionChoice(TypedDict):
     index: int
     logprobs: Optional[CompletionLogprobs]
     finish_reason: Optional[str]
+    stop_sequence: NotRequired[str]
     tool_calls: NotRequired[List[ToolCalls]]
 
 
@@ -272,6 +273,7 @@ class ChatCompletionChoice(TypedDict):
     message: ChatCompletionMessage
     logprobs: NotRequired[Optional[ChatCompletionLogprobs]]
     finish_reason: Optional[str]
+    stop_sequence: NotRequired[str]
 
 
 class ChatCompletion(TypedDict):
@@ -295,6 +297,7 @@ class ChatCompletionChunkChoice(TypedDict):
     delta: ChatCompletionChunkDelta
     logprobs: NotRequired[Optional[ChatCompletionLogprobs]]
     finish_reason: Optional[str]
+    stop_sequence: NotRequired[str]
 
 
 class ChatCompletionChunk(TypedDict):

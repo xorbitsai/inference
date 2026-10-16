@@ -1927,7 +1927,10 @@ class VLLMModel(WeightCachedModel, LLM):
 
     @staticmethod
     def _convert_request_output_to_completion_chunk(
-        request_id: str, model: str, request_output: "RequestOutput"
+        request_id: str,
+        model: str,
+        request_output: "RequestOutput",
+        include_stop_sequence: bool = False,
     ) -> Tuple[CompletionChunk, Optional[str]]:
         choices: List[CompletionChoice] = []
         finish_reason = None
@@ -1942,6 +1945,12 @@ class VLLMModel(WeightCachedModel, LLM):
                     finish_reason=None,
                 )
             )
+            if (
+                include_stop_sequence
+                and output.finish_reason == "stop"
+                and isinstance(getattr(output, "stop_reason", None), str)
+            ):
+                choices[-1]["stop_sequence"] = output.stop_reason
             finish_reason = output.finish_reason
         return (
             CompletionChunk(
@@ -1972,7 +1981,10 @@ class VLLMModel(WeightCachedModel, LLM):
 
     @staticmethod
     def _convert_request_output_to_completion(
-        request_id: str, model: str, request_output: "RequestOutput"
+        request_id: str,
+        model: str,
+        request_output: "RequestOutput",
+        include_stop_sequence: bool = False,
     ) -> Completion:
         choices = []
         prompt = getattr(request_output, "prompt", None)
@@ -1986,6 +1998,12 @@ class VLLMModel(WeightCachedModel, LLM):
                     finish_reason=output.finish_reason,
                 )
             )
+            if (
+                include_stop_sequence
+                and output.finish_reason == "stop"
+                and isinstance(getattr(output, "stop_reason", None), str)
+            ):
+                choices[-1]["stop_sequence"] = output.stop_reason
 
         usage = VLLMModel._get_completion_usage(request_output)
         return Completion(
@@ -2388,6 +2406,7 @@ class VLLMModel(WeightCachedModel, LLM):
                     request_id=request_id,
                     model=self.model_uid,
                     request_output=_request_output,
+                    include_stop_sequence=anthropic,
                 )
 
                 for i, choice in enumerate(chunk["choices"]):
@@ -2480,6 +2499,10 @@ class VLLMModel(WeightCachedModel, LLM):
                 total_tokens=total_tokens,
             )
             final_chunk["usage"] = usage
+            if chunk and chunk["choices"] and "stop_sequence" in chunk["choices"][0]:
+                final_chunk["choices"][0]["stop_sequence"] = chunk["choices"][0][
+                    "stop_sequence"
+                ]
             yield final_chunk
 
             if include_usage:
@@ -2511,7 +2534,10 @@ class VLLMModel(WeightCachedModel, LLM):
                 raise RuntimeError(transfer["xavier_error"])
             self._log_pd_request_metrics(final_output)
             completion = self._convert_request_output_to_completion(
-                request_id, model=self.model_uid, request_output=final_output
+                request_id,
+                model=self.model_uid,
+                request_output=final_output,
+                include_stop_sequence=anthropic,
             )
             from .xavier.transport import uses_direct_handoff
 

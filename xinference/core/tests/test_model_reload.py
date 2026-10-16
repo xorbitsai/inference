@@ -155,26 +155,32 @@ async def test_reasoning_update_drains_streams_without_restarting(cached):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "backend,field",
+    [("vllm", "limit_mm_per_prompt"), ("sglang", "limit_mm_data_per_request")],
+)
 async def test_normalized_image_limits_are_persisted_for_recovery_and_autostart(
     monkeypatch,
+    backend,
+    field,
 ):
     from ...model.llm.tests.test_runtime_settings import make_vision_model
 
     actor = make_actor()
-    actor._model = make_vision_model(monkeypatch)
+    actor._model = make_vision_model(monkeypatch, backend)
     supervisor, worker = make_pipeline(actor)
-    worker._model_uid_to_launch_args["test-replica"]["limit_mm_per_prompt"] = {
+    worker._model_uid_to_launch_args["test-replica"][field] = {
         "image": 2,
         "video": 0,
     }
-    await supervisor.reload_model("test", {"limit_mm_per_prompt": {"image": 8}})
+    await supervisor.reload_model("test", {field: {"image": 8}})
     await supervisor._model_reload_tasks["test"]
-    assert worker._model_uid_to_launch_args["test-replica"]["limit_mm_per_prompt"] == {
+    assert worker._model_uid_to_launch_args["test-replica"][field] == {
         "image": 8,
         "video": 0,
     }
     supervisor._launch_history_store.update_autostart_launch_config.assert_called_once_with(
-        "test", {"limit_mm_per_prompt": {"image": 8, "video": 0}}
+        "test", {field: {"image": 8, "video": 0}}
     )
 
 

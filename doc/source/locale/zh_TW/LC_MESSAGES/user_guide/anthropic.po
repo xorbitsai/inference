@@ -204,15 +204,23 @@ msgstr ""
 
 #: ../source/user_guide/anthropic.rst:113
 msgid ""
-"On vLLM reasoning models, ``stop_sequences`` applies to both streaming and "
-"non-streaming requests, including when thinking is disabled. A stop match "
-"during thinking can end the response before a final answer is produced. "
-"Native stop matches currently report ``stop_reason: \"end_turn\"`` and "
-"``stop_sequence: null`` in the response."
+"On physical vLLM models, ``stop_sequences`` applies to streaming and non-"
+"streaming requests, including when thinking is disabled. A stop match during"
+" thinking can end the response before a final answer is produced. A matching"
+" caller-provided string returns ``stop_reason: \"stop_sequence\"`` and the "
+"exact ``stop_sequence``. EOS and token-ID stops return ``end_turn`` with a "
+"null ``stop_sequence``."
 msgstr ""
-"對於 vLLM 推理模型，``stop_sequences`` "
-"同時適用於串流和非串流請求，關閉思考時也生效。如果在思考過程中符合停止序列，回應可能在產生最終答案前結束。 原生停止條件匹配目前會在回應中回報 "
-"``stop_reason: \"end_turn\"`` 和 ``stop_sequence: null``。"
+"在 vLLM 實體模型上，``stop_sequences`` "
+"對串流與非串流請求均生效，包括停用思考的情況。思考期間命中停止序列可能使回應在產生最終答案前結束。命中呼叫端指定的字串時，傳回 "
+"``stop_reason: \"stop_sequence\"`` 與實際匹配的 ``stop_sequence``。由 EOS 或權杖 ID "
+"觸發的停止傳回 ``end_turn``，且 ``stop_sequence`` 為 null。"
+
+#: user_guide/anthropic.rst:120
+msgid ""
+"For physical vLLM models, disconnecting from a streaming or non-streaming "
+"Messages request aborts generation and releases request capacity."
+msgstr "對於 vLLM 實體模型，串流或非串流 Messages 請求中斷連線後，會中止生成並釋放請求處理容量。"
 
 #: ../source/user_guide/anthropic.rst:118
 msgid "Context management"

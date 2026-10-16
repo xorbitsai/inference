@@ -16,9 +16,10 @@ Starting with v3.0, the database-backed authentication system is **enabled by
 default**. A fresh deployment requires a login or an API key for every API
 call.
 
-* On first startup, open the web UI (or call ``POST /v1/admin/setup``) to
-  create the initial admin account. See :ref:`user_guide_auth_system` for the
-  full flow.
+* On first startup, copy the setup token from the server startup log. Enter it
+  in the web UI, or include it as ``setup_token`` alongside ``username`` and
+  ``password`` when calling ``POST /v1/admin/setup``. See
+  :ref:`user_guide_auth_system` for the full flow.
 * To restore the previous unauthenticated behavior, set:
 
   .. code-block:: bash

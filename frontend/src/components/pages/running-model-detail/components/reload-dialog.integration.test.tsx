@@ -48,6 +48,7 @@ let enabled = true,
 let posts: { url: string; body: unknown }[] = [];
 let imageLimits: Record<string, number> | undefined;
 let hotParameters: string[];
+let imageField: string;
 let initial: { status: string; stage?: string; error?: string; restored?: boolean } = {
   status: 'idle',
   stage: 'queued',
@@ -62,6 +63,7 @@ beforeEach(() => {
   refreshed = 0;
   posts = [];
   imageLimits = undefined;
+  imageField = 'limit_mm_per_prompt';
   hotParameters = ['reasoning_content'];
   initial = { status: 'idle', stage: 'queued' };
   final = { status: 'ready' };
@@ -73,7 +75,7 @@ beforeEach(() => {
           max_num_seqs: 16,
           enforce_eager: false,
           reasoning_content: false,
-          ...(imageLimits ? { limit_mm_per_prompt: imageLimits } : {}),
+          ...(imageLimits ? { [imageField]: imageLimits } : {}),
         },
         hot_parameters: hotParameters,
         parameters: {
@@ -81,7 +83,9 @@ beforeEach(() => {
           enforce_eager: 'bool',
           max_model_len: 'positive_int',
           ...(hotParameters.includes('reasoning_content') ? { reasoning_content: 'bool' } : {}),
-          ...(imageLimits ? { limit_mm_per_prompt: 'image_limits' } : {}),
+          ...(imageLimits || imageField === 'limit_mm_data_per_request'
+            ? { [imageField]: 'image_limits' }
+            : {}),
         },
       } as T;
     return (polls++ === 0 ? initial : final) as T;
@@ -170,24 +174,43 @@ it('can update reasoning parsing without launch-time weight caching', async () =
   assert.deepEqual(posts[0].body, { model_config: { reasoning_content: true } });
   assert.match(document.body.textContent || '', /runningModels.reload.reasoningHint/);
 });
-it('edits only the image count and leaves an unchanged object unsubmitted', async () => {
-  imageLimits = { image: 2, video: 0 };
+for (const field of ['limit_mm_per_prompt', 'limit_mm_data_per_request']) {
+  it(`edits ${field} and leaves an unchanged object unsubmitted`, async () => {
+    imageField = field;
+    imageLimits = { image: 2, video: 0 };
+    await render();
+    assert.ok(applyButton().disabled);
+    const input = document.querySelector<HTMLInputElement>(`input[aria-label="${field}"]`)!;
+    assert.equal(input.value, '2');
+    assert.equal(input.min, '1');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(
+        input,
+        '8'
+      );
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => applyButton().click());
+    assert.deepEqual(posts[0].body, { model_config: { [field]: { image: 8 } } });
+  });
+}
+it('can set a SGLang image limit from the engine default', async () => {
+  imageField = 'limit_mm_data_per_request';
   await render();
-  assert.ok(applyButton().disabled);
   const input = document.querySelector<HTMLInputElement>(
-    'input[aria-label="limit_mm_per_prompt"]'
+    'input[aria-label="limit_mm_data_per_request"]'
   )!;
-  assert.equal(input.value, '2');
-  assert.equal(input.min, '1');
+  assert.equal(input.value, '');
+  assert.ok(applyButton().disabled);
   await act(async () => {
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(
       input,
-      '8'
+      '2'
     );
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
   await act(async () => applyButton().click());
-  assert.deepEqual(posts[0].body, { model_config: { limit_mm_per_prompt: { image: 8 } } });
+  assert.deepEqual(posts[0].body, { model_config: { limit_mm_data_per_request: { image: 2 } } });
 });
 it('hides the no-restart hint when a cached reload mixes hot and engine parameters', async () => {
   imageLimits = { image: 2, video: 0 };

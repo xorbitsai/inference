@@ -11,6 +11,7 @@
     "format": "prettier . --write",
     "test:address-utils": "node --test src/components/pages/running-model/address-utils.test.mjs",
     "test:permissions": "node --require ./scripts/register-test-typescript.cjs --test src/contexts/global-permissions.integration.test.tsx",
+    "test:setup": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/setup/setup.integration.test.tsx",
     "test:recommendation": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/launch-model/launch-dialog/recommendation.integration.test.tsx",
     "test:capability-task-panel": "node --test src/components/pages/running-model-detail/panels/capability-task-panel.test.mjs src/components/pages/running-model-detail/panels/speech-panel.test.mjs",
     "test:log-center": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/log-center/runtime-log-utils.test.ts src/components/pages/log-center/elastic-logs.integration.test.tsx",

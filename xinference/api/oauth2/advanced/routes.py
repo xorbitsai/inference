@@ -217,16 +217,16 @@ async def advanced_logout(request: Request) -> JSONResponse:
 # --- Initial setup ---
 #
 # Xinference requires authentication out of the box, but a fresh
-# deployment has no accounts to log in with. These two public (no auth
-# required) endpoints let the web UI or an operator create the very
-# first admin account. setup_admin is only usable while the user table
-# is empty; the moment one account exists, it permanently refuses further
+# deployment has no accounts to log in with. These two endpoints, which
+# require no existing login, let the web UI or an operator create the very
+# first admin account using the setup token printed in the server log.
+# setup_admin is only usable while the user table is empty; the moment one
+# account exists, it permanently refuses further
 # calls, so it cannot be used to create additional admins after setup.
 #
-# The first admin is created by whoever reaches setup_admin first. On an
-# instance exposed to untrusted networks before setup completes, that could
-# be someone else; an operator with shell access to the deployment can take
-# control back with the ``xinference-reset-auth-password`` command.
+# Possession of the operator-only setup token is required even on loopback;
+# request headers and a reverse proxy's source address do not establish that
+# the caller owns the deployment.
 
 
 async def setup_status(request: Request) -> JSONResponse:
@@ -254,6 +254,9 @@ async def setup_admin(request: Request) -> JSONResponse:
         )
 
     body = await request.json()
+    setup_token = body.get("setup_token") if isinstance(body, dict) else None
+    if not isinstance(setup_token, str) or not auth.verify_setup_token(setup_token):
+        raise HTTPException(status_code=403, detail="Invalid setup token.")
     username = body.get("username")
     password = body.get("password")
     if not isinstance(username, str) or not isinstance(password, str):
@@ -275,11 +278,16 @@ async def setup_admin(request: Request) -> JSONResponse:
         username=username,
         password_hash=password_hash,
         permissions=INITIAL_ADMIN_PERMISSIONS,
+        setup_token=setup_token.strip(),
     )
     if user_id is None:
         raise HTTPException(
             status_code=403,
-            detail="Setup already completed; an account already exists.",
+            detail=(
+                "Setup already completed; an account already exists."
+                if not auth.needs_setup()
+                else "Invalid setup token."
+            ),
         )
 
     return JSONResponse(content={"id": user_id, "username": username}, status_code=201)
@@ -727,7 +735,7 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
         methods=["GET"],
     )
 
-    # Initial setup (public, no auth -- see docstring above setup_admin)
+    # Initial setup (no login; setup_admin requires the operator setup token)
     router.add_api_route("/v1/admin/setup/status", setup_status, methods=["GET"])
     router.add_api_route("/v1/admin/setup", setup_admin, methods=["POST"])
 

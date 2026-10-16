@@ -717,13 +717,21 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
 
 
 def _stop_reason(finish_reason: Any, stop_sequence: Any = None) -> str:
-    if stop_sequence:
+    if stop_sequence is not None:
         return "stop_sequence"
     return {
         "stop": "end_turn",
         "length": "max_tokens",
         "tool_calls": "tool_use",
     }.get(finish_reason, "end_turn")
+
+
+def _sanitize_stop_sequence(
+    value: Any, allowed: Optional[List[str]], finish_reason: Any
+) -> Optional[str]:
+    if finish_reason != "stop" or not isinstance(value, str):
+        return None
+    return value if allowed is None or value in allowed else None
 
 
 def _anthropic_usage(usage: Dict[str, Any]) -> Dict[str, int]:
@@ -748,7 +756,10 @@ def _anthropic_usage(usage: Dict[str, Any]) -> Dict[str, int]:
 
 
 def openai_to_anthropic(
-    openai_response: Dict[str, Any], model: str, include_thinking: bool = False
+    openai_response: Dict[str, Any],
+    model: str,
+    include_thinking: bool = False,
+    stop_sequences: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     content_blocks: List[Dict[str, Any]] = []
     finish_reason: Any = "stop"
@@ -757,6 +768,7 @@ def openai_to_anthropic(
     if choices:
         choice = choices[0]
         finish_reason = choice.get("finish_reason") or "stop"
+        stop_sequence = choice.get("stop_sequence", stop_sequence)
         message = choice.get("message") or {}
         reasoning = message.get("reasoning_content")
         if include_thinking and isinstance(reasoning, str) and reasoning:
@@ -795,6 +807,9 @@ def openai_to_anthropic(
                     "input": input_data,
                 }
             )
+    stop_sequence = _sanitize_stop_sequence(
+        stop_sequence, stop_sequences, finish_reason
+    )
     usage = openai_response.get("usage") or {}
     return {
         "id": f"msg_{uuid.uuid4().hex}",
@@ -824,6 +839,7 @@ async def anthropic_stream_events(
     request_id: str,
     input_tokens: int = 0,
     include_thinking: bool = False,
+    stop_sequences: Optional[List[str]] = None,
 ) -> AsyncIterator[Dict[str, str]]:
     """Convert OpenAI chat-completion chunks into Anthropic SSE events.
 
@@ -1014,7 +1030,7 @@ async def anthropic_stream_events(
 
             if choice.get("finish_reason") is not None:
                 finish_reason = choice["finish_reason"]
-                stop_sequence = choice.get("stop_sequence") or stop_sequence
+                stop_sequence = choice.get("stop_sequence", stop_sequence)
 
     finally:
         close = getattr(chunks, "aclose", None)
@@ -1060,6 +1076,9 @@ async def anthropic_stream_events(
             }
         yield block_stop(block_index)
 
+    stop_sequence = _sanitize_stop_sequence(
+        stop_sequence, stop_sequences, finish_reason
+    )
     yield {
         "event": "message_delta",
         "data": json.dumps(
