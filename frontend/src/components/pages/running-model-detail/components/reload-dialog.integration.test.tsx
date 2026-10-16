@@ -46,6 +46,8 @@ let enabled = true,
   closed = 0,
   refreshed = 0;
 let posts: { url: string; body: unknown }[] = [];
+let imageLimits: Record<string, number> | undefined;
+let hotParameters: string[];
 let initial: { status: string; stage?: string; error?: string; restored?: boolean } = {
   status: 'idle',
   stage: 'queued',
@@ -59,17 +61,27 @@ beforeEach(() => {
   closed = 0;
   refreshed = 0;
   posts = [];
+  imageLimits = undefined;
+  hotParameters = ['reasoning_content'];
   initial = { status: 'idle', stage: 'queued' };
   final = { status: 'ready' };
   request.get = async <T,>(url: string) => {
     if (url.endsWith('/config'))
       return {
         enabled,
-        model_config: { max_num_seqs: 16, enforce_eager: false },
+        model_config: {
+          max_num_seqs: 16,
+          enforce_eager: false,
+          reasoning_content: false,
+          ...(imageLimits ? { limit_mm_per_prompt: imageLimits } : {}),
+        },
+        hot_parameters: hotParameters,
         parameters: {
           max_num_seqs: 'positive_int',
           enforce_eager: 'bool',
           max_model_len: 'positive_int',
+          ...(hotParameters.includes('reasoning_content') ? { reasoning_content: 'bool' } : {}),
+          ...(imageLimits ? { limit_mm_per_prompt: 'image_limits' } : {}),
         },
       } as T;
     return (polls++ === 0 ? initial : final) as T;
@@ -136,12 +148,69 @@ it('submits typed changed fields and follows the asynchronous reload', async () 
   assert.equal(refreshed, 1);
   assert.equal(closed, 1);
 });
-it('explains that launch-time weight caching is required', async () => {
+it('disables reload when no parameters can be updated', async () => {
   enabled = false;
+  hotParameters = [];
   await render();
   assert.ok(applyButton().disabled);
   assert.match(document.body.textContent || '', /runningModels.reload.disabled/);
   assert.equal(document.querySelectorAll('input').length, 0);
+  assert.equal(document.querySelector('[role="switch"]'), null);
+  assert.doesNotMatch(document.body.textContent || '', /runningModels.reload.reasoningHint/);
+});
+it('can update reasoning parsing without launch-time weight caching', async () => {
+  enabled = false;
+  await render();
+  assert.equal(document.querySelector('input[aria-label="max_num_seqs"]'), null);
+  await act(async () => {
+    document.querySelector<HTMLButtonElement>('button[aria-label="reasoning_content"]')!.click();
+  });
+  assert.ok(!applyButton().disabled);
+  await act(async () => applyButton().click());
+  assert.deepEqual(posts[0].body, { model_config: { reasoning_content: true } });
+  assert.match(document.body.textContent || '', /runningModels.reload.reasoningHint/);
+});
+it('edits only the image count and leaves an unchanged object unsubmitted', async () => {
+  imageLimits = { image: 2, video: 0 };
+  await render();
+  assert.ok(applyButton().disabled);
+  const input = document.querySelector<HTMLInputElement>(
+    'input[aria-label="limit_mm_per_prompt"]'
+  )!;
+  assert.equal(input.value, '2');
+  assert.equal(input.min, '1');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(
+      input,
+      '8'
+    );
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => applyButton().click());
+  assert.deepEqual(posts[0].body, { model_config: { limit_mm_per_prompt: { image: 8 } } });
+});
+it('hides the no-restart hint when a cached reload mixes hot and engine parameters', async () => {
+  imageLimits = { image: 2, video: 0 };
+  await render();
+  await act(async () => {
+    document.querySelector<HTMLButtonElement>('button[aria-label="reasoning_content"]')!.click();
+  });
+  assert.match(document.body.textContent || '', /runningModels.reload.reasoningHint/);
+  const input = document.querySelector<HTMLInputElement>(
+    'input[aria-label="limit_mm_per_prompt"]'
+  )!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(
+      input,
+      '8'
+    );
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  assert.doesNotMatch(document.body.textContent || '', /runningModels.reload.reasoningHint/);
+  await act(async () => applyButton().click());
+  assert.deepEqual(posts[0].body, {
+    model_config: { reasoning_content: true, limit_mm_per_prompt: { image: 8 } },
+  });
 });
 it('resumes an existing reload and reports restoration', async () => {
   initial = { status: 'reloading', stage: 'draining' };

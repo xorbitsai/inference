@@ -18,8 +18,9 @@ import request from '@/lib/request';
 
 interface ReloadConfig {
   enabled: boolean;
-  model_config: Record<string, number | boolean>;
+  model_config: Record<string, number | boolean | Record<string, number>>;
   parameters: Record<string, string>;
+  hot_parameters?: string[];
 }
 interface ReloadStatus {
   operation_id?: string;
@@ -71,7 +72,9 @@ export function ReloadDialog({
           Object.fromEntries(
             Object.entries(metadata.model_config).map(([key, value]) => [
               key,
-              typeof value === 'boolean' ? value : String(value),
+              typeof value === 'boolean'
+                ? value
+                : String(typeof value === 'object' ? (value.image ?? '') : value),
             ])
           )
         );
@@ -115,11 +118,26 @@ export function ReloadDialog({
     };
   }, [open, job?.status, url, onReady, onOpenChange]);
 
+  const parameters = Object.entries(config?.parameters || {}).filter(
+    ([key]) => config?.enabled || config?.hot_parameters?.includes(key)
+  );
   const patch = Object.fromEntries(
     Object.entries(values)
-      .filter(([, value]) => value !== '')
-      .map(([key, value]) => [key, typeof value === 'boolean' ? value : Number(value)])
-      .filter(([key, value]) => value !== config?.model_config[String(key)])
+      .filter(([key, value]) => value !== '' && parameters.some(([name]) => name === key))
+      .filter(([key, value]) => {
+        const current = config?.model_config[key];
+        return typeof current === 'object'
+          ? Number(value) !== current.image
+          : (typeof value === 'boolean' ? value : Number(value)) !== current;
+      })
+      .map(([key, value]) => [
+        key,
+        config?.parameters[key] === 'image_limits'
+          ? { image: Number(value) }
+          : typeof value === 'boolean'
+            ? value
+            : Number(value),
+      ])
   );
 
   const submit = async () => {
@@ -150,33 +168,43 @@ export function ReloadDialog({
         {config?.enabled === false && (
           <p className="text-sm">{t('runningModels.reload.disabled')}</p>
         )}
-        {config?.enabled &&
-          Object.entries(config.parameters).map(([key, kind]) => (
-            <label key={key} className="flex items-center justify-between gap-4 text-sm">
-              <span>{key}</span>
-              {kind === 'bool' ? (
-                <Switch
-                  aria-label={key}
-                  checked={values[key] === true}
-                  disabled={busy}
-                  onChange={(value) => setValues((prev) => ({ ...prev, [key]: value }))}
-                />
-              ) : (
-                <Input
-                  aria-label={key}
-                  className="w-40"
-                  type="number"
-                  step={kind === 'fraction' || kind === 'positive_number' ? 'any' : 1}
-                  value={String(values[key] ?? '')}
-                  placeholder={t('runningModels.reload.default')}
-                  disabled={busy}
-                  onChange={(event) =>
-                    setValues((prev) => ({ ...prev, [key]: event.target.value }))
-                  }
-                />
-              )}
-            </label>
-          ))}
+        {config?.hot_parameters?.includes('reasoning_content') &&
+          Object.keys(patch).every((key) => config.hot_parameters?.includes(key)) && (
+            <p className="text-sm text-muted-foreground">
+              {t('runningModels.reload.reasoningHint')}
+            </p>
+          )}
+        {parameters.map(([key, kind]) => (
+          <label key={key} className="flex items-center justify-between gap-4 text-sm">
+            <span>
+              {kind === 'image_limits'
+                ? t('runningModels.reload.imageLimit')
+                : key === 'reasoning_content'
+                  ? t('launchModel.parsingReasoningContent')
+                  : key}
+            </span>
+            {kind === 'bool' ? (
+              <Switch
+                aria-label={key}
+                checked={values[key] === true}
+                disabled={busy}
+                onChange={(value) => setValues((prev) => ({ ...prev, [key]: value }))}
+              />
+            ) : (
+              <Input
+                aria-label={key}
+                className="w-40"
+                type="number"
+                min={kind === 'image_limits' ? 1 : undefined}
+                step={kind === 'fraction' || kind === 'positive_number' ? 'any' : 1}
+                value={String(values[key] ?? '')}
+                placeholder={t('runningModels.reload.default')}
+                disabled={busy}
+                onChange={(event) => setValues((prev) => ({ ...prev, [key]: event.target.value }))}
+              />
+            )}
+          </label>
+        ))}
         {job?.status === 'reloading' && (
           <p role="status" className="text-sm">
             {t(`runningModels.reload.${job.stage || 'queued'}`)}
@@ -193,7 +221,7 @@ export function ReloadDialog({
             {t('common.cancel')}
           </Button>
           <Button
-            disabled={!config?.enabled || busy || !Object.keys(patch).length}
+            disabled={!parameters.length || busy || !Object.keys(patch).length}
             onClick={submit}
           >
             {t('runningModels.reload.apply')}

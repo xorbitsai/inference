@@ -546,17 +546,18 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     def get_reload_config(self) -> Dict[str, Any]:
         return self._get_weight_cached_model().get_reload_config()
 
-    async def validate_reload(self, model_config: Dict[str, Any]) -> None:
+    async def validate_reload(self, model_config: Dict[str, Any]) -> Dict[str, Any]:
         self._require_ready()
-        await asyncio.to_thread(
+        config = await asyncio.to_thread(
             self._get_weight_cached_model().validate_reload, model_config
         )
         self._reload_status: Dict[str, Any] = {}
+        return {key: config[key] for key in model_config}
 
     def get_reload_status(self) -> Dict[str, Any]:
         return dict(getattr(self, "_reload_status", {}))
 
-    async def reload(self, model_config: Dict[str, Any], drain_timeout: float) -> None:
+    async def reload(self, model_config: Dict[str, Any], drain_timeout: float) -> bool:
         from ..model.llm.weight_cache import ModelReloadError
 
         await self.validate_reload(model_config)
@@ -589,6 +590,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         else:
             self._model_state = "ready"
             self._reload_status.update(stage="ready")
+            return not model._is_hot_patch(model_config)
 
     def need_create_pools(self):
         return getattr(self._model, "need_create_pools", False)

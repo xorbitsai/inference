@@ -6002,11 +6002,11 @@ class WorkerActor(xo.StatelessActor):
         return await self._model_uid_to_model[model_uid].get_reload_status()
 
     async def validate_model_reload(self, model_uid: str, config: Dict[str, Any]):
-        await self._model_uid_to_model[model_uid].validate_reload(config)
+        return await self._model_uid_to_model[model_uid].validate_reload(config)
 
     async def reload_model(
         self, model_uid: str, config: Dict[str, Any], drain_timeout: float
-    ) -> None:
+    ) -> bool:
         from ..model.llm.weight_cache import ModelReloadError
 
         model_ref = self._model_uid_to_model[model_uid]
@@ -6022,7 +6022,7 @@ class WorkerActor(xo.StatelessActor):
             )
 
         try:
-            await model_ref.reload(config, drain_timeout)
+            weights_reused = await model_ref.reload(config, drain_timeout)
         except ModelReloadError as exc:
             if still_owns_model():
                 await self._update_model_state(
@@ -6051,6 +6051,7 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_launch_args[model_uid].update(config)
             self._persist_launch_args()
             await self._update_model_state(model_uid, "ready")
+            return weights_reused
 
     @log_sync(logger=logger)
     def get_model_for_abort(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:

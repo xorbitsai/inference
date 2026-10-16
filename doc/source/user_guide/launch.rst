@@ -487,6 +487,10 @@ Xinference keeps GPU weights in an upstream cache daemon while rebuilding the en
 
 vLLM supports changing ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` and ``enforce_eager``.
 
+For reasoning-capable models, both engines also accept ``reasoning_content`` through the same reload API. This changes only the Xinference reasoning parser and leaves the engine and GPU weights intact. It works without ``enable_weight_cache`` or the minimum engine versions required for weight retention. Existing requests, including streams, finish before the new setting is applied; new requests are temporarily rejected while draining. The ``hot_parameters`` field in reload metadata lists these settings; ``enabled`` still indicates launch-time weight retention. Hot updates also require one worker and one replica. ``weights_reused`` is true only when an engine rebuild uses retained weights.
+
+For vLLM vision models launched with weight retention, ``limit_mm_per_prompt`` can change a positive image count to another positive count, for example ``{"image": 8}``. Unspecified modality limits are preserved in the engine, recovery and automatic-startup configuration. The engine is rebuilt to apply multimodal memory profiling and cache budgets while reusing the retained weights. Setting the image count to zero or enabling images from an initially disabled encoder is rejected; limits for other modalities cannot change through this operation.
+
 SGLang supports changing ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` and ``schedule_conservativeness``.
 
 Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reload parameters** to edit the supported values and follow progress.
@@ -509,3 +513,15 @@ Parallelism, GPU placement, model path, precision, quantization and weight-layou
 
     xinference reload --model-uid MODEL_UID --model-config '{"max_num_seqs": 32}'
     curl http://127.0.0.1:9997/v1/models/MODEL_UID/reload
+
+To change reasoning parsing without restarting the engine:
+
+.. code-block:: python
+
+    job = client.reload_model(uid, {"reasoning_content": True})
+
+For a vision model launched with weight retention and a positive image limit:
+
+.. code-block:: python
+
+    job = client.reload_model(uid, {"limit_mm_per_prompt": {"image": 8}})
