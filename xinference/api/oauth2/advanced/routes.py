@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING, Optional
 
@@ -169,10 +168,8 @@ async def advanced_login(request: Request) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
     try:
         body = await request.json()
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        raise HTTPException(
-            status_code=400, detail="Request body must be a JSON object"
-        )
+    except (ValueError, RecursionError):
+        body = None
     if not isinstance(body, dict):
         raise HTTPException(
             status_code=400, detail="Request body must be a JSON object"
