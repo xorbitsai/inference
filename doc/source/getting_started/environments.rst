@@ -9,6 +9,45 @@ XINFERENCE_ENDPOINT
 Endpoint of Xinference, used to connect to Xinference service.
 Default value is http://127.0.0.1:9997 , you can get it through logs.
 
+.. _actor_transport_authentication:
+
+XOSCAR_AUTH_KEY
+~~~~~~~~~~~~~~~
+Shared secret for Xoscar actor transport authentication, supported by Xoscar
+0.12.0 and later. Unset or empty keeps the legacy unauthenticated transport;
+upgrading alone does not enable protection. HTTP API authentication does not
+protect actor ports. See the `security advisory
+<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-mmvj-m246-m9vf>`_.
+
+Generate one random secret per deployment with the following command. Distribute
+the same value through your secret-management system before starting
+``xinference-local``, ``xinference-supervisor``, every ``xinference-worker``,
+and any direct Xoscar actor clients. Child processes, including model virtual
+environments, inherit the variable. HTTP clients do not need this secret.
+
+.. code-block:: bash
+
+   python -c "import secrets; print(secrets.token_hex(32))"
+   export XOSCAR_AUTH_KEY='<same-random-deployment-secret>'
+
+Upgrade all actor peers to Xoscar 0.12.0 or later before enabling the key, then
+coordinate a restart with the same key on every peer. Keyed and unkeyed peers
+cannot communicate; there is no automatic downgrade or mixed-mode rolling
+upgrade. Key rotation also requires a coordinated restart. For ``docker run``,
+pass the exported variable with ``-e XOSCAR_AUTH_KEY``; for Kubernetes, inject
+the same Secret into each server container's environment.
+
+Socket and UCX messages are authenticated before deserialization. Anyone holding
+the key is a trusted peer with Python execution privileges. Deployment
+administrators must restrict actor ports to intended cluster peers. Authentication
+does not encrypt traffic or prevent replay; authenticated GPU transfers stage
+device buffers in host memory for hashing and add CPU and host-memory overhead.
+
+XINFERENCE_TRUST_REMOTE_CODE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust.
+
 XINFERENCE_MODEL_SRC
 ~~~~~~~~~~~~~~~~~~~~~
 Modelhub used for downloading models. Options are "huggingface", "modelscope"
@@ -33,6 +72,11 @@ necessary files such as logs and models, where ``<HOME>`` is the home
 path of current user. You can change this directory by configuring this environment
 variable.
 
+XINFERENCE_SYSTEM_SETTINGS_PATH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Path to the JSON file that stores system settings configured through the Web UI.
+Default value is ``<XINFERENCE_HOME>/system-settings.json``.
+
 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The maximum number of failed health checks tolerated at Xinference startup.
@@ -47,6 +91,13 @@ XINFERENCE_HEALTH_CHECK_TIMEOUT
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Health check timeout (seconds) at Xinference startup.
 Default value is 10.
+
+XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum age in seconds of the last valid per-model GPU-memory snapshot retained
+by the supervisor after a worker omits the field because collection failed or
+was skipped. An explicit empty snapshot still clears the cache immediately.
+Default value is 90.
 
 XINFERENCE_DISABLE_HEALTH_CHECK
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -64,10 +115,11 @@ XINFERENCE_DOWNLOAD_MAX_ATTEMPTS
 Maximum download retry attempts for model files.
 Default value is 3.
 
-XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Enable continuous batching for text-to-image models by specifying the target image size
-(e.g., ``1024*1024``). Default is unset.
+XINFERENCE_LLMMAN_BIN
+~~~~~~~~~~~~~~~~~~~~~
+Path to the ``llmman`` executable used to resolve ``oci://`` model URIs.
+Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an
+``llmman serve`` daemon that is not on ``127.0.0.1:17434``.
 
 XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -215,3 +267,56 @@ XINFERENCE_AUDIT_LOG_RETENTION_DAYS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Number of days audit log files are retained.
 Default value is 90. See :ref:`user_guide_audit_security`.
+
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Initial delay in seconds between Router Agent bootstrap retries. The delay uses
+exponential backoff with jitter. Default value is 1.
+
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum delay in seconds between Router Agent bootstrap retries. Default value
+is 15 and must not be lower than the initial delay.
+
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Total deadline in seconds for Router Agent startup registration and initial
+synchronization retries. Default value is 120.
+
+.. _environments_media:
+
+XINFERENCE_MEDIA_BLOCK_PRIVATE_ADDRESS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Refuse client-supplied ``image_url`` / ``video_url`` / ``audio_url`` values that
+resolve to loopback, private, or link-local addresses, which otherwise let a
+chat request probe the server's own network (SSRF).
+Default value is ``true``.
+
+.. versionadded:: 3.5
+   Enabled by default. Requests referencing intranet hosts such as
+   ``http://minio.internal/x.png`` or a Kubernetes Service DNS name now fail.
+   Set this to ``false`` if the deployment is not publicly exposed and the
+   server is trusted to reach those hosts.
+
+XINFERENCE_MEDIA_ALLOW_LOCAL_PATH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Allow ``file://`` URLs and bare filesystem paths in chat media parts. When
+disabled, such values are rejected instead of being read off the server's disk.
+Default value is ``false``.
+
+.. versionadded:: 3.5
+   Disabled by default. Server-local paths that previously worked
+   (an ``image_url`` of ``/data/img.png``) now error. Send the media as a
+   ``data:`` URI or an HTTP(S) URL, or set this to ``true`` when every API
+   caller is already trusted with the server's filesystem.
+
+XINFERENCE_MEDIA_FETCH_TIMEOUT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Total wall-clock seconds allowed for fetching one remote media URL, redirects
+included. A single request's media as a whole is capped at three times this
+value. Default value is 20.
+
+XINFERENCE_MEDIA_MAX_BYTES
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum size in bytes of one fetched media file.
+Default value is 67108864 (64 MiB).

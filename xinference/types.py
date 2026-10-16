@@ -86,7 +86,7 @@ class EmbeddingData(TypedDict):
 
 class Embedding(TypedDict):
     object: Literal["list"]
-    model: str
+    model: Optional[str]
     model_replica: str
     data: List[EmbeddingData]
     usage: EmbeddingUsage
@@ -132,7 +132,7 @@ class RerankTokens(TypedDict):
 class Meta(TypedDict):
     api_version: Optional[ApiVersion]
     billed_units: Optional[BilledUnit]
-    tokens: RerankTokens
+    tokens: Optional[RerankTokens]
     warnings: Optional[List[str]]
 
 
@@ -201,6 +201,18 @@ class ToolCalls(TypedDict):
     function: ToolCallFunction
 
 
+class ToolCallDeltaFunction(TypedDict, total=False):
+    name: str
+    arguments: str
+
+
+class ToolCallDelta(TypedDict):
+    index: int
+    id: NotRequired[str]
+    type: NotRequired[Literal["function"]]
+    function: NotRequired[ToolCallDeltaFunction]
+
+
 class CompletionChoice(TypedDict):
     text: NotRequired[str]
     index: int
@@ -218,6 +230,7 @@ class CompletionUsage(TypedDict):
     completion_tokens: int
     total_tokens: int
     prompt_tokens_details: NotRequired[PromptTokensDetails]
+    cache_creation_input_tokens: NotRequired[int]
 
 
 class CompletionChunk(TypedDict):
@@ -274,7 +287,7 @@ class ChatCompletionChunkDelta(TypedDict):
     role: NotRequired[str]
     reasoning_content: NotRequired[Union[str, None]]
     content: NotRequired[Union[str, None]]
-    tool_calls: NotRequired[List[ToolCalls]]
+    tool_calls: NotRequired[List[ToolCallDelta]]
 
 
 class ChatCompletionChunkChoice(TypedDict):
@@ -356,6 +369,7 @@ class PytorchModelConfig(TypedDict, total=False):
     max_num_seqs: int
     enable_tensorizer: Optional[bool]
     reasoning_content: bool
+    enable_thinking: bool
     min_pixels: NotRequired[int]
     max_pixels: NotRequired[int]
     downsample_mode: NotRequired[str]
@@ -424,6 +438,7 @@ class ModelAndMessages(BaseModel):
 
 class CreateCompletionTorch(BaseModel):
     echo: bool = echo_field
+    ignore_eos: bool = False
     max_tokens: Optional[int] = max_tokens_field
     repetition_penalty: float = repeat_penalty_field
     stop: Optional[Union[str, List[str]]] = stop_field
@@ -473,16 +488,18 @@ class CreateChatCompletion(  # type: ignore
     CreateChatCompletionTorch,
     CreateChatCompletionOpenAI,
 ):
-    pass
+    mm_processor_kwargs: Optional[Dict[str, Any]] = None
 
 
 class LoRA:
-    def __init__(self, lora_name: str, local_path: str):
+    def __init__(self, lora_name: str, local_path: str, lora_scale: float = 1.0):
+        self.lora_scale = lora_scale
         self.lora_name = lora_name
         self.local_path = local_path
 
     def to_dict(self):
         return {
+            **({"lora_scale": self.lora_scale} if self.lora_scale != 1.0 else {}),
             "lora_name": self.lora_name,
             "local_path": self.local_path,
         }
@@ -490,6 +507,7 @@ class LoRA:
     @classmethod
     def from_dict(cls, data: Dict):
         return cls(
+            lora_scale=data.get("lora_scale", 1.0),
             lora_name=data["lora_name"],
             local_path=data["local_path"],
         )

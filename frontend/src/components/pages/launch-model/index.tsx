@@ -2,16 +2,7 @@
 
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  ExternalLink,
-  Info,
-  Loader2,
-  RefreshCw,
-  Rocket,
-  Search,
-  Star,
-  Trash2,
-} from 'lucide-react';
+import { ExternalLink, Info, Loader2, RefreshCw, Rocket, Search, Star, Trash2 } from 'lucide-react';
 import request from '@/lib/request';
 import PageContainer from '@/components/ui/page-container';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,6 +12,7 @@ import { Select } from '@/components/ui/select';
 import { RadioGroup } from '@/components/ui/radio-group';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useI18n } from '@/contexts/i18n-context';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { cn } from '@/lib/utils';
 import { ModelType, CUSTOM_MODEL_OPTIONS } from '@/constants';
 import {
@@ -39,8 +31,14 @@ import {
   isRecord,
   normalizeModels,
   getLaunchModelEndpointType,
+  getInitialCustomType,
   getSortedModels,
 } from './utils';
+import {
+  clearPendingLaunchModelTarget,
+  peekPendingLaunchModelTarget,
+  prioritizeModelByName,
+} from './navigation-utils.mjs';
 
 interface LaunchModelProps {
   routeType: RouteModelType;
@@ -49,10 +47,17 @@ interface LaunchModelProps {
 
 const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
   const { t } = useI18n();
+  const { hasVirtualEnvList } = useMenuAuth();
   const router = useRouter();
   const isCustomRoute = routeType === ModelType.Custom;
+  const launchTargetRef = useRef(peekPendingLaunchModelTarget());
+  const launchTarget = launchTargetRef.current;
+  const targetModelName = launchTarget?.modelName;
+  const targetCustomType = launchTarget?.modelType
+    ? getInitialCustomType(launchTarget.modelType)
+    : initialCustomType;
   const [gpuAvailable, setGPUAvailable] = useState(-1);
-  const [customType, setCustomType] = useState<RequestModelType>(initialCustomType);
+  const [customType, setCustomType] = useState<RequestModelType>(targetCustomType);
   const [models, setModels] = useState<CatalogModel[]>([]);
   const modelRequestIdRef = useRef(0);
   const [virtualenvs, setVirtualenvs] = useState<VirtualEnv[]>([]);
@@ -65,10 +70,9 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<CatalogModel>();
   const [deleteModel, setDeleteModel] = useState<CatalogModel>();
+  const handledLaunchTargetRef = useRef('');
   const requestType = isCustomRoute ? customType : (routeType as RequestModelType);
-  const showAbilityFilter = ![ModelType.Embedding, ModelType.Rerank, ModelType.Custom].includes(
-    routeType
-  );
+  const showAbilityFilter = routeType !== ModelType.Custom;
   const showStatusFilter = !isCustomRoute;
 
   const statusOptions = [
@@ -86,9 +90,17 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
     } catch {}
   }, []);
   const fetchVirtualenvs = useCallback(async () => {
-    const res = await request.get('/v1/virtualenvs');
-    setVirtualenvs(Array.isArray(res?.list) ? res.list : []);
-  }, []);
+    if (!hasVirtualEnvList) {
+      setVirtualenvs([]);
+      return;
+    }
+    try {
+      const res = await request.get('/v1/virtualenvs', { suppressGlobalError: true });
+      setVirtualenvs(Array.isArray(res?.list) ? res.list : []);
+    } catch {
+      setVirtualenvs([]);
+    }
+  }, [hasVirtualEnvList]);
 
   const fetchModels = useCallback(
     async (nextType = requestType) => {
@@ -161,13 +173,19 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
     setQuery('');
 
     if (isCustomRoute) {
-      setCustomType(initialCustomType);
+      setCustomType(targetCustomType);
       setRefreshType(ModelType.LLM);
       return;
     }
 
     setRefreshType(routeType as RequestModelType);
-  }, [isCustomRoute, initialCustomType, routeType]);
+  }, [isCustomRoute, routeType, targetCustomType]);
+
+  useEffect(() => {
+    if (launchTarget) {
+      clearPendingLaunchModelTarget(launchTarget);
+    }
+  }, [launchTarget]);
 
   useEffect(() => {
     fetDevices();
@@ -184,6 +202,19 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
   useEffect(() => {
     fetchVirtualenvs();
   }, [fetchVirtualenvs]);
+
+  useEffect(() => {
+    if (!targetModelName || loading) return;
+
+    const targetKey = `${requestType}:${targetModelName}`;
+    if (handledLaunchTargetRef.current === targetKey) return;
+
+    const targetModel = models.find((model) => model.model_name === targetModelName);
+    if (!targetModel) return;
+
+    handledLaunchTargetRef.current = targetKey;
+    setSelectedModel(targetModel);
+  }, [loading, models, requestType, targetModelName]);
 
   useEffect(() => {
     const rawValue = window.localStorage.getItem(COLLECTION_STORAGE_KEY);
@@ -235,8 +266,17 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
       return matchesKeyword && matchesAbility && matchesStatus;
     });
 
-    return getSortedModels(filteredModels, favorites);
-  }, [ability, favorites, models, query, showAbilityFilter, showStatusFilter, status]);
+    return prioritizeModelByName(getSortedModels(filteredModels, favorites), targetModelName);
+  }, [
+    ability,
+    favorites,
+    models,
+    query,
+    showAbilityFilter,
+    showStatusFilter,
+    status,
+    targetModelName,
+  ]);
 
   const onTabChange = (value: string) => {
     const target = LAUNCH_MODEL_ROUTE_TABS.find((item) => item.key === value);
@@ -276,7 +316,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
     setDeleteModel(model);
   };
   const handleDeleteModel = () => {
-    if(!deleteModel) return;
+    if (!deleteModel) return;
     request
       .delete(`/v1/model_registrations/${customType}/${deleteModel?.model_name}`)
       .then(() => {
@@ -510,6 +550,8 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
         model={selectedModel}
         modelType={requestType}
         gpuAvailable={gpuAvailable}
+        allowDownloadOnly={!isCustomRoute}
+        onCacheCompleted={() => fetchModels(requestType)}
         onOpenChange={(open) => !open && setSelectedModel(undefined)}
       />
     </PageContainer>

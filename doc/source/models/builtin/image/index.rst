@@ -17,6 +17,8 @@ The following is a list of built-in image models in Xinference:
   
    deepseek-ocr
   
+   dots.ocr
+
    firered-image-edit-1.1
   
    flux.1-dev
@@ -48,19 +50,45 @@ The following is a list of built-in image models in Xinference:
    hunyuanocr
   
    ideogram4
+
+   iris-3b
+
+   iris-3b-turbo
+
+   jina-ocr-v1
+
+   joyai-image-edit
+
+   joyai-image-edit-plus
   
    kolors
 
    krea-2-raw
 
    krea-2-turbo
+
+   mineru2.5
+
+   ming-image-0.1-design
+
+   ming-image-0.1-design-layer
+
+   monkeyocr
   
+   navidc-ocr
+
+   ovisocr2
+
    paddleocr-vl
   
    paddleocr-vl-1.6
   
    qwen-image
   
+   qwen-image-2.1
+
+   qwen-image-2.1-turbo
+
    qwen-image-2512
   
    qwen-image-edit
@@ -94,6 +122,8 @@ The following is a list of built-in image models in Xinference:
    stable-diffusion-xl-base-1.0
   
    stable-diffusion-xl-inpainting
+
+   teleocr
   
    unlimited-ocr
   

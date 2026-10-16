@@ -1,0 +1,42 @@
+[
+  {
+    "version": 2,
+    "model_name": "text2vec-base-chinese-paraphrase",
+    "dimensions": 768,
+    "max_tokens": 256,
+    "language": [
+      "zh"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "shibing624/text2vec-base-chinese-paraphrase",
+            "model_revision": "beaf10481a5d9ca3b0daa9f0df6831ec956bf739",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mwei23/text2vec-base-chinese-paraphrase",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "updated_at": 1784543820,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

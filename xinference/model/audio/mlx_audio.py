@@ -449,10 +449,12 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
     ) -> Dict[str, Any]:
         from .utils import apply_mlx_audio_seed
 
-        apply_mlx_audio_seed(kwargs)
+        seed = apply_mlx_audio_seed(kwargs)
         generate_kwargs = dict(kwargs)
         prompt_speech = generate_kwargs.pop("prompt_speech", None)
         prompt_text = generate_kwargs.pop("prompt_text", None)
+        reference_text = generate_kwargs.pop("reference_text", None)
+        prompt_text = prompt_text or reference_text
         reference_speech = generate_kwargs.pop("reference_speech", None)
         language = generate_kwargs.pop("language", None)
         instruct = (
@@ -490,6 +492,83 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
                     )
                 generate_kwargs["ref_audio"] = prompt_audio_path
                 generate_kwargs["ref_text"] = prompt_text
+        elif model_family == "FishAudio":
+            reference_audio_path = prompt_audio_path or reference_audio_path
+            generate_kwargs.update(
+                text=input,
+                voice=voice or None,
+                speed=speed,
+            )
+            if reference_audio_path:
+                from mlx_audio.utils import load_audio
+
+                sample_rate = int(getattr(self._model, "sample_rate", 44100))
+                generate_kwargs["ref_audio"] = load_audio(
+                    reference_audio_path,
+                    sample_rate=sample_rate,
+                )
+                generate_kwargs["ref_text"] = prompt_text
+            if instruct:
+                generate_kwargs["instruct"] = instruct
+            max_new_tokens = generate_kwargs.pop("max_new_tokens", None)
+            if max_new_tokens is not None:
+                generate_kwargs.setdefault("max_tokens", max_new_tokens)
+        elif model_family == "Breeze-TTS-2":
+            from .breeze_tts import _DEFAULT_INSTRUCTION, _validate_cfg_scale
+
+            instruction = generate_kwargs.pop("instruction", None)
+            instruction = instruct or instruction
+            if instruction is not None:
+                instruction = str(instruction).strip()
+            if prompt_text is not None:
+                prompt_text = str(prompt_text).strip()
+            ref_audio = prompt_audio_path or reference_audio_path
+            if ref_audio and not prompt_text:
+                raise ValueError(
+                    "Breeze-TTS-2 requires the reference audio transcript in "
+                    "`prompt_text` when reference audio is provided."
+                )
+            if not ref_audio:
+                instruction = instruction or prompt_text
+            guidance_scale = generate_kwargs.pop("guidance_scale", None)
+            cfg_scale = generate_kwargs.pop("cfg_scale", None)
+            if cfg_scale is None:
+                cfg_scale = guidance_scale if guidance_scale is not None else 1.0
+            max_new_tokens = generate_kwargs.pop("max_new_tokens", None)
+            if max_new_tokens is not None:
+                generate_kwargs.setdefault("max_tokens", max_new_tokens)
+            speaker = generate_kwargs.pop("speaker", None)
+            generate_kwargs.update(
+                text=input,
+                voice=speaker
+                or (
+                    voice
+                    if voice and voice.lower() not in self._OPENAI_VOICES
+                    else None
+                )
+                or "S0",
+                instruct=instruction or _DEFAULT_INSTRUCTION,
+                cfg_scale=_validate_cfg_scale(cfg_scale),
+                ref_audio=ref_audio,
+                ref_text=prompt_text if ref_audio else None,
+            )
+            if speed != 1.0:
+                logger.warning("Breeze-TTS-2 does not support speed; ignoring it")
+        elif model_family == "Irodori-TTS":
+            caption = generate_kwargs.pop("caption", None)
+            instruction = generate_kwargs.pop("instruction", None)
+            if caption is None:
+                caption = instruct or instruction or prompt_text
+            generate_kwargs.update(text=input, caption=caption)
+            if prompt_audio_path or reference_audio_path:
+                generate_kwargs["ref_audio"] = prompt_audio_path or reference_audio_path
+            if seed is not None:
+                # Irodori reseeds inside its sampler using rng_seed.
+                generate_kwargs.setdefault("rng_seed", seed)
+            if speed != 1.0:
+                logger.warning("Irodori-TTS does not support speed; ignoring it")
+            if voice:
+                logger.warning("Irodori-TTS does not support named voices; ignoring it")
         elif model_family == "VoxCPM":
             generate_kwargs["text"] = input
             generate_kwargs["ref_audio"] = reference_audio_path or prompt_audio_path

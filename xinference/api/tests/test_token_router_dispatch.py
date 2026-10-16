@@ -951,6 +951,9 @@ async def test_physical_chat_keeps_existing_path(monkeypatch):
         async def is_vllm_backend(self):
             return False
 
+        async def is_transformers_batching_enabled(self):
+            return False
+
     async def fake_require_model(*args, **kwargs):
         return FakeModel()
 
@@ -1045,7 +1048,10 @@ async def test_list_models_hides_persisted_virtual_models_when_router_disabled(
 
 
 @pytest.mark.asyncio
-async def test_anthropic_virtual_non_stream_uses_openai_data_plane(monkeypatch):
+@pytest.mark.parametrize("cache_hint", [False, True])
+async def test_anthropic_virtual_non_stream_uses_openai_data_plane(
+    monkeypatch, cache_hint
+):
     resolution = {
         "matched": True,
         "available": True,
@@ -1099,11 +1105,15 @@ async def test_anthropic_virtual_non_stream_uses_openai_data_plane(monkeypatch):
                 "messages": [{"role": "user", "content": "hello"}],
                 "max_tokens": 64,
                 "stop_sequences": ["END"],
+                **({"cache_control": {"type": "ephemeral"}} if cache_hint else {}),
             },
         )
 
     assert response.status_code == 200
     assert response.headers["request-id"] == "request-anthropic-a"
+    assert response.headers.get("x-xinference-cache-control") == (
+        "automatic" if cache_hint else None
+    )
     assert response.json()["model"] == "virtual-model"
     assert response.json()["stop_reason"] == "end_turn"
     assert response.json()["content"] == [{"type": "text", "text": "routed answer"}]
@@ -1374,3 +1384,80 @@ async def test_anthropic_virtual_router_error_is_converted(monkeypatch):
     assert not upstream_client.is_closed
     await api._close_token_router_client()
     assert upstream_client.is_closed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure_layer,expected_origin",
+    [("upstream", "upstream"), ("protocol", "protocol")],
+)
+async def test_anthropic_virtual_stream_reports_precise_failure_origin(
+    monkeypatch, failure_layer, expected_origin
+):
+    from xinference.api.streaming_outcome import StreamingOutcomeReporter
+
+    resolution = {
+        "matched": True,
+        "available": True,
+        "virtual_model_uid": "virtual-model",
+        "router_uid": "router-a",
+        "instance_id": "instance-a",
+        "endpoint": "http://router:10081",
+    }
+    api = make_rest_api(FakeSupervisor(resolution))
+    app = make_anthropic_app(api)
+    reporter = StreamingOutcomeReporter()
+    real_async_client = httpx.AsyncClient
+
+    class UpstreamStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b'data: {"choices":[{"delta":{"content":"one"}}]}\n\n'
+            if failure_layer == "upstream":
+                raise OSError("router disconnected")
+            yield b"data: [DONE]\n\n"
+
+        async def aclose(self):
+            return None
+
+    def upstream_handler(request):
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            stream=UpstreamStream(),
+        )
+
+    if failure_layer == "protocol":
+
+        async def broken_parser(byte_stream):
+            async for _ in byte_stream:
+                raise ValueError("invalid upstream protocol")
+                yield  # pragma: no cover
+
+        monkeypatch.setattr(
+            RESTfulAPI, "_iter_openai_sse_bytes", staticmethod(broken_parser)
+        )
+
+    upstream_client = real_async_client(transport=httpx.MockTransport(upstream_handler))
+    monkeypatch.setattr(
+        restful_api_module.httpx, "AsyncClient", lambda **_: upstream_client
+    )
+    monkeypatch.setattr(
+        restful_api_module, "get_stream_outcome_reporter", lambda request: reporter
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with real_async_client(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/messages",
+            headers={"anthropic-version": "2023-06-01"},
+            json={
+                "model": "virtual-model",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 32,
+                "stream": True,
+            },
+        )
+
+    assert response.status_code == 200
+    assert "event: error" in response.text
+    assert reporter.outcome.failure_origin.value == expected_origin
+    await api._close_token_router_client()

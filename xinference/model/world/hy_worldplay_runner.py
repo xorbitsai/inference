@@ -22,6 +22,11 @@ import argparse
 import os
 
 
+def _report_progress(progress: float, info: str) -> None:
+    if int(os.environ.get("RANK", "0")) == 0:
+        print(f"XINFERENCE_PROGRESS:{progress:.2f}:{info}", flush=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--prompt", required=True)
@@ -50,11 +55,14 @@ def main() -> None:
     from wan.generate import WanRunner
 
     try:
+        _report_progress(0.05, "Loading HY-WorldPlay weights")
         runner = WanRunner(
             model_id=args.model_id,
             ckpt_path=args.ckpt_path,
             ar_model_path=args.ar_model_path,
         )
+        _report_progress(0.15, "HY-WorldPlay weights loaded")
+        _report_progress(0.18, f"Generating {args.num_chunk} chunk(s)")
         result = runner.predict(
             {
                 "prompt": args.prompt,
@@ -72,11 +80,13 @@ def main() -> None:
                 "num_chunk": args.num_chunk,
             }
         )
+        _report_progress(0.94, "Encoding HY-WorldPlay video")
         if int(os.environ.get("RANK", "0")) == 0:
             os.makedirs(args.out, exist_ok=True)
             export_to_video(
                 result["video"][0], os.path.join(args.out, "world.mp4"), fps=16
             )
+            _report_progress(0.98, "Saving HY-WorldPlay video")
     finally:
         if torch.distributed.is_initialized():
             torch.distributed.destroy_process_group()

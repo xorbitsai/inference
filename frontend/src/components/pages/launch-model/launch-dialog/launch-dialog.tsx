@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useState, useRef } from 'react';
-import { Ban, Rocket } from 'lucide-react';
+import { Ban, Download, LoaderCircle, Rocket, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import request from '@/lib/request';
@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -33,11 +32,14 @@ import type {
 } from '@/types/services';
 import type { FormValues } from '@/types/form';
 import CollapsibleConfig from './advanced-config';
-import ConfigCache, { getLatestModelConfigHistory, saveLaunchConfigHistory } from './config-cache';
+import ConfigCache from './config-cache';
+import { getLatestModelConfigHistory, saveLaunchConfigHistory } from './launch-history';
+import { replaceLaunchHistoryFormSnapshot, useLaunchHistoryForm } from './use-launch-history-form';
 import type { CatalogModel, LaunchFieldConfig, RequestModelType, WorkerOption } from '../types';
 import {
   MODEL_ENGINE_TYPES,
   buildEngineIndex,
+  buildLaunchHistoryValues,
   createCacheKey,
   isCachedSpec,
   normalizeModelSize,
@@ -45,26 +47,35 @@ import {
   renderLaunchFields,
   syncLinkedField,
   toOptionValue,
-  transformFetchToForm,
   transformFormToFetch,
+  validateReplicaPlacement,
   normalizeProgress,
   normalizeReplicaStatuses,
   isEmptyLaunchValue,
   isVisibleRequiredLaunchField,
   extractWorkerItems,
+  reconcileGpuIndexesForDevice,
+  reconcileWorkerSelectionForDevice,
   requiresGpuWorkers,
   GPU_IDX_PATTERN,
 } from '../utils';
 import CommandLine from './command-line';
+import { audioSpecsForEngine } from './audio-quantization';
 import DownloadProgressDetails, { type DownloadProgressFile } from './download-progress-details';
 import ReplicaPlacementConfig from './replica-placement-config';
 import { FormField } from '@/components/ui/form-field';
+import { shouldApplyPreferredDownloadSource } from './download-source-utils.mjs';
+import { recommendationUnavailable, recommendationWarningKeys } from './recommendation';
+import { useRecommendation } from './use-recommendation';
+import ContextLengthField from './context-length-field';
 
 interface LaunchDialogProps {
   model?: CatalogModel;
   modelType: RequestModelType;
   gpuAvailable: number;
+  allowDownloadOnly?: boolean;
   onOpenChange: (open: boolean) => void;
+  onCacheCompleted?: () => void | Promise<void>;
 }
 
 interface LaunchProgressReplica {
@@ -75,6 +86,10 @@ interface LaunchProgressReplica {
   info: string | null;
   updated_at: number | null;
   download_files: DownloadProgressFile[];
+  dependency_install_completed?: number | null;
+  dependency_install_total?: number | null;
+  dependency_install_plan?: string[] | null;
+  dependency_install_status?: 'performed' | 'skipped' | null;
 }
 
 interface LaunchProgressResponse {
@@ -84,35 +99,102 @@ interface LaunchProgressResponse {
   replicas?: LaunchProgressReplica[];
 }
 
+interface SystemSettingsResponse {
+  download_source: string;
+}
+
+const DOWNLOAD_TERMINAL_STAGES = new Set(['completed', 'failed', 'cancelled']);
+
+export function getNGpuOptions(
+  modelType: RequestModelType,
+  gpuAvailable: number,
+  supportsRecommendation: boolean
+): Array<string | number> {
+  if ([ModelType.LLM, ModelType.Image].includes(modelType)) {
+    return gpuAvailable > 0 ? ['auto', 'CPU', ...range(1, gpuAvailable)] : ['auto', 'CPU'];
+  }
+  if (supportsRecommendation) {
+    // A zero GPU count does not rule out Metal/MLX on Apple Silicon.
+    return gpuAvailable > 0 ? ['auto', 'GPU', 'CPU'] : ['auto', 'CPU'];
+  }
+  return gpuAvailable > 0 ? ['GPU', 'CPU'] : ['CPU'];
+}
+
+function getLaunchStageKey(stage?: string, status?: string): string {
+  if (stage === 'downloading') return 'launchModel.stageDownloading';
+  if (stage === 'waiting_for_dependencies') return 'launchModel.stageWaitingDependencies';
+  if (stage === 'installing_dependencies') return 'launchModel.stageInstallingDependencies';
+  if (stage === 'loading' || status === 'LOADING') return 'launchModel.stageLoading';
+  return 'launchModel.stagePreparing';
+}
+
+const DOWNLOAD_ONLY_EXCLUDED_FIELDS = new Set([
+  'model_uid',
+  'replica',
+  'replica_config',
+  'replica_placement_mode',
+  'n_gpu',
+  'gpu_idx',
+  'n_gpu_layers',
+  'n_worker',
+  'request_limits',
+  'context_length',
+  'enable_thinking',
+  'reasoning_content',
+  'cpu_offload',
+  'quantization_config',
+  'num_speculative_tokens',
+  'envs',
+  'virtual_env_find_links',
+]);
+
 export default function LaunchDialog({
   model,
   modelType,
   gpuAvailable,
+  allowDownloadOnly = true,
   onOpenChange,
+  onCacheCompleted,
 }: LaunchDialogProps) {
   const isOpen = Boolean(model);
   const formId = useId();
   const [form] = useForm();
   const { t } = useI18n();
   const { clusterAuth } = useGlobal();
-  const { isAdmin } = useMenuAuth();
+  const { isAdmin, hasSettingsRead } = useMenuAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [saveAutostart, setSaveAutostart] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressDetails, setProgressDetails] = useState<LaunchProgressResponse | null>(null);
   const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
   const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
+  const {
+    markFormEdited: markLaunchHistoryFormEdited,
+    resetFormEdited: resetLaunchHistoryFormEdited,
+    handleHistoryRefreshed: handleLaunchHistoryRefreshed,
+  } = useLaunchHistoryForm(form, isOpen, model?.model_name);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cacheUidRef = useRef<string | undefined>(undefined);
   const isCanceledLaunchRef = useRef(false);
+  const isCanceledDownloadRef = useRef(false);
+  const modelEngineRequestIdRef = useRef(0);
   const isLLM = modelType === ModelType.LLM;
+  const supportsRecommendation = [
+    ModelType.LLM,
+    ModelType.Embedding,
+    ModelType.Rerank,
+    ModelType.Audio,
+  ].includes(modelType);
   const [modelEngineMap, setModelEngineMap] = useState<ModelEngine>({});
   const launchFormValues = useFormValues(form);
   const modelEngineValue = toOptionValue(useWatch('model_engine', form));
   const modelFormatValue = toOptionValue(useWatch('model_format', form));
   const modelSizeInBillionsValue = useWatch('model_size_in_billions', form) as
-    ModelEngineItem['model_size_in_billions'] | undefined;
+    | ModelEngineItem['model_size_in_billions']
+    | undefined;
   const enableThinkingValue = useWatch('enable_thinking', form);
   const modelSizeInBillionsKey = toOptionValue(modelSizeInBillionsValue);
   const quantizationValue = toOptionValue(useWatch('quantization', form));
@@ -123,6 +205,34 @@ export default function LaunchDialog({
   const replicaValue = Number(useWatch('replica', form)) || 1;
   const modelUidValue = toOptionValue(useWatch('model_uid', form));
   const isCustomPlacement = replicaPlacementModeValue === 'custom';
+  const enableVirtualEnvValue = useWatch('enable_virtual_env', form);
+  const effectiveVirtualEnv =
+    typeof enableVirtualEnvValue === 'boolean' ? enableVirtualEnvValue : undefined;
+  const recommendationEngineContext = useRef<{
+    modelName?: string;
+    enableVirtualEnv: boolean;
+  } | null>(null);
+  const applyRecommendationEngines = useCallback(
+    (engines: ModelEngine, enableVirtualEnv: boolean) => {
+      modelEngineRequestIdRef.current += 1;
+      recommendationEngineContext.current = { modelName: model?.model_name, enableVirtualEnv };
+      setModelEngineMap(engines);
+    },
+    [model?.model_name]
+  );
+  const recommendation = useRecommendation(
+    form,
+    model?.model_name,
+    isOpen && supportsRecommendation && !loading,
+    markLaunchHistoryFormEdited,
+    applyRecommendationEngines,
+    modelType,
+    (model?.modelSpecs || []).map((spec) => toOptionValue(spec.quantization)).filter(Boolean)
+  );
+  const cannotRecommend = recommendationUnavailable(launchFormValues);
+  const recommendationWarnings = recommendation.result
+    ? recommendationWarningKeys(recommendation.result)
+    : [];
 
   const fetchWorkers = useCallback(async () => {
     if (clusterAuth?.auth && !isAdmin) {
@@ -140,6 +250,17 @@ export default function LaunchDialog({
     }
   }, [clusterAuth?.auth, isAdmin, t]);
   const fetchModelEngine = useCallback(async () => {
+    const requestId = ++modelEngineRequestIdRef.current;
+    // Applying an effective environment can trigger this effect. Its catalog
+    // was already refreshed and validated with that exact environment.
+    const recommendedContext = recommendationEngineContext.current;
+    recommendationEngineContext.current = null;
+    if (
+      recommendedContext?.modelName === model?.model_name &&
+      recommendedContext?.enableVirtualEnv === effectiveVirtualEnv
+    )
+      return;
+
     if (!model?.model_name || !MODEL_ENGINE_TYPES.includes(modelType)) {
       setModelEngineMap({});
       return;
@@ -151,10 +272,26 @@ export default function LaunchDialog({
 
     setModelEngineMap({});
 
-    const res = await request.get(url);
+    const res = await request.get<ModelEngine>(url, {
+      params:
+        effectiveVirtualEnv !== undefined ? { enable_virtual_env: effectiveVirtualEnv } : undefined,
+    });
 
-    setModelEngineMap(res || {});
-  }, [isLLM, model?.model_name, modelType]);
+    if (requestId !== modelEngineRequestIdRef.current) return;
+
+    const engineMap = res || {};
+    setModelEngineMap(engineMap);
+
+    const availableEngines = Object.entries(engineMap).filter(([, engineData]) =>
+      Array.isArray(engineData)
+    );
+    if (availableEngines.length === 1) {
+      const soleEngine = availableEngines[0][0];
+      if (form.getFieldValue('model_engine') !== soleEngine) {
+        form.setFieldValue('model_engine', soleEngine);
+      }
+    }
+  }, [form, isLLM, model?.model_name, modelType, effectiveVirtualEnv]);
 
   const engineIndex = useMemo(() => buildEngineIndex(modelEngineMap), [modelEngineMap]);
   const cacheIndex = useMemo(() => {
@@ -240,6 +377,26 @@ export default function LaunchDialog({
   );
 
   const quantizationOptions = useMemo(() => {
+    if (modelType === ModelType.Audio) {
+      const audioSpecs = audioSpecsForEngine(model?.modelSpecs || [], modelEngineValue);
+      const quantizations = Array.from(
+        new Set(audioSpecs.map((spec) => toOptionValue(spec.quantization)).filter(Boolean))
+      );
+
+      return quantizations.map((quantization) => {
+        const matchingSpecs = audioSpecs.filter(
+          (spec) => toOptionValue(spec.quantization) === quantization
+        );
+        const cached = matchingSpecs.some(isCachedSpec);
+
+        return {
+          label: quantization,
+          value: quantization,
+          suffix: cached ? t('launchModel.cached') : undefined,
+        };
+      });
+    }
+
     const quantizations =
       modelType === ModelType.LLM
         ? selectedFormatIndex?.sizes.get(modelSizeInBillionsKey)?.quantizations
@@ -260,6 +417,8 @@ export default function LaunchDialog({
     }));
   }, [
     cacheIndex.quantizations,
+    model?.modelSpecs,
+    modelEngineValue,
     modelFormatValue,
     modelSizeInBillionsKey,
     modelType,
@@ -324,42 +483,71 @@ export default function LaunchDialog({
   );
 
   const nGpuFieldProps = useMemo(() => {
-    let options = [];
-    if ([ModelType.LLM, ModelType.Image].includes(modelType)) {
-      options = gpuAvailable > 0 ? ['auto', 'CPU', ...range(1, gpuAvailable)] : ['auto', 'CPU'];
-    } else {
-      options = gpuAvailable === 0 ? ['CPU'] : ['GPU', 'CPU'];
-    }
+    const options = getNGpuOptions(modelType, gpuAvailable, supportsRecommendation);
     return {
       options: options.map((item) => ({ label: String(item), value: item })),
-      onChange: () => {
+      onChange: (nextNGpu: string | number | undefined) => {
         form.setFieldsValue({
-          gpu_idx: undefined,
-          worker_ip: undefined,
+          gpu_idx: reconcileGpuIndexesForDevice(
+            form.getFieldValue('gpu_idx'),
+            nGpuValue,
+            nextNGpu,
+            modelType
+          ),
+          worker_ip: reconcileWorkerSelectionForDevice(
+            form.getFieldValue('worker_ip'),
+            nextNGpu,
+            workerOptions
+          ),
         });
       },
     };
-  }, [gpuAvailable, modelType, form]);
+  }, [gpuAvailable, modelType, supportsRecommendation, form, nGpuValue, workerOptions]);
 
   const downloadHubOptions = useMemo(() => {
-    const engineHubs = Array.from(
+    const allSpecHubs = Array.from(
       new Set(
-        (model?.modelSpecs || [])
-          .filter(
-            (spec) =>
-              !modelEngineValue ||
-              toOptionValue(spec.model_engine).toLowerCase() === modelEngineValue.toLowerCase()
-          )
-          .map((spec) => toOptionValue(spec.model_hub))
-          .filter(Boolean)
+        (model?.modelSpecs || []).map((spec) => toOptionValue(spec.model_hub)).filter(Boolean)
       )
     );
-    const availableHubs = engineHubs.length > 0 ? engineHubs : model?.download_hubs || [];
+    const modelHubs = Array.from(
+      new Set((model?.download_hubs || []).map(toOptionValue).filter(Boolean))
+    );
+    const engineHubs = modelEngineValue
+      ? Array.from(
+          new Set(
+            (model?.modelSpecs || [])
+              .filter(
+                (spec) =>
+                  toOptionValue(spec.model_engine).toLowerCase() === modelEngineValue.toLowerCase()
+              )
+              .map((spec) => toOptionValue(spec.model_hub))
+              .filter(Boolean)
+          )
+        )
+      : [];
+    const availableHubs =
+      engineHubs.length > 0 ? engineHubs : modelHubs.length > 0 ? modelHubs : allSpecHubs;
     return ['auto', 'none', ...availableHubs].map((item) => ({
       label: item,
       value: item,
     }));
   }, [model?.download_hubs, model?.modelSpecs, modelEngineValue]);
+  const downloadHubOptionsRef = useRef(downloadHubOptions);
+  const downloadHubTouchedRef = useRef(false);
+  const downloadHubFieldProps = useMemo(
+    () => ({
+      options: downloadHubOptions,
+      onChange: () => {
+        downloadHubTouchedRef.current = true;
+      },
+    }),
+    [downloadHubOptions]
+  );
+
+  useEffect(() => {
+    downloadHubOptionsRef.current = downloadHubOptions;
+  }, [downloadHubOptions]);
 
   const workerIpFieldProps = useMemo(
     () => ({
@@ -432,10 +620,18 @@ export default function LaunchDialog({
   }, [form, modelFormatValue, modelSizeInBillionsOptions, modelSizeInBillionsValue, modelType]);
 
   useEffect(() => {
-    if (modelFormatValue && quantizationOptions.length === 0) return;
+    if (modelType !== ModelType.Audio && modelFormatValue && quantizationOptions.length === 0) {
+      return;
+    }
 
-    syncLinkedField(form, 'quantization', quantizationValue, quantizationOptions);
-  }, [form, modelFormatValue, quantizationOptions, quantizationValue]);
+    syncLinkedField(
+      form,
+      'quantization',
+      quantizationValue,
+      quantizationOptions,
+      modelType === ModelType.Audio
+    );
+  }, [form, modelFormatValue, modelType, quantizationOptions, quantizationValue]);
 
   useEffect(() => {
     if (multimodalProjectorValue && multimodalProjectorOptions.length === 0) return;
@@ -455,7 +651,13 @@ export default function LaunchDialog({
     if (!isCustomPlacement) return;
     const current =
       (form.getFieldValue('replica_config') as
-        Array<{ replica_uid?: string; worker_ip: string; gpu_idx: string }> | undefined) ?? [];
+        | Array<{
+            replica_uid?: string;
+            worker_ip: string;
+            gpu_idx: string;
+            n_gpu?: number | 'auto';
+          }>
+        | undefined) ?? [];
     if (current.length === replicaValue) return;
     const next = Array.from(
       { length: replicaValue },
@@ -556,6 +758,18 @@ export default function LaunchDialog({
         fieldProps: { options: multimodalProjectorOptions },
       },
       {
+        name: 'contextLength',
+        type: 'custom',
+        colSpan: 2,
+        content: (
+          <ContextLengthField
+            modelMaximum={
+              typeof model?.context_length === 'number' ? model.context_length : undefined
+            }
+          />
+        ),
+      },
+      {
         name: 'n_gpu',
         type: 'select',
         label: t(
@@ -618,7 +832,7 @@ export default function LaunchDialog({
         type: 'select',
         label: t('launchModel.downloadHub'),
         placeholder: t('launchModel.downloadHubPlaceholder'),
-        fieldProps: { options: downloadHubOptions },
+        fieldProps: downloadHubFieldProps,
       },
       {
         name: 'enable_thinking',
@@ -732,7 +946,7 @@ export default function LaunchDialog({
         type: 'select',
         label: t('launchModel.downloadHub'),
         placeholder: t('launchModel.downloadHubPlaceholder'),
-        fieldProps: { options: downloadHubOptions },
+        fieldProps: downloadHubFieldProps,
       },
       {
         name: 'request_limits',
@@ -838,7 +1052,7 @@ export default function LaunchDialog({
         type: 'select',
         label: t('launchModel.downloadHub'),
         placeholder: t('launchModel.downloadHubPlaceholder'),
-        fieldProps: { options: downloadHubOptions },
+        fieldProps: downloadHubFieldProps,
       },
       {
         name: 'gguf_quantization',
@@ -959,7 +1173,7 @@ export default function LaunchDialog({
         type: 'select',
         label: t('launchModel.downloadHub'),
         placeholder: t('launchModel.downloadHubPlaceholder'),
-        fieldProps: { options: downloadHubOptions },
+        fieldProps: downloadHubFieldProps,
       },
       {
         name: 'request_limits',
@@ -1050,6 +1264,13 @@ export default function LaunchDialog({
         show: !!modelEngineOptions.length,
       },
       {
+        name: 'quantization',
+        type: 'select',
+        label: t('launchModel.quantization'),
+        fieldProps: { options: quantizationOptions },
+        show: !!quantizationOptions.length,
+      },
+      {
         name: 'replica',
         type: 'input',
         label: t('launchModel.replica'),
@@ -1087,7 +1308,7 @@ export default function LaunchDialog({
         type: 'select',
         label: t('launchModel.downloadHub'),
         placeholder: t('launchModel.downloadHubPlaceholder'),
-        fieldProps: { options: downloadHubOptions },
+        fieldProps: downloadHubFieldProps,
       },
       {
         name: 'request_limits',
@@ -1192,7 +1413,7 @@ export default function LaunchDialog({
         type: 'select',
         label: t('launchModel.downloadHub'),
         placeholder: t('launchModel.downloadHubPlaceholder'),
-        fieldProps: { options: downloadHubOptions },
+        fieldProps: downloadHubFieldProps,
       },
       {
         name: 'request_limits',
@@ -1299,7 +1520,7 @@ export default function LaunchDialog({
         type: 'select',
         label: t('launchModel.downloadHub'),
         placeholder: t('launchModel.downloadHubPlaceholder'),
-        fieldProps: { options: downloadHubOptions },
+        fieldProps: downloadHubFieldProps,
       },
       {
         name: 'request_limits',
@@ -1454,14 +1675,18 @@ export default function LaunchDialog({
     ],
   };
 
-  // In custom placement mode (LLM only for now), hide the legacy global
-  // placement fields — they are mutually exclusive with replica_config and
-  // would only confuse the operator if shown alongside the per-replica editor.
+  // In custom placement mode, hide the legacy global placement fields. Each
+  // replica currently binds to exactly one worker, so n_worker is not editable.
   const currentLaunchFields = (modelTypeFields[modelType] || []).filter(
-    (field) => !isCustomPlacement || !['n_gpu', 'gpu_idx', 'worker_ip'].includes(field.name)
+    (field) =>
+      !isCustomPlacement || !['n_worker', 'n_gpu', 'gpu_idx', 'worker_ip'].includes(field.name)
   );
   // required fields is filled in
   const isReady = currentLaunchFields
+    .filter(isVisibleRequiredLaunchField)
+    .every((field) => !isEmptyLaunchValue(launchFormValues[field.name]));
+  const isDownloadReady = currentLaunchFields
+    .filter((field) => !DOWNLOAD_ONLY_EXCLUDED_FIELDS.has(field.name))
     .filter(isVisibleRequiredLaunchField)
     .every((field) => !isEmptyLaunchValue(launchFormValues[field.name]));
 
@@ -1474,32 +1699,54 @@ export default function LaunchDialog({
 
   const fetchProgress = useCallback(async () => {
     const modelUid = form.getFieldValue('model_uid') || model?.model_name;
-    try {
-      const [progressRes, replicaRes] = await Promise.all([
-        request.get<number | string | LaunchProgressResponse>(`/v1/models/${modelUid}/progress`),
-        request.get<unknown>(`/v1/models/${modelUid}/replicas`),
-      ]);
+    const [progressResult, replicaResult] = await Promise.allSettled([
+      request.get<number | string | LaunchProgressResponse>(`/v1/models/${modelUid}/progress`),
+      request.get<unknown>(`/v1/models/${modelUid}/replicas`),
+    ]);
+    if (pollingRef.current === null) return;
 
-      const progressValue =
-        progressRes && typeof progressRes === 'object' ? progressRes.progress : progressRes;
-      const nextProgress = normalizeProgress(progressValue);
+    if (progressResult.status === 'fulfilled') {
+      const progressRes = progressResult.value;
+      setProgressDetails(progressRes && typeof progressRes === 'object' ? progressRes : null);
+    }
+    if (replicaResult.status === 'fulfilled') {
+      setReplicaStatuses(normalizeReplicaStatuses(replicaResult.value));
+    }
+  }, [form, model]);
+
+  const fetchDownloadProgress = useCallback(async () => {
+    const cacheUid = cacheUidRef.current;
+    if (!cacheUid) return;
+
+    try {
+      const progressRes = await request.get<LaunchProgressResponse>(
+        `/v1/cache/models/${encodeURIComponent(cacheUid)}/progress`
+      );
+      const isTerminal = DOWNLOAD_TERMINAL_STAGES.has(progressRes.stage ?? '');
+      const reportedProgress = normalizeProgress(progressRes.progress);
+      const nextProgress = !isTerminal && reportedProgress >= 100 ? 99 : reportedProgress;
 
       setProgress(nextProgress);
-      setProgressDetails(progressRes && typeof progressRes === 'object' ? progressRes : null);
-      setReplicaStatuses(normalizeReplicaStatuses(replicaRes));
+      setProgressDetails(progressRes);
 
-      if (nextProgress >= 100) {
+      if (isTerminal) {
         stopPolling();
       }
     } catch {
-      stopPolling();
+      // The progress record is created asynchronously. Keep polling through
+      // transient startup/query failures; the operation request owns teardown.
     }
-  }, [stopPolling, form, model]);
+  }, [stopPolling]);
 
   const startPolling = useCallback(() => {
     if (pollingRef.current) return;
     pollingRef.current = setInterval(fetchProgress, 1000);
   }, [fetchProgress]);
+
+  const startDownloadPolling = useCallback(() => {
+    if (pollingRef.current) return;
+    pollingRef.current = setInterval(fetchDownloadProgress, 1000);
+  }, [fetchDownloadProgress]);
 
   const renderReplicaStatuses = () => {
     if (!replicaStatuses.length) {
@@ -1508,14 +1755,29 @@ export default function LaunchDialog({
       );
     }
 
+    const progressByReplicaId = new Map(
+      (progressDetails?.replicas ?? []).map((replica) => [replica.replica_id, replica])
+    );
+
     return (
-      <div className="space-y-2">
+      <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
         <div className="text-sm font-medium">{t('launchModel.launchProgress')}</div>
         <div
-          className="grid max-h-[min(60vh,32rem)] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid max-h-[min(40vh,24rem)] grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-3 overflow-y-auto pr-1"
           aria-live="polite"
         >
           {replicaStatuses.map((replica) => {
+            const replicaProgress = progressByReplicaId.get(replica.replica_id);
+            const replicaReady = replica.status === 'READY';
+            const replicaFailed = replica.status === 'ERROR';
+            const replicaPercent = replicaReady
+              ? 100
+              : Math.min(normalizeProgress(replicaProgress?.progress), 99);
+            const replicaStageKey = replicaReady
+              ? 'launchModel.stageReady'
+              : replicaFailed
+                ? 'launchModel.stageFailed'
+                : getLaunchStageKey(replicaProgress?.stage, replica.status);
             const statusClassName =
               replica.status === 'READY'
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -1524,41 +1786,106 @@ export default function LaunchDialog({
                   : 'border-border bg-muted/40 text-muted-foreground';
 
             return (
-              <div
+              <article
                 key={replica.replica_id}
-                className="flex min-w-0 items-start justify-between gap-3 rounded-md border bg-background/60 p-3"
+                aria-label={`${t('launchModel.replica')} ${replica.replica_id}`}
+                className="flex min-w-0 flex-col gap-3 rounded-md border bg-background/60 p-3"
               >
-                <div className="flex min-w-0 flex-col gap-1 text-xs">
-                  <span className="font-semibold">
-                    {t('launchModel.replica')}&nbsp;{replica.replica_id}
-                  </span>
-                  <span
-                    className="truncate font-mono text-muted-foreground"
-                    title={replica.worker_address || '-'}
-                  >
-                    {replica.worker_address || '-'}
-                  </span>
-                  {replica.replica_uid && (
-                    <span className="truncate text-muted-foreground" title={replica.replica_uid}>
-                      {replica.replica_uid}
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-col gap-1 text-xs">
+                    <span className="font-semibold">
+                      {t('launchModel.replica')}&nbsp;{replica.replica_id}
                     </span>
-                  )}
-                  <span className="text-muted-foreground">
-                    {t('launchModel.GPUIdx')}:{' '}
-                    {replica.gpu_idx && replica.gpu_idx.length > 0
-                      ? replica.gpu_idx.join(', ')
-                      : 'auto'}
-                  </span>
+                    <span
+                      className="break-all font-mono text-muted-foreground"
+                      title={replica.worker_address || '-'}
+                    >
+                      {replica.worker_address || '-'}
+                    </span>
+                    {replica.replica_uid && (
+                      <span className="truncate text-muted-foreground" title={replica.replica_uid}>
+                        {replica.replica_uid}
+                      </span>
+                    )}
+                    <span className="text-muted-foreground">
+                      {t('launchModel.GPUIdx')}:{' '}
+                      {replica.gpu_idx && replica.gpu_idx.length > 0
+                        ? replica.gpu_idx.join(', ')
+                        : 'auto'}
+                    </span>
+                  </div>
+                  <div
+                    className={cn(
+                      'shrink-0 rounded-md border px-2 py-1 text-xs font-medium leading-none',
+                      statusClassName
+                    )}
+                  >
+                    {replica.status}
+                  </div>
                 </div>
-                <div
-                  className={cn(
-                    'shrink-0 rounded-md border px-2 py-1 text-xs font-medium leading-none',
-                    statusClassName
+                <div className="space-y-1.5 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {!replicaReady && !replicaFailed && (
+                        <LoaderCircle
+                          className="size-3.5 shrink-0 animate-spin text-primary"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span>{t(replicaStageKey)}</span>
+                    </span>
+                    {(replicaProgress || replicaReady) && (
+                      <span className="shrink-0 tabular-nums">{Math.round(replicaPercent)}%</span>
+                    )}
+                  </div>
+                  {(replicaProgress || replicaReady) && (
+                    <Progress
+                      value={replicaPercent}
+                      className="h-1.5"
+                      aria-label={`${t('launchModel.replica')} ${replica.replica_id}: ${t(replicaStageKey)}`}
+                    />
                   )}
-                >
-                  {replica.status}
                 </div>
-              </div>
+                {(replicaProgress?.stage === 'downloading' ||
+                  Boolean(replicaProgress?.download_files?.length)) && (
+                  <DownloadProgressDetails files={replicaProgress?.download_files ?? []} compact />
+                )}
+                {(replicaProgress?.stage === 'installing_dependencies' ||
+                  replicaProgress?.stage === 'loading') &&
+                  typeof replicaProgress.dependency_install_total === 'number' &&
+                  replicaProgress.dependency_install_total > 0 &&
+                  typeof replicaProgress.dependency_install_completed === 'number' && (
+                    <div className="space-y-1.5 text-xs text-muted-foreground">
+                      <div className="tabular-nums">
+                        {t('launchModel.dependencyInstallCount', {
+                          completed: replicaProgress.dependency_install_completed,
+                          total: replicaProgress.dependency_install_total,
+                        })}
+                      </div>
+                      {Boolean(replicaProgress.dependency_install_plan?.length) && (
+                        <details>
+                          <summary className="cursor-pointer">
+                            {t('launchModel.dependencyInstallPlan')}
+                          </summary>
+                          <ul className="mt-1 max-h-32 space-y-0.5 overflow-y-auto pl-4 font-mono">
+                            {replicaProgress.dependency_install_plan?.map((packageSpec) => (
+                              <li key={packageSpec} className="break-all">
+                                {packageSpec}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                  )}
+                {replicaProgress?.stage === 'loading' &&
+                  (replicaProgress.dependency_install_status === 'skipped' ||
+                    replicaProgress.dependency_install_total === 0) && (
+                    <div className="text-xs text-muted-foreground">
+                      {t('launchModel.dependencyInstallSkipped')}
+                    </div>
+                  )}
+              </article>
             );
           })}
         </div>
@@ -1575,7 +1902,6 @@ export default function LaunchDialog({
       isCanceledLaunchRef.current = true;
       stopPolling();
       setLoading(false);
-      setProgress(0);
       setProgressDetails(null);
       setReplicaStatuses([]);
       toast.success(t('launchModel.launchCanceled'));
@@ -1584,50 +1910,74 @@ export default function LaunchDialog({
     }
   };
 
-  const handleLaunch = async (values: FormValues) => {
-    if (values.replica_placement_mode === 'custom') {
-      const rows = Array.isArray(values.replica_config) ? values.replica_config : [];
-      const replicaCount = Number(values.replica) || 1;
-      const gpuIndexPattern = GPU_IDX_PATTERN;
-      const hasInvalidPlacement =
-        rows.length !== replicaCount ||
-        rows.some((row) => {
-          const gpuIndexes = String(row?.gpu_idx ?? '').trim();
-          return !row?.worker_ip || (gpuIndexes !== '' && !gpuIndexPattern.test(gpuIndexes));
-        });
-      if (hasInvalidPlacement) {
-        toast.error(t('launchModel.replicaPlacementIncomplete'));
-        return;
-      }
+  const handleCancelDownload = async () => {
+    const cacheUid = cacheUidRef.current;
+    if (!cacheUid) return;
+    setCanceling(true);
 
-      const aliases = rows.map((row) => String(row?.replica_uid ?? '').trim()).filter(Boolean);
-      if (new Set(aliases).size !== aliases.length) {
-        toast.error(t('launchModel.replicaAliasDuplicate'));
-        return;
-      }
+    try {
+      await request.post(`/v1/cache/models/${encodeURIComponent(cacheUid)}/cancel`);
+      isCanceledDownloadRef.current = true;
+      stopPolling();
+      setLoading(false);
+      setIsDownloading(false);
+      setProgress(0);
+      setProgressDetails(null);
+      toast.success(t('launchModel.downloadCanceled'));
+    } finally {
+      setCanceling(false);
+    }
+  };
+
+  const handleLaunch = async (values: FormValues) => {
+    const placementError = validateReplicaPlacement(values);
+    if (placementError === 'incomplete') {
+      toast.error(t('launchModel.replicaPlacementIncomplete'));
+      return;
+    }
+    if (placementError === 'duplicate-alias') {
+      toast.error(t('launchModel.replicaAliasDuplicate'));
+      return;
     }
 
-    const newValues = transformFormToFetch(values);
+    const launchRequestValues = transformFormToFetch(values);
     isCanceledLaunchRef.current = false;
     setLoading(true);
-    setProgress(0);
     setProgressDetails(null);
     setReplicaStatuses([]);
 
     request
-      .post<{ model_uid?: string }>('/v1/models', newValues, { noTimeout: true })
+      .post<{ model_uid?: string }>('/v1/models', launchRequestValues, { noTimeout: true })
       .then(async (launchResponse) => {
         // Prevents a false deployment success notification when /v1/models returns model_uid after download cancellation, triggering the success logic below.
         if (isCanceledLaunchRef.current) {
           return;
         }
 
+        stopPolling();
+        setProgressDetails({ stage: 'completed' });
+
         const launchedValues = {
-          ...newValues,
-          model_uid: launchResponse?.model_uid || newValues.model_uid || newValues.model_name,
+          ...launchRequestValues,
+          model_uid:
+            launchResponse?.model_uid ||
+            launchRequestValues.model_uid ||
+            launchRequestValues.model_name,
         };
-        saveLaunchConfigHistory(launchedValues);
-        setConfigCacheRefreshKey((key) => key + 1);
+        const historyValues = buildLaunchHistoryValues(values, launchedValues);
+        void saveLaunchConfigHistory(historyValues.data, clusterAuth?.auth, historyValues.uiData)
+          .then((historySaved) => {
+            if (!historySaved) {
+              toast.warning(t('launchModel.configHistorySyncFailed'));
+            }
+          })
+          .catch((error) => {
+            console.error('Failed to save launch config history', error);
+            toast.warning(t('launchModel.configHistorySyncFailed'));
+          })
+          .finally(() => {
+            setConfigCacheRefreshKey((key) => key + 1);
+          });
         let autostartSaved = false;
         if (saveAutostart) {
           try {
@@ -1656,19 +2006,72 @@ export default function LaunchDialog({
       })
       .catch(() => {
         stopPolling();
+        setProgressDetails(null);
+        setReplicaStatuses([]);
       })
       .finally(() => {
         setLoading(false);
       });
     startPolling();
   };
+
+  const handleDownload = async () => {
+    const newValues = transformFormToFetch({
+      ...launchFormValues,
+      replica_placement_mode: 'auto',
+    });
+    const cacheValues = Object.fromEntries(
+      Object.entries(newValues).filter(([key]) => !DOWNLOAD_ONLY_EXCLUDED_FIELDS.has(key))
+    );
+    const cacheUid =
+      globalThis.crypto?.randomUUID?.() ??
+      `cache-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    cacheUidRef.current = cacheUid;
+    isCanceledDownloadRef.current = false;
+    setIsDownloading(true);
+    setLoading(true);
+    setProgress(0);
+    setProgressDetails(null);
+    setReplicaStatuses([]);
+
+    const operationRequest = request.post(
+      '/v1/cache/models',
+      { ...cacheValues, cache_uid: cacheUid },
+      { noTimeout: true }
+    );
+    startDownloadPolling();
+
+    try {
+      await operationRequest;
+      if (isCanceledDownloadRef.current) return;
+
+      stopPolling();
+      onOpenChange(false);
+      toast.success(t('launchModel.modelDownloadCompleted'));
+      await onCacheCompleted?.();
+    } catch {
+      stopPolling();
+    } finally {
+      setLoading(false);
+      setIsDownloading(false);
+      cacheUidRef.current = undefined;
+    }
+  };
+
   const handleClose = () => {
+    recommendation.invalidate();
+    recommendationEngineContext.current = null;
+    modelEngineRequestIdRef.current += 1;
     setLoading(false);
+    setIsDownloading(false);
     setCanceling(false);
     setProgress(0);
     setProgressDetails(null);
     setReplicaStatuses([]);
     setSaveAutostart(false);
+    cacheUidRef.current = undefined;
+    isCanceledDownloadRef.current = false;
     stopPolling();
     onOpenChange(false);
     form.resetFields();
@@ -1679,19 +2082,53 @@ export default function LaunchDialog({
       fetchModelEngine();
       fetchWorkers();
     }
+
+    return () => {
+      modelEngineRequestIdRef.current += 1;
+    };
   }, [fetchModelEngine, fetchWorkers, isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || clusterAuth === null) return;
 
-    const latestConfig = getLatestModelConfigHistory(model?.model_name);
+    downloadHubTouchedRef.current = false;
+    resetLaunchHistoryFormEdited();
+    const latestConfig = getLatestModelConfigHistory(model?.model_name, clusterAuth.auth === true);
 
-    form.resetFields();
+    replaceLaunchHistoryFormSnapshot(form, latestConfig);
+  }, [clusterAuth, form, isOpen, model?.model_name, resetLaunchHistoryFormEdited]);
 
-    if (latestConfig) {
-      form.setFieldsValue(transformFetchToForm(latestConfig.data));
-    }
-  }, [form, isOpen, model?.model_name]);
+  useEffect(() => {
+    if (!isOpen || (clusterAuth?.auth && !hasSettingsRead)) return;
+
+    let active = true;
+
+    const applyPreferredDownloadSource = async () => {
+      try {
+        const { download_source } = await request.get<SystemSettingsResponse>(
+          '/v1/cluster/system_settings'
+        );
+        if (
+          active &&
+          shouldApplyPreferredDownloadSource(
+            download_source,
+            downloadHubOptionsRef.current,
+            downloadHubTouchedRef.current
+          )
+        ) {
+          form.setFieldValue('download_hub', download_source);
+        }
+      } catch {
+        // Keep the current selection when settings are unavailable or unauthorized.
+      }
+    };
+
+    void applyPreferredDownloadSource();
+
+    return () => {
+      active = false;
+    };
+  }, [clusterAuth?.auth, form, hasSettingsRead, isOpen, model?.model_name]);
 
   useEffect(() => {
     return () => {
@@ -1702,11 +2139,12 @@ export default function LaunchDialog({
   const initialValues = {
     model_name: model?.model_name,
     model_type: modelType,
-    n_gpu: [ModelType.LLM, ModelType.Image].includes(modelType)
-      ? 'auto'
-      : gpuAvailable === 0
-        ? 'CPU'
-        : 'GPU',
+    n_gpu:
+      supportsRecommendation || modelType === ModelType.Image
+        ? 'auto'
+        : gpuAvailable === 0
+          ? 'CPU'
+          : 'GPU',
     n_gpu_layers: -1,
     replica: 1,
     replica_placement_mode: 'auto' as const,
@@ -1732,22 +2170,68 @@ export default function LaunchDialog({
           maskClosable={false}
         >
           <DialogHeader>
-            <div className="flex min-w-0 items-center justify-between gap-3 pr-10">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 pr-10">
               <DialogTitle className="min-w-0 truncate">{model?.model_name}</DialogTitle>
-              <div className="flex gap-2">
+              <div className="ml-auto flex max-w-full flex-wrap justify-end gap-2">
+                {supportsRecommendation && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                    disabled={loading || recommendation.pending || cannotRecommend}
+                    loading={recommendation.pending}
+                    onClick={recommendation.recommend}
+                  >
+                    {!recommendation.pending && <Sparkles aria-hidden="true" />}
+                    {t('launchModel.recommendConfiguration')}
+                  </Button>
+                )}
                 <ConfigCache
                   form={form}
                   modelName={model?.model_name}
+                  modelType={modelType}
                   refreshKey={configCacheRefreshKey}
+                  onHistoryRefreshed={handleLaunchHistoryRefreshed}
+                  onUserChange={markLaunchHistoryFormEdited}
                 />
-                <CommandLine form={form} canCopyCommandLine={isReady} />
+                <CommandLine
+                  form={form}
+                  canCopyCommandLine={isReady}
+                  onUserChange={markLaunchHistoryFormEdited}
+                />
               </div>
             </div>
           </DialogHeader>
+          {supportsRecommendation &&
+            (cannotRecommend || recommendation.failed || recommendation.result) && (
+              <div className="space-y-2">
+                {cannotRecommend && (
+                  <p className="text-sm text-muted-foreground">
+                    {t('launchModel.recommendUnavailable')}
+                  </p>
+                )}
+                <div role="status" aria-live="polite" className="text-sm text-muted-foreground">
+                  {recommendation.failed && t('launchModel.recommendFailed')}
+                  {recommendation.result && (
+                    <p>
+                      {t(
+                        recommendation.result.status === 'recommended'
+                          ? 'launchModel.recommendApplied'
+                          : 'launchModel.noRecommendation'
+                      )}
+                      {recommendationWarnings.map((key) => (
+                        <span key={key}> {t(key)}</span>
+                      ))}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           <Form
             id={formId}
             form={form}
             onFinish={handleLaunch}
+            onUserChange={markLaunchHistoryFormEdited}
             initialValues={initialValues}
             className="grid grid-cols-2 gap-x-4 gap-y-3 space-y-0"
           >
@@ -1758,16 +2242,24 @@ export default function LaunchDialog({
           <DialogFooter className={cn(loading ? '!flex-col' : '')}>
             {loading && (
               <div className="w-full space-y-2 pr-3">
-                <div className="flex items-center gap-3">
-                  <Progress value={progress} className="flex-1" />
-                  <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                    {Math.round(progress)}%
-                  </span>
-                </div>
-                {(progressDetails?.stage === 'downloading' ||
-                  Boolean(progressDetails?.download_files?.length)) && (
-                  <DownloadProgressDetails files={progressDetails?.download_files ?? []} />
+                {isDownloading && (
+                  <div className="flex items-center gap-3">
+                    <Progress
+                      value={progress}
+                      className="flex-1"
+                      aria-label={t('launchModel.overallProgress')}
+                    />
+                    <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                      {Math.round(progress)}%
+                    </span>
+                  </div>
                 )}
+                {isDownloading &&
+                  (progressDetails?.stage === 'downloading' ||
+                    Boolean(progressDetails?.download_files?.length)) && (
+                    <DownloadProgressDetails files={progressDetails?.download_files ?? []} />
+                  )}
+                {!isDownloading && renderReplicaStatuses()}
               </div>
             )}
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1775,41 +2267,41 @@ export default function LaunchDialog({
                 <Switch checked={saveAutostart} disabled={loading} onChange={setSaveAutostart} />
                 {t('launchModel.saveAutostart')}
               </label>
-              <div className="flex items-center justify-end gap-2">
-                <TooltipProvider>
-                  <Button variant="outline" onClick={handleClose}>
-                    {t('common.cancel')}
+              <div className="ml-auto flex items-center justify-end gap-2">
+                <Button variant="outline" disabled={loading} onClick={handleClose}>
+                  {t('common.cancel')}
+                </Button>
+                {loading ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={canceling}
+                    loading={canceling}
+                    onClick={isDownloading ? handleCancelDownload : handleCancelLaunch}
+                    className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Ban />
+                    {t('common.stop')}
                   </Button>
-                  {loading ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={canceling}
-                          loading={canceling}
-                          onClick={handleCancelLaunch}
-                          className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          <Ban />
-                          {t('common.stop')}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="top"
-                        align="end"
-                        className="w-[min(42rem,calc(100vw-2rem))] max-w-none p-3"
+                ) : (
+                  <>
+                    {allowDownloadOnly && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!isDownloadReady}
+                        onClick={handleDownload}
                       >
-                        {renderReplicaStatuses()}
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
+                        <Download />
+                        {t('launchModel.downloadOnly')}
+                      </Button>
+                    )}
                     <Button type="submit" form={formId}>
                       <Rocket />
                       {t('common.deploy')}
                     </Button>
-                  )}
-                </TooltipProvider>
+                  </>
+                )}
               </div>
             </div>
           </DialogFooter>

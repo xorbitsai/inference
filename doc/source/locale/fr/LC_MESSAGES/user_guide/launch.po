@@ -19,6 +19,71 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "Generated-By: Babel 2.18.0\n"
 
+#: ../../source/user_guide/launch.rst:17
+msgid "How recommendations are chosen"
+msgstr "Comment les recommandations sont choisies"
+
+#: ../../source/user_guide/launch.rst:20
+msgid "Click **Recommend configuration** in the upper-right corner of the launch dialog to fill in the engine, format, size, and quantization together. You can still change these fields before clicking **Deploy**. The recommendation also selects a worker, so the configuration is tied to the machine checked for it."
+msgstr "Cliquez sur **Recommander une configuration** en haut à droite de la boîte de dialogue de lancement pour renseigner en une seule fois le moteur, le format, la taille et la quantification. Vous pouvez encore modifier ces champs avant de cliquer sur **Déployer**. La recommandation sélectionne aussi un worker : la configuration est donc liée à la machine sur laquelle elle a été vérifiée."
+
+#: ../../source/user_guide/launch.rst:25
+msgid "Xinference starts with your choices. If you have selected an 8B model, it looks for configurations of that size; it will not switch to a smaller model. Worker, GPU, and virtual environment settings also constrain the search. It checks each worker separately and removes combinations that fail the compatibility checks. If none remain, it leaves your form unchanged so you can adjust the settings."
+msgstr "Xinference part de vos choix. Si vous avez sélectionné un modèle 8B, il recherche des configurations de cette taille et ne passe pas à un modèle plus petit. Les paramètres du worker, des GPU et de l'environnement virtuel limitent également la recherche. Il vérifie chaque worker séparément et écarte les combinaisons qui échouent aux vérifications de compatibilité. S'il n'en reste aucune, le formulaire reste inchangé pour vous permettre d'ajuster les paramètres."
+
+#: ../../source/user_guide/launch.rst:31
+msgid "If memory data is available, Xinference prefers the largest size estimated to fit. Otherwise it falls back to the smallest unverified size. Within that size, installed engines are preferred; virtual-environment candidates remain eligible."
+msgstr "Si des données mémoire sont disponibles, Xinference privilégie la plus grande taille estimée compatible. Sinon, il choisit la plus petite taille non vérifiée. À taille égale, les moteurs installés sont prioritaires ; les candidats en environnement virtuel restent admissibles."
+
+#: ../../source/user_guide/launch.rst:38
+msgid "Next comes the platform's default engine order. With the earlier conditions equal, MLX comes first on Apple Silicon, vLLM followed by SGLang on Linux with CUDA, and llama.cpp on CPU. Within an engine, common 4-bit quantizations such as Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights already cached on that worker get priority. A cached model does not override your selected size or the earlier preferences."
+msgstr "Vient ensuite l'ordre par défaut des moteurs pour la plateforme. À égalité sur les critères précédents, MLX est prioritaire sur Apple Silicon, vLLM puis SGLang sur Linux avec CUDA, et llama.cpp sur CPU. Pour un même moteur, les quantifications courantes sur 4 bits, comme Q4_K_M et Int4, sont privilégiées lorsqu'elles sont prises en charge. Si plusieurs options restent à égalité, les poids déjà en cache sur ce worker sont prioritaires. Un modèle en cache ne prend pas le pas sur la taille sélectionnée ni sur les préférences précédentes."
+
+#: ../../source/user_guide/launch.rst:45
+msgid "Estimates use offline architecture facts and checkpoint sizes when available. MoE weights include all resident experts. Full-attention KV cache, Gated DeltaNet recurrent state and workspace are counted separately. MLX, Transformers, vLLM, SGLang and llama.cpp share this accounting with different workspace bounds. Unknown layouts, including MLA, remain unverified."
+msgstr "Les estimations utilisent les données d’architecture hors ligne et les tailles des checkpoints lorsqu’elles sont disponibles. Les poids MoE incluent tous les experts résidents. Le cache KV d’attention complète, l’état récurrent de Gated DeltaNet et l’espace de travail sont calculés séparément. MLX, Transformers, vLLM, SGLang et llama.cpp partagent ce calcul avec des bornes d’espace de travail différentes. Les architectures inconnues, dont MLA, restent non vérifiées."
+
+msgid "Defaults are one sequence, the model's registered maximum context, FP16 KV cache, no image tokens and no retained prefix cache. The budget is 80% of currently free memory: the lowest free memory among eligible GPUs, or available system memory on CPU and Apple Silicon. The default vLLM GPU reservation is checked separately when total memory is known; SGLang budgets from memory available at initialization. Multi-GPU requests keep compatibility-only selection. Known oversized candidates are excluded. Workspace bounds are estimates, not measured peaks. Engine preallocation is not modeled beyond the separate vLLM default reservation check; custom engine settings require manual configuration. No resources are reserved."
+msgstr "Les valeurs par défaut sont une séquence, le contexte maximal enregistré du modèle, un cache KV FP16, aucun token d’image et aucun cache de préfixes conservé. Le budget est de 80% de la mémoire actuellement libre : le minimum parmi les GPU admissibles, ou la mémoire système disponible sur CPU et Apple Silicon. La réservation GPU par défaut de vLLM est vérifiée séparément lorsque la mémoire totale est connue ; SGLang calcule son budget à partir de la mémoire disponible à l’initialisation. Les demandes multi-GPU restent fondées uniquement sur la compatibilité. Les candidats dont le dépassement est établi sont exclus. Les bornes d’espace de travail sont des estimations, pas des pics mesurés. La préallocation du moteur n’est pas modélisée au-delà de la vérification séparée de la réservation par défaut de vLLM ; les paramètres personnalisés du moteur nécessitent une configuration manuelle. Aucune ressource n’est réservée."
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Using the API"
+msgstr "Utiliser l'API"
+
+#: ../../source/user_guide/launch.rst:10
+msgid "LLM launch recommendations"
+msgstr "Recommandations de lancement des LLM"
+
+#: ../../source/user_guide/launch.rst:12
+msgid "In an LLM's deployment dialog, use the launch recommendation button to get a suggested configuration, then review it before deploying. The button is available for LLMs, embedding, rerank, and audio models. Recommendations currently target a single replica. Custom model paths and custom engine parameters require manual configuration."
+msgstr "Dans la fenêtre de déploiement d’un LLM, demandez une configuration recommandée puis vérifiez-la avant le déploiement. Le bouton prend en charge les LLM et les modèles embedding, rerank et audio, pour une seule réplique actuellement. Les chemins et paramètres de moteur personnalisés restent à configurer manuellement."
+
+msgid "Recommendations for other model types"
+msgstr "Recommandations pour les autres types de modèles"
+
+msgid "Embedding, rerank, and audio models use the same **Recommend configuration** button and ``POST /v1/models/recommend`` endpoint; set ``model_type`` to ``embedding``, ``rerank``, or ``audio``. The recommendation fills only the fields supported by that type, without selecting a model size. Embedding and rerank prefer an available sentence-transformers engine; audio prefers an available MLX engine on Apple Silicon, otherwise its standard Transformers or PyTorch backend. Installed engines come before engines that need a virtual environment, and unquantized variants are preferred within an engine. Unlike LLM recommendations, these types do not use cached weights as a tie-breaker. Worker, GPU, and virtual environment constraints still apply; ``model_size_in_billions`` is rejected for these types. A recommendation remains a starting configuration, not a memory-fit guarantee. Image and video recommendations are not yet supported."
+msgstr "Les modèles embedding, rerank et audio utilisent aussi **Recommend configuration** et ``POST /v1/models/recommend`` ; définissez ``model_type`` sur ``embedding``, ``rerank`` ou ``audio``. Seuls les champs pris en charge sont remplis, sans choisir de taille de modèle. Embedding et rerank privilégient un moteur sentence-transformers disponible ; l’audio privilégie MLX sur Apple Silicon s’il est disponible, sinon son backend standard Transformers ou PyTorch. Les moteurs installés passent avant ceux nécessitant un environnement virtuel, et les variantes non quantifiées sont préférées au sein d’un moteur. Contrairement aux LLM, les poids en cache ne départagent pas les candidats. Les contraintes de worker, GPU et environnement virtuel restent applicables ; ``model_size_in_billions`` est refusé pour ces types. La recommandation est un point de départ, pas une garantie de mémoire suffisante. Les modèles image et vidéo ne sont pas encore pris en charge."
+
+#: ../../source/user_guide/launch.rst:16
+msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. LLM constraints also accept ``context_length``. Supplied constraints are hard requirements, never silently relaxed."
+msgstr "``POST /v1/models/recommend`` est en lecture seule. Fournissez ``model_name`` et ``model_type=\"LLM\"`` ; l'objet facultatif ``constraints`` accepte ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu`` et ``gpu_idx``. Les contraintes fournies sont impératives et ne sont jamais assouplies silencieusement. Les contraintes LLM acceptent aussi ``context_length``."
+
+#: ../../source/user_guide/launch.rst:31
+msgid "The response ``status`` is ``recommended`` or ``no_recommendation``. On success, ``config`` contains launch-compatible fields such as ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``. ``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields. If no configuration satisfies the constraints, review the explanation and adjust the constraints or configure the launch manually."
+msgstr "Le ``status`` de la réponse vaut ``recommended`` ou ``no_recommendation``. En cas de succès, ``config`` contient des champs compatibles avec le lancement, tels que ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization`` et ``worker_ip``. Les entrées de ``reasons`` et ``warnings`` contiennent les champs ``code`` et ``message``. Si aucune configuration ne satisfait les contraintes, consultez l'explication et ajustez les contraintes ou configurez le lancement manuellement."
+
+#: ../../source/user_guide/launch.rst:38
+msgid "A recommendation does not guarantee sufficient memory or a successful launch. It reserves no resources, downloads no model files, and installs no dependencies. Existing launch behavior is unchanged; deployment remains a separate action."
+msgstr "Une recommandation ne garantit ni une mémoire suffisante ni un lancement réussi. Elle ne réserve aucune ressource, ne télécharge aucun fichier de modèle et n'installe aucune dépendance. Le comportement de lancement existant reste inchangé ; le déploiement demeure une action distincte."
+
+#: ../../source/user_guide/launch.rst:42
+msgid "``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "``config`` inclut aussi la valeur effective de ``enable_virtual_env`` et les contraintes ``n_gpu`` et ``gpu_idx`` fournies. ``n_gpu=null`` demande un placement sur CPU, tandis que ``n_gpu=\"auto\"`` utilise la politique d'allocation existante au lancement sans calculer le nombre de GPU nécessaires."
+
+#: ../../source/user_guide/launch.rst:48
+msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."
+msgstr "``recommended`` et ``no_recommendation`` renvoient tous deux HTTP 200. Un modèle inconnu renvoie HTTP 404 ; les requêtes invalides renvoient HTTP 422. Les codes de raisons et d'avertissements utilisent snake_case en minuscules. L'avertissement ``memory_not_verified`` est toujours inclus."
+
 #: ../../source/user_guide/launch.rst:5
 msgid "Model Launching Instructions"
 msgstr "Guide de chargement des modèles"
@@ -240,21 +305,9 @@ msgstr ""
 "``XINFERENCE_BATCH_SIZE`` et ``XINFERENCE_BATCH_INTERVAL`` sont utilisés "
 "pour contrôler le comportement de traitement par lots standard."
 
-#: ../../source/user_guide/launch.rst:99
-msgid ""
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when "
-"supported)."
-msgstr ""
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` (modèle texte vers image, lorsque"
-" pris en charge)."
-
 #: ../../source/user_guide/launch.rst:101
 msgid "Example (LLM, transformers):"
 msgstr "Exemple (modèle de langage volumineux, Transformers) :"
-
-#: ../../source/user_guide/launch.rst:108
-msgid "Example (text-to-image):"
-msgstr "Exemple (Texte vers image) :"
 
 #: ../../source/user_guide/launch.rst:114
 msgid ""
@@ -278,3 +331,194 @@ msgstr ""
 "Certains modèles de raisonnement hybrides (comme Qwen3) prennent en charge "
 "un *mode de pensée* optionnel. Vous pouvez activer cette fonctionnalité au "
 "démarrage via le paramètre ``--enable-thinking``."
+
+#: ../../source/user_guide/launch.rst:171
+msgid "Launch Configuration History"
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:173
+msgid ""
+"After a model is launched successfully from the Web UI, Xinference stores its "
+"launch configuration in the Supervisor launch-history database and keeps a "
+"user-scoped browser cache for fast access and temporary network failures. When "
+"the deployment dialog is opened again, the newest server-backed configuration "
+"is restored unless the user has already started editing the form."
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:180
+msgid ""
+"The configuration history dialog can remove records owned by the current user. "
+"Records used by automatic startup are protected from deletion. In authenticated "
+"deployments, browser caches are separated by the username in the access token; "
+"configuration data owned by another user is not placed in that cache."
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:306
+msgid ""
+"The history dialog also lists configurations owned by the current user for "
+"other model names. These records are never applied automatically. After the "
+"user confirms **Use as Template**, Xinference keeps the current model name, "
+"removes the previous model UID and history or automatic-startup metadata, and "
+"copies the remaining launch options into the form without starting a model."
+msgstr ""
+
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready."
+msgstr "Pendant le déploiement, le point de terminaison ``GET /v1/models/{model_uid}/progress`` indique l'étape de chaque réplique. Après le téléchargement des fichiers du modèle, une réplique peut indiquer ``waiting_for_dependencies`` pendant qu'un autre lancement prépare l'environnement virtuel partagé, puis ``installing_dependencies`` pendant l'installation des paquets et ``loading`` une fois l'environnement prêt."
+
+msgid "The Web UI shows each replica's file download details inside its replica card."
+msgstr "L'interface Web affiche les détails des téléchargements de chaque réplique dans sa carte."
+
+msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
+msgstr "Pendant l’installation des dépendances, la progression de chaque réplique indique le nombre de paquets prévus pour l’installation principale et le nombre déjà présents dans son environnement virtuel. Une réplique qui attend un environnement partagé n’a pas de compteur d’installation propre. Si le programme d’installation ne peut pas établir un plan fiable, le compteur est omis."
+
+msgid "The Web UI keeps the dependency installation result visible while a replica is loading. When no dependency installation is needed, the replica card says so."
+msgstr "L’interface Web garde le résultat de l’installation des dépendances visible pendant le chargement d’une réplique. Si aucune installation n’est nécessaire, la carte de la réplique l’indique."
+
+#: doc/source/user_guide/launch.rst
+msgid ""
+"For image and video models, batching depends on the selected native engine "
+"and model. Diffusers does not use a Xinference step-level scheduler. See "
+":ref:`image` and :ref:`video`."
+msgstr ""
+"Pour les modèles d’image et de vidéo, le traitement par lots dépend du "
+"moteur natif et du modèle choisis. Diffusers n’utilise pas d’ordonnanceur "
+"par étapes de Xinference. Voir :ref:`image` et :ref:`video`."
+
+#: ../../user_guide/launch.rst:414
+msgid "Reconfigure without reloading weights"
+msgstr "Reconfigurer sans recharger les poids"
+
+#: ../../user_guide/launch.rst:417
+msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
+msgstr "Activez ``enable_weight_cache=true`` au lancement ou sélectionnez **Keep GPU weights for reload** dans le dialogue de déploiement. Cette fonction nécessite vLLM 0.31.0+ ou SGLang 0.5.21+, Linux avec CUDA ou ROCm, un worker, une réplique et un parallélisme tensoriel fixe. Elle est désactivée par défaut même avec les versions compatibles."
+
+#: ../../user_guide/launch.rst:419
+msgid "Xinference keeps GPU weights in an upstream cache daemon while rebuilding the engine, KV cache and CUDA graphs. Reload waits for current requests, including streams, to finish and temporarily rejects new requests with HTTP 503. A drain timeout leaves the original engine running. If rebuilding fails, Xinference attempts to restore the previous configuration. Terminating the model releases the weights; a worker process failure requires loading them again."
+msgstr "Xinference conserve les poids GPU dans un démon de cache du moteur pendant la reconstruction du moteur, du cache KV et des graphes CUDA. Le rechargement attend la fin des requêtes en cours, y compris les flux, et refuse temporairement les nouvelles requêtes avec HTTP 503. Si ce délai expire, le moteur initial continue de fonctionner. En cas d’échec de reconstruction, Xinference tente de restaurer la configuration précédente. L’arrêt du modèle libère les poids ; une panne du processus worker nécessite leur rechargement."
+
+#: ../../user_guide/launch.rst:421
+msgid "``POST /v1/models/{model_uid}/reload`` accepts a partial ``model_config`` object and optional ``drain_timeout`` in seconds (default 300, maximum 3600). It returns HTTP 202 with an ``operation_id``. Poll ``GET /v1/models/{model_uid}/reload`` until ``status`` is ``ready`` or ``error``. On error, ``restored=true`` means the previous engine is serving again. Query ``GET /v1/models/{model_uid}/reload/config`` for supported parameters and current explicit values. Invalid patches return HTTP 400; a reload already in progress returns HTTP 409. The model UID and GPU reservation stay the same."
+msgstr "``POST /v1/models/{model_uid}/reload`` accepte un objet ``model_config`` partiel et éventuellement ``drain_timeout`` en secondes (300 par défaut, maximum 3600). Il renvoie HTTP 202 avec ``operation_id``. Interrogez ``GET /v1/models/{model_uid}/reload`` jusqu’à ce que ``status`` soit ``ready`` ou ``error``. En cas d’erreur, ``restored=true`` signifie que le moteur précédent fonctionne à nouveau. ``GET /v1/models/{model_uid}/reload/config`` fournit les paramètres pris en charge et les valeurs explicites actuelles. Les modifications invalides renvoient HTTP 400 ; un rechargement en cours renvoie HTTP 409. L’UID et la réservation GPU sont conservés."
+
+#: ../../user_guide/launch.rst:423
+msgid "vLLM supports changing ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` and ``enforce_eager``."
+msgstr "vLLM permet de modifier ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` et ``enforce_eager``."
+
+#: ../../user_guide/launch.rst:425
+msgid "SGLang supports changing ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` and ``schedule_conservativeness``."
+msgstr "SGLang permet de modifier ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` et ``schedule_conservativeness``."
+
+#: ../../user_guide/launch.rst:427
+msgid "Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reload parameters** to edit the supported values and follow progress."
+msgstr "Le parallélisme, le placement GPU, le chemin du modèle, la précision, la quantification et les formats de poids ne peuvent pas changer. Le parallélisme pipeline/données, les déploiements multi-worker, LoRA, le décodage spéculatif, le déchargement des poids et PD ne sont pas encore pris en charge. Les modèles quantifiés doivent passer les contrôles IPC du moteur. vLLM utilise son exécuteur multiprocessus natif pour plusieurs GPU. Dans les détails du modèle en cours, choisissez **Reload parameters** pour modifier les valeurs et suivre la progression."
+
+msgid "LLM constraints also accept positive integers ``context_length`` (text input plus output tokens) and ``concurrency``, and non-negative integers ``vision_tokens`` (encoded image tokens per sequence) and ``prefix_cache_bytes`` (additional retained cache across the instance). Omitting ``context_length`` uses each candidate's registered maximum context, including encoded image tokens. Models without a known maximum remain unverified. Recommended vLLM ``max_model_len`` and SGLang ``context_length`` equal text plus vision tokens per sequence. llama.cpp uses ``n_parallel=concurrency`` and ``n_ctx=(context_length + vision_tokens) * concurrency`` because its context is divided across slots. The Web UI applies these advanced launch parameters. Other workload fields affect estimates rather than request limits. Older workers that do not support workload options are retried without them and remain unverified, with a version warning. Image workloads require vision metadata. For multiple images, ``vision_tokens_per_image`` specifies their maximum encoded token count; zero assumes all image tokens belong to one image. Cached states grow with concurrency, while model weights are counted once. CUDA profiles for vLLM and SGLang share a 16,384-token prefill workspace profile with fused attention and sampled-row logits."
+msgstr "Les contraintes LLM acceptent aussi les entiers positifs ``context_length`` (tokens de texte en entrée plus sortie) et ``concurrency``, ainsi que les entiers non négatifs ``vision_tokens`` (tokens d’image encodés par séquence) et ``prefix_cache_bytes`` (cache supplémentaire conservé pour toute l’instance). Sans ``context_length``, le contexte maximal enregistré de chaque candidat est utilisé, y compris les tokens d’image encodés. Les modèles sans maximum connu restent non vérifiés. Les valeurs recommandées ``max_model_len`` de vLLM et ``context_length`` de SGLang correspondent aux tokens de texte plus image par séquence. llama.cpp utilise ``n_parallel=concurrency`` et ``n_ctx=(context_length + vision_tokens) * concurrency`` car le contexte est réparti entre les slots. L’interface web applique ces paramètres avancés de lancement. Les autres champs affectent les estimations plutôt que les limites de requêtes. Les anciens workers sans prise en charge des options de charge sont réinterrogés sans celles-ci et restent non vérifiés, avec un avertissement de version. Les charges avec images exigent des métadonnées visuelles. Pour plusieurs images, ``vision_tokens_per_image`` précise le maximum de tokens encodés par image ; zéro traite tous les tokens d’image comme une seule image. Les états du cache augmentent avec la concurrence, les poids sont comptés une fois. vLLM (CUDA) et SGLang utilisent un profil partagé de préremplissage de 16 384 tokens avec attention fusionnée et logits des lignes échantillonnées."
+
+#: ../source/user_guide/launch.rst:95
+msgid "Unified LLM context length"
+msgstr "Longueur de contexte LLM unifiée"
+
+#: ../source/user_guide/launch.rst:97
+msgid "Set ``context_length`` in the launch API or use ``--context-length`` in the CLI to choose the input plus output token limit per request. In the Web UI, use the context slider or enter an exact integer; **Model default** clears the override. The slider's upper bound comes from the registered model. Context selections are preserved in configuration history and passed to the recommendation API."
+msgstr "Définissez ``context_length`` dans l’API de lancement ou utilisez ``--context-length`` dans la CLI pour choisir la limite totale des tokens d’entrée et de sortie par requête. Dans l’interface web, utilisez le curseur de contexte ou saisissez un entier exact ; **Valeur par défaut du modèle** efface la valeur imposée. Le maximum du curseur provient du modèle enregistré. Les valeurs de contexte sont conservées dans l’historique des configurations et transmises à l’API de recommandations."
+
+#: ../source/user_guide/launch.rst:103
+msgid "The launch layer maps this setting to vLLM's ``max_model_len``, SGLang, Transformers and MLX's ``context_length``, LMDeploy's ``session_len``, and llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine parameters still work; contradictory unified and native values are rejected. Omitting the setting preserves engine defaults. This setting does not extend the model's positional embeddings or enable context scaling."
+msgstr "La couche de lancement traduit cette valeur en ``max_model_len`` pour vLLM, ``context_length`` pour SGLang, Transformers et MLX, ``session_len`` pour LMDeploy, et en capacité totale des slots ``n_ctx=context_length*n_parallel`` pour llama.cpp. Les paramètres propres aux moteurs restent utilisables ; les valeurs unifiées et natives contradictoires sont rejetées. Sans valeur imposée, les valeurs par défaut du moteur sont conservées. Ce réglage n’étend pas les embeddings positionnels du modèle et n’active pas la mise à l’échelle du contexte."
+
+#: ../source/user_guide/launch.rst
+msgid "Recommendation configs expose ``context_length`` as the total per-request budget, including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the estimated concurrency; the launch layer maps the unified budget to each engine."
+msgstr "Les configurations recommandées renvoient ``context_length`` comme budget total par requête, y compris les tokens des images encodées. llama.cpp renvoie aussi ``n_parallel`` pour correspondre à la concurrence estimée ; la couche de lancement adapte le budget unifié à chaque moteur."
+
+#: ../source/user_guide/launch.rst
+msgid "With an explicit context limit, MLX rejects prompts that leave no room for output and caps ``max_tokens`` to the remaining budget. Cached prompt tokens and processed image tokens count toward the input limit. Non-streaming requests that exceed the input limit return HTTP 400; streaming requests report an SSE error without starting generation."
+msgstr "Avec une limite de contexte explicite, MLX rejette les prompts qui ne laissent aucune place à la sortie et limite ``max_tokens`` au budget restant. Les tokens du prompt en cache et les tokens des images traitées comptent dans la limite des entrées. Les requêtes sans streaming qui dépassent cette limite renvoient HTTP 400 ; les requêtes en streaming signalent une erreur SSE sans lancer la génération."
+
+msgid ""
+"For reasoning-capable models, both engines also accept ``reasoning_content``"
+" through the same reload API. This changes only the Xinference reasoning "
+"parser and leaves the engine and GPU weights intact. It works without "
+"``enable_weight_cache`` or the minimum engine versions required for weight "
+"retention. Existing requests, including streams, finish before the new "
+"setting is applied; new requests are temporarily rejected while draining. "
+"The ``hot_parameters`` field in reload metadata lists these settings; "
+"``enabled`` still indicates launch-time weight retention. Hot updates also "
+"require one worker and one replica. ``weights_reused`` is true only when an "
+"engine rebuild uses retained weights."
+msgstr ""
+"Pour les modèles capables de raisonner, les deux moteurs acceptent également"
+" ``reasoning_content`` via la même API de rechargement. Seul le parseur de "
+"raisonnement de Xinference est modifié ; le moteur et les poids GPU restent "
+"intacts. Cette opération ne nécessite ni ``enable_weight_cache`` ni les "
+"versions minimales requises pour conserver les poids. Les requêtes en cours,"
+" y compris les flux, se terminent avant son application ; les nouvelles "
+"requêtes sont temporairement refusées pendant cette attente. Le champ "
+"``hot_parameters`` des métadonnées liste ces réglages ; ``enabled`` indique "
+"toujours si la conservation des poids a été activée au lancement. Les mises "
+"à jour à chaud nécessitent également un worker et une réplique. "
+"``weights_reused`` est vrai uniquement lorsque la reconstruction du moteur "
+"utilise les poids conservés."
+
+msgid ""
+"For vLLM vision models launched with weight retention, "
+"``limit_mm_per_prompt`` can change a positive image count to another "
+"positive count, for example ``{\"image\": 8}``. Unspecified modality limits "
+"are preserved in the engine, recovery and automatic-startup configuration. "
+"The engine is rebuilt to apply multimodal memory profiling and cache budgets"
+" while reusing the retained weights. Setting the image count to zero or "
+"enabling images from an initially disabled encoder is rejected; limits for "
+"other modalities cannot change through this operation."
+msgstr ""
+"Pour les modèles visuels vLLM lancés avec conservation des poids, "
+"``limit_mm_per_prompt`` permet de remplacer une limite positive du nombre "
+"d’images par une autre valeur positive, par exemple ``{\"image\": 8}``. Les "
+"limites des modalités non précisées sont préservées dans les configurations "
+"du moteur, de récupération et de démarrage automatique. Le moteur est "
+"reconstruit pour appliquer le profilage mémoire multimodal et les budgets de"
+" cache tout en réutilisant les poids conservés. La mise à zéro du nombre "
+"d’images et l’activation d’images pour un encodeur initialement désactivé "
+"sont refusées. Les limites des autres modalités ne peuvent pas être "
+"modifiées par cette opération."
+
+msgid "To change reasoning parsing without restarting the engine:"
+msgstr "Pour modifier l’analyse du raisonnement sans redémarrer le moteur :"
+
+msgid ""
+"For a vision model launched with weight retention and a positive image "
+"limit:"
+msgstr ""
+"Pour un modèle visuel lancé avec conservation des poids et une limite "
+"positive du nombre d’images :"
+
+msgid ""
+"For SGLang vision models launched with weight retention, "
+"``limit_mm_data_per_request`` accepts a partial image-count patch, for "
+"example ``{\"image\": 8}``. The engine is rebuilt with retained weights so "
+"the new tokenizer process applies the limit. Other modality limits are "
+"preserved in the engine, recovery and automatic-startup configuration. An "
+"initially unlimited or zero image count can become a positive count because "
+"this setting only validates request counts; it does not disable the vision "
+"encoder. New image limits must be positive integers. Returning to an "
+"unlimited or zero image count requires relaunching the model. With an "
+"initial zero image count, Xinference skips SGLang's default image warmup."
+msgstr ""
+"Pour les modèles visuels SGLang lancés avec conservation des poids, "
+"``limit_mm_data_per_request`` accepte une modification partielle du nombre "
+"d’images, par exemple ``{\"image\": 8}``. Le moteur est reconstruit avec les"
+" poids conservés afin que le nouveau processus de tokenisation applique la "
+"limite. Les limites des autres modalités sont préservées dans le moteur et "
+"les configurations de récupération et de démarrage automatique. Un nombre "
+"d’images initialement illimité ou nul peut devenir positif, car ce paramètre"
+" ne vérifie que le nombre d’éléments par requête et ne désactive pas "
+"l’encodeur visuel. Les nouvelles limites d’images doivent être des entiers "
+"positifs. Pour revenir à un nombre d’images illimité ou nul, il faut "
+"relancer le modèle. Si le nombre initial d’images est nul, Xinference ignore"
+" le préchauffage d’images par défaut de SGLang."
+
+msgid ""
+"To change the image count of a SGLang vision model launched with weight "
+"retention:"
+msgstr ""
+"Pour modifier le nombre d’images d’un modèle visuel SGLang lancé avec "
+"conservation des poids :"

@@ -15,11 +15,14 @@
 import os
 import shutil
 import tempfile
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 from packaging import version
 from packaging.requirements import Requirement
+
+from xinference._model_catalog import load_model_catalog
 
 from ....constants import XINFERENCE_ENV_MODEL_SRC
 from ...utils import is_locale_chinese_simplified, is_valid_model_uri
@@ -34,6 +37,27 @@ from ..llm_family import (
     match_llm,
     match_model_size,
 )
+
+
+@pytest.mark.parametrize(
+    "spec_cls,model_format",
+    [
+        (LlamaCppLLMSpecV2, "ggufv2"),
+        (PytorchLLMSpecV2, "pytorch"),
+        (MLXLLMSpecV2, "mlx"),
+    ],
+)
+@pytest.mark.parametrize("size,expected", [("5_1", "5_1"), ("5", 5), (5, 5)])
+def test_model_sizes_preserve_radix(spec_cls, model_format, size, expected):
+    spec = spec_cls(
+        model_format=model_format,
+        model_size_in_billions=size,
+        activated_size_in_billions=size,
+        quantization="none",
+        model_file_name_template="model.gguf",
+    )
+    assert spec.model_size_in_billions == expected
+    assert spec.activated_size_in_billions == expected
 
 
 def test_deserialize_llm_family_v1():
@@ -561,6 +585,41 @@ def test_builtin_gemma_4_sglang_requires_supported_runtime():
     assert modern_kernel is True
 
 
+@pytest.mark.parametrize("model_name", ["Spark-X2.5", "Spark-X2.5-Base"])
+def test_builtin_spark_x2_5_sglang_requires_official_runtime(model_name):
+    from ....core.utils import (
+        filter_virtualenv_packages_by_markers,
+        merge_virtual_env_packages,
+        normalize_sglang_kernel_packages,
+    )
+    from ....core.virtual_env_manager import expand_engine_dependency_placeholders
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name)
+    assert family.virtualenv is not None
+
+    packages = expand_engine_dependency_placeholders(
+        family.virtualenv.packages, "sglang"
+    )
+    packages = merge_virtual_env_packages(packages, None)
+    packages = filter_virtualenv_packages_by_markers(
+        packages, "sglang", "13.0", "linux"
+    )
+    packages, modern_kernel = normalize_sglang_kernel_packages(packages)
+
+    assert (
+        "sglang @ git+https://github.com/sgl-project/sglang.git@20621aa1"
+        "#subdirectory=python" in packages
+    )
+    assert "torch==2.13.0+cu130" in packages
+    assert "nvidia-cusparselt-cu13==0.8.1" in packages
+    assert "sglang-kernel==0.4.6.post1" in packages
+    assert "sgl-deep-gemm==0.1.5.post3" in packages
+    assert "flashinfer_python[cu13]==0.6.17" in packages
+    assert not any("sgl_kernel-0.3.21" in package for package in packages)
+    assert modern_kernel is True
+
+
 def test_builtin_gemma_4_llama_cpp_requires_assistant_architecture():
     from ....core.utils import (
         filter_virtualenv_packages_by_markers,
@@ -742,6 +801,359 @@ def test_match_llm():
         os.environ.pop(XINFERENCE_ENV_MODEL_SRC)
 
 
+@pytest.mark.parametrize(
+    "model_name,expected_architecture,expected_formats",
+    [
+        (
+            "Qwen3-Next-Instruct",
+            "Qwen3NextForCausalLM",
+            {
+                "pytorch": {"none"},
+                "fp8": {"fp8"},
+                "awq": {"4bit", "8bit"},
+            },
+        ),
+        (
+            "Qwen3-Next-Thinking",
+            "Qwen3NextForCausalLM",
+            {
+                "pytorch": {"none"},
+                "fp8": {"fp8"},
+                "awq": {"4bit", "8bit"},
+            },
+        ),
+        (
+            "MiniCPM-V-4.6",
+            "MiniCPMV4_6ForConditionalGeneration",
+            {
+                "pytorch": {"none"},
+                "bnb": {"4-bit"},
+                "awq": {"Int4"},
+                "gptq": {"Int4"},
+            },
+        ),
+        (
+            "MiniCPM-V-4.6-Thinking",
+            "MiniCPMV4_6ForConditionalGeneration",
+            {
+                "pytorch": {"none"},
+                "bnb": {"4-bit"},
+                "awq": {"Int4"},
+                "gptq": {"Int4"},
+            },
+        ),
+        (
+            "MiniMax-M3",
+            "MiniMaxM3SparseForConditionalGeneration",
+            {"pytorch": {"none"}},
+        ),
+        (
+            "minicpm5-2b",
+            "LlamaForCausalLM",
+            {"pytorch": {"none"}, "awq": {"Int4"}},
+        ),
+    ],
+)
+def test_recent_sglang_engine_registration(
+    monkeypatch, model_name, expected_architecture, expected_formats
+):
+    import xinference.model.llm as llm_module
+
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..sglang import core as sglang_core
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == model_name
+    )
+    assert family.architectures == [expected_architecture]
+
+    monkeypatch.setattr(
+        llm_module,
+        "SUPPORTED_ENGINES",
+        {
+            "SGLang": [
+                sglang_core.SGLANGModel,
+                sglang_core.SGLANGChatModel,
+                sglang_core.SGLANGVisionModel,
+            ]
+        },
+    )
+    monkeypatch.setattr(llm_module, "LLM_ENGINES", {})
+    monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", True)
+    monkeypatch.setattr(sglang_core, "check_dependency_available", lambda *_args: True)
+    monkeypatch.setattr(sglang_core.SGLANGModel, "_has_cuda_device", lambda: True)
+    monkeypatch.setattr(sglang_core.SGLANGModel, "_is_linux", lambda: True)
+
+    llm_module.generate_engine_config_by_model_family(family)
+
+    registrations = llm_module.LLM_ENGINES[model_name]["SGLang"]
+    registered_formats = {
+        registration["model_format"]: set(registration["quantizations"])
+        for registration in registrations
+    }
+    assert registered_formats == expected_formats
+
+
+@pytest.mark.parametrize(
+    "model_name,expected_version,expected_formats",
+    [
+        ("Hy-MT2-1.8B", "0.21.0", {"pytorch", "ggufv2"}),
+        ("Hy-MT2-7B", "0.21.0", {"pytorch", "ggufv2"}),
+        ("Hy-MT2-30B-A3B", "0.21.0", {"pytorch"}),
+        (
+            "MiniCPM-V-4.6",
+            "0.22.0",
+            {"pytorch", "bnb", "awq", "gptq"},
+        ),
+        (
+            "MiniCPM-V-4.6-Thinking",
+            "0.22.0",
+            {"pytorch", "bnb", "awq", "gptq"},
+        ),
+        ("MiniMax-M3", "0.24.0", {"pytorch"}),
+        ("minicpm5-2b", "0.21.0", {"pytorch", "awq", "ggufv2"}),
+    ],
+)
+def test_recent_vllm_engine_registration(
+    monkeypatch, model_name, expected_version, expected_formats
+):
+    import xinference.model.llm as llm_module
+
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..vllm import core as vllm_core
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == model_name
+    )
+    assert vllm_core._get_effective_vllm_version_for_family(family) == version.parse(
+        expected_version
+    )
+
+    monkeypatch.setattr(
+        llm_module,
+        "SUPPORTED_ENGINES",
+        {
+            "vLLM": [
+                vllm_core.VLLMModel,
+                vllm_core.VLLMChatModel,
+                vllm_core.VLLMMultiModel,
+            ]
+        },
+    )
+    monkeypatch.setattr(llm_module, "LLM_ENGINES", {})
+    monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", True)
+    monkeypatch.setattr(vllm_core, "VLLM_VERSION", version.parse("1.0.0"))
+    monkeypatch.setattr(vllm_core.VLLMModel, "check_lib", classmethod(lambda cls: True))
+    monkeypatch.setattr(vllm_core.VLLMModel, "_has_cuda_device", lambda: True)
+    monkeypatch.setattr(vllm_core.VLLMModel, "_is_linux", lambda: True)
+
+    llm_module.generate_engine_config_by_model_family(family)
+
+    registrations = llm_module.LLM_ENGINES[model_name]["vLLM"]
+    assert {registration["model_format"] for registration in registrations} == (
+        expected_formats
+    )
+
+
+@pytest.mark.parametrize(
+    "model_name,engine_name,minimum_version",
+    [
+        ("MiniCPM-V-4.6", "vllm", "0.22.0"),
+        ("MiniCPM-V-4.6-Thinking", "vllm", "0.22.0"),
+        ("MiniCPM-V-4.6", "sglang", "0.5.12"),
+        ("MiniCPM-V-4.6-Thinking", "sglang", "0.5.12"),
+        ("MiniMax-M3", "vllm", "0.24.0"),
+        ("MiniMax-M3", "sglang", "0.5.16"),
+        ("minicpm5-2b", "vllm", "0.21.0"),
+        ("minicpm5-2b", "sglang", "0.5.16"),
+    ],
+)
+def test_recent_model_engine_minimum_versions(model_name, engine_name, minimum_version):
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == model_name
+    )
+    assert family.virtualenv is not None
+    requirements = {
+        requirement.name: requirement
+        for package in family.virtualenv.packages
+        if not package.startswith("#")
+        for requirement in [Requirement(package.split(";", 1)[0].strip())]
+    }
+    assert requirements[engine_name].specifier.contains(minimum_version)
+
+
+def test_minicpm5_2b_builtin_family_has_all_published_formats():
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == "minicpm5-2b"
+    )
+    specs = {
+        spec.model_format: {
+            (candidate.quantization, candidate.model_id)
+            for candidate in family.model_specs
+            if candidate.model_hub == "huggingface"
+            and candidate.model_format == spec.model_format
+        }
+        for spec in family.model_specs
+        if spec.model_hub == "huggingface"
+    }
+
+    assert specs == {
+        "pytorch": {("none", "openbmb/MiniCPM5-2B")},
+        "ggufv2": {
+            ("F16", "openbmb/MiniCPM5-2B-GGUF"),
+            ("Q4_K_M", "openbmb/MiniCPM5-2B-GGUF"),
+            ("Q8_0", "openbmb/MiniCPM5-2B-GGUF"),
+        },
+        "mlx": {("4bit", "openbmb/MiniCPM5-2B-MLX")},
+        # Despite repository name, config.json declares AWQ GEMM packing.
+        "awq": {("Int4", "openbmb/MiniCPM5-2B-GPTQ")},
+    }
+    assert family.tool_parser == "minicpm5"
+    assert "<think>\\n\\n</think>" in family.chat_template
+
+
+def test_spark_x2_5_builtin_families_cover_official_hubs_and_formats():
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..sglang.core import SGLANG_SUPPORTED_CHAT_MODELS, SGLANG_SUPPORTED_MODELS
+    from ..transformers.spark_x2_5 import SparkX25PytorchChatModel, SparkX25PytorchModel
+    from ..utils import GLM5_TOOL_CALL_FAMILY
+    from ..vllm import core as vllm_core
+
+    families = {family.model_name: family for family in BUILTIN_LLM_FAMILIES}
+    instruction = families["Spark-X2.5"]
+    base = families["Spark-X2.5-Base"]
+
+    assert instruction.context_length == 1048576
+    assert instruction.model_ability == ["chat", "tools", "reasoning", "hybrid"]
+    assert instruction.architectures == ["Spark2_5ForCausalLM"]
+    assert instruction.tool_parser == "glm5"
+    assert "Spark2_5ForCausalLM" in vllm_core.VLLM_SUPPORTED_CHAT_MODELS
+    assert "Spark2_5ForCausalLM" in vllm_core.VLLM_SUPPORTED_MODELS
+    assert "Spark2_5ForCausalLM" in SGLANG_SUPPORTED_CHAT_MODELS
+    assert "Spark2_5ForCausalLM" in SGLANG_SUPPORTED_MODELS
+    assert instruction.model_name in GLM5_TOOL_CALL_FAMILY
+
+    expected_instruction_specs = {
+        ("pytorch", "1_7", "none", "XHToken/Spark-X2.5-1.7B"),
+        ("pytorch", 4, "none", "XHToken/Spark-X2.5-4B"),
+        ("pytorch", "1_7", "Int8", "XHToken/Spark-X2.5-1.7B-INT8"),
+        ("pytorch", 4, "Int8", "XHToken/Spark-X2.5-4B-INT8"),
+        ("fp8", "1_7", "FP8", "XHToken/Spark-X2.5-1.7B-FP8"),
+        ("fp8", 4, "FP8", "XHToken/Spark-X2.5-4B-FP8"),
+        ("ggufv2", "1_7", "Q4_K_M", "XHToken/Spark-X2.5-1.7B-GGUF"),
+        ("ggufv2", "1_7", "Q8_0", "XHToken/Spark-X2.5-1.7B-GGUF"),
+        ("ggufv2", 4, "Q4_K_M", "XHToken/Spark-X2.5-4B-GGUF"),
+        ("ggufv2", 4, "Q8_0", "XHToken/Spark-X2.5-4B-GGUF"),
+    }
+    for model_hub, revision in (("huggingface", "main"), ("modelscope", "master")):
+        specs = {
+            (
+                spec.model_format,
+                spec.model_size_in_billions,
+                spec.quantization,
+                spec.model_id,
+            )
+            for spec in instruction.model_specs
+            if spec.model_hub == model_hub
+        }
+        assert specs == expected_instruction_specs
+        assert all(
+            spec.model_revision == revision
+            for spec in instruction.model_specs
+            if spec.model_hub == model_hub
+        )
+
+    assert base.model_ability == ["generate"]
+    for family in (instruction, base):
+        assert family.virtualenv is not None
+        packages = family.virtualenv.packages
+        assert 'transformers==4.57.1 ; #engine# == "Transformers"' in packages
+        assert 'vllm==0.29.0 ; #engine# == "vllm"' in packages
+        assert 'transformers==5.16.1 ; #engine# == "vllm"' in packages
+        assert 'tokenizers==0.23.2 ; #engine# == "vllm"' in packages
+        assert 'vllm-spark2-5-plugin==0.1.0 ; #engine# == "vllm"' in packages
+        assert 'openai>=2.25.0 ; #engine# == "vllm"' in packages
+
+    huggingface_base_specs = {
+        (spec.model_size_in_billions, spec.model_id, spec.model_revision)
+        for spec in base.model_specs
+        if spec.model_hub == "huggingface"
+    }
+    assert huggingface_base_specs == {
+        ("1_7", "XHToken/Spark-X2.5-1.7B-Base", "main"),
+        (4, "XHToken/Spark-X2.5-4B-Base", "main"),
+    }
+    modelscope_base_specs = {
+        (spec.model_size_in_billions, spec.model_id, spec.model_revision)
+        for spec in base.model_specs
+        if spec.model_hub == "modelscope"
+    }
+    assert modelscope_base_specs == {
+        ("1_7", "XHToken/Spark-X2.5-1.7B-Base", "master"),
+        (4, "XHToken/Spark-X2.5-4B-Base", "master"),
+    }
+
+    instruction_spec = next(
+        spec
+        for spec in instruction.model_specs
+        if spec.model_hub == "huggingface"
+        and spec.model_format == "pytorch"
+        and spec.quantization == "none"
+    )
+    base_spec = next(
+        spec for spec in base.model_specs if spec.model_hub == "huggingface"
+    )
+    assert (
+        SparkX25PytorchChatModel.match_json(
+            instruction, instruction_spec, instruction_spec.quantization
+        )
+        is True
+    )
+    assert (
+        SparkX25PytorchModel.match_json(base, base_spec, base_spec.quantization) is True
+    )
+
+    vllm_model = object.__new__(vllm_core.VLLMModel)
+    vllm_model.model_family = instruction
+    vllm_model.model_spec = instruction_spec
+    vllm_model._device_count = 1
+    vllm_model._n_worker = 1
+    vllm_model._shard = 0
+    vllm_model._address = None
+    with patch.object(vllm_core, "VLLM_VERSION", version.parse("0.21.0")):
+        assert vllm_model._sanitize_model_config({})["trust_remote_code"] is True
+
+    class Tokenizer:
+        def __init__(self):
+            self.calls = []
+
+        def apply_chat_template(self, messages, **kwargs):
+            self.calls.append((messages, kwargs))
+            return "prompt"
+
+    tokenizer = Tokenizer()
+    model = SparkX25PytorchChatModel.__new__(SparkX25PytorchChatModel)
+    model.model_family = instruction
+    model.reasoning_parser = None
+    model._tokenizer = tokenizer
+    assert (
+        model._get_full_prompt(
+            [{"role": "user", "content": "hello"}],
+            [{"type": "function", "function": {"name": "weather"}}],
+            {},
+        )
+        == "prompt"
+    )
+    assert tokenizer.calls[0][1]["tools"] == [
+        {"type": "function", "function": {"name": "weather"}}
+    ]
+    assert "chat_template" not in tokenizer.calls[0][1]
+
+
 def test_match_deepseek_v4_flash_0731():
     family = match_llm(
         "DeepSeek-V4-Flash-0731",
@@ -793,6 +1205,42 @@ def test_match_deepseek_v4_flash_0731():
     )
     assert preview is not None
     assert preview.model_specs[0].model_id == "deepseek-ai/DeepSeek-V4-Flash"
+
+
+def test_hy_mt2_remote_code_policy():
+    import copy
+
+    from ..llm_family import match_llm
+    from ..transformers.hy_mt2 import HyMT2PytorchModel
+
+    family = match_llm(
+        "Hy-MT2-1.8B",
+        model_format="pytorch",
+        model_size_in_billions=2,
+        quantization="none",
+        download_hub="modelscope",
+    )
+
+    assert family is not None
+    assert family.is_builtin is True
+    assert family.architectures == ["HunYuanDenseV1ForCausalLM"]
+    assert family.model_specs[0].model_hub == "modelscope"
+    assert family.model_specs[0].model_id == "Tencent-Hunyuan/Hy-MT2-1.8B"
+    assert (
+        HyMT2PytorchModel.match_json(
+            family, family.model_specs[0], family.model_specs[0].quantization
+        )
+        is True
+    )
+
+    builtin_model = HyMT2PytorchModel("hy-mt2-builtin-test", family, "/tmp/hy-mt2")
+    assert builtin_model._pytorch_model_config["torch_dtype"] == "bfloat16"
+    assert builtin_model._pytorch_model_config["trust_remote_code"] is True
+
+    custom_family = copy.copy(family)
+    custom_family.is_builtin = False
+    custom_model = HyMT2PytorchModel("hy-mt2-custom-test", custom_family, "/tmp/hy-mt2")
+    assert custom_model._pytorch_model_config["trust_remote_code"] is False
 
 
 def test_is_valid_file_uri():
@@ -1271,12 +1719,16 @@ def test_multimodal_engine_available_with_virtualenv(monkeypatch):
     simulated here to isolate the library-exemption behavior.
     """
     import xinference.model.llm as llm_pkg
+    from xinference.model.llm.mlx import core as mlx_core
     from xinference.model.llm.sglang import core as sglang_core
     from xinference.model.llm.vllm import core as vllm_core
 
-    from ...utils import get_engine_params_by_name_with_virtual_env
+    from ... import utils as model_utils
 
     llm_pkg._install()
+
+    monkeypatch.setattr(model_utils, "sys", SimpleNamespace(platform="linux"))
+    monkeypatch.setattr(mlx_core, "sys", SimpleNamespace(platform="linux"))
 
     # Simulate a supported worker: CUDA present and Linux. This isolates the
     # library-missing exemption from the (unconditional) hardware/OS gates.
@@ -1290,7 +1742,7 @@ def test_multimodal_engine_available_with_virtualenv(monkeypatch):
                     model_cls, "_is_linux", classmethod(lambda cls: True)
                 )
 
-    params = get_engine_params_by_name_with_virtual_env(
+    params = model_utils.get_engine_params_by_name_with_virtual_env(
         "LLM", "qwen3.5", enable_virtual_env=True
     )
     assert params is not None
@@ -1304,12 +1756,187 @@ def test_multimodal_engine_available_with_virtualenv(monkeypatch):
             params.get(engine), list
         ), f"{engine} should be available for qwen3.5 under virtualenv, got {params.get(engine)!r}"
 
-    # MLX and LMDEPLOY are not declared for qwen3.5, so they must NOT be listed
-    # as available (kept as string reasons instead).
+    # MLX cannot run on this simulated Linux worker, and LMDEPLOY is not
+    # declared for qwen3.5, so both remain unavailable reason strings.
     for engine in ("MLX", "LMDEPLOY"):
         assert not isinstance(
             params.get(engine), list
         ), f"{engine} should not be available for qwen3.5, got {params.get(engine)!r}"
+
+
+@pytest.mark.parametrize("lib_available", [False, True])
+@pytest.mark.parametrize("model_name", ["qwen3.5", "qwen3.6"])
+@pytest.mark.parametrize(
+    "host_platform,processor",
+    [("darwin", "arm"), ("darwin", "i386"), ("linux", "x86_64")],
+)
+def test_qwen3_5_and_3_6_mlx_engine_available_with_virtualenv(
+    monkeypatch, host_platform, processor, lib_available, model_name
+):
+    from ... import utils as model_utils
+    from .. import llm_family
+    from ..mlx import core as mlx_core
+
+    monkeypatch.setattr(model_utils, "sys", SimpleNamespace(platform=host_platform))
+    monkeypatch.setattr(mlx_core, "sys", SimpleNamespace(platform=host_platform))
+    monkeypatch.setattr(
+        mlx_core, "platform", SimpleNamespace(processor=lambda: processor)
+    )
+    # Start discovery without pre-populated engines so the result does not
+    # depend on the host or optional libraries used at test collection time.
+    monkeypatch.setattr(llm_family, "LLM_ENGINES", {model_name: {}})
+    monkeypatch.setattr(
+        llm_family, "SUPPORTED_ENGINES", {"MLX": llm_family.MLX_CLASSES}
+    )
+    for model_cls in llm_family.MLX_CLASSES:
+        monkeypatch.setattr(
+            model_cls,
+            "check_lib",
+            classmethod(lambda cls: lib_available),
+        )
+
+    params = model_utils.get_engine_params_by_name_with_virtual_env(
+        "LLM", model_name, enable_virtual_env=True
+    )
+    assert params is not None
+    mlx_params = params["MLX"]
+    if host_platform != "darwin" or processor != "arm":
+        assert isinstance(mlx_params, str)
+        return
+
+    assert isinstance(mlx_params, list)
+    expected_sizes = {"0_8", 2, 4, 9, 27, 35, 122, 397}
+    if model_name == "qwen3.6":
+        expected_sizes = {35}
+    assert {param["model_size_in_billions"] for param in mlx_params} == expected_sizes
+    assert all(param["model_format"] == "mlx" for param in mlx_params)
+    assert all("4bit" in param["quantizations"] for param in mlx_params)
+    assert all(
+        param.get("virtualenv_required", False) is not lib_available
+        for param in mlx_params
+    )
+
+
+@pytest.mark.parametrize("engine", ["MLX", "Transformers"])
+def test_qwen3_5_mlx_virtualenv_requirements(engine):
+    from ....core.utils import (
+        filter_virtualenv_packages_by_markers,
+        merge_virtual_env_packages,
+    )
+    from ....core.virtual_env_manager import expand_engine_dependency_placeholders
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen3.5")
+    assert family.virtualenv is not None
+    packages = expand_engine_dependency_placeholders(family.virtualenv.packages, engine)
+    packages = merge_virtual_env_packages(packages, None)
+    packages = filter_virtualenv_packages_by_markers(packages, engine, None, "darwin")
+    requirements = {
+        requirement.name: requirement
+        for package in packages
+        if not package.lstrip().startswith("#")
+        for requirement in [Requirement(package.split(";", 1)[0].strip())]
+    }
+    if engine != "MLX":
+        assert "mlx-lm" not in requirements
+        assert "mlx-vlm" not in requirements
+        return
+
+    assert "mlx-lm" in requirements
+    assert requirements["mlx-vlm"].specifier.contains("0.3.12")
+    assert not requirements["mlx-vlm"].specifier.contains("0.3.11")
+
+
+def test_builtin_mlx_families_have_virtualenv_dependencies(monkeypatch):
+    from ....core.utils import (
+        filter_virtualenv_packages_by_markers,
+        merge_virtual_env_packages,
+    )
+    from ....core.virtual_env_manager import expand_engine_dependency_placeholders
+    from ... import utils as model_utils
+    from .. import llm_family
+    from ..mlx import core as mlx_core
+
+    # These records need catalog or loader fixes before enabling their MLX
+    # paths: DeepSeek V4 is only implemented in mlx-vlm, Kimi's registered MLX
+    # quant is text-only, and GLM-5/5.1 incorrectly advertise vision ability.
+    incompatible_models = {
+        "DeepSeek-V4-Flash",
+        "DeepSeek-V4-Pro",
+        "Kimi-K2.5",
+        "glm-5",
+        "glm-5.1",
+    }
+    families = [
+        family
+        for family in llm_family.BUILTIN_LLM_FAMILIES
+        if any(spec.model_format == "mlx" for spec in family.model_specs)
+        and family.model_name not in incompatible_models
+    ]
+    assert families
+    monkeypatch.setattr(model_utils, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(mlx_core, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(mlx_core, "platform", SimpleNamespace(processor=lambda: "arm"))
+    monkeypatch.setattr(
+        llm_family, "LLM_ENGINES", {family.model_name: {} for family in families}
+    )
+    monkeypatch.setattr(
+        llm_family, "SUPPORTED_ENGINES", {"MLX": llm_family.MLX_CLASSES}
+    )
+    for model_cls in llm_family.MLX_CLASSES:
+        monkeypatch.setattr(model_cls, "check_lib", classmethod(lambda cls: False))
+
+    for family in families:
+        params = model_utils.get_engine_params_by_name_with_virtual_env(
+            "LLM", family.model_name, enable_virtual_env=True
+        )
+        assert params is not None, family.model_name
+        assert isinstance(params.get("MLX"), list), (family.model_name, params)
+        assert all(param["virtualenv_required"] for param in params["MLX"])
+        for spec in family.model_specs:
+            if spec.model_format != "mlx":
+                continue
+            packages = family.virtualenv.packages.copy() if family.virtualenv else []
+            spec_virtualenv = getattr(spec, "virtualenv", None)
+            if spec_virtualenv:
+                packages.extend(spec_virtualenv.packages)
+            packages = expand_engine_dependency_placeholders(packages, "MLX")
+            packages = merge_virtual_env_packages(packages, None)
+            packages = filter_virtualenv_packages_by_markers(
+                packages, "MLX", None, "darwin"
+            )
+            requirements = {
+                Requirement(package.split(";", 1)[0].strip()).name
+                for package in packages
+                if not package.lstrip().startswith("#")
+            }
+            assert "mlx-lm" in requirements, family.model_name
+            if "vision" in family.model_ability:
+                assert {"mlx-vlm", "mlx_vlm"} & requirements, family.model_name
+
+
+@pytest.mark.parametrize(
+    "model_name,minimum_version,unsupported_version",
+    [("qwen3.6", "0.5.0", "0.4.4"), ("MiniMax-M3", "0.6.4", "0.6.3")],
+)
+def test_new_mlx_vision_models_require_supported_runtime_versions(
+    model_name, minimum_version, unsupported_version
+):
+    from ....core.utils import filter_virtualenv_packages_by_markers
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name)
+    assert family.virtualenv is not None
+    packages = filter_virtualenv_packages_by_markers(
+        family.virtualenv.packages, "MLX", None, "darwin"
+    )
+    requirement = next(
+        Requirement(package.split(";", 1)[0].strip())
+        for package in packages
+        if package.startswith("mlx-vlm")
+    )
+    assert requirement.specifier.contains(minimum_version)
+    assert not requirement.specifier.contains(unsupported_version)
 
 
 def test_multimodal_vllm_engine_requires_gpu_even_with_virtualenv():
@@ -1416,9 +2043,11 @@ def test_qwen3_8_builtin_families_preserve_checkpoint_capabilities():
         for spec in dense_gguf_specs
         if spec.model_hub == "huggingface" and spec.quantization == "BF16"
     )
-    file_names, final_file_name, need_merge = (
-        generate_model_file_names_with_quantization_parts(dense_bf16)
-    )
+    (
+        file_names,
+        final_file_name,
+        need_merge,
+    ) = generate_model_file_names_with_quantization_parts(dense_bf16)
     assert file_names == [
         "BF16/Qwen3.8-27B-BF16-00001-of-00002.gguf",
         "BF16/Qwen3.8-27B-BF16-00002-of-00002.gguf",
@@ -1529,9 +2158,11 @@ def test_qwen3_8_builtin_families_preserve_checkpoint_capabilities():
         for spec in max_gguf_specs
         if spec.model_hub == "modelscope" and spec.quantization == "UD-Q1_0"
     )
-    file_names, final_file_name, need_merge = (
-        generate_model_file_names_with_quantization_parts(max_ud_q1_0)
-    )
+    (
+        file_names,
+        final_file_name,
+        need_merge,
+    ) = generate_model_file_names_with_quantization_parts(max_ud_q1_0)
     assert file_names[0] == ("UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00001-of-00010.gguf")
     assert file_names[-1] == ("UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00010-of-00010.gguf")
     assert final_file_name == "Qwen3.8-2.4T-A95B-UD-Q1_0.gguf"
@@ -1733,3 +2364,150 @@ def test_ornith_15_397b_matches_vllm_021_multimodal(monkeypatch):
         vllm_core.VLLM_SUPPORTED_MULTI_MODEL_LIST
     )
     assert vllm_core.VLLMMultiModel.match_json(family, spec, spec.quantization) is True
+
+
+def test_kimi_k3_tool_family_registration():
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..utils import KIMI_K3_TOOL_CALL_FAMILY
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == "Kimi-K3"
+    )
+    assert "tools" in family.model_ability
+    assert family.tool_parser == "kimi-k3"
+    assert family.model_name in KIMI_K3_TOOL_CALL_FAMILY
+
+
+def test_kimi_k3_virtualenv_engine_discovery(monkeypatch):
+    import xinference.model.llm as llm_pkg
+    from xinference.model.llm.vllm import core as vllm_core
+
+    from ...utils import get_engine_params_by_name_with_virtual_env
+
+    llm_pkg._install()
+    monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", False)
+    monkeypatch.setattr(vllm_core, "VLLM_VERSION", None)
+    monkeypatch.setattr(
+        vllm_core,
+        "VLLM_SUPPORTED_MULTI_MODEL_LIST",
+        [
+            architecture
+            for architecture in vllm_core.VLLM_SUPPORTED_MULTI_MODEL_LIST
+            if architecture != "KimiK3ForConditionalGeneration"
+        ],
+    )
+    monkeypatch.setattr(
+        vllm_core.VLLMMultiModel,
+        "_has_cuda_device",
+        classmethod(lambda cls: True),
+    )
+    monkeypatch.setattr(
+        vllm_core.VLLMMultiModel,
+        "_is_linux",
+        classmethod(lambda cls: True),
+    )
+    params = get_engine_params_by_name_with_virtual_env(
+        "LLM", "Kimi-K3", enable_virtual_env=True
+    )
+
+    assert params is not None
+    assert isinstance(params.get("vLLM"), list), params.get("vLLM")
+    family = next(
+        family
+        for family in llm_pkg.BUILTIN_LLM_FAMILIES
+        if family.model_name == "Kimi-K3"
+    )
+    assert 'vllm>=0.27.0 ; #engine# == "vllm"' in family.virtualenv.packages
+    assert vllm_core._get_virtualenv_vllm_version(family) == version.parse("0.27.0")
+
+
+def test_register_builtin_model_is_idempotent():
+    # Worker.update_model_type() calls register_builtin_model() again on
+    # every runtime hub-refresh, on the same already-imported process. The
+    # LLM_ENGINES entries were already guarded against duplication (see
+    # generate_engine_config_by_model_family's already_exists check); the
+    # SUPPORTED_ENGINES class lists were not.
+    import xinference.model.llm as llm_module
+
+    from ..llm_family import BUILTIN_LLM_FAMILIES, LLM_ENGINES, SUPPORTED_ENGINES
+
+    llm_module.register_builtin_model()
+    model_name = next(iter(LLM_ENGINES))
+    baseline_classes = {
+        engine: list(classes) for engine, classes in SUPPORTED_ENGINES.items()
+    }
+    baseline_engine_entries = sum(
+        len(specs) for specs in LLM_ENGINES[model_name].values()
+    )
+    baseline_family_count = len(BUILTIN_LLM_FAMILIES)
+
+    for _ in range(3):
+        llm_module.register_builtin_model()
+
+    assert {
+        engine: list(classes) for engine, classes in SUPPORTED_ENGINES.items()
+    } == baseline_classes
+    assert (
+        sum(len(specs) for specs in LLM_ENGINES[model_name].values())
+        == baseline_engine_entries
+    )
+    # BUILTIN_LLM_FAMILIES itself must not grow either: load_model_family_from_json
+    # unconditionally appended every family on every refresh, independent of the
+    # engine-class and engine-entry guards above.
+    assert len(BUILTIN_LLM_FAMILIES) == baseline_family_count
+
+
+def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
+    tmp_path, monkeypatch
+):
+    import json
+    import os
+
+    from .... import constants
+    from .. import register_builtin_model
+    from ..core import LLM_VERSION_INFOS
+    from ..llm_family import (
+        BUILTIN_LLM_FAMILIES,
+        BUILTIN_LLM_MODEL_GENERATE_FAMILIES,
+        LLM_ENGINES,
+    )
+
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    import xinference.model.llm as llm_module
+
+    spec_path = os.path.join(os.path.dirname(llm_module.__file__), "models")
+    downloaded_entry = next(
+        entry
+        for entry in load_model_catalog(spec_path)
+        if "generate" in entry["model_ability"]
+    )
+    model_name = "downloaded-only-llm-refresh-test"
+    downloaded_entry["model_name"] = model_name
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "llm")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "llm_models.json")
+    with open(catalog_path, "w", encoding="utf-8") as f:
+        json.dump([downloaded_entry], f)
+
+    register_builtin_model()
+    active = [f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name]
+    assert len(active) == 1
+    assert active[0].is_builtin is False
+    assert model_name in BUILTIN_LLM_MODEL_GENERATE_FAMILIES
+    assert model_name in LLM_ENGINES
+    assert model_name in LLM_VERSION_INFOS
+
+    register_builtin_model()
+    active = [f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name]
+    assert len(active) == 1
+    assert active[0].is_builtin is False
+
+    with open(catalog_path, "w", encoding="utf-8") as f:
+        json.dump([], f)
+    register_builtin_model()
+    assert not any(f.model_name == model_name for f in BUILTIN_LLM_FAMILIES)
+    assert model_name not in BUILTIN_LLM_MODEL_GENERATE_FAMILIES
+    assert model_name not in LLM_ENGINES
+    assert model_name not in LLM_VERSION_INFOS

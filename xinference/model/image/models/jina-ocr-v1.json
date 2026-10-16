@@ -1,0 +1,35 @@
+[
+  {
+    "version": 2,
+    "model_name": "jina-ocr-v1",
+    "model_family": "ocr",
+    "model_ability": ["ocr"],
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.1 ; #engine# == \"transformers\"",
+        "accelerate>=0.34.2 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchvision# ; #engine# == \"transformers\"",
+        "Pillow",
+        "#system_numpy#"
+      ]
+    },
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-ocr-v1",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-ocr-v1",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "featured": false,
+    "updated_at": 1790280000
+  }
+]

@@ -213,6 +213,24 @@ class WorldModel:
         self._running_processes: Dict[str, subprocess.Popen] = {}
         self._request_cancellations: Dict[str, threading.Event] = {}
 
+    def __getstate__(self):
+        # Model instances are serialized when handed to the actor subprocess.
+        # Synchronization primitives and live process state cannot cross that
+        # boundary; the instance has not started serving requests at this point.
+        state = self.__dict__.copy()
+        state["_process_lock"] = None
+        state["_runner_lock"] = None
+        state["_running_processes"] = {}
+        state["_request_cancellations"] = {}
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._process_lock = threading.Lock()
+        self._runner_lock = threading.Lock()
+        self._running_processes = {}
+        self._request_cancellations = {}
+
     @property
     def model_ability(self):
         return self._model_spec.model_ability
@@ -249,8 +267,15 @@ class WorldModel:
         else:
             from huggingface_hub import snapshot_download
 
-        return snapshot_download(
-            self._model_spec.auxiliary_model_id,
+        from ..utils import retry_snapshot_download
+
+        auxiliary_model_id = self._model_spec.auxiliary_model_id
+        assert auxiliary_model_id is not None
+        return retry_snapshot_download(
+            snapshot_download,
+            auxiliary_model_id,
+            None,
+            auxiliary_model_id,
             **download_kwargs,
         )
 
@@ -689,6 +714,241 @@ class MatrixGameModel(WorldModel):
                 return self._make_response(video_path, response_format)
 
 
+class LingBotWorldV2Model(WorldModel):
+    _SUPPORTED_CONFIG = {
+        "action_path",
+        "base_seed",
+        "chunk_size",
+        "convert_model_dtype",
+        "dit_fsdp",
+        "frame_num",
+        "local_attn_size",
+        "max_attention_size",
+        "offload_model",
+        "response_format",
+        "sample_shift",
+        "sink_size",
+        "size",
+        "t5_cpu",
+        "t5_fsdp",
+        "ulysses_size",
+    }
+    _ASSET_PATHS = (
+        "models_t5_umt5-xxl-enc-bf16.pth",
+        "Wan2.1_VAE.pth",
+        os.path.join("google", "umt5-xxl"),
+    )
+    _TASK_HEADS = {"i2v-A14B": 40, "i2v-1.3B": 12}
+    _INFERENCE_MODES = {"causal_fast", "causal_pretrain"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._assets_model_path: Optional[str] = None
+
+    @classmethod
+    def _has_assets(cls, path: str) -> bool:
+        return all(
+            os.path.exists(os.path.join(path, item)) for item in cls._ASSET_PATHS
+        )
+
+    def load(self):
+        super().load()
+        if self._has_assets(self._model_path):
+            self._assets_model_path = self._model_path
+            return
+        if not self._model_spec.auxiliary_model_id:
+            raise RuntimeError(
+                f"{self._model_spec.model_name} is missing its T5, VAE, and "
+                "tokenizer assets"
+            )
+        assets_model_path = self._download_auxiliary_model(
+            self._model_spec.auxiliary_model_allow_patterns,
+        )
+        if not self._has_assets(assets_model_path):
+            raise RuntimeError(
+                "LingBot-World-V2 auxiliary model is missing its T5, VAE, "
+                "or tokenizer assets"
+            )
+        self._assets_model_path = assets_model_path
+
+    def _resolve_action_path(self, action_path: Optional[str]) -> str:
+        assert self._code_path is not None
+        if action_path is None:
+            path = Path(self._code_path, "examples", "03")
+        else:
+            if not isinstance(action_path, str) or not action_path:
+                raise ValueError(
+                    "LingBot-World-V2 action_path must be a non-empty string"
+                )
+            path = Path(action_path).expanduser()
+            if not path.is_absolute():
+                path = Path(self._code_path, path)
+        path = path.resolve()
+        if not path.is_dir() or not (path / "poses.npy").is_file():
+            raise ValueError(
+                "LingBot-World-V2 action_path must be a directory containing poses.npy"
+            )
+        return str(path)
+
+    def world_generate(
+        self,
+        prompt: str,
+        image: Optional[str] = None,
+        video: Optional[str] = None,
+        generation_config: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        request_id: Optional[str] = None,
+        progressor: Optional["Progressor"] = None,
+    ) -> VideoList:
+        if self._code_path is None:
+            raise RuntimeError("World model is not loaded")
+        if not image:
+            raise ValueError("LingBot-World-V2 requires an input image")
+        if video is not None:
+            raise ValueError("LingBot-World-V2 does not support video input")
+
+        config = self._merge_configs(
+            self._model_spec.default_generate_config,
+            generation_config,
+            model_kwargs,
+        )
+        unknown = set(config).difference(self._SUPPORTED_CONFIG)
+        if unknown:
+            raise ValueError(
+                "Unsupported LingBot-World-V2 generation options: "
+                + ", ".join(sorted(unknown))
+            )
+
+        for key in ("base_seed", "local_attn_size", "sink_size"):
+            if key in config and config[key] is not None:
+                self._require_int(config, key)
+        for key in ("chunk_size", "frame_num"):
+            self._require_int(config, key, 1)
+        if (config["frame_num"] - 1) % 4:
+            raise ValueError("LingBot-World-V2 frame_num must equal 4 * k + 1")
+        if "max_attention_size" in config and config["max_attention_size"] is not None:
+            self._require_int(config, "max_attention_size", 1)
+        if "sample_shift" in config and config["sample_shift"] is not None:
+            self._require_number(config, "sample_shift")
+        for key in (
+            "convert_model_dtype",
+            "dit_fsdp",
+            "offload_model",
+            "t5_cpu",
+            "t5_fsdp",
+        ):
+            if key in config and config[key] is not None:
+                self._require_bool(config, key)
+        size = self._require_string(config, "size")
+        if re.fullmatch(r"[1-9]\d*\*[1-9]\d*", size) is None:
+            raise ValueError("LingBot-World-V2 size must use the HEIGHT*WIDTH format")
+
+        task = self._model_spec.inference_task
+        inference_mode = self._model_spec.inference_mode
+        if task not in self._TASK_HEADS or inference_mode not in self._INFERENCE_MODES:
+            raise RuntimeError("LingBot-World-V2 model specification is invalid")
+        assert task is not None
+        assert inference_mode is not None
+        gpu_count = self._gpu_count()
+        config.setdefault("ulysses_size", gpu_count)
+        ulysses_size = self._require_int(config, "ulysses_size", 1)
+        if ulysses_size != gpu_count:
+            raise ValueError(
+                "LingBot-World-V2 ulysses_size must equal the assigned GPU count"
+            )
+        if self._TASK_HEADS[task] % ulysses_size:
+            raise ValueError(
+                f"LingBot-World-V2 {task} attention heads must be divisible by "
+                "ulysses_size"
+            )
+        if gpu_count > 1:
+            config.setdefault("dit_fsdp", True)
+            if not config.get("t5_cpu"):
+                config.setdefault("t5_fsdp", True)
+        elif config.get("dit_fsdp") or config.get("t5_fsdp"):
+            raise ValueError("LingBot-World-V2 FSDP options require multiple GPUs")
+        if config.get("t5_cpu") and config.get("t5_fsdp"):
+            raise ValueError("LingBot-World-V2 t5_cpu cannot be combined with t5_fsdp")
+
+        response_format = self._validate_response_format(
+            config.pop("response_format", "url")
+        )
+        action_path = self._resolve_action_path(config.pop("action_path", None))
+        with tempfile.TemporaryDirectory(prefix="xinference-world-") as output_dir:
+            with _materialize_reference(image, ".png") as image_path:
+                output_path = os.path.join(output_dir, "world.mp4")
+                command = self._torchrun_command("--module")
+                command.append("xinference.model.world.lingbot_runner")
+                command.extend(
+                    [
+                        "--task",
+                        task,
+                        "--infer_mode",
+                        inference_mode,
+                        "--ckpt_dir",
+                        self._model_path,
+                        "--prompt",
+                        prompt,
+                        "--image",
+                        str(image_path),
+                        "--action_path",
+                        action_path,
+                        "--save_file",
+                        output_path,
+                    ]
+                )
+                if self._assets_model_path is not None:
+                    command.extend(["--assets_dir", self._assets_model_path])
+                value_options = {
+                    "size": "--size",
+                    "frame_num": "--frame_num",
+                    "chunk_size": "--chunk_size",
+                    "base_seed": "--base_seed",
+                    "ulysses_size": "--ulysses_size",
+                    "sample_shift": "--sample_shift",
+                    "local_attn_size": "--local_attn_size",
+                    "sink_size": "--sink_size",
+                    "max_attention_size": "--max_attention_size",
+                }
+                for key, option in value_options.items():
+                    if config.get(key) is not None:
+                        command.extend([option, str(config[key])])
+                bool_value_options = {"offload_model": "--offload_model"}
+                for key, option in bool_value_options.items():
+                    if config.get(key) is not None:
+                        command.extend([option, str(config[key]).lower()])
+                flag_options = {
+                    "convert_model_dtype": "--convert_model_dtype",
+                    "dit_fsdp": "--dit_fsdp",
+                    "t5_cpu": "--t5_cpu",
+                    "t5_fsdp": "--t5_fsdp",
+                }
+                for key, option in flag_options.items():
+                    if config.get(key):
+                        command.append(option)
+
+                env = os.environ.copy()
+                env["PYTHONPATH"] = os.pathsep.join(
+                    [self._code_path, env.get("PYTHONPATH", "")]
+                ).rstrip(os.pathsep)
+                if progressor:
+                    progressor.set_progress(0.02, "Starting LingBot-World-V2 runner")
+                self._run_command(
+                    command,
+                    self._code_path,
+                    env,
+                    os.path.join(output_dir, "runner.log"),
+                    request_id=request_id,
+                )
+                if not os.path.isfile(output_path):
+                    raise RuntimeError(
+                        "LingBot-World-V2 runner did not produce a video"
+                    )
+                if progressor:
+                    progressor.set_progress(0.98, "Saving LingBot-World-V2 video")
+                return self._make_response(output_path, response_format)
+
+
 class HYWorldPlayModel(WorldModel):
     _SUPPORTED_CONFIG = {
         "negative_prompt",
@@ -797,6 +1057,43 @@ class HYWorldPlayModel(WorldModel):
                         env.get("PYTHONPATH", ""),
                     ]
                 ).rstrip(os.pathsep)
+
+                num_chunks = int(config["num_chunk"])
+                current_chunk = -1
+
+                def update_progress(line: str) -> None:
+                    nonlocal current_chunk
+                    if progressor is None:
+                        return
+                    try:
+                        if match := re.search(
+                            r"XINFERENCE_PROGRESS:([0-9.]+):(.+)", line
+                        ):
+                            progressor.set_progress(
+                                float(match.group(1)), match.group(2)
+                            )
+                        elif match := re.search(
+                            r"Generate time for chunk\s+(\d+)\s+is", line
+                        ):
+                            current_chunk = int(match.group(1))
+                            completed = (current_chunk + 0.7) / num_chunks
+                            progressor.set_progress(
+                                0.18 + 0.72 * completed,
+                                f"Generated chunk {current_chunk + 1}/{num_chunks}",
+                            )
+                        elif "Decode latent 0:" in line and current_chunk >= 0:
+                            completed = (current_chunk + 1) / num_chunks
+                            progressor.set_progress(
+                                0.18 + 0.72 * completed,
+                                f"Decoded chunk {current_chunk + 1}/{num_chunks}",
+                            )
+                    except Exception:
+                        logger.warning(
+                            "Failed to parse HY-WorldPlay progress output: %r",
+                            line[:200],
+                            exc_info=True,
+                        )
+
                 if progressor:
                     progressor.set_progress(0.02, "Starting HY-WorldPlay runner")
                 self._run_command(
@@ -804,6 +1101,7 @@ class HYWorldPlayModel(WorldModel):
                     self._code_path,
                     env,
                     os.path.join(output_dir, "runner.log"),
+                    progress_callback=update_progress,
                     request_id=request_id,
                 )
                 videos = list(Path(output_dir).glob("*.mp4"))

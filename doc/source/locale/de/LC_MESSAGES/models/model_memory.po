@@ -35,8 +35,8 @@ msgid "Use algorithm from https://github.com/RahulSChand/gpu_poor"
 msgstr "Der Algorithmus stammt von: https://github.com/RahulSChand/gpu_poor"
 
 #: ../../source/models/model_memory.rst:11
-msgid "Output: model_mem, kv_cache, overhead, active_mem"
-msgstr "model_mem, kv_cache, overhead, active_mem"
+msgid "Output: model_mem, kv_cache, recurrent_state_mem, prefix_cache_mem, overhead, active_mem"
+msgstr "model_mem, kv_cache, recurrent_state_mem, prefix_cache_mem, overhead, active_mem"
 
 #: ../../source/models/model_memory.rst:13
 msgid ""
@@ -148,3 +148,6 @@ msgstr ""
 "Servers gesetzt werden. Beispielsweise kann bei schlechtem Netzwerk hf-"
 "mirror als Endpoint ausgewählt werden. Weitere Informationen finden Sie in "
 ":ref:`diesem Dokument <models_download>`."
+
+msgid "The total includes recurrent state and retained prefix cache. Activation memory includes vision workspace when present, so vision workspace is not added again. Sliding attention uses a full-attention cache upper bound. Unsupported layouts or missing checkpoint-size facts produce an explanatory error instead of an estimate."
+msgstr "Die Summe enthält rekurrenten Zustand und gehaltenen Präfix-Cache. Vision-Arbeitsbereiche sind gegebenenfalls im Aktivierungsspeicher enthalten und werden nicht erneut addiert. Sliding Attention verwendet den vollständigen Attention-Cache als Obergrenze. Nicht unterstützte Layouts oder fehlende Checkpoint-Größen führen zu einem erklärenden Fehler statt einer Schätzung."

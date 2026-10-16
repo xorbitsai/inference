@@ -14,7 +14,9 @@
 
 import asyncio
 import json
+import logging
 import types
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -429,3 +431,100 @@ async def test_chat_with_non_dict_usage_does_not_crash(_chat_pool):
             first if isinstance(first, (bytes, str)) else first.decode()
         )
     assert parsed["choices"][0]["message"]["content"] == "hi"
+
+
+class _BatchGenerateModel:
+    allow_batch = True
+
+    def __init__(self):
+        self.model_family = MockModelFamily()
+        self._batch_scheduler = object()
+        self.generate_config = None
+
+    async def generate(self, prompt, generate_config=None):
+        self.generate_config = generate_config
+        return {"prompt": prompt}
+
+
+@pytest.mark.asyncio
+async def test_generate_moves_request_id_into_batch_config():
+    model = _BatchGenerateModel()
+    actor = ModelActor("test:123", "test:345", model, "test_model")  # type: ignore
+    actor._model_state = "ready"
+    actor.record_metrics = AsyncMock()
+    generate_config = {"max_tokens": 1}
+
+    result = await actor.generate(
+        "prompt", generate_config, request_id=123, raw_params={"ignored": True}
+    )
+
+    assert json.loads(result) == {"prompt": "prompt"}
+    assert model.generate_config == {"max_tokens": 1, "request_id": "123"}
+    assert generate_config == {"max_tokens": 1}
+
+
+class _BusyOnceModel:
+    def __init__(self):
+        self.model_family = MockModelFamily()
+        self.calls = 0
+
+    def load(self):
+        self.calls += 1
+        if self.calls == 1:
+            raise RuntimeError("device is busy or unavailable")
+
+
+@pytest.mark.asyncio
+async def test_load_retry_log_names_the_model(monkeypatch, caplog):
+    model = _BusyOnceModel()
+    actor = ModelActor("test:123", "test:345", model, "retry-model-0")  # type: ignore
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+
+    with caplog.at_level(logging.WARNING, logger="xinference.core.model"):
+        await actor.load()
+
+    assert model.calls == 2
+    assert "Retry to load model retry-model-0: 1 times" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stop_first", [False, True])
+async def test_gpu_cache_close_failure_does_not_skip_model_cleanup(
+    monkeypatch, stop_first
+):
+    from unittest.mock import Mock
+
+    from ...model.llm.vllm.core import VLLMModel
+
+    calls = []
+    model = Mock(spec=VLLMModel)
+    model.model_spec = types.SimpleNamespace(model_format="pytorch")
+    model.stop.side_effect = lambda: calls.append("stop")
+
+    async def close():
+        calls.append("close")
+        raise RuntimeError("transfer actor unreachable")
+
+    ref = types.SimpleNamespace(close_gpu_caches_v1=AsyncMock(side_effect=close))
+    stub = types.SimpleNamespace(
+        _model=model,
+        _transfer_ref=ref,
+        _xavier_config={"gpu_cache_bytes": 0},
+        address="test:0",
+    )
+    destroy = AsyncMock(side_effect=lambda ref: calls.append("destroy"))
+    monkeypatch.setattr(xo, "destroy_actor", destroy)
+    monkeypatch.setattr(
+        "xinference.core.model.empty_cache", lambda: calls.append("free")
+    )
+    if stop_first:
+        await ModelActor.stop(stub)
+    await ModelActor.__pre_destroy__(stub)
+    assert calls == (["close", "stop"] if stop_first else []) + [
+        "close",
+        "stop",
+        "destroy",
+        "free",
+    ]
+    destroy.assert_awaited_once_with(ref)
+    assert not hasattr(stub, "_model")

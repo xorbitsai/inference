@@ -16,7 +16,7 @@ optimum
 peft>=0.18.0
 timm
 tensorizer~=2.9.0
-modelscope>=1.19.0
+modelscope>=1.21.0
 FlagEmbedding
 controlnet_aux
 einops

@@ -20,6 +20,7 @@ from typing import Dict, List, Literal, Optional, Union, cast
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
+from .docanalyze.mineru25 import Mineru2_5Model
 from .engine_family import ImageEngineModel
 from .ocr.ocr_family import OCRModel
 
@@ -75,6 +76,7 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             "model_revision": self.model_revision,
             "model_ability": self.model_ability,
             "controlnet": controlnet,
+            "model_base": getattr(self, "model_base", None),
         }
 
     def to_version_info(self):
@@ -193,7 +195,10 @@ def create_ocr_model_instance(
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     if not model_path:
         cache_manager = ImageCacheManager(model_spec)
-        model_path = cache_manager.cache()
+        if getattr(model_spec, "model_format", None) == "ggufv2":
+            model_path = cache_manager.cache_ocr_gguf()
+        else:
+            model_path = cache_manager.cache()
 
     if model_engine is None:
         from .ocr.ocr_family import OCR_ENGINES
@@ -249,6 +254,40 @@ def create_ocr_model_instance(
     )
 
 
+def create_document_parse_model_instance(
+    model_uid: str,
+    model_spec: ImageModelFamilyV2,
+    model_engine: Optional[str] = None,
+    model_path: Optional[str] = None,
+    **kwargs,
+) -> Mineru2_5Model:
+    from .cache_manager import ImageCacheManager
+
+    if not model_path:
+        cache_manager = ImageCacheManager(model_spec)
+        model_path = cache_manager.cache()
+
+    backend_by_engine = {
+        "transformers": "transformers",
+        "vllm": "vllm-async-engine",
+    }
+
+    normalized_engine = (model_engine or "vLLM").lower()
+    if normalized_engine not in backend_by_engine:
+        raise ValueError(
+            f"MinerU2.5 only supports transformers and vLLM, got {model_engine}"
+        )
+
+    model = Mineru2_5Model(
+        model_uid,
+        model_path,
+        model_spec=model_spec,
+        backend=backend_by_engine[normalized_engine],
+        **kwargs,
+    )
+    return model
+
+
 def create_image_model_instance(
     model_uid: str,
     model_name: str,
@@ -268,20 +307,34 @@ def create_image_model_instance(
 ) -> Union[
     ImageEngineModel,
     OCRModel,
+    Mineru2_5Model,
 ]:
     from .cache_manager import ImageCacheManager
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
+        ocr_gguf = model_format == "ggufv2" or bool(
+            gguf_quantization or gguf_model_path
+        )
+        ocr_engine = model_engine or ("llama.cpp" if ocr_gguf else "transformers")
         model_spec = _select_ocr_model_family(
             model_name,
-            model_engine or "transformers",
+            ocr_engine,
             download_hub,
-            model_format=model_format,
-            quantization=quantization,
+            model_format=model_format or ("ggufv2" if ocr_gguf else None),
+            quantization=quantization or gguf_quantization,
         )
         return create_ocr_model_instance(
+            model_uid=model_uid,
+            model_spec=model_spec,
+            model_engine=ocr_engine if ocr_gguf else model_engine,
+            model_path=(gguf_model_path or model_path) if ocr_gguf else model_path,
+            **kwargs,
+        )
+
+    if model_spec.model_ability and "docanalyze" in model_spec.model_ability:
+        return create_document_parse_model_instance(
             model_uid=model_uid,
             model_spec=model_spec,
             model_engine=model_engine,
@@ -433,8 +486,16 @@ def _select_ocr_model_family(
     engine = model_engine.lower()
     if engine == "mlx":
         filtered = [c for c in candidates if getattr(c, "model_format", None) == "mlx"]
+    elif engine == "llama.cpp":
+        filtered = [
+            c for c in candidates if getattr(c, "model_format", None) == "ggufv2"
+        ]
     else:
-        filtered = [c for c in candidates if getattr(c, "model_format", None) != "mlx"]
+        filtered = [
+            c
+            for c in candidates
+            if getattr(c, "model_format", None) not in ("mlx", "ggufv2")
+        ]
         if not filtered:
             filtered = candidates
 

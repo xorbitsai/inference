@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import zipfile
 from pathlib import Path
 from unittest import mock
@@ -35,6 +36,8 @@ from ..virtual_env_manager import (
     FLASHINFER_AOT_PACKAGES,
     FLASHINFER_AOT_WHEEL_URL,
     FLASHINFER_CUBIN_WHEEL_URL,
+    VirtualEnvConflictError,
+    VirtualEnvManager,
     _run_uv_install_with_source_fallback,
     _validate_flash_attn_install,
     apply_flash_attn_wheel_post_install,
@@ -44,10 +47,72 @@ from ..virtual_env_manager import (
     ensure_sglang_inherited_packages_compatible_post_install,
     get_engine_critical_dependency_specs,
     is_flash_attn_requirement,
+    is_model_find_links_only_requirement,
     merge_virtual_env_find_links,
     needs_flashinfer_aot,
+    observe_dependency_install,
+    resolve_dependency_install_plan,
     validate_virtual_env_find_links,
 )
+
+
+def test_dependency_install_plan_uses_actual_resolved_distributions(tmp_path):
+    manager = mock.Mock()
+    manager.process_packages.return_value = ["example>=1"]
+    manager._resolve_install_plan.return_value = ["Example==2.0", "child_pkg==3.0"]
+    manager.get_lib_path.return_value = str(tmp_path)
+
+    plan = resolve_dependency_install_plan(
+        manager, ["example>=1"], {"skip_installed": False}, {}
+    )
+
+    assert plan == [("example", "2.0"), ("child-pkg", "3.0")]
+    manager._resolve_install_plan.assert_called_once()
+
+
+def test_dependency_install_plan_respects_skip_installed_and_unknown_versions():
+    manager = mock.Mock()
+    manager.process_packages.return_value = ["example>=1"]
+    manager._filter_packages_not_installed.return_value = ["example==2.0"]
+
+    assert resolve_dependency_install_plan(
+        manager, ["example>=1"], {"skip_installed": True}, {}
+    ) == [("example", "2.0")]
+    manager._filter_packages_not_installed.assert_called_once()
+    manager._resolve_install_plan.assert_not_called()
+
+    manager._filter_packages_not_installed.return_value = [
+        "example @ git+https://example.test"
+    ]
+    assert (
+        resolve_dependency_install_plan(
+            manager, ["example>=1"], {"skip_installed": True}, {}
+        )
+        is None
+    )
+
+
+def test_dependency_install_progress_counts_matching_child_distributions(tmp_path):
+    counts = []
+    manager = mock.Mock()
+    manager.get_lib_path.return_value = str(tmp_path)
+    stopped, thread = observe_dependency_install(
+        manager,
+        [("example", "2.0")],
+        lambda completed, total: counts.append((completed, total)),
+    )
+    try:
+        (tmp_path / "example-2.0.dist-info").mkdir()
+        (tmp_path / "example-2.0.dist-info" / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: example\nVersion: 2.0\n"
+        )
+        deadline = time.monotonic() + 3
+        while (1, 1) not in counts and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert (1, 1) in counts
+    finally:
+        stopped.set()
+        thread.join(timeout=1)
 
 
 def _create_test_wheel(
@@ -531,6 +596,15 @@ class TestApplyFlashAttnWheelPostInstall:
     )
     def test_does_not_match_unrelated_requirements(self, requirement):
         assert not is_flash_attn_requirement(requirement)
+
+    def test_identifies_only_jina_flash_attn_as_find_links_only(self):
+        requirement = "flash-attn==2.8.3.post1+cvte1"
+
+        assert is_model_find_links_only_requirement("jina-embeddings-v3", requirement)
+        assert not is_model_find_links_only_requirement("another-model", requirement)
+        assert not is_model_find_links_only_requirement(
+            "jina-embeddings-v3", "sentence-transformers"
+        )
 
     def test_non_jina_model_is_noop(self, fake_venv_manager):
         with (
@@ -1364,3 +1438,116 @@ class TestGetEngineCriticalDependencySpecs:
                 ],
             )
         assert specs == ["transformers==4.57.1"]
+
+
+def test_remove_virtual_env_rejects_active_model(tmp_path, monkeypatch):
+    from xinference import constants
+
+    virtual_env_root = tmp_path / "virtualenv"
+    env_path = virtual_env_root / "v4" / "Qwen3.8-Flash-Next" / "vllm" / "3.12"
+    env_path.mkdir(parents=True)
+    monkeypatch.setattr(constants, "XINFERENCE_VIRTUAL_ENV_DIR", str(virtual_env_root))
+    manager = VirtualEnvManager("worker-0")
+
+    with pytest.raises(VirtualEnvConflictError, match="models are using it"):
+        manager.remove_virtual_env(
+            "Qwen3.8-Flash-Next",
+            "vllm",
+            "3.12",
+            active_model_uids_by_path={str(env_path): ["qwen-rep0"]},
+        )
+
+    assert env_path.exists()
+
+
+def test_remove_virtual_env_allows_delete_after_final_release(tmp_path, monkeypatch):
+    from xinference import constants
+
+    virtual_env_root = tmp_path / "virtualenv"
+    env_path = virtual_env_root / "v4" / "Qwen3.8-Flash-Next" / "vllm" / "3.12"
+    env_path.mkdir(parents=True)
+    monkeypatch.setattr(constants, "XINFERENCE_VIRTUAL_ENV_DIR", str(virtual_env_root))
+    manager = VirtualEnvManager("worker-0")
+
+    assert manager.remove_virtual_env(
+        "Qwen3.8-Flash-Next",
+        "vllm",
+        "3.12",
+        active_model_uids_by_path={},
+    )
+    assert not env_path.exists()
+
+
+def test_list_virtual_env_packages_returns_direct_distribution_sizes(
+    tmp_path, monkeypatch
+):
+    from xinference.core import virtual_env_manager
+
+    virtual_env_root = tmp_path / "virtualenv"
+    environment_path = virtual_env_root / "v4" / "Qwen3" / "vllm" / "3.12"
+    site_packages_path = environment_path / "lib" / "python3.12" / "site-packages"
+    package_file = site_packages_path / "demo_package" / "__init__.py"
+    metadata_file = site_packages_path / "demo_package-1.2.3.dist-info" / "METADATA"
+    record_file = site_packages_path / "demo_package-1.2.3.dist-info" / "RECORD"
+
+    package_file.parent.mkdir(parents=True)
+    metadata_file.parent.mkdir()
+    package_file.write_text("value = 1\n")
+    metadata_file.write_text(
+        "Metadata-Version: 2.1\nName: demo-package\nVersion: 1.2.3\n"
+    )
+    record_file.write_text(
+        "demo_package/__init__.py,,\n"
+        "demo_package-1.2.3.dist-info/METADATA,,\n"
+        "demo_package-1.2.3.dist-info/RECORD,,\n"
+    )
+    (site_packages_path / "not-in-record.py").write_text("ignored = True\n")
+    monkeypatch.setattr(
+        virtual_env_manager, "XINFERENCE_VIRTUAL_ENV_DIR", str(virtual_env_root)
+    )
+
+    result = VirtualEnvManager("worker-0").list_virtual_env_packages(
+        "Qwen3", "vllm", "3.12"
+    )
+
+    assert result["model_name"] == "Qwen3"
+    assert result["worker_ip"] == "worker-0"
+    assert result["packages"] == [
+        {
+            "name": "demo-package",
+            "version": "1.2.3",
+            "size_bytes": sum(
+                path.stat().st_size
+                for path in (package_file, metadata_file, record_file)
+            ),
+        }
+    ]
+
+
+def test_get_distribution_size_skips_invalid_or_outside_files(tmp_path):
+    environment_path = tmp_path / "virtualenv"
+    package_file = environment_path / "package.py"
+    outside_file = tmp_path / "outside.py"
+    environment_path.mkdir()
+    package_file.write_text("package = True\n")
+    outside_file.write_text("outside = True\n")
+
+    distribution = mock.Mock()
+    distribution.files = ["package.py", "outside.py", "invalid.py"]
+    distribution.locate_file.side_effect = [package_file, outside_file, None]
+
+    assert (
+        VirtualEnvManager._get_distribution_size(distribution, environment_path)
+        == package_file.stat().st_size
+    )
+
+
+def test_list_virtual_env_packages_requires_exact_environment(tmp_path, monkeypatch):
+    from xinference.core import virtual_env_manager
+
+    monkeypatch.setattr(
+        virtual_env_manager, "XINFERENCE_VIRTUAL_ENV_DIR", str(tmp_path / "virtualenv")
+    )
+
+    with pytest.raises(ValueError, match="Virtual environment not found"):
+        VirtualEnvManager("worker-0").list_virtual_env_packages("Qwen3", "vllm", "3.12")

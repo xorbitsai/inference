@@ -11,11 +11,19 @@ The following is a list of built-in audio models in Xinference:
    :maxdepth: 1
 
    ace-step1.5
+
+   auk
+
+   auk-flash
   
    belle-whisper-large-v3-zh
   
+   breeze-tts-2
+
    chattts
   
+   confucius4-tts
+
    cosyvoice-300m
   
    cosyvoice-300m-instruct
@@ -30,6 +38,10 @@ The following is a list of built-in audio models in Xinference:
   
    fireredtts3-instruct
   
+   fishaudio-s1-mini
+
+   fishaudio-s2-pro
+
    fishspeech-1.5
   
    fun-asr-mlt-nano-2512
@@ -40,6 +52,8 @@ The following is a list of built-in audio models in Xinference:
   
    indextts2
   
+   irodori-tts-v4.1-anime
+   irodori-tts-v4.1-small
    kokoro-82m
   
    kokoro-82m-v1.1-zh
@@ -115,4 +129,5 @@ The following is a list of built-in audio models in Xinference:
    whisper-tiny
   
    whisper-tiny.en
-  
+
+   yue2-3b

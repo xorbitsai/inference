@@ -112,6 +112,7 @@ def create_model_instance(
             resolved_download_hub,
             model_path,
             model_engine=model_engine,
+            quantization=quantization,
             **kwargs,
         )
     elif model_type == "video":

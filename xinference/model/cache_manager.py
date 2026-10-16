@@ -38,7 +38,7 @@ class CacheManager:
         return os.path.exists(cache_dir)
 
     def _cache_from_uri(self, model_spec: "CacheableModelSpec") -> str:
-        from .utils import parse_uri
+        from .utils import resolve_model_uri
 
         cache_dir = self.get_cache_dir()
         if os.path.exists(cache_dir):
@@ -46,23 +46,16 @@ class CacheManager:
             return cache_dir
 
         assert model_spec.model_uri is not None
-        src_scheme, src_root = parse_uri(model_spec.model_uri)
-        if src_root.endswith("/"):
-            # remove trailing path separator.
-            src_root = src_root[:-1]
-
-        if src_scheme == "file":
-            if not os.path.isabs(src_root):
-                raise ValueError(
-                    f"Model URI cannot be a relative path: {model_spec.model_uri}"
-                )
-            os.symlink(src_root, cache_dir, target_is_directory=True)
-            return cache_dir
-        else:
-            raise ValueError(f"Unsupported URL scheme: {src_scheme}")
+        src_root = resolve_model_uri(model_spec.model_uri, model_spec.model_name)
+        os.symlink(src_root, cache_dir, target_is_directory=True)
+        return cache_dir
 
     def _cache(self) -> str:
-        from .utils import IS_NEW_HUGGINGFACE_HUB, create_symlink, retry_download
+        from .utils import (
+            IS_NEW_HUGGINGFACE_HUB,
+            create_symlink,
+            retry_snapshot_download,
+        )
 
         if (
             hasattr(self._model_family, "model_uri")
@@ -91,7 +84,7 @@ class CacheManager:
             elif isinstance(cache_config["ignore_file_pattern"], list):
                 cache_config["ignore_file_pattern"].append(".gitkeep")
 
-            download_dir = retry_download(
+            download_dir = retry_snapshot_download(
                 ms_download,
                 self._model_family.model_name,
                 None,
@@ -106,7 +99,7 @@ class CacheManager:
             use_symlinks = cache_config
             if not IS_NEW_HUGGINGFACE_HUB:
                 use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
-            download_dir = retry_download(
+            download_dir = retry_snapshot_download(
                 hf_download,
                 self._model_family.model_name,
                 None,

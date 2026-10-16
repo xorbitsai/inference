@@ -20,6 +20,11 @@ import os
 import shutil
 import subprocess
 
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib  # type: ignore[no-redef]
+
 import pytest
 
 _REPO_ROOT = os.path.abspath(
@@ -225,3 +230,75 @@ def test_reports_entry_index_for_unnamed_invalid_llm_families(backend, tmp_path)
 
     message = str(exc_info.value)
     assert all(f"'entry {index}'" in message for index in range(3))
+
+
+def test_pre_build_can_skip_model_validation_for_dependency_skeleton(
+    backend, monkeypatch
+):
+    calls = []
+    monkeypatch.setenv("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION", "1")
+    monkeypatch.setattr(
+        backend, "_validate_builtin_model_specs", lambda: calls.append("validate")
+    )
+    monkeypatch.setattr(
+        backend, "_record_full_revision", lambda: calls.append("record")
+    )
+    monkeypatch.setattr(backend, "build_web", lambda: calls.append("web"))
+
+    backend._pre_build()
+
+    assert calls == ["record", "web"]
+
+
+def test_pre_build_validates_model_specs_by_default(backend, monkeypatch):
+    calls = []
+    monkeypatch.delenv("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION", raising=False)
+    monkeypatch.setattr(
+        backend, "_validate_builtin_model_specs", lambda: calls.append("validate")
+    )
+    monkeypatch.setattr(
+        backend, "_record_full_revision", lambda: calls.append("record")
+    )
+    monkeypatch.setattr(backend, "build_web", lambda: calls.append("web"))
+
+    backend._pre_build()
+
+    assert calls == ["validate", "record", "web"]
+
+
+def test_project_declares_router_dependencies_and_all_includes_router():
+    with open(os.path.join(_REPO_ROOT, "pyproject.toml"), "rb") as f:
+        project = tomllib.load(f)
+
+    metadata = project["project"]
+    dependencies = metadata["dependencies"]
+    optional_dependencies = metadata["optional-dependencies"]
+    scripts = metadata["scripts"]
+
+    assert "psutil>=5.9.0" in dependencies
+    assert optional_dependencies["router"] == ["tokenizers>=0.21.0,<0.23.0"]
+    assert "xinference[router]" in optional_dependencies["all"]
+
+    assert scripts["xinference-router"] == "xinference.deploy.router:main"
+    assert scripts["xinference-router-agent"] == "xinference.deploy.router_agent:main"
+
+
+def test_project_declares_supported_python_versions_and_xoscar_floor():
+    with open(os.path.join(_REPO_ROOT, "pyproject.toml"), "rb") as f:
+        project = tomllib.load(f)["project"]
+    cpu_requirements_path = os.path.join(
+        _REPO_ROOT,
+        "xinference",
+        "deploy",
+        "docker",
+        "requirements_cpu",
+        "requirements_cpu-base.txt",
+    )
+    with open(cpu_requirements_path) as f:
+        cpu_requirements = {line.strip() for line in f if line.strip()}
+
+    assert project["requires-python"] == ">=3.10"
+    assert "Programming Language :: Python :: 3.9" not in project["classifiers"]
+    assert "Programming Language :: Python :: 3.14" in project["classifiers"]
+    assert "xoscar>=0.12.0" in project["dependencies"]
+    assert "xoscar>=0.12.0" in cpu_requirements

@@ -35,7 +35,6 @@ The ``vision`` ability is supported with the following models in Xinference:
 * :ref:`gemma-3-it <models_llm_gemma-3-it>`
 * :ref:`deepseek-vl2 <models_llm_deepseek-vl2>`
 * :ref:`internvl3 <models_llm_internvl3>`
-* :ref:`OvisOCR2 <models_llm_ovisocr2>`
 
 
 Quickstart
@@ -116,18 +115,6 @@ Uploading base 64 encoded images
         ],
     )
     print(response.choices[0])
-
-
-OvisOCR2 Usage
-~~~~~~~~~~~~~~
-
-Send one document page image at a time through the OpenAI-compatible chat
-completions API and ask the model to reproduce the page as Markdown while
-preserving its natural reading order. For dense pages, the model authors
-recommend allowing up to 16384 output tokens and using deterministic decoding.
-The recommended image pixel range is 448 x 448 to 2880 x 2880. Pass these
-generation and image-processing options explicitly when needed; Xinference
-does not inject model-specific runtime defaults.
 
 
 Limiting Images Per Prompt

@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import itertools
 import random
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -135,6 +137,183 @@ class DummySupervisor:
 
     async def terminate_model(self, model_uid: str, suppress_exception: bool = False):
         return None
+
+
+class ShardLifecycleWorker(DummyWorkerRef):
+    def __init__(self, address):
+        super().__init__(address, model_count=0, launched=[])
+        self.models = set()
+        self.error = None
+        self.fail_uid = None
+        self.terminated = []
+
+    async def launch_builtin_model(self, model_uid, **kwargs):
+        if model_uid in self.models:
+            raise ValueError(f"{model_uid} is already running")
+        if model_uid == self.fail_uid:
+            raise self.error
+        self.models.add(model_uid)
+        return await super().launch_builtin_model(model_uid=model_uid, **kwargs)
+
+    async def terminate_model(self, model_uid):
+        self.models.remove(model_uid)
+        self.terminated.append(model_uid)
+
+
+def _shard_lifecycle_supervisor(n_worker):
+    from xinference.core.supervisor import SupervisorActor
+
+    workers = [ShardLifecycleWorker(f"w{i}:1000") for i in range(n_worker)]
+    supervisor = DummySupervisor({w.address: w for w in workers})
+    supervisor._model_replica_locks = {}
+    supervisor._model_reload_tasks = {}
+    supervisor._model_reload_status = {}
+    supervisor._cleanup_distributed_actors = AsyncMock()
+    supervisor._clear_replica_model_gpu_memory = MagicMock()
+    for name in (
+        "terminate_model",
+        "_terminate_model",
+        "_get_model_replica_lock",
+        "_iter_active_replica_model_uids",
+    ):
+        setattr(supervisor, name, getattr(SupervisorActor, name).__get__(supervisor))
+    return supervisor, workers
+
+
+async def _launch_shard_lifecycle(supervisor, workers, replica):
+    return await supervisor._launch_builtin_sharded_model(
+        model_uid="sharded",
+        model_name="demo",
+        model_size_in_billions=None,
+        model_format=None,
+        quantization=None,
+        model_engine=None,
+        model_type="LLM",
+        n_gpu=None,
+        n_worker=len(workers),
+        worker_ip=[w.address for w in workers],
+        replica=replica,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "n_worker,fail_shard,replica", [(2, 1, 1), (3, 2, 1), (2, 0, 1), (2, 1, 2)]
+)
+@pytest.mark.parametrize("error_type", [RuntimeError, asyncio.CancelledError])
+async def test_sharded_launch_failure_rolls_back(
+    n_worker, fail_shard, replica, error_type
+):
+    supervisor, workers = _shard_lifecycle_supervisor(n_worker)
+    failing_worker = workers[fail_shard]
+    failing_worker.fail_uid = build_replica_model_uid("sharded", replica - 1)
+    failing_worker.error = error_type("injected shard launch failure")
+
+    with pytest.raises(error_type) as exc:
+        await _launch_shard_lifecycle(supervisor, workers, replica)
+    assert exc.value is failing_worker.error
+    for i, worker in enumerate(workers):
+        expected = [build_replica_model_uid("sharded", r) for r in range(replica - 1)]
+        if i < fail_shard:
+            expected.append(failing_worker.fail_uid)
+        assert sorted(worker.terminated) == sorted(expected)
+        assert not worker.models
+    assert not supervisor._replica_model_uid_to_worker
+    assert not supervisor._model_uid_to_replica_info
+
+    failing_worker.fail_uid = None
+    assert await _launch_shard_lifecycle(supervisor, workers, replica) == "sharded"
+    await supervisor.terminate_model("sharded")
+    assert all(not worker.models for worker in workers)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("replica", [1, 2])
+async def test_sharded_launch_terminate_relaunch(replica):
+    supervisor, workers = _shard_lifecycle_supervisor(2)
+    for _ in range(2):
+        assert await _launch_shard_lifecycle(supervisor, workers, replica) == "sharded"
+        for r in range(replica):
+            uid = build_replica_model_uid("sharded", r)
+            assert all(uid in worker.models for worker in workers)
+            assert supervisor._replica_model_uid_to_worker[uid] == workers
+        await supervisor.terminate_model("sharded")
+        assert all(not worker.models for worker in workers)
+        assert not supervisor._replica_model_uid_to_worker
+        assert not supervisor._model_uid_to_replica_info
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["delete", "restart"])
+async def test_sharded_launch_pending_shard_lifecycle(action):
+    from xinference.core.supervisor import SupervisorActor
+
+    supervisor, workers = _shard_lifecycle_supervisor(2)
+    supervisor._replica_model_uid_to_worker_shards = {}
+    if action == "delete":
+        supervisor._pd_model_mapping = {}
+        supervisor._refresh_replica_scheduler = (
+            SupervisorActor._refresh_replica_scheduler
+        )
+        supervisor._status_guard_ref.get_replica_statuses = AsyncMock(return_value=[])
+        methods = ("terminate_model_replica", "_terminate_model_replica")
+    else:
+        supervisor._get_model_uid_and_replica_index = (
+            SupervisorActor._get_model_uid_and_replica_index
+        )
+        methods = (
+            "_rebuild_worker_replica_state",
+            "_remove_worker_from_replica_mappings",
+        )
+    for name in methods:
+        setattr(supervisor, name, getattr(SupervisorActor, name).__get__(supervisor))
+
+    entered, release = asyncio.Event(), asyncio.Event()
+    original_launch = workers[1].launch_builtin_model
+
+    async def delayed_launch(model_uid, **kwargs):
+        entered.set()
+        await release.wait()
+        return await original_launch(model_uid, **kwargs)
+
+    workers[1].launch_builtin_model = delayed_launch
+    task = asyncio.create_task(_launch_shard_lifecycle(supervisor, workers, 1))
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        if action == "delete":
+            with pytest.raises(ValueError, match="Model not found.*sharded-rep0"):
+                await supervisor.terminate_model_replica("sharded", 0)
+        else:
+            # A restarted worker has already lost its models; termination is harmless.
+            workers[0].models.clear()
+
+            async def terminate_absent_model(model_uid):
+                workers[0].terminated.append(model_uid)
+
+            workers[0].terminate_model = terminate_absent_model
+            workers[0].wait_for_load = AsyncMock(
+                side_effect=RuntimeError("injected load failure")
+            )
+            supervisor._rebuild_worker_replica_state(workers[0], [])
+    finally:
+        release.set()
+        outcomes = await asyncio.wait_for(
+            asyncio.gather(task, return_exceptions=True), 5
+        )
+
+    uid = build_replica_model_uid("sharded", 0)
+    if action == "delete":
+        assert outcomes == ["sharded"]
+        assert all(uid in worker.models for worker in workers)
+        assert supervisor._replica_model_uid_to_worker[uid] == workers
+        await supervisor.terminate_model("sharded")
+    else:
+        assert isinstance(outcomes[0], RuntimeError)
+        assert str(outcomes[0]) == "injected load failure"
+        assert all(worker.terminated == [uid] for worker in workers)
+    assert all(not worker.models for worker in workers)
+    assert not supervisor._replica_model_uid_to_worker
+    assert not supervisor._model_uid_to_replica_info
 
 
 def test_worker_address_resolution_prefers_exact_worker_address():
@@ -582,6 +761,9 @@ async def test_terminate_model_replica_updates_active_replica_set():
         _clear_unexpected_down_replicas = (
             SupervisorActor._clear_unexpected_down_replicas
         )
+        _clear_replica_model_gpu_memory = (
+            SupervisorActor._clear_replica_model_gpu_memory
+        )
 
         def __init__(self):
             self._model_replica_locks = {}
@@ -598,11 +780,25 @@ async def test_terminate_model_replica_updates_active_replica_set():
                 ): DummyReplicaWorkerRef(f"w{replica_id}:1000")
                 for replica_id in range(3)
             }
+            self._replica_model_uid_to_worker_shards = {}
             self._status_guard_ref = DummyStatusGuard()
             self._status_guard_ref.replica_counts["demo-model"] = 3
+            self._pd_model_mapping = {}
             self._collective_manager_mapping = {}
             self._block_tracker_mapping = {}
             self._unexpected_down_replicas = {}
+            self._worker_model_gpu_memory = {
+                "worker:1000": {
+                    build_replica_model_uid("demo-model", replica_id): {
+                        replica_id: (replica_id + 1) * 100
+                    }
+                    for replica_id in range(3)
+                }
+            }
+            self._worker_model_gpu_memory_update_time = {"worker:1000": 0.0}
+
+        def _invalidate_list_models_debounce_cache(self):
+            pass
 
     supervisor = DummySupervisor()
     remaining = await supervisor.terminate_model_replica("demo-model", 1)
@@ -619,6 +815,11 @@ async def test_terminate_model_replica_updates_active_replica_set():
     )
     assert next(supervisor._model_uid_to_replica_info["demo-model"].scheduler) == 0
     assert next(supervisor._model_uid_to_replica_info["demo-model"].scheduler) == 2
+    cached_gpu_memory = supervisor._worker_model_gpu_memory["worker:1000"]
+    assert build_replica_model_uid("demo-model", 0) in cached_gpu_memory
+    assert build_replica_model_uid("demo-model", 1) not in cached_gpu_memory
+    assert build_replica_model_uid("demo-model", 2) in cached_gpu_memory
+    assert "worker:1000" in supervisor._worker_model_gpu_memory_update_time
     assert supervisor._status_guard_ref.updates[-1] == (
         "demo-model",
         {"replica": 2, "status": "READY"},

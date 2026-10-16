@@ -50,6 +50,14 @@ by the model spec. The first launch of a model with a given engine therefore
 downloads packages from PyPI (or from a private mirror in offline deployments)
 and takes longer; subsequent launches reuse the virtual environment.
 
+.. note::
+
+   For offline deployments that install engine dependencies into per-model virtual
+   environments at model launch time, use the Docker Compose ``offline`` profile
+   to provide a private PyPI mirror. See
+   :ref:`Docker Compose offline deployment <docker_compose_offline>` for image
+   preparation and dependency source configuration.
+
 
 Dockerfile for custom build
 ===========================

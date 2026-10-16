@@ -31,6 +31,22 @@ def test_deepdoc_registration():
     assert "deepdoc" in OCR_ENGINES["DeepDoc"]
 
 
+def test_deepdoc_launch_without_explicit_engine():
+    from .. import register_builtin_model
+    from ..core import create_image_model_instance
+    from ..ocr.deepdoc import DeepDocModel
+
+    register_builtin_model()
+    model = create_image_model_instance(
+        "review-deepdoc",
+        "DeepDoc",
+        model_path="/unused",
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, DeepDocModel)
+    assert model.model_family.model_engine == "deepdoc"
+
+
 def test_deepdoc_uses_standard_device_scheduling():
     """DeepDoc is CUDA-capable and must not bypass worker GPU allocation.
 

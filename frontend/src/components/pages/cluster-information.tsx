@@ -17,6 +17,83 @@ import request from '@/lib/request';
 import { formatFileSize } from '@/lib/utils';
 import type { ClusterInfo, ClusterInformationItem, RouterNodeClusterInfo } from '@/types/services';
 
+type NodeResourceInfo = {
+  cpu_count?: number | null;
+  cpu_available?: number | null;
+  mem_used?: number | null;
+  mem_available?: number | null;
+  mem_total?: number | null;
+};
+
+const isFiniteNumber = (value: number | null | undefined): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const formatPercentage = (value: number | null): string =>
+  value === null ? '-' : `${value.toFixed(2)}%`;
+
+const calculateCpuUsageRate = (item: NodeResourceInfo): number | null => {
+  if (!isFiniteNumber(item.cpu_count) || item.cpu_count <= 0) return null;
+  if (!isFiniteNumber(item.cpu_available)) return null;
+
+  const used = Math.max(0, Math.min(item.cpu_count, item.cpu_count - item.cpu_available));
+  return (used / item.cpu_count) * 100;
+};
+
+const summarizeResources = (items: NodeResourceInfo[]) => {
+  let cpuUsed = 0;
+  let cpuTotal = 0;
+  let memoryUsed = 0;
+  let memoryTotal = 0;
+  let cpuRateUsed = 0;
+  let cpuRateTotal = 0;
+  let memoryRateUsed = 0;
+  let memoryRateTotal = 0;
+  let cpuRateValid = items.length > 0;
+  let memoryRateValid = items.length > 0;
+
+  items.forEach((item) => {
+    if (isFiniteNumber(item.cpu_count) && item.cpu_count > 0) {
+      cpuTotal += item.cpu_count;
+      if (isFiniteNumber(item.cpu_available)) {
+        const used = Math.max(0, Math.min(item.cpu_count, item.cpu_count - item.cpu_available));
+        cpuUsed += used;
+        cpuRateUsed += used;
+        cpuRateTotal += item.cpu_count;
+      } else {
+        cpuRateValid = false;
+      }
+    } else {
+      cpuRateValid = false;
+    }
+
+    if (isFiniteNumber(item.mem_used)) {
+      memoryUsed += Math.max(0, item.mem_used);
+    }
+    if (isFiniteNumber(item.mem_total) && item.mem_total > 0) {
+      memoryTotal += item.mem_total;
+      if (isFiniteNumber(item.mem_available)) {
+        const used = Math.max(0, Math.min(item.mem_total, item.mem_total - item.mem_available));
+        memoryRateUsed += used;
+        memoryRateTotal += item.mem_total;
+      } else {
+        memoryRateValid = false;
+      }
+    } else {
+      memoryRateValid = false;
+    }
+  });
+
+  return {
+    cpuUsed,
+    cpuTotal,
+    cpuUsageRate: cpuRateValid && cpuRateTotal > 0 ? (cpuRateUsed / cpuRateTotal) * 100 : null,
+    memoryUsed,
+    memoryTotal,
+    memoryUsageRate:
+      memoryRateValid && memoryRateTotal > 0 ? (memoryRateUsed / memoryRateTotal) * 100 : null,
+  };
+};
+
 export default function ClusterInfoPage() {
   const [{ supervisors, workers, routers }, setData] = useState<{
     supervisors: ClusterInfo[];
@@ -30,69 +107,62 @@ export default function ClusterInfoPage() {
 
   const supervisorSummary = useMemo(() => {
     const addresses: string[] = [];
-    let cpuUsage = 0;
-    let cpuTotal = 0;
-    let memUsage = 0;
-    let memTotal = 0;
-    supervisors.forEach((item) => {
-      addresses.push(item.ip_address);
-      cpuUsage += (item.cpu_count || 0) - (item.cpu_available || 0);
-      cpuTotal += item.cpu_count || 0;
-      memUsage += item.mem_used || 0;
-      memTotal += item.mem_total || 0;
-    });
+    const metrics = summarizeResources(supervisors);
+    supervisors.forEach((item) => addresses.push(item.ip_address));
     return [
       { label: t('clusterInfo.count'), value: supervisors.length },
       { label: t('clusterInfo.address'), value: addresses.join('、') || '-' },
       {
         label: t('clusterInfo.cpuInfo'),
-        value: `${t('clusterInfo.usage')}${cpuUsage.toFixed(2)}`,
-        total: `${t('clusterInfo.total')}${cpuTotal.toFixed(2)}`,
+        value: `${t('clusterInfo.rate')}${formatPercentage(metrics.cpuUsageRate)}`,
+        total: `${t('clusterInfo.total')}${metrics.cpuTotal.toFixed(2)}`,
       },
       {
-        label: t('clusterInfo.cpuMemoryInfo'),
-        value: `${t('clusterInfo.usage')}${formatFileSize(memUsage)}`,
-        total: `${t('clusterInfo.total')}${formatFileSize(memTotal)}`,
+        label: t('clusterInfo.memoryInfo'),
+        value: `${t('clusterInfo.used')}${formatFileSize(metrics.memoryUsed)}${
+          metrics.memoryUsageRate === null
+            ? ''
+            : ` (${t('clusterInfo.rate')}${formatPercentage(metrics.memoryUsageRate)})`
+        }`,
+        total: `${t('clusterInfo.total')}${formatFileSize(metrics.memoryTotal)}`,
       },
       {
         label: t('clusterInfo.version'),
         value: `${t('clusterInfo.release')}${clusterVersion.version || '-'}`,
-        total: `${t('clusterInfo.commit')}${clusterVersion['full-revisionid'] || '-'}`,
       },
     ];
   }, [clusterVersion, supervisors, t]);
 
   const workersSummary = useMemo(() => {
-    let cpuUsage = 0;
-    let cpuTotal = 0;
-    let cpuMemUsage = 0;
-    let cpuMemTotal = 0;
+    const metrics = summarizeResources(workers);
     let gpuCount = 0;
     let gpuUtilization = 0;
     let gpuMemoryUsage = 0;
     let gpuMemoryTotal = 0;
     const nodesWithGpuLoad = workers.filter((item) => item.gpu_utilization != null).length;
     workers.forEach((item) => {
-      cpuUsage += (item.cpu_count || 0) - (item.cpu_available || 0);
-      cpuTotal += item.cpu_count || 0;
-      cpuMemUsage += item.mem_used || 0;
-      cpuMemTotal += item.mem_total || 0;
       gpuCount += item.gpu_count || 0;
       gpuUtilization += item.gpu_utilization || 0;
-      gpuMemoryUsage += (item.gpu_vram_total || 0) - (item.gpu_vram_available || 0);
-      gpuMemoryTotal += item.gpu_vram_total || 0;
+      const gpuTotal = Math.max(0, item.gpu_vram_total || 0);
+      const gpuAvailable = Math.max(0, item.gpu_vram_available || 0);
+      gpuMemoryUsage += Math.max(0, gpuTotal - gpuAvailable);
+      gpuMemoryTotal += gpuTotal;
     });
     return [
       { label: t('clusterInfo.count'), value: workers.length },
       {
         label: t('clusterInfo.cpuInfo'),
-        value: `${t('clusterInfo.usage')}${cpuUsage.toFixed(2)}`,
-        total: `${t('clusterInfo.total')}${cpuTotal.toFixed(2)}`,
+        value: `${t('clusterInfo.rate')}${formatPercentage(metrics.cpuUsageRate)}`,
+        total: `${t('clusterInfo.total')}${metrics.cpuTotal.toFixed(2)}`,
       },
       {
-        label: t('clusterInfo.cpuMemoryInfo'),
-        value: `${t('clusterInfo.usage')}${formatFileSize(cpuMemUsage)}`,
-        total: `${t('clusterInfo.total')}${formatFileSize(cpuMemTotal)}`,
+        label: t('clusterInfo.memoryInfo'),
+        value: `${t('clusterInfo.used')}${formatFileSize(metrics.memoryUsed)}${
+          metrics.memoryUsageRate === null
+            ? ''
+            : ` (${t('clusterInfo.rate')}${formatPercentage(metrics.memoryUsageRate)})`
+        }`,
+        total: `${t('clusterInfo.total')}${formatFileSize(metrics.memoryTotal)}`,
       },
       {
         label: t('clusterInfo.gpuInfo'),
@@ -103,88 +173,46 @@ export default function ClusterInfoPage() {
       },
       {
         label: t('clusterInfo.gpuMemoryInfo'),
-        value: `${t('clusterInfo.usage')}${formatFileSize(gpuMemoryUsage)}`,
+        value: `${t('clusterInfo.used')}${formatFileSize(gpuMemoryUsage)}`,
         total: `${t('clusterInfo.total')}${formatFileSize(gpuMemoryTotal)}`,
       },
-      {
-        label: t('clusterInfo.version'),
-        value: `${t('clusterInfo.release')}${clusterVersion.version || '-'}`,
-        total: `${t('clusterInfo.commit')}${clusterVersion['full-revisionid'] || '-'}`,
-      },
     ];
-  }, [clusterVersion, t, workers]);
+  }, [t, workers]);
 
   const workerDetails = useMemo(
     () =>
       workers.map((item) => ({
         ...item,
-        cpuUsage: ((item.cpu_count || 0) - (item.cpu_available || 0)).toFixed(2),
-        cpuMemUsage: formatFileSize(item.mem_used || 0),
-        cpuMemTotal: formatFileSize(item.mem_total || 0),
+        cpuUsage: formatPercentage(calculateCpuUsageRate(item)),
+        memoryUsage: formatFileSize(item.mem_used || 0),
+        memoryTotal: formatFileSize(item.mem_total || 0),
         gpuLoad:
           typeof item.gpu_utilization === 'number' ? `${item.gpu_utilization.toFixed(2)}%` : '-',
-        gpuMemoryUsage: formatFileSize((item.gpu_vram_total || 0) - (item.gpu_vram_available || 0)),
+        gpuMemoryUsage: formatFileSize(
+          Math.max(0, (item.gpu_vram_total || 0) - (item.gpu_vram_available || 0))
+        ),
         gpuMemoryTotal: formatFileSize(item.gpu_vram_total || 0),
       })),
     [workers]
   );
 
   const routerSummary = useMemo(() => {
-    const cpuUsage = routers.reduce(
-      (total, item) =>
-        total +
-        (typeof item.cpu_count === 'number' && typeof item.cpu_available === 'number'
-          ? item.cpu_count - item.cpu_available
-          : 0),
-      0
-    );
-    const cpuTotal = routers.reduce((total, item) => total + (item.cpu_count || 0), 0);
-    const memoryUsage = routers.reduce((total, item) => total + (item.mem_used || 0), 0);
-    const memoryTotal = routers.reduce((total, item) => total + (item.mem_total || 0), 0);
-    const versionPairs = new Set(
-      routers.map((item) => `${item.software_version || '-'}@${item.software_revision || '-'}`)
-    );
-    const softwareVersions = [
-      ...new Set(routers.map((item) => item.software_version).filter(Boolean)),
-    ];
-    const revisions = [...new Set(routers.map((item) => item.software_revision).filter(Boolean))];
-    const versionsConsistent = versionPairs.size <= 1;
-    const versionDetails = routers
-      .map(
-        (item) =>
-          `${item.node_id}: ${item.software_version || '-'}@${item.software_revision || '-'}`
-      )
-      .join('\n');
-    const release =
-      routers.length === 0
-        ? '-'
-        : versionsConsistent
-          ? softwareVersions[0] || '-'
-          : t('clusterInfo.routerMultipleVersions');
-    const revision =
-      routers.length === 0
-        ? '-'
-        : versionsConsistent
-          ? revisions[0] || '-'
-          : t('clusterInfo.routerMultipleVersions');
-
+    const metrics = summarizeResources(routers);
     return [
       { label: t('clusterInfo.count'), value: routers.length },
       {
         label: t('clusterInfo.cpuInfo'),
-        value: `${t('clusterInfo.usage')}${cpuUsage.toFixed(2)}`,
-        total: `${t('clusterInfo.total')}${cpuTotal.toFixed(2)}`,
+        value: `${t('clusterInfo.rate')}${formatPercentage(metrics.cpuUsageRate)}`,
+        total: `${t('clusterInfo.total')}${metrics.cpuTotal.toFixed(2)}`,
       },
       {
-        label: t('clusterInfo.cpuMemoryInfo'),
-        value: `${t('clusterInfo.usage')}${formatFileSize(memoryUsage)}`,
-        total: `${t('clusterInfo.total')}${formatFileSize(memoryTotal)}`,
-      },
-      {
-        label: t('clusterInfo.version'),
-        value: `${t('clusterInfo.release')}${release}`,
-        total: `${t('clusterInfo.commit')}${revision}`,
-        title: versionDetails,
+        label: t('clusterInfo.memoryInfo'),
+        value: `${t('clusterInfo.used')}${formatFileSize(metrics.memoryUsed)}${
+          metrics.memoryUsageRate === null
+            ? ''
+            : ` (${t('clusterInfo.rate')}${formatPercentage(metrics.memoryUsageRate)})`
+        }`,
+        total: `${t('clusterInfo.total')}${formatFileSize(metrics.memoryTotal)}`,
       },
     ];
   }, [routers, t]);
@@ -295,6 +323,7 @@ export default function ClusterInfoPage() {
                 <TableRow>
                   <TableHead>{t('clusterInfo.nodeType')}</TableHead>
                   <TableHead>{t('clusterInfo.address')}</TableHead>
+                  <TableHead>{t('clusterInfo.version')}</TableHead>
                   <TableHead>{t('clusterInfo.cpuUsage')}</TableHead>
                   <TableHead>{t('clusterInfo.cpuTotal')}</TableHead>
                   <TableHead>{t('clusterInfo.memUsage')}</TableHead>
@@ -310,10 +339,13 @@ export default function ClusterInfoPage() {
                   <TableRow key={row.ip_address}>
                     <TableCell>{t('clusterInfo.worker')}</TableCell>
                     <TableCell>{row.ip_address}</TableCell>
+                    <TableCell className="max-w-72 truncate" title={row.software_version || '-'}>
+                      {row.software_version || '-'}
+                    </TableCell>
                     <TableCell>{row.cpuUsage}</TableCell>
                     <TableCell>{row.cpu_count ?? '-'}</TableCell>
-                    <TableCell>{row.cpuMemUsage}</TableCell>
-                    <TableCell>{row.cpuMemTotal}</TableCell>
+                    <TableCell>{row.memoryUsage}</TableCell>
+                    <TableCell>{row.memoryTotal}</TableCell>
                     <TableCell>{row.gpu_count}</TableCell>
                     <TableCell>{row.gpuLoad}</TableCell>
                     <TableCell>{row.gpuMemoryUsage}</TableCell>
@@ -336,6 +368,7 @@ export default function ClusterInfoPage() {
                   <TableRow>
                     <TableHead>{t('clusterInfo.nodeType')}</TableHead>
                     <TableHead>{t('clusterInfo.address')}</TableHead>
+                    <TableHead>{t('clusterInfo.version')}</TableHead>
                     <TableHead>{t('clusterInfo.cpuUsage')}</TableHead>
                     <TableHead>{t('clusterInfo.cpuTotal')}</TableHead>
                     <TableHead>{t('clusterInfo.memUsage')}</TableHead>
@@ -345,17 +378,12 @@ export default function ClusterInfoPage() {
                 <TableBody>
                   {routers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                         {t('clusterInfo.noRouterInstances')}
                       </TableCell>
                     </TableRow>
                   ) : (
                     routers.map((router) => {
-                      const cpuUsage =
-                        typeof router.cpu_count === 'number' &&
-                        typeof router.cpu_available === 'number'
-                          ? (router.cpu_count - router.cpu_available).toFixed(2)
-                          : '-';
                       const addressTitle =
                         router.node_id && router.node_id !== router.ip_address
                           ? `${router.ip_address}\n${router.node_id}`
@@ -366,7 +394,13 @@ export default function ClusterInfoPage() {
                           <TableCell className="max-w-96 truncate" title={addressTitle}>
                             {router.ip_address || '-'}
                           </TableCell>
-                          <TableCell>{cpuUsage}</TableCell>
+                          <TableCell
+                            className="max-w-72 truncate"
+                            title={router.software_version || '-'}
+                          >
+                            {router.software_version || '-'}
+                          </TableCell>
+                          <TableCell>{formatPercentage(calculateCpuUsageRate(router))}</TableCell>
                           <TableCell>
                             {typeof router.cpu_count === 'number'
                               ? router.cpu_count.toFixed(2)

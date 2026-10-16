@@ -11,10 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import codecs
-import json
 import os
 
+from ..._model_catalog import load_model_catalog
 from ..utils import flatten_model_src
 from .core import (
     BUILTIN_WORLD_MODELS,
@@ -51,7 +50,7 @@ def _install():
     WORLD_ENGINES.clear()
     install_models_with_merge(
         BUILTIN_WORLD_MODELS,
-        "model_spec.json",
+        "models",
         "world",
         "world_models.json",
         has_downloaded_models,
@@ -89,9 +88,8 @@ def load_model_family_from_json(json_filename, target_families):
         json_path = os.path.join(os.path.dirname(__file__), json_filename)
 
     flattened_model_specs = []
-    with codecs.open(json_path, "r", encoding="utf-8") as fd:
-        for spec in json.load(fd):
-            flattened_model_specs.extend(flatten_model_src(spec))
+    for spec in load_model_catalog(json_path):
+        flattened_model_specs.extend(flatten_model_src(spec))
 
     for spec in flattened_model_specs:
         target_families.setdefault(spec["model_name"], []).append(

@@ -17,12 +17,11 @@ import asyncio
 import logging
 import random
 import time
-import aiohttp
-from typing import List, Dict, Optional
-from datasets import load_dataset
-import numpy as np
-from benchmark_runner import ConcurrentBenchmarkRunner
+from typing import Dict, List, Optional
 
+import aiohttp
+import numpy as np
+from benchmark_runner import ConcurrentBenchmarkRunner, RequestOutput
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,6 +38,11 @@ class EmbeddingBenchmarkRunner(ConcurrentBenchmarkRunner):
         api_key: Optional[str] = None,
         print_error: bool = False,
     ):
+        if concurrency < 1:
+            raise ValueError("concurrency must be at least 1")
+        if not input_requests:
+            raise ValueError("input_requests must not be empty")
+        self._session: Optional[aiohttp.ClientSession] = None
         super().__init__(
             api_url,
             model_uid,
@@ -49,56 +53,82 @@ class EmbeddingBenchmarkRunner(ConcurrentBenchmarkRunner):
             print_error,
         )
 
-    async def _run(self):
-        tasks = []
-        for i in range(self.concurrency):
-            tasks.append(asyncio.create_task(self.worker(i)))
-
-        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-
-    async def worker(self, i: int):
-        r = random.Random(i)
-        index = r.randint(0, len(self.input_requests) - 1)
-        while self.left > 0:
-            request = self.input_requests[index]
-            index += 1
-            index = index % len(self.input_requests)
-            await self.send_request(request)
-            self.left -= 1
-            # pring longer space to overwrite the previous when left decrease
-            print("\rdone_request, left %d    " % (self.left), end="")
-        # The last one
-        print("")
-
-    async def send_request(self, request, warming_up: bool = False):
-        input = request["sentence"]
-        request_start_time = time.time()
-
-        pload = {
-            "model": self.model_uid,
-            "input": input,
-        }
-
+    async def run(self):
+        self.outputs.clear()
+        self.left = len(self.input_requests)
         headers = {"User-Agent": "Benchmark Client"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
-
         timeout = aiohttp.ClientTimeout(total=3 * 3600)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(
-                self.api_url, headers=headers, json=pload
-            ) as response:
-                resp = await response.json()
+        connector = aiohttp.TCPConnector(limit=self.concurrency)
+        async with aiohttp.ClientSession(
+            timeout=timeout, headers=headers, connector=connector
+        ) as session:
+            self._session = session
+            try:
+                await self.warm_up()
+                start_time = time.perf_counter()
+                await self._run()
+                self.benchmark_time = time.perf_counter() - start_time
+            finally:
+                self._session = None
+
+    async def _run(self):
+        tasks = [
+            asyncio.create_task(self.worker(i))
+            for i in range(min(self.concurrency, len(self.input_requests)))
+        ]
+        try:
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def worker(self, i: int):
+        while self.left > 0:
+            # Claim each input exactly once before yielding to another worker.
+            index = len(self.input_requests) - self.left
+            self.left -= 1
+            await self.send_request(self.input_requests[index])
+
+    async def send_request(self, request, warming_up: bool = False):
+        assert self._session is not None
+        payload = {"model": self.model_uid, "input": request["sentence"]}
+        output = RequestOutput()
+        start_time = time.perf_counter()
+        try:
+            async with self._session.post(self.api_url, json=payload) as response:
                 if response.status == 200:
-                    request_end_time = time.time()
-                    request_latency = request_end_time - request_start_time
-                    if not warming_up:
-                        self.outputs.append(request_latency)
+                    await response.json()
+                    output.success = True
                 else:
-                    logger.error(f"Failed to create chat completion: {resp}")
+                    output.error = f"HTTP {response.status}: {await response.text()}"
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as exc:
+            output.error = str(exc)
+        output.latency = time.perf_counter() - start_time
+        if not output.success:
+            logger.error("Embedding request failed")
+            if self.print_error:
+                logger.error("%s", output.error)
+        if not warming_up:
+            self.outputs.append(output)
+
+    def print_stats(self):
+        successful = sum(output.success for output in self.outputs)
+        failed = len(self.outputs) - successful
+        duration = self.benchmark_time or 0.0
+        throughput = successful / duration if duration > 0 else 0.0
+        print(f"Successful requests: {successful}")
+        print(f"Failed requests: {failed}")
+        print(f"Total time: {duration:.2f} s")
+        print(f"Throughput: {throughput:.2f} requests/s")
 
 
 def main(args: argparse.Namespace):
+    from datasets import load_dataset
+
     print(args)
 
     random.seed(args.seed)
@@ -128,10 +158,7 @@ def main(args: argparse.Namespace):
     )
     asyncio.run(benchmark.run())
 
-    # TODO: Print the results of request_latency in detail.
-    # benchmark.print_stats() needs to be overridden
-    print(f"Total time: {benchmark.benchmark_time:.2f} s")
-    print(f"Throughput: {args.num_query / benchmark.benchmark_time:.2f} requests/s")
+    benchmark.print_stats()
 
 
 if __name__ == "__main__":
@@ -177,12 +204,15 @@ if __name__ == "__main__":
         "--stream", action="store_true", help="Enable streaming responses."
     )
     parser.add_argument(
-        "--api-key", type=str, default=None, help="Authorization api key",
+        "--api-key",
+        type=str,
+        default=None,
+        help="Authorization api key",
     )
     parser.add_argument(
         "--print-error",
         action="store_true",
-        help="Print detailed error messages if any errors encountered."
+        help="Print detailed error messages if any errors encountered.",
     )
     args = parser.parse_args()
     main(args)

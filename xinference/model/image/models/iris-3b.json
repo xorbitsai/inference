@@ -1,0 +1,45 @@
+[
+  {
+    "version": 2,
+    "model_name": "iris-3b",
+    "model_family": "iris",
+    "model_description": "Iris-3B is a 3B pixel-space text-to-image diffusion transformer that generates RGB pixels directly without a VAE.",
+    "model_ability": [
+      "text2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "speridlabs/iris-3b",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "speridlabs/iris-3b",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {},
+    "default_generate_config": {
+      "num_inference_steps": 100,
+      "guidance_scale": 3
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "config.yaml",
+        "model.safetensors"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "accelerate>=1.2 ; #engine# == \"transformers\"",
+        "omegaconf>=2.3 ; #engine# == \"transformers\"",
+        "safetensors>=0.4 ; #engine# == \"transformers\"",
+        "transformers>=4.57.0,<6 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchvision# ; #engine# == \"transformers\"",
+        "#system_numpy# ; #engine# == \"transformers\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1791993600
+  }
+]

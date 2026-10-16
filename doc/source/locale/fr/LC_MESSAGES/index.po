@@ -37,6 +37,22 @@ msgstr ""
 "d'embedding et modèle multimodal pour exécuter des inférences dans le cloud "
 "ou dans un environnement local, et créer des applications d'IA puissantes."
 
+#: ../../source/index.rst:23
+msgid ""
+"**Xinference Enterprise** is the commercial edition for teams running models "
+"in production. Deploy it in your own cloud or data centre, or choose a "
+"managed dedicated deployment with **Xinference Cloud**. The hosted **Model "
+"API** gives you access to supported models through an OpenAI-compatible API "
+"without managing inference infrastructure. Learn more at `xinference.co "
+"<https://xinference.co>`_."
+msgstr ""
+"**Xinference Enterprise** est l’édition commerciale destinée aux équipes qui "
+"exécutent des modèles en production. Déployez-la dans votre propre cloud ou "
+"centre de données, ou choisissez un déploiement dédié géré avec **Xinference "
+"Cloud**. La **Model API** hébergée donne accès aux modèles pris en charge "
+"via une API compatible avec OpenAI, sans avoir à gérer l’infrastructure "
+"d’inférence. En savoir plus sur `xinference.co <https://xinference.co>`_."
+
 #: ../../source/index.rst:25
 msgid "Developing Real-world AI Applications with Xinference"
 msgstr ""

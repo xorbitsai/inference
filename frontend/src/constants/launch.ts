@@ -44,6 +44,8 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
     { label: 'draft_model_path', value: 'draft_model_path' },
   ],
   vllm: [
+    { label: 'vllm_transfer_backend_type', value: 'vllm_transfer_backend_type' },
+    { label: 'xavier_gpu_cache_bytes', value: 'xavier_gpu_cache_bytes' },
     { label: 'block_size', value: 'block_size' },
     { label: 'gpu_memory_utilization', value: 'gpu_memory_utilization' },
     { label: 'max_num_seqs', value: 'max_num_seqs' },
@@ -138,6 +140,7 @@ export const ALL_FORM_KEYS = [
   'replica_config',
   'replica_placement_mode',
   'request_limits',
+  'context_length',
   'worker_ip',
   'gpu_idx',
   'download_hub',

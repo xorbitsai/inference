@@ -12,26 +12,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import logging
 import os
-from typing import Any, Dict, List, Tuple, Union, cast
+import uuid
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from ....device_utils import is_vacc_available
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
 from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
+from ..embeddinggemma2 import MATRYOSHKA_DIMENSIONS
+from ..embeddinggemma2 import MODEL_NAME as EMBEDDINGGEMMA2_MODEL_NAME
+from ..embeddinggemma2 import load_prompts
+from ..embeddinggemma2 import normalize_inputs as normalize_embeddinggemma2_inputs
+from ..embeddinggemma2 import resolve_dtype, validate_dimensions
+from ..wemm import WeMMInput, is_wemm_model, iter_wemm_media, normalize_wemm_inputs
 
 logger = logging.getLogger(__name__)
-SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3", "bce"]
+SUPPORTED_MODELS_PREFIXES = [
+    "bge",
+    "gte",
+    "text2vec",
+    "m3e",
+    "Qwen3",
+    "bce",
+    "WeMM",
+]
 
 
 class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
+    # The backend can be either a synchronous LLM or an asynchronous engine.
+    _model: Any
+    _tokenizer: Any
+
     def __init__(self, *args, **kwargs):
         EmbeddingModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._context_length = None
+        self._chat_template = None
+        self._native_pooling = False
+        self._prompts: Dict[str, str] = {}
+        self._dimensions = None
 
     def load(self):
         try:
@@ -49,6 +73,9 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+        self._kwargs.pop("batch_size", None)
+        self._kwargs.pop("batch_interval", None)
+
         if self.model_family.model_name in {
             "Qwen3-Embedding-0.6B",
             "Qwen3-Embedding-4B",
@@ -68,10 +95,64 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                     is_matryoshka=True,
                 )
 
-        if self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
+        if self.model_family.model_name == EMBEDDINGGEMMA2_MODEL_NAME:
+            supported = self._check_embeddinggemma2_support()
+            if supported != True:
+                raise ImportError(supported[1])
+            self._dimensions = self._kwargs.pop("dimensions", None)
+            validate_dimensions(self._dimensions)
+            dtype = self._kwargs.pop("torch_dtype", self._kwargs.get("dtype"))
+            self._kwargs["dtype"] = str(
+                resolve_dtype(dtype, self._device or "cuda")
+            ).split(".")[-1]
+            self._kwargs.setdefault("max_model_len", self.model_family.max_tokens)
+            overrides = self._kwargs.get("hf_overrides", {})
+            if isinstance(overrides, str):
+                overrides = json.loads(overrides)
+            if not isinstance(overrides, dict):
+                raise ValueError(
+                    "EmbeddingGemma 2 hf_overrides must be a dict or JSON object"
+                )
+            self._kwargs["hf_overrides"] = {
+                **overrides,
+                "is_matryoshka": True,
+                "matryoshka_dimensions": list(MATRYOSHKA_DIMENSIONS),
+            }
+            self._prompts = load_prompts(self._model_path)
+            with open(
+                os.path.join(self._model_path, "chat_template.jinja"), encoding="utf-8"
+            ) as file:
+                self._chat_template = file.read()
+            self._model = LLM(model=self._model_path, runner="pooling", **self._kwargs)
+        elif is_wemm_model(self.model_family.model_name):
+            if Version(vllm_version) < Version("0.27.0"):
+                raise ValueError("WeMM-Embedding requires vLLM>=0.27.0")
+            template_path = os.path.join(
+                self._model_path, "embedding_chat_template.jinja"
+            )
+            if not os.path.isfile(template_path):
+                raise FileNotFoundError(
+                    f"Missing WeMM-Embedding chat template: {template_path}"
+                )
+            with open(template_path, encoding="utf-8") as template_file:
+                self._chat_template = template_file.read()
+            self._kwargs.setdefault("gpu_memory_utilization", 0.6)
+            self._model = LLM(model=self._model_path, runner="pooling", **self._kwargs)
+        elif self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
             if Version(vllm_version) < Version("0.14.0"):
                 raise ValueError("Qwen3-VL embedding requires vLLM>=0.14.0")
             self._model = LLM(model=self._model_path, runner="pooling", **self._kwargs)
+        elif Version(vllm_version) >= Version("0.19.0") and not is_vacc_available():
+            from vllm.engine.arg_utils import AsyncEngineArgs
+            from vllm.v1.engine.async_llm import AsyncLLM
+
+            self._kwargs.setdefault("runner", "pooling")
+            self._model = AsyncLLM.from_engine_args(
+                AsyncEngineArgs(model=self._model_path, **self._kwargs)
+            )
+            self._native_pooling = True
+            # Submit requests immediately; vLLM owns the cross-request queue.
+            self.create_embedding = self._async_create_embedding
         else:
             if Version(vllm_version) >= Version("0.13.0"):
                 self._model = LLM(
@@ -85,9 +166,9 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
     def _get_detailed_instruct(task_description: str, query: str) -> str:
         return f"Instruct: {task_description}\nQuery:{query}"  # noqa: E231
 
-    def _create_embedding(
+    def _prepare_embedding(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
         **kwargs,
     ):
         from packaging.version import Version
@@ -99,11 +180,23 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
 
         normalize_embedding = kwargs.get("normalize_embedding", True)
         dimensions = kwargs.get("dimensions", None)
+        if self.model_family.model_name == EMBEDDINGGEMMA2_MODEL_NAME:
+            normalize_embedding = kwargs.get(
+                "normalize_embeddings", normalize_embedding
+            )
+            dimensions = kwargs.get("dimensions", self._dimensions)
+            validate_dimensions(dimensions)
+            if kwargs.get("return_sparse", False):
+                raise ValueError("EmbeddingGemma 2 does not support sparse embeddings.")
 
         assert self._model is not None
 
         # Check and truncate sentences that exceed context_length
-        if self._context_length is not None:
+        if (
+            self._context_length is not None
+            and not is_wemm_model(self.model_family.model_name)
+            and self.model_family.model_name != EMBEDDINGGEMMA2_MODEL_NAME
+        ):
             truncated_sentences = []
             for sentence in sentences if isinstance(sentences, list) else [sentences]:
                 # Use tokenizer to check token length
@@ -143,12 +236,118 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                     f"Please upgrade to v0.10.1 or later."
                 )
             pool_params = PoolingParams(dimensions=dimensions)
-        if self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
+        return sentences, pool_params, model_uid
+
+    def _create_embedding(self, sentences: Any, **kwargs) -> Embedding:
+        sentences, pool_params, model_uid = self._prepare_embedding(sentences, **kwargs)
+        if self.model_family.model_name == EMBEDDINGGEMMA2_MODEL_NAME:
+            outputs = self._embed_embeddinggemma2(sentences, pool_params, **kwargs)
+        elif is_wemm_model(self.model_family.model_name):
+            outputs = self._embed_wemm(sentences, pool_params)
+        elif self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
             outputs = self._embed_vl(sentences)
         else:
             outputs = self._model.embed(
                 sentences, use_tqdm=False, pooling_params=pool_params
             )
+        result = self._format_embedding_outputs(outputs, model_uid)
+        self._clean_cache_if_needed(result["usage"]["total_tokens"])
+        return result
+
+    @staticmethod
+    def _check_embeddinggemma2_support() -> Union[bool, Tuple[bool, str]]:
+        try:
+            from vllm import ModelRegistry
+        except ImportError:
+            return (
+                False,
+                "EmbeddingGemma 2 requires vLLM>=0.32.0 with EmbeddingGemma2Model support.",
+            )
+        if "EmbeddingGemma2Model" not in ModelRegistry.get_supported_archs():
+            return (
+                False,
+                "EmbeddingGemma 2 requires vLLM>=0.32.0 with EmbeddingGemma2Model support.",
+            )
+        return True
+
+    def _embed_embeddinggemma2(self, inputs: Any, pool_params: Any, **kwargs: Any):
+        from vllm.multimodal.utils import fetch_audio, fetch_image, fetch_video
+
+        messages_batch = normalize_embeddinggemma2_inputs(
+            inputs, self._prompts, **kwargs
+        )
+        loaders = {"image": fetch_image, "video": fetch_video, "audio": fetch_audio}
+        vllm_inputs = []
+        for messages in messages_batch:
+            prompt = self._tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=False,
+                chat_template=self._chat_template,
+            )
+            media: Dict[str, List[Any]] = {}
+            for part in messages[0]["content"]:
+                modality = part["type"]
+                if modality == "text":
+                    continue
+                value = part[modality]
+                if isinstance(value, str):
+                    if not value.startswith(
+                        ("http://", "https://", "data:", "file://")
+                    ):
+                        value = f"file://{os.path.abspath(value)}"
+                    value = loaders[modality](value)
+                media.setdefault(modality, []).append(value)
+            item: Dict[str, Any] = {"prompt": prompt}
+            if media:
+                item["multi_modal_data"] = media
+            if kwargs.get("processing_kwargs"):
+                item["mm_processor_kwargs"] = kwargs["processing_kwargs"]
+            vllm_inputs.append(item)
+        if not vllm_inputs:
+            return []
+        return self._model.embed(
+            vllm_inputs, use_tqdm=False, pooling_params=pool_params
+        )
+
+    async def _async_create_embedding(self, sentences: Any, **kwargs) -> Embedding:
+        from vllm.outputs import EmbeddingRequestOutput
+
+        truncate_prompt_tokens = kwargs.pop("truncate_prompt_tokens", None)
+        if truncate_prompt_tokens is not None:
+            sentences = self._truncate_sentences(sentences, truncate_prompt_tokens)
+        sentences, pool_params, model_uid = self._prepare_embedding(sentences, **kwargs)
+        pool_params.task = "embed"
+        prompts = [sentences] if isinstance(sentences, str) else sentences
+        request_id = uuid.uuid4().hex
+
+        async def encode(index: int, prompt: str):
+            output = None
+            async for output in self._model.encode(
+                prompt, pool_params, f"{request_id}-{index}"
+            ):
+                pass
+            if output is None:
+                raise RuntimeError("vLLM returned no embedding output")
+            return EmbeddingRequestOutput.from_base(output)
+
+        tasks = [asyncio.create_task(encode(i, p)) for i, p in enumerate(prompts)]
+        try:
+            outputs = await asyncio.gather(*tasks)
+        finally:
+            # Cancelling encode also aborts its request in vLLM. A failed input
+            # must not leave sibling inputs running after the caller has exited.
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        # vLLM owns the worker's GPU allocations. Avoid collecting the actor's
+        # Python heap every few requests while native inference is in flight.
+        return self._format_embedding_outputs(outputs, model_uid)
+
+    def _format_embedding_outputs(
+        self, outputs: List[Any], model_uid: Optional[str]
+    ) -> Embedding:
         embedding_list = []
         all_token_nums = 0
         for index, output in enumerate(outputs):
@@ -169,9 +368,63 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             data=embedding_list,
             usage=usage,
         )
-        self._clean_cache_if_needed(all_token_nums)
-
         return result
+
+    def _embed_wemm(self, inputs: WeMMInput, pool_params):
+        from vllm.multimodal.utils import fetch_image, fetch_video
+
+        messages_batch = normalize_wemm_inputs(inputs)
+        assert self._model is not None
+        assert self._chat_template is not None
+
+        def _media_url(value: Any, modality: str) -> Any:
+            if not isinstance(value, str):
+                return value
+            if value.startswith(("http://", "https://", "data:", "file://")):
+                return value
+            path = os.path.abspath(value)
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"WeMM-Embedding {modality} not found: {path}")
+            return f"file://{path}"
+
+        vllm_inputs: List[Dict[str, Any]] = []
+        for messages in messages_batch:
+            prompt = self._tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=False,
+                chat_template=self._chat_template,
+            )
+            media: Dict[str, List[Any]] = {"image": [], "video": []}
+            for modality, value in iter_wemm_media(messages):
+                url_or_data = _media_url(value, modality)
+                if modality == "image":
+                    media[modality].append(
+                        fetch_image(url_or_data)
+                        if isinstance(url_or_data, str)
+                        else url_or_data
+                    )
+                else:
+                    media[modality].append(
+                        fetch_video(url_or_data)
+                        if isinstance(url_or_data, str)
+                        else url_or_data
+                    )
+            multi_modal_data = {
+                modality: values[0] if len(values) == 1 else values
+                for modality, values in media.items()
+                if values
+            }
+            item: Dict[str, Any] = {"prompt": prompt}
+            if multi_modal_data:
+                item["multi_modal_data"] = multi_modal_data
+            vllm_inputs.append(item)
+
+        return self._model.embed(
+            vllm_inputs,
+            use_tqdm=False,
+            pooling_params=pool_params,
+        )
 
     def _embed_vl(
         self, inputs: Union[str, List[str], Dict[str, Any], List[Dict[str, Any]]]
@@ -297,8 +550,20 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name == EMBEDDINGGEMMA2_MODEL_NAME:
+            from ...utils import virtual_env_allows_missing_engine
 
-        if model_family.model_name.startswith("Qwen3-VL-Embedding"):
+            if model_spec.model_format != "pytorch":
+                return False, "EmbeddingGemma 2 vLLM supports pytorch format only"
+            if virtual_env_allows_missing_engine():
+                return True
+            return cls._check_embeddinggemma2_support()
+        required_vllm_version = None
+        if is_wemm_model(model_family.model_name):
+            required_vllm_version = "0.27.0"
+        elif model_family.model_name.startswith("Qwen3-VL-Embedding"):
+            required_vllm_version = "0.14.0"
+        if required_vllm_version is not None:
             # In virtualenv mode vLLM (and a compatible version) can be
             # installed on demand, so only the missing-library / old-version
             # rejection is exempt here; the format/prefix compatibility checks
@@ -316,10 +581,11 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             else:
                 if not allow_missing_env and version.parse(
                     vllm.__version__
-                ) < version.parse("0.14.0"):
+                ) < version.parse(required_vllm_version):
                     return (
                         False,
-                        f"Qwen3-VL embedding requires vLLM>=0.14.0, current: {vllm.__version__}",
+                        f"{model_family.model_name} requires "
+                        f"vLLM>={required_vllm_version}, current: {vllm.__version__}",
                     )
         if model_spec.model_format not in ["pytorch"]:
             return False, "vLLM embedding engine only supports pytorch format"
@@ -331,7 +597,13 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             )
         return True
 
+    def stop(self):
+        if self._native_pooling and self._model is not None:
+            self._model.shutdown()
+
     def wait_for_load(self):
+        if self._native_pooling:
+            return
         # set context length after engine inited
         self._set_context_length()
 

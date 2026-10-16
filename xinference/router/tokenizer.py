@@ -73,6 +73,15 @@ def _attach_tools(
     return [{"role": "system", "content": "", "tools": tools}, *prepared]
 
 
+def normalize_thinking_alias(template_kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Copy template kwargs and resolve the boolean backend thinking alias."""
+    normalized = dict(template_kwargs)
+    thinking = normalized.get("thinking")
+    if "enable_thinking" not in normalized and isinstance(thinking, bool):
+        normalized["enable_thinking"] = thinking
+    return normalized
+
+
 def _chat_template_kwargs(payload: dict[str, Any]) -> dict[str, Any]:
     raw = payload.get("chat_template_kwargs") or {}
     if isinstance(raw, str):
@@ -83,7 +92,7 @@ def _chat_template_kwargs(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise TokenizationError("chat_template_kwargs must be an object")
 
-    normalized = dict(raw)
+    normalized = normalize_thinking_alias(raw)
     enable_thinking = payload.get("enable_thinking")
     if enable_thinking is None:
         extra_body = payload.get("extra_body")

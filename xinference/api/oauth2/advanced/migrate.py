@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 from .crypto import aes_encrypt, derive_encryption_key, get_password_hash, sha256_hex
-from .database import Database
+from .database import ApiKeyNameConflictError, Database
 
 logger = logging.getLogger(__name__)
 
@@ -81,16 +81,25 @@ def migrate(
                 aes_encrypt(key_plaintext, enc_key)
             ).decode("utf-8")
             key_prefix = key_plaintext[:7]
-            db.create_api_key(
-                user_id=user_id,
-                key_hash=key_hash,
-                key_encrypted=key_encrypted,
-                key_prefix=key_prefix,
-                name=f"migrated-{key_prefix}",
-                model_permissions=[
-                    {"permission_type": "all", "permission_value": None}
-                ],
-            )
+            base_name = f"migrated-{key_prefix}"
+            name = base_name
+            suffix = 2
+            while True:
+                try:
+                    db.create_api_key(
+                        user_id=user_id,
+                        key_hash=key_hash,
+                        key_encrypted=key_encrypted,
+                        key_prefix=key_prefix,
+                        name=name,
+                        model_permissions=[
+                            {"permission_type": "all", "permission_value": None}
+                        ],
+                    )
+                    break
+                except ApiKeyNameConflictError:
+                    name = f"{base_name}-{suffix}"
+                    suffix += 1
             print(f"    Migrated key: {key_prefix}...")
 
     print(f"\nMigration complete. {len(users_config)} users migrated to {db_path}")

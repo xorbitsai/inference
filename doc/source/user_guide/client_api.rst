@@ -93,6 +93,15 @@ More details refer to: https://platform.openai.com/docs/api-reference/chat?lang=
         max_tokens=1024
     )
 
+Cache hit token counts
+======================
+
+With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count.
+
+With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine.
+
+For streaming requests, set ``stream_options={"include_usage": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero.
+
 OpenAI Client Tool Calls
 ========================
 
@@ -145,30 +154,51 @@ Output:
 
     ChatCompletion(id='chatcmpl-ad2f383f-31c7-47d9-87b7-3abe928e629c', choices=[Choice(finish_reason='tool_calls', index=0, message=ChatCompletionMessage(content="```python\ntool_call(loc=94704, type='plus', time=10)\n```", role='assistant', function_call=None, tool_calls=[ChatCompletionMessageToolCall(id='call_ad2f383f-31c7-47d9-87b7-3abe928e629c', function=Function(arguments='{"loc": 94704, "type": "plus", "time": 10}', name='uber_ride'), type='function')]))], created=1704687803, model='chatglm3', object='chat.completion', system_fingerprint=None, usage=CompletionUsage(completion_tokens=-1, prompt_tokens=-1, total_tokens=-1))
 
-.. _anthropic_client:
+.. _openai_responses_client:
 
-Anthropic Client
-========================
+OpenAI Client Responses API
+===========================
 
-    Anthropic API's access address is: /anthropic/v1/messages
+    Responses API's access address is: /v1/responses
+
+The Responses API is stateless in Xinference. Responses are not stored, so
+``previous_response_id`` and ``conversation`` are rejected: send the whole
+conversation in ``input`` on every request. Text and image input, function and
+custom tools, reasoning, structured output and streaming are supported. Hosted
+tools such as ``web_search`` are ignored.
 
 .. code-block::
 
-    import anthropic
+    import openai
 
-    client = anthropic.Anthropic(
-        # defaults to os.environ.get("ANTHROPIC_API_KEY")
-        base_url="http://localhost:9997/anthropic",
-    )
-    message = client.messages.create(
+    client = openai.Client(api_key="not empty", base_url="http://localhost:9997/v1")
+    response = client.responses.create(
         model="qwen3",
-        max_tokens=1024,
-        messages=[
-            {"role": "user", "content": "Hello, Claude"}
-        ]
+        instructions="You are a helpful assistant.",
+        input="What is the largest animal?",
     )
-    print(message.content)
+    print(response.output_text)
 
+Codex CLI calls custom providers through this API. Add Xinference as a provider
+in ``~/.codex/config.toml``:
+
+.. code-block:: toml
+
+    model = "qwen3"
+    model_provider = "xinference"
+
+    [model_providers.xinference]
+    name = "Xinference"
+    base_url = "http://localhost:9997/v1"
+    wire_api = "responses"
+
+.. _anthropic_client:
+
+Anthropic Client
+================
+
+See :ref:`anthropic_api` for Claude Code setup, Python SDK examples, and
+supported features and limitations.
 
 Embedding
 ~~~~~~~~~

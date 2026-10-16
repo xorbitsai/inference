@@ -41,21 +41,25 @@ Xorbits Inference (Xinference) è una libreria potente e versatile per modelli d
 
 ## 🔥 Novità in evidenza
 ### Miglioramenti del framework
-- Xinference 3.0.0 è disponibile con note di migrazione e modifiche incompatibili: [Note di rilascio](https://xinference.co/release_notes/v3.0.0.html)
+- Xinference 4.0.0 è disponibile con Xavier multi-engine, separazione P/D eterogenea e riconfigurazione dei modelli in fase di esecuzione: [Note di rilascio](https://github.com/xorbitsai/inference/releases/tag/v4.0.0)
 - Deploy nativo per agenti: Xinference si integra con [Xagent](https://github.com/xorbitsai/xagent) fornendo pianificazione dinamica, utilizzo di tool e inferenze multi-step autonome, superando i limiti delle pipeline statiche.
 - Batching automatico: più richieste concorrenti vengono raggruppate automaticamente per aumentare significativamente il throughput. : [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): nuove binding Python per llama.cpp, mantenute dal team Xinference, che supportano il batching continuo e sono più adatte alla produzione. : [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - Inferenza distribuita: i modelli possono essere eseguiti attraverso più worker: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - Miglioramenti per vLLM: condivisione del KV-cache tra più repliche: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### Nuovi modelli
-- Supporto integrato per [OvisOCR2](https://huggingface.co/ATH-MaaS/OvisOCR2) : [#5322](https://github.com/xorbitsai/inference/pull/5322)
-- Supporto integrato per [IndexTTS-2.5](https://huggingface.co/IndexTeam/IndexTTS-2.5) : [#5319](https://github.com/xorbitsai/inference/pull/5319)
-- Supporto integrato per la serie Ling-3.0 ([tiny](https://huggingface.co/inclusionAI/Ling-3.0-tiny), [flash](https://huggingface.co/inclusionAI/Ling-3.0-flash)) : [#5311](https://github.com/xorbitsai/inference/pull/5311)
-- Supporto integrato per [MiniMax-H3](https://huggingface.co/MiniMaxAI/MiniMax-H3) : [#5321](https://github.com/xorbitsai/inference/pull/5321)
-- Supporto integrato per la serie Wan2.2 Animate 2 ([14B](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Diffusers), [14B Distilled](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Distilled-Diffusers)) : [#5309](https://github.com/xorbitsai/inference/pull/5309)
-- Supporto integrato per [FireRed-Image-Edit-1.1](https://huggingface.co/FireRedTeam/FireRed-Image-Edit-1.1) : [#5306](https://github.com/xorbitsai/inference/pull/5306)
-- Supporto integrato per la serie CAMPPlus di embedding vocali ([cinese](https://modelscope.cn/models/iic/speech_campplus_sv_zh-cn_16k-common), [cinese-inglese avanzato](https://modelscope.cn/models/iic/speech_campplus_sv_zh_en_16k-common_advanced)) : [#5298](https://github.com/xorbitsai/inference/pull/5298)
-- Integrazione di [MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3) : [#5258](https://github.com/xorbitsai/inference/pull/5258)
+- Supporto integrato per [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) : [#5644](https://github.com/xorbitsai/inference/pull/5644)
+- Supporto integrato per [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS) : [#5591](https://github.com/xorbitsai/inference/pull/5591)
+- Supporto integrato per [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) : [#5588](https://github.com/xorbitsai/inference/pull/5588)
+- Supporto integrato per [TeleOCR](https://huggingface.co/StarDoc-AI/TeleOCR) : [#5583](https://github.com/xorbitsai/inference/pull/5583)
+- Supporto integrato per la serie Ming-Image ([Design](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design), [Design Layer](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design-Layer)) : [#5582](https://github.com/xorbitsai/inference/pull/5582)
+- Supporto integrato per [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1) : [#5571](https://github.com/xorbitsai/inference/pull/5571)
+- Supporto integrato per [MinerU2.5](https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B) : [#5550](https://github.com/xorbitsai/inference/pull/5550)
+- Supporto integrato per la serie Spark-X2.5 ([1.7B](https://huggingface.co/XHToken/Spark-X2.5-1.7B), [4B](https://huggingface.co/XHToken/Spark-X2.5-4B), [1.7B Base](https://huggingface.co/XHToken/Spark-X2.5-1.7B-Base), [4B Base](https://huggingface.co/XHToken/Spark-X2.5-4B-Base)) : [#5538](https://github.com/xorbitsai/inference/pull/5538)
+- Supporto integrato per la serie LingBot-World-V2 ([14B Fast](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-fast), [14B Pretrain](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-pretrain), [1.3B Fast](https://huggingface.co/robbyant/lingbot-world-v2-1.3b-causal-fast)) : [#5536](https://github.com/xorbitsai/inference/pull/5536)
+- Supporto integrato per la serie Irodori-TTS v4.1 ([Anime](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime), [Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)) : [#5527](https://github.com/xorbitsai/inference/pull/5527)
+- Supporto integrato per [YuE2-3B](https://huggingface.co/m-a-p/YuE2-3B) : [#5526](https://github.com/xorbitsai/inference/pull/5526)
+- Supporto integrato per la serie AuK ([AuK](https://huggingface.co/tencent/AuK), [AuK-Flash](https://huggingface.co/tencent/AuK-Flash)) : [#5525](https://github.com/xorbitsai/inference/pull/5525)
 ### Integrazioni
 - [Xagent](https://github.com/xorbitsai/xagent): piattaforma enterprise per agenti con pianificazione, memoria e integrazione di tool.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): piattaforma LLMOps per costruire rapidamente applicazioni con visualizzazione e controllo.
@@ -96,7 +100,8 @@ Xorbits Inference (Xinference) è una libreria potente e versatile per modelli d
   Segui la [guida di avvio](#getting-started) per lanciare Xinference localmente. Dettagli nella documentazione: https://inference.readthedocs.io/.
 
 - **Xinference per le aziende**
-  Sono disponibili funzionalità enterprise; per richieste contatta: mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry
+  **Xinference Enterprise** è l’edizione commerciale per i team che eseguono modelli in produzione. È possibile distribuirla nel proprio cloud o data center, oppure scegliere una distribuzione dedicata gestita con **Xinference Cloud**. La **Model API** ospitata consente di accedere ai modelli supportati tramite un’API compatibile con OpenAI senza gestire l’infrastruttura di inferenza. Maggiori informazioni su [xinference.co](https://xinference.co).
+  Per richieste aziendali, [contattateci via e-mail](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry).
 
 ## Rimani aggiornato
 
@@ -110,6 +115,31 @@ Dai una stella a Xinference su GitHub per ricevere aggiornamenti sulle release.
 * [Modelli integrati](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
 * [Modelli custom](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [Documentazione sul deployment](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
+
+### Quickstart
+
+**pip**
+
+```bash
+pip install xinference
+xinference-local
+```
+
+**Installazione con un comando**
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+[Guida all’installazione](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [Guida all’uso](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ### Docker
 
@@ -136,22 +166,6 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 ```
 
 Ulteriori opzioni K8s nella documentazione.
-
-### Quickstart
-
-Installa Xinference con pip:
-
-```bash
-pip install "xinference[all]"
-```
-
-Avvia un'istanza locale con:
-
-```bash
-$ xinference-local
-```
-
-Poi puoi usare la Web UI, cURL, la CLI o il client Python.
 
 ![web UI](../assets/screenshot.png)
 

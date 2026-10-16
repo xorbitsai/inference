@@ -13,10 +13,14 @@
 # limitations under the License.
 
 import json
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+
+from xinference._model_catalog import load_model_catalog
 
 from ...cache_manager import CacheManager
 from ...utils import (
@@ -28,8 +32,9 @@ from .. import (
     _audio_model_variant_identity,
     _install,
     _normalize_legacy_audio_model,
-    load_model_family_from_json,
 )
+from .. import engine_family as audio_engine_family
+from .. import load_model_family_from_json
 from .. import platform as audio_platform
 from .. import sys as audio_sys
 from ..core import create_audio_model_instance, resolve_audio_model_name_and_engine
@@ -38,13 +43,18 @@ from ..engine import (
     MLXAudioTTSEngineModel,
     MLXF5TTSAudioModel,
     MLXKokoroAudioModel,
+    MLXMiniMaxMusic3AudioModel,
     MLXWhisperAudioModel,
+    PyTorchBreezeAudioModel,
     PyTorchF5TTSAudioModel,
+    PyTorchFishAudioModel,
     PyTorchFunASRAudioModel,
+    PyTorchIrodoriAudioModel,
     PyTorchKokoroAudioModel,
     PyTorchMeloTTSAudioModel,
     PyTorchQwen3TTSAudioModel,
     PyTorchVoxCPMAudioModel,
+    PyTorchYuE2AudioModel,
     TransformersQwen3ASRAudioModel,
     TransformersWhisperAudioModel,
     VLLMQwen3ASRAudioModel,
@@ -59,6 +69,7 @@ from ..engine_family import (
 )
 from ..funasr import FunASRModel
 from ..whisper import WhisperModel
+from ..yue2 import _YUE2_VENDOR_ROOT
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -68,6 +79,90 @@ def setup_builtin_models():
 
 def _get_spec(model_name: str):
     return BUILTIN_AUDIO_MODELS[model_name][0]
+
+
+def test_tts_language_options_are_exposed_in_model_description():
+    qwen_languages = [
+        "auto",
+        "chinese",
+        "english",
+        "french",
+        "german",
+        "italian",
+        "japanese",
+        "korean",
+        "portuguese",
+        "russian",
+        "spanish",
+    ]
+
+    qwen_spec = _get_spec("Qwen3-TTS-12Hz-0.6B-Base")
+    assert qwen_spec.to_description()["model_lang"] == qwen_languages
+
+    custom_voice_spec = _get_spec("Qwen3-TTS-12Hz-0.6B-CustomVoice")
+    assert custom_voice_spec.to_description()["model_lang"] == qwen_languages
+
+    assert _get_spec("IndexTTS-2.5").to_description()["model_lang"] == [
+        "ZH",
+        "EN",
+        "JA",
+        "ES",
+        "AR",
+    ]
+
+    firered_languages = _get_spec("FireRedTTS3-Base").to_description()["model_lang"]
+    assert "Chinese" in firered_languages
+    assert "ZH_Sichuan" in firered_languages
+    assert "zh" not in firered_languages
+
+    assert _get_spec("CosyVoice2-0.5B").to_description()["model_lang"] == []
+
+
+class _FakeQwen3TTSBackend:
+    def get_supported_languages(self):
+        return [
+            "auto",
+            "chinese",
+            "english",
+            "french",
+            "german",
+            "italian",
+            "japanese",
+            "korean",
+            "portuguese",
+            "russian",
+            "spanish",
+        ]
+
+    def get_supported_speakers(self):
+        return []
+
+    def generate_custom_voice(self, **kwargs):
+        raise RuntimeError("generation reached")
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "Qwen3-TTS-12Hz-0.6B-CustomVoice",
+        "Qwen3-TTS-12Hz-1.7B-CustomVoice",
+    ],
+)
+def test_qwen3_pytorch_custom_voice_languages_pass_backend_validation(
+    model_name, monkeypatch
+):
+    model_spec = next(
+        spec
+        for spec in BUILTIN_AUDIO_MODELS[model_name]
+        if spec.model_format == "pytorch"
+    )
+    model = PyTorchQwen3TTSAudioModel("uid", "/unused", model_spec)
+    model._model = _FakeQwen3TTSBackend()
+    monkeypatch.setitem(sys.modules, "soundfile", SimpleNamespace())
+
+    for language in model_spec.model_lang:
+        with pytest.raises(RuntimeError, match="generation reached"):
+            model.speech("test", voice="", language=language)
 
 
 def _register_all_engines():
@@ -99,6 +194,10 @@ def apple_mlx_engines():
     model_names = (
         "whisper-tiny",
         "F5-TTS",
+        "FishAudio-S2-Pro",
+        "Breeze-TTS-2",
+        "MiniMax-Music3",
+        "Irodori-TTS-v4.1-Small",
         "Kokoro-82M",
         "SenseVoiceSmall",
         "Fun-ASR-Nano-2512",
@@ -121,7 +220,7 @@ def apple_mlx_engines():
         patch.object(engine_platform, "system", return_value="Darwin"),
     ):
         models = {}
-        load_model_family_from_json("model_spec.json", models)
+        load_model_family_from_json("models", models)
         for name in model_names:
             BUILTIN_AUDIO_MODELS[name] = models[name]
         AUDIO_ENGINES.clear()
@@ -204,6 +303,7 @@ def test_minimax_music3_without_cuda_is_rejected_before_download():
     )
     with (
         patch.object(engine_mod, "has_cuda_device", return_value=False),
+        patch.object(engine_mod.platform, "system", return_value="Linux"),
         patch.dict(AUDIO_ENGINES, {}, clear=True),
         patch.object(CacheManager, "cache") as cache,
     ):
@@ -219,6 +319,88 @@ def test_minimax_music3_without_cuda_is_rejected_before_download():
     cache.assert_not_called()
 
 
+def test_yue2_registration_includes_matching_model_and_vae_sources():
+    specs = {spec.model_hub: spec for spec in BUILTIN_AUDIO_MODELS["YuE2-3B"]}
+
+    assert set(specs) == {"huggingface", "modelscope"}
+    assert specs["huggingface"].model_id == "m-a-p/YuE2-3B"
+    assert specs["huggingface"].model_revision == "main"
+    assert specs["huggingface"].vae_model_id == "m-a-p/YuE2-Vae"
+    assert specs["huggingface"].vae_model_revision == "main"
+    assert specs["modelscope"].model_id == "m-a-p/YuE2-3B"
+    assert specs["modelscope"].model_revision == "master"
+    assert specs["modelscope"].vae_model_id == "m-a-p/YuE2-Vae"
+    assert specs["modelscope"].vae_model_revision == "master"
+
+
+def test_yue2_without_cuda_is_rejected_before_download():
+    engine_mod = __import__(
+        register_builtin_audio_engines.__module__, fromlist=["has_cuda_device"]
+    )
+    with (
+        patch.object(engine_mod, "has_cuda_device", return_value=False),
+        patch.dict(AUDIO_ENGINES, {}, clear=True),
+        patch.object(CacheManager, "cache") as cache,
+    ):
+        register_builtin_audio_engines()
+        for model_spec in BUILTIN_AUDIO_MODELS["YuE2-3B"]:
+            generate_engine_config_by_model_name(model_spec)
+        with pytest.raises(ValueError, match="YuE2 requires an NVIDIA CUDA device"):
+            create_audio_model_instance(
+                "uid",
+                "YuE2-3B",
+                enable_virtual_env=False,
+            )
+    cache.assert_not_called()
+
+
+def test_yue2_pytorch_engine_matches_cuda_model_spec():
+    engine_mod = __import__(
+        PyTorchYuE2AudioModel.__module__, fromlist=["has_cuda_device"]
+    )
+    with patch.object(engine_mod, "has_cuda_device", return_value=True):
+        assert PyTorchYuE2AudioModel.match(_get_spec("YuE2-3B")) is True
+
+
+def test_yue2_engine_discovery_uses_vendored_runtime(monkeypatch):
+    engine_mod = __import__(
+        PyTorchYuE2AudioModel.__module__, fromlist=["has_cuda_device"]
+    )
+    find_spec = audio_engine_family.importlib.util.find_spec
+
+    def find_spec_without_external_yue2(name, *args, **kwargs):
+        if name == "yue2" and _YUE2_VENDOR_ROOT not in sys.path:
+            return None
+        return find_spec(name, *args, **kwargs)
+
+    monkeypatch.setattr(
+        sys, "path", [path for path in sys.path if path != _YUE2_VENDOR_ROOT]
+    )
+    monkeypatch.setattr(
+        audio_engine_family.importlib.util,
+        "find_spec",
+        find_spec_without_external_yue2,
+    )
+
+    for module_name in tuple(sys.modules):
+        if module_name == "yue2" or module_name.startswith("yue2."):
+            monkeypatch.delitem(sys.modules, module_name)
+
+    with (
+        patch.object(engine_mod, "has_cuda_device", return_value=True),
+        patch.dict(AUDIO_ENGINES, {}, clear=True),
+    ):
+        register_builtin_audio_engines()
+        for model_spec in BUILTIN_AUDIO_MODELS["YuE2-3B"]:
+            generate_engine_config_by_model_name(model_spec)
+
+        assert get_engine_params_by_name(
+            "audio", "YuE2-3B", enable_virtual_env=False
+        ) == {"PyTorch": [{"model_name": "YuE2-3B", "model_format": None}]}
+
+    assert "yue2" not in sys.modules
+
+
 def test_consolidated_mlx_specs_and_legacy_aliases(apple_mlx_engines):
     models = apple_mlx_engines
     assert "whisper-tiny-mlx" not in models
@@ -228,6 +410,9 @@ def test_consolidated_mlx_specs_and_legacy_aliases(apple_mlx_engines):
     expected_engines = {
         "whisper-tiny": ["transformers", "MLX"],
         "F5-TTS": ["PyTorch", "MLX"],
+        "FishAudio-S2-Pro": ["PyTorch", "MLX"],
+        "Irodori-TTS-v4.1-Small": ["PyTorch", "MLX"],
+        "Breeze-TTS-2": ["PyTorch", "MLX"],
         "Kokoro-82M": ["PyTorch", "MLX"],
         "SenseVoiceSmall": ["PyTorch", "MLX"],
         "Fun-ASR-Nano-2512": ["PyTorch", "MLX"],
@@ -273,6 +458,18 @@ def test_create_consolidated_audio_engines(apple_mlx_engines):
         ("whisper-tiny-mlx", None, MLXWhisperAudioModel, "mlx-community/whisper-tiny"),
         ("F5-TTS", None, PyTorchF5TTSAudioModel, "SWivid/F5-TTS"),
         ("F5-TTS-MLX", None, MLXF5TTSAudioModel, "lucasnewman/f5-tts-mlx"),
+        (
+            "FishAudio-S2-Pro",
+            None,
+            PyTorchFishAudioModel,
+            "fishaudio/s2-pro",
+        ),
+        (
+            "FishAudio-S2-Pro",
+            "MLX",
+            MLXAudioTTSEngineModel,
+            "mlx-community/fish-audio-s2-pro-8bit",
+        ),
         ("Kokoro-82M", None, PyTorchKokoroAudioModel, "hexgrad/Kokoro-82M"),
         ("Kokoro-82M-MLX", None, MLXKokoroAudioModel, "prince-canuma/Kokoro-82M"),
         (
@@ -324,6 +521,179 @@ def test_create_consolidated_audio_engines(apple_mlx_engines):
         assert model.model_family.model_id == expected_model_id
 
 
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+def test_irodori_engine_sources_and_quantized_pytorch(apple_mlx_engines, hub):
+    name = "Irodori-TTS-v4.1-Small"
+    for engine, quantization, cls, model_id in (
+        (None, None, PyTorchIrodoriAudioModel, "Aratako/Irodori-TTS-v4.1-Small"),
+        (
+            "PyTorch",
+            "INT8-Weight-Only",
+            PyTorchIrodoriAudioModel,
+            "Aratako/Irodori-TTS-v4.1-Small-Quantized",
+        ),
+        (
+            "MLX",
+            None,
+            MLXAudioTTSEngineModel,
+            "mlx-community/Irodori-TTS-v4.1-Small-8bit",
+        ),
+    ):
+        model = create_audio_model_instance(
+            "uid",
+            name,
+            model_path="/fake/path",
+            download_hub=hub,
+            model_engine=engine,
+            quantization=quantization,
+            enable_virtual_env=False,
+        )
+        assert isinstance(model, cls)
+        assert model.model_family.model_id == model_id
+        assert model.model_family.model_hub == hub
+        if engine == "MLX":
+            spec = model.model_family
+            assert spec.cache_name == name + "-MLX"
+            assert (
+                'mlx-audio[tts]==0.5.0 ; #engine# == "MLX"' in spec.virtualenv.packages
+            )
+            assert spec.cache_config is None
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+def test_breeze_engine_sources(apple_mlx_engines, hub):
+    for engine, cls, model_id in (
+        (None, PyTorchBreezeAudioModel, "BreezeBlue/Breeze-TTS-2"),
+        ("PyTorch", PyTorchBreezeAudioModel, "BreezeBlue/Breeze-TTS-2"),
+        ("MLX", MLXAudioTTSEngineModel, "mlx-community/Breeze-TTS-2-mlx-8bit"),
+    ):
+        model = create_audio_model_instance(
+            "uid",
+            "Breeze-TTS-2",
+            model_path="/fake/path",
+            download_hub=hub,
+            model_engine=engine,
+            enable_virtual_env=False,
+        )
+        assert isinstance(model, cls)
+        assert model.model_family.model_id == model_id
+        assert model.model_family.model_hub == hub
+        if engine == "MLX":
+            assert model.model_family.cache_name == "Breeze-TTS-2-MLX"
+            assert model.model_family.cache_config is None
+            assert (
+                'mlx-audio[tts]==0.5.1 ; #engine# == "MLX"'
+                in model.model_family.virtualenv.packages
+            )
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+def test_default_engine_selects_matching_weights(apple_mlx_engines, monkeypatch, hub):
+    name = "Breeze-TTS-2"
+    # Keep the PyTorch spec first, but make MLX the only available engine.
+    monkeypatch.setitem(AUDIO_ENGINES, name, {"MLX": AUDIO_ENGINES[name]["MLX"]})
+    model = create_audio_model_instance(
+        "uid",
+        name,
+        model_path="/fake/path",
+        download_hub=hub,
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, MLXAudioTTSEngineModel)
+    assert model.model_family.model_engine == "MLX"
+    assert model.model_family.model_id == "mlx-community/Breeze-TTS-2-mlx-8bit"
+    assert model.model_family.model_hub == hub
+    assert model.model_family.cache_name == "Breeze-TTS-2-MLX"
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize("engine", [None, "MLX"])
+@pytest.mark.parametrize("quantization", [None, "8-bit"])
+def test_minimax_mlx_default_uses_mlx_weights(
+    apple_mlx_engines, hub, engine, quantization
+):
+    model = create_audio_model_instance(
+        "uid",
+        "MiniMax-Music3",
+        model_path="/fake",
+        download_hub=hub,
+        model_engine=engine,
+        quantization=quantization,
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, MLXMiniMaxMusic3AudioModel)
+    spec = model.model_family
+    assert spec.engine == "MLX"
+    assert spec.quantization == "8-bit"
+    assert spec.model_id == "mlx-community/MiniMax-Music3-8bit"
+    assert spec.model_hub == hub
+    assert spec.cache_config is None
+    assert spec.default_model_config is None
+    assert CacheManager(spec).get_cache_dir().endswith("/MiniMax-Music3-MLX")
+    assert 'mlx-audio==0.5.0 ; #engine# == "MLX"' in spec.virtualenv.packages
+
+
+@pytest.mark.parametrize("quantization", ["none", "4-bit"])
+def test_minimax_mlx_rejects_unavailable_quantization(apple_mlx_engines, quantization):
+    with pytest.raises(ValueError, match="does not support quantization"):
+        create_audio_model_instance(
+            "uid",
+            "MiniMax-Music3",
+            model_path="/fake",
+            model_engine="MLX",
+            quantization=quantization,
+            enable_virtual_env=False,
+        )
+
+
+def test_minimax_cuda_registration_does_not_match_mlx_spec(apple_mlx_engines):
+    from ..engine import DiffusersMiniMaxMusic3AudioModel
+
+    engine_mod = __import__(
+        register_builtin_audio_engines.__module__, fromlist=["has_cuda_device"]
+    )
+    with patch.object(engine_mod, "has_cuda_device", return_value=True):
+        for spec in apple_mlx_engines["MiniMax-Music3"]:
+            assert DiffusersMiniMaxMusic3AudioModel.match(spec) == (
+                spec.engine == "diffusers"
+            )
+
+
+@pytest.mark.parametrize(
+    "hub, repo",
+    [
+        ("huggingface", "MiniMaxAI/MiniMax-Music3"),
+        ("modelscope", "MiniMax/MiniMax-Music3"),
+    ],
+)
+def test_minimax_cuda_default_keeps_original_weights(apple_mlx_engines, hub, repo):
+    from ..engine import DiffusersMiniMaxMusic3AudioModel
+
+    engine_mod = __import__(
+        register_builtin_audio_engines.__module__, fromlist=["has_cuda_device"]
+    )
+    with (
+        patch.object(engine_mod, "has_cuda_device", return_value=True),
+        patch.object(engine_mod.platform, "system", return_value="Linux"),
+        patch.dict(AUDIO_ENGINES, {}, clear=True),
+    ):
+        for spec in apple_mlx_engines["MiniMax-Music3"]:
+            generate_engine_config_by_model_name(spec)
+        model = create_audio_model_instance(
+            "uid",
+            "MiniMax-Music3",
+            model_path="/fake",
+            download_hub=hub,
+            enable_virtual_env=False,
+        )
+        assert isinstance(model, DiffusersMiniMaxMusic3AudioModel)
+        assert model.model_family.model_id == repo
+        assert model.model_family.engine == "diffusers"
+        assert (
+            CacheManager(model.model_family).get_cache_dir().endswith("/MiniMax-Music3")
+        )
+
+
 def test_audio_engine_variants_keep_separate_cache_paths(apple_mlx_engines):
     specs = apple_mlx_engines["whisper-tiny"]
     transformers_spec = next(spec for spec in specs if spec.engine == "transformers")
@@ -350,9 +720,11 @@ def test_audio_engine_discovery_filters_unrelated_engines(apple_mlx_engines):
 def test_downloaded_audio_registry_updates_variants_independently(tmp_path):
     from ...utils import install_models_with_merge
 
-    model_spec_path = Path(__file__).parents[1] / "model_spec.json"
-    built_in_data = json.loads(model_spec_path.read_text())
-    downloaded_transformers = dict(built_in_data[0])
+    model_spec_path = Path(__file__).parents[1] / "models" / "whisper-tiny.json"
+    built_in_data = load_model_catalog(model_spec_path)
+    downloaded_transformers = dict(
+        next(record for record in built_in_data if record["engine"] == "transformers")
+    )
     downloaded_transformers["updated_at"] += 1
 
     downloaded_dir = tmp_path / "v2" / "builtin" / "audio"
@@ -369,7 +741,7 @@ def test_downloaded_audio_registry_updates_variants_independently(tmp_path):
     ):
         install_models_with_merge(
             models,
-            "model_spec.json",
+            "models",
             "audio",
             "audio_models.json",
             lambda: True,
@@ -394,9 +766,11 @@ def test_downloaded_legacy_audio_registry_migrates_default_variant(
 ):
     from ...utils import install_models_with_merge
 
-    model_spec_path = Path(__file__).parents[1] / "model_spec.json"
-    built_in_data = json.loads(model_spec_path.read_text())
-    built_in_transformers = built_in_data[0]
+    model_spec_path = Path(__file__).parents[1] / "models" / "whisper-tiny.json"
+    built_in_data = load_model_catalog(model_spec_path)
+    built_in_transformers = next(
+        record for record in built_in_data if record["engine"] == "transformers"
+    )
     downloaded_legacy = dict(built_in_transformers)
     downloaded_legacy.pop("engine")
     downloaded_legacy.pop("model_format")
@@ -415,7 +789,7 @@ def test_downloaded_legacy_audio_registry_migrates_default_variant(
     ):
         install_models_with_merge(
             models,
-            "model_spec.json",
+            "models",
             "audio",
             "audio_models.json",
             lambda: True,
@@ -508,6 +882,7 @@ def test_mlx_audio_specs_pin_isolated_runtime(apple_mlx_engines):
     for model_name in (
         "SenseVoiceSmall",
         "Fun-ASR-Nano-2512",
+        "FishAudio-S2-Pro",
         "Qwen3-ASR-0.6B",
         "Qwen3-TTS-12Hz-0.6B-Base",
         "MeloTTS-English",
@@ -518,6 +893,18 @@ def test_mlx_audio_specs_pin_isolated_runtime(apple_mlx_engines):
         assert any("mlx-audio" in package for package in packages)
         assert any('#engine# == "MLX"' in package for package in packages)
         assert all("#system_" not in package for package in packages)
+
+
+def test_f5_tts_mlx_pins_compatible_mlx_runtime(apple_mlx_engines):
+    """f5-tts-mlx 0.2.6 passes MLX scalars as shape dimensions.
+
+    MLX 0.32.2 rejects that call.
+    """
+    mlx_spec = next(
+        spec for spec in apple_mlx_engines["F5-TTS"] if spec.engine == "MLX"
+    )
+
+    assert 'mlx==0.32.1 ; #engine# == "MLX"' in mlx_spec.virtualenv.packages
 
 
 @pytest.mark.asyncio
@@ -587,3 +974,35 @@ def test_builtin_specs_have_vllm_virtualenv_marker():
         assert any(
             "qwen-asr[vllm]" in pkg and '#engine# == "vLLM"' in pkg for pkg in packages
         ), f"{model_name} misses qwen-asr[vllm] virtualenv marker"
+
+
+@pytest.mark.parametrize("hub_version", ["0.36.0", "1.5.0"])
+def test_f5_tts_mlx_keeps_host_hub_version(apple_mlx_engines, monkeypatch, hub_version):
+    from importlib import metadata
+
+    from packaging.requirements import Requirement
+    from xoscar.virtualenv import VirtualEnvManager
+
+    from ....core.utils import filter_virtualenv_packages_by_markers
+
+    mlx_spec = next(
+        spec for spec in apple_mlx_engines["F5-TTS"] if spec.engine == "MLX"
+    )
+    original_version = metadata.version
+    monkeypatch.setattr(
+        metadata,
+        "version",
+        lambda name: (
+            hub_version
+            if name.replace("-", "_") == "huggingface_hub"
+            else original_version(name)
+        ),
+    )
+    packages = filter_virtualenv_packages_by_markers(
+        mlx_spec.virtualenv.packages, model_engine="MLX", cuda_version=None
+    )
+    resolved = VirtualEnvManager.process_packages(packages)
+    hub = [Requirement(package) for package in resolved if "huggingface" in package]
+    assert len(hub) == 1
+    assert str(hub[0].specifier) == f"=={hub_version}"
+    assert "2.0.0" not in hub[0].specifier

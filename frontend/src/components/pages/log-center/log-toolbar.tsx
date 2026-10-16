@@ -1,28 +1,38 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, RefreshCw, Search, X } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { LOG_LEVELS, LOG_TYPES } from '@/constants/logs';
+import { LOG_LEVEL_BADGE_CLASSES, LOG_LEVELS, LOG_TYPES } from '@/constants/logs';
 import { useI18n } from '@/contexts/i18n-context';
 import { cn } from '@/lib/utils';
 
+import type { LogNodeOption } from './types';
+import { NodeRoleBadge } from './utils';
+
 interface LogToolbarProps {
-  nodes: string[];
+  nodeOptions: LogNodeOption[];
   selectedNodes: string[];
   onSelectedNodesChange: (values: string[]) => void;
   searchText: string;
   onSearchTextChange: (value: string) => void;
-  onSearchCommit: () => void;
+  onSearchCommit?: () => void;
   selectedLevels: string[];
   onToggleLevel: (value: string) => void;
-  selectedLogType: string;
-  onSelectedLogTypeChange: (value: string) => void;
+  selectedLogType?: string;
+  onSelectedLogTypeChange?: (value: string) => void;
+  emptySelectionMeansAll?: boolean;
+  maxSelectedNodes?: number;
+  onReset?: () => void;
+  actionLabel?: string;
+  onAction?: () => void;
+  actionDisabled?: boolean;
 }
 
 export function LogToolbar({
-  nodes,
+  nodeOptions,
   selectedNodes,
   onSelectedNodesChange,
   searchText,
@@ -30,225 +40,302 @@ export function LogToolbar({
   onSearchCommit,
   selectedLevels,
   onToggleLevel,
-  selectedLogType,
+  selectedLogType = '',
   onSelectedLogTypeChange,
+  emptySelectionMeansAll = false,
+  maxSelectedNodes,
+  onReset,
+  actionLabel,
+  onAction,
+  actionDisabled = false,
 }: LogToolbarProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [nodeSearch, setNodeSearch] = useState('');
+  const [selectionLimitReached, setSelectionLimitReached] = useState(false);
+  const listboxId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
 
-  // Build option list: first "All nodes" (empty string), then each node
-  const options: string[] = ['', ...nodes];
+  const selectedSet = useMemo(() => new Set(selectedNodes), [selectedNodes]);
+  const optionMap = useMemo(
+    () => new Map(nodeOptions.map((option) => [option.value, option])),
+    [nodeOptions]
+  );
+  const filteredOptions = useMemo(() => {
+    const needle = nodeSearch.trim().toLowerCase();
+    if (!needle) return nodeOptions;
+    return nodeOptions.filter((option) =>
+      [
+        option.label,
+        option.roleLabel,
+        option.description,
+        option.searchText,
+        option.fullAddress,
+        option.value,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(needle)
+    );
+  }, [nodeOptions, nodeSearch]);
 
   const close = useCallback(() => {
     setOpen(false);
-    setFocusedIndex(-1);
+    setNodeSearch('');
+    setSelectionLimitReached(false);
   }, []);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        close();
-      }
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) close();
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open, close]);
-
-  // Scroll focused option into view
-  useEffect(() => {
-    if (!open || focusedIndex < 0 || !listRef.current) return;
-    const items = listRef.current.querySelectorAll('[role="option"]');
-    if (items[focusedIndex]) {
-      items[focusedIndex].scrollIntoView({ block: 'nearest' });
-    }
-  }, [open, focusedIndex]);
+  }, [close, open]);
 
   const handleToggleNode = (node: string) => {
-    if (node === '') {
-      onSelectedNodesChange([]);
-      close();
-    } else {
-      const next = selectedNodes.includes(node)
-        ? selectedNodes.filter((n) => n !== node)
-        : [...selectedNodes, node];
-      onSelectedNodesChange(next);
+    if (selectedSet.has(node)) {
+      onSelectedNodesChange(selectedNodes.filter((value) => value !== node));
+      setSelectionLimitReached(false);
+      return;
     }
-  };
-
-  const handleRemoveNode = (node: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    onSelectedNodesChange(selectedNodes.filter((n) => n !== node));
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        if (!open) {
-          setOpen(true);
-          setFocusedIndex(0);
-        } else {
-          setFocusedIndex((prev) => (prev + 1) % options.length);
-        }
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        if (!open) {
-          setOpen(true);
-          setFocusedIndex(options.length - 1);
-        } else {
-          setFocusedIndex((prev) =>
-            prev <= 0 ? options.length - 1 : prev - 1
-          );
-        }
-        break;
-      case 'Enter':
-      case ' ':
-        e.preventDefault();
-        if (!open) {
-          setOpen(true);
-          setFocusedIndex(0);
-        } else if (focusedIndex >= 0 && focusedIndex < options.length) {
-          handleToggleNode(options[focusedIndex]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        close();
-        break;
+    if (maxSelectedNodes && selectedNodes.length >= maxSelectedNodes) {
+      setSelectionLimitReached(true);
+      return;
     }
+    onSelectedNodesChange([...selectedNodes, node]);
+    setSelectionLimitReached(false);
   };
 
+  const firstSelected = selectedNodes[0] ? optionMap.get(selectedNodes[0]) : undefined;
   const triggerLabel =
     selectedNodes.length === 0
-      ? t('logCenter.allNodes')
+      ? emptySelectionMeansAll
+        ? t('logCenter.allNodes')
+        : t('logCenter.selectNodes')
       : selectedNodes.length === 1
-        ? selectedNodes[0]
-        : `${selectedNodes[0]} +${selectedNodes.length - 1}`;
+        ? firstSelected?.label || selectedNodes[0]
+        : `${firstSelected?.label || selectedNodes[0]} +${selectedNodes.length - 1}`;
+
+  const canSelectAll =
+    !emptySelectionMeansAll &&
+    nodeOptions.length > 0 &&
+    (!maxSelectedNodes || nodeOptions.length <= maxSelectedNodes);
 
   return (
     <div className="flex flex-col gap-3 border-b bg-background px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {nodes.length > 0 && (
-          <div ref={containerRef} className="relative w-56">
-            <button
-              type="button"
-              role="combobox"
-              aria-expanded={open}
-              aria-haspopup="listbox"
-              className={cn(
-                'flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm',
-                'hover:bg-accent hover:text-accent-foreground',
-                open && 'ring-2 ring-ring ring-offset-2'
-              )}
-              onClick={() => {
-                setOpen(!open);
-                if (!open) setFocusedIndex(-1);
-              }}
-              onKeyDown={handleKeyDown}
-            >
-              <span className="truncate text-left">{triggerLabel}</span>
-              <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
-            </button>
-            {open && (
+      <div className="flex flex-wrap items-start gap-3">
+        <div ref={containerRef} className="relative min-w-64 max-w-full">
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            {t('logCenter.node')}
+          </label>
+          <button
+            type="button"
+            role="combobox"
+            aria-controls={listboxId}
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            className={cn(
+              'flex h-9 w-80 max-w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm',
+              'hover:bg-accent hover:text-accent-foreground',
+              open && 'ring-2 ring-ring ring-offset-2'
+            )}
+            onClick={() => setOpen((value) => !value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') close();
+            }}
+          >
+            <span className="truncate text-left">{triggerLabel}</span>
+            <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
+          </button>
+          {open && (
+            <div className="absolute left-0 z-50 mt-1 w-96 max-w-[calc(100vw-2rem)] rounded-md border bg-popover p-2 text-popover-foreground shadow-md">
+              <div className="relative mb-2">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  autoFocus
+                  value={nodeSearch}
+                  onChange={(event) => setNodeSearch(event.target.value)}
+                  placeholder={t('logCenter.searchNodes')}
+                  className="h-8 pl-8"
+                />
+              </div>
               <div
-                ref={listRef}
+                id={listboxId}
                 role="listbox"
                 aria-multiselectable="true"
-                className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                className="max-h-60 overflow-auto"
               >
-                <div className="max-h-60 overflow-auto">
-                  {options.map((node, index) => {
-                    const isSelected = node === '' ? selectedNodes.length === 0 : selectedNodes.includes(node);
-                    const isFocused = index === focusedIndex;
-
-                    return (
-                      <button
-                        key={node || '__all__'}
-                        type="button"
-                        role="option"
-                        tabIndex={-1}
-                        aria-selected={isSelected}
-                        className={cn(
-                          'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm',
-                          isFocused && 'bg-accent text-accent-foreground',
-                          !isFocused && isSelected && 'bg-accent/50 text-accent-foreground',
-                          !isFocused && !isSelected && 'hover:bg-accent hover:text-accent-foreground'
-                        )}
-                        onClick={() => handleToggleNode(node)}
-                        onMouseEnter={() => setFocusedIndex(index)}
-                      >
-                        <Check
-                          className={cn('size-4', isSelected ? 'opacity-100' : 'opacity-0')}
-                        />
-                        <span className="truncate">
-                          {node === '' ? t('logCenter.allNodes') : node}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {selectedNodes.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {selectedNodes.slice(0, 3).map((node) => (
-                  <span
-                    key={node}
-                    className="inline-flex items-center gap-0.5 rounded-md border bg-muted px-1.5 py-0.5 text-xs"
+                {emptySelectionMeansAll && !nodeSearch && (
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={selectedNodes.length === 0}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm',
+                      selectedNodes.length === 0 ? 'bg-accent' : 'hover:bg-accent'
+                    )}
+                    onClick={() => {
+                      onSelectedNodesChange([]);
+                      close();
+                    }}
                   >
-                    <span className="max-w-[120px] truncate">{node}</span>
+                    <Check
+                      className={cn(
+                        'size-4 shrink-0',
+                        selectedNodes.length === 0 ? 'opacity-100' : 'opacity-0'
+                      )}
+                    />
+                    <span>{t('logCenter.allNodes')}</span>
+                  </button>
+                )}
+                {filteredOptions.map((option) => {
+                  const selected = selectedSet.has(option.value);
+                  return (
                     <button
+                      key={option.value}
                       type="button"
-                      className="ml-0.5 rounded-sm hover:bg-muted-foreground/20"
-                      onClick={(e) => handleRemoveNode(node, e)}
-                      aria-label={`Remove ${node}`}
+                      role="option"
+                      aria-selected={selected}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm',
+                        selected ? 'bg-accent text-accent-foreground' : 'hover:bg-accent'
+                      )}
+                      onClick={() => handleToggleNode(option.value)}
                     >
-                      <X className="size-3" />
+                      <Check
+                        className={cn('size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')}
+                      />
+                      <NodeRoleBadge role={option.role} className="w-20 shrink-0 justify-center">
+                        {option.roleLabel}
+                      </NodeRoleBadge>
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className="block truncate font-mono text-xs"
+                          title={option.fullAddress || option.label}
+                        >
+                          {option.label}
+                        </span>
+                        {option.description && option.description !== option.label && (
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {option.description}
+                          </span>
+                        )}
+                      </span>
                     </button>
-                  </span>
-                ))}
-                {selectedNodes.length > 3 && (
-                  <span className="inline-flex items-center rounded-md border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                    +{selectedNodes.length - 3}
-                  </span>
+                  );
+                })}
+                {filteredOptions.length === 0 && (
+                  <p className="px-2 py-3 text-center text-sm text-muted-foreground">
+                    {t('logCenter.noNodes')}
+                  </p>
                 )}
               </div>
-            )}
-          </div>
-        )}
-        <div className="relative w-72 max-w-full">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchText}
-            onChange={(event) => onSearchTextChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') onSearchCommit();
-            }}
-            placeholder={t('logCenter.searchPlaceholder')}
-            className="pl-9"
-          />
+              {!emptySelectionMeansAll && (
+                <div className="mt-2 flex items-center justify-between border-t pt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={!canSelectAll}
+                    onClick={() => onSelectedNodesChange(nodeOptions.map((option) => option.value))}
+                  >
+                    {t('logCenter.selectAllNodes')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={selectedNodes.length === 0}
+                    onClick={() => onSelectedNodesChange([])}
+                  >
+                    {t('logCenter.clearSelection')}
+                  </Button>
+                </div>
+              )}
+              {!canSelectAll && !emptySelectionMeansAll && nodeOptions.length > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('logCenter.selectAllDisabled', { count: maxSelectedNodes })}
+                </p>
+              )}
+              {selectionLimitReached && (
+                <p className="mt-1 text-xs text-destructive">
+                  {t('logCenter.selectionLimit', { count: maxSelectedNodes })}
+                </p>
+              )}
+            </div>
+          )}
         </div>
-        <div className="min-w-0 flex-1" />
+
+        <div className="w-80 max-w-full">
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            {t('logCenter.search')}
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchText}
+              onChange={(event) => onSearchTextChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') onSearchCommit?.();
+              }}
+              placeholder={t('logCenter.searchPlaceholder')}
+              className="pl-9"
+            />
+          </div>
+        </div>
       </div>
+
+      {selectedNodes.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedNodes.map((node) => {
+            const option = optionMap.get(node);
+            return (
+              <span
+                key={node}
+                className="inline-flex max-w-full items-center gap-1.5 overflow-hidden rounded-md border bg-background p-1 text-xs"
+                title={[option?.roleLabel, option?.fullAddress || option?.label || node]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {option && (
+                  <NodeRoleBadge role={option.role} className="shrink-0">
+                    {option.roleLabel}
+                  </NodeRoleBadge>
+                )}
+                <span className="max-w-64 truncate px-1 font-mono">{option?.label || node}</span>
+                <button
+                  type="button"
+                  className="mr-1 rounded-sm p-0.5 hover:bg-muted-foreground/20"
+                  aria-label={t('logCenter.removeNode', { node: option?.label || node })}
+                  onClick={() =>
+                    onSelectedNodesChange(selectedNodes.filter((value) => value !== node))
+                  }
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-5">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="w-16 text-sm text-muted-foreground">{t('logCenter.logLevel')}</span>
+          <span className="text-sm text-muted-foreground">{t('logCenter.logLevel')}</span>
           <div className="flex flex-wrap gap-1.5">
             {LOG_LEVELS.map((level) => (
               <button
                 key={level}
                 type="button"
                 className={cn(
-                  'h-7 rounded-md border px-2 text-xs font-medium transition-colors hover:bg-accent',
+                  'h-7 rounded-md border px-2 text-xs font-medium transition-all',
+                  LOG_LEVEL_BADGE_CLASSES[level],
                   selectedLevels.includes(level)
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'bg-background text-muted-foreground'
+                    ? 'opacity-100 ring-2 ring-current ring-offset-1'
+                    : 'opacity-60 hover:opacity-100'
                 )}
                 onClick={() => onToggleLevel(level)}
               >
@@ -257,26 +344,51 @@ export function LogToolbar({
             ))}
           </div>
         </div>
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="w-16 text-sm text-muted-foreground">{t('logCenter.nodeType')}</span>
-          <div className="flex flex-wrap gap-1.5">
-            {LOG_TYPES.map((logType) => (
-              <button
-                key={logType}
-                type="button"
-                className={cn(
-                  'h-7 rounded-md border px-2 text-xs font-medium transition-colors hover:bg-accent',
-                  selectedLogType === logType
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'bg-background text-muted-foreground'
-                )}
-                onClick={() => onSelectedLogTypeChange(selectedLogType === logType ? '' : logType)}
-              >
-                {logType}
-              </button>
-            ))}
+        {onSelectedLogTypeChange && (
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-sm text-muted-foreground">{t('logCenter.logType')}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {LOG_TYPES.map((logType) => (
+                <button
+                  key={logType}
+                  type="button"
+                  className={cn(
+                    'h-7 rounded-md border px-2 text-xs font-medium transition-colors hover:bg-accent',
+                    selectedLogType === logType
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'bg-background text-muted-foreground'
+                  )}
+                  onClick={() =>
+                    onSelectedLogTypeChange(selectedLogType === logType ? '' : logType)
+                  }
+                >
+                  {logType}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+        {(onReset || onAction) && (
+          <div className="ml-auto flex items-center gap-2">
+            {onReset && (
+              <Button type="button" variant="ghost" size="sm" onClick={onReset}>
+                {t('logCenter.reset')}
+              </Button>
+            )}
+            {onAction && actionLabel && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={actionDisabled}
+                onClick={onAction}
+              >
+                <RefreshCw className="size-4" />
+                {actionLabel}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

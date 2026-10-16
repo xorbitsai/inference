@@ -32,6 +32,7 @@ ENTRIES: List[Dict[str, Any]] = [
         "category": "inference",
         "auth_type": "api_key",
         "client_ip": "117.61.88.85",
+        "request_id": "0b359038-38eb-4361-ab5a-b82c0472685d",
     },
     {
         "@timestamp": "2026-08-03T16:24:15.000Z",
@@ -45,6 +46,7 @@ ENTRIES: List[Dict[str, Any]] = [
         "category": "inference",
         "auth_type": "bearer",
         "client_ip": "10.0.0.7",
+        "request_id": "xinf-0b359038-38eb-4361-ab5a-b82c0472685d",
     },
 ]
 
@@ -123,6 +125,39 @@ async def test_exact_value_still_matches(audit_log):
 
 
 @pytest.mark.asyncio
+async def test_request_id_filter_matches_current_and_legacy_uuid_forms(audit_log):
+    data = await _search(audit_log, request_id="0b359038-38eb-4361-ab5a-b82c0472685d")
+
+    assert data["total"] == 2
+    assert {item["request_id"] for item in data["hits"]} == {
+        "0b359038-38eb-4361-ab5a-b82c0472685d",
+        "xinf-0b359038-38eb-4361-ab5a-b82c0472685d",
+    }
+
+
+@pytest.mark.asyncio
+async def test_request_id_filter_matches_external_id_exactly(tmp_path, monkeypatch):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    entries = [
+        {"@timestamp": "2026-08-03T16:24:16.000Z", "request_id": "external-id"},
+        {
+            "@timestamp": "2026-08-03T16:24:15.000Z",
+            "request_id": "external-id-suffix",
+        },
+    ]
+    (log_dir / "audit.log").write_text(
+        "\n".join(json.dumps(entry) for entry in entries) + "\n", encoding="utf-8"
+    )
+    monkeypatch.setattr("xinference.constants.XINFERENCE_LOG_DIR", str(log_dir))
+
+    data = await _search(log_dir / "audit.log", request_id="external-id")
+
+    assert data["total"] == 1
+    assert data["hits"][0]["request_id"] == "external-id"
+
+
+@pytest.mark.asyncio
 async def test_non_matching_text_filter_returns_nothing(audit_log):
     data = await _search(audit_log, model_id="does-not-exist")
     assert data["total"] == 0
@@ -186,11 +221,12 @@ async def test_missing_log_file_returns_empty(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_es_mode_uses_case_insensitive_wildcard(monkeypatch):
-    """ES mode must support dynamic and explicitly mapped string fields.
+async def test_es_mode_supports_mixed_audit_index_mappings(monkeypatch):
+    """ES mode must support mixed dynamic and explicit string mappings.
 
     Dynamic mapping creates `text` + `.keyword`, while index templates commonly
-    map audit fields directly as `keyword` or `wildcard`.
+    map audit fields directly as `keyword` or `wildcard`. A PIT opened over the
+    wildcard index alias can therefore span both mapping shapes.
     """
     captured: Dict[str, Any] = {}
 
@@ -215,6 +251,7 @@ async def test_es_mode_uses_case_insensitive_wildcard(monkeypatch):
 
         def post(self, url, json=None, headers=None, params=None):
             if url.endswith("/_pit"):
+                captured["pit_url"] = url
                 captured["pit_params"] = params
                 return _FakeResponse({"id": "pit-1"})
 
@@ -237,17 +274,42 @@ async def test_es_mode_uses_case_insensitive_wildcard(monkeypatch):
             return False
 
     monkeypatch.setenv("XINFERENCE_ES_URL", "http://localhost:9200")
+    monkeypatch.setattr(
+        "xinference.constants.XINFERENCE_AUDIT_ES_INDEX", "xinference-audit-test-*"
+    )
     monkeypatch.setattr("aiohttp.ClientSession", _FakeSession)
 
-    await search_audit_logs(model_id="Sense*Voice")
+    await search_audit_logs(
+        model_id="Sense*Voice",
+        request_id="0b359038-38eb-4361-ab5a-b82c0472685d",
+    )
 
+    assert captured["pit_url"] == ("http://localhost:9200/xinference-audit-test-*/_pit")
     assert captured["pit_params"] == {"keep_alive": "1m"}
     assert captured["closed_pit_id"] == "pit-2"
     clauses = captured["body"]["query"]["bool"]["filter"]
     time_range = clauses[0]["range"]["@timestamp"]
+    request_id_candidates = [
+        "0b359038-38eb-4361-ab5a-b82c0472685d",
+        "xinf-0b359038-38eb-4361-ab5a-b82c0472685d",
+    ]
+    assert clauses[1] == {
+        "bool": {
+            "should": [
+                {"terms": {"request_id": request_id_candidates}},
+                {"terms": {"request_id.keyword": request_id_candidates}},
+            ],
+            "minimum_should_match": 1,
+        }
+    }
     assert not time_range["gte"].startswith("now")
     assert not time_range["lte"].startswith("now")
-    substring_clauses = [c["bool"] for c in clauses if "bool" in c]
+    substring_clauses = [
+        clause["bool"]
+        for clause in clauses
+        if "bool" in clause
+        and any("wildcard" in item for item in clause["bool"]["should"])
+    ]
     assert len(substring_clauses) == 1
     substring_clause = substring_clauses[0]
     assert substring_clause["minimum_should_match"] == 1

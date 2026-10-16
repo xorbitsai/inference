@@ -563,3 +563,10 @@ msgstr "Puoi provare l'API OCR tramite cURL o il client Python di Xinference."
 #~ msgstr ""
 #~ "Ecco un esempio di apprendimento di una rete di controllo per Stable "
 #~ "Diffusion."
+
+#: ../../source/models/model_abilities/image.rst
+msgid "SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request."
+msgstr "SGLang 0.5.20 o successivo accetta anche richieste di immagini simultanee per il batching dinamico nativo. Impostare ``batching_max_size`` e, facoltativamente, ``batching_delay_ms`` all’avvio. Per vLLM-Omni 0.28 usare ``max_num_seqs``; le pipeline supportate possono inoltre usare ``step_execution=true`` per il batching continuo sperimentale. Il batching va abilitato esplicitamente, richiede richieste compatibili e supporto del modello e aumenta l’uso della memoria GPU. Inviare richieste API indipendenti simultaneamente; ``n`` controlla solo il numero di output della singola richiesta."
+
+msgid "To use them, install SGLang with diffusion support via ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, then launch the model with ``--model-engine SGLang`` or ``--model-engine vLLM``, for example:"
+msgstr "Installare SGLang con supporto diffusion tramite ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, oppure vLLM-Omni e vLLM con la stessa versione principale e secondaria tramite ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, quindi avviare il modello con ``--model-engine SGLang`` o ``--model-engine vLLM``, ad esempio:"

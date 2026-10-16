@@ -17,6 +17,8 @@ from . import (
     llm,
     models,
     rerank,
+    runtime_logs,
+    system_settings,
     token_routers,
     videos,
     worlds,
@@ -29,6 +31,8 @@ if TYPE_CHECKING:
 def register_all_routes(api: RESTfulAPI) -> None:
     """Register all domain routes on the given RESTfulAPI instance."""
     admin.register_routes(api)
+    runtime_logs.register_routes(api)
+    system_settings.register_routes(api)
     models.register_routes(api)
     llm.register_routes(api)
     embeddings.register_routes(api)

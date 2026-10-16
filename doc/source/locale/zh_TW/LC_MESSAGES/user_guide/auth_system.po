@@ -82,11 +82,10 @@ msgstr "初始管理員賬號"
 #: ../../source/user_guide/auth_system.rst:44
 msgid ""
 "On first startup with authentication enabled, the user table is empty and"
-" Xinference does **not** create an admin account automatically. Instead, "
-"two unauthenticated endpoints handle first-run setup:"
+" Xinference does **not** create an admin account automatically. Two "
+"endpoints handle first-run setup without requiring an existing login:"
 msgstr ""
-"在啟用身分驗證的情況下首次啟動時，使用者資料表是空的，且 Xinference **不會** "
-"自動建立管理員帳號。取而代之的是由兩個無需驗證的端點處理首次執行的設定："
+"啟用身分驗證後首次啟動時，使用者資料表為空，Xinference **不會** 自動建立管理員帳號。以下兩個介面無需既有登入即可完成首次初始化："
 
 #: ../../source/user_guide/auth_system.rst:48
 #, python-brace-format
@@ -100,31 +99,33 @@ msgstr ""
 #: ../../source/user_guide/auth_system.rst:50
 msgid ""
 "``POST /v1/admin/setup``: creates the first admin account (with all "
-"permissions) given a ``username`` and ``password``."
+"permissions) given a ``username``, ``password``, and the ``setup_token`` "
+"printed in the server startup log."
 msgstr ""
-"``POST /v1/admin/setup``：依據給定的 ``username`` 與 ``password`` "
-"建立第一個管理員帳號（擁有所有權限）。"
+"``POST /v1/admin/setup``：提供 ``username``、``password`` 與服務啟動日誌中輸出的 "
+"``setup_token``，建立擁有全部權限的首個管理員帳號。"
 
 #: ../../source/user_guide/auth_system.rst:59
 msgid ""
-"The web UI drives this automatically: opening it for the first time "
-"redirects to a setup page that asks for the new admin's username and "
-"password, then to the login page."
-msgstr "Web UI 會自動引導此流程：首次開啟時會重新導向到設定頁面，要求輸入新管理員的使用者名稱與密碼，接著再導向登入頁面。"
+"The web UI redirects to a setup page that asks for the setup token from "
+"the server startup log and the new admin's username and password, then to"
+" the login page."
+msgstr "Web UI 會導向初始化頁面，要求填寫服務啟動日誌中的初始化權杖，以及新管理員的使用者名稱與密碼，然後導向登入頁面。"
 
 #: ../../source/user_guide/auth_system.rst:63
 msgid ""
-"``/v1/admin/setup`` permanently refuses to create a second account once "
-"one exists — the first successful call wins. On an instance exposed to "
-"untrusted networks before setup completes, whoever reaches this endpoint "
-"first becomes the administrator. If that isn't you, an operator with "
-"shell access to the deployment can take control back with ``xinference-"
-"reset-auth-password`` (see `Resetting a lost admin password`_)."
+"Only a caller with the setup token can create the initial administrator. "
+"The token is stored in the auth database, shared across API processes "
+"using that database, and remains valid across restarts until setup "
+"completes. It is never returned by the setup status API. Once an account "
+"exists, ``/v1/admin/setup`` refuses further calls. An operator with shell"
+" access can recover a lost admin password with ``xinference-reset-auth-"
+"password``."
 msgstr ""
-"一旦已有帳號存在， ``/v1/admin/setup`` "
-"就會永久拒絕建立第二個帳號——第一次成功的呼叫勝出。若執行個體在完成設定前就暴露於不受信任的網路，最先呼叫此端點的人就會成為管理員。如果那個人不是你，具有部署環境"
-" shell 存取權的維運人員可以使用 ``xinference-reset-auth-password`` 奪回控制權（參見 "
-"`重設遺失的管理員密碼`_）。"
+"只有持有初始化權杖的呼叫者才能建立首個管理員。權杖儲存在驗證資料庫中，使用同一資料庫的 API "
+"程序共用該權杖；重新啟動後仍然有效，直到完成初始化。初始化狀態 API 不會傳回權杖。已有帳號後，``/v1/admin/setup`` "
+"會拒絕後續呼叫。擁有部署環境 Shell 存取權限的維運人員可使用 ``xinference-reset-auth-password`` "
+"復原遺失的管理員密碼。"
 
 #: ../../source/user_guide/auth_system.rst:71
 msgid "Resetting a lost admin password"
@@ -132,13 +133,11 @@ msgstr "重設遺失的管理員密碼"
 
 #: ../../source/user_guide/auth_system.rst:72
 msgid ""
-"If the admin password is lost — or someone else won the first-run setup "
-"race — an operator with shell access to the machine running the RESTful "
-"API can reset an admin's password directly against the auth database, "
-"without logging in:"
+"If the admin password is lost, an operator with shell access to the "
+"machine running the RESTful API can reset an admin password directly "
+"against the auth database, without logging in:"
 msgstr ""
-"若管理員密碼遺失——或首次執行設定被他人搶先——具有 RESTful API 執行主機 shell "
-"存取權的維運人員，可以直接針對驗證資料庫重設管理員密碼，無需登入："
+"如果管理員密碼遺失，擁有執行 RESTful API 的機器的 Shell 存取權限的維運人員，可以直接操作驗證資料庫重設管理員密碼，無需登入："
 
 #: ../../source/user_guide/auth_system.rst:81
 msgid ""
@@ -385,6 +384,10 @@ msgid ""
 msgstr ""
 "以擁有 ``users:manage`` 和/或 ``keys:manage`` 許可權的使用者登入後（初始的 ``admin`` "
 "賬號同時擁有這兩項許可權），即可透過 ``/v1/admin`` 下的 REST 介面管理使用者和 API Key，例如："
+
+#: ../../source/user_guide/auth_system.rst:228
+msgid "API key names are required. Names are trimmed before storage and must be unique across all users; comparisons ignore ASCII letter case. When an existing database is upgraded, blank or duplicate names are migrated to deterministic unique names without changing the API key values."
+msgstr "API Key 名稱為必填項。名稱在儲存前會移除首尾空白，且必須在所有使用者範圍內全域唯一；比較時忽略 ASCII 英文字母大小寫。升級現有資料庫時，空白名稱或重複名稱會遷移為確定性的唯一名稱，且不會變更 API Key 的值。"
 
 #: ../../source/user_guide/auth_system.rst:226
 #, python-brace-format
@@ -745,3 +748,23 @@ msgstr ""
 #~ "key``、``Authorization: Bearer`` 請求頭、與 OpenAI "
 #~ "SDK 的相容性）與上文簡單系統 `Usage`_ 一節中描述的方式相同。"
 
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrator revocation also takes effect on the next API request. ``GET /v1/auth/me`` returns current account permissions; the Web UI refreshes them periodically and when the window regains focus."
+msgstr "撤銷管理員權限也會在下一次 API 請求時生效。``GET /v1/auth/me`` 傳回帳號目前權限；Web UI 會定期重新整理，並在視窗重新取得焦點時更新。"
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Local users can change their own password through ``PUT /v1/admin/users/{user_id}/password`` without ``users:manage``. Supply ``current_password`` and ``new_password``; a forced first password change only requires ``new_password``. After a password change, sign in again because existing access and refresh tokens are revoked."
+msgstr "本機使用者不需要 ``users:manage`` 權限，即可透過 ``PUT /v1/admin/users/{user_id}/password`` 修改自己的密碼。提交 ``current_password`` 和 ``new_password``；首次強制變更密碼只需 ``new_password``。變更密碼會撤銷現有存取權杖和重新整理權杖，因此需要重新登入。"
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
+msgstr "管理員與具有 ``users:manage`` 權限的呼叫者可以不提供 ``current_password`` 重設密碼，包括自己的密碼。如果變更自己的密碼時提供此欄位，系統會驗證它。"
+
+#: ../../source/user_guide/auth_system.rst:71
+msgid ""
+"Deleting the final account starts a new setup cycle with a new token in "
+"the server log; consumed tokens stay invalid. Recreating a container "
+"without its auth database also requires the new instance's token."
+msgstr ""
+"刪除最後一個帳號會開始新的初始化流程，並在服務日誌中輸出新的權杖；已經使用過的權杖仍然無效。如果重建容器時未保留驗證資料庫，也必須使用新執行個體的權杖。"

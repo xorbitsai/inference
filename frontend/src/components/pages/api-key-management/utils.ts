@@ -57,6 +57,8 @@ export const MODEL_TYPE_OPTIONS = [
   { value: 'audio', label: 'Audio' },
 ];
 
+export const getApiKeyDisplayName = (key: ApiKey) => key.name?.trim() || `api-key-${key.id}`;
+
 export const getBannedCount = (key: ApiKey) => key.banned_count ?? key.banned ?? '-';
 
 export const getPermissionValue = (permission: ModelPermission) => {

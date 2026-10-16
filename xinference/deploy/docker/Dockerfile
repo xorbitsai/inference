@@ -115,14 +115,16 @@ WORKDIR /opt/inference
 # Install third-party dependencies from the smallest viable project skeleton.
 # This layer is invalidated by packaging metadata changes, not ordinary source
 # edits. The complete project is installed separately below without resolving
-# dependencies again.
+# dependencies again. The skeleton intentionally omits model metadata, so defer
+# its validation until that complete project install.
 COPY pyproject.toml build_backend.py build_web.py ./
 COPY xinference/__init__.py ./xinference/
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/uv \
     touch README.md && \
     pip install -i "$PIP_INDEX" uv && \
-    NO_WEB_UI=1 uv pip install --system --index-url "$PIP_INDEX" \
+    XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1 NO_WEB_UI=1 \
+      uv pip install --system --index-url "$PIP_INDEX" \
       --extra-index-url "$TORCH_INDEX" --index-strategy unsafe-best-match \
       --constraint /opt/requirements-runtime.txt \
       ".[otel]" transformers accelerate

@@ -12,8 +12,21 @@ MiniMax-Music3
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** MiniMaxAI/MiniMax-Music3
+- **diffusers (none) model ID:** MiniMaxAI/MiniMax-Music3
+- **MLX (8-bit) model ID:** mlx-community/MiniMax-Music3-8bit
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name MiniMax-Music3 --model-type audio
+   xinference launch --model-name MiniMax-Music3 --model-type audio --model-engine diffusers
+
+Available engines
+^^^^^^^^^^^^^^^^^
+
+* ``diffusers``
+* ``MLX``
+
+Available quantizations by engine
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* ``diffusers``: ``none``
+* ``MLX``: ``8-bit``

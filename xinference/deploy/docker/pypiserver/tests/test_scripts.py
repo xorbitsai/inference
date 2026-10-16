@@ -16,13 +16,17 @@ import hashlib
 import importlib.util
 import io
 import json
+import re
+import shlex
+import shutil
 import subprocess
 import sys
 from http.client import IncompleteRead
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
-from packaging.requirements import Requirement
+import pytest
+from packaging.requirements import InvalidRequirement, Requirement
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SCRIPT_DIR.parents[3]
@@ -69,6 +73,111 @@ def test_generate_package_list_classification():
     )
     standard_marker = 'decord2==3.4.0 ; platform_machine == "aarch64"'
     assert generator.normalize_mirror_spec(standard_marker) == standard_marker
+
+
+@pytest.mark.parametrize("platform", ["amd64", "arm64"])
+def test_generate_package_lists_from_docker_sources(tmp_path, platform):
+    src_root = tmp_path / "src"
+    dockerfile = (SCRIPT_DIR / "Dockerfile.pypiserver").read_text(encoding="utf-8")
+    for line in dockerfile.replace("\\\n", " ").splitlines():
+        fields = shlex.split(line)
+        if not fields or fields[0] != "COPY":
+            continue
+        destination = fields[-1]
+        if not destination.startswith("/build/src/"):
+            continue
+        target = src_root / destination.removeprefix("/build/src/")
+        target.mkdir(parents=True, exist_ok=True)
+        for source in fields[1:-1]:
+            source_path = REPO_ROOT / source
+            if source_path.is_dir():
+                shutil.copytree(source_path, target, dirs_exist_ok=True)
+            else:
+                shutil.copy2(source_path, target)
+
+    out = tmp_path / "out"
+    # The known future backend exception must not suppress the same requirement
+    # from a different model: new unavailable pins should fail preflight.
+    (src_root / "xinference" / "model" / "future-model.json").write_text(
+        json.dumps(
+            {
+                "model_name": "future-model",
+                "virtualenv": {"packages": ["vllm>=0.32.0"]},
+            }
+        )
+    )
+    # Keep the synthetic pin independent of real model requirements, whose
+    # indexes and source labels are merged into the same generated manifest.
+    nightly = "vllm==0.0.0.dev1+mirror.test"
+    model_index = "https://wheels.example/nightly"
+    secondary_index = "https://wheels.example/secondary"
+    for filename, virtualenv in (
+        (
+            "indexed-model.json",
+            {
+                "packages": [nightly + ' ; #engine# == "vllm"'],
+                "extra_index_url": model_index,
+            },
+        ),
+        (
+            "nested-model.json",
+            {
+                "packages": [nightly + ' ; #engine# == "vllm"'],
+                "extra_index_url": [model_index, secondary_index, model_index],
+            },
+        ),
+    ):
+        (src_root / "xinference" / "model" / filename).write_text(
+            json.dumps(
+                {
+                    "model_name": "indexed-model",
+                    "model_specs": [{"virtualenv": virtualenv}],
+                }
+            )
+        )
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_DIR / "generate_package_lists.py"),
+            "--platform",
+            platform,
+            "--src-root",
+            str(src_root),
+            "--out",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (out / "manifest.json").is_file()
+    assert (out / "engines" / "transformers.in").is_file()
+    manifest = json.loads((out / "manifest.json").read_text())
+    cuda_suffix = re.search(r"^ARG CUDA_SUFFIX=(\S+)$", dockerfile, re.MULTILINE).group(
+        1
+    )
+    assert f"cu{manifest['cuda_version'].replace('.', '')}" == cuda_suffix
+    assert len(manifest["deferred_model_pins"]) == 1
+    deferred = manifest["deferred_model_pins"][0]
+    assert deferred["spec"] == "vllm>=0.32.0"
+    assert (
+        deferred["source"]
+        == "embedding/models/embeddinggemma-2.json:embeddinggemma-2 (vllm)"
+    )
+    assert "unpublished" in deferred["reason"]
+    pins = json.loads((out / "pins.json").read_text())
+    assert next(pin for pin in pins if pin["spec"] == "vllm>=0.32.0")["sources"] == [
+        "future-model.json:future-model"
+    ]
+    indexed_pin = next(pin for pin in pins if pin["spec"] == nightly)
+    assert indexed_pin["extra_index_urls"] == [model_index, secondary_index]
+    assert indexed_pin["sources"] == [
+        "indexed-model.json:indexed-model (vllm)",
+        "nested-model.json:indexed-model (vllm)",
+    ]
+    assert "extra_index_urls" not in next(
+        pin for pin in pins if pin["spec"] == "vllm>=0.32.0"
+    )
 
 
 def test_load_xinference_modules_restores_sys_modules():
@@ -132,6 +241,39 @@ def test_iter_virtualenv_packages_reads_json_as_utf8(monkeypatch, tmp_path):
     assert encodings == ["utf-8"]
 
 
+def test_all_decord_requirements_are_scoped_to_supported_architectures():
+    generator = _load_script("generate_package_lists")
+    expected_machines = {
+        "decord": {"x86_64"},
+        "decord2": {"aarch64"},
+    }
+    seen = set()
+
+    for rel, model_name, packages in generator.iter_virtualenv_packages(
+        REPO_ROOT / "xinference" / "model"
+    ):
+        for spec in packages:
+            try:
+                requirement = Requirement(generator.normalize_mirror_spec(spec))
+            except InvalidRequirement:
+                continue
+            name = requirement.name.lower().replace("_", "-")
+            if name not in expected_machines:
+                continue
+            seen.add(name)
+            allowed_machines = {
+                machine
+                for machine in ("x86_64", "aarch64")
+                if requirement.marker is not None
+                and requirement.marker.evaluate({"platform_machine": machine})
+            }
+            assert (
+                allowed_machines == expected_machines[name]
+            ), f"{rel}:{model_name} uses incompatible requirement {spec!r}"
+
+    assert seen == set(expected_machines)
+
+
 def test_selfcheck_wheel_url_to_spec():
     selfcheck = _load_script("selfcheck")
 
@@ -144,6 +286,17 @@ def test_selfcheck_wheel_url_to_spec():
     )
     assert selfcheck.wheel_url_to_spec("https://example.com/pkg.tar.gz") is None
     assert selfcheck.wheel_url_to_spec("https://example.com/invalid.whl") is None
+
+
+@pytest.mark.parametrize("marker", ["", ' ; platform_machine == "aarch64"'])
+def test_selfcheck_named_wheel_reference(marker):
+    selfcheck = _load_script("selfcheck")
+    assert (
+        selfcheck.wheel_url_to_spec(
+            "torchao @ https://example.com/torchao-0.16.0-py3-none-any.whl" + marker
+        )
+        == "torchao==0.16.0" + marker
+    )
 
 
 def test_download_report_wheel_filename_parsing():
@@ -364,6 +517,19 @@ def test_runtime_dockerfiles_keep_dependency_layers_source_independent():
         assert dependency_install < project_sources < project_install
 
 
+def test_runtime_docker_dependency_skeleton_defers_model_spec_validation():
+    dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text(
+        encoding="utf-8"
+    )
+
+    dependency_install = dockerfile.index('".[otel]" transformers accelerate')
+    project_sources = dockerfile.index("COPY . /opt/inference", dependency_install)
+    validation_skip = dockerfile.index("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1")
+
+    assert validation_skip < dependency_install < project_sources
+    assert dockerfile.count("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1") == 1
+
+
 def test_transformers_optional_dependencies_are_scoped_and_mirrored(
     monkeypatch, tmp_path
 ):
@@ -442,6 +608,17 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
     assert all("has_cuda" not in spec for spec in pin_specs)
     assert 'decord==0.6.0 ; platform_machine == "x86_64"' in pin_specs
     assert 'decord2==3.4.0 ; platform_machine == "aarch64"' in pin_specs
+    assert "flash-attn==2.8.3.post1" not in pin_specs
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["find_links_only_pins"] == [
+        {
+            "spec": "flash-attn==2.8.3.post1",
+            "sources": [
+                "embedding/models/jina-embeddings-v3.json:jina-embeddings-v3",
+                "embedding/models/jina-embeddings-v3.json:jina-embeddings-v3 (sentence_transformers)",
+            ],
+        }
+    ]
     for spec in pin_specs:
         Requirement(spec)
 
@@ -467,7 +644,7 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
         if item["spec"].split(";", 1)[0].strip().lower() == "qwen-vl-utils!=0.0.9"
     )
     for model_name in ("qwen3.5", "qwen3.6"):
-        source = "llm/llm_family.json:" + model_name + " (Transformers)"
+        source = "llm/models/" + model_name + ".json:" + model_name + " (Transformers)"
         assert source in qwen_vl_sources
 
 
@@ -544,19 +721,38 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
         "pins": 1,
         "urls": 1,
         "git": 1,
+        "find_links_only": 0,
+        "deferred_model_pins": 0,
     }
 
 
-def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
+@pytest.mark.parametrize("platform", ["amd64", "arm64"])
+@pytest.mark.parametrize(
+    "model_indexes",
+    [
+        [],
+        ["https://wheels.example/nightly"],
+        [
+            "https://wheels.example/nightly",
+            "https://wheels.example/nightly",
+            "https://download.pytorch.org/whl/cu130",
+        ],
+    ],
+)
+@pytest.mark.parametrize("download_mode", ["direct", "retry", "sdist"])
+def test_download_packages_main_orchestration_skips_git(
+    monkeypatch, tmp_path, platform, model_indexes, download_mode
+):
     downloader = _load_script("download_packages")
     manifest = tmp_path / "manifest"
     engines = manifest / "engines"
     engines.mkdir(parents=True)
     (engines / "test.in").write_text("engine-pkg>=1.0\n")
     (engines / "test.meta.json").write_text("{}\n")
-    (manifest / "pins.json").write_text(
-        json.dumps([{"spec": "model-pin==1.0", "sources": ["test"]}])
-    )
+    pin = {"spec": "model-pin==1.0", "sources": ["test"]}
+    if model_indexes:
+        pin["extra_index_urls"] = model_indexes
+    (manifest / "pins.json").write_text(json.dumps([pin]))
     (manifest / "urls.txt").write_text(
         "https://example.invalid/direct-1.0-py3-none-any.whl\n"
     )
@@ -571,6 +767,8 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
     compile_calls = []
     download_calls = []
     run_calls = []
+    sdist_calls = []
+    pin_attempts = 0
 
     def fake_uv_compile(in_file, out_file, **kwargs):
         compile_calls.append((in_file, out_file, kwargs))
@@ -581,14 +779,29 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
         return subprocess.CompletedProcess([], 0)
 
     def fake_pip_download(args, target, **kwargs):
+        nonlocal pin_attempts
         download_calls.append((list(args), kwargs))
         if args == ["model-pin==1.0"]:
+            pin_attempts += 1
+            if download_mode == "sdist" or (
+                download_mode == "retry" and pin_attempts == 1
+            ):
+                return subprocess.CompletedProcess([], 1)
             (target / "source-1.0.tar.gz").write_text("sdist")
         # The wheel built from the sdist declares a dependency that the
         # sdist metadata omitted; it only exists as an sdist itself.
         if args == [str(dest / "source-1.0-py3-none-any.whl")]:
             (target / "hiddendep-1.0.tar.gz").write_text("sdist")
         return subprocess.CompletedProcess([], 0)
+
+    def fake_download_sdist(spec, target, **kwargs):
+        sdist_calls.append((spec, kwargs))
+        # The source archive exists only at the model's additional index.
+        if model_indexes and kwargs["index_url"] != model_indexes[0]:
+            return None
+        sdist = target / "source-1.0.tar.gz"
+        sdist.write_text("sdist")
+        return sdist
 
     def fake_run(cmd, **kwargs):
         run_calls.append((list(cmd), kwargs))
@@ -600,6 +813,9 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
 
     monkeypatch.setattr(downloader, "uv_compile", fake_uv_compile)
     monkeypatch.setattr(downloader, "pip_download", fake_pip_download)
+    monkeypatch.setattr(
+        downloader, "download_sdist_without_metadata", fake_download_sdist
+    )
     monkeypatch.setattr(downloader, "run", fake_run)
     monkeypatch.setattr(
         sys,
@@ -611,7 +827,7 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
             "--dest",
             str(dest),
             "--platform",
-            "amd64",
+            platform,
             "--runtime-constraints",
             str(runtime_constraints),
         ],
@@ -620,6 +836,11 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
     downloader.main()
 
     assert len(compile_calls) == 3
+    expected_machine = "x86_64" if platform == "amd64" else "aarch64"
+    assert all(
+        call[2]["python_platform"] == expected_machine + "-manylinux_2_34"
+        for call in compile_calls
+    )
     assert compile_calls[0][0] == runtime_constraints
     assert ["-r", str(manifest / "locks" / "test.lock")] in [
         call[0] for call in download_calls
@@ -642,9 +863,41 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
         call[0] for call in download_calls
     ]
     assert not (dest / "hiddendep-1.0.tar.gz").exists()
+    model_downloads = [
+        kwargs
+        for args, kwargs in download_calls
+        if args == ["model-pin==1.0"] or args[0].startswith(str(dest))
+    ]
+    expected_indexes = list(
+        dict.fromkeys(model_indexes + ["https://download.pytorch.org/whl/cu130"])
+    )
+    assert all(
+        kwargs["extra_index_urls"] == expected_indexes for kwargs in model_downloads
+    )
+    assert all(
+        kwargs["extra_index_urls"] == ["https://download.pytorch.org/whl/cu130"]
+        for args, kwargs in download_calls
+        if args[0] == "-r" or args[0].startswith("https://")
+    )
+    assert pin_attempts == (1 if download_mode == "direct" else 2)
+    if download_mode != "direct":
+        pin_downloads = [
+            kwargs for args, kwargs in download_calls if args == [pin["spec"]]
+        ]
+        assert pin_downloads[0]["constraints"] is not None
+        assert pin_downloads[1].get("constraints") is None
+    if download_mode == "sdist":
+        assert sdist_calls[-1][1]["index_url"] == (
+            model_indexes[0] if model_indexes else "https://pypi.org/simple"
+        )
     report = json.loads((manifest / "report.json").read_text())
     assert "transformers==5.13.1" in report["runtime_constraints"]
-    assert report["unconstrained_fallbacks"] == []
+    assert report["unconstrained_fallbacks"] == (
+        [] if download_mode == "direct" else [pin["spec"]]
+    )
+    assert report["raw_sdist_fallbacks"] == (
+        [pin["spec"]] if download_mode == "sdist" else []
+    )
     assert report["sdist_left"] == []
 
 
@@ -659,6 +912,8 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
     )
     (manifest / "urls.txt").write_text(
         "https://example.invalid/direct-1.0-py3-none-any.whl\n"
+        "torchao @ https://example.invalid/torchao-0.16.0-py3-none-any.whl"
+        ' ; platform_machine == "aarch64"\n'
     )
     git_source = "git-package @ git+https://example.invalid/repo.git@abc"
     (manifest / "git.txt").write_text(git_source + "\n")
@@ -695,6 +950,7 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
         ["engine-pkg>=1.0"],
         ["model-pin==1.0"],
         ["direct==1.0"],
+        ['torchao==0.16.0 ; platform_machine == "aarch64"'],
     ]
     output = capsys.readouterr().out
     assert "UNSUPPORTED offline direct reference " + git_source in output

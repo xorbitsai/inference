@@ -13,6 +13,8 @@ Specifications
 
 - **diffusers model ID:** Wan-AI/Wan2.2-T2V-A14B-Diffusers
 - **MLX model ID:** SceneWorks/wan2.2-t2v-a14b-mlx
+- **vLLM model ID:** Wan-AI/Wan2.2-T2V-A14B-Diffusers
+- **SGLang model ID:** Wan-AI/Wan2.2-T2V-A14B-Diffusers
 
 Execute the following command to launch the model::
 
@@ -23,3 +25,5 @@ Available engines
 
 * ``diffusers``
 * ``MLX``
+* ``vLLM``
+* ``SGLang``

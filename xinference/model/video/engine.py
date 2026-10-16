@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Tuple, Union
 from .diffusers import DiffusersVideoModel
 from .engine_family import SUPPORTED_ENGINES, VideoEngineModel
 from .mlx_video import MLXVideoModel
+from .native import SGLangVideoModel, VLLMVideoModel
 
 if TYPE_CHECKING:
     from .core import VideoModelFamilyV2
@@ -108,3 +109,5 @@ def register_builtin_video_engines() -> None:
     # runtimes, preserving the existing diffusers behavior for Wan models.
     SUPPORTED_ENGINES["diffusers"] = [DiffusersVideoEngineModel]
     SUPPORTED_ENGINES["MLX"] = [MLXVideoEngineModel]
+    SUPPORTED_ENGINES["vLLM"] = [VLLMVideoModel]
+    SUPPORTED_ENGINES["SGLang"] = [SGLangVideoModel]

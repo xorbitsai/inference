@@ -1,0 +1,38 @@
+[
+  {
+    "version": 2,
+    "model_name": "MinerU2.5",
+    "model_family": "docanalyze",
+    "model_ability": [
+      "docanalyze"
+    ],
+    "virtualenv": {
+      "packages": [
+        "vllm==0.21.0 ; #engine# == \"vllm\"",
+        "transformers==4.57.6 ; #engine# == \"vllm\"",
+        "transformers==4.57.6 ; #engine# == \"transformers\"",
+        "qwen-vl-utils==0.0.9 ; #engine# == \"transformers\"",
+        "aiofiles",
+        "boto3>=1.28.43",
+        "pypdfium2>=4.30.0",
+        "pypdf>=5.6.0",
+        "reportlab",
+        "onnxruntime>1.17.0",
+        "beautifulsoup4>=4.13.5,<5",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "opendatalab/MinerU2.5-2509-1.2B",
+        "model_revision": "879e58bdd9566632b27a8a81f0e2961873311f67"
+      },
+      "modelscope": {
+        "model_id": "OpenDataLab/MinerU2.5-2509-1.2B",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1763445598
+  }
+]

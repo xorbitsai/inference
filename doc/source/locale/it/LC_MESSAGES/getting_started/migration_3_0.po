@@ -19,8 +19,8 @@ msgstr ""
 "Generated-By: Babel 2.17.0\n"
 
 #: ../../source/getting_started/migration_3_0.rst:5
-msgid "Migrating to Xinference 3.0"
-msgstr "Migrazione a Xinference 3.0"
+msgid "Migrating to Xinference 3.0+"
+msgstr "Migrazione a Xinference 3.0+"
 
 #: ../../source/getting_started/migration_3_0.rst:7
 msgid ""
@@ -51,13 +51,16 @@ msgstr ""
 
 #: ../../source/getting_started/migration_3_0.rst:19
 msgid ""
-"On first startup, open the web UI (or call ``POST /v1/admin/setup``) to "
-"create the initial admin account. See :ref:`user_guide_auth_system` for "
-"the full flow."
+"On first startup, copy the setup token from the server startup log. Enter"
+" it in the web UI, or include it as ``setup_token`` alongside "
+"``username`` and ``password`` when calling ``POST /v1/admin/setup``. See "
+":ref:`user_guide_auth_system` for the full flow."
 msgstr ""
-"Al primo avvio, aprire la Web UI (oppure chiamare ``POST "
-"/v1/admin/setup``) per creare l'account amministratore iniziale. Vedere "
-":ref:`user_guide_auth_system` per il flusso completo."
+"Al primo avvio, copiare il token di configurazione dal log di avvio del "
+"server. Inserirlo nell’interfaccia web oppure inviarlo come "
+"``setup_token`` insieme a ``username`` e ``password`` quando si chiama "
+"``POST /v1/admin/setup``. La procedura completa è in "
+":ref:`user_guide_auth_system`."
 
 #: ../../source/getting_started/migration_3_0.rst:22
 msgid "To restore the previous unauthenticated behavior, set:"

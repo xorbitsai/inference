@@ -1,0 +1,129 @@
+[
+  {
+    "version": 2,
+    "context_length": 32768,
+    "model_name": "MiniCPM-V-4.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "MiniCPM-V 4.5 is an improved version in the MiniCPM-V series with enhanced multimodal capabilities and better performance.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4_5",
+            "model_revision": "main",
+            "model_metadata": {
+              "vocab_size": 151748,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM-V-4_5/resolve/daef484c35ec93210ec93c5e901f8f3e9b78ee34/config.json",
+              "config_sha256": "1d6f6eb441da34dcb43db72cf3960254c7045cc2c595a3c836ae71136655ccc8",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4_5",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151748,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM-V-4_5/resolve/master/config.json",
+              "config_sha256": "1d6f6eb441da34dcb43db72cf3960254c7045cc2c595a3c836ae71136655ccc8",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4_5-int4",
+            "model_revision": "main",
+            "model_metadata": {
+              "vocab_size": 151748,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM-V-4_5-int4/resolve/main/config.json",
+              "config_sha256": "d6ce6abb70fe38a373d1f379177fdcd5f098d57148216ab860ba9f378e45b394",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4_5-int4",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151748,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM-V-4_5-int4/resolve/master/config.json",
+              "config_sha256": "d6ce6abb70fe38a373d1f379177fdcd5f098d57148216ab860ba9f378e45b394",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      151645,
+      151643
+    ],
+    "stop": [
+      "<|im_end|>"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "eva-decord ; #engine# == \"Transformers\" and sys_platform == \"linux\" and platform_machine == \"x86_64\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "updated_at": 1784394366,
+    "featured": false,
+    "architectures": [
+      "MiniCPMV"
+    ],
+    "model_type": "minicpmv"
+  }
+]

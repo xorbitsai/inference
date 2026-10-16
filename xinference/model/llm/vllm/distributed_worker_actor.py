@@ -68,16 +68,15 @@ class WorkerActor(xo.StatelessActor):
                 kwargs,
             )
         if isinstance(method, str):
-            if method != "sample_tokens":
-                return getattr(self._worker, method)(*args, **kwargs)
-            else:
-                result = getattr(self._worker, method)(*args, **kwargs)
+            result = getattr(self._worker, method)(*args, **kwargs)
+            if method in ("execute_model", "sample_tokens"):
                 return self._sanitize_result(result)
+            return result
         else:
             return method(self._worker, *args, **kwargs)
 
     def _sanitize_result(self, obj):
-        if obj is None:
-            return obj
-        output = obj.get_output()
-        return output
+        # AsyncModelRunnerOutput owns CUDA events and cannot cross an actor
+        # boundary. Other stages return None or an ordinary ModelRunnerOutput.
+        get_output = getattr(obj, "get_output", None)
+        return get_output() if callable(get_output) else obj

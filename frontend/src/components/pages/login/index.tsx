@@ -11,7 +11,7 @@ import { Form } from '@/components/ui/form';
 import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
 import { decodeJwtPayload, getApiUrl } from '@/lib/utils';
-import { setAccessToken, setRefreshToken } from '@/lib/auth-storage';
+import { removeAuthTokens, setAccessToken, setRefreshToken } from '@/lib/auth-storage';
 import { getBrandingFromEnv } from '@/lib/branding';
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
@@ -40,7 +40,8 @@ export default function LoginPage() {
   const [authAdvanced, setAuthAdvanced] = useState(false);
 
   useEffect(() => {
-    request.get('/v1/cluster/ui_config')
+    request
+      .get('/v1/cluster/ui_config')
       .then((config: any) => {
         setOidcEnabled(config?.oidc_enabled ?? false);
         setAuthAdvanced(config?.auth_advanced ?? false);
@@ -98,7 +99,9 @@ export default function LoginPage() {
   const handlePasswordChanged = () => {
     setChangePasswordOpen(false);
     setChangePasswordUserId(null);
-    goHomeAfterAuth();
+    // Password changes revoke both access and refresh tokens. Log in again.
+    removeAuthTokens();
+    form.resetFields();
   };
 
   return (
@@ -153,9 +156,7 @@ export default function LoginPage() {
                   <span className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    {t('login.or')}
-                  </span>
+                  <span className="bg-background px-2 text-muted-foreground">{t('login.or')}</span>
                 </div>
               </div>
               <Button

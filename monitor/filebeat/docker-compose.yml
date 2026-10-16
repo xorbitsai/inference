@@ -9,6 +9,9 @@ services:
     restart: always
     # Switch config: filebeat-to-es.yml or filebeat-to-kafka.yml
     command: filebeat -e -strict.perms=false -c /usr/share/filebeat/filebeat.yml
+    environment:
+      # Must match the path visible inside this Filebeat container.
+      XINFERENCE_MODEL_REQUEST_LOG_PATH: '/data/logs/model_request.log*'
     # Resource limits: prevent backlog catch-up or downstream failures from starving inference
     deploy:
       resources:
@@ -23,7 +26,9 @@ services:
       - ./filebeat-to-es.yml:/usr/share/filebeat/filebeat.yml:ro
       # - ./filebeat-to-kafka.yml:/usr/share/filebeat/filebeat.yml:ro
       # Log directories (adjust to actual paths)
-      # Mount the entire logs directory so worker, supervisor, and audit logs are all visible
+      # Mount the entire logs directory so application, audit, and model request logs are visible.
+      # Verify the production path before deployment; alternative examples use
+      # /data/xinference_home/logs and /data/xinference_home_worker/logs.
       - /data/logs:/data/logs:ro
       # Data directory (persists collection progress across restarts)
       - filebeat-data:/usr/share/filebeat/data

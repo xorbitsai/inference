@@ -761,3 +761,25 @@ msgid ""
 "Zephyr-7B-β is the second model in the series, and is a fine-tuned version "
 "of mistralai/Mistral-7B-v0.1"
 msgstr ""
+
+#: ../../models/builtin/llm/index.rst
+msgid "We introduce DeepSeek-V4.1-Flash, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively."
+msgstr ""
+
+#: ../glm53-doc-check/models/builtin/llm/index.rst:269
+msgid ":ref:`glm-5.3 <models_llm_glm-5.3>`"
+msgstr ":ref:`glm-5.3 <models_llm_glm-5.3>`"
+
+#: ../glm53-doc-check/models/builtin/llm/index.rst:272
+msgid "GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks."
+msgstr ""
+"GLM-5.3 é um modelo de raciocínio para programação e tarefas de agentes de "
+"longa duração."
+
+#: doc/source/models/builtin/llm/index.rst
+msgid "Qwen3.8-Flash-Next is a native vision-language Mixture-of-Experts model with 125B main-model parameters, 6B activated per token, and an additional 51B n-gram embedding table. Its Qwen4 experimental architecture combines Gated DeltaNet, Qwen Sparse Attention, gated residuals, and flexible thinking control."
+msgstr "Qwen3.8-Flash-Next é um modelo nativo de visão e linguagem com mistura de especialistas. O modelo principal tem 125 bilhões de parâmetros, com 6 bilhões ativados por token, além de uma tabela de embeddings de n-gramas com 51 bilhões de parâmetros. Sua arquitetura experimental Qwen4 combina Gated DeltaNet, Qwen Sparse Attention, conexões residuais com controle por portas e controle flexível do pensamento."
+
+#: doc/source/models/builtin/llm/index.rst
+msgid "chat, vision, tools, reasoning, hybrid"
+msgstr "chat, visão, chamadas de ferramentas, raciocínio, modo de pensamento híbrido"

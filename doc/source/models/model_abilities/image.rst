@@ -123,9 +123,11 @@ batching (e.g. sd3.5-medium, Qwen-Image, FLUX.1-dev) can additionally batch
 concurrent requests on the GPU; pass ``max_num_seqs`` at launch to set the
 maximum batch size.
 
+SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request.
+
 To use them, install SGLang with diffusion support via
-``pip install 'sglang[diffusion]'``, or vLLM-Omni together with a vLLM of the
-same major.minor version via ``pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'``,
+``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the
+same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``,
 then launch the model with ``--model-engine SGLang`` or
 ``--model-engine vLLM``, for example:
 
@@ -468,6 +470,29 @@ We can try OCR API out either via cURL, or Xinference's python client:
 
     <OCR result string>
 
+OvisOCR2 Usage
+~~~~~~~~~~~~~~
+
+:ref:`OvisOCR2 <models_builtin_ovisocr2>` is exposed through the image OCR API.
+Use the ``/v1/images/ocr`` endpoint above or Xinference's Python client instead
+of the OpenAI-compatible Chat Completions API:
+
+.. code-block:: python
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model = client.get_model("<MODEL_UID>")
+    with open("document.jpg", "rb") as f:
+        markdown = model.ocr(f.read())
+
+OvisOCR2 uses deterministic decoding and allows up to 16384 new tokens by
+default. Its vLLM adapter also applies the recommended image pixel bounds.
+Visual-region ``<img src="images/bbox_*.jpg" />`` placeholders are removed
+because the OCR API does not create the referenced crops, and known repeated
+tails are cleaned. Pass ``filter_imgtags=False`` to ``model.ocr`` to retain the
+raw placeholders.
+
 PDF uploads are rasterized page by page (requires ``pypdfium2``, included in the
 ``image`` extra), OCR runs on each page, and the results are merged:
 
@@ -490,6 +515,25 @@ raster would exceed 80 megapixels is rejected — lower ``dpi`` in that case:
       -F model=<MODEL_UID> \
       -F 'kwargs={"pages": [1, 2], "dpi": 300}' \
       -F image=@xxx.pdf
+
+TeleOCR Usage
+~~~~~~~~~~~~~
+
+TeleOCR uses the image OCR API with Transformers or vLLM. Its Hugging Face
+weights are ``StarDoc-AI/TeleOCR``; the ModelScope mirror is
+``XingChen-AGI/TeleOCR``. Launch the regular weights with::
+
+    xinference launch --model-name TeleOCR --model-type image --model-engine transformers
+
+GGUF quantizations use the older NaviDC-OCR conversion with a separate vision
+projector. Select one with::
+
+    xinference launch --model-name TeleOCR --model-type image --model-engine llama.cpp --model-format ggufv2 --quantization Q4_K_M
+
+The GGUF publisher reports that these files require a patched llama.cpp build;
+stock llama.cpp fails with ``check_tensor_dims``. Use a compatible patched
+``xllamacpp`` build before launching. See the `GGUF patch instructions
+<https://huggingface.co/nandraj/NaviDC-OCR-GGUF/blob/main/PATCHES.md>`_.
 
 Whole-document parsing
 ~~~~~~~~~~~~~~~~~~~~~~

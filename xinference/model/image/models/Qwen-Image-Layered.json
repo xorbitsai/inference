@@ -1,0 +1,40 @@
+[
+  {
+    "version": 2,
+    "model_name": "Qwen-Image-Layered",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen-Image-Layered",
+        "model_revision": "8f0ca708dfff6ba1dd5f2d85d78f8c108a040bcf"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen-Image-Layered",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "true_cfg_scale": 4
+    },
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.3,<5",
+        "bitsandbytes>=0.49.2,<0.50 ; #engine# == \"diffusers\"",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "featured": false,
+    "updated_at": 1769418378
+  }
+]

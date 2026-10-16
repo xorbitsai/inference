@@ -21,7 +21,7 @@ import xinference.api.oauth2.advanced.routes as routes
 def _patch_caller(monkeypatch, scopes):
     monkeypatch.setattr(
         routes,
-        "_get_current_user_from_token",
+        "_get_current_user_live_scopes",
         lambda request, auth: (1, "caller", scopes),
     )
 

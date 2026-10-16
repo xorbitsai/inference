@@ -1,3 +1,4 @@
+import asyncio
 import gc
 import inspect
 import logging
@@ -21,14 +22,21 @@ from ..core import (
 )
 
 QWEN3_RERANK_TEMPLATE = int(os.getenv("XINFERENCE_QWEN3_RERANK_TEMPLATE", "1"))
+QWEN3_VL_RERANK_TEMPLATE_PATH = os.path.join(
+    os.path.dirname(__file__), "qwen3_vl_reranker.jinja"
+)
 logger = logging.getLogger(__name__)
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3"]
 
 
 class VLLMRerankModel(RerankModel, BatchMixin):
+    # The backend can be either a synchronous LLM or an asynchronous engine.
+    _model: Any
+
     def __init__(self, *args, **kwargs) -> None:
         RerankModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.rerank, **kwargs)  # type: ignore
+        self._native_pooling = False
 
     def load(self):
         try:
@@ -50,7 +58,9 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         self._kwargs.pop("batch_size", None)
         self._kwargs.pop("batch_interval", None)
 
-        if self.model_family.model_name in {
+        model_name = self.model_family.model_name
+        is_qwen3_vl_reranker = model_name.startswith("Qwen3-VL-Reranker")
+        if model_name in {
             "Qwen3-Reranker-0.6B",
             "Qwen3-Reranker-4B",
             "Qwen3-Reranker-8B",
@@ -67,6 +77,42 @@ class VLLMRerankModel(RerankModel, BatchMixin):
                     classifier_from_token=["no", "yes"],
                     is_original_qwen3_reranker=True,
                 )
+
+        self._qwen3_vl_reranker_template = None
+        if is_qwen3_vl_reranker:
+            if Version(vllm_version) < Version("0.14.0"):
+                raise ValueError("Qwen3-VL reranker requires vLLM>=0.14.0")
+            hf_overrides = self._kwargs.get("hf_overrides", {})
+            if not isinstance(hf_overrides, dict):
+                raise ValueError("Qwen3-VL reranker hf_overrides must be a dictionary")
+            hf_overrides.update(
+                architectures=["Qwen3VLForSequenceClassification"],
+                classifier_from_token=["no", "yes"],
+                is_original_qwen3_reranker=True,
+            )
+            self._kwargs["hf_overrides"] = hf_overrides
+            self._kwargs["runner"] = "pooling"
+            with open(QWEN3_VL_RERANK_TEMPLATE_PATH, encoding="utf-8") as template:
+                self._qwen3_vl_reranker_template = template.read()
+        if (
+            Version(vllm_version) >= Version("0.19.0")
+            and not is_vacc_available()
+            and not is_qwen3_vl_reranker
+        ):
+            from vllm.engine.arg_utils import AsyncEngineArgs
+            from vllm.v1.engine.async_llm import AsyncLLM
+
+            engine_args = AsyncEngineArgs(model=self._model_path, **self._kwargs)
+            model_config = engine_args.create_model_config()
+            if (
+                model_config.score_type == "cross-encoder"
+                and not model_config.is_multimodal_model
+            ):
+                self._model = AsyncLLM.from_engine_args(engine_args)
+                self._tokenizer = self._model.get_tokenizer()
+                self._native_pooling = True
+                self.rerank = self._async_rerank
+                return
         if Version(vllm_version) >= Version("0.13.0"):
             self._model = LLM(model=self._model_path, **self._kwargs)
         else:
@@ -75,8 +121,8 @@ class VLLMRerankModel(RerankModel, BatchMixin):
 
     def _rerank(
         self,
-        documents: List[str],
-        query: Union[str, List[str]],
+        documents: List[Any],
+        query: Union[Any, List[Any]],
         top_n: Optional[int] = None,
         max_chunks_per_doc: Optional[int] = None,
         return_documents: Optional[bool] = None,
@@ -97,16 +143,55 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         Returns:
             Rerank: The reranked results.
         """
+        query_list, documents = self._prepare_pairs(documents, query, **kwargs)
+        score_kwargs = {"use_tqdm": False}
+        if self.model_family.model_name.startswith("Qwen3-VL-Reranker"):
+            query_list = [
+                self._to_score_multimodal_param(query) for query in query_list
+            ]
+            documents = [
+                self._to_score_multimodal_param(document) for document in documents
+            ]
+            if len(query_list) != len(documents):
+                raise ValueError(
+                    "Qwen3-VL reranker query and documents must have equal length"
+                )
+            score_kwargs["chat_template"] = self._qwen3_vl_reranker_template
+            outputs = []
+            for query, document in zip(query_list, documents):
+                if self._is_vllm_media(query) and self._is_vllm_media(document):
+                    raise ValueError(
+                        "Qwen3-VL reranker with vLLM does not support media in both query and document"
+                    )
+                pair_outputs = self._model.score(query, document, **score_kwargs)
+                if len(pair_outputs) != 1:
+                    raise RuntimeError(
+                        "Qwen3-VL reranker with vLLM must return one score per document"
+                    )
+                outputs.extend(pair_outputs)
+        else:
+            outputs = self._model.score(query_list, documents, **score_kwargs)
+        # clear cache if possible
+        self._counter += 1
+        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
+            logger.debug("Empty rerank cache.")
+            gc.collect()
+            empty_cache()
+        return outputs
+
+    def _prepare_pairs(
+        self, documents: List[Any], query: Union[Any, List[Any]], **kwargs
+    ) -> Tuple[List[Any], List[Any]]:
         enable_qwen3_rerank_template = kwargs.pop("enable_qwen3_rerank_template", None)
         if kwargs:
             raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
         assert self._model is not None
 
         documents_size = len(documents)
-        if isinstance(query, str):
-            query_list = [query] * documents_size
-        else:
+        if isinstance(query, list):
             query_list = query
+        else:
+            query_list = [query] * documents_size
 
         if self.model_family.model_name in {
             "Qwen3-Reranker-0.6B",
@@ -137,24 +222,143 @@ class VLLMRerankModel(RerankModel, BatchMixin):
                 ]
                 query_list = processed_queries
                 documents = processed_documents
-        outputs = self._model.score(
-            query_list,
-            documents,
-            use_tqdm=False,
+        return query_list, documents
+
+    def _prepare_native_inputs(
+        self, documents: List[Any], query: Any, **kwargs
+    ) -> List[Tuple[Any, Any]]:
+        from vllm import PoolingParams
+        from vllm.entrypoints.pooling.score.utils import (
+            compress_token_type_ids,
+            get_score_prompt,
+            validate_score_input,
         )
-        # clear cache if possible
-        self._counter += 1
-        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
-            logger.debug("Empty rerank cache.")
-            gc.collect()
-            empty_cache()
-        return outputs
+
+        queries, documents = self._prepare_pairs(documents, query, **kwargs)
+        config = self._model.model_config
+        if getattr(config.hf_config, "num_labels", 0) != 1:
+            raise ValueError("Score API is only enabled for num_labels == 1.")
+        queries, documents = validate_score_input(
+            queries,
+            documents,
+            is_multimodal_model=config.is_multimodal_model,
+            architecture=config.architecture,
+        )
+        tok_kwargs = self._model.renderer.default_cmpl_tok_params.get_encode_kwargs()
+        inputs = []
+        for query, document in zip(queries, documents):
+            _, prompt = get_score_prompt(
+                model_config=config,
+                tokenizer=self._tokenizer,
+                tokenization_kwargs=tok_kwargs,
+                data_1=query,
+                data_2=document,
+            )
+            params = PoolingParams(task="classify")
+            if token_type_ids := prompt.pop("token_type_ids", None):
+                params.extra_kwargs = {
+                    "compressed_token_type_ids": compress_token_type_ids(token_type_ids)
+                }
+            inputs.append((prompt, params))
+        return inputs
+
+    async def _async_rerank(
+        self,
+        documents: List[Any],
+        query: Any,
+        top_n: Optional[int] = None,
+        max_chunks_per_doc: Optional[int] = None,
+        return_documents: Optional[bool] = None,
+        return_len: Optional[bool] = None,
+        **kwargs,
+    ) -> Rerank:
+        from vllm.outputs import ScoringRequestOutput
+
+        inputs = await asyncio.to_thread(
+            self._prepare_native_inputs, documents, query, **kwargs
+        )
+        request_id = uuid.uuid4().hex
+
+        async def score(index: int, prompt: Any, params: Any):
+            output = None
+            async for output in self._model.encode(
+                prompt, params, f"{request_id}-{index}"
+            ):
+                pass
+            if output is None:
+                raise RuntimeError("vLLM returned no scoring output")
+            return ScoringRequestOutput.from_base(output)
+
+        tasks = [
+            asyncio.create_task(score(i, prompt, params))
+            for i, (prompt, params) in enumerate(inputs)
+        ]
+        try:
+            outputs = await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        return self._format_rerank_outputs(
+            documents, outputs, top_n, return_documents, return_len
+        )
+
+    @staticmethod
+    def _to_score_multimodal_param(value: Any) -> Any:
+        """Translate Xinference multimodal rerank inputs for vLLM score."""
+        if isinstance(value, str):
+            return value
+        if not isinstance(value, dict):
+            raise ValueError(
+                "Qwen3-VL reranker inputs must be strings or multimodal dictionaries"
+            )
+        if "content" in value:
+            content = value["content"]
+            if not isinstance(content, list):
+                raise ValueError("Qwen3-VL reranker content must be a list")
+        else:
+            content = []
+            if "text" in value:
+                content.append({"type": "text", "text": value["text"]})
+            for input_key, content_type, content_key in (
+                ("image", "image_url", "image_url"),
+                ("image_url", "image_url", "image_url"),
+                ("video", "video_url", "video_url"),
+                ("video_url", "video_url", "video_url"),
+            ):
+                if input_key not in value:
+                    continue
+                media = value[input_key]
+                content.append(
+                    {
+                        "type": content_type,
+                        content_key: (
+                            media if isinstance(media, dict) else {"url": media}
+                        ),
+                    }
+                )
+        if len(content) != 1:
+            raise ValueError(
+                "Qwen3-VL reranker with vLLM supports one content item per input"
+            )
+        if not isinstance(content[0], dict) or content[0].get("type") not in {
+            "text",
+            "image_url",
+            "video_url",
+        }:
+            raise ValueError("Qwen3-VL reranker content type is not supported by vLLM")
+        return {"content": content}
+
+    @staticmethod
+    def _is_vllm_media(value: Any) -> bool:
+        return isinstance(value, dict) and value["content"][0]["type"] != "text"
 
     @extensible
     def rerank(
         self,
-        documents: List[str],
-        query: str,
+        documents: List[Any],
+        query: Any,
         top_n: Optional[int] = None,
         max_chunks_per_doc: Optional[int] = None,
         return_documents: Optional[bool] = None,
@@ -186,6 +390,19 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             return_len,
             **kwargs,
         )
+        return self._format_rerank_outputs(
+            documents, outputs, top_n, return_documents, return_len
+        )
+
+    @staticmethod
+    def _format_rerank_outputs(
+        documents: List[Any],
+        outputs: List[Any],
+        top_n: Optional[int],
+        return_documents: Optional[bool],
+        return_len: Optional[bool],
+    ) -> Rerank:
+        documents_size = len(documents)
         scores = map(lambda scoreoutput: scoreoutput.outputs.score, outputs)
         documents = list(map(lambda doc: Document(text=doc), documents))
         document_parts = list(zip(range(documents_size), scores, documents))

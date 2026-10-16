@@ -119,27 +119,22 @@ async def test_jwt_scope_check_uses_db_permissions_grant(auth_service):
 
 
 @pytest.mark.asyncio
-async def test_admin_bypass_still_uses_jwt(auth_service):
-    """Admin bypass at L550 checks JWT scopes, not DB permissions.
-
-    This is by design: the ``admin`` wildcard stays in the JWT and cannot
-    be revoked mid-session via DB changes. If a deployment needs to
-    revoke admin mid-session, that's a separate issue (e.g., disable the
-    user account, which IS checked against DB at L546).
-    """
+async def test_admin_bypass_is_revoked_with_current_permissions(auth_service):
+    """An old JWT must not retain administrator access after revocation."""
     user_id = _create_user(auth_service, "admin2", ["admin", "models:read"])
     token = auth_service.create_access_token(
         user_id, "admin2", ["admin", "models:read"]
     )
-    # Even if DB no longer lists admin, the JWT still carries it.
+    # The JWT still carries admin, but it no longer authorizes requests.
     auth_service.db.set_user_permissions(user_id, ["models:read"])
 
-    user = await auth_service(
-        _make_request(),
-        SecurityScopes(scopes=["users:manage"]),
-        token,
-    )
-    assert user["username"] == "admin2"
+    with pytest.raises(HTTPException) as exc:
+        await auth_service(
+            _make_request(),
+            SecurityScopes(scopes=["users:manage"]),
+            token,
+        )
+    assert exc.value.status_code == 403
 
 
 def test_refresh_re_reads_permissions_from_db(auth_service):
@@ -185,7 +180,9 @@ def test_key_reveal_route_uses_db_permissions_grant(auth_service):
     user_id = _create_user(auth_service, "gina", [])
     token = auth_service.create_access_token(user_id, "gina", [])
     auth_service.db.set_user_permissions(user_id, ["keys:manage"])
-    api_key = auth_service.create_api_key_for_user(user_id=user_id)
+    api_key = auth_service.create_api_key_for_user(
+        user_id=user_id, name=f"test-key-{user_id}"
+    )
 
     response = _make_client(auth_service).get(
         f"/v1/admin/keys/{api_key['id']}/reveal",
@@ -202,8 +199,12 @@ def test_keys_read_route_uses_db_permissions_grant(auth_service):
     other_user_id = _create_user(auth_service, "harry-other", [])
     token = auth_service.create_access_token(user_id, "harry", [])
     auth_service.db.set_user_permissions(user_id, ["keys:manage"])
-    own_key = auth_service.create_api_key_for_user(user_id=user_id)
-    other_key = auth_service.create_api_key_for_user(user_id=other_user_id)
+    own_key = auth_service.create_api_key_for_user(
+        user_id=user_id, name=f"test-key-{user_id}"
+    )
+    other_key = auth_service.create_api_key_for_user(
+        user_id=other_user_id, name=f"test-key-{other_user_id}"
+    )
 
     response = _make_client(auth_service).get(
         "/v1/admin/keys", headers={"Authorization": f"Bearer {token}"}
@@ -219,7 +220,9 @@ def test_key_get_route_uses_db_permissions_grant(auth_service):
     other_user_id = _create_user(auth_service, "jane-other", [])
     token = auth_service.create_access_token(user_id, "jane", [])
     auth_service.db.set_user_permissions(user_id, ["keys:manage"])
-    other_key = auth_service.create_api_key_for_user(user_id=other_user_id)
+    other_key = auth_service.create_api_key_for_user(
+        user_id=other_user_id, name=f"test-key-{other_user_id}"
+    )
 
     response = _make_client(auth_service).get(
         f"/v1/admin/keys/{other_key['id']}",
@@ -239,7 +242,7 @@ def test_key_create_route_uses_db_permissions_grant_for_owner(auth_service):
 
     response = _make_client(auth_service).post(
         "/v1/admin/keys",
-        json={"owner": other_user_id},
+        json={"owner": other_user_id, "name": "delegated-key"},
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -251,7 +254,9 @@ def test_key_create_route_uses_db_permissions_grant_for_owner(auth_service):
 def test_keys_read_route_rejects_api_key_tokens(auth_service):
     """API keys must not access key-management routes via owner permissions."""
     user_id = _create_user(auth_service, "irene", ["keys:manage"])
-    api_key = auth_service.create_api_key_for_user(user_id=user_id)["key"]
+    api_key = auth_service.create_api_key_for_user(
+        user_id=user_id, name=f"test-key-{user_id}"
+    )["key"]
 
     response = _make_client(auth_service).get(
         "/v1/admin/keys", headers={"Authorization": f"Bearer {api_key}"}
@@ -290,3 +295,59 @@ def test_validate_model_access_revoke_after_login(auth_service):
     auth_service.db.set_user_permissions(user_id, [])
 
     assert auth_service.validate_model_access(token, "any-model", "LLM") is False
+
+
+def test_initial_admin_can_read_model_request_bodies():
+    from ..oauth2.advanced.auth_service import INITIAL_ADMIN_PERMISSIONS
+
+    assert "model_requests:read_body" in INITIAL_ADMIN_PERMISSIONS
+
+
+@pytest.mark.asyncio
+async def test_model_request_body_scope_requires_explicit_permission(auth_service):
+    user_id = _create_user(auth_service, "log-reader", ["logs:list"])
+    token = auth_service.create_access_token(user_id, "log-reader", ["logs:list"])
+
+    with pytest.raises(HTTPException) as exc:
+        await auth_service(
+            _make_request("/v1/cluster/model-requests/xinf-123/body"),
+            SecurityScopes(scopes=["logs:list", "model_requests:read_body"]),
+            token,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Not enough permissions"
+
+
+@pytest.mark.asyncio
+async def test_model_request_body_scope_accepts_authorized_jwt(auth_service):
+    permissions = ["logs:list", "model_requests:read_body"]
+    user_id = _create_user(auth_service, "body-reader", permissions)
+    token = auth_service.create_access_token(user_id, "body-reader", permissions)
+
+    user = await auth_service(
+        _make_request("/v1/cluster/model-requests/xinf-123/body"),
+        SecurityScopes(scopes=permissions),
+        token,
+    )
+
+    assert user["username"] == "body-reader"
+
+
+@pytest.mark.asyncio
+async def test_model_request_body_scope_rejects_api_key(auth_service):
+    permissions = ["logs:list", "model_requests:read_body"]
+    user_id = _create_user(auth_service, "api-key-owner", permissions)
+    api_key = auth_service.create_api_key_for_user(
+        user_id=user_id, name=f"test-key-{user_id}"
+    )["key"]
+
+    with pytest.raises(HTTPException) as exc:
+        await auth_service(
+            _make_request("/v1/cluster/model-requests/xinf-123/body"),
+            SecurityScopes(scopes=permissions),
+            api_key,
+        )
+
+    assert exc.value.status_code == 403
+    assert "model query and inference endpoints" in exc.value.detail

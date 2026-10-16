@@ -41,21 +41,25 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
 
 ## 🔥 주요 하이라이트
 ### 프레임워크 개선
-- Xinference 3.0.0이 마이그레이션 안내와 호환되지 않는 변경 사항과 함께 제공됩니다: [릴리스 노트](https://xinference.co/release_notes/v3.0.0.html)
+- Xinference 4.0.0은 다중 엔진 Xavier, 이기종 P/D 분리, 런타임 모델 재구성을 지원합니다: [릴리스 노트](https://github.com/xorbitsai/inference/releases/tag/v4.0.0)
 - 에이전트 네이티브 배포: Xinference는 [Xagent](https://github.com/xorbitsai/xagent)와 통합되어 동적 플래닝, 도구 사용 및 자율적 다단계 추론을 지원하며 정적 파이프라인의 한계를 넘어섭니다.
 - 자동 배칭: 여러 동시 요청을 자동으로 묶어 처리량을 크게 향상시킵니다. : [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): Xinference 팀이 관리하는 새로운 llama.cpp Python 바인딩은 연속 배칭을 지원하며 프로덕션에 더 적합합니다. : [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - 분산 추론: 모델을 여러 워커에 걸쳐 실행할 수 있습니다: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - vLLM 개선: 여러 복제본 간 KV 캐시 공유: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 신규 모델
-- [OvisOCR2](https://huggingface.co/ATH-MaaS/OvisOCR2) 기본 지원: [#5322](https://github.com/xorbitsai/inference/pull/5322)
-- [IndexTTS-2.5](https://huggingface.co/IndexTeam/IndexTTS-2.5) 기본 지원: [#5319](https://github.com/xorbitsai/inference/pull/5319)
-- Ling-3.0 시리즈 기본 지원 ([tiny](https://huggingface.co/inclusionAI/Ling-3.0-tiny), [flash](https://huggingface.co/inclusionAI/Ling-3.0-flash)): [#5311](https://github.com/xorbitsai/inference/pull/5311)
-- [MiniMax-H3](https://huggingface.co/MiniMaxAI/MiniMax-H3) 기본 지원: [#5321](https://github.com/xorbitsai/inference/pull/5321)
-- Wan2.2 Animate 2 시리즈 기본 지원 ([14B](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Diffusers), [14B Distilled](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Distilled-Diffusers)): [#5309](https://github.com/xorbitsai/inference/pull/5309)
-- [FireRed-Image-Edit-1.1](https://huggingface.co/FireRedTeam/FireRed-Image-Edit-1.1) 기본 지원: [#5306](https://github.com/xorbitsai/inference/pull/5306)
-- CAMPPlus 화자 임베딩 시리즈 기본 지원 ([중국어](https://modelscope.cn/models/iic/speech_campplus_sv_zh-cn_16k-common), [중국어-영어 고급](https://modelscope.cn/models/iic/speech_campplus_sv_zh_en_16k-common_advanced)): [#5298](https://github.com/xorbitsai/inference/pull/5298)
-- [MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3) 통합: [#5258](https://github.com/xorbitsai/inference/pull/5258)
+- [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) 기본 지원: [#5644](https://github.com/xorbitsai/inference/pull/5644)
+- [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS) 기본 지원: [#5591](https://github.com/xorbitsai/inference/pull/5591)
+- [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) 기본 지원: [#5588](https://github.com/xorbitsai/inference/pull/5588)
+- [TeleOCR](https://huggingface.co/StarDoc-AI/TeleOCR) 기본 지원: [#5583](https://github.com/xorbitsai/inference/pull/5583)
+- Ming-Image 시리즈 기본 지원 ([Design](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design), [Design Layer](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design-Layer)): [#5582](https://github.com/xorbitsai/inference/pull/5582)
+- [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1) 기본 지원: [#5571](https://github.com/xorbitsai/inference/pull/5571)
+- [MinerU2.5](https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B) 기본 지원: [#5550](https://github.com/xorbitsai/inference/pull/5550)
+- Spark-X2.5 시리즈 기본 지원 ([1.7B](https://huggingface.co/XHToken/Spark-X2.5-1.7B), [4B](https://huggingface.co/XHToken/Spark-X2.5-4B), [1.7B Base](https://huggingface.co/XHToken/Spark-X2.5-1.7B-Base), [4B Base](https://huggingface.co/XHToken/Spark-X2.5-4B-Base)): [#5538](https://github.com/xorbitsai/inference/pull/5538)
+- LingBot-World-V2 시리즈 기본 지원 ([14B Fast](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-fast), [14B Pretrain](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-pretrain), [1.3B Fast](https://huggingface.co/robbyant/lingbot-world-v2-1.3b-causal-fast)): [#5536](https://github.com/xorbitsai/inference/pull/5536)
+- Irodori-TTS v4.1 시리즈 기본 지원 ([Anime](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime), [Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)): [#5527](https://github.com/xorbitsai/inference/pull/5527)
+- [YuE2-3B](https://huggingface.co/m-a-p/YuE2-3B) 기본 지원: [#5526](https://github.com/xorbitsai/inference/pull/5526)
+- AuK 시리즈 기본 지원 ([AuK](https://huggingface.co/tencent/AuK), [AuK-Flash](https://huggingface.co/tencent/AuK-Flash)): [#5525](https://github.com/xorbitsai/inference/pull/5525)
 ### 통합
 - [Xagent](https://github.com/xorbitsai/xagent): 플래닝, 메모리, 툴 통합을 제공하는 엔터프라이즈 에이전트 플랫폼.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 시각화와 제어가 가능한 LLMOps 플랫폼.
@@ -96,7 +100,8 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
   스타터 가이드를 따라 로컬에서 Xinference를 시작하세요. 자세한 내용은 문서(https://inference.readthedocs.io/) 참조.
 
 - **기업용 Xinference**
-  엔터프라이즈 기능이 필요하면 다음으로 문의하세요: mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry
+  **Xinference Enterprise** 는 프로덕션 환경에서 모델을 운영하는 팀을 위한 상용 버전입니다. 자체 클라우드나 데이터 센터에 배포하거나 **Xinference Cloud** 의 관리형 전용 배포를 선택할 수 있습니다. 호스팅되는 **Model API** 를 통해 추론 인프라를 관리하지 않고도 OpenAI 호환 API로 지원 모델에 접근할 수 있습니다. 자세한 내용은 [xinference.co](https://xinference.co) 에서 확인하세요.
+  기업 관련 문의는 [이메일](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry)로 연락해 주세요.
 
 ## 최신 상태 유지
 
@@ -110,6 +115,31 @@ GitHub에서 Xinference에 별을 눌러 릴리스 알림을 받으세요.
 * [내장 모델](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
 * [커스텀 모델](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [배포 문서](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
+
+### Quickstart
+
+**pip**
+
+```bash
+pip install xinference
+xinference-local
+```
+
+**원커맨드 설치**
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+[설치 가이드](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [사용 가이드](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ### Docker
 
@@ -136,22 +166,6 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 ```
 
 자세한 K8s 옵션은 문서를 참조하세요.
-
-### Quickstart
-
-pip으로 Xinference를 설치합니다:
-
-```bash
-pip install "xinference[all]"
-```
-
-로컬 인스턴스를 시작하려면:
-
-```bash
-$ xinference-local
-```
-
-그런 다음 Web UI, cURL, CLI 또는 Python 클라이언트를 통해 사용해보세요.
 
 ![web UI](../assets/screenshot.png)
 

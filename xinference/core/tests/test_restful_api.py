@@ -36,6 +36,42 @@ class _DummyRequest:
 
 
 @pytest.mark.asyncio
+async def test_rerank_multimodal_inputs_pass_through(monkeypatch):
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+
+    model = AsyncMock()
+    model.uid = "test-reranker"
+    model.rerank = AsyncMock(return_value="{}")
+    supervisor.get_model = AsyncMock(return_value=model)
+
+    query = {"image": "https://example.com/query.png"}
+    documents = [
+        {"text": "caption"},
+        {"video": "https://example.com/document.mp4"},
+    ]
+    response = await api.rerank(
+        _DummyRequest(
+            {"model": "test-reranker", "query": query, "documents": documents}
+        )
+    )
+
+    assert response.status_code == 200
+    model.rerank.assert_awaited_once_with(
+        documents,
+        query,
+        top_n=None,
+        max_chunks_per_doc=None,
+        return_documents=False,
+        return_len=False,
+    )
+
+
+@pytest.mark.asyncio
 async def test_restful_api(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
@@ -334,6 +370,8 @@ def test_restful_api_for_embedding(setup):
         "model_uid": "test_embedding",
         "model_name": model_name,
         "model_type": "embedding",
+        # This API test also runs in the non-GPU macOS matrix.
+        "device": "cpu",
     }
 
     response = requests.post(url, json=payload)
@@ -360,6 +398,7 @@ def test_restful_api_for_embedding(setup):
     response = requests.post(url, json=payload)
     embedding_res = response.json()
 
+    assert response.status_code == 200, embedding_res
     assert "embedding" in embedding_res["data"][0]
     assert len(embedding_res["data"][0]["embedding"]) == model_spec.dimensions
     assert "model_replica" in embedding_res

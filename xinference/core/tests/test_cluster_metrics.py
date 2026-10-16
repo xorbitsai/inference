@@ -22,9 +22,11 @@ class DummySupervisor:
         router_configs=None,
         router_instances=None,
         router_nodes=None,
+        worker_metadata=None,
     ):
         self.address = address
         self._worker_status = worker_status
+        self._worker_metadata = worker_metadata or {}
         self._token_router_store = FakeRouterStore(router_configs or [])
         self._token_router_registry = FakeRouterRegistry(router_instances or {})
         self._token_router_orchestration = FakeRouterOrchestration(router_nodes or [])
@@ -167,6 +169,45 @@ async def test_supervisor_cluster_device_info_includes_gpu_utilization_average()
     assert worker_without_gpu["gpu_count"] == 0
     assert worker_without_gpu["gpu_utilization"] is None
     assert supervisor_info["gpu_utilization"] is None
+
+
+@pytest.mark.asyncio
+async def test_supervisor_cluster_device_info_includes_worker_software_versions():
+    supervisor = DummySupervisor(
+        "127.0.0.1:9999",
+        {
+            "worker-1": WorkerStatus(
+                update_time=0,
+                failure_remaining_count=3,
+                status=_build_worker_status(),
+            ),
+            "worker-2": WorkerStatus(
+                update_time=0,
+                failure_remaining_count=3,
+                status=_build_worker_status(),
+            ),
+            "worker-3": WorkerStatus(
+                update_time=0,
+                failure_remaining_count=3,
+                status=_build_worker_status(),
+            ),
+        },
+        worker_metadata={
+            "worker-1": {"software_version": "3.4.1.dev9+gabcdef"},
+            "worker-2": {"software_version": "3.4.0"},
+        },
+    )
+
+    detailed = await supervisor.get_cluster_device_info(detailed=True)
+    compact = await supervisor.get_cluster_device_info(detailed=False)
+
+    worker_1 = next(item for item in detailed if item["ip_address"] == "worker-1")
+    worker_2 = next(item for item in detailed if item["ip_address"] == "worker-2")
+    worker_3 = next(item for item in detailed if item["ip_address"] == "worker-3")
+    assert worker_1["software_version"] == "3.4.1.dev9+gabcdef"
+    assert worker_2["software_version"] == "3.4.0"
+    assert worker_3["software_version"] is None
+    assert all("software_version" not in item for item in compact)
 
 
 @pytest.mark.asyncio

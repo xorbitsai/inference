@@ -14,7 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { LOG_LEVEL_TEXT_CLASSES } from '@/constants/logs';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 import { cn } from '@/lib/utils';
@@ -22,7 +21,16 @@ import { cn } from '@/lib/utils';
 import { FilterChipBar } from './filter-chip-bar';
 import { LogDetail } from './log-detail';
 import type { FieldFilter, FieldFilterOp, LogContextResponse, LogRow } from './types';
-import { filterRowsByFields, formatLogTime, HighlightText } from './utils';
+import {
+  filterRowsByFields,
+  formatLogTime,
+  formatLogTimeTitle,
+  getLogNodeFilterValue,
+  getLogNodeName,
+  getLogSummary,
+  HighlightText,
+  LogLevelBadge,
+} from './utils';
 
 interface ContextDialogProps {
   open: boolean;
@@ -84,7 +92,8 @@ export function ContextDialog({ open, onOpenChange, anchorRow, nodeField }: Cont
         const params = new URLSearchParams();
         params.set('timestamp', timestamp);
         params.set('size', String(Math.max(olderSize, newerSize)));
-        if (currentAnchor.node) params.set('node', String(currentAnchor.node));
+        const anchorNode = getLogNodeFilterValue(currentAnchor, nodeField);
+        if (anchorNode) params.set('node', anchorNode);
         if (nodeField && nodeField !== 'node') params.set('node_field', nodeField);
 
         const data = await request.get<LogContextResponse>(
@@ -195,22 +204,23 @@ export function ContextDialog({ open, onOpenChange, anchorRow, nodeField }: Cont
               className={cn('size-4 transition-transform', isExpanded && 'rotate-180')}
             />
           </TableCell>
-          <TableCell className="w-40 whitespace-nowrap text-xs">
+          <TableCell
+            className="whitespace-nowrap font-mono text-xs text-muted-foreground"
+            title={formatLogTimeTitle(row['@timestamp'])}
+          >
             {formatLogTime(row['@timestamp'])}
           </TableCell>
-          <TableCell className="w-24 text-xs">
-            <span
-              className={cn(
-                'font-semibold',
-                LOG_LEVEL_TEXT_CLASSES[String(row.level)] || 'text-foreground'
-              )}
-            >
-              {String(row.level || '')}
-            </span>
+          <TableCell className="whitespace-nowrap text-xs">
+            <LogLevelBadge level={String(row.level || '')} />
           </TableCell>
-          <TableCell className="w-44 text-xs">{String(row.node || '')}</TableCell>
-          <TableCell className="max-w-0 truncate text-xs">
-            <HighlightText text={row.message || ''} />
+          <TableCell
+            className="min-w-[140px] max-w-[220px] whitespace-normal break-words [overflow-wrap:anywhere] font-mono text-xs"
+            title={getLogNodeName(row, nodeField)}
+          >
+            {getLogNodeName(row, nodeField)}
+          </TableCell>
+          <TableCell className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs">
+            <HighlightText text={getLogSummary(row)} />
           </TableCell>
         </TableRow>
         <TableRow key={`${rowKey}-detail`}>
@@ -274,13 +284,20 @@ export function ContextDialog({ open, onOpenChange, anchorRow, nodeField }: Cont
                 onClear={() => setLocalFieldFilters([])}
               />
               <div className="max-h-[65vh] overflow-auto">
-                <Table size="small">
+                <Table size="small" className="min-w-[820px] table-auto">
+                  <colgroup>
+                    <col className="w-8" />
+                    <col className="w-px" />
+                    <col className="w-px" />
+                    <col className="w-[22%]" />
+                    <col />
+                  </colgroup>
                   <TableHeader className="sticky top-0 z-10">
                     <TableRow>
-                      <TableHead className="w-8" />
-                      <TableHead className="w-40">{t('logCenter.time')}</TableHead>
-                      <TableHead className="w-24">{t('logCenter.level')}</TableHead>
-                      <TableHead className="w-44">{t('logCenter.node')}</TableHead>
+                      <TableHead />
+                      <TableHead className="whitespace-nowrap">{t('logCenter.time')}</TableHead>
+                      <TableHead className="whitespace-nowrap">{t('logCenter.level')}</TableHead>
+                      <TableHead>{t('logCenter.node')}</TableHead>
                       <TableHead>{t('logCenter.message')}</TableHead>
                     </TableRow>
                   </TableHeader>

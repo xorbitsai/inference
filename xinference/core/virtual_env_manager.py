@@ -17,9 +17,14 @@ import logging
 import os
 import re
 import shutil
+import stat
 import subprocess
+import threading
+from importlib import metadata
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+from packaging.utils import canonicalize_name
 
 from ..constants import (
     XINFERENCE_VIRTUAL_ENV_DIR,
@@ -27,6 +32,90 @@ from ..constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_dependency_install_plan(
+    manager: Any, packages: List[str], conf: Dict[str, Any], variables: Dict[str, Any]
+) -> Optional[List[Tuple[str, str]]]:
+    """Resolve distributions uv intends to add to this virtual environment.
+
+    A failed or unsupported dry run must never prevent the actual installation.
+    """
+    if not packages or not all(
+        hasattr(manager, name)
+        for name in ("process_packages", "_resolve_install_plan", "get_lib_path")
+    ):
+        return None
+    try:
+        processed = manager.process_packages(packages, **variables)
+        sources = {
+            key: conf.get(key)
+            for key in (
+                "index_url",
+                "extra_index_url",
+                "index_strategy",
+                "find_links",
+                "trusted_host",
+            )
+        }
+        if conf.get("skip_installed"):
+            if not hasattr(manager, "_filter_packages_not_installed"):
+                return None
+            resolved = manager._filter_packages_not_installed(processed, **sources)
+        else:
+            resolved = manager._resolve_install_plan(processed, {}, **sources)
+        plan = []
+        for spec in resolved:
+            name, separator, version = spec.partition("==")
+            if not separator or not name or not version:
+                # VCS and direct references have no reliable version here.
+                return None
+            plan.append((canonicalize_name(name), version))
+        return list(dict.fromkeys(plan))
+    except Exception:
+        logger.debug("Could not resolve dependency progress plan", exc_info=True)
+        return None
+
+
+def observe_dependency_install(
+    manager: Any,
+    plan: List[Tuple[str, str]],
+    report: Callable[[int, int], None],
+) -> Tuple[threading.Event, threading.Thread]:
+    """Report distributions whose matching metadata is visible in the child env."""
+    stopped = threading.Event()
+    site_packages = manager.get_lib_path()
+    total = len(plan)
+
+    def poll() -> None:
+        last_count = -1
+        while not stopped.is_set():
+            try:
+                installed = {
+                    (canonicalize_name(dist.metadata["Name"]), dist.version)
+                    for dist in metadata.distributions(path=[site_packages])
+                    if dist.metadata and "Name" in dist.metadata
+                }
+                count = sum(package in installed for package in plan)
+                if count != last_count:
+                    report(count, total)
+                    last_count = count
+            except Exception:
+                logger.debug(
+                    "Could not inspect dependency install progress", exc_info=True
+                )
+            stopped.wait(0.5)
+
+    thread = threading.Thread(
+        target=poll, name="dependency-install-progress", daemon=True
+    )
+    thread.start()
+    return stopped, thread
+
+
+class VirtualEnvConflictError(ValueError):
+    """Raised when an active model prevents virtual environment mutation."""
+
 
 ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     "sglang": [
@@ -190,6 +279,60 @@ def get_xllamacpp_cuda_index_url(
 # import time with errors like "operator torchvision::nms does not exist".
 TORCH_COMPANION_PACKAGES = {"torchvision", "torchaudio", "torchcodec"}
 
+
+def _pin_missing_system_torchcodec(packages: List[str]) -> List[str]:
+    """Constrain a missing host TorchCodec to the inherited Torch ABI."""
+    if not {"#system_torch#", "#system_torchcodec#"}.issubset(packages):
+        return packages
+    try:
+        metadata.version("torchcodec")
+    except metadata.PackageNotFoundError:
+        pass
+    else:
+        # Existing host versions retain the usual #system_*# behavior.
+        return packages
+
+    from packaging.version import Version
+
+    try:
+        torch_version = Version(metadata.version("torch"))
+    except metadata.PackageNotFoundError as exc:
+        raise ValueError(
+            "Cannot select TorchCodec because Torch is not installed in the host "
+            "environment. Install Torch in the host environment or specify Torch "
+            "and TorchCodec explicitly in virtual_env_packages."
+        ) from exc
+    # https://github.com/pytorch/torchcodec#installing-torchcodec
+    # TorchCodec does not express these binary compatibility requirements in
+    # wheel metadata. A bare requirement can resolve successfully but fail at
+    # import time (e.g. TorchCodec 0.16 with Torch 2.9).
+    compatibility = {
+        (2, 4): "==0.0.3",
+        (2, 5): ">=0.1,<0.2",
+        (2, 6): ">=0.2,<0.3",
+        (2, 7): ">=0.3,<0.6",
+        (2, 8): ">=0.6,<0.8",
+        (2, 9): ">=0.8,<0.10",
+        (2, 10): ">=0.10,<0.11",
+        (2, 11): ">=0.11,<0.17",
+    }
+    constraint = compatibility.get((torch_version.major, torch_version.minor))
+    # Upstream lists TorchCodec 0.12 through 0.16 as supporting Torch >=2.11.
+    if torch_version >= Version("2.12"):
+        constraint = ">=0.12,<0.17"
+    if constraint is None or torch_version.is_prerelease:
+        raise ValueError(
+            f"Cannot select TorchCodec for host Torch {torch_version}. "
+            "Install a compatible torchcodec in the host environment or specify "
+            "it explicitly in virtual_env_packages."
+        )
+
+    return [
+        f"torchcodec{constraint}" if package == "#system_torchcodec#" else package
+        for package in packages
+    ]
+
+
 # Packages with compiled NumPy extensions that are commonly present in the
 # parent environment used by sentence-transformers.  The child venv is created
 # with --system-site-packages, so upgrading only part of this stack can leave an
@@ -224,8 +367,12 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
     ``#system_torchvision# ; #engine# == "sentence_transformers"`` alongside
     ``#system_torchaudio# ; #engine# == "audio"``), a matching torch pin is added
     for each distinct marker that does not already have one. This covers built-in
-    specs and user-registered models alike, and is a no-op when torch is already
-    pinned under the relevant condition or no companion is pinned.
+    specs and user-registered models alike. No additional Torch pin is needed
+    when Torch is already pinned under the relevant condition or no companion
+    is pinned.
+
+    After aligning Torch, constrain a missing host TorchCodec to a compatible
+    version. The worker filters engine/CUDA/platform markers before this call.
     """
     if not packages:
         return packages
@@ -261,7 +408,7 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
         if _marker_name(pkg) == "torch" or _requirement_name(pkg) == "torch":
             marker = _env_marker(pkg)
             if marker is None:
-                return packages
+                return _pin_missing_system_torchcodec(packages)
             existing_torch_markers.add(marker)
 
     # Inject one torch pin per distinct companion condition that lacks one,
@@ -281,7 +428,7 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
         )
 
     if not to_inject:
-        return packages
+        return _pin_missing_system_torchcodec(packages)
 
     for torch_entry in to_inject:
         logger.info(
@@ -290,7 +437,7 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
             "ABI mismatch on relaunch (issue #5156).",
             torch_entry,
         )
-    return packages + to_inject
+    return _pin_missing_system_torchcodec(packages + to_inject)
 
 
 def pin_sentence_transformers_numpy_abi(
@@ -633,6 +780,7 @@ class VirtualEnvManager:
         model_name: str,
         model_engine: Optional[str] = None,
         python_version: Optional[str] = None,
+        active_model_uids_by_path: Optional[Dict[str, List[str]]] = None,
     ) -> bool:
         """
         Remove a virtual environment for a specific model.
@@ -660,6 +808,30 @@ class VirtualEnvManager:
             )
 
         v4_env_dir = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, "v4")
+
+        model_root = os.path.realpath(os.path.join(v4_env_dir, model_name))
+        for env_path, model_uids in (active_model_uids_by_path or {}).items():
+            if not model_uids:
+                continue
+            real_env_path = os.path.realpath(env_path)
+            try:
+                if os.path.commonpath([model_root, real_env_path]) != model_root:
+                    continue
+            except ValueError:
+                continue
+            relative_parts = Path(real_env_path).relative_to(model_root).parts
+            if model_engine and (
+                not relative_parts or relative_parts[0] != model_engine
+            ):
+                continue
+            if python_version and (
+                not relative_parts or relative_parts[-1] != python_version
+            ):
+                continue
+            raise VirtualEnvConflictError(
+                "Virtual environment cannot be removed while models are using it: "
+                f"path={real_env_path}, active_model_uids={sorted(model_uids)}"
+            )
 
         try:
             if python_version and not self._is_valid_python_version(python_version):
@@ -800,23 +972,80 @@ class VirtualEnvManager:
         virtual_envs = self.list_virtual_envs(model_name)
         return {"has_virtual_env": len(virtual_envs) > 0, "model_name": model_name}
 
-    def list_virtual_env_packages(self, model_name: str) -> Dict[str, Any]:
-        """
-        List packages installed in a specific virtual environment.
+    def list_virtual_env_packages(
+        self, model_name: str, model_engine: str, python_version: str
+    ) -> Dict[str, Any]:
+        """List distributions installed directly in one virtual environment."""
+        if not model_name or not model_engine or not python_version:
+            raise ValueError("model_name, model_engine and python_version are required")
 
-        Args:
-            model_name: Name of the model
+        environments = [
+            environment
+            for environment in self.list_virtual_envs(model_name, model_engine)
+            if environment["python_version"] == python_version
+        ]
+        if len(environments) != 1:
+            raise ValueError(
+                "Virtual environment not found for "
+                f"model={model_name}, engine={model_engine}, python={python_version}"
+            )
 
-        Returns:
-            Dictionary with package information or error message
-        """
-        # This method is deprecated and no longer needed
-        # Virtual environments are managed by direct directory scanning
+        environment = environments[0]
+        environment_path = Path(environment["path"])
+        packages = []
+        for site_packages_path in self._get_site_packages_paths(environment_path):
+            for distribution in metadata.distributions(path=[str(site_packages_path)]):
+                name = distribution.metadata["Name"]
+                if not name:
+                    continue
+                packages.append(
+                    {
+                        "name": name,
+                        "version": distribution.version,
+                        "size_bytes": self._get_distribution_size(
+                            distribution, environment_path
+                        ),
+                    }
+                )
+
         return {
             "model_name": model_name,
+            "model_engine": model_engine,
+            "python_version": python_version,
             "worker_ip": self.worker_address,
-            "error": "Package listing functionality has been removed",
+            "packages": sorted(packages, key=lambda package: package["name"].lower()),
         }
+
+    @staticmethod
+    def _get_site_packages_paths(environment_path: Path) -> List[Path]:
+        site_packages_paths = []
+        windows_site_packages = environment_path / "Lib" / "site-packages"
+        if windows_site_packages.is_dir():
+            site_packages_paths.append(windows_site_packages)
+
+        lib_path = environment_path / "lib"
+        if lib_path.is_dir():
+            site_packages_paths.extend(
+                path for path in lib_path.glob("python*/site-packages") if path.is_dir()
+            )
+        return site_packages_paths
+
+    @staticmethod
+    def _get_distribution_size(distribution: Any, environment_path: Path) -> int:
+        total_size = 0
+        normalized_environment_path = Path(os.path.abspath(environment_path))
+        for package_file in distribution.files or []:
+            try:
+                file_path = Path(
+                    os.path.abspath(distribution.locate_file(package_file))
+                )
+                file_path.relative_to(normalized_environment_path)
+                file_stat = file_path.lstat()
+                if stat.S_ISREG(file_stat.st_mode):
+                    total_size += file_stat.st_size
+            except (OSError, TypeError, ValueError):
+                continue
+        return total_size
 
     def _detect_python_version(self, env_path: str) -> str:
         """
@@ -1138,6 +1367,16 @@ def is_flash_attn_requirement(spec: str) -> bool:
     except InvalidRequirement:
         return False
     return canonicalize_name(requirement.name) == "flash-attn"
+
+
+def is_model_find_links_only_requirement(model_name: Optional[str], spec: str) -> bool:
+    """Return whether a model requirement is supplied only via Find Links.
+
+    These requirements are intentionally absent from package indexes.  The
+    runtime installs them from worker-local wheel directories when configured
+    and otherwise uses the model's documented fallback path.
+    """
+    return model_name == "jina-embeddings-v3" and is_flash_attn_requirement(spec)
 
 
 _SUBPROCESS_OUTPUT_LIMIT = 2048

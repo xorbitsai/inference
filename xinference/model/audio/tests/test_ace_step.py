@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import os
 import re
 import sys
@@ -19,6 +20,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import ANY, Mock
 
+import numpy as np
 import pytest
 
 from .. import ace_step
@@ -209,7 +211,7 @@ def test_prepare_runtime_checkpoint_isolates_mutable_model_files(tmp_path, model
             "only accepts `voice` as null",
         ),
         (
-            {"input": "lyrics", "instruct": "piano", "response_format": "ogg"},
+            {"input": "lyrics", "instruct": "piano", "response_format": "m4a"},
             "supports these response formats",
         ),
         (
@@ -306,6 +308,63 @@ def test_speech_returns_generated_audio(loaded_model):
     )
     assert len(generated_paths) == 1
     assert not generated_paths[0].exists()
+
+
+def test_speech_transcodes_ogg_from_native_wav(loaded_model):
+    generated_paths = []
+
+    def generate_music(*args, save_dir, **kwargs):
+        audio_path = Path(save_dir) / "output.wav"
+        audio_path.write_bytes(b"native wav")
+        generated_paths.append(audio_path)
+        return SimpleNamespace(
+            success=True,
+            error=None,
+            status_message="success",
+            audios=[{"path": str(audio_path)}],
+        )
+
+    loaded_model._generate_music.side_effect = generate_music
+    loaded_model._wav_file_to_ogg = Mock(return_value=b"encoded ogg")
+
+    result = loaded_model.speech(
+        "lyrics",
+        instruct="piano",
+        response_format="ogg",
+        seed=7,
+        duration=30,
+    )
+
+    assert result == b"encoded ogg"
+    loaded_model._generation_config_cls.assert_called_once_with(
+        batch_size=1,
+        use_random_seed=False,
+        seeds=[7],
+        audio_format="wav",
+    )
+    assert len(generated_paths) == 1
+    loaded_model._wav_file_to_ogg.assert_called_once_with(str(generated_paths[0]))
+    assert not generated_paths[0].exists()
+
+
+def test_wav_file_to_ogg_encodes_vorbis(tmp_path):
+    soundfile = pytest.importorskip("soundfile", minversion="0.13.1")
+    wav_path = tmp_path / "native.wav"
+    soundfile.write(
+        wav_path,
+        np.zeros((2400, 2), dtype=np.float32),
+        24000,
+        format="WAV",
+    )
+
+    encoded = AceStepModel._wav_file_to_ogg(str(wav_path))
+    info = soundfile.info(io.BytesIO(encoded))
+
+    assert encoded.startswith(b"OggS")
+    assert info.format == "OGG"
+    assert info.subtype == "VORBIS"
+    assert info.samplerate == 24000
+    assert info.channels == 2
 
 
 @pytest.mark.parametrize(
