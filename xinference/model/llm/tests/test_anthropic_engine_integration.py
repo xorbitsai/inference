@@ -40,6 +40,7 @@ def native_model(record_testsuite_property):
     cluster = None
     client = None
     launched = False
+    image_limit = None
     if not endpoint:
         cluster = contextmanager(_setup_cluster)(use_test_pool=False)
         endpoint, _ = cluster.__enter__()
@@ -67,7 +68,8 @@ def native_model(record_testsuite_property):
                     max_num_seqs=1,
                     gpu_memory_utilization=0.6,
                     enforce_eager=True,
-                    enable_prefix_caching=True,
+                    # Keep repeated greedy probes on the same full-prefill path.
+                    enable_prefix_caching=False,
                     limit_mm_per_prompt={"image": 2, "video": 0},
                 )
             elif engine == "SGLang":
@@ -85,6 +87,9 @@ def native_model(record_testsuite_property):
                 )
             )
             config["model_uid"] = "anthropic-native-" + uuid.uuid4().hex[:12]
+            raw_limit = config.get("limit_mm_per_prompt")
+            if engine == "vLLM" and isinstance(raw_limit, dict):
+                image_limit = raw_limit.get("image")
             model = client.launch_model(**config)
             launched = True
         description = client.list_models()[model]
@@ -117,6 +122,7 @@ def native_model(record_testsuite_property):
             yield SimpleNamespace(
                 engine=engine,
                 abilities=abilities,
+                image_limit=image_limit,
                 model=model,
                 endpoint=endpoint,
                 key=key,
@@ -156,7 +162,12 @@ def create(native, messages, stream=False, **kwargs):
     request.update(kwargs)
     # Newer Anthropic SDKs expose sampling controls only through extra_body.
     request["extra_body"] = {
-        name: request.pop(name) for name in ("temperature", "top_p") if name in request
+        **{
+            name: request.pop(name)
+            for name in ("temperature", "top_p")
+            if name in request
+        },
+        **request.get("extra_body", {}),
     }
     if not stream:
         return native.anthropic.messages.create(**request)
@@ -175,26 +186,73 @@ def create(native, messages, stream=False, **kwargs):
     return result
 
 
+def test_create_preserves_protocol_extensions():
+    from ....api.protocols import parse_anthropic_request
+
+    def send(**request):
+        extra_body = request.pop("extra_body")
+        return parse_anthropic_request({**request, **extra_body})
+
+    native = SimpleNamespace(
+        model="test", anthropic=SimpleNamespace(messages=SimpleNamespace(create=send))
+    )
+    request = create(
+        native,
+        [{"role": "user", "content": "hello"}],
+        temperature=0.6,
+        extra_body={
+            "context_management": {"edits": [{"type": "clear_thinking_20251015"}]}
+        },
+    )
+    assert "context_management" in request.requested_features
+    assert request.temperature == 0.6
+
+
 @pytest.mark.parametrize("stream", [False, True])
-@pytest.mark.parametrize("colors", [("red",), ("red", "blue")])
-def test_images(native_model, colors, stream):
+@pytest.mark.parametrize(
+    "colors,in_tool_result",
+    [(("red",), False), (("red", "blue"), False), (("red", "blue"), True)],
+    ids=["single", "multiple", "tool-result"],
+)
+def test_images(native_model, colors, in_tool_result, stream):
     assert "vision" in native_model.abilities
-    result = create(
-        native_model,
-        [
+    content = [image(color) for color in colors]
+    messages = []
+    kwargs = {}
+    if in_tool_result:
+        messages = [
+            {"role": "user", "content": "Inspect the images returned by lookup."},
             {
-                "role": "user",
+                "role": "assistant",
                 "content": [
-                    *(image(color) for color in colors),
+                    # Qwen3-VL's template cannot render null assistant content.
+                    # Keep this smoke focused on images in the tool result.
+                    {"type": "text", "text": "I will inspect the images from lookup."},
                     {
-                        "type": "text",
-                        "text": "Name the dominant color of each image in order. Answer briefly in English.",
+                        "type": "tool_use",
+                        "id": "toolu_images",
+                        "name": "lookup",
+                        "input": {"value": "images"},
                     },
                 ],
-            }
-        ],
+            },
+        ]
+        content = [
+            {"type": "tool_result", "tool_use_id": "toolu_images", "content": content}
+        ]
+        kwargs = {"tools": tools(), "tool_choice": {"type": "none"}}
+    content.append(
+        {
+            "type": "text",
+            "text": "Name the dominant color of each image in order. Answer briefly in English.",
+        }
+    )
+    result = create(
+        native_model,
+        messages + [{"role": "user", "content": content}],
         stream=stream,
         thinking={"type": "disabled"},
+        **kwargs,
     )
     assert result.stop_reason == "end_turn", result
     answer = text(result).lower()
@@ -215,7 +273,10 @@ def tools():
         }
         for name, description in [
             ("lookup", "Look up a value."),
-            ("finish", "Record the value returned by lookup."),
+            (
+                "finish",
+                "Copy the latest lookup tool result verbatim into value.",
+            ),
         ]
     ]
 
@@ -226,7 +287,10 @@ def test_thinking_replay_and_tool_loop(native_model, stream):
     messages = [
         {
             "role": "user",
-            "content": "Look up alpha, then record the value that lookup returns.",
+            "content": (
+                "Call lookup with value alpha. Then call finish, copying the text "
+                "returned by lookup verbatim into finish.value."
+            ),
         }
     ]
     kwargs = dict(
@@ -259,7 +323,37 @@ def test_thinking_replay_and_tool_loop(native_model, stream):
     ]
     if native_model.engine != "MLX":
         kwargs["tool_choice"] = {"type": "tool", "name": "finish"}
-    second = create(native_model, messages, stream=stream, **kwargs)
+    messages[:0] = [
+        {"role": "user", "content": "An earlier task."},
+        {
+            "role": "assistant",
+            "content": [
+                *(block.model_dump() for block in thought),
+                {
+                    "type": "text",
+                    "text": "The earlier task is complete.",
+                },
+            ],
+        },
+    ]
+    # Qwen3 already hides thinking before the latest user query. This native
+    # probe checks edit acceptance and active tool-loop replay; semantic clearing
+    # is asserted in api/tests/test_anthropic_protocol.py.
+    context_management = {
+        "edits": [
+            {
+                "type": "clear_thinking_20251015",
+                "keep": {"type": "thinking_turns", "value": 1},
+            }
+        ]
+    }
+    second = create(
+        native_model,
+        messages,
+        stream=stream,
+        extra_body={"context_management": context_management},
+        **kwargs,
+    )
     calls = [b for b in second.content if b.type == "tool_use"]
     assert len(calls) == 1 and calls[0].name == "finish", second
     assert calls[0].input == {"value": "NATIVE_RESULT_42"}, second
@@ -290,6 +384,16 @@ def test_counting_and_unsupported_controls(native_model):
                 thinking=request["thinking"],
             )
         assert error.value.status_code == 501
+        with pytest.raises(APIStatusError) as error:
+            create(
+                native,
+                request["messages"],
+                thinking=request["thinking"],
+                output_config={
+                    "format": {"type": "json_schema", "schema": {"type": "object"}}
+                },
+            )
+        assert error.value.status_code == 501
     if native.engine == "SGLang":
         response = requests.post(
             native.endpoint + "/v1/messages/count_tokens",
@@ -300,7 +404,76 @@ def test_counting_and_unsupported_controls(native_model):
             },
             timeout=30,
         )
-        assert response.status_code == 501, response.text
+        assert response.status_code == (
+            501 if "vision" in native.abilities else 400
+        ), response.text
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_text_model_rejects_images(native_model, stream):
+    if "vision" in native_model.abilities:
+        pytest.skip("Requires a text-only test model")
+    response = requests.post(
+        native_model.endpoint + "/v1/messages",
+        headers={"anthropic-version": "2023-06-01", "x-api-key": native_model.key},
+        json={
+            "model": native_model.model,
+            "max_tokens": 32,
+            "stream": stream,
+            "messages": [{"role": "user", "content": [image("red")]}],
+        },
+        timeout=30,
+    )
+    assert response.status_code == 400, response.text
+    assert response.headers["content-type"].startswith("application/json")
+    assert "vision support" in response.json()["error"]["message"]
+
+
+@pytest.mark.parametrize("limit_kind", ["protocol", "deployment"])
+def test_image_limits(native_model, limit_kind):
+    if limit_kind == "deployment" and (
+        native_model.image_limit is None or native_model.image_limit >= 64
+    ):
+        pytest.skip("Requires a known deployment image limit below 64")
+    limit = 64 if limit_kind == "protocol" else native_model.image_limit
+    response = requests.post(
+        native_model.endpoint + "/v1/messages",
+        headers={"anthropic-version": "2023-06-01", "x-api-key": native_model.key},
+        json={
+            "model": native_model.model,
+            "max_tokens": 32,
+            "stream": True,
+            "messages": [{"role": "user", "content": [image("red")] * (limit + 1)}],
+        },
+        timeout=30,
+    )
+    assert response.status_code == 400, response.text
+    assert response.headers["content-type"].startswith("application/json")
+    assert f"at most {limit}" in response.json()["error"]["message"]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_stop_sequences(native_model, stream):
+    if native_model.engine != "vLLM" or "reasoning" not in native_model.abilities:
+        pytest.skip("Regression for vLLM reasoning families")
+    messages = [
+        {"role": "user", "content": "Reply exactly: ALPHA BRAVO CHARLIE DELTA."}
+    ]
+    kwargs = {"max_tokens": 128, "thinking": {"type": "disabled"}}
+    baseline = create(native_model, messages, stream=stream, **kwargs)
+    output = text(baseline)
+    assert len(output) > 8, baseline
+    # Derive a stop from actual greedy output instead of testing spelling or
+    # counting ability. Keep a nonempty prefix to exercise terminal SSE usage.
+    offset = len(output) // 2
+    stop = output[offset : offset + 8]
+    offset = output.index(stop)
+    assert offset > 0, baseline
+    stopped = create(
+        native_model, messages, stream=stream, stop_sequences=[stop], **kwargs
+    )
+    assert text(stopped) == output[:offset], (baseline, stopped)
+    assert stop not in text(stopped)
 
 
 @pytest.mark.parametrize("stream", [False, True])

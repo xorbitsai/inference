@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Xinference\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-13 11:07+0800\n"
-"PO-Revision-Date: 2026-10-13 12:00+0800\n"
+"PO-Revision-Date: 2026-10-16 12:22+0800\n"
 "Last-Translator: Xinference contributors\n"
 "Language-Team: zh_TW <LL@li.org>\n"
 "Language: zh_TW\n"
@@ -191,3 +191,139 @@ msgstr ""
 "對於文字請求，MLX 視覺引擎重用到最後一個 ``cache_control`` 邊界的前綴，生命週期為 ``5m`` 或 "
 "``1h``，並回報實際快取寫入和讀取量。其他路徑保留引擎自動快取，並透過 ``x-xinference-cache-control: "
 "automatic`` 回應標頭標示。 此路徑不會對較早的快取斷點分別執行獨立的有效期限。 目前快取命中不會更新有效期限，過期時會清空可重用快取。"
+
+#: ../source/user_guide/anthropic.rst:83
+msgid ""
+"The request-wide safety limit is 64 rendered images, counting direct images,"
+" tool-result images and PDF pages together. A lower deployment limit still "
+"applies. Exceeding either limit returns HTTP 400 before generation, "
+"including for streaming requests."
+msgstr ""
+"整個請求的安全上限為 64 張渲染後的影像，直接輸入的影像、工具結果中的影像和 PDF "
+"頁面合併計數。如果部署上限更低，該上限仍然生效。超過任一上限都會在生成前回傳 HTTP 400，串流請求也不例外。"
+
+#: ../source/user_guide/anthropic.rst:113
+msgid ""
+"On vLLM reasoning models, ``stop_sequences`` applies to both streaming and "
+"non-streaming requests, including when thinking is disabled. A stop match "
+"during thinking can end the response before a final answer is produced. "
+"Native stop matches currently report ``stop_reason: \"end_turn\"`` and "
+"``stop_sequence: null`` in the response."
+msgstr ""
+"對於 vLLM 推理模型，``stop_sequences`` "
+"同時適用於串流和非串流請求，關閉思考時也生效。如果在思考過程中符合停止序列，回應可能在產生最終答案前結束。 原生停止條件匹配目前會在回應中回報 "
+"``stop_reason: \"end_turn\"`` 和 ``stop_sequence: null``。"
+
+#: ../source/user_guide/anthropic.rst:118
+msgid "Context management"
+msgstr "上下文管理"
+
+#: ../source/user_guide/anthropic.rst:120
+msgid ""
+"``context_management`` supports ``clear_thinking_20251015``. Set ``keep`` to"
+" ``\"all\"`` or ``{\"type\": \"all\"}`` to retain all thinking (the "
+"default), or use a positive ``thinking_turns`` value to retain recent "
+"thinking turns:"
+msgstr ""
+"``context_management`` 支援 ``clear_thinking_20251015``。將 ``keep`` 設為 "
+"``\"all\"`` 或 ``{\"type\": \"all\"}`` 可保留全部思考內容（預設行為），也可以用正整數 "
+"``thinking_turns`` 保留最近的思考回合："
+
+#: ../source/user_guide/anthropic.rst:137
+msgid ""
+"User messages containing only ``tool_result`` blocks do not start a new "
+"assistant turn. Additional user content starts a new turn. Thinking attached"
+" to unresolved tool calls is retained. Generation, cache-prefix processing "
+"and token counting use the same edited history. Omitting ``edits`` is a no-"
+"op; unsupported edit types return HTTP 400."
+msgstr ""
+"僅包含 ``tool_result`` "
+"區塊的使用者訊息不會開始新的助理回合。額外的使用者內容會開始新的回合。尚未完成的工具呼叫所關聯的思考內容會被保留。生成、快取前綴處理和 token "
+"計數使用相同的編輯後歷史。省略 ``edits`` 時不做修改；不支援的編輯類型回傳 HTTP 400。"
+
+#: ../source/user_guide/anthropic.rst:156
+msgid "Backend capabilities"
+msgstr "後端能力"
+
+#: ../source/user_guide/anthropic.rst:158
+msgid ""
+"Xinference checks explicit feature requests against the loaded model and "
+"engine before generation. Unsupported controls return HTTP 501; image input "
+"to a text-only model returns HTTP 400. Translated, emulated, degraded and "
+"rejected compatibility decisions are logged with their reasons. Capability "
+"checks do not add features that the engine cannot implement."
+msgstr ""
+"Xinference 在生成前，會依據已載入的模型和引擎檢查明確要求的功能。不支援的控制項回傳 HTTP 501；向純文字模型輸入影像則回傳 HTTP "
+"400。轉換、模擬、降級和拒絕等相容性決策及其原因會記錄至日誌中。能力檢查不會補上引擎無法實作的功能。"
+
+#: ../source/user_guide/anthropic.rst:164
+msgid ""
+"The following limitations still apply. Supported controls also require a "
+"compatible model and engine version, as described above."
+msgstr "以下限制仍然適用。已支援的控制項也需要相容的模型和引擎版本，具體條件請見上文。"
+
+#: ../source/user_guide/anthropic.rst:171
+msgid "Feature"
+msgstr "功能"
+
+#: ../source/user_guide/anthropic.rst:172
+msgid "vLLM"
+msgstr "vLLM"
+
+#: ../source/user_guide/anthropic.rst:173
+msgid "SGLang"
+msgstr "SGLang"
+
+#: ../source/user_guide/anthropic.rst:174
+msgid "MLX"
+msgstr "MLX"
+
+#: ../source/user_guide/anthropic.rst:175
+msgid "Forced tool choice / disabling parallel tools"
+msgstr "強制工具選擇 / 停用並行工具"
+
+#: ../source/user_guide/anthropic.rst:176
+#: ../source/user_guide/anthropic.rst:177
+#: ../source/user_guide/anthropic.rst:180
+#: ../source/user_guide/anthropic.rst:181
+#: ../source/user_guide/anthropic.rst:184
+#: ../source/user_guide/anthropic.rst:186
+msgid "Supported"
+msgstr "支援"
+
+#: ../source/user_guide/anthropic.rst:178
+#: ../source/user_guide/anthropic.rst:182
+#: ../source/user_guide/anthropic.rst:185
+msgid "HTTP 501"
+msgstr "HTTP 501"
+
+#: ../source/user_guide/anthropic.rst:179
+msgid "Structured JSON"
+msgstr "結構化 JSON"
+
+#: ../source/user_guide/anthropic.rst:183
+msgid "Image token counting"
+msgstr "影像 token 計數"
+
+#: ../source/user_guide/anthropic.rst:187
+msgid "Explicit cache lifetime"
+msgstr "明確的快取有效期限"
+
+#: ../source/user_guide/anthropic.rst:188
+#: ../source/user_guide/anthropic.rst:189
+msgid "Automatic caching"
+msgstr "引擎自動快取"
+
+#: ../source/user_guide/anthropic.rst:190
+msgid "Partial (text requests to vision models)"
+msgstr "部分支援（向視覺模型傳送文字請求）"
+
+#: ../source/user_guide/anthropic.rst:191
+msgid "Separate reasoning-token budget"
+msgstr "獨立推理 token 預算"
+
+#: ../source/user_guide/anthropic.rst:192
+#: ../source/user_guide/anthropic.rst:193
+#: ../source/user_guide/anthropic.rst:194
+msgid "Not enforced"
+msgstr "不強制執行"
