@@ -76,7 +76,7 @@ def get_advanced_auth(request: Request) -> AdvancedAuthService:
 
 def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
     """Extract current user info from the Authorization header."""
-    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    token = request.headers.get("Authorization", "").partition(" ")[2]
     if not token:
         return None, None, []
     payload = auth.verify_access_token(token)
@@ -673,7 +673,7 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
         permissions so permission updates take effect consistently with
         ``AdvancedAuthService.__call__`` scoped checks.
         """
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        token = request.headers.get("Authorization", "").partition(" ")[2]
         payload = auth_service.verify_access_token(token) if token else None
         if not payload:
             raise HTTPException(
@@ -695,7 +695,7 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
         # Security already resolved the current user, enabled state and grants.
         # Reject API-key sessions using the populated key cache, without loading
         # the account/permission resolver two additional times per UI poll.
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        token = request.headers.get("Authorization", "").partition(" ")[2]
         if auth_service.validate_api_key(token):
             raise HTTPException(status_code=401, detail="User session required")
         return JSONResponse(

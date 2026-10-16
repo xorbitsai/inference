@@ -159,6 +159,12 @@ def test_current_account_resolves_once_and_reports_source(account):
         ).status_code
         == 401
     )
+    assert (
+        client.get(
+            "/v1/auth/me", headers={"Authorization": "bearer " + key}
+        ).status_code
+        == 401
+    )
 
 
 def test_oidc_account_cannot_change_local_password(account):
