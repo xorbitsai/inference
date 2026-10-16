@@ -1,9 +1,8 @@
 'use client';
 
-import { ComponentType, FC, useMemo, useState } from 'react';
+import { ComponentType, FC, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import Cookies from 'js-cookie';
 import { FaGithub } from 'react-icons/fa';
 import {
   Box,
@@ -11,33 +10,43 @@ import {
   ChevronLeft,
   ChevronRight,
   Cpu,
+  FileSearch,
   FileTextIcon,
   SquareArrowOutUpRight,
   Globe,
   BotIcon,
   Rocket,
+  Route,
   Monitor,
   ScrollText,
-  // Users,
-  // KeyRound,
+  ShieldCheck,
+  Settings2,
+  Users,
+  UserRound,
+  KeyRound,
+  Database,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
-import { cn } from '@/lib/utils';
+import { getAccessToken } from '@/lib/auth-storage';
+import { navigationExtensions } from '@/lib/ui-extensions';
+import { cn, decodeJwtPayload } from '@/lib/utils';
 import { getBrandingFromEnv } from '@/lib/branding';
 import {
   XINFERENCE_DOCS_URL,
   XINFERENCE_BASE_URL,
   XINFERENCE_CN_URL,
   XINFERENCE_GITHUB,
+  XAGENT_BASE_URL,
   NO_AUTH,
 } from '@/constants';
 import ThemeToggle from '@/components/layout/theme-toggle';
 import LanguageSwitcher from '@/components/layout/language-switcher';
 import LoginOut from '@/components/layout/login-out';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -51,9 +60,9 @@ interface NavItem {
 }
 
 interface NavGroup {
+  id: string;
   name: string;
   items: NavItem[];
-  show?: boolean;
 }
 
 const Nav: FC<NavItem & { collapsed: boolean }> = ({
@@ -144,15 +153,53 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
-  const token = Cookies.get('token');
+  const {
+    isAdmin,
+    usersManagePage,
+    canAccessKeysPage,
+    hasLogsList,
+    hasMonitorView,
+    hasSettingsRead,
+    canRegisterModel,
+    canAccessRouterPage,
+    canAccessCacheManagement,
+  } = useMenuAuth();
+  const [token, setToken] = useState<string | undefined>();
   const showLoginOut = useMemo(
-    () => clusterAuth?.auth && token && token !== NO_AUTH,
+    () => Boolean(clusterAuth?.auth && token && token !== NO_AUTH),
     [clusterAuth, token]
   );
+  const username = useMemo(() => {
+    if (!showLoginOut || !token || token === NO_AUTH) {
+      return '';
+    }
+
+    const payload = decodeJwtPayload(token);
+    if (!payload) {
+      return '';
+    }
+
+    const usernameKeys = ['username', 'preferred_username', 'name', 'sub', 'user_name'];
+    const usernameValue = usernameKeys
+      .map((key) => payload[key])
+      .find((value) => typeof value === 'string' && value.trim());
+
+    if (typeof usernameValue === 'string') {
+      return usernameValue;
+    }
+
+    const userId = payload.user_id;
+    return typeof userId === 'string' || typeof userId === 'number' ? String(userId) : '';
+  }, [showLoginOut, token]);
+
+  useEffect(() => {
+    setToken(getAccessToken());
+  }, []);
 
   const navGroups = useMemo<NavGroup[]>(() => {
     const groups: NavGroup[] = [
       {
+        id: 'models',
         name: t('menu.modelManagement'),
         items: [
           {
@@ -168,14 +215,35 @@ export function Sidebar() {
             Extra: ChevronRight,
           },
           {
+            path: '/token-router',
+            name: t('menu.tokenRouter'),
+            Icon: Route,
+            Extra: ChevronRight,
+            show:
+              clusterUIConfig?.token_router_enabled !== false &&
+              (!clusterUIConfig?.auth_advanced || canAccessRouterPage),
+          },
+          {
             path: '/register-model',
             name: t('menu.registerModel'),
             Icon: Box,
             Extra: ChevronRight,
+            show: !clusterUIConfig?.auth_advanced || canRegisterModel,
+          },
+          {
+            path: '/cache-management',
+            name: t('menu.cacheManagement'),
+            Icon: Database,
+            Extra: ChevronRight,
+            show:
+              clusterAuth?.auth === false ||
+              !clusterUIConfig?.auth_advanced ||
+              canAccessCacheManagement,
           },
         ],
       },
       {
+        id: 'monitoring',
         name: t('menu.monitoringManagement'),
         items: [
           {
@@ -189,39 +257,66 @@ export function Sidebar() {
             name: t('menu.monitorCenter'),
             Icon: Monitor,
             Extra: ChevronRight,
+            show: !clusterUIConfig?.auth_advanced || hasMonitorView,
           },
           {
             path: '/log-center',
             name: t('menu.logCenter'),
             Icon: ScrollText,
             Extra: ChevronRight,
-            show: Boolean(clusterUIConfig?.es_enabled),
+            show: !clusterUIConfig?.auth_advanced || hasLogsList,
           },
         ],
       },
-      // {
-      //   name: t('menu.systemManagement'),
-      //   items: [
-      //     {
-      //       path: '/user-management',
-      //       name: t('menu.userManagement'),
-      //       Icon: Users,
-      //       Extra: ChevronRight,
-      //     },
-      //     {
-      //       path: '/api-key-management',
-      //       name: t('menu.apiKeyManagement'),
-      //       Icon: KeyRound,
-      //       Extra: ChevronRight,
-      //     },
-      //   ],
-      //   show: clusterUIConfig?.auth_advanced || false
-      // },
       {
+        id: 'system',
+        name: t('menu.systemManagement'),
+        items: [
+          {
+            path: '/user-management',
+            name: t('menu.userManagement'),
+            Icon: Users,
+            Extra: ChevronRight,
+            show: Boolean(clusterUIConfig?.auth_advanced) && usersManagePage,
+          },
+          {
+            path: '/api-key-management',
+            name: t('menu.apiKeyManagement'),
+            Icon: KeyRound,
+            Extra: ChevronRight,
+            show: Boolean(clusterUIConfig?.auth_advanced) && canAccessKeysPage,
+          },
+          {
+            path: '/security-settings',
+            name: t('menu.securitySettings'),
+            Icon: ShieldCheck,
+            Extra: ChevronRight,
+            show: Boolean(clusterUIConfig?.auth_advanced) && isAdmin,
+          },
+          {
+            path: '/system-settings',
+            name: t('menu.systemSettings'),
+            Icon: Settings2,
+            Extra: ChevronRight,
+            show:
+              Object.keys(clusterUIConfig).length > 0 &&
+              (!clusterUIConfig.auth_advanced || hasSettingsRead),
+          },
+          {
+            path: '/audit-center',
+            name: t('menu.auditCenter'),
+            Icon: FileSearch,
+            Extra: ChevronRight,
+            show: Boolean(clusterUIConfig?.auth_advanced) && isAdmin,
+          },
+        ],
+      },
+      {
+        id: 'resources',
         name: t('menu.resourcesAndSupport'),
         items: [
           {
-            path: `${XINFERENCE_DOCS_URL}/${locale === 'zh' ? 'zh-cn' : ''}`,
+            path: `${XINFERENCE_DOCS_URL}/${locale.startsWith('zh') ? 'zh-cn' : ''}`,
             name: t('menu.documentation'),
             target: '_blank',
             Icon: FileTextIcon,
@@ -235,14 +330,14 @@ export function Sidebar() {
             Extra: SquareArrowOutUpRight,
           },
           {
-            path: locale === 'zh' ? XINFERENCE_CN_URL : XINFERENCE_BASE_URL,
+            path: locale.startsWith('zh') ? XINFERENCE_CN_URL : XINFERENCE_BASE_URL,
             name: t('menu.website'),
             target: '_blank',
             Icon: Globe,
             Extra: SquareArrowOutUpRight,
           },
           {
-            path: `${XINFERENCE_GITHUB}/xagent`,
+            path: XAGENT_BASE_URL,
             name: t('menu.xagent'),
             target: '_blank',
             Icon: BotIcon,
@@ -252,13 +347,38 @@ export function Sidebar() {
       },
     ];
 
+    const extensionGroup = groups.find((group) => group.id === 'system');
+    extensionGroup?.items.push(
+      ...navigationExtensions.map((item) => ({
+        path: item.path,
+        name: item.label,
+        Icon: Box,
+        Extra: ChevronRight,
+        show: !item.adminOnly || clusterAuth?.auth === false || isAdmin,
+      }))
+    );
+
     return groups
-      .filter(({ show = true }) => show)
       .map((group) => ({
         ...group,
         items: group.items.filter(({ show = true }) => show),
-      }));
-  }, [clusterUIConfig, locale, t]);
+      }))
+      .filter(({ items }) => items.length > 0);
+  }, [
+    clusterUIConfig,
+    clusterAuth,
+    locale,
+    t,
+    usersManagePage,
+    canAccessKeysPage,
+    isAdmin,
+    hasLogsList,
+    hasMonitorView,
+    hasSettingsRead,
+    canRegisterModel,
+    canAccessRouterPage,
+    canAccessCacheManagement,
+  ]);
 
   return (
     <div
@@ -304,23 +424,45 @@ export function Sidebar() {
               {...group}
               collapsed={collapsed}
               showDivider={index > 0}
-              key={group.name}
+              key={group.id}
             />
           ))}
         </nav>
       </TooltipProvider>
 
-      {!collapsed && (
-        <div className="py-3 px-5 border-t border-border flex justify-between items-center gap-3">
-          <div className="flex gap-4 shrink-0">
-            <ThemeToggle />
-            <LanguageSwitcher />
-            {showLoginOut && <LoginOut />}
+      {!collapsed ? (
+        <div className="border-t border-border px-4 py-3">
+          <div className="flex h-8 items-center justify-between gap-3">
+            <div className="flex shrink-0 items-center gap-1">
+              <ThemeToggle className="flex h-8 w-8 items-center justify-center rounded-md" />
+              <LanguageSwitcher className="flex h-8 w-8 items-center justify-center rounded-md" />
+            </div>
+            {clusterVersion?.version && (
+              <div className="min-w-0 max-w-[132px] truncate text-right text-xs text-slate-400">
+                v:{clusterVersion.version}
+              </div>
+            )}
           </div>
-          {clusterVersion?.version && (
-            <div className="text-slate-400 truncate">v:{clusterVersion.version}</div>
+          {showLoginOut && (
+            <div className="mt-2 flex h-8 min-w-0 items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-1 text-sm text-muted-foreground">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                  <UserRound className="h-5 w-5" />
+                </span>
+                <span className="truncate" title={username}>
+                  {username}
+                </span>
+              </div>
+              <LoginOut className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md" />
+            </div>
           )}
         </div>
+      ) : (
+        showLoginOut && (
+          <div className="flex justify-center border-t border-border py-3">
+            <LoginOut className="flex h-8 w-8 items-center justify-center rounded-md" />
+          </div>
+        )
       )}
     </div>
   );

@@ -1,0 +1,1068 @@
+'use client';
+
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Check,
+  CircleAlert,
+  Copy,
+  FileSearch,
+  Filter,
+  GitBranch,
+  KeyRound,
+  Loader2,
+  RefreshCw,
+  RotateCcw,
+  ShieldCheck,
+  UserRound,
+} from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { AutoComplete } from '@/components/ui/auto-complete';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { JSONSyntaxHighlighter } from '@/components/ui/json-syntax-highlighter';
+import { Label } from '@/components/ui/label';
+import { MultiSelect } from '@/components/ui/multi-select';
+import PageContainer from '@/components/ui/page-container';
+import { Select } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AUDIT_TIME_RANGES, DEFAULT_LOG_TIME_RANGE, LOG_REFRESH_OPTIONS } from '@/constants/logs';
+import { useI18n } from '@/contexts/i18n-context';
+import request from '@/lib/request';
+import { cn, copyToClipboard } from '@/lib/utils';
+
+import { CorrelatedDialog } from '../log-center/correlated-dialog';
+import { TimeRangePicker } from '../log-center/time-range-picker';
+import type { TimeRangeValue } from '../log-center/types';
+
+const AUDIT_PAGE_SIZE = 50;
+
+interface AuditRecord {
+  '@timestamp'?: string;
+  event_type?: string;
+  request_id?: string;
+  category?: string;
+  auth_type?: string;
+  user?: string;
+  api_key_name?: string;
+  api_key_prefix?: string;
+  model_id?: string;
+  model_name?: string;
+  model_type?: string;
+  endpoint?: string;
+  status?: string;
+  latency_ms?: number;
+  client_ip?: string;
+  node?: string;
+  address?: string;
+  [key: string]: unknown;
+}
+
+interface AuditSearchResponse {
+  hits?: AuditRecord[];
+  total?: number;
+}
+
+interface AuditFilterOptionsResponse {
+  user?: string[];
+  api_key_name?: string[];
+  model_id?: string[];
+  model_name?: string[];
+  client_ip?: string[];
+}
+
+interface AuditFilters {
+  requestId: string;
+  user: string;
+  apiKeyName: string;
+  modelId: string;
+  modelName: string;
+  modelType: string[];
+  category: string[];
+  authType: string;
+  status: string[];
+  clientIp: string;
+}
+
+type AuditFilterKey = keyof AuditFilters;
+type AuditTextFilterKey =
+  | 'requestId'
+  | 'user'
+  | 'apiKeyName'
+  | 'modelId'
+  | 'modelName'
+  | 'clientIp';
+type AuditMultiFilterKey = 'modelType' | 'category' | 'status';
+
+const defaultFilters: AuditFilters = {
+  requestId: '',
+  user: '',
+  apiKeyName: '',
+  modelId: '',
+  modelName: '',
+  modelType: [],
+  category: [],
+  authType: '',
+  status: [],
+  clientIp: '',
+};
+
+const defaultTextFilters = {
+  requestId: '',
+  user: '',
+  apiKeyName: '',
+  modelId: '',
+  modelName: '',
+  clientIp: '',
+};
+
+const defaultFilterOptions: Required<AuditFilterOptionsResponse> = {
+  user: [],
+  api_key_name: [],
+  model_id: [],
+  model_name: [],
+  client_ip: [],
+};
+
+const filterParamMap: Record<AuditFilterKey, string> = {
+  requestId: 'request_id',
+  user: 'user',
+  apiKeyName: 'api_key_name',
+  modelId: 'model_id',
+  modelName: 'model_name',
+  modelType: 'model_type',
+  category: 'category',
+  authType: 'auth_type',
+  status: 'status',
+  clientIp: 'client_ip',
+};
+
+const categoryValues = ['inference', 'admin', 'auth'];
+const authTypeValues = ['api_key', 'jwt', 'none'];
+const statusValues = [
+  'success',
+  'error',
+  'denied',
+  'login_failed',
+  'model_not_found',
+  'ip_banned',
+  'key_banned',
+  'key_expired',
+  'key_disabled',
+  'invalid_key',
+  'invalid_token',
+  'insufficient_scope',
+  'user_disabled',
+  'no_credentials',
+];
+const modelTypeValues = ['LLM', 'embedding', 'rerank', 'image', 'video', 'world', 'audio'];
+
+const toDash = (value: unknown) => {
+  if (value === undefined || value === null || value === '') return '-';
+  return String(value);
+};
+
+const padDatePart = (value: number) => String(value).padStart(2, '0');
+
+const formatAuditTime = (value?: string) => {
+  if (!value) return '-';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return [
+    `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`,
+    `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}:${padDatePart(
+      date.getSeconds()
+    )}`,
+  ].join(' ');
+};
+
+function statusTone(status?: string) {
+  switch (status) {
+    case 'success':
+      return 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300';
+    case 'error':
+    case 'denied':
+    case 'invalid_key':
+    case 'invalid_token':
+    case 'insufficient_scope':
+    case 'user_disabled':
+    case 'no_credentials':
+      return 'border-rose-500/30 bg-rose-500/15 text-rose-700 dark:text-rose-300';
+    case 'model_not_found':
+    case 'ip_banned':
+    case 'key_banned':
+      return 'border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-300';
+    default:
+      return 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300';
+  }
+}
+
+function categoryTone(category?: string) {
+  switch (category) {
+    case 'inference':
+      return 'border-blue-500/30 bg-blue-500/15 text-blue-700 dark:text-blue-300';
+    case 'auth':
+      return 'border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300';
+    case 'admin':
+      return 'border-cyan-500/30 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300';
+    default:
+      return 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300';
+  }
+}
+
+export default function AuditCenter() {
+  const { t } = useI18n();
+  const [records, setRecords] = useState<AuditRecord[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [timeRange, setTimeRange] = useState<TimeRangeValue>(DEFAULT_LOG_TIME_RANGE);
+  const [filters, setFilters] = useState<AuditFilters>(defaultFilters);
+  const [draftFilters, setDraftFilters] = useState(defaultTextFilters);
+  const [deepLinkInitialized, setDeepLinkInitialized] = useState(false);
+  const [filterOptions, setFilterOptions] =
+    useState<Required<AuditFilterOptionsResponse>>(defaultFilterOptions);
+  const [pageFrom, setPageFrom] = useState(0);
+  const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
+  const [correlatedRequest, setCorrelatedRequest] = useState<{
+    requestId: string;
+    anchorTimestamp?: string;
+  } | null>(null);
+  const [requestIdCopied, setRequestIdCopied] = useState(false);
+  const requestIdCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deepLinkInitializedRef = useRef(false);
+  const requestSeqRef = useRef(0);
+  const lastSuccessfulRequestRef = useRef<{
+    queryKey: string;
+    pageFrom: number;
+  } | null>(null);
+  // Tracks whether the latest fetch is still pending so the auto-refresh
+  // interval can skip a tick instead of stacking overlapping requests.
+  const inFlightRef = useRef(false);
+  const [refreshInterval, setRefreshInterval] = useState(0);
+  const [jumpPage, setJumpPage] = useState('1');
+
+  useEffect(() => {
+    if (deepLinkInitializedRef.current) return;
+    deepLinkInitializedRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const requestId = params.get('request_id')?.trim() || '';
+    const timeFrom = params.get('time_from') || '';
+    const timeTo = params.get('time_to') || '';
+
+    if (requestId) {
+      setDraftFilters((current) => ({ ...current, requestId }));
+      setFilters((current) => ({ ...current, requestId }));
+    }
+    if (timeFrom && timeTo) {
+      setTimeRange({ from: timeFrom, to: timeTo });
+    }
+    setDeepLinkInitialized(true);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (requestIdCopyTimerRef.current) clearTimeout(requestIdCopyTimerRef.current);
+    };
+  }, []);
+
+  const queryParams = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('time_from', timeRange.from);
+    params.set('time_to', timeRange.to);
+    params.set('page_from', String(pageFrom));
+    params.set('size', String(AUDIT_PAGE_SIZE));
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        if (value.length) params.set(filterParamMap[key as AuditFilterKey], value.join(','));
+        return;
+      }
+      if (value) params.set(filterParamMap[key as AuditFilterKey], value);
+    });
+
+    return params;
+  }, [filters, pageFrom, timeRange]);
+
+  const fetchAuditRecords = useCallback(
+    async (silent = false) => {
+      const seq = ++requestSeqRef.current;
+      const queryKeyParams = new URLSearchParams(queryParams);
+      queryKeyParams.delete('page_from');
+      queryKeyParams.delete('size');
+      const queryKey = queryKeyParams.toString();
+      inFlightRef.current = true;
+      // Background refreshes stay silent so the table does not flip to the
+      // loading spinner every interval; only user-initiated fetches show it.
+      if (!silent) {
+        setLoading(true);
+      }
+      try {
+        const data = await request.get<AuditSearchResponse>(
+          '/v1/audit/search?' + queryParams.toString()
+        );
+
+        if (seq === requestSeqRef.current) {
+          setRecords(Array.isArray(data.hits) ? data.hits : []);
+          setTotal(data.total || 0);
+          lastSuccessfulRequestRef.current = { queryKey, pageFrom };
+        }
+      } catch {
+        // A transient failure during a silent background refresh must not wipe
+        // the table. A failed foreground page jump also keeps the last good
+        // results and restores the page that produced them.
+        if (!silent && seq === requestSeqRef.current) {
+          const lastSuccessfulRequest = lastSuccessfulRequestRef.current;
+          if (lastSuccessfulRequest?.queryKey === queryKey) {
+            setPageFrom(lastSuccessfulRequest.pageFrom);
+          } else {
+            setRecords([]);
+            setTotal(0);
+            setPageFrom(0);
+          }
+        }
+      } finally {
+        if (seq === requestSeqRef.current) {
+          inFlightRef.current = false;
+          setLoading(false);
+        }
+      }
+    },
+    [pageFrom, queryParams]
+  );
+
+  useEffect(() => {
+    if (deepLinkInitialized) fetchAuditRecords();
+  }, [deepLinkInitialized, fetchAuditRecords]);
+
+  useEffect(() => {
+    if (deepLinkInitialized && refreshInterval > 0) {
+      const timer = setInterval(() => {
+        // Skip a tick while a request is in flight so a slow/hung query does
+        // not stack overlapping requests or make every response stale.
+        if (!inFlightRef.current) {
+          fetchAuditRecords(true);
+        }
+      }, refreshInterval);
+      return () => clearInterval(timer);
+    }
+  }, [deepLinkInitialized, fetchAuditRecords, refreshInterval]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters((current) => {
+        const hasChanged = (Object.keys(defaultTextFilters) as AuditTextFilterKey[]).some(
+          (key) => current[key] !== draftFilters[key]
+        );
+
+        if (!hasChanged) return current;
+
+        setPageFrom(0);
+        return { ...current, ...draftFilters };
+      });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [draftFilters]);
+
+  useEffect(() => {
+    if (!deepLinkInitialized) return;
+
+    let active = true;
+    const params = new URLSearchParams({
+      time_from: timeRange.from,
+      time_to: timeRange.to,
+    });
+
+    request
+      .get<AuditFilterOptionsResponse>('/v1/audit/filter-options?' + params.toString())
+      .then((data) => {
+        if (!active) return;
+        if (!data) {
+          setFilterOptions(defaultFilterOptions);
+          return;
+        }
+        setFilterOptions({
+          user: data.user || [],
+          api_key_name: data.api_key_name || [],
+          model_id: data.model_id || [],
+          model_name: data.model_name || [],
+          client_ip: data.client_ip || [],
+        });
+      })
+      .catch(() => {
+        if (active) setFilterOptions(defaultFilterOptions);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [deepLinkInitialized, timeRange]);
+
+  const stats = useMemo(() => {
+    const successCount = records.filter((record) => record.status === 'success').length;
+    const riskCount = records.filter(
+      (record) => record.status && record.status !== 'success'
+    ).length;
+    const apiKeyCount = records.filter((record) => record.auth_type === 'api_key').length;
+
+    return [
+      {
+        label: t('auditCenter.totalEvents'),
+        value: total,
+        detail: t('auditCenter.matchingRecords'),
+        Icon: FileSearch,
+        tone: 'bg-sky-500/10 text-sky-600',
+      },
+      {
+        label: t('auditCenter.successEvents'),
+        value: successCount,
+        detail: t('auditCenter.currentPage'),
+        Icon: ShieldCheck,
+        tone: 'bg-emerald-500/10 text-emerald-600',
+      },
+      {
+        label: t('auditCenter.riskEvents'),
+        value: riskCount,
+        detail: t('auditCenter.currentPage'),
+        Icon: CircleAlert,
+        tone: 'bg-rose-500/10 text-rose-600',
+      },
+      {
+        label: t('auditCenter.apiKeyEvents'),
+        value: apiKeyCount,
+        detail: t('auditCenter.currentPage'),
+        Icon: KeyRound,
+        tone: 'bg-violet-500/10 text-violet-600',
+      },
+    ];
+  }, [records, t, total]);
+
+  const setTextFilter = (key: AuditTextFilterKey, value?: string) => {
+    setDraftFilters((current) => ({ ...current, [key]: value || '' }));
+  };
+
+  const setFilter = (key: Exclude<AuditFilterKey, AuditTextFilterKey>, value?: string | number) => {
+    setFilters((current) => ({ ...current, [key]: String(value || '') }));
+    setPageFrom(0);
+  };
+
+  const setMultiFilter = (key: AuditMultiFilterKey, value: string[]) => {
+    setFilters((current) => ({ ...current, [key]: value }));
+    setPageFrom(0);
+  };
+
+  const resetFilters = () => {
+    setDraftFilters(defaultTextFilters);
+    setFilters(defaultFilters);
+    setPageFrom(0);
+
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('time_from') || url.searchParams.has('time_to')) {
+      setTimeRange(DEFAULT_LOG_TIME_RANGE);
+    }
+    url.searchParams.delete('request_id');
+    url.searchParams.delete('time_from');
+    url.searchParams.delete('time_to');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  };
+
+  const selectedRequestId =
+    typeof selectedRecord?.request_id === 'string' ? selectedRecord.request_id.trim() : '';
+
+  const copySelectedRequestId = () => {
+    if (!selectedRequestId) return;
+    copyToClipboard(selectedRequestId);
+    setRequestIdCopied(true);
+    if (requestIdCopyTimerRef.current) clearTimeout(requestIdCopyTimerRef.current);
+    requestIdCopyTimerRef.current = setTimeout(() => setRequestIdCopied(false), 1500);
+  };
+
+  const getOptionLabel = (prefix: string, value: string | undefined, knownValues: string[]) => {
+    if (!value) return t(`${prefix}.unknown`);
+    return knownValues.includes(value) ? t(`${prefix}.${value}`) : value;
+  };
+
+  const hasFilters = Object.values(filters).some((value) =>
+    Array.isArray(value) ? value.length > 0 : Boolean(value)
+  );
+  const hasDraftFilters = Object.values(draftFilters).some(Boolean);
+  const currentPage = Math.floor(pageFrom / AUDIT_PAGE_SIZE) + 1;
+  const totalPages = Math.ceil(total / AUDIT_PAGE_SIZE) || 1;
+  const lastPageFrom = (totalPages - 1) * AUDIT_PAGE_SIZE;
+
+  useEffect(() => {
+    setJumpPage(String(currentPage));
+  }, [currentPage]);
+
+  const goToPage = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const page = Number(jumpPage);
+    if (!Number.isInteger(page) || page < 1 || page > totalPages) {
+      setJumpPage(String(currentPage));
+      return;
+    }
+
+    setPageFrom((page - 1) * AUDIT_PAGE_SIZE);
+    setJumpPage(String(page));
+  };
+
+  return (
+    <PageContainer
+      title={t('menu.auditCenter')}
+      subTitle={t('auditCenter.pageDescription')}
+      extraContent={
+        <div className="flex items-center gap-2">
+          <TimeRangePicker
+            value={timeRange}
+            ranges={AUDIT_TIME_RANGES}
+            onChange={(value) => {
+              setTimeRange(value);
+              setPageFrom(0);
+            }}
+          />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label={t('auditCenter.refresh')}
+                  onClick={() => fetchAuditRecords()}
+                  disabled={loading}
+                >
+                  <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('auditCenter.refresh')}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <Select
+            value={refreshInterval}
+            onChange={(value) => setRefreshInterval(Number(value || 0))}
+            options={LOG_REFRESH_OPTIONS.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+              prefix: <RefreshCw className="size-4" />,
+            }))}
+            allowClear={false}
+            className="w-32"
+          />
+        </div>
+      }
+    >
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {stats.map(({ label, value, detail, Icon, tone }) => (
+          <Card key={label} className="rounded-lg py-5 shadow-none">
+            <CardContent className="flex items-center gap-4">
+              <div className={cn('flex h-11 w-11 items-center justify-center rounded-lg', tone)}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm text-muted-foreground">{label}</div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-semibold">{value}</span>
+                  <span className="text-xs text-muted-foreground">{detail}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="mt-6 rounded-lg border bg-card">
+        <div className="border-b p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 font-semibold">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              {t('auditCenter.filters')}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetFilters}
+              disabled={!hasFilters && !hasDraftFilters}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {t('auditCenter.resetFilters')}
+            </Button>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="space-y-2">
+              <Label htmlFor="audit-request-id">{t('auditCenter.requestId')}</Label>
+              <Input
+                id="audit-request-id"
+                value={draftFilters.requestId}
+                placeholder={t('auditCenter.requestIdPlaceholder')}
+                onChange={(event) => setTextFilter('requestId', event.target.value)}
+              />
+            </div>
+            <FilterTextSelect
+              label={t('auditCenter.user')}
+              value={draftFilters.user}
+              values={filterOptions.user}
+              placeholder={t('auditCenter.userPlaceholder')}
+              onChange={(value) => setTextFilter('user', value)}
+            />
+            <FilterTextSelect
+              label={t('auditCenter.apiKeyName')}
+              value={draftFilters.apiKeyName}
+              values={filterOptions.api_key_name}
+              placeholder={t('auditCenter.apiKeyNamePlaceholder')}
+              onChange={(value) => setTextFilter('apiKeyName', value)}
+            />
+            <FilterTextSelect
+              label={t('auditCenter.modelId')}
+              value={draftFilters.modelId}
+              values={filterOptions.model_id}
+              placeholder={t('auditCenter.modelIdPlaceholder')}
+              onChange={(value) => setTextFilter('modelId', value)}
+            />
+            <FilterTextSelect
+              label={t('auditCenter.modelName')}
+              value={draftFilters.modelName}
+              values={filterOptions.model_name}
+              placeholder={t('auditCenter.modelNamePlaceholder')}
+              onChange={(value) => setTextFilter('modelName', value)}
+            />
+            <FilterTextSelect
+              label={t('auditCenter.clientIp')}
+              value={draftFilters.clientIp}
+              values={filterOptions.client_ip}
+              placeholder={t('auditCenter.clientIpPlaceholder')}
+              onChange={(value) => setTextFilter('clientIp', value)}
+            />
+            <FilterSelect
+              label={t('auditCenter.authType')}
+              value={filters.authType}
+              values={authTypeValues}
+              labelPrefix="auditCenter.authTypeOptions"
+              placeholder={t('auditCenter.allAuthTypes')}
+              onChange={(value) => setFilter('authType', value)}
+            />
+            <FilterMultiSelect
+              label={t('auditCenter.status')}
+              value={filters.status}
+              values={statusValues}
+              labelPrefix="auditCenter.statusOptions"
+              placeholder={t('auditCenter.allStatuses')}
+              onChange={(value) => setMultiFilter('status', value)}
+            />
+            <FilterMultiSelect
+              label={t('auditCenter.category')}
+              value={filters.category}
+              values={categoryValues}
+              labelPrefix="auditCenter.categoryOptions"
+              placeholder={t('auditCenter.allCategories')}
+              onChange={(value) => setMultiFilter('category', value)}
+            />
+            <FilterMultiSelect
+              label={t('auditCenter.modelType')}
+              value={filters.modelType}
+              values={modelTypeValues}
+              labelPrefix="auditCenter.modelTypeOptions"
+              placeholder={t('auditCenter.allModelTypes')}
+              onChange={(value) => setMultiFilter('modelType', value)}
+            />
+          </div>
+        </div>
+
+        <div className="overflow-hidden">
+          <Table className="w-max min-w-full">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-48">{t('auditCenter.time')}</TableHead>
+                <TableHead className="w-28">{t('auditCenter.category')}</TableHead>
+                <TableHead className="w-44">{t('auditCenter.identity')}</TableHead>
+                <TableHead>{t('auditCenter.endpoint')}</TableHead>
+                <TableHead>{t('auditCenter.apiKeyNameColumn')}</TableHead>
+                <TableHead className="w-44">{t('auditCenter.model')}</TableHead>
+                <TableHead>{t('auditCenter.modelIdColumn')}</TableHead>
+                <TableHead className="w-32">{t('auditCenter.status')}</TableHead>
+                <TableHead className="w-28 text-right">{t('auditCenter.latency')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-20 text-center text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t('auditCenter.loading')}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : records.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-20 text-center text-muted-foreground">
+                    {t('auditCenter.noRecords')}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                records.map((record, index) => (
+                  <TableRow
+                    key={(record['@timestamp'] || '') + '-' + (record.endpoint || '') + '-' + index}
+                    className="cursor-pointer"
+                    onClick={() => setSelectedRecord(record)}
+                  >
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {formatAuditTime(record['@timestamp'])}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={categoryTone(record.category)}>
+                        {getOptionLabel(
+                          'auditCenter.categoryOptions',
+                          record.category,
+                          categoryValues
+                        )}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-44">
+                      <div className="flex min-w-0 items-center gap-2">
+                        {record.auth_type === 'api_key' ? (
+                          <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <UserRound className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        )}
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">
+                            {record.user || record.api_key_name || '-'}
+                          </div>
+                          <div className="truncate text-xs text-muted-foreground">
+                            {record.auth_type || '-'}
+                            {record.client_ip ? ` · ${record.client_ip}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="whitespace-nowrap font-mono text-xs">
+                        {toDash(record.endpoint)}
+                      </div>
+                      <div className="whitespace-nowrap text-xs text-muted-foreground">
+                        {toDash(record.node || record.address)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="whitespace-nowrap text-xs">{record.api_key_name || '-'}</div>
+                    </TableCell>
+                    <TableCell className="max-w-44">
+                      <div className="truncate">{record.model_name || record.model_id || '-'}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {record.model_type || '-'}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="whitespace-nowrap font-mono text-xs">
+                        {record.model_id || '-'}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={statusTone(record.status)}>
+                        {getOptionLabel('auditCenter.statusOptions', record.status, statusValues)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {typeof record.latency_ms === 'number'
+                        ? t('auditCenter.latencyMs', { value: Math.round(record.latency_ms) })
+                        : '-'}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="flex min-h-12 flex-wrap items-center justify-end gap-3 border-t px-4 py-2">
+          <span className="text-sm text-muted-foreground">
+            {t('auditCenter.totalHits', { count: total })}
+          </span>
+          <form className="flex items-center gap-2 text-sm" noValidate onSubmit={goToPage}>
+            <Label className="sr-only" htmlFor="audit-jump-page">
+              {t('auditCenter.pageNumber')}
+            </Label>
+            <span>{t('auditCenter.pagePrefix')}</span>
+            <Input
+              id="audit-jump-page"
+              className="h-8 w-16 text-center tabular-nums"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={totalPages}
+              step={1}
+              value={jumpPage}
+              aria-label={t('auditCenter.jumpToPage')}
+              disabled={total === 0}
+              onChange={(event) => setJumpPage(event.target.value)}
+            />
+            <span>{t('auditCenter.pageOf', { count: totalPages })}</span>
+          </form>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.firstPage')}
+            title={t('auditCenter.firstPage')}
+            disabled={pageFrom === 0}
+            onClick={() => setPageFrom(0)}
+          >
+            <ChevronsLeft />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.prevPage')}
+            title={t('auditCenter.prevPage')}
+            disabled={pageFrom === 0}
+            onClick={() => setPageFrom(Math.max(0, pageFrom - AUDIT_PAGE_SIZE))}
+          >
+            <ChevronLeft />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.nextPage')}
+            title={t('auditCenter.nextPage')}
+            disabled={pageFrom + AUDIT_PAGE_SIZE >= total}
+            onClick={() => setPageFrom(pageFrom + AUDIT_PAGE_SIZE)}
+          >
+            <ChevronRight />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.lastPage')}
+            title={t('auditCenter.lastPage')}
+            disabled={pageFrom === lastPageFrom}
+            onClick={() => setPageFrom(lastPageFrom)}
+          >
+            <ChevronsRight />
+          </Button>
+        </div>
+      </div>
+
+      <Dialog
+        open={selectedRecord !== null}
+        onOpenChange={(open) => !open && setSelectedRecord(null)}
+      >
+        <DialogContent className="sm:max-w-4xl" onOpenAutoFocus={(event) => event.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>{t('auditCenter.detailTitle')}</DialogTitle>
+          </DialogHeader>
+          {selectedRecord && (
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <DetailItem
+                  label={t('auditCenter.time')}
+                  value={formatAuditTime(selectedRecord['@timestamp'])}
+                />
+                <DetailItem
+                  label={t('auditCenter.requestId')}
+                  value={toDash(selectedRecord.request_id)}
+                  wide
+                />
+                <DetailItem label={t('auditCenter.user')} value={toDash(selectedRecord.user)} />
+                <DetailItem
+                  label={t('auditCenter.clientIp')}
+                  value={toDash(selectedRecord.client_ip)}
+                />
+                <DetailItem
+                  label={t('auditCenter.category')}
+                  value={getOptionLabel(
+                    'auditCenter.categoryOptions',
+                    selectedRecord.category,
+                    categoryValues
+                  )}
+                />
+                <DetailItem
+                  label={t('auditCenter.authType')}
+                  value={toDash(selectedRecord.auth_type)}
+                />
+                <DetailItem label={t('auditCenter.status')} value={toDash(selectedRecord.status)} />
+                <DetailItem
+                  label={t('auditCenter.latency')}
+                  value={toDash(selectedRecord.latency_ms)}
+                />
+                <DetailItem
+                  label={t('auditCenter.endpoint')}
+                  value={toDash(selectedRecord.endpoint)}
+                  wide
+                />
+              </div>
+              {selectedRequestId && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={copySelectedRequestId}>
+                    {requestIdCopied ? (
+                      <Check className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Copy className="mr-2 h-4 w-4" />
+                    )}
+                    {requestIdCopied
+                      ? t('auditCenter.requestIdCopied')
+                      : t('auditCenter.copyRequestId')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setCorrelatedRequest({
+                        requestId: selectedRequestId,
+                        anchorTimestamp: selectedRecord['@timestamp'],
+                      })
+                    }
+                  >
+                    <GitBranch className="mr-2 h-4 w-4" />
+                    {t('auditCenter.viewCorrelated')}
+                  </Button>
+                </div>
+              )}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-sm font-medium">{t('auditCenter.rawJson')}</div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(JSON.stringify(selectedRecord, null, 2))}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    {t('auditCenter.copyJson')}
+                  </Button>
+                </div>
+                <JSONSyntaxHighlighter data={selectedRecord} className="max-h-[28rem]" />
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      <CorrelatedDialog
+        requestId={correlatedRequest?.requestId || ''}
+        anchorTimestamp={correlatedRequest?.anchorTimestamp}
+        open={correlatedRequest !== null}
+        onOpenChange={(open) => !open && setCorrelatedRequest(null)}
+      />
+    </PageContainer>
+  );
+}
+
+interface FilterTextSelectProps {
+  label: string;
+  value: string;
+  values: string[];
+  placeholder: string;
+  onChange: (value?: string) => void;
+}
+
+function FilterTextSelect({ label, value, values, placeholder, onChange }: FilterTextSelectProps) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <AutoComplete
+        value={value}
+        placeholder={placeholder}
+        allowCustomValue
+        onChange={(nextValue) => onChange(nextValue)}
+        options={values.map((item) => ({ value: item, label: item }))}
+      />
+    </div>
+  );
+}
+
+interface FilterSelectProps {
+  label: string;
+  value: string;
+  values: string[];
+  labelPrefix: string;
+  placeholder: string;
+  onChange: (value?: string | number) => void;
+}
+
+interface FilterMultiSelectProps {
+  label: string;
+  value: string[];
+  values: string[];
+  labelPrefix: string;
+  placeholder: string;
+  onChange: (value: string[]) => void;
+}
+
+function FilterMultiSelect({
+  label,
+  value,
+  values,
+  labelPrefix,
+  placeholder,
+  onChange,
+}: FilterMultiSelectProps) {
+  const { t } = useI18n();
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <MultiSelect
+        value={value}
+        placeholder={placeholder}
+        onChange={onChange}
+        options={values.map((item) => ({
+          value: item,
+          label: t(`${labelPrefix}.${item}`),
+        }))}
+      />
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  values,
+  labelPrefix,
+  placeholder,
+  onChange,
+}: FilterSelectProps) {
+  const { t } = useI18n();
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Select
+        value={value}
+        placeholder={placeholder}
+        onChange={onChange}
+        options={values.map((item) => ({
+          value: item,
+          label: t(`${labelPrefix}.${item}`),
+        }))}
+      />
+    </div>
+  );
+}
+
+function DetailItem({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div className={cn('rounded-md border bg-card p-3', wide && 'md:col-span-2')}>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 break-all text-sm font-medium">{value}</div>
+    </div>
+  );
+}

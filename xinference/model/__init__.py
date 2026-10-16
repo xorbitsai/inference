@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ def _install():
     from .llm import _install as llm_install
     from .rerank import _install as rerank_install
     from .video import _install as video_install
+    from .world import _install as world_install
 
     llm_install()
     audio_install()
@@ -29,6 +30,7 @@ def _install():
     image_install()
     rerank_install()
     video_install()
+    world_install()
 
 
 _install()

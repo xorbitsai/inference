@@ -1,12 +1,14 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
 
 logger = logging.getLogger(__name__)
+
+ToolEvent = Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
 
 
 @register_tool_parser("gemma")
@@ -22,14 +24,12 @@ class GemmaToolParser(ToolParser):
     def __init__(self):
         self.tool_call_start_token = "<|tool_call>"
         self.tool_call_end_token = "<tool_call|>"
+        self.string_token = '<|"|>'
+
         self.tool_call_regex = re.compile(
             r"(<\|tool_call\>.*?<tool_call\|>)", re.DOTALL
         )
         self.call_header_regex = re.compile(r"call\s*:\s*([^{\s]+)", re.IGNORECASE)
-
-    @staticmethod
-    def _replace_quotes(text: str) -> str:
-        return text.replace('<|"|>', '"')
 
     @staticmethod
     def _quote_keys(text: str) -> str:
@@ -47,12 +47,36 @@ class GemmaToolParser(ToolParser):
                 break
         return text
 
+    def _arguments_to_json(self, arg_block: str) -> str:
+        """Rewrite Gemma's argument block as JSON.
+
+        Gemma delimits strings with ``<|"|>`` rather than quoting them, so the
+        text between two of those tokens is a literal: it may itself contain
+        double quotes, backslashes or newlines, and re-emitting it verbatim
+        would produce invalid JSON. Splitting on the delimiter therefore yields
+        alternating segments — even indices are structural, odd ones are string
+        contents — so each string is re-encoded and bare keys are quoted only in
+        the structural text. A value containing something like ``a,b:c`` must
+        not be mistaken for a key.
+        """
+        parts = arg_block.split(self.string_token)
+        if len(parts) % 2 == 0:
+            # an odd number of delimiters leaves a string open
+            raise ValueError("Unterminated string in tool call arguments")
+        return "".join(
+            (
+                json.dumps(part, ensure_ascii=False)
+                if index % 2
+                else self._quote_keys(part)
+            )
+            for index, part in enumerate(parts)
+        )
+
     def _parse_arguments(self, arg_block: str) -> Dict[str, Any]:
-        cleaned = self._replace_quotes(arg_block.strip())
+        cleaned = arg_block.strip()
         if not cleaned:
             return {}
-        normalized = self._quote_keys(cleaned)
-        return json.loads(normalized)
+        return json.loads(self._arguments_to_json(cleaned))
 
     def _parse_tool_call_block(
         self, block: str
@@ -114,19 +138,37 @@ class GemmaToolParser(ToolParser):
         previous_texts: List[str],
         current_text: str,
         delta_text: str,
-    ) -> Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
+    ) -> Optional[Union[ToolEvent, List[ToolEvent]]]:
         if self.tool_call_start_token not in current_text:
             return (delta_text, None, None)
 
-        matches = list(self.tool_call_regex.finditer(current_text))
-        if not matches:
+        prev_text = previous_texts[-1] if previous_texts else ""
+        # Text after an unclosed start token belongs to a tool call that is
+        # still streaming. Everything before it is settled: plain text and
+        # complete tool call blocks. Emit only what became settled in this
+        # chunk, in order, so that a second tool call is never sent as content
+        # and text sharing a chunk with a tag is not dropped.
+        start = self._settled_length(prev_text)
+        end = self._settled_length(current_text)
+        if end <= start:
             return None
 
-        prev_text = previous_texts[-1] if previous_texts else ""
-        last_match = matches[-1]
-        if last_match.end() <= len(prev_text):
-            # The latest complete tool call was already processed, return delta as text
-            return (delta_text, None, None)
+        events: List[ToolEvent] = []
+        position = start
+        for match in self.tool_call_regex.finditer(current_text, start, end):
+            if match.start() > position:
+                events.append((current_text[position : match.start()], None, None))
+            events.append(self._parse_tool_call_block(match.group(0)))
+            position = match.end()
+        if position < end:
+            events.append((current_text[position:end], None, None))
+        return events[0] if len(events) == 1 else events
 
-        block = last_match.group(0)
-        return self._parse_tool_call_block(block)
+    def _settled_length(self, text: str) -> int:
+        """Return the length of the prefix of ``text`` that holds no unclosed
+        tool call block."""
+        position = 0
+        for match in self.tool_call_regex.finditer(text):
+            position = match.end()
+        open_index = text.find(self.tool_call_start_token, position)
+        return len(text) if open_index == -1 else open_index

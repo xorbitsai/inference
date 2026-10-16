@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,12 +54,17 @@ class CacheTrackerActor(xo.Actor):
             if model_name not in self._model_name_to_version_info:
                 self._model_name_to_version_info[model_name] = model_versions
             else:
-                assert len(model_versions) == len(
-                    self._model_name_to_version_info[model_name]
-                ), "Model version info inconsistency between supervisor and worker"
-                for version, origin_version in zip(
-                    model_versions, self._model_name_to_version_info[model_name]
-                ):
+                existing = self._model_name_to_version_info[model_name]
+                existing_by_version = {
+                    version["model_version"]: version for version in existing
+                }
+                for version in model_versions:
+                    model_version = version["model_version"]
+                    origin_version = existing_by_version.get(model_version)
+                    if origin_version is None:
+                        existing.append(version)
+                        existing_by_version[model_version] = version
+                        continue
                     if (
                         version["cache_status"]
                         and version["model_file_location"] is not None

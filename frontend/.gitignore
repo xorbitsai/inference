@@ -29,9 +29,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.npm-cache/
+.npm-logs/
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the dev defaults: without NEXT_PUBLIC_API_URL the browser
+# talks to the Next dev server, whose rewrite proxy buffers SSE and
+# silently kills streaming responses.
+!.env.development
 
 # vercel
 .vercel

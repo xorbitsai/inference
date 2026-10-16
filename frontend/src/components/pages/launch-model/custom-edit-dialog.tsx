@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { useI18n } from '@/contexts/i18n-context';
 import type { CatalogModel, RequestModelType } from './types';
-import { copyText } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/utils';
 
 interface EnvManagementDialogProps {
   model: CatalogModel;
@@ -47,7 +47,7 @@ const CustomEditDialog: FC<EnvManagementDialogProps> = ({ model, modelType }) =>
           <DialogTitle className="truncate">{model.model_name}</DialogTitle>
           <button
             className="shrink-0 p-1 text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => copyText(value)}
+            onClick={() => copyToClipboard(value)}
           >
             <Copy className="size-4" />
           </button>

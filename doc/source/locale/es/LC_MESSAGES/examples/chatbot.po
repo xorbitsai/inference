@@ -1,0 +1,116 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: es <LL@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/examples/chatbot.rst:5
+msgid "Example: CLI chatbot 🤖️"
+msgstr "Ejemplo: Chatbot de línea de comandos 🤖️"
+
+#: ../../source/examples/chatbot.rst:7
+msgid "**Description**:"
+msgstr "**Descripción**:"
+
+#: ../../source/examples/chatbot.rst:9
+msgid ""
+"Demonstrate how to interact with Xinference to play with LLM chat "
+"functionality with an AI agent in command line💻"
+msgstr ""
+"Demostrar cómo interactuar con Xinference, utilizando la función de chat "
+"basada en LLM en la línea de comandos para interactuar con agentes de IA. 💻"
+
+#: ../../source/examples/chatbot.rst:11
+msgid "**Used Technology**:"
+msgstr "**Tecnología involucrada**:"
+
+#: ../../source/examples/chatbot.rst:13
+msgid ""
+"@ `ggerganov <https://twitter.com/ggerganov>`_ 's `ggml "
+"<https://github.com/ggerganov/ggml>`_"
+msgstr ""
+"@ `ggerganov <https://twitter.com/ggerganov>`_ `ggml "
+"<https://github.com/ggerganov/ggml>`_"
+
+#: ../../source/examples/chatbot.rst:15
+msgid "@ `Xinference <https://github.com/xorbitsai/inference>`_ as a launcher"
+msgstr ""
+"@ `Xinference <https://github.com/xorbitsai/inference>`_ como plataforma"
+
+#: ../../source/examples/chatbot.rst:17
+msgid ""
+"@ All LLaMA and Chatglm models supported by `Xorbitsio inference "
+"<https://github.com/xorbitsai/inference>`_"
+msgstr ""
+"Todos los modelos LLaMA y Chatglm compatibles con `Xinference Inference "
+"<https://github.com/xorbitsai/inference>`_."
+
+#: ../../source/examples/chatbot.rst:19
+msgid "**Detailed Explanation on the Demo Functionality** :"
+msgstr "**Descripción detallada sobre la función de demostración**:"
+
+#: ../../source/examples/chatbot.rst:21
+msgid ""
+"Take the user command line input in the terminal and grab the required "
+"parameters for model launching."
+msgstr ""
+"Acepta la entrada de línea de comandos del usuario en la terminal y obtiene "
+"los parámetros necesarios para iniciar el modelo."
+
+#: ../../source/examples/chatbot.rst:23
+msgid ""
+"Launch the Xinference frameworks and automatically deploy the model user "
+"demanded into the cluster."
+msgstr ""
+"Inicia el framework Xinference y despliega automáticamente el modelo "
+"solicitado por el usuario en el clúster."
+
+#: ../../source/examples/chatbot.rst:25
+msgid ""
+"Initialize an empty chat history to store all the context in the chatroom."
+msgstr ""
+"Inicializar un historial de chat vacío para almacenar todo el contexto de la"
+" sala de chat."
+
+#: ../../source/examples/chatbot.rst:27
+msgid ""
+"Recursively ask for user's input as prompt and let the model to generate "
+"response based on the prompt and the chat history. Show the Output of the "
+"response in the terminal."
+msgstr ""
+"Solicita recursivamente la entrada del usuario como indicación, permitiendo "
+"que el modelo genere una respuesta basada en la indicación y el historial de"
+" chat. Muestra la salida de la respuesta en la terminal."
+
+#: ../../source/examples/chatbot.rst:30
+msgid ""
+"Store the user's input and agent's response into the chat history as context"
+" for the upcoming rounds."
+msgstr ""
+"Almacena las entradas del usuario y las respuestas del agente en el "
+"historial de chat, como contexto para las próximas rondas de conversación."
+
+#: ../../source/examples/chatbot.rst:32
+msgid "**Source Code** :"
+msgstr "**Código fuente**"
+
+#: ../../source/examples/chatbot.rst:33
+msgid ""
+"`chat "
+"<https://github.com/RayJi01/Xprobe_inference/blob/main/examples/chat.py>`_"
+msgstr ""

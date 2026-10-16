@@ -1,11 +1,13 @@
-import RunningModelDetail from '@/components/pages/running-model-detail';
+import RunningModelDetailPageClient from './page-client';
+import { SHELL_ROUTE_PARAM } from '@/lib/route-params';
 
-interface RunningModelDetailPageProps {
-  params: Promise<{
-    modelUid: string;
-  }>;
+// Server wrapper for static export: provides a placeholder param so a shell
+// HTML is emitted for this dynamic route. The backend serves the shell for any
+// real model uid; the client component reads the actual value from the URL.
+export function generateStaticParams() {
+  return [{ modelUid: SHELL_ROUTE_PARAM }];
 }
-export default async function RunningModelDetailPage({ params }: RunningModelDetailPageProps) {
-  const { modelUid } = await params;
-  return <RunningModelDetail modelUid={modelUid} />;
+
+export default function RunningModelDetailPage() {
+  return <RunningModelDetailPageClient />;
 }

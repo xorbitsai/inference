@@ -11,7 +11,6 @@ Welcome to Xinference!
    getting_started/index
    models/index
    user_guide/index
-   examples/index
    reference/index
    development/index
 
@@ -20,6 +19,11 @@ Xorbits Inference (Xinference) is an open-source platform to streamline the oper
 of a wide array of AI models. With Xinference, you're empowered to run inference using any open-source LLMs,
 embedding models, and multimodal models either in the cloud or on your own premises, and create robust
 AI-driven applications.   
+
+**Xinference Enterprise** is the commercial edition for teams running models in production.
+Deploy it in your own cloud or data centre, or choose a managed dedicated deployment with
+**Xinference Cloud**. The hosted **Model API** gives you access to supported models through an
+OpenAI-compatible API without managing inference infrastructure. Learn more at `xinference.co <https://xinference.co>`_.
 
 Developing Real-world AI Applications with Xinference
 -----------------------------------------------------
@@ -210,6 +214,12 @@ Explore the API
       Learn how to generate video with Xinference.
 
 .. grid:: 2
+
+    .. grid-item-card::  World
+      :link: world
+      :link-type: ref
+
+      Learn how to generate environment videos with world models in Xinference.
 
     .. grid-item-card::  Flexible
       :link: flexible

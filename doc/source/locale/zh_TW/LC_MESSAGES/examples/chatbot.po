@@ -1,0 +1,102 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/examples/chatbot.rst:5
+msgid "Example: CLI chatbot 🤖️"
+msgstr "範例：命令列聊天機器人 🤖️"
+
+#: ../../source/examples/chatbot.rst:7
+msgid "**Description**:"
+msgstr "**描述**："
+
+#: ../../source/examples/chatbot.rst:9
+msgid ""
+"Demonstrate how to interact with Xinference to play with LLM chat "
+"functionality with an AI agent in command line💻"
+msgstr "展示如何與 Xinference 交互，在命令列中基於 LLM 的聊天功能與 AI 代理互動。💻"
+
+#: ../../source/examples/chatbot.rst:11
+msgid "**Used Technology**:"
+msgstr "涉及技術"
+
+#: ../../source/examples/chatbot.rst:13
+msgid ""
+"@ `ggerganov <https://twitter.com/ggerganov>`_ 's `ggml "
+"<https://github.com/ggerganov/ggml>`_"
+msgstr ""
+"@ `ggerganov <https://twitter.com/ggerganov>`_ `ggml "
+"<https://github.com/ggerganov/ggml>`_"
+
+#: ../../source/examples/chatbot.rst:15
+msgid "@ `Xinference <https://github.com/xorbitsai/inference>`_ as a launcher"
+msgstr "@ `Xinference <https://github.com/xorbitsai/inference>`_ 作為平台"
+
+#: ../../source/examples/chatbot.rst:17
+msgid ""
+"@ All LLaMA and Chatglm models supported by `Xorbitsio inference "
+"<https://github.com/xorbitsai/inference>`_"
+msgstr ""
+"由 `Xinference 推理 <https://github.com/xorbitsai/inference>`_ 支援的所有 LLaMA 和 "
+"Chatglm 模型"
+
+#: ../../source/examples/chatbot.rst:19
+msgid "**Detailed Explanation on the Demo Functionality** :"
+msgstr "**關於演示功能的詳細說明**："
+
+#: ../../source/examples/chatbot.rst:21
+msgid ""
+"Take the user command line input in the terminal and grab the required "
+"parameters for model launching."
+msgstr "在終端中接受使用者的命令列輸入，並取得啟動模型所需的參數。"
+
+#: ../../source/examples/chatbot.rst:23
+msgid ""
+"Launch the Xinference frameworks and automatically deploy the model user "
+"demanded into the cluster."
+msgstr "啟動 Xinference 框架，並自動將使用者需求的模型部署到叢集中。"
+
+#: ../../source/examples/chatbot.rst:25
+msgid ""
+"Initialize an empty chat history to store all the context in the chatroom."
+msgstr "初始化一個空的聊天歷史，以儲存聊天室中的所有上下文。"
+
+#: ../../source/examples/chatbot.rst:27
+msgid ""
+"Recursively ask for user's input as prompt and let the model to generate "
+"response based on the prompt and the chat history. Show the Output of the "
+"response in the terminal."
+msgstr "遞迴地請求使用者的輸入作為提示詞，讓模型基於提示詞和聊天歷史生成回應。在終端機中顯示回應的輸出。"
+
+#: ../../source/examples/chatbot.rst:30
+msgid ""
+"Store the user's input and agent's response into the chat history as context"
+" for the upcoming rounds."
+msgstr "將使用者的輸入和代理的回應儲存到聊天歷史中，作為即將到來的對話輪次的上下文。"
+
+#: ../../source/examples/chatbot.rst:32
+msgid "**Source Code** :"
+msgstr "**原始碼**"
+
+#: ../../source/examples/chatbot.rst:33
+msgid ""
+"`chat "
+"<https://github.com/RayJi01/Xprobe_inference/blob/main/examples/chat.py>`_"
+msgstr ""

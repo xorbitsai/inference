@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,7 +59,9 @@ def match_rerank(
             f"Rerank model {model_name} not found, available models: {BUILTIN_RERANK_MODELS.keys()}"
         )
 
-    if download_hub == "modelscope" or download_from_modelscope():
+    if download_hub == "modelscope" or (
+        download_hub is None and download_from_modelscope()
+    ):
         specs = [
             x for x in target_family.model_specs if x.model_hub == "modelscope"
         ] + [x for x in target_family.model_specs if x.model_hub == "huggingface"]

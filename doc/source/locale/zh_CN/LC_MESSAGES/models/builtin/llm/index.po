@@ -760,3 +760,23 @@ msgid ""
 "version of mistralai/Mistral-7B-v0.1"
 msgstr ""
 
+
+#: ../../models/builtin/llm/index.rst
+msgid "We introduce DeepSeek-V4.1-Flash, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively."
+msgstr ""
+
+#: ../glm53-doc-check/models/builtin/llm/index.rst:269
+msgid ":ref:`glm-5.3 <models_llm_glm-5.3>`"
+msgstr ":ref:`glm-5.3 <models_llm_glm-5.3>`"
+
+#: ../glm53-doc-check/models/builtin/llm/index.rst:272
+msgid "GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks."
+msgstr "GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks."
+
+#: doc/source/models/builtin/llm/index.rst
+msgid "Qwen3.8-Flash-Next is a native vision-language Mixture-of-Experts model with 125B main-model parameters, 6B activated per token, and an additional 51B n-gram embedding table. Its Qwen4 experimental architecture combines Gated DeltaNet, Qwen Sparse Attention, gated residuals, and flexible thinking control."
+msgstr "Qwen3.8-Flash-Next 是原生视觉语言混合专家模型，主模型包含 1250 亿参数，每个 token 激活 60 亿参数，另有 510 亿参数的 n-gram 嵌入表。其 Qwen4 实验性架构结合了门控 DeltaNet、Qwen 稀疏注意力、门控残差和灵活的思考控制。"
+
+#: doc/source/models/builtin/llm/index.rst
+msgid "chat, vision, tools, reasoning, hybrid"
+msgstr "对话、视觉、工具调用、推理、混合思考模式"

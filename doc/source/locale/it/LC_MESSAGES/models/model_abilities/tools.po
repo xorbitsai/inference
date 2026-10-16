@@ -1,0 +1,230 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-09-05 16:44+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: it <LL@li.org>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/tools.rst:5
+msgid "Tools"
+msgstr "strumento"
+
+#: ../../source/models/model_abilities/tools.rst:7
+msgid "Learn how to connect LLM with external tools."
+msgstr "Impara come connettere un LLM con strumenti esterni."
+
+#: ../../source/models/model_abilities/tools.rst:11
+msgid "Introduction"
+msgstr "Introduction"
+
+#: ../../source/models/model_abilities/tools.rst:13
+msgid "With the ``tools`` ability you can have your model use external tools."
+msgstr ""
+"Con la funzione ``tools``, puoi fare in modo che il tuo modello utilizzi "
+"strumenti esterni."
+
+#: ../../source/models/model_abilities/tools.rst:16
+msgid ""
+"Like `OpenAI's Function calling API "
+"<https://platform.openai.com/docs/guides/function-calling>`_, you can define"
+" the functions along with their parameters and have the model dynamically "
+"choose which function to call and what parameters to pass to it."
+msgstr ""
+"Come l'`API di Function Calling di OpenAI "
+"<https://platform.openai.com/docs/guides/function-calling>`_, puoi definire "
+"funzioni con parametri e far sì che il modello scelga dinamicamente quale "
+"funzione chiamare e quali argomenti passarvi."
+
+#: ../../source/models/model_abilities/tools.rst:19
+msgid "This is the general process for calling a function:"
+msgstr "Questo è il processo generale per chiamare una funzione:"
+
+#: ../../source/models/model_abilities/tools.rst:21
+msgid ""
+"You submit a query, detailing the functions, their parameters, and "
+"descriptions."
+msgstr ""
+"Invia una query specificando le funzioni, i loro parametri e la descrizione."
+
+#: ../../source/models/model_abilities/tools.rst:22
+msgid ""
+"The LLM decides whether to initiate the function. If chosen not to, it "
+"replies in everyday language, either offering a solution based on its "
+"inherent understanding or asking further details about the query and tool "
+"usage. On deciding to use a tool, it recommends the suitable API and "
+"instructions for its usage, framed in JSON."
+msgstr ""
+"LLM decide se avviare la funzionalità. Se sceglie di non avviarla, risponde "
+"in linguaggio quotidiano, fornendo soluzioni basate sulla propria "
+"comprensione intrinseca o chiedendo ulteriori dettagli sulla query e "
+"sull'uso degli strumenti. Quando decide di utilizzare uno strumento, "
+"raccomanda API adatte e istruzioni per l'uso in formato JSON."
+
+#: ../../source/models/model_abilities/tools.rst:25
+msgid ""
+"Following that, you implement the API call within your application and send "
+"the returned response back to the LLM for result analysis and proceeding "
+"with the next steps."
+msgstr ""
+"Successivamente, implementa le chiamate API nell'applicazione e invia la "
+"risposta restituita all'LLM per l'analisi dei risultati, proseguendo poi con"
+" il passaggio successivo."
+
+#: ../../source/models/model_abilities/tools.rst:28
+msgid ""
+"There is no dedicated API endpoint implemented for ``tools`` ability. It "
+"must be used in combination with Chat API."
+msgstr ""
+"Attualmente non esiste un endpoint API dedicato per la funzionalità "
+"``tools``. Deve essere utilizzato in combinazione con l'API Chat."
+
+#: ../../source/models/model_abilities/tools.rst:31
+msgid "Supported models"
+msgstr "Elenco dei modelli supportati"
+
+#: ../../source/models/model_abilities/tools.rst:33
+msgid ""
+"The ``tools`` ability is supported with the following models in Xinference:"
+msgstr ""
+"Xinference supporta i seguenti modelli per l'uso della funzionalità "
+"``tools``:"
+
+#: ../../source/models/model_abilities/tools.rst:35
+msgid ":ref:`models_llm_glm4-chat`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:36
+msgid ":ref:`models_llm_glm4-chat-1m`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:37
+msgid ":ref:`models_llm_llama-3.1-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:38
+msgid ":ref:`models_llm_llama-3.3-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:39
+msgid ":ref:`models_llm_qwen1.5-chat`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:40
+msgid ":ref:`models_llm_qwen1.5-moe-chat`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:41
+msgid ":ref:`models_llm_qwen2-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:42
+msgid ":ref:`models_llm_qwen2-moe-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:43
+msgid ":ref:`models_llm_qwen2.5-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:44
+msgid ":ref:`models_llm_qwen2.5-coder-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:45
+msgid ":ref:`models_llm_qwq-32b`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:46
+msgid ":ref:`models_llm_qwen3`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:47
+msgid ":ref:`models_llm_qwen3-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:48
+msgid ":ref:`models_llm_qwen3-coder`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:49
+msgid ":ref:`models_llm_deepseek-v3`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:50
+msgid ":ref:`models_llm_deepseek-r1-0528`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:53
+msgid "Quickstart"
+msgstr "Guida rapida"
+
+#: ../../source/models/model_abilities/tools.rst:55
+msgid ""
+"An optional parameter ``tools`` in the Chat API can be used to provide "
+"function specifications. The purpose of this is to enable models to generate"
+" function arguments which adhere to the provided specifications."
+msgstr ""
+"Il parametro opzionale ``tools`` nell'API Chat può essere utilizzato per "
+"fornire specifiche di funzioni. Il suo scopo è consentire al modello di "
+"generare parametri di funzione conformi alle specifiche fornite."
+
+#: ../../source/models/model_abilities/tools.rst:59
+msgid "Example using OpenAI Client"
+msgstr "Esempio di utilizzo del client OpenAI"
+
+#: ../../source/models/model_abilities/tools.rst:108
+#: ../../source/models/model_abilities/tools.rst:171
+msgid "The output will be:"
+msgstr "Il risultato dell'output è:"
+
+#: ../../source/models/model_abilities/tools.rst:126
+msgid "Example using Anthropic Client"
+msgstr "Esempio di utilizzo del client Anthropic"
+
+#: ../../source/models/model_abilities/tools.rst:191
+msgid ""
+"Finish reason will be ``tool_calls`` if the LLM uses a tool call. Othewise "
+"it will be the default finish reason."
+msgstr ""
+"Se l'LLM ha utilizzato chiamate a strumenti, il motivo del completamento "
+"sarà ``tool_calls``. Altrimenti, sarà il motivo di completamento "
+"predefinito."
+
+#: ../../source/models/model_abilities/tools.rst:196
+msgid ""
+"The API will not actually execute any function calls. It is up to developers"
+" to execute function calls using model outputs."
+msgstr ""
+"L'API stessa non esegue alcuna chiamata di funzione. Lo sviluppatore deve "
+"utilizzare l'output del modello per eseguire la chiamata di funzione."
+
+#: ../../source/models/model_abilities/tools.rst:200
+msgid ""
+"You can find more examples of ``tools`` ability in the tutorial notebook:"
+msgstr ""
+"Puoi trovare altri esempi sulle capacità di ``tools`` nei notebook del "
+"tutorial."
+
+#: ../../source/models/model_abilities/tools.rst:204
+msgid "Function calling"
+msgstr "Chiamata di funzione"
+
+#: ../../source/models/model_abilities/tools.rst:207
+msgid "Learn from a complete example demonstrating function calling"
+msgstr ""
+"Studia un esempio completo che dimostri il processo di chiamata di funzione."
+
+#~ msgid ":ref:`models_llm_qwen-chat`"
+#~ msgstr ""

@@ -1,12 +1,14 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
 
 logger = logging.getLogger(__name__)
+
+ToolEvent = Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
 
 
 @register_tool_parser("glm5")
@@ -50,10 +52,11 @@ class Glm5ToolParser(ToolParser):
         for key, value in self.tool_arg_regex.findall(function_call_str):
             key = key.strip()
             value = value.strip()
-            try:
-                value = json.loads(value)
-            except Exception:
-                pass
+            if not self._is_string_parameter(function_name, key):
+                try:
+                    value = json.loads(value)
+                except Exception:
+                    pass
             arguments[key] = value
 
         return None, function_name, arguments
@@ -117,16 +120,14 @@ class Glm5ToolParser(ToolParser):
     def _extract_delta_without_partial_start(
         self, current_text: str, delta_text: str
     ) -> Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-        for i in range(len(self.tool_call_start_token) - 1, 0, -1):
-            if current_text.endswith(self.tool_call_start_token[:i]):
-                if len(delta_text) > i:
-                    return delta_text[:-i], None, None
-                return None
-        return (delta_text, None, None) if delta_text else None
+        content = self._plain_text_delta(
+            current_text, delta_text, [self.tool_call_start_token]
+        )
+        return (content, None, None) if content else None
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
-    ) -> Optional[Any]:
+    ) -> Optional[Union[ToolEvent, List[ToolEvent]]]:
         """
         Extract tool calls from streaming output.
 
@@ -140,20 +141,39 @@ class Glm5ToolParser(ToolParser):
                 return self._extract_delta_without_partial_start(
                     current_text, delta_text
                 )
-            if current_text.count(self.tool_call_start_token) > current_text.count(
-                self.tool_call_end_token
-            ):
+
+            # Text after an unclosed start tag belongs to a tool call that is
+            # still streaming. Emit only what became settled in this chunk:
+            # plain text and every tool call block that closed, in order.
+            previous = current_text[: len(current_text) - len(delta_text)]
+            start = self._settled_length(previous)
+            end = self._settled_length(current_text)
+            if end <= start:
                 return None
 
-            previous = previous_text[-1] if previous_text else ""
-            if isinstance(previous, str) and previous.count(
-                self.tool_call_end_token
-            ) >= current_text.count(self.tool_call_end_token):
-                return (delta_text, None, None) if delta_text else None
-
-            results = self._parse_xml_tool_calls(current_text)
-            for result in reversed(results):
-                if result[1] is not None:
-                    return result
-            return None
+            events: List[ToolEvent] = []
+            position = start
+            for match in self.tool_call_complete_regex.finditer(
+                current_text, start, end
+            ):
+                if match.start() > position:
+                    events.append((current_text[position : match.start()], None, None))
+                events.append(self._parse_xml_function_call(match.group(1)))
+                position = match.end()
+            if position < end:
+                events.append((current_text[position:end], None, None))
+            return events[0] if len(events) == 1 else events
         return (str(current_text), None, None)
+
+    def _settled_length(self, text: str) -> int:
+        """Return the length of the prefix of ``text`` that holds no unclosed
+        tool call block and no trailing piece of a start tag."""
+        position = 0
+        for match in self.tool_call_complete_regex.finditer(text):
+            position = match.end()
+        open_index = text.find(self.tool_call_start_token, position)
+        if open_index != -1:
+            return open_index
+        return len(text) - self._partial_marker_length(
+            text, [self.tool_call_start_token]
+        )

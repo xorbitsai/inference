@@ -1,0 +1,397 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/launch.rst:17
+msgid "How recommendations are chosen"
+msgstr "推薦設定的選擇方式"
+
+#: ../../source/user_guide/launch.rst:20
+msgid "Click **Recommend configuration** in the upper-right corner of the launch dialog to fill in the engine, format, size, and quantization together. You can still change these fields before clicking **Deploy**. The recommendation also selects a worker, so the configuration is tied to the machine checked for it."
+msgstr "點選啟動對話框右上角的 **推薦設定**，即可一次填入引擎、格式、模型大小和量化方式。在點選 **部署** 之前，您仍可修改這些欄位。推薦也會選定一個工作節點，因此設定對應的是已完成相關檢查的那台機器。"
+
+#: ../../source/user_guide/launch.rst:25
+msgid "Xinference starts with your choices. If you have selected an 8B model, it looks for configurations of that size; it will not switch to a smaller model. Worker, GPU, and virtual environment settings also constrain the search. It checks each worker separately and removes combinations that fail the compatibility checks. If none remain, it leaves your form unchanged so you can adjust the settings."
+msgstr "Xinference 會以您的選擇為起點。如果您選擇了 8B 模型，它就會尋找該大小的設定，不會改用更小的模型。工作節點、GPU 和虛擬環境設定也會限制搜尋範圍。系統會逐一檢查各工作節點，並排除未通過相容性檢查的組合。如果沒有剩餘的可選設定，表單會維持不變，方便您調整設定。"
+
+#: ../../source/user_guide/launch.rst:31
+msgid "If memory data is available, Xinference prefers the largest size estimated to fit. Otherwise it falls back to the smallest unverified size. Within that size, installed engines are preferred; virtual-environment candidates remain eligible."
+msgstr "有記憶體資料時，Xinference 優先選擇估算能容納的最大規格；否則退回尚未驗證記憶體的最小規格。同一規格下優先使用已安裝的引擎，也會考慮可透過虛擬環境安裝的引擎。"
+
+#: ../../source/user_guide/launch.rst:38
+msgid "Next comes the platform's default engine order. With the earlier conditions equal, MLX comes first on Apple Silicon, vLLM followed by SGLang on Linux with CUDA, and llama.cpp on CPU. Within an engine, common 4-bit quantizations such as Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights already cached on that worker get priority. A cached model does not override your selected size or the earlier preferences."
+msgstr "接著會依平台預設的引擎順序選擇。在前述條件相同的情況下，Apple Silicon 上優先選擇 MLX，使用 CUDA 的 Linux 上優先選擇 vLLM，其次是 SGLang，CPU 上則優先選擇 llama.cpp。對於同一個引擎，在支援的情況下，優先選擇 Q4_K_M、Int4 等常見的 4 位元量化方式。如果仍有多個選項並列，則優先選擇該工作節點上已快取的權重。模型已快取並不會改變您選定的模型大小，也不會優先於前述偏好。"
+
+#: ../../source/user_guide/launch.rst:45
+msgid "Estimates use offline architecture facts and checkpoint sizes when available. MoE weights include all resident experts. Full-attention KV cache, Gated DeltaNet recurrent state and workspace are counted separately. MLX, Transformers, vLLM, SGLang and llama.cpp share this accounting with different workspace bounds. Unknown layouts, including MLA, remain unverified."
+msgstr "估算使用離線架構資訊和可取得的檢查點大小。MoE 權重包含全部駐留專家。完整注意力的 KV cache、Gated DeltaNet 循環狀態和工作區分別計算。MLX、Transformers、vLLM、SGLang 和 llama.cpp 共用這套計算方式，但工作區上界各不相同。包括 MLA 在內的未知布局仍標記為未驗證。"
+
+msgid "Defaults are one sequence, the model's registered maximum context, FP16 KV cache, no image tokens and no retained prefix cache. The budget is 80% of currently free memory: the lowest free memory among eligible GPUs, or available system memory on CPU and Apple Silicon. The default vLLM GPU reservation is checked separately when total memory is known; SGLang budgets from memory available at initialization. Multi-GPU requests keep compatibility-only selection. Known oversized candidates are excluded. Workspace bounds are estimates, not measured peaks. Engine preallocation is not modeled beyond the separate vLLM default reservation check; custom engine settings require manual configuration. No resources are reserved."
+msgstr "預設按一個序列、模型註冊的最大 context、FP16 KV cache、無影像 tokens 和無保留前綴快取估算。預算為目前可用記憶體的 80%：GPU 使用候選卡中最少的可用顯示記憶體，CPU 和 Apple Silicon 使用可用系統記憶體。已知總顯示記憶體時，另外檢查 vLLM 的預設 GPU 保留量；SGLang 按初始化時的可用記憶體計算預算。多卡請求仍只檢查相容性。已知超出預算的設定會被排除。工作區上界是估算值，不是實測峰值。除單獨檢查 vLLM 預設保留量外，不對引擎預先配置建模；自訂引擎設定需要手動配置。推薦不會預留資源。"
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Using the API"
+msgstr "使用 API"
+
+#: ../../source/user_guide/launch.rst:10
+msgid "LLM launch recommendations"
+msgstr "LLM 啟動推薦"
+
+#: ../../source/user_guide/launch.rst:12
+msgid "In an LLM's deployment dialog, use the launch recommendation button to get a suggested configuration, then review it before deploying. The button is available for LLMs, embedding, rerank, and audio models. Recommendations currently target a single replica. Custom model paths and custom engine parameters require manual configuration."
+msgstr "在 LLM 的部署視窗中，點選推薦配置按鈕，檢查填好的配置後再部署。LLM、Embedding、Rerank 和音訊模型皆支援推薦，目前限單副本。自訂模型路徑和自訂引擎參數仍需手動配置。"
+
+msgid "Recommendations for other model types"
+msgstr "其他模型類型的推薦"
+
+msgid "Embedding, rerank, and audio models use the same **Recommend configuration** button and ``POST /v1/models/recommend`` endpoint; set ``model_type`` to ``embedding``, ``rerank``, or ``audio``. The recommendation fills only the fields supported by that type, without selecting a model size. Embedding and rerank prefer an available sentence-transformers engine; audio prefers an available MLX engine on Apple Silicon, otherwise its standard Transformers or PyTorch backend. Installed engines come before engines that need a virtual environment, and unquantized variants are preferred within an engine. Unlike LLM recommendations, these types do not use cached weights as a tie-breaker. Worker, GPU, and virtual environment constraints still apply; ``model_size_in_billions`` is rejected for these types. A recommendation remains a starting configuration, not a memory-fit guarantee. Image and video recommendations are not yet supported."
+msgstr "Embedding、Rerank 和音訊模型也可以點選 **推薦配置**，或呼叫 ``POST /v1/models/recommend``，將 ``model_type`` 分別設為 ``embedding``、``rerank`` 或 ``audio``。推薦只填寫該類型支援的欄位，不選擇模型大小。Embedding 和 Rerank 優先使用可用的 sentence-transformers 引擎；音訊模型在 Apple Silicon 上優先使用可用的 MLX，否則優先考慮標準的 Transformers 或 PyTorch 後端。已安裝的引擎優先於需要虛擬環境安裝相依套件的引擎，同一引擎內優先選擇未量化版本。與 LLM 不同，這些類型暫不以權重是否快取來決定同等候選的順序。指定的工作節點、GPU 和虛擬環境條件仍然有效，但這些類型不接受 ``model_size_in_billions``。推薦只是起始配置，不保證記憶體足夠。圖片和影片模型暫不支援推薦。"
+
+#: ../../source/user_guide/launch.rst:16
+msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. LLM constraints also accept ``context_length``. Supplied constraints are hard requirements, never silently relaxed."
+msgstr "``POST /v1/models/recommend`` 是唯讀介面。提供 ``model_name`` 和 ``model_type=\"LLM\"``；選用的 ``constraints`` 物件接受 ``model_size_in_billions``、``worker_ip``、``enable_virtual_env``、``n_gpu`` 和 ``gpu_idx``。提供的限制皆為必要條件，不會在未告知的情況下放寬。 LLM 約束還接受 ``context_length``。"
+
+#: ../../source/user_guide/launch.rst:31
+msgid "The response ``status`` is ``recommended`` or ``no_recommendation``. On success, ``config`` contains launch-compatible fields such as ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``. ``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields. If no configuration satisfies the constraints, review the explanation and adjust the constraints or configure the launch manually."
+msgstr "回應中的 ``status`` 為 ``recommended`` 或 ``no_recommendation``。推薦成功時，``config`` 包含與啟動介面相容的欄位，例如 ``model_engine``、``model_format``、``model_size_in_billions``、``quantization`` 和 ``worker_ip``。``reasons`` 和 ``warnings`` 中的項目包含 ``code`` 和 ``message`` 欄位。若沒有設定符合限制，請查看說明並調整限制，或手動設定啟動參數。"
+
+#: ../../source/user_guide/launch.rst:38
+msgid "A recommendation does not guarantee sufficient memory or a successful launch. It reserves no resources, downloads no model files, and installs no dependencies. Existing launch behavior is unchanged; deployment remains a separate action."
+msgstr "推薦不保證記憶體充足或啟動成功。它不會預留資源、下載模型檔案或安裝相依套件。現有啟動行為不變；部署仍須另行執行。"
+
+#: ../../source/user_guide/launch.rst:42
+msgid "``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "``config`` 還包含實際生效的 ``enable_virtual_env``，以及提供的 ``n_gpu`` 和 ``gpu_idx`` 限制。``n_gpu=null`` 要求使用 CPU，而 ``n_gpu=\"auto\"`` 使用現有啟動分配策略，不會計算所需的 GPU 數量。"
+
+#: ../../source/user_guide/launch.rst:48
+msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."
+msgstr "``recommended`` 和 ``no_recommendation`` 均回傳 HTTP 200。未知模型回傳 HTTP 404；無效請求回傳 HTTP 422。原因與警告代碼採用小寫蛇形命名（snake_case）。回應一律包含 ``memory_not_verified`` 警告。"
+
+#: ../../source/user_guide/launch.rst:5
+msgid "Model Launching Instructions"
+msgstr "模型載入指南"
+
+#: ../../source/user_guide/launch.rst:7
+msgid ""
+"This document aims to provide a functional overview of model launching."
+msgstr "本文件旨在提供模型載入的功能說明。"
+
+#: ../../source/user_guide/launch.rst:10
+msgid "Replica"
+msgstr "複本"
+
+#: ../../source/user_guide/launch.rst:12
+msgid ""
+"Replicas specify the number of model instances to load. For example, if you "
+"have two GPUs and each can host one replica of the model, you can set the "
+"replica count to 2. This way, two identical instances of the model will be "
+"distributed across the two GPUs. Xinference automatically load-balances "
+"requests to ensure even distribution across multiple GPUs. Meanwhile, users "
+"see it as a single model, which greatly improves overall resource "
+"utilization."
+msgstr ""
+"副本用來指定模型加載的實例份數。例如，你有兩張 GPU，每張卡可以容納模型的一個副本，你可以將副本數設定為 "
+"2。這樣，兩個完全相同的模型實例將分佈在這兩張 GPU 上。Xinference "
+"會自動進行負載平衡，確保請求均勻分配到多張卡上。使用者看到的仍是一個模型，這大幅提升了整體資源利用率。"
+
+#: ../../source/user_guide/launch.rst:17
+msgid "Traditional Multi-Instance Deployment："
+msgstr "舊版本多實例部署："
+
+#: ../../source/user_guide/launch.rst:19
+msgid ""
+"When you have multiple GPU cards, each capable of hosting one model "
+"instance, you can set the number of instances equal to the number of GPUs. "
+"For example:"
+msgstr "當您擁有多張 GPU 顯示卡時，每張顯示卡可承載一個模型實例，此時可將實例數量設定為等於 GPU 數量。例如："
+
+#: ../../source/user_guide/launch.rst:21
+msgid "2 GPUs, 2 instances: Each GPU runs one model instance"
+msgstr "2張GPU，2個實例：每張GPU運行一個模型實例"
+
+#: ../../source/user_guide/launch.rst:22
+msgid "4 GPUs, 4 instances: Each GPU runs one model instance"
+msgstr "4張GPU，4個實例：每張GPU執行一個模型實例"
+
+#: ../../source/user_guide/launch.rst:26
+msgid "Introduce a new environment variable:"
+msgstr "引入一個新的環境變數："
+
+#: ../../source/user_guide/launch.rst:32
+msgid ""
+"Control whether to enable the single GPU multi-copy feature Default value: 1"
+msgstr "控制是否啟用單 GPU 多副本功能，預設值：1"
+
+#: ../../source/user_guide/launch.rst:35
+msgid "New Feature: Smart Replica Deployment"
+msgstr "新功能：智慧副本部署"
+
+#: ../../source/user_guide/launch.rst:37
+msgid "Single GPU Multi-Replica"
+msgstr "單GPU多副本"
+
+#: ../../source/user_guide/launch.rst:39
+msgid "New Support: Run multiple model replicas even with just one GPU."
+msgstr "新增支援：即使僅有一塊GPU，也能執行多個模型副本。"
+
+#: ../../source/user_guide/launch.rst:41
+msgid "Scenario: You have 1 GPU with sufficient VRAM"
+msgstr "場景：您擁有1個GPU且視訊記憶體充足"
+
+#: ../../source/user_guide/launch.rst:42
+msgid "Configuration: Replica Count = 3, GPU Count = 1"
+msgstr "配置：副本數量=3，GPU數量=1"
+
+#: ../../source/user_guide/launch.rst:43
+msgid ""
+"Result: 3 model instances running on the same GPU, sharing GPU resources"
+msgstr "結果：3個模型實例，在同一GPU上運行，共享GPU資源"
+
+#: ../../source/user_guide/launch.rst:45
+msgid "Hybrid GPU Allocation"
+msgstr "混合GPU分配"
+
+#: ../../source/user_guide/launch.rst:47
+msgid ""
+"Smart Allocation: Number of replicas may differ from GPU count; system "
+"intelligently distributes"
+msgstr "智能分配: 副本數可以不等於GPU數量，系統會智能分配"
+
+#: ../../source/user_guide/launch.rst:49
+msgid "Scenario: You have 2 GPUs and need 3 replicas"
+msgstr "場景: 你有2張GPU，需要3個副本"
+
+#: ../../source/user_guide/launch.rst:50
+msgid "Configuration: Replicas=3, GPUs=2"
+msgstr "配置: 複本數=3，GPU數量=2"
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Result: GPU0 runs 2 instances, GPU1 runs 1 instance"
+msgstr "結果: GPU0 運行 2 個實例，GPU1 運行 1 個實例"
+
+#: ../../source/user_guide/launch.rst:54
+msgid "GPU Allocation Strategy"
+msgstr "混合分配策略"
+
+#: ../../source/user_guide/launch.rst:56
+msgid ""
+"The current policy is *Idle First*: The scheduler always attempts to assign "
+"replicas to the least utilized GPU. Use the ``XINFERENCE_LAUNCH_STRATEGY`` "
+"parameter to choose launch strategy."
+msgstr ""
+"當前策略為 *空閒優先* ：排程器始終嘗試將複本分配至最空閒的 GPU。使用 ``XINFERENCE_ENV_LAUNCH_STRATEGY`` "
+"參數選擇啟動策略。"
+
+#: ../../source/user_guide/launch.rst:59
+msgid "Set Environment Variables"
+msgstr "設定環境變數"
+
+#: ../../source/user_guide/launch.rst:63
+msgid ""
+"Sometimes, we want to specify environment variables for a particular model "
+"at runtime. Since v1.8.1, Xinference provides the capability to configure "
+"these individually without needing to set them before starting Xinference."
+msgstr ""
+"有時我們希望在執行時為特定模型指定環境變數。從 v1.8.1 開始，Xinference 提供了單獨配置環境變數的功能，無需在啟動 Xinference"
+" 前設定。"
+
+#: ../../source/user_guide/launch.rst:66
+msgid "For Web UI."
+msgstr "針對 Web UI。"
+
+#: ../../source/user_guide/launch.rst:72
+msgid ""
+"When using the command line, use ``--env`` to specify an environment "
+"variable."
+msgstr "命令列使用時，使用 ``--env`` 指定環境變數。"
+
+#: ../../source/user_guide/launch.rst:74
+#: ../../source/user_guide/launch.rst:123
+msgid "Example usage:"
+msgstr "範例用法："
+
+#: ../../source/user_guide/launch.rst:80
+msgid ""
+"Take vLLM as an example: it has versions V1 and V0, and by default, it "
+"automatically determines which version to use. If you want to force the use "
+"of V0 by setting ``VLLM_USE_V1=0`` when launching a model, you can specify "
+"this during model launching."
+msgstr ""
+"以 vLLM 為例，它有 V1 和 V0 兩個版本，預設會自動判定使用哪個版本。如果想在載入模型時強制透過設定 ``VLLM_USE_V1=0`` "
+"來使用 V0，可以指定該環境變數。"
+
+#: ../../source/user_guide/launch.rst:84
+msgid "Configuring Model Virtual Environment"
+msgstr "配置模型虛擬空間"
+
+#: ../../source/user_guide/launch.rst:88
+msgid ""
+"For this part, please refer to :ref:`toggling virtual environments and "
+"customizing dependencies <model_launching_virtualenv>`."
+msgstr "對於這部分，請參考 :ref:`開關虛擬空間和定製依賴 <model_launching_virtualenv>`。"
+
+#: ../../source/user_guide/launch.rst:91
+msgid "Batching / Continuous Batching"
+msgstr "批處理 / 連續批處理"
+
+#: ../../source/user_guide/launch.rst:93
+msgid ""
+"Xinference supports batching for higher throughput. For LLMs on the "
+"``transformers`` engine, continuous batching is available and can be enabled"
+" via environment variables at launch time."
+msgstr ""
+"Xinference支援批次處理以提升吞吐量。對於基於 ``transformers`` "
+"引擎的大型語言模型，可啟用連續批次處理功能，該功能可在啟動時透過環境變數進行設定。"
+
+#: ../../source/user_guide/launch.rst:96
+msgid "Key settings:"
+msgstr "關鍵設定："
+
+#: ../../source/user_guide/launch.rst:98
+msgid ""
+"``XINFERENCE_BATCH_SIZE`` and ``XINFERENCE_BATCH_INTERVAL`` for general "
+"batching behavior."
+msgstr ""
+"``XINFERENCE_BATCH_SIZE`` 和 ``XINFERENCE_BATCH_INTERVAL`` 用於控制常規的批次處理行為。"
+
+#: ../../source/user_guide/launch.rst:101
+msgid "Example (LLM, transformers):"
+msgstr "範例（大型語言模型，Transformers）："
+
+#: ../../source/user_guide/launch.rst:114
+msgid ""
+"For detailed behavior, supported models, and aborting requests, see "
+":ref:`Continuous Batching <user_guide_continuous_batching>`."
+msgstr ""
+"有關詳細行為、支援的模型以及中止請求的資訊，請參閱 :ref:`連續批處理 <user_guide_continuous_batching>` 。"
+
+#: ../../source/user_guide/launch.rst:118
+msgid "Thinking Mode"
+msgstr "思考模式"
+
+#: ../../source/user_guide/launch.rst:120
+msgid ""
+"Some hybrid reasoning models (for example, Qwen3) support an optional "
+"*thinking mode*. You can enable this at launch time via ``--enable-"
+"thinking``."
+msgstr ""
+"某些混合推理模型（例如Qwen3）支援可選的 *思考模式* 。您可在啟動時透過 ``--enable-thinking`` 參數啟用該功能。"
+
+#: ../../source/user_guide/launch.rst:171
+msgid "Launch Configuration History"
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:173
+msgid ""
+"After a model is launched successfully from the Web UI, Xinference stores its "
+"launch configuration in the Supervisor launch-history database and keeps a "
+"user-scoped browser cache for fast access and temporary network failures. When "
+"the deployment dialog is opened again, the newest server-backed configuration "
+"is restored unless the user has already started editing the form."
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:180
+msgid ""
+"The configuration history dialog can remove records owned by the current user. "
+"Records used by automatic startup are protected from deletion. In authenticated "
+"deployments, browser caches are separated by the username in the access token; "
+"configuration data owned by another user is not placed in that cache."
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:306
+msgid ""
+"The history dialog also lists configurations owned by the current user for "
+"other model names. These records are never applied automatically. After the "
+"user confirms **Use as Template**, Xinference keeps the current model name, "
+"removes the previous model UID and history or automatic-startup metadata, and "
+"copies the remaining launch options into the form without starting a model."
+msgstr ""
+
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready."
+msgstr "部署期間，進度端點 ``GET /v1/models/{model_uid}/progress`` 會回報每個副本的階段。模型檔案下載完成後，若其他啟動工作正在準備共用虛擬環境，副本會回報 ``waiting_for_dependencies``；安裝依賴套件時回報 ``installing_dependencies``；環境就緒後回報 ``loading``。"
+
+msgid "The Web UI shows each replica's file download details inside its replica card."
+msgstr "Web 介面會在各副本的卡片中顯示該副本的檔案下載詳情。"
+
+msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
+msgstr "安裝依賴套件期間，每個副本的進度會顯示主要安裝工作計劃安裝的套件數，以及其虛擬環境中已有的套件數。等待共用環境的副本沒有自己的安裝計數。如果安裝程式無法解析出可靠的計劃，則不顯示計數。"
+
+msgid "The Web UI keeps the dependency installation result visible while a replica is loading. When no dependency installation is needed, the replica card says so."
+msgstr "副本載入模型時，Web 介面仍會顯示依賴套件的安裝結果。如果本次無需安裝依賴套件，副本卡片也會明確提示。"
+
+#: doc/source/user_guide/launch.rst
+msgid ""
+"For image and video models, batching depends on the selected native engine "
+"and model. Diffusers does not use a Xinference step-level scheduler. See "
+":ref:`image` and :ref:`video`."
+msgstr ""
+"圖像和影片模型的批次處理能力取決於所選原生引擎和模型。Diffusers 不使用 Xinference 自行實作的逐步排程器。請參閱 "
+":ref:`image` 和 :ref:`video`。"
+
+#: ../../user_guide/launch.rst:414
+msgid "Reconfigure without reloading weights"
+msgstr "重配參數而無需重新載入權重"
+
+#: ../../user_guide/launch.rst:417
+msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
+msgstr "啟動模型時啟用 ``enable_weight_cache=true``，或在部署對話框中選擇 **保留 GPU 權重以支援重載**。此功能需要 vLLM 0.31.0+ 或 SGLang 0.5.21+、Linux CUDA 或 ROCm、單一 worker、單一副本及固定的張量平行度。即使引擎版本符合要求，預設也不啟用。"
+
+#: ../../user_guide/launch.rst:419
+msgid "Xinference keeps GPU weights in an upstream cache daemon while rebuilding the engine, KV cache and CUDA graphs. Reload waits for current requests, including streams, to finish and temporarily rejects new requests with HTTP 503. A drain timeout leaves the original engine running. If rebuilding fails, Xinference attempts to restore the previous configuration. Terminating the model releases the weights; a worker process failure requires loading them again."
+msgstr "Xinference 使用上游快取程序保留 GPU 權重，同時重建引擎、KV 快取及 CUDA 圖。重載會等待目前請求（包含串流請求）完成，並暫時以 HTTP 503 拒絕新請求。排空逾時會保留原引擎執行。若重建失敗，Xinference 會嘗試還原原始設定。終止模型會釋放權重；worker 程序故障後仍須重新載入權重。"
+
+#: ../../user_guide/launch.rst:421
+msgid "``POST /v1/models/{model_uid}/reload`` accepts a partial ``model_config`` object and optional ``drain_timeout`` in seconds (default 300, maximum 3600). It returns HTTP 202 with an ``operation_id``. Poll ``GET /v1/models/{model_uid}/reload`` until ``status`` is ``ready`` or ``error``. On error, ``restored=true`` means the previous engine is serving again. Query ``GET /v1/models/{model_uid}/reload/config`` for supported parameters and current explicit values. Invalid patches return HTTP 400; a reload already in progress returns HTTP 409. The model UID and GPU reservation stay the same."
+msgstr "``POST /v1/models/{model_uid}/reload`` 接收部分 ``model_config`` 參數及選用的 ``drain_timeout``（秒，預設 300，上限 3600）。它回傳 HTTP 202 及 ``operation_id``。輪詢 ``GET /v1/models/{model_uid}/reload``，直到 ``status`` 為 ``ready`` 或 ``error``。出錯時，``restored=true`` 表示原引擎已恢復服務。使用 ``GET /v1/models/{model_uid}/reload/config`` 查詢支援的參數及目前明確設定的值。無效修改回傳 HTTP 400；已有重載操作時回傳 HTTP 409。模型 UID 及 GPU 預留保持不變。"
+
+#: ../../user_guide/launch.rst:423
+msgid "vLLM supports changing ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` and ``enforce_eager``."
+msgstr "vLLM 支援修改 ``max_num_seqs``、``max_num_batched_tokens``、``max_model_len``、``gpu_memory_utilization`` 及 ``enforce_eager``。"
+
+#: ../../user_guide/launch.rst:425
+msgid "SGLang supports changing ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` and ``schedule_conservativeness``."
+msgstr "SGLang 支援修改 ``max_running_requests``、``max_prefill_tokens``、``context_length``、``chunked_prefill_size``、``mem_fraction_static``、``disable_cuda_graph``、``cuda_graph_max_bs_decode``、``cuda_graph_max_bs_prefill`` 及 ``schedule_conservativeness``。"
+
+#: ../../user_guide/launch.rst:427
+msgid "Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reload parameters** to edit the supported values and follow progress."
+msgstr "不能透過重載修改平行度、GPU 分配、模型路徑、精度、量化方式及權重布局選項。此整合暫不支援管線或資料平行、多 worker 部署、LoRA、推測解碼、權重卸載及 PD 部署。量化模型須通過上游的 IPC 相容性檢查。vLLM 的多 GPU 快取使用原生多程序執行器。在執行中模型詳情頁選擇 **重載參數**，即可編輯支援的值並查看進度。"
+
+msgid "LLM constraints also accept positive integers ``context_length`` (text input plus output tokens) and ``concurrency``, and non-negative integers ``vision_tokens`` (encoded image tokens per sequence) and ``prefix_cache_bytes`` (additional retained cache across the instance). Omitting ``context_length`` uses each candidate's registered maximum context, including encoded image tokens. Models without a known maximum remain unverified. Recommended vLLM ``max_model_len`` and SGLang ``context_length`` equal text plus vision tokens per sequence. llama.cpp uses ``n_parallel=concurrency`` and ``n_ctx=(context_length + vision_tokens) * concurrency`` because its context is divided across slots. The Web UI applies these advanced launch parameters. Other workload fields affect estimates rather than request limits. Older workers that do not support workload options are retried without them and remain unverified, with a version warning. Image workloads require vision metadata. For multiple images, ``vision_tokens_per_image`` specifies their maximum encoded token count; zero assumes all image tokens belong to one image. Cached states grow with concurrency, while model weights are counted once. CUDA profiles for vLLM and SGLang share a 16,384-token prefill workspace profile with fused attention and sampled-row logits."
+msgstr "LLM 約束還接受正整數 ``context_length``（文字輸入加輸出 tokens）和 ``concurrency``，以及非負整數 ``vision_tokens``（每個序列編碼後的影像 tokens）和 ``prefix_cache_bytes``（整個實例額外保留的快取）。省略 ``context_length`` 時，使用各個候選模型註冊的最大 context，編碼後的影像 tokens 也計入這個上限。最大值未知的模型仍保持未驗證。推薦的 vLLM ``max_model_len`` 和 SGLang ``context_length`` 等於每個序列的文字加影像 tokens。llama.cpp 使用 ``n_parallel=concurrency`` 和 ``n_ctx=(context_length + vision_tokens) * concurrency``，因為 context 會在各個槽位間分配。Web UI 會套用這些進階啟動參數。其他工作負載欄位影響估算，不設定請求限制。不支援工作負載選項的舊 worker 會移除這些選項後重試，其候選保持未驗證，並附帶版本警告。影像工作負載需要視覺中繼資料。 多個影像可透過 ``vision_tokens_per_image`` 指定單個影像編碼後的最大 token 數；零表示將全部影像 tokens 視為一個影像。快取狀態隨並行數增加，模型權重只計算一份。vLLM (CUDA) 和 SGLang 共用 16,384-token 的預填充工作區估算，使用融合注意力和取樣行 logits。"
+
+#: ../source/user_guide/launch.rst:95
+msgid "Unified LLM context length"
+msgstr "統一 LLM 上下文長度"
+
+#: ../source/user_guide/launch.rst:97
+msgid "Set ``context_length`` in the launch API or use ``--context-length`` in the CLI to choose the input plus output token limit per request. In the Web UI, use the context slider or enter an exact integer; **Model default** clears the override. The slider's upper bound comes from the registered model. Context selections are preserved in configuration history and passed to the recommendation API."
+msgstr "在啟動 API 中設定 ``context_length``，或在 CLI 中使用 ``--context-length``，指定每個請求的輸入加輸出 token 上限。在 Web UI 中使用上下文滑動條，或輸入精確整數；**模型預設值** 會清空覆寫值。滑動條上限取自註冊模型。上下文選擇會保存在設定歷史中，並傳給推薦 API。"
+
+#: ../source/user_guide/launch.rst:103
+msgid "The launch layer maps this setting to vLLM's ``max_model_len``, SGLang, Transformers and MLX's ``context_length``, LMDeploy's ``session_len``, and llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine parameters still work; contradictory unified and native values are rejected. Omitting the setting preserves engine defaults. This setting does not extend the model's positional embeddings or enable context scaling."
+msgstr "啟動層會映射到 vLLM 的 ``max_model_len``，SGLang、Transformers 和 MLX 的 ``context_length``，LMDeploy 的 ``session_len``，以及 llama.cpp 的總槽位容量 ``n_ctx=context_length*n_parallel``。原有引擎參數仍可使用，但統一值與原生值矛盾時會拒絕。省略此設定會保留引擎預設行為。此設定不會擴展模型的位置嵌入，也不會啟用上下文縮放。"
+
+#: ../source/user_guide/launch.rst
+msgid "Recommendation configs expose ``context_length`` as the total per-request budget, including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the estimated concurrency; the launch layer maps the unified budget to each engine."
+msgstr "推薦設定透過 ``context_length`` 回傳每個請求的總 token 上限，包括編碼後的圖像 tokens。llama.cpp 還會回傳 ``n_parallel``，與估算的並行數一致；啟動層會將統一上限映射到各個引擎。"
+
+#: ../source/user_guide/launch.rst
+msgid "With an explicit context limit, MLX rejects prompts that leave no room for output and caps ``max_tokens`` to the remaining budget. Cached prompt tokens and processed image tokens count toward the input limit. Non-streaming requests that exceed the input limit return HTTP 400; streaming requests report an SSE error without starting generation."
+msgstr "明確設定上下文上限後，MLX 會拒絕沒有剩餘輸出空間的提示詞，並將 ``max_tokens`` 限制在剩餘 token 預算內。快取命中的提示詞 tokens 和處理後的圖像 tokens 都計入輸入上限。非串流請求超出輸入上限時回傳 HTTP 400；串流請求透過 SSE 回報錯誤，不會開始生成。"

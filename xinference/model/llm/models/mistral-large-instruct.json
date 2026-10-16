@@ -1,0 +1,302 @@
+[
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "mistral-large-instruct",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "zh",
+      "ru",
+      "ja",
+      "ko"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Mistral-Large-Instruct-2407 is an advanced dense Large Language Model (LLM) of 123B parameters with state-of-the-art reasoning, knowledge and coding capabilities.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 123,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "mistralai/Mistral-Large-Instruct-2407"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "LLM-Research/Mistral-Large-Instruct-2407",
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Mistral-Large-Instruct-2407/resolve/master/config.json",
+              "config_sha256": "ca57a90fb3a2ef227d8743419d4a664251888b7ad7df5e147fab684a341d2586",
+              "hidden_size": 12288,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 88
+            }
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 123,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "unsloth/Mistral-Large-Instruct-2407-bnb-4bit",
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Mistral-Large-Instruct-2407-bnb-4bit/resolve/a76e109f4b66807d88fa92b5d7e0dead1a354494/config.json",
+              "config_sha256": "8cd418b68e9039ffe41d2ddc8f87ced9d38207bb9ac8945a31535a8c20c89f6c",
+              "hidden_size": 12288,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 88
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "LLM-Research/Mistral-Large-Instruct-2407",
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Mistral-Large-Instruct-2407/resolve/master/config.json",
+              "config_sha256": "ca57a90fb3a2ef227d8743419d4a664251888b7ad7df5e147fab684a341d2586",
+              "hidden_size": 12288,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 88
+            }
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 123,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "ModelCloud/Mistral-Large-Instruct-2407-gptq-4bit",
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/ModelCloud/Mistral-Large-Instruct-2407-gptq-4bit/resolve/0c34e2715079c1d306bb2b411b30fc2353ffa650/config.json",
+              "config_sha256": "b488c2448e9247af9c854ca0df424efe259e86864053d3bd67ca1df6b9d033d8",
+              "hidden_size": 12288,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 88
+            }
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 123,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TechxGenus/Mistral-Large-Instruct-2407-AWQ",
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/TechxGenus/Mistral-Large-Instruct-2407-AWQ/resolve/7403fc537565aa16d5a2a3bc4a4180b43a50a246/config.json",
+              "config_sha256": "ab2450e00e51b0912553fbc09a30bc586a50316df68518ca4d03c00c1617c862",
+              "hidden_size": 12288,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 88
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 123,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_S",
+              "Q3_K_M",
+              "Q3_K_L",
+              "Q4_K_S",
+              "Q4_K_M"
+            ],
+            "model_id": "MaziyarPanahi/Mistral-Large-Instruct-2407-GGUF",
+            "model_file_name_template": "Mistral-Large-Instruct-2407.{quantization}.gguf",
+            "model_file_name_split_template": "Mixtral-8x22B-Instruct-v0.1.{quantization}-{part}.gguf",
+            "quantization_parts": {
+              "Q3_K_L": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q3_K_M": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q3_K_S": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q4_K_M": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q4_K_S": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ]
+            },
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/MaziyarPanahi/Mistral-Large-Instruct-2407-GGUF/resolve/main/Mistral-Large-Instruct-2407.Q2_K.gguf",
+              "config_sha256": "bc6013429acc0c5fde38fa95b8e1d784ecf1ef46274e2f816de796e7ece26889",
+              "hidden_size": 12288,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 88
+            }
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 123,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "mlx-community/Mistral-Large-Instruct-2407-bf16",
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Mistral-Large-Instruct-2407-bf16/resolve/4fb5460129ab67f808d4ef20dc14211df3ddc168/config.json",
+              "config_sha256": "509ccab9a1526dc74153f4fe5466554c90ae32af4cd07bbd853217125b180bdc",
+              "hidden_size": 12288,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 88
+            }
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 123,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Mistral-Large-Instruct-2407-4bit",
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Mistral-Large-Instruct-2407-4bit/resolve/1b496d417b097d407929998529dec7f2152c27f0/config.json",
+              "config_sha256": "a01892f944b8e95f8b8000ea70c0817f312e332bff33f6d44e16a92cf260bc2c",
+              "hidden_size": 12288,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 88
+            }
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 123,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "mlx-community/Mistral-Large-Instruct-2407-8bit",
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Mistral-Large-Instruct-2407-8bit/resolve/ed1397f9888a9997189dac7ca4fdda9093f5d96a/config.json",
+              "config_sha256": "83b25c86c1c26254a1dda7c0be8b84be9860bed007ca6b08c76c186bb17926ff",
+              "hidden_size": 12288,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 88
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if messages[0][\"role\"] == \"system\" %}\n    {%- set system_message = messages[0][\"content\"] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n{%- set user_messages = loop_messages | selectattr(\"role\", \"equalto\", \"user\") | list %}\n\n{#- This block checks for alternating user/assistant messages, skipping tool calling messages #}\n{%- set ns = namespace() %}\n{%- set ns.index = 0 %}\n{%- for message in loop_messages %}\n    {%- if not (message.role == \"tool\" or message.role == \"tool_results\" or (message.tool_calls is defined and message.tool_calls is not none)) %}\n        {%- if (message[\"role\"] == \"user\") != (ns.index % 2 == 0) %}\n            {{- raise_exception(\"After the optional system message, conversation roles must alternate user/assistant/user/assistant/...\") }}\n        {%- endif %}\n        {%- set ns.index = ns.index + 1 %}\n    {%- endif %}\n{%- endfor %}\n\n{{- '<s>' }}\n{%- for message in loop_messages %}\n    {%- if message[\"role\"] == \"user\" %}\n        {%- if tools is not none and (message == user_messages[-1]) %}\n            {{- \"[AVAILABLE_TOOLS][\" }}\n            {%- for tool in tools %}\n                {%- set tool = tool.function %}\n                {{- '{\"type\": \"function\", \"function\": {' }}\n                {%- for key, val in tool.items() if key != \"return\" %}\n                    {%- if val is string %}\n                        {{- '\"' + key + '\": \"' + val + '\"' }}\n                    {%- else %}\n                        {{- '\"' + key + '\": ' + val|tojson }}\n                    {%- endif %}\n                    {%- if not loop.last %}\n                        {{- \", \" }}\n                    {%- endif %}\n                {%- endfor %}\n                {{- \"}}\" }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- else %}\n                    {{- \"]\" }}\n                {%- endif %}\n            {%- endfor %}\n            {{- \"[/AVAILABLE_TOOLS]\" }}\n            {%- endif %}\n        {%- if loop.last and system_message is defined %}\n            {{- \"[INST]\" + system_message + \"\n\n\" + message[\"content\"] + \"[/INST]\" }}\n        {%- else %}\n            {{- \"[INST]\" + message[\"content\"] + \"[/INST]\" }}\n        {%- endif %}\n    {%- elif (message.tool_calls is defined and message.tool_calls is not none) %}\n        {{- \"[TOOL_CALLS][\" }}\n        {%- for tool_call in message.tool_calls %}\n            {%- set out = tool_call.function|tojson %}\n            {{- out[:-1] }}\n            {%- if not tool_call.id is defined or tool_call.id|length != 9 %}\n                {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n            {%- endif %}\n            {{- ', \"id\": \"' + tool_call.id + '\"}' }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- else %}\n                {{- \"]\" + '</s>' }}\n            {%- endif %}\n        {%- endfor %}\n    {%- elif message[\"role\"] == \"assistant\" %}\n        {{- message[\"content\"] + '</s>'}}\n    {%- elif message[\"role\"] == \"tool_results\" or message[\"role\"] == \"tool\" %}\n        {%- if message.content is defined and message.content.content is defined %}\n            {%- set content = message.content.content %}\n        {%- else %}\n            {%- set content = message.content %}\n        {%- endif %}\n        {{- '[TOOL_RESULTS]{\"content\": ' + content|string + \", \" }}\n        {%- if not message.tool_call_id is defined or message.tool_call_id|length != 9 %}\n            {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n        {%- endif %}\n        {{- '\"call_id\": \"' + message.tool_call_id + '\"}[/TOOL_RESULTS]' }}\n    {%- else %}\n        {{- raise_exception(\"Only user and assistant roles are supported, with the exception of an initial optional system message!\") }}\n    {%- endif %}\n{%- endfor %}\n",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ],
+    "updated_at": 1769418548,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ],
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

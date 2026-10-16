@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -461,6 +461,11 @@ def setup_cluster():
     from ...deploy.local import health_check
     from ...deploy.local import run_in_subprocess as supervisor_run_in_subprocess
 
+    # This fixture is used by tests that exercise unauthenticated requests;
+    # advanced auth defaults to on, so it must be explicitly disabled here,
+    # before any subprocess (which inherits this env) is started.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
+
     supervisor_address = f"localhost:{xo.utils.get_next_port()}"
     local_cluster = supervisor_run_in_subprocess(
         supervisor_address, None, None, TEST_LOGGING_CONF
@@ -631,3 +636,44 @@ def test_restful_chat_enable_thinking_injected():
         "thinking": False,
     }
     handle.session = None
+
+
+def test_add_model_replica_sends_empty_json_body():
+    client = RESTfulClient.__new__(RESTfulClient)
+    client.base_url = "http://localhost:9997"
+    client._headers = {}
+    client.session = _DummySession()
+
+    client.add_model_replica("demo")
+
+    assert client.session.last_json == {}
+
+
+def test_add_model_replica_sends_placement_config():
+    client = RESTfulClient.__new__(RESTfulClient)
+    client.base_url = "http://localhost:9997"
+    client._headers = {}
+    client.session = _DummySession()
+    replica_config = {
+        "replica_uid": "secondary",
+        "devices": [{"worker_ip": "127.0.0.1:9978", "gpu_idx": [0]}],
+    }
+
+    client.add_model_replica("demo", replica_config=replica_config)
+
+    assert client.session.last_json == {"replica_config": replica_config}
+
+
+def test_add_model_replica_sends_scale_overrides():
+    client = RESTfulClient.__new__(RESTfulClient)
+    client.base_url = "http://localhost:9997"
+    client._headers = {}
+    client.session = _DummySession()
+
+    client.add_model_replica("demo", replica=3, model_engine="vllm", n_gpu=1)
+
+    assert client.session.last_json == {
+        "replica": 3,
+        "model_engine": "vllm",
+        "n_gpu": 1,
+    }

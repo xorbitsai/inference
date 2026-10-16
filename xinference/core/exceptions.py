@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,3 +17,14 @@ class ModelNotReadyError(Exception):
     """Raised when a model is still loading and cannot serve requests yet."""
 
     pass
+
+
+class InvalidAudioInputError(ValueError):
+    """Raised when client-provided audio cannot be used by a model."""
+
+    @property
+    def client_message(self) -> str:
+        """Return a stable message without xoscar's actor diagnostic prefix."""
+        if self.args:
+            return str(self.args[0])
+        return "Invalid audio input."

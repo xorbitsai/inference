@@ -1,0 +1,659 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""
+Download index-compatible wheels for the xinference-pypiserver image.
+
+Consumes the output of ``generate_package_lists.py`` and fills a wheel
+directory in four passes:
+
+1. Lock the exact shared runtime constraints (including the torch family),
+   then lock each engine set with ``uv pip compile`` and fetch the fully-pinned
+   locks with ``pip download --no-deps`` — one coherent resolution per engine,
+   so unpinned specs cannot fan out into many versions of the same package.
+2. Fetch per-model concrete pins with their transitive dependencies,
+   constrained to the versions already locked (falling back to an
+   unconstrained fetch when a pin genuinely conflicts — availability wins
+   over minimization; every fallback is recorded in the report).
+3. Fetch direct wheel URLs. Git sources are recorded by the generator but
+   intentionally skipped because explicit offline mode rejects them.
+4. Build wheels for any sdist-only downloads so the runtime never compiles.
+
+Writes ``report.json`` with size/version statistics next to the manifest.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import subprocess
+import sys
+from collections import defaultdict
+from http.client import HTTPException
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple
+from urllib.parse import urljoin
+from urllib.request import Request, urlopen
+
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.utils import (
+    InvalidSdistFilename,
+    InvalidWheelFilename,
+    canonicalize_name,
+    parse_sdist_filename,
+    parse_wheel_filename,
+)
+from packaging.version import InvalidVersion, Version
+
+TORCH_FAMILY = ("torch", "torchvision", "torchaudio", "torchcodec")
+
+# Engines whose releases hard-pin their own torch stack.
+SELF_PINNING_ENGINES = ("vllm", "sglang")
+
+
+def load_runtime_constraints(path: Path) -> Dict[str, str]:
+    """Load exact runtime pins as canonical package name -> requirement."""
+
+    pins: Dict[str, str] = {}
+    for raw_line in path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            requirement = Requirement(line)
+        except InvalidRequirement as exc:
+            raise ValueError(f"invalid runtime constraint: {line}") from exc
+        specifiers = list(requirement.specifier)
+        if (
+            requirement.url is not None
+            or len(specifiers) != 1
+            or specifiers[0].operator not in ("==", "===")
+            or "*" in specifiers[0].version
+        ):
+            raise ValueError(f"runtime constraint must be an exact pin: {line}")
+        name = canonicalize_name(requirement.name)
+        if name in pins:
+            raise ValueError(f"duplicate runtime constraint for {name}")
+        pins[name] = line
+
+    missing_torch = set(TORCH_FAMILY).difference(pins)
+    if missing_torch:
+        raise ValueError(
+            "runtime constraints are missing the torch family: "
+            + ", ".join(sorted(missing_torch))
+        )
+    return pins
+
+
+def run(cmd: List[str], **kwargs) -> subprocess.CompletedProcess:
+    print("+", " ".join(cmd), flush=True)
+    return subprocess.run(cmd, **kwargs)
+
+
+def check(cmd: List[str]) -> None:
+    proc = run(cmd)
+    if proc.returncode != 0:
+        sys.exit(f"FATAL: command failed with {proc.returncode}: {' '.join(cmd)}")
+
+
+def spec_name(spec: str) -> Optional[str]:
+    try:
+        return canonicalize_name(Requirement(spec.split(";", 1)[0].strip()).name)
+    except InvalidRequirement:
+        return None
+
+
+def wheel_name_version(filename: str) -> Optional[Tuple[str, str]]:
+    """Return a normalized ``(name, version)`` pair for a wheel filename."""
+    if not filename.endswith(".whl"):
+        return None
+    try:
+        name, version, _, _ = parse_wheel_filename(filename)
+    except InvalidWheelFilename:
+        return None
+    return canonicalize_name(name), str(version)
+
+
+def lock_names(lock_file: Path) -> Dict[str, str]:
+    """Map canonical package name -> lock line for a compiled lock file."""
+    names: Dict[str, str] = {}
+    for line in lock_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith(("#", "-")):
+            continue
+        name = spec_name(line)
+        if name and name not in names:
+            names[name] = line
+    return names
+
+
+def uv_compile(
+    in_file: Path,
+    out_file: Path,
+    *,
+    python_version: str,
+    python_platform: str,
+    index_url: str,
+    extra_index_urls: List[str],
+    index_strategy: Optional[str],
+    constraints: Optional[Path] = None,
+) -> subprocess.CompletedProcess:
+    cmd = [
+        "uv",
+        "pip",
+        "compile",
+        str(in_file),
+        "-o",
+        str(out_file),
+        "--no-header",
+        "--no-annotate",
+        "--python-version",
+        python_version,
+        "--python-platform",
+        python_platform,
+        "--index-url",
+        index_url,
+    ]
+    for url in extra_index_urls:
+        cmd += ["--extra-index-url", url]
+    if index_strategy:
+        cmd += ["--index-strategy", index_strategy]
+    if constraints is not None:
+        cmd += ["-c", str(constraints)]
+    return run(cmd)
+
+
+def pip_download(
+    args: List[str],
+    dest: Path,
+    *,
+    index_url: str,
+    extra_index_urls: List[str],
+    no_deps: bool = False,
+    constraints: Optional[Path] = None,
+    env: Optional[Dict[str, str]] = None,
+) -> subprocess.CompletedProcess:
+    cmd = [
+        sys.executable,
+        "-m",
+        "pip",
+        "download",
+        "--quiet",
+        "--dest",
+        str(dest),
+        "--prefer-binary",
+        "--index-url",
+        index_url,
+    ]
+    for url in extra_index_urls:
+        cmd += ["--extra-index-url", url]
+    if no_deps:
+        cmd.append("--no-deps")
+    if constraints is not None:
+        cmd += ["-c", str(constraints)]
+    return run(cmd + args, env=env)
+
+
+def download_sdist_without_metadata(
+    spec: str,
+    dest: Path,
+    *,
+    index_url: str,
+    python_version: str,
+) -> Optional[Path]:
+    """Fetch the newest compatible sdist without invoking its build backend.
+
+    ``pip download`` prepares package metadata even when the requested artifact
+    is an sdist. Some valid source distributions import runtime-only packages
+    from ``setup.py`` while doing that (``flash-attn`` imports torch), which
+    makes mirroring fail before pip can save the archive. The Simple API already
+    exposes filenames, Python requirements and hashes, so use it as a last
+    resort after normal constrained and unconstrained pip downloads fail.
+
+    Only sdists from a PEP 691 JSON response are accepted, and their SHA-256
+    digest is verified before the archive is added to the mirror.
+    """
+
+    try:
+        requirement = Requirement(spec)
+        target_python = Version(python_version)
+    except (InvalidRequirement, InvalidVersion):
+        return None
+    if requirement.url is not None:
+        return None
+
+    project = canonicalize_name(requirement.name)
+    project_url = f"{index_url.rstrip('/')}/{project}/"
+    request = Request(
+        project_url,
+        headers={"Accept": "application/vnd.pypi.simple.v1+json"},
+    )
+    try:
+        with urlopen(request, timeout=30) as response:
+            payload = json.load(response)
+        if not isinstance(payload, dict) or not isinstance(payload.get("files"), list):
+            return None
+    except (HTTPException, OSError, ValueError):
+        return None
+
+    candidates: Dict[Version, List[Dict[str, object]]] = defaultdict(list)
+    for file_info in payload.get("files", []):
+        if not isinstance(file_info, dict) or file_info.get("yanked"):
+            continue
+        filename = file_info.get("filename")
+        if not isinstance(filename, str) or Path(filename).name != filename:
+            continue
+        try:
+            name, version = parse_sdist_filename(filename)
+        except InvalidSdistFilename:
+            continue
+        if canonicalize_name(name) != project:
+            continue
+        requires_python = file_info.get("requires-python")
+        if isinstance(requires_python, str):
+            try:
+                if not Requirement(f"python{requires_python}").specifier.contains(
+                    target_python, prereleases=True
+                ):
+                    continue
+            except InvalidRequirement:
+                continue
+        hashes = file_info.get("hashes")
+        if not isinstance(hashes, dict) or not isinstance(hashes.get("sha256"), str):
+            continue
+        if not isinstance(file_info.get("url"), str):
+            continue
+        candidates[version].append(file_info)
+
+    allowed_versions = list(requirement.specifier.filter(candidates))
+    if not allowed_versions:
+        return None
+    selected_version = max(allowed_versions)
+    selected = sorted(
+        candidates[selected_version], key=lambda item: str(item["filename"])
+    )[0]
+    filename = str(selected["filename"])
+    expected_sha256 = str(selected["hashes"]["sha256"]).lower()  # type: ignore[index]
+    artifact_url = urljoin(project_url, str(selected["url"]))
+    target = dest / filename
+    partial = dest / (filename + ".part")
+    digest = hashlib.sha256()
+    try:
+        with urlopen(artifact_url, timeout=60) as response, partial.open("wb") as f:
+            while chunk := response.read(1024 * 1024):
+                digest.update(chunk)
+                f.write(chunk)
+        if digest.hexdigest() != expected_sha256:
+            partial.unlink(missing_ok=True)
+            return None
+        partial.replace(target)
+    except (HTTPException, OSError):
+        partial.unlink(missing_ok=True)
+        return None
+    print(
+        f"WARN: downloaded sdist '{filename}' directly from the Simple API "
+        "because its metadata build failed",
+        flush=True,
+    )
+    return target
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--manifest-dir", type=Path, required=True)
+    parser.add_argument("--dest", type=Path, required=True)
+    parser.add_argument("--platform", required=True, choices=("amd64", "arm64"))
+    parser.add_argument("--python-version", default="3.12")
+    parser.add_argument(
+        "--runtime-constraints",
+        type=Path,
+        required=True,
+        help="exact pins shared with xinference/deploy/docker/Dockerfile",
+    )
+    parser.add_argument("--index-url", default="https://pypi.org/simple")
+    parser.add_argument(
+        "--pytorch-index", default="https://download.pytorch.org/whl/cu130"
+    )
+    args = parser.parse_args()
+
+    manifest_dir: Path = args.manifest_dir
+    dest: Path = args.dest
+    dest.mkdir(parents=True, exist_ok=True)
+    work = manifest_dir / "locks"
+    work.mkdir(exist_ok=True)
+
+    try:
+        runtime_pins = load_runtime_constraints(args.runtime_constraints)
+    except ValueError as exc:
+        sys.exit(f"FATAL: {exc}")
+
+    package_build_env = dict(os.environ)
+    torch_specifier = next(iter(Requirement(runtime_pins["torch"]).specifier))
+    # Some sdist-only packages inspect torch while preparing metadata or
+    # building a wheel. The mirror downloads torch instead of installing it,
+    # so expose the exact runtime version through their supported build hook.
+    package_build_env["TORCH_VERSION"] = torch_specifier.version
+
+    machine = {"amd64": "x86_64", "arm64": "aarch64"}[args.platform]
+    # The runtime image's glibc supports manylinux_2_34 wheels; the default
+    # (manylinux_2_17) would hide e.g. recent sglang releases.
+    python_platform = f"{machine}-manylinux_2_34"
+    unconstrained_fallbacks: List[str] = []
+    raw_sdist_fallbacks: List[str] = []
+    sdist_left: List[str] = []
+
+    # ------------------------------------------------------------------
+    # 1a. Lock and fetch the exact substrate baked into the runtime image.
+    # ------------------------------------------------------------------
+    runtime_lock = work / "runtime.lock"
+    proc = uv_compile(
+        args.runtime_constraints,
+        runtime_lock,
+        python_version=args.python_version,
+        python_platform=python_platform,
+        index_url=args.index_url,
+        extra_index_urls=[args.pytorch_index],
+        index_strategy="unsafe-best-match",
+    )
+    if proc.returncode != 0:
+        sys.exit("FATAL: failed to lock the shared runtime constraints")
+
+    big_in = work / "torch-family.in"
+    big_in.write_text("".join(f"{runtime_pins[p]}\n" for p in TORCH_FAMILY))
+    torch_family_lock = work / "torch-family.lock"
+    proc = uv_compile(
+        big_in,
+        torch_family_lock,
+        python_version=args.python_version,
+        python_platform=python_platform,
+        index_url=args.index_url,
+        extra_index_urls=[args.pytorch_index],
+        index_strategy="unsafe-best-match",
+    )
+    if proc.returncode != 0:
+        sys.exit("FATAL: failed to lock the torch family")
+    # Constrain other resolutions with ONLY the explicit runtime pins, not the
+    # lock's transitive deps (which would over-constrain e.g. setuptools).
+    constraints_runtime = work / "constraints-runtime.txt"
+    constraints_runtime.write_text(
+        "".join(f"{line}\n" for line in runtime_pins.values())
+    )
+
+    # ------------------------------------------------------------------
+    # 1b. Lock each engine set, then fetch the pinned locks.
+    # ------------------------------------------------------------------
+    engine_locks: Dict[str, Path] = {
+        "runtime": runtime_lock,
+        "torch-family": torch_family_lock,
+    }
+    for in_file in sorted((manifest_dir / "engines").glob("*.in")):
+        engine = in_file.stem
+        meta = json.loads(in_file.with_suffix(".meta.json").read_text())
+        lock = work / f"{engine}.lock"
+        # vllm/sglang releases hard-pin their own torch stack; forcing the
+        # runtime image's torch on them is unsolvable. Their venvs install
+        # a self-consistent stack anyway.
+        self_pinning = engine in SELF_PINNING_ENGINES
+        proc = uv_compile(
+            in_file,
+            lock,
+            python_version=args.python_version,
+            python_platform=python_platform,
+            index_url=args.index_url,
+            # The pytorch index makes the +cu130 torch pins resolvable for
+            # engines whose runtime config has no extra indexes; at runtime
+            # everything is served by the single mirror index anyway.
+            extra_index_urls=list(
+                dict.fromkeys(
+                    (meta.get("extra_index_urls") or []) + [args.pytorch_index]
+                )
+            ),
+            index_strategy="unsafe-best-match",
+            constraints=None if self_pinning else constraints_runtime,
+        )
+        if proc.returncode != 0:
+            sys.exit(
+                f"FATAL: engine set '{engine}' does not resolve with "
+                "the shared runtime constraints; update the constraints and "
+                "runtime image together or pin the engine set"
+            )
+        engine_locks[engine] = lock
+
+    # Shared substrate to keep unpinned transitive deps from fanning out.
+    master_constraints = work / "constraints-master.txt"
+    merged: Dict[str, str] = dict(runtime_pins)
+    for engine in ("transformers", "vllm"):
+        if engine in engine_locks:
+            for name, line in lock_names(engine_locks[engine]).items():
+                merged.setdefault(name, line)
+    master_constraints.write_text("".join(f"{line}\n" for line in merged.values()))
+
+    for engine, lock in engine_locks.items():
+        meta_file = manifest_dir / "engines" / f"{engine}.meta.json"
+        meta = json.loads(meta_file.read_text()) if meta_file.exists() else {}
+        proc = pip_download(
+            ["-r", str(lock)],
+            dest,
+            index_url=args.index_url,
+            extra_index_urls=(meta.get("extra_index_urls") or [])
+            + [args.pytorch_index],
+            no_deps=True,
+            env=package_build_env,
+        )
+        if proc.returncode != 0:
+            sys.exit(f"FATAL: failed to fetch locked engine set '{engine}'")
+
+    # ------------------------------------------------------------------
+    # 2. Per-model pins, constrained to the shared substrate.
+    # ------------------------------------------------------------------
+    artifact_indexes: Dict[str, List[str]] = {}
+
+    def download_model_artifacts(
+        requirements: List[str],
+        extra_index_urls: List[str],
+        constraints: Optional[Path] = None,
+    ) -> subprocess.CompletedProcess:
+        before = set(dest.iterdir())
+        proc = pip_download(
+            requirements,
+            dest,
+            index_url=args.index_url,
+            extra_index_urls=extra_index_urls,
+            constraints=constraints,
+            env=package_build_env,
+        )
+        # Keep the same indexes if a downloaded sdist is built into a wheel
+        # whose metadata exposes additional transitive dependencies later.
+        for artifact in set(dest.iterdir()).difference(before):
+            artifact_indexes[artifact.name] = extra_index_urls.copy()
+        return proc
+
+    pins = json.loads((manifest_dir / "pins.json").read_text())
+    for entry in pins:
+        spec = entry["spec"]
+        extra_index_urls = list(
+            dict.fromkeys((entry.get("extra_index_urls") or []) + [args.pytorch_index])
+        )
+        pin_name = spec_name(spec)
+        pruned = work / "constraints-pruned.txt"
+        pruned.write_text(
+            "".join(f"{line}\n" for n, line in merged.items() if n != pin_name)
+        )
+        proc = download_model_artifacts(
+            [spec],
+            extra_index_urls,
+            constraints=pruned,
+        )
+        if proc.returncode != 0:
+            print(f"WARN: retrying '{spec}' without constraints", flush=True)
+            proc = download_model_artifacts([spec], extra_index_urls)
+            if proc.returncode != 0:
+                sdist = None
+                for index_url in dict.fromkeys([args.index_url, *extra_index_urls]):
+                    sdist = download_sdist_without_metadata(
+                        spec,
+                        dest,
+                        index_url=index_url,
+                        python_version=args.python_version,
+                    )
+                    if sdist is not None:
+                        artifact_indexes[sdist.name] = extra_index_urls.copy()
+                        break
+                if sdist is None:
+                    sys.exit(f"FATAL: pin '{spec}' cannot be downloaded")
+                raw_sdist_fallbacks.append(spec)
+            unconstrained_fallbacks.append(spec)
+
+    # ------------------------------------------------------------------
+    # 3. Direct wheel URLs. Git sources are deliberately not built: the
+    #    runtime rejects git/direct references in explicit offline mode, and
+    #    a simple index cannot preserve their requested source revisions.
+    # ------------------------------------------------------------------
+    for url in (manifest_dir / "urls.txt").read_text().splitlines():
+        if not url.strip():
+            continue
+        # WITH dependencies: these wheels declare their own requirements
+        # (e.g. the spaCy models depend on spacy), which must also land in
+        # the mirror for the offline install to succeed.
+        proc = pip_download(
+            [url.strip()],
+            dest,
+            index_url=args.index_url,
+            extra_index_urls=[args.pytorch_index],
+            constraints=master_constraints,
+            env=package_build_env,
+        )
+        if proc.returncode != 0:
+            print(f"WARN: retrying '{url}' without constraints", flush=True)
+            proc = pip_download(
+                [url.strip()],
+                dest,
+                index_url=args.index_url,
+                extra_index_urls=[args.pytorch_index],
+                env=package_build_env,
+            )
+            if proc.returncode != 0:
+                sys.exit(f"FATAL: failed to download '{url}'")
+            unconstrained_fallbacks.append(url.strip())
+
+    # ------------------------------------------------------------------
+    # 4. Build wheels for sdist-only downloads so the runtime never
+    #    compiles. Failures keep the sdist (the runtime image has a
+    #    toolchain) and are recorded in the report.
+    #
+    #    A built wheel can declare dependencies that the sdist's static
+    #    metadata omitted (e.g. GPTQModel publishes an sdist whose
+    #    PKG-INFO lists no runtime requirements, while the wheel its
+    #    setup.py builds does). The locks above only saw the sdist
+    #    metadata, so fetch each built wheel's dependencies explicitly
+    #    and repeat until no new sdists arrive.
+    # ------------------------------------------------------------------
+    failed_sdists: Set[str] = set()
+    while True:
+        built_wheels: List[Path] = []
+        for sdist in sorted(dest.iterdir()):
+            if sdist.suffix not in (".gz", ".zip", ".bz2") and not sdist.name.endswith(
+                ".tar.gz"
+            ):
+                continue
+            if sdist.name in failed_sdists:
+                continue
+            wheels_before = {p.name for p in dest.glob("*.whl")}
+            proc = run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "wheel",
+                    "--quiet",
+                    "--no-deps",
+                    "--wheel-dir",
+                    str(dest),
+                    str(sdist),
+                ],
+                env=package_build_env,
+            )
+            if proc.returncode == 0:
+                extra_index_urls = artifact_indexes.get(
+                    sdist.name, [args.pytorch_index]
+                )
+                sdist.unlink()
+                new_wheels = [
+                    p for p in dest.glob("*.whl") if p.name not in wheels_before
+                ]
+                for wheel in new_wheels:
+                    artifact_indexes[wheel.name] = extra_index_urls.copy()
+                built_wheels.extend(new_wheels)
+            else:
+                print(f"WARN: keeping sdist {sdist.name}", flush=True)
+                failed_sdists.add(sdist.name)
+        if not built_wheels:
+            break
+        for wheel in built_wheels:
+            extra_index_urls = artifact_indexes.get(wheel.name, [args.pytorch_index])
+            proc = download_model_artifacts(
+                [str(wheel)],
+                extra_index_urls,
+                constraints=master_constraints,
+            )
+            if proc.returncode != 0:
+                print(
+                    f"WARN: retrying dependencies of '{wheel.name}' "
+                    "without constraints",
+                    flush=True,
+                )
+                proc = download_model_artifacts([str(wheel)], extra_index_urls)
+                if proc.returncode != 0:
+                    sys.exit(
+                        f"FATAL: failed to fetch dependencies of built "
+                        f"wheel '{wheel.name}'"
+                    )
+                unconstrained_fallbacks.append(wheel.name)
+    sdist_left.extend(sorted(failed_sdists))
+
+    # ------------------------------------------------------------------
+    # Report.
+    # ------------------------------------------------------------------
+    versions: Dict[str, Set[str]] = defaultdict(set)
+    total_size = 0
+    files = sorted(p for p in dest.iterdir() if p.is_file())
+    for f in files:
+        total_size += f.stat().st_size
+        name_version = wheel_name_version(f.name)
+        if name_version is not None:
+            name, version = name_version
+            versions[name].add(version)
+    report: Dict[str, object] = {
+        "runtime_constraints": list(runtime_pins.values()),
+        "unconstrained_fallbacks": unconstrained_fallbacks,
+        "raw_sdist_fallbacks": raw_sdist_fallbacks,
+        "sdist_left": sdist_left,
+        "file_count": len(files),
+        "total_size_bytes": total_size,
+        "total_size_human": format(total_size / 1024**3, ".2f") + " GiB",
+        "multi_version_packages": {
+            name: sorted(vs) for name, vs in sorted(versions.items()) if len(vs) > 1
+        },
+    }
+    (manifest_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n")
+    print(
+        json.dumps(
+            {k: report[k] for k in ("file_count", "total_size_human")}, indent=None
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

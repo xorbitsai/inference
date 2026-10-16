@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +23,12 @@ import numpy as np
 import PIL.Image
 import torch
 import torch.nn as nn
-from torchvision import transforms
 
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
 from ...utils import allow_trust_remote_code
+from .latex import process_ocr_result_with_latex
 from .ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
@@ -170,6 +170,8 @@ def normalize_transform(
     std: Optional[Union[Tuple[float, float, float], List[float]]],
 ):
     """Create normalization transform."""
+    from torchvision import transforms
+
     if mean is None and std is None:
         return None
     elif mean is None and std is not None:
@@ -191,6 +193,8 @@ class BasicImageTransform:
         std: Optional[Tuple[float, float, float]] = (0.5, 0.5, 0.5),
         normalize: bool = True,
     ):
+        from torchvision import transforms
+
         self.mean = mean
         self.std = std
 
@@ -629,15 +633,9 @@ class DeepSeekOCRModel(OCRModel):
             )
 
             # Apply LaTeX post-processing using unified function
-            try:
-                from ...ui.gradio.utils.latex import process_ocr_result_with_latex
-
-                result = process_ocr_result_with_latex(
-                    result, output_format="markdown", debug_info=True
-                )
-            except ImportError:
-                # Fallback: no LaTeX processing if import fails
-                pass
+            result = process_ocr_result_with_latex(
+                result, output_format="markdown", debug_info=True
+            )
 
             return result
         # Handle batch image input
@@ -649,15 +647,9 @@ class DeepSeekOCRModel(OCRModel):
                 )
 
                 # Apply LaTeX post-processing using unified function
-                try:
-                    from ...ui.gradio.utils.latex import process_ocr_result_with_latex
-
-                    result = process_ocr_result_with_latex(
-                        result, output_format="markdown", debug_info=False
-                    )
-                except ImportError:
-                    # Fallback: no LaTeX processing if import fails
-                    pass
+                result = process_ocr_result_with_latex(
+                    result, output_format="markdown", debug_info=False
+                )
 
                 results.append(result)
             return results
@@ -858,26 +850,16 @@ class DeepSeekOCRModel(OCRModel):
                 )
 
                 # Apply LaTeX post-processing using unified function
-                try:
-                    from ...ui.gradio.utils.latex import process_ocr_result_with_latex
+                processed_result = process_ocr_result_with_latex(
+                    result, output_format="markdown", debug_info=True
+                )
 
-                    # Process the result and extract LaTeX info
-                    processed_result = process_ocr_result_with_latex(
-                        result, output_format="markdown", debug_info=True
-                    )
-
-                    # Extract text and LaTeX info
-                    if isinstance(processed_result, dict):
-                        latex_info = processed_result.get("latex_processing")
-                        processed_result = processed_result.get("text", result)
-                    else:
-                        processed_result = (
-                            processed_result if processed_result else result
-                        )
-                        latex_info = None
-
-                except ImportError:
-                    processed_result = result
+                # Extract text and LaTeX info
+                if isinstance(processed_result, dict):
+                    latex_info = processed_result.get("latex_processing")
+                    processed_result = processed_result.get("text", result)
+                else:
+                    processed_result = processed_result if processed_result else result
                     latex_info = None
 
                 # Prepare response
@@ -892,7 +874,7 @@ class DeepSeekOCRModel(OCRModel):
                 }
 
                 # If the model returned an empty result, fall back to visualization
-                # mode (same path as Gradio) to give users a usable response.
+                # mode to give users a usable response.
                 if processed_result is None or (
                     isinstance(processed_result, str) and not processed_result.strip()
                 ):

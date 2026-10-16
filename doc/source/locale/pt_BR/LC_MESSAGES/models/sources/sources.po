@@ -1,0 +1,85 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-01-02 16:27+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/sources/sources.rst:5
+msgid "Download Sources"
+msgstr "Fontes de download"
+
+#: ../../source/models/sources/sources.rst:7
+msgid "Xinference supports downloading various models from different sources."
+msgstr ""
+"O Xinference suporta o download de vários modelos de diferentes fontes."
+
+#: ../../source/models/sources/sources.rst:10
+msgid "HuggingFace"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:11
+msgid ""
+"Xinference directly downloads the required models from the official `Hugging"
+" Face model repository <https://huggingface.co/models>`_ by default."
+msgstr ""
+"Xinference baixa diretamente por padrão os modelos necessários do "
+"`repositório oficial de modelos do Hugging Face "
+"<https://huggingface.co/models>`_."
+
+#: ../../source/models/sources/sources.rst:14
+msgid ""
+"If you have trouble connecting to Huggingface, you can use a mirror website "
+"to download with setting the environment variable ``HF_ENDPOINT=https://hf-"
+"mirror.com``."
+msgstr ""
+"Se sua rede não conseguir acessar o HuggingFace, você pode especificar um "
+"site espelho do HuggingFace por meio de uma variável de ambiente: "
+"``HF_ENDPOINT=https://hf-mirror.com``."
+
+#: ../../source/models/sources/sources.rst:18
+msgid "ModelScope"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:20
+msgid ""
+"When Xinference detects that the system's language is set to Simplified "
+"Chinese, it will automatically set the model download source to `ModelScope "
+"<https://modelscope.cn/models>`_."
+msgstr ""
+"Quando o Xinference detecta que o idioma do sistema está configurado como "
+"\"Chinês Simplificado\", ele define a fonte de download do modelo como "
+"`ModelScope <https://modelscope.cn/models>`_."
+
+#: ../../source/models/sources/sources.rst:23
+msgid ""
+"You can also achieve this by manually setting an environment variable "
+"``XINFERENCE_MODEL_SRC=modelscope``."
+msgstr ""
+"Você também pode fazer isso definindo manualmente a variável de ambiente "
+"``XINFERENCE_MODEL_SRC=modelscope``."
+
+#: ../../source/models/sources/sources.rst:25
+msgid ""
+"Please check the detail page of a model to confirm whether the model "
+"supports downloading from ModelScope. If a model spec supports downloading "
+"from ModelScope, the \"Model Hubs\" section in the spec information will "
+"include \"ModelScope\"."
+msgstr ""
+"Por favor, verifique na página de detalhes do modelo se ele suporta download"
+" do ModelScope. Se um modelo suportar download do ModelScope, o item \"Model"
+" Hubs\" nas informações do modelo incluirá \"ModelScope\"."

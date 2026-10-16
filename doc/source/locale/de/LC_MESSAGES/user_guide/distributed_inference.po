@@ -1,0 +1,157 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-29 11:03+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/distributed_inference.rst:5
+msgid "Distributed Inference"
+msgstr "Verteilte Inferenz (verteiltes Schließen)"
+
+#: ../../source/user_guide/distributed_inference.rst:6
+msgid ""
+"Some language models including **DeepSeek V3**, **DeepSeek R1**, etc are too"
+" large to fit into GPus on a single machine, Xinference supported running "
+"these models across multiple machines."
+msgstr ""
+"Einige Sprachmodelle, darunter **DeepSeek V3**, **DeepSeek R1** usw., sind "
+"zu groß, um auf die GPU einer einzelnen Maschine zu passen. Xinference "
+"unterstützt den Betrieb dieser Modelle auf mehreren Maschinen."
+
+#: ../../source/user_guide/distributed_inference.rst:13
+msgid "Supported Engines"
+msgstr "Unterstützte Engine"
+
+#: ../../source/user_guide/distributed_inference.rst:14
+msgid "Now, Xinference supported below engines to run models across workers."
+msgstr ""
+"Nun unterstützt Xinference die folgenden Engines zum Ausführen von Modellen "
+"auf mehreren Workern."
+
+#: ../../source/user_guide/distributed_inference.rst:16
+msgid ":ref:`SGLang <sglang_backend>` (supported in v1.3.0)"
+msgstr ":ref:`SGLang <sglang_backend>` (unterstützt in v1.3.0)"
+
+#: ../../source/user_guide/distributed_inference.rst:17
+msgid ":ref:`vLLM <vllm_backend>` (supported in v1.4.1)"
+msgstr ":ref:`vLLM <vllm_backend>` (Unterstützung in v1.4.1)"
+
+#: ../../source/user_guide/distributed_inference.rst:18
+msgid ""
+":ref:`MLX <mlx_backend>` (supported in v1.7.1), MLX distributed currently "
+"does not support all models. The following model types are supported at this"
+" time. If you have additional requirements, feel free to submit a GitHub "
+"issue at `https://github.com/xorbitsai/inference/issues "
+"<https://github.com/xorbitsai/inference/issues>`_ to request support."
+msgstr ""
+":ref:`MLX <mlx_backend>` (seit v1.7.1 unterstützt) wird im verteilten Modus "
+"derzeit nicht von allen Modellen unterstützt. Folgende Modelltypen werden "
+"aktuell unterstützt. Falls Sie weitere Anforderungen haben, reichen Sie "
+"bitte ein GitHub-Issue unter `https://github.com/xorbitsai/inference/issues "
+"<https://github.com/xorbitsai/inference/issues>`_ ein, um Unterstützung "
+"anzufragen."
+
+#: ../../source/user_guide/distributed_inference.rst:22
+msgid "DeepSeek v3 and R1"
+msgstr "DeepSeek v3 und R1"
+
+#: ../../source/user_guide/distributed_inference.rst:23
+msgid "Qwen2.5-instruct and the models have the same model architectures."
+msgstr "Qwen2.5-instruct und andere Modelle mit derselben Modellarchitektur."
+
+#: ../../source/user_guide/distributed_inference.rst:24
+msgid "Qwen3 and the models have the same model architectures."
+msgstr "Qwen3 und andere Modelle mit derselben Architektur."
+
+#: ../../source/user_guide/distributed_inference.rst:25
+msgid "Qwen3-moe and the models have the same model architectures."
+msgstr "Qwen3-moe und andere Modelle mit derselben Modellarchitektur."
+
+#: ../../source/user_guide/distributed_inference.rst:30
+msgid "Usage"
+msgstr "Nutzen"
+
+#: ../../source/user_guide/distributed_inference.rst:31
+msgid ""
+"First you need at least 2 workers to support distributed inference. Refer to"
+" :ref:`running Xinference in cluster <distributed_getting_started>` to "
+"create a Xinference cluster including supervisor and workers."
+msgstr ""
+"Zunächst benötigen Sie mindestens 2 Worker-Knoten zur Unterstützung von "
+"verteiltem Inferenz. Siehe :ref:`Ausführen von Xinference in einem Cluster "
+"<distributed_getting_started>` zur Erstellung eines Xinference-Clusters, der"
+" einen Supervisor-Knoten und Worker-Knoten umfasst."
+
+#: ../../source/user_guide/distributed_inference.rst:35
+msgid ""
+"vLLM V1 (v0.11.1+) supports tensor parallelism (TP) and pipeline parallelism"
+" (PP) through Xinference's xoscar executor. For a model spanning workers, "
+"the defaults are ``tensor_parallel_size`` = GPUs per worker and "
+"``pipeline_parallel_size`` = worker count."
+msgstr ""
+"vLLM V1 (v0.11.1+) unterstützt Tensorparallelität (TP) und "
+"Pipelineparallelität (PP) über den xoscar-Executor von Xinference. Bei einem"
+" Modell über mehrere Worker entspricht ``tensor_parallel_size`` "
+"standardmäßig der GPU-Anzahl pro Worker und ``pipeline_parallel_size`` der "
+"Worker-Anzahl."
+
+#: ../../source/user_guide/distributed_inference.rst:39
+msgid ""
+"For example, two workers with four GPUs each use ``--n-worker 2 --n-gpu 4``,"
+" ``tensor_parallel_size=4`` and ``pipeline_parallel_size=2``. Explicit TP/PP"
+" settings must satisfy ``TP * PP = total allocated GPUs``. Each worker must "
+"allocate the same GPU count, and the model architecture must support vLLM "
+"PP."
+msgstr ""
+"Beispielsweise verwenden zwei Worker mit je vier GPUs ``--n-worker 2 --n-gpu"
+" 4``, ``tensor_parallel_size=4`` und ``pipeline_parallel_size=2``. Explizite"
+" TP/PP-Einstellungen müssen ``TP * PP = total allocated GPUs`` erfüllen: Das"
+" Produkt muss der Gesamtzahl zugewiesener GPUs entsprechen. Jeder Worker "
+"muss gleich viele GPUs zuweisen, und die Modellarchitektur muss vLLM PP "
+"unterstützen."
+
+#: ../../source/user_guide/distributed_inference.rst:44
+msgid ""
+"This PP deployment does not require a Ray cluster. Xavier V1 and native NIXL"
+" P/D separation currently require ``TP=1`` and ``PP=1`` and cannot be "
+"combined with this configuration."
+msgstr ""
+"Diese PP-Bereitstellung erfordert keinen Ray-Cluster. Xavier V1 und die "
+"native NIXL-P/D-Trennung erfordern derzeit ``TP=1`` und ``PP=1`` und können "
+"nicht mit dieser Konfiguration kombiniert werden."
+
+#: ../../source/user_guide/distributed_inference.rst:47
+msgid ""
+"Then if are using web UI, choose expected machines for ``worker count`` in "
+"the optional configurations, if you are using command line, add ``--n-worker"
+" <machine number>`` when launching a model. The model will be launched "
+"across multiple workers accordingly."
+msgstr ""
+"Wenn Sie die Weboberfläche verwenden, wählen Sie in den optionalen "
+"Konfigurationen die gewünschte Anzahl an Rechnern als ``worker count`` aus. "
+"Falls Sie die Befehlszeile verwenden, fügen Sie beim Starten des Modells "
+"``--n-worker <Anzahl der Rechner>`` hinzu. Das Modell wird dann entsprechend"
+" auf mehreren Arbeitsknoten gestartet."
+
+#: ../../source/user_guide/distributed_inference.rst:55
+msgid ""
+"``GPU count`` on web UI, or ``--n-gpu`` for command line now mean GPUs count"
+" per worker if you are using distributed inference."
+msgstr ""
+"Bei verteiltem Inferieren steht ``GPU count`` in der Web-Benutzeroberfläche "
+"oder ``--n-gpu`` in der Befehlszeile nun für die Anzahl der GPUs pro "
+"Arbeitsknoten."

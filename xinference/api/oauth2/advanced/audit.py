@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,12 @@ import socket
 from datetime import datetime, timezone
 from typing import Optional
 
-from ....constants import XINFERENCE_AUDIT_LOG_RETENTION_DAYS, XINFERENCE_LOG_DIR
+from ....constants import (
+    XINFERENCE_AUDIT_LOG_RETENTION_DAYS,
+    XINFERENCE_LOG_BACKUP_COUNT,
+    XINFERENCE_LOG_DIR,
+    XINFERENCE_LOG_MAX_BYTES,
+)
 from ....core.log import create_rotating_handler
 
 _audit_logger: Optional[logging.Logger] = None
@@ -38,7 +43,9 @@ def _get_audit_logger() -> logging.Logger:
     handler = create_rotating_handler(
         filename=os.path.join(XINFERENCE_LOG_DIR, "audit.log"),
         retention_days=XINFERENCE_AUDIT_LOG_RETENTION_DAYS,
-        rotation="daily",
+        rotation="daily+size",
+        max_bytes=XINFERENCE_LOG_MAX_BYTES,
+        backup_count=XINFERENCE_LOG_BACKUP_COUNT,
         formatter=logging.Formatter("%(message)s"),
     )
     _audit_logger.addHandler(handler)
@@ -55,17 +62,20 @@ _AUDIT_SKIP_ENDPOINTS = (
     "/v1/cluster/ui_config",
     "/status",
     "/v1/address",
+    "/v1/internal/token-router/",
 )
 
 # Endpoint prefixes for category classification
 _INFERENCE_PREFIXES = (
     "/v1/chat/",
     "/v1/completions",
+    "/v1/responses",
     "/v1/embeddings",
     "/v1/rerank",
     "/v1/images/",
     "/v1/audio/",
     "/v1/video/",
+    "/v1/worlds/",
     "/v1/sdapi/",
 )
 
@@ -80,6 +90,11 @@ def should_skip_audit(endpoint: str) -> bool:
         if endpoint == prefix or endpoint.startswith(prefix):
             return True
     return False
+
+
+def should_skip_completed_audit(method: str, endpoint: str, status_code: int) -> bool:
+    """Return whether a completed request is routine audit noise."""
+    return method == "GET" and endpoint == "/metrics" and status_code < 400
 
 
 def classify_endpoint(endpoint: str) -> str:
@@ -146,6 +161,9 @@ def record_audit_event(
     address: str = "",
     category: str = "",
     auth_type: str = "",
+    method: str = "",
+    status_code: int = 0,
+    request_id: str = "",
 ) -> None:
     if should_skip_audit(endpoint):
         return
@@ -159,6 +177,9 @@ def record_audit_event(
         "event_type": "api_call",
         "category": category,
         "auth_type": auth_type,
+        "request_id": request_id,
+        "method": method,
+        "status_code": status_code,
         "user": user,
         "api_key_name": api_key_name,
         "api_key_prefix": api_key_prefix,

@@ -1,0 +1,65 @@
+[
+  {
+    "version": 2,
+    "context_length": 32768,
+    "model_name": "qwen2-audio-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "audio"
+    ],
+    "model_description": "Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2-Audio-7B-Instruct",
+            "model_revision": "bac62d2c6808845904c709c17a0402d817558c64"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "qwen/Qwen2-Audio-7B-Instruct",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% set audio_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system You are a helpful assistant.<|im_end|> {% endif %}<|im_start|>{{ message['role'] }} {% if message['content'] is string %}{{ message['content'] }}<|im_end|> {% else %}{% for content in message['content'] %}{% if 'audio' in content or 'audio_url' in content or message['type'] == 'audio' or content['type'] == 'audio' %}{% set audio_count.value = audio_count.value + 1 %}Audio {{ audio_count.value }}: <|audio_bos|><|AUDIO|><|audio_eos|> {% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|> {% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant {% endif %}",
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop": [
+        "<|im_end|>",
+        "<|endoftext|>"
+      ]
+    },
+    "updated_at": 1769418561,
+    "featured": false,
+    "architectures": [
+      "Qwen2AudioForConditionalGeneration"
+    ],
+    "model_type": "qwen2_audio",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

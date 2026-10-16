@@ -7,13 +7,24 @@ import {
 import { Languages } from 'lucide-react';
 import { useI18n } from '@/contexts/i18n-context';
 import { LANGUAGES } from '@/constants';
+import { cn } from '@/lib/utils';
 
-export default function LanguageSwitcher() {
+interface LanguageSwitcherProps {
+  className?: string;
+  iconClassName?: string;
+}
+
+export default function LanguageSwitcher({ className, iconClassName }: LanguageSwitcherProps) {
   const { locale, setLocale } = useI18n();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild >
-        <Languages className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-pointer" />
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn('text-muted-foreground hover:text-foreground transition-colors', className)}
+        >
+          <Languages className={cn('h-5 w-5', iconClassName)} />
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         {LANGUAGES.map((lang) => (

@@ -17,10 +17,24 @@ I18NSPHINXLANGS = -l zh_CN
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: help Makefile html_zh_cn html_ja_jp gettext
+.PHONY: help Makefile gettext build-mo html_i18n html_zh_cn html_de
+
+# Usage:
+#   make html_i18n LOCALE=de
+#   make html_de
+#   make html_zh_cn
+html_i18n:
+	python build_i18n.py $(LOCALE)
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) $(if $(filter zh_CN,$(LOCALE)),-t zh_cn,) -D language='$(LOCALE)' "$(SOURCEDIR)" $(BUILDDIR)/html_$(LOCALE)
+
+html_de:
+	$(MAKE) html_i18n LOCALE=de
 
 html_zh_cn:
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) -t zh_cn -D language='zh_CN' "$(SOURCEDIR)" $(BUILDDIR)/html_zh_cn
+	$(MAKE) html_i18n LOCALE=zh_CN
+
+build-mo:
+	python build_i18n.py --all
 
 gettext:
 	$(SPHINXBUILD) -b gettext $(I18NSPHINXOPTS) $(BUILDDIR)/locale

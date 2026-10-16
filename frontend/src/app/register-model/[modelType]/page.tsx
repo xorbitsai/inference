@@ -1,13 +1,13 @@
-import RegisterModel from '@/components/pages/register-model';
-import { getRigisterModelTyps } from '@/components/pages/register-model/utils';
+import RegisterModelPageClient from './page-client';
+import { SHELL_ROUTE_PARAM } from '@/lib/route-params';
 
-interface RegisterModelPageProps {
-  params: Promise<{
-    modelType: string;
-  }>;
+// Server wrapper for static export: provides a placeholder param so a shell
+// HTML is emitted for this dynamic route. The backend serves the shell for any
+// real model type; the client component reads the actual values from the URL.
+export function generateStaticParams() {
+  return [{ modelType: SHELL_ROUTE_PARAM }];
 }
 
-export default async function RegisterModelPage({ params }: RegisterModelPageProps) {
-  const { modelType } = await params;
-  return <RegisterModel modelType={getRigisterModelTyps(modelType)} />;
+export default function RegisterModelPage() {
+  return <RegisterModelPageClient />;
 }

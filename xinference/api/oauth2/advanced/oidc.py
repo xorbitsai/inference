@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -219,7 +219,10 @@ async def oidc_callback(request: Request) -> Response:
         raise HTTPException(status_code=403, detail="User account is disabled")
 
     access_token = auth.create_access_token(
-        user["id"], user["username"], user["permissions"]
+        user["id"],
+        user["username"],
+        user["permissions"],
+        user.get("token_version", 0),
     )
     refresh_token = auth.create_refresh_token(user["id"])
 

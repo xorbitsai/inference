@@ -1,0 +1,207 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-09-05 16:44+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/tools.rst:5
+msgid "Tools"
+msgstr "ツール"
+
+#: ../../source/models/model_abilities/tools.rst:7
+msgid "Learn how to connect LLM with external tools."
+msgstr "LLM を外部ツールと接続する方法を学びます。"
+
+#: ../../source/models/model_abilities/tools.rst:11
+msgid "Introduction"
+msgstr "Introduction"
+
+#: ../../source/models/model_abilities/tools.rst:13
+msgid "With the ``tools`` ability you can have your model use external tools."
+msgstr "``tools`` 機能を使用することで、モデルに外部ツールを利用させることができます。"
+
+#: ../../source/models/model_abilities/tools.rst:16
+msgid ""
+"Like `OpenAI's Function calling API "
+"<https://platform.openai.com/docs/guides/function-calling>`_, you can define"
+" the functions along with their parameters and have the model dynamically "
+"choose which function to call and what parameters to pass to it."
+msgstr ""
+"`OpenAI の Function calling API "
+"<https://platform.openai.com/docs/guides/function-calling>`_ "
+"と同様に、パラメータを持つ関数を定義し、モデルにどの関数を呼び出すか、またその関数にどのパラメータを渡すかを動的に選択させることができます。"
+
+#: ../../source/models/model_abilities/tools.rst:19
+msgid "This is the general process for calling a function:"
+msgstr "これは関数を呼び出す一般的なプロセスです："
+
+#: ../../source/models/model_abilities/tools.rst:21
+msgid ""
+"You submit a query, detailing the functions, their parameters, and "
+"descriptions."
+msgstr "クエリを送信し、関数、その引数、および説明を詳しく説明してください。"
+
+#: ../../source/models/model_abilities/tools.rst:22
+msgid ""
+"The LLM decides whether to initiate the function. If chosen not to, it "
+"replies in everyday language, either offering a solution based on its "
+"inherent understanding or asking further details about the query and tool "
+"usage. On deciding to use a tool, it recommends the suitable API and "
+"instructions for its usage, framed in JSON."
+msgstr ""
+"LLMは機能を起動するかどうかを決定する。起動しない場合、日常的な言語で応答し、その内蔵理解に基づいて解決策を提供するか、クエリやツールの使用に関するさらなる詳細を尋ねる。ツールを使用する場合、適切なAPIとJSON形式の使用説明を推奨する。"
+
+#: ../../source/models/model_abilities/tools.rst:25
+msgid ""
+"Following that, you implement the API call within your application and send "
+"the returned response back to the LLM for result analysis and proceeding "
+"with the next steps."
+msgstr "次に、アプリケーション内でAPI呼び出しを実装し、返されたレスポンスをLLMに送信して結果を分析し、次の操作を実行します。"
+
+#: ../../source/models/model_abilities/tools.rst:28
+msgid ""
+"There is no dedicated API endpoint implemented for ``tools`` ability. It "
+"must be used in combination with Chat API."
+msgstr "現在、 ``tools`` 機能専用のAPIエンドポイントは実装されていません。Chat APIと組み合わせて使用する必要があります。"
+
+#: ../../source/models/model_abilities/tools.rst:31
+msgid "Supported models"
+msgstr "サポート対象モデル一覧"
+
+#: ../../source/models/model_abilities/tools.rst:33
+msgid ""
+"The ``tools`` ability is supported with the following models in Xinference:"
+msgstr "Xinferenceは、以下のモデルで ``tools`` 機能をサポートしています："
+
+#: ../../source/models/model_abilities/tools.rst:35
+msgid ":ref:`models_llm_glm4-chat`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:36
+msgid ":ref:`models_llm_glm4-chat-1m`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:37
+msgid ":ref:`models_llm_llama-3.1-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:38
+msgid ":ref:`models_llm_llama-3.3-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:39
+msgid ":ref:`models_llm_qwen1.5-chat`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:40
+msgid ":ref:`models_llm_qwen1.5-moe-chat`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:41
+msgid ":ref:`models_llm_qwen2-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:42
+msgid ":ref:`models_llm_qwen2-moe-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:43
+msgid ":ref:`models_llm_qwen2.5-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:44
+msgid ":ref:`models_llm_qwen2.5-coder-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:45
+msgid ":ref:`models_llm_qwq-32b`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:46
+msgid ":ref:`models_llm_qwen3`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:47
+msgid ":ref:`models_llm_qwen3-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:48
+msgid ":ref:`models_llm_qwen3-coder`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:49
+msgid ":ref:`models_llm_deepseek-v3`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:50
+msgid ":ref:`models_llm_deepseek-r1-0528`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:53
+msgid "Quickstart"
+msgstr "クイックスタート"
+
+#: ../../source/models/model_abilities/tools.rst:55
+msgid ""
+"An optional parameter ``tools`` in the Chat API can be used to provide "
+"function specifications. The purpose of this is to enable models to generate"
+" function arguments which adhere to the provided specifications."
+msgstr ""
+"Chat API 内のオプションパラメータ ``tools`` "
+"は関数仕様を提供するために使用できます。その目的は、モデルが提供された仕様に準拠した関数パラメータを生成できるようにすることです。"
+
+#: ../../source/models/model_abilities/tools.rst:59
+msgid "Example using OpenAI Client"
+msgstr "OpenAI クライアントを使用する例"
+
+#: ../../source/models/model_abilities/tools.rst:108
+#: ../../source/models/model_abilities/tools.rst:171
+msgid "The output will be:"
+msgstr "出力結果は："
+
+#: ../../source/models/model_abilities/tools.rst:126
+msgid "Example using Anthropic Client"
+msgstr "Anthropicクライアントを使用する例"
+
+#: ../../source/models/model_abilities/tools.rst:191
+msgid ""
+"Finish reason will be ``tool_calls`` if the LLM uses a tool call. Othewise "
+"it will be the default finish reason."
+msgstr ""
+"LLMがツール呼び出しを使用した場合、完了理由は ``tool_calls`` になります。それ以外の場合は、デフォルトの完了理由になります。"
+
+#: ../../source/models/model_abilities/tools.rst:196
+msgid ""
+"The API will not actually execute any function calls. It is up to developers"
+" to execute function calls using model outputs."
+msgstr "API自体は関数呼び出しを実行しません。開発者はモデルの出力を使って関数呼び出しを実行する必要があります。"
+
+#: ../../source/models/model_abilities/tools.rst:200
+msgid ""
+"You can find more examples of ``tools`` ability in the tutorial notebook:"
+msgstr "``tools`` 機能に関するさらなる例は、チュートリアルノートブックでご覧いただけます。"
+
+#: ../../source/models/model_abilities/tools.rst:204
+msgid "Function calling"
+msgstr "関数呼び出し"
+
+#: ../../source/models/model_abilities/tools.rst:207
+msgid "Learn from a complete example demonstrating function calling"
+msgstr "完全な例を学び、関数呼び出しのプロセスを実演します。"
+
+#~ msgid ":ref:`models_llm_qwen-chat`"
+#~ msgstr ""

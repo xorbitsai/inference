@@ -1,0 +1,329 @@
+# Translations for the Anthropic API compatibility chapter.
+# Copyright (C) 2026 XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-13 11:07+0800\n"
+"PO-Revision-Date: 2026-10-16 12:22+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: user_guide/anthropic.rst:4
+msgid "Anthropic API compatibility"
+msgstr "Anthropic API 相容"
+
+#: user_guide/anthropic.rst:6
+msgid ""
+"Xinference exposes Anthropic-compatible Messages APIs for already launched "
+"models. Use the model UID in requests. The available features depend on the "
+"model and engine."
+msgstr ""
+"Xinference 為已啟動的模型提供相容 Anthropic 的 Messages API。請求中使用模型 UID。可用功能取決於模型和推論引擎。"
+
+#: user_guide/anthropic.rst:11
+msgid "Endpoints and authentication"
+msgstr "介面與認證"
+
+#: user_guide/anthropic.rst:13
+msgid ""
+"Send message requests to ``/v1/messages`` and token-count requests to "
+"``/v1/messages/count_tokens``. The standard routes require ``anthropic-"
+"version: 2023-06-01``. The ``/anthropic/v1/messages`` and "
+"``/anthropic/v1/messages/count_tokens`` aliases remain available."
+msgstr ""
+"訊息請求傳送至 ``/v1/messages``，token 計數請求傳送至 ``/v1/messages/count_tokens``。標準介面要求提供"
+" ``anthropic-version: 2023-06-01``。同時保留 ``/anthropic/v1/messages`` 和 "
+"``/anthropic/v1/messages/count_tokens`` 別名介面。"
+
+#: user_guide/anthropic.rst:18
+msgid ""
+"Use your Xinference API key when authentication is enabled. An arbitrary non-"
+"empty key is sufficient when authentication is disabled."
+msgstr "啟用認證時，使用你的 Xinference API key。未啟用認證時，任意非空 key 即可。"
+
+#: user_guide/anthropic.rst:22
+msgid "Claude Code"
+msgstr "Claude Code"
+
+#: user_guide/anthropic.rst:24
+msgid ""
+"Launch a model with chat and tool-calling support first (see :ref:`launch`), "
+"then configure Claude Code to use the Xinference server and model UID:"
+msgstr ""
+"先啟動支援聊天和工具呼叫的模型（參見 :ref:`launch`），然後設定 Claude Code 使用 Xinference 服務位址和模型 UID："
+
+#: user_guide/anthropic.rst:38
+msgid "Python SDK"
+msgstr "Python SDK"
+
+#: user_guide/anthropic.rst:57
+msgid "Token counting"
+msgstr "Token 計數"
+
+#: user_guide/anthropic.rst:59
+msgid ""
+"The standard ``/v1/messages/count_tokens`` endpoint and its "
+"``/anthropic/v1/messages/count_tokens`` alias use the loaded model's chat "
+"template and tokenizer, including tool definitions and images where "
+"supported. Both routes use the same model permissions and Xinference API key"
+" as message generation. SGLang supports text and tool token counting; image "
+"counting returns 501."
+msgstr ""
+"標準計數端點 ``/v1/messages/count_tokens`` 與別名 "
+"``/anthropic/v1/messages/count_tokens`` 使用已載入模型的聊天範本與 "
+"tokenizer，並在支援時計入工具定義和影像。兩個介面使用與訊息生成相同的模型權限和 Xinference API key。 SGLang "
+"支援文字和工具 token 計數；影像計數回傳 501。"
+
+#: user_guide/anthropic.rst:74
+msgid "Images and documents"
+msgstr "圖像與文件"
+
+#: user_guide/anthropic.rst:76
+msgid ""
+"Messages support text, base64 or URL images, tool results containing images, "
+"and tool references to tools declared in the request. Plain-text documents "
+"are supported; PDF pages are rendered as images with ``pypdfium2`` (install "
+"the ``image`` extra), require a vision model, and are limited to 20 pages per"
+" request. File IDs and document citations are not supported."
+msgstr ""
+"訊息支援文字、base64 或 URL 影像、包含影像的工具結果，以及對請求中已宣告工具的參照。支援純文字文件；PDF 透過 ``pypdfium2`` "
+"渲染為影像（安裝 ``image`` 擴充相依套件），需要視覺模型，每個請求最多 20 頁。不支援檔案 ID 和文件引用標註。"
+
+#: user_guide/anthropic.rst:83
+msgid ""
+"Xinference's vLLM vision models default to two images per prompt. The limit "
+"includes images in conversation history and tool results, so successive "
+"single-image messages can also exceed it. Set ``limit_mm_per_prompt`` when "
+"launching the model, for example ``{\"image\": 8, \"video\": 0}``, to allow "
+"more images within the model's context length and available GPU memory."
+msgstr ""
+"Xinference 的 vLLM "
+"視覺模型預設每個提示詞最多接收兩張圖片。此上限包括對話歷史和工具結果中的圖片，因此連續傳送單圖訊息也可能超限。啟動模型時設定 "
+"``limit_mm_per_prompt``，例如 ``{\"image\": 8, \"video\": 0}``，即可在模型上下文長度和可用 "
+"GPU 記憶體範圍內接收更多圖片。"
+
+#: user_guide/anthropic.rst:89
+msgid ""
+"PDF limits apply to the entire request: at most 20 pages and 20 million "
+"rendered pixels. Decoded PDF bytes and rendered PNG bytes each use "
+"``XINFERENCE_MEDIA_MAX_BYTES`` (64 MiB by default). Each PDF block is "
+"rendered once per request, and model access is checked before fetching or "
+"rendering content."
+msgstr ""
+"PDF 限制針對整個請求：最多 20 頁、2000 萬個渲染像素。解碼後的 PDF 位元組和渲染後的 PNG 位元組各自受 "
+"``XINFERENCE_MEDIA_MAX_BYTES`` 限制（預設為 64 MiB）。每個 PDF "
+"內容區塊在一次請求中僅渲染一次，取得或渲染內容前會檢查模型存取權限。"
+
+#: user_guide/anthropic.rst:83
+msgid "Thinking"
+msgstr "思考模式"
+
+#: user_guide/anthropic.rst:86
+msgid ""
+"Adaptive thinking enables the model's reasoning mode. The ``effort`` option "
+"maps to prompt guidance, with ``medium`` preserving the default prompt. "
+"Explicit thinking responses carry Xinference signatures, which can be "
+"replayed with the same model UID and signing key; configure "
+"``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers. "
+"The MLX, vLLM and SGLang adapters do not currently enforce manual "
+"``budget_tokens`` as a separate reasoning-token limit."
+msgstr ""
+"Adaptive thinking 啟用模型的推理模式。``effort`` 對應為提示詞指引，``medium`` "
+"保持預設提示詞。明確要求的思考回應帶有 Xinference 簽章，可使用相同的模型 UID 和簽章金鑰回傳；多個 API 伺服器應設定相同的 "
+"``XINFERENCE_ANTHROPIC_THINKING_SECRET``。 MLX、vLLM 和 SGLang 適配層目前不會將手動 "
+"``budget_tokens`` 強制執行為獨立的思考 token 上限。"
+
+#: user_guide/anthropic.rst:105
+msgid ""
+"Stale, unsigned or foreign thinking blocks are ignored during replay; "
+"accompanying answers and tool calls are preserved."
+msgstr "重播歷史時會忽略失效、未簽章或外來的 thinking 區塊，同時保留其附帶的回答和工具呼叫。"
+
+#: user_guide/anthropic.rst:92
+msgid "Tool choice and structured output"
+msgstr "工具選擇與結構化輸出"
+
+#: user_guide/anthropic.rst:95
+msgid ""
+"Structured JSON output requires a supporting engine. The vLLM and SGLang "
+"engines support named and required tool choice through constrained JSON "
+"decoding, and disabled parallel tool use returns at most one tool per "
+"response. Forced tool arguments are buffered until complete."
+msgstr ""
+"結構化 JSON 輸出需要引擎支援。vLLM 和 SGLang 引擎透過受約束的 JSON "
+"解碼支援指定工具和必須呼叫工具；停用平行工具呼叫時，每次回應最多回傳一個工具呼叫。強制呼叫的工具參數會緩衝至完整後再回傳。"
+
+#: ../docs-source/user_guide/anthropic.rst:116
+msgid ""
+"Xinference automatically connects its existing reasoning parser to vLLM and "
+"SGLang structured decoding for supported reasoning markers and engines with "
+"parser plugin support. Qwen3.5 needs no extra parser configuration. Explicit"
+" engine parser settings are preserved. Manual thinking cannot be combined "
+"with forced tool choice. P/D models return 501 for forced tool choice. Other"
+" engines return 501 for unsupported controls."
+msgstr ""
+"對於支援的思考標記和具備 parser 外掛能力的引擎，Xinference 會自動將既有的 reasoning parser 接入 vLLM 和 "
+"SGLang 的結構化解碼。Qwen3.5 無需額外設定 parser。使用者明確指定的引擎 parser "
+"設定會保留。手動思考模式不能與強制工具選擇組合。其他引擎對不支援的控制項回傳 501。 P/D 模型對強制工具選擇回傳 501。"
+
+#: user_guide/anthropic.rst:103
+msgid "Prompt caching"
+msgstr "提示詞快取"
+
+#: ../docs-source/user_guide/anthropic.rst:126
+msgid ""
+"For text requests, the MLX vision engine reuses the furthest "
+"``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports "
+"actual cache writes and reads. Earlier cache breakpoints do not have "
+"independently enforced lifetimes in this path. Cache hits do not currently "
+"refresh the lifetime, and expiry clears the reusable cache. Other paths "
+"retain automatic engine caching, indicated by the ``x-xinference-cache-"
+"control: automatic`` response header."
+msgstr ""
+"對於文字請求，MLX 視覺引擎重用到最後一個 ``cache_control`` 邊界的前綴，生命週期為 ``5m`` 或 "
+"``1h``，並回報實際快取寫入和讀取量。其他路徑保留引擎自動快取，並透過 ``x-xinference-cache-control: "
+"automatic`` 回應標頭標示。 此路徑不會對較早的快取斷點分別執行獨立的有效期限。 目前快取命中不會更新有效期限，過期時會清空可重用快取。"
+
+#: ../source/user_guide/anthropic.rst:83
+msgid ""
+"The request-wide safety limit is 64 rendered images, counting direct images,"
+" tool-result images and PDF pages together. A lower deployment limit still "
+"applies. Exceeding either limit returns HTTP 400 before generation, "
+"including for streaming requests."
+msgstr ""
+"整個請求的安全上限為 64 張渲染後的影像，直接輸入的影像、工具結果中的影像和 PDF "
+"頁面合併計數。如果部署上限更低，該上限仍然生效。超過任一上限都會在生成前回傳 HTTP 400，串流請求也不例外。"
+
+#: ../source/user_guide/anthropic.rst:113
+msgid ""
+"On vLLM reasoning models, ``stop_sequences`` applies to both streaming and "
+"non-streaming requests, including when thinking is disabled. A stop match "
+"during thinking can end the response before a final answer is produced. "
+"Native stop matches currently report ``stop_reason: \"end_turn\"`` and "
+"``stop_sequence: null`` in the response."
+msgstr ""
+"對於 vLLM 推理模型，``stop_sequences`` "
+"同時適用於串流和非串流請求，關閉思考時也生效。如果在思考過程中符合停止序列，回應可能在產生最終答案前結束。 原生停止條件匹配目前會在回應中回報 "
+"``stop_reason: \"end_turn\"`` 和 ``stop_sequence: null``。"
+
+#: ../source/user_guide/anthropic.rst:118
+msgid "Context management"
+msgstr "上下文管理"
+
+#: ../source/user_guide/anthropic.rst:120
+msgid ""
+"``context_management`` supports ``clear_thinking_20251015``. Set ``keep`` to"
+" ``\"all\"`` or ``{\"type\": \"all\"}`` to retain all thinking (the "
+"default), or use a positive ``thinking_turns`` value to retain recent "
+"thinking turns:"
+msgstr ""
+"``context_management`` 支援 ``clear_thinking_20251015``。將 ``keep`` 設為 "
+"``\"all\"`` 或 ``{\"type\": \"all\"}`` 可保留全部思考內容（預設行為），也可以用正整數 "
+"``thinking_turns`` 保留最近的思考回合："
+
+#: ../source/user_guide/anthropic.rst:137
+msgid ""
+"User messages containing only ``tool_result`` blocks do not start a new "
+"assistant turn. Additional user content starts a new turn. Thinking attached"
+" to unresolved tool calls is retained. Generation, cache-prefix processing "
+"and token counting use the same edited history. Omitting ``edits`` is a no-"
+"op; unsupported edit types return HTTP 400."
+msgstr ""
+"僅包含 ``tool_result`` "
+"區塊的使用者訊息不會開始新的助理回合。額外的使用者內容會開始新的回合。尚未完成的工具呼叫所關聯的思考內容會被保留。生成、快取前綴處理和 token "
+"計數使用相同的編輯後歷史。省略 ``edits`` 時不做修改；不支援的編輯類型回傳 HTTP 400。"
+
+#: ../source/user_guide/anthropic.rst:156
+msgid "Backend capabilities"
+msgstr "後端能力"
+
+#: ../source/user_guide/anthropic.rst:158
+msgid ""
+"Xinference checks explicit feature requests against the loaded model and "
+"engine before generation. Unsupported controls return HTTP 501; image input "
+"to a text-only model returns HTTP 400. Translated, emulated, degraded and "
+"rejected compatibility decisions are logged with their reasons. Capability "
+"checks do not add features that the engine cannot implement."
+msgstr ""
+"Xinference 在生成前，會依據已載入的模型和引擎檢查明確要求的功能。不支援的控制項回傳 HTTP 501；向純文字模型輸入影像則回傳 HTTP "
+"400。轉換、模擬、降級和拒絕等相容性決策及其原因會記錄至日誌中。能力檢查不會補上引擎無法實作的功能。"
+
+#: ../source/user_guide/anthropic.rst:164
+msgid ""
+"The following limitations still apply. Supported controls also require a "
+"compatible model and engine version, as described above."
+msgstr "以下限制仍然適用。已支援的控制項也需要相容的模型和引擎版本，具體條件請見上文。"
+
+#: ../source/user_guide/anthropic.rst:171
+msgid "Feature"
+msgstr "功能"
+
+#: ../source/user_guide/anthropic.rst:172
+msgid "vLLM"
+msgstr "vLLM"
+
+#: ../source/user_guide/anthropic.rst:173
+msgid "SGLang"
+msgstr "SGLang"
+
+#: ../source/user_guide/anthropic.rst:174
+msgid "MLX"
+msgstr "MLX"
+
+#: ../source/user_guide/anthropic.rst:175
+msgid "Forced tool choice / disabling parallel tools"
+msgstr "強制工具選擇 / 停用並行工具"
+
+#: ../source/user_guide/anthropic.rst:176
+#: ../source/user_guide/anthropic.rst:177
+#: ../source/user_guide/anthropic.rst:180
+#: ../source/user_guide/anthropic.rst:181
+#: ../source/user_guide/anthropic.rst:184
+#: ../source/user_guide/anthropic.rst:186
+msgid "Supported"
+msgstr "支援"
+
+#: ../source/user_guide/anthropic.rst:178
+#: ../source/user_guide/anthropic.rst:182
+#: ../source/user_guide/anthropic.rst:185
+msgid "HTTP 501"
+msgstr "HTTP 501"
+
+#: ../source/user_guide/anthropic.rst:179
+msgid "Structured JSON"
+msgstr "結構化 JSON"
+
+#: ../source/user_guide/anthropic.rst:183
+msgid "Image token counting"
+msgstr "影像 token 計數"
+
+#: ../source/user_guide/anthropic.rst:187
+msgid "Explicit cache lifetime"
+msgstr "明確的快取有效期限"
+
+#: ../source/user_guide/anthropic.rst:188
+#: ../source/user_guide/anthropic.rst:189
+msgid "Automatic caching"
+msgstr "引擎自動快取"
+
+#: ../source/user_guide/anthropic.rst:190
+msgid "Partial (text requests to vision models)"
+msgstr "部分支援（向視覺模型傳送文字請求）"
+
+#: ../source/user_guide/anthropic.rst:191
+msgid "Separate reasoning-token budget"
+msgstr "獨立推理 token 預算"
+
+#: ../source/user_guide/anthropic.rst:192
+#: ../source/user_guide/anthropic.rst:193
+#: ../source/user_guide/anthropic.rst:194
+msgid "Not enforced"
+msgstr "不強制執行"

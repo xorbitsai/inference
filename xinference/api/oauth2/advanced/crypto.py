@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,11 +75,6 @@ def generate_api_key() -> str:
     chars = string.ascii_letters + string.digits
     random_part = "".join(secrets.choice(chars) for _ in range(48))
     return f"xf-{random_part}"
-
-
-def generate_password(length: int = 16) -> str:
-    chars = string.ascii_letters + string.digits + "!@#$%^&*"
-    return "".join(secrets.choice(chars) for _ in range(length))
 
 
 def derive_encryption_key(key_str: str) -> bytes:

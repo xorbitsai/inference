@@ -35,6 +35,19 @@ msgstr ""
 "和集成。借助 Xinference，您可以使用任何开源 LLM、嵌入模型和多模态模型在"
 "云端或本地环境中运行推理，并创建强大的 AI 应用。"
 
+#: ../../source/index.rst:23
+msgid ""
+"**Xinference Enterprise** is the commercial edition for teams running models "
+"in production. Deploy it in your own cloud or data centre, or choose a "
+"managed dedicated deployment with **Xinference Cloud**. The hosted **Model "
+"API** gives you access to supported models through an OpenAI-compatible API "
+"without managing inference infrastructure. Learn more at `xinference.co "
+"<https://xinference.co>`_."
+msgstr ""
+"**Xinference Enterprise** 是面向生产环境模型服务的商业版本。您可以将其部署在自己的云环境或数据中心，也可以选择 "
+"**Xinference Cloud** 提供的托管专属部署。托管 **Model API** 让您无需维护推理基础设施，即可通过兼容 OpenAI 的 "
+"API 调用支持的模型。了解更多：`xinference.co <https://xinference.co>`_。"
+
 #: ../../source/index.rst:25
 msgid "Developing Real-world AI Applications with Xinference"
 msgstr "使用 Xinference 开发真实场景的 AI 应用"
@@ -142,6 +155,15 @@ msgstr "视频"
 #: ../../source/index.rst:210
 msgid "Learn how to generate video with Xinference."
 msgstr "学习如何使用Xinference生成视频。"
+
+#: ../../source/index.rst:213
+msgid "World"
+msgstr "世界模型"
+
+#: ../../source/index.rst:217
+msgid ""
+"Learn how to generate environment videos with world models in Xinference."
+msgstr "学习如何在 Xinference 中使用世界模型生成环境视频。"
 
 #: ../../source/index.rst:214
 msgid "Flexible"

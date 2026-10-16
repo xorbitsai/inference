@@ -1,0 +1,957 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import hashlib
+import importlib.util
+import io
+import json
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+from http.client import IncompleteRead
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
+
+import pytest
+from packaging.requirements import InvalidRequirement, Requirement
+
+SCRIPT_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = SCRIPT_DIR.parents[3]
+
+
+def _write_runtime_constraints(path: Path) -> None:
+    path.write_text(
+        "torch==2.11.0\n"
+        "torchvision==0.26.0\n"
+        "torchaudio==2.11.0\n"
+        "torchcodec==0.14.0\n"
+        "transformers==5.13.1\n"
+        "accelerate==1.14.0\n"
+        "numpy==2.3.5\n"
+        "pandas==3.0.3\n"
+    )
+
+
+def _load_script(name: str) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(name, SCRIPT_DIR / f"{name}.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_generate_package_list_classification():
+    generator = _load_script("generate_package_lists")
+
+    assert generator.classify_spec("transformers>=4.53.3") == "pin"
+    assert generator.classify_spec("https://example.com/pkg.whl") == "url"
+    assert generator.classify_spec("pkg @ https://example.com/pkg.whl") == "url"
+    assert generator.classify_spec("git+https://github.com/org/repo") == "git"
+    assert generator.classify_spec("pkg @ git+https://github.com/org/repo") == "git"
+    assert generator.system_placeholder_name("#system_torch#") == "torch"
+    assert generator.system_placeholder_name("#system_numpy# ; marker") == "numpy"
+    assert (
+        generator.normalize_mirror_spec("deepdoc-lib[gpu]~=0.2.2 ; has_cuda")
+        == "deepdoc-lib[gpu]~=0.2.2"
+    )
+    assert (
+        generator.normalize_mirror_spec("deepdoc-lib~=0.2.2 ; not has_cuda")
+        == "deepdoc-lib~=0.2.2"
+    )
+    standard_marker = 'decord2==3.4.0 ; platform_machine == "aarch64"'
+    assert generator.normalize_mirror_spec(standard_marker) == standard_marker
+
+
+@pytest.mark.parametrize("platform", ["amd64", "arm64"])
+def test_generate_package_lists_from_docker_sources(tmp_path, platform):
+    src_root = tmp_path / "src"
+    dockerfile = (SCRIPT_DIR / "Dockerfile.pypiserver").read_text(encoding="utf-8")
+    for line in dockerfile.replace("\\\n", " ").splitlines():
+        fields = shlex.split(line)
+        if not fields or fields[0] != "COPY":
+            continue
+        destination = fields[-1]
+        if not destination.startswith("/build/src/"):
+            continue
+        target = src_root / destination.removeprefix("/build/src/")
+        target.mkdir(parents=True, exist_ok=True)
+        for source in fields[1:-1]:
+            source_path = REPO_ROOT / source
+            if source_path.is_dir():
+                shutil.copytree(source_path, target, dirs_exist_ok=True)
+            else:
+                shutil.copy2(source_path, target)
+
+    out = tmp_path / "out"
+    # The known future backend exception must not suppress the same requirement
+    # from a different model: new unavailable pins should fail preflight.
+    (src_root / "xinference" / "model" / "future-model.json").write_text(
+        json.dumps(
+            {
+                "model_name": "future-model",
+                "virtualenv": {"packages": ["vllm>=0.32.0"]},
+            }
+        )
+    )
+    # Keep the synthetic pin independent of real model requirements, whose
+    # indexes and source labels are merged into the same generated manifest.
+    nightly = "vllm==0.0.0.dev1+mirror.test"
+    model_index = "https://wheels.example/nightly"
+    secondary_index = "https://wheels.example/secondary"
+    for filename, virtualenv in (
+        (
+            "indexed-model.json",
+            {
+                "packages": [nightly + ' ; #engine# == "vllm"'],
+                "extra_index_url": model_index,
+            },
+        ),
+        (
+            "nested-model.json",
+            {
+                "packages": [nightly + ' ; #engine# == "vllm"'],
+                "extra_index_url": [model_index, secondary_index, model_index],
+            },
+        ),
+    ):
+        (src_root / "xinference" / "model" / filename).write_text(
+            json.dumps(
+                {
+                    "model_name": "indexed-model",
+                    "model_specs": [{"virtualenv": virtualenv}],
+                }
+            )
+        )
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_DIR / "generate_package_lists.py"),
+            "--platform",
+            platform,
+            "--src-root",
+            str(src_root),
+            "--out",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (out / "manifest.json").is_file()
+    assert (out / "engines" / "transformers.in").is_file()
+    manifest = json.loads((out / "manifest.json").read_text())
+    cuda_suffix = re.search(r"^ARG CUDA_SUFFIX=(\S+)$", dockerfile, re.MULTILINE).group(
+        1
+    )
+    assert f"cu{manifest['cuda_version'].replace('.', '')}" == cuda_suffix
+    assert len(manifest["deferred_model_pins"]) == 1
+    deferred = manifest["deferred_model_pins"][0]
+    assert deferred["spec"] == "vllm>=0.32.0"
+    assert (
+        deferred["source"]
+        == "embedding/models/embeddinggemma-2.json:embeddinggemma-2 (vllm)"
+    )
+    assert "unpublished" in deferred["reason"]
+    pins = json.loads((out / "pins.json").read_text())
+    assert next(pin for pin in pins if pin["spec"] == "vllm>=0.32.0")["sources"] == [
+        "future-model.json:future-model"
+    ]
+    indexed_pin = next(pin for pin in pins if pin["spec"] == nightly)
+    assert indexed_pin["extra_index_urls"] == [model_index, secondary_index]
+    assert indexed_pin["sources"] == [
+        "indexed-model.json:indexed-model (vllm)",
+        "nested-model.json:indexed-model (vllm)",
+    ]
+    assert "extra_index_urls" not in next(
+        pin for pin in pins if pin["spec"] == "vllm>=0.32.0"
+    )
+
+
+def test_load_xinference_modules_restores_sys_modules():
+    generator = _load_script("generate_package_lists")
+    original_xinference = sys.modules.get("xinference")
+    sentinel = original_xinference or ModuleType("xinference")
+    sys.modules["xinference"] = sentinel
+    try:
+        before = {
+            name: module
+            for name, module in sys.modules.items()
+            if name == "xinference" or name.startswith("xinference.")
+        }
+
+        core_utils, venv_manager = generator.load_xinference_modules(REPO_ROOT)
+
+        after = {
+            name: module
+            for name, module in sys.modules.items()
+            if name == "xinference" or name.startswith("xinference.")
+        }
+        assert after == before
+        assert sys.modules["xinference"] is sentinel
+        assert callable(core_utils.filter_virtualenv_packages_by_markers)
+        assert "transformers" in venv_manager.ENGINE_VIRTUALENV_PACKAGES
+    finally:
+        if original_xinference is None:
+            sys.modules.pop("xinference", None)
+        else:
+            sys.modules["xinference"] = original_xinference
+
+
+def test_iter_virtualenv_packages_reads_json_as_utf8(monkeypatch, tmp_path):
+    generator = _load_script("generate_package_lists")
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    model_json = model_dir / "model.json"
+    model_json.write_text(
+        json.dumps(
+            {
+                "model_name": "中文模型",
+                "virtualenv": {"packages": ["model-package"]},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    original_read_text = Path.read_text
+    encodings = []
+
+    def tracked_read_text(path, *args, **kwargs):
+        if path == model_json:
+            encodings.append(kwargs.get("encoding"))
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", tracked_read_text)
+
+    assert list(generator.iter_virtualenv_packages(model_dir)) == [
+        ("model.json", "中文模型", ["model-package"])
+    ]
+    assert encodings == ["utf-8"]
+
+
+def test_all_decord_requirements_are_scoped_to_supported_architectures():
+    generator = _load_script("generate_package_lists")
+    expected_machines = {
+        "decord": {"x86_64"},
+        "decord2": {"aarch64"},
+    }
+    seen = set()
+
+    for rel, model_name, packages in generator.iter_virtualenv_packages(
+        REPO_ROOT / "xinference" / "model"
+    ):
+        for spec in packages:
+            try:
+                requirement = Requirement(generator.normalize_mirror_spec(spec))
+            except InvalidRequirement:
+                continue
+            name = requirement.name.lower().replace("_", "-")
+            if name not in expected_machines:
+                continue
+            seen.add(name)
+            allowed_machines = {
+                machine
+                for machine in ("x86_64", "aarch64")
+                if requirement.marker is not None
+                and requirement.marker.evaluate({"platform_machine": machine})
+            }
+            assert (
+                allowed_machines == expected_machines[name]
+            ), f"{rel}:{model_name} uses incompatible requirement {spec!r}"
+
+    assert seen == set(expected_machines)
+
+
+def test_selfcheck_wheel_url_to_spec():
+    selfcheck = _load_script("selfcheck")
+
+    assert (
+        selfcheck.wheel_url_to_spec(
+            "https://example.com/sgl_kernel-0.3.21%2Bcu130-"
+            "cp310-abi3-manylinux2014_x86_64.whl"
+        )
+        == "sgl_kernel==0.3.21+cu130"
+    )
+    assert selfcheck.wheel_url_to_spec("https://example.com/pkg.tar.gz") is None
+    assert selfcheck.wheel_url_to_spec("https://example.com/invalid.whl") is None
+
+
+@pytest.mark.parametrize("marker", ["", ' ; platform_machine == "aarch64"'])
+def test_selfcheck_named_wheel_reference(marker):
+    selfcheck = _load_script("selfcheck")
+    assert (
+        selfcheck.wheel_url_to_spec(
+            "torchao @ https://example.com/torchao-0.16.0-py3-none-any.whl" + marker
+        )
+        == "torchao==0.16.0" + marker
+    )
+
+
+def test_download_report_wheel_filename_parsing():
+    downloader = _load_script("download_packages")
+
+    assert downloader.wheel_name_version(
+        "sentence_transformers-5.1.2-py3-none-any.whl"
+    ) == ("sentence-transformers", "5.1.2")
+    assert downloader.wheel_name_version("package.tar.gz") is None
+    assert downloader.wheel_name_version("invalid.whl") is None
+
+
+def test_pip_download_forwards_package_build_environment(monkeypatch, tmp_path):
+    downloader = _load_script("download_packages")
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(downloader, "run", fake_run)
+    build_env = {"TORCH_VERSION": "2.12.3"}
+
+    downloader.pip_download(
+        ["gptqmodel==4.2.5"],
+        tmp_path,
+        index_url="https://example.invalid/simple",
+        extra_index_urls=[],
+        no_deps=True,
+        env=build_env,
+    )
+
+    assert calls[0][1]["env"] is build_env
+
+
+def test_download_sdist_without_metadata_uses_simple_api(monkeypatch, tmp_path):
+    downloader = _load_script("download_packages")
+    content = b"source distribution"
+    digest = hashlib.sha256(content).hexdigest().upper()
+    simple_payload = json.dumps(
+        {
+            "files": [
+                {
+                    "filename": "flash_attn-2.8.3.tar.gz",
+                    "url": "../../files/flash_attn-2.8.3.tar.gz",
+                    "hashes": {"sha256": digest},
+                    "requires-python": ">=3.9",
+                    "yanked": False,
+                },
+                {
+                    "filename": "flash_attn-2.8.3.post1.tar.gz",
+                    "url": "../../files/flash_attn-2.8.3.post1.tar.gz",
+                    "hashes": {"sha256": digest},
+                    "requires-python": ">=3.9",
+                    "yanked": False,
+                },
+                {
+                    "filename": "flash_attn-2.9.0.tar.gz",
+                    "url": "../../files/flash_attn-2.9.0.tar.gz",
+                    "hashes": {"sha256": digest},
+                    "requires-python": ">=3.13",
+                    "yanked": False,
+                },
+            ]
+        }
+    ).encode()
+    urls = []
+
+    def fake_urlopen(request, timeout):
+        url = request.full_url if hasattr(request, "full_url") else request
+        urls.append((url, timeout))
+        if url.endswith("/simple/flash-attn/"):
+            assert "application/vnd.pypi.simple.v1+json" in request.headers["Accept"]
+            return io.BytesIO(simple_payload)
+        assert url.endswith("/files/flash_attn-2.8.3.post1.tar.gz")
+        return io.BytesIO(content)
+
+    monkeypatch.setattr(downloader, "urlopen", fake_urlopen)
+
+    result = downloader.download_sdist_without_metadata(
+        "flash-attn<2.9",
+        tmp_path,
+        index_url="https://example.invalid/simple",
+        python_version="3.12",
+    )
+
+    assert result == tmp_path / "flash_attn-2.8.3.post1.tar.gz"
+    assert result.read_bytes() == content
+    assert urls == [
+        ("https://example.invalid/simple/flash-attn/", 30),
+        ("https://example.invalid/files/flash_attn-2.8.3.post1.tar.gz", 60),
+    ]
+
+
+def test_download_sdist_without_metadata_rejects_malformed_simple_api(
+    monkeypatch, tmp_path
+):
+    downloader = _load_script("download_packages")
+    monkeypatch.setattr(
+        downloader, "urlopen", lambda *_args, **_kwargs: io.BytesIO(b"[]")
+    )
+
+    assert (
+        downloader.download_sdist_without_metadata(
+            "flash-attn",
+            tmp_path,
+            index_url="https://example.invalid/simple",
+            python_version="3.12",
+        )
+        is None
+    )
+
+
+def test_download_sdist_without_metadata_cleans_up_incomplete_download(
+    monkeypatch, tmp_path
+):
+    downloader = _load_script("download_packages")
+    content = b"source distribution"
+    simple_payload = json.dumps(
+        {
+            "files": [
+                {
+                    "filename": "flash_attn-2.8.3.post1.tar.gz",
+                    "url": "../../files/flash_attn-2.8.3.post1.tar.gz",
+                    "hashes": {"sha256": hashlib.sha256(content).hexdigest()},
+                    "requires-python": ">=3.9",
+                    "yanked": False,
+                }
+            ]
+        }
+    ).encode()
+
+    class BrokenResponse(io.BytesIO):
+        def read(self, *_args, **_kwargs):
+            raise IncompleteRead(b"partial")
+
+    responses = iter((io.BytesIO(simple_payload), BrokenResponse(content)))
+    monkeypatch.setattr(
+        downloader, "urlopen", lambda *_args, **_kwargs: next(responses)
+    )
+
+    assert (
+        downloader.download_sdist_without_metadata(
+            "flash-attn",
+            tmp_path,
+            index_url="https://example.invalid/simple",
+            python_version="3.12",
+        )
+        is None
+    )
+    assert not list(tmp_path.iterdir())
+
+
+def test_runtime_constraints_require_exact_pins(tmp_path):
+    downloader = _load_script("download_packages")
+    constraints = tmp_path / "runtime.txt"
+    _write_runtime_constraints(constraints)
+
+    pins = downloader.load_runtime_constraints(constraints)
+    assert pins["torch"] == "torch==2.11.0"
+    assert pins["transformers"] == "transformers==5.13.1"
+
+    constraints.write_text(constraints.read_text().replace("pandas==3.0.3", "pandas"))
+    try:
+        downloader.load_runtime_constraints(constraints)
+    except ValueError as exc:
+        assert "must be an exact pin" in str(exc)
+    else:
+        raise AssertionError("an unpinned runtime package must be rejected")
+
+
+def test_runtime_and_mirror_share_the_same_constraints_file():
+    downloader = _load_script("download_packages")
+    constraints = REPO_ROOT / "xinference/deploy/docker/requirements-runtime.txt"
+    pins = downloader.load_runtime_constraints(constraints)
+    assert set(pins) == {
+        "accelerate",
+        "numpy",
+        "pandas",
+        "torch",
+        "torchaudio",
+        "torchcodec",
+        "torchvision",
+        "transformers",
+    }
+
+    runtime_dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "COPY xinference/deploy/docker/requirements-runtime.txt" in runtime_dockerfile
+    )
+    mirror_dockerfile = (
+        REPO_ROOT / "xinference/deploy/docker/pypiserver/Dockerfile.pypiserver"
+    ).read_text(encoding="utf-8")
+    assert "COPY xinference/deploy/docker/requirements-runtime.txt" in mirror_dockerfile
+    assert "--runtime-constraints /build/requirements-runtime.txt" in mirror_dockerfile
+
+
+def test_runtime_dockerfiles_keep_dependency_layers_source_independent():
+    for name in ("Dockerfile", "Dockerfile.cpu"):
+        dockerfile = (REPO_ROOT / "xinference/deploy/docker" / name).read_text(
+            encoding="utf-8"
+        )
+
+        frontend_dependencies = dockerfile.index(
+            "COPY frontend/package.json frontend/package-lock.json ./"
+        )
+        npm_install = dockerfile.index("npm ci", frontend_dependencies)
+        frontend_sources = dockerfile.index("COPY frontend ./", npm_install)
+        assert frontend_dependencies < npm_install < frontend_sources
+        assert "--mount=type=cache,target=/root/.npm" in dockerfile
+        assert "--mount=type=cache,target=/root/.cache/pip" in dockerfile
+
+        dependency_install = dockerfile.index("pip install", frontend_sources)
+        project_sources = dockerfile.index("COPY . /opt/inference", dependency_install)
+        project_install = dockerfile.index("pip install", project_sources)
+        assert dependency_install < project_sources < project_install
+
+
+def test_runtime_docker_dependency_skeleton_defers_model_spec_validation():
+    dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text(
+        encoding="utf-8"
+    )
+
+    dependency_install = dockerfile.index('".[otel]" transformers accelerate')
+    project_sources = dockerfile.index("COPY . /opt/inference", dependency_install)
+    validation_skip = dockerfile.index("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1")
+
+    assert validation_skip < dependency_install < project_sources
+    assert dockerfile.count("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1") == 1
+
+
+def test_transformers_optional_dependencies_are_scoped_and_mirrored(
+    monkeypatch, tmp_path
+):
+    dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    assert '".[otel]" transformers accelerate' in dockerfile
+    assert '".[otel,transformers,transformers_quantization]"' not in dockerfile
+    assert "--constraint /opt/requirements-runtime.txt" in dockerfile
+    for package in ("qwen-vl-utils", "eva-decord"):
+        assert package not in dockerfile
+
+    generator = _load_script("generate_package_lists")
+    _, venv_manager = generator.load_xinference_modules(REPO_ROOT)
+    assert venv_manager.ENGINE_VIRTUALENV_PACKAGES["transformers"] == [
+        "transformers>=4.53.3",
+        "accelerate>=0.28.0",
+    ]
+    assert (
+        venv_manager.get_engine_model_format_virtualenv_packages(
+            "Transformers", "pytorch"
+        )
+        == []
+    )
+    assert any(
+        package.startswith("gptqmodel")
+        for package in venv_manager.get_engine_model_format_virtualenv_packages(
+            "Transformers", "gptq"
+        )
+    )
+    assert "optimum" in venv_manager.get_engine_model_format_virtualenv_packages(
+        "Transformers", "gptq"
+    )
+
+    out = tmp_path / "manifest"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_package_lists.py",
+            "--platform",
+            "amd64",
+            "--src-root",
+            str(REPO_ROOT),
+            "--out",
+            str(out),
+        ],
+    )
+    original_machine = generator._platform.machine
+    try:
+        generator.main()
+    finally:
+        generator._platform.machine = original_machine
+
+    mirrored = (out / "engines" / "transformers.in").read_text().lower()
+    for package in ("bitsandbytes", "gptqmodel", "optimum", "autoawq"):
+        assert package in mirrored
+    for package in (
+        "qwen-vl-utils",
+        "attrdict",
+        "einops",
+        "tiktoken",
+        "sentencepiece",
+        "transformers_stream_generator",
+        "datamodel_code_generator",
+        "jsonschema",
+        "blobfile",
+        "eva-decord",
+    ):
+        assert package not in mirrored
+
+    pin_entries = json.loads((out / "pins.json").read_text())
+    pin_specs = {item["spec"] for item in pin_entries}
+    assert "deepdoc-lib[gpu]~=0.2.2" in pin_specs
+    assert "deepdoc-lib~=0.2.2" in pin_specs
+    assert all("has_cuda" not in spec for spec in pin_specs)
+    assert 'decord==0.6.0 ; platform_machine == "x86_64"' in pin_specs
+    assert 'decord2==3.4.0 ; platform_machine == "aarch64"' in pin_specs
+    assert "flash-attn==2.8.3.post1" not in pin_specs
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["find_links_only_pins"] == [
+        {
+            "spec": "flash-attn==2.8.3.post1",
+            "sources": [
+                "embedding/models/jina-embeddings-v3.json:jina-embeddings-v3",
+                "embedding/models/jina-embeddings-v3.json:jina-embeddings-v3 (sentence_transformers)",
+            ],
+        }
+    ]
+    for spec in pin_specs:
+        Requirement(spec)
+
+    model_pins = {item["spec"].split(";", 1)[0].strip().lower() for item in pin_entries}
+    for package in (
+        "qwen-vl-utils!=0.0.9",
+        "attrdict",
+        "einops",
+        "timm>=0.9.16",
+        "tiktoken>=0.6.0",
+        "sentencepiece",
+        "transformers_stream_generator",
+        "datamodel_code_generator",
+        "jsonschema",
+        "blobfile",
+        "eva-decord",
+    ):
+        assert package in model_pins
+
+    qwen_vl_sources = next(
+        item["sources"]
+        for item in pin_entries
+        if item["spec"].split(";", 1)[0].strip().lower() == "qwen-vl-utils!=0.0.9"
+    )
+    for model_name in ("qwen3.5", "qwen3.6"):
+        source = "llm/models/" + model_name + ".json:" + model_name + " (Transformers)"
+        assert source in qwen_vl_sources
+
+
+def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
+    generator = _load_script("generate_package_lists")
+    src_root = tmp_path / "src"
+    model_dir = src_root / "xinference" / "model"
+    model_dir.mkdir(parents=True)
+    (model_dir / "spec.json").write_text(
+        json.dumps(
+            {
+                "model_name": "test-model",
+                "virtualenv": {
+                    "packages": [
+                        "model-pin==1.0",
+                        "https://example.invalid/direct-1.0-py3-none-any.whl",
+                        "git-package @ git+https://example.invalid/repo.git@abc",
+                    ]
+                },
+            }
+        )
+    )
+    out = tmp_path / "manifest"
+    loaded_roots = []
+
+    def fake_load_xinference_modules(root):
+        loaded_roots.append(root)
+        core_utils = SimpleNamespace(
+            filter_virtualenv_packages_by_markers=lambda packages, *_args: packages
+        )
+        venv_manager = SimpleNamespace(
+            ENGINE_VIRTUALENV_PACKAGES={"test-engine": ["engine-pkg>=1.0"]},
+            ENGINE_VIRTUALENV_EXTRA_INDEX_URLS={
+                "test-engine": ["https://example.invalid/simple"]
+            },
+            ENGINE_VIRTUALENV_INDEX_STRATEGY={"test-engine": "unsafe-best-match"},
+        )
+        return core_utils, venv_manager
+
+    monkeypatch.setattr(
+        generator, "load_xinference_modules", fake_load_xinference_modules
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_package_lists.py",
+            "--platform",
+            "amd64",
+            "--src-root",
+            str(src_root),
+            "--out",
+            str(out),
+        ],
+    )
+    original_machine = generator._platform.machine
+    try:
+        generator.main()
+    finally:
+        generator._platform.machine = original_machine
+
+    assert loaded_roots == [src_root]
+    assert (out / "engines" / "test_engine.in").read_text() == "engine-pkg>=1.0\n"
+    assert json.loads((out / "pins.json").read_text()) == [
+        {
+            "spec": "model-pin==1.0",
+            "sources": ["spec.json:test-model"],
+        }
+    ]
+    assert "direct-1.0-py3-none-any.whl" in (out / "urls.txt").read_text()
+    assert "git+https://example.invalid/repo.git@abc" in (out / "git.txt").read_text()
+    assert json.loads((out / "manifest.json").read_text())["counts"] == {
+        "engines": 1,
+        "pins": 1,
+        "urls": 1,
+        "git": 1,
+        "find_links_only": 0,
+        "deferred_model_pins": 0,
+    }
+
+
+@pytest.mark.parametrize("platform", ["amd64", "arm64"])
+@pytest.mark.parametrize(
+    "model_indexes",
+    [
+        [],
+        ["https://wheels.example/nightly"],
+        [
+            "https://wheels.example/nightly",
+            "https://wheels.example/nightly",
+            "https://download.pytorch.org/whl/cu130",
+        ],
+    ],
+)
+@pytest.mark.parametrize("download_mode", ["direct", "retry", "sdist"])
+def test_download_packages_main_orchestration_skips_git(
+    monkeypatch, tmp_path, platform, model_indexes, download_mode
+):
+    downloader = _load_script("download_packages")
+    manifest = tmp_path / "manifest"
+    engines = manifest / "engines"
+    engines.mkdir(parents=True)
+    (engines / "test.in").write_text("engine-pkg>=1.0\n")
+    (engines / "test.meta.json").write_text("{}\n")
+    pin = {"spec": "model-pin==1.0", "sources": ["test"]}
+    if model_indexes:
+        pin["extra_index_urls"] = model_indexes
+    (manifest / "pins.json").write_text(json.dumps([pin]))
+    (manifest / "urls.txt").write_text(
+        "https://example.invalid/direct-1.0-py3-none-any.whl\n"
+    )
+    git_source = "git-package @ git+https://example.invalid/repo.git@abc"
+    (manifest / "git.txt").write_text(git_source + "\n")
+    dest = tmp_path / "packages"
+    runtime_constraints = tmp_path / "runtime.txt"
+    _write_runtime_constraints(runtime_constraints)
+    runtime_constraints.write_text(
+        runtime_constraints.read_text().replace("torch==2.11.0", "torch==2.12.3")
+    )
+    compile_calls = []
+    download_calls = []
+    run_calls = []
+    sdist_calls = []
+    pin_attempts = 0
+
+    def fake_uv_compile(in_file, out_file, **kwargs):
+        compile_calls.append((in_file, out_file, kwargs))
+        if out_file.name in ("runtime.lock", "torch-family.lock"):
+            out_file.write_text(runtime_constraints.read_text())
+        else:
+            out_file.write_text("engine-pkg==1.0\n")
+        return subprocess.CompletedProcess([], 0)
+
+    def fake_pip_download(args, target, **kwargs):
+        nonlocal pin_attempts
+        download_calls.append((list(args), kwargs))
+        if args == ["model-pin==1.0"]:
+            pin_attempts += 1
+            if download_mode == "sdist" or (
+                download_mode == "retry" and pin_attempts == 1
+            ):
+                return subprocess.CompletedProcess([], 1)
+            (target / "source-1.0.tar.gz").write_text("sdist")
+        # The wheel built from the sdist declares a dependency that the
+        # sdist metadata omitted; it only exists as an sdist itself.
+        if args == [str(dest / "source-1.0-py3-none-any.whl")]:
+            (target / "hiddendep-1.0.tar.gz").write_text("sdist")
+        return subprocess.CompletedProcess([], 0)
+
+    def fake_download_sdist(spec, target, **kwargs):
+        sdist_calls.append((spec, kwargs))
+        # The source archive exists only at the model's additional index.
+        if model_indexes and kwargs["index_url"] != model_indexes[0]:
+            return None
+        sdist = target / "source-1.0.tar.gz"
+        sdist.write_text("sdist")
+        return sdist
+
+    def fake_run(cmd, **kwargs):
+        run_calls.append((list(cmd), kwargs))
+        if "wheel" in cmd:
+            sdist_name = Path(cmd[-1]).name
+            wheel_name = sdist_name.replace(".tar.gz", "-py3-none-any.whl")
+            (dest / wheel_name).write_text("wheel")
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(downloader, "uv_compile", fake_uv_compile)
+    monkeypatch.setattr(downloader, "pip_download", fake_pip_download)
+    monkeypatch.setattr(
+        downloader, "download_sdist_without_metadata", fake_download_sdist
+    )
+    monkeypatch.setattr(downloader, "run", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "download_packages.py",
+            "--manifest-dir",
+            str(manifest),
+            "--dest",
+            str(dest),
+            "--platform",
+            platform,
+            "--runtime-constraints",
+            str(runtime_constraints),
+        ],
+    )
+
+    downloader.main()
+
+    assert len(compile_calls) == 3
+    expected_machine = "x86_64" if platform == "amd64" else "aarch64"
+    assert all(
+        call[2]["python_platform"] == expected_machine + "-manylinux_2_34"
+        for call in compile_calls
+    )
+    assert compile_calls[0][0] == runtime_constraints
+    assert ["-r", str(manifest / "locks" / "test.lock")] in [
+        call[0] for call in download_calls
+    ]
+    assert ["model-pin==1.0"] in [call[0] for call in download_calls]
+    assert ["https://example.invalid/direct-1.0-py3-none-any.whl"] in [
+        call[0] for call in download_calls
+    ]
+    assert all(git_source not in " ".join(call[0]) for call in download_calls)
+    assert all(git_source not in " ".join(call[0]) for call in run_calls)
+    assert all(call[1]["env"]["TORCH_VERSION"] == "2.12.3" for call in download_calls)
+    assert all(call[1]["env"]["TORCH_VERSION"] == "2.12.3" for call in run_calls)
+    assert not (dest / "source-1.0.tar.gz").exists()
+    # Dependencies of wheels built from sdists are fetched from the built
+    # wheel's own metadata, transitively until no new sdists arrive.
+    assert [str(dest / "source-1.0-py3-none-any.whl")] in [
+        call[0] for call in download_calls
+    ]
+    assert [str(dest / "hiddendep-1.0-py3-none-any.whl")] in [
+        call[0] for call in download_calls
+    ]
+    assert not (dest / "hiddendep-1.0.tar.gz").exists()
+    model_downloads = [
+        kwargs
+        for args, kwargs in download_calls
+        if args == ["model-pin==1.0"] or args[0].startswith(str(dest))
+    ]
+    expected_indexes = list(
+        dict.fromkeys(model_indexes + ["https://download.pytorch.org/whl/cu130"])
+    )
+    assert all(
+        kwargs["extra_index_urls"] == expected_indexes for kwargs in model_downloads
+    )
+    assert all(
+        kwargs["extra_index_urls"] == ["https://download.pytorch.org/whl/cu130"]
+        for args, kwargs in download_calls
+        if args[0] == "-r" or args[0].startswith("https://")
+    )
+    assert pin_attempts == (1 if download_mode == "direct" else 2)
+    if download_mode != "direct":
+        pin_downloads = [
+            kwargs for args, kwargs in download_calls if args == [pin["spec"]]
+        ]
+        assert pin_downloads[0]["constraints"] is not None
+        assert pin_downloads[1].get("constraints") is None
+    if download_mode == "sdist":
+        assert sdist_calls[-1][1]["index_url"] == (
+            model_indexes[0] if model_indexes else "https://pypi.org/simple"
+        )
+    report = json.loads((manifest / "report.json").read_text())
+    assert "transformers==5.13.1" in report["runtime_constraints"]
+    assert report["unconstrained_fallbacks"] == (
+        [] if download_mode == "direct" else [pin["spec"]]
+    )
+    assert report["raw_sdist_fallbacks"] == (
+        [pin["spec"]] if download_mode == "sdist" else []
+    )
+    assert report["sdist_left"] == []
+
+
+def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
+    selfcheck = _load_script("selfcheck")
+    manifest = tmp_path / "manifest"
+    engines = manifest / "engines"
+    engines.mkdir(parents=True)
+    (engines / "test.in").write_text("engine-pkg>=1.0\n")
+    (manifest / "pins.json").write_text(
+        json.dumps([{"spec": "model-pin==1.0", "sources": ["test"]}])
+    )
+    (manifest / "urls.txt").write_text(
+        "https://example.invalid/direct-1.0-py3-none-any.whl\n"
+        "torchao @ https://example.invalid/torchao-0.16.0-py3-none-any.whl"
+        ' ; platform_machine == "aarch64"\n'
+    )
+    git_source = "git-package @ git+https://example.invalid/repo.git@abc"
+    (manifest / "git.txt").write_text(git_source + "\n")
+    compile_calls = []
+    runtime_constraints = tmp_path / "runtime.txt"
+    _write_runtime_constraints(runtime_constraints)
+
+    def fake_compile(requirements, index_url, python_version, python_platform):
+        compile_calls.append((requirements, index_url, python_version, python_platform))
+        return subprocess.CompletedProcess([], 0, stdout="", stderr="")
+
+    monkeypatch.setattr(selfcheck, "wait_for_server", lambda *_args: None)
+    monkeypatch.setattr(selfcheck, "compile_against_index", fake_compile)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "selfcheck.py",
+            "--index",
+            "http://mirror.invalid/simple",
+            "--manifest-dir",
+            str(manifest),
+            "--platform",
+            "amd64",
+            "--runtime-constraints",
+            str(runtime_constraints),
+        ],
+    )
+
+    selfcheck.main()
+
+    assert [call[0] for call in compile_calls] == [
+        runtime_constraints.read_text().splitlines(),
+        ["engine-pkg>=1.0"],
+        ["model-pin==1.0"],
+        ["direct==1.0"],
+        ['torchao==0.16.0 ; platform_machine == "aarch64"'],
+    ]
+    output = capsys.readouterr().out
+    assert "UNSUPPORTED offline direct reference " + git_source in output
+    assert "selfcheck passed" in output

@@ -1,0 +1,228 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-09-09 12:13+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: es <LL@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/client_api.rst:5
+msgid "Client API"
+msgstr "API de cliente"
+
+#: ../../source/user_guide/client_api.rst:7
+msgid "Complete Client API Reference: :ref:`reference_index`"
+msgstr "Guía completa de la API: :ref:`reference_index`"
+
+#: ../../source/user_guide/client_api.rst:9
+msgid ""
+"To utilize the Client API, initiate the xinference server using the command "
+"below:"
+msgstr ""
+"Para usar la API del cliente, primero debes iniciar el servicio Xinference "
+"con el siguiente comando:"
+
+#: ../../source/user_guide/client_api.rst:18
+msgid ""
+"Based on the log above, the endpoint is `http://127.0.0.1:9997`. Users can "
+"connect to the xinference server through this endpoint using the Client."
+msgstr ""
+"En el registro de comandos se imprimirá la dirección del servicio, que en el"
+" registro anterior es `http://127.0.0.1:9997`. El usuario puede conectarse "
+"al servicio Xinference a través del Cliente."
+
+#: ../../source/user_guide/client_api.rst:20
+msgid ""
+"Models are categorized into LLM, embedding, image, etc. We plan to introduce"
+" more model types in the future."
+msgstr ""
+"Todos los modelos se dividen en tipos como LLM, embedding, rerank, entre "
+"otros. En el futuro, es posible que se admitan más tipos de modelos."
+
+#: ../../source/user_guide/client_api.rst:23
+msgid "LLM"
+msgstr "LLM"
+
+#: ../../source/user_guide/client_api.rst:25
+msgid "To list the available built-in LLM models:"
+msgstr "Listar todos los modelos LLM compatibles de forma nativa:"
+
+#: ../../source/user_guide/client_api.rst:38
+msgid "To initialize an LLM and chat:"
+msgstr "Inicializar un modelo de lenguaje grande y conversar con él:"
+
+#: ../../source/user_guide/client_api.rst:41
+#: ../../source/user_guide/client_api.rst:183
+#: ../../source/user_guide/client_api.rst:254
+#: ../../source/user_guide/client_api.rst:323
+msgid "Xinference Client"
+msgstr "Xinference Client"
+
+#: ../../source/user_guide/client_api.rst:65
+#: ../../source/user_guide/client_api.rst:215
+#: ../../source/user_guide/client_api.rst:278
+#: ../../source/user_guide/client_api.rst:347
+msgid "OpenAI Client"
+msgstr "OpenAI Client"
+
+#: ../../source/user_guide/client_api.rst:67
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/chat?lang=python"
+msgstr ""
+"Cuando se envían solicitudes usando OpenAI, todas las solicitudes excepto la"
+" creación de modelos mantienen la compatibilidad con la interfaz de OpenAI. "
+"La forma de usar OpenAI se puede consultar en "
+"https://platform.openai.com/docs/api-reference/chat?lang=python"
+
+#: ../../source/user_guide/client_api.rst:89
+msgid "OpenAI Client Tool Calls"
+msgstr "Llamada de herramientas de OpenAI"
+
+#: ../../source/user_guide/client_api.rst:134
+#: ../../source/user_guide/client_api.rst:197
+#: ../../source/user_guide/client_api.rst:229
+#: ../../source/user_guide/client_api.rst:269
+#: ../../source/user_guide/client_api.rst:293
+#: ../../source/user_guide/client_api.rst:337
+#: ../../source/user_guide/client_api.rst:362
+#: ../../source/user_guide/client_api.rst:391
+msgid "Output:"
+msgstr ""
+"Lo siento, no puedo completar esta solicitud ya que el input está vacío. Por"
+" favor, proporciona el texto en chino simplificado que necesita ser "
+"traducido."
+
+msgid "OpenAI Client Responses API"
+msgstr "API Responses con el cliente de OpenAI"
+
+msgid "Responses API's access address is: /v1/responses"
+msgstr "La dirección de acceso a la API Responses es: /v1/responses"
+
+msgid "The Responses API is stateless in Xinference. Responses are not stored, so ``previous_response_id`` and ``conversation`` are rejected: send the whole conversation in ``input`` on every request. Text and image input, function and custom tools, reasoning, structured output and streaming are supported. Hosted tools such as ``web_search`` are ignored."
+msgstr "En Xinference, la API Responses no tiene estado. Las respuestas no se almacenan, por lo que ``previous_response_id`` y ``conversation`` se rechazan: envía la conversación completa en ``input`` en cada solicitud. Se admiten entrada de texto e imágenes, herramientas de función y personalizadas, razonamiento, salida estructurada y streaming. Las herramientas alojadas como ``web_search`` se ignoran."
+
+msgid "Codex CLI calls custom providers through this API. Add Xinference as a provider in ``~/.codex/config.toml``:"
+msgstr "Codex CLI llama a proveedores personalizados a través de esta API. Añade Xinference como proveedor en ``~/.codex/config.toml``:"
+
+#: ../../source/user_guide/client_api.rst:142
+msgid "Anthropic Client"
+msgstr "Anthropic Client"
+
+#: ../../source/user_guide/client_api.rst:165
+msgid "Embedding"
+msgstr "Embedding"
+
+#: ../../source/user_guide/client_api.rst:167
+msgid "To list the available built-in embedding models:"
+msgstr "Enumera todos los modelos de embedding soportados de forma nativa:"
+
+#: ../../source/user_guide/client_api.rst:180
+msgid "To launch an embedding model and embed text:"
+msgstr "Levantar el modelo embedding y vectorizar el texto:"
+
+#: ../../source/user_guide/client_api.rst:217
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/embeddings?lang=python"
+msgstr ""
+"Al enviar solicitudes con OpenAI, excepto para la creación de modelos, todas"
+" las demás solicitudes mantienen la compatibilidad con la interfaz de "
+"OpenAI. El método de uso de OpenAI se puede consultar en "
+"https://platform.openai.com/docs/api-reference/embeddings?lang=python"
+
+#: ../../source/user_guide/client_api.rst:236
+msgid "Image"
+msgstr "imagen"
+
+#: ../../source/user_guide/client_api.rst:238
+#: ../../source/user_guide/client_api.rst:303
+msgid "To list the available built-in image models:"
+msgstr "Enumera todos los modelos de texto a imagen integrados:"
+
+#: ../../source/user_guide/client_api.rst:251
+msgid "To initiate an image model and generate an image using a text prompt:"
+msgstr ""
+"Inicializar un modelo de texto a imagen y generar una imagen mediante un "
+"prompt:"
+
+#: ../../source/user_guide/client_api.rst:280
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/images/create?lang=python"
+msgstr ""
+"Al enviar solicitudes con OpenAI, todas las solicitudes excepto la creación "
+"del modelo mantienen compatibilidad con la interfaz de OpenAI. La forma de "
+"uso de OpenAI se puede consultar en https://platform.openai.com/docs/api-"
+"reference/images/create?lang=python"
+
+#: ../../source/user_guide/client_api.rst:301
+msgid "Audio"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:320
+msgid "To initiate an audio model and get text from an audio:"
+msgstr "Inicializar un modelo de voz y generar texto a través del habla:"
+
+#: ../../source/user_guide/client_api.rst:349
+msgid ""
+"Openai client request with the same function as before. More details refer "
+"to: https://platform.openai.com/docs/api-reference/audio/createTranscription"
+msgstr ""
+"Al enviar solicitudes con OpenAI, excepto para la creación de modelos, todas"
+" las demás solicitudes mantienen la compatibilidad con la interfaz de "
+"OpenAI. La forma de uso de OpenAI puede consultarse en "
+"https://platform.openai.com/docs/api-reference/images/create?lang=python"
+
+#: ../../source/user_guide/client_api.rst:370
+msgid "Rerank"
+msgstr "Rerank"
+
+#: ../../source/user_guide/client_api.rst:371
+msgid "To launch a rerank model and compute the similarity scores:"
+msgstr "Inicia el modelo rerank y calcula la similitud de texto:"
+
+#~ msgid ""
+#~ "Anthropic client request with the same function as before, excluding launch "
+#~ "model."
+#~ msgstr ""
+
+#: user_guide/client_api.rst:96
+msgid "Cache hit token counts"
+msgstr "Número de tokens encontrados en caché"
+
+#: user_guide/client_api.rst:99
+msgid "With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count."
+msgstr "Con vLLM, SGLang y MLX, las respuestas de completado y completado de chat exponen el número de tokens del prompt reutilizados por el motor en ``usage.prompt_tokens_details.cached_tokens``, cuando está disponible. Este número incluye la reutilización de la caché de prefijos nativa y de la caché Xavier que informa el motor; forma parte de ``prompt_tokens`` y no es un número adicional de tokens."
+
+#: user_guide/client_api.rst:103
+msgid "For streaming requests, set ``stream_options={\"include_usage\": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero."
+msgstr "Para las solicitudes en streaming, establezca ``stream_options={\"include_usage\": True}`` para recibir el bloque final de uso con ``choices=[]``. La Responses API expone el mismo número como ``usage.input_tokens_details.cached_tokens``. Si el motor no informa de aciertos de caché, las respuestas de completado y completado de chat omiten ``prompt_tokens_details``; la Responses API utiliza cero de forma predeterminada."
+
+#: user_guide/client_api.rst:101
+msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
+msgstr "Con la separación P/D, este número incluye los KV transferidos desde el motor de prellenado, aunque se hayan calculado para la solicitud actual; no mide por separado los aciertos históricos de la caché de prefijos del motor de prellenado."
+
+#: user_guide/client_api.rst:200
+msgid ""
+"See :ref:`anthropic_api` for Claude Code setup, Python SDK examples, and "
+"supported features and limitations."
+msgstr ""
+"Consulte :ref:`anthropic_api` para configurar Claude Code, ver ejemplos del "
+"SDK de Python y conocer las funciones admitidas y sus limitaciones."

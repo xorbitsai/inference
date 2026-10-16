@@ -1,0 +1,107 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-05-16 14:18+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: it <LL@li.org>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/lora.rst:5
+msgid "LoRA Integration"
+msgstr "Integrazione LoRA"
+
+#: ../../source/models/lora.rst:7
+msgid ""
+"Currently, Xinference supports launching ``LLM`` and ``image`` models with "
+"an attached LoRA fine-tuned model."
+msgstr ""
+"Attualmente, Xinference può essere avviato insieme a un modello di fine-"
+"tuning LoRA per assistere il modello di base durante l'avvio dei modelli "
+"``LLM`` e ``image``."
+
+#: ../../source/models/lora.rst:10
+msgid "Usage"
+msgstr "Modalità d'uso"
+
+#: ../../source/models/lora.rst:13
+msgid "Launch"
+msgstr "avviare"
+
+#: ../../source/models/lora.rst:14
+msgid ""
+"Different from built-in models, xinference currently does not involve "
+"managing LoRA models. Users need to first download the LoRA model themselves"
+" and then provide the storage path of the model files to xinference."
+msgstr ""
+"A differenza dei modelli integrati, Xinference attualmente non si occupa "
+"della gestione dei modelli LoRA. Gli utenti devono prima scaricare il "
+"modello LoRA corrispondente, quindi fornire il percorso di archiviazione del"
+" modello a Xinference."
+
+#: ../../source/models/lora.rst:54
+msgid "Apply"
+msgstr "applicazione"
+
+#: ../../source/models/lora.rst:55
+msgid ""
+"For LLM models, you can only configure one lora model you want when you use "
+"the model. Specifically, specify that the ``lora_name`` parameter be "
+"configured in the ``generate_config``. ``lora_name`` corresponds to the name"
+" of the lora in the LAUNCH procedure described above."
+msgstr ""
+"Per i modelli linguistici di grandi dimensioni, specificare una delle lora "
+"durante l'uso. Nello specifico, configurare il parametro ``lora_name`` "
+"all'interno del parametro ``generate_config``. ``lora_name`` corrisponde "
+"alla configurazione durante il processo di launch."
+
+#: ../../source/models/lora.rst:75
+msgid "Note"
+msgstr "Avvertenze"
+
+#: ../../source/models/lora.rst:77
+msgid ""
+"The options ``image_lora_load_kwargs`` and ``image_lora_fuse_kwargs`` are "
+"only applicable to models with model_type ``image``. They correspond to the "
+"parameters in the ``load_lora_weights`` and ``fuse_lora`` interfaces of the "
+"``diffusers`` library. If launching an LLM model, these parameters are not "
+"required."
+msgstr ""
+"Le opzioni ``image_lora_load_kwargs`` e ``image_lora_fuse_kwargs`` sopra "
+"menzionate si applicano esclusivamente al modello ``image``. Esse "
+"corrispondono ai parametri aggiuntivi nelle interfacce ``load_lora_weights``"
+" e ``fuse_lora`` della libreria ``diffusers``. Se si avvia il modello "
+"``LLM``, non è necessario configurare queste opzioni."
+
+#: ../../source/models/lora.rst:81
+msgid ""
+"You need to add the parameter lora_name during inference to specify the "
+"corresponding lora model. You can specify it in the Additional Inputs "
+"option."
+msgstr ""
+
+#: ../../source/models/lora.rst:83
+msgid ""
+"For LLM chat models, currently only LoRA models are supported that do not "
+"change the prompt style."
+msgstr ""
+"Per il modello di chat ``LLM``, al momento sono supportati solo i modelli "
+"LoRA che, dopo il fine-tuning, non modificano il template dei prompt del "
+"modello base originale."
+
+#: ../../source/models/lora.rst:85
+msgid "When using GPU, both LoRA and its base model occupy the same devices."
+msgstr ""
+"Quando si utilizza la GPU, il modello LoRA e il suo modello base si trovano "
+"sullo stesso dispositivo e non influenzano altri modelli."

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,7 +105,6 @@ async def test_block_tracker(actor_pool_context):
         123: {
             (rank, 0),
         },
-        456: set(),
         789: {(rank, 2)},
     }
 

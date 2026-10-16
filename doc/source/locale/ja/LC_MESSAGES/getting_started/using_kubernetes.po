@@ -1,0 +1,141 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-08-02 15:15+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/using_kubernetes.rst:5
+msgid "Xinference on Kubernetes"
+msgstr "KubernetesクラスターにXinferenceをインストールする"
+
+#: ../../source/getting_started/using_kubernetes.rst:9
+msgid "Helm Support"
+msgstr "ネイティブ Helm の方法に基づく"
+
+#: ../../source/getting_started/using_kubernetes.rst:10
+msgid ""
+"Xinference provides a method for installation in a Kubernetes cluster via "
+"``Helm`` ."
+msgstr "Xinference は、ネイティブ Helm を使用して Kubernetes クラスターにインストールする方法を提供します。"
+
+#: ../../source/getting_started/using_kubernetes.rst:14
+msgid "Prerequisites"
+msgstr "準備条件"
+
+#: ../../source/getting_started/using_kubernetes.rst:15
+msgid "You have a fully functional Kubernetes cluster."
+msgstr "利用可能な Kubernetes クラスター。"
+
+#: ../../source/getting_started/using_kubernetes.rst:16
+msgid ""
+"Enable GPU support in Kubernetes, refer to `here "
+"<https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/>`_."
+msgstr ""
+"Kubernetes で GPU サポートを有効にするには、`こちら <https://kubernetes.io/zh-"
+"cn/docs/tasks/manage-gpus/scheduling-gpus/>`_ を参照してください。"
+
+#: ../../source/getting_started/using_kubernetes.rst:17
+msgid "``Helm`` is correctly installed."
+msgstr "``Helm`` を正しくインストールします。"
+
+#: ../../source/getting_started/using_kubernetes.rst:21
+msgid "Steps"
+msgstr "具体的な手順"
+
+#: ../../source/getting_started/using_kubernetes.rst:22
+msgid "Add xinference helm repo."
+msgstr "Xinference Helm リポジトリを追加"
+
+#: ../../source/getting_started/using_kubernetes.rst:28
+msgid "Update xinference helm repo indexes and query versions."
+msgstr "リポジトリインデックスを更新し、インストール可能なバージョンを確認する"
+
+#: ../../source/getting_started/using_kubernetes.rst:35
+msgid "Install"
+msgstr "インストール"
+
+#: ../../source/getting_started/using_kubernetes.rst:43
+msgid "Customized Installation"
+msgstr "カスタムインストール"
+
+#: ../../source/getting_started/using_kubernetes.rst:44
+msgid ""
+"The installation method mentioned above sets up a Xinference cluster similar"
+" to a single-machine setup, with only one worker and all startup parameters "
+"at their default values. However, this is usually not the desired setup."
+msgstr ""
+"上記のインストール方法では、シングルノードのXinference（つまり1つのノードのみ）がインストールされ、同時に他の起動パラメータはすべてデフォルトのままとなっています。"
+
+#: ../../source/getting_started/using_kubernetes.rst:48
+msgid "Below are some common custom installation configurations."
+msgstr "以下に、一般的なカスタムインストール設定のいくつかを示します。"
+
+#: ../../source/getting_started/using_kubernetes.rst:50
+msgid "I need to download models from ``ModelScope``."
+msgstr "``ModelScope``からモデルをダウンロードする必要があります。"
+
+#: ../../source/getting_started/using_kubernetes.rst:56
+msgid ""
+"I want to use cpu image of xinference (or use any other version of "
+"xinference images)."
+msgstr "CPU版のXinferenceイメージ（または他のバージョンのイメージ）を使用したい。"
+
+#: ../../source/getting_started/using_kubernetes.rst:62
+msgid "I want to have 4 Xinference workers, with each worker managing 4 GPUs."
+msgstr "4 つの Xinference ワーカーノードを起動する必要があります。各ワーカーは 4 つの GPU を管理します。"
+
+#: ../../source/getting_started/using_kubernetes.rst:68
+msgid ""
+"The above installation method is based on Helm ``--set`` option. For more "
+"complex custom installations, such as multiple workers with shared storage, "
+"it is highly recommended to use your own ``values.yaml`` file with Helm "
+"``-f`` option for installation."
+msgstr ""
+"上記のインストール方法は、Helmの ``--set`` "
+"オプションに基づいています。より複雑なカスタムインストールシナリオ（例えば、複数のワーカーでストレージを共有する場合）では、独自の "
+"``values.yaml`` ファイルを使用し、Helmの ``-f`` オプションでインストールすることを強くお勧めします。"
+
+#: ../../source/getting_started/using_kubernetes.rst:72
+msgid ""
+"The default ``values.yaml`` file is located `here "
+"<https://github.com/xorbitsai/xinference-helm-"
+"charts/blob/main/charts/xinference/values.yaml>`_. Some examples can be "
+"found `here <https://github.com/xorbitsai/xinference-helm-"
+"charts/tree/main/examples>`_."
+msgstr ""
+"デフォルトのインストール方法に対応する ``values.yaml`` ファイルは `こちら "
+"<https://github.com/xorbitsai/xinference-helm-"
+"charts/blob/main/charts/xinference/values.yaml>`_ にあります。また、`こちら "
+"<https://github.com/xorbitsai/xinference-helm-charts/tree/main/examples>`_ "
+"に参考となるサンプルがいくつかあります。"
+
+#: ../../source/getting_started/using_kubernetes.rst:78
+msgid "KubeBlocks Support"
+msgstr "サードパーティのKubeBlocksに基づく方法"
+
+#: ../../source/getting_started/using_kubernetes.rst:79
+msgid ""
+"You can also install Xinference in Kubernetes using the third-party "
+"``KubeBlocks``. This method is not maintained by Xinference and does not "
+"guarantee timely updates or availability. Please refer to the documentation "
+"at `here <https://kubeblocks.io/docs/preview/user_docs/kubeblocks-for-"
+"xinference/manage-xinference>`_."
+msgstr ""
+"サードパーティの ``KubeBlocks`` を使用して、K8sクラスターに Xinference をインストールすることも可能です。この方法は "
+"Xinference 公式がメンテナンスしているものではないため、リアルタイムの更新や可用性を厳密に保証することはできません。`ドキュメント "
+"<https://kubeblocks.io/docs/preview/user_docs/kubeblocks-for-"
+"xinference/manage-xinference>`_ を参照してください。"

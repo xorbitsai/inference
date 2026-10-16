@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,11 +59,7 @@ def run(address: str, logging_conf: Optional[Dict] = None):
 
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    loop = asyncio.get_event_loop()
-    task = loop.create_task(
-        _start_supervisor(address=address, logging_conf=logging_conf)
-    )
-    loop.run_until_complete(task)
+    asyncio.run(_start_supervisor(address=address, logging_conf=logging_conf))
 
 
 def run_in_subprocess(
@@ -79,7 +75,6 @@ def main(
     port: int,
     supervisor_port: Optional[int],
     logging_conf: Optional[Dict] = None,
-    auth_config_file: Optional[str] = None,
 ):
     supervisor_address = f"{host}:{supervisor_port or get_next_port()}"
     local_cluster = run_in_subprocess(supervisor_address, logging_conf)
@@ -99,7 +94,7 @@ def main(
             host=host,
             port=port,
             logging_conf=logging_conf,
-            auth_config_file=auth_config_file,
+            api_role="supervisor",
         )
     finally:
         local_cluster.kill()

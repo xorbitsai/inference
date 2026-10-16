@@ -143,8 +143,7 @@ msgid ""
 "With Xinference, you can deploy the model easily by just adding a few "
 "lines of code. For examples, for launching the vicuna model in the demo, "
 "just by::"
-msgstr ""
-"使用 Xinference，只需添加几行代码就可以轻松部署模型。例如，在演示中启动vicuna模型，只需："
+msgstr "使用 Xinference，只需添加几行代码就可以轻松部署模型。例如，在演示中启动vicuna模型，只需::"
 
 #: ../../source/examples/ai_podcast.rst:68
 msgid ""

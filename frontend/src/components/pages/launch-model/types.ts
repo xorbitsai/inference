@@ -3,9 +3,11 @@ import type { Input } from '@/components/ui/input';
 import type { RadioGroup } from '@/components/ui/radio-group';
 import type { Select } from '@/components/ui/select';
 import type { Switch } from '@/components/ui/switch';
+import type { MultiSelect } from '@/components/ui/multi-select';
 import { ModelType } from '@/constants';
 import type { FormFieldProps } from '@/types/form';
 import type { ModelEngineItem } from '@/types/services';
+import type { Option } from '@/types/common';
 import type { CommonFormListProps } from './launch-dialog/common-form-list';
 
 export type UnknownRecord = Record<string, unknown>;
@@ -43,6 +45,7 @@ export type RouteModelType =
   | ModelType.Image
   | ModelType.Audio
   | ModelType.Video
+  | ModelType.World
   | ModelType.Custom;
 export type RequestModelType =
   | ModelType.LLM
@@ -51,6 +54,7 @@ export type RequestModelType =
   | ModelType.Image
   | ModelType.Audio
   | ModelType.Video
+  | ModelType.World
   | ModelType.Flexible;
 
 export type FormatIndex = {
@@ -85,6 +89,10 @@ export type LaunchFieldConfig =
       fieldProps?: ComponentProps<typeof Select>;
     })
   | (FormLaunchFieldBase & {
+      type: 'multi-select';
+      fieldProps: ComponentProps<typeof MultiSelect>;
+    })
+  | (FormLaunchFieldBase & {
       type: 'switch';
       fieldProps?: ComponentProps<typeof Switch>;
     })
@@ -100,3 +108,8 @@ export type LaunchFieldConfig =
       type: 'custom';
       content: ReactNode;
     });
+
+export type WorkerOption = Option<string> & {
+  description?: string;
+  gpuCount: number;
+};

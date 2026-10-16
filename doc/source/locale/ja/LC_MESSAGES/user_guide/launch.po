@@ -1,0 +1,398 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/launch.rst:17
+msgid "How recommendations are chosen"
+msgstr "推奨構成の選び方"
+
+#: ../../source/user_guide/launch.rst:20
+msgid "Click **Recommend configuration** in the upper-right corner of the launch dialog to fill in the engine, format, size, and quantization together. You can still change these fields before clicking **Deploy**. The recommendation also selects a worker, so the configuration is tied to the machine checked for it."
+msgstr "起動ダイアログの右上にある **推奨構成** をクリックすると、エンジン、形式、サイズ、量子化がまとめて入力されます。**デプロイ** をクリックするまでは、これらの項目を変更できます。推奨時にはワーカーも選択されるため、その構成はチェックを行ったマシンに対応しています。"
+
+#: ../../source/user_guide/launch.rst:25
+msgid "Xinference starts with your choices. If you have selected an 8B model, it looks for configurations of that size; it will not switch to a smaller model. Worker, GPU, and virtual environment settings also constrain the search. It checks each worker separately and removes combinations that fail the compatibility checks. If none remain, it leaves your form unchanged so you can adjust the settings."
+msgstr "Xinference は、まずユーザーの選択を尊重します。8B モデルを選択していれば、そのサイズの構成を探し、より小さなモデルに切り替えることはありません。ワーカー、GPU、仮想環境の設定も検索範囲を制限します。各ワーカーを個別にチェックし、互換性チェックに通らない組み合わせを除外します。候補が残らなければ、設定を調整できるようフォームは変更しません。"
+
+#: ../../source/user_guide/launch.rst:31
+msgid "If memory data is available, Xinference prefers the largest size estimated to fit. Otherwise it falls back to the smallest unverified size. Within that size, installed engines are preferred; virtual-environment candidates remain eligible."
+msgstr "メモリ情報がある場合、Xinference は収まると推定される最大サイズを優先します。情報が不足する場合は、メモリ未検証の最小サイズに戻ります。同じサイズではインストール済みエンジンを優先し、仮想環境で利用できる候補も対象にします。"
+
+#: ../../source/user_guide/launch.rst:38
+msgid "Next comes the platform's default engine order. With the earlier conditions equal, MLX comes first on Apple Silicon, vLLM followed by SGLang on Linux with CUDA, and llama.cpp on CPU. Within an engine, common 4-bit quantizations such as Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights already cached on that worker get priority. A cached model does not override your selected size or the earlier preferences."
+msgstr "次に、プラットフォームのデフォルトのエンジン優先順位を適用します。それまでの条件が同じであれば、Apple Silicon では MLX、CUDA を使用する Linux では vLLM、次いで SGLang、CPU では llama.cpp を優先します。同じエンジン内では、対応している場合、Q4_K_M や Int4 などの一般的な 4 ビット量子化を優先します。それでも候補が同順位であれば、そのワーカーにすでにキャッシュされている重みを優先します。キャッシュ済みのモデルであっても、選択したサイズやそれまでの優先順位を覆すことはありません。"
+
+#: ../../source/user_guide/launch.rst:45
+msgid "Estimates use offline architecture facts and checkpoint sizes when available. MoE weights include all resident experts. Full-attention KV cache, Gated DeltaNet recurrent state and workspace are counted separately. MLX, Transformers, vLLM, SGLang and llama.cpp share this accounting with different workspace bounds. Unknown layouts, including MLA, remain unverified."
+msgstr "推定にはオフラインのアーキテクチャ情報と、取得できたチェックポイントサイズを使用します。MoE の重みには常駐する全エキスパートを含めます。完全注意の KV キャッシュ、Gated DeltaNet の再帰状態、ワークスペースを個別に計算します。MLX、Transformers、vLLM、SGLang、llama.cpp は同じ計算方式を使い、ワークスペースの上限はエンジンごとに異なります。MLA など未知の構成は未検証のままです。"
+
+msgid "Defaults are one sequence, the model's registered maximum context, FP16 KV cache, no image tokens and no retained prefix cache. The budget is 80% of currently free memory: the lowest free memory among eligible GPUs, or available system memory on CPU and Apple Silicon. The default vLLM GPU reservation is checked separately when total memory is known; SGLang budgets from memory available at initialization. Multi-GPU requests keep compatibility-only selection. Known oversized candidates are excluded. Workspace bounds are estimates, not measured peaks. Engine preallocation is not modeled beyond the separate vLLM default reservation check; custom engine settings require manual configuration. No resources are reserved."
+msgstr "既定では 1 シーケンス、モデルに登録された最大コンテキスト、FP16 KV キャッシュを想定し、画像トークンと保持プレフィックスキャッシュは含めません。予算は現在の空きメモリの 80% です。GPU では候補 GPU の最小空きメモリ、CPU と Apple Silicon では利用可能なシステムメモリを使用します。総メモリが分かる場合、vLLM の既定 GPU 予約量を個別に確認します。SGLang は初期化時の空きメモリから予算を計算します。複数 GPU の要求では互換性のみを選択基準とします。予算超過が判明した候補は除外されます。ワークスペース上限は推定であり実測ピークではありません。エンジンの事前割り当ては、vLLM の既定予約量の個別確認を除きモデル化していません。独自のエンジン設定は手動で構成してください。リソースは予約されません。"
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Using the API"
+msgstr "API の使用"
+
+#: ../../source/user_guide/launch.rst:10
+msgid "LLM launch recommendations"
+msgstr "LLM の起動設定の推奨"
+
+#: ../../source/user_guide/launch.rst:12
+msgid "In an LLM's deployment dialog, use the launch recommendation button to get a suggested configuration, then review it before deploying. The button is available for LLMs, embedding, rerank, and audio models. Recommendations currently target a single replica. Custom model paths and custom engine parameters require manual configuration."
+msgstr "LLM のデプロイ画面で推奨設定ボタンを押し、内容を確認してからデプロイします。LLM、embedding、rerank、音声モデルに対応し、現在は単一レプリカが対象です。独自のモデルパスやエンジン引数は手動で設定してください。"
+
+msgid "Recommendations for other model types"
+msgstr "他のモデル種別の推奨設定"
+
+msgid "Embedding, rerank, and audio models use the same **Recommend configuration** button and ``POST /v1/models/recommend`` endpoint; set ``model_type`` to ``embedding``, ``rerank``, or ``audio``. The recommendation fills only the fields supported by that type, without selecting a model size. Embedding and rerank prefer an available sentence-transformers engine; audio prefers an available MLX engine on Apple Silicon, otherwise its standard Transformers or PyTorch backend. Installed engines come before engines that need a virtual environment, and unquantized variants are preferred within an engine. Unlike LLM recommendations, these types do not use cached weights as a tie-breaker. Worker, GPU, and virtual environment constraints still apply; ``model_size_in_billions`` is rejected for these types. A recommendation remains a starting configuration, not a memory-fit guarantee. Image and video recommendations are not yet supported."
+msgstr "embedding、rerank、音声モデルでも **Recommend configuration** ボタンと ``POST /v1/models/recommend`` を使用できます。``model_type`` を ``embedding``、``rerank``、``audio`` のいずれかに設定してください。対応する項目だけを入力し、モデルサイズは選びません。embedding と rerank は利用可能な sentence-transformers を優先します。音声では Apple Silicon 上で利用可能な MLX を、それ以外では標準の Transformers または PyTorch を優先します。仮想環境で依存関係の導入が必要なエンジンより導入済みのものを、同じエンジン内では非量子化版を優先します。LLM と異なり、キャッシュ済みの重みは同順位の候補の選択に使いません。ワーカー、GPU、仮想環境の制約は適用されますが、``model_size_in_billions`` は受け付けません。推奨は出発点であり、メモリ容量の保証ではありません。画像と動画は未対応です。"
+
+#: ../../source/user_guide/launch.rst:16
+msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. LLM constraints also accept ``context_length``. Supplied constraints are hard requirements, never silently relaxed."
+msgstr "``POST /v1/models/recommend`` は読み取り専用です。``model_name`` と ``model_type=\"LLM\"`` を指定します。任意の ``constraints`` オブジェクトには ``model_size_in_billions``、``worker_ip``、``enable_virtual_env``、``n_gpu``、``gpu_idx`` を指定できます。指定した制約は必須条件であり、暗黙に緩和されることはありません。 LLM の制約には ``context_length`` も指定できます。"
+
+#: ../../source/user_guide/launch.rst:31
+msgid "The response ``status`` is ``recommended`` or ``no_recommendation``. On success, ``config`` contains launch-compatible fields such as ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``. ``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields. If no configuration satisfies the constraints, review the explanation and adjust the constraints or configure the launch manually."
+msgstr "応答の ``status`` は ``recommended`` または ``no_recommendation`` です。成功時の ``config`` には、``model_engine``、``model_format``、``model_size_in_billions``、``quantization``、``worker_ip`` など、起動と互換性のあるフィールドが含まれます。``reasons`` と ``warnings`` の各項目には ``code`` と ``message`` フィールドが含まれます。制約を満たす設定がない場合は、説明を確認して制約を調整するか、起動設定を手動で行ってください。"
+
+#: ../../source/user_guide/launch.rst:38
+msgid "A recommendation does not guarantee sufficient memory or a successful launch. It reserves no resources, downloads no model files, and installs no dependencies. Existing launch behavior is unchanged; deployment remains a separate action."
+msgstr "推奨はメモリ容量の充足や起動の成功を保証しません。リソースの予約、モデルファイルのダウンロード、依存関係のインストールは行いません。既存の起動動作は変わらず、デプロイは別途実行する必要があります。"
+
+#: ../../source/user_guide/launch.rst:42
+msgid "``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "``config`` には、有効な ``enable_virtual_env`` と、指定された ``n_gpu`` および ``gpu_idx`` の制約も含まれます。 ``n_gpu=null`` は CPU への配置を要求し、 ``n_gpu=\"auto\"`` は必要な GPU 数を計算せず、既存の起動時の割り当てポリシーを使用します。"
+
+#: ../../source/user_guide/launch.rst:48
+msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."
+msgstr "``recommended`` と ``no_recommendation`` はどちらも HTTP 200 を返します。未知のモデルは HTTP 404、不正なリクエストは HTTP 422 を返します。理由と警告のコードは小文字の snake_case を使用します。 ``memory_not_verified`` 警告は常に含まれます。"
+
+#: ../../source/user_guide/launch.rst:5
+msgid "Model Launching Instructions"
+msgstr "模型ロードガイド"
+
+#: ../../source/user_guide/launch.rst:7
+msgid ""
+"This document aims to provide a functional overview of model launching."
+msgstr "このドキュメントは、モデルローディングの機能説明を提供することを目的としています。"
+
+#: ../../source/user_guide/launch.rst:10
+msgid "Replica"
+msgstr "コピー"
+
+#: ../../source/user_guide/launch.rst:12
+msgid ""
+"Replicas specify the number of model instances to load. For example, if you "
+"have two GPUs and each can host one replica of the model, you can set the "
+"replica count to 2. This way, two identical instances of the model will be "
+"distributed across the two GPUs. Xinference automatically load-balances "
+"requests to ensure even distribution across multiple GPUs. Meanwhile, users "
+"see it as a single model, which greatly improves overall resource "
+"utilization."
+msgstr ""
+"レプリカは、モデルがロードされるインスタンスの数を指定するために使用されます。例えば、2枚のGPUがあり、各カードにモデルの1つのレプリカを配置できる場合、レプリカ数を2に設定できます。これにより、2つの完全に同一のモデルインスタンスがこれら2枚のGPUに分散されます。Xinferenceは自動的に負荷分散を行い、リクエストが複数のカードに均等に割り当てられるようにします。ユーザーからは依然として1つのモデルとして見えるため、全体的なリソース利用率が大幅に向上します。"
+
+#: ../../source/user_guide/launch.rst:17
+msgid "Traditional Multi-Instance Deployment："
+msgstr "旧バージョンのマルチインスタンスデプロイメント："
+
+#: ../../source/user_guide/launch.rst:19
+msgid ""
+"When you have multiple GPU cards, each capable of hosting one model "
+"instance, you can set the number of instances equal to the number of GPUs. "
+"For example:"
+msgstr ""
+"複数のGPUカードをお持ちの場合、各カードが1つのモデルインスタンスを実行できます。この場合、インスタンス数をGPUの数に設定できます。例:"
+
+#: ../../source/user_guide/launch.rst:21
+msgid "2 GPUs, 2 instances: Each GPU runs one model instance"
+msgstr "2GPU、2インスタンス：各GPUが1つのモデルインスタンスを実行"
+
+#: ../../source/user_guide/launch.rst:22
+msgid "4 GPUs, 4 instances: Each GPU runs one model instance"
+msgstr "4枚のGPU、4つのインスタンス：各GPUに1つのモデルインスタンスを実行"
+
+#: ../../source/user_guide/launch.rst:26
+msgid "Introduce a new environment variable:"
+msgstr "新しい環境変数を導入する:"
+
+#: ../../source/user_guide/launch.rst:32
+msgid ""
+"Control whether to enable the single GPU multi-copy feature Default value: 1"
+msgstr "制御：単一GPUマルチコピー機能を有効にするかどうか。デフォルト値：1"
+
+#: ../../source/user_guide/launch.rst:35
+msgid "New Feature: Smart Replica Deployment"
+msgstr "新機能：スマートレプリカデプロイ"
+
+#: ../../source/user_guide/launch.rst:37
+msgid "Single GPU Multi-Replica"
+msgstr "単一GPUでのマルチレプリカ"
+
+#: ../../source/user_guide/launch.rst:39
+msgid "New Support: Run multiple model replicas even with just one GPU."
+msgstr "新規サポート：GPUが1枚のみでも、複数のモデルレプリカを実行可能。"
+
+#: ../../source/user_guide/launch.rst:41
+msgid "Scenario: You have 1 GPU with sufficient VRAM"
+msgstr "シナリオ：あなたは1つのGPUを持ち、VRAMが十分にある場合"
+
+#: ../../source/user_guide/launch.rst:42
+msgid "Configuration: Replica Count = 3, GPU Count = 1"
+msgstr "構成：レプリカ数=3、GPU数=1"
+
+#: ../../source/user_guide/launch.rst:43
+msgid ""
+"Result: 3 model instances running on the same GPU, sharing GPU resources"
+msgstr "結果：3つのモデルインスタンスが同一GPU上で動作し、GPUリソースを共有する。"
+
+#: ../../source/user_guide/launch.rst:45
+msgid "Hybrid GPU Allocation"
+msgstr "混合GPU割り当て"
+
+#: ../../source/user_guide/launch.rst:47
+msgid ""
+"Smart Allocation: Number of replicas may differ from GPU count; system "
+"intelligently distributes"
+msgstr "スマート割り当て: レプリカ数はGPU数と等しくなくてもよく、システムがスマートに割り当てを行います。"
+
+#: ../../source/user_guide/launch.rst:49
+msgid "Scenario: You have 2 GPUs and need 3 replicas"
+msgstr "シナリオ: GPUが2枚あり、3つのレプリカが必要です。"
+
+#: ../../source/user_guide/launch.rst:50
+msgid "Configuration: Replicas=3, GPUs=2"
+msgstr "構成: レプリカ数=3、GPU数=2"
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Result: GPU0 runs 2 instances, GPU1 runs 1 instance"
+msgstr "結果: GPU0で2つのインスタンスを実行、GPU1で1つのインスタンスを実行"
+
+#: ../../source/user_guide/launch.rst:54
+msgid "GPU Allocation Strategy"
+msgstr "混合割り当て戦略"
+
+#: ../../source/user_guide/launch.rst:56
+msgid ""
+"The current policy is *Idle First*: The scheduler always attempts to assign "
+"replicas to the least utilized GPU. Use the ``XINFERENCE_LAUNCH_STRATEGY`` "
+"parameter to choose launch strategy."
+msgstr ""
+"現在の戦略は *アイドル優先* です：スケジューラーは常にレプリカを最もアイドル状態のGPUに割り当てようとします。起動戦略の選択には "
+"``XINFERENCE_ENV_LAUNCH_STRATEGY`` パラメータを使用します。"
+
+#: ../../source/user_guide/launch.rst:59
+msgid "Set Environment Variables"
+msgstr "環境変数を設定する"
+
+#: ../../source/user_guide/launch.rst:63
+msgid ""
+"Sometimes, we want to specify environment variables for a particular model "
+"at runtime. Since v1.8.1, Xinference provides the capability to configure "
+"these individually without needing to set them before starting Xinference."
+msgstr ""
+"時には、実行時に特定のモデルに環境変数を指定したいことがあります。v1.8.1 以降、Xinference "
+"は環境変数を個別に設定する機能を提供しており、Xinference を起動する前に設定する必要はありません。"
+
+#: ../../source/user_guide/launch.rst:66
+msgid "For Web UI."
+msgstr "Web UI向け。"
+
+#: ../../source/user_guide/launch.rst:72
+msgid ""
+"When using the command line, use ``--env`` to specify an environment "
+"variable."
+msgstr "コマンドラインで使用する際は、 ``--env`` で環境変数を指定します。"
+
+#: ../../source/user_guide/launch.rst:74
+#: ../../source/user_guide/launch.rst:123
+msgid "Example usage:"
+msgstr "サンプル使用法："
+
+#: ../../source/user_guide/launch.rst:80
+msgid ""
+"Take vLLM as an example: it has versions V1 and V0, and by default, it "
+"automatically determines which version to use. If you want to force the use "
+"of V0 by setting ``VLLM_USE_V1=0`` when launching a model, you can specify "
+"this during model launching."
+msgstr ""
+"vLLMを例に挙げると、V1とV0の2つのバージョンがあり、デフォルトでは自動的に使用するバージョンが判定されます。モデル読み込み時に "
+"``VLLM_USE_V1=0`` を設定して強制的にV0を使用したい場合は、この環境変数を指定できます。"
+
+#: ../../source/user_guide/launch.rst:84
+msgid "Configuring Model Virtual Environment"
+msgstr "モデル仮想空間を構成する"
+
+#: ../../source/user_guide/launch.rst:88
+msgid ""
+"For this part, please refer to :ref:`toggling virtual environments and "
+"customizing dependencies <model_launching_virtualenv>`."
+msgstr ""
+"この部分については、 :ref:`仮想環境の切り替えと依存関係のカスタマイズ <model_launching_virtualenv>` を参照してください。"
+
+#: ../../source/user_guide/launch.rst:91
+msgid "Batching / Continuous Batching"
+msgstr "バッチ処理 / 連続バッチ処理"
+
+#: ../../source/user_guide/launch.rst:93
+msgid ""
+"Xinference supports batching for higher throughput. For LLMs on the "
+"``transformers`` engine, continuous batching is available and can be enabled"
+" via environment variables at launch time."
+msgstr ""
+"Xinferenceは、スループットを向上させるためにバッチ処理をサポートしています。 ``transformers`` エンジンに基づく大規模言語モデルでは、連続バッチ処理機能を有効にすることができ、この機能は起動時に環境変数を通じて設定可能です。"
+
+#: ../../source/user_guide/launch.rst:96
+msgid "Key settings:"
+msgstr "重要な設定："
+
+#: ../../source/user_guide/launch.rst:98
+msgid ""
+"``XINFERENCE_BATCH_SIZE`` and ``XINFERENCE_BATCH_INTERVAL`` for general "
+"batching behavior."
+msgstr ""
+"``XINFERENCE_BATCH_SIZE`` と ``XINFERENCE_BATCH_INTERVAL`` "
+"は、通常のバッチ処理の動作を制御するために使用されます。"
+
+#: ../../source/user_guide/launch.rst:101
+msgid "Example (LLM, transformers):"
+msgstr "例（大規模言語モデル、Transformer）"
+
+#: ../../source/user_guide/launch.rst:114
+msgid ""
+"For detailed behavior, supported models, and aborting requests, see "
+":ref:`Continuous Batching <user_guide_continuous_batching>`."
+msgstr ""
+"詳細な動作、サポートされるモデル、および中断リクエストに関する情報については、 :ref:`連続バッチ処理 "
+"<user_guide_continuous_batching>` を参照してください。"
+
+#: ../../source/user_guide/launch.rst:118
+msgid "Thinking Mode"
+msgstr "思考モード"
+
+#: ../../source/user_guide/launch.rst:120
+msgid ""
+"Some hybrid reasoning models (for example, Qwen3) support an optional "
+"*thinking mode*. You can enable this at launch time via ``--enable-"
+"thinking``."
+msgstr ""
+"一部のハイブリッド推論モデル（例：Qwen3）はオプションの *思考モード* をサポートしています。起動時に ``--enable-thinking``"
+" パラメータを使用してこの機能を有効にできます。"
+
+#: ../../source/user_guide/launch.rst:171
+msgid "Launch Configuration History"
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:173
+msgid ""
+"After a model is launched successfully from the Web UI, Xinference stores its "
+"launch configuration in the Supervisor launch-history database and keeps a "
+"user-scoped browser cache for fast access and temporary network failures. When "
+"the deployment dialog is opened again, the newest server-backed configuration "
+"is restored unless the user has already started editing the form."
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:180
+msgid ""
+"The configuration history dialog can remove records owned by the current user. "
+"Records used by automatic startup are protected from deletion. In authenticated "
+"deployments, browser caches are separated by the username in the access token; "
+"configuration data owned by another user is not placed in that cache."
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:306
+msgid ""
+"The history dialog also lists configurations owned by the current user for "
+"other model names. These records are never applied automatically. After the "
+"user confirms **Use as Template**, Xinference keeps the current model name, "
+"removes the previous model UID and history or automatic-startup metadata, and "
+"copies the remaining launch options into the form without starting a model."
+msgstr ""
+
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready."
+msgstr "デプロイ中、進捗エンドポイント ``GET /v1/models/{model_uid}/progress`` は各レプリカの段階を返します。モデルファイルのダウンロード後、共有仮想環境を別の起動処理が準備している間は ``waiting_for_dependencies``、パッケージのインストール中は ``installing_dependencies``、環境の準備後は ``loading`` を返します。"
+
+msgid "The Web UI shows each replica's file download details inside its replica card."
+msgstr "Web UI は各レプリカのファイルダウンロード詳細を、それぞれのレプリカカード内に表示します。"
+
+msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
+msgstr "依存パッケージのインストール中は、各レプリカの進捗に、主なインストールで予定されているパッケージ数と、その仮想環境にすでに存在するパッケージ数が表示されます。共有環境を待機しているレプリカには独自のインストール数はありません。インストーラーが信頼できる計画を解決できない場合、件数は表示されません。"
+
+msgid "The Web UI keeps the dependency installation result visible while a replica is loading. When no dependency installation is needed, the replica card says so."
+msgstr "レプリカがモデルを読み込んでいる間も、Web UI には依存パッケージのインストール結果が表示されます。インストールが不要な場合は、レプリカのカードにその旨が表示されます。"
+
+#: doc/source/user_guide/launch.rst
+msgid ""
+"For image and video models, batching depends on the selected native engine "
+"and model. Diffusers does not use a Xinference step-level scheduler. See "
+":ref:`image` and :ref:`video`."
+msgstr ""
+"画像・動画モデルのバッチ処理は、選択したネイティブエンジンとモデルに依存します。Diffusers は Xinference "
+"独自のステップ単位スケジューラを使用しません。:ref:`image` と :ref:`video` を参照してください。"
+
+#: ../../user_guide/launch.rst:414
+msgid "Reconfigure without reloading weights"
+msgstr "重みを再読み込みせずに設定を変更"
+
+#: ../../user_guide/launch.rst:417
+msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
+msgstr "モデル起動時に ``enable_weight_cache=true`` を指定するか、デプロイ画面で **再読み込み用に GPU の重みを保持** を選択します。vLLM 0.31.0+ または SGLang 0.5.21+、Linux CUDA または ROCm、単一ワーカー、単一レプリカ、固定のテンソル並列度が必要です。対応バージョンでも既定では無効です。"
+
+#: ../../user_guide/launch.rst:419
+msgid "Xinference keeps GPU weights in an upstream cache daemon while rebuilding the engine, KV cache and CUDA graphs. Reload waits for current requests, including streams, to finish and temporarily rejects new requests with HTTP 503. A drain timeout leaves the original engine running. If rebuilding fails, Xinference attempts to restore the previous configuration. Terminating the model releases the weights; a worker process failure requires loading them again."
+msgstr "Xinference は上流のキャッシュプロセスで GPU の重みを保持し、エンジン、KV キャッシュ、CUDA グラフを再構築します。ストリームを含む現在のリクエスト完了を待ち、新規リクエストを一時的に HTTP 503 で拒否します。待機タイムアウトでは元のエンジンを維持します。再構築に失敗した場合は以前の設定の復元を試みます。モデル終了で重みを解放します。ワーカープロセスの障害時には重みの再読み込みが必要です。"
+
+#: ../../user_guide/launch.rst:421
+msgid "``POST /v1/models/{model_uid}/reload`` accepts a partial ``model_config`` object and optional ``drain_timeout`` in seconds (default 300, maximum 3600). It returns HTTP 202 with an ``operation_id``. Poll ``GET /v1/models/{model_uid}/reload`` until ``status`` is ``ready`` or ``error``. On error, ``restored=true`` means the previous engine is serving again. Query ``GET /v1/models/{model_uid}/reload/config`` for supported parameters and current explicit values. Invalid patches return HTTP 400; a reload already in progress returns HTTP 409. The model UID and GPU reservation stay the same."
+msgstr "``POST /v1/models/{model_uid}/reload`` は部分的な ``model_config`` と任意の ``drain_timeout``（秒、既定 300、最大 3600）を受け取り、HTTP 202 と ``operation_id`` を返します。``status`` が ``ready`` または ``error`` になるまで ``GET /v1/models/{model_uid}/reload`` をポーリングします。エラー時の ``restored=true`` は元のエンジンが復旧したことを示します。対応パラメータと現在の明示的な値は ``GET /v1/models/{model_uid}/reload/config`` で取得します。無効な変更は HTTP 400、再読み込みが進行中の場合は HTTP 409 です。モデル UID と GPU の割り当てを維持します。"
+
+#: ../../user_guide/launch.rst:423
+msgid "vLLM supports changing ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` and ``enforce_eager``."
+msgstr "vLLM では ``max_num_seqs``、``max_num_batched_tokens``、``max_model_len``、``gpu_memory_utilization``、``enforce_eager`` を変更できます。"
+
+#: ../../user_guide/launch.rst:425
+msgid "SGLang supports changing ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` and ``schedule_conservativeness``."
+msgstr "SGLang では ``max_running_requests``、``max_prefill_tokens``、``context_length``、``chunked_prefill_size``、``mem_fraction_static``、``disable_cuda_graph``、``cuda_graph_max_bs_decode``、``cuda_graph_max_bs_prefill``、``schedule_conservativeness`` を変更できます。"
+
+#: ../../user_guide/launch.rst:427
+msgid "Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reload parameters** to edit the supported values and follow progress."
+msgstr "並列度、GPU 配置、モデルパス、精度、量子化、重みの配置設定は変更できません。パイプライン・データ並列、複数ワーカー、LoRA、投機的デコード、重みのオフロード、PD デプロイには未対応です。量子化モデルは上流の IPC 互換性チェックに合格する必要があります。vLLM の複数 GPU キャッシュでは標準のマルチプロセス実行を使用します。実行中のモデル詳細で **パラメータを再読み込み** を選択すると値の編集と進行状況の確認ができます。"
+
+msgid "LLM constraints also accept positive integers ``context_length`` (text input plus output tokens) and ``concurrency``, and non-negative integers ``vision_tokens`` (encoded image tokens per sequence) and ``prefix_cache_bytes`` (additional retained cache across the instance). Omitting ``context_length`` uses each candidate's registered maximum context, including encoded image tokens. Models without a known maximum remain unverified. Recommended vLLM ``max_model_len`` and SGLang ``context_length`` equal text plus vision tokens per sequence. llama.cpp uses ``n_parallel=concurrency`` and ``n_ctx=(context_length + vision_tokens) * concurrency`` because its context is divided across slots. The Web UI applies these advanced launch parameters. Other workload fields affect estimates rather than request limits. Older workers that do not support workload options are retried without them and remain unverified, with a version warning. Image workloads require vision metadata. For multiple images, ``vision_tokens_per_image`` specifies their maximum encoded token count; zero assumes all image tokens belong to one image. Cached states grow with concurrency, while model weights are counted once. CUDA profiles for vLLM and SGLang share a 16,384-token prefill workspace profile with fused attention and sampled-row logits."
+msgstr "LLM の制約では、正の整数 ``context_length``（テキスト入力と出力のトークン数）と ``concurrency``、非負の整数 ``vision_tokens``（シーケンスごとの符号化済み画像トークン数）と ``prefix_cache_bytes``（インスタンス全体で追加保持するキャッシュ）も指定できます。``context_length`` を省略すると、各候補に登録された最大コンテキストを使用し、符号化済み画像トークンもその上限に含めます。最大値が不明なモデルは未検証として扱います。推奨される vLLM の ``max_model_len`` と SGLang の ``context_length`` は、シーケンスごとのテキストと画像トークンの合計です。llama.cpp はコンテキストをスロット間で分割するため、``n_parallel=concurrency`` と ``n_ctx=(context_length + vision_tokens) * concurrency`` を使用します。Web UI はこれらを高度な起動パラメータとして適用します。他のワークロード項目は推定に影響し、リクエスト制限は設定しません。ワークロードオプションに対応しない古い worker にはオプションなしで再問い合わせし、バージョン警告を表示して未検証として扱います。画像ワークロードには視覚メタデータが必要です。 複数の画像では ``vision_tokens_per_image`` で画像ごとの符号化済みトークン数の上限を指定できます。ゼロは全画像トークンを 1 枚の画像として扱います。キャッシュ状態は同時実行数に応じて増えますが、モデルの重みは 1 回だけ計算します。vLLM (CUDA) と SGLang は融合注意とサンプリング対象行の logits を使う、16,384 トークンの共有プリフィルワークスペースを想定します。"
+
+#: ../source/user_guide/launch.rst:95
+msgid "Unified LLM context length"
+msgstr "統一された LLM コンテキスト長"
+
+#: ../source/user_guide/launch.rst:97
+msgid "Set ``context_length`` in the launch API or use ``--context-length`` in the CLI to choose the input plus output token limit per request. In the Web UI, use the context slider or enter an exact integer; **Model default** clears the override. The slider's upper bound comes from the registered model. Context selections are preserved in configuration history and passed to the recommendation API."
+msgstr "起動 API の ``context_length`` または CLI の ``--context-length`` で、リクエストごとの入力と出力の合計トークン上限を指定します。Web UI ではコンテキストのスライダーか正確な整数を使用し、**モデルの既定値** で指定値を解除できます。スライダーの上限は登録されたモデルから取得します。コンテキスト値は設定履歴に保存され、推奨 API に渡されます。"
+
+#: ../source/user_guide/launch.rst:103
+msgid "The launch layer maps this setting to vLLM's ``max_model_len``, SGLang, Transformers and MLX's ``context_length``, LMDeploy's ``session_len``, and llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine parameters still work; contradictory unified and native values are rejected. Omitting the setting preserves engine defaults. This setting does not extend the model's positional embeddings or enable context scaling."
+msgstr "起動層はこの設定を vLLM の ``max_model_len``、SGLang、Transformers と MLX の ``context_length``、LMDeploy の ``session_len``、llama.cpp の全スロット容量 ``n_ctx=context_length*n_parallel`` に変換します。既存のエンジン固有パラメータも使用できますが、統一値と固有値が矛盾する場合は拒否されます。未指定の場合はエンジンの既定値を維持します。この設定はモデルの位置埋め込みを拡張せず、コンテキストのスケーリングも有効にしません。"
+
+#: ../source/user_guide/launch.rst
+msgid "Recommendation configs expose ``context_length`` as the total per-request budget, including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the estimated concurrency; the launch layer maps the unified budget to each engine."
+msgstr "推奨設定は、エンコードされた画像トークンを含むリクエストごとの総トークン数として ``context_length`` を返します。llama.cpp は推定した同時実行数に合わせて ``n_parallel`` も返し、起動処理が統一されたトークン数を各エンジンの設定に変換します。"
+
+#: ../source/user_guide/launch.rst
+msgid "With an explicit context limit, MLX rejects prompts that leave no room for output and caps ``max_tokens`` to the remaining budget. Cached prompt tokens and processed image tokens count toward the input limit. Non-streaming requests that exceed the input limit return HTTP 400; streaming requests report an SSE error without starting generation."
+msgstr "コンテキスト上限を明示すると、MLX は出力用の余地がないプロンプトを拒否し、``max_tokens`` を残りのトークン数に制限します。キャッシュ済みのプロンプトトークンと処理済みの画像トークンも入力上限に含まれます。入力上限を超える非ストリーミング要求は HTTP 400 を返し、ストリーミング要求は生成を開始せずに SSE エラーを報告します。"

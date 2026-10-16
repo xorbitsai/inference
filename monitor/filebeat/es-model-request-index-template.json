@@ -1,0 +1,132 @@
+{
+  "index_patterns": [
+    "xinference-model-request-*"
+  ],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1,
+      "index.refresh_interval": "5s",
+      "index.lifecycle.name": "xinference-model-request-policy"
+    },
+    "aliases": {
+      "xinference-log-search": {}
+    },
+    "mappings": {
+      "dynamic": false,
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "cluster": {
+          "type": "keyword"
+        },
+        "log_type": {
+          "type": "keyword"
+        },
+        "level": {
+          "type": "keyword"
+        },
+        "role": {
+          "type": "keyword"
+        },
+        "address": {
+          "type": "keyword"
+        },
+        "node": {
+          "type": "keyword"
+        },
+        "module": {
+          "type": "keyword"
+        },
+        "pid": {
+          "type": "integer"
+        },
+        "event_type": {
+          "type": "keyword"
+        },
+        "request_id": {
+          "type": "keyword"
+        },
+        "api_protocol": {
+          "type": "keyword"
+        },
+        "endpoint": {
+          "type": "keyword"
+        },
+        "method": {
+          "type": "keyword"
+        },
+        "model_uid": {
+          "type": "keyword"
+        },
+        "model_type": {
+          "type": "keyword"
+        },
+        "stream": {
+          "type": "boolean"
+        },
+        "status_code": {
+          "type": "integer"
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "elapsed_ms": {
+          "type": "double"
+        },
+        "stream_outcome": {
+          "type": "keyword"
+        },
+        "error": {
+          "properties": {
+            "type": {
+              "type": "keyword"
+            },
+            "message": {
+              "type": "text"
+            }
+          }
+        },
+        "request_body": {
+          "type": "object",
+          "enabled": false
+        },
+        "request_body_raw": {
+          "type": "keyword",
+          "index": false,
+          "doc_values": false
+        },
+        "request_body_omitted": {
+          "properties": {
+            "reason": {
+              "type": "keyword"
+            },
+            "size_bytes": {
+              "type": "long"
+            },
+            "max_bytes": {
+              "type": "long"
+            }
+          }
+        },
+        "content_type": {
+          "type": "keyword"
+        },
+        "stream_completed": {
+          "type": "boolean"
+        },
+        "http_success": {
+          "type": "boolean"
+        },
+        "failure_origin": {
+          "type": "keyword"
+        }
+      }
+    }
+  },
+  "priority": 300,
+  "_meta": {
+    "description": "Xinference protected model request log template"
+  }
+}

@@ -1,0 +1,52 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/rerank.rst:5
+msgid "Rerank"
+msgstr "리랭킹"
+
+#: ../../source/models/model_abilities/rerank.rst:7
+msgid "Learn how to use rerank models in Xinference."
+msgstr "Xinference에서 재정렬 모델을 사용하는 방법을 학습합니다."
+
+#: ../../source/models/model_abilities/rerank.rst:11
+msgid "Introduction"
+msgstr "소개"
+
+#: ../../source/models/model_abilities/rerank.rst:13
+msgid ""
+"Given a query and a list of documents, Rerank indexes the documents from "
+"most to least semantically relevant to the query. Rerank models in "
+"Xinference can be invoked through the Rerank endpoint to rank a list of "
+"documents."
+msgstr ""
+"주어진 쿼리와 일련의 문서가 있을 때, Rerank는 쿼리와의 의미적 관련성에 따라 문서를 가장 관련성 높은 순에서 낮은 순으로 "
+"재정렬합니다. Xinference에서는 Rerank 엔드포인트를 통해 Rerank 모델을 호출하여 일련의 문서를 정렬할 수 있습니다."
+
+#: ../../source/models/model_abilities/rerank.rst:18
+msgid "Quickstart"
+msgstr "빠른 시작"
+
+#: ../../source/models/model_abilities/rerank.rst:20
+msgid ""
+"We can try Rerank API out either via cURL, OpenAI Client, or Xinference's "
+"python client:"
+msgstr "cURL, OpenAI Client 또는 Xinference를 통해 Rerank API를 사용해 볼 수 있습니다:"

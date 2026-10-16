@@ -15,4 +15,5 @@ Model Abilities
    image
    audio
    video
+   world
    flexible

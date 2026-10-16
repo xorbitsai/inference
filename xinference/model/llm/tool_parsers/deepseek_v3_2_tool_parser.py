@@ -1,11 +1,14 @@
+import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
 
 logger = logging.getLogger(__name__)
+
+ToolCall = Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
 
 
 @register_tool_parser("deepseek-v3.2")
@@ -43,18 +46,13 @@ class DeepseekV3_2ToolParser(ToolParser):
             "<function_calls>",
         ]
 
-        # Streaming state
-        self.is_tool_call_started: bool = False
-        self.current_tool_index: int = 0
-        self._use_dsml: bool = True  # detected per-stream
+        # One instance serves every request to the model, so nothing on it
+        # may change per request. Compile the patterns of both formats once,
+        # keyed by whether the text uses DSML tags.
+        self._regexes = {dsml: self._build_regexes(dsml) for dsml in (True, False)}
 
-        # Regex patterns — built dynamically after format detection
-        self.tool_call_complete_regex: re.Pattern = re.compile(r"")  # placeholder
-        self.invoke_complete_regex: re.Pattern = re.compile(r"")  # placeholder
-        self.parameter_complete_regex: re.Pattern = re.compile(r"")  # placeholder
-
-    def _build_regexes(self, dsml: bool) -> None:
-        """Compile regex patterns for the detected format."""
+    def _build_regexes(self, dsml: bool) -> Tuple[re.Pattern, re.Pattern, re.Pattern]:
+        """Compile the tool call, invoke and parameter patterns of a format."""
         # For DSML mode, open_tag = "<｜DSML｜", close_body = "｜DSML｜"
         # For plain mode,  open_tag = "<",        close_body = ""
         if dsml:
@@ -64,25 +62,32 @@ class DeepseekV3_2ToolParser(ToolParser):
             open_tag = "<"
             close_body = ""
 
-        self.tool_call_complete_regex = re.compile(
+        tool_call_regex = re.compile(
             rf"{open_tag}function_calls>(.*?)</{close_body}function_calls>", re.DOTALL
         )
-        self.invoke_complete_regex = re.compile(
+        invoke_regex = re.compile(
             rf"{open_tag}invoke\s+name=\"([^\"]+)\"\s*>(.*?)</{close_body}invoke>",
             re.DOTALL,
         )
-        _non_cap = "(?:"  # noqa: E231 — split to avoid flake8 false positive on "?:"
-        self.parameter_complete_regex = re.compile(
-            rf'{open_tag}parameter\s+name="([^"]+)"\s+string="{_non_cap}true|false)"\s*>'
+        parameter_regex = re.compile(
+            rf'{open_tag}parameter\s+name="([^"]+)"\s+string="(true|false)"\s*>'
             rf"(.*?)</{close_body}parameter>",
             re.DOTALL,
         )
+        return tool_call_regex, invoke_regex, parameter_regex
 
-    def _parse_invoke_params(self, invoke_str: str) -> dict:
+    def _parse_invoke_params(
+        self, invoke_str: str, parameter_regex: re.Pattern
+    ) -> dict:
         """Parse parameter name-value pairs from an invoke block."""
         param_dict = {}
-        for param_name, param_val in self.parameter_complete_regex.findall(invoke_str):
-            param_dict[param_name] = param_val
+        for param_name, is_string, param_val in parameter_regex.findall(invoke_str):
+            try:
+                param_dict[param_name] = (
+                    param_val if is_string == "true" else json.loads(param_val)
+                )
+            except json.JSONDecodeError:
+                param_dict[param_name] = param_val
         return param_dict
 
     def _detect_format(self, text: str) -> bool:
@@ -109,33 +114,45 @@ class DeepseekV3_2ToolParser(ToolParser):
         if not has_any:
             return [(model_output, None, None)]
 
-        dsml = self._detect_format(model_output)
-        self._build_regexes(dsml)
+        tool_call_regex, invoke_regex, parameter_regex = self._regexes[
+            self._detect_format(model_output)
+        ]
 
         results: List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]] = (
             []
         )
 
-        for tool_call_match in self.tool_call_complete_regex.findall(model_output):
-            for invoke_name, invoke_content in self.invoke_complete_regex.findall(
-                tool_call_match
-            ):
-                param_dict = self._parse_invoke_params(invoke_content)
+        content_start = 0
+        for tool_call_match in tool_call_regex.finditer(model_output):
+            invokes = invoke_regex.findall(tool_call_match.group(1))
+            if not invokes:
+                continue
+            content = model_output[content_start : tool_call_match.start()]
+            if content:
+                results.append((content, None, None))
+            for invoke_name, invoke_content in invokes:
+                param_dict = self._parse_invoke_params(invoke_content, parameter_regex)
                 results.append((None, invoke_name, param_dict))
+            content_start = tool_call_match.end()
 
         if not results:
             return [(model_output, None, None)]
 
+        content = model_output[content_start:]
+        if content:
+            results.append((content, None, None))
         return results
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
-    ) -> Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
+    ) -> Optional[Union[ToolCall, List[ToolCall]]]:
         """
         Extract tool calls from streaming output.
 
         Buffers tokens until a complete invoke block is available, then
-        parses and returns it in one shot.
+        parses and returns it in one shot. The parser is shared by
+        concurrent requests, so progress is derived from this request's
+        accumulated text and delta, never from instance state.
 
         Args:
             previous_text: Previous text chunks from the stream.
@@ -143,46 +160,36 @@ class DeepseekV3_2ToolParser(ToolParser):
             delta_text: New text delta in this chunk.
 
         Returns:
-            None if waiting for more data, or a tuple of (content, function_name, parameters).
+            None if waiting for more data, a tuple of (content, function_name,
+            parameters), or a list of them when one delta completes several
+            invokes.
         """
         try:
-            # First chunk of a new stream — reset state
-            if not previous_text:
-                self.is_tool_call_started = False
-                self.current_tool_index = 0
-                self._use_dsml = True
+            if not any(tok in current_text for tok in self.tool_call_start_tokens):
+                # Still in plain-text region. Hold back a trailing partial
+                # start token and release it once it turns out to be text.
+                content = self._plain_text_delta(
+                    current_text, delta_text, self.tool_call_start_tokens
+                )
+                return (content, None, None) if content else None
 
-            # Detect tool-call region
-            if not self.is_tool_call_started:
-                matched_token = None
-                for tok in self.tool_call_start_tokens:
-                    if tok in current_text:
-                        matched_token = tok
-                        break
+            # Inside tool-call region: return the invokes whose closing tag
+            # arrived in this delta
+            _, invoke_regex, parameter_regex = self._regexes[
+                self._detect_format(current_text)
+            ]
+            previous_length = len(current_text) - len(delta_text)
+            results: List[ToolCall] = []
+            for invoke in invoke_regex.finditer(current_text):
+                if invoke.end() > previous_length:
+                    invoke_name, invoke_body = invoke.groups()
+                    param_dict = self._parse_invoke_params(invoke_body, parameter_regex)
+                    results.append((None, invoke_name, param_dict))
 
-                if matched_token:
-                    self.is_tool_call_started = True
-                    self._use_dsml = self._detect_format(current_text)
-                    self._build_regexes(self._use_dsml)
-                else:
-                    # Still in plain-text region — check for partial start tokens
-                    for tok in self.tool_call_start_tokens:
-                        for i in range(1, len(tok)):
-                            if current_text.endswith(tok[:i]):
-                                return None
-                    return (delta_text, None, None) if delta_text else None
-
-            # Inside tool-call region: check for newly completed invokes
-            complete_invokes = self.invoke_complete_regex.findall(current_text)
-
-            if len(complete_invokes) > self.current_tool_index:
-                invoke_name, invoke_body = complete_invokes[self.current_tool_index]
-                self.current_tool_index += 1
-                param_dict = self._parse_invoke_params(invoke_body)
-                return (None, invoke_name, param_dict)
-
-            # Buffering — no complete invoke yet
-            return None
+            if not results:
+                # Buffering — no invoke completed in this delta
+                return None
+            return results[0] if len(results) == 1 else results
 
         except Exception as e:
             logger.error("Error in DeepSeek V3.2 streaming tool call extraction: %s", e)

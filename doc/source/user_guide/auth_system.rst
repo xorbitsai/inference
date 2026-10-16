@@ -1,105 +1,156 @@
 .. _user_guide_auth_system:
 
-===================================
-Simple OAuth2 System (experimental)
-===================================
+=====================================================
+Authentication System (database-backed)
+=====================================================
 
-Xinference builds an In-memory OAuth2 authentication and authorization system using the account-password mode.
+.. versionadded:: 3.0
+   The database-backed authentication system, enabled by default.
+
+Xinference ships with a database-backed authentication and authorization
+system. It stores users, permissions, API keys, and refresh tokens in a
+local SQLite database, and supports creating and managing users and API keys
+at runtime through REST endpoints — no server restart required.
+
+**Since v3.0, this system is enabled by default** — a fresh Xinference
+deployment requires authentication out of the box.
 
 .. note::
-   If you don't have authentication and authorization requirements, you can use Xinference as before, without any changes.
+   Earlier releases shipped a simpler, in-memory ``--auth-config`` JSON
+   system. It has been removed; the database-backed system described here is
+   the only authenticated mode.
 
+Enabling / disabling
+=====================
+Authentication is controlled by the ``XINFERENCE_AUTH_ADVANCED`` environment
+variable:
+
+* Unset, or any of ``1`` / ``true`` / ``yes`` (case-insensitive): enabled (the default).
+* Any of ``0`` / ``false`` / ``no`` (case-insensitive): disabled — Xinference
+  runs with **no authentication at all**, and every endpoint is served
+  without a login or API key.
+
+.. code-block:: bash
+
+   # Default: authentication enabled
+   xinference-local -H 0.0.0.0
+
+   # Disable authentication entirely
+   export XINFERENCE_AUTH_ADVANCED=false
+   xinference-local -H 0.0.0.0
+
+Initial admin account
+=======================
+On first startup with authentication enabled, the user table is empty and
+Xinference does **not** create an admin account automatically. Instead, two
+unauthenticated endpoints handle first-run setup:
+
+* ``GET /v1/admin/setup/status``: returns ``{"needs_setup": true, "initialized": false}``
+  while no account exists yet.
+* ``POST /v1/admin/setup``: creates the first admin account (with all
+  permissions) given a ``username`` and ``password``.
+
+.. code-block:: bash
+
+    curl -X POST "<endpoint>/v1/admin/setup" \
+      -H "Content-Type: application/json" \
+      -d '{"username": "admin", "password": "choose-a-strong-password"}'
+
+The web UI drives this automatically: opening it for the first time
+redirects to a setup page that asks for the new admin's username and
+password, then to the login page.
+
+``/v1/admin/setup`` permanently refuses to create a second account once one
+exists — the first successful call wins. On an instance exposed to untrusted
+networks before setup completes, whoever reaches this endpoint first becomes
+the administrator. If that isn't you, an operator with shell access to the
+deployment can take control back with ``xinference-reset-auth-password``
+(see `Resetting a lost admin password`_).
+
+Resetting a lost admin password
+=================================
+If the admin password is lost — or someone else won the first-run setup
+race — an operator with shell access to the machine running the RESTful API
+can reset an admin's password directly against the auth database, without
+logging in:
+
+.. code-block:: bash
+
+    xinference-reset-auth-password --username admin
+
+The command prompts for a new password (or accept ``--password`` on the
+command line), updates that admin's password, and revokes the user's active
+refresh tokens so any stale sessions stop working. It only operates on users
+that already hold the ``admin`` permission, and reads the database at
+``XINFERENCE_AUTH_DB_PATH`` (override with ``--db-path``). Run
+``xinference-reset-auth-password --help`` for all options.
+
+Secrets and storage locations
+===============================
+The system needs a JWT signing secret and an encryption key (used to encrypt
+stored API keys at rest), plus a database file. All three can be overridden
+with environment variables; if you don't set them, Xinference generates and
+persists them automatically on first run under ``XINFERENCE_HOME``
+(``~/.xinference`` by default):
+
+.. list-table::
+   :header-rows: 1
+
+   * - Purpose
+     - Environment variable
+     - Default location
+   * - JWT signing secret
+     - ``XINFERENCE_AUTH_JWT_SECRET_KEY``
+     - ``<XINFERENCE_HOME>/auth/jwt_secret_key`` (auto-generated)
+   * - API key encryption key
+     - ``XINFERENCE_AUTH_ENCRYPTION_KEY``
+     - ``<XINFERENCE_HOME>/auth/encryption_key`` (auto-generated)
+   * - User/API key database
+     - ``XINFERENCE_AUTH_DB_PATH``
+     - ``<XINFERENCE_HOME>/auth/auth.db``
+
+Auto-generated secrets are written once and reused on subsequent restarts,
+so existing JWTs and encrypted API keys keep working across restarts. In a
+distributed deployment (supervisor + workers), make sure all processes that
+run the RESTful API share the same ``XINFERENCE_HOME`` (or set the same
+explicit environment variables), so they agree on the same secrets and
+database.
 
 Permissions
 ===========
-Currently, Xinference system internally defines some interface permissions:
+Xinference defines the following interface permissions:
 
 * ``models:list``: Permission to list models and get models' information.
 * ``models:read``: Permission to use models.
-* ``models:register``: Permission to register custom models.
-* ``models:unregister``: Permission to unregister custom models.
-* ``models:start``: Permission to launch models.
-* ``models:stop``: Permission to stop running models.
-* ``admin``: Administrators have permissions for all interfaces.
+* ``models:write``: Permission to launch and stop models.
+* ``models:register``: Permission to register and unregister custom models.
+* ``keys:create``: Permission to create API keys (for oneself, or for others when combined with ``keys:manage``).
+* ``keys:manage``: Permission to list, update, delete, and reveal any user's API keys.
+* ``users:manage``: Permission to create, update, delete users, and manage their permissions.
+* ``cache:list`` / ``cache:delete``: Permissions to list/delete cached model files.
+* ``virtualenv:list`` / ``virtualenv:delete``: Permissions to list/delete per-model virtual environments.
+* ``logs:list``: Permission to view cluster logs.
+* ``monitor:view``: Permission to view the monitoring dashboards.
+* ``settings:read``: Permission to view system settings.
+* ``settings:write``: Permission to update and restore system settings.
+* ``admin``: Administrators have all of the above.
 
+A caller may only grant permissions they themselves hold — for example, a
+user with only ``users:manage`` cannot grant ``admin`` to someone else.
 
-Startup
-=======
-All authentication and authorization information needs to be specified and loaded into memory when Xinference is started.
-Xinference requires a JSON-formatted file with the following specific fields:
-
-.. code-block:: json
-
-    {
-        "auth_config": {
-            "algorithm": "HS256",
-            "secret_key": "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7",
-            "token_expire_in_minutes": 30
-        },
-        "user_config": [
-            {
-                "username": "user1",
-                "password": "secret1",
-                "permissions": [
-                    "admin"
-                ],
-                "api_keys": [
-                    "sk-72tkvudyGLPMi",
-                    "sk-ZOTLIY4gt9w11"
-                ]
-            },
-            {
-                "username": "user2",
-                "password": "secret2",
-                "permissions": [
-                    "models:list",
-                    "models:read"
-                ],
-                "api_keys": [
-                    "sk-35tkasdyGLYMy",
-                    "sk-ALTbgl6ut981w"
-                ]
-            }
-        ]
-    }
-
-
-* ``auth_config``: This field is used to configure security-related information.
-
-   * ``algorithm``: The algorithm used for token generation and parsing. ``HS`` series algorithms are recommended. For example, ``HS256``, ``HS384`` or ``HS512``.
-
-   * ``secret_key``: The secret_key used for token generation and parsing. Use this command to generate the secret_key adapted to the ``HS`` algorithms: ``openssl rand -hex 32``.
-
-   * ``token_expire_in_minutes``: Reserved field indicating the expiration time of the token. The current open-source version of Xinference does not check the expiration time of tokens.
-
-* ``user_config``: This field is used to configure user and permission information. Each user information is composed of these fields:
-
-   * ``username``: string field for username.
-
-   * ``password``: string field for password.
-
-   * ``permissions``: A list containing strings representing the permissions that this user has. The permissions are described as above.
-
-   * ``api_keys``: A list containing strings representing the api-keys of this user. With these api-keys, user can access the xinference interfaces without the need to signin. The api-key here is formatted similar to the ``OPENAI_API_KEY`` , always starting with ``sk-``, followed by 13 alphanumeric characters.
-
-
-Once you have configured such a JSON file, use the ``--auth-config`` option to enable Xinference with the authentication and authorization system. For example, for local startup:
-
-.. code-block:: bash
-
-   xinference-local -H 0.0.0.0 --auth-config /path/to/your_json_config_file
-
-
-For distributed startup, just specify this option when starting the supervisor:
-
-.. code-block:: bash
-
-   xinference-supervisor -H <supervisor_ip> --auth-config /path/to/your_json_config_file
-
+.. note::
+   Earlier releases used finer-grained scope names: ``models:start`` and
+   ``models:stop`` (now ``models:write``), and ``models:add`` /
+   ``models:unregister`` (now ``models:register``). Tokens and API keys
+   carrying the legacy names keep working — the server transparently maps
+   them to the new scopes — but this compatibility mapping is deprecated and
+   will be removed in a future release. Use the new names when granting
+   permissions.
 
 Usage
 =====
-For Xinference with the authentication and authorization system enabled, all usage remains the same, except for the addition of a login step at the beginning or using the api-key.
+With authentication enabled, all usage remains the same, except for the
+addition of a login step at the beginning or using an API key.
 
 Signin
 ------
@@ -154,6 +205,54 @@ For http request, pass ``Authorization: Bearer api-key`` in request header.
       --url "<xinference endpoint>" \
       --header "Authorization: Bearer <your_api_key>"
 
+Managing users and API keys
+==============================
+Once logged in as a user with the ``users:manage`` and/or ``keys:manage``
+permission (the bootstrap ``admin`` account has both), you can manage users
+and API keys through REST endpoints under ``/v1/admin``, for example:
+
+.. code-block:: bash
+
+    # Create a new user
+    curl -X POST "<endpoint>/v1/admin/users" \
+      -H "Authorization: Bearer <admin_access_token>" \
+      -H "Content-Type: application/json" \
+      -d '{"username": "alice", "password": "s3cret!", "permissions": ["models:list", "models:read"]}'
+
+    # Create an API key for the current user
+    curl -X POST "<endpoint>/v1/admin/keys" \
+      -H "Authorization: Bearer <access_token>" \
+      -H "Content-Type: application/json" \
+      -d '{"name": "my-key"}'
+
+API key names are required. Names are trimmed before storage and must be
+unique across all users; comparisons ignore ASCII letter case. When an existing
+database is upgraded, blank or duplicate names are migrated to deterministic
+unique names without changing the API key values.
+
+Other supported endpoints include listing/updating/deleting users
+(``/v1/admin/users``, ``/v1/admin/users/{user_id}``), changing a user's
+password (``/v1/admin/users/{user_id}/password``), and listing, updating,
+deleting, and revealing API keys (``/v1/admin/keys``,
+``/v1/admin/keys/{key_id}``, ``/v1/admin/keys/{key_id}/reveal``).
+
+Managing via the web UI
+--------------------------
+Everything above is also available from dedicated pages in the web UI:
+
+* **User Management**: create, update, disable, and delete users, and edit
+  their permissions (requires ``users:manage``).
+* **API Key Management**: create, update, delete, and reveal API keys, with
+  optional per-model access restrictions (requires ``keys:create`` for your
+  own keys, ``keys:manage`` for other users' keys).
+* **Security Settings**: view and tune brute-force protection (login/API-key
+  failure rate limits) and unban blocked IPs or keys (requires ``admin``).
+  See :ref:`user_guide_audit_security` for details.
+* **System Settings**: view model download configuration with
+  ``settings:read``; saving changes or restoring defaults additionally
+  requires ``settings:write``.
+* **Audit Center**: browse recorded API activity (requires ``admin``). See
+  :ref:`user_guide_audit_security`.
 
 Http Status Code
 ================
@@ -164,9 +263,31 @@ Add the following two HTTP status codes:
 
 For the command line, SDK, or web UI users, there will be clear information prompts when encountering authorization and permissions issues.
 
+Behavior notes
+================
 
-Note
-====
+Permission changes take effect without re-login
+-------------------------------------------------
+Route scope checks read the user's **current** permissions from the
+database on every request, not the scopes baked into the JWT at login.
+Granting or revoking a permission takes effect on the user's next API
+call — no re-login required. This applies to JWT-based browser sessions;
+API keys are also live-read (they always have been).
+
+Configurable access-token lifetime
+-------------------------------------
+The access-token lifetime defaults to 30 minutes and can be overridden
+with the ``XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES`` environment variable:
+
+.. code-block::
+
+    export XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES=10
+
+A shorter lifetime shrinks the token-theft window. The refresh token
+lifetime is 7 days and is not currently configurable.
+
+Feedback
+==========
 This feature is still in an experimental stage.
 Feel free to provide feedback on usage issues or improvement suggestions through `GitHub issues <https://github.com/xorbitsai/inference/issues>`_ or
 `our Telegram group <https://t.me/+nCNpwmySwk9iYmI1>`_.

@@ -1,0 +1,227 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-26 13:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/index.rst:5
+msgid "Models"
+msgstr "モデル"
+
+#: ../../source/models/index.rst:8
+msgid "List Models"
+msgstr "模型リスト"
+
+#: ../../source/models/index.rst:10
+msgid ""
+"You can list all models of a certain type that are available to launch in "
+"Xinference:"
+msgstr "Xinference で起動可能な特定のタイプのモデルをすべて列挙できます。"
+
+#: ../../source/models/index.rst:29
+msgid "The following ``MODEL_TYPE`` is supported by Xinference:"
+msgstr "Xinference は以下の ``MODEL_TYPE`` をサポートしています："
+
+#: ../../source/models/index.rst:33
+msgid "LLM"
+msgstr ""
+
+#: ../../source/models/index.rst:37
+msgid "Text generation models or large language models"
+msgstr "テキスト生成モデルまたは大規模言語モデル"
+
+#: ../../source/models/index.rst:39
+msgid "embedding"
+msgstr ""
+
+#: ../../source/models/index.rst:43
+msgid "Text embeddings models"
+msgstr "テキスト埋め込みモデル"
+
+#: ../../source/models/index.rst:47
+msgid "image"
+msgstr ""
+
+#: ../../source/models/index.rst:51
+msgid "Image generation or manipulation models"
+msgstr "画像生成または処理モデル"
+
+#: ../../source/models/index.rst:53
+msgid "audio"
+msgstr ""
+
+#: ../../source/models/index.rst:57
+msgid "Audio models"
+msgstr "音声モデル"
+
+#: ../../source/models/index.rst:61
+msgid "rerank"
+msgstr ""
+
+#: ../../source/models/index.rst:65
+msgid "Rerank models"
+msgstr "リランクモデル"
+
+#: ../../source/models/index.rst:67
+msgid "video"
+msgstr ""
+
+#: ../../source/models/index.rst:71
+msgid "Video models"
+msgstr "動画モデル"
+
+#: ../../source/models/index.rst:75 ../../source/models/index.rst:240
+msgid "flexible"
+msgstr "柔軟モデル"
+
+#: ../../source/models/index.rst:79
+msgid "Flexible models (Traditional ML Models)"
+msgstr "柔軟モデル（伝統的な機械学習モデル）"
+
+#: ../../source/models/index.rst:84
+msgid ""
+"You can see all the built-in models supported by xinference :ref:`here "
+"<models_builtin_index>`. If the model you need is not available, Xinference "
+"also allows you to register your own :ref:`custom models <models_custom>`."
+msgstr ""
+":ref:`ここ <models_builtin_index>` で Xinference "
+"がサポートするすべての組み込みモデルを確認できます。必要なモデルが利用できない場合は、Xinference では独自の :ref:`カスタムモデル "
+"<models_custom>` を登録することもできます。"
+
+#: ../../source/models/index.rst:89
+msgid "Launch and Terminate Model"
+msgstr "モデルの起動と停止"
+
+#: ../../source/models/index.rst:91
+msgid ""
+"Each running model instance will be assigned a unique model uid. By default,"
+" the model uid is equal to the model name. This unique id can be used as a "
+"handle for the further usage. You can manually assign it by passing "
+"``--model-uid`` option in the launch command."
+msgstr ""
+"各実行モデルインスタンスには、一意のモデルUIDが割り当てられます。デフォルトでは、モデルUIDはモデル名と等しくなります。このIDは、後続のモデルインスタンスを使用する際のハンドルであり、起動コマンド"
+" ``--model-uid`` オプションで手動指定できます。"
+
+#: ../../source/models/index.rst:95
+msgid ""
+"You can launch a model in Xinference either via command line or Xinference's"
+" Python client:"
+msgstr "コマンドラインまたはXinferenceのPythonクライアントを使用して、モデルを起動することができます。"
+
+#: ../../source/models/index.rst:122
+msgid ""
+"For model type ``LLM``, launching the model requires not only specifying the"
+" model name, but also the size of the parameters , the model format and the "
+"model engine.  Please refer to the list of LLM :ref:`model families "
+"<models_llm_index>`."
+msgstr ""
+"モデルタイプ ``LLM`` "
+"の場合、モデルの起動にはモデル名の指定だけでなく、パラメータのサイズ、モデル形式、およびモデルエンジンが必要です。:ref:`models_llm_index`"
+" ドキュメントを参照してください。"
+
+#: ../../source/models/index.rst:125
+msgid ""
+"The following command gives you the currently running models in Xinference:"
+msgstr "以下のコマンドで、Xinference で実行中のモデルを一覧表示できます："
+
+#: ../../source/models/index.rst:146
+msgid ""
+"When you no longer need a model that is currently running, you can remove it"
+" in the following way to free up the resources it occupies:"
+msgstr "現在実行中のモデルが不要になった場合、以下の方法でそのリソースを解放します："
+
+#: ../../source/models/index.rst:170
+msgid ""
+"For models that are no longer maintained and depend on outdated libraries "
+"(such as ``transformers``), we recommend enabling the :ref:`Model Virtual "
+"Environment <model_virtual_env>` feature to ensure they can run properly in "
+"a compatible environment."
+msgstr ""
+"メンテナンスが終了し、旧バージョンのライブラリ（例：``transformers``）に依存するモデルについては、互換性のある環境で正常に動作するよう、:ref:`モデル仮想空間"
+" <model_virtual_env>` 機能を有効にすることを推奨します。"
+
+#: ../../source/models/index.rst:176
+msgid "Model Usage"
+msgstr "モデル使用"
+
+#: ../../source/models/index.rst:181
+msgid "Chat & Generate"
+msgstr "チャット & 生成"
+
+#: ../../source/models/index.rst:185
+msgid "Learn how to chat with LLMs in Xinference."
+msgstr "XinferenceでLLMとチャットする方法を学ぶ。"
+
+#: ../../source/models/index.rst:187
+msgid "Tools"
+msgstr "ツール"
+
+#: ../../source/models/index.rst:191
+msgid "Learn how to connect LLM with external tools."
+msgstr "LLMと外部ツールを接続する方法を学びます。"
+
+#: ../../source/models/index.rst:196
+msgid "Embeddings"
+msgstr "埋め込み"
+
+#: ../../source/models/index.rst:200
+msgid "Learn how to create text embeddings in Xinference."
+msgstr "Xinference でテキスト埋め込みを作成する方法を学びます。"
+
+#: ../../source/models/index.rst:202
+msgid "Rerank"
+msgstr "リランキング"
+
+#: ../../source/models/index.rst:206
+msgid "Learn how to use rerank models in Xinference."
+msgstr "Xinference におけるリランキングモデルの使用方法を学びます。"
+
+#: ../../source/models/index.rst:211
+msgid "Images"
+msgstr "画像"
+
+#: ../../source/models/index.rst:215
+msgid "Learn how to generate images with Xinference."
+msgstr "Xinferenceを使用して画像を生成する方法を学びます。"
+
+#: ../../source/models/index.rst:217
+msgid "Multimodal"
+msgstr "マルチモーダル"
+
+#: ../../source/models/index.rst:221
+msgid "Learn how to process images and audio with LLMs."
+msgstr "LLMを使用して画像と音声を処理する方法を学ぶ。"
+
+#: ../../source/models/index.rst:226
+msgid "Audio"
+msgstr "オーディオ"
+
+#: ../../source/models/index.rst:230
+msgid "Learn how to turn audio into text or text into audio with Xinference."
+msgstr "Xinferenceを使用して、オーディオをテキストに変換したり、テキストをオーディオに変換する方法を学びます。"
+
+#: ../../source/models/index.rst:232
+msgid "Video"
+msgstr "ビデオ"
+
+#: ../../source/models/index.rst:236
+msgid "Learn how to generate video with Xinference."
+msgstr "Xinferenceを使用して動画を生成する方法を学びます。"
+
+#: ../../source/models/index.rst:244
+msgid "Learn how to inference traditional ML models with Xinference."
+msgstr "Xinference を使用して従来の機械学習モデルを推論する方法を理解する。"

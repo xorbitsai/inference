@@ -168,15 +168,6 @@ This parameter provides the following benefits:
 .. note::
    The ``limit_mm_per_prompt`` parameter only takes effect when using the VLLM backend. If your model uses other backends, this parameter will be ignored.
 
-You can find more examples of ``vision`` ability in the tutorial notebook:
-
-.. grid:: 1
-
-   .. grid-item-card:: Qwen VL Chat
-      :link: https://github.com/xorbitsai/inference/blob/main/examples/chat_vl.ipynb
-      
-      Learn vision ability from a example using qwen-vl-chat
-
 
 Audio
 ============

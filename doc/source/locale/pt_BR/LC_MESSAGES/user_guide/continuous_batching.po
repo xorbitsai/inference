@@ -1,0 +1,198 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-05-27 19:02+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/continuous_batching.rst:5
+msgid "Continuous Batching"
+msgstr "Processamento em lote contínuo"
+
+#: ../../source/user_guide/continuous_batching.rst:7
+msgid ""
+"Continuous batching, as a means to improve throughput during model serving, "
+"has already been implemented in inference engines like ``VLLM``. Xinference "
+"aims to provide this optimization capability when using the transformers "
+"engine as well."
+msgstr ""
+"O processamento em lote contínuo é uma tecnologia importante para aumentar a"
+" taxa de transferência em mecanismos de inferência como o ``VLLM``. O "
+"Xinference visa melhorar a taxa de transferência do mecanismo de inferência "
+"``transformers`` por meio dessa tecnologia."
+
+#: ../../source/user_guide/continuous_batching.rst:11
+msgid "Usage"
+msgstr "Modo de uso"
+
+#: ../../source/user_guide/continuous_batching.rst:14
+msgid "LLM"
+msgstr "Grande modelo de linguagem"
+
+#: ../../source/user_guide/continuous_batching.rst:15
+msgid "Currently, this feature can be enabled under the following conditions:"
+msgstr ""
+"Atualmente, este recurso está ativado quando as seguintes condições são "
+"atendidas:"
+
+#: ../../source/user_guide/continuous_batching.rst:17
+msgid ""
+"First, set the environment variable "
+"``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` to ``1`` when starting "
+"xinference. For example:"
+msgstr ""
+"Primeiro, ao iniciar o Xinference, você precisa definir a variável de "
+"ambiente ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` como ``1``."
+
+#: ../../source/user_guide/continuous_batching.rst:25
+msgid ""
+"Since ``v0.16.0``, this feature is turned on by default and is no longer "
+"required to set the ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` environment "
+"variable. This environment variable has been removed."
+msgstr ""
+"A partir da ``v0.16.0``, esta função é ativada por padrão, não sendo mais "
+"necessário definir a variável de ambiente "
+"``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING``, e essa variável foi removida."
+
+#: ../../source/user_guide/continuous_batching.rst:30
+msgid ""
+"Then, ensure that the ``transformers`` engine is selected when launching the"
+" model. For example:"
+msgstr ""
+"Em seguida, ao iniciar o modelo LLM, selecione o mecanismo de inferência "
+"``transformers``. Por exemplo:"
+
+#: ../../source/user_guide/continuous_batching.rst:66
+msgid ""
+"Once this feature is enabled, all requests for LLMs will be managed by "
+"continuous batching, and the average throughput of requests made to a single"
+" model will increase. The usage of the LLM interface remains exactly the "
+"same as before, with no differences."
+msgstr ""
+"Uma vez que este recurso esteja ativado, todas as interfaces dos modelos LLM"
+" serão gerenciadas por ele. O modo de uso de todas as interfaces permanece "
+"inalterado."
+
+#: ../../source/user_guide/continuous_batching.rst:71
+msgid "Image Model"
+msgstr "Modelo de imagem"
+
+#: ../../source/user_guide/continuous_batching.rst:86
+msgid "Abort your request"
+msgstr "Interromper requisição"
+
+#: ../../source/user_guide/continuous_batching.rst:89
+msgid "First, add ``request_id`` option in ``generate_config``. For example:"
+msgstr ""
+"Primeiro, especifique a opção ``request_id`` no ``generate_config`` da "
+"requisição de inferência. Por exemplo:"
+
+#: ../../source/user_guide/continuous_batching.rst:98
+msgid ""
+"Then, abort the request using the ``request_id`` you have set. For example:"
+msgstr ""
+"Em seguida, utilize o ``request_id`` que você especificou para interromper "
+"essa requisição. Por exemplo:"
+
+#: ../../source/user_guide/continuous_batching.rst:110
+msgid "Note"
+msgstr "Avisos"
+
+#: ../../source/user_guide/continuous_batching.rst:112
+msgid ""
+"Currently, for ``LLM`` models, this feature only supports the ``generate``, "
+"``chat``, ``tool call`` and ``vision`` tasks."
+msgstr ""
+"Atualmente, este recurso suporta apenas as funcionalidades ``generate``, "
+"``chat``, ``tool call`` (chamada de ferramenta) e ``vision`` (multimodal) do"
+" modelo LLM."
+
+#: ../../source/user_guide/continuous_batching.rst:116
+msgid ""
+"For ``vision`` tasks, currently only ``qwen2-vl-instruct``, ``qwen2.5-vl-"
+"instruct``, ``QvQ-72B-Preview``, ``glm-4v`` and ``MiniCPM-V-2.6`` (only for "
+"image tasks) models are supported. More models will be supported in the "
+"future. Please let us know your requirements."
+msgstr ""
+"Para tarefas multimodais, atualmente são suportados ``qwen2-vl-instruct``, "
+"``qwen2.5-vl-instruct``, ``QvQ-72B-Preview``, ``glm-4v`` e "
+"``MiniCPM-V-2.6``. Mais modelos serão adicionados no futuro, aguarde "
+"novidades."
+
+#: ../../source/user_guide/continuous_batching.rst:118
+msgid ""
+"If using GPU inference, this method will consume more GPU memory. Please be "
+"cautious when increasing the number of concurrent requests to the same "
+"model. The ``launch_model`` interface provides the ``max_num_seqs`` "
+"parameter to adjust the concurrency level, with a default value of ``16``."
+msgstr ""
+"Se for usar inferência com GPU, este recurso exige alta capacidade de "
+"memória de vídeo. Portanto, aumente com cuidado o número de requisições "
+"concorrentes para o mesmo modelo. A interface ``launch_model`` oferece o "
+"parâmetro opcional ``max_num_seqs`` para ajustar o nível de concorrência, "
+"com valor padrão ``16``."
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "With vLLM >= 0.19.0, text embedding models use the native asynchronous pooling scheduler. Configure ``max_num_seqs`` and ``max_num_batched_tokens`` at model launch; Xinference ``batch_size`` and ``batch_interval`` do not control this path. Older vLLM versions, VACC, WeMM and Qwen3-VL embeddings retain the existing Xinference batching path."
+msgstr "Com vLLM >= 0.19.0, os modelos de embedding de texto usam o escalonador assíncrono nativo de pooling. Configure ``max_num_seqs`` e ``max_num_batched_tokens`` ao iniciar o modelo; ``batch_size`` e ``batch_interval`` do Xinference não controlam esse caminho. Versões anteriores do vLLM, VACC e embeddings WeMM e Qwen3-VL mantêm o caminho existente de processamento em lotes do Xinference."
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "Embedding"
+msgstr "Embedding"
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "Rerank"
+msgstr "Rerank"
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "With vLLM >= 0.19.0, text cross-encoder rerank models also use native asynchronous pooling. The same ``max_num_seqs`` and ``max_num_batched_tokens`` settings apply instead of Xinference batch settings. Older vLLM versions, VACC, Qwen3-VL rerankers and other scoring types retain the existing path. Ranking, ``top_n``, returned documents and token counts keep the same API behavior."
+msgstr "Com vLLM >= 0.19.0, os modelos de reranking de texto cross-encoder também usam pooling assíncrono nativo. As mesmas configurações ``max_num_seqs`` e ``max_num_batched_tokens`` se aplicam no lugar das configurações de lote do Xinference. Versões anteriores do vLLM, VACC, rerankers Qwen3-VL e outros tipos de pontuação mantêm o caminho existente. A classificação, ``top_n``, os documentos retornados e as contagens de tokens mantêm o mesmo comportamento da API."
+
+#: doc/source/user_guide/continuous_batching.rst
+msgid ""
+"Note that if your request has already finished, aborting the request will be"
+" a no-op."
+msgstr "Se a solicitação já tiver sido concluída, cancelá-la não terá efeito."
+
+msgid ""
+"For image-model batching, select the ``vLLM`` or ``SGLang`` engine with "
+"``--model-engine``. SGLang supports dynamic request batching via "
+"``batching_max_size`` and ``batching_delay_ms``; new requests wait while a "
+"batch is running. vLLM-Omni supports request batching via ``max_num_seqs`` "
+"and, on supported models, experimental step-level continuous batching with "
+"``step_execution=true`` and ``max_num_seqs>1``. Diffusers supports ordinary "
+"image generation and multiple images per request, but does not provide "
+"Xinference-managed continuous batching. See :ref:`image` for supported "
+"models, required versions, and launch instructions."
+msgstr ""
+"Para processar solicitações de modelos de imagem em lote, selecione o motor "
+"``vLLM`` ou ``SGLang`` com ``--model-engine``. O SGLang oferece lotes "
+"dinâmicos via ``batching_max_size`` e ``batching_delay_ms``; novas "
+"solicitações aguardam enquanto um lote está em execução. O vLLM-Omni oferece"
+" lotes de solicitações via ``max_num_seqs`` e, nos modelos compatíveis, "
+"lotes contínuos experimentais por etapa com ``step_execution=true`` e "
+"``max_num_seqs>1``. O Diffusers oferece geração normal e várias imagens por "
+"solicitação, mas não lotes contínuos gerenciados pelo Xinference. Consulte "
+":ref:`image` para os modelos compatíveis, versões necessárias e instruções "
+"de inicialização."
+
+msgid ""
+"For LLMs using Xinference's continuous batching, you can abort requests that"
+" are in the process of inference."
+msgstr ""
+"Para LLMs que usam lotes contínuos do Xinference, é possível cancelar "
+"solicitações durante a inferência."

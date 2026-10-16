@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +34,10 @@ logger = logging.getLogger(__name__)
     "Qwen3-VL-Thinking",
     "qwen3.5",
     "qwen3.6",
+    "qwen3.8",
+    "Nex-N2",
+    "Ornith-1.5-35B-A3B",
+    "Ornith-1.5-397B",
 )
 @register_transformer
 @register_non_default_model(
@@ -41,6 +45,7 @@ logger = logging.getLogger(__name__)
     "Qwen2_5_VLForConditionalGeneration",
     "Qwen3VLMoeForConditionalGeneration",
     "Qwen3_5ForConditionalGeneration",
+    "Qwen3_5MoeForConditionalGeneration",
 )
 class Qwen2VLChatModel(PytorchMultiModalModel):
     QWEN2_VL_ARCHITECTURES = {
@@ -48,6 +53,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         "Qwen2_5_VLForConditionalGeneration",
         "Qwen3VLMoeForConditionalGeneration",
         "Qwen3_5ForConditionalGeneration",
+        "Qwen3_5MoeForConditionalGeneration",
     }
 
     def _sanitize_model_config(
@@ -126,7 +132,9 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
             model_cls = Qwen2_5_VLForConditionalGeneration
         elif self.model_family.has_architecture("Qwen3_5ForConditionalGeneration"):
             model_cls = Qwen3_5ForConditionalGeneration
-        elif self.model_family.has_architecture("Qwen3VLMoeForConditionalGeneration"):
+        elif self.model_family.has_architecture(
+            "Qwen3_5MoeForConditionalGeneration"
+        ) or self.model_family.has_architecture("Qwen3VLMoeForConditionalGeneration"):
             model_cls = AutoModelForImageTextToText
         else:
             model_cls = Qwen2VLForConditionalGeneration

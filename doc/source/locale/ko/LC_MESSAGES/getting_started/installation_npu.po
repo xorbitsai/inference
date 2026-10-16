@@ -1,0 +1,88 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-07-07 16:58+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/installation_npu.rst:6
+msgid "Installation Guide for Ascend NPU"
+msgstr "Ascend NPU에 설치"
+
+#: ../../source/getting_started/installation_npu.rst:7
+msgid ""
+"Xinference can run on Ascend NPU, follow below instructions to install."
+msgstr "Xinference는 Ascend NPU에서 실행할 수 있으며, 다음 명령어를 사용하여 설치하세요."
+
+#: ../../source/getting_started/installation_npu.rst:11
+msgid ""
+"The open-source version relies on Transformers for inference, which can be "
+"slow on chips like 310p3. We provide an enterprise version that supports the"
+" MindIE engine, offering better performance and compatibility for Ascend "
+"NPU. Refer to `Xinference Enterprise <https://xinference.io>`_"
+msgstr ""
+"오픈소스 버전은 Transformers에 의존하여 추론을 수행하며, 310p3 등의 칩에서는 실행 속도가 느린 문제가 발생할 수 "
+"있습니다. 우리는 MindIE 엔진을 지원하는, 성능이 더 뛰어나고 호환성이 개선된 엔터프라이즈 버전을 제공하여 Ascend NPU를 "
+"지원합니다. 자세한 내용은 `Xinference 엔터프라이즈 버전 <https://xinference.cn>`_을 참조하십시오."
+
+#: ../../source/getting_started/installation_npu.rst:18
+msgid "Installing PyTorch and Ascend extension for PyTorch"
+msgstr "PyTorch 및 Ascend 확장 설치"
+
+#: ../../source/getting_started/installation_npu.rst:19
+msgid "Install PyTorch CPU version and corresponding Ascend extension."
+msgstr "PyTorch CPU 버전과 해당 Ascend 확장을 설치합니다."
+
+#: ../../source/getting_started/installation_npu.rst:21
+msgid "Take PyTorch v2.1.0 as example."
+msgstr "PyTorch v2.1.0를 예로 들어보겠습니다."
+
+#: ../../source/getting_started/installation_npu.rst:27
+msgid ""
+"Then install `Ascend extension for PyTorch "
+"<https://github.com/Ascend/pytorch>`_."
+msgstr "다음으로 `昇腾 PyTorch 扩展 <https://gitee.com/ascend/pytorch>`_를 설치하십시오."
+
+#: ../../source/getting_started/installation_npu.rst:35
+msgid ""
+"Running below command to see if it correctly prints the Ascend NPU count."
+msgstr "다음 명령을 실행하여 확인합니다. 정상적으로 실행되면, Ascend NPU의 개수가 출력됩니다."
+
+#: ../../source/getting_started/installation_npu.rst:42
+msgid "Installing Xinference"
+msgstr "Xinference 설치"
+
+#: ../../source/getting_started/installation_npu.rst:48
+msgid ""
+"Now you can use xinference according to :ref:`doc <using_xinference>`. "
+"``Transformers`` backend is the only available engine supported for Ascend "
+"NPU for open source version."
+msgstr ""
+"이제 :ref:`문서 <using_xinference>`를 참고하여 Xinference를 사용할 수 있습니다. "
+"``Transformers``는 오픈 소스에서 유일하게 지원하는 Ascend NPU 엔진입니다."
+
+#: ../../source/getting_started/installation_npu.rst:52
+msgid "Enterprise Support"
+msgstr "기업 지원"
+
+#: ../../source/getting_started/installation_npu.rst:53
+msgid ""
+"If you encounter any performance or other issues for Ascend NPU, please "
+"reach out to us via `link <https://xinference.io>`_."
+msgstr ""
+"If you encounter any performance or other issues with the Ascend NPU, please"
+" feel free to inquire about the Xinference Enterprise Edition. Contact us "
+"`here <https://xinference.cn/contact>`_."

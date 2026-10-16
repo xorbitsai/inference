@@ -1,0 +1,157 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/examples/index.rst:5
+msgid "Examples"
+msgstr "Exemplo"
+
+#: ../../source/examples/index.rst:17
+msgid ""
+"Here you can find examples and resources to learn about how to use "
+"Xinference."
+msgstr ""
+"Aqui você pode encontrar exemplos e recursos de aprendizado sobre como usar "
+"o Xinference."
+
+#: ../../source/examples/index.rst:20
+msgid "Demos"
+msgstr "Exemplo"
+
+#: ../../source/examples/index.rst:22
+msgid "End-to-end applications of using Xinference:"
+msgstr "Usando a aplicação ponta a ponta do Xinference:"
+
+#: ../../source/examples/index.rst:24
+msgid "`Voice Conversations with AI Agents on M2 Max <ai_podcast.html>`_"
+msgstr ""
+"`Podcast de conversa por voz com agente de IA no M2 Max <ai_podcast.html>`_"
+
+#: ../../source/examples/index.rst:26
+msgid "`Interacting with LLM Models: A Command-Line Example <chatbot.html>`_"
+msgstr ""
+"`Interagindo com o modelo LLM: Exemplo de linha de comando <chatbot.html>`_"
+
+#: ../../source/examples/index.rst:28
+msgid ""
+"`Interacting with LLM Models: A Gradio ChatInterface Example "
+"<gradio_chatinterface.html>`_"
+msgstr ""
+"`Interagindo com modelos LLM: Exemplo de página de chat Gradio "
+"<chatbot.html>`_"
+
+#: ../../source/examples/index.rst:30
+msgid "`PDF Chatbot with Local LLM and Embeddings <pdf_chatbot.html>`_"
+msgstr ""
+"`Chatbot de PDF com LLM local e modelo de embedding <pdf_chatbot.html>`_"
+
+#: ../../source/examples/index.rst:32
+msgid ""
+"`Local Doc Conversations with LangChain and Streamlit "
+"<langchain_streamlit_doc_chat.html>`_"
+msgstr ""
+"`Usando LangChain e Streamlit para diálogo com documentos locais "
+"<langchain_streamlit_doc_chat.html>`_"
+
+#: ../../source/examples/index.rst:34
+msgid ""
+"If you come across other examples in your own workflows we encourage you to "
+"contribute a `PR <https://github.com/xorbitsai/inference/pulls>`_!"
+msgstr ""
+"Se você encontrar outros exemplos em seu próprio fluxo de trabalho, "
+"encorajamos você a contribuir com um `PR "
+"<https://github.com/xorbitsai/inference/pulls>`_!"
+
+#: ../../source/examples/index.rst:38
+msgid "Tutorials"
+msgstr "Tutorial"
+
+#: ../../source/examples/index.rst:40
+msgid ""
+"The following tutorials cover the basics of using Xinference in different "
+"scenarios:"
+msgstr ""
+"O tutorial a seguir cobre os fundamentos do uso do Xinference em diferentes "
+"cenários:"
+
+#: ../../source/examples/index.rst:42
+msgid ""
+"`[Notebook] Question-answering(QA) Application with Xinference, Milvus and "
+"LangChain "
+"<https://github.com/RayJi01/Xprobe_inference/blob/main/examples/LangChain_QA.ipynb>`_"
+msgstr ""
+"`[Notebook] Usando Xinference, Milvus e LangChain para aplicação de "
+"perguntas e respostas (QA) "
+"<https://github.com/RayJi01/Xprobe_inference/blob/main/examples/LangChain_QA.ipynb>`_"
+
+#: ../../source/examples/index.rst:44
+msgid ""
+"`Using Xinference local LLMs within LlamaIndex "
+"<https://docs.llamaindex.ai/en/stable/examples/llm/xinference_local_deployment.html>`_"
+msgstr ""
+"`Usando LLMs locais do Xinference no LlamaIndex "
+"<https://docs.llamaindex.ai/en/stable/examples/llm/xinference_local_deployment.html>`_"
+
+#: ../../source/examples/index.rst:46
+msgid ""
+"`[Chinese] 如何让 Chatbox 接入开源大模型，实现免费聊天 "
+"<https://zhuanlan.zhihu.com/p/655765551>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:48
+msgid ""
+"`[Chinese] 摆脱 OpenAI 依赖，8 分钟教你用开源生态构建全栈 AI 应用 "
+"<https://mp.weixin.qq.com/s/cXBC0dikldNiGwOwPuJfUQ>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:50
+msgid ""
+"`[Chinese] 使用全套开源工具构建 LLM 应用实战： 在 Dify 调用 Baichuan 开源模型能力 "
+"<https://mp.weixin.qq.com/s/JWYWyJxS3ludMpMDZKw_Dw>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:54
+msgid "Third-Party Library Integrations"
+msgstr "Integração de bibliotecas de terceiros"
+
+#: ../../source/examples/index.rst:56
+msgid ""
+"Xinference is designed to seamlessly integrate and deploy open-sourced AI "
+"models, so we want to incorporate support for mainstream toolkits in the AI "
+"landscape. Xinference can be used with the following third-party libraries:"
+msgstr ""
+"Xinference é capaz de integrar e implantar modelos de IA de código aberto de"
+" forma contínua, suportando assim os principais kits de ferramentas da área "
+"de IA. O Xinference pode ser utilizado com as seguintes bibliotecas de "
+"terceiros:"
+
+#: ../../source/examples/index.rst:59
+msgid ""
+"LangChain `Text Embedding Models "
+"<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
+" and `LLMs "
+"<https://python.langchain.com/docs/integrations/llms/xinference>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:61
+msgid ""
+"`LlamaIndex Xinference LLM "
+"<https://docs.llamaindex.ai/en/stable/api_reference/llms/xinference.html>`_"
+msgstr ""

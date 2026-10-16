@@ -49,8 +49,16 @@ To start a local instance of Xinference, run the following command:
 Congrats! You now have Xinference running on your local machine. Once Xinference is running, there are multiple ways
 we can try it: via the web UI, via cURL, via the command line, or via the Xinference's python client.
 
-You can visit the web UI at `http://127.0.0.1:9997/ui <http://127.0.0.1:9997/ui>`_ and visit `http://127.0.0.1:9997/docs <http://127.0.0.1:9997/docs>`_
+You can visit the web UI at `http://127.0.0.1:9997 <http://127.0.0.1:9997>`_ and visit `http://127.0.0.1:9997/docs <http://127.0.0.1:9997/docs>`_
 to inspect the API docs.
+
+.. note::
+
+   The web UI is a Next.js application bundled into the ``xinference`` package as a static
+   export and served by the backend itself, so no Node.js runtime is required at runtime.
+   When developing Xinference from a source checkout, build it once with
+   ``cd frontend && npm ci && npm run build``, or work on the frontend live with
+   ``npm run dev`` (see the "Creating a development environment" page).
 
 You can install the Xinference command line tool and Python client using the following command:
 
@@ -121,11 +129,25 @@ Currently, xinference supports the following inference engines:
 
 About the details of these inference engine, please refer to :ref:`here <inference_backend>`.
 
+.. tip::
+
+   .. versionadded:: v3.5.0
+
+   Use **Recommend configuration** in the Web UI's model deployment dialog to
+   fill in a suggested engine, format, size, and quantization. See
+   :ref:`launch recommendations <launch_recommendations>` for details.
+
 Note that when launching a LLM model, the ``model_format`` and ``quantization`` of the model you want to launch
 is closely related to the inference engine.
 
 You can use ``xinference engine`` command to query the combination of parameters of the model you want to launch.
 This will demonstrate under what conditions a model can run on which inference engines.
+
+For LLM, embedding and rerank models, engine discovery combines results from all registered workers.
+Engine names and parameter combinations retain their first-seen order, with duplicate combinations
+removed; an available engine takes precedence over another worker's unavailability message. Empty
+worker results are skipped, and local discovery is used if all results are empty. A worker query
+error fails the request instead of returning an incomplete capability list.
 
 For example:
 
@@ -325,6 +347,8 @@ The following OpenAI APIs are supported:
 - Completions: `https://platform.openai.com/docs/api-reference/completions <https://platform.openai.com/docs/api-reference/completions>`_
 
 - Embeddings: `https://platform.openai.com/docs/api-reference/embeddings <https://platform.openai.com/docs/api-reference/embeddings>`_
+
+- Responses (stateless, used by Codex CLI): `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. Refer to :ref:`responses client <openai_responses_client>` for more details.
 
 Xinference also supports Anthropic API via base url ``http://127.0.0.1:9997/anthropic``, you can use Xinference in Claude Code and so forth.
 Refer to :ref:`anthropic client <anthropic_client>` for more details.

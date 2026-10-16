@@ -122,3 +122,13 @@ VideoModelHandle
    xinference.client.handlers.VideoModelHandle
 
    xinference.client.handlers.VideoModelHandle.text_to_video
+
+
+WorldModelHandle
+^^^^^^^^^^^^^^^^
+.. autosummary::
+   :toctree: generated/
+
+   xinference.client.handlers.WorldModelHandle
+
+   xinference.client.handlers.WorldModelHandle.generate

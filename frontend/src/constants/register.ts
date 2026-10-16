@@ -2,7 +2,8 @@ import { ModelAbility, ModelType } from '@/constants';
 
 export const LANGUAGES_CHECKBOX_OPTIONS = [
   { label: 'English', value: 'en' },
-  { label: 'Chinese', value: 'zh' },
+  { label: '简体中文', value: 'zh' },
+  { label: '繁體中文', value: 'zh-TW' },
 ];
 export const LANGUAGES_OPTIONS = [
   { value: 'ab', label: 'Abkhazian', count: 1 },
@@ -216,20 +217,26 @@ export enum ModelAbilityForImage {
   Image2Image = 'image2image',
   Inpainting = 'inpainting',
   Ocr = 'ocr',
+  Docanalyze = 'docanalyze',
 }
 export const MODEL_ABILITY_IMAGE_OPTIONS = [
   { label: 'Text2Image', value: ModelAbilityForImage.Text2Image },
   { label: 'Image2Image', value: ModelAbilityForImage.Image2Image },
   { label: 'Inpainting', value: ModelAbilityForImage.Inpainting },
   { label: 'Ocr', value: ModelAbilityForImage.Ocr },
+  { label: 'Document Parsing', value: ModelAbilityForImage.Docanalyze },
 ];
 export enum ModelAbilityForAudio {
   Text2audio = 'text2audio',
+  Text2music = 'text2music',
   Audio2text = 'audio2text',
+  SpeakerEmbedding = 'speaker_embedding',
 }
 export const MODEL_ABILITY_AUDIO_OPTIONS = [
   { label: 'Text2audio', value: ModelAbilityForAudio.Text2audio },
+  { label: 'MusicGeneration', value: ModelAbilityForAudio.Text2music },
   { label: 'Audio2text', value: ModelAbilityForAudio.Audio2text },
+  { label: 'SpeakerEmbedding', value: ModelAbilityForAudio.SpeakerEmbedding },
 ];
 export const MODEL_ABILITY_OPTIONS_MAP: Partial<
   Record<ModelType, { label: string; value: string }[]>
@@ -256,6 +263,7 @@ export enum ModelFamilyForAudio {
   MegaTTS = 'MegaTTS',
   MeloTTS = 'MeloTTS',
   Funasr = 'funasr',
+  CampPlus = 'campplus',
 }
 export const MODEL_FAMILY_AUDIO_OPTIONS = [
   { label: ModelFamilyForAudio.Whisper, value: ModelFamilyForAudio.Whisper },
@@ -268,6 +276,7 @@ export const MODEL_FAMILY_AUDIO_OPTIONS = [
   { label: ModelFamilyForAudio.MegaTTS, value: ModelFamilyForAudio.MegaTTS },
   { label: ModelFamilyForAudio.MeloTTS, value: ModelFamilyForAudio.MeloTTS },
   { label: ModelFamilyForAudio.Funasr, value: ModelFamilyForAudio.Funasr },
+  { label: ModelFamilyForAudio.CampPlus, value: ModelFamilyForAudio.CampPlus },
 ];
 export const MODEL_FAMILY_OPTIONS_MAP: Partial<
   Record<ModelType, { label: string; value: string }[]>
@@ -293,7 +302,7 @@ export enum ModelFormat {
   AWQ = 'awq',
   FP8 = 'fp8',
   MLX = 'mlx',
-  GGMLV3 ='ggmlv3'
+  GGMLV3 = 'ggmlv3',
 }
 export const MODEL_FORMAT_LLM_OPTIONS = [
   { value: ModelFormat.PyTorch, label: 'PyTorch' },
@@ -323,8 +332,8 @@ export enum ControlnetModelFamily {
   Controlnet = 'controlnet',
 }
 export const CONTROLNET_MODEL_FAMILY_OPTIONS = [
- { label: ControlnetModelFamily.Controlnet, value: ControlnetModelFamily.Controlnet}
-]
+  { label: ControlnetModelFamily.Controlnet, value: ControlnetModelFamily.Controlnet },
+];
 export const REGISTER_MODEL_INIT_DATA = {
   [ModelType.LLM]: {
     version: 2,

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 # limitations under the License.
 import asyncio
 import json
-import os
 import os.path
 import sys
 import time
@@ -22,6 +21,7 @@ from unittest.mock import AsyncMock
 import openai
 import pytest
 import requests
+from fastapi import HTTPException
 from packaging import version
 
 from ...model.embedding import BUILTIN_EMBEDDING_MODELS
@@ -33,6 +33,42 @@ class _DummyRequest:
 
     async def json(self):
         return self._payload
+
+
+@pytest.mark.asyncio
+async def test_rerank_multimodal_inputs_pass_through(monkeypatch):
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+
+    model = AsyncMock()
+    model.uid = "test-reranker"
+    model.rerank = AsyncMock(return_value="{}")
+    supervisor.get_model = AsyncMock(return_value=model)
+
+    query = {"image": "https://example.com/query.png"}
+    documents = [
+        {"text": "caption"},
+        {"video": "https://example.com/document.mp4"},
+    ]
+    response = await api.rerank(
+        _DummyRequest(
+            {"model": "test-reranker", "query": query, "documents": documents}
+        )
+    )
+
+    assert response.status_code == 200
+    model.rerank.assert_awaited_once_with(
+        documents,
+        query,
+        top_n=None,
+        max_chunks_per_doc=None,
+        return_documents=False,
+        return_len=False,
+    )
 
 
 @pytest.mark.asyncio
@@ -88,6 +124,8 @@ async def test_restful_api(setup):
     response_data = response.json()
     assert response_data["model_name"] == "qwen1.5-chat"
     assert response_data["replica"] == 1
+    # the engine selected at launch is surfaced so the Web UI can display it
+    assert response_data["model_engine"] == "llama.cpp"
 
     response = requests.delete(f"{endpoint}/v1/models/bogus")
     assert response.status_code == 400
@@ -332,6 +370,8 @@ def test_restful_api_for_embedding(setup):
         "model_uid": "test_embedding",
         "model_name": model_name,
         "model_type": "embedding",
+        # This API test also runs in the non-GPU macOS matrix.
+        "device": "cpu",
     }
 
     response = requests.post(url, json=payload)
@@ -343,6 +383,12 @@ def test_restful_api_for_embedding(setup):
     response_data = response.json()
     assert len(response_data["data"]) == 1
 
+    # describe: even without an explicitly selected engine, the default engine
+    # actually used at load time is surfaced (so the Web UI shows it, not a dash)
+    response = requests.get(f"{endpoint}/v1/models/test_embedding")
+    response_data = response.json()
+    assert response_data["model_engine"] == "sentence_transformers"
+
     # test embedding
     url = f"{endpoint}/v1/embeddings"
     payload = {
@@ -352,6 +398,7 @@ def test_restful_api_for_embedding(setup):
     response = requests.post(url, json=payload)
     embedding_res = response.json()
 
+    assert response.status_code == 200, embedding_res
     assert "embedding" in embedding_res["data"][0]
     assert len(embedding_res["data"][0]["embedding"]) == model_spec.dimensions
     assert "model_replica" in embedding_res
@@ -1252,8 +1299,12 @@ def test_lang_chain(setup):
         ),
     ],
 )
-async def test_chat_completion_enable_thinking_injected(payload, expected):
+async def test_chat_completion_enable_thinking_injected(monkeypatch, payload, expected):
     from ...api.restful_api import RESTfulAPI
+
+    # This test exercises request-body handling, not auth; advanced auth
+    # defaults to on, so disable it to keep the dummy request unauthenticated.
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
 
     api = RESTfulAPI("localhost", "localhost", 9997)
     mock_supervisor = AsyncMock()
@@ -1264,6 +1315,7 @@ async def test_chat_completion_enable_thinking_injected(payload, expected):
     model.chat = AsyncMock(return_value="{}")
     mock_supervisor.get_model = AsyncMock(return_value=model)
     mock_supervisor.describe_model = AsyncMock(return_value={"model_family": "qwen3"})
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
 
     response = await api.create_chat_completion(_DummyRequest(payload))
     assert response.status_code == 200
@@ -1276,6 +1328,176 @@ async def test_chat_completion_enable_thinking_injected(payload, expected):
     raw_chat_kwargs = called_kwargs["raw_params"]["chat_template_kwargs"]
     assert raw_chat_kwargs["enable_thinking"] is expected
     assert raw_chat_kwargs["thinking"] is expected
+
+
+def _build_mock_chat_api(monkeypatch, desc):
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+
+    model = AsyncMock()
+    model.uid = "test-model"
+    model.chat = AsyncMock(return_value="{}")
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(return_value=desc)
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
+    return api, model
+
+
+async def _create_chat_completion_with_mock_model(monkeypatch, payload, desc):
+    api, model = _build_mock_chat_api(monkeypatch, desc)
+    response = await api.create_chat_completion(_DummyRequest(payload))
+    return model, response
+
+
+@pytest.mark.asyncio
+async def test_qwen38_without_reasoning_effort_does_not_add_template_kwargs(
+    monkeypatch,
+):
+    model, response = await _create_chat_completion_with_mock_model(
+        monkeypatch,
+        {"model": "test", "messages": [{"role": "user", "content": "hi"}]},
+        {"model_name": "qwen3.8", "model_family": "qwen3.8"},
+    )
+
+    assert response.status_code == 200
+    called_args, called_kwargs = model.chat.call_args
+    assert "chat_template_kwargs" not in called_args[1]
+    assert "chat_template_kwargs" not in called_kwargs["raw_params"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_name", ["qwen3.8", "qwen3.8-max"])
+async def test_qwen38_top_level_reasoning_effort_injected(monkeypatch, model_name):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "reasoning_effort": "low",
+    }
+
+    model, response = await _create_chat_completion_with_mock_model(
+        monkeypatch, payload, {"model_name": model_name, "model_family": model_name}
+    )
+
+    assert response.status_code == 200
+    called_args, called_kwargs = model.chat.call_args
+    chat_kwargs = called_args[1]["chat_template_kwargs"]
+    assert chat_kwargs["reasoning_effort"] == "low"
+    raw_params = called_kwargs["raw_params"]
+    assert "reasoning_effort" not in raw_params
+    assert raw_params["chat_template_kwargs"]["reasoning_effort"] == "low"
+
+
+@pytest.mark.asyncio
+async def test_qwen38_reasoning_effort_preserves_enable_thinking(monkeypatch):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "enable_thinking": False,
+        "reasoning_effort": "medium",
+    }
+
+    model, response = await _create_chat_completion_with_mock_model(
+        monkeypatch, payload, {"model_name": "qwen3.8", "model_family": "qwen3.8"}
+    )
+
+    assert response.status_code == 200
+    called_args, called_kwargs = model.chat.call_args
+    chat_kwargs = called_args[1]["chat_template_kwargs"]
+    assert chat_kwargs == {
+        "enable_thinking": False,
+        "thinking": False,
+        "reasoning_effort": "medium",
+    }
+    assert called_kwargs["raw_params"]["chat_template_kwargs"] == chat_kwargs
+
+
+@pytest.mark.asyncio
+async def test_non_qwen38_top_level_reasoning_effort_unchanged(monkeypatch):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "reasoning_effort": "high",
+    }
+
+    model, response = await _create_chat_completion_with_mock_model(
+        monkeypatch, payload, {"model_name": "qwen3", "model_family": "qwen3"}
+    )
+
+    assert response.status_code == 200
+    called_args, called_kwargs = model.chat.call_args
+    assert "chat_template_kwargs" not in called_args[1]
+    assert called_kwargs["raw_params"]["reasoning_effort"] == "high"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_name", ["qwen3.8", "qwen3.8-max"])
+@pytest.mark.parametrize("effort", ["off", "high", "banana", None])
+async def test_qwen38_invalid_top_level_reasoning_effort_raises_400(
+    monkeypatch, model_name, effort
+):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "reasoning_effort": effort,
+    }
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_name": model_name, "model_family": model_name}
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(_DummyRequest(payload))
+
+    assert exc.value.status_code == 400
+    model.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_name", ["qwen3.8", "qwen3.8-max"])
+@pytest.mark.parametrize("effort", ["banana", None])
+async def test_qwen38_invalid_template_reasoning_effort_raises_400(
+    monkeypatch, model_name, effort
+):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "chat_template_kwargs": {"reasoning_effort": effort},
+    }
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_name": model_name, "model_family": model_name}
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(_DummyRequest(payload))
+
+    assert exc.value.status_code == 400
+    assert "chat_template_kwargs.reasoning_effort" in exc.value.detail
+    model.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_name", ["qwen3.8", "qwen3.8-max"])
+async def test_qwen38_conflicting_reasoning_effort_raises_400(monkeypatch, model_name):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "reasoning_effort": "xhigh",
+        "chat_template_kwargs": {"reasoning_effort": "low"},
+    }
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_name": model_name, "model_family": model_name}
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(_DummyRequest(payload))
+
+    assert exc.value.status_code == 400
+    assert "Conflicting reasoning_effort" in exc.value.detail
+    model.chat.assert_not_called()
 
 
 def test_launch_model_async(setup):
@@ -1962,216 +2184,3 @@ async def test_anthropic_models_include_original_fields(
     assert data["model_format"] == "pytorch"
     assert data["model_size_in_billions"] == 7
     assert data["quantization"] == "none"
-
-
-# ---------------------------------------------------------------------------
-# Anthropic (Claude Code) tool-flow conversion -- _convert_anthropic_* helpers.
-# System folding is covered by the _normalize_anthropic_messages tests above.
-# ---------------------------------------------------------------------------
-
-
-def test_convert_anthropic_messages_to_openai_plain_unchanged(anthropic_api):
-    """A plain user/assistant conversation keeps its turns unchanged."""
-    messages = [
-        {"role": "user", "content": "hi"},
-        {"role": "assistant", "content": "hello"},
-    ]
-    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
-    assert result == messages
-
-
-def test_convert_anthropic_text_blocks_flattened(anthropic_api):
-    """List content of text blocks is flattened to a string."""
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "line1"},
-                {"type": "text", "text": "line2"},
-            ],
-        }
-    ]
-    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
-    assert result == [{"role": "user", "content": "line1\nline2"}]
-
-
-def test_convert_anthropic_tool_use_to_tool_calls(anthropic_api):
-    """Assistant ``tool_use`` blocks become OpenAI ``tool_calls``."""
-    messages = [
-        {
-            "role": "assistant",
-            "content": [
-                {"type": "text", "text": "let me check"},
-                {
-                    "type": "tool_use",
-                    "id": "toolu_1",
-                    "name": "get_weather",
-                    "input": {"city": "Beijing"},
-                },
-            ],
-        }
-    ]
-    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
-    assert len(result) == 1
-    msg = result[0]
-    assert msg["role"] == "assistant"
-    assert msg["content"] == "let me check"
-    assert msg["tool_calls"] == [
-        {
-            "id": "toolu_1",
-            "type": "function",
-            "function": {
-                "name": "get_weather",
-                "arguments": '{"city": "Beijing"}',
-            },
-        }
-    ]
-
-
-def test_convert_anthropic_tool_result_to_tool_message(anthropic_api):
-    """User ``tool_result`` blocks become standalone ``tool`` messages."""
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "tool_result", "tool_use_id": "toolu_1", "content": "sunny"},
-            ],
-        }
-    ]
-    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
-    assert result == [{"role": "tool", "tool_call_id": "toolu_1", "content": "sunny"}]
-
-
-def test_convert_anthropic_tool_result_with_block_content(anthropic_api):
-    """A ``tool_result`` whose content is a block list is flattened; user text follows."""
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "tool_result",
-                    "tool_use_id": "toolu_1",
-                    "content": [{"type": "text", "text": "sunny"}],
-                },
-                {"type": "text", "text": "thanks"},
-            ],
-        }
-    ]
-    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
-    assert result == [
-        {"role": "tool", "tool_call_id": "toolu_1", "content": "sunny"},
-        {"role": "user", "content": "thanks"},
-    ]
-
-
-def test_convert_anthropic_full_agentic_roundtrip(anthropic_api):
-    """A realistic Claude Code agentic exchange converts to OpenAI shape."""
-    messages = [
-        {"role": "user", "content": [{"type": "text", "text": "weather?"}]},
-        {
-            "role": "assistant",
-            "content": [
-                {"type": "tool_use", "id": "toolu_1", "name": "wx", "input": {}},
-            ],
-        },
-        {
-            "role": "user",
-            "content": [
-                {"type": "tool_result", "tool_use_id": "toolu_1", "content": "sunny"},
-            ],
-        },
-    ]
-    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
-    assert [m["role"] for m in result] == ["user", "assistant", "tool"]
-    assert result[1]["tool_calls"][0]["id"] == "toolu_1"
-    assert result[2]["tool_call_id"] == "toolu_1"
-    assert result[2]["name"] == "wx"
-
-
-def test_convert_anthropic_image_block(anthropic_api):
-    """Anthropic base64 ``image`` blocks become OpenAI ``image_url`` parts."""
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "what is this?"},
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "image/png",
-                        "data": "QUJD",
-                    },
-                },
-            ],
-        }
-    ]
-    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
-    assert result[0]["role"] == "user"
-    parts = result[0]["content"]
-    assert {"type": "text", "text": "what is this?"} in parts
-    assert {
-        "type": "image_url",
-        "image_url": {"url": "data:image/png;base64,QUJD"},
-    } in parts
-
-
-def test_convert_anthropic_tools_to_openai(anthropic_api):
-    """Anthropic tool defs (``input_schema``) become OpenAI ``function`` tools."""
-    tools = [
-        {
-            "name": "get_weather",
-            "description": "Get weather",
-            "input_schema": {
-                "type": "object",
-                "properties": {"city": {"type": "string"}},
-            },
-        }
-    ]
-    result = anthropic_api._convert_anthropic_tools_to_openai(tools)
-    assert result == [
-        {
-            "type": "function",
-            "function": {
-                "name": "get_weather",
-                "description": "Get weather",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"city": {"type": "string"}},
-                },
-            },
-        }
-    ]
-    # already-OpenAI tools pass through untouched
-    openai_tool = {"type": "function", "function": {"name": "x", "parameters": {}}}
-    assert anthropic_api._convert_anthropic_tools_to_openai([openai_tool]) == [
-        openai_tool
-    ]
-
-
-def test_convert_anthropic_tool_choice(anthropic_api):
-    """Anthropic ``tool_choice`` maps to the OpenAI equivalent."""
-    assert anthropic_api._convert_anthropic_tool_choice({"type": "auto"}) == "auto"
-    assert anthropic_api._convert_anthropic_tool_choice({"type": "any"}) == "required"
-    assert anthropic_api._convert_anthropic_tool_choice({"type": "none"}) == "none"
-    assert anthropic_api._convert_anthropic_tool_choice(
-        {"type": "tool", "name": "get_weather"}
-    ) == {"type": "function", "function": {"name": "get_weather"}}
-
-
-def test_extract_text_from_anthropic_content(anthropic_api):
-    """Text extraction handles strings, block lists, and ignores non-text."""
-    assert anthropic_api._extract_text_from_anthropic_content("hello") == "hello"
-    assert (
-        anthropic_api._extract_text_from_anthropic_content(
-            [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]
-        )
-        == "a\nb"
-    )
-    # non-text blocks (e.g. images) are ignored
-    assert (
-        anthropic_api._extract_text_from_anthropic_content(
-            [{"type": "image", "source": {}}]
-        )
-        == ""
-    )

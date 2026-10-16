@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,15 @@
 
 import inspect
 import json
+import sqlite3
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 
 from xinference.api.routers import launch_history
+from xinference.core.autostart import normalize_autostart_model_entry
 from xinference.core.launch_history_store import LaunchHistoryStore
 
 
@@ -81,6 +84,41 @@ def test_list_filters_by_model_name(store):
     rows = store.list(model_name="qwen")
     assert len(rows) == 1
     assert rows[0]["model_name"] == "qwen"
+
+
+def test_list_owner_only_filters_by_username(store):
+    store.upsert("llama", "", {"owner": "alice"}, username="alice")
+    store.upsert("qwen", "", {"owner": "bob"}, username="bob")
+
+    rows = store.list(username="alice", owner_only=True)
+
+    assert len(rows) == 1
+    assert rows[0]["created_by"] == "alice"
+    assert rows[0]["data"] == {"owner": "alice"}
+
+
+def test_list_owner_only_combines_with_model_name(store):
+    store.upsert("llama", "alice-uid", {"owner": "alice"}, username="alice")
+    store.upsert("llama", "bob-uid", {"owner": "bob"}, username="bob")
+    store.upsert("qwen", "alice-uid", {"owner": "alice"}, username="alice")
+
+    rows = store.list(model_name="llama", username="alice", owner_only=True)
+
+    assert len(rows) == 1
+    assert rows[0]["model_name"] == "llama"
+    assert rows[0]["model_uid"] == "alice-uid"
+    assert rows[0]["created_by"] == "alice"
+
+
+def test_list_owner_only_supports_anonymous_records(store):
+    store.upsert("llama", "anonymous", {"owner": "anonymous"})
+    store.upsert("llama", "alice", {"owner": "alice"}, username="alice")
+
+    rows = store.list(username="", owner_only=True)
+
+    assert len(rows) == 1
+    assert rows[0]["model_uid"] == "anonymous"
+    assert rows[0]["created_by"] == ""
 
 
 def test_list_emits_utc_z_timestamps(store):
@@ -160,6 +198,266 @@ def test_store_persists_across_instances(tmp_path):
     assert rows[0]["created_by"] == "alice"
 
 
+def test_store_migrates_autostart_columns(tmp_path):
+    db = str(tmp_path / "old.db")
+    with sqlite3.connect(db) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE launch_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_name TEXT NOT NULL,
+                model_uid TEXT NOT NULL DEFAULT '',
+                data TEXT NOT NULL,
+                created_by TEXT DEFAULT '',
+                updated_by TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE UNIQUE INDEX idx_launch_history_model
+                ON launch_history(model_name, model_uid, created_by);
+            INSERT INTO launch_history (model_name, model_uid, data)
+                VALUES ('llama', 'uid-1', '{"model_name": "llama"}');
+            """
+        )
+
+    store = LaunchHistoryStore(db)
+    row = store.list()[0]
+    assert row["autostart_enabled"] is False
+    assert row["autostart_priority"] == 100
+    assert row["ui_data"] == {}
+    assert store.list_autostart() == []
+
+
+@pytest.mark.parametrize(
+    ("ui_n_gpu", "launch_n_gpu"),
+    [("GPU", "auto"), ("CPU", None)],
+)
+def test_history_device_metadata_does_not_corrupt_enabled_autostart(
+    store, ui_n_gpu, launch_n_gpu
+):
+    launch = {
+        "model_name": "llama",
+        "model_uid": "uid-1",
+        "model_type": "embedding",
+        "n_gpu": launch_n_gpu,
+    }
+    store.upsert_autostart({"launch": launch}, username="alice")
+
+    store.upsert(
+        "llama",
+        "uid-1",
+        launch,
+        username="alice",
+        ui_data={"n_gpu": ui_n_gpu},
+    )
+
+    row = store.list(model_name="llama", username="alice")[0]
+    assert row["data"]["n_gpu"] == launch_n_gpu
+    assert row["ui_data"] == {"n_gpu": ui_n_gpu}
+    autostart_entry = store.list_autostart()[0]
+    assert autostart_entry["launch"]["n_gpu"] == launch_n_gpu
+    normalized_launch = normalize_autostart_model_entry(autostart_entry)["launch"]
+    if launch_n_gpu is None:
+        assert "n_gpu" not in normalized_launch
+    else:
+        assert normalized_launch["n_gpu"] == launch_n_gpu
+
+
+def test_save_with_autostart_preserves_ui_metadata_in_either_write_order(store):
+    launch = {
+        "model_name": "llama",
+        "model_uid": "uid-1",
+        "model_type": "embedding",
+        "n_gpu": "auto",
+    }
+
+    # History can finish before the independently saved autostart request.
+    store.upsert(
+        "llama",
+        "uid-1",
+        launch,
+        username="alice",
+        ui_data={"n_gpu": "GPU"},
+    )
+    store.upsert_autostart({"launch": launch}, username="alice")
+    row = store.list(model_name="llama", username="alice")[0]
+    assert row["data"]["n_gpu"] == "auto"
+    assert row["ui_data"] == {"n_gpu": "GPU"}
+
+    # A later history save updates only the UI intent with normalized launch data.
+    cpu_launch = {**launch, "n_gpu": None}
+    store.upsert_autostart({"launch": cpu_launch}, username="alice")
+    store.upsert(
+        "llama",
+        "uid-1",
+        cpu_launch,
+        username="alice",
+        ui_data={"n_gpu": "CPU"},
+    )
+    row = store.list(model_name="llama", username="alice")[0]
+    assert row["data"]["n_gpu"] is None
+    assert row["ui_data"] == {"n_gpu": "CPU"}
+    assert store.list_autostart()[0]["launch"]["n_gpu"] is None
+
+
+def test_legacy_history_update_preserves_existing_ui_metadata(store):
+    store.upsert(
+        "llama",
+        "uid-1",
+        {"model_name": "llama", "model_uid": "uid-1", "n_gpu": "auto"},
+        username="alice",
+        ui_data={"n_gpu": "GPU"},
+    )
+
+    store.upsert(
+        "llama",
+        "uid-1",
+        {"model_name": "llama", "model_uid": "uid-1", "n_gpu": "auto"},
+        username="alice",
+    )
+
+    assert store.list(model_name="llama", username="alice")[0]["ui_data"] == {
+        "n_gpu": "GPU"
+    }
+
+
+def test_upsert_autostart_inserts_and_lists_unredacted_payload(store):
+    store.upsert_autostart(
+        {
+            "enabled": True,
+            "priority": 10,
+            "max_retries": 5,
+            "retry_interval_seconds": 60,
+            "launch": {
+                "model_name": "llama",
+                "model_uid": "uid-1",
+                "model_engine": "vllm",
+                "envs": {"HF_TOKEN": "secret"},
+            },
+        },
+        username="alice",
+    )
+
+    entries = store.list_autostart()
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry["priority"] == 10
+    assert entry["max_retries"] == 5
+    assert entry["retry_interval_seconds"] == 60
+    assert entry["created_by"] == "alice"
+    assert entry["launch"]["envs"] == {"HF_TOKEN": "secret"}
+
+
+def test_list_autostart_redacts_other_users_non_shareable_fields(store):
+    store.upsert_autostart(
+        {
+            "launch": {
+                "model_name": "llama",
+                "model_uid": "uid-1",
+                "model_engine": "vllm",
+                "n_gpu": "auto",
+                "model_path": "/private/alice/model",
+                "worker_ip": "10.0.0.8",
+                "envs": {"HF_TOKEN": "secret"},
+                "custom_private_kwarg": "private",
+            },
+        },
+        username="alice",
+    )
+
+    entries = store.list_autostart(username="bob")
+
+    assert len(entries) == 1
+    assert entries[0]["created_by"] == "alice"
+    assert entries[0]["launch"] == {
+        "model_name": "llama",
+        "model_uid": "uid-1",
+        "model_engine": "vllm",
+        "n_gpu": "auto",
+    }
+
+    owner_entry = store.list_autostart(username="alice")[0]
+    assert owner_entry["launch"]["model_path"] == "/private/alice/model"
+    assert owner_entry["launch"]["worker_ip"] == "10.0.0.8"
+
+    scheduler_entry = store.list_autostart()[0]
+    assert scheduler_entry["launch"]["custom_private_kwarg"] == "private"
+
+
+def test_upsert_autostart_keeps_model_uid_globally_unique(store):
+    store.upsert_autostart(
+        {
+            "launch": {
+                "model_name": "llama",
+                "model_uid": "shared-uid",
+                "model_engine": "vllm",
+            }
+        },
+        username="alice",
+    )
+    store.upsert_autostart(
+        {
+            "launch": {
+                "model_name": "qwen",
+                "model_uid": "shared-uid",
+                "model_engine": "transformers",
+            }
+        },
+        username="bob",
+    )
+
+    entries = store.list_autostart()
+    assert len(entries) == 1
+    assert entries[0]["created_by"] == "bob"
+    assert entries[0]["launch"]["model_name"] == "qwen"
+    rows = store.list()
+    assert len(rows) == 2
+    assert sum(1 for row in rows if row["autostart_enabled"]) == 1
+
+
+def test_upsert_autostart_disabled_entry_clears_existing_autostart(store):
+    store.upsert_autostart(
+        {"launch": {"model_name": "llama", "model_uid": "uid-1"}},
+        username="alice",
+    )
+    store.upsert_autostart(
+        {
+            "enabled": False,
+            "launch": {"model_name": "llama", "model_uid": "uid-1"},
+        },
+        username="alice",
+    )
+
+    assert store.list_autostart() == []
+    rows = store.list()
+    assert len(rows) == 1
+    assert rows[0]["autostart_enabled"] is False
+
+
+def test_remove_autostart_preserves_history_row(store):
+    store.upsert_autostart(
+        {"launch": {"model_name": "llama", "model_uid": "uid-1"}},
+        username="alice",
+    )
+
+    assert store.remove_autostart("uid-1") is True
+    assert store.list_autostart() == []
+    rows = store.list()
+    assert len(rows) == 1
+    assert rows[0]["autostart_enabled"] is False
+
+
+def test_delete_history_removes_autostart_source(store):
+    store.upsert_autostart(
+        {"launch": {"model_name": "llama", "model_uid": "uid-1"}},
+        username="alice",
+    )
+
+    assert store.delete("llama", "uid-1", "alice") is True
+    assert store.list() == []
+    assert store.list_autostart() == []
+
+
 # --- Router handler tests ---
 
 
@@ -179,9 +477,48 @@ def _request_with_json(body):
 def test_list_handler_returns_store_data(mock_api):
     mock_api._launch_history_store.list.return_value = [{"model_name": "llama"}]
     response = launch_history.list_launch_history(model_name="llama", api=mock_api)
-    assert _json_body(response) == [{"model_name": "llama"}]
+    assert _json_body(response) == [{"model_name": "llama", "is_owner": True}]
     mock_api._launch_history_store.list.assert_called_once_with(
-        model_name="llama", username=""
+        model_name="llama", username="", owner_only=False
+    )
+
+
+def test_list_handler_marks_owner_and_other_users(mock_api):
+    mock_api._launch_history_store.list.return_value = [
+        {"model_name": "llama", "created_by": "alice", "data": {"envs": {"A": "1"}}},
+        {"model_name": "llama", "created_by": "bob", "data": {"model_engine": "vllm"}},
+    ]
+    response = launch_history.list_launch_history(
+        model_name="llama", api=mock_api, user={"username": "alice"}
+    )
+    body = _json_body(response)
+    assert body[0]["is_owner"] is True
+    assert body[1]["is_owner"] is False
+    assert body[0]["data"] == {"envs": {"A": "1"}}
+    assert body[1]["data"] == {"model_engine": "vllm"}
+
+
+def test_list_handler_marks_anonymous_record_as_owner(mock_api):
+    mock_api._launch_history_store.list.return_value = [
+        {"model_name": "llama", "created_by": ""}
+    ]
+    response = launch_history.list_launch_history(model_name="llama", api=mock_api)
+    assert _json_body(response)[0]["is_owner"] is True
+
+
+def test_list_handler_scope_mine_forwards_owner_filter(mock_api):
+    mock_api._launch_history_store.list.return_value = []
+
+    response = launch_history.list_launch_history(
+        model_name="llama",
+        scope="mine",
+        api=mock_api,
+        user={"username": "alice"},
+    )
+
+    assert _json_body(response) == []
+    mock_api._launch_history_store.list.assert_called_once_with(
+        model_name="llama", username="alice", owner_only=True
     )
 
 
@@ -195,7 +532,12 @@ def test_list_handler_raises_500_on_error(mock_api):
 @pytest.mark.asyncio
 async def test_create_handler_upserts_with_username(mock_api):
     request = _request_with_json(
-        {"model_name": "llama", "model_uid": "", "data": {"model_engine": "vllm"}}
+        {
+            "model_name": "llama",
+            "model_uid": "",
+            "data": {"model_engine": "vllm"},
+            "ui_data": {"n_gpu": "GPU"},
+        }
     )
     response = await launch_history.create_launch_history(
         request=request, api=mock_api, user={"username": "alice"}
@@ -206,6 +548,7 @@ async def test_create_handler_upserts_with_username(mock_api):
         model_uid="",
         data={"model_engine": "vllm"},
         username="alice",
+        ui_data={"n_gpu": "GPU"},
     )
 
 
@@ -215,6 +558,7 @@ async def test_create_handler_blank_username_without_user(mock_api):
     await launch_history.create_launch_history(request=request, api=mock_api)
     _, kwargs = mock_api._launch_history_store.upsert.call_args
     assert kwargs["username"] == ""
+    assert kwargs["ui_data"] is None
 
 
 @pytest.mark.asyncio
@@ -292,8 +636,9 @@ def test_auth_off_get_handler_forwards_blank_username():
     api._launch_history_store.list.return_value = []
     get_handler = captured[("/v1/launch_history", ("GET",))]
     get_handler(model_name="llama", api_=api)
-    _, kwargs = api._launch_history_store.list.call_args
-    assert kwargs["username"] == ""
+    api._launch_history_store.list.assert_called_once_with(
+        model_name="llama", username="", owner_only=False
+    )
 
 
 def test_auth_on_get_handler_scopes_by_username():
@@ -301,8 +646,49 @@ def test_auth_on_get_handler_scopes_by_username():
     api._launch_history_store.list.return_value = []
     get_handler = captured[("/v1/launch_history", ("GET",))]
     get_handler(model_name="llama", user={"username": "alice"}, api_=api)
-    _, kwargs = api._launch_history_store.list.call_args
-    assert kwargs["username"] == "alice"
+    api._launch_history_store.list.assert_called_once_with(
+        model_name="llama", username="alice", owner_only=False
+    )
+
+
+def test_auth_off_get_handler_forwards_scope_mine():
+    api, captured = _register_and_capture(is_auth=False)
+    api._launch_history_store.list.return_value = []
+    get_handler = captured[("/v1/launch_history", ("GET",))]
+
+    get_handler(model_name=None, scope="mine", api_=api)
+
+    api._launch_history_store.list.assert_called_once_with(
+        model_name=None, username="", owner_only=True
+    )
+
+
+def test_auth_on_get_handler_forwards_scope_mine():
+    api, captured = _register_and_capture(is_auth=True)
+    api._launch_history_store.list.return_value = []
+    get_handler = captured[("/v1/launch_history", ("GET",))]
+
+    get_handler(model_name=None, scope="mine", user={"username": "alice"}, api_=api)
+
+    api._launch_history_store.list.assert_called_once_with(
+        model_name=None, username="alice", owner_only=True
+    )
+
+
+def test_get_handler_rejects_unknown_scope():
+    api, captured = _register_and_capture(is_auth=False)
+    app = FastAPI()
+    app.state.api = api
+    app.add_api_route(
+        "/v1/launch_history",
+        captured[("/v1/launch_history", ("GET",))],
+        methods=["GET"],
+    )
+
+    response = TestClient(app).get("/v1/launch_history", params={"scope": "all"})
+
+    assert response.status_code == 422
+    api._launch_history_store.list.assert_not_called()
 
 
 def test_auth_off_delete_handler_exposes_no_user_param():

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import errno
 import itertools
+import json
+import logging
+import os
+import shutil
+import subprocess
+import sys
+import threading
+import venv
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, List, Optional, Tuple, Union
 
 import pytest
@@ -21,10 +32,103 @@ import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
 from ...model.core import VirtualEnvSettings
+from .. import supervisor as supervisor_module
+from .. import system_settings_store as system_settings_store_module
+from .. import worker as worker_module
 from ..status_guard import InstanceInfo, LaunchStatus, ReplicaStatus
 from ..supervisor import ReplicaInfo, SupervisorActor
 from ..utils import merge_virtual_env_packages
-from ..worker import WorkerActor
+from ..worker import ModelStatus, WorkerActor, _inject_jina_v3_allocator_env
+
+
+@pytest.mark.parametrize("editable_style", ["path", "finder"])
+def test_model_virtualenv_loads_parent_editable_install(
+    tmp_path, monkeypatch, editable_style
+):
+    import sysconfig
+
+    import xoscar.virtualenv
+
+    env_path = tmp_path / "model-env"
+    venv.EnvBuilder(with_pip=False).create(env_path)
+    python = env_path / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    child_site = Path(
+        subprocess.check_output(
+            [
+                str(python),
+                "-I",
+                "-c",
+                "import sysconfig; print(sysconfig.get_path('purelib'))",
+            ],
+            text=True,
+        ).strip()
+    )
+    parent_site = tmp_path / "parent's site packages"
+    parent_site.mkdir()
+    source = tmp_path / "editable source"
+    source.mkdir()
+    (source / "editable_model.py").write_text("value = 'editable'\n")
+    (parent_site / "parent_package.py").write_text("value = 'parent'\n")
+    (parent_site / "shadowed_package.py").write_text("value = 'parent'\n")
+    (child_site / "shadowed_package.py").write_text("value = 'child'\n")
+    if editable_style == "path":
+        (parent_site / "editable.pth").write_text(str(source) + "\n")
+    else:
+        # PEP 660 setuptools installs register a meta-path finder from a .pth.
+        (parent_site / "editable_finder.py").write_text(
+            "import importlib.util, sys\n"
+            "class Finder:\n"
+            "    @classmethod\n"
+            "    def find_spec(cls, fullname, path=None, target=None):\n"
+            "        if fullname == 'editable_model':\n"
+            "            return importlib.util.spec_from_file_location(\n"
+            f"                fullname, {str(source / 'editable_model.py')!r})\n"
+            "def install():\n"
+            "    if Finder not in sys.meta_path:\n"
+            "        sys.meta_path.append(Finder)\n"
+        )
+        (parent_site / "editable.pth").write_text(
+            "import editable_finder; editable_finder.install()\n"
+        )
+
+    # Also exercise migration of a model environment created by older workers.
+    pth_file = child_site / "_xinference_parent.pth"
+    pth_file.write_text(str(parent_site) + "\n")
+    manager = SimpleNamespace(
+        create_env=lambda **kwargs: None,
+        get_lib_path=lambda: str(child_site),
+    )
+    monkeypatch.setattr(
+        xoscar.virtualenv, "get_virtual_env_manager", lambda *args: manager
+    )
+    monkeypatch.setattr(sysconfig, "get_paths", lambda: {"purelib": str(parent_site)})
+    for _ in range(2):
+        assert (
+            WorkerActor._create_virtual_env_manager(True, "uv", str(env_path))
+            is manager
+        )
+
+    # A fresh interpreter, without PYTHONPATH, must import the editable package
+    # while retaining precedence for packages installed in the child venv.
+    output = subprocess.check_output(
+        [
+            str(python),
+            "-I",
+            "-c",
+            "import json, sys, editable_model, parent_package, shadowed_package; "
+            "print(json.dumps([editable_model.value, parent_package.value, "
+            f"shadowed_package.value, sys.path.count({str(parent_site)!r})]))",
+        ],
+        text=True,
+    )
+    assert json.loads(output) == ["editable", "parent", "child", 1]
+
+
+@pytest.mark.asyncio
+async def test_worker_node_metadata_returns_only_software_version():
+    metadata = await WorkerActor.get_node_metadata(None)  # type: ignore[arg-type]
+
+    assert metadata == {"software_version": worker_module.__version__}
 
 
 class MockWorkerActor(WorkerActor):
@@ -120,6 +224,7 @@ class MockWorkerActor(WorkerActor):
             **kwargs,
         }
         self._model_uid_to_addr[model_uid] = subpool_address
+        self._model_uid_to_model_status[model_uid] = ModelStatus(model_state="loading")
 
     async def terminate_model(self, model_uid: str, is_model_die: bool = False):
         self.release_devices(model_uid)
@@ -131,20 +236,134 @@ class MockWorkerActor(WorkerActor):
         self._model_uid_to_launch_args.pop(model_uid, None)
         del self._model_uid_to_addr[model_uid]
 
+    # --- test helpers for failed-launch cleanup ---
+    def set_model_ref_for_test(self, model_uid: str, model_ref):
+        self._model_uid_to_model[model_uid] = model_ref
+
+    def get_launch_state_presence_for_test(self, model_uid: str):
+        return {
+            "model": model_uid in self._model_uid_to_model,
+            "model_spec": model_uid in self._model_uid_to_model_spec,
+            "launch_args": model_uid in self._model_uid_to_launch_args,
+            "addr": model_uid in self._model_uid_to_addr,
+            "model_status": model_uid in self._model_uid_to_model_status,
+        }
+
+    def set_status_guard_ref_for_test(self, ref):
+        self._status_guard_ref = ref
+
     # --- test helpers for report_status GPU attribution ---
     def set_supervisor_ref_for_test(self, ref):
-        self._supervisor_ref = ref
+        with self._supervisor_ref_lock:
+            self._supervisor_ref = ref
+            self._registered = True
+            self._supervisor_ref_generation += 1
 
-    def set_gpu_attribution_tables_for_test(self, pid, subpool, total_devices):
+    def set_gpu_attribution_tables_for_test(
+        self, pid, subpool, total_devices, subpool_addresses=None
+    ):
         self._model_uid_to_pid = dict(pid)
         self._model_uid_to_subpool_pids = {k: set(v) for k, v in subpool.items()}
+        self._model_uid_to_subpool_addresses = {
+            k: set(v) for k, v in (subpool_addresses or {}).items()
+        }
         self._total_gpu_devices = list(total_devices)
+
+    def set_subpool_process_pid_for_test(self, address, pid):
+        self._main_pool.sub_processes[address] = SimpleNamespace(pid=pid)
+
+    def remove_subpool_process_for_test(self, address):
+        self._main_pool.sub_processes.pop(address, None)
+
+
+@pytest.mark.asyncio
+async def test_resolve_download_hub_uses_worker_local_model_src(monkeypatch):
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+
+    assert await WorkerActor.resolve_download_hub(None, None) == "modelscope"
+
+
+@pytest.mark.asyncio
+async def test_video_host_preflight_precedes_virtualenv_creation(monkeypatch):
+    from ...model.video.engine import MLXVideoEngineModel
+    from ...model.video.engine_family import VIDEO_ENGINES
+
+    class _Worker:
+        def __init__(self):
+            self.address = "127.0.0.1:0"
+            self._supervisor_address = "127.0.0.1:1"
+            self._event_collector_ref = None
+            self._model_uid_to_model = {}
+            self._model_uid_launching_guard = {}
+            self._launch_semaphore = asyncio.Semaphore(1)
+            self._launch_waiting = 0
+            self._launch_active = 0
+            self.venv_created = False
+
+        async def get_supervisor_ref(self, add_worker=False):
+            return object()
+
+        def _check_model_is_valid(self, model_name, model_format):
+            pass
+
+        def get_model_launch_status(self, model_uid):
+            return None
+
+        def _create_virtual_env_manager(self, *_args, **_kwargs):
+            self.venv_created = True
+            pytest.fail("virtualenv creation must not run before host preflight")
+
+    worker = _Worker()
+    monkeypatch.setattr(
+        MLXVideoEngineModel,
+        "check_host",
+        classmethod(lambda cls: (False, "requires Apple Silicon")),
+    )
+    # Linux and Windows intentionally omit MLX from their live engine matrix.
+    # Register the exact tuple under test so this ordering regression exercises
+    # the hard host preflight consistently on every CI platform.
+    monkeypatch.setitem(
+        VIDEO_ENGINES["Wan2.1-1.3B"],
+        "MLX",
+        [
+            {
+                "model_name": "Wan2.1-1.3B",
+                "model_format": "mlx",
+                "quantization": "none",
+                "video_class": MLXVideoEngineModel,
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="requires Apple Silicon"):
+        await WorkerActor.launch_builtin_model.__wrapped__(
+            worker,
+            model_uid="wan-mlx-0",
+            model_name="Wan2.1-1.3B",
+            model_size_in_billions=None,
+            model_format="mlx",
+            quantization="none",
+            model_engine="MLX",
+            model_type="video",
+            n_gpu=None,
+            enable_virtual_env=True,
+            download_hub="huggingface",
+        )
+
+    assert worker.venv_created is False
+
+
+class MockWorkerActorRealTerminate(MockWorkerActor):
+    """Variant that keeps the real ``WorkerActor.terminate_model`` so tests
+    cover the actual cleanup path instead of the simplified override above."""
+
+    terminate_model = WorkerActor.terminate_model
 
 
 @pytest_asyncio.fixture
 async def setup_pool():
     pool = await create_actor_pool(
-        "test://127.0.0.1:" + str(xo.utils.get_next_port()),
+        "test://127.0.0.1:0",
         n_process=0,
     )
     async with pool:
@@ -228,6 +447,120 @@ async def test_terminate_model_flag(setup_pool):
         assert dev not in gpu_to_model_id
 
 
+class _FailingLoadModelRef:
+    """Model ref whose engine loads asynchronously and fails, mirroring a
+    vLLM EngineCore init crash that only surfaces in wait_for_load."""
+
+    async def wait_for_load(self):
+        raise RuntimeError("EngineCore init failed")
+
+
+@pytest.mark.asyncio
+async def test_wait_for_load_failure_cleans_up_worker_state(setup_pool):
+    """A launch that fails after launch_builtin_model registered the model_uid
+    (e.g. the vLLM engine crashes during async load, surfacing in
+    wait_for_load) must roll back the worker state, otherwise relaunching the
+    same model_uid hits `assert model_uid not in self._model_uid_to_model`
+    until the whole service is restarted."""
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    model_uid = "async_load_model-0"
+    await worker.launch_builtin_model(
+        model_uid, "mock_model_name", None, None, None, n_gpu=1
+    )
+    await worker.set_model_ref_for_test(model_uid, _FailingLoadModelRef())
+
+    with pytest.raises(RuntimeError, match="EngineCore init failed"):
+        await worker.wait_for_load(model_uid)
+
+    # all registration state must be rolled back
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert not any(presence.values()), presence
+    gpu_to_model_uid = await worker.get_gpu_to_model_uid()
+    for model_uids in gpu_to_model_uid.values():
+        assert model_uid not in model_uids
+
+    # the same model_uid can be relaunched immediately
+    await worker.launch_builtin_model(
+        model_uid, "mock_model_name", None, None, None, n_gpu=1
+    )
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert presence["model"] and presence["addr"]
+    await worker.terminate_model(model_uid)
+
+
+class _UnavailableStatusGuardRef:
+    """StatusGuard stub whose reporting calls always fail, simulating a
+    status guard that became unreachable (e.g. supervisor outage)."""
+
+    async def update_instance_info(self, *args, **kwargs):
+        raise RuntimeError("status guard unavailable")
+
+    async def update_replica_status(self, *args, **kwargs):
+        raise RuntimeError("status guard unavailable")
+
+
+@pytest.mark.asyncio
+async def test_failed_launch_cleanup_survives_status_guard_outage(setup_pool):
+    """The failed-launch rollback goes through the real terminate_model,
+    whose status reporting must not block the local map/resource cleanup —
+    e.g. when the launch finalization failed precisely because the status
+    guard was unreachable. Uses the real WorkerActor.terminate_model so the
+    unprotected update_instance_info path is actually exercised."""
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActorRealTerminate"] = await xo.create_actor(  # type: ignore
+        MockWorkerActorRealTerminate,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    model_uid = "async_load_model-0"
+    await worker.launch_builtin_model(
+        model_uid, "mock_model_name", None, None, None, n_gpu=1
+    )
+    await worker.set_model_ref_for_test(model_uid, _FailingLoadModelRef())
+    await worker.set_status_guard_ref_for_test(_UnavailableStatusGuardRef())
+
+    with pytest.raises(RuntimeError, match="EngineCore init failed"):
+        await worker.wait_for_load(model_uid)
+
+    # local maps and GPU allocations must be rolled back even though every
+    # status guard call raised
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert not any(presence.values()), presence
+    gpu_to_model_uid = await worker.get_gpu_to_model_uid()
+    for model_uids in gpu_to_model_uid.values():
+        assert model_uid not in model_uids
+
+    # the same model_uid can be relaunched immediately
+    await worker.launch_builtin_model(
+        model_uid, "mock_model_name", None, None, None, n_gpu=1
+    )
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert presence["model"] and presence["addr"]
+
+    # a normal terminate with the status guard still down must also clean up
+    # local state without raising
+    await worker.terminate_model(model_uid)
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert not any(presence.values()), presence
+
+
 def test_merge_virtual_env_packages_override_and_append():
     base_packages = [
         "transformers @ git+https://github.com/huggingface/transformers@abcdef",
@@ -241,7 +574,6 @@ def test_merge_virtual_env_packages_override_and_append():
     assert merged == [
         "transformers==5.0.0.dev0",  # user-specified overrides default
         "accelerate>=0.34.2",
-        "#system_numpy#",
         "numpy==2.1.0",
     ]
 
@@ -256,10 +588,18 @@ class DummyVirtualEnvManager:
 
 
 class DummySupervisorRef:
-    def __init__(self, fail_report_status_times: int = 0):
+    def __init__(
+        self,
+        fail_report_status_times: int = 0,
+        fail_heartbeat_times: int = 0,
+        cancel_after_report: bool = False,
+    ):
         self.fail_report_status_times = fail_report_status_times
+        self.fail_heartbeat_times = fail_heartbeat_times
+        self.cancel_after_report = cancel_after_report
         self.add_worker_calls: List[Tuple[str, List[dict], List[str]]] = []
         self.report_worker_status_calls: List[Tuple[str, Any]] = []
+        self.heartbeat_calls: List[str] = []
 
     async def add_worker(
         self,
@@ -280,9 +620,57 @@ class DummySupervisorRef:
             self.fail_report_status_times -= 1
             raise RuntimeError("stale supervisor")
         self.report_worker_status_calls.append((worker_address, status))
+        if self.cancel_after_report:
+            raise asyncio.CancelledError
+
+    async def receive_heartbeat(self, worker_address: str):
+        self.heartbeat_calls.append(worker_address)
+        if self.fail_heartbeat_times > 0:
+            self.fail_heartbeat_times -= 1
+            raise RuntimeError("heartbeat failed")
 
     async def record_model_version(self, model_version_infos, worker_address: str):
         return None
+
+
+class _ActorLoopThread:
+    def __init__(self):
+        self.loop: Optional[asyncio.AbstractEventLoop] = None
+        self.thread: Optional[threading.Thread] = None
+        self.thread_id: Optional[int] = None
+        self._ready = threading.Event()
+
+    def __enter__(self):
+        def run_loop():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            self.loop = loop
+            self.thread_id = threading.get_ident()
+            self._ready.set()
+            try:
+                loop.run_forever()
+            finally:
+                pending = asyncio.all_tasks(loop)
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    loop.run_until_complete(
+                        asyncio.gather(*pending, return_exceptions=True)
+                    )
+                loop.close()
+
+        self.thread = threading.Thread(target=run_loop, daemon=True)
+        self.thread.start()
+        assert self._ready.wait(timeout=5)
+        assert self.loop is not None
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        assert self.loop is not None
+        assert self.thread is not None
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        self.thread.join(timeout=5)
+        assert not self.thread.is_alive()
 
 
 class DummyActorRef:
@@ -290,10 +678,236 @@ class DummyActorRef:
         self.address = address
 
 
+@pytest.mark.asyncio
+async def test_worker_heartbeat_failure_clears_cached_supervisor_refs():
+    class FailingSupervisorRef:
+        async def receive_heartbeat(self, worker_address: str):
+            raise ConnectionRefusedError("stale supervisor address")
+
+    class DummyWorker:
+        heartbeat = WorkerActor.heartbeat
+        _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+        _call_supervisor = WorkerActor._call_supervisor
+        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+
+        def __init__(self):
+            self.address = "test://worker"
+            self._actor_loop = None
+            self._supervisor_init_lock = None
+            self._supervisor_ref = FailingSupervisorRef()
+            self._supervisor_ref_address = "test://supervisor"
+            self._supervisor_ref_lock = threading.Lock()
+            self._supervisor_ref_generation = 0
+            self._registered = True
+            self._status_guard_ref = object()
+            self._event_collector_ref = object()
+            self._cache_tracker_ref = object()
+            self._progress_tracker_ref = object()
+
+        async def _get_supervisor_ref_with_generation(self, add_worker=True):
+            assert not add_worker
+            return self._supervisor_ref, self._supervisor_ref_generation
+
+    worker = DummyWorker()
+
+    with pytest.raises(ConnectionRefusedError, match="stale supervisor address"):
+        await worker.heartbeat()
+
+    assert worker._supervisor_ref is None
+    assert not worker._registered
+    assert worker._status_guard_ref is None
+    assert worker._event_collector_ref is None
+    assert worker._cache_tracker_ref is None
+    assert worker._progress_tracker_ref is None
+
+
+@pytest.mark.asyncio
+async def test_run_on_actor_loop_invokes_coroutine_factory_after_loop_switch():
+    factory_loops = []
+    coroutine_loops = []
+
+    with _ActorLoopThread() as actor_thread:
+        worker = SimpleNamespace(
+            _actor_loop=actor_thread.loop,
+            _supervisor_init_lock=None,
+        )
+
+        def coroutine_factory():
+            factory_loops.append(asyncio.get_running_loop())
+
+            async def run():
+                coroutine_loops.append(asyncio.get_running_loop())
+                return "ok"
+
+            return run()
+
+        result = await WorkerActor._run_on_actor_loop(worker, coroutine_factory)
+
+        assert result == "ok"
+        assert factory_loops == [actor_thread.loop]
+        assert coroutine_loops == [actor_thread.loop]
+
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_rpc_runs_on_actor_loop():
+    rpc_loops = []
+    ref_lookup_loops = []
+
+    class SupervisorRef:
+        async def receive_heartbeat(self, worker_address: str):
+            assert worker_address == "test://worker"
+            rpc_loops.append(asyncio.get_running_loop())
+
+    class DummyWorker:
+        heartbeat = WorkerActor.heartbeat
+        _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+        _call_supervisor = WorkerActor._call_supervisor
+
+        def __init__(self, actor_loop):
+            self.address = "test://worker"
+            self._actor_loop = actor_loop
+            self._supervisor_init_lock = None
+
+        async def _get_supervisor_ref_with_generation(self, add_worker=True):
+            assert add_worker is False
+            ref_lookup_loops.append(asyncio.get_running_loop())
+            return SupervisorRef(), 1
+
+        def _clear_supervisor_refs(self, **kwargs):
+            pytest.fail("a successful heartbeat must not clear the supervisor ref")
+
+    with _ActorLoopThread() as actor_thread:
+        worker = DummyWorker(actor_thread.loop)
+        caller_loop = asyncio.get_running_loop()
+
+        await worker.heartbeat()
+
+        assert caller_loop is not actor_thread.loop
+        assert ref_lookup_loops == [actor_thread.loop]
+        assert rpc_loops == [actor_thread.loop]
+
+
+@pytest.mark.asyncio
+async def test_worker_report_status_upload_runs_on_actor_loop(monkeypatch):
+    rpc_loops = []
+    ref_lookup_loops = []
+
+    class SupervisorRef:
+        async def report_worker_status(self, worker_address: str, status):
+            rpc_loops.append(asyncio.get_running_loop())
+            assert worker_address == "test://worker"
+            assert status == {"cpu": "ok"}
+
+    class DummyWorker:
+        report_status = WorkerActor.report_status
+        _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+        _call_supervisor = WorkerActor._call_supervisor
+
+        def __init__(self, actor_loop):
+            self.address = "test://worker"
+            self._actor_loop = actor_loop
+            self._supervisor_init_lock = None
+            self._total_gpu_devices = []
+
+        async def _get_supervisor_ref_with_generation(self, add_worker=True):
+            assert add_worker is True
+            ref_lookup_loops.append(asyncio.get_running_loop())
+            return SupervisorRef(), 1
+
+        def _clear_supervisor_refs(self, **kwargs):
+            pytest.fail("a successful status upload must not clear the supervisor ref")
+
+    monkeypatch.setattr(
+        "xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"}
+    )
+
+    with _ActorLoopThread() as actor_thread:
+        worker = DummyWorker(actor_thread.loop)
+        caller_loop = asyncio.get_running_loop()
+
+        await worker.report_status()
+
+        assert caller_loop is not actor_thread.loop
+        assert ref_lookup_loops == [actor_thread.loop]
+        assert rpc_loops == [actor_thread.loop]
+
+
+@pytest.mark.asyncio
+async def test_actor_loop_dispatch_cancellation_releases_registration_lock():
+    registration_started = threading.Event()
+    registration_cancelled = threading.Event()
+
+    class DummyWorker:
+        _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+        _call_supervisor = WorkerActor._call_supervisor
+
+        def __init__(self, actor_loop):
+            self._actor_loop = actor_loop
+            self._supervisor_init_lock = None
+
+        async def _get_supervisor_ref_with_generation(self, add_worker=True):
+            assert add_worker is True
+            if self._supervisor_init_lock is None:
+                self._supervisor_init_lock = asyncio.Lock()
+            try:
+                async with self._supervisor_init_lock:
+                    registration_started.set()
+                    await asyncio.Event().wait()
+            finally:
+                registration_cancelled.set()
+            raise AssertionError("registration wait should be cancelled")
+
+    with _ActorLoopThread() as actor_thread:
+        worker = DummyWorker(actor_thread.loop)
+        task = asyncio.create_task(
+            worker._call_supervisor(
+                "report_worker_status",
+                "test://worker",
+                {},
+                add_worker=True,
+            )
+        )
+        assert await asyncio.to_thread(registration_started.wait, 5)
+
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert await asyncio.to_thread(registration_cancelled.wait, 5)
+
+        async def inspect_actor_loop():
+            current_task = asyncio.current_task()
+            pending_tasks = [
+                task
+                for task in asyncio.all_tasks()
+                if task is not current_task and not task.done()
+            ]
+            assert worker._supervisor_init_lock is not None
+            return worker._supervisor_init_lock.locked(), pending_tasks
+
+        inspection = asyncio.run_coroutine_threadsafe(
+            inspect_actor_loop(), actor_thread.loop
+        )
+        lock_is_held, pending_tasks = await asyncio.wrap_future(inspection)
+
+        assert lock_is_held is False
+        assert pending_tasks == []
+
+
 class DummyReplicaWorkerRef(DummyActorRef):
     def __init__(self, address: str, models=None):
         super().__init__(address)
         self._models = models or {}
+        self.system_settings_updates: List[dict[str, Any]] = []
+
+    async def update_system_settings(self, settings):
+        self.system_settings_updates.append(settings)
+
+    async def get_node_metadata(self):
+        return {"software_version": "test"}
 
     async def list_models(self):
         return dict(self._models)
@@ -306,6 +920,22 @@ class DummyReplicaWorkerRef(DummyActorRef):
 
     async def get_model(self, model_uid: str):
         return {"model_uid": model_uid, "worker_address": self.address}
+
+
+class DummyMetadataReplicaWorkerRef(DummyReplicaWorkerRef):
+    def __init__(self, address: str, metadata):
+        super().__init__(address)
+        self.metadata = metadata
+        self.metadata_calls = 0
+
+    async def get_node_metadata(self):
+        self.metadata_calls += 1
+        metadata = (
+            self.metadata.pop(0) if isinstance(self.metadata, list) else self.metadata
+        )
+        if isinstance(metadata, Exception):
+            raise metadata
+        return metadata
 
 
 class DummyStatusGuardRef:
@@ -354,21 +984,268 @@ class DummyStatusGuardRef:
         return [] if info is None else info.replica_statuses
 
 
-def test_prepare_virtual_env_injects_engine_vars():
+def test_prepare_virtual_env_injects_engine_vars(tmp_path):
     manager = DummyVirtualEnvManager()
+    manager.env_path = str(tmp_path / "venv")
     settings = VirtualEnvSettings(packages=["pkgA==1.0.0"], inherit_pip_config=False)
+    stages = []
     WorkerActor._prepare_virtual_env(
         manager,
         settings,
         ["pkgB==2.0.0"],
         model_engine="vllm",
+        report_install_stage=stages.append,
     )
 
+    assert stages == ["installing_dependencies"]
     assert len(manager.calls) == 1
     packages, kwargs = manager.calls[0]
     assert packages == ["pkgA==1.0.0", "pkgB==2.0.0"]
     assert kwargs["engine"] == "vllm"
     assert kwargs["model_engine"] == "vllm"
+
+
+def test_prepare_virtual_env_reports_dependency_plan_per_replica(tmp_path, monkeypatch):
+    manager = DummyVirtualEnvManager()
+    manager.env_path = str(tmp_path / "venv")
+    plan = [("example", "2.0"), ("child-pkg", "3.0")]
+    monkeypatch.setattr(
+        "xinference.core.virtual_env_manager.resolve_dependency_install_plan",
+        lambda *_args: plan,
+    )
+    stopped = threading.Event()
+    monkeypatch.setattr(
+        "xinference.core.virtual_env_manager.observe_dependency_install",
+        lambda *_args: (stopped, SimpleNamespace(join=lambda timeout: None)),
+    )
+    reported = []
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        VirtualEnvSettings(packages=["example>=1"], inherit_pip_config=False),
+        None,
+        model_engine=None,
+        report_install_progress=lambda completed, total, packages: reported.append(
+            (completed, total, packages)
+        ),
+    )
+
+    assert reported == [
+        (0, 2, ["example==2.0", "child-pkg==3.0"]),
+        (2, 2, ["example==2.0", "child-pkg==3.0"]),
+    ]
+    assert stopped.is_set()
+
+
+def test_prepare_virtual_env_merges_validated_find_links(tmp_path, monkeypatch):
+    allowed = tmp_path / "allowed"
+    requested = allowed / "requested"
+    requested.mkdir(parents=True)
+    monkeypatch.setattr(
+        "xinference.core.virtual_env_manager.XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS",
+        (str(allowed),),
+    )
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["pkgA==1.0.0"],
+        inherit_pip_config=False,
+        find_links=["/admin/wheels"],
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        None,
+        model_engine="transformers",
+        virtual_env_find_links=[str(requested)],
+    )
+
+    _, kwargs = manager.calls[0]
+    assert kwargs["find_links"] == ["/admin/wheels", str(requested.resolve())]
+
+
+def test_prepare_virtual_env_vllm_request_find_links_are_isolated(
+    tmp_path, monkeypatch
+):
+    allowed = tmp_path / "allowed"
+    requested = allowed / "requested"
+    requested.mkdir(parents=True)
+    monkeypatch.setattr(
+        "xinference.core.virtual_env_manager.XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS",
+        (str(allowed),),
+    )
+    settings = VirtualEnvSettings(
+        packages=["pkgA==1.0.0"],
+        inherit_pip_config=False,
+    )
+
+    first_manager = DummyVirtualEnvManager()
+    first_manager.env_path = str(tmp_path / "venv-1")
+    WorkerActor._prepare_virtual_env(
+        first_manager,
+        settings,
+        None,
+        model_engine="vllm",
+        virtual_env_find_links=[str(requested)],
+    )
+
+    _, first_kwargs = first_manager.calls[0]
+    assert first_kwargs["find_links"] == [str(requested.resolve())]
+    assert settings.find_links is None
+
+    second_manager = DummyVirtualEnvManager()
+    second_manager.env_path = str(tmp_path / "venv-2")
+    WorkerActor._prepare_virtual_env(
+        second_manager,
+        settings,
+        None,
+        model_engine="vllm",
+        virtual_env_find_links=None,
+    )
+
+    _, second_kwargs = second_manager.calls[0]
+    assert second_kwargs["find_links"] is None
+    assert settings.find_links is None
+
+
+def test_jina_v3_allocator_env_is_persisted_for_recovery(monkeypatch):
+    monkeypatch.delenv("PYTORCH_CUDA_ALLOC_CONF", raising=False)
+    monkeypatch.delenv("PYTORCH_ALLOC_CONF", raising=False)
+    launch_args = {"envs": None}
+
+    envs = _inject_jina_v3_allocator_env(
+        "embedding",
+        "jina-embeddings-v3",
+        None,
+        launch_args,
+    )
+
+    assert envs == {"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"}
+    assert launch_args["envs"] == envs
+
+
+@pytest.mark.asyncio
+async def test_launch_image_resolves_default_engine_before_virtualenv(monkeypatch):
+    import inspect
+
+    from ...model.image.engine_family import IMAGE_ENGINES
+
+    monkeypatch.setitem(IMAGE_ENGINES, "test-image", {"transformers": []})
+    captured = {}
+
+    class EarlyLaunchStop(Exception):
+        pass
+
+    def capture_launch_args(model_type, model_name, envs, launch_args):
+        captured["model_engine"] = launch_args["model_engine"]
+        raise EarlyLaunchStop
+
+    monkeypatch.setattr(
+        "xinference.core.worker._inject_jina_v3_allocator_env", capture_launch_args
+    )
+    launch_builtin_model = inspect.unwrap(WorkerActor.launch_builtin_model)
+
+    with pytest.raises(EarlyLaunchStop):
+        await launch_builtin_model(
+            SimpleNamespace(),
+            model_uid="test-image-0",
+            model_name="test-image",
+            model_size_in_billions=None,
+            model_format=None,
+            quantization=None,
+            model_engine=None,
+            model_type="image",
+        )
+
+    assert captured["model_engine"] == "transformers"
+
+
+def test_jina_v3_allocator_env_preserves_user_configuration():
+    launch_args = {"envs": None}
+    user_envs = {"PYTORCH_CUDA_ALLOC_CONF": "max_split_size_mb:128"}
+
+    envs = _inject_jina_v3_allocator_env(
+        "embedding",
+        "jina-embeddings-v3",
+        user_envs,
+        launch_args,
+    )
+
+    assert envs == user_envs
+    assert envs is not user_envs
+    assert launch_args["envs"] == user_envs
+
+
+@pytest.mark.parametrize(
+    "allocator_key,allocator_value",
+    [
+        ("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128"),
+        ("PYTORCH_ALLOC_CONF", "backend:cudaMallocAsync"),
+    ],
+)
+def test_jina_v3_allocator_env_preserves_inherited_worker_configuration(
+    monkeypatch, allocator_key, allocator_value
+):
+    monkeypatch.delenv("PYTORCH_CUDA_ALLOC_CONF", raising=False)
+    monkeypatch.delenv("PYTORCH_ALLOC_CONF", raising=False)
+    monkeypatch.setenv(allocator_key, allocator_value)
+    launch_args = {"envs": None}
+    user_envs = {"OTHER_ENV": "value"}
+
+    envs = _inject_jina_v3_allocator_env(
+        "embedding",
+        "jina-embeddings-v3",
+        user_envs,
+        launch_args,
+    )
+
+    assert envs == user_envs
+    assert envs is not user_envs
+    assert "PYTORCH_CUDA_ALLOC_CONF" not in envs
+    assert "PYTORCH_ALLOC_CONF" not in envs
+    assert launch_args["envs"] == user_envs
+
+
+def test_jina_v3_allocator_env_preserves_new_allocator_configuration():
+    launch_args = {"envs": None}
+    user_envs = {"PYTORCH_ALLOC_CONF": "backend:cudaMallocAsync"}
+
+    envs = _inject_jina_v3_allocator_env(
+        "embedding",
+        "jina-embeddings-v3",
+        user_envs,
+        launch_args,
+    )
+
+    assert envs == user_envs
+    assert launch_args["envs"] == user_envs
+
+
+@pytest.mark.parametrize(
+    "model_type,model_name",
+    [
+        ("LLM", "jina-embeddings-v3"),
+        ("embedding", "jina-embeddings-v2"),
+        ("embedding", "jina-embeddings-v4"),
+        ("embedding", "bge-small-en-v1.5"),
+        (None, "jina-embeddings-v3"),
+        ("embedding", None),
+        ("", "jina-embeddings-v3"),
+        ("embedding", ""),
+    ],
+)
+def test_jina_v3_allocator_env_does_not_affect_other_models(model_type, model_name):
+    launch_args = {"envs": None}
+
+    envs = _inject_jina_v3_allocator_env(
+        model_type,
+        model_name,
+        None,
+        launch_args,
+    )
+
+    assert envs is None
+    assert launch_args["envs"] is None
 
 
 @pytest.mark.asyncio
@@ -388,11 +1265,13 @@ async def test_worker_report_status_reconnects_and_replays_running_models(
         cuda_devices=[0],
     )
 
+    model_a_replica_uid = "model-a-rep0"
+    model_b_replica_uid = "model-b-rep1"
     await worker.launch_builtin_model(
-        "model-a-0", "mock_model_name", None, None, None, n_gpu=1
+        model_a_replica_uid, "mock_model_name", None, None, None, n_gpu=1
     )
     await worker.launch_builtin_model(
-        "model-b-1", "mock_model_name", None, None, None, n_gpu=None
+        model_b_replica_uid, "mock_model_name", None, None, None, n_gpu=None
     )
 
     first_supervisor = DummySupervisorRef(fail_report_status_times=1)
@@ -400,17 +1279,25 @@ async def test_worker_report_status_reconnects_and_replays_running_models(
     refs = [first_supervisor, second_supervisor]
     monkeypatch.setattr("xinference.core.worker.time.time", lambda: 1710000000)
 
-    async def fake_get_supervisor_ref(self, add_worker=True):
+    async def fake_get_supervisor_ref_with_generation(self, add_worker=True):
         if self._supervisor_ref is None:
-            self._supervisor_ref = refs.pop(0)
+            with self._supervisor_ref_lock:
+                self._supervisor_ref = refs.pop(0)
+                self._supervisor_ref_generation += 1
+        supervisor_ref = self._supervisor_ref
+        generation = self._supervisor_ref_generation
         if add_worker:
-            await self._supervisor_ref.add_worker(
+            await supervisor_ref.add_worker(
                 self.address,
                 replica_states=self._get_running_replica_states(),
             )
-        return self._supervisor_ref
+        return supervisor_ref, generation
 
-    monkeypatch.setattr(WorkerActor, "get_supervisor_ref", fake_get_supervisor_ref)
+    monkeypatch.setattr(
+        WorkerActor,
+        "_get_supervisor_ref_with_generation",
+        fake_get_supervisor_ref_with_generation,
+    )
     monkeypatch.setattr(
         "xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"}
     )
@@ -423,7 +1310,7 @@ async def test_worker_report_status_reconnects_and_replays_running_models(
             addr,
             [
                 {
-                    "replica_model_uid": "model-a-0",
+                    "replica_model_uid": model_a_replica_uid,
                     "n_worker": 1,
                     "shard": 0,
                     "model_uid": "model-a",
@@ -435,7 +1322,7 @@ async def test_worker_report_status_reconnects_and_replays_running_models(
                     "instance_created_ts": 1710000000,
                 },
                 {
-                    "replica_model_uid": "model-b-1",
+                    "replica_model_uid": model_b_replica_uid,
                     "n_worker": 1,
                     "shard": 0,
                     "model_uid": "model-b",
@@ -470,8 +1357,9 @@ async def test_worker_report_status_refreshes_supervisor_internal_address_on_rec
         cuda_devices=[0],
     )
 
+    replica_model_uid = "model-a-rep0"
     await worker.launch_builtin_model(
-        "model-a-0", "mock_model_name", None, None, None, n_gpu=1
+        replica_model_uid, "mock_model_name", None, None, None, n_gpu=1
     )
 
     refreshed_supervisor = DummySupervisorRef()
@@ -512,7 +1400,7 @@ async def test_worker_report_status_refreshes_supervisor_internal_address_on_rec
     assert worker_address == addr
     assert replica_model_uids == []
     assert len(replica_states) == 1
-    assert replica_states[0]["replica_model_uid"] == "model-a-0"
+    assert replica_states[0]["replica_model_uid"] == replica_model_uid
     assert replica_states[0]["n_worker"] == 1
     assert replica_states[0]["shard"] == 0
     assert refreshed_supervisor.report_worker_status_calls == [(addr, {"cpu": "ok"})]
@@ -571,11 +1459,12 @@ async def test_worker_report_status_does_not_refresh_address_when_connection_is_
 async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypatch):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_uids = ["model-a-rep0", "model-a-rep1"]
     worker_ref = DummyReplicaWorkerRef(
         "worker-1",
         models={
-            "model-a-0": {"model_uid": "model-a-0", "address": "worker-1"},
-            "model-a-1": {"model_uid": "model-a-1", "address": "worker-1"},
+            replica_uid: {"model_uid": replica_uid, "address": "worker-1"}
+            for replica_uid in replica_uids
         },
     )
 
@@ -586,8 +1475,8 @@ async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypat
     monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
 
     replica_states = [
-        {"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0},
-        {"replica_model_uid": "model-a-1", "n_worker": 1, "shard": 0},
+        {"replica_model_uid": replica_uids[0], "n_worker": 1, "shard": 0},
+        {"replica_model_uid": replica_uids[1], "n_worker": 1, "shard": 0},
         {"replica_model_uid": "model-a-rank0", "n_worker": 1, "shard": 0},
     ]
 
@@ -596,11 +1485,316 @@ async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypat
 
     replica_info = supervisor._model_uid_to_replica_info["model-a"]
     assert replica_info.replica == 2
-    assert supervisor._replica_model_uid_to_worker["model-a-0"] is worker_ref
-    assert supervisor._replica_model_uid_to_worker["model-a-1"] is worker_ref
+    assert supervisor._replica_model_uid_to_worker[replica_uids[0]] is worker_ref
+    assert supervisor._replica_model_uid_to_worker[replica_uids[1]] is worker_ref
     assert "model-a-rank0" not in supervisor._replica_model_uid_to_worker
     assert replica_info.replica_to_worker_refs[0] == [worker_ref]
     assert replica_info.replica_to_worker_refs[1] == [worker_ref]
+    assert worker_ref.system_settings_updates == [
+        supervisor._system_settings,
+        supervisor._system_settings,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_supervisor_refreshes_optional_worker_metadata_on_registration(
+    monkeypatch,
+):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    worker_ref = DummyMetadataReplicaWorkerRef(
+        "worker-1", {"software_version": "3.4.0"}
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    await supervisor.add_worker("worker-1")
+    assert supervisor._worker_metadata["worker-1"] == {"software_version": "3.4.0"}
+
+    worker_ref.metadata = {"software_version": "3.4.1.dev9+gabcdef"}
+    await supervisor.add_worker("worker-1")
+    assert supervisor._worker_metadata["worker-1"] == {
+        "software_version": "3.4.1.dev9+gabcdef"
+    }
+
+    worker_ref.metadata = RuntimeError("old worker has no metadata RPC")
+    await supervisor.add_worker("worker-1")
+
+    assert "worker-1" in supervisor._worker_address_to_worker
+    assert "worker-1" not in supervisor._worker_metadata
+    assert "worker-1" in supervisor._worker_metadata_refresh_tasks
+    assert len(worker_ref.system_settings_updates) == 3
+
+    supervisor._discard_worker_metadata("worker-1")
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_supervisor_retries_optional_worker_metadata_after_registration_failure(
+    monkeypatch,
+):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    worker_ref = DummyMetadataReplicaWorkerRef(
+        "worker-1",
+        [
+            RuntimeError("metadata RPC temporarily unavailable"),
+            {"software_version": "3.4.1.dev9+gabcdef"},
+        ],
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    monkeypatch.setattr(supervisor_module, "_WORKER_METADATA_RETRY_DELAYS", (0, 0, 0))
+
+    await supervisor.add_worker("worker-1")
+
+    assert "worker-1" in supervisor._worker_address_to_worker
+    metadata_task = supervisor._worker_metadata_refresh_tasks["worker-1"]
+    await metadata_task
+    assert worker_ref.metadata_calls == 2
+    assert supervisor._worker_metadata["worker-1"] == {
+        "software_version": "3.4.1.dev9+gabcdef"
+    }
+    assert "worker-1" not in supervisor._worker_metadata_refresh_tasks
+
+
+@pytest.mark.asyncio
+async def test_stale_worker_metadata_retry_cannot_overwrite_new_registration(
+    monkeypatch,
+):
+    supervisor = SupervisorActor()
+    old_worker_ref = DummyMetadataReplicaWorkerRef(
+        "worker-1", {"software_version": "3.4.0"}
+    )
+    new_worker_ref = DummyMetadataReplicaWorkerRef(
+        "worker-1", {"software_version": "3.4.1"}
+    )
+    supervisor._worker_address_to_worker["worker-1"] = old_worker_ref
+    old_generation = supervisor._start_worker_metadata_generation("worker-1")
+
+    supervisor._discard_worker_metadata("worker-1")
+    supervisor._worker_address_to_worker["worker-1"] = new_worker_ref
+    new_generation = supervisor._start_worker_metadata_generation("worker-1")
+
+    assert not await supervisor._refresh_worker_metadata(
+        "worker-1", old_worker_ref, old_generation
+    )
+    assert await supervisor._refresh_worker_metadata(
+        "worker-1", new_worker_ref, new_generation
+    )
+    assert supervisor._worker_metadata["worker-1"] == {"software_version": "3.4.1"}
+
+
+@pytest.mark.asyncio
+async def test_supervisor_remove_worker_clears_cached_metadata(monkeypatch):
+    supervisor = SupervisorActor()
+    worker_ref = DummyMetadataReplicaWorkerRef(
+        "worker-1", RuntimeError("metadata unavailable")
+    )
+    supervisor._worker_address_to_worker["worker-1"] = worker_ref
+    supervisor._worker_metadata["worker-1"] = {"software_version": "3.4.0"}
+    generation = supervisor._start_worker_metadata_generation("worker-1")
+    supervisor._schedule_worker_metadata_retry("worker-1", worker_ref, generation)
+    metadata_task = supervisor._worker_metadata_refresh_tasks["worker-1"]
+
+    async def fake_handle_dead_worker(worker_address):
+        assert worker_address == "worker-1"
+
+    monkeypatch.setattr(supervisor, "_handle_dead_worker", fake_handle_dead_worker)
+
+    await supervisor.remove_worker("worker-1")
+
+    assert "worker-1" not in supervisor._worker_address_to_worker
+    assert "worker-1" not in supervisor._worker_metadata
+    assert "worker-1" not in supervisor._worker_metadata_generation
+    assert "worker-1" not in supervisor._worker_metadata_refresh_tasks
+    with pytest.raises(asyncio.CancelledError):
+        await metadata_task
+    assert metadata_task.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_supervisor_propagates_system_settings(monkeypatch):
+    supervisor = SupervisorActor()
+    workers = {
+        "worker-1": DummyReplicaWorkerRef("worker-1"),
+        "worker-2": DummyReplicaWorkerRef("worker-2"),
+    }
+    supervisor._worker_address_to_worker.update(workers)
+    applied = []
+    monkeypatch.setattr(
+        system_settings_store_module,
+        "apply_system_settings",
+        lambda settings: applied.append(settings),
+    )
+    settings = {
+        "download_source": "modelscope",
+        "hf_endpoint": "https://hf.example.com",
+        "hf_token": "hf_abcdefgh12345678",
+        "pip_index_url": "https://pip.example.com/simple",
+        "download_max_attempts": 5,
+        "hub_detect_timeout": 4.5,
+        "model_download_workers": 6,
+    }
+
+    await supervisor.update_system_settings(settings)
+
+    assert applied[0].to_dict() == settings
+    assert supervisor._system_settings == settings
+    assert workers["worker-1"].system_settings_updates == [settings]
+    assert workers["worker-2"].system_settings_updates == [settings]
+
+
+@pytest.mark.asyncio
+async def test_supervisor_logs_system_settings_worker_failure(monkeypatch, caplog):
+    class FailingWorkerRef:
+        async def update_system_settings(self, _settings):
+            raise RuntimeError("worker update failed")
+
+    supervisor = SupervisorActor()
+    successful_worker = DummyReplicaWorkerRef("worker-1")
+    supervisor._worker_address_to_worker.update(
+        {
+            "worker-1": successful_worker,
+            "worker-2": FailingWorkerRef(),
+        }
+    )
+    monkeypatch.setattr(
+        system_settings_store_module,
+        "apply_system_settings",
+        lambda _: None,
+    )
+    settings = system_settings_store_module.get_system_settings_from_environment(
+        {}
+    ).to_dict()
+
+    with caplog.at_level(logging.WARNING, logger="xinference.core.supervisor"):
+        await supervisor.update_system_settings(settings)
+
+    assert successful_worker.system_settings_updates == [settings]
+    assert "Failed to apply system settings to worker worker-2" in caplog.text
+    assert "RuntimeError: worker update failed" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_rebuilds_sparse_replica_ids(monkeypatch):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_model_uid = "model-a-rep2"
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={
+            replica_model_uid: {
+                "model_uid": replica_model_uid,
+                "address": "worker-1",
+            }
+        },
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    await supervisor.add_worker(
+        "worker-1",
+        replica_states=[
+            {
+                "replica_model_uid": replica_model_uid,
+                "n_worker": 1,
+                "shard": 0,
+                "model_uid": "model-a",
+                "model_name": "demo-model",
+                "model_version": None,
+                "model_ability": ["generate"],
+                "status": LaunchStatus.READY.name,
+                "created_ts": 1710000001,
+                "instance_created_ts": 1710000001,
+            }
+        ],
+    )
+
+    replica_info = supervisor._model_uid_to_replica_info["model-a"]
+    assert replica_info.replica == 1
+    assert replica_info.active_replica_ids == [2]
+    assert next(replica_info.scheduler) == 2
+    assert "model-a-rep0" not in supervisor._replica_model_uid_to_worker
+    assert supervisor._replica_model_uid_to_worker[replica_model_uid] is worker_ref
+
+    instance_info = (
+        await supervisor._status_guard_ref.get_instance_info(model_uid="model-a")
+    )[0]
+    assert instance_info.replica == 1
+    assert [status.replica_id for status in instance_info.replica_statuses] == [2]
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_reconciles_partial_recovery(monkeypatch):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_uids = ["model-a-rep0", "model-a-rep1"]
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={
+            replica_uid: {"model_uid": replica_uid, "address": "worker-1"}
+            for replica_uid in replica_uids
+        },
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    def build_state(replica_model_uid: str, created_ts: int):
+        return {
+            "replica_model_uid": replica_model_uid,
+            "n_worker": 1,
+            "shard": 0,
+            "model_uid": "model-a",
+            "model_name": "demo-model",
+            "model_version": None,
+            "model_ability": ["generate"],
+            "status": LaunchStatus.READY.name,
+            "created_ts": created_ts,
+            "instance_created_ts": 1710000001,
+        }
+
+    replica_states = [
+        build_state(replica_uids[0], 1710000001),
+        build_state(replica_uids[1], 1710000002),
+    ]
+    await supervisor.add_worker("worker-1", replica_states=replica_states)
+
+    await supervisor.add_worker("worker-1", replica_states=replica_states[:1])
+
+    replica_info = supervisor._model_uid_to_replica_info["model-a"]
+    assert replica_info.replica == 1
+    assert replica_info.active_replica_ids == [0]
+    assert supervisor._replica_model_uid_to_worker[replica_uids[0]] is worker_ref
+    assert replica_uids[1] not in supervisor._replica_model_uid_to_worker
+    assert ("model-a", 1) in supervisor._unexpected_down_replicas
+
+    instance_info = (
+        await supervisor._status_guard_ref.get_instance_info(model_uid="model-a")
+    )[0]
+    assert instance_info.replica == 1
+    assert instance_info.status == LaunchStatus.READY.name
+    replica_statuses = {
+        status.replica_id: status for status in instance_info.replica_statuses
+    }
+    assert replica_statuses[0].status == LaunchStatus.READY.name
+    assert replica_statuses[1].status == LaunchStatus.TERMINATED.name
 
 
 @pytest.mark.asyncio
@@ -638,20 +1832,31 @@ async def test_supervisor_report_worker_status_accepts_registered_worker():
 async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkeypatch):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_model_uid = "model-s-rep0"
     shard0 = DummyReplicaWorkerRef(
         "worker-0",
-        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-0"}},
+        models={
+            replica_model_uid: {
+                "model_uid": replica_model_uid,
+                "address": "worker-0",
+            }
+        },
     )
     shard1 = DummyReplicaWorkerRef(
         "worker-1",
-        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-1"}},
+        models={
+            replica_model_uid: {
+                "model_uid": replica_model_uid,
+                "address": "worker-1",
+            }
+        },
     )
 
     supervisor._worker_address_to_worker = {
         "worker-0": shard0,
         "worker-1": shard1,
     }
-    supervisor._replica_model_uid_to_worker = {"model-s-0": (shard0, shard1)}
+    supervisor._replica_model_uid_to_worker = {replica_model_uid: (shard0, shard1)}
     supervisor._model_uid_to_replica_info = {
         "model-s": ReplicaInfo(replica=1, scheduler=itertools.cycle(range(1)))
     }
@@ -670,10 +1875,12 @@ async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkey
 
     await supervisor.add_worker(
         "worker-1",
-        replica_states=[{"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 1}],
+        replica_states=[
+            {"replica_model_uid": replica_model_uid, "n_worker": 2, "shard": 1}
+        ],
     )
 
-    worker_refs = supervisor._replica_model_uid_to_worker["model-s-0"]
+    worker_refs = supervisor._replica_model_uid_to_worker[replica_model_uid]
     assert isinstance(worker_refs, tuple)
     assert worker_refs == (shard0, shard1)
     assert supervisor._model_uid_to_replica_info["model-s"].replica_to_worker_refs[
@@ -691,13 +1898,24 @@ async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkey
 async def test_supervisor_add_worker_rebuilds_sharded_replica_order(monkeypatch):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_model_uid = "model-s-rep0"
     shard0 = DummyReplicaWorkerRef(
         "worker-0",
-        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-0"}},
+        models={
+            replica_model_uid: {
+                "model_uid": replica_model_uid,
+                "address": "worker-0",
+            }
+        },
     )
     shard1 = DummyReplicaWorkerRef(
         "worker-1",
-        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-1"}},
+        models={
+            replica_model_uid: {
+                "model_uid": replica_model_uid,
+                "address": "worker-1",
+            }
+        },
     )
 
     async def fake_actor_ref(address, uid):
@@ -711,14 +1929,18 @@ async def test_supervisor_add_worker_rebuilds_sharded_replica_order(monkeypatch)
 
     await supervisor.add_worker(
         "worker-1",
-        replica_states=[{"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 1}],
+        replica_states=[
+            {"replica_model_uid": replica_model_uid, "n_worker": 2, "shard": 1}
+        ],
     )
     await supervisor.add_worker(
         "worker-0",
-        replica_states=[{"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 0}],
+        replica_states=[
+            {"replica_model_uid": replica_model_uid, "n_worker": 2, "shard": 0}
+        ],
     )
 
-    worker_refs = supervisor._replica_model_uid_to_worker["model-s-0"]
+    worker_refs = supervisor._replica_model_uid_to_worker[replica_model_uid]
     assert isinstance(worker_refs, tuple)
     assert worker_refs == (shard0, shard1)
     assert supervisor._model_uid_to_replica_info["model-s"].replica_to_worker_refs[
@@ -738,11 +1960,12 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
 ):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_uids = ["model-a-rep0", "model-a-rep1"]
     worker_ref = DummyReplicaWorkerRef(
         "worker-1",
         models={
-            "model-a-0": {"model_uid": "model-a-0", "address": "worker-1"},
-            "model-a-1": {"model_uid": "model-a-1", "address": "worker-1"},
+            replica_uid: {"model_uid": replica_uid, "address": "worker-1"}
+            for replica_uid in replica_uids
         },
     )
 
@@ -754,7 +1977,7 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
 
     replica_states = [
         {
-            "replica_model_uid": "model-a-0",
+            "replica_model_uid": replica_uids[0],
             "n_worker": 1,
             "shard": 0,
             "model_uid": "model-a",
@@ -766,7 +1989,7 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
             "instance_created_ts": 1710000001,
         },
         {
-            "replica_model_uid": "model-a-1",
+            "replica_model_uid": replica_uids[1],
             "n_worker": 1,
             "shard": 0,
             "model_uid": "model-a",
@@ -798,10 +2021,7 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
     )
     assert len(replica_statuses) == 2
     assert [status.replica_id for status in replica_statuses] == [0, 1]
-    assert [status.replica_model_uid for status in replica_statuses] == [
-        "model-a-0",
-        "model-a-1",
-    ]
+    assert [status.replica_model_uid for status in replica_statuses] == replica_uids
     assert [status.worker_address for status in replica_statuses] == [
         "worker-1",
         "worker-1",
@@ -810,6 +2030,13 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
         LaunchStatus.READY.name,
         LaunchStatus.READY.name,
     ]
+
+    await supervisor._status_guard_ref.update_replica_status(
+        "model-a", 0, {"replica_uid": "primary", "gpu_idx": [0]}
+    )
+    api_statuses = await supervisor.get_replica_statuses("model-a")
+    assert api_statuses[0]["replica_uid"] == "primary"
+    assert api_statuses[0]["gpu_idx"] == [0]
 
 
 def test_prepare_virtual_env_without_engine_vars():
@@ -826,6 +2053,100 @@ def test_prepare_virtual_env_without_engine_vars():
     _, kwargs = manager.calls[0]
     assert "engine" not in kwargs
     assert "model_engine" not in kwargs
+
+
+def test_prepare_virtual_env_jina_flash_attn_uses_dedicated_hook_and_fingerprint(
+    tmp_path, monkeypatch
+):
+    import xinference.core.virtual_env_manager as virtual_env_manager_module
+
+    manager = DummyVirtualEnvManager()
+    manager.env_path = str(tmp_path / "jina-venv")
+    os.makedirs(manager.env_path)
+    base_packages = ["pkgA==1.0.0", "flash-attn==2.8.3.post1+cvte1"]
+    hook_calls = []
+
+    monkeypatch.setattr(
+        virtual_env_manager_module,
+        "apply_flash_attn_wheel_post_install",
+        lambda *args: hook_calls.append(args),
+    )
+    monkeypatch.setattr(
+        WorkerActor, "_is_cuda_device_available", staticmethod(lambda: True)
+    )
+
+    first_settings = VirtualEnvSettings(
+        packages=base_packages,
+        inherit_pip_config=False,
+        find_links=["/wheels/jina"],
+    )
+    for _ in range(2):
+        WorkerActor._prepare_virtual_env(
+            manager,
+            first_settings,
+            None,
+            model_engine=None,
+            model_name="jina-embeddings-v3",
+        )
+
+    changed_settings = VirtualEnvSettings(
+        packages=["pkgA==1.0.0", "flash-attn==2.8.4"],
+        inherit_pip_config=False,
+        find_links=["/wheels/jina"],
+    )
+    WorkerActor._prepare_virtual_env(
+        manager,
+        changed_settings,
+        None,
+        model_engine=None,
+        model_name="jina-embeddings-v3",
+    )
+
+    assert [call[0] for call in manager.calls] == [
+        ["pkgA==1.0.0"],
+        ["pkgA==1.0.0"],
+    ]
+    assert [call[1] for call in hook_calls] == [
+        ["flash-attn==2.8.3.post1+cvte1"],
+        ["flash-attn==2.8.4"],
+    ]
+    assert hook_calls[0][3]["find_links"] == ["/wheels/jina"]
+    assert hook_calls[0][4] is True
+    assert os.path.exists(os.path.join(manager.env_path, ".xinference_setup_done"))
+
+
+def test_prepare_virtual_env_non_jina_keeps_flash_attn_in_regular_install(
+    tmp_path, monkeypatch
+):
+    import xinference.core.virtual_env_manager as virtual_env_manager_module
+
+    manager = DummyVirtualEnvManager()
+    manager.env_path = str(tmp_path / "other-venv")
+    os.makedirs(manager.env_path)
+    hook_calls = []
+    monkeypatch.setattr(
+        virtual_env_manager_module,
+        "apply_flash_attn_wheel_post_install",
+        lambda *args: hook_calls.append(args),
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        VirtualEnvSettings(
+            packages=["pkgA==1.0.0", "flash-attn==2.8.3.post1+cvte1"],
+            inherit_pip_config=False,
+        ),
+        None,
+        model_engine=None,
+        model_name="another-model",
+    )
+
+    assert manager.calls[0][0] == [
+        "pkgA==1.0.0",
+        "flash-attn==2.8.3.post1+cvte1",
+    ]
+    assert hook_calls[0][0] == "another-model"
+    assert hook_calls[0][1] == []
 
 
 def test_prepare_virtual_env_inherit_pip_config(monkeypatch):
@@ -847,6 +2168,252 @@ def test_prepare_virtual_env_inherit_pip_config(monkeypatch):
     assert len(manager.calls) == 1
     _, kwargs = manager.calls[0]
     assert kwargs["index_url"] == "https://example.invalid/simple"
+
+
+def test_prepare_virtual_env_normal_pip_mirror_keeps_direct_wheel(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    direct_wheel = "https://example.invalid/" "pkg-1.0.0-py3-none-any.whl"
+    settings = VirtualEnvSettings(
+        packages=[direct_wheel],
+        inherit_pip_config=False,
+        index_url="https://pypi-mirror.example/simple",
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", False
+    )
+
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine=None)
+
+    packages, _ = manager.calls[0]
+    assert packages == [direct_wheel]
+
+
+def test_prepare_virtual_env_direct_reference_disables_skip_installed(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    direct_reference = "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@abcdef"
+    settings = VirtualEnvSettings(
+        packages=[direct_reference],
+        inherit_pip_config=False,
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", False
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED", True
+    )
+
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine="mlx")
+
+    packages, kwargs = manager.calls[0]
+    assert packages == [direct_reference]
+    assert kwargs["skip_installed"] is False
+
+
+@pytest.mark.parametrize(
+    "direct_reference",
+    [
+        "package @ hg+https://example.invalid/repo",
+        "package @ svn+ssh://example.invalid/repo",
+        "package @ bzr+https://example.invalid/repo",
+        'package @ file:///tmp/package ; python_version >= "3.10"',
+    ],
+)
+def test_prepare_virtual_env_all_direct_references_disable_skip_installed(
+    monkeypatch, direct_reference
+):
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(packages=[direct_reference], inherit_pip_config=False)
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", False
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED", True
+    )
+
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine="mlx")
+
+    packages, kwargs = manager.calls[0]
+    assert packages == [direct_reference]
+    assert kwargs["skip_installed"] is False
+
+
+def test_prepare_virtual_env_offline_mirror_rewrites_direct_wheel(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    direct_wheel = "https://example.invalid/" "pkg-1.0.0-py3-none-any.whl"
+    settings = VirtualEnvSettings(
+        packages=[direct_wheel],
+        inherit_pip_config=False,
+        index_url="http://xinference-pypiserver:8080/simple",
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine=None)
+
+    packages, _ = manager.calls[0]
+    assert packages == ["pkg==1.0.0"]
+
+
+def test_prepare_virtual_env_offline_mirror_rejects_git_source(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["diffusers @ git+https://github.com/huggingface/diffusers"],
+        inherit_pip_config=False,
+        index_url="http://xinference-pypiserver:8080/simple",
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+
+    with pytest.raises(ValueError, match="non-wheel direct references"):
+        WorkerActor._prepare_virtual_env(manager, settings, None, model_engine=None)
+
+    assert manager.calls == []
+
+
+@pytest.mark.parametrize(
+    "direct_reference",
+    [
+        "package @ hg+https://example.invalid/repo",
+        "package @ svn+ssh://example.invalid/repo",
+        "package @ bzr+https://example.invalid/repo",
+    ],
+)
+def test_prepare_virtual_env_offline_mirror_rejects_remote_vcs(
+    monkeypatch, direct_reference
+):
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=[direct_reference],
+        inherit_pip_config=False,
+        index_url="http://xinference-pypiserver:8080/simple",
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+
+    with pytest.raises(ValueError, match="non-wheel direct references"):
+        WorkerActor._prepare_virtual_env(manager, settings, None, model_engine="mlx")
+
+    assert manager.calls == []
+
+
+def test_prepare_virtual_env_offline_allows_local_file_reference(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    direct_reference = "package @ file:///tmp/package"
+    settings = VirtualEnvSettings(
+        packages=[direct_reference],
+        inherit_pip_config=False,
+        index_url="http://xinference-pypiserver:8080/simple",
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED", True
+    )
+
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine="mlx")
+
+    packages, kwargs = manager.calls[0]
+    assert packages == [direct_reference]
+    assert kwargs["skip_installed"] is False
+
+
+def test_prepare_virtual_env_offline_sglang_engine_dispatch(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    private_index = "http://xinference-pypiserver:8080/simple"
+    settings = VirtualEnvSettings(
+        packages=["#sglang_dependencies#"],
+        inherit_pip_config=False,
+        index_url=private_index,
+        extra_index_url=private_index,
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+    monkeypatch.setattr("xoscar.virtualenv.platform.get_cuda_version", lambda: "13.0")
+    monkeypatch.setattr("xinference.core.utils.platform.machine", lambda: "x86_64")
+    monkeypatch.setattr(
+        "xinference.core.worker.get_engine_critical_dependency_specs",
+        lambda *_args, **_kwargs: [],
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        None,
+        model_engine="sglang",
+    )
+
+    packages, kwargs = manager.calls[0]
+    assert "sglang>=0.5.6" in packages
+    assert "sgl_kernel==0.3.21+cu130" in packages
+    assert "sgl_kernel" not in packages
+    assert all("github.com/sgl-project" not in package for package in packages)
+    assert kwargs["index_url"] == private_index
+    assert kwargs["extra_index_url"] == private_index
+    assert kwargs["engine"] == "sglang"
+
+
+def test_prepare_virtual_env_offline_llama_cpp_warns_cpu_fallback(monkeypatch, caplog):
+    manager = DummyVirtualEnvManager()
+    private_index = "http://xinference-pypiserver:8080/simple"
+    settings = VirtualEnvSettings(
+        packages=["xllamacpp>=0.2.6"],
+        inherit_pip_config=False,
+        index_url=private_index,
+        extra_index_url=private_index,
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+    monkeypatch.setattr("xoscar.virtualenv.platform.get_cuda_version", lambda: "13.0")
+    monkeypatch.setattr(WorkerActor, "_is_cuda_device_available", lambda: True)
+    monkeypatch.setattr(
+        "xinference.core.worker.get_engine_critical_dependency_specs",
+        lambda *_args, **_kwargs: [],
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        None,
+        model_engine="llama.cpp",
+    )
+
+    packages, kwargs = manager.calls[0]
+    assert packages == ["xllamacpp>=0.2.6"]
+    assert kwargs["index_url"] == private_index
+    assert "installing the CPU build" in caplog.text
+
+
+def test_prepare_virtual_env_pins_missing_breeze_torchcodec(monkeypatch):
+    from importlib import metadata
+
+    original_version = metadata.version
+
+    def version(name):
+        if name == "torchcodec":
+            raise metadata.PackageNotFoundError(name)
+        if name == "torch":
+            return "2.9.1+cu128"
+        return original_version(name)
+
+    monkeypatch.setattr(metadata, "version", version)
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["#system_torch#", "#system_torchcodec#"],
+        inherit_pip_config=False,
+    )
+    WorkerActor._prepare_virtual_env(
+        manager, settings, None, model_engine="PyTorch", model_name="Breeze-TTS-2"
+    )
+    packages, _ = manager.calls[0]
+    assert "torchcodec>=0.8,<0.10" in packages
+    assert "#system_torchcodec#" not in packages
+    assert "#system_torch#" in packages
 
 
 def test_prepare_virtual_env_keeps_system_markers():
@@ -874,6 +2441,80 @@ def test_prepare_virtual_env_keeps_system_markers():
     ]
 
 
+def test_prepare_virtual_env_system_torch_respects_configured_extra_index(monkeypatch):
+    # Regression test: an explicitly configured extra index (e.g. an
+    # offline/private mirror inherited from pip config) must not be overridden
+    # by the auto-configured public CUDA wheel index when the package list
+    # contains a #system_torch# marker — uv treats an unreachable extra index
+    # as fatal, breaking air-gapped deployments.
+    import importlib.metadata
+
+    from ..virtual_env_manager import PYTORCH_PACKAGES
+
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["#system_torch#"],
+        inherit_pip_config=True,
+    )
+
+    private_index = "http://pypiserver:8080/simple"
+    monkeypatch.setattr(
+        "xinference.core.worker.get_pip_config_args",
+        lambda: {"index_url": private_index, "extra_index_url": private_index},
+    )
+    real_version = importlib.metadata.version
+    monkeypatch.setattr(
+        "importlib.metadata.version",
+        lambda name: "2.9.0+cu130" if name in PYTORCH_PACKAGES else real_version(name),
+    )
+    monkeypatch.setattr("xoscar.virtualenv.platform.get_cuda_version", lambda: "13.0")
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        None,
+        model_engine="vllm",
+    )
+
+    assert len(manager.calls) == 1
+    _, kwargs = manager.calls[0]
+    assert kwargs["index_url"] == private_index
+    assert "download.pytorch.org" not in str(kwargs["extra_index_url"])
+    assert kwargs["extra_index_url"] == private_index
+
+
+def test_prepare_virtual_env_system_torch_injects_cuda_index_by_default(monkeypatch):
+    # Without any explicitly configured index, the auto-configured CUDA wheel
+    # index keeps being injected for #system_torch# (default online behavior).
+    import importlib.metadata
+
+    from ..virtual_env_manager import PYTORCH_CUDA_WHEEL_URLS, PYTORCH_PACKAGES
+
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["#system_torch#"],
+        inherit_pip_config=False,
+    )
+
+    real_version = importlib.metadata.version
+    monkeypatch.setattr(
+        "importlib.metadata.version",
+        lambda name: "2.9.0+cu130" if name in PYTORCH_PACKAGES else real_version(name),
+    )
+    monkeypatch.setattr("xoscar.virtualenv.platform.get_cuda_version", lambda: "13.0")
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        None,
+        model_engine=None,
+    )
+
+    assert len(manager.calls) == 1
+    _, kwargs = manager.calls[0]
+    assert kwargs["extra_index_url"] == [PYTORCH_CUDA_WHEEL_URLS["cu130"]]
+
+
 def test_prepare_virtual_env_expands_engine_dependencies_before_user_override():
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(
@@ -892,6 +2533,46 @@ def test_prepare_virtual_env_expands_engine_dependencies_before_user_override():
     packages, _ = manager.calls[0]
     assert packages.count("vllm==0.10.2") == 1
     assert "vllm>=0.11.2" not in packages
+
+
+def test_prepare_virtual_env_selects_transformers_packages_by_model_format():
+    settings = VirtualEnvSettings(
+        packages=['#transformers_dependencies# ; #engine# == "Transformers"'],
+        inherit_pip_config=False,
+    )
+
+    # ``match_llm`` narrows model_specs to the selected spec. The request may
+    # still omit model_format, so dependency selection must use that spec.
+    model = SimpleNamespace(
+        model_family=SimpleNamespace(model_specs=[SimpleNamespace(model_format="gptq")])
+    )
+    resolved_model_format = WorkerActor._resolve_virtualenv_model_format(model, None)
+    assert resolved_model_format == "gptq"
+
+    gptq_manager = DummyVirtualEnvManager()
+    WorkerActor._prepare_virtual_env(
+        gptq_manager,
+        settings,
+        None,
+        model_engine="Transformers",
+        model_format=resolved_model_format,
+    )
+    gptq_packages, _ = gptq_manager.calls[0]
+    assert any(package.startswith("gptqmodel") for package in gptq_packages)
+    assert "optimum" in gptq_packages
+    assert "datasets>=3.4.0" in gptq_packages
+    assert not any(package.startswith("autoawq") for package in gptq_packages)
+
+    pytorch_manager = DummyVirtualEnvManager()
+    WorkerActor._prepare_virtual_env(
+        pytorch_manager,
+        settings,
+        None,
+        model_engine="Transformers",
+        model_format="pytorch",
+    )
+    pytorch_packages, _ = pytorch_manager.calls[0]
+    assert pytorch_packages == ["transformers>=4.53.3", "accelerate>=0.28.0"]
 
 
 @pytest.mark.asyncio
@@ -1167,21 +2848,68 @@ async def _make_gpu_worker(pool, cuda_devices=(0, 1)):
     return worker, sup
 
 
-def _patch_gpu_sources(monkeypatch, gpu_mem, children_map=None, calls=None):
+def _patch_gpu_sources(
+    monkeypatch, gpu_mem, children_map=None, calls=None, error=None, node_info=None
+):
     import psutil
 
-    def _fake_get_per_process_gpu_memory():
+    def _fake_get_per_process_gpu_memory(*, strict=False):
         if calls is not None:
-            calls.append("called")
+            calls.append(("called", strict))
+        if error is not None:
+            raise error
         return gpu_mem
 
-    monkeypatch.setattr("xinference.core.worker.gather_node_info", lambda: {})
+    monkeypatch.setattr(
+        "xinference.core.worker.gather_node_info", lambda: node_info or {}
+    )
     monkeypatch.setattr(
         "xinference.device_utils.get_per_process_gpu_memory",
         _fake_get_per_process_gpu_memory,
     )
     _FakeProcess._children_map = children_map or {}
     monkeypatch.setattr(psutil, "Process", _FakeProcess)
+
+
+def _fake_pynvml(*, init_error=None, process_error=None):
+    class NVMLError(Exception):
+        pass
+
+    def nvml_init():
+        if init_error is not None:
+            raise init_error
+
+    def get_processes(_handle):
+        if process_error is not None:
+            raise process_error
+        return []
+
+    return SimpleNamespace(
+        NVMLError=NVMLError,
+        nvmlInit=nvml_init,
+        nvmlShutdown=lambda: None,
+        nvmlDeviceGetCount=lambda: 1,
+        nvmlDeviceGetHandleByIndex=lambda _index: object(),
+        nvmlDeviceGetComputeRunningProcesses=get_processes,
+    )
+
+
+def test_get_per_process_gpu_memory_strict_distinguishes_empty_from_failure(
+    monkeypatch,
+):
+    from xinference.device_utils import get_per_process_gpu_memory
+
+    fake = _fake_pynvml()
+    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    assert get_per_process_gpu_memory(strict=True) == {}
+
+    nvml_error = fake.NVMLError("driver unavailable")
+    monkeypatch.setitem(sys.modules, "pynvml", _fake_pynvml(init_error=nvml_error))
+    with pytest.raises(type(nvml_error), match="driver unavailable"):
+        get_per_process_gpu_memory(strict=True)
+
+    # Preserve the historical non-strict compatibility behavior.
+    assert get_per_process_gpu_memory() == {}
 
 
 @pytest.mark.asyncio
@@ -1256,6 +2984,53 @@ async def test_report_status_replicas_do_not_cross_or_double_count(
 
 
 @pytest.mark.asyncio
+async def test_report_status_ignores_none_subpool_pid(setup_pool, monkeypatch):
+    import psutil
+
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={}, subpool={"A": {None, 100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={100: {0: 512}})
+    fake_process = psutil.Process
+    expanded_pids = []
+
+    def record_process(pid):
+        assert pid is not None
+        expanded_pids.append(pid)
+        return fake_process(pid)
+
+    monkeypatch.setattr(psutil, "Process", record_process)
+
+    await worker.report_status()
+
+    assert expanded_pids == [100]
+    assert sup.report_worker_status_calls[-1][1]["model_gpu_memory"] == {"A": {0: 512}}
+
+
+@pytest.mark.asyncio
+async def test_report_status_tolerates_zombie_process_during_pid_expansion(
+    setup_pool, monkeypatch
+):
+    import psutil
+
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={"A": 100}, subpool={"A": {100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={})
+
+    def raise_zombie(_pid):
+        raise psutil.ZombieProcess(100)
+
+    monkeypatch.setattr(psutil, "Process", raise_zombie)
+
+    await worker.report_status()
+
+    assert sup.report_worker_status_calls[-1][1]["model_gpu_memory"] == {}
+
+
+@pytest.mark.asyncio
 async def test_report_status_skips_gpu_collection_when_cpu_only(
     setup_pool, monkeypatch
 ):
@@ -1272,6 +3047,130 @@ async def test_report_status_skips_gpu_collection_when_cpu_only(
     status = sup.report_worker_status_calls[-1][1]
     assert "model_gpu_memory" not in status
     assert calls == []  # NVML never queried on CPU-only worker
+
+
+@pytest.mark.asyncio
+async def test_report_status_publishes_explicit_empty_gpu_snapshot(
+    setup_pool, monkeypatch
+):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={}, subpool={}, total_devices=[0]
+    )
+    calls: list = []
+    _patch_gpu_sources(monkeypatch, gpu_mem={}, calls=calls)
+
+    await worker.report_status()
+
+    status = sup.report_worker_status_calls[-1][1]
+    assert status["model_gpu_memory"] == {}
+    assert calls == [("called", True)]
+
+
+@pytest.mark.asyncio
+async def test_report_status_omits_gpu_snapshot_on_collection_failure(
+    setup_pool, monkeypatch
+):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={"A": 100}, subpool={"A": {100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(
+        monkeypatch,
+        gpu_mem={},
+        error=RuntimeError("NVML unavailable"),
+        node_info={"cpu": "ok"},
+    )
+
+    await worker.report_status()
+
+    status = sup.report_worker_status_calls[-1][1]
+    assert status == {"cpu": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_report_status_omits_ambiguous_gpu_pid_ownership(setup_pool, monkeypatch):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={}, subpool={"A": {100}, "B": {100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={100: {0: 1000}})
+
+    await worker.report_status()
+
+    assert "model_gpu_memory" not in sup.report_worker_status_calls[-1][1]
+
+
+def test_refresh_model_subpool_pids_replaces_stale_pid():
+    class _Process:
+        def __init__(self, pid):
+            self.pid = pid
+
+    worker = SimpleNamespace(
+        _main_pool=SimpleNamespace(
+            sub_processes={"pool-a": _Process(200), "pool-b": _Process(300)}
+        ),
+        _model_uid_to_subpool_addresses={"A": {"pool-a", "pool-b"}},
+        _model_uid_to_subpool_pids={"A": {100}},
+    )
+
+    WorkerActor._refresh_model_subpool_pids(worker)  # type: ignore[arg-type]
+
+    assert worker._model_uid_to_subpool_pids == {"A": {200, 300}}
+
+
+def test_refresh_model_subpool_pids_preserves_snapshot_when_address_unresolved():
+    worker = SimpleNamespace(
+        _main_pool=SimpleNamespace(sub_processes={}),
+        _model_uid_to_subpool_addresses={"A": {"pool-a"}},
+        _model_uid_to_subpool_pids={"A": {100}},
+    )
+
+    with pytest.raises(RuntimeError, match="ownership is incomplete"):
+        WorkerActor._refresh_model_subpool_pids(worker)  # type: ignore[arg-type]
+
+    assert worker._model_uid_to_subpool_pids == {"A": {100}}
+
+
+@pytest.mark.asyncio
+async def test_report_status_omits_snapshot_when_subpool_address_unresolved(
+    setup_pool, monkeypatch
+):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={},
+        subpool={"A": {100}},
+        subpool_addresses={"A": {"missing-pool"}},
+        total_devices=[0],
+    )
+    calls = []
+    _patch_gpu_sources(monkeypatch, gpu_mem={100: {0: 1000}}, calls=calls)
+
+    await worker.report_status()
+
+    assert "model_gpu_memory" not in sup.report_worker_status_calls[-1][1]
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_report_status_uses_refreshed_subpool_pid(setup_pool, monkeypatch):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_subpool_process_pid_for_test("dynamic-pool", 200)
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={},
+        subpool={"A": {100}},
+        subpool_addresses={"A": {"dynamic-pool"}},
+        total_devices=[0],
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={200: {0: 2048}})
+
+    try:
+        await worker.report_status()
+
+        status = sup.report_worker_status_calls[-1][1]
+        assert status["model_gpu_memory"] == {"A": {0: 2048}}
+    finally:
+        await worker.remove_subpool_process_for_test("dynamic-pool")
 
 
 @pytest.mark.asyncio
@@ -1417,21 +3316,482 @@ async def test_mark_replica_dead_last_replica_terminates_rank0():
     replica_info.active_replica_ids.append(0)
     replica_info.replica_to_worker_refs[0].append(replica_ref)
     supervisor._model_uid_to_replica_info = {"model-x": replica_info}
+    replica_model_uid = "model-x-rep0"
     supervisor._replica_model_uid_to_worker = {
-        "model-x-0": replica_ref,
+        replica_model_uid: replica_ref,
         "model-x-rank0": rank0_ref,
     }
 
-    await supervisor.mark_replica_dead("model-x-0")
+    await supervisor.mark_replica_dead(replica_model_uid)
 
     # rank0 terminated on the worker and supervisor mapping dropped.
     assert rank0_ref.terminated == ["model-x-rank0"]
     assert "model-x-rank0" not in supervisor._replica_model_uid_to_worker
     # Dead replica evicted and model taken offline.
     assert "model-x" not in supervisor._model_uid_to_replica_info
-    assert "model-x-0" not in supervisor._replica_model_uid_to_worker
+    assert replica_model_uid not in supervisor._replica_model_uid_to_worker
     # Failure gauge marker stays lit (mark_replica_dead must not clear it).
     assert ("model-x", 0) in supervisor._unexpected_down_replicas
+
+
+def test_wait_for_metrics_export_server_uses_blocking_queue_read():
+    import queue
+    from unittest.mock import MagicMock
+
+    from ..worker import _wait_for_metrics_export_server
+
+    address_queue = MagicMock(spec=queue.Queue)
+    address_queue.get.return_value = ("127.0.0.1", 12345, "ignored")
+    metrics_thread = MagicMock()
+
+    assert _wait_for_metrics_export_server(metrics_thread, address_queue) == (
+        "127.0.0.1",
+        12345,
+    )
+    address_queue.get.assert_called_once_with(timeout=0.1)
+    metrics_thread.is_alive.assert_not_called()
+
+
+def test_wait_for_metrics_export_server_detects_early_thread_exit():
+    import queue
+    from unittest.mock import MagicMock
+
+    from ..worker import _wait_for_metrics_export_server
+
+    address_queue = MagicMock(spec=queue.Queue)
+    address_queue.get.side_effect = queue.Empty
+    metrics_thread = MagicMock()
+    metrics_thread.is_alive.return_value = False
+
+    with pytest.raises(
+        RuntimeError, match="Metrics server thread exited before startup"
+    ):
+        _wait_for_metrics_export_server(metrics_thread, address_queue)
+
+    address_queue.get.assert_called_once_with(timeout=0.1)
+    metrics_thread.is_alive.assert_called_once_with()
+
+
+def test_wait_for_metrics_export_server_times_out(monkeypatch):
+    import queue
+    from unittest.mock import MagicMock
+
+    from ..worker import _wait_for_metrics_export_server
+
+    address_queue = MagicMock(spec=queue.Queue)
+    address_queue.get.side_effect = queue.Empty
+    metrics_thread = MagicMock()
+    metrics_thread.is_alive.return_value = True
+    monotonic_values = iter((100.0, 101.0))
+    monkeypatch.setattr(
+        worker_module,
+        "time",
+        SimpleNamespace(monotonic=lambda: next(monotonic_values)),
+    )
+
+    with pytest.raises(
+        RuntimeError, match="Timed out waiting for metrics server startup"
+    ):
+        _wait_for_metrics_export_server(
+            metrics_thread, address_queue, startup_timeout=1
+        )
+
+    address_queue.get.assert_called_once_with(timeout=0.1)
+    metrics_thread.is_alive.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "message",
+    [
+        "transient RPC failure",
+        "cannot schedule new futures after shutdown",
+        "Executor shutdown has been called",
+    ],
+)
+async def test_periodical_report_status_recovers_from_runtime_error(
+    monkeypatch, message
+):
+    heartbeat_calls = 0
+    report_calls = 0
+    sleep_calls = 0
+
+    class DummyWorker:
+        async def heartbeat(self):
+            nonlocal heartbeat_calls
+            heartbeat_calls += 1
+            if heartbeat_calls == 1:
+                raise RuntimeError(message)
+
+        async def report_status(self):
+            nonlocal report_calls
+            report_calls += 1
+            raise asyncio.CancelledError
+
+    async def fake_sleep(_interval):
+        nonlocal sleep_calls
+        sleep_calls += 1
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    await WorkerActor._periodical_report_status(DummyWorker())  # type: ignore[arg-type]
+
+    # The full report is due on the first loop and must still run even when
+    # heartbeat fails. Its cancellation then stops the loop normally.
+    assert heartbeat_calls == 1
+    assert report_calls == 1
+    assert sleep_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_periodical_report_failure_does_not_stop_later_heartbeat(monkeypatch):
+    heartbeat_calls = 0
+    report_calls = 0
+    sleep_calls = 0
+
+    class DummyWorker:
+        async def heartbeat(self):
+            nonlocal heartbeat_calls
+            heartbeat_calls += 1
+            if heartbeat_calls == 2:
+                raise asyncio.CancelledError
+
+        async def report_status(self):
+            nonlocal report_calls
+            report_calls += 1
+            raise RuntimeError("status upload failed")
+
+    async def fake_sleep(_interval):
+        nonlocal sleep_calls
+        sleep_calls += 1
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    await WorkerActor._periodical_report_status(DummyWorker())  # type: ignore[arg-type]
+
+    assert heartbeat_calls == 2
+    assert report_calls == 1
+    assert sleep_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_failure_does_not_reset_full_status_cadence(monkeypatch):
+    heartbeat_calls = 0
+    report_heartbeats = []
+    sleep_calls = 0
+
+    class DummyWorker:
+        async def heartbeat(self):
+            nonlocal heartbeat_calls
+            heartbeat_calls += 1
+            if heartbeat_calls == 1:
+                raise RuntimeError("heartbeat failed")
+            if heartbeat_calls == 4:
+                raise asyncio.CancelledError
+
+        async def report_status(self):
+            report_heartbeats.append(heartbeat_calls)
+
+    async def fake_sleep(_interval):
+        nonlocal sleep_calls
+        sleep_calls += 1
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr("xinference.core.worker.XINFERENCE_STATUS_REPORT_MULTIPLIER", 2)
+
+    await WorkerActor._periodical_report_status(DummyWorker())  # type: ignore[arg-type]
+
+    assert report_heartbeats == [1, 3]
+    assert sleep_calls == 3
+
+
+def test_clear_supervisor_refs_does_not_remove_newer_reference():
+    old_supervisor = DummySupervisorRef()
+    new_supervisor = DummySupervisorRef()
+    barrier = threading.Barrier(2)
+    result = []
+
+    class DummyWorker:
+        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _get_supervisor_ref_on_actor_loop = (
+            WorkerActor._get_supervisor_ref_on_actor_loop
+        )
+        _clear_unregistered_supervisor_refs = (
+            WorkerActor._clear_unregistered_supervisor_refs
+        )
+
+        def __init__(self):
+            self._supervisor_ref_lock = threading.Lock()
+            self._supervisor_ref = old_supervisor
+            self._supervisor_ref_generation = 1
+            self._registered = True
+            self._status_guard_ref = object()
+            self._event_collector_ref = object()
+            self._cache_tracker_ref = object()
+            self._progress_tracker_ref = object()
+
+    worker = DummyWorker()
+
+    def clear_old_reference():
+        barrier.wait()
+        result.append(
+            worker._clear_supervisor_refs(expected_supervisor_ref=old_supervisor)
+        )
+
+    thread = threading.Thread(target=clear_old_reference)
+    thread.start()
+    with worker._supervisor_ref_lock:
+        worker._supervisor_ref = new_supervisor
+    barrier.wait()
+    thread.join(timeout=1)
+
+    assert not thread.is_alive()
+    assert result == [False]
+    assert worker._supervisor_ref is new_supervisor
+    assert worker._registered is True
+
+
+def test_clear_supervisor_refs_does_not_remove_newer_same_reference_generation():
+    supervisor = DummySupervisorRef()
+    barrier = threading.Barrier(2)
+    result = []
+
+    class DummyWorker:
+        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _get_supervisor_ref_on_actor_loop = (
+            WorkerActor._get_supervisor_ref_on_actor_loop
+        )
+        _clear_unregistered_supervisor_refs = (
+            WorkerActor._clear_unregistered_supervisor_refs
+        )
+
+        def __init__(self):
+            self._supervisor_ref_lock = threading.Lock()
+            self._supervisor_ref = supervisor
+            self._supervisor_ref_generation = 1
+            self._registered = False
+            self._status_guard_ref = None
+            self._event_collector_ref = None
+            self._cache_tracker_ref = None
+            self._progress_tracker_ref = None
+
+    worker = DummyWorker()
+
+    def clear_old_generation():
+        barrier.wait()
+        result.append(
+            worker._clear_supervisor_refs(
+                expected_supervisor_ref=supervisor,
+                expected_generation=1,
+            )
+        )
+
+    thread = threading.Thread(target=clear_old_generation)
+    thread.start()
+    with worker._supervisor_ref_lock:
+        worker._status_guard_ref = object()
+        worker._event_collector_ref = object()
+        worker._cache_tracker_ref = object()
+        worker._registered = True
+        worker._supervisor_ref_generation = 2
+    barrier.wait()
+    thread.join(timeout=1)
+
+    assert not thread.is_alive()
+    assert result == [False]
+    assert worker._supervisor_ref is supervisor
+    assert worker._supervisor_ref_generation == 2
+    assert worker._registered is True
+
+
+@pytest.mark.asyncio
+async def test_periodical_report_status_reregisters_after_heartbeat_failure(
+    monkeypatch,
+):
+    stale_supervisor = DummySupervisorRef(fail_heartbeat_times=1)
+    fresh_supervisor = DummySupervisorRef(cancel_after_report=True)
+    supervisor_refs = iter([stale_supervisor, fresh_supervisor, fresh_supervisor])
+    sleep_calls = 0
+
+    class DummyWorker:
+        get_supervisor_ref = WorkerActor.get_supervisor_ref
+        _get_supervisor_ref_with_generation = (
+            WorkerActor._get_supervisor_ref_with_generation
+        )
+        _get_supervisor_ref_generation = WorkerActor._get_supervisor_ref_generation
+        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _get_supervisor_ref_on_actor_loop = (
+            WorkerActor._get_supervisor_ref_on_actor_loop
+        )
+        _clear_unregistered_supervisor_refs = (
+            WorkerActor._clear_unregistered_supervisor_refs
+        )
+        _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+        _call_supervisor = WorkerActor._call_supervisor
+        heartbeat = WorkerActor.heartbeat
+        report_status = WorkerActor.report_status
+
+        def __init__(self):
+            self.address = "test://worker"
+            self._supervisor_address = "test://supervisor"
+            self._supervisor_endpoint = None
+            self._supervisor_ref = None
+            self._supervisor_ref_address = None
+            self._supervisor_ref_lock = threading.Lock()
+            self._supervisor_ref_generation = 0
+            self._actor_loop = None
+            self._supervisor_init_lock = None
+            self._registered = False
+            self._status_guard_ref = None
+            self._event_collector_ref = None
+            self._cache_tracker_ref = None
+            self._progress_tracker_ref = None
+            self._total_gpu_devices = []
+
+        def _get_running_replica_states(self):
+            return [{"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0}]
+
+        async def _refresh_supervisor_address(self):
+            pytest.fail("the configured supervisor address should be reachable")
+
+    async def fake_actor_ref(address, uid):
+        if uid == SupervisorActor.default_uid():
+            return next(supervisor_refs)
+        return None
+
+    async def fake_sleep(_interval):
+        nonlocal sleep_calls
+        sleep_calls += 1
+
+    worker = DummyWorker()
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(
+        "xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"}
+    )
+
+    await WorkerActor._periodical_report_status(worker)  # type: ignore[arg-type]
+
+    assert stale_supervisor.heartbeat_calls == [worker.address]
+    assert stale_supervisor.add_worker_calls == []
+    # The due full report reconnects immediately after heartbeat invalidates
+    # the stale reference; it does not wait for a second heartbeat interval.
+    assert fresh_supervisor.heartbeat_calls == []
+    assert fresh_supervisor.add_worker_calls == [
+        (
+            worker.address,
+            [{"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0}],
+            [],
+        )
+    ]
+    assert fresh_supervisor.report_worker_status_calls == [
+        (worker.address, {"cpu": "ok"})
+    ]
+    assert worker._supervisor_ref is fresh_supervisor
+    assert worker._registered is True
+    assert sleep_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_supervisor_registration_is_single_flight_and_replays_latest_snapshot(
+    monkeypatch,
+):
+    first_registration_started = asyncio.Event()
+    release_first_registration = asyncio.Event()
+
+    class BlockingSupervisor(DummySupervisorRef):
+        async def add_worker(
+            self,
+            worker_address: str,
+            replica_states=None,
+            replica_model_uids=None,
+        ):
+            await super().add_worker(
+                worker_address,
+                replica_states=replica_states,
+                replica_model_uids=replica_model_uids,
+            )
+            if len(self.add_worker_calls) == 1:
+                first_registration_started.set()
+                await release_first_registration.wait()
+
+    supervisor = BlockingSupervisor()
+
+    class DummyWorker:
+        get_supervisor_ref = WorkerActor.get_supervisor_ref
+        _get_supervisor_ref_with_generation = (
+            WorkerActor._get_supervisor_ref_with_generation
+        )
+        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _get_supervisor_ref_on_actor_loop = (
+            WorkerActor._get_supervisor_ref_on_actor_loop
+        )
+        _clear_unregistered_supervisor_refs = (
+            WorkerActor._clear_unregistered_supervisor_refs
+        )
+
+        def __init__(self):
+            self.address = "test://worker"
+            self._supervisor_address = "test://supervisor"
+            self._supervisor_endpoint = None
+            self._supervisor_ref = None
+            self._supervisor_ref_address = None
+            self._supervisor_ref_lock = threading.Lock()
+            self._supervisor_ref_generation = 0
+            self._actor_loop = None
+            self._supervisor_init_lock = None
+            self._registered = False
+            self._status_guard_ref = None
+            self._event_collector_ref = None
+            self._cache_tracker_ref = None
+            self._progress_tracker_ref = None
+            self.replica_states = [
+                {"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0}
+            ]
+
+        def _get_running_replica_states(self):
+            return [dict(state) for state in self.replica_states]
+
+        async def _refresh_supervisor_address(self):
+            pytest.fail("the configured supervisor address should be reachable")
+
+    async def fake_actor_ref(address, uid):
+        if uid == SupervisorActor.default_uid():
+            return supervisor
+        return None
+
+    worker = DummyWorker()
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    first = asyncio.create_task(worker.get_supervisor_ref(add_worker=True))
+    await first_registration_started.wait()
+    worker.replica_states = [
+        {"replica_model_uid": "model-b-0", "n_worker": 1, "shard": 0}
+    ]
+    second = asyncio.create_task(worker.get_supervisor_ref(add_worker=True))
+    await asyncio.sleep(0)
+    release_first_registration.set()
+
+    first_ref, second_ref = await asyncio.gather(first, second)
+
+    assert first_ref is supervisor
+    assert second_ref is supervisor
+    assert supervisor.add_worker_calls == [
+        (
+            worker.address,
+            [{"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0}],
+            [],
+        ),
+        (
+            worker.address,
+            [{"replica_model_uid": "model-b-0", "n_worker": 1, "shard": 0}],
+            [],
+        ),
+    ]
+    assert worker._registered is True
+    assert worker._supervisor_init_lock is not None
+    assert not worker._supervisor_init_lock.locked()
 
 
 @pytest.mark.asyncio
@@ -1452,6 +3812,12 @@ async def test_recover_model_pops_launch_ts_from_kwargs():
 
         async def get_supervisor_ref(self, add_worker=False):
             return None
+
+        async def wait_for_load(self, model_uid):
+            # recover_model now marks the recreated replica ready via wait_for_load
+            # (B3a); provide a no-op so this launch_ts test still exercises the
+            # launch_builtin_model kwargs path.
+            pass
 
     worker = _MockWorker()
 
@@ -1488,3 +3854,1393 @@ async def test_recover_model_pops_launch_ts_from_kwargs():
         assert launch_args["launch_ts"] == 1780900592
     finally:
         worker_module.parse_replica_model_uid = original_parse
+
+
+class _RecordingSupervisorRef:
+    """Minimal supervisor ref that records mark_replica_dead calls (B2)."""
+
+    def __init__(self):
+        self.evicted: List[str] = []
+
+    async def mark_replica_dead(self, replica_model_uid: str):
+        self.evicted.append(replica_model_uid)
+
+
+class _EvictMockWorker:
+    """Minimal worker stand-in for _evict_replica_from_supervisor tests."""
+
+    def __init__(self, supervisor_ref=None, raise_on_get: bool = False):
+        self._supervisor_ref = supervisor_ref
+        self._raise_on_get = raise_on_get
+
+    async def get_supervisor_ref(self, add_worker: bool = False):
+        if self._raise_on_get:
+            raise RuntimeError("supervisor unreachable")
+        return self._supervisor_ref
+
+
+@pytest.mark.asyncio
+async def test_evict_replica_from_supervisor_calls_mark_replica_dead():
+    """B2 helper: notifies the supervisor to evict the dead replica."""
+    sup = _RecordingSupervisorRef()
+    worker = _EvictMockWorker(supervisor_ref=sup)
+    await WorkerActor._evict_replica_from_supervisor(worker, "model-x-1")
+    assert sup.evicted == ["model-x-1"]
+
+
+@pytest.mark.asyncio
+async def test_evict_replica_from_supervisor_is_non_fatal():
+    """B2 helper: a supervisor-ref failure must not propagate out of the
+    recover_sub_pool tail path (non-fatal; next death/redeploy reconciles)."""
+    worker = _EvictMockWorker(supervisor_ref=None, raise_on_get=True)
+    # Must not raise.
+    await WorkerActor._evict_replica_from_supervisor(worker, "model-x-1")
+
+
+class _MainPoolStub:
+    async def remove_sub_pool(self, address):
+        return None
+
+
+class _RecoverWorkerStub:
+    """Worker stand-in for recover_sub_pool unbounded/bounded-branch tests.
+
+    recover_model is overridden per-test (raise vs succeed). The real
+    `_evict_replica_from_supervisor` is bound onto the instance so the
+    recover_sub_pool call exercises the genuine eviction path.
+    """
+
+    def __init__(
+        self,
+        supervisor_ref,
+        recover_raises: bool,
+        recover_count: Optional[int] = None,
+    ):
+        self._supervisor_ref = supervisor_ref
+        self._recover_raises = recover_raises
+        self.recover_called = 0
+        # Wiring used by recover_sub_pool:
+        self._main_pool = _MainPoolStub()
+        self._model_uid_to_addr = {"model-x-0": "addr-1"}
+        self._model_uid_to_launch_args = {
+            "model-x-0": {"model_uid": "model-x-0", "model_name": "m"},
+        }
+        # None -> unbounded branch; int (e.g. 1) -> bounded branch (AUTO_RECOVER_LIMIT)
+        self._model_uid_to_recover_count = {"model-x-0": recover_count}
+        self._model_uid_to_subpool_pids: dict = {}
+
+    async def get_supervisor_ref(self, add_worker: bool = False):
+        return self._supervisor_ref
+
+    async def terminate_model(self, model_uid, is_model_die: bool = False):
+        return None
+
+    async def recover_model(self, launch_args):
+        self.recover_called += 1
+        if self._recover_raises:
+            raise RuntimeError("recreate failed (e.g. OOM during reload)")
+
+
+def _bind_real_evict(worker):
+    import types
+
+    worker._evict_replica_from_supervisor = types.MethodType(
+        WorkerActor._evict_replica_from_supervisor, worker
+    )
+    return worker
+
+
+@pytest.mark.asyncio
+async def test_recover_sub_pool_unbounded_evicts_on_recover_failure(monkeypatch):
+    """B2 (core): in the default unbounded branch (recover_count is None), a
+    recreate that raises must evict the dead replica via mark_replica_dead, so
+    it cannot poison routing as a permanent 'loading' zombie (the 33% error
+    root cause)."""
+    import xinference.core.worker as worker_module
+
+    # Neutralize GPU/persist machinery for a deterministic, GPU-free test.
+    monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
+    monkeypatch.setattr(worker_module, "_parse_gpu_indices", lambda x: [])
+    monkeypatch.setattr(worker_module, "_snapshot_gpu_free_ratio", lambda idx: 1.0)
+
+    sup = _RecordingSupervisorRef()
+    worker = _bind_real_evict(
+        _RecoverWorkerStub(supervisor_ref=sup, recover_raises=True)
+    )
+
+    await WorkerActor.recover_sub_pool(worker, "addr-1")
+
+    assert worker.recover_called == 1
+    assert sup.evicted == ["model-x-0"]  # recreate failed -> evicted
+
+
+@pytest.mark.asyncio
+async def test_recover_sub_pool_unbounded_no_evict_on_success(monkeypatch):
+    """B2 regression: a successful recreate in the unbounded branch must NOT
+    evict (infinite-retry-on-success semantics preserved)."""
+    import xinference.core.worker as worker_module
+
+    monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
+    monkeypatch.setattr(worker_module, "_parse_gpu_indices", lambda x: [])
+    monkeypatch.setattr(worker_module, "_snapshot_gpu_free_ratio", lambda idx: 1.0)
+
+    sup = _RecordingSupervisorRef()
+    worker = _bind_real_evict(
+        _RecoverWorkerStub(supervisor_ref=sup, recover_raises=False)
+    )
+
+    await WorkerActor.recover_sub_pool(worker, "addr-1")
+
+    assert worker.recover_called == 1
+    assert sup.evicted == []  # succeeded -> not evicted
+
+
+# --- B2 symmetry fix: bounded branch eviction (0902) ------------------------
+
+
+@pytest.mark.asyncio
+async def test_recover_sub_pool_bounded_evicts_on_recover_failure(monkeypatch):
+    """B2 symmetry fix: in the bounded branch (AUTO_RECOVER_LIMIT>=1, here =1),
+    a recreate that raises must ALSO evict via mark_replica_dead -- otherwise the
+    replica is left in a 'stopping'/'error' state poisoning routing with 500s
+    (the gap that the unbounded-branch B2 left asymmetric)."""
+    import xinference.core.worker as worker_module
+
+    monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
+    monkeypatch.setattr(worker_module, "_parse_gpu_indices", lambda x: [])
+    monkeypatch.setattr(worker_module, "_snapshot_gpu_free_ratio", lambda idx: 1.0)
+
+    sup = _RecordingSupervisorRef()
+    worker = _bind_real_evict(
+        _RecoverWorkerStub(supervisor_ref=sup, recover_raises=True, recover_count=1)
+    )
+
+    await WorkerActor.recover_sub_pool(worker, "addr-1")
+
+    assert worker.recover_called == 1
+    # count decremented 1 -> 0 before the recreate attempt
+    assert worker._model_uid_to_recover_count["model-x-0"] == 0
+    assert sup.evicted == ["model-x-0"]  # recreate failed -> evicted (the fix)
+
+
+@pytest.mark.asyncio
+async def test_recover_sub_pool_bounded_no_evict_on_success(monkeypatch):
+    """B2 regression: a successful recreate in the bounded branch must NOT evict
+    (count-based retry preserved); count is decremented toward 0."""
+    import xinference.core.worker as worker_module
+
+    monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
+    monkeypatch.setattr(worker_module, "_parse_gpu_indices", lambda x: [])
+    monkeypatch.setattr(worker_module, "_snapshot_gpu_free_ratio", lambda idx: 1.0)
+
+    sup = _RecordingSupervisorRef()
+    worker = _bind_real_evict(
+        _RecoverWorkerStub(supervisor_ref=sup, recover_raises=False, recover_count=1)
+    )
+
+    await WorkerActor.recover_sub_pool(worker, "addr-1")
+
+    assert worker.recover_called == 1
+    assert worker._model_uid_to_recover_count["model-x-0"] == 0  # 1 -> 0
+    assert sup.evicted == []  # succeeded -> not evicted
+
+
+# --- B3a: wait_for_load after recover_model / _try_recover_models (0903) ----
+
+
+@pytest.mark.asyncio
+async def test_recover_model_marks_ready_via_wait_for_load():
+    """B3a: recover_model must call wait_for_load after launch_builtin_model so a
+    recreated replica is marked 'ready' instead of stuck at 'loading' forever
+    (the original 33% symptom). Mirrors the normal launch path where the
+    supervisor calls wait_for_load."""
+
+    class _MockWorker:
+        def __init__(self):
+            self.launch_called = False
+            self.wait_for_load_called_with = None
+
+        async def launch_builtin_model(self, **kwargs):
+            self.launch_called = True
+            return "mock-subpool-address"
+
+        async def get_supervisor_ref(self, add_worker=False):
+            return None
+
+        async def wait_for_load(self, model_uid):
+            self.wait_for_load_called_with = model_uid
+
+    worker = _MockWorker()
+    launch_args = {"model_uid": "test-model-0", "model_name": "test-model"}
+
+    def mock_parse(uid):
+        return ("test-model", 0)
+
+    import xinference.core.worker as worker_module
+
+    original_parse = worker_module.parse_replica_model_uid
+    worker_module.parse_replica_model_uid = mock_parse
+    try:
+        await WorkerActor.recover_model(worker, launch_args)
+        assert worker.launch_called
+        assert worker.wait_for_load_called_with == "test-model-0"
+    finally:
+        worker_module.parse_replica_model_uid = original_parse
+
+
+@pytest.mark.asyncio
+async def test_try_recover_models_marks_ready_via_wait_for_load(monkeypatch):
+    """B3a: _try_recover_models (worker restart recovery) must also call
+    wait_for_load after launch_builtin_model, so recovered models are marked
+    'ready' instead of stuck 'loading' (same gap as recover_model)."""
+
+    import xinference.core.worker as worker_module
+
+    monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
+    replica_model_uid = "test-model-rep0"
+
+    class _SupervisorRef:
+        async def describe_model(self, origin_uid):
+            return {"some": "info"}  # non-None -> model still registered
+
+    class _MockWorker:
+        def __init__(self):
+            self._supervisor_ref = _SupervisorRef()
+            self.launch_called = False
+            self.wait_for_load_called_with = None
+
+        def _load_persisted_launch_args(self):
+            return {
+                replica_model_uid: {
+                    "model_uid": replica_model_uid,
+                    "model_name": "test-model",
+                }
+            }
+
+        async def launch_builtin_model(self, **kwargs):
+            self.launch_called = True
+            return "mock-subpool-address"
+
+        async def wait_for_load(self, model_uid):
+            self.wait_for_load_called_with = model_uid
+
+        def _persist_launch_args(self):
+            pass
+
+    worker = _MockWorker()
+    await WorkerActor._try_recover_models(worker)
+
+    assert worker.launch_called
+    assert worker.wait_for_load_called_with == replica_model_uid
+
+
+@pytest.mark.asyncio
+async def test_try_recover_models_migrates_legacy_replica_uid(monkeypatch):
+    import xinference.core.worker as worker_module
+
+    monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
+    legacy_replica_uid = "test-model-0"
+    replica_model_uid = "test-model-rep0"
+
+    class _SupervisorRef:
+        def __init__(self):
+            self.describe_model_calls = []
+
+        async def describe_model(self, model_uid):
+            self.describe_model_calls.append(model_uid)
+            if model_uid == "test-model":
+                return {"some": "info"}
+            return None
+
+    class _MockWorker:
+        def __init__(self):
+            self._supervisor_ref = _SupervisorRef()
+            self.launch_model_uid = None
+            self.wait_for_load_called_with = None
+
+        def _load_persisted_launch_args(self):
+            return {
+                legacy_replica_uid: {
+                    "model_uid": legacy_replica_uid,
+                    "model_name": "test-model",
+                }
+            }
+
+        async def launch_builtin_model(self, **kwargs):
+            self.launch_model_uid = kwargs["model_uid"]
+            return "mock-subpool-address"
+
+        async def wait_for_load(self, model_uid):
+            self.wait_for_load_called_with = model_uid
+
+        def _persist_launch_args(self):
+            pass
+
+    worker = _MockWorker()
+    await WorkerActor._try_recover_models(worker)
+
+    assert worker._supervisor_ref.describe_model_calls == [
+        legacy_replica_uid,
+        "test-model",
+    ]
+    assert worker.launch_model_uid == replica_model_uid
+    assert worker.wait_for_load_called_with == replica_model_uid
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_removes_mlx_video_derived_artifacts(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "wan-mlx"
+    cache_dir.mkdir(parents=True)
+    converted_dir = Path(f"{cache_dir}.mlx-video")
+    converted_dir.mkdir()
+    (converted_dir / "model.safetensors").write_bytes(b"converted")
+    conversion_lock = Path(f"{converted_dir}.lock")
+    conversion_lock.write_text("")
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+    paths = await WorkerActor.list_deletable_models(worker, "wan-mlx")
+    assert str(converted_dir) in paths
+    assert str(conversion_lock) in paths
+
+    assert await WorkerActor.confirm_and_remove_model(worker, "wan-mlx")
+    assert not cache_dir.exists()
+    assert not converted_dir.exists()
+    assert conversion_lock.exists()
+
+
+def test_resolve_image_download_repositories_includes_auxiliary_models(monkeypatch):
+    from xinference.model.image import core as image_core
+
+    controlnet_spec = SimpleNamespace(
+        model_name="canny",
+        model_id="org/controlnet-canny",
+        model_hub="modelscope",
+        model_uri=None,
+    )
+    model_spec = SimpleNamespace(
+        model_name="demo-image",
+        model_id="org/demo-image",
+        model_hub="huggingface",
+        model_uri=None,
+        model_ability=[],
+        default_model_config={"controlnet": "canny"},
+        controlnet=[controlnet_spec],
+        gguf_model_id="org/demo-image-gguf",
+        lightning_model_id="org/demo-image-lightning",
+    )
+    monkeypatch.setattr(image_core, "match_diffusion", lambda *_args: model_spec)
+    payload = {
+        "model_type": "image",
+        "model_name": "demo-image",
+        "download_hub": "huggingface",
+        "gguf_quantization": "q4_k_m",
+        "lightning_version": "4-step",
+    }
+
+    repositories = WorkerActor._resolve_model_download_repositories(payload)
+
+    assert {
+        (repository["model_hub"], repository["model_id"]) for repository in repositories
+    } == {
+        ("huggingface", "org/demo-image"),
+        ("modelscope", "org/controlnet-canny"),
+        ("huggingface", "org/demo-image-gguf"),
+        ("huggingface", "org/demo-image-lightning"),
+    }
+
+    local_repositories = WorkerActor._resolve_model_download_repositories(
+        {**payload, "model_path": "/models/local-image"}
+    )
+    assert {
+        (repository["model_hub"], repository["model_id"])
+        for repository in local_repositories
+    } == {
+        ("modelscope", "org/controlnet-canny"),
+        ("huggingface", "org/demo-image-gguf"),
+        ("huggingface", "org/demo-image-lightning"),
+    }
+
+
+def test_resolve_llm_download_repositories_includes_drafter(monkeypatch):
+    from xinference.model.llm import llm_family
+
+    model_spec = SimpleNamespace(
+        model_id="google/gemma-4",
+        model_hub="huggingface",
+        model_uri=None,
+        draft_model_id="google/gemma-4-assistant-{draft_quantization}",
+        draft_model_file_name_template=None,
+        draft_quantizations=["int4"],
+    )
+    family = SimpleNamespace(model_specs=[model_spec])
+    monkeypatch.setattr(llm_family, "match_llm", lambda *_args: family)
+
+    repositories = WorkerActor._resolve_model_download_repositories(
+        {
+            "model_type": "LLM",
+            "model_name": "gemma-4",
+            "model_format": "pytorch",
+            "model_size_in_billions": 4,
+            "quantization": "none",
+            "download_hub": "huggingface",
+            "enable_mtp": "true",
+            "draft_quantization": "int4",
+        }
+    )
+
+    assert repositories == [
+        {"model_hub": "huggingface", "model_id": "google/gemma-4"},
+        {
+            "model_hub": "huggingface",
+            "model_id": "google/gemma-4-assistant-int4",
+        },
+    ]
+
+
+def test_delete_incomplete_download_removes_exact_modelscope_repository(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    modelscope_root = tmp_path / "modelscope"
+    repository = modelscope_root / "models" / "google--gemma-4-E2B-it"
+    snapshot = repository / "snapshots" / "master"
+    snapshot.mkdir(parents=True)
+    incomplete = snapshot / "model.safetensors.incomplete"
+    incomplete.write_bytes(b"partial-weights")
+
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(tmp_path / "huggingface"))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(modelscope_root))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind"))
+    monkeypatch.setenv("CSGHUB_CACHE", str(tmp_path / "csghub"))
+
+    payload = {
+        "_download_repositories": [
+            {
+                "model_hub": "modelscope",
+                "model_id": "google/gemma-4-E2B-it",
+            }
+        ]
+    }
+    paths = WorkerActor._download_repository_paths(payload)
+    result = WorkerActor._remove_download_repository_paths(paths, set())
+
+    assert not repository.exists()
+    assert result["removed_bytes"] == len(b"partial-weights")
+    assert result["removed_repositories"] == [str(repository)]
+
+
+def test_delete_incomplete_download_preserves_referenced_repository(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "shared-model"
+    cache_dir.mkdir(parents=True)
+    modelscope_root = tmp_path / "modelscope"
+    repository = modelscope_root / "models" / "org--shared-model"
+    snapshot = repository / "snapshots" / "master"
+    snapshot.mkdir(parents=True)
+    config = snapshot / "config.json"
+    config.write_text("{}")
+    incomplete = snapshot / "model.safetensors.incomplete"
+    incomplete.write_bytes(b"partial")
+    (cache_dir / "config.json").symlink_to(config)
+
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(tmp_path / "huggingface"))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(modelscope_root))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind"))
+    monkeypatch.setenv("CSGHUB_CACHE", str(tmp_path / "csghub"))
+
+    payload = {
+        "_download_repositories": [
+            {"model_hub": "modelscope", "model_id": "org/shared-model"}
+        ]
+    }
+    paths = WorkerActor._download_repository_paths(payload)
+    result = WorkerActor._remove_download_repository_paths(paths, set())
+
+    assert repository.exists()
+    assert config.exists()
+    assert not incomplete.exists()
+    assert result["preserved_repositories"] == [str(repository)]
+
+
+def test_delete_incomplete_download_rejects_repository_used_by_other_task(
+    tmp_path, monkeypatch
+):
+    modelscope_root = tmp_path / "modelscope"
+    repository = modelscope_root / "models" / "org--shared-model"
+    repository.mkdir(parents=True)
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(tmp_path / "huggingface"))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(modelscope_root))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind"))
+    monkeypatch.setenv("CSGHUB_CACHE", str(tmp_path / "csghub"))
+
+    with pytest.raises(RuntimeError, match="another download task"):
+        WorkerActor._remove_download_repository_paths(
+            {str(repository)}, {str(repository)}
+        )
+
+    assert repository.exists()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_waits_for_active_mlx_conversion(
+    tmp_path, monkeypatch
+):
+    from filelock import FileLock
+
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "wan-mlx"
+    cache_dir.mkdir(parents=True)
+    converted_dir = Path(f"{cache_dir}.mlx-video")
+    conversion_lock_path = Path(f"{converted_dir}.lock")
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    conversion_started = threading.Event()
+    finish_conversion = threading.Event()
+
+    def convert():
+        with FileLock(str(conversion_lock_path), preserve_lock_file=True):
+            conversion_started.set()
+            assert finish_conversion.wait(timeout=5)
+            converted_dir.mkdir()
+            (converted_dir / "model.safetensors").write_bytes(b"converted")
+
+    conversion_thread = threading.Thread(target=convert)
+    conversion_thread.start()
+    assert conversion_started.wait(timeout=5)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    remove_task = asyncio.create_task(
+        WorkerActor.confirm_and_remove_model(_Worker(), "wan-mlx")
+    )
+    await asyncio.sleep(0.05)
+    assert not remove_task.done()
+    finish_conversion.set()
+
+    assert await remove_task
+    conversion_thread.join(timeout=5)
+    assert not conversion_thread.is_alive()
+    assert not cache_dir.exists()
+    assert not converted_dir.exists()
+    assert conversion_lock_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_wan_mlx_deletion_always_reserves_conversion_lock(tmp_path, monkeypatch):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "Wan2.1-1.3B-mlx"
+    cache_dir.mkdir(parents=True)
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+    class _Worker:
+        _cache_tracker_ref = _Tracker()
+        address = "127.0.0.1:0"
+
+    paths = await WorkerActor.list_deletable_models(_Worker(), "Wan2.1-1.3B-mlx")
+
+    assert f"{cache_dir}.mlx-video.lock" in paths
+
+
+@pytest.mark.asyncio
+async def test_list_deletable_models_includes_drafters(tmp_path, monkeypatch):
+    """Deleting a model's cache must also remove the drafters downloaded for
+    speculative decoding, one per drafter quantization, instead of orphaning
+    ~1GB directories next to it."""
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(tmp_path))
+    cache_dir = tmp_path / "gemma-4-mlx-12b-4bit"
+    cache_dir.mkdir()
+    (cache_dir / "config.json").write_text("{}")
+
+    # two drafter conversions downloaded for the same model
+    for quant in ("bf16", "8bit"):
+        draft_dir = tmp_path / f"gemma-4-mlx-12b-4bit-draft-{quant}"
+        draft_dir.mkdir()
+        (draft_dir / "model.safetensors").write_text("weights")
+
+    # an unrelated model must not be swept up
+    other = tmp_path / "gemma-4-mlx-2b-4bit-draft-bf16"
+    other.mkdir()
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+    # a plain stub: xoscar actors cannot be built with object.__new__
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "gemma-4-mlx-12b-4bit")
+
+    assert str(cache_dir) in paths
+    for quant in ("bf16", "8bit"):
+        draft_dir = tmp_path / f"gemma-4-mlx-12b-4bit-draft-{quant}"
+        assert str(draft_dir) in paths
+        assert str(draft_dir / "model.safetensors") in paths
+    assert str(other) not in paths
+
+
+@pytest.mark.asyncio
+async def test_list_deletable_models_keeps_shared_drafter_downloads(
+    tmp_path, monkeypatch
+):
+    """One drafter download is shared by every quantization of its target, so
+    only our own cache entries may be deleted — resolving the links would take
+    the download out from under the sibling quantizations."""
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(tmp_path))
+    hub = tmp_path / "hub"
+    hub.mkdir()
+    blob = hub / "mtp-gemma-4-12b-it-BF16.gguf"
+    blob.write_text("weights")
+    snapshot = hub / "snapshot"
+    snapshot.mkdir()
+    (snapshot / "model.safetensors").write_text("weights")
+
+    cache_dir = tmp_path / "gemma-4-ggufv2-12b-Q4_K_M"
+    cache_dir.mkdir()
+
+    # a gguf drafter: a real directory holding a link to the shared file
+    gguf_draft = tmp_path / "gemma-4-ggufv2-12b-Q4_K_M-draft-BF16"
+    (gguf_draft / "MTP").mkdir(parents=True)
+    linked_file = gguf_draft / "MTP" / "mtp-gemma-4-12b-it-BF16.gguf"
+    linked_file.symlink_to(blob)
+
+    # a snapshot-style drafter: the cache entry is itself a link
+    snapshot_draft = tmp_path / "gemma-4-ggufv2-12b-Q4_K_M-draft-Q8_0"
+    snapshot_draft.symlink_to(snapshot, target_is_directory=True)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+    paths = await WorkerActor.list_deletable_models(_Worker(), "gemma-4")
+
+    assert str(gguf_draft) in paths
+    assert str(linked_file) in paths
+    assert str(snapshot_draft) in paths
+    # what the links point at stays: it belongs to the hub cache, and the
+    # target's other quantizations link to the very same download
+    assert str(blob) not in paths
+    assert str(snapshot) not in paths
+    assert str(snapshot / "model.safetensors") not in paths
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_deletes_nested_symlink_targets(tmp_path, monkeypatch):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "nested-model"
+    (cache_dir / "transformer").mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    snapshot = tmp_path / "modelscope" / "snapshots" / "master"
+    (snapshot / "transformer").mkdir(parents=True)
+    config = snapshot / "config.json"
+    weights = snapshot / "transformer" / "model.safetensors"
+    unrelated = snapshot / "unrelated.bin"
+    config.write_text("{}")
+    weights.write_text("weights")
+    unrelated.write_text("keep")
+    (cache_dir / "config.json").symlink_to(config)
+    (cache_dir / "transformer" / "model.safetensors").symlink_to(weights)
+
+    class _Tracker:
+        def __init__(self):
+            self.confirmed = []
+
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            self.confirmed.append((model_version, address))
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "nested-model")
+    assert str(cache_dir) in paths
+    assert str(config) in paths
+    assert str(weights) in paths
+    assert str(unrelated) not in paths
+
+    assert await WorkerActor.confirm_and_remove_model(worker, "nested-model")
+    assert not cache_dir.exists()
+    assert not config.exists()
+    assert not weights.exists()
+    assert unrelated.exists()
+    assert worker._cache_tracker_ref.confirmed == [("nested-model", "127.0.0.1:0")]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("with_sibling_model", [False, True])
+async def test_remove_model_cache_prunes_empty_modelscope_directories(
+    tmp_path, monkeypatch, with_sibling_model
+):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "glm-image"
+    (cache_dir / "transformer").mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    modelscope_cache = tmp_path / "modelscope"
+    models_root = modelscope_cache / "models"
+    model_dir = models_root / "ZhipuAI--GLM-Image"
+    snapshot = model_dir / "snapshots" / "master"
+    (snapshot / "transformer").mkdir(parents=True)
+    config = snapshot / "config.json"
+    weights = snapshot / "transformer" / "model.safetensors"
+    config.write_text("{}")
+    weights.write_text("weights")
+    (cache_dir / "config.json").symlink_to(config)
+    (cache_dir / "transformer" / "model.safetensors").symlink_to(weights)
+
+    sibling_model = models_root / "ZhipuAI--Another-Model"
+    if with_sibling_model:
+        sibling_model.mkdir()
+        (sibling_model / "keep.bin").write_text("keep")
+
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(modelscope_cache))
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(tmp_path / "huggingface"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind_hub"))
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    assert await WorkerActor.confirm_and_remove_model(_Worker(), "glm-image")
+    assert not model_dir.exists()
+    assert models_root.is_dir()
+    assert sibling_model.exists() is with_sibling_model
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_preserves_openmind_hub_root(tmp_path, monkeypatch):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "openmind-model"
+    cache_dir.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    xdg_cache_home = tmp_path / "xdg-cache"
+    openmind_home = xdg_cache_home / "openmind"
+    openmind_hub_root = openmind_home / "hub"
+    model_dir = openmind_hub_root / "models--org--model"
+    snapshot = model_dir / "snapshots" / "main"
+    snapshot.mkdir(parents=True)
+    weights = snapshot / "model.safetensors"
+    weights.write_text("weights")
+    (cache_dir / "model.safetensors").symlink_to(weights)
+
+    monkeypatch.setenv("XDG_CACHE_HOME", str(xdg_cache_home))
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(tmp_path / "huggingface"))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(tmp_path / "modelscope"))
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    assert await WorkerActor.confirm_and_remove_model(_Worker(), "openmind-model")
+    assert not model_dir.exists()
+    assert openmind_hub_root.is_dir()
+    assert openmind_home.is_dir()
+    assert xdg_cache_home.is_dir()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_tracks_success_when_parent_pruning_fails(
+    tmp_path, monkeypatch, caplog
+):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "prune-failure-model"
+    cache_dir.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    huggingface_root = tmp_path / "huggingface"
+    model_dir = huggingface_root / "models--org--model"
+    snapshot = model_dir / "snapshots" / "main"
+    snapshot.mkdir(parents=True)
+    weights = snapshot / "model.safetensors"
+    weights.write_text("weights")
+    (cache_dir / "model.safetensors").symlink_to(weights)
+
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(huggingface_root))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(tmp_path / "modelscope"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg-cache"))
+
+    original_rmdir = os.rmdir
+
+    def _fail_snapshot_pruning(path, *args, **kwargs):
+        if os.path.realpath(path) == os.path.realpath(snapshot):
+            raise OSError(errno.EACCES, "Permission denied", str(path))
+        return original_rmdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(worker_module.os, "rmdir", _fail_snapshot_pruning)
+
+    class _Tracker:
+        def __init__(self):
+            self.confirmed = []
+
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            self.confirmed.append((model_version, address))
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    assert await WorkerActor.confirm_and_remove_model(worker, "prune-failure-model")
+    assert not cache_dir.exists()
+    assert not weights.exists()
+    assert snapshot.is_dir()
+    assert worker._cache_tracker_ref.confirmed == [
+        ("prune-failure-model", "127.0.0.1:0")
+    ]
+    assert "Fail to remove empty download directory" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_keeps_targets_used_by_another_cache(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    first_cache = cache_root / "v2" / "model-awq"
+    second_cache = cache_root / "v2" / "model-gptq"
+    first_cache.mkdir(parents=True)
+    second_cache.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    blob = tmp_path / "hub" / "shared.safetensors"
+    blob.parent.mkdir()
+    blob.write_text("shared weights")
+    (first_cache / "model.safetensors").symlink_to(blob)
+    second_link = second_cache / "model.safetensors"
+    second_link.symlink_to(blob)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(first_cache)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "model-awq")
+    assert str(blob) not in paths
+    assert await WorkerActor.confirm_and_remove_model(worker, "model-awq")
+    assert not first_cache.exists()
+    assert blob.exists()
+    assert second_link.exists()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_keeps_targets_used_by_model_uri(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    normal_cache = cache_root / "v2" / "normal-model"
+    model_uri_cache = cache_root / "v2" / "local-model"
+    normal_cache.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    hub_model = tmp_path / "huggingface" / "models--org--shared"
+    blob = hub_model / "blobs" / "weights"
+    snapshot = hub_model / "snapshots" / "revision"
+    blob.parent.mkdir(parents=True)
+    snapshot.mkdir(parents=True)
+    blob.write_text("shared weights")
+    (snapshot / "model.safetensors").symlink_to(blob)
+    (snapshot / "loop").symlink_to(snapshot, target_is_directory=True)
+    (normal_cache / "model.safetensors").symlink_to(blob)
+    model_uri_cache.symlink_to(snapshot, target_is_directory=True)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(normal_cache)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "normal-model")
+    assert str(blob) not in paths
+    assert await WorkerActor.confirm_and_remove_model(worker, "normal-model")
+    assert not normal_cache.exists()
+    assert blob.exists()
+    assert (model_uri_cache / "model.safetensors").exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("with_shared_cache", [False, True])
+async def test_remove_model_cache_handles_file_copy_fallback(
+    tmp_path, monkeypatch, with_shared_cache
+):
+    cache_root = tmp_path / "cache"
+    first_cache = cache_root / "v2" / "first-model"
+    second_cache = cache_root / "v2" / "second-model"
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+    from ...model.utils import get_cache_source_paths, symlink_local_file
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    huggingface_root = tmp_path / "huggingface"
+    source_model = huggingface_root / "models--org--copy-model"
+    source = source_model / "snapshots" / "revision" / "model.safetensors"
+    source.parent.mkdir(parents=True)
+    source.write_text("source weights")
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(huggingface_root))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(tmp_path / "modelscope"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind_hub"))
+
+    from huggingface_hub import file_download
+
+    def _copy_file(source_path, destination_path, new_blob=False):
+        assert new_blob is False
+        shutil.copyfile(source_path, destination_path)
+
+    monkeypatch.setattr(file_download, "_create_symlink", _copy_file)
+    first_file = symlink_local_file(str(source), str(first_cache), "model.safetensors")
+    assert not os.path.islink(first_file)
+    assert get_cache_source_paths(str(first_cache)) == {str(source)}
+
+    if with_shared_cache:
+        second_file = symlink_local_file(
+            str(source), str(second_cache), "model.safetensors"
+        )
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(first_cache)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "first-model")
+    assert (str(source) not in paths) is with_shared_cache
+    assert await WorkerActor.confirm_and_remove_model(worker, "first-model")
+    assert not first_cache.exists()
+    assert source.exists() is with_shared_cache
+    if with_shared_cache:
+        assert os.path.isfile(second_file)
+        assert source_model.exists()
+    else:
+        assert not source_model.exists()
+        assert huggingface_root.is_dir()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_ignores_unmanaged_manifest_paths(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "malicious-model"
+    cache_dir.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+    from ...model.utils import CACHE_SOURCE_MANIFEST
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    huggingface_root = tmp_path / "huggingface"
+    managed_source = (
+        huggingface_root
+        / "models--org--managed"
+        / "snapshots"
+        / "main"
+        / "model.safetensors"
+    )
+    managed_source.parent.mkdir(parents=True)
+    managed_source.write_text("managed weights")
+    unrelated = tmp_path / "unrelated"
+    unrelated.write_text("must survive")
+    (cache_dir / CACHE_SOURCE_MANIFEST).write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "source_paths": [str(managed_source), str(unrelated)],
+            }
+        )
+    )
+
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(huggingface_root))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(tmp_path / "modelscope"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind_hub"))
+    monkeypatch.setenv("CSGHUB_CACHE", str(tmp_path / "csghub"))
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "malicious-model")
+    assert str(managed_source) in paths
+    assert str(unrelated) not in paths
+    assert await WorkerActor.confirm_and_remove_model(worker, "malicious-model")
+    assert not cache_dir.exists()
+    assert not managed_source.exists()
+    assert unrelated.read_text() == "must survive"
+    assert huggingface_root.is_dir()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_uri_cache_only_unlinks_cache_entry(tmp_path, monkeypatch):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "local-model"
+    cache_dir.parent.mkdir(parents=True)
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+
+    source = tmp_path / "user-model"
+    source.mkdir()
+    weights = source / "model.safetensors"
+    weights.write_text("user weights")
+    cache_dir.symlink_to(source, target_is_directory=True)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    assert await WorkerActor.confirm_and_remove_model(worker, "local-model")
+    assert not cache_dir.exists()
+    assert source.exists()
+    assert weights.exists()
+
+
+@pytest.mark.asyncio
+async def test_list_deletable_models_rejects_unmanaged_source(tmp_path, monkeypatch):
+    cache_root = tmp_path / "cache"
+    cache_root.mkdir()
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    source = tmp_path / "flexible-model"
+    source.mkdir()
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(source)
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+    with pytest.raises(ValueError, match="outside the Xinference cache directory"):
+        await WorkerActor.list_deletable_models(_Worker(), "flexible-model")
+
+
+@pytest.mark.asyncio
+async def test_update_cache_status_skips_when_cache_tracker_ref_is_none():
+    # get_supervisor_ref core init can fail and _clear_supervisor_refs leaves
+    # _cache_tracker_ref as None. update_cache_status must not AttributeError,
+    # matching list_cached_models / record_model_version.
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = None
+            self.address = "127.0.0.1:0"
+
+    worker = _Worker()
+    await WorkerActor.update_cache_status(
+        worker,
+        "bge-m3",
+        {
+            "model_version": "bge-m3",
+            "model_file_location": "/tmp/bge-m3",
+        },
+    )
+    await WorkerActor.update_cache_status(
+        worker,
+        "sdxl",
+        [{"model_file_location": "/tmp/sdxl"}],
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_model_ability_handles_missing_model_family_ability():
+    assert await WorkerActor._get_model_ability(
+        None, SimpleNamespace(), "flexible"
+    ) == ["flexible"]
+    assert await WorkerActor._get_model_ability(
+        None,
+        SimpleNamespace(model_family=SimpleNamespace(model_ability=None)),
+        "embedding",
+    ) == ["embed"]
+
+
+@pytest.mark.asyncio
+async def test_terminate_missing_model_does_not_destroy_none(setup_pool, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    worker = await xo.create_actor(
+        MockWorkerActorRealTerminate,
+        address=setup_pool.external_address,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=setup_pool,
+        cuda_devices=[0],
+    )
+    destroy = AsyncMock()
+    monkeypatch.setattr(xo, "destroy_actor", destroy)
+    await worker.terminate_model("already-removed-rep0")
+    await worker.terminate_model("already-removed-rep0")
+    destroy.assert_not_called()
+    presence = await worker.get_launch_state_presence_for_test("already-removed-rep0")
+    assert not any(presence.values())
+
+
+@pytest.mark.asyncio
+async def test_terminate_dead_model_removes_all_cached_rank_pools(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    pool = SimpleNamespace(remove_sub_pool=AsyncMock())
+    worker = WorkerActor("test", None, pool, gpu_devices=[])
+    uid = "dead-model-rep0"
+    model = SimpleNamespace(
+        get_pool_addresses=AsyncMock(side_effect=xo.ServerClosed("model is dead")),
+        stop=AsyncMock(side_effect=xo.ServerClosed("model is dead")),
+    )
+    worker._model_uid_to_model[uid] = model
+    worker._model_uid_to_addr[uid] = "model-pool"
+    worker._model_uid_to_subpool_addresses[uid] = {
+        "model-pool",
+        "rank-0-pool",
+        "rank-1-pool",
+    }
+    worker._model_uid_to_model_status[uid] = ModelStatus(model_state="error")
+    worker._status_guard_ref = SimpleNamespace(update_instance_info=AsyncMock())
+    monkeypatch.setattr(worker, "get_supervisor_ref", AsyncMock())
+    monkeypatch.setattr(worker, "_update_model_state", AsyncMock())
+    monkeypatch.setattr(worker, "_remove_persisted_launch_args", lambda _: None)
+    monkeypatch.setattr(
+        xo, "destroy_actor", AsyncMock(side_effect=xo.ServerClosed("model is dead"))
+    )
+
+    await worker.terminate_model(uid)
+
+    model.get_pool_addresses.assert_not_called()
+    calls = pool.remove_sub_pool.await_args_list
+    assert len(calls) == 3
+    assert {call.args[0] for call in calls} == {
+        "model-pool",
+        "rank-0-pool",
+        "rank-1-pool",
+    }
+    assert all(call.kwargs == {"force": True} for call in calls)
+    assert uid not in worker._model_uid_to_model
+    assert uid not in worker._model_uid_to_subpool_addresses

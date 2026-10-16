@@ -1,0 +1,173 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-15 19:32+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/logging.rst:5
+msgid "Logging in Xinference"
+msgstr "日誌"
+
+#: ../../source/getting_started/logging.rst:8
+msgid "Configure Log Level"
+msgstr "日誌等級"
+
+#: ../../source/getting_started/logging.rst:9
+msgid ""
+"You can configure the log level with the ``--log-level`` option. For "
+"example, starting a local cluster with ``DEBUG`` log level:"
+msgstr ""
+"你可以透過 ``--log-level`` 選項來設定 Xinference 叢集的日誌等級。例如，以 ``DEBUG`` 日誌等級啟動 "
+"Xinference 本地叢集："
+
+#: ../../source/getting_started/logging.rst:18
+msgid "Log Files"
+msgstr "日誌檔案"
+
+#: ../../source/getting_started/logging.rst:19
+msgid ""
+"Xinference supports log rotation of log files. By default, logs rotate when "
+"they reach 100MB (maxBytes), and up to 30 backup files (backupCount) are "
+"kept. Note that the log level configured above takes effect in both the "
+"command line logs and the log files."
+msgstr ""
+"Xinference 支援滾動日誌檔案。預設情況下，當單一日誌檔案達到 100MB 時會產生新的日誌備份檔案，系統會保留最近的 30 "
+"份日誌備份。上述設定日誌等級的方式會同時影響命令列日誌和日誌檔案。"
+
+#: ../../source/getting_started/logging.rst:24
+msgid "Log Directory Structure"
+msgstr "日誌目錄結構"
+
+#: ../../source/getting_started/logging.rst:25
+msgid ""
+"All the logs are stored in the ``<XINFERENCE_HOME>/logs`` directory, where "
+"``<XINFERENCE_HOME>`` can be configured as mentioned in "
+":ref:`using_xinference`."
+msgstr ""
+"首先，所有的日誌儲存在 ``<XINFERENCE_HOME>/logs`` 目錄中，其中 ``<XINFERENCE_HOME>`` 的配置方式請參考"
+" :ref:`using_xinference` 。"
+
+#: ../../source/getting_started/logging.rst:27
+msgid ""
+"Xinference creates a subdirectory under the log directory "
+"``<XINFERENCE_HOME>/logs``. The name of the subdirectory corresponds to the "
+"Xinference cluster startup time in milliseconds."
+msgstr ""
+"其次，Xinference 在日誌目錄 ``<XINFERENCE_HOME>/logs`` 下建立一個子目錄。子目錄的名稱對應於 Xinference"
+" 集群啟動的時間（以毫秒為單位）。"
+
+#: ../../source/getting_started/logging.rst:31
+msgid "Local deployment"
+msgstr "本地部署"
+
+#: ../../source/getting_started/logging.rst:32
+msgid ""
+"In a local deployment, the logs of Xinference supervisor and Xinference "
+"workers are combined into a single file. An example of the log directory "
+"structure is shown below::"
+msgstr "在本地部署中，Xinference supervisor 和 Xinference workers 的日誌被合併到一個檔案中。日誌目錄結構如"
+"下所示::"
+
+#: ../../source/getting_started/logging.rst:38
+msgid ""
+"where ``1699503558105`` is the timestamp when the Xinference cluster was "
+"created. Therefore, when you create a cluster locally multiple times, you "
+"can look for the corresponding logs based on this timestamp."
+msgstr ""
+"其中，``1699503558105`` 是 Xinference 集群創建時的時間戳。因此，當你在本地多次創建集群時，可以根據此時間戳查找相應的日誌。"
+
+#: ../../source/getting_started/logging.rst:42
+msgid "Distributed deployment"
+msgstr "分散式部署"
+
+#: ../../source/getting_started/logging.rst:43
+msgid ""
+"In a distributed deployment, Xinference supervisor and Xinference workers "
+"each create their own subdirectory under the log directory. The name of the "
+"subdirectory starts with the role name, followed by the role startup time in"
+" milliseconds. An example of the log directory structure is shown below::"
+msgstr "在分散式部署中，Xinference supervisor 和 Xinference workers 分別在日誌目錄下建立自己的子目錄。子目"
+"錄的名稱以叢集角色名稱開頭，接著是啟動時間（以毫秒為單位）。如下所示::"
+
+#: ../../source/getting_started/logging.rst
+msgid "Model request body logging"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Xinference can write inference request metadata and request bodies to a separate JSON-lines file. This diagnostic feature is disabled by default because prompts, media references, and other request values may contain sensitive data. Enable it only on trusted systems with appropriate access controls and retention policies. Authentication and authorization failures do not persist request bodies. Multipart uploads record field values and original filenames, but not uploaded file bytes. Requests larger than the configured capture limit, or requests without a known size, record an omission reason instead of the body."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "The following environment variables configure the feature:"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_ENABLED``: Enable request body logging (default: ``false``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_FILE``: Log filename or absolute path (default: ``model_request.log``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_BODY_MAX_BYTES``: Maximum captured request size (default: ``16777216``). Set to ``-1`` to disable the size limit; this is not recommended for internet-facing deployments."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_RETENTION_DAYS``: Maximum age of rotated files in days (default: ``7``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_MAX_BYTES``: Size-based rotation threshold (default: ``1073741824``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_BACKUP_COUNT``: Maximum number of rotated files (default: ``7``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Each inference response includes ``X-Request-ID``. Xinference preserves a valid caller-provided ``request-id`` or ``x-request-id`` value (in that order), or generates a UUID. The same correlation ID is attached to Supervisor model lookup logs without replacing model operation request IDs used for cancellation or progress tracking."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:143
+msgid "For streaming responses, the terminal request log separates HTTP delivery from stream execution with ``http_success``, ``stream_completed``, ``stream_outcome``, and, for non-successful outcomes, ``failure_origin``. A response can therefore have HTTP status 200 while ``success`` and ``stream_completed`` are false. Endpoints report swallowed generator failures through request state; the logging layer does not parse, buffer, or log stream chunks. Failure origins are ``model_generator``, ``upstream``, ``protocol``, ``client``, or ``server``."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:153
+msgid "Correlation metadata is propagated independently across REST API, Supervisor, Worker, ModelActor, PD, cancellation, and progress actor calls. Actor log records can include ``correlation_id``, ``operation_request_id``, ``actor_call_id``, and ``parent_call_id``. The correlation ID is observability-only; the operation request ID retains its existing cancellation, progress, batching, and backend abort semantics. Xinference consumes the internal metadata envelope at actor boundaries and does not pass it to model implementations."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:137
+msgid "Each request event also records its producing process identity in ``role``, ``address``, ``node``, ``module``, and ``pid``, together with an ``api_protocol`` value of ``openai``, ``anthropic``, or ``xinference``."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Application logs are written to ``<XINFERENCE_LOG_DIR>/xinference.log``. By default, ``XINFERENCE_LOG_DIR`` is ``<XINFERENCE_HOME>/logs``. If ``XINFERENCE_POD_NAME`` is set, the file is named ``xinference-<XINFERENCE_POD_NAME>.log`` instead. Local deployment combines Supervisor and Worker logs in this file. In distributed deployment, each node writes to its own local log directory. Rotated files stay beside the active file."
+msgstr "應用日誌寫入 ``<XINFERENCE_LOG_DIR>/xinference.log``。預設 ``XINFERENCE_LOG_DIR`` 為 ``<XINFERENCE_HOME>/logs``。設定 ``XINFERENCE_POD_NAME`` 後，檔名改為 ``xinference-<XINFERENCE_POD_NAME>.log``。本機部署將 Supervisor 與 Worker 日誌合併至此檔案。分散式部署中，各節點寫入本機日誌目錄。輪替檔案與目前檔案位於同一目錄。"
+
+#: ../../source/getting_started/logging.rst
+msgid "Web UI runtime logs"
+msgstr "Web UI 執行日誌"
+
+#: ../../source/getting_started/logging.rst
+msgid "Open **Monitoring Management > Log Center > Runtime logs** to view recent application logs and errors without Elasticsearch. The page reads the active log file on the selected node and refreshes every two seconds. It works when Xinference runs directly with Python or inside Docker. If Elasticsearch is configured, the Log Center also offers an Indexed logs tab for historical search."
+msgstr "開啟 **監控管理 > 日誌中心 > 執行日誌**，無需 Elasticsearch 即可查看最近的應用日誌與錯誤。頁面讀取所選節點的目前日誌檔案，每兩秒重新整理一次。直接執行 Python 或使用 Docker 均可使用。設定 Elasticsearch 後，日誌中心也提供「檢索日誌」分頁以搜尋歷史日誌。"
+
+#: ../../source/getting_started/logging.rst
+msgid "The runtime view shows the latest part of the active file and keeps a bounded amount of text in the browser. Search filters only loaded text. Output written directly to stdout or stderr outside Xinference logging, and failures before the API starts, may require the terminal or ``docker logs``. Log access uses the ``logs:list`` permission when authentication is enabled."
+msgstr "執行日誌檢視顯示目前檔案的最新內容，並限制瀏覽器保留的文字量。搜尋僅篩選已載入的文字。繞過 Xinference 日誌系統直接寫入 stdout 或 stderr 的輸出，以及 API 啟動前的故障，可能需要透過終端或 ``docker logs`` 查看。啟用驗證後，存取日誌需要 ``logs:list`` 權限。"

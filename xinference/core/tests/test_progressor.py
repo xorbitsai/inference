@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,6 +50,15 @@ async def test_progressor():
 
             await asyncio.sleep(0.1)
             assert await progress_tracker_ref.get_progress(request_id) == 0.5
+
+            progressor.activate_stage()
+            progressor.set_progress(0.0, details={"stage": "installing_dependencies"})
+            await asyncio.sleep(0.1)
+            progress, _, details = await progress_tracker_ref.get_progress_details(
+                request_id
+            )
+            assert progress == 0.5
+            assert details == {"stage": "installing_dependencies"}
 
             with progressor:
                 progressor.split_stages(2)

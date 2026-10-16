@@ -1,0 +1,268 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-25 03:59+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/multimodal.rst:5
+msgid "Multimodal"
+msgstr "multimodal"
+
+#: ../../source/models/model_abilities/multimodal.rst:7
+msgid "Learn how to process images and audio with LLMs."
+msgstr ""
+"Lernen Sie, wie Sie LLMs zur Verarbeitung von Bildern und Audiodaten "
+"einsetzen können."
+
+#: ../../source/models/model_abilities/multimodal.rst:11
+msgid "Vision"
+msgstr "Visuell"
+
+#: ../../source/models/model_abilities/multimodal.rst:13
+msgid ""
+"With the ``vision`` ability you can have your model take in images and "
+"answer questions about them. Within Xinference, this indicates that certain "
+"models are capable of processing image inputs when conducting dialogues via "
+"the Chat API."
+msgstr ""
+"Durch die ``vision``-Funktion können Sie das Modell Bilder empfangen und "
+"Fragen dazu beantworten lassen. In Xinference bedeutet dies, dass bestimmte "
+"Modelle in der Lage sind, Bildeingaben zu verarbeiten, wenn sie über die "
+"Chat-API kommunizieren."
+
+#: ../../source/models/model_abilities/multimodal.rst:19
+#: ../../source/models/model_abilities/multimodal.rst:190
+msgid "Supported models"
+msgstr "Unterstützte Modellliste"
+
+#: ../../source/models/model_abilities/multimodal.rst:21
+msgid ""
+"The ``vision`` ability is supported with the following models in Xinference:"
+msgstr ""
+"In Xinference werden folgende Modelle unterstützt, die die "
+"``vision``-Funktion bereitstellen:"
+
+#: ../../source/models/model_abilities/multimodal.rst:23
+msgid ":ref:`qwen-vl-chat <models_llm_qwen-vl-chat>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:24
+msgid ":ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:25
+msgid ":ref:`omnilmm <models_llm_omnilmm>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:26
+msgid ":ref:`cogvlm2 <models_llm_cogvlm2>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:27
+msgid ":ref:`MiniCPM-Llama3-V 2.5 <models_llm_minicpm-llama3-v-2_5>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:28
+msgid ":ref:`GLM-4V <models_llm_glm-4v>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:29
+msgid ":ref:`MiniCPM-Llama3-V 2.6 <models_llm_minicpm-v-2.6>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:30
+msgid ":ref:`qwen2-vl-instruct <models_llm_qwen2-vl-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:31
+msgid ":ref:`llama-3.2-vision <models_llm_llama-3.2-vision>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:32
+msgid ""
+":ref:`llama-3.2-vision-instruct <models_llm_llama-3.2-vision-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:33
+msgid ":ref:`glm-edge-v <models_llm_glm-edge-v>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:34
+msgid ":ref:`qwen2.5-vl-instruct <models_llm_qwen2.5-vl-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:35
+msgid ":ref:`gemma-3-it <models_llm_gemma-3-it>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:36
+msgid ":ref:`deepseek-vl2 <models_llm_deepseek-vl2>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:37
+msgid ":ref:`internvl3 <models_llm_internvl3>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:41
+#: ../../source/models/model_abilities/multimodal.rst:197
+msgid "Quickstart"
+msgstr "Schnellstart"
+
+#: ../../source/models/model_abilities/multimodal.rst:43
+msgid ""
+"Images are made available to the model in two main ways: by passing a link "
+"to the image or by passing the base64 encoded image directly in the request."
+msgstr ""
+"Das Modell kann Bilder auf zwei Hauptwegen abrufen: durch Übermitteln eines "
+"Bildlinks oder direkt durch Übermitteln eines base64-kodierten Bildes in der"
+" Anfrage."
+
+#: ../../source/models/model_abilities/multimodal.rst:47
+msgid "Example using OpenAI Client"
+msgstr "Beispiel für die Verwendung des OpenAI-Clients"
+
+#: ../../source/models/model_abilities/multimodal.rst:78
+msgid "Uploading base 64 encoded images"
+msgstr "Laden Sie ein Base64-kodiertes Bild hoch."
+
+#: ../../source/models/model_abilities/multimodal.rst:121
+msgid "Limiting Images Per Prompt"
+msgstr "Begrenzen Sie die Anzahl der Bilder pro Gesprächsrunde."
+
+#: ../../source/models/model_abilities/multimodal.rst:123
+msgid ""
+"For vision models using the VLLM backend, you can use the "
+"``limit_mm_per_prompt`` parameter to limit the number of images that can be "
+"processed in each conversation turn. This helps control memory usage and "
+"improve performance."
+msgstr ""
+"Bei visuellen Modellen, die das VLLM-Backend verwenden, können Sie über den "
+"Parameter ``limit_mm_per_prompt`` die Anzahl der Bilder begrenzen, die pro "
+"Dialogrunde verarbeitet werden können. Dies hilft, die Speichernutzung zu "
+"kontrollieren und die Leistung zu verbessern."
+
+#: ../../source/models/model_abilities/multimodal.rst:142
+msgid "Alternatively, you can launch the model using the command line:"
+msgstr "Alternativ können Sie das Modell über die Befehlszeile starten:"
+
+#: ../../source/models/model_abilities/multimodal.rst:155
+msgid ""
+"For Web UI, you can set the ``limit_mm_per_prompt`` parameter in the launch "
+"form:"
+msgstr ""
+"Für die Web-UI können Sie den Parameter ``limit_mm_per_prompt`` im vLLM-"
+"Engine-Formular festlegen:"
+
+#: ../../source/models/model_abilities/multimodal.rst:161
+msgid "This parameter provides the following benefits:"
+msgstr "Dieser Parameter bietet die folgenden Vorteile:"
+
+#: ../../source/models/model_abilities/multimodal.rst:163
+msgid ""
+"**image**: Sets the maximum number of images allowed per conversation turn"
+msgstr ""
+"**image**: Legt die maximale Anzahl erlaubter Bilder pro Dialogrunde fest."
+
+#: ../../source/models/model_abilities/multimodal.rst:164
+msgid ""
+"Helps prevent memory overflow, especially when processing multiple images"
+msgstr ""
+"Hilft, Speicherüberläufe zu vermeiden, insbesondere bei der Verarbeitung "
+"mehrerer Bilder."
+
+#: ../../source/models/model_abilities/multimodal.rst:165
+msgid "Improves model inference stability and performance"
+msgstr "Verbesserung der Stabilität und Leistung von Modellinferenzen"
+
+#: ../../source/models/model_abilities/multimodal.rst:166
+msgid "Applies to all VLLM-based vision models"
+msgstr "Gilt für alle auf VLLM basierenden visuellen Modelle."
+
+#: ../../source/models/model_abilities/multimodal.rst:169
+msgid ""
+"The ``limit_mm_per_prompt`` parameter only takes effect when using the VLLM "
+"backend. If your model uses other backends, this parameter will be ignored."
+msgstr ""
+"Der Parameter ``limit_mm_per_prompt`` ist nur wirksam, wenn das VLLM-Backend"
+" verwendet wird. Wenn Ihr Modell ein anderes Backend verwendet, wird dieser "
+"Parameter ignoriert."
+
+#: ../../source/models/model_abilities/multimodal.rst:171
+msgid ""
+"You can find more examples of ``vision`` ability in the tutorial notebook:"
+msgstr ""
+"Weitere Beispiele zur Fähigkeit ``vision`` finden Sie im Tutorial-Notebook:"
+
+#: ../../source/models/model_abilities/multimodal.rst:175
+msgid "Qwen VL Chat"
+msgstr "Qwen VL Chat"
+
+#: ../../source/models/model_abilities/multimodal.rst:178
+msgid "Learn vision ability from a example using qwen-vl-chat"
+msgstr ""
+"Lernen Sie die visuellen Fähigkeiten von LLM anhand des Beispiels von qwen-"
+"vl-chat kennen."
+
+#: ../../source/models/model_abilities/multimodal.rst:182
+msgid "Audio"
+msgstr "Audio"
+
+#: ../../source/models/model_abilities/multimodal.rst:184
+msgid ""
+"With the ``audio`` ability you can have your model take in audio and "
+"performing audio analysis or direct textual responses with regard to speech "
+"instructions. Within Xinference, this indicates that certain models are "
+"capable of processing audio inputs when conducting dialogues via the Chat "
+"API."
+msgstr ""
+"Mit der Fähigkeit ``audio`` kann Ihr Modell Audio aufnehmen und "
+"Audioanalysen durchführen oder direkt textuelle Antworten auf "
+"Sprachanweisungen geben. In Xinference bedeutet dies, dass bestimmte Modelle"
+" bei Dialogen über die Chat-API Audioeingaben verarbeiten können."
+
+#: ../../source/models/model_abilities/multimodal.rst:192
+msgid ""
+"The ``audio`` ability is supported with the following models in Xinference:"
+msgstr ""
+"Die Fähigkeit ``audio`` wird in Xinference von folgenden Modellen "
+"unterstützt:"
+
+#: ../../source/models/model_abilities/multimodal.rst:194
+msgid ":ref:`qwen2-audio-instruct <models_llm_qwen2-audio-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:199
+msgid ""
+"Audios are made available to the model in two main ways: by passing a link "
+"to the image or by passing the audio url directly in the request."
+msgstr ""
+"Audio kann dem Modell auf zwei wesentliche Arten bereitgestellt werden: "
+"durch Übergabe eines Bildlinks oder durch direkte Übergabe einer Audio-URL "
+"in der Anfrage."
+
+#: ../../source/models/model_abilities/multimodal.rst:204
+msgid "Chat with audio"
+msgstr "Chat mit Audio"
+
+#~ msgid ":ref:`yi-vl-chat <models_llm_yi-vl-chat>`"
+#~ msgstr ""
+
+#~ msgid ":ref:`internvl-chat <models_llm_internvl-chat>`"
+#~ msgstr ""
+
+#~ msgid ":ref:`internvl2 <models_llm_internvl2>`"
+#~ msgstr ""

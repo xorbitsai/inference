@@ -1,0 +1,75 @@
+[
+  {
+    "version": 1,
+    "model_name": "HY-WorldPlay-5B",
+    "model_family": "HY-WorldPlay",
+    "model_description": "A 5B autoregressive world model from Tencent Hunyuan for long-horizon interactive video generation.",
+    "model_format": "pytorch",
+    "model_ability": [
+      "text2world",
+      "image2world"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "num_frames": 961,
+      "num_inference_steps": 50,
+      "pose": "w-16",
+      "num_chunk": 4,
+      "response_format": "url"
+    },
+    "source_url": "https://github.com/Tencent-Hunyuan/HY-WorldPlay.git",
+    "source_revision": "1588e1336e842b03b0a7860c654ebd7c46bb065e",
+    "auxiliary_model_id": "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
+    "auxiliary_model_revision": "b8fff7315c768468a5333511427288870b2e9635",
+    "cache_config": {
+      "allow_patterns": [
+        "wan_transformer/*",
+        "wan_distilled_model/*",
+        "README.md",
+        "License.txt"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "#system_torch# ; #engine# == \"pytorch\"",
+        "#system_torchvision#",
+        "peft==0.17.0",
+        "einops==0.8.0",
+        "loguru==0.7.3",
+        "numpy==1.26.4",
+        "pillow==11.3.0",
+        "imageio==2.37.0",
+        "imageio-ffmpeg==0.6.0",
+        "omegaconf>=2.3.0",
+        "diffusers==0.35.0",
+        "safetensors==0.4.5",
+        "qwen-vl-utils==0.0.8",
+        "huggingface-hub==0.34.0",
+        "transformers[accelerate,tiktoken]==4.56.0",
+        "modelscope",
+        "ninja",
+        "pandas",
+        "scipy",
+        "protobuf",
+        "moviepy==1.0.3",
+        "cloudpickle",
+        "ftfy",
+        "remote-pdb",
+        "sageattention"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "tencent/HY-WorldPlay",
+        "model_revision": "f4c29235647707b571479a69b569e4166f9f5bf8"
+      },
+      "modelscope": {
+        "model_id": "Tencent-Hunyuan/HY-WorldPlay",
+        "model_revision": "master",
+        "auxiliary_model_revision": "master"
+      }
+    },
+    "updated_at": 1787337600,
+    "featured": false
+  }
+]

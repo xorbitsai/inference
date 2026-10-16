@@ -1,0 +1,59 @@
+[
+  {
+    "version": 2,
+    "model_name": "whisper-large-v3-turbo",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-large-v3-turbo",
+        "model_revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/whisper-large-v3-turbo",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-large-v3-turbo",
+    "cache_name": "whisper-large-v3-turbo-mlx",
+    "model_family": "whisper",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-large-v3-turbo"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    }
+  }
+]

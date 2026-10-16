@@ -12,8 +12,15 @@ Qwen3-ASR-0.6B
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** Qwen/Qwen3-ASR-0.6B
+- **transformers model ID:** Qwen/Qwen3-ASR-0.6B
+- **MLX model ID:** mlx-community/Qwen3-ASR-0.6B-8bit
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name Qwen3-ASR-0.6B --model-type audio
+   xinference launch --model-name Qwen3-ASR-0.6B --model-type audio --model-engine transformers
+
+Available engines
+^^^^^^^^^^^^^^^^^
+
+* ``transformers``
+* ``MLX``

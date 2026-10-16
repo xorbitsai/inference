@@ -1,0 +1,110 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-05-16 14:18+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/lora.rst:5
+msgid "LoRA Integration"
+msgstr "Integration von LoRA"
+
+#: ../../source/models/lora.rst:7
+msgid ""
+"Currently, Xinference supports launching ``LLM`` and ``image`` models with "
+"an attached LoRA fine-tuned model."
+msgstr ""
+"Derzeit kann Xinference beim Starten von ``LLM``- und ``image``-Modellen ein"
+" LoRA-Feinabstimmungsmodell mitführen, um das Basismodell zu unterstützen."
+
+#: ../../source/models/lora.rst:10
+msgid "Usage"
+msgstr "Verwendungsweise"
+
+#: ../../source/models/lora.rst:13
+msgid "Launch"
+msgstr "Starten"
+
+#: ../../source/models/lora.rst:14
+msgid ""
+"Different from built-in models, xinference currently does not involve "
+"managing LoRA models. Users need to first download the LoRA model themselves"
+" and then provide the storage path of the model files to xinference."
+msgstr ""
+"Im Gegensatz zu den integrierten Modellen verwaltet Xinference derzeit keine"
+" LoRA-Modelle. Benutzer müssen zunächst das entsprechende LoRA-Modell "
+"herunterladen und dann den Speicherpfad des Modells an Xinference "
+"bereitstellen."
+
+#: ../../source/models/lora.rst:54
+msgid "Apply"
+msgstr "Anwendung"
+
+#: ../../source/models/lora.rst:55
+msgid ""
+"For LLM models, you can only configure one lora model you want when you use "
+"the model. Specifically, specify that the ``lora_name`` parameter be "
+"configured in the ``generate_config``. ``lora_name`` corresponds to the name"
+" of the lora in the LAUNCH procedure described above."
+msgstr ""
+"Für große Sprachmodelle wird bei der Verwendung eine der LoRAs angegeben. "
+"Konkret wird der Parameter ``lora_name`` in den "
+"``generate_config``-Parametern konfiguriert. ``lora_name`` entspricht Ihrer "
+"Konfiguration während des Launch-Prozesses."
+
+#: ../../source/models/lora.rst:75
+msgid "Note"
+msgstr "Hinweise"
+
+#: ../../source/models/lora.rst:77
+msgid ""
+"The options ``image_lora_load_kwargs`` and ``image_lora_fuse_kwargs`` are "
+"only applicable to models with model_type ``image``. They correspond to the "
+"parameters in the ``load_lora_weights`` and ``fuse_lora`` interfaces of the "
+"``diffusers`` library. If launching an LLM model, these parameters are not "
+"required."
+msgstr ""
+"Die oben genannten Optionen ``image_lora_load_kwargs`` und "
+"``image_lora_fuse_kwargs`` gelten nur für das ``image``-Modell. Sie "
+"entsprechen den zusätzlichen Parametern in den Schnittstellen "
+"``load_lora_weights`` und ``fuse_lora`` der ``diffusers``-Bibliothek. Wenn "
+"das ``LLM``-Modell gestartet wird, müssen diese Optionen nicht gesetzt "
+"werden."
+
+#: ../../source/models/lora.rst:81
+msgid ""
+"You need to add the parameter lora_name during inference to specify the "
+"corresponding lora model. You can specify it in the Additional Inputs "
+"option."
+msgstr ""
+"Sie müssen den Parameter lora_name während der Inferenz hinzufügen, um das "
+"entsprechende LoRA-Modell anzugeben. Sie können dies in der Option "
+"„Additional Inputs“ (Zusätzliche Eingaben) festlegen."
+
+#: ../../source/models/lora.rst:83
+msgid ""
+"For LLM chat models, currently only LoRA models are supported that do not "
+"change the prompt style."
+msgstr ""
+"Für das ``LLM``-Chatmodell werden derzeit nur LoRA-Modelle unterstützt, die "
+"nach dem Feintuning die Promptvorlage des ursprünglichen Basismodells nicht "
+"verändern."
+
+#: ../../source/models/lora.rst:85
+msgid "When using GPU, both LoRA and its base model occupy the same devices."
+msgstr ""
+"Bei Verwendung einer GPU befinden sich das LoRA-Modell und sein Basismodell "
+"auf demselben Gerät und beeinflussen keine anderen Modelle."

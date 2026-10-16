@@ -1,0 +1,199 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/examples/ai_podcast.rst:5
+msgid "Example: AI Podcast 🎙"
+msgstr "예: 스마트 팟캐스트 🎙"
+
+#: ../../source/examples/ai_podcast.rst:7
+msgid "**Description**:"
+msgstr "설명"
+
+#: ../../source/examples/ai_podcast.rst:9
+msgid "🎙️AI Podcast - Voice Conversations with Multiple Agents on M2 Max 💻"
+msgstr "🎙️AI 팟캐스트 - M2 Max 칩에서의 다중 에이전트 음성 대화"
+
+#: ../../source/examples/ai_podcast.rst:11
+msgid "**Support Language** :"
+msgstr "**지원 언어**:"
+
+#: ../../source/examples/ai_podcast.rst:13
+msgid "English (AI_Podcast.py)"
+msgstr "AI_Podcast.py"
+
+#: ../../source/examples/ai_podcast.rst:15
+msgid "Chinese (AI_Podcast_ZH.py)"
+msgstr "AI_Podcast_ZH.py"
+
+#: ../../source/examples/ai_podcast.rst:17
+msgid "**Used Technology (EN version)** :"
+msgstr "English version involves technology:"
+
+#: ../../source/examples/ai_podcast.rst:19
+msgid ""
+"@ `OpenAI <https://twitter.com/OpenAI>`_ 's `whisper "
+"<https://pypi.org/project/openai-whisper/>`_"
+msgstr ""
+"@ `OpenAI <https://twitter.com/OpenAI>`_ `whisper "
+"<https://pypi.org/project/openai-whisper/>`_"
+
+#: ../../source/examples/ai_podcast.rst:21
+msgid ""
+"@ `ggerganov <https://twitter.com/ggerganov>`_ 's `ggml "
+"<https://github.com/ggerganov/ggml>`_"
+msgstr ""
+"@ `ggerganov <https://twitter.com/ggerganov>`_ `ggml "
+"<https://github.com/ggerganov/ggml>`_"
+
+#: ../../source/examples/ai_podcast.rst:23
+msgid ""
+"@ `WizardLM_AI <https://twitter.com/WizardLM_AI>`_ 's `wizardlm v1.0 "
+"<https://huggingface.co/WizardLM>`_"
+msgstr ""
+"@ `WizardLM_AI <https://twitter.com/WizardLM_AI>`_ `wizardlm v1.0 "
+"<https://huggingface.co/WizardLM>`_"
+
+msgid ""
+"@ `lmsysorg <https://twitter.com/lmsysorg>`_ 's `vicuna v1.3 "
+"<https://huggingface.co/lmsys/vicuna-7b-v1.3>`_"
+msgstr ""
+"@ `lmsysorg <https://twitter.com/lmsysorg>`_ `vicuna v1.3 "
+"<https://huggingface.co/lmsys/vicuna-7b-v1.3>`_"
+
+#: ../../source/examples/ai_podcast.rst:27
+msgid "@ `Xinference <https://github.com/xorbitsai/inference>`_ as a launcher"
+msgstr "`Xinference <https://github.com/xorbitsai/inference>`_ 는 플랫폼으로"
+
+#: ../../source/examples/ai_podcast.rst:29
+msgid "**Detailed Explanation on the Demo Functionality** :"
+msgstr "**데모 기능에 대한 상세 설명**:"
+
+#: ../../source/examples/ai_podcast.rst:31
+msgid ""
+"Generate the Wizardlm Model and Vicuna Model when the program is launching "
+"with Xorbits Inference. Initiate the Chatroom by giving the two chatbot "
+"their names and telling them that there is a human user called \"username\","
+" where \"username\" is given by user's input. Initialize a empty chat "
+"history for the chatroom."
+msgstr ""
+"XInference를 시작하고 Wizardlm 모델과 Vicuna 모델을 배포합니다. 두 모델에 이름을 지정하고 "
+"\"username\"이라는 인간 사용자가 있음을 알려 채팅방을 시작합니다. 여기서 \"username\"은 사용자 입력으로 제공됩니다."
+" 그런 다음 채팅방에 빈 채팅 기록을 초기화합니다."
+
+#: ../../source/examples/ai_podcast.rst:35
+msgid ""
+"Use Audio device to store recording into file, and transcribe the file using"
+" OpenAI's Whisper to receive a human readable text as string."
+msgstr ""
+"오디오 장치를 사용하여 녹음을 파일에 저장한 후, OpenAI의 Whisper를 사용하여 파일을 사람이 읽을 수 있는 텍스트 문자열로 "
+"변환합니다."
+
+#: ../../source/examples/ai_podcast.rst:37
+msgid ""
+"Based on the input message string, determine which agents the user want to "
+"talk to. Call the target agents and parse in the input string and chat "
+"history for the model to generate."
+msgstr ""
+"입력된 메시지 문자열을 기반으로 사용자가 대화하고자 하는 에이전트(모델)를 확인합니다. 해당 대상 에이전트를 호출하여 사용자 입력 "
+"문자열과 채팅 기록을 입력으로 제공하고, 모델이 이에 대응하는 내용을 생성하도록 합니다."
+
+#: ../../source/examples/ai_podcast.rst:40
+msgid ""
+"When the responses are ready, use Macos's \"Say\" Command to produce audio "
+"through speaker. Each agents have their own voice while speaking."
+msgstr ""
+"모델의 출력이 준비되면 MacOS의 \"Say\" 명령을 사용하여 스피커를 통해 오디오를 생성합니다. 각 에이전트는 말할 때 고유한 "
+"목소리를 가집니다."
+
+#: ../../source/examples/ai_podcast.rst:43
+msgid ""
+"Store the user input and the agent response into chat history, and "
+"recursively looping the program until user explicitly says words like \"see "
+"you\" in their responses."
+msgstr ""
+"사용자 입력과 에이전트 응답을 채팅 기록에 저장하고, 사용자가 자신의 응답에서 \"안녕\"과 같은 말을 명확히 언급할 때까지 프로그램을 "
+"반복적으로 재귀 실행합니다."
+
+#: ../../source/examples/ai_podcast.rst:46
+msgid "**Highlight Features with Xinference** :"
+msgstr "**Xinference의 두드러진 특징**:"
+
+#: ../../source/examples/ai_podcast.rst:48
+msgid ""
+"With Xinference's distributed system, we can easily deploy two different "
+"models in the same session and in the same \"chatroom\". With enough "
+"resources, the framework can deploy any amount of models you like at the "
+"same time."
+msgstr ""
+"Xinference의 분산 시스템을 활용하면 동일한 세션 및 동일한 \"채팅방\"에서 두 개의 다른 모델을 쉽게 배포할 수 있습니다. "
+"충분한 리소스가 있는 경우 이 프레임워크는 동시에 임의의 수의 모델을 배포할 수 있습니다."
+
+#: ../../source/examples/ai_podcast.rst:51
+msgid ""
+"With Xinference, you can deploy the model easily by just adding a few lines "
+"of code. For examples, for launching the vicuna model in the demo, just by::"
+msgstr ""
+"Xinference를 사용하면 몇 줄의 코드만 추가하여 모델을 쉽게 배포할 수 있습니다. 예를 들어, 데모에서 vicuna 모델을 시작하려면 다음과 같이 하면 됩니다::"
+
+#: ../../source/examples/ai_podcast.rst:68
+msgid ""
+"Then, the Xinference client will handle \"target model downloading and "
+"caching\", \"set up environment and process for the model\", and \"run the "
+"service at selected endpoint. \" You are now ready to play with your llm "
+"model."
+msgstr ""
+"그런 다음 Xinference 클라이언트는 \"대상 모델의 다운로드 및 캐싱\", \"모델에 대한 환경 및 프로세스 설정\", \"선택한"
+" 엔드포인트에서 서비스 실행\"을 처리합니다. 이제 LLM 모델과 상호작용할 준비가 되었습니다."
+
+#: ../../source/examples/ai_podcast.rst:71
+msgid "**Original Demo Video** :"
+msgstr "**원본 데모 영상**"
+
+#: ../../source/examples/ai_podcast.rst:73
+msgid ""
+"`🎙️AI Podcast - Voice Conversations with Multiple Agents on M2 Max💻🔥🤖 "
+"<https://twitter.com/yichaocheng/status/1679129417778442240>`_"
+msgstr ""
+"`🎙️AI 팟캐스트 - M2 Max 칩에서 다중 에이전트 음성 대화 진행💻🔥🤖 "
+"<https://twitter.com/yichaocheng/status/1679129417778442240>`_"
+
+#: ../../source/examples/ai_podcast.rst:75
+msgid "**Source Code** :"
+msgstr "**소스 코드**"
+
+#: ../../source/examples/ai_podcast.rst:77
+msgid ""
+"`AI_Podcast "
+"<https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast.py>`_ "
+"(English Version)"
+msgstr ""
+"`AI播客 "
+"<https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast.py>`_（영문판）"
+
+#: ../../source/examples/ai_podcast.rst:79
+msgid ""
+"`AI_Podcast_ZH "
+"<https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast_ZH.py>`_"
+" (Chinese Version)"
+msgstr ""
+"`AI 팟캐스트 "
+"<https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast_ZH.py>`_"
+" (중국어 버전)"

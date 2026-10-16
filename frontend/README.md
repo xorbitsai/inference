@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Xinference Frontend
 
-## Getting Started
+This is the Xinference Web UI, a Next.js app. In production it is built as a
+**static export**, bundled into the `xinference` Python package, and served by
+the Xinference backend itself — a single process, no Node.js runtime needed.
 
-First, run the development server:
+## Local Development
+
+Start the backend first:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+xinference-local --host 127.0.0.1 --port 9997
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then start the frontend dev server:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cd frontend
+npm ci
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open http://127.0.0.1:3999.
 
-## Learn More
+`.env.development` points the browser straight at `http://127.0.0.1:9997`.
+Keep it that way unless you know you want the proxy: with `NEXT_PUBLIC_API_URL`
+unset the browser talks to the Next dev server instead, and its rewrite proxy
+buffers responses — streaming endpoints (chat completions and friends) then
+deliver the whole answer in one go, which looks like the backend lost its
+streaming support.
 
-To learn more about Next.js, take a look at the following resources:
+To use a different backend endpoint:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+NEXT_PUBLIC_API_URL=http://127.0.0.1:6735 npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`XINFERENCE_API_URL` sets the proxy target instead, for the same-origin setup
+where the browser goes through the dev server.
 
-## Deploy on Vercel
+## Build
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run build
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This produces the static export in `out/` and stages it at
+`xinference/ui/web/dist` (postbuild hook), where the backend serves it. After
+building, `http://<backend-host>:9997/` serves the UI directly.
+
+Notes on the static export:
+
+- Dynamic routes (`launch-model/[modelType]`, `running-model/[modelUid]`, ...)
+  are emitted as `__shell__` placeholder pages; the backend maps any real URL
+  to the matching shell and the client reads the actual params from the URL
+  (see `src/lib/route-params.ts` and `xinference/api/frontend_static.py`).
+- `next.config.ts` only enables rewrites (the dev API proxy) outside export
+  mode; in production the UI is same-origin with the API, so no proxy is
+  needed.
+- To build a self-contained Node server instead (no static export), use
+  `NEXT_OUTPUT=standalone npm run build`.

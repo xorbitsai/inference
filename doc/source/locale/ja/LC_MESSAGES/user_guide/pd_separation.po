@@ -1,0 +1,642 @@
+# Japanese translations for Xinference.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference 3.x\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-08 11:49+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: source/user_guide/pd_separation.rst:4
+msgid "PD separation"
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:6
+msgid ""
+"Prefill/Decode (PD) separation is available in the community edition. "
+"Prefill replicas compute prompt KV cache; decode replicas reuse it through "
+"Xavier or native NIXL and produce the response. Requests are scheduled "
+"round-robin within each role. No enterprise package or License is required."
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:12
+msgid "Launch"
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:14
+msgid ""
+"Xavier requires NVIDIA GPUs, a reachable host address (not ``0.0.0.0``), and"
+" vLLM 0.21.0 or newer. Older deployments can use the legacy Xavier "
+"integration with vLLM below 0.11.0; versions 0.11 through 0.20 are not "
+"supported."
+msgstr ""
+"Xavier には NVIDIA GPU、到達可能なホストアドレス（``0.0.0.0`` 以外）、vLLM 0.21.0 以降が必要です。古い環境では"
+" vLLM 0.11.0 未満の従来の Xavier 統合を利用できます。0.11～0.20 はサポートされません。"
+
+#: source/user_guide/pd_separation.rst:19
+msgid ""
+"The example starts one prefill replica on GPU 0 and one decode replica on "
+"GPU 1. Replace the worker address with the full ``ip:port`` reported by "
+"``client.get_workers_info()``. Both replicas must use the same model and "
+"engine configuration."
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:51
+msgid ""
+"The same ``replica_config`` is accepted by ``POST /v1/models``, the async "
+"Python client, and the CLI ``--replica_config`` JSON option. In the Web UI, "
+"select vLLM, SGLang or MLX, enable per-replica placement, and choose Prefill"
+" or Decode for each replica. The community launch path defaults to Xavier "
+"when P/D roles appear."
+msgstr ""
+"同じ ``replica_config`` を ``POST /v1/models``、非同期 Python クライアント、CLI の "
+"``--replica_config`` JSON オプションで使用できます。Web UI では vLLM、SGLang または MLX "
+"を選択し、レプリカごとの配置を有効にして、各レプリカに Prefill または Decode を指定します。P/D "
+"ロールを指定すると、コミュニティ版の起動処理はデフォルトで Xavier を使用します。"
+
+#: source/user_guide/pd_separation.rst:57
+msgid "CLI launch"
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:59
+msgid "Start a local server first, or use an existing supervisor endpoint:"
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:65
+msgid "In another terminal, launch a 1P+1D deployment:"
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:78
+msgid ""
+"Replace ``WORKER_ADDRESS`` with the worker's registered address, including "
+"its actor port (shown in the worker startup log), not the HTTP API port. For"
+" workers on different machines, use each worker's own address and GPU "
+"indices. ``--replica_config`` is an alias for ``--replica-config``. The "
+"replica count is inferred from the array length; no separate Xavier switch "
+"is needed. Do not combine per-replica placement with global ``--n-gpu``, "
+"``--gpu-idx``, or ``--worker-ip``. Invalid PD roles or incomplete P/D "
+"topology fail before the launch request is sent."
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:88
+msgid "Configuration rules"
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:90
+msgid ""
+"``replica`` is the total number of P and D replicas. At least one of each "
+"role is required; more than one of either role is supported."
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:92
+msgid ""
+"Omitted roles default to ``hybrid`` (ordinary replicas). A PD deployment "
+"cannot mix hybrid replicas with P/D replicas."
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:94
+msgid ""
+"Each entry specifies one worker and its GPU allocation. Different replicas "
+"may run on different workers. Per-replica placement cannot be combined with "
+"global ``worker_ip``, ``gpu_idx`` or ``n_gpu``, or cross-worker sharding "
+"within a replica (``n_worker > 1``)."
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:98
+msgid ""
+"``vllm_transfer_backend_type`` (alias ``transfer_backend_type``) selects "
+"``xavier`` (default) or ``nixl``. Unknown backend names are rejected."
+msgstr ""
+"``vllm_transfer_backend_type``（別名 ``transfer_backend_type``）で "
+"``xavier``（既定）または ``nixl`` を選択します。不明なバックエンド名は拒否されます。"
+
+#: source/user_guide/pd_separation.rst:101
+msgid ""
+"The topology is fixed for the deployment lifetime. To change its size or "
+"roles, terminate the model and relaunch it with the new configuration."
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:105
+msgid "Inference and lifecycle"
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:107
+msgid ""
+"Send OpenAI-compatible chat/completion requests to the model UID used at "
+"launch. Both streaming and non-streaming responses are supported. Wait for "
+"all replicas to be ready before sending requests. Aborting a request stops "
+"work on both roles; terminating the model releases the deployment resources."
+msgstr ""
+"起動時に指定したモデル UID に OpenAI "
+"互換のチャットまたは補完リクエストを送信します。ストリーミングと非ストリーミングの両方に対応します。すべてのレプリカの準備が完了してから送信してください。リクエストを中止すると両方のロールの処理が停止し、モデルを終了するとデプロイのリソースが解放されます。"
+
+#: source/user_guide/pd_separation.rst:134
+msgid "Hybrid/recurrent attention limitation"
+msgstr ""
+
+#: source/user_guide/pd_separation.rst:136
+msgid "Qwen3.5 text requests are supported with Xavier and native NIXL. Set ``language_model_only=True``, ``enable_prefix_caching=False``, ``mamba_cache_mode=\"none\"``, ``disable_hybrid_kv_cache_manager=False`` and ``async_scheduling=False`` on both replicas. Use TP=1 and PP=1. Xavier history caching is not available for these hybrid/recurrent attention models; their configured history budget is not allocated. Image/video inputs and speculative decoding are not supported in this configuration. Native NIXL requires vLLM >= 0.22.0 for this mode."
+msgstr "Xavier とネイティブ NIXL は Qwen3.5 のテキストリクエストに対応しています。両方のレプリカで ``language_model_only=True``, ``enable_prefix_caching=False``, ``mamba_cache_mode=\"none\"``, ``disable_hybrid_kv_cache_manager=False`` および ``async_scheduling=False`` を設定し、TP=1、PP=1 を使用してください。これらのハイブリッド／再帰型アテンションモデルでは Xavier の履歴キャッシュは利用できず、設定された履歴キャッシュ容量は確保されません。この構成は画像・動画入力と投機的デコードに対応していません。 このモードでネイティブ NIXL を使うには vLLM >= 0.22.0 が必要です。"
+
+#: source/user_guide/pd_separation.rst:143
+msgid "Xavier requirements and memory"
+msgstr "Xavier の要件とメモリ"
+
+#: source/user_guide/pd_separation.rst:145
+msgid ""
+"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
+"without LoRA. Multimodal models, prompt embeddings and salted prompts are "
+"not supported."
+msgstr ""
+"Xavier V1 にはレプリカごとに GPU 1 台（TP=1、PP=1）と、LoRA "
+"を使用しないテキスト専用モデルが必要です。マルチモーダルモデル、プロンプト埋め込み、salt 付きプロンプトはサポートされません。"
+
+#: source/user_guide/pd_separation.rst:149
+msgid ""
+"Xavier's CPU cache can consume as much memory as the engine's GPU KV cache. "
+"Allow additional host memory for transfers when sizing your deployment."
+msgstr ""
+"Xavier の CPU キャッシュはエンジンの GPU KV "
+"キャッシュと同程度のメモリを使用する場合があります。デプロイの容量を計画する際は、転送用のホストメモリも確保してください。"
+
+#: user_guide/pd_separation.rst:57
+msgid "Native NIXL backend"
+msgstr "ネイティブ NIXL バックエンド"
+
+#: user_guide/pd_separation.rst:57
+msgid ""
+"Set ``vllm_transfer_backend_type=\"nixl\"`` in the launch example to use "
+"vLLM's native NixlConnector. Install ``nixl`` in the model environment "
+"together with vLLM 0.21.0 or newer. The initial integration supports text-"
+"only models without LoRA and requires TP=1, PP=1 and DP=1 per replica. "
+"Multiple P and D replicas are supported. Xavier remains the default backend."
+msgstr ""
+"起動例で ``vllm_transfer_backend_type=\"nixl\"`` を指定すると、vLLM のネイティブ "
+"NixlConnector を使用します。モデル環境に ``nixl`` と vLLM 0.21.0 以降をインストールしてください。初期統合は "
+"LoRA なしのテキストモデルに対応し、各レプリカは TP=1、PP=1、DP=1 が必要です。複数の P/D "
+"レプリカに対応します。既定のバックエンドは Xavier です。"
+
+#: user_guide/pd_separation.rst:66
+msgid ""
+"Native NIXL PD requires ``n=1`` per request; parallel sampling is not "
+"supported."
+msgstr "ネイティブ NIXL PD では各リクエストに ``n=1`` が必要です。並列サンプリングはサポートされません。"
+
+msgid ""
+"For NIXL, wildcard worker binds are supported through automatic host "
+"discovery. Set ``VLLM_NIXL_SIDE_CHANNEL_HOST`` in launch ``envs`` or the "
+"worker environment to select a reachable interface; launch ``envs`` take "
+"precedence. If discovery fails or returns loopback, configure this variable "
+"explicitly. Xinference always replaces ``VLLM_NIXL_SIDE_CHANNEL_PORT`` with "
+"a dynamically allocated port per replica, including on recovery. A fixed "
+"side-channel port is not supported; firewalls must allow dynamic ports "
+"between replica hosts."
+msgstr ""
+"NIXL はホストの自動検出によりワイルドカードの worker バインドをサポートします。起動時の ``envs`` または worker の環境で "
+"``VLLM_NIXL_SIDE_CHANNEL_HOST`` を設定し、到達可能なインターフェースを選択してください。起動時の ``envs`` "
+"が優先されます。検出に失敗した場合やループバックが返された場合は、この変数を明示的に設定してください。Xinference "
+"は復旧時も含め、副本ごとにポートを動的に割り当て、``VLLM_NIXL_SIDE_CHANNEL_PORT`` "
+"を常に上書きします。固定ポートはサポートされません。ファイアウォールは副本ホスト間の動的ポート通信を許可する必要があります。"
+
+msgid "After a worker restart, relaunch the native NIXL PD deployment."
+msgstr "ワーカーの再起動後は、ネイティブ NIXL PD のデプロイを再起動してください。"
+
+#: source/user_guide/pd_separation.rst:203
+msgid "GPU-first Xavier cache (experimental)"
+msgstr "GPU 優先の Xavier キャッシュ（実験的）"
+
+#: source/user_guide/pd_separation.rst:206
+msgid ""
+"For the Xavier backend, set ``xavier_gpu_cache_bytes`` to a non-negative "
+"integer, such as ``268435456`` for 256 MiB per replica. Omit it to use the "
+"existing CPU cache, or set it to ``0`` to use GPU-first caching with no GPU "
+"storage budget. This option does not select the native vLLM NIXL backend."
+msgstr ""
+"Xavier バックエンドでは ``xavier_gpu_cache_bytes`` に非負の整数を設定します。例えば ``268435456`` "
+"はレプリカごとに 256 MiB です。省略すると従来の CPU キャッシュを使用し、``0`` にすると GPU ストレージ予算なしで GPU "
+"優先キャッシュを有効にします。この設定は vLLM ネイティブ NIXL バックエンドを選択するものではありません。"
+
+#: source/user_guide/pd_separation.rst:208
+msgid ""
+"Install ``xoscar[nixl]>=0.11.1`` in both the worker and model environments. "
+"GPU-first caching requires Linux, NVIDIA CUDA, vLLM 0.21.0 or newer, a full-"
+"attention model and one GPU per replica (TP=1, PP=1). Use the same model, "
+"cache dtype and engine configuration on all replicas."
+msgstr ""
+"ワーカーとモデルの両環境に ``xoscar[nixl]>=0.11.1`` をインストールします。GPU 優先キャッシュには Linux、NVIDIA"
+" CUDA、vLLM 0.21.0 以降、フルアテンションモデル、およびレプリカごとに GPU 1 "
+"台（TP=1、PP=1）が必要です。すべてのレプリカで同じモデル、キャッシュのデータ型、エンジン設定を使用してください。"
+
+#: source/user_guide/pd_separation.rst:210
+msgid ""
+"The budget applies only to Xavier's GPU cache. Leave additional GPU memory "
+"for the model, vLLM's own KV cache and transfers. When this cache fills, "
+"Xavier stores reusable data in CPU memory; if no cache space is available, "
+"new data may not be retained for reuse."
+msgstr ""
+"この予算は Xavier の GPU キャッシュのみに適用されます。モデル、vLLM 自身の KV キャッシュ、転送用に追加の GPU "
+"メモリを確保してください。このキャッシュが満杯になると、Xavier は再利用可能なデータを CPU "
+"メモリに保存します。空き容量がない場合、新しいデータは再利用用に保持されないことがあります。"
+
+#: source/user_guide/pd_separation.rst
+msgid "GPU-first caching requires the Xavier backend and more than one replica."
+msgstr "GPU 優先キャッシュには Xavier バックエンドと 2 つ以上のレプリカが必要です。"
+
+#: user_guide/pd_separation.rst:211
+msgid ""
+"With GPU-first caching, cache transfers can overlap with response generation"
+" for other requests."
+msgstr "GPU 優先キャッシュでは、キャッシュ転送と他のリクエストの応答生成を並行して実行できます。"
+
+msgid ""
+"For implementation details, profiling and contributor tests, see the `Xavier"
+" developer README "
+"<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/vllm/xavier/README.md>`_."
+msgstr ""
+"実装の詳細、プロファイリング、開発者向けテストについては、次を参照してください： `Xavier developer README "
+"<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/vllm/xavier/README.md>`_."
+
+#: ../../source/user_guide/pd_separation.rst:145
+msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
+msgstr "転送の失敗や互換性のない KV キャッシュレイアウトは、リクエストを暗黙的に再計算するのではなく、エラーになります。"
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA "
+"GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model "
+"environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL "
+"fails the launch; there is no CPU fallback."
+msgstr ""
+"Xavier P/D はデフォルトで GPU 間の直接転送を使用します。Linux、NVIDIA GPU、vLLM >= "
+"0.21.0、およびワーカーとモデルの両環境に ``xoscar[nixl]>=0.11.1`` "
+"が必要です。到達可能なホストアドレスを使用してください（``0.0.0.0`` は不可）。NIXL がなければ起動に失敗し、CPU "
+"へフォールバックしません。"
+
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"``xavier_gpu_cache_bytes`` defaults to ``268435456`` (256 MiB per replica) "
+"for P/D. History uses GPU first and spills to CPU when GPU capacity is "
+"exhausted. CPU history is bounded by the engine KV block capacity and can "
+"approach that cache size in host memory. CPU hits restore KV to GPU; misses "
+"compute locally. ``0`` disables history, retaining direct transfer. Transfer"
+" failures raise errors."
+msgstr ""
+"P/D の ``xavier_gpu_cache_bytes`` はデフォルトで ``268435456`` （レプリカ当たり 256 "
+"MiB）です。履歴は GPU を優先し、容量不足時に CPU に退避します。CPU 履歴のブロック数はエンジン KV "
+"ブロック容量が上限で、ホストメモリ使用量はそのキャッシュサイズに近づく場合があります。CPU ヒットでは KV を GPU "
+"に復元し、ミスではローカル計算します。 ``0`` は履歴を無効にし、直接転送は維持します。転送失敗はエラーになります。"
+
+
+#: user_guide/pd_separation.rst:1
+msgid "Direct handoff and tiered history"
+msgstr "直接転送と階層型履歴"
+
+
+#: user_guide/pd_separation.rst:194
+msgid "Direct handoff currently requires ``n=1``."
+msgstr "直接転送は現在 ``n=1`` を必要とします。"
+
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr ""
+"履歴は D への引き渡し前に P で復元されます。長いプロンプトではプレフィックスのみが保持される場合があり、すべてのキャッシュの保持は保証されません。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"未受理の引き渡しは 120 秒で期限切れになります。D が受理する前に期限切れになると、D "
+"がローカルで再計算します。受理後は、読み込みが完了するか、読み込み前にリクエストがキャンセルされるまで、転送元のキャッシュが予約されます。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr "直接転送と履歴の読み込みは、他のリクエストの応答生成と並行して実行できます。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. Claimed handoffs expire after "
+"10 minutes without a scheduling retry or transfer progress. Active copies "
+"finish before release. Expired handoffs are recomputed locally on D."
+msgstr ""
+"未受理の引き渡しは 120 秒で期限切れになります。受理済みの引き渡しも、スケジュールの再試行や転送の進行が 10 "
+"分間なければ期限切れになります。実行中のコピーは解放前に完了します。期限切れの引き渡しは D がローカルで再計算します。"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang with Xavier"
+msgstr "SGLang と Xavier"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``\"SGLang\"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported."
+msgstr "SGLang >= ``0.5.21`` では、Python クライアント、REST API、CLI、Web UI から同じ prefill/decode ``replica_config`` を使用できます。例の ``model_engine`` を ``\"SGLang\"`` に変更してください。明示的なロールは Xavier を自動的に有効にし、複数の prefill および decode レプリカに対応します。"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIXL transport. Prefill and decode run concurrently using SGLang's native P/D lifecycle. Source and destination GPU slots remain owned until transfers complete; decode also receives the first token sampled by prefill. Streaming and non-streaming responses are supported. Transfer failures raise errors."
+msgstr "SGLang Xavier P/D は Xavier の NIXL トランスポートで GPU 間に KV を直接転送します。Prefill と decode は SGLang ネイティブの P/D ライフサイクルで並行実行されます。転送完了まで送信元と送信先の GPU スロットの所有権を保持し、decode は prefill がサンプリングした最初のトークンも受け取ります。ストリーミングと非ストリーミングに対応し、転送失敗はエラーになります。"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
+msgstr "SGLang GPU P/D は ``xavier_cache_bytes`` や CPU HiCache を使用しません。Xavier GPU 履歴キャッシュの保持は未対応で、``xavier_gpu_cache_bytes`` は省略するか ``0`` に設定してください。worker の再起動後はデプロイを再起動してください。実際の負荷で通常のレプリカとネイティブ SGLang P/D に対する TTFT とスループットを測定してください。"
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
+msgstr "vLLM Xavier P/D はデフォルトで GPU 間の直接転送を使用します。Linux、NVIDIA GPU、vLLM >= 0.21.0、およびワーカーとモデルの両環境に ``xoscar[nixl]>=0.11.1`` が必要です。到達可能なホストアドレスを使用してください（``0.0.0.0`` は不可）。NIXL がなければ起動に失敗し、CPU へフォールバックしません。"
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier requirements and memory"
+msgstr "vLLM Xavier の要件とメモリ"
+
+#: source/user_guide/pd_separation.rst:64
+msgid "For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type=\"nixl\"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
+msgstr "ネイティブ SGLang と比較するには、同じデプロイを維持し、``transfer_backend_type=\"nixl\"`` を設定します。同じ Xinference API と P/D ルーターを通じて SGLang の NIXL バックエンドを使用します。各モデル環境に ``nixl`` をインストールしてください。初期のネイティブ統合では TP=PP=DP=1、レプリカごとに worker が 1 つ、テキストリクエストのみが必要で、LoRA、投機的デコード、HiCache は使用できません。ブートストラップポートはレプリカごとに割り当てられ、両方のレプリカホストが相互に到達可能である必要があります。"
+
+#: ../../source/user_guide/pd_separation.rst:66
+msgid "For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts."
+msgstr "出力長を固定するベンチマークでは、補完リクエストとチャットリクエストで ``ignore_eos=true`` を指定できます。モデルの停止文字列を未使用の ``stop`` マーカーで上書きし、実際の出力トークン数を確認してください。"
+
+#: ../../source/user_guide/pd_separation.rst:64
+msgid "SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=false``; each request transfers its full prompt KV. Prefill's local radix cache remains available. Enabling decode radix caching is rejected at launch."
+msgstr "SGLang Xavier P/D では ``disaggregation_decode_enable_radix_cache=false`` が必要です。各リクエストはプロンプト全体の KV を転送します。Prefill のローカル radix cache は引き続き利用できます。Decode の radix cache を有効にすると、起動時にエラーになります。"
+
+#: ../../user_guide/pd_separation.rst
+msgid ""
+"Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment "
+"or launch ``envs`` to change the Xavier handoff wait limit (default: 600 "
+"seconds). Increase it for long prefill queues or large prompts. Unfinished "
+"directory rooms expire after this interval; completed directory records "
+"expire after this interval unless the active decode request renews its "
+"lease. Both roles release them on completion."
+msgstr ""
+"worker 環境または起動時の ``envs`` に ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` "
+"を設定すると、Xavier のハンドオフ待機上限（デフォルト 600 秒）を変更できます。長い prefill "
+"キューや大きなプロンプトでは値を増やしてください。未完了のディレクトリルームはこの時間後に期限切れになります。完了済みのディレクトリレコードも、実行中の"
+" decode リクエストがリースを更新しない場合は期限切れになります。両ロールはリクエスト完了時にレコードを解放します。"
+
+#: ../../user_guide/pd_separation.rst
+msgid "Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication."
+msgstr "ネイティブ SGLang P/D には単一の tokenizer worker が必要です。内部 HTTP エンドポイントにはレプリカごとの認証が自動的に設定されます。"
+
+#: user_guide/pd_separation.rst
+msgid "MLX with Xavier"
+msgstr "Xavier を使用する MLX"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"MLX Xavier requires Apple silicon and ``mlx-lm>=0.31.2``. It supports "
+"unquantized, full-attention Qwen2, Qwen3 and Llama text models with one "
+"worker per replica. Weights and KV cache use FP16. Quantized weights or KV "
+"cache, rotating caches, hybrid attention, multimodal inputs, LoRA and "
+"speculative decoding are unsupported."
+msgstr ""
+"MLX Xavier には Apple silicon と ``mlx-lm>=0.31.2`` が必要です。量子化されていない全注意の "
+"Qwen2、Qwen3、Llama テキストモデルを、レプリカごとに 1 worker でサポートします。重みと KV キャッシュには FP16 "
+"を使用します。量子化された重みや KV キャッシュ、回転キャッシュ、ハイブリッド注意、マルチモーダル入力、LoRA、投機的デコードは未対応です。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Use ``model_engine=\"MLX\"``, ``model_format=\"mlx\"`` and "
+"``quantization=\"none\"`` with the same prefill/decode roles. The example "
+"places one replica on each of two Mac workers. Replace the registered worker"
+" addresses with those reported by ``client.get_workers_info()``."
+msgstr ""
+"同じ prefill/decode ロールで "
+"``model_engine=\"MLX\"``、``model_format=\"mlx\"``、``quantization=\"none\"`` "
+"を指定します。この例は 2 台の Mac worker にレプリカを 1 つずつ配置します。登録済み worker のアドレスを "
+"``client.get_workers_info()`` の結果に置き換えてください。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"MLX Xavier stores immutable CPU pages in a shared actor on the supervisor "
+"and transfers them through actor RPC. ``xavier_cache_bytes`` bounds this "
+"deployment cache (default: 512 MiB); model weights and per-replica Metal KV "
+"allocations consume additional memory. The prefill replica evaluates all but"
+" the last prompt token. Decode imports the prefix, evaluates that last token"
+" and samples the first response token. Streaming and non-streaming requests "
+"are supported. Active handoffs reserve cache capacity; insufficient "
+"capacity, incompatible metadata or transfer failure raises an error. The "
+"five-minute handoff deadline starts when prefill reserves capacity, before "
+"computing the prefix, and includes prefill and transfer time."
+msgstr ""
+"MLX Xavier は supervisor の共有 actor に不変の CPU ページを保存し、actor RPC "
+"で転送します。``xavier_cache_bytes`` はデプロイ全体のキャッシュ容量を制限します（既定値 512 "
+"MiB）。モデルの重みと各レプリカの Metal KV 割り当てには追加メモリが必要です。Prefill "
+"はプロンプトの最後のトークン以外を計算します。Decode "
+"はプレフィックスをインポートし、最後のトークンを計算して最初の応答トークンをサンプリングします。ストリーミングと非ストリーミングに対応します。実行中の引き継ぎはキャッシュ容量を予約し、容量不足、メタデータ不一致、転送失敗はエラーになります。引き継ぎの"
+" 5 分間の期限は、Prefill が容量を予約した時点、プレフィックスの計算前から始まり、prefill と転送の時間を含みます。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Use the default ``xavier`` transport for MLX; native NIXL is unsupported. "
+"All workers must reach the supervisor's actor address. Relaunch after a "
+"worker restart. Two replicas on one Mac share its Metal GPU; measure your "
+"workload before expecting a throughput benefit."
+msgstr ""
+"MLX では既定の ``xavier`` 転送を使用します。ネイティブ NIXL は未対応です。全 worker から supervisor の "
+"actor アドレスに接続できる必要があります。Worker 再起動後はデプロイを再起動してください。同じ Mac 上の 2 レプリカは Metal "
+"GPU を共有するため、スループット改善は実際の負荷で測定してください。"
+
+#: user_guide/pd_separation.rst:102
+msgid ""
+"Each 64-token FP16 page uses ``2 * 64 * num_layers * num_kv_heads * head_dim"
+" * 2`` bytes (K and V, with two bytes per value). For example, 36 layers, 8 "
+"KV heads and a head dimension of 128 require 9 MiB per page; 512 MiB holds "
+"56 pages, or 3584 prefix tokens. Round each prefix up to a whole page and "
+"size ``xavier_cache_bytes`` for the distinct pages reserved by all "
+"concurrent P/D requests. Ordinary shared-cache requests skip publication "
+"when their prefix exceeds the cache capacity or the 4096-page protocol "
+"limit."
+msgstr ""
+"64 トークンの FP16 ページは ``2 * 64 * num_layers * num_kv_heads * head_dim * 2`` "
+"バイトを使用します（K と V、各値は 2 バイト）。例えば 36 層、8 KV ヘッド、ヘッド次元 128 では 1 ページに 9 MiB "
+"が必要で、512 MiB は 56 ページ、つまり 3584 プレフィックストークンを保持できます。各プレフィックスをページ単位で切り上げ、同時 P/D"
+" リクエスト全体が予約する異なるページ数に合わせて ``xavier_cache_bytes`` "
+"を設定してください。通常の共有キャッシュリクエストは、プレフィックスがキャッシュ容量またはプロトコルの 4096 "
+"ページ制限を超える場合、公開を省略します。"
+
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"The model limitations are described in :ref:`user_guide_vllm_enhancement`. "
+"Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use "
+"reachable worker addresses. Missing NIXL fails launch without CPU fallback. "
+"Use the ``xavier`` transport; SGLang's own Mooncake backend is not exposed "
+"by this integration. For cross-engine P/D, use the per-replica engine "
+"settings below."
+msgstr ""
+"モデルの制限は :ref:`user_guide_vllm_enhancement` を参照してください。ワーカーとモデル環境に "
+"``xoscar[nixl]>=0.11.1`` をインストールし、到達可能なアドレスを使います。NIXL がなければ CPU "
+"にフォールバックせず起動が失敗します。``xavier`` を使います。SGLang の Mooncake バックエンドは公開されていません。エンジン間"
+" P/D は以下のレプリカごとの設定を使います。"
+
+#: source/user_guide/pd_separation.rst
+msgid "Cross-engine vLLM/SGLang P/D"
+msgstr "エンジン間の vLLM/SGLang P/D"
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry "
+"to select vLLM or SGLang independently for each role. Cross-engine P/D "
+"requires Xavier GPU transport. Engine options inherit launch arguments; "
+"``engine_config`` overrides them per replica."
+msgstr ""
+"各 ``replica_config`` に ``model_engine`` と ``engine_config`` を設定し、役割ごとに vLLM "
+"または SGLang を選択します。エンジン間 P/D には Xavier GPU "
+"転送が必要です。エンジンの設定は起動引数を継承し、``engine_config`` がレプリカごとに上書きします。"
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Both workers require identical local weights, tokenizer assets and context "
+"limits. Supported models are unquantized FP16 full-attention Qwen2, Qwen3 "
+"and Llama text models with TP=PP=DP=1. Requires vLLM >=0.21.0, SGLang "
+">=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks contracts and prompt "
+"token IDs, converts 64-token KV pages on GPU and raises errors on "
+"incompatibility or transfer failure."
+msgstr ""
+"両ワーカーで同一のローカル重み、tokenizer ファイル、コンテキスト上限を使用します。TP=PP=DP=1 の非量子化 FP16 全注意 "
+"Qwen2、Qwen3、Llama テキストモデルをサポートします。vLLM >=0.21.0、SGLang "
+">=0.5.21、``xoscar[nixl]>=0.11.1`` が必要です。Xavier は契約と実際の prompt token ID "
+"を検証し、GPU 上で 64-token KV ページを変換します。非互換や転送失敗はエラーになります。"
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Streaming and non-streaming requests require ``n=1``. SGLang decode uses the"
+" first output token sampled by prefill. vLLM decode imports all but the "
+"final prompt token, computes that token and samples the output. Engine "
+"kernels can produce small numerical differences. vLLM decode requires at "
+"least two prompt tokens."
+msgstr ""
+"ストリーミングと非ストリーミングの要求は ``n=1`` が必要です。SGLang decode は prefill がサンプリングした最初の出力 "
+"token を使います。vLLM decode は最後の prompt token を除く KV を取り込み、その token "
+"を計算して出力をサンプリングします。エンジンのカーネルによって小さな数値差が生じる場合があります。vLLM decode には最低 2 個の "
+"prompt token が必要です。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Cross-engine P/D does not support CPU fallback, retained Xavier history, "
+"logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs"
+" or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do"
+" not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native "
+"NIXL comparisons use the same engine on both roles."
+msgstr ""
+"エンジン間 P/D は CPU フォールバック、Xavier "
+"履歴、logprobs、構造化サンプリング、LoRA、投機的デコード、マルチモーダル入力、ハイブリッド注意をサポートしません。``xavier_gpu_cache_bytes``"
+" は省略するか ``0`` にし、``xavier_cache_bytes`` は設定しないでください。ワーカー再起動後は再デプロイします。ネイティブ "
+"NIXL の比較では両役割に同一エンジンを使います。"
+
+#: user_guide/pd_separation.rst
+msgid "NVIDIA and MLX cross-engine P/D"
+msgstr "NVIDIA と MLX の異なるエンジン間 P/D"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Xavier supports both vLLM/SGLang prefill with MLX decode and MLX prefill "
+"with vLLM/SGLang decode, with streaming and non-streaming requests. FP16 "
+"64-token pages pass through CPU staging and actor RPC between CUDA and "
+"Metal. vLLM and MLX decode compute the last prompt token; SGLang decode "
+"imports the full prompt KV and the first output token sampled by P. MLX "
+"prefill publishes request-owned pages on its worker with a 512 MiB in-flight"
+" budget."
+msgstr ""
+"Xavier は vLLM/SGLang prefill と MLX decode、および MLX prefill と vLLM/SGLang "
+"decode の両方向で、ストリーミングと非ストリーミングに対応します。FP16 の 64-token ページは CPU ステージングと actor "
+"RPC で CUDA と Metal の間を転送されます。vLLM と MLX decode は最後の prompt token を計算し、SGLang"
+" decode は完全な prompt KV と P がサンプリングした最初の出力 token をインポートします。MLX prefill は "
+"worker 上にリクエスト専用ページを公開し、転送中データの上限は 512 MiB です。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Use identical unquantized checkpoint and tokenizer files; do not convert the"
+" Mac checkpoint. Worker-local ``model_path`` and ``model_format`` belong in "
+"each replica's ``engine_config``. Xavier checks weights, tokenizer, "
+"effective model semantics, context limits and prompt token IDs. Model and "
+"sampling restrictions match vLLM/SGLang cross-engine P/D; failures raise "
+"errors."
+msgstr ""
+"同一の非量子化チェックポイントと tokenizer ファイルを使い、Mac のチェックポイントは変換しないでください。worker ローカルの "
+"``model_path`` と ``model_format`` は各レプリカの ``engine_config`` に設定します。Xavier "
+"は重み、tokenizer、実効モデルの意味、コンテキスト制限、prompt token ID を検証します。モデルとサンプリングの制限は "
+"vLLM/SGLang の異なるエンジン間 P/D と同じで、失敗時はエラーになります。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"To use MLX prefill, swap the two ``role`` values in the example. For SGLang "
+"on either role, use ``SGLang`` and replace ``max_model_len`` with "
+"``context_length``. NVIDIA requires ``xoscar[nixl]>=0.11.1``; Mac requires "
+"``xoscar>=0.11.1`` and ``mlx-lm>=0.31.2``. Workers must reach the supervisor"
+" and each other. Use Xavier transport, and omit ``xavier_gpu_cache_bytes`` "
+"or set it to ``0``. Relaunch after a worker restart."
+msgstr ""
+"MLX prefill を使うには例の二つの ``role`` 値を交換します。どちらの役割でも SGLang では ``SGLang`` "
+"を使い、``max_model_len`` を ``context_length`` に置き換えます。NVIDIA は "
+"``xoscar[nixl]>=0.11.1``、Mac は ``xoscar>=0.11.1`` と ``mlx-lm>=0.31.2`` "
+"が必要です。worker は supervisor と相互に接続できる必要があります。Xavier "
+"転送を使い、``xavier_gpu_cache_bytes`` は省略するか ``0`` に設定します。worker "
+"再起動後は再デプロイしてください。"
+
+#: ../../source/user_guide/pd_separation.rst
+msgid ""
+"Run the supervisor and all worker/model environments with the same Python "
+"version and matching ``cloudpickle`` / ``tblib`` versions; actor RPC also "
+"carries exceptions and generators."
+msgstr ""
+"Supervisor とすべての worker/model 環境で同じ Python バージョンと一致する ``cloudpickle`` / "
+"``tblib`` バージョンを使用してください。actor RPC は例外とジェネレーターも転送します。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Compare end-to-end TTFT with the standalone decode engine on its own "
+"hardware, using the same effective FP16 weights and cache policy. Network "
+"transfers and CUDA/Metal copies may outweigh faster prefill. ``host_bytes`` "
+"measures CPU-staged payloads; ``imported_tokens`` records completed KV "
+"imports. Correct output alone does not prove reuse."
+msgstr ""
+"同じ実効 FP16 重みとキャッシュ方針で、decode エンジンを元のハードウェア上で単独実行した場合のエンドツーエンド TTFT "
+"と比較してください。ネットワーク転送と CUDA/Metal コピーの費用が prefill "
+"の高速化を上回る場合があります。``host_bytes`` は CPU 経由のペイロード、``imported_tokens`` は完了した KV "
+"インポートを記録します。正しい出力だけでは再利用を証明できません。"
+
+#: source/user_guide/pd_separation.rst:179
+msgid ""
+"For MLX prefill, ``xavier_cache_bytes`` sets the worker-local in-flight CPU "
+"page budget (default: 512 MiB). Capacity is reserved before Metal prefill, "
+"rounding the full prompt up to 64-token pages. A prompt exceeding the budget"
+" fails before prefill; concurrent requests wait for capacity. Reservations "
+"and transfer waits are bounded by "
+"``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` (default: 600 seconds)."
+msgstr ""
+"MLX prefill では、``xavier_cache_bytes`` で worker ローカルの処理中 CPU "
+"ページ予算を設定します（既定：512 MiB）。Metal prefill "
+"前に容量を予約し、プロンプト全体を64トークンのページに切り上げます。予算を超えるプロンプトは prefill "
+"前に失敗し、並行リクエストは空き容量を待ちます。予約と転送の待機は "
+"``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` で制限されます（既定：600秒）。"
+
+#: source/user_guide/pd_separation.rst:181
+msgid ""
+"MLX-prefill cross-engine requests do not accept ``min_p``, "
+"``presence_penalty``, ``frequency_penalty`` or ``seed``. The router rejects "
+"these parameters before scheduling either replica, so the first output token"
+" uses the same supported sampling settings as the rest of the response."
+msgstr ""
+"MLX prefill のエンジン間リクエストでは "
+"``min_p``、``presence_penalty``、``frequency_penalty``、``seed`` "
+"を指定できません。router "
+"はいずれのレプリカもスケジュールする前にこれらのパラメーターを拒否するため、最初の出力トークンにも応答の残りと同じ対応済みサンプリング設定を使います。"

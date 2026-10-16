@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -84,8 +84,11 @@ class MeloTTSModel:
     ):
         import soundfile
 
+        from .utils import apply_audio_seed
+
         if stream:
             raise Exception("MeloTTS does not support stream mode.")
+        apply_audio_seed(kwargs)
         assert self._model is not None
         speaker_ids = self._model.hps.data.spk2id
         if not voice:

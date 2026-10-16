@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -83,6 +83,12 @@ class RateLimiter:
             ]
             for k in stale_keys:
                 del records[k]
+
+    @staticmethod
+    def _count_banned(records: Dict) -> int:
+        """How many of these records are under an active ban. Must hold self._lock."""
+        now = time.time()
+        return sum(1 for r in records.values() if r.banned_until > now)
 
     def _update_ban_gauges(self) -> None:
         try:
@@ -263,7 +269,12 @@ class RateLimiter:
 
     def unban_all_ips(self) -> int:
         with self._lock:
-            count = len(self._ip_records)
+            # Count the bans lifted, not the records dropped: _ip_records also
+            # holds every IP with a failure short of the ban threshold, and an
+            # expired ban that nothing has read since. Those were never banned,
+            # so reporting them makes the admin response read far higher than
+            # get_banned_ips() shows.
+            count = self._count_banned(self._ip_records)
             self._ip_records.clear()
             self._update_ban_gauges()
         return count
@@ -277,7 +288,7 @@ class RateLimiter:
 
     def unban_all_keys(self) -> int:
         with self._lock:
-            count = len(self._key_records)
+            count = self._count_banned(self._key_records)
             self._key_records.clear()
             self._update_ban_gauges()
         return count
@@ -287,8 +298,10 @@ class RateLimiter:
 
     def unban_key_all(self, key_id: int) -> int:
         with self._lock:
+            now = time.time()
             to_remove = [k for k in self._key_records if k[1] == key_id]
+            count = sum(1 for k in to_remove if self._key_records[k].banned_until > now)
             for k in to_remove:
                 del self._key_records[k]
             self._update_ban_gauges()
-        return len(to_remove)
+        return count
