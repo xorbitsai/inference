@@ -151,6 +151,16 @@ class KimiK3ToolParser(ToolParser):
     ):
         try:
             previous = previous_text[-1] if previous_text else ""
+            # Once the tools channel is open, content is settled and every call
+            # or channel close ends with a separator. Without a new one in
+            # this delta nothing can change, so skip reparsing both texts.
+            sep = "<|sep|>"
+            if (
+                current_text.startswith(previous)
+                and current_text.find(sep, max(len(previous) - len(sep) + 1, 0)) == -1
+                and self._tools_open_re.search(previous)
+            ):
+                return None
             previous_content, previous_calls = self._parse(previous)
             current_content, current_calls = self._parse(current_text)
             events: List[Any] = []

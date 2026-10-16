@@ -14,6 +14,7 @@ class DeepseekV41ToolParser(ToolParser):
 
     _START = "<｜DSML｜ calls>"
     _END = "</｜DSML｜ calls>"
+    _INVOKE_END = "</｜DSML｜ invoke>"
     _INVOKE = re.compile(
         r'<｜DSML｜ invoke\s+name="([^"]+)"\s*>(.*?)</｜DSML｜ invoke>',
         re.DOTALL,
@@ -91,6 +92,16 @@ class DeepseekV41ToolParser(ToolParser):
 
         body_end = current_text.find(self._END, body_start)
         body = current_text[body_start : body_end if body_end >= 0 else None]
+        # Every invoke ends with its closing tag, so none can complete in this
+        # delta unless the tag does. Skip the regex scan until then.
+        if (
+            current_text.find(
+                self._INVOKE_END,
+                max(previous_length - len(self._INVOKE_END) + 1, body_start),
+            )
+            == -1
+        ):
+            return results or None
         for invoke in self._INVOKE.finditer(body):
             # Emit only invokes whose closing tag arrived in this delta.
             if body_start + invoke.end() > previous_length:

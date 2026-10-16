@@ -168,12 +168,19 @@ class Glm5ToolParser(ToolParser):
     def _settled_length(self, text: str) -> int:
         """Return the length of the prefix of ``text`` that holds no unclosed
         tool call block and no trailing piece of a start tag."""
+        # Same result as walking tool_call_complete_regex.finditer(text), but
+        # str.find skips the text between tags instead of matching it lazily.
+        start_token = self.tool_call_start_token
+        end_token = self.tool_call_end_token
         position = 0
-        for match in self.tool_call_complete_regex.finditer(text):
-            position = match.end()
-        open_index = text.find(self.tool_call_start_token, position)
-        if open_index != -1:
-            return open_index
+        while True:
+            open_index = text.find(start_token, position)
+            if open_index == -1:
+                break
+            close_index = text.find(end_token, open_index + len(start_token))
+            if close_index == -1:
+                return open_index
+            position = close_index + len(end_token)
         return len(text) - self._partial_marker_length(
             text, [self.tool_call_start_token]
         )

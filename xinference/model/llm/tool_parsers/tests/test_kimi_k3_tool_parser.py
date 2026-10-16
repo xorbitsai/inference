@@ -58,3 +58,30 @@ def test_streaming_does_not_leak_partial_tools_marker():
         )
         is None
     )
+
+
+def test_streaming_long_call_in_small_deltas():
+    parser = KimiK3ToolParser()
+    code = "\n".join(["print(1)"] * 500)
+    deltas = ["Writing.", "<|open|>tools<|sep|>"]
+    deltas += ['<|open|>call tool="write_file" index="0"<|sep|>']
+    deltas += ['<|open|>argument key="content" type="string"<|sep|>']
+    deltas += [code[i : i + 3] for i in range(0, len(code), 3)]
+    deltas += ["<|close|>argument<|sep|>", "<|close|>call<|sep|>"]
+    deltas += ["<|close|>tools<|sep|>"]
+
+    previous_texts = [""]
+    events = []
+    for delta in deltas:
+        current_text = previous_texts[-1] + delta
+        result = parser.extract_tool_calls_streaming(
+            previous_texts, current_text, delta
+        )
+        previous_texts[-1] = current_text
+        if result is not None:
+            events.extend(result if isinstance(result, list) else [result])
+
+    assert events == [
+        ("Writing.", None, None),
+        (None, "write_file", {"content": code}, 0),
+    ]
