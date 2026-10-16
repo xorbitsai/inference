@@ -1373,6 +1373,13 @@ class ChatModelMixin:
                     msg["tool_calls"]
                 )
             new_message["content"] = new_content if new_content else None
+            if (
+                not new_content
+                and new_message.get("role") == "assistant"
+                and new_message.get("tool_calls")
+            ):
+                # Tool-only turns are valid; vision templates cannot iterate null.
+                new_message["content"] = ""
             transformed_messages.append(new_message)
 
         return transformed_messages
