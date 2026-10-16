@@ -1684,6 +1684,38 @@ async def test_chat_completion_sanitizes_worker_error(monkeypatch):
     assert "pid" not in exc.value.detail
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_chat_completion_rate_limit_does_not_expose_worker_metadata(
+    monkeypatch, stream
+):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "qwen3"})
+    model.is_vllm_backend = AsyncMock(return_value=False)
+    model.chat.side_effect = RuntimeError(
+        "[address=10.0.0.1:12345, pid=6789] Rate limit reached"
+    )
+    api._report_error_event = AsyncMock()
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "stream": stream,
+            "messages": [{"role": "user", "content": "hi"}],
+        }
+    )
+    if stream:
+        response = await api.create_chat_completion(request)
+        body = response.body_iterator
+        error = await anext(body)
+        assert "address" not in error["data"]
+        assert "pid" not in error["data"]
+        await body.aclose()
+    else:
+        with pytest.raises(HTTPException) as exc:
+            await api.create_chat_completion(request)
+        assert exc.value.status_code == 429
+        assert exc.value.detail == "Rate limit reached"
+
+
 def test_launch_model_async(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models?wait_ready=false"
