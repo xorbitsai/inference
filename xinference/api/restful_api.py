@@ -2776,30 +2776,14 @@ class RESTfulAPI(CancelMixin):
                 if is_vllm_backend
                 else None
             )
-            if not is_vllm_backend:
-                try:
-                    iterator = await model.chat(messages, kwargs, **model_call_kwargs)
-                except NotImplementedError as exc:
-                    return self._anthropic_error(501, str(exc), request_id)
-                except Exception as exc:
-                    exc = await self._get_model_last_error(model.uid, exc)
-                    logger.error(exc, exc_info=True)
-                    await self._report_error_event(model_uid, str(exc))
-                    status_code = 429 if "Rate limit reached" in str(exc) else 500
-                    return self._anthropic_error(status_code, str(exc), request_id)
 
             async def physical_chunks() -> AsyncIterator[Dict[str, Any]]:
-                nonlocal iterator
                 if abort_controller is not None:
                     abort_controller.bind_stream_task()
                 reporter = get_stream_outcome_reporter(request)
                 protocol_chunks = None
                 completed = False
                 try:
-                    if iterator is None:
-                        iterator = await model.chat(
-                            messages, kwargs, **model_call_kwargs
-                        )
                     model_chunks = observe_stream(
                         iterator,
                         reporter,
@@ -2867,7 +2851,31 @@ class RESTfulAPI(CancelMixin):
             if abort_controller is not None:
                 abort_controller.bind_body_iterator(body_iterator)
                 _observe_sse_disconnect(response, abort_controller.handle_disconnect)
-            return response
+
+            async def start_streaming_response() -> Response:
+                nonlocal iterator
+                iterator = await model.chat(messages, kwargs, **model_call_kwargs)
+                return response
+
+            # Commit SSE headers only after model admission/startup succeeds.
+            try:
+                if is_vllm_backend:
+                    return await _run_non_streaming_request(
+                        request,
+                        model,
+                        model_request_id,
+                        "chat",
+                        start_streaming_response(),
+                    )
+                return await start_streaming_response()
+            except NotImplementedError as exc:
+                return self._anthropic_error(501, str(exc), request_id)
+            except Exception as exc:
+                exc = await self._get_model_last_error(model.uid, exc)
+                logger.error(exc, exc_info=True)
+                await self._report_error_event(model_uid, str(exc))
+                status_code = 429 if "Rate limit reached" in str(exc) else 500
+                return self._anthropic_error(status_code, str(exc), request_id)
 
         async def generate_message_response() -> Response:
             data = await model.chat(messages, kwargs, **model_call_kwargs)

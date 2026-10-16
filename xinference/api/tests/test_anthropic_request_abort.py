@@ -34,6 +34,8 @@ async def calls(monkeypatch):
     async def generate(messages, config, **kwargs):
         call = entries[messages[0]["content"]]
         call.engine_id = kwargs["request_id"]
+        if call.startup_error is not None:
+            raise call.startup_error
         if call.wait_creation:
             call.started.set()
             try:
@@ -127,6 +129,7 @@ async def calls(monkeypatch):
             model=actor,
             api=api,
             error=None,
+            startup_error=None,
             engine_id=None,
             sent=[],
             wait_creation=wait_creation,
@@ -204,9 +207,8 @@ async def test_disconnect_aborts_same_engine_request_and_releases_actor(calls, p
     await asyncio.wait_for(c.closed.wait(), 1)
     c.model.abort_request.assert_awaited_once_with(c.engine_id)
     assert c.engine_id != "shared-correlation"
-    if phase == "nonstream":
-        assert c.sent[0]["status"] == 499
     if phase in {"nonstream", "creation"}:
+        assert c.sent[0]["status"] == 499
         c.model.decrease_serve_count.assert_not_awaited()
     else:
         c.model.decrease_serve_count.assert_awaited_once()
@@ -244,6 +246,41 @@ async def test_nonstream_errors_keep_anthropic_envelope(calls, error, status):
     body = json.loads(c.sent[1]["body"])
     assert body["type"] == "error" and body["error"]["message"] == error
     c.model.abort_request.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "failure,status,error_type",
+    [
+        ("limit", 429, "rate_limit_error"),
+        ("reloading", 500, "api_error"),
+        ("unsupported", 501, "api_error"),
+    ],
+)
+async def test_stream_startup_errors_keep_http_status(
+    calls, failure, status, error_type
+):
+    c = calls(stream=True)
+    if failure in {"limit", "reloading"}:
+        chat = c.model.chat
+
+        async def fail_after_preparation(*args, **kwargs):
+            if failure == "limit":
+                c.model._request_limits = 0
+            else:
+                c.model._model_state = "reloading"
+            return await chat(*args, **kwargs)
+
+        c.model.chat = AsyncMock(side_effect=fail_after_preparation)
+    else:
+        c.startup_error = NotImplementedError("unsupported structured output")
+    await asyncio.wait_for(c.start(), 5)
+    assert c.sent[0]["status"] == status
+    assert (b"content-type", b"application/json") in c.sent[0]["headers"]
+    assert (b"request-id", b"shared-correlation") in c.sent[0]["headers"]
+    body = json.loads(b"".join(m.get("body", b"") for m in c.sent))
+    assert body["type"] == "error" and body["error"]["type"] == error_type
+    c.model.abort_request.assert_not_awaited()
+    c.model.decrease_serve_count.assert_not_awaited()
 
 
 async def test_shared_correlation_id_does_not_cancel_other_request(calls):

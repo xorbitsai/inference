@@ -110,7 +110,7 @@ The MLX, vLLM and SGLang adapters do not currently enforce manual
 Stale, unsigned or foreign thinking blocks are ignored during replay;
 accompanying answers and tool calls are preserved.
 
-On vLLM models, ``stop_sequences`` applies to streaming and non-streaming
+On physical vLLM models, ``stop_sequences`` applies to streaming and non-streaming
 requests, including when thinking is disabled. A stop match during thinking
 can end the response before a final answer is produced. A matching
 caller-provided string returns ``stop_reason: "stop_sequence"`` and the exact
