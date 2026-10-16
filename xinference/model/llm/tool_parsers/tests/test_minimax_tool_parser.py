@@ -77,3 +77,16 @@ def test_streaming_releases_text_that_only_looked_like_a_tag():
     content, calls = _stream(MiniMaxToolParser(), deltas)
     assert content == "a <minix "
     assert calls == [("f", {})]
+
+
+def test_streaming_long_call_in_small_deltas():
+    code = "\n".join(["print(1)"] * 500)
+    deltas = ["Writing.", "<minimax:tool_call>", '<invoke name="write_file">']
+    deltas += ['<parameter name="content">']
+    deltas += [code[i : i + 3] for i in range(0, len(code), 3)]
+    deltas += ["</parameter>", "</invoke>", "</minimax:tool_call>", " Done."]
+
+    content, calls = _stream(MiniMaxToolParser(), deltas)
+
+    assert content == "Writing. Done."
+    assert calls == [("write_file", {"content": code})]
