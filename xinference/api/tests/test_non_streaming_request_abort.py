@@ -17,6 +17,7 @@ import json
 import subprocess
 import sys
 import textwrap
+import threading
 from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -169,6 +170,13 @@ async def test_pd_router_disconnect(calls, monkeypatch):
     assert [e["status_code"] for e in c.events if "status_code" in e] == [499]
 
 
+def _raises(error, message):
+    # Python 3.10 drops a CancelledError's message when it crosses a task boundary.
+    if error is asyncio.CancelledError and sys.version_info < (3, 11):
+        return pytest.raises(error)
+    return pytest.raises(error, match=message)
+
+
 @pytest.mark.parametrize("error", [None, ValueError, asyncio.CancelledError])
 async def test_generation_wins_ties(calls, monkeypatch, error):
     c = calls()
@@ -186,7 +194,7 @@ async def test_generation_wins_ties(calls, monkeypatch, error):
             raise error("backend")
         return b"exact bytes"
 
-    with pytest.raises(error, match="backend") if error else nullcontext():
+    with _raises(error, "backend") if error else nullcontext():
         response = await restful_api._run_non_streaming_request(
             c.request, c.model, "operation", "generate", generate()
         )
@@ -248,21 +256,24 @@ async def test_interruption_cleanup(calls, monkeypatch, mode, error, state):
         task.cancel("again" if mode == "handler" else mode)
     if mode != "timeout":
         release.set()
-    with pytest.raises(error, match=mode) if error else nullcontext():
+    with _raises(error, mode) if error else nullcontext():
         response = await wait_for(task, 5)
         assert response.status_code == 499
     c.model.abort_request.assert_awaited_once_with("operation")
     assert get_stream_outcome_reporter(c.request).outcome.state.value == state
 
 
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(660)
 async def test_cleanup_cancelled_while_joining_generation():
     # Contain the shutdown busy loop in a subprocess: async timeouts cannot stop it.
+    # Importing the REST API can take minutes on slow Windows runners, so only the
+    # scenario after "ready" has the short deadline.
     script = textwrap.dedent(
         """
         import asyncio
         from unittest.mock import AsyncMock
         from xinference.api.restful_api import Request, _run_non_streaming_request
+        print("ready", flush=True)
 
         async def main():
             started, finalizing = asyncio.Event(), asyncio.Event()
@@ -286,11 +297,31 @@ async def test_cleanup_cancelled_while_joining_generation():
         asyncio.run(main())
         """
     )
-    result = subprocess.run(
-        [sys.executable, "-c", script], capture_output=True, text=True, timeout=20
+    proc = subprocess.Popen(
+        [sys.executable, "-c", script],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines()[-1] == "cleanup joining generation"
+    output, ready = [], threading.Event()
+
+    def read():
+        for line in proc.stdout:
+            output.append(line.rstrip("\n"))
+            if output[-1] == "ready":
+                ready.set()
+
+    reader = threading.Thread(target=read, daemon=True)
+    reader.start()
+    try:
+        assert ready.wait(600), output
+        assert proc.wait(timeout=20) == 0, output
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        proc.wait()
+        reader.join(5)
+    assert output[-1] == "cleanup joining generation", output
 
 
 async def test_concurrent_ids_and_explicit_abort(calls):
