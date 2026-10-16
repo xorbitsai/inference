@@ -82,7 +82,7 @@ export default function Setup() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          setup_token: values.setup_token,
+          setup_token: String(values.setup_token ?? '').trim(),
           username: values.username,
           password: values.password,
         }),

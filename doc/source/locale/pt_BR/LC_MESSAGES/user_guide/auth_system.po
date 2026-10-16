@@ -160,16 +160,13 @@ msgstr "Redefinindo uma senha de administrador perdida"
 
 #: ../../source/user_guide/auth_system.rst:72
 msgid ""
-"If the admin password is lost — or someone else won the first-run setup "
-"race — an operator with shell access to the machine running the RESTful "
-"API can reset an admin's password directly against the auth database, "
-"without logging in:"
+"If the admin password is lost, an operator with shell access to the "
+"machine running the RESTful API can reset an admin password directly "
+"against the auth database, without logging in:"
 msgstr ""
-"Se a senha do administrador for perdida — ou se outra pessoa tiver "
-"vencido a corrida da configuração inicial — um operador com acesso ao "
-"shell da máquina que executa a API RESTful pode redefinir a senha de um "
-"administrador diretamente no banco de dados de autenticação, sem fazer "
-"login:"
+"Se a senha do administrador for perdida, um operador com acesso ao shell "
+"da máquina que executa a API RESTful pode redefini-la diretamente no "
+"banco de autenticação, sem fazer login:"
 
 #: ../../source/user_guide/auth_system.rst:81
 msgid ""
@@ -958,3 +955,14 @@ msgstr "Usuários locais podem alterar a própria senha por ``PUT /v1/admin/user
 #: ../../source/user_guide/auth_system.rst
 msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
 msgstr "Administradores e usuários com ``users:manage`` podem redefinir senhas, incluindo a própria, sem ``current_password``. Quando informado na alteração da própria senha, esse valor é verificado."
+
+#: ../../source/user_guide/auth_system.rst:71
+msgid ""
+"Deleting the final account starts a new setup cycle with a new token in "
+"the server log; consumed tokens stay invalid. Recreating a container "
+"without its auth database also requires the new instance's token."
+msgstr ""
+"Excluir a última conta inicia um novo ciclo de configuração com um novo "
+"token no log do servidor; os tokens já consumidos permanecem inválidos. "
+"Recriar um contêiner sem seu banco de autenticação também exige o token "
+"da nova instância."

@@ -161,16 +161,13 @@ msgstr "Reimpostazione di una password di amministratore smarrita"
 
 #: ../../source/user_guide/auth_system.rst:72
 msgid ""
-"If the admin password is lost — or someone else won the first-run setup "
-"race — an operator with shell access to the machine running the RESTful "
-"API can reset an admin's password directly against the auth database, "
-"without logging in:"
+"If the admin password is lost, an operator with shell access to the "
+"machine running the RESTful API can reset an admin password directly "
+"against the auth database, without logging in:"
 msgstr ""
-"Se la password dell'amministratore viene smarrita — o se qualcun altro ha"
-" vinto la corsa alla configurazione iniziale — un operatore con accesso "
-"alla shell della macchina che esegue l'API RESTful può reimpostare la "
-"password di un amministratore agendo direttamente sul database di "
-"autenticazione, senza effettuare il login:"
+"Se la password amministratore viene persa, un operatore con accesso shell"
+" alla macchina che esegue l’API RESTful può reimpostarla direttamente nel"
+" database di autenticazione senza effettuare l’accesso:"
 
 #: ../../source/user_guide/auth_system.rst:81
 msgid ""
@@ -970,3 +967,14 @@ msgstr "Gli utenti locali possono cambiare la propria password tramite ``PUT /v1
 #: ../../source/user_guide/auth_system.rst
 msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
 msgstr "Gli amministratori e i chiamanti con ``users:manage`` possono reimpostare le password, inclusa la propria, senza ``current_password``. Se viene fornita per cambiare la propria password, viene verificata."
+
+#: ../../source/user_guide/auth_system.rst:71
+msgid ""
+"Deleting the final account starts a new setup cycle with a new token in "
+"the server log; consumed tokens stay invalid. Recreating a container "
+"without its auth database also requires the new instance's token."
+msgstr ""
+"Eliminare l’ultimo account avvia un nuovo ciclo di configurazione con un "
+"nuovo token nel log del server; i token già utilizzati rimangono non "
+"validi. Anche ricreando un contenitore senza il suo database di "
+"autenticazione è necessario il token della nuova istanza."

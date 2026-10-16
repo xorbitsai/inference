@@ -68,12 +68,15 @@ never returned by the setup status API. Once an account exists,
 ``/v1/admin/setup`` refuses further calls. An operator with shell access can
 recover a lost admin password with ``xinference-reset-auth-password``.
 
+Deleting the final account starts a new setup cycle with a new token in the
+server log; consumed tokens stay invalid. Recreating a container without its
+auth database also requires the new instance's token.
+
 Resetting a lost admin password
 =================================
-If the admin password is lost — or someone else won the first-run setup
-race — an operator with shell access to the machine running the RESTful API
-can reset an admin's password directly against the auth database, without
-logging in:
+If the admin password is lost, an operator with shell access to the machine
+running the RESTful API can reset an admin password directly against the auth
+database, without logging in:
 
 .. code-block:: bash
 

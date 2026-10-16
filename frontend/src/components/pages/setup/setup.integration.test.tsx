@@ -116,7 +116,7 @@ it('requires the operator setup token before submitting', async () => {
 });
 it('sends the setup token in the POST body without persisting it in browser storage', async () => {
   await renderAndFillPassword();
-  await fill('setup.token', 'operator-setup-token');
+  await fill('setup.token', ' \toperator-setup-token\n');
   await submit();
   assert.deepEqual(posts, [
     { setup_token: 'operator-setup-token', username: 'admin', password: 'operator-password' },

@@ -243,9 +243,8 @@ async def setup_admin(request: Request) -> JSONResponse:
         )
 
     body = await request.json()
-    if not auth.verify_setup_token(
-        body.get("setup_token") if isinstance(body, dict) else None
-    ):
+    setup_token = body.get("setup_token") if isinstance(body, dict) else None
+    if not isinstance(setup_token, str) or not auth.verify_setup_token(setup_token):
         raise HTTPException(status_code=403, detail="Invalid setup token.")
     username = body.get("username")
     password = body.get("password")
@@ -268,11 +267,16 @@ async def setup_admin(request: Request) -> JSONResponse:
         username=username,
         password_hash=password_hash,
         permissions=INITIAL_ADMIN_PERMISSIONS,
+        setup_token=setup_token.strip(),
     )
     if user_id is None:
         raise HTTPException(
             status_code=403,
-            detail="Setup already completed; an account already exists.",
+            detail=(
+                "Setup already completed; an account already exists."
+                if not auth.needs_setup()
+                else "Invalid setup token."
+            ),
         )
 
     return JSONResponse(content={"id": user_id, "username": username}, status_code=201)

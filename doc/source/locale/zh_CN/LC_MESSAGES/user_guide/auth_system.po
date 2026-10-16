@@ -135,13 +135,11 @@ msgstr "重置丢失的管理员密码"
 
 #: ../../source/user_guide/auth_system.rst:72
 msgid ""
-"If the admin password is lost — or someone else won the first-run setup "
-"race — an operator with shell access to the machine running the RESTful "
-"API can reset an admin's password directly against the auth database, "
-"without logging in:"
+"If the admin password is lost, an operator with shell access to the "
+"machine running the RESTful API can reset an admin password directly "
+"against the auth database, without logging in:"
 msgstr ""
-"如果管理员密码丢失——或者首次初始化被他人抢先——拥有运行 RESTful API 的机器 shell "
-"访问权限的运维人员可以在不登录的情况下，直接对认证数据库重置管理员密码："
+"如果管理员密码丢失，拥有运行 RESTful API 的机器的 Shell 访问权限的运维人员，可以直接操作认证数据库重置管理员密码，无需登录："
 
 #: ../../source/user_guide/auth_system.rst:81
 msgid ""
@@ -775,3 +773,11 @@ msgstr "本地用户无需 ``users:manage`` 权限，即可通过 ``PUT /v1/admi
 #: ../../source/user_guide/auth_system.rst
 msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
 msgstr "管理员和具有 ``users:manage`` 权限的调用者可以不提供 ``current_password`` 重置密码，包括自己的密码。如果修改自己的密码时提供了该字段，系统会校验它。"
+
+#: ../../source/user_guide/auth_system.rst:71
+msgid ""
+"Deleting the final account starts a new setup cycle with a new token in "
+"the server log; consumed tokens stay invalid. Recreating a container "
+"without its auth database also requires the new instance's token."
+msgstr ""
+"删除最后一个账号会开始新的初始化流程，并在服务日志中输出新的令牌；已经使用过的令牌仍然无效。如果重建容器时没有保留认证数据库，也必须使用新实例的令牌。"

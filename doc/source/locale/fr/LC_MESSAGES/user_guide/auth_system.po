@@ -162,16 +162,13 @@ msgstr "Réinitialiser un mot de passe administrateur perdu"
 
 #: ../../source/user_guide/auth_system.rst:72
 msgid ""
-"If the admin password is lost — or someone else won the first-run setup "
-"race — an operator with shell access to the machine running the RESTful "
-"API can reset an admin's password directly against the auth database, "
-"without logging in:"
+"If the admin password is lost, an operator with shell access to the "
+"machine running the RESTful API can reset an admin password directly "
+"against the auth database, without logging in:"
 msgstr ""
-"Si le mot de passe administrateur est perdu — ou si quelqu'un d'autre a "
-"remporté la course à la configuration initiale — un opérateur disposant "
-"d'un accès shell à la machine exécutant l'API RESTful peut réinitialiser "
-"le mot de passe d'un administrateur directement dans la base de données "
-"d'authentification, sans se connecter :"
+"Si le mot de passe administrateur est perdu, un opérateur disposant d’un "
+"accès shell à la machine exécutant l’API RESTful peut le réinitialiser "
+"directement dans la base d’authentification sans se connecter :"
 
 #: ../../source/user_guide/auth_system.rst:81
 msgid ""
@@ -991,3 +988,14 @@ msgstr "Les utilisateurs locaux peuvent modifier leur propre mot de passe via ``
 #: ../../source/user_guide/auth_system.rst
 msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
 msgstr "Les administrateurs et les appelants disposant de ``users:manage`` peuvent réinitialiser les mots de passe, y compris le leur, sans ``current_password``. Si ce champ est fourni lors du changement de leur propre mot de passe, il est vérifié."
+
+#: ../../source/user_guide/auth_system.rst:71
+msgid ""
+"Deleting the final account starts a new setup cycle with a new token in "
+"the server log; consumed tokens stay invalid. Recreating a container "
+"without its auth database also requires the new instance's token."
+msgstr ""
+"La suppression du dernier compte lance un nouveau cycle de configuration "
+"avec un nouveau jeton dans le journal du serveur ; les jetons déjà "
+"utilisés restent invalides. Recréer un conteneur sans sa base "
+"d’authentification nécessite également le jeton de la nouvelle instance."

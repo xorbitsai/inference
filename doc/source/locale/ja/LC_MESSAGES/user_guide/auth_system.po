@@ -139,13 +139,12 @@ msgstr "紛失した管理者パスワードのリセット"
 
 #: ../../source/user_guide/auth_system.rst:72
 msgid ""
-"If the admin password is lost — or someone else won the first-run setup "
-"race — an operator with shell access to the machine running the RESTful "
-"API can reset an admin's password directly against the auth database, "
-"without logging in:"
+"If the admin password is lost, an operator with shell access to the "
+"machine running the RESTful API can reset an admin password directly "
+"against the auth database, without logging in:"
 msgstr ""
-"管理者パスワードを紛失した場合、あるいは初回セットアップの競争に他者が先着してしまった場合でも、RESTful API "
-"を実行しているマシンへのシェルアクセスを持つオペレーターは、ログインせずに認証データベースに対して直接、管理者のパスワードをリセットできます："
+"管理者パスワードを紛失した場合、RESTful API "
+"を実行するマシンのシェルにアクセスできる運用者は、ログインせずに認証データベースを直接操作して管理者パスワードをリセットできます。"
 
 #: ../../source/user_guide/auth_system.rst:81
 msgid ""
@@ -792,3 +791,11 @@ msgstr "ローカルユーザーは ``users:manage`` なしで、``PUT /v1/admin
 #: ../../source/user_guide/auth_system.rst
 msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
 msgstr "管理者と ``users:manage`` を持つ呼び出し元は、``current_password`` なしで自分を含むユーザーのパスワードをリセットできます。自分のパスワード変更時にこの値を指定した場合は検証されます。"
+
+#: ../../source/user_guide/auth_system.rst:71
+msgid ""
+"Deleting the final account starts a new setup cycle with a new token in "
+"the server log; consumed tokens stay invalid. Recreating a container "
+"without its auth database also requires the new instance's token."
+msgstr ""
+"最後のアカウントを削除すると、新しいトークンがサーバーログに表示され、初期設定が再開されます。使用済みトークンは引き続き無効です。認証データベースを保持せずにコンテナを再作成した場合も、新しいインスタンスのトークンが必要です。"

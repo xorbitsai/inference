@@ -24,6 +24,7 @@
 """
 
 from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -35,6 +36,7 @@ from xinference.api.oauth2.advanced.auth_service import (
     PASSWORD_MIN_LENGTH,
     AdvancedAuthService,
 )
+from xinference.api.oauth2.advanced.crypto import get_password_hash
 from xinference.api.oauth2.advanced.database import Database
 from xinference.api.oauth2.advanced.routes import register_advanced_auth_routes
 
@@ -272,8 +274,20 @@ def test_independent_services_share_token_and_only_one_setup_wins(tmp_path):
             .status_code
         )
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        statuses = list(executor.map(setup, enumerate(services)))
+    barrier = Barrier(2)
+    password_hash = get_password_hash("strong-password")
+
+    def hash_after_both_requests_pass_validation(_password):
+        barrier.wait(timeout=10)
+        return password_hash
+
+    with patch(
+        "xinference.api.oauth2.advanced.routes.get_password_hash",
+        side_effect=hash_after_both_requests_pass_validation,
+    ) as hash_password:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            statuses = list(executor.map(setup, enumerate(services)))
+    assert hash_password.call_count == 2
     assert sorted(statuses) == [201, 403]
     assert auth_service.db.user_count() == 1
     assert auth_service.db.get_config("setup_token") is None
@@ -290,3 +304,155 @@ def test_initialized_database_never_generates_setup_token(auth_service):
     response = _make_client(reopened).post("/v1/admin/setup", json={})
     assert response.status_code == 403
     assert "already completed" in response.json()["detail"]
+
+
+def test_consumed_token_stays_invalid_after_last_account_is_deleted(auth_service):
+    old_token = auth_service.setup_token
+    before_setup = _reopen_auth_service(auth_service.db.path)
+    user_id = auth_service.db.create_first_user("operator", "unused", ["admin"])
+    after_setup = _reopen_auth_service(auth_service.db.path)
+    auth_service.db.delete_user(user_id)
+    assert not auth_service.verify_setup_token(old_token)
+    new_token = auth_service.setup_token
+    assert new_token and new_token != old_token
+    assert before_setup.setup_token == after_setup.setup_token == new_token
+    assert _reopen_auth_service(auth_service.db.path).setup_token == new_token
+    response = _make_client(after_setup).post(
+        "/v1/admin/setup",
+        json={
+            "setup_token": new_token,
+            "username": "operator",
+            "password": "strong-password",
+        },
+    )
+    assert response.status_code == 201
+
+
+@pytest.mark.parametrize("source", ["local", "oidc"])
+def test_first_user_from_another_path_consumes_setup_token(auth_service, source):
+    old_token = auth_service.setup_token
+    auth_service.db.create_user("operator", None, source=source, permissions=["admin"])
+    assert auth_service.db.get_config("setup_token") is None
+    assert not auth_service.verify_setup_token(old_token)
+
+
+def test_setup_rechecks_token_in_first_user_transaction(auth_service):
+    old_token = auth_service.setup_token
+    client = _make_client(auth_service)
+
+    def change_token_before_insert(_password):
+        auth_service.db.set_config("setup_token", "replacement-token")
+        return "unused"
+
+    with patch(
+        "xinference.api.oauth2.advanced.routes.get_password_hash",
+        side_effect=change_token_before_insert,
+    ):
+        response = client.post(
+            "/v1/admin/setup",
+            json={
+                "setup_token": old_token,
+                "username": "attacker",
+                "password": "strong-password",
+            },
+        )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Invalid setup token."
+    assert auth_service.db.user_count() == 0
+
+
+def test_setup_accepts_pasted_token_with_surrounding_whitespace(auth_service):
+    response = _make_client(auth_service).post(
+        "/v1/admin/setup",
+        json={
+            "setup_token": " \t" + auth_service.setup_token + "\n",
+            "username": "operator",
+            "password": "strong-password",
+        },
+    )
+    assert response.status_code == 201
+
+
+def test_recreated_auth_storage_rejects_previous_instances_token(
+    auth_service, tmp_path
+):
+    old_token = auth_service.setup_token
+    recreated = _reopen_auth_service(tmp_path / "recreated" / "auth.db")
+    new_token = recreated.setup_token
+    assert new_token != old_token
+    client = _make_client(recreated)
+    with patch(
+        "xinference.api.oauth2.advanced.routes.get_password_hash"
+    ) as hash_password:
+        response = client.post(
+            "/v1/admin/setup",
+            json={
+                "setup_token": old_token,
+                "username": "attacker",
+                "password": "strong-password",
+            },
+        )
+    assert response.status_code == 403
+    hash_password.assert_not_called()
+    assert recreated.db.user_count() == 0
+    assert new_token not in client.get("/v1/admin/setup/status").text
+    response = client.post(
+        "/v1/admin/setup",
+        json={
+            "setup_token": new_token,
+            "username": "operator",
+            "password": "strong-password",
+        },
+    )
+    assert response.status_code == 201
+
+
+def test_existing_users_clean_up_a_legacy_setup_token(auth_service):
+    auth_service.db.create_user("operator", None, permissions=["admin"])
+    auth_service.db.set_config("setup_token", "legacy-token")
+    assert _reopen_auth_service(auth_service.db.path).setup_token is None
+    assert auth_service.db.get_config("setup_token") is None
+
+
+def test_deleting_last_user_logs_the_replacement_token(auth_service, caplog):
+    old_token = auth_service.setup_token
+    user_id = auth_service.db.create_first_user("operator", "unused", ["admin"])
+    with caplog.at_level("WARNING"):
+        auth_service.db.delete_user(user_id)
+    assert "Setup token: " + auth_service.setup_token in caplog.text
+    assert old_token not in caplog.text
+
+
+@pytest.mark.parametrize("initialized", [False, True])
+def test_api_startup_logs_token_only_while_setup_is_pending(
+    auth_service, monkeypatch, caplog, initialized
+):
+    from xinference.api import restful_api
+
+    token = auth_service.setup_token
+    if initialized:
+        auth_service.db.create_user("operator", None, permissions=["admin"])
+    monkeypatch.setattr(restful_api, "is_auth_advanced", lambda: True)
+    monkeypatch.setattr(
+        restful_api, "get_auth_jwt_secret_key", lambda: "unit-test-secret"
+    )
+    monkeypatch.setattr(
+        restful_api, "get_auth_encryption_key", lambda: "unit-test-encryption-key"
+    )
+    monkeypatch.setattr(
+        restful_api, "XINFERENCE_AUTH_DB_PATH", str(auth_service.db.path)
+    )
+    monkeypatch.setattr(restful_api.RESTfulAPI, "_allowed_ip_list", [])
+    with (
+        patch("xinference.core.launch_history_store.LaunchHistoryStore"),
+        patch("xinference.core.monitor_config_store.MonitorConfigStore"),
+        patch("xinference.core.system_settings_store.initialize_system_settings"),
+        caplog.at_level("WARNING"),
+    ):
+        restful_api.RESTfulAPI("127.0.0.1:1", "127.0.0.1", 9997)
+    if initialized:
+        assert token not in caplog.text
+        assert "FIRST-RUN SETUP REQUIRED" not in caplog.text
+    else:
+        assert "FIRST-RUN SETUP REQUIRED" in caplog.text
+        assert "Setup token: " + token in caplog.text
