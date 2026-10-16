@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
+import inspect
 import io
 import logging
 import time
@@ -185,7 +186,7 @@ class QwenOmniChatModel(PytorchMultiModalModel):
     ) -> Dict[str, Any]:
         voice = generate_config.get("voice", "Chelsie")
         return {
-            "max_new_tokens": generate_config.get("max_tokens") or 512,
+            "thinker_max_new_tokens": generate_config.get("max_tokens") or 512,
             "temperature": generate_config.get("temperature", 1),
             "speaker": voice,
         }
@@ -203,6 +204,11 @@ class QwenOmniChatModel(PytorchMultiModalModel):
         )
 
         config = self.build_generate_kwargs(generate_config)
+        # Qwen2.5-Omni in Transformers 5 uses generation_mode instead of return_audio.
+        if "return_audio" in inspect.signature(self._model.generate).parameters:
+            config["return_audio"] = False
+        else:
+            config["generation_mode"] = "text"
         inputs = self.build_inputs_from_messages(messages, generate_config)
         gen_kwargs = dict(**inputs, **config, streamer=streamer)
         thread = Thread(target=self._model.generate, kwargs=gen_kwargs)
