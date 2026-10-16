@@ -2770,7 +2770,7 @@ class RESTfulAPI(CancelMixin):
             model_call_kwargs["request_id"] = model_request_id
 
         if canonical.stream:
-            iterator = None
+            iterator: AsyncIterator[Any]
             abort_controller = (
                 _SSERequestAbortController(model, model_request_id, request, "chat")
                 if is_vllm_backend
