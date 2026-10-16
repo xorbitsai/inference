@@ -493,6 +493,8 @@ For vLLM vision models launched with weight retention, ``limit_mm_per_prompt`` c
 
 SGLang supports changing ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` and ``schedule_conservativeness``.
 
+For SGLang vision models launched with weight retention, ``limit_mm_data_per_request`` accepts a partial image-count patch, for example ``{"image": 8}``. The engine is rebuilt with retained weights so the new tokenizer process applies the limit. Other modality limits are preserved in the engine, recovery and automatic-startup configuration. An initially unlimited or zero image count can become a positive count because this setting only validates request counts; it does not disable the vision encoder. New image limits must be positive integers. Returning to an unlimited or zero image count requires relaunching the model. With an initial zero image count, Xinference skips SGLang's default image warmup.
+
 Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reload parameters** to edit the supported values and follow progress.
 
 .. code-block:: python
@@ -525,3 +527,9 @@ For a vision model launched with weight retention and a positive image limit:
 .. code-block:: python
 
     job = client.reload_model(uid, {"limit_mm_per_prompt": {"image": 8}})
+
+To change the image count of a SGLang vision model launched with weight retention:
+
+.. code-block:: python
+
+    job = client.reload_model(uid, {"limit_mm_data_per_request": {"image": 8}})

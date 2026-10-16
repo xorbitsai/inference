@@ -89,6 +89,8 @@ class SGLANGModelConfig(TypedDict, total=False):
     dist_init_addr: Optional[str]
     reasoning_content: bool
     enable_thinking: bool
+    limit_mm_data_per_request: Optional[Union[str, Dict[str, int]]]
+    skip_server_warmup: bool
     # engine-neutral speculative decoding options, translated into the
     # speculative_* server args below and never forwarded to the engine as-is
     draft_model_path: Optional[str]
@@ -520,6 +522,21 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                 model_config["mem_fraction_static"] = 0.87
             else:
                 model_config["mem_fraction_static"] = 0.88
+        limits = model_config.get("limit_mm_data_per_request")
+        if isinstance(limits, str):
+            # Normalize before taking the retained-weight reload snapshot.
+            limits = json.loads(limits) if limits.strip() else None
+            model_config["limit_mm_data_per_request"] = limits
+        if (
+            isinstance(limits, dict)
+            and type(limits.get("image")) is int
+            and limits["image"] == 0
+            and {"vision", "omni"}.intersection(self.model_family.model_ability)
+        ):
+            # SGLang's default vision warmup sends an image, which a zero
+            # request limit rejects. This derived flag is not in the reload
+            # snapshot, so a positive image limit restores normal warmup.
+            model_config.setdefault("skip_server_warmup", True)
         model_config.setdefault("log_level", "info")
         model_config.setdefault("launch_timeout", self._get_launch_timeout())
         model_config.setdefault("reasoning_content", False)
