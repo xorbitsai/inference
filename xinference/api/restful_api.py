@@ -322,7 +322,12 @@ async def _run_non_streaming_request(
         # cancellation is a result, not cancellation of the handler's wait.
         if generation.done():
             interrupted = False
-            return Response(generation.result(), media_type="application/json")
+            result = generation.result()
+            return (
+                result
+                if isinstance(result, Response)
+                else Response(result, media_type="application/json")
+            )
         listener.result()  # Propagate receive failures without claiming disconnect.
         report_client_disconnect(request)
         logger.info(
@@ -2675,6 +2680,7 @@ class RESTfulAPI(CancelMixin):
                     model_uid,
                     request_id,
                     include_thinking=canonical.thinking_enabled is True,
+                    stop_sequences=canonical.stop or [],
                 )
                 return EventSourceResponse(
                     observe_stream(
@@ -2695,6 +2701,7 @@ class RESTfulAPI(CancelMixin):
                         openai_response,
                         model_uid,
                         include_thinking=canonical.thinking_enabled is True,
+                        stop_sequences=canonical.stop or [],
                     ),
                     headers=router_response_headers,
                 )
@@ -2707,6 +2714,9 @@ class RESTfulAPI(CancelMixin):
         try:
             model = await require_model(
                 self._get_supervisor_ref, model_uid, self._report_error_event
+            )
+            is_vllm_backend = (
+                hasattr(model, "is_vllm_backend") and await model.is_vllm_backend()
             )
         except HTTPException as exc:
             return self._anthropic_error(
@@ -2753,37 +2763,59 @@ class RESTfulAPI(CancelMixin):
             kwargs.pop("_anthropic_requested_features", None)
             raw_kwargs = dict(kwargs)
 
+        model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
+        # A caller's correlation ID may be reused across concurrent requests.
+        model_request_id = uuid.uuid4().hex
+        if is_vllm_backend:
+            model_call_kwargs["request_id"] = model_request_id
+
         if canonical.stream:
             iterator = None
-            try:
-                iterator = await model.chat(messages, kwargs, raw_params=raw_kwargs)
-            except NotImplementedError as exc:
-                return self._anthropic_error(501, str(exc), request_id)
-            except Exception as exc:
-                exc = await self._get_model_last_error(model.uid, exc)
-                logger.error(exc, exc_info=True)
-                await self._report_error_event(model_uid, str(exc))
-                status_code = 429 if "Rate limit reached" in str(exc) else 500
-                return self._anthropic_error(status_code, str(exc), request_id)
+            abort_controller = (
+                _SSERequestAbortController(model, model_request_id, request, "chat")
+                if is_vllm_backend
+                else None
+            )
+            if not is_vllm_backend:
+                try:
+                    iterator = await model.chat(messages, kwargs, **model_call_kwargs)
+                except NotImplementedError as exc:
+                    return self._anthropic_error(501, str(exc), request_id)
+                except Exception as exc:
+                    exc = await self._get_model_last_error(model.uid, exc)
+                    logger.error(exc, exc_info=True)
+                    await self._report_error_event(model_uid, str(exc))
+                    status_code = 429 if "Rate limit reached" in str(exc) else 500
+                    return self._anthropic_error(status_code, str(exc), request_id)
 
             async def physical_chunks() -> AsyncIterator[Dict[str, Any]]:
+                nonlocal iterator
+                if abort_controller is not None:
+                    abort_controller.bind_stream_task()
                 reporter = get_stream_outcome_reporter(request)
-                model_chunks = observe_stream(
-                    iterator,
-                    reporter,
-                    failure_origin=FailureOrigin.MODEL_GENERATOR,
-                )
-                protocol_chunks = observe_stream(
-                    self._iter_model_openai_chunks(model_chunks),
-                    reporter,
-                    failure_origin=FailureOrigin.PROTOCOL,
-                )
+                protocol_chunks = None
+                completed = False
                 try:
+                    if iterator is None:
+                        iterator = await model.chat(
+                            messages, kwargs, **model_call_kwargs
+                        )
+                    model_chunks = observe_stream(
+                        iterator,
+                        reporter,
+                        failure_origin=FailureOrigin.MODEL_GENERATOR,
+                    )
+                    protocol_chunks = observe_stream(
+                        self._iter_model_openai_chunks(model_chunks),
+                        reporter,
+                        failure_origin=FailureOrigin.PROTOCOL,
+                    )
                     async for chunk in protocol_chunks:
-                        if await request.is_disconnected():
+                        if abort_controller is None and await request.is_disconnected():
                             report_client_disconnect(request)
                             break
                         yield chunk
+                    completed = True
                 except asyncio.CancelledError as exc:
                     report_client_disconnect(request, exc)
                     raise
@@ -2794,7 +2826,17 @@ class RESTfulAPI(CancelMixin):
                     await self._report_error_event(model_uid, str(exc))
                     yield {"error": {"type": "api_error", "message": str(exc)}}
                 finally:
-                    if iterator is not None:
+                    if abort_controller is not None:
+                        await _cleanup_model_stream(
+                            abort_controller=abort_controller,
+                            interrupted=not completed,
+                            observed_iterator=protocol_chunks,
+                            model_iterator=iterator,
+                            model=model,
+                            request_id=model_request_id,
+                            kind="chat",
+                        )
+                    elif iterator is not None:
                         from xoscar.api import IteratorWrapper
 
                         if (
@@ -2810,19 +2852,25 @@ class RESTfulAPI(CancelMixin):
                 request_id,
                 input_tokens=input_tokens,
                 include_thinking=canonical.thinking_enabled is True,
+                stop_sequences=canonical.stop or [],
             )
-            return EventSourceResponse(
-                observe_stream(
-                    anthropic_events,
-                    get_stream_outcome_reporter(request),
-                    failure_origin=FailureOrigin.PROTOCOL,
-                ),
+            body_iterator = observe_stream(
+                anthropic_events,
+                get_stream_outcome_reporter(request),
+                failure_origin=FailureOrigin.PROTOCOL,
+            )
+            response = EventSourceResponse(
+                body_iterator,
                 ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
                 headers=response_headers,
             )
+            if abort_controller is not None:
+                abort_controller.bind_body_iterator(body_iterator)
+                _observe_sse_disconnect(response, abort_controller.handle_disconnect)
+            return response
 
-        try:
-            data = await model.chat(messages, kwargs, raw_params=raw_kwargs)
+        async def generate_message_response() -> Response:
+            data = await model.chat(messages, kwargs, **model_call_kwargs)
             if isinstance(data, bytes):
                 data = data.decode("utf-8")
             openai_response = json.loads(data) if isinstance(data, str) else data
@@ -2831,9 +2879,21 @@ class RESTfulAPI(CancelMixin):
                     openai_response,
                     model_uid,
                     include_thinking=canonical.thinking_enabled is True,
+                    stop_sequences=canonical.stop or [],
                 ),
                 headers=response_headers,
             )
+
+        try:
+            if is_vllm_backend:
+                return await _run_non_streaming_request(
+                    request,
+                    model,
+                    model_request_id,
+                    "chat",
+                    generate_message_response(),
+                )
+            return await generate_message_response()
         except AnthropicProtocolError as exc:
             return self._anthropic_error(
                 exc.status_code,

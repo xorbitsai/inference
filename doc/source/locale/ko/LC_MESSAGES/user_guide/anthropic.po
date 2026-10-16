@@ -215,15 +215,24 @@ msgstr ""
 
 #: ../source/user_guide/anthropic.rst:113
 msgid ""
-"On vLLM reasoning models, ``stop_sequences`` applies to both streaming and "
-"non-streaming requests, including when thinking is disabled. A stop match "
-"during thinking can end the response before a final answer is produced. "
-"Native stop matches currently report ``stop_reason: \"end_turn\"`` and "
-"``stop_sequence: null`` in the response."
+"On vLLM models, ``stop_sequences`` applies to streaming and non-streaming "
+"requests, including when thinking is disabled. A stop match during thinking "
+"can end the response before a final answer is produced. A matching caller-"
+"provided string returns ``stop_reason: \"stop_sequence\"`` and the exact "
+"``stop_sequence``. EOS and token-ID stops return ``end_turn`` with a null "
+"``stop_sequence``."
 msgstr ""
-"vLLM 추론 모델에서는 사고를 비활성화한 경우에도 스트리밍 및 비스트리밍 요청 모두에 ``stop_sequences`` 설정이 "
-"적용됩니다. 사고 중에 일치하면 최종 답변이 생성되기 전에 응답이 끝날 수 있습니다. 현재 네이티브 중지 문자열이 일치하면 응답은 "
-"``stop_reason: \"end_turn\"`` 및 ``stop_sequence: null`` 값을 반환합니다."
+"vLLM 모델에서 ``stop_sequences``\\ 는 사고 모드가 비활성화된 경우에도 스트리밍 및 비스트리밍 요청에 적용됩니다. "
+"사고 중 일치하면 최종 답변이 생성되기 전에 응답이 종료될 수 있습니다. 호출자가 지정한 문자열과 일치하면 ``stop_reason: "
+"\"stop_sequence\"``\\ 와 정확한 ``stop_sequence``\\ 를 반환합니다. EOS 또는 토큰 ID로 중지되면 "
+"``end_turn``\\ 과 null인 ``stop_sequence``\\ 를 반환합니다."
+
+#: user_guide/anthropic.rst:120
+msgid ""
+"For physical vLLM models, disconnecting from a streaming or non-streaming "
+"Messages request aborts generation and releases request capacity."
+msgstr ""
+"물리 vLLM 모델에서 스트리밍 또는 비스트리밍 Messages 요청의 연결이 끊어지면 생성을 중단하고 요청 처리 용량을 해제합니다."
 
 #: ../source/user_guide/anthropic.rst:118
 msgid "Context management"
