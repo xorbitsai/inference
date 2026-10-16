@@ -611,3 +611,16 @@ msgstr ""
 #: ../../source/getting_started/using_xinference.rst:138
 msgid "For LLM, embedding and rerank models, engine discovery combines results from all registered workers. Engine names and parameter combinations retain their first-seen order, with duplicate combinations removed; an available engine takes precedence over another worker's unavailability message. Empty worker results are skipped, and local discovery is used if all results are empty. A worker query error fails the request instead of returning an incomplete capability list."
 msgstr "对于 LLM、embedding 和 rerank 模型，引擎查询会合并所有已注册 worker 的结果。引擎名称和参数组合按首次出现的顺序排列，并去除重复组合；可用引擎的信息优先于其他 worker 返回的不可用提示。空结果会被跳过；如果所有结果均为空，则执行本地引擎查询。如果查询某个 worker 时出错，请求会失败，而不会返回不完整的能力列表。"
+
+#: ../../source/getting_started/using_xinference.rst:426
+msgid ""
+"Before starting the cluster, configure the same ``XOSCAR_AUTH_KEY`` on the "
+"supervisor and every worker as described in "
+":ref:`actor_transport_authentication`. HTTP API authentication does not "
+"protect actor ports; an unset or empty key leaves the actor transport "
+"unauthenticated. Limit actor-port access to trusted cluster peers using your"
+" deployment's network controls."
+msgstr ""
+"启动集群前，按 :ref:`actor_transport_authentication` 所述，为 supervisor 和所有 worker "
+"配置相同的 ``XOSCAR_AUTH_KEY``。HTTP API 鉴权不保护 actor 端口；密钥未设置或为空时，actor "
+"传输仍未鉴权。请使用部署环境的网络访问控制，将 actor 端口限制在可信集群节点内。"

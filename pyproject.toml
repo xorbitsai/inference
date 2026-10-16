@@ -33,7 +33,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "xoscar>=0.10.0",
+    "xoscar>=0.12.0",
     "psutil>=5.9.0",
     "torch",
     "pillow",
