@@ -225,9 +225,6 @@ def test_images(native_model, colors, in_tool_result, stream):
             {
                 "role": "assistant",
                 "content": [
-                    # Qwen3-VL's template cannot render null assistant content.
-                    # Keep this smoke focused on images in the tool result.
-                    {"type": "text", "text": "I will inspect the images from lookup."},
                     {
                         "type": "tool_use",
                         "id": "toolu_images",

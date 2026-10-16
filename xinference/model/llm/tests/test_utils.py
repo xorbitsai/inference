@@ -987,7 +987,7 @@ def test_transform_messages_preserves_tool_call_fields():
     }
     assert transformed[1] == {
         "role": "assistant",
-        "content": None,
+        "content": "",
         "tool_calls": [
             {
                 "id": "call_bed4c5f1",
@@ -1009,6 +1009,97 @@ def test_transform_messages_preserves_tool_call_fields():
         ],
         "tool_call_id": "call_bed4c5f1",
     }
+
+
+@pytest.mark.parametrize("model_name", ["Qwen3-VL-Instruct", "Qwen3-VL-Thinking"])
+@pytest.mark.parametrize("protocol", ["openai", "anthropic"])
+def test_qwen3_vl_renders_tool_only_history(model_name, protocol):
+    from copy import deepcopy
+
+    from ....api.protocols import parse_anthropic_request
+    from .. import BUILTIN_LLM_FAMILIES
+
+    tools = [
+        {
+            "name": "lookup",
+            "input_schema": {
+                "type": "object",
+                "properties": {"value": {"type": "string"}},
+            },
+        }
+    ]
+    urls = ["https://example.com/red.png", "https://example.com/blue.png"]
+    messages = [
+        {"role": "user", "content": "Inspect the images returned by lookup."},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_images",
+                    "type": "function",
+                    "function": {"name": "lookup", "arguments": '{"value":"images"}'},
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call_images",
+            "content": [
+                {"type": "image_url", "image_url": {"url": url}} for url in urls
+            ],
+        },
+    ]
+    if protocol == "anthropic":
+        request = parse_anthropic_request(
+            {
+                "model": "test",
+                "max_tokens": 32,
+                "tools": tools,
+                "messages": [
+                    messages[0],
+                    {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "call_images",
+                                "name": "lookup",
+                                "input": {"value": "images"},
+                            }
+                        ],
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "call_images",
+                                "content": [
+                                    {
+                                        "type": "image",
+                                        "source": {"type": "url", "url": url},
+                                    }
+                                    for url in urls
+                                ],
+                            }
+                        ],
+                    },
+                ],
+            }
+        )
+        messages = request.messages
+    original = deepcopy(messages)
+    mixin = ChatModelMixin()
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name)
+    mixin.model_family = family
+    transformed = mixin._transform_messages(messages)
+    prompt = mixin.get_full_context(transformed, family.chat_template)
+
+    assert "<tool_call>" in prompt and '"name": "lookup"' in prompt
+    result = prompt.split("<tool_response>", 1)[1].split("</tool_response>", 1)[0]
+    assert result.count("<|image_pad|>") == 2
+    assert messages == original
 
 
 def test_transform_messages_materializes_tool_call_iterators():
@@ -1035,7 +1126,7 @@ def test_transform_messages_materializes_tool_call_iterators():
     assert transformed == [
         {
             "role": "assistant",
-            "content": None,
+            "content": "",
             "tool_calls": [
                 {
                     "type": "function",
