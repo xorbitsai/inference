@@ -15,8 +15,109 @@
 import os.path
 import tempfile
 import uuid
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
+
+
+@pytest.mark.parametrize(
+    "launch_kwargs", [{}, {"max_new_tokens": None}, {"max_new_tokens": 440}]
+)
+@pytest.mark.parametrize(
+    "response_format, granularities, timestamps",
+    [
+        ("json", None, None),
+        ("verbose_json", ["segment"], True),
+        ("verbose_json", ["word"], "word"),
+    ],
+)
+def test_whisper_generation_kwargs(
+    launch_kwargs, response_format, granularities, timestamps
+):
+    from ..whisper import WhisperModel
+
+    model = WhisperModel(
+        "test", "/unused", SimpleNamespace(multilingual=True), **launch_kwargs
+    )
+    chunk = {"text": "hello", "timestamp": (0, 1)}
+    model._model = Mock(return_value={"text": "hello", "chunks": [chunk]})
+    for method, task in [
+        (model.transcriptions, "transcribe"),
+        (model.translations, "translate"),
+    ]:
+        result = method(
+            b"audio",
+            language="en",
+            response_format=response_format,
+            timestamp_granularities=granularities,
+        )
+        expected = {"task": task, "language": "en"}
+        if task == "transcribe" and launch_kwargs.get("max_new_tokens") is not None:
+            expected["max_new_tokens"] = launch_kwargs["max_new_tokens"]
+        pipeline_kwargs = {"generate_kwargs": expected}
+        if timestamps is not None:
+            pipeline_kwargs["return_timestamps"] = timestamps
+        model._model.assert_called_with(b"audio", **pipeline_kwargs)
+        assert result["text"] == "hello"
+        if timestamps is not None:
+            assert result["words" if timestamps == "word" else "segments"]
+
+
+@pytest.mark.parametrize(
+    "checkpoint_limit, eos_after", [(None, None), (24, None), (None, 0), (None, 5)]
+)
+def test_whisper_uses_checkpoint_generation_budget(checkpoint_limit, eos_after):
+    import torch
+    import transformers
+
+    from ..whisper import WhisperModel
+
+    # Tiny local model: the configured maximum includes the decoder prefix.
+    config = transformers.WhisperConfig(
+        vocab_size=8,
+        d_model=4,
+        encoder_layers=1,
+        decoder_layers=1,
+        encoder_attention_heads=1,
+        decoder_attention_heads=1,
+        encoder_ffn_dim=8,
+        decoder_ffn_dim=8,
+        max_source_positions=2,
+        max_target_positions=160,
+        pad_token_id=0,
+        bos_token_id=1,
+        decoder_start_token_id=1,
+        eos_token_id=3,
+        begin_suppress_tokens=[],
+    )
+    backend = transformers.WhisperForConditionalGeneration(config).eval()
+    backend.generation_config.task_to_id = {"transcribe": 2}
+    backend.generation_config.max_new_tokens = checkpoint_limit
+    backend.generation_config.max_length = config.max_target_positions
+
+    class Continuation(transformers.LogitsProcessor):
+        def __call__(self, input_ids, scores):
+            scores.fill_(-float("inf"))
+            at_eos = eos_after is not None and input_ids.shape[-1] >= eos_after + 2
+            scores[:, 3 if at_eos else 4] = 0
+            return scores
+
+    def pipeline(audio, generate_kwargs):
+        tokens = backend.generate(
+            torch.zeros(1, config.num_mel_bins, 4),
+            logits_processor=[Continuation()],
+            **generate_kwargs,
+        )
+        return {"text": "a" * (tokens == 4).sum().item()}
+
+    model = WhisperModel("test", "/unused", SimpleNamespace())
+    model._model = pipeline
+    result = model.transcriptions(b"audio")
+    assert len(result["text"]) == (
+        eos_after if eos_after is not None else checkpoint_limit or 158
+    )
+    assert backend.generation_config.max_new_tokens == checkpoint_limit
 
 
 def test_restful_api_for_whisper(setup):
