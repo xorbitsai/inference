@@ -246,6 +246,53 @@ def test_dynamic_cache_reduction_supports_layers_on_multiple_cuda_devices():
 
 
 @pytest.mark.parametrize("padding_side", ["left", "right"])
+@pytest.mark.parametrize("tokens", [[[7], [1, 2, 3, 4, 5]], [[7, 8], [1, 2]]])
+def test_prefill_mask_matches_left_padded_tokens(padding_side, tokens):
+    model = _model_for_cache_tests()
+    model._device = "cpu"
+    model._tokenizer = SimpleNamespace(padding_side=padding_side)
+    requests = [
+        SimpleNamespace(sanitized_generate_config={"max_tokens": 1}, extra_kwargs={})
+        for _ in tokens
+    ]
+    input_ids = torch.tensor(
+        transformers_utils.pad_prefill_tokens(tokens, 128, requests)
+    )
+
+    mask = model.build_prefill_attention_mask(*input_ids.shape, requests)
+
+    torch.testing.assert_close(mask, input_ids.ne(0).long())
+    for row, row_mask, request, prompt in zip(input_ids, mask, requests, tokens):
+        assert request.extra_kwargs["attention_mask_seq_len"] == len(prompt)
+        assert row[row_mask.bool()].tolist() == prompt
+    assert model._tokenizer.padding_side == padding_side
+
+
+@pytest.mark.parametrize("padding_side", ["left", "right"])
+def test_decode_mask_matches_left_padded_cache_after_later_arrival(padding_side):
+    model = _model_for_cache_tests()
+    model._device = "cpu"
+    model._tokenizer = SimpleNamespace(padding_side=padding_side)
+    older = _cache_with_tensor(1, seq_len=5)
+    newer = _cache_with_tensor(2, seq_len=1)
+    merged = model.merge_kv_cache(older, newer)
+    batch_size, seq_len = get_batch_size_and_seq_len_from_kv_cache(merged, model)
+    # Cache merging places the new arrival before the already-decoding row.
+    requests = [
+        SimpleNamespace(extra_kwargs={"attention_mask_seq_len": length})
+        for length in (1, 5)
+    ]
+
+    mask = model.build_decode_attention_mask(batch_size, seq_len, requests)
+
+    assert mask.tolist() == [[0, 0, 0, 0, 1, 1], [1, 1, 1, 1, 1, 1]]
+    key, _ = get_kv_cache_layer(merged, 0)
+    torch.testing.assert_close(mask[:, :-1], key[:, 0, :, 0].ne(0).long())
+    assert [r.extra_kwargs["attention_mask_seq_len"] for r in requests] == [2, 6]
+    assert model._tokenizer.padding_side == padding_side
+
+
+@pytest.mark.parametrize("padding_side", ["left", "right"])
 def test_decode_mask_keeps_cache_width_after_longest_request_finishes(padding_side):
     model = _model_for_cache_tests()
     model._device = "cpu"
@@ -264,9 +311,5 @@ def test_decode_mask_keeps_cache_width_after_longest_request_finishes(padding_si
 
     assert mask.shape == (1, 125)
     assert mask.sum().item() == 61
-    if padding_side == "left":
-        assert mask[0, :64].tolist() == [0] * 64
-        assert mask[0, 64:].tolist() == [1] * 61
-    else:
-        assert mask[0, :61].tolist() == [1] * 61
-        assert mask[0, 61:].tolist() == [0] * 64
+    assert mask[0, :64].tolist() == [0] * 64
+    assert mask[0, 64:].tolist() == [1] * 61

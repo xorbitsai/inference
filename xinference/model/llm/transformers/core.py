@@ -593,22 +593,13 @@ class PytorchModel(LLM):
             real_len = seq_length - r.padding_len
             r.extra_kwargs["attention_mask_seq_len"] = real_len
 
-            if self._tokenizer.padding_side == "left":
-                # [PAD][PAD]...[TOKEN]
-                x = torch.cat(
-                    [
-                        torch.full((r.padding_len,), 0, dtype=torch.long),
-                        torch.ones((real_len,), dtype=torch.long),
-                    ]
-                )
-            else:  # right padding
-                # [TOKEN]...[PAD][PAD]
-                x = torch.cat(
-                    [
-                        torch.ones((real_len,), dtype=torch.long),
-                        torch.full((r.padding_len,), 0, dtype=torch.long),
-                    ]
-                )
+            # Batch tokens are left-padded regardless of tokenizer.padding_side.
+            x = torch.cat(
+                [
+                    torch.full((r.padding_len,), 0, dtype=torch.long),
+                    torch.ones((real_len,), dtype=torch.long),
+                ]
+            )
             data.append(x)
 
         return torch.stack(data).to(self._device)
@@ -630,24 +621,12 @@ class PytorchModel(LLM):
             real_len = r.extra_kwargs["attention_mask_seq_len"]
             pad_len = max_len - real_len
 
-            if self._tokenizer.padding_side == "left":
-                x = torch.cat(
-                    [
-                        (
-                            torch.full((pad_len,), 0, dtype=torch.long)
-                            if pad_len > 0
-                            else torch.tensor([], dtype=torch.long)
-                        ),
-                        torch.ones((real_len,), dtype=torch.long),
-                    ]
-                )
-            else:
-                x = torch.cat(
-                    [
-                        torch.ones((real_len,), dtype=torch.long),
-                        torch.full((pad_len,), 0, dtype=torch.long),
-                    ]
-                )
+            x = torch.cat(
+                [
+                    torch.full((pad_len,), 0, dtype=torch.long),
+                    torch.ones((real_len,), dtype=torch.long),
+                ]
+            )
             data.append(x)
 
         return torch.stack(data).to(self._device)
