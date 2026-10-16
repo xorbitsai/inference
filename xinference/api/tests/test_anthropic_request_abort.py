@@ -17,6 +17,18 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.timeout(10)]
 
 @pytest_asyncio.fixture
 async def calls(monkeypatch):
+    # Newer sse-starlette starts a per-loop shutdown watcher that outlives any
+    # one response. Initialize that lifespan before tracking request tasks.
+    async def startup():
+        yield {"data": "startup"}
+        await asyncio.sleep(0)
+
+    async def receive():
+        await asyncio.Event().wait()
+
+    await restful_api.EventSourceResponse(startup(), ping=3600)(
+        {"type": "http"}, receive, AsyncMock()
+    )
     baseline, entries = asyncio.all_tasks(), {}
 
     async def generate(messages, config, **kwargs):
