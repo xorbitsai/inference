@@ -46,6 +46,13 @@ def test_token_router_management_endpoints_are_admin_audited():
         ("HEAD", "/metrics", 200, False),
         ("GET", "/metrics/detail", 200, False),
         ("GET", "/metrics-admin", 200, False),
+        ("GET", "/v1/auth/me", 200, True),
+        ("GET", "/v1/auth/me", 204, True),
+        ("GET", "/v1/auth/me", 401, False),
+        ("GET", "/v1/auth/me", 403, False),
+        ("GET", "/v1/auth/me", 500, False),
+        ("POST", "/v1/auth/me", 200, False),
+        ("GET", "/v1/auth/me/details", 200, False),
     ],
 )
 def test_completed_audit_skip_rules(method, endpoint, status_code, expected):
@@ -102,6 +109,55 @@ async def test_metrics_audit_skips_only_successful_get_requests():
         ("GET", "/metrics/detail", "success", 200),
         ("GET", "/metrics", "error", 500),
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("method", "endpoint", "status_code", "expected_status"),
+    [
+        ("GET", "/v1/auth/me", 200, None),
+        ("GET", "/v1/auth/me", 401, "error"),
+        ("GET", "/v1/auth/me", 403, "error"),
+        ("GET", "/v1/auth/me", 500, "error"),
+        ("POST", "/v1/auth/me", 405, "error"),
+        ("GET", "/v1/auth/me/details", 200, "success"),
+        ("POST", "/v1/auth/refresh", 200, "success"),
+        ("POST", "/v1/auth/refresh", 401, "error"),
+        ("POST", "/v1/auth/logout", 400, "error"),
+        ("POST", "/token", 401, "login_failed"),
+        ("GET", "/token", 405, "error"),
+        ("POST", "/token-extra", 404, "error"),
+    ],
+)
+async def test_auth_poll_audit_preserves_failures_without_login_misclassification(
+    method, endpoint, status_code, expected_status
+):
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    api._advanced_auth_service = object()
+    recorded = []
+
+    def record_admin_audit(
+        self, request, status, latency_s=0.0, status_code=0, category=""
+    ):
+        recorded.append((status, status_code))
+
+    api._record_admin_audit = MethodType(record_admin_audit, api)
+    app = FastAPI()
+    app.middleware("http")(api._audit_middleware)
+
+    @app.api_route(endpoint, methods=[method])
+    async def auth_endpoint() -> Response:
+        return Response(status_code=status_code)
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.request(method, endpoint)
+
+    assert response.status_code == status_code
+    assert "x-request-id" in response.headers
+    assert recorded == (
+        [] if expected_status is None else [(expected_status, status_code)]
+    )
 
 
 @pytest.mark.asyncio

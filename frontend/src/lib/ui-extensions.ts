@@ -6,3 +6,11 @@ export interface NavigationExtension {
 }
 
 export const navigationExtensions: readonly NavigationExtension[] = [];
+
+/** Optional distribution rules shared by navigation and direct page access. */
+export interface PageAccessExtension {
+  path: string;
+  scope: string;
+  appliesWhen?: string;
+}
+export const pageAccessExtensions: readonly PageAccessExtension[] = [];

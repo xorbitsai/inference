@@ -16,7 +16,7 @@ import sqlite3
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,29 @@ class Database:
     def __init__(self, db_path: str):
         self._db_path = db_path
         self._lock = threading.Lock()
+        # A distribution may supply effective grants for externally managed
+        # accounts. All identity reads (login, refresh, API and admin UI) use it.
+        # Callbacks must be synchronous, return fresh data, and fail closed.
+        self.permission_resolver: Optional[Callable[[int, List[str]], List[str]]] = None
         self._init_db()
+
+    @property
+    def path(self) -> Path:
+        """Location of the auth store, for colocated distribution-owned state."""
+        return Path(self._db_path)
+
+    def _resolve_permissions(self, user_id: int, permissions: List[str]) -> List[str]:
+        """Return effective authentication grants, not editable local grants.
+
+        A distribution owning external grants must also guard both user-update
+        routes against writing resolved grants back to user_permissions, or
+        provide a separate local-grant editor. Otherwise an admin UI round-trip
+        can materialize external grants and outlive their external revocation.
+        The resolver itself must never persist its result to the local store.
+        """
+        if self.permission_resolver is None:
+            return permissions
+        return list(self.permission_resolver(user_id, list(permissions)))
 
     def _init_db(self):
         Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -354,7 +376,9 @@ class Database:
             perms = conn.execute(
                 "SELECT permission FROM user_permissions WHERE user_id = ?", (user_id,)
             ).fetchall()
-            user["permissions"] = [p["permission"] for p in perms]
+            user["permissions"] = self._resolve_permissions(
+                user["id"], [p["permission"] for p in perms]
+            )
             return user
 
     def get_user_by_username(
@@ -372,7 +396,9 @@ class Database:
                 "SELECT permission FROM user_permissions WHERE user_id = ?",
                 (user["id"],),
             ).fetchall()
-            user["permissions"] = [p["permission"] for p in perms]
+            user["permissions"] = self._resolve_permissions(
+                user["id"], [p["permission"] for p in perms]
+            )
             return user
 
     def get_user_by_oidc_sub(self, oidc_sub: str) -> Optional[Dict[str, Any]]:
@@ -387,7 +413,9 @@ class Database:
                 "SELECT permission FROM user_permissions WHERE user_id = ?",
                 (user["id"],),
             ).fetchall()
-            user["permissions"] = [p["permission"] for p in perms]
+            user["permissions"] = self._resolve_permissions(
+                user["id"], [p["permission"] for p in perms]
+            )
             return user
 
     def list_users(self, source: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -412,7 +440,9 @@ class Database:
             for p in perms_rows:
                 perms_map.setdefault(p["user_id"], []).append(p["permission"])
             for user in users:
-                user["permissions"] = perms_map.get(user["id"], [])
+                user["permissions"] = self._resolve_permissions(
+                    user["id"], perms_map.get(user["id"], [])
+                )
             return users
 
     def update_user(self, user_id: int, **kwargs) -> bool:

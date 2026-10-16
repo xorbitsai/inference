@@ -63,9 +63,15 @@ async def test_change_password_rejects_non_string_new_password(monkeypatch):
         "id": 2,
         "username": "bob",
         "source": "local",
+        "must_change_password": False,
         "permissions": [],
     }
     monkeypatch.setattr(routes, "get_advanced_auth", lambda request: auth)
+    monkeypatch.setattr(
+        routes,
+        "_get_current_user_live_scopes",
+        lambda request, auth: (1, "admin", {"admin"}),
+    )
     monkeypatch.setattr(
         routes, "_reject_admin_target_takeover", lambda request, auth, uid: None
     )

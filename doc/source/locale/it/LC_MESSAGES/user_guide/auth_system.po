@@ -955,3 +955,15 @@ msgstr ""
 #~ "modo descritto nella sezione `Usage`_ "
 #~ "precedente per il sistema semplice."
 
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrator revocation also takes effect on the next API request. ``GET /v1/auth/me`` returns current account permissions; the Web UI refreshes them periodically and when the window regains focus."
+msgstr "La revoca dei privilegi di amministratore diventa effettiva alla successiva richiesta API. ``GET /v1/auth/me`` restituisce le autorizzazioni attuali dell’account; l’interfaccia web le aggiorna periodicamente e quando la finestra torna in primo piano."
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Local users can change their own password through ``PUT /v1/admin/users/{user_id}/password`` without ``users:manage``. Supply ``current_password`` and ``new_password``; a forced first password change only requires ``new_password``. After a password change, sign in again because existing access and refresh tokens are revoked."
+msgstr "Gli utenti locali possono cambiare la propria password tramite ``PUT /v1/admin/users/{user_id}/password`` senza ``users:manage``. Fornire ``current_password`` e ``new_password``; il primo cambio obbligatorio richiede solo ``new_password``. Dopo il cambio, accedere nuovamente perché i token di accesso e aggiornamento esistenti vengono revocati."
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
+msgstr "Gli amministratori e i chiamanti con ``users:manage`` possono reimpostare le password, inclusa la propria, senza ``current_password``. Se viene fornita per cambiare la propria password, viene verificata."

@@ -776,3 +776,15 @@ msgstr ""
 #~ "key``、``Authorization: Bearer`` ヘッダー、OpenAI SDK "
 #~ "との互換性）は、上記のシンプルなシステムの `Usage`_ セクションで説明されているのと同じ方法で動作します。"
 
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrator revocation also takes effect on the next API request. ``GET /v1/auth/me`` returns current account permissions; the Web UI refreshes them periodically and when the window regains focus."
+msgstr "管理者権限の取り消しも、次の API リクエストから反映されます。``GET /v1/auth/me`` はアカウントの現在の権限を返します。Web UI は定期的に、またウィンドウが再びフォーカスを得たときに権限を更新します。"
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Local users can change their own password through ``PUT /v1/admin/users/{user_id}/password`` without ``users:manage``. Supply ``current_password`` and ``new_password``; a forced first password change only requires ``new_password``. After a password change, sign in again because existing access and refresh tokens are revoked."
+msgstr "ローカルユーザーは ``users:manage`` なしで、``PUT /v1/admin/users/{user_id}/password`` により自分のパスワードを変更できます。``current_password`` と ``new_password`` を指定してください。初回の強制変更では ``new_password`` だけが必要です。変更後は既存のアクセストークンとリフレッシュトークンが失効するため、再度ログインしてください。"
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
+msgstr "管理者と ``users:manage`` を持つ呼び出し元は、``current_password`` なしで自分を含むユーザーのパスワードをリセットできます。自分のパスワード変更時にこの値を指定した場合は検証されます。"

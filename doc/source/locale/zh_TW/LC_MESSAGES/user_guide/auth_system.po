@@ -749,3 +749,15 @@ msgstr ""
 #~ "key``、``Authorization: Bearer`` 請求頭、與 OpenAI "
 #~ "SDK 的相容性）與上文簡單系統 `Usage`_ 一節中描述的方式相同。"
 
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrator revocation also takes effect on the next API request. ``GET /v1/auth/me`` returns current account permissions; the Web UI refreshes them periodically and when the window regains focus."
+msgstr "撤銷管理員權限也會在下一次 API 請求時生效。``GET /v1/auth/me`` 傳回帳號目前權限；Web UI 會定期重新整理，並在視窗重新取得焦點時更新。"
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Local users can change their own password through ``PUT /v1/admin/users/{user_id}/password`` without ``users:manage``. Supply ``current_password`` and ``new_password``; a forced first password change only requires ``new_password``. After a password change, sign in again because existing access and refresh tokens are revoked."
+msgstr "本機使用者不需要 ``users:manage`` 權限，即可透過 ``PUT /v1/admin/users/{user_id}/password`` 修改自己的密碼。提交 ``current_password`` 和 ``new_password``；首次強制變更密碼只需 ``new_password``。變更密碼會撤銷現有存取權杖和重新整理權杖，因此需要重新登入。"
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
+msgstr "管理員與具有 ``users:manage`` 權限的呼叫者可以不提供 ``current_password`` 重設密碼，包括自己的密碼。如果變更自己的密碼時提供此欄位，系統會驗證它。"

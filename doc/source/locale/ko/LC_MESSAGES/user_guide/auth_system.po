@@ -811,3 +811,15 @@ msgstr ""
 #~ " SDK 호환성)은 위의 간단한 시스템의 `Usage`_ "
 #~ "섹션에서 설명한 것과 동일한 방식으로 작동합니다."
 
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrator revocation also takes effect on the next API request. ``GET /v1/auth/me`` returns current account permissions; the Web UI refreshes them periodically and when the window regains focus."
+msgstr "관리자 권한 취소도 다음 API 요청부터 적용됩니다. ``GET /v1/auth/me`` 는 계정의 현재 권한을 반환하며, 웹 UI는 주기적으로 또는 창이 다시 포커스를 얻을 때 권한을 갱신합니다."
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Local users can change their own password through ``PUT /v1/admin/users/{user_id}/password`` without ``users:manage``. Supply ``current_password`` and ``new_password``; a forced first password change only requires ``new_password``. After a password change, sign in again because existing access and refresh tokens are revoked."
+msgstr "로컬 사용자는 ``users:manage`` 없이 ``PUT /v1/admin/users/{user_id}/password`` 로 자신의 비밀번호를 변경할 수 있습니다. ``current_password`` 와 ``new_password`` 를 전달하세요. 최초 강제 변경에는 ``new_password`` 만 필요합니다. 변경 후에는 기존 액세스 토큰과 갱신 토큰이 취소되므로 다시 로그인해야 합니다."
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
+msgstr "관리자와 ``users:manage`` 권한이 있는 호출자는 ``current_password`` 없이 본인을 포함한 사용자의 비밀번호를 재설정할 수 있습니다. 자신의 비밀번호를 변경하면서 이 값을 제공하면 검증합니다."

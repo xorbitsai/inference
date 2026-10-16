@@ -33,7 +33,7 @@ export function PermissionGuard({ scope, children }: PermissionGuardProps) {
   // before making any visibility decision.  clusterUIConfig starts as {},
   // so checking auth_advanced before globalReady would render children
   // for unauthorized users during the initial load window.
-  if (!globalReady) {
+  if (!globalReady || !auth.permissionsReady) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

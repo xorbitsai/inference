@@ -1538,6 +1538,7 @@ const ko = {
     loginDesc: '계속하려면 계정 정보를 입력하세요',
     username: '사용자 이름',
     password: '비밀번호',
+    currentPassword: '현재 비밀번호',
     mustChangePasswordDesc: '첫 로그인 시 계속하기 전에 비밀번호를 변경해야 합니다.',
     changePasswordUserMissing: '현재 사용자를 식별할 수 없습니다. 다시 로그인해주세요.',
     or: '또는',

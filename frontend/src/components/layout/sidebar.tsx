@@ -30,7 +30,8 @@ import { usePathname } from 'next/navigation';
 
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
-import { getAccessToken } from '@/lib/auth-storage';
+import { getAccessToken, removeAuthTokens } from '@/lib/auth-storage';
+import { ChangePasswordDialog } from '@/components/pages/login/change-password-dialog';
 import { navigationExtensions } from '@/lib/ui-extensions';
 import { cn, decodeJwtPayload } from '@/lib/utils';
 import { getBrandingFromEnv } from '@/lib/branding';
@@ -151,6 +152,7 @@ const NavGroupSection: FC<NavGroup & { collapsed: boolean; showDivider: boolean 
 export function Sidebar() {
   const { t, locale } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
   const {
@@ -163,6 +165,8 @@ export function Sidebar() {
     canRegisterModel,
     canAccessRouterPage,
     canAccessCacheManagement,
+    hasPageAccess,
+    canChangePassword,
   } = useMenuAuth();
   const [token, setToken] = useState<string | undefined>();
   const showLoginOut = useMemo(
@@ -361,7 +365,7 @@ export function Sidebar() {
     return groups
       .map((group) => ({
         ...group,
-        items: group.items.filter(({ show = true }) => show),
+        items: group.items.filter(({ show = true, path }) => show && hasPageAccess(path)),
       }))
       .filter(({ items }) => items.length > 0);
   }, [
@@ -378,6 +382,7 @@ export function Sidebar() {
     canRegisterModel,
     canAccessRouterPage,
     canAccessCacheManagement,
+    hasPageAccess,
   ]);
 
   return (
@@ -453,6 +458,17 @@ export function Sidebar() {
                   {username}
                 </span>
               </div>
+              {canChangePassword && (
+                <button
+                  type="button"
+                  title={t('userManagement.changePassword')}
+                  aria-label={t('userManagement.changePassword')}
+                  onClick={() => setPasswordOpen(true)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </button>
+              )}
               <LoginOut className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md" />
             </div>
           )}
@@ -463,6 +479,18 @@ export function Sidebar() {
             <LoginOut className="flex h-8 w-8 items-center justify-center rounded-md" />
           </div>
         )
+      )}
+      {passwordOpen && (
+        <ChangePasswordDialog
+          open
+          userId={Number(decodeJwtPayload(token ?? '')?.user_id)}
+          forced={false}
+          onCancel={() => setPasswordOpen(false)}
+          onChanged={() => {
+            removeAuthTokens();
+            window.location.assign('/login');
+          }}
+        />
       )}
     </div>
   );

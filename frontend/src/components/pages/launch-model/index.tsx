@@ -12,6 +12,7 @@ import { Select } from '@/components/ui/select';
 import { RadioGroup } from '@/components/ui/radio-group';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useI18n } from '@/contexts/i18n-context';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { cn } from '@/lib/utils';
 import { ModelType, CUSTOM_MODEL_OPTIONS } from '@/constants';
 import {
@@ -46,6 +47,7 @@ interface LaunchModelProps {
 
 const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
   const { t } = useI18n();
+  const { hasVirtualEnvList } = useMenuAuth();
   const router = useRouter();
   const isCustomRoute = routeType === ModelType.Custom;
   const launchTargetRef = useRef(peekPendingLaunchModelTarget());
@@ -88,9 +90,17 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
     } catch {}
   }, []);
   const fetchVirtualenvs = useCallback(async () => {
-    const res = await request.get('/v1/virtualenvs');
-    setVirtualenvs(Array.isArray(res?.list) ? res.list : []);
-  }, []);
+    if (!hasVirtualEnvList) {
+      setVirtualenvs([]);
+      return;
+    }
+    try {
+      const res = await request.get('/v1/virtualenvs', { suppressGlobalError: true });
+      setVirtualenvs(Array.isArray(res?.list) ? res.list : []);
+    } catch {
+      setVirtualenvs([]);
+    }
+  }, [hasVirtualEnvList]);
 
   const fetchModels = useCallback(
     async (nextType = requestType) => {
