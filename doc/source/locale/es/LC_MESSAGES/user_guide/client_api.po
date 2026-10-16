@@ -234,3 +234,7 @@ msgstr "Errores en las solicitudes de chat"
 #: ../../source/user_guide/client_api.rst
 msgid "Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request."
 msgstr "Los fallos inesperados del worker de chat devuelven un mensaje de error genérico. Los registros del servidor y los eventos de error conservan los diagnósticos originales. Consulte estos registros del servidor al informar sobre una solicitud fallida."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Rate-limit errors retain HTTP 429, and requests that exceed the configured context length retain HTTP 400. Their messages describe the failure without exposing worker details."
+msgstr "Los errores de límite de solicitudes conservan HTTP 429, y las solicitudes que superan la longitud de contexto configurada conservan HTTP 400. Sus mensajes describen el fallo sin revelar detalles de los procesos de trabajo."

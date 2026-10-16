@@ -239,3 +239,7 @@ msgstr "채팅 요청 오류"
 #: ../../source/user_guide/client_api.rst
 msgid "Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request."
 msgstr "채팅 워커에서 예상하지 못한 오류가 발생하면 일반 오류 메시지를 반환합니다. 서버 로그와 오류 이벤트에는 원래 진단 정보가 유지됩니다. 요청 실패를 보고할 때 서버 측 기록을 확인하세요."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Rate-limit errors retain HTTP 429, and requests that exceed the configured context length retain HTTP 400. Their messages describe the failure without exposing worker details."
+msgstr "요청 속도 제한 오류는 HTTP 429를 유지하고, 설정된 컨텍스트 길이를 초과하는 요청은 HTTP 400을 유지합니다. 오류 메시지는 워커의 내부 정보를 노출하지 않고 실패 원인을 설명합니다."

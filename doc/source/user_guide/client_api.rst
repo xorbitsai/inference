@@ -500,3 +500,5 @@ Chat request errors
 ===================
 
 Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request.
+
+Rate-limit errors retain HTTP 429, and requests that exceed the configured context length retain HTTP 400. Their messages describe the failure without exposing worker details.

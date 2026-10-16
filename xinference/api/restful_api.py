@@ -1028,16 +1028,21 @@ class RESTfulAPI(CancelMixin):
         return response
 
     @staticmethod
-    def handle_request_limit_error(e: Exception, *, detail: Optional[str] = None):
+    def handle_request_limit_error(e: Exception, *, sanitize: bool = False):
         from ..model.llm.context_length import ContextLengthExceeded
 
         if isinstance(e, ContextLengthExceeded):
             raise HTTPException(
-                status_code=400, detail=str(e) if detail is None else detail
+                status_code=400,
+                detail=(
+                    "Request exceeds the model's configured context length."
+                    if sanitize
+                    else str(e)
+                ),
             )
         if "Rate limit reached" in str(e):
             raise HTTPException(
-                status_code=429, detail=str(e) if detail is None else detail
+                status_code=429, detail="Rate limit reached" if sanitize else str(e)
             )
 
     @staticmethod
@@ -4689,7 +4694,7 @@ class RESTfulAPI(CancelMixin):
                         )
                     except RuntimeError as re:
                         await self._report_error_event(model_uid, str(re))
-                        self.handle_request_limit_error(re, detail="Rate limit reached")
+                        self.handle_request_limit_error(re, sanitize=True)
                     observed_iterator = observe_stream(
                         iterator,
                         get_stream_outcome_reporter(request),
@@ -4760,7 +4765,7 @@ class RESTfulAPI(CancelMixin):
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
                 await self._report_error_event(model_uid, str(e))
-                self.handle_request_limit_error(e, detail="Rate limit reached")
+                self.handle_request_limit_error(e, sanitize=True)
                 raise HTTPException(
                     status_code=500, detail=self._chat_completion_error_detail()
                 )

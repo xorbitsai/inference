@@ -214,3 +214,7 @@ msgstr "聊天請求錯誤"
 #: ../../source/user_guide/client_api.rst
 msgid "Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request."
 msgstr "聊天工作程序發生非預期錯誤時，會傳回通用錯誤訊息。伺服器日誌和錯誤事件會保留原始診斷資訊。回報請求失敗時，請檢查這些伺服器端記錄。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Rate-limit errors retain HTTP 429, and requests that exceed the configured context length retain HTTP 400. Their messages describe the failure without exposing worker details."
+msgstr "限流錯誤保留 HTTP 429，超過設定上下文長度的請求保留 HTTP 400。錯誤訊息會說明失敗原因，同時避免暴露工作程序的內部資訊。"

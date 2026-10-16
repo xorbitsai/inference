@@ -1686,14 +1686,17 @@ async def test_chat_completion_sanitizes_worker_error(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stream", [False, True])
-async def test_chat_completion_rate_limit_does_not_expose_worker_metadata(
-    monkeypatch, stream
+@pytest.mark.parametrize("context_error", [False, True])
+async def test_chat_completion_limit_errors_do_not_expose_worker_metadata(
+    monkeypatch, stream, context_error
 ):
+    from ...model.llm.context_length import ContextLengthExceeded
+
     api, model = _build_mock_chat_api(monkeypatch, {"model_family": "qwen3"})
     model.is_vllm_backend = AsyncMock(return_value=False)
-    model.chat.side_effect = RuntimeError(
-        "[address=10.0.0.1:12345, pid=6789] Rate limit reached"
-    )
+    error_cls = ContextLengthExceeded if context_error else RuntimeError
+    reason = "Context length exceeded" if context_error else "Rate limit reached"
+    model.chat.side_effect = error_cls(f"[address=10.0.0.1:12345, pid=6789] {reason}")
     api._report_error_event = AsyncMock()
     request = _DummyRequest(
         {
@@ -1712,8 +1715,12 @@ async def test_chat_completion_rate_limit_does_not_expose_worker_metadata(
     else:
         with pytest.raises(HTTPException) as exc:
             await api.create_chat_completion(request)
-        assert exc.value.status_code == 429
-        assert exc.value.detail == "Rate limit reached"
+        assert exc.value.status_code == (400 if context_error else 429)
+        assert exc.value.detail == (
+            "Request exceeds the model's configured context length."
+            if context_error
+            else "Rate limit reached"
+        )
 
 
 def test_launch_model_async(setup):
