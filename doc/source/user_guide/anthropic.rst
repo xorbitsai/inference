@@ -80,6 +80,11 @@ supported; PDF pages are rendered as images with ``pypdfium2`` (install the
 ``image`` extra), require a vision model, and are limited to 20 pages per
 request. File IDs and document citations are not supported.
 
+The request-wide safety limit is 64 rendered images, counting direct images,
+tool-result images and PDF pages together. A lower deployment limit still
+applies. Exceeding either limit returns HTTP 400 before generation, including
+for streaming requests.
+
 Xinference's vLLM vision models default to two images per prompt. The limit
 includes images in conversation history and tool results, so successive
 single-image messages can also exceed it. Set ``limit_mm_per_prompt`` when
@@ -105,6 +110,33 @@ The MLX, vLLM and SGLang adapters do not currently enforce manual
 Stale, unsigned or foreign thinking blocks are ignored during replay;
 accompanying answers and tool calls are preserved.
 
+On vLLM reasoning models, ``stop_sequences`` applies to both streaming and
+non-streaming requests, including when thinking is disabled. A stop match
+during thinking can end the response before a final answer is produced.
+
+Context management
+------------------
+
+``context_management`` supports ``clear_thinking_20251015``. Set ``keep`` to
+``"all"`` or ``{"type": "all"}`` to retain all thinking (the default), or use
+a positive ``thinking_turns`` value to retain recent thinking turns:
+
+.. code-block:: json
+
+    {
+      "context_management": {
+        "edits": [{
+          "type": "clear_thinking_20251015",
+          "keep": {"type": "thinking_turns", "value": 1}
+        }]
+      }
+    }
+
+A complete tool-use loop counts as one assistant turn. Thinking attached to
+unresolved tool calls is retained. Generation, cache-prefix processing and
+token counting use the same edited history. Omitting ``edits`` is a no-op;
+unsupported edit types return HTTP 400.
+
 Tool choice and structured output
 ---------------------------------
 
@@ -119,6 +151,47 @@ plugin support. Qwen3.5 needs no extra parser configuration. Explicit engine
 parser settings are preserved. Manual thinking cannot be combined with forced
 tool choice. P/D models return 501 for forced tool choice. Other engines return
 501 for unsupported controls.
+
+Backend capabilities
+--------------------
+
+Xinference checks explicit feature requests against the loaded model and
+engine before generation. Unsupported controls return HTTP 501; image input
+to a text-only model returns HTTP 400. Translated, emulated, degraded and
+rejected compatibility decisions are logged with their reasons. Capability
+checks do not add features that the engine cannot implement.
+
+The following limitations still apply. Supported controls also require a
+compatible model and engine version, as described above.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 46 18 18 18
+
+   * - Feature
+     - vLLM
+     - SGLang
+     - MLX
+   * - Forced tool choice / disabling parallel tools
+     - Supported
+     - Supported
+     - HTTP 501
+   * - Structured JSON
+     - Supported
+     - Supported
+     - HTTP 501
+   * - Image token counting
+     - Supported
+     - HTTP 501
+     - Supported
+   * - Explicit cache lifetime
+     - Automatic caching
+     - Automatic caching
+     - Partial (text requests to vision models)
+   * - Separate reasoning-token budget
+     - Not enforced
+     - Not enforced
+     - Not enforced
 
 Prompt caching
 --------------

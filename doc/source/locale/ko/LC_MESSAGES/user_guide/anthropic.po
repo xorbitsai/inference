@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Xinference\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-13 11:07+0800\n"
-"PO-Revision-Date: 2026-10-13 12:00+0800\n"
+"PO-Revision-Date: 2026-10-16 12:22+0800\n"
 "Last-Translator: Xinference contributors\n"
 "Language-Team: ko <LL@li.org>\n"
 "Language: ko\n"
@@ -202,3 +202,136 @@ msgstr ""
 "재사용하고 실제 캐시 쓰기 및 읽기 양을 보고합니다. 다른 경로는 엔진의 자동 캐싱을 유지하며 ``x-xinference-cache-"
 "control: automatic`` 응답 헤더로 표시합니다. 이 경로에서는 앞선 캐시 경계의 수명이 독립적으로 적용되지 않습니다. 현재"
 " 캐시 적중 시 수명이 갱신되지 않으며, 만료 시 재사용 가능한 캐시 전체가 삭제됩니다."
+
+#: ../source/user_guide/anthropic.rst:83
+msgid ""
+"The request-wide safety limit is 64 rendered images, counting direct images,"
+" tool-result images and PDF pages together. A lower deployment limit still "
+"applies. Exceeding either limit returns HTTP 400 before generation, "
+"including for streaming requests."
+msgstr ""
+"요청 전체의 안전 한도는 렌더링된 이미지 64개이며, 직접 입력한 이미지, 도구 결과의 이미지, PDF 페이지를 합산합니다. 배포 한도가"
+" 더 낮으면 해당 한도도 적용됩니다. 어느 한도든 초과하면 스트리밍 요청을 포함해 생성 시작 전에 HTTP 400을 반환합니다."
+
+#: ../source/user_guide/anthropic.rst:113
+msgid ""
+"On vLLM reasoning models, ``stop_sequences`` applies to both streaming and "
+"non-streaming requests, including when thinking is disabled. A stop match "
+"during thinking can end the response before a final answer is produced."
+msgstr ""
+"vLLM 추론 모델에서는 사고를 비활성화한 경우에도 스트리밍 및 비스트리밍 요청 모두에 ``stop_sequences`` 설정이 적용됩니다. "
+"사고 중에 일치하면 최종 답변이 생성되기 전에 응답이 끝날 수 있습니다."
+
+#: ../source/user_guide/anthropic.rst:118
+msgid "Context management"
+msgstr "컨텍스트 관리"
+
+#: ../source/user_guide/anthropic.rst:120
+msgid ""
+"``context_management`` supports ``clear_thinking_20251015``. Set ``keep`` to"
+" ``\"all\"`` or ``{\"type\": \"all\"}`` to retain all thinking (the "
+"default), or use a positive ``thinking_turns`` value to retain recent "
+"thinking turns:"
+msgstr ""
+"``context_management`` 항목은 ``clear_thinking_20251015``를 지원합니다. ``keep`` 값을 "
+"``\"all\"`` 또는 ``{\"type\": \"all\"}``로 설정하면 모든 사고를 유지합니다(기본값). 양수 "
+"``thinking_turns`` 값을 사용하면 최근 사고 턴을 유지합니다."
+
+#: ../source/user_guide/anthropic.rst:135
+msgid ""
+"A complete tool-use loop counts as one assistant turn. Thinking attached to "
+"unresolved tool calls is retained. Generation, cache-prefix processing and "
+"token counting use the same edited history. Omitting ``edits`` is a no-op; "
+"unsupported edit types return HTTP 400."
+msgstr ""
+"완전한 도구 사용 루프를 하나의 어시스턴트 턴으로 계산합니다. 아직 해결되지 않은 도구 호출에 연결된 사고는 유지됩니다. 생성, 캐시 "
+"접두사 처리 및 토큰 계산에는 동일하게 편집된 기록을 사용합니다. ``edits`` 항목을 생략하면 변경하지 않으며, 지원하지 않는 편집 "
+"유형은 HTTP 400을 반환합니다."
+
+#: ../source/user_guide/anthropic.rst:156
+msgid "Backend capabilities"
+msgstr "백엔드 기능"
+
+#: ../source/user_guide/anthropic.rst:158
+msgid ""
+"Xinference checks explicit feature requests against the loaded model and "
+"engine before generation. Unsupported controls return HTTP 501; image input "
+"to a text-only model returns HTTP 400. Translated, emulated, degraded and "
+"rejected compatibility decisions are logged with their reasons. Capability "
+"checks do not add features that the engine cannot implement."
+msgstr ""
+"Xinference는 생성 전에 명시적으로 요청된 기능을 로드된 모델 및 엔진의 지원 여부와 비교합니다. 지원하지 않는 제어는 HTTP "
+"501을 반환하며, 텍스트 전용 모델에 이미지를 입력하면 HTTP 400을 반환합니다. 변환, 에뮬레이션, 기능 저하 및 거부 결정과 그"
+" 이유가 로그에 기록됩니다. 기능 확인이 엔진에서 구현할 수 없는 기능을 추가하지는 않습니다."
+
+#: ../source/user_guide/anthropic.rst:164
+msgid ""
+"The following limitations still apply. Supported controls also require a "
+"compatible model and engine version, as described above."
+msgstr "다음 제한은 계속 적용됩니다. 지원되는 제어에도 위에서 설명한 대로 호환되는 모델과 엔진 버전이 필요합니다."
+
+#: ../source/user_guide/anthropic.rst:171
+msgid "Feature"
+msgstr "기능"
+
+#: ../source/user_guide/anthropic.rst:172
+msgid "vLLM"
+msgstr "vLLM"
+
+#: ../source/user_guide/anthropic.rst:173
+msgid "SGLang"
+msgstr "SGLang"
+
+#: ../source/user_guide/anthropic.rst:174
+msgid "MLX"
+msgstr "MLX"
+
+#: ../source/user_guide/anthropic.rst:175
+msgid "Forced tool choice / disabling parallel tools"
+msgstr "강제 도구 선택 / 병렬 도구 비활성화"
+
+#: ../source/user_guide/anthropic.rst:176
+#: ../source/user_guide/anthropic.rst:177
+#: ../source/user_guide/anthropic.rst:180
+#: ../source/user_guide/anthropic.rst:181
+#: ../source/user_guide/anthropic.rst:184
+#: ../source/user_guide/anthropic.rst:186
+msgid "Supported"
+msgstr "지원"
+
+#: ../source/user_guide/anthropic.rst:178
+#: ../source/user_guide/anthropic.rst:182
+#: ../source/user_guide/anthropic.rst:185
+msgid "HTTP 501"
+msgstr "HTTP 501"
+
+#: ../source/user_guide/anthropic.rst:179
+msgid "Structured JSON"
+msgstr "구조화된 JSON"
+
+#: ../source/user_guide/anthropic.rst:183
+msgid "Image token counting"
+msgstr "이미지 토큰 계산"
+
+#: ../source/user_guide/anthropic.rst:187
+msgid "Explicit cache lifetime"
+msgstr "명시적 캐시 수명"
+
+#: ../source/user_guide/anthropic.rst:188
+#: ../source/user_guide/anthropic.rst:189
+msgid "Automatic caching"
+msgstr "자동 캐싱"
+
+#: ../source/user_guide/anthropic.rst:190
+msgid "Partial (text requests to vision models)"
+msgstr "부분 지원(비전 모델에 대한 텍스트 요청)"
+
+#: ../source/user_guide/anthropic.rst:191
+msgid "Separate reasoning-token budget"
+msgstr "별도 추론 토큰 예산"
+
+#: ../source/user_guide/anthropic.rst:192
+#: ../source/user_guide/anthropic.rst:193
+#: ../source/user_guide/anthropic.rst:194
+msgid "Not enforced"
+msgstr "엄격히 적용하지 않음"

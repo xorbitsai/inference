@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Xinference\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-13 11:07+0800\n"
-"PO-Revision-Date: 2026-10-13 12:00+0800\n"
+"PO-Revision-Date: 2026-10-16 12:22+0800\n"
 "Last-Translator: Xinference contributors\n"
 "Language-Team: es <LL@li.org>\n"
 "Language: es\n"
@@ -232,3 +232,151 @@ msgstr ""
 " anteriores no tienen tiempos de vida aplicados de forma independiente. Los "
 "aciertos de caché no renuevan actualmente el tiempo de vida; al caducar, se "
 "vacía la caché reutilizable."
+
+#: ../source/user_guide/anthropic.rst:83
+msgid ""
+"The request-wide safety limit is 64 rendered images, counting direct images,"
+" tool-result images and PDF pages together. A lower deployment limit still "
+"applies. Exceeding either limit returns HTTP 400 before generation, "
+"including for streaming requests."
+msgstr ""
+"El límite de seguridad por solicitud es de 64 imágenes renderizadas, "
+"contando conjuntamente las imágenes directas, las de resultados de "
+"herramientas y las páginas PDF. Sigue aplicándose cualquier límite de "
+"despliegue inferior. Superar cualquiera de los límites devuelve HTTP 400 "
+"antes de generar, incluso en solicitudes en streaming."
+
+#: ../source/user_guide/anthropic.rst:113
+msgid ""
+"On vLLM reasoning models, ``stop_sequences`` applies to both streaming and "
+"non-streaming requests, including when thinking is disabled. A stop match "
+"during thinking can end the response before a final answer is produced."
+msgstr ""
+"En los modelos de razonamiento de vLLM, ``stop_sequences`` se aplica a "
+"solicitudes con y sin streaming, incluso con el pensamiento desactivado. Una"
+" coincidencia durante el pensamiento puede finalizar la respuesta antes de "
+"producir una respuesta final."
+
+#: ../source/user_guide/anthropic.rst:118
+msgid "Context management"
+msgstr "Gestión del contexto"
+
+#: ../source/user_guide/anthropic.rst:120
+msgid ""
+"``context_management`` supports ``clear_thinking_20251015``. Set ``keep`` to"
+" ``\"all\"`` or ``{\"type\": \"all\"}`` to retain all thinking (the "
+"default), or use a positive ``thinking_turns`` value to retain recent "
+"thinking turns:"
+msgstr ""
+"``context_management`` admite ``clear_thinking_20251015``. Configure "
+"``keep`` como ``\"all\"`` o ``{\"type\": \"all\"}`` para conservar todo el "
+"pensamiento (valor predeterminado), o use un valor positivo de "
+"``thinking_turns`` para conservar los turnos de pensamiento más recientes:"
+
+#: ../source/user_guide/anthropic.rst:135
+msgid ""
+"A complete tool-use loop counts as one assistant turn. Thinking attached to "
+"unresolved tool calls is retained. Generation, cache-prefix processing and "
+"token counting use the same edited history. Omitting ``edits`` is a no-op; "
+"unsupported edit types return HTTP 400."
+msgstr ""
+"Un ciclo completo de uso de herramientas cuenta como un turno del asistente."
+" Se conserva el pensamiento asociado a llamadas de herramientas sin "
+"resolver. La generación, el procesamiento del prefijo de caché y el conteo "
+"de tokens usan el mismo historial editado. Omitir ``edits`` no cambia nada; "
+"los tipos de edición no admitidos devuelven HTTP 400."
+
+#: ../source/user_guide/anthropic.rst:156
+msgid "Backend capabilities"
+msgstr "Capacidades del backend"
+
+#: ../source/user_guide/anthropic.rst:158
+msgid ""
+"Xinference checks explicit feature requests against the loaded model and "
+"engine before generation. Unsupported controls return HTTP 501; image input "
+"to a text-only model returns HTTP 400. Translated, emulated, degraded and "
+"rejected compatibility decisions are logged with their reasons. Capability "
+"checks do not add features that the engine cannot implement."
+msgstr ""
+"Xinference comprueba las funciones solicitadas explícitamente frente al "
+"modelo cargado y al motor antes de generar. Los controles no admitidos "
+"devuelven HTTP 501; enviar imágenes a un modelo solo de texto devuelve HTTP "
+"400. Las decisiones de traducción, emulación, degradación y rechazo se "
+"registran con sus motivos. Estas comprobaciones no añaden funciones que el "
+"motor no pueda implementar."
+
+#: ../source/user_guide/anthropic.rst:164
+msgid ""
+"The following limitations still apply. Supported controls also require a "
+"compatible model and engine version, as described above."
+msgstr ""
+"Siguen aplicándose las siguientes limitaciones. Los controles admitidos "
+"también requieren un modelo y una versión del motor compatibles, como se "
+"describe arriba."
+
+#: ../source/user_guide/anthropic.rst:171
+msgid "Feature"
+msgstr "Función"
+
+#: ../source/user_guide/anthropic.rst:172
+msgid "vLLM"
+msgstr "vLLM"
+
+#: ../source/user_guide/anthropic.rst:173
+msgid "SGLang"
+msgstr "SGLang"
+
+#: ../source/user_guide/anthropic.rst:174
+msgid "MLX"
+msgstr "MLX"
+
+#: ../source/user_guide/anthropic.rst:175
+msgid "Forced tool choice / disabling parallel tools"
+msgstr ""
+"Elección forzada de herramientas / desactivación de herramientas paralelas"
+
+#: ../source/user_guide/anthropic.rst:176
+#: ../source/user_guide/anthropic.rst:177
+#: ../source/user_guide/anthropic.rst:180
+#: ../source/user_guide/anthropic.rst:181
+#: ../source/user_guide/anthropic.rst:184
+#: ../source/user_guide/anthropic.rst:186
+msgid "Supported"
+msgstr "Admitido"
+
+#: ../source/user_guide/anthropic.rst:178
+#: ../source/user_guide/anthropic.rst:182
+#: ../source/user_guide/anthropic.rst:185
+msgid "HTTP 501"
+msgstr "HTTP 501"
+
+#: ../source/user_guide/anthropic.rst:179
+msgid "Structured JSON"
+msgstr "JSON estructurado"
+
+#: ../source/user_guide/anthropic.rst:183
+msgid "Image token counting"
+msgstr "Conteo de tokens de imágenes"
+
+#: ../source/user_guide/anthropic.rst:187
+msgid "Explicit cache lifetime"
+msgstr "Duración explícita de la caché"
+
+#: ../source/user_guide/anthropic.rst:188
+#: ../source/user_guide/anthropic.rst:189
+msgid "Automatic caching"
+msgstr "Caché automática"
+
+#: ../source/user_guide/anthropic.rst:190
+msgid "Partial (text requests to vision models)"
+msgstr "Parcial (solicitudes de texto a modelos de visión)"
+
+#: ../source/user_guide/anthropic.rst:191
+msgid "Separate reasoning-token budget"
+msgstr "Presupuesto separado de tokens de razonamiento"
+
+#: ../source/user_guide/anthropic.rst:192
+#: ../source/user_guide/anthropic.rst:193
+#: ../source/user_guide/anthropic.rst:194
+msgid "Not enforced"
+msgstr "No se aplica de forma estricta"
