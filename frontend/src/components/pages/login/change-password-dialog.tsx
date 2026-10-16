@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { isAxiosError } from 'axios';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -48,14 +49,19 @@ export function ChangePasswordDialog({
 
     setLoading(true);
     try {
-      await request.put(`/v1/admin/users/${userId}/password`, {
-        new_password: values.new_password,
-        current_password: values.current_password,
-      });
+      await request.put(
+        `/v1/admin/users/${userId}/password`,
+        {
+          new_password: values.new_password,
+          current_password: values.current_password,
+        },
+        { suppressGlobalError: true }
+      );
       toast.success(t('userManagement.passwordChanged'));
       onChanged();
-    } catch {
-      // handled by interceptor
+    } catch (error) {
+      const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
+      toast.error(typeof detail === 'string' ? detail : String(error));
     } finally {
       setLoading(false);
     }
@@ -68,6 +74,7 @@ export function ChangePasswordDialog({
       }}
     >
       <DialogContent
+        {...(forced ? {} : { 'aria-describedby': undefined })}
         className="!w-lg"
         showCloseButton={!forced}
         maskClosable={!forced}

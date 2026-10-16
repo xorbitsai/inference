@@ -203,22 +203,6 @@ async def advanced_logout(request: Request) -> JSONResponse:
     return JSONResponse(content={"ok": True})
 
 
-async def current_account(request: Request) -> JSONResponse:
-    auth = get_advanced_auth(request)
-    user_id, _, _ = _get_current_user_live_scopes(request, auth)
-    user = auth.db.get_user_by_id(user_id) if user_id else None
-    if not user:
-        raise HTTPException(status_code=401, detail="User session required")
-    return JSONResponse(
-        content={
-            "id": user["id"],
-            "username": user["username"],
-            "permissions": user["permissions"],
-            "must_change_password": bool(user["must_change_password"]),
-        }
-    )
-
-
 # --- Initial setup ---
 #
 # Xinference requires authentication out of the box, but a fresh
@@ -422,7 +406,9 @@ async def change_password(user_id: int, request: Request) -> JSONResponse:
         )
     _reject_admin_target_takeover(request, auth, user_id)
     body = await request.json()
-    if not manages_users and not user["must_change_password"]:
+    if not user["must_change_password"] and (
+        not manages_users or (caller_id == user_id and "current_password" in body)
+    ):
         current_password = body.get("current_password")
         if not isinstance(current_password, str) or not verify_password(
             current_password, user["password_hash"]
@@ -695,18 +681,30 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
                 detail="Not enough permissions: requires keys:create or keys:manage",
             )
 
-        # Keep the existing admin wildcard behavior tied to JWT scopes, while
-        # non-admin delegated permissions are live-read from the DB user row.
-        token_scopes = _normalize_scopes(payload.get("scopes", []))
-        if "admin" in token_scopes:
-            return True
-
         db_scopes = _normalize_scopes(_user.get("permissions", []))
-        if "keys:create" in db_scopes or "keys:manage" in db_scopes:
+        if {"admin", "keys:create", "keys:manage"} & db_scopes:
             return True
         raise HTTPException(
             status_code=403,
             detail="Not enough permissions: requires keys:create or keys:manage",
+        )
+
+    async def current_account(
+        request: Request, user=Security(auth_service)
+    ) -> JSONResponse:
+        # Security already resolved the current user, enabled state and grants.
+        # Reject API-key sessions using the populated key cache, without loading
+        # the account/permission resolver two additional times per UI poll.
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        if auth_service.validate_api_key(token):
+            raise HTTPException(status_code=401, detail="User session required")
+        return JSONResponse(
+            content={
+                "id": user["id"],
+                "username": user["username"],
+                "source": user["source"],
+                "permissions": user["permissions"],
+            }
         )
 
     router.add_api_route("/token", advanced_login, methods=["POST"])
@@ -716,7 +714,6 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
         "/v1/auth/me",
         current_account,
         methods=["GET"],
-        dependencies=[Security(auth_service, scopes=[])],
     )
 
     # Initial setup (public, no auth -- see docstring above setup_admin)

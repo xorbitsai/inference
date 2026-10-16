@@ -284,6 +284,10 @@ Supply ``current_password`` and ``new_password``; a forced first password
 change only requires ``new_password``. After a password change, sign in again
 because existing access and refresh tokens are revoked.
 
+Administrators and callers with ``users:manage`` may reset passwords, including
+their own, without ``current_password``. When supplying it for a self-change,
+it is verified.
+
 Configurable access-token lifetime
 -------------------------------------
 The access-token lifetime defaults to 30 minutes and can be overridden

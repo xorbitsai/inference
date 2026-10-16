@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
+import { Loader2 } from 'lucide-react';
 interface LayoutContentProps {
   children: React.ReactNode;
 }
@@ -26,12 +27,20 @@ export function LayoutContent({ children }: LayoutContentProps) {
           hiddenSidebar ? '' : 'p-8'
         )}
       >
-        {hiddenSidebar || (globalReady && auth.permissionsReady && auth.hasPageAccess(pathname)) ? (
+        {hiddenSidebar ? (
+          children
+        ) : !globalReady || !auth.permissionsReady ? (
+          <div
+            role="status"
+            aria-busy="true"
+            className="flex min-h-[60vh] items-center justify-center"
+          >
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : auth.hasPageAccess(pathname) ? (
           children
         ) : (
-          <p role="status">
-            {auth.permissionsReady ? t('common.accessDenied') : t('common.loading')}
-          </p>
+          <p role="status">{t('common.accessDenied')}</p>
         )}
       </main>
     </div>

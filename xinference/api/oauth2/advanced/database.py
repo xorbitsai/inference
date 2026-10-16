@@ -134,6 +134,14 @@ class Database:
         return Path(self._db_path)
 
     def _resolve_permissions(self, user_id: int, permissions: List[str]) -> List[str]:
+        """Return effective authentication grants, not editable local grants.
+
+        A distribution owning external grants must also guard both user-update
+        routes against writing resolved grants back to user_permissions, or
+        provide a separate local-grant editor. Otherwise an admin UI round-trip
+        can materialize external grants and outlive their external revocation.
+        The resolver itself must never persist its result to the local store.
+        """
         if self.permission_resolver is None:
             return permissions
         return list(self.permission_resolver(user_id, list(permissions)))

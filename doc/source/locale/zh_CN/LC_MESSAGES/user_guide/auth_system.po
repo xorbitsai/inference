@@ -768,3 +768,7 @@ msgstr "撤销管理员权限也会在下一次 API 请求时生效。``GET /v1/
 #: ../../source/user_guide/auth_system.rst
 msgid "Local users can change their own password through ``PUT /v1/admin/users/{user_id}/password`` without ``users:manage``. Supply ``current_password`` and ``new_password``; a forced first password change only requires ``new_password``. After a password change, sign in again because existing access and refresh tokens are revoked."
 msgstr "本地用户无需 ``users:manage`` 权限，即可通过 ``PUT /v1/admin/users/{user_id}/password`` 修改自己的密码。提交 ``current_password`` 和 ``new_password``；首次强制改密只需 ``new_password``。改密会吊销现有访问令牌和刷新令牌，因此需要重新登录。"
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
+msgstr "管理员和具有 ``users:manage`` 权限的调用者可以不提供 ``current_password`` 重置密码，包括自己的密码。如果修改自己的密码时提供了该字段，系统会校验它。"

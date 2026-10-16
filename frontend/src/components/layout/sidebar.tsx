@@ -166,6 +166,7 @@ export function Sidebar() {
     canAccessRouterPage,
     canAccessCacheManagement,
     hasPageAccess,
+    canChangePassword,
   } = useMenuAuth();
   const [token, setToken] = useState<string | undefined>();
   const showLoginOut = useMemo(
@@ -457,7 +458,7 @@ export function Sidebar() {
                   {username}
                 </span>
               </div>
-              {clusterUIConfig?.auth_advanced && (
+              {canChangePassword && (
                 <button
                   type="button"
                   title={t('userManagement.changePassword')}

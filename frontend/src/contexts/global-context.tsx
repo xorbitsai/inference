@@ -11,6 +11,7 @@ import {
 } from 'react';
 import request from '@/lib/request';
 import { getAccessToken } from '@/lib/auth-storage';
+import { decodeJwtPayload } from '@/lib/utils';
 import { NO_AUTH } from '@/constants';
 import type { ClusterAuth, ClusterUIConfig, ClusterVersion } from '@/types/services';
 
@@ -27,10 +28,19 @@ export interface GlobalState {
   setClusterUIConfig: (value: ClusterUIConfig) => void;
   fetchGlobalAfterAuth: () => void;
   accountPermissions: string[] | null;
+  accountSource: string | null;
   refreshAccountPermissions: () => Promise<void>;
 }
 
 const GlobalContext = createContext<GlobalState | null>(null);
+
+function accountIdentity(token: string | undefined): string | undefined {
+  if (!token || token === NO_AUTH) return undefined;
+  const payload = decodeJwtPayload(token);
+  // Only a UI cache key: request authorization remains server-side. Unknown
+  // token formats never carry permissions over to a different credential.
+  return payload?.user_id != null ? JSON.stringify([payload.user_id, payload.sub]) : token;
+}
 
 interface Props extends PropsWithChildren {
   initClusterAuth?: ClusterAuth | null;
@@ -42,29 +52,39 @@ export function GlobalProvider({ children, initClusterAuth = null }: Props) {
   const [clusterUIConfig, setClusterUIConfig] = useState({} as ClusterUIConfig);
   const [globalReady, setGlobalReady] = useState(false);
   const [accountPermissions, setAccountPermissions] = useState<string[] | null>(null);
+  const [accountSource, setAccountSource] = useState<string | null>(null);
   const permissionRequest = useRef(0);
-  const permissionToken = useRef<string | undefined>(undefined);
+  const permissionIdentity = useRef<string | undefined>(undefined);
   const refreshAccountPermissions = useCallback(async () => {
     const requestId = ++permissionRequest.current;
     const token = getAccessToken();
-    if (permissionToken.current !== token) {
-      permissionToken.current = token;
+    const identity = accountIdentity(token);
+    if (permissionIdentity.current !== identity) {
+      permissionIdentity.current = identity;
       setAccountPermissions(null);
+      setAccountSource(null);
     }
     if (!clusterUIConfig?.auth_advanced || !token || token === NO_AUTH) {
       setAccountPermissions(null);
+      setAccountSource(null);
       return;
     }
     try {
-      const account = await request.get<{ permissions: string[] }>('/v1/auth/me', {
+      const account = await request.get<{ permissions: string[]; source: string }>('/v1/auth/me', {
         suppressGlobalError: true,
       });
       // Do not publish a response belonging to a logged-out/replaced session.
-      if (getAccessToken() === token && requestId === permissionRequest.current) {
+      if (
+        accountIdentity(getAccessToken()) === identity &&
+        requestId === permissionRequest.current
+      ) {
         setAccountPermissions(account.permissions);
+        setAccountSource(account.source);
       }
     } catch {
-      if (requestId === permissionRequest.current) setAccountPermissions(null);
+      // A transient failure must not unmount the page or discard user input.
+      // Identity changes/logout already clear this cache above. Successful
+      // revocations still apply immediately; the backend authorizes every API.
     }
   }, [clusterUIConfig?.auth_advanced]);
 
@@ -83,27 +103,22 @@ export function GlobalProvider({ children, initClusterAuth = null }: Props) {
     };
   }, [refreshAccountPermissions]);
 
-  const fetchGlobalAfterAuth = async () => {
-    setGlobalReady(false);
+  const fetchGlobalAfterAuth = useCallback(async () => {
+    // Extend global APIs here as needed
+    const [versionRes, uiConfigRes] = await Promise.allSettled([
+      request.get('/v1/cluster/version', { suppressGlobalError: true }),
+      request.get('/v1/cluster/ui_config'),
+    ]);
 
-    try {
-      // Extend global APIs here as needed
-      const [versionRes, uiConfigRes] = await Promise.allSettled([
-        request.get('/v1/cluster/version', { suppressGlobalError: true }),
-        request.get('/v1/cluster/ui_config'),
-      ]);
+    if (versionRes.status === 'fulfilled') {
+      setClusterVersion(versionRes.value);
+    }
 
-      if (versionRes.status === 'fulfilled') {
-        setClusterVersion(versionRes.value);
-      }
-
-      if (uiConfigRes.status === 'fulfilled') {
-        setClusterUIConfig(uiConfigRes.value);
-      }
-    } finally {
+    if (uiConfigRes.status === 'fulfilled') {
+      setClusterUIConfig(uiConfigRes.value);
       setGlobalReady(true);
     }
-  };
+  }, []);
   return (
     <GlobalContext.Provider
       value={{
@@ -116,6 +131,7 @@ export function GlobalProvider({ children, initClusterAuth = null }: Props) {
         setClusterUIConfig,
         fetchGlobalAfterAuth,
         accountPermissions,
+        accountSource,
         refreshAccountPermissions,
       }}
     >

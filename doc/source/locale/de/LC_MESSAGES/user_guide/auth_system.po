@@ -964,3 +964,7 @@ msgstr "Auch der Entzug von Administratorrechten wird bei der nächsten API-Anfr
 #: ../../source/user_guide/auth_system.rst
 msgid "Local users can change their own password through ``PUT /v1/admin/users/{user_id}/password`` without ``users:manage``. Supply ``current_password`` and ``new_password``; a forced first password change only requires ``new_password``. After a password change, sign in again because existing access and refresh tokens are revoked."
 msgstr "Lokale Benutzer können ihr eigenes Passwort über ``PUT /v1/admin/users/{user_id}/password`` ohne ``users:manage`` ändern. Übergeben Sie ``current_password`` und ``new_password``; eine erzwungene erste Passwortänderung benötigt nur ``new_password``. Melden Sie sich danach erneut an, da vorhandene Zugriffs- und Aktualisierungstoken widerrufen werden."
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
+msgstr "Administratoren und Aufrufer mit ``users:manage`` dürfen Passwörter, einschließlich ihres eigenen, ohne ``current_password`` zurücksetzen. Wird es bei einer Änderung des eigenen Passworts angegeben, wird es überprüft."

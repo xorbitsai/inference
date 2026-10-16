@@ -951,3 +951,7 @@ msgstr "A revogação de privilégios de administrador também entra em vigor na
 #: ../../source/user_guide/auth_system.rst
 msgid "Local users can change their own password through ``PUT /v1/admin/users/{user_id}/password`` without ``users:manage``. Supply ``current_password`` and ``new_password``; a forced first password change only requires ``new_password``. After a password change, sign in again because existing access and refresh tokens are revoked."
 msgstr "Usuários locais podem alterar a própria senha por ``PUT /v1/admin/users/{user_id}/password`` sem ``users:manage``. Envie ``current_password`` e ``new_password``; a primeira alteração obrigatória exige apenas ``new_password``. Após a alteração, entre novamente, pois os tokens de acesso e renovação existentes são revogados."
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrators and callers with ``users:manage`` may reset passwords, including their own, without ``current_password``. When supplying it for a self-change, it is verified."
+msgstr "Administradores e usuários com ``users:manage`` podem redefinir senhas, incluindo a própria, sem ``current_password``. Quando informado na alteração da própria senha, esse valor é verificado."
