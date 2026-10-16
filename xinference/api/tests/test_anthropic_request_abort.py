@@ -302,6 +302,61 @@ async def test_disconnect_before_first_body_pull_releases_stream(calls, rpc_iter
         assert c.iterator.ag_frame is None
 
 
+@pytest.mark.parametrize("rpc_iterator", [False, True])
+async def test_handler_cancelled_after_stream_acquisition(calls, rpc_iterator):
+    c = calls(stream=True, rpc_iterator=rpc_iterator)
+    task = c.start()
+    await c.acquired.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, 5)
+    assert not c.sent
+    c.model.abort_request.assert_awaited_once_with(c.engine_id)
+    c.model.decrease_serve_count.assert_awaited_once()
+    if rpc_iterator:
+        c.iterator.destroy.assert_awaited_once()
+    else:
+        assert c.iterator.ag_frame is None
+
+
+@pytest.mark.parametrize("rpc_iterator", [False, True])
+async def test_abort_timeout_still_releases_acquired_stream(
+    calls, monkeypatch, rpc_iterator
+):
+    c = calls(stream=True, block_start=True, rpc_iterator=rpc_iterator)
+    entered, cancelled = asyncio.Event(), asyncio.Event()
+
+    async def abort(request_id):
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    wait_for = asyncio.wait_for
+
+    async def expire(operation, timeout):
+        if timeout != 5:
+            return await wait_for(operation, timeout)
+        task = asyncio.create_task(operation)
+        await entered.wait()
+        return await wait_for(task, 0)
+
+    c.model.abort_request.side_effect = abort
+    monkeypatch.setattr(asyncio, "wait_for", expire)
+    task = c.start()
+    await c.response_started.wait()
+    c.disconnected.set()
+    await wait_for(task, 5)
+    assert cancelled.is_set()
+    c.model.abort_request.assert_awaited_once_with(c.engine_id)
+    c.model.decrease_serve_count.assert_awaited_once()
+    if rpc_iterator:
+        c.iterator.destroy.assert_awaited_once()
+    else:
+        assert c.iterator.ag_frame is None
+
+
 @pytest.mark.parametrize(
     "error,status", [("backend failed", 500), ("Rate limit reached", 429)]
 )

@@ -2776,6 +2776,12 @@ class RESTfulAPI(CancelMixin):
         model_request_id = uuid.uuid4().hex
         if is_vllm_backend:
             model_call_kwargs["request_id"] = model_request_id
+            logger.debug(
+                "Anthropic request: request-id=%s engine_request_id=%s model=%s",
+                request_id,
+                model_request_id,
+                model_uid,
+            )
 
         if canonical.stream:
             iterator: Optional[AsyncIterator[Any]] = None

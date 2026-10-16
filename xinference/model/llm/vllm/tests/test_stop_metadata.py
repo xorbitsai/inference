@@ -51,14 +51,33 @@ async def test_native_stop_metadata_reaches_anthropic(
         ReasoningParser(reasoning_content=True) if mode == "reasoning" else None
     )
     model.tool_parser = QwenToolParser() if mode == "tools" else None
+    has_tool_call = mode == "tools" and expected == "stop_sequence"
+    text = (
+        '<tool_call>{"name":"lookup","arguments":{"city":"杭州"}}</tool_call>'
+        if has_tool_call
+        else "hello"
+    )
 
     async def generate(*args, **kwargs):
+        yield SimpleNamespace(
+            prompt_token_ids=[1, 2, 3],
+            finished=False,
+            outputs=[
+                SimpleNamespace(
+                    text=text[: len(text) // 2],
+                    token_ids=[4],
+                    index=0,
+                    finish_reason=None,
+                    stop_reason=None,
+                )
+            ],
+        )
         yield SimpleNamespace(
             prompt_token_ids=[1, 2, 3],
             finished=True,
             outputs=[
                 SimpleNamespace(
-                    text="hello",
+                    text=text,
                     token_ids=[4, 5],
                     index=0,
                     finish_reason=finish_reason,
@@ -88,18 +107,59 @@ async def test_native_stop_metadata_reaches_anthropic(
             },
         )
         if stream:
+            chunks = []
+
+            async def capture():
+                async for chunk in response:
+                    chunks.append(chunk)
+                    yield chunk
+
             events = [
                 json.loads(event["data"])
                 async for event in anthropic_stream_events(
-                    response, "test", "req_test", stop_sequences=["HALT", "\n停止"]
+                    capture(), "test", "req_test", stop_sequences=["HALT", "\n停止"]
                 )
             ]
+            terminal = next(
+                chunk["choices"][0]
+                for chunk in chunks
+                if chunk["choices"] and chunk["choices"][0]["finish_reason"] is not None
+            )
+            if (
+                mode != "openai"
+                and finish_reason == "stop"
+                and isinstance(stop_reason, str)
+            ):
+                assert terminal["stop_sequence"] == stop_reason
+            else:
+                assert "stop_sequence" not in terminal
             result = next(e["delta"] for e in events if e["type"] == "message_delta")
             assert events[-1]["type"] == "message_stop"
         else:
             result = openai_to_anthropic(
                 response, "test", stop_sequences=["HALT", "\n停止"]
             )
+        if has_tool_call:
+            expected = "tool_use"
+            if stream:
+                tool = next(
+                    event["content_block"]
+                    for event in events
+                    if event["type"] == "content_block_start"
+                    and event["content_block"]["type"] == "tool_use"
+                )
+                arguments = "".join(
+                    event["delta"]["partial_json"]
+                    for event in events
+                    if event["type"] == "content_block_delta"
+                    and event["delta"]["type"] == "input_json_delta"
+                )
+                assert json.loads(arguments) == {"city": "杭州"}
+            else:
+                tool = result["content"][0]
+                assert tool["type"] == "tool_use"
+                assert tool["input"] == {"city": "杭州"}
+            assert tool["name"] == "lookup"
         if mode == "openai" and expected == "stop_sequence":
             expected = "end_turn"
         assert result["stop_reason"] == expected
