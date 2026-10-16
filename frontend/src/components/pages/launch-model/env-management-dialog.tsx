@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import request from '@/lib/request';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogTrigger,
@@ -22,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
-import { copyToClipboard } from '@/lib/utils';
+import { copyToClipboard, formatFileSize } from '@/lib/utils';
 import type { ModelEnvItem } from '@/types/services';
 import type { CatalogModel } from './types';
 
@@ -105,6 +106,7 @@ const EnvManagementDialog: FC<EnvManagementDialogProps> = ({ modelDetail, onEnvD
                 <TableHead>{t('launchModel.modelName')}</TableHead>
                 <TableHead>{t('launchModel.envPath')}</TableHead>
                 <TableHead>{t('launchModel.pythonVersion')}</TableHead>
+                <TableHead>{t('cacheManagement.diskUsage')}</TableHead>
                 <TableHead>{t('launchModel.ipAddress')}</TableHead>
                 <TableHead>{t('common.operation')}</TableHead>
               </TableRow>
@@ -116,7 +118,12 @@ const EnvManagementDialog: FC<EnvManagementDialogProps> = ({ modelDetail, onEnvD
                     <TableCell>{item.model_name}</TableCell>
                     <TableCell className="max-w-[220px]">
                       <div className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 truncate">{item?.path}</span>
+                        <InfoTooltip
+                          content={item?.path}
+                          contentClassName="max-w-[calc(100vw-2rem)] break-all"
+                        >
+                          <span className="min-w-0 flex-1 truncate">{item?.path}</span>
+                        </InfoTooltip>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
                           onClick={() => copyToClipboard(item?.path)}
@@ -125,6 +132,9 @@ const EnvManagementDialog: FC<EnvManagementDialogProps> = ({ modelDetail, onEnvD
                     </TableCell>
 
                     <TableCell>{item.python_version}</TableCell>
+                    <TableCell>
+                      {typeof item.size_bytes === 'number' ? formatFileSize(item.size_bytes) : '-'}
+                    </TableCell>
                     <TableCell>{item.actor_ip_address}</TableCell>
                     <TableCell>
                       <Button
@@ -140,7 +150,7 @@ const EnvManagementDialog: FC<EnvManagementDialogProps> = ({ modelDetail, onEnvD
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-40 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-40 text-center text-muted-foreground">
                     No virtual environments for now.
                   </TableCell>
                 </TableRow>

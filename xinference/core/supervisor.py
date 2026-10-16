@@ -44,6 +44,7 @@ import xoscar as xo
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
+    XINFERENCE_DOWNLOAD_TASK_DB_PATH,
     XINFERENCE_ENABLE_OTEL,
     XINFERENCE_GET_MODEL_RPC_TIMEOUT,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
@@ -53,6 +54,7 @@ from ..constants import (
     XINFERENCE_LAUNCH_STRATEGY,
     XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS,
     XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
+    XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL,
     XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS,
     XINFERENCE_TOKEN_ROUTER_AGENT_OFFLINE_SECONDS,
     XINFERENCE_TOKEN_ROUTER_AGENT_SUSPECT_SECONDS,
@@ -68,11 +70,21 @@ from ..model.utils import (
     get_engine_params_by_name_with_virtual_env,
 )
 from ..types import PeftModelConfig
+from .download_task_store import (
+    ACTIVE_DOWNLOAD_STATUSES,
+    RESUMABLE_DOWNLOAD_STATUSES,
+    DownloadTaskStore,
+)
 from .exceptions import ModelNotReadyError
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
-from .replica_config import ReplicaConfig, normalize_replica_configs
+from .replica_config import (
+    ReplicaConfig,
+    normalize_replica_configs,
+    validate_pd_replica_configs,
+)
 from .resource import GPUStatus, ResourceStatus
+from .rpc_context import actor_call
 from .utils import (
     assign_replica_gpu,
     build_replica_model_uid,
@@ -85,6 +97,7 @@ from .utils import (
     parse_model_version,
     parse_replica_model_uid,
 )
+from .virtual_env_manager import VirtualEnvConflictError
 
 if TYPE_CHECKING:
     from ..model.audio import AudioModelFamilyV2
@@ -103,10 +116,14 @@ logger = getLogger(__name__)
 ASYNC_LAUNCH_TASKS = {}  # type: ignore
 
 
+_WORKER_METADATA_RPC_TIMEOUT = 3
+_WORKER_METADATA_RETRY_DELAYS = (5, 15, 30)
+
+
 def _merge_audio_model_registrations(
     registrations: List[Dict[str, Any]], detailed: bool
 ) -> List[Dict[str, Any]]:
-    """Merge platform-local audio catalogs without losing engine variants."""
+    """Merge platform-local catalogs without losing engine variants."""
     merged: Dict[Tuple[str, bool], Dict[str, Any]] = {}
     for registration in registrations:
         key = (
@@ -131,6 +148,7 @@ def _merge_audio_model_registrations(
             (
                 spec.get("model_engine"),
                 spec.get("model_format"),
+                spec.get("quantization"),
                 spec.get("cache_name"),
                 spec.get("model_hub"),
                 spec.get("model_id"),
@@ -141,6 +159,7 @@ def _merge_audio_model_registrations(
             identity = (
                 spec.get("model_engine"),
                 spec.get("model_format"),
+                spec.get("quantization"),
                 spec.get("cache_name"),
                 spec.get("model_hub"),
                 spec.get("model_id"),
@@ -215,9 +234,18 @@ class ReplicaInfo:
 
 class SupervisorActor(xo.StatelessActor):
     def __init__(self):
+        self._pd_model_mapping: Dict[str, Any] = {}
+        self._xavier_cache_mapping: Dict[str, xo.ActorRefType] = {}
+        self._xavier_source_mapping: Dict[str, List[xo.ActorRefType]] = {}
+        self._pd_roles: Dict[str, Dict[int, str]] = {}
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
         self._worker_status: Dict[str, WorkerStatus] = {}  # type: ignore
+        self._extension_worker_resources: Dict[str, Dict[str, Any]] = {}
+        self._worker_metadata: Dict[str, Dict[str, Any]] = {}
+        self._worker_metadata_generation: Dict[str, int] = {}
+        self._worker_metadata_next_generation = 0
+        self._worker_metadata_refresh_tasks: Dict[str, asyncio.Task] = {}
         self._replica_model_uid_to_worker_shards: Dict[
             str, Dict[int, xo.ActorRefType["WorkerActor"]]
         ] = {}  # type: ignore
@@ -229,6 +257,8 @@ class SupervisorActor(xo.StatelessActor):
             ],
         ] = {}
         self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}  # type: ignore
+        self._model_reload_status: Dict[str, Dict[str, Any]] = {}
+        self._model_reload_tasks: Dict[str, asyncio.Task] = {}
         self._uptime = None
         self._lock = asyncio.Lock()
         # Scale operations may interleave because SupervisorActor is stateless.
@@ -253,9 +283,23 @@ class SupervisorActor(xo.StatelessActor):
         # launches, reverse-channel dead detection is exempted because
         # long-running model downloads can starve the actor event loop.
         self._workers_launching: Dict[str, int] = {}  # address -> active launch count
+        # Active download-only operations, used only for dispatch cancellation.
+        # Progress itself is retained by ProgressTrackerActor after completion.
+        self._cache_uid_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
+        self._cache_uid_to_task: Dict[str, asyncio.Task] = {}
+        self._cache_pause_requested: Set[str] = set()
+        self._cache_cancel_requested: Set[str] = set()
+        self._download_task_store = DownloadTaskStore(XINFERENCE_DOWNLOAD_TASK_DB_PATH)
+        interrupted_count = self._download_task_store.mark_active_interrupted()
+        if interrupted_count:
+            logger.warning(
+                "Marked %d unfinished model download(s) as interrupted",
+                interrupted_count,
+            )
         self._worker_model_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = (
             {}
         )  # worker_address -> {model_uid -> {gpu_idx -> bytes}}
+        self._worker_model_gpu_memory_update_time: Dict[str, float] = {}
         # Replicas currently down due to worker failure. Key is
         # (base_model_uid, replica_index), value is model_name. Populated on the
         # death-detection paths, cleared on redeploy. Serialized in
@@ -294,6 +338,10 @@ class SupervisorActor(xo.StatelessActor):
         self._sync_tokenizer_asset_catalog()
         self._token_router_runtime_cursors: Dict[str, int] = {}
 
+        from .system_settings_store import get_system_settings_from_environment
+
+        self._system_settings = get_system_settings_from_environment().to_dict()
+
     @classmethod
     def default_uid(cls) -> str:
         return "supervisor"
@@ -302,8 +350,7 @@ class SupervisorActor(xo.StatelessActor):
         self, ip: str
     ) -> Optional[xo.ActorRefType["WorkerActor"]]:
         for addr, ref in self._worker_address_to_worker.items():
-            existing_ip = addr.split(":")[0]
-            if existing_ip == ip:
+            if addr == ip or self._get_worker_host(addr) == ip:
                 return ref
         return None
 
@@ -578,7 +625,17 @@ class SupervisorActor(xo.StatelessActor):
             affected_replica_uids
         )
 
+        for replica_uid in affected_replica_uids:
+            base_uid, _ = parse_replica_model_uid(replica_uid)
+            if base_uid in getattr(self, "_pd_model_mapping", {}):
+                await self.unregister_pd_replica(base_uid, replica_uid)
         self._remove_worker_from_replica_mappings(worker_address)
+        for base_uid in base_uids_affected:
+            if (
+                base_uid in getattr(self, "_pd_model_mapping", {})
+                and base_uid not in self._model_uid_to_replica_info
+            ):
+                await self._cleanup_distributed_actors(base_uid)
         await self._reconcile_affected_model_statuses(base_uids_affected)
         return affected_replica_uids
 
@@ -844,6 +901,9 @@ class SupervisorActor(xo.StatelessActor):
                 )
 
     async def __post_create__(self):
+        from ..extensions import get_extensions
+
+        get_extensions()
         self._uptime = time.time()
         if XINFERENCE_ENABLE_OTEL:
             try:
@@ -1007,10 +1067,10 @@ class SupervisorActor(xo.StatelessActor):
                 signal.SIGTERM, lambda: asyncio.create_task(signal_handler())
             )
 
-        from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
-        from ..model.llm.vllm.xavier.collective_manager import CollectiveManager
+        from ..model.llm.xavier.block_tracker import BlockTracker
+        from ..model.llm.xavier.collective_manager import CollectiveManager
 
-        self._block_tracker_mapping: Dict[str, xo.ActorRefType[VLLMBlockTracker]] = {}  # type: ignore
+        self._block_tracker_mapping: Dict[str, xo.ActorRefType[BlockTracker]] = {}  # type: ignore
         self._collective_manager_mapping: Dict[  # type: ignore
             str, xo.ActorRefType[CollectiveManager]
         ] = {}
@@ -1452,6 +1512,9 @@ class SupervisorActor(xo.StatelessActor):
                 info["gpu_vram_available"] = sum(
                     [v.mem_free for k, v in worker_status.status.items() if k != "cpu"]
                 )
+                info["software_version"] = (
+                    self._worker_metadata.get(worker_addr) or {}
+                ).get("software_version")
             res.append(info)
         if include_routers and XINFERENCE_TOKEN_ROUTER_ENABLED:
             res.extend(self._list_token_router_cluster_info(detailed=detailed))
@@ -1589,8 +1652,13 @@ class SupervisorActor(xo.StatelessActor):
         return max_gpu_count
 
     async def _choose_worker(
-        self, available_workers: Optional[List[str]] = None
+        self,
+        available_workers: Optional[List[str]] = None,
+        *,
+        require_resource_admission: bool = False,
     ) -> xo.ActorRefType["WorkerActor"]:
+        from ..extensions import get_extensions
+
         # TODO: better allocation strategy.
         min_running_model_count = None
         target_worker = None
@@ -1598,6 +1666,16 @@ class SupervisorActor(xo.StatelessActor):
         for worker_addr, worker in self._worker_address_to_worker.items():
             if available_workers and worker_addr not in available_workers:
                 continue
+            if require_resource_admission and get_extensions():
+                try:
+                    self.get_worker_resource_policy(worker_addr)
+                except Exception as error:
+                    logger.warning(
+                        "Worker %s rejected during launch placement: %s",
+                        worker_addr,
+                        error,
+                    )
+                    continue
             running_model_count = await worker.get_model_count()
             if (
                 min_running_model_count is None
@@ -1620,6 +1698,7 @@ class SupervisorActor(xo.StatelessActor):
 
     async def get_cluster_metrics_data(self) -> Dict:
         """Return all data needed to refresh Supervisor-side Prometheus gauges."""
+        self._expire_worker_model_gpu_memory()
         workers: Dict[str, Any] = {}
         for addr, ws in self._worker_status.items():
             workers[addr] = ws.status
@@ -2071,7 +2150,7 @@ class SupervisorActor(xo.StatelessActor):
         )
         for result in results:
             ret.extend(result)
-        if model_type.lower() == "audio":
+        if model_type.lower() in ("audio", "world"):
             ret = _merge_audio_model_registrations(ret, detailed)
 
         ret.sort(key=sort_helper)
@@ -2089,6 +2168,91 @@ class SupervisorActor(xo.StatelessActor):
 
         raise ValueError(f"Model {model_name} not found")
 
+    async def recommend_model(self, request: Dict[str, Any]) -> dict:
+        from .model_recommendation import (
+            MEMORY_WORKLOAD_FIELDS,
+            ModelRecommendationRequest,
+            RecommendationModelNotFound,
+            message,
+            select_recommendation,
+        )
+
+        body = ModelRecommendationRequest.parse_obj(request)
+        workers = sorted(self._worker_address_to_worker.items())
+        results = await asyncio.gather(
+            *[
+                worker.get_model_recommendation_info(
+                    body.model_name,
+                    body.constraints.enable_virtual_env,
+                    model_type=body.model_type,
+                    **(
+                        {"memory_options": body.constraints.memory_options()}
+                        if body.model_type == "LLM"
+                        and body.constraints.__fields_set__ & MEMORY_WORKLOAD_FIELDS
+                        else {}
+                    ),
+                )
+                for _, worker in workers
+            ],
+            return_exceptions=True,
+        )
+        snapshots, warnings = [], []
+        found = False
+        for (address, worker), result in zip(workers, results):
+            if isinstance(
+                result, TypeError
+            ) and "unexpected keyword argument 'memory_options'" in str(result):
+                warnings.append(
+                    message(
+                        "worker_memory_options_unsupported",
+                        f"Worker {address} does not support memory workload options; its candidates are unverified. Upgrade the worker to enable workload estimates.",
+                    )
+                )
+                try:
+                    result = await worker.get_model_recommendation_info(
+                        body.model_name,
+                        body.constraints.enable_virtual_env,
+                        model_type=body.model_type,
+                    )
+                    result = {
+                        **result,
+                        "memory_estimates": {},
+                        "engine_memory_estimates": {},
+                    }
+                except Exception as exc:
+                    result = exc
+            if isinstance(result, BaseException):
+                logger.warning(
+                    "Recommendation discovery failed on %s: %s", address, result
+                )
+                warnings.append(
+                    message(
+                        "worker_discovery_failed",
+                        f"Discovery failed on worker {address}; its candidates were excluded.",
+                    )
+                )
+                continue
+            if not result["model_exists"]:
+                continue
+            found = True
+            target = body.constraints.worker_ip
+            if target is not None and target not in (
+                address,
+                self._get_worker_host(address),
+            ):
+                continue
+            snapshots.append({**result, "worker_ip": address})
+        if workers and not found and not warnings:
+            raise RecommendationModelNotFound(f"Model {body.model_name} not found")
+        if not workers:
+            warnings.append(
+                message(
+                    "no_workers",
+                    "No workers are available to verify the model registration.",
+                )
+            )
+        return select_recommendation(body, snapshots, warnings)
+
     async def query_engines_by_model_name(
         self,
         model_name: str,
@@ -2097,7 +2261,13 @@ class SupervisorActor(xo.StatelessActor):
     ):
         # search in worker first
         workers = list(self._worker_address_to_worker.values())
-        if (model_type or "").lower() == "audio":
+        if (model_type or "").lower() in (
+            "llm",
+            "embedding",
+            "rerank",
+            "audio",
+            "world",
+        ):
             worker_results = await asyncio.gather(
                 *[
                     worker.query_engines_by_model_name(
@@ -2150,6 +2320,14 @@ class SupervisorActor(xo.StatelessActor):
             ) = self._custom_register_type_to_cls[model_type]
 
             model_spec = model_spec_cls.parse_raw(model)
+            # parse_raw() applies the caller's JSON verbatim, and
+            # Config.extra = "allow" lets it set is_builtin as well.
+            # A client-submitted registration is never a vetted
+            # built-in, so reset it regardless of what the payload
+            # requested; allow_trust_remote_code() trusts this flag
+            # to enable trust_remote_code.
+            if hasattr(model_spec, "is_builtin"):
+                model_spec.is_builtin = False
 
             # check if model already registered
             try:
@@ -2586,6 +2764,232 @@ class SupervisorActor(xo.StatelessActor):
             )
         return resolved_hubs[0]
 
+    async def _snapshot_cache_download(
+        self, cache_uid: str, preserve_status: bool = False
+    ) -> Dict[str, Any]:
+        details = await self.get_cache_builtin_model_progress_details(cache_uid)
+        task = self._download_task_store.get(cache_uid)
+        if task is None:
+            return details
+        if not preserve_status and task.get("status") in {"pausing", "paused"}:
+            return details
+
+        changes: Dict[str, Any] = {
+            "progress": float(details.get("progress") or 0),
+            "download_files": details.get("download_files") or [],
+        }
+        stage = str(details.get("stage") or "pending")
+        if not preserve_status:
+            changes["status"] = (
+                "downloading" if stage == "downloading" else task.get("status")
+            )
+        self._download_task_store.update(cache_uid, **changes)
+        return details
+
+    async def _monitor_cache_download(self, cache_uid: str) -> None:
+        while cache_uid in self._cache_uid_to_worker:
+            try:
+                await self._snapshot_cache_download(cache_uid)
+            except Exception:
+                logger.debug(
+                    "Failed to persist download progress for %s",
+                    cache_uid,
+                    exc_info=True,
+                )
+            await asyncio.sleep(1)
+
+    def _record_cache_download_error(
+        self, cache_uid: str, error: BaseException
+    ) -> None:
+        task = self._download_task_store.get(cache_uid)
+        if task is None:
+            return
+        if cache_uid in self._cache_pause_requested or task.get("status") in {
+            "pausing",
+            "paused",
+        }:
+            self._download_task_store.update(cache_uid, status="paused", error=None)
+            return
+        if cache_uid in self._cache_cancel_requested:
+            self._download_task_store.delete(cache_uid)
+            return
+
+        interrupted = isinstance(
+            error,
+            (
+                asyncio.CancelledError,
+                ConnectionError,
+                xo.ActorNotExist,
+                xo.ServerClosed,
+            ),
+        )
+        self._download_task_store.update(
+            cache_uid,
+            status="interrupted" if interrupted else "failed",
+            error=str(error) or type(error).__name__,
+        )
+
+    @log_async(logger=logger)
+    async def cache_builtin_model(
+        self,
+        cache_uid: Optional[str],
+        model_name: str,
+        model_size_in_billions: Optional[Union[int, str]],
+        model_format: Optional[str],
+        quantization: Optional[str],
+        model_engine: Optional[str],
+        model_type: str = "LLM",
+        peft_model_config: Optional[PeftModelConfig] = None,
+        worker_ip: Optional[Union[str, List[str]]] = None,
+        download_hub: Optional[
+            Literal["auto", "huggingface", "modelscope", "openmind_hub", "csghub"]
+        ] = None,
+        model_path: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
+        virtual_env_packages: Optional[List[str]] = None,
+        _resume: bool = False,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Cache one model on one worker without creating a running instance."""
+        download_repositories = kwargs.pop("_download_repositories", None)
+        cache_uid = cache_uid or f"cache-{gen_random_string(12)}"
+        if not is_valid_model_uid(cache_uid):
+            raise ValueError(
+                "The cache UID is invalid. Please specify a non-empty UID with "
+                "at most 100 characters and no reserved replica suffix."
+            )
+
+        is_local_deployment = self.is_local_deployment()
+        if worker_ip is not None and not is_local_deployment:
+            worker_refs = self._get_worker_refs_by_ip(worker_ip)
+            worker_ref = await self._choose_worker(
+                [worker.address for worker in worker_refs]
+            )
+        else:
+            if worker_ip is not None:
+                logger.warning(
+                    "You specified worker_ip %s in local mode; ignoring it.", worker_ip
+                )
+            worker_ref = await self._choose_worker()
+
+        download_hub = typing.cast(
+            Optional[Literal["huggingface", "modelscope", "openmind_hub", "csghub"]],
+            await self._resolve_download_hub_from_workers(
+                [worker_ref], download_hub, model_path
+            ),
+        )
+
+        if cache_uid in self._cache_uid_to_worker:
+            raise ValueError(f"Cache operation {cache_uid} is already running")
+        existing_task = self._download_task_store.get(cache_uid)
+        if existing_task is not None and not _resume:
+            raise ValueError(
+                f"Cache operation {cache_uid} already exists; resume or cancel it"
+            )
+
+        worker_address = worker_ref.address
+        payload = {
+            "cache_uid": cache_uid,
+            "model_name": model_name,
+            "model_size_in_billions": model_size_in_billions,
+            "model_format": model_format,
+            "quantization": quantization,
+            "model_engine": model_engine,
+            "model_type": model_type,
+            "peft_model_config": (
+                peft_model_config.to_dict() if peft_model_config is not None else None
+            ),
+            "worker_ip": worker_address,
+            "download_hub": download_hub,
+            "model_path": model_path,
+            "enable_virtual_env": enable_virtual_env,
+            "virtual_env_packages": virtual_env_packages,
+            **kwargs,
+        }
+        if download_repositories is None:
+            download_repositories = (
+                await worker_ref.resolve_model_download_repositories(payload)
+            )
+        payload["_download_repositories"] = download_repositories
+
+        # Repository resolution is an actor call and may yield. Recheck the UID
+        # before persisting, then reserve it only after the fallible preflight
+        # and SQLite write have succeeded. This prevents a failed preflight from
+        # leaving a cache UID permanently marked as running.
+        if cache_uid in self._cache_uid_to_worker:
+            raise ValueError(f"Cache operation {cache_uid} is already running")
+        latest_task = self._download_task_store.get(cache_uid)
+        if latest_task is not None and not _resume:
+            raise ValueError(
+                f"Cache operation {cache_uid} already exists; resume or cancel it"
+            )
+        if _resume and latest_task is not None:
+            existing_task = latest_task
+        self._download_task_store.upsert(
+            {
+                "cache_uid": cache_uid,
+                "model_name": model_name,
+                "model_type": model_type,
+                "model_engine": model_engine,
+                "model_version": kwargs.get("model_version"),
+                "worker_address": worker_address,
+                "status": "resuming" if _resume else "pending",
+                "progress": (existing_task or {}).get("progress", 0),
+                "payload": payload,
+                "download_files": (existing_task or {}).get("download_files", []),
+                "error": None,
+                "created_at": (existing_task or {}).get("created_at"),
+            }
+        )
+        self._cache_uid_to_worker[cache_uid] = worker_ref
+        monitor_task: Optional[asyncio.Task] = None
+        worker_counted = False
+        try:
+            self._workers_launching[worker_address] = (
+                self._workers_launching.get(worker_address, 0) + 1
+            )
+            worker_counted = True
+            monitor_task = asyncio.create_task(self._monitor_cache_download(cache_uid))
+            result = await worker_ref.cache_builtin_model(
+                cache_uid=cache_uid,
+                model_name=model_name,
+                model_size_in_billions=model_size_in_billions,
+                model_format=model_format,
+                quantization=quantization,
+                model_engine=model_engine,
+                model_type=model_type,
+                peft_model_config=peft_model_config,
+                download_hub=download_hub,
+                model_path=model_path,
+                enable_virtual_env=enable_virtual_env,
+                virtual_env_packages=virtual_env_packages,
+                **kwargs,
+            )
+            self._download_task_store.delete(cache_uid)
+            return result
+        except asyncio.CancelledError as e:
+            self._record_cache_download_error(cache_uid, e)
+            raise
+        except Exception as e:
+            self._record_cache_download_error(cache_uid, e)
+            raise
+        finally:
+            if monitor_task is not None:
+                monitor_task.cancel()
+                try:
+                    await monitor_task
+                except asyncio.CancelledError:
+                    pass
+            self._cache_uid_to_worker.pop(cache_uid, None)
+            self._cache_pause_requested.discard(cache_uid)
+            self._cache_cancel_requested.discard(cache_uid)
+            if worker_counted:
+                active_count = self._workers_launching.get(worker_address, 1) - 1
+                if active_count <= 0:
+                    self._workers_launching.pop(worker_address, None)
+                else:
+                    self._workers_launching[worker_address] = active_count
+
     @log_async(logger=logger)
     async def launch_builtin_model(
         self,
@@ -2617,12 +3021,34 @@ class SupervisorActor(xo.StatelessActor):
         **kwargs,
     ) -> str:
         n_worker = normalize_n_worker(n_worker)
+        from ..model.llm.context_length import validate_context_length_launch
+
+        validate_context_length_launch(model_type or "LLM", model_engine, kwargs)
+        from ..model.llm.weight_cache import parse_weight_cache_option
+
+        if parse_weight_cache_option(kwargs.get("enable_weight_cache", False)):
+            if (model_type or "LLM").lower() != "llm":
+                raise ValueError("enable_weight_cache requires an LLM model")
+            if (model_engine or "").lower() not in ("vllm", "sglang"):
+                raise ValueError("enable_weight_cache requires vLLM or SGLang")
+            if (
+                n_worker != 1
+                or replica != 1
+                or (replica_config is not None and len(replica_config) != 1)
+            ):
+                raise ValueError(
+                    "enable_weight_cache currently requires one worker and one replica"
+                )
         if (model_type or "").lower() == "audio":
             from ..model.audio.core import resolve_audio_model_name_and_engine
 
             model_name, model_engine = resolve_audio_model_name_and_engine(
                 model_name, model_engine
             )
+        elif (model_type or "").lower() == "world":
+            from ..model.world.core import resolve_world_model_engine
+
+            model_engine = resolve_world_model_engine(model_name, model_engine)
 
         if self.is_local_deployment() and n_worker > 1:  # type: ignore
             # ignore n_worker > 1 if local deployment
@@ -2725,37 +3151,159 @@ class SupervisorActor(xo.StatelessActor):
                 replica_uid_map,
             ) = await self._resolve_replica_config(model_uid, replica, replica_config)
 
+        pd_enabled = validate_pd_replica_configs(
+            replica_config, model_engine, model_type
+        )
+        transport_backend = kwargs.pop(
+            "vllm_transfer_backend_type", kwargs.pop("transfer_backend_type", None)
+        )
+        from ..model.llm.vllm.xavier.transport import normalize_xavier_transport_backend
+
+        transport_backend = normalize_xavier_transport_backend(transport_backend)
+        if transport_backend == "nixl" and not pd_enabled:
+            raise ValueError("NIXL requires explicit prefill and decode replica roles")
+        replica_engines = [
+            (cfg.model_engine or model_engine or "").lower()
+            for cfg in replica_config or []
+        ]
+        heterogeneous_pd = pd_enabled and len(set(replica_engines)) > 1
+        host_handoff = heterogeneous_pd and "mlx" in replica_engines
+        if (
+            pd_enabled
+            and not heterogeneous_pd
+            and any(cfg.model_engine for cfg in replica_config or [])
+        ):
+            model_engine = next(
+                cfg.model_engine for cfg in replica_config or [] if cfg.model_engine
+            )
+        if heterogeneous_pd and transport_backend != "xavier":
+            raise ValueError(
+                "Cross-engine PD requires Xavier transport"
+                if host_handoff
+                else "Cross-engine PD requires Xavier GPU transport"
+            )
         # Xavier-related
+        requested_xavier = bool(kwargs.pop("enable_xavier", False))
+        if (
+            requested_xavier
+            and not pd_enabled
+            and replica <= 1
+            and (model_engine or "").lower() in ("mlx", "sglang")
+        ):
+            logger.warning("Enabling xavier when replica<=1 is meaningless.")
+            requested_xavier = False
+        mlx_xavier = (
+            (requested_xavier or pd_enabled)
+            and transport_backend == "xavier"
+            and (model_engine or "").lower() == "mlx"
+            and not heterogeneous_pd
+        )
+        if (
+            (requested_xavier or pd_enabled)
+            and (model_engine or "").lower() == "mlx"
+            and not heterogeneous_pd
+        ):
+            if transport_backend != "xavier":
+                raise ValueError("MLX Xavier requires the xavier transport")
+            if (
+                model_type not in (None, "LLM")
+                or model_format != "mlx"
+                or quantization not in (None, "none", "fp16", "bf16")
+            ):
+                raise ValueError("MLX Xavier requires unquantized MLX text weights")
+            kwargs["_xavier_cache_config"] = {
+                "address": self.address,
+                "uid": f"xavier-cache-{model_uid}",
+            }
+        sglang_xavier = (
+            (requested_xavier or pd_enabled)
+            and transport_backend == "xavier"
+            and model_engine is not None
+            and model_engine.lower() == "sglang"
+            and not heterogeneous_pd
+        )
+        sglang_nixl = (
+            pd_enabled
+            and transport_backend == "nixl"
+            and model_engine is not None
+            and model_engine.lower() == "sglang"
+        )
+        if sglang_nixl and (requested_xavier or n_worker != 1):
+            raise ValueError(
+                "SGLang native NIXL requires one worker per replica without enable_xavier"
+            )
+        cache_bytes = kwargs.pop("xavier_cache_bytes", None)
+        mlx_prefill = host_handoff and any(
+            cfg.role == "prefill"
+            and (cfg.model_engine or model_engine or "").lower() == "mlx"
+            for cfg in (replica_config or [])
+        )
+        if cache_bytes is not None and (
+            not (mlx_xavier or mlx_prefill or sglang_xavier and not pd_enabled)
+            or type(cache_bytes) is not int
+            or cache_bytes <= 0
+        ):
+            raise ValueError(
+                "xavier_cache_bytes requires MLX Xavier or SGLang shared CPU caching and a positive integer"
+            )
+        if sglang_xavier and n_worker != 1:
+            raise ValueError(
+                "SGLang Xavier requires the xavier transport and one worker per replica"
+            )
+        if sglang_xavier or heterogeneous_pd:
+            if (
+                model_type not in (None, "LLM")
+                or (not host_handoff and model_format not in (None, "pytorch"))
+                or quantization not in (None, "none")
+            ):
+                raise ValueError(
+                    "Cross-engine Xavier PD requires unquantized PyTorch LLM weights"
+                    if heterogeneous_pd
+                    else "SGLang Xavier requires unquantized PyTorch LLM weights"
+                )
+            if host_handoff:
+                for cfg, engine in zip(replica_config or [], replica_engines):
+                    replica_format = cfg.engine_config.get("model_format", model_format)
+                    allowed_formats = ("mlx",) if engine == "mlx" else (None, "pytorch")
+                    if replica_format not in allowed_formats:
+                        raise ValueError(
+                            "NVIDIA/MLX PD requires PyTorch NVIDIA and MLX Metal weights"
+                        )
+        if sglang_xavier:
+            kwargs["_xavier_cache_config"] = {
+                "address": self.address,
+                "uid": f"xavier-cache-{model_uid}",
+            }
         enable_xavier: bool = (
-            bool(kwargs.pop("enable_xavier", False))
+            (requested_xavier or pd_enabled)
+            and transport_backend == "xavier"
             and model_engine is not None
             and model_engine.lower() == "vllm"
+            and not heterogeneous_pd
         )
+        from ..model.llm.xavier.transport import validate_gpu_cache_budget
+
+        gpu_cache_bytes = validate_gpu_cache_budget(
+            kwargs.pop("xavier_gpu_cache_bytes", None),
+            enable_xavier or sglang_xavier and pd_enabled or heterogeneous_pd,
+            replica,
+        )
+        if (sglang_xavier or heterogeneous_pd) and gpu_cache_bytes not in (None, 0):
+            raise ValueError(
+                "Cross-engine Xavier GPU PD does not yet support retained GPU history"
+                if heterogeneous_pd
+                else "SGLang Xavier GPU PD does not yet support retained GPU history"
+            )
+        if pd_enabled and enable_xavier and gpu_cache_bytes is None:
+            gpu_cache_bytes = 256 * 1024 * 1024
         store_address = None
         store_port = None
         world_size = None
+        if enable_xavier and replica <= 1:
+            logger.warning("Enabling xavier when replica<=1 is meaningless.")
+            enable_xavier = False
         if enable_xavier:
-            if replica <= 1:
-                logger.warning(f"Enabling xavier when `replica<=1` is meaningless.")
-                enable_xavier = False
-            else:
-                from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
-                from ..model.llm.vllm.xavier.collective_manager import CollectiveManager
-
-                self._block_tracker_mapping[model_uid] = await xo.create_actor(
-                    VLLMBlockTracker,
-                    address=self.address,
-                    uid=f"{VLLMBlockTracker.default_uid()}-{model_uid}",
-                )
-                world_size = replica + 1
-                logger.info(f"Going to start xavier with world size: {world_size}")
-                self._collective_manager_mapping[model_uid] = await xo.create_actor(
-                    CollectiveManager,
-                    address=self.address,
-                    uid=f"{CollectiveManager.default_uid()}-{model_uid}",
-                    model_uid=model_uid,
-                )
-                logger.info(f"Start collective manager for {model_uid} done.")
+            world_size = replica + 1
 
         model_size = str(model_size_in_billions) if model_size_in_billions else ""
         logger.debug(
@@ -2781,7 +3329,7 @@ class SupervisorActor(xo.StatelessActor):
             nonlocal store_port
 
             # Calculate replica_id for status tracking
-            replica_id = rank - 1 if not enable_xavier else rank
+            replica_id = rank - 1
 
             # Resolve the GPU indexes early so they can be recorded in the
             # CREATING status below. Xavier rank 0 is the coordinator and does
@@ -2795,19 +3343,19 @@ class SupervisorActor(xo.StatelessActor):
             # Initialize replica status
             import time
 
-            await self._status_guard_ref.update_replica_status(
-                model_uid,
-                replica_id,
-                {
-                    "replica_model_uid": _replica_model_uid,
-                    "worker_address": worker_ref.address,
-                    "status": LaunchStatus.CREATING.name,
-                    "created_ts": int(time.time()),
-                    "replica_uid": replica_uid,
-                    "gpu_idx": replica_gpu_idx,
-                },
-            )
-
+            if rank > 0:
+                await self._status_guard_ref.update_replica_status(
+                    model_uid,
+                    replica_id,
+                    {
+                        "replica_model_uid": _replica_model_uid,
+                        "worker_address": worker_ref.address,
+                        "status": LaunchStatus.CREATING.name,
+                        "created_ts": int(time.time()),
+                        "replica_uid": replica_uid,
+                        "gpu_idx": replica_gpu_idx,
+                    },
+                )
             xavier_config = (
                 {
                     "block_tracker_uid": self._block_tracker_mapping[model_uid].uid,
@@ -2815,7 +3363,14 @@ class SupervisorActor(xo.StatelessActor):
                         model_uid
                     ].address,
                     "rank": rank,
+                    "role": (
+                        replica_config[rank - 1].role
+                        if pd_enabled and rank and replica_config is not None
+                        else "hybrid"
+                    ),
+                    "vllm_transfer_backend_type": transport_backend,
                     "world_size": world_size,
+                    "gpu_cache_bytes": gpu_cache_bytes,
                     "store_address": store_address,
                     "store_port": store_port,
                 }
@@ -2830,10 +3385,6 @@ class SupervisorActor(xo.StatelessActor):
                 store_address = rank0_address.split(":")[0]
                 store_port = _port
 
-                # Update replica status to READY
-                await self._status_guard_ref.update_replica_status(
-                    model_uid, replica_id, {"status": LaunchStatus.READY.name}
-                )
                 self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 return rank0_address
 
@@ -2847,32 +3398,104 @@ class SupervisorActor(xo.StatelessActor):
             _addr = worker_ref.address
             self._workers_launching[_addr] = self._workers_launching.get(_addr, 0) + 1
 
+            replica_kwargs = dict(kwargs)
+            replica_engine = model_engine
+            replica_path = model_path
+            replica_format = model_format
+            if pd_enabled:
+                assert replica_config is not None
+                cfg = replica_config[rank - 1]
+                replica_engine = cfg.model_engine or model_engine
+                replica_kwargs.update(cfg.engine_config)
+                replica_path = replica_kwargs.pop("model_path", model_path)
+                replica_format = replica_kwargs.pop("model_format", model_format)
+            if heterogeneous_pd:
+                assert replica_config is not None
+                from ..model.llm.xavier.transport import get_transport_host
+
+                replica_kwargs["_xavier_cache_config"] = {
+                    "address": self.address,
+                    "uid": f"xavier-cache-{model_uid}",
+                    "role": replica_config[rank - 1].role,
+                    "rank": rank,
+                    "host": get_transport_host(worker_ref.address),
+                    "heterogeneous": True,
+                    "gpu_cache_bytes": 0,
+                    "host_handoff": host_handoff,
+                }
+            if sglang_xavier and pd_enabled:
+                assert replica_config is not None
+                from ..model.llm.xavier.transport import get_transport_host
+
+                replica_kwargs["_xavier_cache_config"] = {
+                    **kwargs["_xavier_cache_config"],
+                    "role": replica_config[rank - 1].role,
+                    "rank": rank,
+                    "host": get_transport_host(worker_ref.address),
+                }
+            elif mlx_xavier and pd_enabled:
+                assert replica_config is not None
+                replica_kwargs["_xavier_cache_config"] = {
+                    **kwargs["_xavier_cache_config"],
+                    "role": replica_config[rank - 1].role,
+                }
+            if pd_enabled and transport_backend == "nixl":
+                assert replica_config is not None
+                replica_kwargs["_nixl_config"] = {
+                    "role": replica_config[rank - 1].role,
+                }
+                if sglang_nixl:
+                    from ..model.llm.xavier.transport import get_transport_host
+
+                    replica_kwargs["_nixl_config"]["host"] = get_transport_host(
+                        worker_ref.address
+                    )
             try:
+                if (
+                    heterogeneous_pd
+                    and (replica_engine or "").lower() == "mlx"
+                    and cfg.role == "prefill"
+                ):
+                    from ..model.llm.xavier.backends.bytes.pd import XavierHostPDSource
+
+                    source_uid = f"xavier-host-pd-{model_uid}-{rank}"
+                    source = await xo.create_actor(
+                        XavierHostPDSource,
+                        self._xavier_cache_mapping[model_uid],
+                        rank,
+                        capacity_bytes=cache_bytes or 512 * 1024**2,
+                        address=worker_ref.address,
+                        uid=source_uid,
+                    )
+                    self._xavier_source_mapping.setdefault(model_uid, []).append(source)
+                    replica_kwargs["_xavier_cache_config"].update(
+                        source_address=source.address, source_uid=source_uid
+                    )
                 subpool_address = await worker_ref.launch_builtin_model(
                     model_uid=_replica_model_uid,
                     model_name=model_name,
                     model_size_in_billions=model_size_in_billions,
-                    model_format=model_format,
+                    model_format=replica_format,
                     quantization=quantization,
-                    model_engine=model_engine,
+                    model_engine=replica_engine,
                     model_type=model_type,
                     n_gpu=n_gpu if replica_n_gpu is None else replica_n_gpu,
                     request_limits=request_limits,
                     peft_model_config=peft_model_config,
                     gpu_idx=replica_gpu_idx,
                     download_hub=download_hub,
-                    model_path=model_path,
+                    model_path=replica_path,
                     enable_virtual_env=enable_virtual_env,
                     virtual_env_packages=virtual_env_packages,
                     virtual_env_find_links=virtual_env_find_links,
                     envs=envs,
                     xavier_config=xavier_config,
-                    **kwargs,
+                    **replica_kwargs,
                 )
-                # Wait for engine to be ready BEFORE adding to route table,
-                # so requests are never routed to a still-loading model.
-                await worker_ref.wait_for_load(_replica_model_uid)
+                # Track the worker before waiting so a failed load is cleaned up.
+                # Worker.get_model rejects requests until wait_for_load completes.
                 self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+                await worker_ref.wait_for_load(_replica_model_uid)
 
                 # Update replica status to READY
                 await self._status_guard_ref.update_replica_status(
@@ -2898,6 +3521,66 @@ class SupervisorActor(xo.StatelessActor):
         async def _launch_model():
             nonlocal download_hub
             try:
+                if heterogeneous_pd:
+                    from ..model.llm.sglang.xavier.directory import XavierPDDirectory
+
+                    cache_ref = await xo.create_actor(
+                        XavierPDDirectory,
+                        address=self.address,
+                        uid=f"xavier-cache-{model_uid}",
+                    )
+                    if not hasattr(self, "_xavier_cache_mapping"):
+                        self._xavier_cache_mapping = {}
+                    self._xavier_cache_mapping[model_uid] = cache_ref
+                if sglang_xavier or mlx_xavier:
+                    if mlx_xavier:
+                        from ..model.llm.xavier.backends.bytes.storage import (
+                            XavierBytesCacheActor,
+                        )
+
+                        cache_ref = await xo.create_actor(
+                            XavierBytesCacheActor,
+                            capacity_bytes=cache_bytes or 512 * 1024 * 1024,
+                            address=self.address,
+                            uid=kwargs["_xavier_cache_config"]["uid"],
+                        )
+                    elif pd_enabled:
+                        from ..model.llm.sglang.xavier.directory import (
+                            XavierPDDirectory,
+                        )
+
+                        cache_ref = await xo.create_actor(
+                            XavierPDDirectory,
+                            address=self.address,
+                            uid=kwargs["_xavier_cache_config"]["uid"],
+                        )
+                    else:
+                        from ..model.llm.xavier.backends.torch.storage import (
+                            XavierCacheActor,
+                        )
+
+                        cache_ref = await xo.create_actor(
+                            XavierCacheActor,
+                            capacity_bytes=cache_bytes or 512 * 1024 * 1024,
+                            address=self.address,
+                            uid=kwargs["_xavier_cache_config"]["uid"],
+                        )
+                    self._xavier_cache_mapping[model_uid] = cache_ref
+                if enable_xavier:
+                    from ..model.llm.xavier.block_tracker import BlockTracker
+                    from ..model.llm.xavier.collective_manager import CollectiveManager
+
+                    self._block_tracker_mapping[model_uid] = await xo.create_actor(
+                        BlockTracker,
+                        address=self.address,
+                        uid=f"{BlockTracker.default_uid()}-{model_uid}",
+                    )
+                    self._collective_manager_mapping[model_uid] = await xo.create_actor(
+                        CollectiveManager,
+                        address=self.address,
+                        model_uid=model_uid,
+                        uid=f"{CollectiveManager.default_uid()}-{model_uid}",
+                    )
                 strategy = None
                 use_gpu = not (n_gpu is None or (isinstance(n_gpu, int) and n_gpu <= 0))
                 if gpu_idx is None and use_gpu:
@@ -2940,11 +3623,16 @@ class SupervisorActor(xo.StatelessActor):
                             )
                             continue
                         if isinstance(alloc, Exception):
-                            logger.debug(
+                            from ..extensions import get_extensions
+
+                            log = logger.warning if get_extensions() else logger.debug
+                            log(
                                 "Failed to fetch GPU allocation snapshot from worker %s: %s",
                                 w_ref.address,
                                 alloc,
                             )
+                            if get_extensions():
+                                continue
                             alloc = None
                         worker_candidates.append(
                             {"ref": w_ref, "count": count, "alloc": alloc}
@@ -3052,7 +3740,6 @@ class SupervisorActor(xo.StatelessActor):
                     target_gpu_idx,
                     target_n_gpu,
                 ) in placements:
-
                     if enable_xavier and _idx == 0:
                         """
                         Start the rank 0 model actor on the worker that holds the rank 1 replica,
@@ -3135,6 +3822,32 @@ class SupervisorActor(xo.StatelessActor):
                         )
 
                     logger.debug(f"Init transfer component for xavier done.")
+                if pd_enabled:
+                    from .pd_model import PDModelActor
+
+                    pd_ref = await xo.create_actor(
+                        PDModelActor,
+                        model_uid,
+                        transport_backend=transport_backend,
+                        model_engine=(
+                            "heterogeneous" if heterogeneous_pd else model_engine
+                        ),
+                        handoff_mode="host" if host_handoff else "gpu",
+                        mlx_prefill=mlx_prefill,
+                        address=self.address,
+                        uid=f"{model_uid}-{PDModelActor.default_uid()}",
+                    )
+                    # Track the actor before registration so rollback can destroy it.
+                    self._pd_model_mapping[model_uid] = pd_ref
+                    for idx, rep_model_uid, worker_ref, _, _ in placements:
+                        actor = await worker_ref.get_model(model_uid=rep_model_uid)
+                        if replica_config[idx].role == "prefill":
+                            await pd_ref.add_prefill_actor(rep_model_uid, actor)
+                        else:
+                            await pd_ref.add_decode_actor(rep_model_uid, actor)
+                    self._pd_roles[model_uid] = {
+                        idx: cfg.role for idx, cfg in enumerate(replica_config)
+                    }
             except (Exception, asyncio.CancelledError):
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
@@ -3159,6 +3872,8 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
         # Set replica info first for exception handler to terminate model.
         self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
+        if pd_enabled:
+            self._pd_model_mapping[model_uid] = None
         # Redeploy clears any stale unexpected-termination markers for this uid.
         self._clear_unexpected_down_replicas(model_uid)
         instance_info = InstanceInfo(
@@ -3243,6 +3958,7 @@ class SupervisorActor(xo.StatelessActor):
                 raise ValueError(
                     "n_worker cannot be larger than the number of available workers."
                 )
+            pending_shards: Dict[str, List[xo.ActorRefType["WorkerActor"]]] = {}
             try:
                 # Pre-check: ensure no replica uid already exists before
                 # launching, preventing partial-deploy-then-rollback.
@@ -3269,7 +3985,9 @@ class SupervisorActor(xo.StatelessActor):
                     )
                     worker_refs: List[xo.ActorRefType["WorkerActor"]] = []
                     for i_worker in range(n_worker):
-                        worker_ref = await self._choose_worker(remaining_workers)
+                        worker_ref = await self._choose_worker(
+                            remaining_workers, require_resource_admission=True
+                        )
                         if worker_ref.address in remaining_workers:
                             remaining_workers.remove(worker_ref.address)
                         self._model_uid_to_replica_info[
@@ -3324,11 +4042,14 @@ class SupervisorActor(xo.StatelessActor):
                             driver_info=driver_info,
                             **kwargs,
                         )
+                        # Keep acknowledged shards local until launch completes or fails.
+                        pending_shards[rep_model_uid] = worker_refs[: i_worker + 1]
                         if i_worker == 0:
                             # info will be subpool address + driver info
                             # for shard 0
                             driver_info = info[1]
                     self._replica_model_uid_to_worker[rep_model_uid] = worker_refs
+                    pending_shards.pop(rep_model_uid, None)
 
                     # for distributed inference,
                     # launch will run asynchronously,
@@ -3336,6 +4057,7 @@ class SupervisorActor(xo.StatelessActor):
                     for worker_ref in worker_refs:
                         await worker_ref.wait_for_load(rep_model_uid)
             except (Exception, asyncio.CancelledError):
+                self._replica_model_uid_to_worker.update(pending_shards)
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
                 await self._status_guard_ref.update_instance_info(
@@ -3389,23 +4111,86 @@ class SupervisorActor(xo.StatelessActor):
         return model_uid
 
     async def get_launch_builtin_model_progress(self, model_uid: str) -> float:
-        try:
-            self._model_uid_to_replica_info[model_uid]
-        except KeyError:
-            # Not launched perhaps, just return 0.0 to prevent error
-            return 0.0
+        details = await self.get_launch_builtin_model_progress_details(model_uid)
+        return float(details["progress"])
 
+    async def _get_operation_progress_details(
+        self,
+        targets: List[Tuple[str, Dict[str, Any]]],
+        target_key: str,
+        default_stage: str,
+    ) -> Dict[str, Any]:
+        """Aggregate ProgressTracker entries for launch and cache operations."""
         all_progress = 0.0
-        i = 0
-        for rep_model_uid in self._iter_active_replica_model_uids(model_uid):
-            request_id = f"launching-{rep_model_uid}"
+        target_details: List[Dict[str, Any]] = []
+        download_files: List[Dict[str, Any]] = []
+        stages: Set[str] = set()
+
+        for request_id, metadata in targets:
             try:
-                all_progress += await self._progress_tracker.get_progress(request_id)
-                i += 1
+                (
+                    progress,
+                    info,
+                    details,
+                ) = await self._progress_tracker.get_progress_details(request_id)
             except KeyError:
                 continue
 
-        return all_progress / i if i > 0 else 0.0
+            details = details if isinstance(details, dict) else {}
+            stage = str(details.get("stage") or default_stage)
+            files = details.get("download_files")
+            files = files if isinstance(files, list) else []
+            normalized_files = []
+            for file_info in files:
+                if not isinstance(file_info, dict):
+                    continue
+                normalized_file = dict(file_info)
+                normalized_file.update(metadata)
+                normalized_files.append(normalized_file)
+
+            all_progress += progress
+            stages.add(stage)
+            download_files.extend(normalized_files)
+            target_details.append(
+                {
+                    **metadata,
+                    "progress": progress,
+                    "stage": stage,
+                    "info": info,
+                    "updated_at": details.get("updated_at"),
+                    "download_files": normalized_files,
+                    "dependency_install_completed": details.get(
+                        "dependency_install_completed"
+                    ),
+                    "dependency_install_total": details.get("dependency_install_total"),
+                    "dependency_install_plan": details.get("dependency_install_plan"),
+                    "dependency_install_status": details.get(
+                        "dependency_install_status"
+                    ),
+                }
+            )
+
+        stage = next(
+            (
+                candidate
+                for candidate in (
+                    "downloading",
+                    "installing_dependencies",
+                    "waiting_for_dependencies",
+                    "loading",
+                    "cancelled",
+                    "completed",
+                )
+                if candidate in stages
+            ),
+            sorted(stages)[0] if stages else default_stage,
+        )
+        return {
+            "progress": (all_progress / len(target_details) if target_details else 0.0),
+            "stage": stage,
+            "download_files": download_files,
+            target_key: target_details,
+        }
 
     async def get_launch_builtin_model_progress_details(
         self, model_uid: str
@@ -3420,65 +4205,381 @@ class SupervisorActor(xo.StatelessActor):
                 "download_files": [],
                 "replicas": [],
             }
-
-        all_progress = 0.0
-        replicas: List[Dict[str, Any]] = []
-        download_files: List[Dict[str, Any]] = []
-        stages: Set[str] = set()
-
+        targets: List[Tuple[str, Dict[str, Any]]] = []
         for rep_model_uid in self._iter_active_replica_model_uids(model_uid):
-            request_id = f"launching-{rep_model_uid}"
-            try:
-                progress, info, details = (
-                    await self._progress_tracker.get_progress_details(request_id)
-                )
-            except KeyError:
-                continue
-
             _, replica_id = parse_replica_model_uid(rep_model_uid)
-            details = details if isinstance(details, dict) else {}
-            stage = str(details.get("stage") or "launching")
-            files = details.get("download_files")
-            files = files if isinstance(files, list) else []
-            normalized_files = []
-            for file_info in files:
-                if not isinstance(file_info, dict):
-                    continue
-                normalized_file = dict(file_info)
-                normalized_file["replica_id"] = replica_id
-                normalized_file["replica_model_uid"] = rep_model_uid
-                normalized_files.append(normalized_file)
+            targets.append(
+                (
+                    f"launching-{rep_model_uid}",
+                    {
+                        "replica_id": replica_id,
+                        "replica_model_uid": rep_model_uid,
+                    },
+                )
+            )
+        return await self._get_operation_progress_details(
+            targets, target_key="replicas", default_stage="launching"
+        )
 
-            all_progress += progress
-            stages.add(stage)
-            download_files.extend(normalized_files)
-            replicas.append(
+    async def get_cache_builtin_model_progress_details(
+        self, cache_uid: str
+    ) -> Dict[str, Any]:
+        worker_ref = self._cache_uid_to_worker.get(cache_uid)
+        metadata = {"cache_uid": cache_uid}
+        if worker_ref is not None:
+            metadata["worker_address"] = worker_ref.address
+        task = self._download_task_store.get(cache_uid)
+        details: Dict[str, Any]
+        if task is not None and worker_ref is None:
+            # A persisted paused/interrupted task must win over stale progress
+            # retained by ProgressTrackerActor from the previous process.
+            details = {"targets": []}
+        else:
+            details = await self._get_operation_progress_details(
+                [(f"caching-{cache_uid}", metadata)],
+                target_key="targets",
+                default_stage="pending",
+            )
+        if task is not None and not details["targets"]:
+            worker_address = task.get("worker_address")
+            return {
+                "progress": task.get("progress", 0),
+                "stage": task.get("status", "pending"),
+                "download_files": task.get("download_files", []),
+                "targets": [
+                    {
+                        "cache_uid": cache_uid,
+                        "worker_address": worker_address,
+                        "progress": task.get("progress", 0),
+                        "stage": task.get("status", "pending"),
+                        "info": task.get("error"),
+                        "updated_at": task.get("updated_at"),
+                        "download_files": task.get("download_files", []),
+                    }
+                ],
+            }
+        return details
+
+    async def pause_cache_builtin_model(self, cache_uid: str) -> Dict[str, Any]:
+        task = self._download_task_store.get(cache_uid)
+        if task is None:
+            raise RuntimeError(f"Cache operation {cache_uid} does not exist")
+        if task.get("status") not in ACTIVE_DOWNLOAD_STATUSES:
+            raise RuntimeError(
+                f"Cache operation {cache_uid} cannot be paused from "
+                f"state {task.get('status')}"
+            )
+        worker_ref = self._cache_uid_to_worker.get(cache_uid)
+        if worker_ref is None:
+            resume_task = self._cache_uid_to_task.get(cache_uid)
+            if resume_task is not None and not resume_task.done():
+                self._cache_pause_requested.add(cache_uid)
+                self._download_task_store.update(
+                    cache_uid, status="pausing", error=None
+                )
+                resume_task.cancel()
+                try:
+                    await resume_task
+                except asyncio.CancelledError:
+                    pass
+                self._download_task_store.update(cache_uid, status="paused", error=None)
+                self._cache_pause_requested.discard(cache_uid)
+            else:
+                self._download_task_store.update(
+                    cache_uid,
+                    status="interrupted",
+                    error="Download worker is no longer available",
+                )
+            return typing.cast(Dict[str, Any], self._download_task_store.get(cache_uid))
+
+        try:
+            await self._snapshot_cache_download(cache_uid, preserve_status=True)
+        except Exception:
+            logger.debug(
+                "Failed to snapshot cache operation %s before pausing",
+                cache_uid,
+                exc_info=True,
+            )
+        self._cache_pause_requested.add(cache_uid)
+        self._download_task_store.update(cache_uid, status="pausing", error=None)
+        try:
+            await worker_ref.cancel_cache_model(cache_uid)
+        except Exception as e:
+            self._cache_pause_requested.discard(cache_uid)
+            self._download_task_store.update(
+                cache_uid, status="interrupted", error=str(e) or type(e).__name__
+            )
+            raise RuntimeError(
+                f"Failed to pause cache operation {cache_uid}; "
+                "it was marked interrupted"
+            ) from e
+        self._download_task_store.update(cache_uid, status="paused", error=None)
+        self._cache_pause_requested.discard(cache_uid)
+        return typing.cast(Dict[str, Any], self._download_task_store.get(cache_uid))
+
+    async def resume_cache_builtin_model(self, cache_uid: str) -> Dict[str, Any]:
+        task = self._download_task_store.get(cache_uid)
+        if task is None:
+            raise RuntimeError(f"Cache operation {cache_uid} does not exist")
+        if task.get("status") not in RESUMABLE_DOWNLOAD_STATUSES:
+            raise RuntimeError(
+                f"Cache operation {cache_uid} cannot be resumed from "
+                f"state {task.get('status')}"
+            )
+        active_task = self._cache_uid_to_task.get(cache_uid)
+        if cache_uid in self._cache_uid_to_worker or (
+            active_task is not None and not active_task.done()
+        ):
+            raise RuntimeError(f"Cache operation {cache_uid} is already running")
+
+        payload = dict(task.get("payload") or {})
+        if not payload:
+            raise RuntimeError(f"Cache operation {cache_uid} has no resume payload")
+        payload["cache_uid"] = cache_uid
+        peft_model_config = payload.get("peft_model_config")
+        if isinstance(peft_model_config, dict):
+            payload["peft_model_config"] = PeftModelConfig.from_dict(peft_model_config)
+
+        worker_address = task.get("worker_address")
+        if worker_address not in self._worker_address_to_worker:
+            worker_host = (
+                self._get_worker_host(worker_address) if worker_address else None
+            )
+            payload["worker_ip"] = (
+                worker_host
+                if worker_host
+                and any(
+                    self._get_worker_host(address) == worker_host
+                    for address in self._worker_address_to_worker
+                )
+                else None
+            )
+
+        self._download_task_store.update(cache_uid, status="resuming", error=None)
+
+        async def _resume_download() -> None:
+            try:
+                await self.cache_builtin_model(_resume=True, **payload)
+            except BaseException as e:
+                # Worker selection and hub resolution happen before
+                # cache_builtin_model installs its own error handler.
+                current = self._download_task_store.get(cache_uid)
+                if current is not None and current.get("status") == "resuming":
+                    self._record_cache_download_error(cache_uid, e)
+                raise
+
+        resume_task = asyncio.create_task(_resume_download())
+        self._cache_uid_to_task[cache_uid] = resume_task
+
+        def _consume_result(done_task: asyncio.Task) -> None:
+            self._cache_uid_to_task.pop(cache_uid, None)
+            if done_task.cancelled():
+                return
+            error = done_task.exception()
+            if error is not None:
+                logger.warning("Resumed model download %s failed: %s", cache_uid, error)
+
+        resume_task.add_done_callback(_consume_result)
+        return typing.cast(Dict[str, Any], self._download_task_store.get(cache_uid))
+
+    async def cancel_cache_builtin_model(self, cache_uid: str):
+        worker_ref = self._cache_uid_to_worker.get(cache_uid)
+        if worker_ref is None:
+            resume_task = self._cache_uid_to_task.get(cache_uid)
+            if resume_task is not None and not resume_task.done():
+                self._cache_cancel_requested.add(cache_uid)
+                try:
+                    resume_task.cancel()
+                    try:
+                        await resume_task
+                    except asyncio.CancelledError:
+                        pass
+                    self._download_task_store.delete(cache_uid)
+                finally:
+                    self._cache_cancel_requested.discard(cache_uid)
+                return
+            if self._download_task_store.delete(cache_uid):
+                return
+            raise RuntimeError(f"Cache operation {cache_uid} is not running")
+        self._cache_cancel_requested.add(cache_uid)
+        try:
+            await worker_ref.cancel_cache_model(cache_uid)
+            self._download_task_store.delete(cache_uid)
+        finally:
+            self._cache_cancel_requested.discard(cache_uid)
+
+    async def delete_cache_builtin_model(self, cache_uid: str) -> Dict[str, Any]:
+        """Stop a cache task and remove its task-owned Hub artifacts."""
+        task = self._download_task_store.get(cache_uid)
+        if task is None:
+            raise RuntimeError(f"Cache operation {cache_uid} does not exist")
+
+        worker_ref = self._cache_uid_to_worker.get(cache_uid)
+        if task.get("status") in ACTIVE_DOWNLOAD_STATUSES:
+            await self.pause_cache_builtin_model(cache_uid)
+            task = self._download_task_store.get(cache_uid) or task
+
+        worker_address = task.get("worker_address")
+        if worker_ref is None and worker_address:
+            worker_ref = self._worker_address_to_worker.get(worker_address)
+        if worker_ref is None and worker_address:
+            worker_host = self._get_worker_host(worker_address)
+            same_host_workers = [
+                ref
+                for address, ref in self._worker_address_to_worker.items()
+                if self._get_worker_host(address) == worker_host
+            ]
+            if len(same_host_workers) == 1:
+                worker_ref = same_host_workers[0]
+        if worker_ref is None:
+            raise RuntimeError(
+                f"Worker for cache operation {cache_uid} is not available; "
+                "download files were not deleted"
+            )
+
+        target_worker_host = (
+            self._get_worker_host(worker_address) if worker_address else None
+        )
+        protected_payloads = []
+        for other_task in self._download_task_store.list_unfinished():
+            if other_task.get("cache_uid") == cache_uid:
+                continue
+            other_address = other_task.get("worker_address")
+            if (
+                target_worker_host
+                and other_address
+                and self._get_worker_host(other_address) != target_worker_host
+            ):
+                continue
+            payload = other_task.get("payload")
+            if isinstance(payload, dict):
+                protected_payloads.append(payload)
+
+        payload = task.get("payload")
+        if not isinstance(payload, dict) or not payload:
+            raise RuntimeError(f"Cache operation {cache_uid} has no cleanup payload")
+        result = await worker_ref.delete_cache_model_artifacts(
+            payload, protected_payloads
+        )
+        self._download_task_store.delete(cache_uid)
+        return typing.cast(Dict[str, Any], result)
+
+    async def list_model_downloads(self) -> List[Dict[str, Any]]:
+        """Return active launches and resumable cache-only downloads."""
+        infos = await self._status_guard_ref.get_instance_info()
+        downloads: List[Dict[str, Any]] = []
+
+        for task in self._download_task_store.list_unfinished():
+            cache_uid = task["cache_uid"]
+            if cache_uid in self._cache_uid_to_worker:
+                try:
+                    await self._snapshot_cache_download(cache_uid)
+                    task = self._download_task_store.get(cache_uid) or task
+                except Exception:
+                    logger.debug(
+                        "Failed to refresh model download %s", cache_uid, exc_info=True
+                    )
+
+            worker_address = task.get("worker_address")
+            download_files = [
+                {**file_info, "worker_address": worker_address}
+                for file_info in task.get("download_files", [])
+            ]
+            stage = str(task.get("status") or "pending")
+            progress = float(task.get("progress") or 0)
+            payload = task.get("payload") or {}
+            downloads.append(
                 {
-                    "replica_id": replica_id,
-                    "replica_model_uid": rep_model_uid,
+                    "kind": "cache",
+                    "cache_uid": cache_uid,
+                    "model_name": task["model_name"],
+                    "model_uid": cache_uid,
+                    "model_version": task.get("model_version"),
+                    "model_type": task.get("model_type"),
+                    "model_engine": task.get("model_engine"),
+                    "model_size_in_billions": payload.get("model_size_in_billions"),
+                    "model_format": payload.get("model_format"),
+                    "quantization": payload.get("quantization"),
+                    "status": stage,
+                    "instance_created_ts": int(task.get("created_at") or 0),
+                    "updated_at": task.get("updated_at"),
                     "progress": progress,
                     "stage": stage,
-                    "info": info,
-                    "updated_at": details.get("updated_at"),
-                    "download_files": normalized_files,
+                    "error": task.get("error"),
+                    "resumable": stage in RESUMABLE_DOWNLOAD_STATUSES,
+                    "download_files": download_files,
+                    "replicas": [
+                        {
+                            "replica_id": 0,
+                            "replica_model_uid": cache_uid,
+                            "progress": progress,
+                            "stage": stage,
+                            "info": task.get("error"),
+                            "updated_at": task.get("updated_at"),
+                            "worker_address": worker_address,
+                            "download_files": download_files,
+                        }
+                    ],
                 }
             )
 
-        if "downloading" in stages:
-            stage = "downloading"
-        elif "loading" in stages:
-            stage = "loading"
-        elif stages:
-            stage = sorted(stages)[0]
-        else:
-            stage = "launching"
+        for info in infos:
+            if info.status not in {
+                LaunchStatus.CREATING.name,
+                LaunchStatus.LOADING.name,
+            }:
+                continue
 
-        return {
-            "progress": all_progress / len(replicas) if replicas else 0.0,
-            "stage": stage,
-            "download_files": download_files,
-            "replicas": replicas,
-        }
+            details = await self.get_launch_builtin_model_progress_details(
+                info.model_uid
+            )
+            if details.get("stage") != "downloading":
+                continue
+
+            worker_by_replica = {
+                status.replica_model_uid: status.worker_address
+                for status in (info.replica_statuses or [])
+            }
+            replicas = []
+            for replica in details.get("replicas", []):
+                replica_info = dict(replica)
+                worker_address = worker_by_replica.get(
+                    replica_info.get("replica_model_uid")
+                )
+                replica_info["worker_address"] = worker_address
+                replica_info["download_files"] = [
+                    {**file_info, "worker_address": worker_address}
+                    for file_info in replica_info.get("download_files", [])
+                ]
+                replicas.append(replica_info)
+
+            download_files = [
+                file_info
+                for replica in replicas
+                for file_info in replica["download_files"]
+            ]
+            downloads.append(
+                {
+                    "kind": "launch",
+                    "cache_uid": None,
+                    "model_name": info.model_name,
+                    "model_uid": info.model_uid,
+                    "model_version": info.model_version,
+                    "status": info.status,
+                    "instance_created_ts": info.instance_created_ts,
+                    **details,
+                    "download_files": download_files,
+                    "replicas": replicas,
+                    "error": None,
+                    "resumable": False,
+                }
+            )
+
+        return sorted(
+            downloads,
+            key=lambda item: (item.get("instance_created_ts", 0), item["model_uid"]),
+            reverse=True,
+        )
 
     async def cancel_launch_builtin_model(self, model_uid: str):
         try:
@@ -3664,7 +4765,13 @@ class SupervisorActor(xo.StatelessActor):
                     await self._handle_dead_worker(address)
                     self._worker_status.pop(address, None)
                     self._worker_address_to_worker.pop(address, None)
-                    self._worker_model_gpu_memory.pop(address, None)
+                    self._extension_worker_resources.pop(address, None)
+                    self._discard_worker_metadata(address)
+                    self._clear_worker_model_gpu_memory(address)
+                if dead_nodes:
+                    # Autostart owns relaunching a model TERMINATED above, same
+                    # trigger as mark_replica_dead's last-replica-death path.
+                    self._schedule_autostart()
 
                 # ---- Reverse-channel probe ----
                 # Heartbeat only covers worker->supervisor; this probes
@@ -3738,7 +4845,10 @@ class SupervisorActor(xo.StatelessActor):
                             await self._handle_dead_worker(address)
                             self._worker_status.pop(address, None)
                             self._worker_address_to_worker.pop(address, None)
-                            self._worker_model_gpu_memory.pop(address, None)
+                            self._extension_worker_resources.pop(address, None)
+                            self._discard_worker_metadata(address)
+                            self._clear_worker_model_gpu_memory(address)
+                            self._schedule_autostart()
                             dead_nodes.append(address)
                             self._reverse_ping_failures.pop(address, None)
                         else:
@@ -3770,9 +4880,102 @@ class SupervisorActor(xo.StatelessActor):
                 logger.exception("Failed to monitor Router Agent lifecycle")
             await asyncio.sleep(XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS)
 
+    def _get_reload_target(self, model_uid: str):
+        if model_uid not in self._model_uid_to_replica_info:
+            raise ValueError(f"Model not found: {model_uid}")
+        replicas = list(self._iter_active_replica_model_uids(model_uid))
+        if len(replicas) != 1:
+            raise ValueError("Parameter reload currently requires one replica")
+        replica_uid = replicas[0]
+        workers = self._replica_model_uid_to_worker.get(replica_uid)
+        if not isinstance(workers, (list, tuple)):
+            workers = [workers]
+        if len(workers) != 1 or workers[0] is None:
+            raise ValueError("Parameter reload currently requires one worker")
+        return replica_uid, workers[0]
+
+    async def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
+        replica_uid, worker = self._get_reload_target(model_uid)
+        return await worker.get_model_reload_config(replica_uid)
+
+    async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
+        replica_uid, worker = self._get_reload_target(model_uid)
+        status = dict(self._model_reload_status.get(model_uid, {"status": "idle"}))
+        if status["status"] == "reloading":
+            status.update(await worker.get_model_reload_status(replica_uid))
+        return status
+
+    async def reload_model(
+        self, model_uid: str, config: Dict[str, Any], drain_timeout: float = 300
+    ) -> Dict[str, Any]:
+        import uuid
+
+        if model_uid in self._model_reload_tasks:
+            raise RuntimeError("This model already has a reload in progress")
+        async with self._get_model_replica_lock(model_uid):
+            if model_uid in self._model_reload_tasks:
+                raise RuntimeError("This model already has a reload in progress")
+            replica_uid, worker = self._get_reload_target(model_uid)
+            # Preflight runs before scheduling any operation that stops serving.
+            normalized = await worker.validate_model_reload(replica_uid, config)
+            if normalized is not None:
+                config = normalized
+            status = {
+                "operation_id": str(uuid.uuid4()),
+                "model_uid": model_uid,
+                "status": "reloading",
+                "stage": "queued",
+                "started_at": time.time(),
+                "weights_reused": False,
+            }
+            self._model_reload_status[model_uid] = status
+
+            async def run() -> None:
+                try:
+                    if self._get_reload_target(model_uid) != (replica_uid, worker):
+                        raise ValueError("Model placement changed before reload")
+                    status["stage"] = "draining"
+                    status["weights_reused"] = (
+                        await worker.reload_model(replica_uid, config, drain_timeout)
+                    ) is True
+                    async with self._autostart_store_lock:
+                        await asyncio.to_thread(
+                            self._launch_history_store.update_autostart_launch_config,
+                            model_uid,
+                            config,
+                        )
+                except asyncio.CancelledError:
+                    status.update(status="cancelled", stage="cancelled")
+                    raise
+                except Exception as exc:
+                    status.update(status="error", stage="error", error=str(exc))
+                    try:
+                        status.update(await worker.get_model_reload_status(replica_uid))
+                    except Exception:
+                        pass
+                    logger.exception("Reload of %s failed", model_uid)
+                else:
+                    status.update(status="ready", stage="ready")
+                finally:
+                    status["finished_at"] = time.time()
+                    if (
+                        self._model_reload_tasks.get(model_uid)
+                        is asyncio.current_task()
+                    ):
+                        self._model_reload_tasks.pop(model_uid, None)
+                    self._invalidate_list_models_debounce_cache()
+
+            self._model_reload_tasks[model_uid] = asyncio.create_task(run())
+            return dict(status)
+
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
         async with self._get_model_replica_lock(model_uid):
+            task = self._model_reload_tasks.pop(model_uid, None)
+            if task is not None:
+                # Do not await an actor RPC cancellation: a hung engine cannot
+                # acknowledge it. Worker termination forcibly removes the pool.
+                task.cancel()
             return await self._terminate_model(model_uid, suppress_exception)
 
     async def _terminate_model(self, model_uid: str, suppress_exception=False):
@@ -3806,40 +5009,13 @@ class SupervisorActor(xo.StatelessActor):
         if errors and not suppress_exception:
             raise errors[0]
         self._model_uid_to_replica_info.pop(model_uid, None)
+        self._model_reload_status.pop(model_uid, None)
         self._clear_unexpected_down_replicas(model_uid)
+        for replica_model_uid in rep_model_uids:
+            self._clear_replica_model_gpu_memory(replica_model_uid)
         self._invalidate_list_models_debounce_cache()
 
-        # clear for xavier
-        rank0_uid = model_uid + "-rank0"
-        if rank0_uid in self._replica_model_uid_to_worker:
-            await _terminate_one_model(rank0_uid)
-
-        collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
-        if collective_manager_ref is not None:
-            try:
-                await xo.destroy_actor(collective_manager_ref)
-            except Exception as e:
-                logger.debug(
-                    "Destroy collective_manager_ref failed, model uid: %s, error: %s",
-                    model_uid,
-                    e,
-                )
-            finally:
-                logger.debug(
-                    f"Destroy collective_manager_ref done. model uid: {model_uid}"
-                )
-        block_tracker_ref = self._block_tracker_mapping.pop(model_uid, None)
-        if block_tracker_ref is not None:
-            try:
-                await xo.destroy_actor(block_tracker_ref)
-            except Exception as e:
-                logger.debug(
-                    "Destroy block_tracker_ref failed, model uid: %s, error: %s",
-                    model_uid,
-                    e,
-                )
-            finally:
-                logger.debug(f"Destroy block_tracker_ref done. model uid: {model_uid}")
+        await self._cleanup_distributed_actors(model_uid)
 
     @staticmethod
     def _worker_has_gpu_capacity(alloc: Dict[str, Any], n_gpu: int) -> bool:
@@ -3865,6 +5041,8 @@ class SupervisorActor(xo.StatelessActor):
         self, n_gpu: Optional[Union[int, str]]
     ) -> Tuple[xo.ActorRefType["WorkerActor"], Optional[List[int]]]:
         """Select a scale-up target using launch-time load/GPU snapshots."""
+        from ..extensions import get_extensions
+
         workers = list(self._worker_address_to_worker.values())
         if not workers:
             raise RuntimeError("No available worker found")
@@ -3889,11 +5067,14 @@ class SupervisorActor(xo.StatelessActor):
                 )
                 continue
             if isinstance(alloc, Exception):
-                logger.debug(
+                log = logger.warning if get_extensions() else logger.debug
+                log(
                     "Failed to fetch GPU allocation snapshot from worker %s: %s",
                     worker_ref.address,
                     alloc,
                 )
+                if get_extensions():
+                    continue
                 alloc = None
             candidates.append({"ref": worker_ref, "count": count, "alloc": alloc})
 
@@ -3945,15 +5126,68 @@ class SupervisorActor(xo.StatelessActor):
         self,
         model_uid: str,
         replica_config: Optional[ReplicaConfig] = None,
+        model_engine: Optional[str] = None,
+        n_gpu: Optional[Union[int, str]] = None,
     ) -> Dict[str, Any]:
         """Add one replica while serializing scale changes for this model."""
         async with self._get_model_replica_lock(model_uid):
-            return await self._add_model_replica(model_uid, replica_config)
+            return await self._add_model_replica(
+                model_uid, replica_config, model_engine=model_engine, n_gpu=n_gpu
+            )
+
+    @log_async(logger=logger)
+    async def add_model_replicas(
+        self,
+        model_uid: str,
+        replica: int = 1,
+        replica_configs: Optional[List[ReplicaConfig]] = None,
+        model_engine: Optional[str] = None,
+        n_gpu: Optional[Union[int, str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Add multiple replicas as one serialized, rollback-safe operation."""
+        if replica < 1:
+            raise ValueError("The replica count to add must be at least 1")
+        if replica_configs is not None and len(replica_configs) != replica:
+            raise ValueError("replica_configs length must match replica")
+        if any(cfg.model_engine or cfg.engine_config for cfg in replica_configs or []):
+            raise ValueError("Per-replica engine settings require explicit PD roles")
+
+        async with self._get_model_replica_lock(model_uid):
+            results: List[Dict[str, Any]] = []
+            try:
+                for index in range(replica):
+                    config = (
+                        replica_configs[index] if replica_configs is not None else None
+                    )
+                    results.append(
+                        await self._add_model_replica(
+                            model_uid,
+                            config,
+                            model_engine=model_engine,
+                            n_gpu=n_gpu,
+                        )
+                    )
+            except Exception:
+                for result in reversed(results):
+                    try:
+                        await self._terminate_model_replica(
+                            model_uid, result["replica_id"], suppress_exception=True
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Failed to roll back replica %s after scale-up failure",
+                            result.get("replica_model_uid"),
+                            exc_info=True,
+                        )
+                raise
+            return results
 
     async def _add_model_replica(
         self,
         model_uid: str,
         replica_config: Optional[ReplicaConfig] = None,
+        model_engine: Optional[str] = None,
+        n_gpu: Optional[Union[int, str]] = None,
     ) -> Dict[str, Any]:
         """Add a new replica to an already-running model (scale-up).
 
@@ -3969,6 +5203,14 @@ class SupervisorActor(xo.StatelessActor):
         ``worker_address`` for the caller.
         """
         # ---- 1. Look up the model ------------------------------------------------
+        if model_uid in self._pd_model_mapping:
+            raise ValueError(
+                "PD topology cannot be resized in place; terminate and relaunch the model"
+            )
+        if replica_config and (
+            replica_config.model_engine or replica_config.engine_config
+        ):
+            raise ValueError("Per-replica engine settings require explicit PD roles")
         replica_info = self._model_uid_to_replica_info.get(model_uid)
         if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
@@ -4004,6 +5246,12 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         # ---- 5. Check scale-up eligibility ---------------------------------------
+        from ..model.llm.weight_cache import parse_weight_cache_option
+
+        if parse_weight_cache_option(launch_args.get("enable_weight_cache", False)):
+            raise ValueError(
+                "Adding replicas to weight-cached models is not supported."
+            )
         if launch_args.get("xavier_config"):
             raise ValueError(
                 "Adding replicas to Xavier-distributed models is not supported."
@@ -4015,6 +5263,7 @@ class SupervisorActor(xo.StatelessActor):
 
         # ---- 6. Resolve target worker / GPU --------------------------------------
         default_replica_uid = f"{model_uid}-{new_replica_id}"
+        target_n_gpu: Optional[Union[int, str]]
         if replica_config is not None:
             # normalize_replica_configs aligns defaults to the list index. Scale-up
             # resolves one item at a time, so supply the actual replica id default.
@@ -4030,7 +5279,9 @@ class SupervisorActor(xo.StatelessActor):
             replica_uid_label = _replica_uid_map.get(0)
         else:
             replica_uid_label = default_replica_uid
-            target_n_gpu = launch_args.get("n_gpu", "auto")
+            target_n_gpu = (
+                n_gpu if n_gpu is not None else launch_args.get("n_gpu", "auto")
+            )
             cached_gpu_idx = launch_args.get("gpu_idx")
             if (
                 target_n_gpu == "auto"
@@ -4044,6 +5295,12 @@ class SupervisorActor(xo.StatelessActor):
             target_worker_ref, target_gpu_idx = await self._select_worker_for_scale_up(
                 target_n_gpu
             )
+
+        # The placement/API layer uses 0 to express an explicit CPU choice,
+        # while WorkerActor follows the launch API convention that CPU is
+        # represented by None and rejects non-positive integer GPU counts.
+        if target_n_gpu == 0:
+            target_n_gpu = None
 
         existing_statuses = await self._status_guard_ref.get_replica_statuses(model_uid)
         existing_replica_uids = {
@@ -4064,6 +5321,8 @@ class SupervisorActor(xo.StatelessActor):
         modified_args: Dict[str, Any] = dict(launch_args)
         modified_args["model_uid"] = new_replica_uid
         modified_args["n_gpu"] = target_n_gpu
+        if model_engine is not None:
+            modified_args["model_engine"] = model_engine
         # Always overwrite gpu_idx so a placement config without explicit GPUs
         # does not inherit an old replica's pinned indexes.
         modified_args["gpu_idx"] = target_gpu_idx
@@ -4106,6 +5365,20 @@ class SupervisorActor(xo.StatelessActor):
                 )
             except Exception:
                 pass
+            # A reconnect during launch/load may already have published this
+            # replica. Remove that replayed route as well as the worker model.
+            self._replica_model_uid_to_worker.pop(new_replica_uid, None)
+            self._replica_model_uid_to_worker_shards.pop(new_replica_uid, None)
+            current_info = self._model_uid_to_replica_info.get(model_uid)
+            if current_info is not None:
+                current_info.replica_to_worker_refs.pop(new_replica_id, None)
+                current_info.active_replica_ids = [
+                    index
+                    for index in current_info.active_replica_ids
+                    if index != new_replica_id
+                ]
+                self._refresh_replica_scheduler(current_info)
+            self._invalidate_list_models_debounce_cache()
             try:
                 await self._status_guard_ref.remove_replica_status(
                     model_uid, new_replica_id
@@ -4125,9 +5398,17 @@ class SupervisorActor(xo.StatelessActor):
                 self._workers_launching[worker_address] = current
 
         # ---- 10. Register routing & replica info --------------------------------
+        # Worker RPCs can re-enter add_worker and replace ReplicaInfo while
+        # replaying the worker's snapshot. Publish into the current object,
+        # not the one captured before launching; replay may already include us.
+        replica_info = self._model_uid_to_replica_info.get(model_uid)
+        if replica_info is None:
+            replica_info = self._build_replica_info(0)
+            self._model_uid_to_replica_info[model_uid] = replica_info
         self._replica_model_uid_to_worker[new_replica_uid] = target_worker_ref
         replica_info.replica_to_worker_refs[new_replica_id] = [target_worker_ref]
-        replica_info.active_replica_ids.append(new_replica_id)
+        if new_replica_id not in replica_info.active_replica_ids:
+            replica_info.active_replica_ids.append(new_replica_id)
         self._refresh_replica_scheduler(replica_info)
 
         # ---- 11. Update status guard ---------------------------------------------
@@ -4177,21 +5458,43 @@ class SupervisorActor(xo.StatelessActor):
     async def _terminate_model_replica(
         self, model_uid: str, replica_id: int, suppress_exception: bool = False
     ) -> int:
-        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
-        if replica_info is None:
-            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-
-        if replica_id not in replica_info.active_replica_ids:
+        if model_uid in self._pd_model_mapping:
             raise ValueError(
-                f"Replica not found in the model list, uid: {model_uid}, replica_id: {replica_id}"
+                "PD topology cannot be resized in place; terminate and relaunch the model"
             )
-
         replica_model_uid = build_replica_model_uid(model_uid, replica_id)
-        worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid, None)
-        if worker_refs is None:
-            raise ValueError(
-                f"Model not found in the model list, uid: {replica_model_uid}"
+        replica_info = self._model_uid_to_replica_info.get(model_uid)
+        worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid)
+        if (
+            replica_info is None
+            or replica_id not in replica_info.active_replica_ids
+            or worker_refs is None
+        ):
+            # Terminal records can outlive routing (worker loss or an interrupted
+            # delete). Allow users to remove them without requiring a live route.
+            statuses = await self._status_guard_ref.get_replica_statuses(model_uid)
+            terminated = any(
+                status.replica_id == replica_id
+                and status.status == LaunchStatus.TERMINATED.name
+                for status in statuses
             )
+            replica_info = self._model_uid_to_replica_info.get(model_uid)
+            worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid)
+            if not terminated:
+                if replica_info is None:
+                    raise ValueError(
+                        f"Model not found in the model list, uid: {model_uid}"
+                    )
+                if replica_id not in replica_info.active_replica_ids:
+                    raise ValueError(
+                        f"Replica not found in the model list, uid: {model_uid}, replica_id: {replica_id}"
+                    )
+                if worker_refs is None:
+                    raise ValueError(
+                        f"Model not found in the model list, uid: {replica_model_uid}"
+                    )
+        if worker_refs is None:
+            worker_refs = []
         if not isinstance(worker_refs, (list, tuple)):
             worker_refs = [worker_refs]
 
@@ -4203,19 +5506,41 @@ class SupervisorActor(xo.StatelessActor):
                 raise
 
         self._replica_model_uid_to_worker.pop(replica_model_uid, None)
-        replica_info.replica_to_worker_refs.pop(replica_id, None)
-        replica_info.active_replica_ids.remove(replica_id)
-        self._refresh_replica_scheduler(replica_info)
+        self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+        # terminate_model can synchronously reconnect/replay before returning.
+        # Its callback must remain free to run: acquiring the scale lock in
+        # add_worker would deadlock this RPC. Re-read state after the await.
+        replica_info = self._model_uid_to_replica_info.get(model_uid)
+        if replica_info is not None:
+            replica_info.replica_to_worker_refs.pop(replica_id, None)
+            replica_info.active_replica_ids = [
+                index
+                for index in replica_info.active_replica_ids
+                if index != replica_id
+            ]
+            self._refresh_replica_scheduler(replica_info)
 
-        remaining_replica_count = await self._status_guard_ref.remove_replica_status(
-            model_uid, replica_id
+        await self._status_guard_ref.remove_replica_status(model_uid, replica_id)
+        # StatusGuard may retain other terminal rows; these are not live replicas.
+        replica_info = self._model_uid_to_replica_info.get(model_uid)
+        remaining_replica_count = (
+            len(replica_info.active_replica_ids) if replica_info is not None else 0
         )
+        await self._status_guard_ref.update_instance_info(
+            model_uid,
+            {
+                "replica": remaining_replica_count,
+                "status": (
+                    LaunchStatus.READY.name
+                    if remaining_replica_count
+                    else LaunchStatus.TERMINATED.name
+                ),
+            },
+        )
+        self._clear_replica_model_gpu_memory(replica_model_uid)
+        self._unexpected_down_replicas.pop((model_uid, replica_id), None)
+        self._invalidate_list_models_debounce_cache()
         if remaining_replica_count > 0:
-            await self._status_guard_ref.update_instance_info(
-                model_uid,
-                {"replica": remaining_replica_count, "status": LaunchStatus.READY.name},
-            )
-            self._unexpected_down_replicas.pop((model_uid, replica_id), None)
             return remaining_replica_count
 
         self._model_uid_to_replica_info.pop(model_uid, None)
@@ -4255,6 +5580,31 @@ class SupervisorActor(xo.StatelessActor):
         whether the down marker stays lit (terminate clears it, mark_replica_dead
         keeps it for the failure gauge).
         """
+        pd_ref = self._pd_model_mapping.pop(model_uid, None)
+        cache_ref = self._xavier_cache_mapping.pop(model_uid, None)
+        self._pd_roles.pop(model_uid, None)
+        if pd_ref is not None:
+            try:
+                await xo.destroy_actor(pd_ref)
+            except Exception:
+                logger.debug(
+                    "Failed to destroy PD router for %s", model_uid, exc_info=True
+                )
+        for source in self._xavier_source_mapping.pop(model_uid, []):
+            try:
+                await xo.wait_for(xo.destroy_actor(source), timeout=5)
+            except Exception:
+                logger.warning(
+                    "Destroy Xavier host source failed for %s", model_uid, exc_info=True
+                )
+        if cache_ref is not None:
+            try:
+                await xo.destroy_actor(cache_ref)
+            except Exception:
+                logger.warning(
+                    "Destroy Xavier cache failed for %s", model_uid, exc_info=True
+                )
+
         rank0_uid = model_uid + "-rank0"
         rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid, None)
         if rank0_worker_refs is not None and terminate_rank0_on_worker:
@@ -4318,6 +5668,8 @@ class SupervisorActor(xo.StatelessActor):
         if parsed is None:
             return
         base_uid, replica_idx = parsed
+        if base_uid in getattr(self, "_pd_model_mapping", {}):
+            await self.unregister_pd_replica(base_uid, replica_model_uid)
 
         replica_info = self._model_uid_to_replica_info.get(base_uid)
         if replica_info is None:
@@ -4348,13 +5700,16 @@ class SupervisorActor(xo.StatelessActor):
         # worker_ref.terminate_model.
         self._replica_model_uid_to_worker.pop(replica_model_uid, None)
         self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+        self._clear_replica_model_gpu_memory(replica_model_uid)
         replica_info.replica_to_worker_refs.pop(replica_idx, None)
         replica_info.active_replica_ids.remove(replica_idx)
         self._refresh_replica_scheduler(replica_info)
 
-        remaining = await self._status_guard_ref.remove_replica_status(
-            base_uid, replica_idx
-        )
+        await self._status_guard_ref.remove_replica_status(base_uid, replica_idx)
+        # StatusGuard may retain terminal rows; only ReplicaInfo represents
+        # replicas that are still live and routable.
+        replica_info = self._model_uid_to_replica_info.get(base_uid)
+        remaining = len(replica_info.active_replica_ids) if replica_info else 0
         if remaining > 0:
             # Degraded: healthy replicas remain -> keep READY.
             await self._status_guard_ref.update_instance_info(
@@ -4388,6 +5743,10 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
+        if model_uid in self._pd_model_mapping:
+            if model_uid not in self._pd_roles:
+                raise ModelNotReadyError(f"PD model {model_uid} is not ready")
+            return self._pd_model_mapping[model_uid]
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
             available_uids = list(self._model_uid_to_replica_info.keys())
@@ -4421,7 +5780,7 @@ class SupervisorActor(xo.StatelessActor):
         ), "worker_ref must be a single worker"
         try:
             return await xo.wait_for(
-                worker_ref.get_model(model_uid=replica_model_uid),
+                actor_call(worker_ref, "get_model", model_uid=replica_model_uid),
                 XINFERENCE_GET_MODEL_RPC_TIMEOUT,
             )
         except ModelNotReadyError:
@@ -4470,6 +5829,96 @@ class SupervisorActor(xo.StatelessActor):
         info["replica"] = replica_info.replica
         return info
 
+    def _clear_worker_model_gpu_memory(self, worker_address: str) -> bool:
+        removed = self._worker_model_gpu_memory.pop(worker_address, None) is not None
+        self._worker_model_gpu_memory_update_time.pop(worker_address, None)
+        if removed:
+            self._invalidate_list_models_debounce_cache()
+        return removed
+
+    def _clear_replica_model_gpu_memory(self, replica_model_uid: str) -> bool:
+        """Remove one replica without discarding other models on its worker."""
+        changed = False
+        for worker_address, per_model in list(self._worker_model_gpu_memory.items()):
+            if per_model.pop(replica_model_uid, None) is None:
+                continue
+            changed = True
+            if not per_model:
+                self._worker_model_gpu_memory.pop(worker_address, None)
+                self._worker_model_gpu_memory_update_time.pop(worker_address, None)
+        if changed:
+            self._invalidate_list_models_debounce_cache()
+        return changed
+
+    def _expire_worker_model_gpu_memory(self, now: Optional[float] = None) -> bool:
+        """Drop GPU-memory snapshots that have exceeded their trust TTL."""
+        now = time.time() if now is None else now
+        expired_workers = [
+            worker_address
+            for worker_address in self._worker_model_gpu_memory
+            if now - self._worker_model_gpu_memory_update_time.get(worker_address, 0.0)
+            > XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL
+        ]
+        if not expired_workers:
+            return False
+
+        for worker_address in expired_workers:
+            self._worker_model_gpu_memory.pop(worker_address, None)
+            self._worker_model_gpu_memory_update_time.pop(worker_address, None)
+            logger.info(
+                "Expired model GPU memory snapshot for worker %s after %ss",
+                worker_address,
+                XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL,
+            )
+        self._invalidate_list_models_debounce_cache()
+        return True
+
+    @staticmethod
+    def _is_valid_model_gpu_memory(value: object) -> bool:
+        if not isinstance(value, dict):
+            return False
+        return all(
+            isinstance(replica_uid, str)
+            and isinstance(per_gpu, dict)
+            and bool(per_gpu)
+            and all(
+                (
+                    (isinstance(gpu_idx, int) and not isinstance(gpu_idx, bool))
+                    or (isinstance(gpu_idx, str) and gpu_idx.isdigit())
+                )
+                and isinstance(memory, int)
+                and not isinstance(memory, bool)
+                and memory >= 0
+                for gpu_idx, memory in per_gpu.items()
+            )
+            for replica_uid, per_gpu in value.items()
+        )
+
+    def _process_model_gpu_memory_report(
+        self, worker_address: str, status: Dict[str, Any]
+    ) -> None:
+        """Apply the internal three-state GPU-memory telemetry protocol."""
+        if not isinstance(status, dict) or "model_gpu_memory" not in status:
+            # Collection was skipped or failed. Keep the last valid snapshot
+            # until its trust TTL expires.
+            return
+
+        model_gpu_memory = status.pop("model_gpu_memory")
+        if not self._is_valid_model_gpu_memory(model_gpu_memory):
+            logger.warning(
+                "Ignoring invalid model_gpu_memory from worker %s: %s",
+                worker_address,
+                type(model_gpu_memory).__name__,
+            )
+            return
+
+        if model_gpu_memory:
+            self._worker_model_gpu_memory[worker_address] = model_gpu_memory
+            self._worker_model_gpu_memory_update_time[worker_address] = time.time()
+            self._invalidate_list_models_debounce_cache()
+        else:
+            self._clear_worker_model_gpu_memory(worker_address)
+
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         # Fast path: return cached result if within debounce window.
@@ -4480,6 +5929,7 @@ class SupervisorActor(xo.StatelessActor):
         # Use the timestamp (not the dict) as the cache-validity sentinel
         # so that a genuinely empty model list ({}) is also cached.
         now = time.time()
+        self._expire_worker_model_gpu_memory(now)
         if (
             XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS > 0
             and self._list_models_result_cache_time > 0
@@ -4498,6 +5948,7 @@ class SupervisorActor(xo.StatelessActor):
         # cache (which may have been filled by the preceding sweep).
         async with self._list_models_sweep_lock:
             now = time.time()
+            self._expire_worker_model_gpu_memory(now)
             if (
                 XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS > 0
                 and self._list_models_result_cache_time > 0
@@ -4567,8 +6018,12 @@ class SupervisorActor(xo.StatelessActor):
                     replica_gpu_cache[replica_uid] = [str(a) for a in accelerators]
             self._replica_gpu_cache = replica_gpu_cache
 
+            # Keep worker-returned specs in _list_models_cache pristine. The
+            # replica count and GPU-memory fields below are response-only
+            # decorations; mutating cached specs would let stale telemetry leak
+            # back into a later fallback response after a worker RPC failure.
             running_model_info = {
-                parse_replica_model_uid(k)[0]: v for k, v in ret.items()
+                parse_replica_model_uid(k)[0]: dict(v) for k, v in ret.items()
             }
 
             # Aggregate per-process GPU memory (real-time, from
@@ -4689,6 +6144,17 @@ class SupervisorActor(xo.StatelessActor):
     ) -> Dict:
         from ..model.scheduler.core import AbortRequestMessage
 
+        pd_ref = self._pd_model_mapping.get(model_uid)
+        if pd_ref is not None:
+            return {
+                "msg": await actor_call(
+                    pd_ref,
+                    "abort_request",
+                    request_id,
+                    block_duration,
+                    _rpc_operation_request_id=request_id,
+                )
+            }
         res = {"msg": AbortRequestMessage.NO_OP.name}
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if not replica_info:
@@ -4704,8 +6170,19 @@ class SupervisorActor(xo.StatelessActor):
             assert not isinstance(
                 worker_ref, (list, tuple)
             ), "worker_ref must be a single worker"
-            model_ref = await worker_ref.get_model(model_uid=rep_mid)
-            result_info = await model_ref.abort_request(request_id, block_duration)
+            model_ref = await actor_call(
+                worker_ref,
+                "get_model_for_abort",
+                model_uid=rep_mid,
+                _rpc_operation_request_id=request_id,
+            )
+            result_info = await actor_call(
+                model_ref,
+                "abort_request",
+                request_id,
+                block_duration,
+                _rpc_operation_request_id=request_id,
+            )
             res["msg"] = result_info
             if result_info == AbortRequestMessage.DONE.name:
                 break
@@ -4714,6 +6191,160 @@ class SupervisorActor(xo.StatelessActor):
             else:
                 logger.debug(f"No-op for model {rep_mid}")
         return res
+
+    async def __pre_destroy__(self) -> None:
+        # Finish retained-weight operations before tearing down actor state.
+        if self._model_reload_tasks:
+            await asyncio.gather(
+                *list(self._model_reload_tasks.values()), return_exceptions=True
+            )
+        tasks = list(self._worker_metadata_refresh_tasks.values())
+        self._worker_metadata_refresh_tasks.clear()
+        self._worker_metadata_generation.clear()
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    def _discard_worker_metadata(self, worker_address: str) -> None:
+        self._worker_metadata.pop(worker_address, None)
+        self._worker_metadata_generation.pop(worker_address, None)
+        task = self._worker_metadata_refresh_tasks.pop(worker_address, None)
+        if task is not None and not task.done():
+            # Dead-node detection runs on the supervisor isolation loop, while
+            # metadata retries run on the actor loop. Schedule cancellation on
+            # the task's own loop so cleanup is safe from either thread.
+            try:
+                task.get_loop().call_soon_threadsafe(task.cancel)
+            except RuntimeError:
+                # The loop may already be closed during process shutdown.
+                pass
+
+    def _start_worker_metadata_generation(self, worker_address: str) -> int:
+        self._worker_metadata_next_generation += 1
+        generation = self._worker_metadata_next_generation
+        self._worker_metadata_generation[worker_address] = generation
+        return generation
+
+    def _is_current_worker_metadata_generation(
+        self,
+        worker_address: str,
+        worker_ref: xo.ActorRefType["WorkerActor"],
+        generation: int,
+    ) -> bool:
+        return (
+            self._worker_metadata_generation.get(worker_address) == generation
+            and self._worker_address_to_worker.get(worker_address) is worker_ref
+        )
+
+    async def _refresh_worker_metadata(
+        self,
+        worker_address: str,
+        worker_ref: xo.ActorRefType["WorkerActor"],
+        generation: int,
+    ) -> bool:
+        if not self._is_current_worker_metadata_generation(
+            worker_address, worker_ref, generation
+        ):
+            return False
+
+        try:
+            metadata = await xo.wait_for(
+                worker_ref.get_node_metadata(), _WORKER_METADATA_RPC_TIMEOUT
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.debug(
+                "Failed to read optional metadata from worker %s",
+                worker_address,
+                exc_info=True,
+            )
+            return False
+
+        if not self._is_current_worker_metadata_generation(
+            worker_address, worker_ref, generation
+        ):
+            return False
+        if not isinstance(metadata, dict):
+            logger.debug(
+                "Worker %s returned invalid node metadata of type %s",
+                worker_address,
+                type(metadata).__name__,
+            )
+            return False
+
+        software_version = metadata.get("software_version")
+        if not isinstance(software_version, str) or not software_version.strip():
+            logger.debug(
+                "Worker %s returned an invalid software_version in node metadata",
+                worker_address,
+            )
+            return False
+
+        self._worker_metadata[worker_address] = {
+            "software_version": software_version.strip()
+        }
+        return True
+
+    async def _retry_worker_metadata(
+        self,
+        worker_address: str,
+        worker_ref: xo.ActorRefType["WorkerActor"],
+        generation: int,
+    ) -> None:
+        current_task = asyncio.current_task()
+        try:
+            for retry_number, delay in enumerate(
+                _WORKER_METADATA_RETRY_DELAYS, start=1
+            ):
+                await asyncio.sleep(delay)
+                if not self._is_current_worker_metadata_generation(
+                    worker_address, worker_ref, generation
+                ):
+                    return
+                if await self._refresh_worker_metadata(
+                    worker_address, worker_ref, generation
+                ):
+                    logger.info(
+                        "Successfully refreshed worker metadata for %s, version=%s",
+                        worker_address,
+                        self._worker_metadata[worker_address]["software_version"],
+                    )
+                    return
+                if retry_number < len(_WORKER_METADATA_RETRY_DELAYS):
+                    logger.debug(
+                        "Worker metadata refresh attempt %s failed for %s",
+                        retry_number,
+                        worker_address,
+                    )
+
+            if self._is_current_worker_metadata_generation(
+                worker_address, worker_ref, generation
+            ):
+                logger.warning(
+                    "Worker %s did not report software version after retries",
+                    worker_address,
+                )
+        finally:
+            if self._worker_metadata_refresh_tasks.get(worker_address) is current_task:
+                self._worker_metadata_refresh_tasks.pop(worker_address, None)
+
+    def _schedule_worker_metadata_retry(
+        self,
+        worker_address: str,
+        worker_ref: xo.ActorRefType["WorkerActor"],
+        generation: int,
+    ) -> None:
+        if not self._is_current_worker_metadata_generation(
+            worker_address, worker_ref, generation
+        ):
+            return
+        task = asyncio.create_task(
+            self._retry_worker_metadata(worker_address, worker_ref, generation)
+        )
+        self._worker_metadata_refresh_tasks[worker_address] = task
 
     @log_async(logger=logger)
     async def add_worker(
@@ -4727,7 +6358,71 @@ class SupervisorActor(xo.StatelessActor):
         worker_ref = await xo.actor_ref(
             address=worker_address, uid=WorkerActor.default_uid()
         )
+        from ..extensions import get_extensions
+
+        expected = {extension.name for extension in get_extensions()}
+        try:
+            try:
+                resources = await worker_ref.get_extension_resources()
+            except AttributeError as error:
+                # Older upstream workers have no extension metadata RPC. Accept
+                # them only when this supervisor also has no extensions.
+                if "get_extension_resources" not in str(error):
+                    raise
+                if expected:
+                    raise RuntimeError(
+                        "Worker and supervisor extensions must match: "
+                        "worker does not support extensions"
+                    ) from error
+                resources = None
+            if set((resources or {}).get("extensions", {})) != expected:
+                raise RuntimeError("Worker and supervisor extensions must match")
+        except Exception:
+            # Rejected re-registration must not retain the old process's
+            # registration or extension inventory at this address.
+            self._worker_address_to_worker.pop(worker_address, None)
+            self._extension_worker_resources.pop(worker_address, None)
+            self._discard_worker_metadata(worker_address)
+            raise
+        if resources is not None:
+            self._extension_worker_resources[worker_address] = resources
+        else:
+            self._extension_worker_resources.pop(worker_address, None)
         self._worker_address_to_worker[worker_address] = worker_ref
+
+        # Refresh static node metadata on every registration. Clear and cancel
+        # tracking from an earlier process at the same address so a downgrade or
+        # delayed retry can never leave a stale version behind.
+        self._discard_worker_metadata(worker_address)
+        metadata_generation = self._start_worker_metadata_generation(worker_address)
+        metadata_loaded = await self._refresh_worker_metadata(
+            worker_address, worker_ref, metadata_generation
+        )
+        metadata_retry_required = (
+            not metadata_loaded
+            and self._is_current_worker_metadata_generation(
+                worker_address, worker_ref, metadata_generation
+            )
+        )
+        if metadata_retry_required:
+            # Version metadata is display-only. Registration must remain
+            # compatible with older workers that do not expose this optional RPC.
+            logger.warning(
+                "Failed to read software version from worker %s; "
+                "worker registration will continue",
+                worker_address,
+            )
+
+        try:
+            await worker_ref.update_system_settings(dict(self._system_settings))
+        except Exception:
+            # Preserve registration compatibility with an older worker during a
+            # rolling upgrade. A later settings save retries the propagation.
+            logger.warning(
+                "Failed to apply system settings to worker %s",
+                worker_address,
+                exc_info=True,
+            )
 
         normalized = self._normalize_replica_states(
             replica_states=replica_states,
@@ -4759,7 +6454,55 @@ class SupervisorActor(xo.StatelessActor):
         await self._rebuild_worker_status_guard_state(worker_address, normalized)
         await self._reconcile_affected_model_statuses(base_uids_affected)
         logger.debug("Worker %s has been added successfully", worker_address)
+        if metadata_retry_required and self._is_current_worker_metadata_generation(
+            worker_address, worker_ref, metadata_generation
+        ):
+            self._schedule_worker_metadata_retry(
+                worker_address, worker_ref, metadata_generation
+            )
         self._schedule_autostart()
+
+    def get_worker_resource_policy(self, worker_address: str) -> List[int]:
+        from ..extensions import filter_worker_resources
+
+        resources = self._extension_worker_resources.get(worker_address)
+        if resources is None or worker_address not in self._worker_address_to_worker:
+            raise RuntimeError("Worker has not registered extension resources")
+        inventory = [
+            info
+            for address, info in self._extension_worker_resources.items()
+            if address in self._worker_address_to_worker
+        ]
+        return filter_worker_resources(resources, inventory)
+
+    def call_extension(self, name: str, operation: str, payload: Dict[str, Any]) -> Any:
+        from ..extensions import call_extension
+
+        return call_extension(name, operation, payload)
+
+    async def update_system_settings(self, settings: Dict[str, Any]) -> None:
+        """Apply settings locally and fan them out to registered workers."""
+        from .system_settings_store import SystemSettings, apply_system_settings
+
+        parsed = SystemSettings.from_dict(settings)
+        self._system_settings = parsed.to_dict()
+        apply_system_settings(parsed)
+
+        workers = list(self._worker_address_to_worker.items())
+        results = await asyncio.gather(
+            *(
+                worker_ref.update_system_settings(dict(self._system_settings))
+                for _, worker_ref in workers
+            ),
+            return_exceptions=True,
+        )
+        for (worker_address, _), result in zip(workers, results):
+            if isinstance(result, Exception):
+                logger.warning(
+                    "Failed to apply system settings to worker %s",
+                    worker_address,
+                    exc_info=result,
+                )
 
     @log_async(logger=logger)
     async def remove_worker(self, worker_address: str):
@@ -4777,7 +6520,10 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         self._worker_status.pop(worker_address, None)
-        self._worker_model_gpu_memory.pop(worker_address, None)
+        self._extension_worker_resources.pop(worker_address, None)
+        self._discard_worker_metadata(worker_address)
+        self._clear_worker_model_gpu_memory(worker_address)
+        self._invalidate_list_models_debounce_cache()
         try:
             from .otel import get_cluster_metrics_collector
 
@@ -4801,6 +6547,10 @@ class SupervisorActor(xo.StatelessActor):
             # replicas. Do NOT fabricate a _worker_status entry here, otherwise
             # the registry would stay stale forever.
             raise WorkerNotRegisteredError(worker_address)
+
+        # Remove the internal telemetry extension before storing or forwarding
+        # ordinary ResourceStatus/GPUStatus data to OTEL.
+        self._process_model_gpu_memory_report(worker_address, status)
 
         if worker_address not in self._worker_status:
             logger.debug("Worker %s resources: %s", worker_address, status)
@@ -4827,14 +6577,6 @@ class SupervisorActor(xo.StatelessActor):
                     "Failed to feed worker status into OTEL collector for worker_address=%s",
                     worker_address,
                 )
-
-        # Extract and store per-model GPU memory data
-        if isinstance(status, dict):
-            model_gpu_mem = status.pop("model_gpu_memory", None)
-            if model_gpu_mem:
-                self._worker_model_gpu_memory[worker_address] = model_gpu_mem  # type: ignore[assignment]
-            elif worker_address in self._worker_model_gpu_memory:
-                del self._worker_model_gpu_memory[worker_address]
 
     async def receive_heartbeat(self, worker_address: str):
         """
@@ -4957,43 +6699,20 @@ class SupervisorActor(xo.StatelessActor):
         return sorted(virtual_envs, key=lambda x: x["model_name"])
 
     async def list_virtual_env_packages(
-        self, model_name: str, worker_ip: Optional[str] = None
+        self,
+        model_name: str,
+        model_engine: str,
+        python_version: str,
+        worker_ip: str,
     ) -> Dict[str, Any]:
-        """List packages in a virtual environment across the cluster."""
-        if not model_name:
-            raise ValueError("model_name is required")
-
-        target_ip_worker_ref = (
-            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
-        )
-        if (
-            worker_ip is not None
-            and not self.is_local_deployment()
-            and target_ip_worker_ref is None
-        ):
+        """List packages installed directly in one worker virtual environment."""
+        target_ip_worker_ref = self._get_worker_ref_by_ip(worker_ip)
+        if target_ip_worker_ref is None:
             raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
 
-        # If specific worker is requested, query only that worker
-        if target_ip_worker_ref:
-            return await target_ip_worker_ref.list_virtual_env_packages(model_name)
-
-        # Otherwise, try all workers until we find the virtual environment
-        for worker in self._worker_address_to_worker.values():
-            try:
-                package_info = await worker.list_virtual_env_packages(model_name)
-                if "error" not in package_info:
-                    return package_info
-            except Exception as e:
-                logger.debug(
-                    f"Worker doesn't have virtual environment for {model_name}: {e}"
-                )
-
-        # If no worker has the virtual environment
-        return {
-            "model_name": model_name,
-            "worker_ip": None,
-            "error": f"Virtual environment for model {model_name} not found on any worker",
-        }
+        return await target_ip_worker_ref.list_virtual_env_packages(
+            model_name, model_engine, python_version
+        )
 
     async def remove_virtual_env(
         self,
@@ -5035,17 +6754,26 @@ class SupervisorActor(xo.StatelessActor):
             except Exception as e:
                 logger.debug(f"Failed to check worker for virtual environment: {e}")
 
-        # Then remove from those workers
+        # Then remove from those workers. Preserve a conflict so the API can
+        # report that an active/preparing model still owns the environment.
+        conflict_error: Optional[VirtualEnvConflictError] = None
         for worker in workers_with_env:
             try:
                 result = await worker.remove_virtual_env(
                     model_name, model_engine, python_version
                 )
                 ret = ret and result
+            except VirtualEnvConflictError as e:
+                if conflict_error is None:
+                    conflict_error = e
+                logger.warning("Virtual environment is still in use on a worker: %s", e)
+                ret = False
             except Exception as e:
                 logger.error(f"Failed to remove virtual environment from worker: {e}")
                 ret = False
 
+        if conflict_error is not None:
+            raise conflict_error
         return ret
 
     async def list_token_routers(self) -> List[Dict[str, Any]]:
@@ -6377,8 +8105,14 @@ class SupervisorActor(xo.StatelessActor):
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)
 
+    @log_async(logger=logger)
     async def get_progress(self, request_id: str) -> float:
-        return await self._progress_tracker.get_progress(request_id)
+        return await actor_call(
+            self._progress_tracker,
+            "get_progress",
+            request_id,
+            _rpc_operation_request_id=request_id,
+        )
 
     async def call_collective_manager(
         self, model_uid: str, func_name: str, *args, **kwargs
@@ -6386,5 +8120,24 @@ class SupervisorActor(xo.StatelessActor):
         """
         Used by worker.
         """
+        if func_name == "unregister_rank" and args and args[0] > 0:
+            await self.unregister_pd_replica(
+                model_uid, build_replica_model_uid(model_uid, args[0] - 1)
+            )
         collective_manager_ref = self._collective_manager_mapping[model_uid]
         await getattr(collective_manager_ref, func_name)(*args, **kwargs)
+
+    async def register_pd_replica(self, model_uid: str, replica_uid: str, model_ref):
+        """Refresh the router after a worker recreates a replica's actor."""
+        pd_ref = self._pd_model_mapping.get(model_uid)
+        _, replica_idx = parse_replica_model_uid(replica_uid)
+        role = self._pd_roles.get(model_uid, {}).get(replica_idx)
+        if pd_ref is not None and role in ("prefill", "decode"):
+            await getattr(pd_ref, f"add_{role}_actor")(replica_uid, model_ref)
+
+    async def unregister_pd_replica(self, model_uid: str, replica_uid: str):
+        pd_ref = self._pd_model_mapping.get(model_uid)
+        _, replica_idx = parse_replica_model_uid(replica_uid)
+        role = self._pd_roles.get(model_uid, {}).get(replica_idx)
+        if pd_ref is not None and role in ("prefill", "decode"):
+            await getattr(pd_ref, f"remove_{role}_actor")(replica_uid)

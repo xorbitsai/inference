@@ -42,6 +42,7 @@ import { isNumber } from '@/lib/is';
 import type { RunningModelDetail, ChatStreamResult, ChatChoicesMessage } from '@/types/services';
 import type { FormValues } from '@/types/form';
 import type { FileUploadValue } from '@/types/common';
+import { useI18n } from '@/contexts/i18n-context';
 
 import type { ChatMessage, ChatSettings } from '../types';
 import { transformFileInfoForResult } from '../utils';
@@ -66,6 +67,7 @@ function fileToDataURL(file: File): Promise<string> {
 }
 
 const ChatItem: FC<{ data: ChatMessage }> = ({ data }) => {
+  const { t } = useI18n();
   const { role, content, loading, success, attachment, thinkingContent, thinkingCompleted, usage } =
     data;
   const [thinkingOpen, setThinkingOpen] = useState(true);
@@ -107,7 +109,11 @@ const ChatItem: FC<{ data: ChatMessage }> = ({ data }) => {
           onClick={() => setThinkingOpen(!thinkingOpen)}
         >
           {!thinkingCompleted && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
-          <span>{thinkingCompleted ? 'Thinking Completed' : 'Thinking...'}</span>
+          <span>
+            {thinkingCompleted
+              ? t('runningModels.detail.thinkingCompleted')
+              : t('runningModels.detail.thinking')}
+          </span>
           <ChevronUp
             className={cn(
               'size-4 ml-1 text-xs transition-out rotate-180 transition-transform duration-300 ease-out',
@@ -173,6 +179,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ model, modelUid }: ChatPanelProps) {
+  const { t } = useI18n();
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [form] = useForm();
   const [settingOpen, setSettingOpen] = useState(false);
@@ -371,7 +378,7 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
         <div className="min-h-0 flex-1 overflow-y-auto bg-background/40 px-6 py-6">
           {!chatList.length && (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Start by sending a message or attaching media.
+              {t('runningModels.detail.chatEmpty')}
             </div>
           )}
           <div className="flex flex-col gap-4">
@@ -397,13 +404,13 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
           <Textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Please enter"
+            placeholder={t('runningModels.detail.chatPlaceholder')}
             className="min-h-20 flex-1 border-0 bg-muted/60 text-base shadow-none focus-visible:ring-0 rounded-xl"
             onKeyDown={handleEnter}
           />
           <div className="flex justify-between items-center gap-2">
             <div className="flex items-center">
-              <InfoTooltip content="Additional Inputs">
+              <InfoTooltip content={t('runningModels.detail.additionalInputs')}>
                 <Button
                   variant="outline"
                   size="icon"
@@ -455,24 +462,32 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
       <Dialog open={settingOpen} onOpenChange={setSettingOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Additional Inputs</DialogTitle>
+            <DialogTitle>{t('runningModels.detail.additionalInputs')}</DialogTitle>
           </DialogHeader>
           <Form form={form} onFinish={handleSaveSetting} initialValues={{ ...settings }}>
             <FormField
               name="max_tokens"
-              label="Max Tokens (0 stands for maximum possible tokens)"
+              label={t('runningModels.detail.maxTokensLabel')}
               normalize={(value) => Number(value)}
             >
               <Input type="number" min={0} max={model.context_length || undefined} />
             </FormField>
-            <FormField name="temperature" label="Temperature" normalize={(value) => Number(value)}>
+            <FormField
+              name="temperature"
+              label={t('runningModels.detail.temperature')}
+              normalize={(value) => Number(value)}
+            >
               <Input type="number" min={0} max={2} step={0.01} />
             </FormField>
-            <FormField name="stream" label="Stream" valuePropName="checked">
+            <FormField
+              name="stream"
+              label={t('runningModels.detail.stream')}
+              valuePropName="checked"
+            >
               <Switch />
             </FormField>
             <DialogFooter>
-              <Button type="submit">Save</Button>
+              <Button type="submit">{t('runningModels.detail.save')}</Button>
             </DialogFooter>
           </Form>
         </DialogContent>

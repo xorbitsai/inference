@@ -1,4 +1,50 @@
+import pytest
+
 from ..deepseek_v3_2_tool_parser import DeepseekV3_2ToolParser
+
+_WEATHER_CALL = (
+    '<function_calls><invoke name="weather">'
+    '<parameter name="city" string="true">上海</parameter></invoke></function_calls>'
+)
+
+
+@pytest.mark.parametrize("dsml", [True, False])
+@pytest.mark.parametrize(
+    "before, after", [("Checking. ", ""), ("", " Done."), (" \n", "\t")]
+)
+def test_nonstreaming_preserves_surrounding_content(dsml, before, after):
+    block = (
+        _WEATHER_CALL.replace("<", "<｜DSML｜").replace("<｜DSML｜/", "</｜DSML｜")
+        if dsml
+        else _WEATHER_CALL
+    )
+    assert DeepseekV3_2ToolParser().extract_tool_calls(before + block + after) == [
+        *([(before, None, None)] if before else []),
+        (None, "weather", {"city": "上海"}),
+        *([(after, None, None)] if after else []),
+    ]
+
+
+@pytest.mark.parametrize("between", [" Next. ", " \n"])
+def test_nonstreaming_preserves_content_between_call_blocks(between):
+    text = _WEATHER_CALL + between + _WEATHER_CALL.replace("上海", "北京")
+    assert DeepseekV3_2ToolParser().extract_tool_calls(text) == [
+        (None, "weather", {"city": "上海"}),
+        (between, None, None),
+        (None, "weather", {"city": "北京"}),
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "plain text",
+        _WEATHER_CALL[: -len("</function_calls>")],
+        "<function_calls>broken</function_calls>",
+    ],
+)
+def test_nonstreaming_keeps_unparseable_content(text):
+    assert DeepseekV3_2ToolParser().extract_tool_calls(text) == [(text, None, None)]
 
 
 def test_extract_tool_calls_single_call():
@@ -428,3 +474,127 @@ def test_extract_tool_calls_streaming_plain_full_sequence():
         "get_current_weather",
         {"location": "上海"},
     ), f"Expected tool call result, but got {detected_result}"
+
+
+def _typed_invoke(dsml=True):
+    prefix = "<｜DSML｜" if dsml else "<"
+    close_prefix = "｜DSML｜" if dsml else ""
+    return (
+        f"{prefix}function_calls>"
+        f'{prefix}invoke name="typed_args">'
+        f'{prefix}parameter name="text" string="true">001</{close_prefix}parameter>'
+        f'{prefix}parameter name="integer" string="false">42</{close_prefix}parameter>'
+        f'{prefix}parameter name="float" string="false">3.5</{close_prefix}parameter>'
+        f'{prefix}parameter name="boolean" string="false">true</{close_prefix}parameter>'
+        f'{prefix}parameter name="nothing" string="false">null</{close_prefix}parameter>'
+        f'{prefix}parameter name="array" string="false">[1, "two"]</{close_prefix}parameter>'
+        f'{prefix}parameter name="object" string="false">{{"nested": false}}'
+        f"</{close_prefix}parameter>"
+        f"</{close_prefix}invoke>"
+        f"</{close_prefix}function_calls>"
+    )
+
+
+@pytest.mark.parametrize("dsml", [True, False])
+def test_extract_tool_calls_preserves_json_parameter_types(dsml):
+    parser = DeepseekV3_2ToolParser()
+
+    assert parser.extract_tool_calls(_typed_invoke(dsml)) == [
+        (
+            None,
+            "typed_args",
+            {
+                "text": "001",
+                "integer": 42,
+                "float": 3.5,
+                "boolean": True,
+                "nothing": None,
+                "array": [1, "two"],
+                "object": {"nested": False},
+            },
+        )
+    ]
+
+
+def test_extract_tool_calls_keeps_malformed_non_string_json_as_text():
+    parser = DeepseekV3_2ToolParser()
+    model_output = (
+        "<｜DSML｜function_calls>"
+        '<｜DSML｜invoke name="broken">'
+        '<｜DSML｜parameter name="payload" string="false">{"missing": }'
+        "</｜DSML｜parameter>"
+        "</｜DSML｜invoke>"
+        "</｜DSML｜function_calls>"
+    )
+
+    assert parser.extract_tool_calls(model_output) == [
+        (None, "broken", {"payload": '{"missing": }'})
+    ]
+
+
+def test_extract_tool_calls_streaming_returns_typed_parameters():
+    parser = DeepseekV3_2ToolParser()
+    incomplete = (
+        '<｜DSML｜function_calls><｜DSML｜invoke name="typed_args">'
+        '<｜DSML｜parameter name="count" string="false">7'
+    )
+    complete = incomplete + (
+        '</｜DSML｜parameter><｜DSML｜parameter name="label" string="true">007'
+        "</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜function_calls>"
+    )
+
+    assert parser.extract_tool_calls_streaming([], incomplete, incomplete) is None
+    assert parser.extract_tool_calls_streaming(
+        [incomplete], complete, complete[len(incomplete) :]
+    ) == (None, "typed_args", {"count": 7, "label": "007"})
+
+
+def _stream(parser, history, chunk):
+    current = history[-1] + chunk
+    result = parser.extract_tool_calls_streaming(history, current, chunk)
+    history[-1] = current
+    if result is None:
+        return []
+    return result if isinstance(result, list) else [result]
+
+
+def _function_calls(*names):
+    invokes = "".join(
+        f'<｜DSML｜invoke name="{name}">'
+        '<｜DSML｜parameter name="city" string="true">杭州</｜DSML｜parameter>'
+        "</｜DSML｜invoke>"
+        for name in names
+    )
+    return f"<｜DSML｜function_calls>{invokes}</｜DSML｜function_calls>"
+
+
+def test_extract_tool_calls_streaming_parser_reused_by_next_request():
+    parser = DeepseekV3_2ToolParser()
+
+    def run(text):
+        # The model layer starts every request with previous_texts == [""].
+        history = [""]
+        return [event for char in text for event in _stream(parser, history, char)]
+
+    calls = [(None, "get_weather", {"city": "杭州"})]
+    assert run(_function_calls("get_weather")) == calls
+    assert "".join(event[0] for event in run("Sunny.")) == "Sunny."
+    assert run(_function_calls("get_weather")) == calls
+
+
+@pytest.mark.parametrize("chunk_size", [1, 7, 64, 1024])
+def test_extract_tool_calls_streaming_keeps_interleaved_requests_apart(chunk_size):
+    # One parser instance serves every request to the model, so concurrent
+    # streams feed it their chunks in turn.
+    parser = DeepseekV3_2ToolParser()
+    texts = [_function_calls("a1", "a2"), _function_calls("b1", "b2"), "1 < 2."]
+    histories = [[""] for _ in texts]
+    events = [[] for _ in texts]
+    for offset in range(0, max(map(len, texts)), chunk_size):
+        for text, history, received in zip(texts, histories, events):
+            chunk = text[offset : offset + chunk_size]
+            received.extend(_stream(parser, history, chunk))
+
+    assert events[0] == [(None, name, {"city": "杭州"}) for name in ("a1", "a2")]
+    assert events[1] == [(None, name, {"city": "杭州"}) for name in ("b1", "b2")]
+    assert "".join(event[0] for event in events[2]) == "1 < 2."

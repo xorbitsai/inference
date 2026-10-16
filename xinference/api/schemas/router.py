@@ -340,7 +340,6 @@ class RouterNodeRegister(BaseModel):
     port_range_start: int = Field(ge=1024, le=65535)
     port_range_end: int = Field(ge=1024, le=65535)
     max_instances: int = Field(ge=1)
-    labels: Dict[str, Any] = Field(default_factory=dict)
     reported_labels: Dict[str, Any] = Field(default_factory=dict)
     capabilities: Dict[str, Any] = Field(default_factory=dict)
     software_version: str = ""

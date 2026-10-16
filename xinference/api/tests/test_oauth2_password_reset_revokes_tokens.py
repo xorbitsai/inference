@@ -47,7 +47,7 @@ def _patch(monkeypatch, auth, caller_scopes):
     # isolate the refresh-token revocation behaviour under test.
     monkeypatch.setattr(
         routes,
-        "_get_current_user_from_token",
+        "_get_current_user_live_scopes",
         lambda request, a: (1, "caller", caller_scopes),
     )
 

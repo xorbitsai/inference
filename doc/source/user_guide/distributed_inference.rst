@@ -32,10 +32,17 @@ First you need at least 2 workers to support distributed inference.
 Refer to :ref:`running Xinference in cluster <distributed_getting_started>`
 to create a Xinference cluster including supervisor and workers.
 
-vLLM (v0.11.0+) note:
-Starting from vLLM v0.11.0, distributed deployment with vLLM requires Xinference >= v1.17.1.
-In addition to setting ``--n-worker`` as before, you must also set
-``tensor_parallel_size`` (set it to the **GPU count**) and ``pipeline_parallel_size=1`` when launching the model.
+vLLM V1 (v0.11.1+) supports tensor parallelism (TP) and pipeline parallelism (PP)
+through Xinference's xoscar executor. For a model spanning workers, the defaults
+are ``tensor_parallel_size`` = GPUs per worker and ``pipeline_parallel_size`` = worker count.
+
+For example, two workers with four GPUs each use ``--n-worker 2 --n-gpu 4``,
+``tensor_parallel_size=4`` and ``pipeline_parallel_size=2``. Explicit TP/PP settings
+must satisfy ``TP * PP = total allocated GPUs``. Each worker must allocate the same
+GPU count, and the model architecture must support vLLM PP.
+
+This PP deployment does not require a Ray cluster. Xavier V1 and native NIXL P/D
+separation currently require ``TP=1`` and ``PP=1`` and cannot be combined with this configuration.
 
 Then if are using web UI, choose expected machines for ``worker count`` in the optional configurations,
 if you are using command line, add ``--n-worker <machine number>`` when launching a model.

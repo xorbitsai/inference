@@ -7,15 +7,12 @@ import type { FileUploadValue } from '@/types/common';
 import { parseImageSeeds } from './image-seed-utils';
 import { parseScalarSeed } from './seed-utils';
 
-const SUB_CAPABILITIES = new Set<ModelAbility>([
-  ModelAbility.Text2audioVoiceCloning,
-  ModelAbility.Text2audioVoiceDesign,
-  ModelAbility.Text2audioZeroShot,
-  ModelAbility.Text2audioEmotionControl,
-]);
+const UNDERSCORED_PRIMARY_ABILITIES: ModelAbility[] = [ModelAbility.SpeakerEmbedding];
 
 export function getPrimaryModelAbilities(abilities: ModelAbility[] = []) {
-  return abilities.filter((ability) => !SUB_CAPABILITIES.has(ability));
+  return abilities.filter(
+    (ability) => !ability.includes('_') || UNDERSCORED_PRIMARY_ABILITIES.includes(ability)
+  );
 }
 
 export function createId(prefix = 'item') {
@@ -138,6 +135,43 @@ export function buildGenerationKwargs(
 export function firstUpload(values: FormValues, key: string): FileUploadValue | undefined {
   const value = values[key];
   return Array.isArray(value) ? value[0] : undefined;
+}
+
+export function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error(`Failed to encode ${file.name}`));
+      }
+    };
+    reader.onerror = () => reject(reader.error || new Error(`Failed to read ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+export function parseJsonObject(value: unknown): Record<string, unknown> {
+  const source = stringValue(value).trim();
+  if (!source) return {};
+
+  const parsed: unknown = JSON.parse(source);
+  if (!isRecord(parsed)) {
+    throw new Error('Expected a JSON object');
+  }
+
+  return parsed;
+}
+
+export function isJsonObject(value: unknown): boolean {
+  try {
+    parseJsonObject(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function uploadList(values: FormValues, key: string): FileUploadValue[] {

@@ -117,15 +117,13 @@ msgstr "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
 msgid "Maximum download retry attempts for model files. Default value is 3."
 msgstr "模型檔案的最大下載重試次數。預設值為3。"
 
-#: ../../source/getting_started/environments.rst:58
-msgid "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
-msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
+#: ../../source/getting_started/environments.rst:73
+msgid "XINFERENCE_LLMMAN_BIN"
+msgstr "XINFERENCE_LLMMAN_BIN"
 
-#: ../../source/getting_started/environments.rst:59
-msgid ""
-"Enable continuous batching for text-to-image models by specifying the "
-"target image size (e.g., ``1024*1024``). Default is unset."
-msgstr "通過指定目標圖像尺寸（例如 ``1024*1024`` ）為文字轉圖像模型啟用連續批次處理。預設未設定。"
+#: ../../source/getting_started/environments.rst:74
+msgid "Path to the ``llmman`` executable used to resolve ``oci://`` model URIs. Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an ``llmman serve`` daemon that is not on ``127.0.0.1:17434``."
+msgstr "用於解析 ``oci://`` 模型 URI 的 ``llmman`` 執行檔路徑。預設使用 ``PATH`` 中的 ``llmman``。若 ``llmman serve`` 常駐程式不在 ``127.0.0.1:17434`` 上，可設定 ``LLMMAN_HOST``。"
 
 #: ../../source/getting_started/environments.rst:63
 msgid "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
@@ -388,3 +386,92 @@ msgid ""
 ":ref:`user_guide_audit_security`."
 msgstr "稽核日誌檔案的保留天數。預設值為 90。參見 :ref:`user_guide_audit_security`。"
 
+#: ../../source/getting_started/environments.rst:56
+msgid "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+
+#: ../../source/getting_started/environments.rst:58
+msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
+msgstr "當 Worker 因收集失敗或略過收集而省略該欄位時，Supervisor 保留最近一次有效的單模型 GPU 記憶體快照的最大秒數。明確的空快照仍會立即清除快取。預設值為 90。"
+
+#: ../../source/getting_started/environments.rst:233
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+
+#: ../../source/getting_started/environments.rst:234
+msgid "Initial delay in seconds between Router Agent bootstrap retries. The delay uses exponential backoff with jitter. Default value is 1."
+msgstr "Router Agent 啟動重試之間的初始延遲（秒）。延遲採用帶抖動的指數退避。預設值為 1。"
+
+#: ../../source/getting_started/environments.rst:238
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+
+#: ../../source/getting_started/environments.rst:239
+msgid "Maximum delay in seconds between Router Agent bootstrap retries. Default value is 15 and must not be lower than the initial delay."
+msgstr "Router Agent 啟動重試之間的最大延遲（秒）。預設值為 15，且不能小於初始延遲。"
+
+#: ../../source/getting_started/environments.rst:243
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+
+#: ../../source/getting_started/environments.rst:244
+msgid "Total deadline in seconds for Router Agent startup registration and initial synchronization retries. Default value is 120."
+msgstr "Router Agent 啟動註冊和初始同步重試的總截止時間（秒）。預設值為 120。"
+
+#: ../../source/getting_started/environments.rst:15
+msgid "XOSCAR_AUTH_KEY"
+msgstr "XOSCAR_AUTH_KEY"
+
+#: ../../source/getting_started/environments.rst:16
+msgid ""
+"Shared secret for Xoscar actor transport authentication, supported by Xoscar"
+" 0.12.0 and later. Unset or empty keeps the legacy unauthenticated "
+"transport; upgrading alone does not enable protection. HTTP API "
+"authentication does not protect actor ports. See the `security advisory "
+"<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_."
+msgstr ""
+"Xoscar actor 傳輸驗證的共用密鑰，需使用 Xoscar 0.12.0 "
+"或更新版本。未設定或為空時，仍使用原有的未驗證傳輸；僅升級不會啟用保護。HTTP API 驗證不會保護 actor 連接埠。請參閱 `安全公告 "
+"<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_。"
+
+#: ../../source/getting_started/environments.rst:22
+msgid ""
+"Generate one random secret per deployment with the following command. "
+"Distribute the same value through your secret-management system before "
+"starting ``xinference-local``, ``xinference-supervisor``, every "
+"``xinference-worker``, and any direct Xoscar actor clients. Child processes,"
+" including model virtual environments, inherit the variable. HTTP clients do"
+" not need this secret."
+msgstr ""
+"使用下列命令為每個部署產生一個隨機密鑰。在啟動 ``xinference-local``、``xinference-supervisor``、所有 "
+"``xinference-worker`` 及直接連線至 Xoscar actor "
+"的用戶端之前，透過密鑰管理系統分發相同的值。子處理程序（包括模型虛擬環境）會繼承此變數。HTTP 用戶端不需要這個密鑰。"
+
+#: ../../source/getting_started/environments.rst:33
+msgid ""
+"Upgrade all actor peers to Xoscar 0.12.0 or later before enabling the key, "
+"then coordinate a restart with the same key on every peer. Keyed and unkeyed"
+" peers cannot communicate; there is no automatic downgrade or mixed-mode "
+"rolling upgrade. Key rotation also requires a coordinated restart. For "
+"``docker run``, pass the exported variable with ``-e XOSCAR_AUTH_KEY``; for "
+"Kubernetes, inject the same Secret into each server container's environment."
+msgstr ""
+"啟用密鑰前，將所有 actor 通訊節點升級至 Xoscar 0.12.0 "
+"或更新版本，再協調重新啟動，確保每個節點使用相同的密鑰。已設定與未設定密鑰的節點無法通訊；不支援自動降級或混合模式滾動升級。輪替密鑰也需要協調重新啟動。使用"
+" ``docker run`` 時，以 ``-e XOSCAR_AUTH_KEY`` 傳入已匯出的變數；使用 Kubernetes 時，將同一個 "
+"Secret 注入各伺服器容器的環境。"
+
+#: ../../source/getting_started/environments.rst:40
+msgid ""
+"Socket and UCX messages are authenticated before deserialization. Anyone "
+"holding the key is a trusted peer with Python execution privileges. "
+"Deployment administrators must restrict actor ports to intended cluster "
+"peers. Authentication does not encrypt traffic or prevent replay; "
+"authenticated GPU transfers stage device buffers in host memory for hashing "
+"and add CPU and host-memory overhead."
+msgstr ""
+"Socket 與 UCX 訊息皆在反序列化前完成驗證。持有密鑰的節點視為可信節點，具有執行 Python 程式碼的權限。部署管理員必須將 actor "
+"連接埠的存取限制於預期的叢集節點。驗證不會加密流量或防止重播；啟用驗證的 GPU 傳輸會將裝置緩衝區暫存至主機記憶體進行雜湊運算，增加 CPU "
+"與主機記憶體的負擔。"

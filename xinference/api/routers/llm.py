@@ -1,4 +1,4 @@
-"""LLM route registration (completions, chat/completions, Anthropic messages, flexible infer)."""
+"""LLM route registration (completions, chat, Anthropic messages, responses, flexible infer)."""
 
 from __future__ import annotations
 
@@ -34,6 +34,21 @@ def register_routes(api: "RESTfulAPI") -> None:
                 [Security(auth, scopes=["models:read"])] if is_auth else None
             ),
         )
+    for path in ("/v1/messages/count_tokens", "/anthropic/v1/messages/count_tokens"):
+        router.add_api_route(
+            path,
+            api.count_anthropic_tokens,
+            methods=["POST"],
+            dependencies=(
+                [Security(auth, scopes=["models:read"])] if is_auth else None
+            ),
+        )
+    router.add_api_route(
+        "/v1/responses",
+        api.create_response,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
     router.add_api_route(
         "/anthropic/v1/models",
         api.anthropic_list_models,

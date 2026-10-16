@@ -258,6 +258,11 @@ class QwenToolParser(ToolParser):
                 Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
             ] = []
             for function_call in function_calls:
+                # Text outside tool call tags (preamble, reasoning, blank
+                # lines between calls) is plain content, as in streaming.
+                if self.tool_call_start_token not in function_call:
+                    results.append((function_call, None, None))
+                    continue
                 try:
                     parsed_json = self._parse_json_function_call(function_call)
                     # Check for Qwen3.5 XML-like format before JSON parsing
@@ -522,10 +527,11 @@ class QwenToolParser(ToolParser):
         args = {}
         for key, value in param_pattern.findall(text):
             cleaned = value.strip()
-            try:
-                cleaned = json.loads(cleaned)
-            except Exception:
-                pass
+            if not ToolParser._is_string_parameter(func_name, key):
+                try:
+                    cleaned = json.loads(cleaned)
+                except Exception:
+                    pass
             args[key] = cleaned
 
         return None, func_name, args

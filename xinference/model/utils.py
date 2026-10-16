@@ -36,6 +36,7 @@ from typing import (
     Callable,
     Dict,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
@@ -58,6 +59,8 @@ from ..constants import (
 )
 from ..device_utils import get_available_device, is_device_available
 from .core import CacheableModelSpec
+from .oci_utils import SCHEME as OCI_SCHEME
+from .oci_utils import resolve_oci_model
 
 if TYPE_CHECKING:
     from .embedding.core import LlamaCppEmbeddingSpecV1
@@ -597,6 +600,78 @@ def _apply_virtualenv_engine_overrides(
             engine_params[engine_name] = reason
 
 
+def _apply_engine_host_checks(
+    engine_params: Dict[str, Any],
+    supported_engines: Dict[str, List[Type[Any]]],
+) -> None:
+    """Reject engines whose non-installable host requirements are unmet."""
+
+    for engine_name, engine_classes in supported_engines.items():
+        if engine_name not in engine_params:
+            continue
+        host_reason: Optional[str] = None
+        host_available = False
+        for engine_class in engine_classes:
+            check_host = getattr(engine_class, "check_host", None)
+            host_ok, reason, _, _ = _normalize_match_result(
+                check_host() if callable(check_host) else True,
+                f"Engine {engine_name} is incompatible with this host",
+                "model_compatibility",
+            )
+            if host_ok:
+                host_available = True
+                break
+            host_reason = reason or host_reason
+        if not host_available:
+            engine_params[engine_name] = host_reason or (
+                f"Engine {engine_name} is incompatible with this host"
+            )
+
+
+def extend_classes_once(target: List[type], classes: List[type]) -> None:
+    """Append each class to ``target`` only if it is not already present.
+
+    The embedding, rerank and LLM ``_install()`` functions run on every call
+    to ``register_builtin_model()``, including the runtime refresh path
+    (``Worker.update_model_type``, called repeatedly as the model catalog is
+    re-downloaded). Without this guard, each refresh re-appends the same
+    built-in engine classes to the shared module-level ``SUPPORTED_ENGINES``
+    lists, growing them without bound.
+    """
+    for cls in classes:
+        if cls not in target:
+            target.append(cls)
+
+
+def prune_stale_derived_registries(
+    live_model_names: "set[str]", *derived_dicts: Dict[str, Any]
+) -> None:
+    """Drop entries for models no longer present after an install refresh.
+
+    ``install_models_with_merge`` clears and rebuilds its ``built_in_dict`` from
+    scratch on every refresh, but the engine and description registries derived
+    from it (``EMBEDDING_ENGINES``/``EMBEDDING_MODEL_DESCRIPTIONS`` and their
+    rerank counterparts) are only ever added to, never pruned: a model dropped
+    from a later catalog still advertises a launch config and description while
+    ``match_*()`` can no longer find it in the primary table.
+    """
+    for d in derived_dicts:
+        for stale_name in [name for name in d if name not in live_model_names]:
+            del d[stale_name]
+
+
+def family_identity_key(model_spec: Any) -> str:
+    """Serialize a model-family spec for value-based dedup during registry loads.
+
+    Excludes ``is_builtin``: every ``_install()`` marks freshly loaded families
+    with ``family.is_builtin = True`` right after loading them, so on a repeated
+    ``register_builtin_model()`` refresh the newly parsed candidate (default
+    ``is_builtin``) would never compare equal to the already-loaded, already-marked
+    entry it duplicates.
+    """
+    return model_spec.json(exclude={"is_builtin"})
+
+
 def check_dependency_available(
     module_name: str, friendly_name: Optional[str] = None
 ) -> Union[bool, Tuple[bool, str]]:
@@ -989,6 +1064,69 @@ def retry_download(
             ) from last_ex
 
 
+def retry_snapshot_download(
+    download_func: Callable,
+    model_name: str,
+    model_info: Optional[Dict],
+    *args,
+    **kwargs,
+):
+    download_workers = os.environ.get("HF_HUB_DOWNLOAD_WORKERS")
+    if download_workers is not None:
+        kwargs.setdefault("max_workers", int(download_workers))
+    return retry_download(download_func, model_name, model_info, *args, **kwargs)
+
+
+class ModelArtifactSource:
+    """Download auxiliary model artifacts from the selected model hub.
+
+    Some model runtimes need companion repositories in addition to the main
+    model snapshot. Keeping source selection here prevents those runtimes from
+    silently falling back to Hugging Face in ModelScope-only deployments.
+    """
+
+    def __init__(self, hub: Literal["huggingface", "modelscope"]):
+        if hub not in ("huggingface", "modelscope"):
+            raise ValueError(f"Unsupported model artifact source: {hub}")
+        self.hub = hub
+
+    @property
+    def is_modelscope(self) -> bool:
+        return self.hub == "modelscope"
+
+    def snapshot_download(
+        self,
+        model_id: str,
+        *,
+        revision: Optional[str] = None,
+        allow_patterns: Optional[List[str]] = None,
+    ) -> str:
+        download_kwargs: Dict[str, Any] = {}
+        if revision is not None:
+            download_kwargs["revision"] = revision
+
+        if self.is_modelscope:
+            from modelscope.hub.snapshot_download import (
+                snapshot_download as download_func,
+            )
+
+            if allow_patterns is not None:
+                download_kwargs["allow_file_pattern"] = allow_patterns
+        else:
+            from huggingface_hub import snapshot_download as download_func
+
+            if allow_patterns is not None:
+                download_kwargs["allow_patterns"] = allow_patterns
+
+        return retry_snapshot_download(
+            download_func,
+            model_id,
+            None,
+            model_id,
+            **download_kwargs,
+        )
+
+
 def valid_model_revision(
     meta_path: str,
     expected_model_revision: Optional[str],
@@ -1074,6 +1212,39 @@ def is_valid_model_uri(model_uri: Optional[str]) -> bool:
         return True
 
 
+def is_remote_uri(model_uri: str) -> bool:
+    """Whether resolving ``model_uri`` needs the network."""
+    return parse_uri(model_uri)[0] == OCI_SCHEME
+
+
+def resolve_model_uri(model_uri: str, model_name: Optional[str] = None) -> str:
+    """The local directory a ``model_uri`` names, ready to be symlinked at.
+
+    Shared by every cache manager so all model types accept the same schemes.
+    A ``file://`` root is used as is; an ``oci://`` reference is pulled through
+    llmman into its content-addressed store.
+    """
+    src_scheme, src_root = parse_uri(model_uri)
+    if src_root.endswith("/"):
+        # remove trailing path separator.
+        src_root = src_root[:-1]
+
+    if src_scheme == "file":
+        if not os.path.isabs(src_root):
+            raise ValueError(f"Model URI cannot be a relative path: {model_uri}")
+        if not os.path.exists(src_root):
+            of_model = f" of model {model_name!r}" if model_name else ""
+            raise ValueError(
+                f"Model URI path does not exist: {src_root}. "
+                f"Please check the `model_uri`{of_model}."
+            )
+        return src_root
+    elif src_scheme == OCI_SCHEME:
+        return resolve_oci_model(src_root)
+    else:
+        raise ValueError(f"Unsupported URL scheme: {src_scheme}")
+
+
 def cache_from_uri(model_spec: CacheableModelSpec) -> str:
     cache_dir = os.path.realpath(
         os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
@@ -1083,21 +1254,10 @@ def cache_from_uri(model_spec: CacheableModelSpec) -> str:
         return cache_dir
 
     assert model_spec.model_uri is not None
-    src_scheme, src_root = parse_uri(model_spec.model_uri)
-    if src_root.endswith("/"):
-        # remove trailing path separator.
-        src_root = src_root[:-1]
-
-    if src_scheme == "file":
-        if not os.path.isabs(src_root):
-            raise ValueError(
-                f"Model URI cannot be a relative path: {model_spec.model_uri}"
-            )
-        os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
-        os.symlink(src_root, cache_dir, target_is_directory=True)
-        return cache_dir
-    else:
-        raise ValueError(f"Unsupported URL scheme: {src_scheme}")
+    src_root = resolve_model_uri(model_spec.model_uri, model_spec.model_name)
+    os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
+    os.symlink(src_root, cache_dir, target_is_directory=True)
+    return cache_dir
 
 
 def select_device(device):
@@ -1168,6 +1328,7 @@ class CancellableDownloader:
     _original_thread_pool_submit = None  # Tuple with original pool submit method
     _patch_lock = threading.Lock()  # Additional lock for patching operations
     _tqdm_owner_attr = "_xinference_downloader"
+    _main_progress_units = {"it", "file", "files"}
 
     def __init__(
         self,
@@ -1215,6 +1376,10 @@ class CancellableDownloader:
         if owner is not None:
             setattr(tqdm_instance, cls._tqdm_owner_attr, owner)
         return owner
+
+    @classmethod
+    def _is_main_progress_unit(cls, unit: Any) -> bool:
+        return str(unit or "").lower() in cls._main_progress_units
 
     def _remove_from_context(self) -> None:
         downloaders = list(_cancellable_downloaders_var.get())
@@ -1428,7 +1593,7 @@ class CancellableDownloader:
                     unit = getattr(tqdm_instance, "unit", "it")
                     progresses = (
                         downloader._main_progresses
-                        if unit == "it"
+                        if downloader._is_main_progress_unit(unit)
                         else downloader._download_progresses
                     )
                     with downloader._progress_lock:
@@ -1437,7 +1602,7 @@ class CancellableDownloader:
                 return result
 
             # Thread-safe patched update
-            def patched_update(tqdm_instance, n):
+            def patched_update(tqdm_instance, n=1):
                 downloader = CancellableDownloader._get_tqdm_owner(tqdm_instance)
                 progresses = None
                 unit = None
@@ -1450,7 +1615,7 @@ class CancellableDownloader:
                         tqdm_instance, "disable", False
                     ):
                         unit = getattr(tqdm_instance, "unit", "it")
-                        if unit == "it":
+                        if downloader._is_main_progress_unit(unit):
                             progresses = getattr(downloader, "_main_progresses", None)
                         else:
                             progresses = getattr(
@@ -1467,7 +1632,7 @@ class CancellableDownloader:
                             result = original_update_plain(tqdm_instance, n)
                             current_n = getattr(tqdm_instance, "n", 0) or 0
 
-                            if unit == "it":
+                            if downloader._is_main_progress_unit(unit):
                                 newly_accounted = max(int(current_n - previous_n), 0)
                                 for _ in range(
                                     min(
@@ -1809,6 +1974,31 @@ def _get_engine_params_by_name(
 
             for engine_class in supported_engines[engine_name]:
                 try:
+                    check_host = getattr(engine_class, "check_host", None)
+                    if callable(check_host):
+                        (
+                            host_ok,
+                            host_reason,
+                            host_error_type,
+                            host_details,
+                        ) = _normalize_match_result(
+                            check_host(),
+                            f"Engine {engine_name} is incompatible with the current host",
+                            "host_incompatible",
+                        )
+                        if not host_ok:
+                            _append_unavailable_engine(
+                                engine_name,
+                                host_reason,
+                                host_error_type,
+                                host_details,
+                            )
+                            # The engine was evaluated and rejected by a hard,
+                            # non-installable constraint. Do not let a
+                            # virtualenv marker turn it back into an option.
+                            matched = True
+                            break
+
                     match_func = getattr(engine_class, "match", None)
                     for family in families:
                         match_res = (
@@ -2024,6 +2214,52 @@ def _get_engine_params_by_name(
         _collect_supported_image_engines(
             audio_families, supported_audio_engines, "audio"
         )
+        return engine_params
+
+    if model_type == "video":
+        from .video import BUILTIN_VIDEO_MODELS
+        from .video.core import VIDEO_REGISTRY_LOCK
+        from .video.engine_family import VIDEO_ENGINES, get_supported_engines_for_model
+
+        with VIDEO_REGISTRY_LOCK:
+            if model_name not in VIDEO_ENGINES:
+                return None
+            available_engines = deepcopy(VIDEO_ENGINES[model_name])
+            video_families: List[Any] = list(BUILTIN_VIDEO_MODELS.get(model_name, []))
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "video_class")
+        supported_video_engines = get_supported_engines_for_model(video_families)
+        _validate_available_image_engines(
+            video_families,
+            supported_video_engines,
+            "video",
+        )
+        _collect_supported_image_engines(
+            video_families, supported_video_engines, "video"
+        )
+        return engine_params
+
+    if model_type == "world":
+        from .world import BUILTIN_WORLD_MODELS
+        from .world.engine_family import WORLD_ENGINES, get_supported_engines_for_model
+
+        if model_name not in WORLD_ENGINES:
+            return None
+
+        available_engines = deepcopy(WORLD_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "world_class")
+        world_families: List[Any] = list(BUILTIN_WORLD_MODELS.get(model_name, []))
+        supported_world_engines = get_supported_engines_for_model(world_families)
+        _validate_available_image_engines(
+            world_families,
+            supported_world_engines,
+            "world",
+        )
+        _collect_supported_image_engines(
+            world_families, supported_world_engines, "world"
+        )
+        _apply_engine_host_checks(engine_params, supported_world_engines)
         return engine_params
 
     return None
@@ -2277,6 +2513,30 @@ def _get_engine_params_by_name_with_virtual_env(
 
             for engine_class in supported_engines[engine_name]:
                 try:
+                    check_host = getattr(engine_class, "check_host", None)
+                    if callable(check_host):
+                        (
+                            host_ok,
+                            host_reason,
+                            host_error_type,
+                            host_details,
+                        ) = _normalize_match_result(
+                            check_host(),
+                            f"Engine {engine_name} is incompatible with the current host",
+                            "host_incompatible",
+                        )
+                        if not host_ok:
+                            _append_unavailable_engine(
+                                engine_name,
+                                host_reason,
+                                host_error_type,
+                                host_details,
+                            )
+                            # Hard host constraints cannot be repaired by
+                            # installing dependencies in a virtualenv.
+                            matched = True
+                            break
+
                     match_func = getattr(engine_class, "match", None)
                     for family in families:
                         match_res = (
@@ -2572,9 +2832,77 @@ def _get_engine_params_by_name_with_virtual_env(
 
         return engine_params
 
+    elif model_type == "video":
+        from .video import BUILTIN_VIDEO_MODELS
+        from .video.core import VIDEO_REGISTRY_LOCK
+        from .video.engine_family import VIDEO_ENGINES, get_supported_engines_for_model
+
+        with VIDEO_REGISTRY_LOCK:
+            if model_name not in VIDEO_ENGINES:
+                return None
+            available_engines = deepcopy(VIDEO_ENGINES[model_name])
+            video_families: List[Any] = list(BUILTIN_VIDEO_MODELS.get(model_name, []))
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "video_class")
+        supported_video_engines = get_supported_engines_for_model(video_families)
+        video_engine_markers: Set[str] = set()
+        for family in video_families:
+            video_engine_markers |= _collect_virtualenv_engine_markers(family)
+        _validate_available_image_engines(
+            video_families,
+            supported_video_engines,
+            "video",
+            video_engine_markers,
+            enable_virtual_env,
+        )
+        _collect_supported_image_engines(
+            video_families, supported_video_engines, "video"
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            supported_video_engines,
+            video_engine_markers,
+            enable_virtual_env,
+        )
+        return engine_params
+
+    elif model_type == "world":
+        from .world import BUILTIN_WORLD_MODELS
+        from .world.engine_family import WORLD_ENGINES, get_supported_engines_for_model
+
+        if model_name not in WORLD_ENGINES:
+            return None
+
+        available_engines = deepcopy(WORLD_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "world_class")
+        world_families: List[Any] = list(BUILTIN_WORLD_MODELS.get(model_name, []))
+        supported_world_engines = get_supported_engines_for_model(world_families)
+        world_engine_markers: Set[str] = set()
+        for family in world_families:
+            world_engine_markers |= _collect_virtualenv_engine_markers(family)
+        _validate_available_image_engines(
+            world_families,
+            supported_world_engines,
+            "world",
+            world_engine_markers,
+            enable_virtual_env,
+        )
+        _collect_supported_image_engines(
+            world_families, supported_world_engines, "world"
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            supported_world_engines,
+            world_engine_markers,
+            enable_virtual_env,
+        )
+        _apply_engine_host_checks(engine_params, supported_world_engines)
+        return engine_params
+
     raise ValueError(
         "Cannot support model_engine for "
-        f"{model_type}, only available for LLM, embedding, rerank, image, audio"
+        f"{model_type}, only available for LLM, embedding, rerank, image, audio, video, world"
     )
 
 
@@ -2678,7 +3006,7 @@ def flatten_quantizations(input_json: dict):
             record["quantization"] = quant
 
             for key, value in hub_info.items():
-                if key != "quantizations":
+                if key not in ("quantizations", "model_metadata_by_quantization"):
                     if isinstance(value, str) and "{quantization}" in value:
                         try:
                             value = value.format(quantization=quant)
@@ -2686,6 +3014,10 @@ def flatten_quantizations(input_json: dict):
                             pass
                     record[key] = value
 
+            if "model_metadata_by_quantization" in hub_info:
+                record["model_metadata"] = hub_info[
+                    "model_metadata_by_quantization"
+                ].get(quant)
             flattened.append(record)
     return flattened
 
@@ -2881,8 +3213,17 @@ def merge_models_by_timestamp(
             for model in built_in_list:
                 all_models.append((model.updated_at, model))
 
-            # Add user models
+            # Add user models, skipping any value-identical to a model already
+            # present. install_models_with_merge reruns on every runtime refresh
+            # against the same downloaded JSON, so without this guard a
+            # downloaded entry sharing content and updated_at with an existing
+            # one keeps re-appending as a duplicate on every call.
+            existing_keys = {family_identity_key(model) for _, model in all_models}
             for model in user_model_list:
+                key = family_identity_key(model)
+                if key in existing_keys:
+                    continue
+                existing_keys.add(key)
                 all_models.append((model.updated_at, model))
 
             # Sort by updated_at (newest first) and keep the latest
@@ -2933,12 +3274,17 @@ def install_models_with_merge(
         os.path.abspath(load_model_family_func.__code__.co_filename)
     )
     builtin_json_path = os.path.join(current_dir, builtin_json_file)
-    load_model_family_func(builtin_json_path, built_in_dict)
+
+    # Load and mark into a fresh dict, never built_in_dict directly: a repeat
+    # refresh would otherwise mark a downloaded family left over from a prior
+    # merge as built-in too, then have it shadow its own correctly-False copy.
+    freshly_loaded_builtins: Dict[str, Any] = {}
+    load_model_family_func(builtin_json_path, freshly_loaded_builtins)
 
     # Mark these as vetted built-in models. Loaders may enable trust_remote_code
     # for built-ins without an operator opt-in; user-supplied / downloaded models
     # (loaded below) keep is_builtin=False and stay gated (CWE-94).
-    for _specs in built_in_dict.values():
+    for _specs in freshly_loaded_builtins.values():
         for _family in _specs:
             _family.is_builtin = True
 
@@ -2949,21 +3295,22 @@ def install_models_with_merge(
             user_models, user_model_type, user_json_filename, load_model_family_func
         )
 
-        # Create a copy of built-in models for merging
-        built_in_models_copy = dict(built_in_dict)
         if model_normalize_func is not None:
             for user_model_list in user_models.values():
                 for user_model in user_model_list:
-                    model_normalize_func(user_model, built_in_models_copy)
+                    model_normalize_func(user_model, freshly_loaded_builtins)
 
         # Merge models, keeping the latest version based on updated_at
         merged_models = merge_models_by_timestamp(
-            built_in_models_copy, user_models, model_identity_func
+            freshly_loaded_builtins, user_models, model_identity_func
         )
 
         # Update the dictionary with merged results
         built_in_dict.clear()
         built_in_dict.update(merged_models)
+    else:
+        built_in_dict.clear()
+        built_in_dict.update(freshly_loaded_builtins)
 
 
 def allow_trust_remote_code(model_family) -> bool:

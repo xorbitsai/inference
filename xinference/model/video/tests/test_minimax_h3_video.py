@@ -86,7 +86,7 @@ def test_minimax_h3_selects_modelscope_source(monkeypatch):
     import xinference.model.video as video_module
 
     model_families = {}
-    load_model_family_from_json("model_spec.json", model_families)
+    load_model_family_from_json("models", model_families)
     monkeypatch.setattr(video_module, "BUILTIN_VIDEO_MODELS", model_families)
     monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
 
@@ -111,7 +111,7 @@ def test_minimax_h3_selects_huggingface_lightning_source(monkeypatch):
     import xinference.model.video as video_module
 
     model_families = {}
-    load_model_family_from_json("model_spec.json", model_families)
+    load_model_family_from_json("models", model_families)
     monkeypatch.setattr(video_module, "BUILTIN_VIDEO_MODELS", model_families)
     monkeypatch.setenv("XINFERENCE_MODEL_SRC", "huggingface")
 
@@ -198,7 +198,9 @@ def test_video_rejects_unsupported_lightning_before_cache(monkeypatch):
             cache_called = True
             return "/tmp/lightning.safetensors"
 
-    monkeypatch.setattr(core_module, "match_diffusion", lambda *args: _model_spec())
+    monkeypatch.setattr(
+        core_module, "match_diffusion", lambda *args, **kwargs: _model_spec()
+    )
     monkeypatch.setattr(cache_manager_module, "VideoCacheManager", FakeCacheManager)
 
     with pytest.raises(ValueError, match="does not support lightning acceleration"):

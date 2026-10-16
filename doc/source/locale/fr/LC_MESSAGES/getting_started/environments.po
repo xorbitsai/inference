@@ -138,18 +138,13 @@ msgstr ""
 "Nombre maximal de tentatives de téléchargement pour un fichier de modèle."
 " La valeur par défaut est 3."
 
-#: ../../source/getting_started/environments.rst:58
-msgid "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
-msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
+#: ../../source/getting_started/environments.rst:73
+msgid "XINFERENCE_LLMMAN_BIN"
+msgstr "XINFERENCE_LLMMAN_BIN"
 
-#: ../../source/getting_started/environments.rst:59
-msgid ""
-"Enable continuous batching for text-to-image models by specifying the "
-"target image size (e.g., ``1024*1024``). Default is unset."
-msgstr ""
-"Activez le traitement par lots continu pour le modèle texte-image en "
-"spécifiant la taille de l'image cible (par exemple ``1024*1024``). Non "
-"défini par défaut."
+#: ../../source/getting_started/environments.rst:74
+msgid "Path to the ``llmman`` executable used to resolve ``oci://`` model URIs. Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an ``llmman serve`` daemon that is not on ``127.0.0.1:17434``."
+msgstr "Chemin de l'exécutable ``llmman`` utilisé pour résoudre les URI de modèle ``oci://``. Par défaut, ``llmman`` dans ``PATH``. Définissez ``LLMMAN_HOST`` pour atteindre un démon ``llmman serve`` qui n'écoute pas sur ``127.0.0.1:17434``."
 
 #: ../../source/getting_started/environments.rst:63
 msgid "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
@@ -465,3 +460,106 @@ msgstr ""
 "conservés. La valeur par défaut est 90. Voir "
 ":ref:`user_guide_audit_security`."
 
+#: ../../source/getting_started/environments.rst:56
+msgid "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+
+#: ../../source/getting_started/environments.rst:58
+msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
+msgstr "Âge maximal en secondes du dernier instantané valide de mémoire GPU par modèle conservé par le superviseur lorsqu’un worker omet le champ parce que la collecte a échoué ou a été ignorée. Un instantané explicitement vide efface toujours immédiatement le cache. La valeur par défaut est 90."
+
+#: ../../source/getting_started/environments.rst:233
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+
+#: ../../source/getting_started/environments.rst:234
+msgid "Initial delay in seconds between Router Agent bootstrap retries. The delay uses exponential backoff with jitter. Default value is 1."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:238
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+
+#: ../../source/getting_started/environments.rst:239
+msgid "Maximum delay in seconds between Router Agent bootstrap retries. Default value is 15 and must not be lower than the initial delay."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:243
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+
+#: ../../source/getting_started/environments.rst:244
+msgid "Total deadline in seconds for Router Agent startup registration and initial synchronization retries. Default value is 120."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:15
+msgid "XOSCAR_AUTH_KEY"
+msgstr "XOSCAR_AUTH_KEY"
+
+#: ../../source/getting_started/environments.rst:16
+msgid ""
+"Shared secret for Xoscar actor transport authentication, supported by Xoscar"
+" 0.12.0 and later. Unset or empty keeps the legacy unauthenticated "
+"transport; upgrading alone does not enable protection. HTTP API "
+"authentication does not protect actor ports. See the `security advisory "
+"<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_."
+msgstr ""
+"Secret partagé pour authentifier le transport des acteurs Xoscar, pris en "
+"charge à partir de Xoscar 0.12.0. Une valeur absente ou vide conserve le "
+"transport historique sans authentification ; la mise à niveau seule ne "
+"protège pas les communications. L’authentification de l’API HTTP ne protège "
+"pas les ports des acteurs. Consultez l’`avis de sécurité "
+"<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_."
+
+#: ../../source/getting_started/environments.rst:22
+msgid ""
+"Generate one random secret per deployment with the following command. "
+"Distribute the same value through your secret-management system before "
+"starting ``xinference-local``, ``xinference-supervisor``, every "
+"``xinference-worker``, and any direct Xoscar actor clients. Child processes,"
+" including model virtual environments, inherit the variable. HTTP clients do"
+" not need this secret."
+msgstr ""
+"Générez un seul secret aléatoire par déploiement avec la commande suivante. "
+"Distribuez la même valeur via votre gestionnaire de secrets avant de "
+"démarrer ``xinference-local``, ``xinference-supervisor``, tous les "
+"``xinference-worker`` et les clients directs des acteurs Xoscar. Les "
+"processus enfants, y compris les environnements virtuels des modèles, "
+"héritent de cette variable. Les clients HTTP n’ont pas besoin de ce secret."
+
+#: ../../source/getting_started/environments.rst:33
+msgid ""
+"Upgrade all actor peers to Xoscar 0.12.0 or later before enabling the key, "
+"then coordinate a restart with the same key on every peer. Keyed and unkeyed"
+" peers cannot communicate; there is no automatic downgrade or mixed-mode "
+"rolling upgrade. Key rotation also requires a coordinated restart. For "
+"``docker run``, pass the exported variable with ``-e XOSCAR_AUTH_KEY``; for "
+"Kubernetes, inject the same Secret into each server container's environment."
+msgstr ""
+"Avant d’activer la clé, mettez tous les pairs des acteurs à niveau vers "
+"Xoscar 0.12.0 ou une version ultérieure, puis coordonnez leur redémarrage "
+"avec la même clé. Les pairs avec et sans clé ne peuvent pas communiquer ; ni"
+" rétrogradation automatique ni mise à niveau progressive en mode mixte ne "
+"sont prises en charge. La rotation de la clé nécessite aussi un redémarrage "
+"coordonné. Avec ``docker run``, transmettez la variable exportée avec ``-e "
+"XOSCAR_AUTH_KEY`` ; avec Kubernetes, injectez le même Secret dans "
+"l’environnement de chaque conteneur serveur."
+
+#: ../../source/getting_started/environments.rst:40
+msgid ""
+"Socket and UCX messages are authenticated before deserialization. Anyone "
+"holding the key is a trusted peer with Python execution privileges. "
+"Deployment administrators must restrict actor ports to intended cluster "
+"peers. Authentication does not encrypt traffic or prevent replay; "
+"authenticated GPU transfers stage device buffers in host memory for hashing "
+"and add CPU and host-memory overhead."
+msgstr ""
+"Les messages Socket et UCX sont authentifiés avant la désérialisation. Tout "
+"détenteur de la clé est un pair de confiance autorisé à exécuter du code "
+"Python. Les administrateurs doivent limiter l’accès aux ports des acteurs "
+"aux pairs prévus du cluster. L’authentification ne chiffre pas le trafic et "
+"n’empêche pas les attaques par rejeu ; les transferts GPU authentifiés "
+"copient temporairement les tampons du périphérique dans la mémoire hôte pour"
+" le hachage, avec un surcoût CPU et mémoire hôte."

@@ -131,9 +131,9 @@ class Qwen3ASRModel(BatchMixin):
                 snapshot_download as ms_download,
             )
 
-            from ..utils import retry_download
+            from ..utils import retry_snapshot_download
 
-            return retry_download(ms_download, model_id, None, model_id)
+            return retry_snapshot_download(ms_download, model_id, None, model_id)
         except Exception:
             logger.warning(
                 "Failed to pre-download forced aligner %s from ModelScope; "

@@ -14,6 +14,7 @@
 
 import asyncio
 import errno
+import hashlib
 import json
 import logging
 import os
@@ -27,12 +28,14 @@ import sys
 import threading
 import time
 from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from logging import getLogger
 from typing import (
     TYPE_CHECKING,
     Any,
+    Awaitable,
+    Callable,
     Dict,
     List,
     Literal,
@@ -40,6 +43,7 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TypeVar,
     Union,
     no_type_check,
 )
@@ -48,6 +52,7 @@ import xoscar as xo
 from async_timeout import timeout
 from xoscar import MainActorPoolType
 
+from .. import __version__
 from ..client.restful.restful_client import Client as RESTfulClient
 from ..constants import (
     XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU,
@@ -103,6 +108,8 @@ from .utils import (
     build_subpool_envs_for_virtual_env,
     filter_virtualenv_packages_by_markers,
     find_direct_reference_packages,
+    find_remote_direct_reference_packages,
+    get_path_size,
     log_async,
     log_sync,
     merge_virtual_env_packages,
@@ -113,6 +120,7 @@ from .utils import (
     purge_dir,
     rewrite_direct_url_packages_for_index,
 )
+from .virtual_env_manager import VirtualEnvConflictError
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 from .virtual_env_manager import (
     ensure_system_torch_pin,
@@ -120,7 +128,7 @@ from .virtual_env_manager import (
     get_engine_critical_dependency_specs,
     get_engine_model_format_virtualenv_packages,
     is_cuda_compatible,
-    is_flash_attn_requirement,
+    is_model_find_links_only_requirement,
     merge_virtual_env_find_links,
     pin_sentence_transformers_numpy_abi,
     resolve_virtualenv_python_path,
@@ -137,6 +145,8 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
+_T = TypeVar("_T")
+
 # Track which virtualenv paths have already been set up (install_packages +
 # post-install hooks) within the current process lifetime. Maps venv_path to
 # a fingerprint of the resolved package list so that a change in package
@@ -144,20 +154,73 @@ logger = getLogger(__name__)
 # venv with the same package set, only the first one runs the full setup;
 # subsequent replicas skip it to avoid downgrade/upgrade churn that can
 # corrupt .so files while child subprocesses are importing torch/vllm.
-_venv_setup_done: Dict[str, int] = {}
+_venv_setup_done: Dict[str, str] = {}
+
+# Building the SGLang source snapshot used by Spark-X2.5 normally discovers
+# optional Rust extensions through cargo.  Xinference runtime images do not
+# carry a Rust toolchain; SGLang explicitly supports a pure-Python build for
+# serving workloads that do not use those extensions.
+_sglang_source_build_env_lock = threading.Lock()
 
 
-def _freeze(value):
-    """Recursively convert lists/dicts to hashable tuples for fingerprinting.
+@contextmanager
+def _sglang_source_build_environment(packages: List[str]):
+    uses_sglang_source_snapshot = any(
+        package.split(";", 1)[0]
+        .strip()
+        .startswith("sglang @ git+https://github.com/sgl-project/sglang.git@")
+        for package in packages
+    )
+    if not uses_sglang_source_snapshot:
+        yield
+        return
 
-    ``conf`` values such as ``extra_index_url`` and ``trusted_host`` are
-    ``List[str]``, which cannot be hashed directly.
-    """
+    with _sglang_source_build_env_lock:
+        old_value = os.environ.get("SGLANG_BUILD_RUST_EXTS")
+        os.environ["SGLANG_BUILD_RUST_EXTS"] = "none"
+        try:
+            yield
+        finally:
+            if old_value is None:
+                os.environ.pop("SGLANG_BUILD_RUST_EXTS", None)
+            else:
+                os.environ["SGLANG_BUILD_RUST_EXTS"] = old_value
+
+
+def _normalize_fingerprint_value(value: Any) -> Any:
     if isinstance(value, dict):
-        return tuple(sorted((k, _freeze(v)) for k, v in value.items()))
-    if isinstance(value, list):
-        return tuple(_freeze(v) for v in value)
+        return {
+            str(key): _normalize_fingerprint_value(item) for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_normalize_fingerprint_value(item) for item in value]
+    if isinstance(value, set):
+        return sorted(_normalize_fingerprint_value(item) for item in value)
+    if isinstance(value, os.PathLike):
+        return os.fspath(value)
     return value
+
+
+def _fingerprint_payload(
+    packages: List[str],
+    conf: dict,
+    variables: dict,
+    architectures: Optional[List[str]],
+    *,
+    model_name: Optional[str] = None,
+    model_engine: Optional[str] = None,
+    python_version: Optional[str] = None,
+) -> Dict[str, Any]:
+    return {
+        "environment_format_version": 4,
+        "model_name": model_name,
+        "model_engine": model_engine.lower() if model_engine else None,
+        "python_version": python_version,
+        "packages": sorted(packages),
+        "conf": _normalize_fingerprint_value(conf),
+        "variables": _normalize_fingerprint_value(variables),
+        "architectures": sorted(architectures or []),
+    }
 
 
 def _make_fingerprint(
@@ -165,20 +228,44 @@ def _make_fingerprint(
     conf: dict,
     variables: dict,
     architectures: Optional[List[str]],
-) -> int:
-    """Return a hash fingerprint of every setup input that affects the result.
+    *,
+    model_name: Optional[str] = None,
+    model_engine: Optional[str] = None,
+    python_version: Optional[str] = None,
+) -> str:
+    """Return a stable SHA256 fingerprint of all environment setup inputs.
 
-    Includes the canonical package list, install configuration (conf),
-    template variables, and target architectures so a change to any of
-    them produces a different fingerprint and triggers a re-setup.
+    Includes the environment identity, canonical package list, install
+    configuration, template variables, and target architectures so a change
+    to any of them produces a different fingerprint and triggers a re-setup.
     """
-    key = (
-        tuple(sorted(packages)),
-        _freeze(conf),
-        _freeze(variables),
-        tuple(sorted(architectures) if architectures else ()),
+    payload = _fingerprint_payload(
+        packages,
+        conf,
+        variables,
+        architectures,
+        model_name=model_name,
+        model_engine=model_engine,
+        python_version=python_version,
     )
-    return hash(key)
+    serialized = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        default=str,
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _read_venv_setup_marker(venv_path: str) -> Optional[Dict[str, Any]]:
+    marker_path = os.path.join(venv_path, ".xinference_setup_done")
+    try:
+        with open(marker_path, encoding="utf-8") as marker_file:
+            marker = json.load(marker_file)
+    except (OSError, ValueError, TypeError):
+        return None
+    return marker if isinstance(marker, dict) else None
 
 
 def _should_skip_venv_setup(
@@ -187,23 +274,30 @@ def _should_skip_venv_setup(
     conf: dict,
     variables: dict,
     architectures: Optional[List[str]] = None,
+    *,
+    model_name: Optional[str] = None,
+    model_engine: Optional[str] = None,
+    python_version: Optional[str] = None,
 ) -> bool:
     """Return True if the venv was already set up with the given inputs.
 
-    Checks three conditions:
-    1. The path is in the process-local done dict.
-    2. The stored fingerprint matches the current inputs (packages, conf,
-       variables, and architectures).
-    3. The on-disk marker file exists (guards against external venv deletion
-       via ``remove_virtual_env`` during the same process lifetime).
+    The JSON marker is authoritative so a restarted Worker can safely reuse a
+    fully prepared environment. The process-local map is only a fast cache.
     """
-    marker_path = os.path.join(venv_path, ".xinference_setup_done")
-    fp = _make_fingerprint(packages, conf, variables, architectures)
-    return (
-        venv_path in _venv_setup_done
-        and _venv_setup_done[venv_path] == fp
-        and os.path.exists(marker_path)
+    fp = _make_fingerprint(
+        packages,
+        conf,
+        variables,
+        architectures,
+        model_name=model_name,
+        model_engine=model_engine,
+        python_version=python_version,
     )
+    marker = _read_venv_setup_marker(venv_path)
+    if marker is None or marker.get("fingerprint") != fp:
+        return False
+    _venv_setup_done[venv_path] = fp
+    return True
 
 
 def _mark_venv_setup_done(
@@ -212,20 +306,63 @@ def _mark_venv_setup_done(
     conf: dict,
     variables: dict,
     architectures: Optional[List[str]] = None,
+    *,
+    model_name: Optional[str] = None,
+    model_engine: Optional[str] = None,
+    python_version: Optional[str] = None,
 ) -> None:
     """Record that *venv_path* has been set up with the given inputs."""
-    fp = _make_fingerprint(packages, conf, variables, architectures)
+    fp = _make_fingerprint(
+        packages,
+        conf,
+        variables,
+        architectures,
+        model_name=model_name,
+        model_engine=model_engine,
+        python_version=python_version,
+    )
     _venv_setup_done[venv_path] = fp
     marker_path = os.path.join(venv_path, ".xinference_setup_done")
+    marker_tmp_path = f"{marker_path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    marker = {
+        "schema_version": 1,
+        "fingerprint": fp,
+        "model_name": model_name,
+        "model_engine": model_engine.lower() if model_engine else None,
+        "python_version": python_version,
+        "setup_inputs": _fingerprint_payload(
+            packages,
+            conf,
+            variables,
+            architectures,
+            model_name=model_name,
+            model_engine=model_engine,
+            python_version=python_version,
+        ),
+        "updated_at": int(time.time()),
+    }
     try:
-        with open(marker_path, "w") as f:
-            f.write(str(fp))
+        with open(marker_tmp_path, "w", encoding="utf-8") as marker_file:
+            json.dump(marker, marker_file, sort_keys=True, ensure_ascii=False)
+        os.replace(marker_tmp_path, marker_path)
     except OSError:
         logger.debug(
             "Failed to write .xinference_setup_done marker to %s",
             venv_path,
             exc_info=True,
         )
+        try:
+            os.unlink(marker_tmp_path)
+        except OSError:
+            pass
+
+
+@dataclass
+class VirtualEnvUsage:
+    env_path: str
+    fingerprint: str
+    active_model_uids: Set[str] = field(default_factory=set)
+    preparing_model_uids: Set[str] = field(default_factory=set)
 
 
 # Per-venv process-local locks so the check-and-setup sequence in
@@ -480,6 +617,52 @@ async def _wait_pids_dead(pids: set, timeout: float = 5.0):
             await asyncio.sleep(0.2)
 
 
+def _stop_reload_children(processes: List[Any]) -> None:
+    """Reap retained process identities after force-removing their actor pool."""
+    import psutil
+
+    def live(process: Any) -> bool:
+        try:
+            return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            return False
+
+    def wait(processes: List[Any], timeout: float) -> List[Any]:
+        deadline = time.monotonic() + timeout
+        while processes and time.monotonic() < deadline:
+            processes = [process for process in processes if live(process)]
+            if processes:
+                time.sleep(0.05)
+        return processes
+
+    owned = {process.pid: process for process in processes if live(process)}
+    for process in list(owned.values()):
+        try:
+            # A loading engine may have spawned more ranks since capture.
+            owned.update(
+                (child.pid, child) for child in process.children(recursive=True)
+            )
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    for process in owned.values():
+        try:
+            process.terminate()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    alive = wait(list(owned.values()), 3)
+    for process in alive:
+        try:
+            # psutil retains creation time and checks PID reuse before kill.
+            process.kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    alive = wait(alive, 5)
+    if alive:
+        logger.warning(
+            "Reload engine children did not exit: %s", [p.pid for p in alive]
+        )
+
+
 def _process_or_ancestor_has_uid(proc: Any, uid_lower: str) -> bool:
     """Return True if proc or any of its ancestors has uid_lower in cmdline."""
     current = proc
@@ -677,12 +860,18 @@ class ModelStatus:
 
 
 @dataclass
-class LaunchInfo:
+class DownloadInfo:
     cancel_event: threading.Event = field(default_factory=threading.Event)
+    # downloader, reports progress and cancels the active file transfer
+    downloader: Optional[CancellableDownloader] = None
+    # Inputs needed to identify the exact Hub repository for safe cleanup.
+    payload: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class LaunchInfo(DownloadInfo):
     # virtualenv manager
     virtual_env_manager: Optional["VirtualEnvManager"] = None
-    # downloader, report progress or cancel entire download
-    downloader: Optional[CancellableDownloader] = None
     # sub pools created for the model
     sub_pools: Optional[List[str]] = None
 
@@ -733,6 +922,12 @@ class WorkerActor(xo.StatelessActor):
         # internal states.
         # temporary placeholder during model launch process:
         self._model_uid_launching_guard: Dict[str, LaunchInfo] = {}
+        # download-only operations never register a running model.
+        self._cache_uid_to_download_info: Dict[str, DownloadInfo] = {}
+        # Serialize repository cleanup with registration of new downloads.  An
+        # already-running download is detected through the maps above/below;
+        # a new one cannot enter those maps halfway through a deletion.
+        self._download_artifact_cleanup_lock = asyncio.Lock()
         # Launch concurrency control
         self._launch_semaphore = asyncio.Semaphore(XINFERENCE_MAX_CONCURRENT_LAUNCHES)
         self._launch_active = 0
@@ -756,6 +951,10 @@ class WorkerActor(xo.StatelessActor):
         # memory back to the owning replica deterministically, without reading
         # any process environ.
         self._model_uid_to_subpool_pids: Dict[str, Set[int]] = {}
+        # Sub-pool addresses are stable across process restarts and allow the
+        # corresponding OS PID ownership snapshot to be refreshed dynamically.
+        self._model_uid_to_subpool_addresses: Dict[str, Set[str]] = {}
+        self._gpu_memory_collection_fail_count = 0
 
         if is_metrics_disabled():
             logger.info(
@@ -782,6 +981,9 @@ class WorkerActor(xo.StatelessActor):
 
         # Initialize virtual environment manager
         self._virtual_env_manager = XinferenceVirtualEnvManager(self.address)
+        self._virtual_env_usages: Dict[str, VirtualEnvUsage] = {}
+        self._model_uid_to_virtual_env_path: Dict[str, str] = {}
+        self._virtual_env_usage_lock = threading.Lock()
 
         self._lock = asyncio.Lock()
         self._persist_lock = asyncio.Lock()
@@ -1026,6 +1228,12 @@ class WorkerActor(xo.StatelessActor):
     def default_uid(cls) -> str:
         return "worker"
 
+    def update_system_settings(self, settings: Dict[str, Any]) -> None:
+        """Apply settings to download tasks created after this call."""
+        from .system_settings_store import SystemSettings, apply_system_settings
+
+        apply_system_settings(SystemSettings.from_dict(settings))
+
     def _get_spec_dicts_with_cache_status(
         self, model_family: Any, cache_manager_cls: Type
     ) -> Tuple[List[dict], List[str]]:
@@ -1190,6 +1398,9 @@ class WorkerActor(xo.StatelessActor):
             logger.debug("Startup VRAM poll failed", exc_info=True)
 
     async def __post_create__(self):
+        from ..extensions import get_extensions
+
+        get_extensions()
         self._actor_loop = asyncio.get_running_loop()
         self._supervisor_init_lock = asyncio.Lock()
 
@@ -1235,6 +1446,12 @@ class WorkerActor(xo.StatelessActor):
             register_video,
             unregister_video,
         )
+        from ..model.world import (
+            CustomWorldModelFamilyV1,
+            generate_world_description,
+            register_world,
+            unregister_world,
+        )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
@@ -1278,6 +1495,12 @@ class WorkerActor(xo.StatelessActor):
                 register_video,
                 unregister_video,
                 generate_video_description,
+            ),
+            "world": (
+                CustomWorldModelFamilyV1,
+                register_world,
+                unregister_world,
+                generate_world_description,
             ),
         }
 
@@ -1387,6 +1610,76 @@ class WorkerActor(xo.StatelessActor):
             # clear the leader's in-flight initialization.
             self._clear_unregistered_supervisor_refs()
             raise
+
+    async def _run_on_actor_loop(
+        self, coroutine_factory: Callable[[], Awaitable[_T]]
+    ) -> _T:
+        """Run a coroutine factory on the worker actor's event loop."""
+        running_loop = asyncio.get_running_loop()
+        if self._actor_loop is None:
+            # Test/local fallback. Production initializes the actor loop in
+            # __post_create__ before starting the status-reporting isolation.
+            self._actor_loop = running_loop
+            if self._supervisor_init_lock is None:
+                self._supervisor_init_lock = asyncio.Lock()
+
+        if running_loop is self._actor_loop:
+            return await coroutine_factory()
+
+        async def _invoke() -> _T:
+            # Invoke the factory only after execution has moved to the actor
+            # loop. This keeps xoscar coroutine/future creation loop-local.
+            return await coroutine_factory()
+
+        future = asyncio.run_coroutine_threadsafe(_invoke(), self._actor_loop)
+        try:
+            return await asyncio.wrap_future(future)
+        except asyncio.CancelledError:
+            # Do not leave the actor-loop RPC running after the isolation-loop
+            # caller has been cancelled during worker shutdown.
+            future.cancel()
+            raise
+
+    async def _call_supervisor_on_actor_loop(
+        self,
+        method_name: str,
+        *args: Any,
+        add_worker: bool,
+    ) -> Any:
+        """Execute one complete Supervisor RPC lifecycle on the actor loop."""
+        (
+            supervisor_ref,
+            supervisor_generation,
+        ) = await self._get_supervisor_ref_with_generation(add_worker)
+        try:
+            method = getattr(supervisor_ref, method_name)
+            return await xo.wait_for(
+                method(*args),
+                XINFERENCE_TCP_REQUEST_TIMEOUT,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self._clear_supervisor_refs(
+                expected_supervisor_ref=supervisor_ref,
+                expected_generation=supervisor_generation,
+            )
+            raise
+
+    async def _call_supervisor(
+        self,
+        method_name: str,
+        *args: Any,
+        add_worker: bool,
+    ) -> Any:
+        """Call Supervisor without creating xoscar clients on isolation loops."""
+        return await self._run_on_actor_loop(
+            lambda: self._call_supervisor_on_actor_loop(
+                method_name,
+                *args,
+                add_worker=add_worker,
+            )
+        )
 
     async def _get_supervisor_ref_on_actor_loop(
         self, add_worker: bool
@@ -1514,6 +1807,7 @@ class WorkerActor(xo.StatelessActor):
             from ..model.llm import get_llm_version_infos
             from ..model.rerank import get_rerank_model_descriptions
             from ..model.video import get_video_model_descriptions
+            from ..model.world import get_world_model_descriptions
 
             model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
             model_version_infos.update(get_llm_version_infos())
@@ -1522,6 +1816,7 @@ class WorkerActor(xo.StatelessActor):
             model_version_infos.update(get_image_model_descriptions())
             model_version_infos.update(get_audio_model_descriptions())
             model_version_infos.update(get_video_model_descriptions())
+            model_version_infos.update(get_world_model_descriptions())
             model_version_infos.update(get_flexible_model_descriptions())
             await xo.wait_for(
                 cache_tracker_ref.record_model_version(
@@ -1615,8 +1910,13 @@ class WorkerActor(xo.StatelessActor):
             model_spec = self._model_uid_to_model_spec.get(replica_model_uid, {})
             origin_uid, _ = parse_replica_model_uid(replica_model_uid)
             xavier_config = launch_args.get("xavier_config")
-            if xavier_config is not None:
-                # Xavier recovery still depends on supervisor-owned coordination state,
+            if (
+                xavier_config is not None
+                or launch_args.get("_nixl_config")
+                or launch_args.get("_xavier_cache_config", {}).get("role")
+                in ("prefill", "decode")
+            ):
+                # PD recovery still depends on supervisor-owned routing state,
                 # so only replay replicas that the supervisor can reconstruct safely.
                 continue
             created_ts = int(launch_args.get("launch_ts") or time.time())
@@ -1736,6 +2036,16 @@ class WorkerActor(xo.StatelessActor):
         skipped = 0
         failed = 0
         for model_uid, launch_args in persisted.items():
+            # Worker restart cannot rebuild the supervisor-owned native PD
+            # route. Do not allocate an unregistered replacement replica.
+            if launch_args.get("_nixl_config") is not None or launch_args.get(
+                "_xavier_cache_config", {}
+            ).get("role") in ("prefill", "decode"):
+                logger.info(
+                    "Skipping native PD replica %s on worker startup", model_uid
+                )
+                skipped += 1
+                continue
             try:
                 # Cross-validate: check if supervisor still knows about this model
                 origin_uid, rep_id = parse_replica_model_uid(model_uid)
@@ -1844,8 +2154,13 @@ class WorkerActor(xo.StatelessActor):
         model_ref = await supervisor_ref.get_model(_model_uid)
         return await model_ref.is_vllm_backend()
 
-    def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
-        if n_gpu > len(self._total_gpu_devices):
+    def allocate_devices(
+        self, model_uid: str, n_gpu: int, allowed_devices: Optional[List[int]] = None
+    ) -> List[int]:
+        total_devices = (
+            self._total_gpu_devices if allowed_devices is None else allowed_devices
+        )
+        if n_gpu > len(total_devices):
             raise RuntimeError("Requested GPUs exceed the number of available devices")
 
         # If multi-replica-per-GPU is disabled, only pick currently idle GPUs.
@@ -1858,7 +2173,7 @@ class WorkerActor(xo.StatelessActor):
                 if model_infos:
                     occupied_devices.add(dev)
             available_devices = [
-                dev for dev in self._total_gpu_devices if dev not in occupied_devices
+                dev for dev in total_devices if dev not in occupied_devices
             ]
             if n_gpu > len(available_devices):
                 raise RuntimeError("No available slot found for the model")
@@ -1869,7 +2184,7 @@ class WorkerActor(xo.StatelessActor):
 
         # Default: allow multi-tenant GPUs, pick least-loaded devices.
         gpu_loads: List[Tuple[int, int, int]] = []
-        for dev in self._total_gpu_devices:
+        for dev in total_devices:
             running_models = len(self._gpu_to_model_uids.get(dev, set()))
             load = running_models + len(
                 self._user_specified_gpu_to_model_uids.get(dev, set())
@@ -1890,7 +2205,11 @@ class WorkerActor(xo.StatelessActor):
         return sorted(devices)
 
     async def allocate_devices_with_gpu_idx(
-        self, model_uid: str, model_type: str, gpu_idx: List[int]
+        self,
+        model_uid: str,
+        model_type: str,
+        gpu_idx: List[int],
+        allowed_devices: Optional[List[int]] = None,
     ) -> List[int]:
         """
         When user specifies the gpu_idx, allocate models on user-specified GPUs whenever possible
@@ -1900,6 +2219,10 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(
                 f"Worker {self.address} cannot use the GPUs with these indexes: {gpu_idx}. "
                 f"Worker {self.address} can only see these GPUs: {self._total_gpu_devices}."
+            )
+        if allowed_devices is not None and not set(gpu_idx) <= set(allowed_devices):
+            raise ValueError(
+                "Requested GPUs are excluded by the worker resource policy"
             )
         # currently just report a warning log when there are already models on these GPUs
         for idx in gpu_idx:
@@ -1926,11 +2249,29 @@ class WorkerActor(xo.StatelessActor):
             self._user_specified_gpu_to_model_uids[idx].add((model_uid, model_type))
         return sorted(gpu_idx)
 
+    def get_extension_resources(self) -> Dict[str, Any]:
+        from ..extensions import worker_extension_metadata
+
+        return {
+            "address": self.address,
+            "gpu_devices": list(self._total_gpu_devices),
+            "extensions": worker_extension_metadata(),
+        }
+
+    async def _get_allowed_gpu_devices(self) -> Optional[List[int]]:
+        from ..extensions import get_extensions
+
+        if not get_extensions():
+            return None
+        supervisor = await self.get_supervisor_ref()
+        return await supervisor.get_worker_resource_policy(self.address)
+
     @log_async(logger=logger)
     async def get_gpu_allocation_status(self) -> Dict[str, Any]:
         """Return current device allocation snapshot for scheduling/diagnostics."""
+        allowed = await self._get_allowed_gpu_devices()
         return {
-            "total": list(self._total_gpu_devices),
+            "total": list(self._total_gpu_devices) if allowed is None else allowed,
             "models": {int(k): list(v) for k, v in self._gpu_to_model_uids.items()},
             "user_specified": {
                 int(k): [list(t) for t in v]
@@ -1980,6 +2321,7 @@ class WorkerActor(xo.StatelessActor):
         env: Optional[Dict[str, str]] = None,
         start_python: Optional[str] = None,
         model_uid: str = "",
+        external_address: Optional[str] = None,
     ) -> str:
         """Append a sub-pool under _subpool_creation_lock with a launch timeout.
 
@@ -1993,10 +2335,15 @@ class WorkerActor(xo.StatelessActor):
         caller can run its own failure-path cleanup (e.g. release_devices).
         env keys are logged (never values) because env may carry secrets.
         """
+        pool_kwargs = (
+            {} if external_address is None else {"external_address": external_address}
+        )
         async with self._subpool_creation_lock:
             try:
                 return await xo.wait_for(
-                    self._main_pool.append_sub_pool(env=env, start_python=start_python),
+                    self._main_pool.append_sub_pool(
+                        env=env, start_python=start_python, **pool_kwargs
+                    ),
                     timeout=XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
                 )
             except asyncio.TimeoutError:
@@ -2059,6 +2406,11 @@ class WorkerActor(xo.StatelessActor):
         balancing to work; deferring allocation until after preparation lets
         them all race for the same "idle" GPU snapshot instead.
         """
+        from ..extensions import get_extensions
+
+        allowed_devices = (
+            await self._get_allowed_gpu_devices() if get_extensions() else None
+        )
         env = {} if env is None else env
         devices = []
         env_name = get_available_device_env_name() or "CUDA_VISIBLE_DEVICES"
@@ -2066,7 +2418,9 @@ class WorkerActor(xo.StatelessActor):
             if isinstance(n_gpu, int) or (n_gpu == "auto" and gpu_count() > 0):
                 # Currently, n_gpu=auto means using 1 GPU
                 gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
-                devices = self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
+                devices = self.allocate_devices(
+                    model_uid=model_uid, n_gpu=gpu_cnt, allowed_devices=allowed_devices
+                )
                 env[env_name] = ",".join([str(dev) for dev in devices])
                 logger.debug(f"GPU selected: {devices} for model {model_uid}")
             if n_gpu is None:
@@ -2075,7 +2429,7 @@ class WorkerActor(xo.StatelessActor):
         else:
             assert isinstance(gpu_idx, list)
             devices = await self.allocate_devices_with_gpu_idx(
-                model_uid, model_type, gpu_idx  # type: ignore
+                model_uid, model_type, gpu_idx, allowed_devices=allowed_devices  # type: ignore
             )
             env[env_name] = ",".join([str(dev) for dev in devices])
 
@@ -2093,6 +2447,7 @@ class WorkerActor(xo.StatelessActor):
         env: Dict[str, str],
         devices: List[str],
         start_python: Optional[str] = None,
+        external_address: Optional[str] = None,
     ) -> str:
         """Spawn the model sub-pool process for devices already reserved by
         _allocate_subpool_devices."""
@@ -2105,6 +2460,19 @@ class WorkerActor(xo.StatelessActor):
         # live worker's vLLM processes on shared GPUs. Best-effort: any error
         # is logged and the launch proceeds (the timeout below is the backstop).
         _target_device_ints = [int(d) for d in devices] if devices else []
+        from ..extensions import get_extensions
+
+        # Preparation/download may outlive the admission snapshot. Revalidate
+        # before touching GPUs or spawning; outer launch cleanup releases any
+        # reservations if the distribution rejects this operation.
+        if get_extensions():
+            allowed_devices = await self._get_allowed_gpu_devices()
+            if allowed_devices is not None and not set(_target_device_ints) <= set(
+                allowed_devices
+            ):
+                raise ValueError(
+                    "Reserved GPUs are excluded by the worker resource policy"
+                )
         if _target_device_ints:
             try:
                 _free_ratio = _snapshot_gpu_free_ratio(_target_device_ints)
@@ -2146,6 +2514,17 @@ class WorkerActor(xo.StatelessActor):
                     exc_info=True,
                 )
 
+        # VRAM reclamation can await for several seconds; admission may have
+        # changed during cleanup, so check again before creating the process.
+        if get_extensions():
+            allowed_devices = await self._get_allowed_gpu_devices()
+            if allowed_devices is not None and not set(_target_device_ints) <= set(
+                allowed_devices
+            ):
+                raise ValueError(
+                    "Reserved GPUs are excluded by the worker resource policy"
+                )
+
         # H3 + C: serialize sub-pool creation and bound it with a timeout.
         # H3: append_sub_pool has no internal lock; concurrent fork+exec
         # deadlocks on fork+GIL and blocks the event loop, which also
@@ -2161,9 +2540,12 @@ class WorkerActor(xo.StatelessActor):
             start_python,
             sorted(env.keys()) if env else [],
         )
+        pool_kwargs = (
+            {} if external_address is None else {"external_address": external_address}
+        )
         try:
             subpool_address = await self._append_sub_pool_protected(
-                env=env, start_python=start_python, model_uid=model_uid
+                env=env, start_python=start_python, model_uid=model_uid, **pool_kwargs
             )
         except asyncio.TimeoutError:
             # Release devices allocated above; otherwise the GPU allocation
@@ -2215,6 +2597,17 @@ class WorkerActor(xo.StatelessActor):
                 generate_fn,
             ) = self._custom_register_type_to_cls[model_type]
             model_spec = model_spec_cls.parse_raw(model)
+            # parse_raw() applies the caller's JSON verbatim, and
+            # Config.extra = "allow" lets it set is_builtin as well.
+            # A client-submitted registration is never a vetted
+            # built-in, so reset it regardless of what the payload
+            # requested; allow_trust_remote_code() trusts this flag
+            # to enable trust_remote_code. This mirrors the same
+            # reset in Supervisor.register_model, needed here too
+            # since a supervisor forwards raw registrations to a
+            # specific worker via worker_ip.
+            if hasattr(model_spec, "is_builtin"):
+                model_spec.is_builtin = False
             try:
                 register_fn(model_spec, persist)
             except ValueError as e:
@@ -2320,6 +2713,10 @@ class WorkerActor(xo.StatelessActor):
                     register_builtin_model()
                 elif model_type.lower() == "video":
                     from ..model.video import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "world":
+                    from ..model.world import register_builtin_model
 
                     register_builtin_model()
                 else:
@@ -2560,6 +2957,7 @@ class WorkerActor(xo.StatelessActor):
                             {
                                 "model_format": family.model_format or "pytorch",
                                 "model_engine": family.engine,
+                                "quantization": family.quantization or "none",
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
                                 "cache_name": family.cache_name,
@@ -2616,21 +3014,33 @@ class WorkerActor(xo.StatelessActor):
         elif model_type == "video":
             from ..model.cache_manager import CacheManager
             from ..model.video import BUILTIN_VIDEO_MODELS
+            from ..model.video.core import VIDEO_REGISTRY_LOCK
 
-            # Add built-in video models (BUILTIN_VIDEO_MODELS contains model_name -> families list)
-            for model_name, families in BUILTIN_VIDEO_MODELS.items():
+            # Add one catalog entry per model and retain each engine/hub source
+            # as a launchable specification.
+            with VIDEO_REGISTRY_LOCK:
+                video_models = [
+                    (model_name, list(families))
+                    for model_name, families in BUILTIN_VIDEO_MODELS.items()
+                ]
+            for model_name, families in video_models:
+                if not families:
+                    continue
                 download_hubs = []
                 for family in families:
                     if family.model_hub not in download_hubs:
                         download_hubs.append(family.model_hub)
-                for family in families:
-                    if detailed:
+                if detailed:
+                    model_specs = []
+                    for family in families:
                         video_cache_manager = CacheManager(family)
-                        model_specs = [
+                        model_specs.append(
                             {
-                                "model_format": "pytorch",
+                                "model_format": family.model_format or "diffusers",
+                                "model_engine": family.engine or "diffusers",
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
+                                "cache_name": family.cache_name,
                                 "cache_status": video_cache_manager.get_cache_status(),
                                 "gguf_model_id": family.gguf_model_id,
                                 "gguf_quantizations": family.gguf_quantizations,
@@ -2638,17 +3048,61 @@ class WorkerActor(xo.StatelessActor):
                                     family.gguf_model_file_name_template
                                 ),
                             }
-                        ]
-                        ret.append(
+                        )
+                    representative = next(
+                        (
+                            family
+                            for family in families
+                            if family.model_hub == "huggingface"
+                            and (family.engine or "diffusers").lower() == "diffusers"
+                        ),
+                        families[0],
+                    )
+                    ret.append(
+                        {
+                            **representative.dict(),
+                            "model_specs": model_specs,
+                            "is_builtin": True,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "world":
+            from ..model.cache_manager import CacheManager
+            from ..model.world import BUILTIN_WORLD_MODELS
+
+            for model_name, families in BUILTIN_WORLD_MODELS.items():
+                if not families:
+                    continue
+                if detailed:
+                    model_specs = []
+                    download_hubs = []
+                    for family in families:
+                        if family.model_hub not in download_hubs:
+                            download_hubs.append(family.model_hub)
+                        world_cache_manager = CacheManager(family)
+                        model_specs.append(
                             {
-                                **family.dict(),
-                                "model_specs": model_specs,
-                                "is_builtin": True,
-                                "download_hubs": download_hubs,
+                                "model_format": family.model_format,
+                                "model_hub": family.model_hub,
+                                "model_id": family.model_id,
+                                "cache_status": world_cache_manager.get_cache_status(),
                             }
                         )
-                    else:
-                        ret.append({"model_name": model_name, "is_builtin": True})
+                    ret.append(
+                        {
+                            **families[0].dict(),
+                            "model_specs": model_specs,
+                            "is_builtin": True,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
 
             ret.sort(key=sort_helper)
             return ret
@@ -2781,13 +3235,24 @@ class WorkerActor(xo.StatelessActor):
                     return f
         elif model_type == "video":
             from ..model.video import BUILTIN_VIDEO_MODELS
+            from ..model.video.core import VIDEO_REGISTRY_LOCK
 
             # Check built-in video models
-            if model_name in BUILTIN_VIDEO_MODELS:
-                families = BUILTIN_VIDEO_MODELS[model_name]
-                for f in families:
-                    if f.model_hub == "huggingface":
-                        return f
+            with VIDEO_REGISTRY_LOCK:
+                families = list(BUILTIN_VIDEO_MODELS.get(model_name, []))
+            for f in families:
+                if f.model_hub == "huggingface":
+                    return f
+            return None
+        elif model_type == "world":
+            from ..model.world import BUILTIN_WORLD_MODELS
+
+            if model_name in BUILTIN_WORLD_MODELS:
+                families = BUILTIN_WORLD_MODELS[model_name]
+                return next(
+                    (f for f in families if f.model_hub == "huggingface"),
+                    families[0],
+                )
             return None
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
@@ -2828,23 +3293,174 @@ class WorkerActor(xo.StatelessActor):
             model_type, model_name, enable_virtual_env=enable_virtual_env
         )
 
+    async def get_model_recommendation_info(
+        self,
+        model_name: str,
+        enable_virtual_env: Optional[bool] = None,
+        model_type: str = "LLM",
+        memory_options: Optional[dict] = None,
+    ) -> dict:
+        """Worker-local discovery only; never prepare environments or allocate GPUs."""
+        from ..device_utils import get_available_device
+
+        family = await self.get_model_registration(model_type, model_name)
+        if family is None:
+            return {"model_exists": False}
+        effective_venv = (
+            XINFERENCE_ENABLE_VIRTUAL_ENV
+            if enable_virtual_env is None
+            else enable_virtual_env
+        )
+        installed = await self.query_engines_by_model_name(
+            model_name, model_type, False
+        )
+        engines = (
+            await self.query_engines_by_model_name(model_name, model_type, True)
+            if effective_venv
+            else installed
+        )
+        if model_type != "LLM":
+            from .model_recommendation import non_llm_candidates
+
+            return {
+                "model_exists": True,
+                "platform": platform.system(),
+                "device": get_available_device(),
+                "gpu_indices": list(self._total_gpu_devices),
+                "gpu_count": gpu_count(),
+                "enable_virtual_env": effective_venv,
+                "candidates": non_llm_candidates(
+                    model_type, model_name, engines or {}, installed or {}
+                ),
+            }
+        from ..model.llm.cache_manager import LLMCacheManager
+        from ..model.llm.llm_family import convert_model_size_to_float, match_llm
+        from ..model.llm.memory import ModelLayersInfo, estimate_llm_gpu_memory_details
+        from .model_recommendation import (
+            recommendation_context_length,
+            recommendation_memory_snapshot,
+            spec_key,
+        )
+
+        launch_specs, cached_specs = set(), set()
+        memory_estimates, engine_memory_estimates = {}, {}
+        model_context_lengths = {}
+        options = dict(memory_options or {})
+        requested_context = options.pop("context_length", None)
+        device = get_available_device()
+        for engine, params in (engines or {}).items():
+            if not isinstance(params, list):
+                continue
+            for param in params:
+                for quant in param["quantizations"]:
+                    # Resolve the same default hub and exact spec as launch.
+                    matched = match_llm(
+                        model_name,
+                        param["model_format"],
+                        param["model_size_in_billions"],
+                        quant,
+                    )
+                    if matched is None:
+                        continue
+                    key = spec_key(param, quant)
+                    launch_specs.add(key)
+                    model_max = getattr(matched, "context_length", None)
+                    model_context_lengths[key] = model_max
+                    context_length = recommendation_context_length(
+                        requested_context, model_max, options.get("vision_tokens", 0)
+                    )
+                    metadata = getattr(matched.model_specs[0], "model_metadata", None)
+                    if metadata is not None and context_length is not None:
+                        try:
+                            info = ModelLayersInfo.from_metadata(metadata)
+                            arguments = (
+                                info,
+                                convert_model_size_to_float(
+                                    param["model_size_in_billions"]
+                                ),
+                                quant,
+                                context_length,
+                                param["model_format"],
+                            )
+                            if key not in memory_estimates:
+                                memory_estimates[key] = estimate_llm_gpu_memory_details(
+                                    *arguments, **options
+                                ).total
+                            # Fused CUDA kernels do not describe other backends
+                            # (e.g. NPU attention masks). Keep their eager bound.
+                            profile = (
+                                "eager"
+                                if engine.lower() in ("vllm", "sglang")
+                                and device != "cuda"
+                                else engine
+                            )
+                            engine_memory_estimates[(engine, key)] = (
+                                estimate_llm_gpu_memory_details(
+                                    *arguments, engine=profile, **options
+                                ).total
+                            )
+                        except (KeyError, ValueError, AssertionError, ArithmeticError):
+                            # Unsupported quantizations remain compatible candidates,
+                            # but must not be represented as a verified memory fit.
+                            pass
+                    path = LLMCacheManager.get_cache_dir_for_spec(
+                        model_name, matched.model_specs[0]
+                    )
+                    # Launch reuses this exact format/size/quantization path.
+                    # Do not instantiate CacheManager: its constructor mkdirs.
+                    if os.path.exists(path):
+                        cached_specs.add(key)
+        return {
+            "model_exists": True,
+            "platform": platform.system(),
+            "device": get_available_device(),
+            "gpu_indices": list(self._total_gpu_devices),
+            "gpu_count": gpu_count(),
+            "enable_virtual_env": effective_venv,
+            "installed_engines": installed or {},
+            "model_context_lengths": model_context_lengths,
+            "engines": engines or {},
+            "launch_specs": launch_specs,
+            "cached_specs": cached_specs,
+            "memory_estimates": memory_estimates,
+            "engine_memory_estimates": engine_memory_estimates,
+            "memory": recommendation_memory_snapshot(),
+        }
+
     async def _get_model_ability(self, model: Any, model_type: str) -> List[str]:
         from ..model.llm.core import LLM
 
+        model_family = getattr(model, "model_family", None)
+        model_ability = getattr(model_family, "model_ability", None) or []
         ability_map = {
-            "embedding": ["embed"],
-            "rerank": ["rerank"],
+            "embedding": [
+                "embed",
+                *model_ability,
+            ],
+            "rerank": [
+                "rerank",
+                *model_ability,
+            ],
             "flexible": ["flexible"],
         }
         if model_type in ability_map:
             return ability_map[model_type]
-        if model_type in {"image", "audio", "video"}:
+        if model_type in {"image", "audio", "video", "world"}:
             return model.model_ability
         assert model_type == "LLM"
         assert isinstance(model, LLM)
         return model.model_family.model_ability  # type: ignore
 
     async def update_cache_status(self, model_name: str, version_info: Any):
+        # Defensive: _cache_tracker_ref may be None if get_supervisor_ref's core
+        # init failed and cleared all refs. Skip instead of raising AttributeError
+        # (which would fail model launch). See list_cached_models.
+        if self._cache_tracker_ref is None:
+            logger.warning(
+                "cache_tracker_ref is None, skipping cache status update for %s",
+                model_name,
+            )
+            return
         if isinstance(version_info, list):  # image model
             model_path = version_info[0]["model_file_location"]
             await self._cache_tracker_ref.update_cache_status(
@@ -2892,10 +3508,12 @@ class WorkerActor(xo.StatelessActor):
 
             if not hasattr(sys, "_MEIPASS"):
                 # Normal execution (pip, venv, conda, source, Docker).
-                # Inject parent site-packages via .pth so xinference and xoscar are
-                # discoverable in the child venv while preserving child-venv isolation.
-                # .pth paths are appended AFTER child site-packages so child-installed
-                # packages always take precedence over parent ones.
+                # Process parent site-packages as a site directory, including its
+                # .pth files: editable installs register their import finders there.
+                # The parent environment is trusted: all its .pth import hooks run
+                # in model subprocesses, not only editable-install hooks.
+                # addsitedir appends paths after child site-packages, preserving
+                # precedence for packages installed in the model environment.
                 parent_site_packages = _sysconfig.get_paths()["purelib"]
 
                 # Warn if xinference appears to be user-installed — child venvs
@@ -2925,7 +3543,9 @@ class WorkerActor(xo.StatelessActor):
                     )
                     child_site_packages.mkdir(parents=True, exist_ok=True)
                     pth_file = child_site_packages / "_xinference_parent.pth"
-                    desired_content = parent_site_packages + "\n"
+                    desired_content = (
+                        f"import site; site.addsitedir({parent_site_packages!r})\n"
+                    )
                     # Avoid truncate race when multiple replicas write the
                     # same .pth concurrently: skip if content already correct,
                     # otherwise atomic-write via a temp file + os.replace.
@@ -3045,6 +3665,88 @@ class WorkerActor(xo.StatelessActor):
         resolved_model_format = getattr(model_spec, "model_format", None)
         return resolved_model_format or requested_model_format
 
+    def _reserve_virtual_env_usage(
+        self,
+        env_path: str,
+        fingerprint: str,
+        model_uid: str,
+        setup_required: bool = False,
+    ) -> None:
+        real_path = os.path.realpath(os.path.normpath(env_path))
+        with self._virtual_env_usage_lock:
+            existing_path = self._model_uid_to_virtual_env_path.get(model_uid)
+            if existing_path is not None and existing_path != real_path:
+                raise VirtualEnvConflictError(
+                    f"Model {model_uid} is already associated with virtual "
+                    f"environment {existing_path}, cannot also use {real_path}"
+                )
+
+            usage = self._virtual_env_usages.get(real_path)
+            users = (
+                sorted(usage.active_model_uids | usage.preparing_model_uids)
+                if usage is not None
+                else []
+            )
+            if usage is not None and usage.fingerprint != fingerprint:
+                if users:
+                    raise VirtualEnvConflictError(
+                        "Virtual environment is in use with a different setup "
+                        f"fingerprint: path={real_path}, active_model_uids={users}, "
+                        f"current_fingerprint={usage.fingerprint}, "
+                        f"requested_fingerprint={fingerprint}. Unload all models "
+                        "using this environment before changing dependencies."
+                    )
+                usage.fingerprint = fingerprint
+            elif usage is not None and users and setup_required:
+                raise VirtualEnvConflictError(
+                    "Virtual environment setup marker does not match while the "
+                    "environment is in use; refusing to mutate an active "
+                    f"environment: path={real_path}, active_model_uids={users}"
+                )
+            elif usage is None:
+                usage = VirtualEnvUsage(
+                    env_path=real_path,
+                    fingerprint=fingerprint,
+                )
+                self._virtual_env_usages[real_path] = usage
+
+            usage.preparing_model_uids.add(model_uid)
+            self._model_uid_to_virtual_env_path[model_uid] = real_path
+
+    def _activate_virtual_env_usage(
+        self, env_path: str, fingerprint: str, model_uid: str
+    ) -> None:
+        real_path = os.path.realpath(os.path.normpath(env_path))
+        with self._virtual_env_usage_lock:
+            usage = self._virtual_env_usages.get(real_path)
+            if usage is None or usage.fingerprint != fingerprint:
+                raise VirtualEnvConflictError(
+                    "Virtual environment usage reservation disappeared or changed "
+                    f"during setup: path={real_path}, model_uid={model_uid}"
+                )
+            usage.preparing_model_uids.discard(model_uid)
+            usage.active_model_uids.add(model_uid)
+
+    def _release_virtual_env_usage(
+        self, model_uid: str, env_path: Optional[str] = None
+    ) -> None:
+        with self._virtual_env_usage_lock:
+            real_path = (
+                os.path.realpath(os.path.normpath(env_path))
+                if env_path is not None
+                else self._model_uid_to_virtual_env_path.get(model_uid)
+            )
+            if real_path is None:
+                return
+            usage = self._virtual_env_usages.get(real_path)
+            if usage is not None:
+                usage.preparing_model_uids.discard(model_uid)
+                usage.active_model_uids.discard(model_uid)
+                if not usage.preparing_model_uids and not usage.active_model_uids:
+                    self._virtual_env_usages.pop(real_path, None)
+            if self._model_uid_to_virtual_env_path.get(model_uid) == real_path:
+                self._model_uid_to_virtual_env_path.pop(model_uid, None)
+
     @classmethod
     def _prepare_virtual_env(
         cls,
@@ -3056,7 +3758,12 @@ class WorkerActor(xo.StatelessActor):
         architectures: Optional[List[str]] = None,
         model_format: Optional[str] = None,
         virtual_env_find_links: Optional[List[str]] = None,
-    ):
+        model_uid: Optional[str] = None,
+        reserve_usage: Optional[Callable[[str, str, str, bool], None]] = None,
+        release_usage: Optional[Callable[[str, Optional[str]], None]] = None,
+        report_install_stage: Optional[Callable[[str], None]] = None,
+        report_install_progress: Optional[Callable[[int, int, List[str]], None]] = None,
+    ) -> Optional[str]:
         engine_defaults = get_engine_model_format_virtualenv_packages(
             model_engine, model_format
         )
@@ -3066,7 +3773,21 @@ class WorkerActor(xo.StatelessActor):
             and not engine_defaults
         ):
             # no settings or no packages
-            return
+            venv_path = str(virtual_env_manager.env_path)
+            python_version = pathlib.Path(venv_path).name
+            fingerprint = _make_fingerprint(
+                [],
+                {},
+                {},
+                architectures,
+                model_name=model_name,
+                model_engine=model_engine,
+                python_version=python_version,
+            )
+            with _exclusive_venv_path_lock(venv_path):
+                if reserve_usage is not None and model_uid is not None:
+                    reserve_usage(venv_path, fingerprint, model_uid, False)
+            return fingerprint
 
         if settings is None:
             settings = VirtualEnvSettings(packages=virtual_env_packages or [])
@@ -3295,7 +4016,7 @@ class WorkerActor(xo.StatelessActor):
             # index_url is present breaks online users whose mirror does not
             # carry the direct wheel.
             packages = rewrite_direct_url_packages_for_index(packages)
-            direct_references = find_direct_reference_packages(packages)
+            direct_references = find_remote_direct_reference_packages(packages)
             if direct_references:
                 raise ValueError(
                     "Offline virtualenv installation does not support "
@@ -3316,6 +4037,20 @@ class WorkerActor(xo.StatelessActor):
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
             conf["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
+        direct_references = find_direct_reference_packages(packages)
+        if direct_references and conf.get("skip_installed"):
+            # xoscar's skip-installed optimization reconstructs an install list
+            # from ``uv pip install --dry-run`` output.  Direct references are
+            # reported as ``name @ URL`` rather than ``name==version`` and are
+            # therefore omitted from that reconstructed list, leaving only
+            # their dependencies installed.  Let uv handle the original
+            # requirements directly so the top-level package is installed too.
+            logger.info(
+                "Disabling skip-installed optimization for direct-reference "
+                "packages: %s",
+                direct_references,
+            )
+            conf["skip_installed"] = False
         if force_reinstall_xllamacpp:
             # Bypass the satisfied-package filter so uv is actually invoked with
             # the GPU index even when a same-version CPU wheel is already
@@ -3333,22 +4068,16 @@ class WorkerActor(xo.StatelessActor):
             variables["model_engine"] = engine_value
 
         setup_packages = packages.copy()
-        if model_name == "jina-embeddings-v3":
-            flash_attn_packages = [
-                package
-                for package in setup_packages
-                if is_flash_attn_requirement(package)
-            ]
-            regular_packages = [
-                package
-                for package in setup_packages
-                if not is_flash_attn_requirement(package)
-            ]
-        else:
-            # flash-attn is a normal dependency for all other models. Only Jina
-            # uses the dedicated binary-only Find Links installation below.
-            flash_attn_packages = []
-            regular_packages = setup_packages
+        flash_attn_packages = [
+            package
+            for package in setup_packages
+            if is_model_find_links_only_requirement(model_name, package)
+        ]
+        regular_packages = [
+            package
+            for package in setup_packages
+            if not is_model_find_links_only_requirement(model_name, package)
+        ]
         flash_attn_cuda_available = bool(flash_attn_packages) and (
             cls._is_cuda_device_available()
         )
@@ -3360,106 +4089,192 @@ class WorkerActor(xo.StatelessActor):
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
         venv_path = str(virtual_env_manager.env_path)
+        python_version = pathlib.Path(venv_path).name
         with _exclusive_venv_path_lock(venv_path):
-            if not _should_skip_venv_setup(
-                venv_path, setup_packages, conf, variables, architectures
-            ):
-                if modern_sglang_kernel:
-                    # SGLang 0.5.11 renamed the distribution while retaining the
-                    # same import package.  Remove the cached legacy owner before
-                    # the new wheel writes those files.
-                    cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
-                if force_reinstall_xllamacpp:
-                    cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
-                virtual_env_manager.install_packages(
-                    regular_packages, **conf, **variables
-                )
-
-                from .virtual_env_manager import apply_flash_attn_wheel_post_install
-
-                apply_flash_attn_wheel_post_install(
-                    model_name,
-                    flash_attn_packages,
-                    virtual_env_manager,
-                    conf,
-                    flash_attn_cuda_available,
-                )
-
-                # deepdoc-lib[gpu] currently depends on both onnxruntime (base)
-                # and onnxruntime-gpu (extra). They install the same Python module,
-                # so a resolver may leave the CPU files in place even though the
-                # GPU distribution is present. Remove both distributions and put
-                # back only the GPU build after dependency resolution.
-                if model_name == "DeepDoc" and cls._is_cuda_device_available():
-                    cls._uninstall_venv_package(virtual_env_manager, "onnxruntime")
-                    cls._uninstall_venv_package(virtual_env_manager, "onnxruntime-gpu")
-                    gpu_conf = conf.copy()
-                    gpu_conf["skip_installed"] = False
-                    virtual_env_manager.install_packages(
-                        ["onnxruntime-gpu>=1.19.2"], **gpu_conf, **variables
+            fingerprint = _make_fingerprint(
+                setup_packages,
+                conf,
+                variables,
+                architectures,
+                model_name=model_name,
+                model_engine=model_engine,
+                python_version=python_version,
+            )
+            setup_matches = _should_skip_venv_setup(
+                venv_path,
+                setup_packages,
+                conf,
+                variables,
+                architectures,
+                model_name=model_name,
+                model_engine=model_engine,
+                python_version=python_version,
+            )
+            usage_reserved = False
+            try:
+                if reserve_usage is not None and model_uid is not None:
+                    reserve_usage(venv_path, fingerprint, model_uid, not setup_matches)
+                    usage_reserved = True
+                if not setup_matches:
+                    if report_install_stage is not None:
+                        report_install_stage("installing_dependencies")
+                    if modern_sglang_kernel:
+                        # SGLang 0.5.11 renamed the distribution while retaining the
+                        # same import package.  Remove the cached legacy owner before
+                        # the new wheel writes those files.
+                        cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
+                    if force_reinstall_xllamacpp:
+                        cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
+                    from .virtual_env_manager import (
+                        observe_dependency_install,
+                        resolve_dependency_install_plan,
                     )
 
-                # Post-install: flashinfer AOT workaround for sm_120 Blackwell.
-                # vllm 0.21.0 hard-pins flashinfer-cubin==0.6.8.post1 which has JIT
-                # compilation failure on sm_120. Force-upgrade to AOT versions.
-                # Run under the same lock — uv pip install mutates the venv and
-                # must stay serialized with install_packages() and other AOT
-                # upgrades when multiple replicas/workers share this venv.
-                # See optimize/20260702/2026070209.md
-                from .virtual_env_manager import (
-                    apply_flashinfer_aot_post_install,
-                    ensure_flashinfer_cubin_matches_post_install,
-                    ensure_sglang_inherited_packages_compatible_post_install,
-                )
-
-                ensure_sglang_inherited_packages_compatible_post_install(
-                    model_engine, virtual_env_manager
-                )
-                allow_public_install = not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL
-                apply_flashinfer_aot_post_install(
-                    model_engine,
-                    architectures,
-                    virtual_env_manager,
-                    conf,
-                    cuda_version,
-                    allow_public_install=allow_public_install,
-                )
-                ensure_flashinfer_cubin_matches_post_install(
-                    model_engine,
-                    virtual_env_manager,
-                    allow_public_install=allow_public_install,
-                    conf=conf,
-                )
-
-                # Apply engine-specific post-install patches.  These mutate files
-                # inside the shared virtualenv, so they must stay under the same
-                # lock and deduplication as install_packages and post-install
-                # hooks to avoid race conditions when multiple replicas share
-                # this venv.
-                if model_engine and model_engine.lower() == "vllm":
+                    plan = (
+                        resolve_dependency_install_plan(
+                            virtual_env_manager, regular_packages, conf, variables
+                        )
+                        if report_install_progress is not None
+                        else None
+                    )
+                    observer = None
+                    if plan is not None and report_install_progress is not None:
+                        plan_labels = [f"{name}=={version}" for name, version in plan]
+                        report_install_progress(0, len(plan), plan_labels)
+                        if plan:
+                            try:
+                                observer = observe_dependency_install(
+                                    virtual_env_manager,
+                                    plan,
+                                    lambda completed, total: report_install_progress(
+                                        completed, total, plan_labels
+                                    ),
+                                )
+                            except Exception:
+                                logger.debug(
+                                    "Could not observe dependency installation",
+                                    exc_info=True,
+                                )
                     try:
-                        from xinference.model.llm.vllm.patches import apply_vllm_patches
-                    except ImportError:
-                        pass
-                    else:
-                        apply_vllm_patches(
-                            env_path=venv_path,
-                            model_name=model_name,
-                            architectures=architectures,
+                        with _sglang_source_build_environment(regular_packages):
+                            virtual_env_manager.install_packages(
+                                regular_packages, **conf, **variables
+                            )
+                    finally:
+                        if observer is not None:
+                            stopped, thread = observer
+                            stopped.set()
+                            thread.join(timeout=1)
+                    if plan is not None and report_install_progress is not None:
+                        report_install_progress(len(plan), len(plan), plan_labels)
+
+                    from .virtual_env_manager import apply_flash_attn_wheel_post_install
+
+                    apply_flash_attn_wheel_post_install(
+                        model_name,
+                        flash_attn_packages,
+                        virtual_env_manager,
+                        conf,
+                        flash_attn_cuda_available,
+                    )
+
+                    # deepdoc-lib[gpu] currently depends on both onnxruntime (base)
+                    # and onnxruntime-gpu (extra). They install the same Python module,
+                    # so a resolver may leave the CPU files in place even though the
+                    # GPU distribution is present. Remove both distributions and put
+                    # back only the GPU build after dependency resolution.
+                    if model_name == "DeepDoc" and cls._is_cuda_device_available():
+                        cls._uninstall_venv_package(virtual_env_manager, "onnxruntime")
+                        cls._uninstall_venv_package(
+                            virtual_env_manager, "onnxruntime-gpu"
+                        )
+                        gpu_conf = conf.copy()
+                        gpu_conf["skip_installed"] = False
+                        virtual_env_manager.install_packages(
+                            ["onnxruntime-gpu>=1.19.2"], **gpu_conf, **variables
                         )
 
-                _mark_venv_setup_done(
-                    venv_path, setup_packages, conf, variables, architectures
-                )
-            else:
-                logger.info(
-                    "Virtual env %s already set up with current packages in "
-                    "this process; skipping install_packages and post-install "
-                    "hooks",
-                    venv_path,
-                )
+                    # Post-install: flashinfer AOT workaround for sm_120 Blackwell.
+                    # vllm 0.21.0 hard-pins flashinfer-cubin==0.6.8.post1 which has JIT
+                    # compilation failure on sm_120. Force-upgrade to AOT versions.
+                    # Run under the same lock — uv pip install mutates the venv and
+                    # must stay serialized with install_packages() and other AOT
+                    # upgrades when multiple replicas/workers share this venv.
+                    # See optimize/20260702/2026070209.md
+                    from .virtual_env_manager import (
+                        apply_flashinfer_aot_post_install,
+                        ensure_flashinfer_cubin_matches_post_install,
+                        ensure_sglang_inherited_packages_compatible_post_install,
+                    )
 
-    async def _get_progressor(self, request_id: str):
+                    ensure_sglang_inherited_packages_compatible_post_install(
+                        model_engine, virtual_env_manager
+                    )
+                    allow_public_install = not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL
+                    apply_flashinfer_aot_post_install(
+                        model_engine,
+                        architectures,
+                        virtual_env_manager,
+                        conf,
+                        cuda_version,
+                        allow_public_install=allow_public_install,
+                    )
+                    ensure_flashinfer_cubin_matches_post_install(
+                        model_engine,
+                        virtual_env_manager,
+                        allow_public_install=allow_public_install,
+                        conf=conf,
+                    )
+
+                    # Apply engine-specific post-install patches.  These mutate files
+                    # inside the shared virtualenv, so they must stay under the same
+                    # lock and deduplication as install_packages and post-install
+                    # hooks to avoid race conditions when multiple replicas share
+                    # this venv.
+                    if model_engine and model_engine.lower() == "vllm":
+                        try:
+                            from xinference.model.llm.vllm.patches import (
+                                apply_vllm_patches,
+                            )
+                        except ImportError:
+                            pass
+                        else:
+                            apply_vllm_patches(
+                                env_path=venv_path,
+                                model_name=model_name,
+                                architectures=architectures,
+                            )
+
+                    _mark_venv_setup_done(
+                        venv_path,
+                        setup_packages,
+                        conf,
+                        variables,
+                        architectures,
+                        model_name=model_name,
+                        model_engine=model_engine,
+                        python_version=python_version,
+                    )
+                else:
+                    logger.info(
+                        "Virtual env %s already matches setup fingerprint %s; "
+                        "skipping install_packages and post-install hooks",
+                        venv_path,
+                        fingerprint,
+                    )
+            except BaseException:
+                if (
+                    usage_reserved
+                    and release_usage is not None
+                    and model_uid is not None
+                ):
+                    release_usage(model_uid, venv_path)
+                raise
+            return fingerprint
+
+    async def _get_progressor(
+        self, request_id: str, initial_info: str = "Start to launch model"
+    ):
         from .progress_tracker import Progressor, ProgressTrackerActor
 
         progress_tracker_ref = self._progress_tracker_ref
@@ -3474,15 +4289,21 @@ class WorkerActor(xo.StatelessActor):
             asyncio.get_running_loop(),
         )
         await progressor.start()
-        progressor.set_progress(0.0, "start to launch model")
+        progressor.set_progress(0.0, initial_info)
         return progressor
 
     @classmethod
     def _upload_download_progress(
-        cls, progressor: "Progressor", downloader: CancellableDownloader
+        cls,
+        progressor: "Progressor",
+        downloader: CancellableDownloader,
+        completion_stage: str = "loading",
+        succeeded_event: Optional[threading.Event] = None,
     ):
         while not downloader.done:
-            progress = downloader.get_progress()
+            # A live download must not look terminal to polling clients even if
+            # a third-party tqdm layout briefly yields a saturated estimate.
+            progress = min(downloader.get_progress(), 0.99)
             progressor.set_progress(
                 progress,
                 "Downloading model files",
@@ -3494,15 +4315,262 @@ class WorkerActor(xo.StatelessActor):
             )
             downloader.wait(1)
 
+        cancelled = downloader.cancelled
+        failed = succeeded_event is not None and not succeeded_event.is_set()
         progressor.set_progress(
             1.0,
-            "Start to load model",
+            (
+                "Download cancelled"
+                if cancelled
+                else (
+                    "Model download failed"
+                    if failed
+                    else (
+                        "Model download completed"
+                        if completion_stage == "completed"
+                        else "Start to load model"
+                    )
+                )
+            ),
             {
-                "stage": "loading",
+                "stage": (
+                    "cancelled"
+                    if cancelled
+                    else ("failed" if failed else completion_stage)
+                ),
                 "download_files": [],
                 "updated_at": time.time(),
             },
         )
+
+    async def _download_model_files(
+        self,
+        operation_uid: str,
+        request_id: str,
+        download_info: DownloadInfo,
+        progressor: "Progressor",
+        model_type: str,
+        model_name: str,
+        model_engine: Optional[str],
+        model_format: Optional[str],
+        model_size_in_billions: Optional[Union[int, str]],
+        quantization: Optional[str],
+        peft_model_config: Optional[PeftModelConfig],
+        download_hub: Optional[
+            Literal["auto", "huggingface", "modelscope", "openmind_hub", "csghub"]
+        ],
+        model_path: Optional[str],
+        model_kwargs: Dict[str, Any],
+        completion_stage: str,
+    ) -> Tuple[Any, CancellableDownloader]:
+        """Download/cache model artifacts for launch and cache-only operations.
+
+        ``create_model_instance`` is the existing family dispatcher that owns
+        every model-specific cache step (including draft, projector, ControlNet,
+        GGUF, and lightning artifacts).  This helper deliberately stops before
+        virtualenv preparation, sub-pool creation, actor creation, and ``load``.
+        """
+        upload_progress_task: Optional[asyncio.Task] = None
+        succeeded_event = threading.Event()
+        downloader = CancellableDownloader(cancelled_event=download_info.cancel_event)
+        try:
+            with downloader:
+                download_info.downloader = downloader
+                upload_progress_task = asyncio.create_task(
+                    asyncio.to_thread(
+                        self._upload_download_progress,
+                        progressor,
+                        downloader,
+                        completion_stage,
+                        succeeded_event,
+                    )
+                )
+                with progressor:
+                    # Limit hf_hub download concurrency to reduce GIL
+                    # contention that starves the event loop.
+                    original_hf_workers = os.environ.get("HF_HUB_DOWNLOAD_WORKERS")
+                    os.environ["HF_HUB_DOWNLOAD_WORKERS"] = str(
+                        XINFERENCE_MODEL_DOWNLOAD_WORKERS
+                    )
+                    try:
+                        if not XINFERENCE_LOG_CONSOLE:
+                            from ..deploy.utils import redirect_streams_to_logger
+
+                            def _create_with_redirect():
+                                with redirect_streams_to_logger(
+                                    XINFERENCE_LOG_DOWNLOAD_PROGRESS
+                                ):
+                                    return create_model_instance(
+                                        operation_uid,
+                                        model_type,
+                                        model_name,
+                                        model_engine,
+                                        model_format,
+                                        model_size_in_billions,
+                                        quantization,
+                                        peft_model_config,
+                                        download_hub,
+                                        model_path,
+                                        **model_kwargs,
+                                    )
+
+                            model = await asyncio.to_thread(_create_with_redirect)
+                        else:
+                            model = await asyncio.to_thread(
+                                create_model_instance,
+                                operation_uid,
+                                model_type,
+                                model_name,
+                                model_engine,
+                                model_format,
+                                model_size_in_billions,
+                                quantization,
+                                peft_model_config,
+                                download_hub,
+                                model_path,
+                                **model_kwargs,
+                            )
+                        succeeded_event.set()
+                    finally:
+                        if original_hf_workers is not None:
+                            os.environ["HF_HUB_DOWNLOAD_WORKERS"] = original_hf_workers
+                        else:
+                            os.environ.pop("HF_HUB_DOWNLOAD_WORKERS", None)
+        finally:
+            # Exiting CancellableDownloader signals this reporter to finish.
+            if upload_progress_task is not None:
+                await upload_progress_task
+
+        model.model_family.multimodal_projector = model_kwargs.get(
+            "multimodal_projector", None
+        )
+        await self.update_cache_status(model_name, model.model_family.to_version_info())
+        logger.debug(
+            "Model files prepared: request_id=%s, operation_uid=%s",
+            request_id,
+            operation_uid,
+        )
+        return model, downloader
+
+    @staticmethod
+    def _cancel_download(download_info: DownloadInfo) -> None:
+        download_info.cancel_event.set()
+        if download_info.downloader is not None:
+            download_info.downloader.cancel()
+
+    @log_async(logger=logger, level=logging.INFO)
+    async def cache_builtin_model(
+        self,
+        cache_uid: str,
+        model_name: str,
+        model_size_in_billions: Optional[Union[int, str]],
+        model_format: Optional[str],
+        quantization: Optional[str],
+        model_engine: Optional[str],
+        model_type: str = "LLM",
+        peft_model_config: Optional[PeftModelConfig] = None,
+        download_hub: Optional[
+            Literal["auto", "huggingface", "modelscope", "openmind_hub", "csghub"]
+        ] = None,
+        model_path: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
+        virtual_env_packages: Optional[List[str]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Cache model artifacts without reserving devices or loading a model."""
+        if model_type.lower() == "audio":
+            from ..model.audio.core import resolve_audio_model_name_and_engine
+
+            model_name, model_engine = resolve_audio_model_name_and_engine(
+                model_name, model_engine, use_default_engine=True
+            )
+        elif model_type.lower() == "image":
+            from ..model.image.core import resolve_image_model_engine
+
+            model_engine = resolve_image_model_engine(model_name, model_engine)
+        elif model_type.lower() == "video":
+            from ..model.video.core import resolve_video_model_name_and_engine
+
+            model_name, model_engine = resolve_video_model_name_and_engine(
+                model_name, model_engine, use_default_engine=True
+            )
+        elif model_type.lower() == "world":
+            from ..model.world.core import resolve_world_model_engine
+
+            model_engine = resolve_world_model_engine(model_name, model_engine)
+
+        if model_path is not None and not os.path.exists(model_path):
+            raise ValueError(
+                f"Invalid input. `model_path`: {model_path} File or directory does not exist."
+            )
+        self._check_model_is_valid(model_name, model_format)
+        download_payload = {
+            "model_name": model_name,
+            "model_size_in_billions": model_size_in_billions,
+            "model_format": model_format,
+            "quantization": quantization,
+            "model_engine": model_engine,
+            "model_type": model_type,
+            "download_hub": download_hub,
+            "model_path": model_path,
+            **kwargs,
+        }
+        async with self._download_artifact_cleanup_lock:
+            if cache_uid in self._cache_uid_to_download_info:
+                raise ValueError(f"Cache operation {cache_uid} is already running")
+            download_info = DownloadInfo(payload=download_payload)
+            self._cache_uid_to_download_info[cache_uid] = download_info
+        try:
+            async with self._launch_semaphore:
+                if download_info.cancel_event.is_set():
+                    raise asyncio.CancelledError(
+                        f"Download cancelled while waiting in queue: {cache_uid}"
+                    )
+
+                model_kwargs = kwargs.copy()
+                model_kwargs["enable_virtual_env"] = enable_virtual_env
+                if (
+                    model_type.lower() == "video"
+                    and model_engine
+                    and model_engine.lower() == "mlx"
+                ):
+                    model_kwargs["_xinference_virtual_env_packages"] = (
+                        virtual_env_packages
+                    )
+
+                request_id = "caching-" + cache_uid
+                progressor = await self._get_progressor(
+                    request_id, "Start to download model"
+                )
+                model, downloader = await self._download_model_files(
+                    operation_uid=cache_uid,
+                    request_id=request_id,
+                    download_info=download_info,
+                    progressor=progressor,
+                    model_type=model_type,
+                    model_name=model_name,
+                    model_engine=model_engine,
+                    model_format=model_format,
+                    model_size_in_billions=model_size_in_billions,
+                    quantization=quantization,
+                    peft_model_config=peft_model_config,
+                    download_hub=download_hub,
+                    model_path=model_path,
+                    model_kwargs=model_kwargs,
+                    completion_stage="completed",
+                )
+                if downloader.cancelled:
+                    downloader.raise_error(error_msg="Download cancelled")
+
+                return {
+                    "cache_uid": cache_uid,
+                    "model_name": model_name,
+                    "model_engine": model_engine,
+                    "worker_address": self.address,
+                    "version_info": model.model_family.to_version_info(),
+                }
+        finally:
+            self._cache_uid_to_download_info.pop(cache_uid, None)
 
     @log_async(logger=logger, level=logging.INFO)
     async def launch_builtin_model(
@@ -3540,6 +4608,9 @@ class WorkerActor(xo.StatelessActor):
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
         launch_args["launch_ts"] = int(time.time())
+        from ..model.llm.context_length import validate_context_length_launch
+
+        validate_context_length_launch(model_type, model_engine, kwargs)
         if model_type.lower() == "audio":
             from ..model.audio.core import resolve_audio_model_name_and_engine
 
@@ -3553,6 +4624,31 @@ class WorkerActor(xo.StatelessActor):
 
             model_engine = resolve_image_model_engine(model_name, model_engine)
             launch_args["model_engine"] = model_engine
+        elif model_type.lower() == "video":
+            from ..model.video.core import resolve_video_model_name_and_engine
+
+            model_name, model_engine = resolve_video_model_name_and_engine(
+                model_name, model_engine, use_default_engine=True
+            )
+            launch_args["model_name"] = model_name
+            launch_args["model_engine"] = model_engine
+        elif model_type.lower() == "world":
+            from ..model.world.core import (
+                check_world_model_host,
+                resolve_world_model_engine,
+            )
+
+            model_engine = resolve_world_model_engine(model_name, model_engine)
+            launch_args["model_engine"] = model_engine
+            # Host requirements (notably CUDA) are knowable from the registry.
+            # Reject before virtualenv creation, downloads, GPU reservation, or
+            # subpool startup can leave launch side effects behind.
+            check_world_model_host(
+                model_name,
+                model_engine,
+                download_hub=download_hub,
+                enable_virtual_env=enable_virtual_env,
+            )
         envs = _inject_jina_v3_allocator_env(model_type, model_name, envs, launch_args)
 
         try:
@@ -3621,7 +4717,13 @@ class WorkerActor(xo.StatelessActor):
 
         _was_queued = False
         try:
-            self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo()
+            cleanup_lock = getattr(self, "_download_artifact_cleanup_lock", None)
+            if cleanup_lock is None:
+                cleanup_lock = self._download_artifact_cleanup_lock = asyncio.Lock()
+            async with cleanup_lock:
+                self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo(
+                    payload=launch_args
+                )
 
             # Launch concurrency control: queue if semaphore is full
             if self._launch_semaphore.locked():
@@ -3656,6 +4758,29 @@ class WorkerActor(xo.StatelessActor):
                             f"Launch cancelled while waiting in queue: {model_uid}"
                         )
 
+                    # Video engine host/tuple/hub checks are side-effect-free.
+                    # Run them before even creating a same-interpreter venv so
+                    # incompatible Apple-Silicon/Python/source requests leave no
+                    # cache or virtualenv artifacts behind.
+                    if model_type.lower() == "video" and model_engine:
+                        from ..model.video.core import match_diffusion
+                        from ..model.video.engine_family import (
+                            check_engine_by_model_name_and_engine_with_virtual_env,
+                        )
+
+                        video_model_spec = match_diffusion(
+                            model_name,
+                            download_hub,
+                            model_engine=model_engine,
+                        )
+                        check_engine_by_model_name_and_engine_with_virtual_env(
+                            model_engine,
+                            model_name,
+                            model_format,
+                            quantization,
+                            model_family=video_model_spec,
+                        )
+
                     # virtualenv
                     virtual_env_name = kwargs.pop("virtual_env_name", None)
                     # Use v4 structure: .xinference/virtualenv/v4/model_name/model_engine/python_version
@@ -3682,6 +4807,17 @@ class WorkerActor(xo.StatelessActor):
                         enable_virtual_env,
                         virtual_env_manager,
                         model_engine,
+                    )
+                    if kwargs.get("_nixl_config") is not None:
+                        from ..model.llm.vllm.pd import configure_nixl_environment
+
+                        configure_nixl_environment(subpool_envs, self.address)
+                    # Auxiliary model downloads may run later in ModelActor.load,
+                    # after the worker's download-phase environment has been
+                    # restored. Propagate the same effective worker count to the
+                    # model subprocess so those snapshot downloads are limited too.
+                    subpool_envs["HF_HUB_DOWNLOAD_WORKERS"] = str(
+                        XINFERENCE_MODEL_DOWNLOAD_WORKERS
                     )
                     # Reserve devices now (before download/virtualenv
                     # install): allocate_devices/allocate_devices_with_gpu_idx
@@ -3734,6 +4870,14 @@ class WorkerActor(xo.StatelessActor):
                         )
                         model_kwargs = kwargs.copy()
                         model_kwargs["enable_virtual_env"] = enable_virtual_env
+                        if (
+                            model_type.lower() == "video"
+                            and model_engine
+                            and model_engine.lower() == "mlx"
+                        ):
+                            model_kwargs["_xinference_virtual_env_packages"] = (
+                                virtual_env_packages
+                            )
                         if n_worker > 1:  # type: ignore
                             # for model across workers,
                             # add a few kwargs
@@ -3746,87 +4890,28 @@ class WorkerActor(xo.StatelessActor):
                                 )
                             )
 
-                        with CancellableDownloader(
-                            cancelled_event=launch_info.cancel_event
-                        ) as downloader:
-                            launch_info.downloader = downloader
-                            progressor = await self._get_progressor(
-                                "launching-" + model_uid
-                            )
-                            # split into download and launch
-                            progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
-                            with progressor:
-                                upload_progress_task = asyncio.create_task(
-                                    asyncio.to_thread(
-                                        self._upload_download_progress,
-                                        progressor,
-                                        downloader,
-                                    )
-                                )
-                                # Limit hf_hub download concurrency to reduce GIL
-                                # contention that starves the event loop.
-                                _orig_hf_workers = os.environ.get(
-                                    "HF_HUB_DOWNLOAD_WORKERS"
-                                )
-                                os.environ["HF_HUB_DOWNLOAD_WORKERS"] = str(
-                                    XINFERENCE_MODEL_DOWNLOAD_WORKERS
-                                )
-                                try:
-                                    # Wrap download phase with stream redirect when console logging is disabled
-                                    if not XINFERENCE_LOG_CONSOLE:
-                                        from ..deploy.utils import (
-                                            redirect_streams_to_logger,
-                                        )
-
-                                        def _create_with_redirect():
-                                            with redirect_streams_to_logger(
-                                                XINFERENCE_LOG_DOWNLOAD_PROGRESS
-                                            ):
-                                                return create_model_instance(
-                                                    model_uid,
-                                                    model_type,
-                                                    model_name,
-                                                    model_engine,
-                                                    model_format,
-                                                    model_size_in_billions,
-                                                    quantization,
-                                                    peft_model_config,
-                                                    download_hub,
-                                                    model_path,
-                                                    **model_kwargs,
-                                                )
-
-                                        model = await asyncio.to_thread(
-                                            _create_with_redirect
-                                        )
-                                    else:
-                                        model = await asyncio.to_thread(
-                                            create_model_instance,
-                                            model_uid,
-                                            model_type,
-                                            model_name,
-                                            model_engine,
-                                            model_format,
-                                            model_size_in_billions,
-                                            quantization,
-                                            peft_model_config,
-                                            download_hub,
-                                            model_path,
-                                            **model_kwargs,
-                                        )
-                                finally:
-                                    if _orig_hf_workers is not None:
-                                        os.environ["HF_HUB_DOWNLOAD_WORKERS"] = (
-                                            _orig_hf_workers
-                                        )
-                                    else:
-                                        os.environ.pop("HF_HUB_DOWNLOAD_WORKERS", None)
-                            model.model_family.multimodal_projector = model_kwargs.get(
-                                "multimodal_projector", None
-                            )
-                            await self.update_cache_status(
-                                model_name, model.model_family.to_version_info()
-                            )
+                        progressor = await self._get_progressor(
+                            "launching-" + model_uid
+                        )
+                        # split into download and launch
+                        progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
+                        model, downloader = await self._download_model_files(
+                            operation_uid=model_uid,
+                            request_id="launching-" + model_uid,
+                            download_info=launch_info,
+                            progressor=progressor,
+                            model_type=model_type,
+                            model_name=model_name,
+                            model_engine=model_engine,
+                            model_format=model_format,
+                            model_size_in_billions=model_size_in_billions,
+                            quantization=quantization,
+                            peft_model_config=peft_model_config,
+                            download_hub=download_hub,
+                            model_path=model_path,
+                            model_kwargs=model_kwargs,
+                            completion_stage="loading",
+                        )
 
                         def check_cancel():
                             # check downloader first, sometimes download finished
@@ -3840,26 +4925,110 @@ class WorkerActor(xo.StatelessActor):
                         # check cancel before prepare virtual env
                         check_cancel()
 
+                        progressor.activate_stage()
                         # install packages in virtual env
+                        dependency_install_details: Dict[str, Any] = {}
                         if virtual_env_manager:
-                            await asyncio.to_thread(
-                                self._prepare_virtual_env,
-                                virtual_env_manager,
-                                model.model_family.virtualenv,
-                                virtual_env_packages,
-                                model_engine,
-                                model_name=model_name,
-                                architectures=getattr(
-                                    model.model_family,
-                                    "_resolve_architectures",
-                                    lambda: None,
-                                )(),
-                                model_format=self._resolve_virtualenv_model_format(
-                                    model, model_format
-                                ),
-                                virtual_env_find_links=virtual_env_find_links,
+                            progressor.set_progress(
+                                0.0,
+                                "Waiting to prepare model dependencies",
+                                {
+                                    "stage": "waiting_for_dependencies",
+                                    "updated_at": time.time(),
+                                },
+                            )
+
+                            def report_install_stage(stage: str) -> None:
+                                dependency_install_details[
+                                    "dependency_install_status"
+                                ] = "performed"
+                                progressor.set_progress(
+                                    0.0,
+                                    "Installing model dependencies",
+                                    {"stage": stage, "updated_at": time.time()},
+                                )
+
+                            def report_install_progress(
+                                completed: int, total: int, plan: List[str]
+                            ) -> None:
+                                dependency_install_details.update(
+                                    dependency_install_completed=completed,
+                                    dependency_install_total=total,
+                                    dependency_install_plan=plan,
+                                )
+                                progressor.set_progress(
+                                    0.0,
+                                    "Installing model dependencies",
+                                    {
+                                        "stage": "installing_dependencies",
+                                        "dependency_install_completed": completed,
+                                        "dependency_install_total": total,
+                                        "dependency_install_plan": plan,
+                                        "updated_at": time.time(),
+                                    },
+                                )
+
+                            prepare_task = asyncio.create_task(
+                                asyncio.to_thread(
+                                    self._prepare_virtual_env,
+                                    virtual_env_manager,
+                                    model.model_family.virtualenv,
+                                    virtual_env_packages,
+                                    model_engine,
+                                    model_name=model_name,
+                                    architectures=getattr(
+                                        model.model_family,
+                                        "_resolve_architectures",
+                                        lambda: None,
+                                    )(),
+                                    model_format=self._resolve_virtualenv_model_format(
+                                        model, model_format
+                                    ),
+                                    virtual_env_find_links=virtual_env_find_links,
+                                    model_uid=model_uid,
+                                    reserve_usage=self._reserve_virtual_env_usage,
+                                    release_usage=self._release_virtual_env_usage,
+                                    report_install_stage=report_install_stage,
+                                    report_install_progress=report_install_progress,
+                                )
+                            )
+                            try:
+                                virtual_env_fingerprint = await asyncio.shield(
+                                    prepare_task
+                                )
+                            except asyncio.CancelledError:
+                                # asyncio.to_thread cannot stop the underlying
+                                # installer. Wait for it to leave the path lock
+                                # before releasing the usage reservation.
+                                try:
+                                    await prepare_task
+                                except Exception:
+                                    pass
+                                raise
+                            assert virtual_env_fingerprint is not None
+                            if (
+                                "dependency_install_status"
+                                not in dependency_install_details
+                            ):
+                                dependency_install_details[
+                                    "dependency_install_status"
+                                ] = "skipped"
+                            self._activate_virtual_env_usage(
+                                virtual_env_path,
+                                virtual_env_fingerprint,
+                                model_uid,
                             )
                             launch_info.virtual_env_manager = virtual_env_manager
+
+                        progressor.set_progress(
+                            0.1,
+                            "Loading model",
+                            {
+                                "stage": "loading",
+                                "updated_at": time.time(),
+                                **dependency_install_details,
+                            },
+                        )
 
                         # check before creating subpool and model actor
                         check_cancel()
@@ -3868,11 +5037,24 @@ class WorkerActor(xo.StatelessActor):
                             # Devices were already reserved above; only spawn
                             # the subprocess now that the virtualenv (if any)
                             # is installed.
+                            pool_kwargs = {}
+                            if (
+                                xavier_config is not None
+                                and xavier_config.get("gpu_cache_bytes") is not None
+                            ):
+                                from ..model.llm.vllm.xavier.transport import (
+                                    gpu_pool_options,
+                                )
+
+                                pool_kwargs = gpu_pool_options(
+                                    self.address, subpool_alloc_env
+                                )
                             subpool_address = await self._spawn_subpool(
                                 model_uid,
                                 subpool_alloc_env,
                                 devices,
                                 start_python=subpool_python_path,
+                                **pool_kwargs,
                             )
                             all_subpool_addresses.append(subpool_address)
                         if xavier_config is not None:
@@ -3947,6 +5129,7 @@ class WorkerActor(xo.StatelessActor):
                     except (Exception, asyncio.CancelledError):
                         logger.error(f"Failed to load model {model_uid}", exc_info=True)
                         await self._update_model_state(model_uid, "error")
+                        self._release_virtual_env_usage(model_uid)
                         self.release_devices(model_uid=model_uid)
                         for addr in all_subpool_addresses:
                             try:
@@ -3971,6 +5154,9 @@ class WorkerActor(xo.StatelessActor):
                                 subpool_pids.add(_proc.pid)
                         except Exception:
                             continue
+                    self._model_uid_to_subpool_addresses[model_uid] = set(
+                        all_subpool_addresses
+                    )
                     self._model_uid_to_subpool_pids[model_uid] = subpool_pids
                     model_spec = model.model_family.to_description()
                     # ``to_description`` is derived from the model family alone and
@@ -3979,12 +5165,6 @@ class WorkerActor(xo.StatelessActor):
                     # engine (shown in the Web UI running-model detail view).
                     if model_engine is not None:
                         model_spec["model_engine"] = model_engine
-                    if model_engine and model_engine.lower() == "vllm":
-                        # ModelActor returns a copy of the effective post-sanitization
-                        # vLLM limits, including an operator-supplied override.
-                        model_spec["limit_mm_per_prompt"] = (
-                            await model_ref.get_limit_mm_per_prompt()
-                        )
                     self._model_uid_to_model_spec[model_uid] = model_spec
                     self._model_uid_to_model_status[model_uid] = ModelStatus(
                         model_state="loading"
@@ -4009,7 +5189,7 @@ class WorkerActor(xo.StatelessActor):
         finally:
             if _was_queued:
                 self._launch_waiting -= 1
-            del self._model_uid_launching_guard[model_uid]
+            self._model_uid_launching_guard.pop(model_uid, None)
 
         # Record virtual environment information if applicable
         if virtual_env_manager is not None and virtual_env_path is not None:
@@ -4092,15 +5272,8 @@ class WorkerActor(xo.StatelessActor):
         try:
             launch_info = self._model_uid_launching_guard[model_uid]
 
-            # downloader shared same cancel event
-            # sometimes cancel happens very early before downloader
-            # even if users cancel at this time,
-            # downloader will know and stop everything
-            launch_info.cancel_event.set()
-
-            if launch_info.downloader:
-                logger.debug("Try to cancel download, %s")
-                launch_info.downloader.cancel()
+            # The event also covers cancellation before the downloader starts.
+            self._cancel_download(launch_info)
             if launch_info.virtual_env_manager:
                 launch_info.virtual_env_manager.cancel_install()
             if launch_info.sub_pools:
@@ -4137,10 +5310,395 @@ class WorkerActor(xo.StatelessActor):
             )
 
     @log_async(logger=logger, level=logging.INFO)
+    async def cancel_cache_model(self, cache_uid: str):
+        try:
+            download_info = self._cache_uid_to_download_info[cache_uid]
+        except KeyError:
+            raise RuntimeError(f"Cache operation {cache_uid} is not running")
+
+        self._cancel_download(download_info)
+
+        deadline = time.monotonic() + XINFERENCE_CANCEL_LAUNCH_TIMEOUT
+        while (
+            cache_uid in self._cache_uid_to_download_info
+            and time.monotonic() < deadline
+        ):
+            await asyncio.sleep(0.1)
+        if cache_uid in self._cache_uid_to_download_info:
+            raise RuntimeError(
+                f"Cache operation {cache_uid} is still running after "
+                f"{XINFERENCE_CANCEL_LAUNCH_TIMEOUT}s"
+            )
+
+    @staticmethod
+    def _resolve_model_download_repositories(
+        payload: Dict[str, Any],
+    ) -> List[Dict[str, str]]:
+        """Resolve every Hub repository used while preparing this model."""
+        persisted = payload.get("_download_repositories")
+        if isinstance(persisted, list):
+            # Even an empty persisted list is authoritative: it records that
+            # this task owns no Hub repository (for example, a local model).
+            return [
+                {
+                    "model_hub": str(item["model_hub"]),
+                    "model_id": str(item["model_id"]),
+                }
+                for item in persisted
+                if isinstance(item, dict)
+                and item.get("model_hub")
+                and item.get("model_id")
+            ]
+
+        repositories: List[Dict[str, str]] = []
+
+        def add_repository(
+            model_hub: Any, model_id: Any, model_uri: Any = None
+        ) -> None:
+            if model_uri or not model_hub or not model_id:
+                return
+            repository = {
+                "model_hub": str(model_hub),
+                "model_id": str(model_id),
+            }
+            if repository not in repositories:
+                repositories.append(repository)
+
+        def add_spec(repository_spec: Any) -> None:
+            add_repository(
+                getattr(repository_spec, "model_hub", None),
+                getattr(repository_spec, "model_id", None),
+                getattr(repository_spec, "model_uri", None),
+            )
+
+        model_type = str(payload.get("model_type") or "LLM").lower()
+        model_name = str(payload.get("model_name") or "")
+        model_engine = payload.get("model_engine")
+        model_format = payload.get("model_format")
+        quantization = payload.get("quantization")
+        download_hub = payload.get("download_hub")
+
+        if model_type == "llm":
+            from ..model.llm.llm_family import match_llm
+
+            family = match_llm(
+                model_name,
+                model_format,
+                payload.get("model_size_in_billions"),
+                quantization,
+                download_hub,
+            )
+            if family is None:
+                raise ValueError(f"Model {model_name} is no longer registered")
+            spec = family.model_specs[0]
+        elif model_type == "embedding":
+            from ..model.embedding.embed_family import match_embedding
+
+            spec = match_embedding(
+                model_name, model_format, quantization, download_hub
+            ).model_specs[0]
+        elif model_type == "rerank":
+            from ..model.rerank.rerank_family import match_rerank
+
+            spec = match_rerank(
+                model_name, model_format, quantization, download_hub
+            ).model_specs[0]
+        elif model_type == "image":
+            from ..model.image.core import _select_ocr_model_family, match_diffusion
+
+            spec = match_diffusion(model_name, download_hub)
+            if "ocr" in (spec.model_ability or []):
+                spec = _select_ocr_model_family(
+                    model_name,
+                    model_engine or "transformers",
+                    download_hub,
+                    model_format=model_format,
+                    quantization=quantization,
+                )
+        elif model_type == "audio":
+            from ..model.audio.core import match_audio
+
+            spec = match_audio(
+                model_name,
+                download_hub,
+                model_engine=model_engine,
+                quantization=quantization,
+            )
+        elif model_type == "video":
+            from ..model.video.core import match_diffusion as match_video
+            from ..model.video.core import resolve_video_model_name_and_engine
+
+            model_name, model_engine = resolve_video_model_name_and_engine(
+                model_name, model_engine, use_default_engine=True
+            )
+            spec = match_video(model_name, download_hub, model_engine=model_engine)
+        elif model_type == "world":
+            from ..model.world.core import match_world_model
+
+            spec = match_world_model(model_name, download_hub)
+        elif model_type == "flexible":
+            return []
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+        # A user-supplied primary path is not task-owned. Auxiliary models may
+        # still be downloaded and therefore must remain in the cleanup set.
+        if not payload.get("model_path"):
+            add_spec(spec)
+
+        if model_type == "llm":
+            from ..model.llm.core import parse_bool_launch_arg
+
+            if parse_bool_launch_arg(
+                payload.get("enable_mtp", False)
+            ) and not payload.get("draft_model_path"):
+                draft_model_id = getattr(spec, "draft_model_id", None)
+                draft_template = getattr(spec, "draft_model_file_name_template", None)
+                if not draft_model_id and draft_template:
+                    # GGUF drafters can be files in the primary repository.
+                    draft_model_id = getattr(spec, "model_id", None)
+                if draft_model_id:
+                    draft_quantization = payload.get("draft_quantization")
+                    draft_quantizations = (
+                        getattr(spec, "draft_quantizations", None) or []
+                    )
+                    if draft_quantization is None and draft_quantizations:
+                        draft_quantization = draft_quantizations[0]
+                    if (
+                        "{draft_quantization}" in draft_model_id
+                        and not draft_quantization
+                    ):
+                        raise ValueError(
+                            f"Model {model_name} declares the templated drafter "
+                            f"{draft_model_id!r} but no `draft_quantizations`."
+                        )
+                    try:
+                        draft_model_id = draft_model_id.format(
+                            draft_quantization=draft_quantization
+                        )
+                    except (KeyError, IndexError) as exc:
+                        raise ValueError(
+                            f"Invalid draft_model_id {draft_model_id!r}: {exc!r}"
+                        ) from exc
+                    add_repository(getattr(spec, "model_hub", None), draft_model_id)
+
+        if model_type == "image" and "ocr" not in (
+            getattr(spec, "model_ability", None) or []
+        ):
+            image_options = (getattr(spec, "default_model_config", None) or {}).copy()
+            image_options.update(payload)
+            controlnet = image_options.get("controlnet")
+            if isinstance(controlnet, str):
+                controlnet_names = [controlnet]
+            elif isinstance(controlnet, (list, tuple)):
+                controlnet_names = list(controlnet)
+            else:
+                controlnet_names = []
+            for controlnet_name in controlnet_names:
+                for controlnet_spec in getattr(spec, "controlnet", None) or []:
+                    if getattr(controlnet_spec, "model_name", None) == controlnet_name:
+                        add_spec(controlnet_spec)
+                        break
+
+        if model_type in {"image", "video"}:
+            model_hub = getattr(spec, "model_hub", None)
+            if payload.get("gguf_quantization") and not payload.get("gguf_model_path"):
+                add_repository(model_hub, getattr(spec, "gguf_model_id", None))
+            if payload.get("lightning_version") and not payload.get(
+                "lightning_model_path"
+            ):
+                add_repository(model_hub, getattr(spec, "lightning_model_id", None))
+
+        return repositories
+
+    async def resolve_model_download_repositories(
+        self, payload: Dict[str, Any]
+    ) -> List[Dict[str, str]]:
+        return self._resolve_model_download_repositories(payload)
+
+    @classmethod
+    def _download_repository_paths(cls, payload: Dict[str, Any]) -> Set[str]:
+        roots = dict(
+            zip(
+                ("huggingface", "modelscope", "openmind_hub", "csghub"),
+                cls._download_cache_roots(),
+            )
+        )
+        paths: Set[str] = set()
+        for repository in cls._resolve_model_download_repositories(payload):
+            model_hub = repository["model_hub"]
+            model_id = repository["model_id"].strip("/")
+            root = roots.get(model_hub)
+            parts = model_id.split("/")
+            if (
+                root is None
+                or not model_id
+                or "\\" in model_id
+                or any(part in ("", ".", "..") for part in parts)
+            ):
+                raise ValueError(f"Unsafe download repository: {model_hub}/{model_id}")
+            safe_id = "--".join(parts)
+            directory_name = (
+                safe_id if model_hub == "modelscope" else f"models--{safe_id}"
+            )
+            repository_path = os.path.abspath(os.path.join(root, directory_name))
+            root = os.path.abspath(root)
+            if repository_path == root or not cls._is_path_within(
+                repository_path, root
+            ):
+                raise ValueError(
+                    f"Refusing to resolve repository outside Hub cache: "
+                    f"{repository_path}"
+                )
+            paths.add(repository_path)
+        return paths
+
+    @classmethod
+    def _repository_has_cache_reference(cls, repository_path: str) -> bool:
+        referenced = cls._collect_symlink_file_targets(
+            XINFERENCE_CACHE_DIR,
+            follow_directory_links=True,
+            include_regular_files=True,
+        )
+        referenced.update(
+            cls._collect_cache_source_manifest_targets(XINFERENCE_CACHE_DIR)
+        )
+        return any(cls._is_path_within(path, repository_path) for path in referenced)
+
+    @staticmethod
+    def _path_size(path: str) -> int:
+        if os.path.isfile(path) and not os.path.islink(path):
+            try:
+                return os.path.getsize(path)
+            except OSError:
+                return 0
+        total = 0
+        for root, _dirs, files in os.walk(path, followlinks=False):
+            for name in files:
+                file_path = os.path.join(root, name)
+                if os.path.islink(file_path):
+                    continue
+                try:
+                    total += os.path.getsize(file_path)
+                except OSError:
+                    pass
+        return total
+
+    @classmethod
+    def _remove_download_repository_paths(
+        cls, target_paths: Set[str], protected_paths: Set[str]
+    ) -> Dict[str, Any]:
+        overlapping = target_paths & protected_paths
+        if overlapping:
+            raise RuntimeError(
+                "Cannot delete download files while another download task uses "
+                f"the same repository: {', '.join(sorted(overlapping))}"
+            )
+
+        removed_bytes = 0
+        removed_repositories: List[str] = []
+        preserved_repositories: List[str] = []
+        partial_suffixes = (".incomplete", ".partial", ".part", ".tmp")
+        managed_roots = cls._download_cache_roots()
+
+        for repository_path in sorted(target_paths):
+            root = cls._download_cache_root_for_path(repository_path)
+            if root is None or root not in managed_roots:
+                raise ValueError(
+                    f"Refusing to delete unmanaged Hub repository: {repository_path}"
+                )
+            if not os.path.lexists(repository_path):
+                continue
+            if os.path.islink(repository_path) or not os.path.isdir(repository_path):
+                raise ValueError(
+                    f"Refusing to delete unexpected Hub repository path: "
+                    f"{repository_path}"
+                )
+            real_repository_path = os.path.realpath(repository_path)
+            if not cls._is_path_within(real_repository_path, root):
+                raise ValueError(
+                    f"Refusing to delete repository outside Hub cache: "
+                    f"{real_repository_path}"
+                )
+
+            if not cls._repository_has_cache_reference(repository_path):
+                removed_bytes += cls._path_size(repository_path)
+                shutil.rmtree(repository_path)
+                removed_repositories.append(repository_path)
+                continue
+
+            # A completed Xinference cache still references this repository.
+            # Preserve usable files and remove only SDK download fragments.
+            preserved_repositories.append(repository_path)
+            for current_root, dirs, files in os.walk(
+                repository_path, topdown=False, followlinks=False
+            ):
+                for name in files:
+                    if not name.lower().endswith(partial_suffixes):
+                        continue
+                    partial_path = os.path.join(current_root, name)
+                    if os.path.islink(partial_path):
+                        continue
+                    removed_bytes += cls._path_size(partial_path)
+                    try:
+                        os.remove(partial_path)
+                    except FileNotFoundError:
+                        pass
+                for name in dirs:
+                    directory = os.path.join(current_root, name)
+                    if os.path.islink(directory):
+                        continue
+                    try:
+                        os.rmdir(directory)
+                    except OSError:
+                        pass
+
+        return {
+            "removed_bytes": removed_bytes,
+            "removed_repositories": removed_repositories,
+            "preserved_repositories": preserved_repositories,
+        }
+
+    @log_async(logger=logger, level=logging.INFO)
+    async def delete_cache_model_artifacts(
+        self,
+        payload: Dict[str, Any],
+        protected_payloads: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        protected_payloads = list(protected_payloads or [])
+        lock = getattr(self, "_download_artifact_cleanup_lock", None)
+        if lock is None:
+            lock = self._download_artifact_cleanup_lock = asyncio.Lock()
+
+        async with lock:
+            for download_info in self._cache_uid_to_download_info.values():
+                if download_info.payload:
+                    protected_payloads.append(download_info.payload)
+            for launch_info in self._model_uid_launching_guard.values():
+                if launch_info.payload:
+                    protected_payloads.append(launch_info.payload)
+
+            target_paths = self._download_repository_paths(payload)
+            protected_paths: Set[str] = set()
+            for protected_payload in protected_payloads:
+                protected_paths.update(
+                    self._download_repository_paths(protected_payload)
+                )
+            return await asyncio.to_thread(
+                self._remove_download_repository_paths,
+                target_paths,
+                protected_paths,
+            )
+
+    @log_async(logger=logger, level=logging.INFO)
     async def terminate_model(self, model_uid: str, is_model_die=False):
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:
             raise ValueError(f"{model_uid} is launching")
+        model_status = self._model_uid_to_model_status.get(model_uid)
+        was_reloading = (
+            model_status is not None and model_status.model_state == "reloading"
+        )
         await self._update_model_state(model_uid, "stopping")
         # In special cases, if the suffix is `-rank0`, this is the Xavier's rank 0 model actor.
         if model_uid.endswith("-rank0"):
@@ -4181,14 +5739,36 @@ class WorkerActor(xo.StatelessActor):
         if model_ref is None:
             logger.debug("Model not found, uid: %s", model_uid)
 
-        pool_addresses = None
-        if model_ref is not None:
+        # Keep rank pools reachable for cleanup after the ModelActor has died.
+        # Removing only its primary pool would sync config to a surviving rank
+        # that may be blocked in NCCL and cannot acknowledge the update.
+        pool_addresses = list(self._model_uid_to_subpool_addresses.get(model_uid, ()))
+        if not pool_addresses and model_ref is not None and not was_reloading:
             try:
                 # pool addresses if model.need_create_pools()
                 pool_addresses = await model_ref.get_pool_addresses()
             except Exception as e:
                 # process may disappear, we just ignore it.
                 logger.debug("Fail to get pool addresses, error: %s", e)
+
+        reload_children = []
+        reload_parent = None
+        if was_reloading:
+            import psutil
+
+            # Capture before killing the pool: reparented SGLang/native-MP
+            # children cannot reliably be found by model UID in their cmdline.
+            address = self._model_uid_to_addr.get(model_uid)
+            process = self._main_pool.sub_processes.get(address)
+            if process is not None and process.pid is not None:
+                try:
+                    reload_parent = psutil.Process(process.pid)
+                    # Freeze the loading thread before capturing direct
+                    # children, so it cannot fork another engine before kill.
+                    reload_parent.suspend()
+                    reload_children = reload_parent.children(recursive=True)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
 
         # Resolve GPU indices for terminate-path orphan cleanup.
         # Prefer launch_args["gpu_idx"] (user-specified), but fall back to
@@ -4210,7 +5790,7 @@ class WorkerActor(xo.StatelessActor):
 
         try:
             logger.debug("Start to destroy model actor: %s", model_ref)
-            if model_ref is not None:
+            if model_ref is not None and not was_reloading:
                 try:
                     await model_ref.stop()
                 except Exception as e:
@@ -4219,15 +5799,15 @@ class WorkerActor(xo.StatelessActor):
                         model_uid,
                         e,
                     )
-            coro = xo.destroy_actor(model_ref)
-            # see https://github.com/xorbitsai/xoscar/pull/140
-            # asyncio.wait_for cannot work for Xoscar actor call,
-            # because when time out, the coroutine will be cancelled via raise CancelledEror,
-            # inside actor call, the error will be caught and
-            # a CancelMessage will be sent to dest actor pool,
-            # however the actor pool may be stuck already,
-            # thus the timeout will never be raised
-            await xo.wait_for(coro, timeout=5)
+                coro = xo.destroy_actor(model_ref)
+                # see https://github.com/xorbitsai/xoscar/pull/140
+                # asyncio.wait_for cannot work for Xoscar actor call,
+                # because when time out, the coroutine will be cancelled via raise CancelledEror,
+                # inside actor call, the error will be caught and
+                # a CancelMessage will be sent to dest actor pool,
+                # however the actor pool may be stuck already,
+                # thus the timeout will never be raised
+                await xo.wait_for(coro, timeout=5)
         except Exception as e:
             logger.debug(
                 "Destroy model actor failed, model uid: %s, error: %s", model_uid, e
@@ -4238,6 +5818,7 @@ class WorkerActor(xo.StatelessActor):
             to_remove_addresses.append(subpool_address)
             if pool_addresses:
                 to_remove_addresses.extend(pool_addresses)
+            to_remove_addresses = list(dict.fromkeys(to_remove_addresses))
             logger.debug("Remove sub pools: %s", to_remove_addresses)
             coros = []
             for to_remove_addr in to_remove_addresses:
@@ -4250,8 +5831,14 @@ class WorkerActor(xo.StatelessActor):
                 "Remove sub pool failed, model uid: %s, error: %s", model_uid, e
             )
         finally:
-            # Clean up virtual environment tracking
-            # Virtual environment tracking is no longer needed
+            if reload_parent is not None:
+                try:
+                    reload_parent.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            if reload_children:
+                await asyncio.to_thread(_stop_reload_children, reload_children)
+            self._release_virtual_env_usage(model_uid)
 
             self._model_uid_to_model.pop(model_uid, None)
             self._model_uid_to_model_spec.pop(model_uid, None)
@@ -4261,6 +5848,7 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_launch_args.pop(model_uid, None)
             self._model_uid_to_pid.pop(model_uid, None)
             self._model_uid_to_subpool_pids.pop(model_uid, None)
+            self._model_uid_to_subpool_addresses.pop(model_uid, None)
             # §4.3: Remove from persisted recovery file
             self._remove_persisted_launch_args(model_uid)
 
@@ -4382,6 +5970,7 @@ class WorkerActor(xo.StatelessActor):
         status_map = {
             "registering": LaunchStatus.CREATING.name,
             "loading": LaunchStatus.LOADING.name,
+            "reloading": LaunchStatus.UPDATING.name,
             "ready": LaunchStatus.READY.name,
             "error": LaunchStatus.ERROR.name,
             "stopping": LaunchStatus.TERMINATING.name,
@@ -4406,10 +5995,77 @@ class WorkerActor(xo.StatelessActor):
                     exc_info=True,
                 )
 
+    async def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
+        return await self._model_uid_to_model[model_uid].get_reload_config()
+
+    async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
+        return await self._model_uid_to_model[model_uid].get_reload_status()
+
+    async def validate_model_reload(self, model_uid: str, config: Dict[str, Any]):
+        return await self._model_uid_to_model[model_uid].validate_reload(config)
+
+    async def reload_model(
+        self, model_uid: str, config: Dict[str, Any], drain_timeout: float
+    ) -> bool:
+        from ..model.llm.weight_cache import ModelReloadError
+
+        model_ref = self._model_uid_to_model[model_uid]
+        await self._update_model_state(model_uid, "reloading")
+        owned_status = self._model_uid_to_model_status.get(model_uid)
+
+        def still_owns_model() -> bool:
+            return (
+                self._model_uid_to_model.get(model_uid) is model_ref
+                and self._model_uid_to_model_status.get(model_uid) is owned_status
+                and owned_status is not None
+                and owned_status.model_state == "reloading"
+            )
+
+        try:
+            weights_reused = await model_ref.reload(config, drain_timeout)
+        except ModelReloadError as exc:
+            if still_owns_model():
+                await self._update_model_state(
+                    model_uid, "ready" if exc.restored else "error"
+                )
+            raise
+        except (ValueError, ModelNotReadyError):
+            if still_owns_model():
+                await self._update_model_state(model_uid, "ready")
+            raise
+        except asyncio.CancelledError:
+            # Keep the reload marker until terminate_model forcibly removes the
+            # pool. Cancellation cannot stop a load running in a native thread.
+            raise
+        except Exception:
+            if still_owns_model():
+                await self._update_model_state(model_uid, "error")
+            raise
+        else:
+            if not still_owns_model():
+                raise ModelReloadError(
+                    "Model was terminated or recovered during reload"
+                )
+            # Persist only committed changes. Recovery must use the new limits,
+            # while the original launch identity and GPU placement stay intact.
+            self._model_uid_to_launch_args[model_uid].update(config)
+            self._persist_launch_args()
+            await self._update_model_state(model_uid, "ready")
+            return weights_reused
+
+    @log_sync(logger=logger)
+    def get_model_for_abort(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
+        status = self._model_uid_to_model_status.get(model_uid)
+        if status is not None and status.model_state == "reloading":
+            # Drain keeps existing streams alive; they must remain cancellable.
+            return self._model_uid_to_model[model_uid]
+        return self.get_model(model_uid)
+
+    @log_sync(logger=logger)
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         model_status = self._model_uid_to_model_status.get(model_uid)
         if model_status:
-            if model_status.model_state in ("registering", "loading"):
+            if model_status.model_state in ("registering", "loading", "reloading"):
                 raise ModelNotReadyError(
                     f"Model {model_uid} is {model_status.model_state}"
                 )
@@ -4429,7 +6085,125 @@ class WorkerActor(xo.StatelessActor):
         model_desc = self._model_uid_to_model_spec.get(model_uid, None)
         if model_desc is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        return model_desc
+        return {
+            **model_desc,
+            "n_worker": self._model_uid_to_launch_args.get(model_uid, {}).get(
+                "n_worker", 1
+            ),
+        }
+
+    def _refresh_model_subpool_pids(self) -> None:
+        """Refresh model PID ownership from stable sub-pool addresses.
+
+        If any expected address cannot be resolved, keep all prior PID snapshots
+        and fail the collection. Publishing a partial snapshot would otherwise
+        make the supervisor discard valid GPU-memory data for the unresolved
+        replica.
+        """
+        address_mapping = self._model_uid_to_subpool_addresses
+        refreshed_by_model: Dict[str, Set[int]] = {}
+        unresolved: List[Tuple[str, str]] = []
+
+        for model_uid, addresses in address_mapping.items():
+            refreshed: Set[int] = set()
+            for address in addresses:
+                try:
+                    process = self._main_pool.sub_processes.get(address)
+                    if process is None or process.pid is None:
+                        unresolved.append((model_uid, address))
+                    else:
+                        refreshed.add(process.pid)
+                except Exception:
+                    unresolved.append((model_uid, address))
+                    logger.debug(
+                        "Failed to resolve model sub-pool PID: model_uid=%s "
+                        "subpool_address=%s",
+                        model_uid,
+                        address,
+                        exc_info=True,
+                    )
+            refreshed_by_model[model_uid] = refreshed
+
+        if unresolved:
+            logger.debug(
+                "Expected model sub-pool addresses could not be resolved: %s",
+                unresolved,
+            )
+            raise RuntimeError(
+                f"model sub-pool PID ownership is incomplete: {unresolved}"
+            )
+
+        for model_uid, refreshed in refreshed_by_model.items():
+            previous = self._model_uid_to_subpool_pids.get(model_uid, set())
+            if refreshed != previous:
+                logger.info(
+                    "Refreshed model sub-pool PIDs: model_uid=%s old=%s new=%s",
+                    model_uid,
+                    sorted(previous),
+                    sorted(refreshed),
+                )
+                self._model_uid_to_subpool_pids[model_uid] = refreshed
+
+    async def _collect_model_gpu_memory(self) -> Dict[str, Dict[int, int]]:
+        """Collect a complete and unambiguous per-model GPU-memory snapshot."""
+        import psutil
+
+        from ..device_utils import get_per_process_gpu_memory
+
+        self._refresh_model_subpool_pids()
+        gpu_mem = await asyncio.to_thread(get_per_process_gpu_memory, strict=True)
+
+        candidate_pids: Dict[str, Set[int]] = {}
+        model_uids = (
+            set(self._model_uid_to_pid)
+            | set(self._model_uid_to_subpool_pids)
+            | set(self._model_uid_to_subpool_addresses)
+        )
+        process_errors = (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+            psutil.ZombieProcess,
+        )
+        for model_uid in model_uids:
+            pids = {
+                pid
+                for pid in self._model_uid_to_subpool_pids.get(model_uid, set())
+                if pid is not None
+            }
+            own_pid = self._model_uid_to_pid.get(model_uid)
+            if own_pid is not None:
+                pids.add(own_pid)
+            for base_pid in list(pids):
+                try:
+                    pids.update(
+                        child.pid
+                        for child in psutil.Process(base_pid).children(recursive=True)
+                    )
+                except process_errors:
+                    continue
+            candidate_pids[model_uid] = pids
+
+        pid_owners: Dict[int, Set[str]] = {}
+        for model_uid, pids in candidate_pids.items():
+            for pid in pids:
+                pid_owners.setdefault(pid, set()).add(model_uid)
+        ambiguous = {
+            pid: owners for pid, owners in pid_owners.items() if len(owners) > 1
+        }
+        if ambiguous:
+            details = {pid: sorted(owners) for pid, owners in ambiguous.items()}
+            logger.debug("Ambiguous model GPU process ownership: %s", details)
+            raise RuntimeError(f"ambiguous model GPU process ownership: {details}")
+
+        model_gpu_memory: Dict[str, Dict[int, int]] = {}
+        for model_uid, pids in candidate_pids.items():
+            per_gpu: Dict[int, int] = {}
+            for pid in pids:
+                for gpu_idx, memory in gpu_mem.get(pid, {}).items():
+                    per_gpu[gpu_idx] = per_gpu.get(gpu_idx, 0) + memory
+            if per_gpu:
+                model_gpu_memory[model_uid] = per_gpu
+        return model_gpu_memory
 
     async def report_status(self):
         status = dict()
@@ -4438,84 +6212,56 @@ class WorkerActor(xo.StatelessActor):
             async with timeout(XINFERENCE_STATUS_GATHER_TIMEOUT):
                 status = await asyncio.to_thread(gather_node_info)
 
-                # Collect per-model GPU memory. Each replica's GPU holders are
-                # its registered sub-pool PIDs (primary ModelActor pool +
-                # per-device vLLM/SGLang rank pools) plus their recursive
-                # children (e.g. vLLM V1 forked EngineCore). Attribution is
-                # deterministic and reads no process environ.
+                # Collect a complete snapshot. Field absence means the sample
+                # failed; explicit {} means success with no model-owned GPU use.
                 if self._total_gpu_devices:
                     try:
-                        import psutil
-
-                        from ..device_utils import get_per_process_gpu_memory
-
-                        gpu_mem = await asyncio.to_thread(get_per_process_gpu_memory)
-                        model_gpu_mem: Dict[str, Dict[int, int]] = {}
-
-                        for m_uid in set(self._model_uid_to_pid) | set(
-                            self._model_uid_to_subpool_pids
-                        ):
-                            pids: Set[int] = set(
-                                self._model_uid_to_subpool_pids.get(m_uid, set())
-                            )
-                            own_pid = self._model_uid_to_pid.get(m_uid)
-                            if own_pid is not None:
-                                pids.add(own_pid)
-                            # Recursive children cover GPU holders forked outside
-                            # the registered sub-pools (e.g. vLLM V1 EngineCore).
-                            for base in list(pids):
-                                try:
-                                    pids.update(
-                                        c.pid
-                                        for c in psutil.Process(base).children(
-                                            recursive=True
-                                        )
-                                    )
-                                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                                    pass
-                            per_gpu: Dict[int, int] = {}
-                            for pid in pids:
-                                if pid in gpu_mem:
-                                    for gpu_idx, mem in gpu_mem[pid].items():
-                                        per_gpu[gpu_idx] = per_gpu.get(gpu_idx, 0) + mem
-                            if per_gpu:
-                                model_gpu_mem[m_uid] = per_gpu
-
-                        if model_gpu_mem:
-                            status["model_gpu_memory"] = model_gpu_mem
+                        status["model_gpu_memory"] = (
+                            await self._collect_model_gpu_memory()
+                        )
                     except Exception:
-                        pass
+                        self._gpu_memory_collection_fail_count += 1
+                        logger.warning(
+                            "Failed to collect per-model GPU memory "
+                            "(consecutive failures: %s)",
+                            self._gpu_memory_collection_fail_count,
+                            exc_info=(
+                                self._gpu_memory_collection_fail_count == 1
+                                or self._gpu_memory_collection_fail_count % 10 == 0
+                            ),
+                        )
+                    else:
+                        if self._gpu_memory_collection_fail_count:
+                            logger.info(
+                                "Per-model GPU memory collection recovered after "
+                                "%s consecutive failure(s)",
+                                self._gpu_memory_collection_fail_count,
+                            )
+                        self._gpu_memory_collection_fail_count = 0
         except asyncio.CancelledError:
             raise
         except Exception:
             logger.exception("Report status got error.")
-        supervisor_ref = None
-        supervisor_generation = None
         try:
-            (
-                supervisor_ref,
-                supervisor_generation,
-            ) = await self._get_supervisor_ref_with_generation()
-            await xo.wait_for(
-                supervisor_ref.report_worker_status(self.address, status),
-                XINFERENCE_TCP_REQUEST_TIMEOUT,
+            await self._call_supervisor(
+                "report_worker_status",
+                self.address,
+                status,
+                add_worker=True,
             )
+        except asyncio.CancelledError:
+            raise
         except Exception:
             logger.warning(
-                "Failed to report worker status, clearing cached supervisor references",
+                "Failed to report worker status, retrying after supervisor "
+                "re-registration",
                 exc_info=True,
             )
-            if supervisor_ref is not None and supervisor_generation is not None:
-                self._clear_supervisor_refs(
-                    expected_supervisor_ref=supervisor_ref,
-                    expected_generation=supervisor_generation,
-                )
-            supervisor_ref, _ = await self._get_supervisor_ref_with_generation(
-                add_worker=True
-            )
-            await xo.wait_for(
-                supervisor_ref.report_worker_status(self.address, status),
-                XINFERENCE_TCP_REQUEST_TIMEOUT,
+            await self._call_supervisor(
+                "report_worker_status",
+                self.address,
+                status,
+                add_worker=True,
             )
 
     async def ping(self) -> bool:
@@ -4535,64 +6281,69 @@ class WorkerActor(xo.StatelessActor):
         next attempt can refresh a supervisor whose internal address changed
         after a restart.
         """
-        (
-            supervisor_ref,
-            supervisor_generation,
-        ) = await self._get_supervisor_ref_with_generation(add_worker=False)
-        try:
-            await xo.wait_for(
-                supervisor_ref.receive_heartbeat(self.address),
-                XINFERENCE_TCP_REQUEST_TIMEOUT,
-            )
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            if supervisor_generation is not None:
-                self._clear_supervisor_refs(
-                    expected_supervisor_ref=supervisor_ref,
-                    expected_generation=supervisor_generation,
-                )
-            raise
+        await self._call_supervisor(
+            "receive_heartbeat",
+            self.address,
+            add_worker=False,
+        )
 
     async def _periodical_report_status(self):
-        """
-        Periodically send heartbeat and status reports to supervisor.
-        Heartbeat is sent every interval, full status is sent every N intervals.
-        """
+        """Periodically send independent heartbeat and full status reports."""
         report_count = 0
-        _heartbeat_fail_count = 0
+        heartbeat_fail_count = 0
+        status_fail_count = 0
         while True:
+            report_due = report_count % XINFERENCE_STATUS_REPORT_MULTIPLIER == 0
+
             try:
-                # Always send heartbeat for liveness detection
                 await self.heartbeat()
-
-                # Send full status every N heartbeats
-                if report_count % XINFERENCE_STATUS_REPORT_MULTIPLIER == 0:
-                    await self.report_status()
-
-                report_count += 1
-                _heartbeat_fail_count = 0  # reset on success
             except asyncio.CancelledError:  # pragma: no cover
                 break
             except Exception as ex:  # pragma: no cover
-                # Isolation.stop() cancels this coroutine during normal shutdown.
-                # Every other exception is treated as recoverable: a transient RPC
-                # RuntimeError must not permanently stop heartbeats and let the
-                # supervisor evict an otherwise healthy worker. The failing RPC
-                # path conditionally invalidates only its own cached ref.
-                report_count = 0
-                _heartbeat_fail_count += 1
-                # §4.4: Log exception type and full traceback.
-                # Print full traceback on 1st failure and every 10th consecutive failure
-                # to avoid log bloat during prolonged outages.
+                heartbeat_fail_count += 1
                 logger.error(
-                    "Failed to upload node info: %s(%s)",
+                    "Failed to upload worker heartbeat: %s(%s)",
                     type(ex).__name__,
-                    ex or "(empty message)",
+                    str(ex) or "(empty message)",
                     exc_info=(
-                        _heartbeat_fail_count == 1 or _heartbeat_fail_count % 10 == 0
+                        heartbeat_fail_count == 1 or heartbeat_fail_count % 10 == 0
                     ),
                 )
+            else:
+                if heartbeat_fail_count:
+                    logger.info(
+                        "Worker heartbeat upload recovered after %s consecutive "
+                        "failure(s)",
+                        heartbeat_fail_count,
+                    )
+                heartbeat_fail_count = 0
+
+            if report_due:
+                try:
+                    await self.report_status()
+                except asyncio.CancelledError:  # pragma: no cover
+                    break
+                except Exception as ex:  # pragma: no cover
+                    status_fail_count += 1
+                    logger.error(
+                        "Failed to collect or upload full worker status: %s(%s)",
+                        type(ex).__name__,
+                        str(ex) or "(empty message)",
+                        exc_info=(
+                            status_fail_count == 1 or status_fail_count % 10 == 0
+                        ),
+                    )
+                else:
+                    if status_fail_count:
+                        logger.info(
+                            "Full worker status reporting recovered after %s "
+                            "consecutive failure(s)",
+                            status_fail_count,
+                        )
+                    status_fail_count = 0
+
+            # Keep the full-status cadence independent from heartbeat failures.
+            report_count += 1
             try:
                 await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
             except asyncio.CancelledError:  # pragma: no cover
@@ -4628,6 +6379,18 @@ class WorkerActor(xo.StatelessActor):
                 cached_model["real_path"] = real_path
             cached_model["actor_ip_address"] = self.address
             cached_models.append(cached_model)
+        sizes = await asyncio.gather(
+            *[
+                asyncio.to_thread(
+                    get_path_size,
+                    cached_model["path"],
+                    follow_file_symlinks=True,
+                )
+                for cached_model in cached_models
+            ]
+        )
+        for cached_model, size in zip(cached_models, sizes):
+            cached_model["size_bytes"] = size
         return cached_models
 
     @staticmethod
@@ -4904,6 +6667,31 @@ class WorkerActor(xo.StatelessActor):
                 for root, _dirs, files in os.walk(draft_path):
                     paths.update(os.path.join(root, name) for name in files)
 
+        # MLX video converts official Wan checkpoints beside the registered
+        # cache entry. Keep this name-based and confined to the validated
+        # Xinference cache parent so a model_uri target is never traversed or
+        # removed. Known Wan MLX entries always include the lock path, even if
+        # it does not exist yet, closing the discovery-to-acquisition window.
+        converted_path = f"{path}.mlx-video"
+        conversion_lock_path = f"{converted_path}.lock"
+        is_wan_mlx_cache = model_version.lower().startswith(
+            "wan"
+        ) and model_version.lower().endswith("-mlx")
+        if (
+            WorkerActor._is_path_within(converted_path, cache_root)
+            and WorkerActor._is_path_within(conversion_lock_path, cache_root)
+            and (
+                is_wan_mlx_cache
+                or os.path.lexists(converted_path)
+                or os.path.lexists(conversion_lock_path)
+            )
+        ):
+            if os.path.lexists(converted_path):
+                paths.add(converted_path)
+            # Include the producer lock even if a concurrent conversion only
+            # created its output after the existence check above.
+            paths.add(conversion_lock_path)
+
         return list(paths)
 
     async def confirm_and_remove_model(self, model_version: str) -> bool:
@@ -4912,6 +6700,33 @@ class WorkerActor(xo.StatelessActor):
             logger.warning("cache_tracker_ref is None, cannot confirm and remove model")
             return False
         paths = await self.list_deletable_models(model_version)
+
+        # Coordinate with Wan conversion using the producer's exact FileLock.
+        # Lock paths are added even when absent so a conversion cannot start in
+        # the gap between discovery and deletion. The zero-byte lock inode is
+        # intentionally retained after release: unlinking it permits old and new
+        # acquirers to lock different inodes and defeats cross-process exclusion.
+        from filelock import FileLock
+
+        conversion_lock_paths = sorted(
+            path for path in paths if path.endswith(".mlx-video.lock")
+        )
+        conversion_locks = [
+            FileLock(path, preserve_lock_file=True) for path in conversion_lock_paths
+        ]
+        acquired_conversion_locks = []
+        try:
+            for conversion_lock in conversion_locks:
+                await asyncio.to_thread(conversion_lock.acquire)
+                acquired_conversion_locks.append(conversion_lock)
+        except BaseException:
+            for conversion_lock in reversed(acquired_conversion_locks):
+                await asyncio.to_thread(conversion_lock.release)
+            raise
+        for lock_path in conversion_lock_paths:
+            converted_path = lock_path[: -len(".lock")]
+            if os.path.lexists(converted_path):
+                paths.append(converted_path)
 
         # Remember managed download parents before deleting their files. They are
         # pruned with ``rmdir`` afterwards, so non-empty/shared directories stop
@@ -4932,33 +6747,42 @@ class WorkerActor(xo.StatelessActor):
             is_directory = not os.path.islink(path) and os.path.isdir(path)
             return is_directory, -path.count(os.sep)
 
-        for path in sorted(paths, key=_deletion_order):
-            try:
-                if os.path.islink(path):
-                    os.unlink(path)
-                elif os.path.isfile(path):
-                    os.remove(path)
-                elif os.path.isdir(path):
-                    path_abs = os.path.abspath(path)
-                    managed_roots = (
-                        os.path.abspath(XINFERENCE_CACHE_DIR),
-                        os.path.abspath(XINFERENCE_TENSORIZER_DIR),
-                    )
-                    if any(path_abs == root for root in managed_roots) or not any(
-                        WorkerActor._is_path_within(path_abs, root)
-                        for root in managed_roots
-                    ):
-                        logger.error(f"Refusing to delete unmanaged directory: {path}")
-                        return False
-                    shutil.rmtree(path)
-                else:
-                    logger.debug(f"{path} is not a valid path.")
-            except FileNotFoundError:
-                # A parent directory or a concurrent cleanup already removed it.
-                continue
-            except Exception as e:
-                logger.error(f"Fail to delete {path} with error:{e}.")  # noqa: E231
-                return False
+        try:
+            for path in sorted(
+                (path for path in paths if path not in conversion_lock_paths),
+                key=_deletion_order,
+            ):
+                try:
+                    if os.path.islink(path):
+                        os.unlink(path)
+                    elif os.path.isfile(path):
+                        os.remove(path)
+                    elif os.path.isdir(path):
+                        path_abs = os.path.abspath(path)
+                        managed_roots = (
+                            os.path.abspath(XINFERENCE_CACHE_DIR),
+                            os.path.abspath(XINFERENCE_TENSORIZER_DIR),
+                        )
+                        if any(path_abs == root for root in managed_roots) or not any(
+                            WorkerActor._is_path_within(path_abs, root)
+                            for root in managed_roots
+                        ):
+                            logger.error(
+                                f"Refusing to delete unmanaged directory: {path}"
+                            )
+                            return False
+                        shutil.rmtree(path)
+                    else:
+                        logger.debug(f"{path} is not a valid path.")
+                except FileNotFoundError:
+                    # A parent directory or a concurrent cleanup already removed it.
+                    continue
+                except Exception as e:
+                    logger.error(f"Fail to delete {path} with error:{e}.")  # noqa: E231
+                    return False
+        finally:
+            for conversion_lock in reversed(conversion_locks):
+                await asyncio.to_thread(conversion_lock.release)
 
         if not WorkerActor._prune_empty_download_dirs(download_parent_dirs):
             return False
@@ -4990,14 +6814,30 @@ class WorkerActor(xo.StatelessActor):
                 }
                 virtual_envs.append(virtual_env)
 
+            sizes = await asyncio.gather(
+                *[
+                    asyncio.to_thread(get_path_size, virtual_env["path"])
+                    for virtual_env in virtual_envs
+                ]
+            )
+            for virtual_env, size in zip(virtual_envs, sizes):
+                virtual_env["size_bytes"] = size
+
             return virtual_envs
         except Exception as e:
             logger.error(f"Error in list_virtual_envs: {e}")
             raise
 
-    async def list_virtual_env_packages(self, model_name: str) -> Dict[str, Any]:
-        """List packages installed in a specific virtual environment."""
-        return self._virtual_env_manager.list_virtual_env_packages(model_name)
+    async def list_virtual_env_packages(
+        self, model_name: str, model_engine: str, python_version: str
+    ) -> Dict[str, Any]:
+        """List packages installed directly in one virtual environment."""
+        return await asyncio.to_thread(
+            self._virtual_env_manager.list_virtual_env_packages,
+            model_name,
+            model_engine,
+            python_version,
+        )
 
     async def remove_virtual_env(
         self,
@@ -5005,10 +6845,70 @@ class WorkerActor(xo.StatelessActor):
         model_engine: Optional[str] = None,
         python_version: Optional[str] = None,
     ) -> bool:
-        """Remove a virtual environment for a specific model."""
-        return self._virtual_env_manager.remove_virtual_env(
-            model_name, model_engine, python_version
-        )
+        """Remove virtual environments without racing concurrent setup."""
+        if python_version and not self._virtual_env_manager._is_valid_python_version(
+            python_version
+        ):
+            return self._virtual_env_manager.remove_virtual_env(
+                model_name, model_engine, python_version
+            )
+
+        model_engine = model_engine.lower() if model_engine else None
+        target_envs = [
+            env
+            for env in self._virtual_env_manager.list_virtual_envs(
+                model_name, model_engine
+            )
+            if python_version is None or env["python_version"] == python_version
+        ]
+
+        target_envs_by_path: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for env in target_envs:
+            path = os.path.realpath(os.path.normpath(env["path"]))
+            target_envs_by_path[path].append(env)
+        ordered_paths = sorted(target_envs_by_path)
+
+        # Launch/setup takes locks in path -> usage order. Use the same order
+        # here and keep every target path locked through both the usage check
+        # and deletion so no reservation can appear between them.
+        with ExitStack() as stack:
+            for path in ordered_paths:
+                stack.enter_context(_exclusive_venv_path_lock(path))
+
+            with self._virtual_env_usage_lock:
+                for path in ordered_paths:
+                    usage = self._virtual_env_usages.get(path)
+                    model_uids = (
+                        sorted(usage.active_model_uids | usage.preparing_model_uids)
+                        if usage is not None
+                        else []
+                    )
+                    if model_uids:
+                        raise VirtualEnvConflictError(
+                            "Virtual environment cannot be removed while models "
+                            f"are using it: path={path}, "
+                            f"active_model_uids={model_uids}"
+                        )
+
+            # Delete concrete leaves instead of recursively deleting an engine or
+            # model parent, which could remove a newly created, unenumerated child.
+            result = True
+            for path in ordered_paths:
+                for env in target_envs_by_path[path]:
+                    result = (
+                        self._virtual_env_manager.remove_virtual_env(
+                            env["model_name"],
+                            env["model_engine"],
+                            env["python_version"],
+                            active_model_uids_by_path={},
+                        )
+                        and result
+                    )
+            return result
+
+    async def get_node_metadata(self) -> Dict[str, Any]:
+        """Return lightweight, static metadata describing this worker node."""
+        return {"software_version": __version__}
 
     async def get_workers_info(self) -> Dict[str, Any]:
         ret = {
@@ -5016,6 +6916,11 @@ class WorkerActor(xo.StatelessActor):
             "models": await self.list_models(),
         }
         return ret
+
+    async def read_runtime_logs(self, cursor: str = "") -> Dict[str, object]:
+        from .runtime_logs import read_runtime_log
+
+        return await asyncio.to_thread(read_runtime_log, cursor)
 
     def update_model_status(self, model_uid: str, **kwargs):
         model_status = self._model_uid_to_model_status.get(model_uid)
@@ -5096,6 +7001,19 @@ class WorkerActor(xo.StatelessActor):
             await supervisor_ref.call_collective_manager(
                 origin_uid, "unregister_rank", rank
             )
+        elif launch_args.get("_nixl_config") or launch_args.get(
+            "_xavier_cache_config", {}
+        ).get("role") in ("prefill", "decode"):
+            await supervisor_ref.unregister_pd_replica(origin_uid, rep_model_uid)
+            cache_config = launch_args.get("_xavier_cache_config", {})
+            if (
+                cache_config.get("role") in ("prefill", "decode")
+                and "rank" in cache_config
+            ):
+                directory = await xo.actor_ref(
+                    address=cache_config["address"], uid=cache_config["uid"]
+                )
+                await directory.unregister_peer(cache_config["rank"])
         subpool_address = await self.launch_builtin_model(**launch_args)
         if is_xavier:
             model_ref = self._model_uid_to_model[rep_model_uid]
@@ -5111,3 +7029,12 @@ class WorkerActor(xo.StatelessActor):
         # permanent "loading" zombie -- the original 33% symptom. launch_builtin_model
         # already awaited model_ref.load(), so wait_for_load is near-instant here.
         await self.wait_for_load(rep_model_uid)
+        if (
+            (is_xavier and xavier_config.get("role") in ("prefill", "decode"))
+            or launch_args.get("_nixl_config")
+            or launch_args.get("_xavier_cache_config", {}).get("role")
+            in ("prefill", "decode")
+        ):
+            await supervisor_ref.register_pd_replica(
+                origin_uid, rep_model_uid, self._model_uid_to_model[rep_model_uid]
+            )

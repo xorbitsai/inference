@@ -13,9 +13,11 @@ class EmbeddingCacheManager(CacheManager):
 
         super().__init__(model_family)
         # Composition design mode for avoiding duplicate code
-        self.cache_helper = LLMCacheManager(model_family)
-
         spec = self._model_family.model_specs[0]
+        self.cache_helper = LLMCacheManager(
+            model_family,
+            multimodal_projector=getattr(spec, "multimodal_projector", None),
+        )
         model_dir_name = (
             f"{self._model_family.model_name}-{spec.model_format}-{spec.quantization}"
         )

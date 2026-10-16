@@ -16,6 +16,7 @@ import json
 import os.path
 import sys
 import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import openai
@@ -30,9 +31,46 @@ from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 class _DummyRequest:
     def __init__(self, payload):
         self._payload = payload
+        self.state = SimpleNamespace()
 
     async def json(self):
         return self._payload
+
+
+@pytest.mark.asyncio
+async def test_rerank_multimodal_inputs_pass_through(monkeypatch):
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+
+    model = AsyncMock()
+    model.uid = "test-reranker"
+    model.rerank = AsyncMock(return_value="{}")
+    supervisor.get_model = AsyncMock(return_value=model)
+
+    query = {"image": "https://example.com/query.png"}
+    documents = [
+        {"text": "caption"},
+        {"video": "https://example.com/document.mp4"},
+    ]
+    response = await api.rerank(
+        _DummyRequest(
+            {"model": "test-reranker", "query": query, "documents": documents}
+        )
+    )
+
+    assert response.status_code == 200
+    model.rerank.assert_awaited_once_with(
+        documents,
+        query,
+        top_n=None,
+        max_chunks_per_doc=None,
+        return_documents=False,
+        return_len=False,
+    )
 
 
 @pytest.mark.asyncio
@@ -334,6 +372,8 @@ def test_restful_api_for_embedding(setup):
         "model_uid": "test_embedding",
         "model_name": model_name,
         "model_type": "embedding",
+        # This API test also runs in the non-GPU macOS matrix.
+        "device": "cpu",
     }
 
     response = requests.post(url, json=payload)
@@ -360,6 +400,7 @@ def test_restful_api_for_embedding(setup):
     response = requests.post(url, json=payload)
     embedding_res = response.json()
 
+    assert response.status_code == 200, embedding_res
     assert "embedding" in embedding_res["data"][0]
     assert len(embedding_res["data"][0]["embedding"]) == model_spec.dimensions
     assert "model_replica" in embedding_res
@@ -1514,8 +1555,10 @@ async def test_chat_completion_preflights_multimodal_limit(monkeypatch):
     model.uid = "test-model"
     mock_supervisor.get_model = AsyncMock(return_value=model)
     mock_supervisor.describe_model = AsyncMock(
-        return_value={"model_family": "qwen3.8", "limit_mm_per_prompt": {"image": 2}}
+        return_value={"model_family": "qwen3.8", "limit_mm_per_prompt": {"image": 1}}
     )
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    model.get_limit_mm_per_prompt = AsyncMock(return_value={"image": 2})
     image = {"type": "image_url", "image_url": {"url": "data:image/png;base64,AA=="}}
     payload = {
         "model": "test",
@@ -1535,6 +1578,15 @@ async def test_chat_completion_preflights_multimodal_limit(monkeypatch):
         == "At most 2 image(s) may be provided in one prompt; received 3."
     )
     model.chat.assert_not_called()
+
+    # A retained-weight reload can change the limit after the description was
+    # cached. Preflight must use the live limit rather than reject this request.
+    model.get_limit_mm_per_prompt.return_value = {"image": 3}
+    model.chat.return_value = "{}"
+    payload["stream"] = False
+    response = await api.create_chat_completion(_DummyRequest(payload))
+    assert response.status_code == 200
+    model.chat.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -1572,6 +1624,7 @@ async def test_chat_completion_stream_sanitizes_worker_error(monkeypatch):
     assert error["data"] == json.dumps({"error": api._chat_completion_error_detail()})
     assert "address" not in error["data"]
     assert "pid" not in error["data"]
+    await result.aclose()
 
 
 @pytest.mark.asyncio

@@ -20,26 +20,81 @@ import shutil
 import sys
 import threading
 from contextvars import copy_context
+from types import ModuleType
 
 import pytest
 import tqdm as tqdm_module
 from tqdm.auto import tqdm
 
+from ..._compat import BaseModel
 from ...utils import get_real_path
 from ..utils import (
     CACHE_SOURCE_MANIFEST,
     CancellableDownloader,
+    ModelArtifactSource,
     _apply_virtualenv_engine_overrides,
     _collect_virtualenv_engine_markers,
     _extract_engine_markers_from_packages,
     _force_virtualenv_engine_params,
     create_symlink,
+    extend_classes_once,
+    family_identity_key,
     get_cache_source_paths,
     neutralize_broken_torchcodec,
     parse_uri,
     resolve_media_seed,
+    retry_download,
+    retry_snapshot_download,
     symlink_local_file,
 )
+
+
+def test_extend_classes_once_skips_already_present_classes():
+    class A:
+        pass
+
+    class B:
+        pass
+
+    target = [A]
+    extend_classes_once(target, [A, B])
+    assert target == [A, B]
+
+    # A second call with the same classes (simulating a repeated
+    # register_builtin_model() refresh) must not grow the list further.
+    extend_classes_once(target, [A, B])
+    assert target == [A, B]
+
+
+def test_extend_classes_once_preserves_existing_order():
+    class A:
+        pass
+
+    class B:
+        pass
+
+    class C:
+        pass
+
+    target = [B, A]
+    extend_classes_once(target, [A, B, C])
+    assert target == [B, A, C]
+
+
+def test_family_identity_key_ignores_is_builtin():
+    # register_builtin_model() marks every loaded family is_builtin=True right
+    # after loading it, so a freshly re-parsed candidate on a repeated refresh
+    # must still compare equal to the already-marked entry it duplicates.
+    class DummyFamily(BaseModel):
+        model_name: str
+        is_builtin: bool = False
+
+    loaded = DummyFamily(model_name="foo", is_builtin=True)
+    freshly_parsed = DummyFamily(model_name="foo", is_builtin=False)
+    assert family_identity_key(loaded) == family_identity_key(freshly_parsed)
+
+    different_model = DummyFamily(model_name="bar", is_builtin=True)
+    assert family_identity_key(loaded) != family_identity_key(different_model)
 
 
 def test_resolve_media_seed():
@@ -71,6 +126,117 @@ def test_parse_uri():
     scheme, path = parse_uri("s3://bucket/dir")
     assert scheme == "s3"
     assert path == "bucket/dir"
+
+
+def test_retry_snapshot_download_applies_environment_max_workers(monkeypatch):
+    received = {}
+    monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
+
+    def snapshot_download(repo_id, *, max_workers=8):
+        received["repo_id"] = repo_id
+        received["max_workers"] = max_workers
+        return "ok"
+
+    assert retry_snapshot_download(snapshot_download, "dummy", None, "repo") == "ok"
+    assert received == {
+        "repo_id": "repo",
+        "max_workers": 2,
+    }
+
+
+def test_retry_snapshot_download_preserves_explicit_max_workers(monkeypatch):
+    received = {}
+    monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
+
+    def snapshot_download(repo_id, *, max_workers=8):
+        received["max_workers"] = max_workers
+        return "ok"
+
+    assert (
+        retry_snapshot_download(snapshot_download, "dummy", None, "repo", max_workers=6)
+        == "ok"
+    )
+    assert received["max_workers"] == 6
+
+
+def test_retry_download_does_not_inject_snapshot_workers(monkeypatch):
+    received = {}
+    monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
+
+    def file_download(repo_id, *, filename):
+        received["repo_id"] = repo_id
+        received["filename"] = filename
+        return "ok"
+
+    assert (
+        retry_download(file_download, "dummy", None, "repo", filename="config.json")
+        == "ok"
+    )
+    assert received == {"repo_id": "repo", "filename": "config.json"}
+
+
+def test_retry_snapshot_download_preserves_default_without_environment(monkeypatch):
+    received = {}
+    monkeypatch.delenv("HF_HUB_DOWNLOAD_WORKERS", raising=False)
+
+    def snapshot_download(repo_id, *, max_workers=8):
+        received["max_workers"] = max_workers
+        return "ok"
+
+    assert retry_snapshot_download(snapshot_download, "dummy", None, "repo") == "ok"
+    assert received["max_workers"] == 8
+
+
+def test_model_artifact_source_modelscope(monkeypatch, tmp_path):
+    calls = []
+
+    def snapshot_download(model_id, **kwargs):
+        calls.append((model_id, kwargs))
+        return str(tmp_path)
+
+    modelscope_module = ModuleType("modelscope")
+    hub_module = ModuleType("modelscope.hub")
+    snapshot_module = ModuleType("modelscope.hub.snapshot_download")
+    snapshot_module.snapshot_download = snapshot_download
+    monkeypatch.setitem(sys.modules, "modelscope", modelscope_module)
+    monkeypatch.setitem(sys.modules, "modelscope.hub", hub_module)
+    monkeypatch.setitem(
+        sys.modules, "modelscope.hub.snapshot_download", snapshot_module
+    )
+
+    result = ModelArtifactSource("modelscope").snapshot_download(
+        "org/auxiliary-model",
+        revision="master",
+        allow_patterns=["*.py", "config.json"],
+    )
+
+    assert result == str(tmp_path)
+    assert calls == [
+        (
+            "org/auxiliary-model",
+            {
+                "revision": "master",
+                "allow_file_pattern": ["*.py", "config.json"],
+            },
+        )
+    ]
+
+
+def test_model_artifact_source_huggingface(monkeypatch, tmp_path):
+    calls = []
+
+    def snapshot_download(model_id, **kwargs):
+        calls.append((model_id, kwargs))
+        return str(tmp_path)
+
+    monkeypatch.setattr("huggingface_hub.snapshot_download", snapshot_download)
+
+    result = ModelArtifactSource("huggingface").snapshot_download(
+        "org/auxiliary-model", allow_patterns=["*.json"]
+    )
+
+    assert result == str(tmp_path)
+    assert calls == [("org/auxiliary-model", {"allow_patterns": ["*.json"]})]
 
 
 def test_create_symlink_ignores_downloaded_cache_source_manifest(tmp_path, monkeypatch):
@@ -178,6 +344,21 @@ def test_tqdm_patch_uses_equal_file_weights():
 
         small_file.update(15)
         assert downloader.get_progress() == pytest.approx((1 + 15 / 30) / 3)
+
+
+def test_tqdm_patch_recognizes_modelscope_file_counter():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+
+    with downloader:
+        # modelscope_hub labels its repository-level counter with unit="file".
+        # Four concurrent files at 50% are half of four tasks, not one task at
+        # 100%.
+        tqdm(total=4, unit="file", file=io.StringIO())
+        file_bars = [tqdm(total=100, unit="B", file=io.StringIO()) for _ in range(4)]
+        for file_bar in file_bars:
+            file_bar.update(50)
+
+        assert downloader.get_progress() == pytest.approx(0.5)
 
 
 def test_tqdm_patch_preserves_completion_without_intermediate_poll():
@@ -1122,3 +1303,15 @@ def test_auto_detect_honors_hf_offline_mode(
     assert calls["n"] == 0
     assert model_utils.resolve_download_hub(None) == "huggingface"
     assert model_utils.resolve_download_hub("auto") == "huggingface"
+
+
+def test_tqdm_patch_accepts_default_update_increment():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+    with downloader:
+        with tqdm(total=2, file=io.StringIO()) as bar:
+            bar.update()
+            assert bar.n == 1
+            assert downloader.get_progress() == pytest.approx(0.5)
+            bar.update()
+            assert bar.n == 2
+            assert downloader.get_progress() == 1.0

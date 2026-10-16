@@ -176,6 +176,11 @@ The following is a list of built-in LLM in Xinference:
      - 163840
      - We present a preview version of DeepSeek-V4 series, including two strong Mixture-of-Experts (MoE) language models — DeepSeek-V4-Pro with 1.6T parameters (49B activated) and DeepSeek-V4-Flash with 284B parameters (13B activated) — both supporting a context length of one million tokens.
 
+   * - :ref:`deepseek-v4.1-flash <models_llm_deepseek-v4.1-flash>`
+     - chat, vision, reasoning, hybrid, tools
+     - 1048576
+     - We introduce DeepSeek-V4.1-Flash, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively.
+
    * - :ref:`deepseek-vl2 <models_llm_deepseek-vl2>`
      - chat, vision
      - 4096
@@ -261,6 +266,11 @@ The following is a list of built-in LLM in Xinference:
      - 1048576
      - We're introducing GLM-5.2, our latest flagship model for long-horizon tasks
 
+   * - :ref:`glm-5.3 <models_llm_glm-5.3>`
+     - chat, tools, reasoning
+     - 1048576
+     - GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks.
+
    * - :ref:`glm-edge-chat <models_llm_glm-edge-chat>`
      - chat
      - 8192
@@ -335,6 +345,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision
      - 262144
      - Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.
+
+   * - :ref:`kimi-k3 <models_llm_kimi-k3>`
+     - chat, vision
+     - 1048576
+     - Kimi K3 is an open-weight, native multimodal agentic model and our most capable model to date.
 
    * - :ref:`ling-3.0-flash <models_llm_ling-3.0-flash>`
      - chat, tools, reasoning, hybrid
@@ -445,6 +460,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision, reasoning
      - 262144
      - MiniCPM-V 4.6 Thinking is a reasoning-tuned version of MiniCPM-V 4.6. It supports deep reasoning for more complex problem solving, while inheriting the single-image, multi-image, and video understanding capabilities of the MiniCPM-V family.
+
+   * - :ref:`minicpm-v-4.7 <models_llm_minicpm-v-4.7>`
+     - chat, vision, hybrid
+     - 262144
+     - MiniCPM-V 4.7 supports single-image, multi-image, and video understanding with canvas M-RoPE and 4x/16x visual compression. It provides 1B dense and 35B-A3B MoE variants. Transformers requires >=5.18.0; vLLM requires the nightly containing PR #58674. SGLang support currently requires an upstream fork with conflicting dependency pins and is not enabled. GGUF and llama.cpp support is not enabled.
 
    * - :ref:`minicpm3-4b <models_llm_minicpm3-4b>`
      - chat
@@ -561,15 +581,15 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Ornith-1.5-35B-A3B is a 35B-total / 3B-activated Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration), supporting text, image, and video understanding with reasoning and tool-use capabilities.
 
+   * - :ref:`ornith-1.5-397b <models_llm_ornith-1.5-397b>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Ornith-1.5-397B is a 397B-total Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration), supporting text, image, and video understanding with reasoning and tool-use capabilities.
+
    * - :ref:`ovis2 <models_llm_ovis2>`
      - chat, vision
      - 32768
      - Ovis (Open VISion) is a novel Multimodal Large Language Model (MLLM) architecture, designed to structurally align visual and textual embeddings.
-
-   * - :ref:`ovisocr2 <models_llm_ovisocr2>`
-     - chat, vision, reasoning, hybrid
-     - 262144
-     - OvisOCR2 is a compact 0.8B end-to-end model for page-level document parsing. It converts document page images into Markdown in natural reading order, including text, formulas, tables, and visual regions.
 
    * - :ref:`phi-2 <models_llm_phi-2>`
      - generate
@@ -726,6 +746,11 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Built on the architectural foundation of Qwen3.5, Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks. Qwen3.8-27B brings these advances to a compact, deployment-friendly dense model: a native vision-language model that understands images and videos, with flexible thinking control.
 
+   * - :ref:`qwen3.8-flash-next <models_llm_qwen3.8-flash-next>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Qwen3.8-Flash-Next is a native vision-language Mixture-of-Experts model with 125B main-model parameters, 6B activated per token, and an additional 51B n-gram embedding table. Its Qwen4 experimental architecture combines Gated DeltaNet, Qwen Sparse Attention, gated residuals, and flexible thinking control.
+
    * - :ref:`qwen3.8-max <models_llm_qwen3.8-max>`
      - chat, tools, reasoning
      - 262144
@@ -775,6 +800,16 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 32768
      - The Skywork-OR1 (Open Reasoner 1) model series consists of powerful math and code reasoning models trained using large-scale rule-based reinforcement learning with carefully designed datasets and training recipes.
+
+   * - :ref:`spark-x2.5 <models_llm_spark-x2.5>`
+     - chat, tools, reasoning, hybrid
+     - 1048576
+     - Spark-X2.5 is a compact general-purpose instruction model series with 1.7B and 4B checkpoints, native 1M-token context, reasoning, and tool-use support.
+
+   * - :ref:`spark-x2.5-base <models_llm_spark-x2.5-base>`
+     - generate
+     - 1048576
+     - Spark-X2.5 base checkpoints in 1.7B and 4B sizes for continued pretraining and completion workloads.
 
    * - :ref:`telechat <models_llm_telechat>`
      - chat
@@ -895,6 +930,8 @@ The following is a list of built-in LLM in Xinference:
   
    deepseek-v4-pro
   
+   deepseek-v4.1-flash
+
    deepseek-vl2
   
    dianjin-r1
@@ -929,6 +966,8 @@ The following is a list of built-in LLM in Xinference:
   
    glm-5.2
   
+   glm-5.3
+
    glm-edge-chat
   
    glm4-0414
@@ -958,6 +997,8 @@ The following is a list of built-in LLM in Xinference:
    kat-v1
   
    kimi-k2.5
+  
+   kimi-k3
   
    ling-3.0-flash
   
@@ -1002,6 +1043,8 @@ The following is a list of built-in LLM in Xinference:
    minicpm-v-4.6
   
    minicpm-v-4.6-thinking
+
+   minicpm-v-4.7
   
    minicpm3-4b
   
@@ -1049,9 +1092,9 @@ The following is a list of built-in LLM in Xinference:
   
    ornith-1.5-35b-a3b
   
-   ovis2
+   ornith-1.5-397b
   
-   ovisocr2
+   ovis2
   
    phi-2
   
@@ -1114,6 +1157,7 @@ The following is a list of built-in LLM in Xinference:
    qwen3.6
   
    qwen3.8
+   qwen3.8-flash-next
   
    qwen3.8-max
   
@@ -1135,6 +1179,10 @@ The following is a list of built-in LLM in Xinference:
   
    skywork-or1-preview
   
+   spark-x2.5
+
+   spark-x2.5-base
+
    telechat
   
    tiny-llama
@@ -1155,4 +1203,3 @@ The following is a list of built-in LLM in Xinference:
   
    yi-chat
   
-

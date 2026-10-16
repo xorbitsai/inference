@@ -43,7 +43,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
-- Xinference 3.0.0 已发布，包含迁移说明和破坏性变更：[版本说明](https://xinference.cn/release_notes/v3.0.0.html)
+- Xinference 4.0.0 已发布，支持多引擎 Xavier、异构 P/D 分离和运行时模型重配置：[版本说明](https://github.com/xorbitsai/inference/releases/tag/v4.0.0)
 - Agent 原生服务能力：Xinference 与 [Xagent](https://github.com/xorbitsai/xagent) 深度集成，支持动态规划、工具调用与多步自主推理，突破传统静态流程的限制。
 - 自动 Batch: 多个并发请求会被自动合批处理，大幅提升吞吐量。: [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - 支持寒武纪芯片：[#3693](https://github.com/xorbitsai/inference/pull/3693)
@@ -51,14 +51,18 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 分布式推理：在多个 worker 上运行大尺寸模型：[#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM 引擎增强: 跨副本共享KV Cache: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 新模型
-- 内置支持 [OvisOCR2](https://huggingface.co/ATH-MaaS/OvisOCR2): [#5322](https://github.com/xorbitsai/inference/pull/5322)
-- 内置支持 [IndexTTS-2.5](https://huggingface.co/IndexTeam/IndexTTS-2.5): [#5319](https://github.com/xorbitsai/inference/pull/5319)
-- 内置支持 Ling-3.0 系列（[tiny](https://huggingface.co/inclusionAI/Ling-3.0-tiny)、[flash](https://huggingface.co/inclusionAI/Ling-3.0-flash)）: [#5311](https://github.com/xorbitsai/inference/pull/5311)
-- 内置支持 [MiniMax-H3](https://huggingface.co/MiniMaxAI/MiniMax-H3): [#5321](https://github.com/xorbitsai/inference/pull/5321)
-- 内置支持 Wan2.2 Animate 2 系列（[14B](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Diffusers)、[14B Distilled](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Distilled-Diffusers)）: [#5309](https://github.com/xorbitsai/inference/pull/5309)
-- 内置支持 [FireRed-Image-Edit-1.1](https://huggingface.co/FireRedTeam/FireRed-Image-Edit-1.1): [#5306](https://github.com/xorbitsai/inference/pull/5306)
-- 内置支持 CAMPPlus 声纹嵌入系列（[中文](https://modelscope.cn/models/iic/speech_campplus_sv_zh-cn_16k-common)、[中英高级版](https://modelscope.cn/models/iic/speech_campplus_sv_zh_en_16k-common_advanced)）: [#5298](https://github.com/xorbitsai/inference/pull/5298)
-- 内置 [MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3): [#5258](https://github.com/xorbitsai/inference/pull/5258)
+- 内置支持 [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2): [#5644](https://github.com/xorbitsai/inference/pull/5644)
+- 内置支持 [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS): [#5591](https://github.com/xorbitsai/inference/pull/5591)
+- 内置支持 [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1): [#5588](https://github.com/xorbitsai/inference/pull/5588)
+- 内置支持 [TeleOCR](https://huggingface.co/StarDoc-AI/TeleOCR): [#5583](https://github.com/xorbitsai/inference/pull/5583)
+- 内置支持 Ming-Image 系列（[Design](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design)、[Design Layer](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design-Layer)）: [#5582](https://github.com/xorbitsai/inference/pull/5582)
+- 内置支持 [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1): [#5571](https://github.com/xorbitsai/inference/pull/5571)
+- 内置支持 [MinerU2.5](https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B): [#5550](https://github.com/xorbitsai/inference/pull/5550)
+- 内置支持 Spark-X2.5 系列（[1.7B](https://huggingface.co/XHToken/Spark-X2.5-1.7B)、[4B](https://huggingface.co/XHToken/Spark-X2.5-4B)、[1.7B Base](https://huggingface.co/XHToken/Spark-X2.5-1.7B-Base)、[4B Base](https://huggingface.co/XHToken/Spark-X2.5-4B-Base)）: [#5538](https://github.com/xorbitsai/inference/pull/5538)
+- 内置支持 LingBot-World-V2 系列（[14B Fast](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-fast)、[14B Pretrain](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-pretrain)、[1.3B Fast](https://huggingface.co/robbyant/lingbot-world-v2-1.3b-causal-fast)）: [#5536](https://github.com/xorbitsai/inference/pull/5536)
+- 内置支持 Irodori-TTS v4.1 系列（[Anime](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime)、[Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)）: [#5527](https://github.com/xorbitsai/inference/pull/5527)
+- 内置支持 [YuE2-3B](https://huggingface.co/m-a-p/YuE2-3B): [#5526](https://github.com/xorbitsai/inference/pull/5526)
+- 内置支持 AuK 系列（[AuK](https://huggingface.co/tencent/AuK)、[AuK-Flash](https://huggingface.co/tencent/AuK-Flash)）: [#5525](https://github.com/xorbitsai/inference/pull/5525)
 ### 集成
 - [Xagent](https://github.com/xorbitsai/xagent)：企业级 Agent 平台，用于构建和运行具备规划、记忆与工具调用能力的智能体，不再受限于僵化的工作流。
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
@@ -96,11 +100,12 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 ## 使用 Xinference
 
 - **自托管 Xinference 社区版</br>**
-使用 [入门指南](#getting-started) 快速在你自己的环境中运行 Xinference。
+使用 [入门指南](#入门指南) 快速在你自己的环境中运行 Xinference。
 参考 [文档](https://inference.readthedocs.io/zh-cn) 以获得参考和更多说明。
 
 - **面向企业/组织的 Xinference 版本</br>**
-我们提供额外的面向企业的功能。 [通过企业微信联系](https://xinference.cn/images/WeCom.jpg)
+**Xinference Enterprise** 是面向生产环境模型服务的商业版本。您可以将其部署在自己的云环境或数据中心，也可以选择 **Xinference Cloud** 提供的托管专属部署。托管 **Model API** 让您无需维护推理基础设施，即可通过兼容 OpenAI 的 API 调用支持的模型。了解更多：[xinference.co](https://xinference.co)。
+您可以 [通过企业微信联系](https://xinference.cn/images/WeCom.jpg)
 或 [提交表单](https://w8v6grm432.feishu.cn/share/base/form/shrcn9u1EBXQxmGMqILEjguuGoh) 讨论企业需求。 </br>
 
 ## 保持领先
@@ -115,6 +120,31 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 * [内置模型](https://inference.readthedocs.io/zh-cn/latest/models/builtin/index.html)
 * [自定义模型](https://inference.readthedocs.io/zh-cn/latest/models/custom.html)
 * [部署文档](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html)
+
+### 快速开始
+
+**pip**
+
+```bash
+pip install xinference
+xinference-local
+```
+
+**一键安装**
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+[安装指南](https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html#one-line-install) · [使用指南](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ### Docker
 
@@ -137,22 +167,6 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 ```
 
 更多定制化安装方式，请参考[文档](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html)。
-
-### 快速开始
-
-使用 pip 安装 Xinference，操作如下。（更多选项，请参阅[安装页面](https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html)。）
-
-```bash
-pip install "xinference[all]"
-```
-
-要启动一个本地的 Xinference 实例，请运行以下命令：
-
-```bash
-$ xinference-local
-```
-
-一旦 Xinference 运行起来，你可以通过多种方式尝试它：通过网络界面、通过 cURL、通过命令行或通过 Xinference 的 Python 客户端。更多指南，请查看我们的[文档](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html#run-xinference-locally)。
 
 ![网络界面](../assets/screenshot.png)
 

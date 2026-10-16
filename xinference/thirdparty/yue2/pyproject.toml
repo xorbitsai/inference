@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yue2-infer"
+version = "0.1.6"
+description = "YuE2 music generation with editable symbolic plans"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "CC-BY-NC-4.0"
+license-files = ["LICENSE", "MODEL_LICENSE", "THIRD_PARTY_NOTICES.md", "licenses/*.txt"]
+dependencies = [
+    "torch==2.10.0",
+    "transformers==4.57.6",
+    "huggingface-hub==0.36.2",
+    "safetensors==0.7.0",
+    "tiktoken==0.12.0",
+    "numpy==2.2.6",
+    "soundfile==0.13.1",
+    "accelerate==1.13.0",
+]
+
+[project.optional-dependencies]
+fast = ["vllm==0.19.0", "triton==3.6.0"]
+test = ["pytest==9.0.3"]
+
+[project.urls]
+Repository = "https://github.com/multimodal-art-projection/YuE"
+Demo = "https://map-yue2.github.io/"
+Models = "https://huggingface.co/m-a-p/YuE2-3B"
+
+[project.scripts]
+yue2 = "yue2.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

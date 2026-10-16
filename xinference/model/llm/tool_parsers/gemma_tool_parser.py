@@ -1,12 +1,14 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
 
 logger = logging.getLogger(__name__)
+
+ToolEvent = Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
 
 
 @register_tool_parser("gemma")
@@ -136,19 +138,37 @@ class GemmaToolParser(ToolParser):
         previous_texts: List[str],
         current_text: str,
         delta_text: str,
-    ) -> Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
+    ) -> Optional[Union[ToolEvent, List[ToolEvent]]]:
         if self.tool_call_start_token not in current_text:
             return (delta_text, None, None)
 
-        matches = list(self.tool_call_regex.finditer(current_text))
-        if not matches:
+        prev_text = previous_texts[-1] if previous_texts else ""
+        # Text after an unclosed start token belongs to a tool call that is
+        # still streaming. Everything before it is settled: plain text and
+        # complete tool call blocks. Emit only what became settled in this
+        # chunk, in order, so that a second tool call is never sent as content
+        # and text sharing a chunk with a tag is not dropped.
+        start = self._settled_length(prev_text)
+        end = self._settled_length(current_text)
+        if end <= start:
             return None
 
-        prev_text = previous_texts[-1] if previous_texts else ""
-        last_match = matches[-1]
-        if last_match.end() <= len(prev_text):
-            # The latest complete tool call was already processed, return delta as text
-            return (delta_text, None, None)
+        events: List[ToolEvent] = []
+        position = start
+        for match in self.tool_call_regex.finditer(current_text, start, end):
+            if match.start() > position:
+                events.append((current_text[position : match.start()], None, None))
+            events.append(self._parse_tool_call_block(match.group(0)))
+            position = match.end()
+        if position < end:
+            events.append((current_text[position:end], None, None))
+        return events[0] if len(events) == 1 else events
 
-        block = last_match.group(0)
-        return self._parse_tool_call_block(block)
+    def _settled_length(self, text: str) -> int:
+        """Return the length of the prefix of ``text`` that holds no unclosed
+        tool call block."""
+        position = 0
+        for match in self.tool_call_regex.finditer(text):
+            position = match.end()
+        open_index = text.find(self.tool_call_start_token, position)
+        return len(text) if open_index == -1 else open_index

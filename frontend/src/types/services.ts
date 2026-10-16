@@ -35,6 +35,7 @@ export interface ClusterInfo {
   mem_total: number;
   gpu_utilization: number | null;
   gpu_vram_available: number;
+  software_version?: string | null;
 }
 
 export type ClusterInfoResponse =
@@ -67,12 +68,13 @@ export interface VirtualEnv {
 }
 export interface ModelCachedItem {
   model_name: string;
-  model_size_in_billions: number;
-  model_format: string;
-  quantization: string;
+  model_size_in_billions: number | string | null;
+  model_format: string | null;
+  quantization: string | null;
   model_version: string;
   path: string;
-  real_path: string;
+  real_path?: string;
+  size_bytes?: number;
   actor_ip_address: string;
 }
 
@@ -81,8 +83,62 @@ export interface ModelEnvItem {
   model_engine: string;
   path: string;
   real_path: string;
+  size_bytes?: number;
   python_version: string;
   actor_ip_address: string;
+}
+
+export interface VirtualEnvPackage {
+  name: string;
+  version: string;
+  size_bytes: number;
+}
+
+export interface DownloadProgressFile {
+  name: string;
+  downloaded_bytes: number;
+  total_bytes: number | null;
+  progress: number | null;
+  speed_bytes_per_second: number | null;
+  elapsed_seconds: number;
+  eta_seconds: number | null;
+  status: string;
+  replica_id?: number;
+  replica_model_uid?: string;
+  worker_address?: string | null;
+}
+
+export interface ModelDownloadReplica {
+  replica_id: number;
+  replica_model_uid: string;
+  progress: number;
+  stage: string;
+  info: string | null;
+  updated_at: number | null;
+  worker_address: string | null;
+  download_files: DownloadProgressFile[];
+}
+
+export interface ModelDownloadItem {
+  kind: 'launch' | 'cache';
+  cache_uid: string | null;
+  model_name: string;
+  model_uid: string;
+  model_version: string | null;
+  model_type?: string | null;
+  model_engine?: string | null;
+  model_size_in_billions?: number | string | null;
+  model_format?: string | null;
+  quantization?: string | null;
+  status: string;
+  instance_created_ts: number;
+  updated_at?: number | null;
+  progress: number;
+  stage: string;
+  error?: string | null;
+  resumable: boolean;
+  download_files: DownloadProgressFile[];
+  replicas: ModelDownloadReplica[];
 }
 
 export type ModelEngineItem = {
@@ -113,13 +169,17 @@ export interface ReplicaItem {
 }
 
 export interface AddReplicaRequest {
-  replica_config?: {
+  replica: number;
+  model_engine?: string;
+  n_gpu?: number | 'auto';
+  replica_config?: Array<{
     replica_uid?: string;
     devices: Array<{
       worker_ip?: string;
+      n_gpu?: number | 'auto';
       gpu_idx?: number[];
     }>;
-  };
+  }>;
 }
 
 export interface AddReplicaResponse {
@@ -175,6 +235,7 @@ export interface RunningModelItem {
 }
 
 export interface RunningModelDetail {
+  n_worker?: number;
   model_type: string;
   address: string;
   accelerators: string[];
@@ -442,7 +503,7 @@ export interface TokenizerAssetBinding {
   observed_revision: string;
   observed_fingerprint: string;
   local_path: string;
-  binding_mode: 'manual' | 'on_demand' | 'legacy';
+  binding_mode: 'manual' | 'on_demand';
   owner_type: string;
   owner_id: string;
   generation: number;
@@ -462,7 +523,6 @@ export interface TokenRouterNode {
   managed_labels: Record<string, unknown>;
   tokenizer_asset_bindings: TokenizerAssetBinding[];
   capabilities: {
-    tokenizer_assets?: string[];
     [key: string]: unknown;
   };
   software_version: string;

@@ -82,6 +82,7 @@ export default function Setup() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          setup_token: String(values.setup_token ?? '').trim(),
           username: values.username,
           password: values.password,
         }),
@@ -160,6 +161,14 @@ export default function Setup() {
             <p className="text-sm text-muted-foreground">{t('setup.description')}</p>
           </div>
           <Form onFinish={onSubmit} form={form} initialValues={{ username: 'admin' }}>
+            <FormField
+              name="setup_token"
+              label={t('setup.token')}
+              extra={t('setup.tokenHelp')}
+              rules={[{ required: true }]}
+            >
+              <Input type="password" autoComplete="off" />
+            </FormField>
             <FormField name="username" label={t('login.username')} rules={[{ required: true }]}>
               <Input />
             </FormField>

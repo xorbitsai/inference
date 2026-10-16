@@ -123,17 +123,13 @@ msgstr "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
 msgid "Maximum download retry attempts for model files. Default value is 3."
 msgstr "모델 파일의 최대 다운로드 재시도 횟수입니다. 기본값은 3입니다."
 
-#: ../../source/getting_started/environments.rst:58
-msgid "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
-msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
+#: ../../source/getting_started/environments.rst:73
+msgid "XINFERENCE_LLMMAN_BIN"
+msgstr "XINFERENCE_LLMMAN_BIN"
 
-#: ../../source/getting_started/environments.rst:59
-msgid ""
-"Enable continuous batching for text-to-image models by specifying the "
-"target image size (e.g., ``1024*1024``). Default is unset."
-msgstr ""
-"텍스트-이미지 모델에 대해 대상 이미지 크기(예: ``1024*1024``)를 지정하여 연속 배치 처리를 활성화합니다. 기본적으로 "
-"설정되지 않습니다."
+#: ../../source/getting_started/environments.rst:74
+msgid "Path to the ``llmman`` executable used to resolve ``oci://`` model URIs. Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an ``llmman serve`` daemon that is not on ``127.0.0.1:17434``."
+msgstr "``oci://`` 모델 URI를 확인하는 데 사용하는 ``llmman`` 실행 파일의 경로입니다. 기본값은 ``PATH`` 상의 ``llmman`` 입니다. ``127.0.0.1:17434`` 가 아닌 곳에서 실행되는 ``llmman serve`` 데몬에 연결하려면 ``LLMMAN_HOST`` 를 설정하세요."
 
 #: ../../source/getting_started/environments.rst:63
 msgid "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
@@ -405,3 +401,93 @@ msgstr ""
 "감사 로그 파일을 보관하는 일수입니다. 기본값은 90입니다. :ref:`user_guide_audit_security` 문서를 "
 "참조하세요."
 
+#: ../../source/getting_started/environments.rst:56
+msgid "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+
+#: ../../source/getting_started/environments.rst:58
+msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
+msgstr "수집이 실패했거나 건너뛰어 worker가 필드를 생략한 경우 supervisor가 유지하는 마지막 유효 모델별 GPU 메모리 스냅샷의 최대 보존 시간(초)입니다. 명시적인 빈 스냅샷은 캐시를 즉시 지웁니다. 기본값은 90입니다."
+
+#: ../../source/getting_started/environments.rst:233
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+
+#: ../../source/getting_started/environments.rst:234
+msgid "Initial delay in seconds between Router Agent bootstrap retries. The delay uses exponential backoff with jitter. Default value is 1."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:238
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+
+#: ../../source/getting_started/environments.rst:239
+msgid "Maximum delay in seconds between Router Agent bootstrap retries. Default value is 15 and must not be lower than the initial delay."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:243
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+
+#: ../../source/getting_started/environments.rst:244
+msgid "Total deadline in seconds for Router Agent startup registration and initial synchronization retries. Default value is 120."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:15
+msgid "XOSCAR_AUTH_KEY"
+msgstr "XOSCAR_AUTH_KEY"
+
+#: ../../source/getting_started/environments.rst:16
+msgid ""
+"Shared secret for Xoscar actor transport authentication, supported by Xoscar"
+" 0.12.0 and later. Unset or empty keeps the legacy unauthenticated "
+"transport; upgrading alone does not enable protection. HTTP API "
+"authentication does not protect actor ports. See the `security advisory "
+"<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_."
+msgstr ""
+"Xoscar actor 전송 인증용 공유 비밀 키이며, Xoscar 0.12.0 이상에서 지원됩니다. 설정하지 않거나 비워 두면 기존의 "
+"인증 없는 전송이 유지되므로 업그레이드만으로 보호가 활성화되지 않습니다. HTTP API 인증은 actor 포트를 보호하지 않습니다. "
+"`보안 권고 <https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_ 를 참조하세요."
+
+#: ../../source/getting_started/environments.rst:22
+msgid ""
+"Generate one random secret per deployment with the following command. "
+"Distribute the same value through your secret-management system before "
+"starting ``xinference-local``, ``xinference-supervisor``, every "
+"``xinference-worker``, and any direct Xoscar actor clients. Child processes,"
+" including model virtual environments, inherit the variable. HTTP clients do"
+" not need this secret."
+msgstr ""
+"다음 명령으로 배포마다 무작위 비밀 키 하나를 생성하세요. ``xinference-local``, ``xinference-"
+"supervisor``, 모든 ``xinference-worker`` 및 Xoscar actor에 직접 연결하는 클라이언트를 시작하기 "
+"전에 비밀 관리 시스템으로 동일한 값을 배포하세요. 모델 가상 환경을 포함한 자식 프로세스는 이 변수를 상속합니다. HTTP "
+"클라이언트에는 이 비밀 키가 필요하지 않습니다."
+
+#: ../../source/getting_started/environments.rst:33
+msgid ""
+"Upgrade all actor peers to Xoscar 0.12.0 or later before enabling the key, "
+"then coordinate a restart with the same key on every peer. Keyed and unkeyed"
+" peers cannot communicate; there is no automatic downgrade or mixed-mode "
+"rolling upgrade. Key rotation also requires a coordinated restart. For "
+"``docker run``, pass the exported variable with ``-e XOSCAR_AUTH_KEY``; for "
+"Kubernetes, inject the same Secret into each server container's environment."
+msgstr ""
+"키를 활성화하기 전에 모든 actor 통신 노드를 Xoscar 0.12.0 이상으로 업그레이드한 다음, 모든 노드에 동일한 키를 설정하고"
+" 일정을 맞춰 재시작하세요. 키가 설정된 노드와 설정되지 않은 노드는 통신할 수 없으며, 자동 다운그레이드나 혼합 모드 롤링 업그레이드는"
+" 지원되지 않습니다. 키 교체 시에도 함께 재시작해야 합니다. ``docker run`` 에서는 ``-e XOSCAR_AUTH_KEY``"
+" 로 내보낸 변수를 전달하고, Kubernetes에서는 각 서버 컨테이너 환경에 동일한 Secret을 주입하세요."
+
+#: ../../source/getting_started/environments.rst:40
+msgid ""
+"Socket and UCX messages are authenticated before deserialization. Anyone "
+"holding the key is a trusted peer with Python execution privileges. "
+"Deployment administrators must restrict actor ports to intended cluster "
+"peers. Authentication does not encrypt traffic or prevent replay; "
+"authenticated GPU transfers stage device buffers in host memory for hashing "
+"and add CPU and host-memory overhead."
+msgstr ""
+"Socket 및 UCX 메시지는 역직렬화 전에 인증됩니다. 키 보유자는 Python 코드 실행 권한이 있는 신뢰된 피어입니다. 배포 "
+"관리자는 actor 포트 접근을 의도한 클러스터 피어로 제한해야 합니다. 인증은 트래픽을 암호화하거나 재전송 공격을 방지하지 않습니다. "
+"인증된 GPU 전송은 해시 계산을 위해 장치 버퍼를 호스트 메모리에 임시 저장하므로 CPU 및 호스트 메모리 오버헤드가 추가됩니다."

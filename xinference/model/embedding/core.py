@@ -23,7 +23,14 @@ from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union
 
 from xoscar import extensible
 
-from ..._compat import ROOT_KEY, BaseModel, ErrorWrapper, Field, ValidationError
+from ..._compat import (
+    ROOT_KEY,
+    BaseModel,
+    ErrorWrapper,
+    Field,
+    ValidationError,
+    validator,
+)
 from ...device_utils import empty_cache
 from ...types import Embedding
 from ...utils import make_hashable
@@ -79,6 +86,7 @@ class LlamaCppEmbeddingSpecV1(BaseModel):
     model_file_name_template: str
     model_file_name_split_template: Optional[str]
     quantization_parts: Optional[Dict[str, List[str]]]
+    multimodal_projector: Optional[str] = None
 
 
 EmbeddingSpecV1 = Annotated[
@@ -94,6 +102,10 @@ class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     dimensions: int
     max_tokens: int
     language: List[str]
+    # Extra accepted input modalities. Text is implicit for every embedding model.
+    model_ability: List[Literal["embed_vision", "embed_video", "embed_audio"]] = Field(
+        default_factory=list
+    )
     model_specs: List["EmbeddingSpecV1"]
     cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
@@ -102,6 +114,13 @@ class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
 
     class Config:
         extra = "allow"
+
+    @validator("model_ability", pre=True, each_item=True)
+    def normalize_legacy_model_ability(cls, ability: Any) -> Any:
+        # Persisted custom V2 registrations may still use unprefixed modalities.
+        if isinstance(ability, str) and ability in ("vision", "video", "audio"):
+            return f"embed_{ability}"
+        return ability
 
     def to_description(self):
         spec = self.model_specs[0]
@@ -115,6 +134,7 @@ class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "dimensions": self.dimensions,
             "max_tokens": self.max_tokens,
             "language": self.language,
+            "model_ability": ["embed", *self.model_ability],
             "model_hub": spec.model_hub,
             "model_revision": spec.model_revision,
             "quantization": spec.quantization,
@@ -211,7 +231,8 @@ class EmbeddingModel(abc.ABC):
         """
 
     def _fix_langchain_openai_inputs(
-        self, sentences: Union[str, List[str], Dict[str, str], List[Dict[str, str]]]
+        self,
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
     ):
         # Check if sentences is a two-dimensional list of integers
         if (
@@ -261,7 +282,7 @@ class EmbeddingModel(abc.ABC):
     @abstractmethod
     def _create_embedding(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Any,
         **kwargs,
     ):
         """
@@ -269,9 +290,9 @@ class EmbeddingModel(abc.ABC):
 
         Parameters
         ----------
-        sentences: Union[str, List[str]]
-            Input text to embed, encoded as a string or array of tokens.
-            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]]
+            Text or multimodal input. To embed multiple inputs in one request,
+            pass a list of strings or multimodal dictionaries.
 
         Returns
         -------
@@ -282,7 +303,7 @@ class EmbeddingModel(abc.ABC):
     @extensible
     def create_embedding(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
         **kwargs,
     ):
         truncate_prompt_tokens = kwargs.pop("truncate_prompt_tokens", None)
@@ -299,7 +320,7 @@ class EmbeddingModel(abc.ABC):
         # 1. Group by kwargs hash
         for i, (args, kwargs) in enumerate(zip(args_list, kwargs_list)):
             sentences, extra_kwargs = self._extract_sentences_kwargs(args, kwargs)
-            if isinstance(sentences, str):
+            if isinstance(sentences, (str, dict)):
                 sentences = [sentences]
 
             key = make_hashable(extra_kwargs)
@@ -399,8 +420,9 @@ class EmbeddingModel(abc.ABC):
             List[str],
             List[int],
             List[List[int]],
-            Dict[str, str],
-            List[Dict[str, str]],
+            Dict[str, Any],
+            List[Dict[str, Any]],
+            List[Union[str, Dict[str, Any]]],
         ],
         truncate_prompt_tokens: Optional[int],
     ) -> Union[
@@ -408,8 +430,9 @@ class EmbeddingModel(abc.ABC):
         List[str],
         List[int],
         List[List[int]],
-        Dict[str, str],
-        List[Dict[str, str]],
+        Dict[str, Any],
+        List[Dict[str, Any]],
+        List[Union[str, Dict[str, Any]]],
     ]:
         """Truncate input to ``truncate_prompt_tokens`` tokens before encoding.
 
@@ -418,8 +441,8 @@ class EmbeddingModel(abc.ABC):
         empty (``max_length=0``), ``<0`` = cap at the model's own ``max_tokens``.
 
         Structure-preserving: token arrays (``List[int]`` / ``List[List[int]]``)
-        are sliced to N ids; multimodal dicts (``Dict[str, str]`` /
-        ``List[Dict[str, str]]``) keep their keys and non-text values, and only
+        are sliced to N ids; multimodal dicts (``Dict[str, Any]`` /
+        ``List[Dict[str, Any]]``) keep their keys and non-text values, and only
         the ``text`` field is truncated (``image`` / ``video`` / ``audio`` and
         other media fields are preserved verbatim). Plain ``str`` / ``List[str]`` are
         truncated token-based (sentence_transformers / flag / vllm) with a

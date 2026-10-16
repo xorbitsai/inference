@@ -18,14 +18,18 @@ from typing import TYPE_CHECKING, Tuple, Union
 
 from ..utils import has_cuda_device, virtual_env_allows_missing_engine
 from .ace_step import AceStepModel, is_ace_step_python_supported
+from .breeze_tts import BreezeTTS2Model
 from .engine_family import SUPPORTED_ENGINES, AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
+from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
+from .irodori_tts import IrodoriTTSModel
 from .kokoro import KokoroModel
 from .kokoro_mlx import KokoroMLXModel
 from .melotts import MeloTTSModel
 from .minimax_music3 import MiniMaxMusic3Model
+from .minimax_music3_mlx import MLXMiniMaxMusic3Model
 from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
@@ -33,6 +37,7 @@ from .vllm import VLLMQwen3ASRModel
 from .voxcpm import VoxCPMModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
+from .yue2 import YuE2Model, _ensure_vendored_source_path
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
@@ -59,6 +64,9 @@ MLX_AUDIO_STT_MODEL_NAMES = {
 }
 
 MLX_AUDIO_TTS_MODEL_NAMES = {
+    "Breeze-TTS-2",
+    "FishAudio-S2-Pro",
+    "Irodori-TTS-v4.1-Small",
     "MeloTTS-English",
     "MeloTTS-English-v3",
     "Qwen3-TTS-12Hz-0.6B-Base",
@@ -151,6 +159,59 @@ class PyTorchKokoroAudioModel(KokoroModel, AudioEngineModel):
         return model_family.model_name == "Kokoro-82M"
 
 
+class PyTorchFishAudioModel(FishSpeechModel, AudioEngineModel):
+    required_libs = ("torch",)
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            model_family.model_name == "FishAudio-S2-Pro"
+            and model_family.model_family == "FishAudio"
+            and _is_engine_or_unspecified(model_family, "PyTorch")
+        )
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            model_family.model_name == "FishAudio-S2-Pro"
+            and model_family.model_family == "FishAudio"
+        )
+
+
+class PyTorchBreezeAudioModel(BreezeTTS2Model, AudioEngineModel):
+    required_libs = ("torch",)
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return cls.is_model_family_supported(
+            model_family
+        ) and _is_engine_or_unspecified(model_family, "PyTorch")
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            model_family.model_name == "Breeze-TTS-2"
+            and model_family.model_family == "Breeze-TTS-2"
+        )
+
+
+class PyTorchIrodoriAudioModel(IrodoriTTSModel, AudioEngineModel):
+    required_libs = ("torch",)
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return cls.is_model_family_supported(
+            model_family
+        ) and _is_engine_or_unspecified(model_family, "PyTorch")
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            model_family.model_name == "Irodori-TTS-v4.1-Small"
+            and model_family.model_family == "Irodori-TTS"
+        )
+
+
 class PyTorchFunASRAudioModel(FunASRModel, AudioEngineModel):
     required_libs = ("funasr",)
 
@@ -236,6 +297,21 @@ class PyTorchAceStepAudioModel(AceStepModel, AudioEngineModel):
     @classmethod
     def match(cls, model_family: "AudioModelFamilyV2") -> bool:
         return model_family.model_family == "ace_step_1_5"
+
+
+class PyTorchYuE2AudioModel(YuE2Model, AudioEngineModel):
+    required_libs = ("yue2",)
+
+    @classmethod
+    def check_lib(cls):
+        if virtual_env_allows_missing_engine():
+            return True
+        _ensure_vendored_source_path()
+        return super().check_lib()
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return has_cuda_device() and model_family.model_family == "yue2"
 
 
 class MLXWhisperAudioModel(WhisperMLXModel, AudioEngineModel):
@@ -337,6 +413,23 @@ class MLXAudioTTSEngineModel(MLXAudioTTSModel, AudioEngineModel):
         return model_family.model_name in MLX_AUDIO_TTS_MODEL_NAMES
 
 
+class MLXMiniMaxMusic3AudioModel(MLXMiniMaxMusic3Model, AudioEngineModel):
+    required_libs = ("mlx", "mlx_audio")
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            platform.system() == "Darwin"
+            and platform.processor() == "arm"
+            and cls.is_model_family_supported(model_family)
+            and _is_engine(model_family, "MLX")
+        )
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return model_family.model_family == "minimax_music3"
+
+
 class DiffusersMiniMaxMusic3AudioModel(MiniMaxMusic3Model, AudioEngineModel):
     required_libs = ("diffusers",)
 
@@ -348,7 +441,11 @@ class DiffusersMiniMaxMusic3AudioModel(MiniMaxMusic3Model, AudioEngineModel):
 
     @classmethod
     def match(cls, model_family: "AudioModelFamilyV2") -> bool:
-        return has_cuda_device() and model_family.model_family == "minimax_music3"
+        return (
+            has_cuda_device()
+            and model_family.model_family == "minimax_music3"
+            and _is_engine_or_unspecified(model_family, "diffusers")
+        )
 
 
 def register_builtin_audio_engines() -> None:
@@ -360,8 +457,12 @@ def register_builtin_audio_engines() -> None:
     SUPPORTED_ENGINES["vLLM"] = [VLLMQwen3ASRAudioModel]
     SUPPORTED_ENGINES["PyTorch"] = [
         PyTorchAceStepAudioModel,
+        PyTorchYuE2AudioModel,
         PyTorchF5TTSAudioModel,
         PyTorchKokoroAudioModel,
+        PyTorchFishAudioModel,
+        PyTorchBreezeAudioModel,
+        PyTorchIrodoriAudioModel,
         PyTorchFunASRAudioModel,
         PyTorchQwen3TTSAudioModel,
         PyTorchMeloTTSAudioModel,
@@ -373,5 +474,6 @@ def register_builtin_audio_engines() -> None:
         MLXKokoroAudioModel,
         MLXAudioSTTEngineModel,
         MLXAudioTTSEngineModel,
+        MLXMiniMaxMusic3AudioModel,
     ]
     SUPPORTED_ENGINES["diffusers"] = [DiffusersMiniMaxMusic3AudioModel]

@@ -36,8 +36,8 @@ msgid "Use algorithm from https://github.com/RahulSChand/gpu_poor"
 msgstr "알고리즘 출처: https://github.com/RahulSChand/gpu_poor"
 
 #: ../../source/models/model_memory.rst:11
-msgid "Output: model_mem, kv_cache, overhead, active_mem"
-msgstr "model_mem, kv_cache, overhead, active_mem"
+msgid "Output: model_mem, kv_cache, recurrent_state_mem, prefix_cache_mem, overhead, active_mem"
+msgstr "model_mem, kv_cache, recurrent_state_mem, prefix_cache_mem, overhead, active_mem"
 
 #: ../../source/models/model_memory.rst:13
 msgid ""
@@ -141,3 +141,6 @@ msgstr ""
 "환경 변수 ``HF_ENDPOINT``를 사용하여 HuggingFace 서버의 엔드포인트를 설정할 수 있습니다. 예를 들어, 네트워크 "
 "상태가 좋지 않을 때 hf-mirror를 엔드포인트로 선택할 수 있습니다. 더 자세한 내용은 :ref:`이 문서 "
 "<models_download>`를 참조하십시오."
+
+msgid "The total includes recurrent state and retained prefix cache. Activation memory includes vision workspace when present, so vision workspace is not added again. Sliding attention uses a full-attention cache upper bound. Unsupported layouts or missing checkpoint-size facts produce an explanatory error instead of an estimate."
+msgstr "합계에는 순환 상태와 유지된 접두사 캐시가 포함됩니다. 비전 작업 공간이 있으면 활성화 메모리에 포함되므로 다시 더하지 않습니다. 슬라이딩 어텐션은 전체 어텐션 캐시를 상한으로 사용합니다. 지원되지 않는 구조나 체크포인트 크기 정보 부족에는 추정값 대신 이유를 설명하는 오류를 표시합니다."

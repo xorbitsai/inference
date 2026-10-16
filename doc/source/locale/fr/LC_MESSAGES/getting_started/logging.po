@@ -119,3 +119,71 @@ msgstr ""
 "des journaux. Le nom du sous-répertoire commence par le nom du rôle du "
 "cluster, suivi du temps de démarrage (en millisecondes). Comme illustré ci-"
 "dessous::"
+
+#: ../../source/getting_started/logging.rst
+msgid "Model request body logging"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Xinference can write inference request metadata and request bodies to a separate JSON-lines file. This diagnostic feature is disabled by default because prompts, media references, and other request values may contain sensitive data. Enable it only on trusted systems with appropriate access controls and retention policies. Authentication and authorization failures do not persist request bodies. Multipart uploads record field values and original filenames, but not uploaded file bytes. Requests larger than the configured capture limit, or requests without a known size, record an omission reason instead of the body."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "The following environment variables configure the feature:"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_ENABLED``: Enable request body logging (default: ``false``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_FILE``: Log filename or absolute path (default: ``model_request.log``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_BODY_MAX_BYTES``: Maximum captured request size (default: ``16777216``). Set to ``-1`` to disable the size limit; this is not recommended for internet-facing deployments."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_RETENTION_DAYS``: Maximum age of rotated files in days (default: ``7``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_MAX_BYTES``: Size-based rotation threshold (default: ``1073741824``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_BACKUP_COUNT``: Maximum number of rotated files (default: ``7``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Each inference response includes ``X-Request-ID``. Xinference preserves a valid caller-provided ``request-id`` or ``x-request-id`` value (in that order), or generates a UUID. The same correlation ID is attached to Supervisor model lookup logs without replacing model operation request IDs used for cancellation or progress tracking."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:143
+msgid "For streaming responses, the terminal request log separates HTTP delivery from stream execution with ``http_success``, ``stream_completed``, ``stream_outcome``, and, for non-successful outcomes, ``failure_origin``. A response can therefore have HTTP status 200 while ``success`` and ``stream_completed`` are false. Endpoints report swallowed generator failures through request state; the logging layer does not parse, buffer, or log stream chunks. Failure origins are ``model_generator``, ``upstream``, ``protocol``, ``client``, or ``server``."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:153
+msgid "Correlation metadata is propagated independently across REST API, Supervisor, Worker, ModelActor, PD, cancellation, and progress actor calls. Actor log records can include ``correlation_id``, ``operation_request_id``, ``actor_call_id``, and ``parent_call_id``. The correlation ID is observability-only; the operation request ID retains its existing cancellation, progress, batching, and backend abort semantics. Xinference consumes the internal metadata envelope at actor boundaries and does not pass it to model implementations."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:137
+msgid "Each request event also records its producing process identity in ``role``, ``address``, ``node``, ``module``, and ``pid``, together with an ``api_protocol`` value of ``openai``, ``anthropic``, or ``xinference``."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Application logs are written to ``<XINFERENCE_LOG_DIR>/xinference.log``. By default, ``XINFERENCE_LOG_DIR`` is ``<XINFERENCE_HOME>/logs``. If ``XINFERENCE_POD_NAME`` is set, the file is named ``xinference-<XINFERENCE_POD_NAME>.log`` instead. Local deployment combines Supervisor and Worker logs in this file. In distributed deployment, each node writes to its own local log directory. Rotated files stay beside the active file."
+msgstr "Les journaux de l'application sont écrits dans ``<XINFERENCE_LOG_DIR>/xinference.log``. Par défaut, ``XINFERENCE_LOG_DIR`` vaut ``<XINFERENCE_HOME>/logs``. Si ``XINFERENCE_POD_NAME`` est défini, le fichier se nomme ``xinference-<XINFERENCE_POD_NAME>.log``. En déploiement local, les journaux du Supervisor et des Workers sont regroupés dans ce fichier. En déploiement distribué, chaque nœud écrit dans son répertoire local. Les fichiers après rotation restent à côté du fichier actif."
+
+#: ../../source/getting_started/logging.rst
+msgid "Web UI runtime logs"
+msgstr "Journaux d'exécution dans l'interface web"
+
+#: ../../source/getting_started/logging.rst
+msgid "Open **Monitoring Management > Log Center > Runtime logs** to view recent application logs and errors without Elasticsearch. The page reads the active log file on the selected node and refreshes every two seconds. It works when Xinference runs directly with Python or inside Docker. If Elasticsearch is configured, the Log Center also offers an Indexed logs tab for historical search."
+msgstr "Ouvrez **Gestion de la surveillance > Centre des journaux > Journaux d'exécution** pour consulter les journaux et erreurs récents sans Elasticsearch. La page lit le fichier actif du nœud choisi toutes les deux secondes. Elle fonctionne avec Python lancé directement ou dans Docker. Avec Elasticsearch, un onglet permet aussi de rechercher les anciens journaux."
+
+#: ../../source/getting_started/logging.rst
+msgid "The runtime view shows the latest part of the active file and keeps a bounded amount of text in the browser. Search filters only loaded text. Output written directly to stdout or stderr outside Xinference logging, and failures before the API starts, may require the terminal or ``docker logs``. Log access uses the ``logs:list`` permission when authentication is enabled."
+msgstr "La vue d'exécution affiche la fin du fichier actif et limite la quantité de texte conservée dans le navigateur. La recherche porte uniquement sur le texte chargé. Les sorties écrites directement sur stdout ou stderr hors de la journalisation Xinference et les erreurs avant le démarrage de l'API peuvent nécessiter le terminal ou ``docker logs``. Si l'authentification est active, l'accès exige l'autorisation ``logs:list``."

@@ -18,7 +18,10 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
 from .ace_step import AceStepModel, is_ace_step_python_supported
+from .auk import AukModel
+from .breeze_tts import BreezeTTS2Model
 from .chattts import ChatTTSModel
+from .confucius4_tts import Confucius4TTSModel
 from .cosyvoice import CosyVoiceModel
 from .engine_family import AudioEngineModel
 from .f5tts import F5TTSModel
@@ -27,6 +30,7 @@ from .fireredtts3 import FireRedTTS3Model
 from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .indextts2 import Indextts2
+from .irodori_tts import IrodoriTTSModel
 from .kokoro import KokoroModel
 from .kokoro_mlx import KokoroMLXModel
 from .kokoro_zh import KokoroZHModel
@@ -40,6 +44,7 @@ from .speaker_embedding import ModelScopeSpeakerEmbeddingModel
 from .voxcpm import VoxCPMModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
+from .yue2 import YuE2Model
 
 logger = logging.getLogger(__name__)
 
@@ -76,11 +81,13 @@ class AudioModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     model_revision: Optional[str]
     multilingual: bool
     language: Optional[str]
+    model_lang: Optional[List[str]]
     model_ability: Optional[List[str]]
     default_model_config: Optional[Dict[str, Any]]
     default_transcription_config: Optional[Dict[str, Any]]
     engine: Optional[str]
     model_format: Optional[str]
+    quantization: Optional[str]
     cache_name: Optional[str]
     virtualenv: Optional[VirtualEnvSettings]
 
@@ -93,10 +100,12 @@ class AudioModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             "address": getattr(self, "address", None),
             "accelerators": getattr(self, "accelerators", None),
             "model_name": self.model_name,
+            "model_lang": self.model_lang or [],
             "model_family": self.model_family,
             "model_revision": self.model_revision,
             "model_ability": self.model_ability,
             "model_engine": getattr(self, "model_engine", None),
+            "quantization": self.quantization or "none",
         }
 
     def to_version_info(self):
@@ -160,6 +169,7 @@ def match_audio(
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
     model_engine: Optional[str] = None,
+    quantization: Optional[str] = None,
 ) -> AudioModelFamilyV2:
     from ..utils import download_from_modelscope
     from . import BUILTIN_AUDIO_MODELS
@@ -183,6 +193,27 @@ def match_audio(
             ]
             if engine_families:
                 model_families = engine_families
+        if quantization is not None or any(
+            family.quantization is not None for family in model_families
+        ):
+            selected_quantization = (quantization or "none").lower()
+            if quantization is None:
+                available_quantizations = {
+                    (family.quantization or "none").lower() for family in model_families
+                }
+                if len(available_quantizations) == 1:
+                    selected_quantization = next(iter(available_quantizations))
+            quantized_families = [
+                family
+                for family in model_families
+                if (family.quantization or "none").lower() == selected_quantization
+            ]
+            if not quantized_families:
+                raise ValueError(
+                    f"Audio model {model_name} does not support quantization "
+                    f"{quantization or 'none'}."
+                )
+            model_families = quantized_families
         if download_hub is not None:
             if download_hub == "modelscope":
                 return (
@@ -218,25 +249,31 @@ def create_audio_model_instance(
     ] = None,
     model_path: Optional[str] = None,
     model_engine: Optional[str] = None,
+    quantization: Optional[str] = None,
     **kwargs,
 ) -> Union[
     AceStepModel,
+    AukModel,
+    BreezeTTS2Model,
     WhisperModel,
     WhisperMLXModel,
     FunASRModel,
     ChatTTSModel,
     CosyVoiceModel,
+    Confucius4TTSModel,
     FishSpeechModel,
     F5TTSModel,
     F5TTSMLXModel,
     FireRedTTS3Model,
     MeloTTSModel,
     MiniMaxMusic3Model,
+    YuE2Model,
     KokoroModel,
     KokoroMLXModel,
     KokoroZHModel,
     MegaTTSModel,
     Indextts2,
+    IrodoriTTSModel,
     Qwen3ASRModel,
     Qwen3TTSModel,
     VoxCPMModel,
@@ -250,9 +287,14 @@ def create_audio_model_instance(
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_name, model_engine = resolve_audio_model_name_and_engine(
-        model_name, model_engine
+        model_name, model_engine, use_default_engine=True
     )
-    model_spec = match_audio(model_name, download_hub, model_engine=model_engine)
+    model_spec = match_audio(
+        model_name,
+        download_hub,
+        model_engine=model_engine,
+        quantization=quantization,
+    )
     audio_cls = None
 
     if model_spec.model_family == "ace_step_1_5":
@@ -263,7 +305,12 @@ def create_audio_model_instance(
         model_spec.model_family == "minimax_music3"
         and model_spec.model_name not in AUDIO_ENGINES
     ):
-        raise ValueError("MiniMax-Music3 requires an NVIDIA CUDA device.")
+        raise ValueError(
+            "MiniMax-Music3 requires an NVIDIA CUDA device or Apple Silicon MLX."
+        )
+
+    if model_spec.model_family == "yue2" and model_spec.model_name not in AUDIO_ENGINES:
+        raise ValueError("YuE2 requires an NVIDIA CUDA device.")
 
     # Engine-aware dispatch for model families with multiple engines
     # (e.g. qwen3_asr on transformers or vLLM). Families without registered
@@ -313,11 +360,14 @@ def create_audio_model_instance(
 
     model: Union[
         AceStepModel,
+        AukModel,
+        BreezeTTS2Model,
         WhisperModel,
         WhisperMLXModel,
         FunASRModel,
         ChatTTSModel,
         CosyVoiceModel,
+        Confucius4TTSModel,
         FishSpeechModel,
         F5TTSModel,
         F5TTSMLXModel,
@@ -328,6 +378,7 @@ def create_audio_model_instance(
         KokoroZHModel,
         MegaTTSModel,
         Indextts2,
+        IrodoriTTSModel,
         Qwen3ASRModel,
         Qwen3TTSModel,
         VoxCPMModel,
@@ -335,7 +386,11 @@ def create_audio_model_instance(
         MLXAudioSTTModel,
         MLXAudioTTSModel,
     ]
-    if model_spec.model_family == "whisper":
+    if model_spec.model_family == "AuK":
+        model = AukModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "Breeze-TTS-2":
+        model = BreezeTTS2Model(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "whisper":
         if (model_spec.engine or "").lower() == "mlx":
             model = WhisperMLXModel(model_uid, model_path, model_spec, **kwargs)
         else:
@@ -349,6 +404,8 @@ def create_audio_model_instance(
         model = ChatTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "CosyVoice":
         model = CosyVoiceModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "Confucius4-TTS":
+        model = Confucius4TTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "FishAudio":
         model = FishSpeechModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "F5-TTS":
@@ -372,6 +429,8 @@ def create_audio_model_instance(
         model = MegaTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "IndexTTS2":
         model = Indextts2(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "Irodori-TTS":
+        model = IrodoriTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "qwen3_asr":
         if (model_spec.engine or "").lower() == "mlx":
             model = MLXAudioSTTModel(model_uid, model_path, model_spec, **kwargs)

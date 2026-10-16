@@ -81,7 +81,9 @@ def test_api_key_accepted_when_advanced_auth_enabled(advanced_auth_service):
     api._auth_service = advanced_auth_service
 
     user_id = _create_user(advanced_auth_service, "alice", ["models:read"])
-    api_key = advanced_auth_service.create_api_key_for_user(user_id=user_id)["key"]
+    api_key = advanced_auth_service.create_api_key_for_user(
+        user_id=user_id, name=f"test-key-{user_id}"
+    )["key"]
 
     request = _make_request()
     request.headers = {"Authorization": f"Bearer {api_key}"}
@@ -100,6 +102,7 @@ def test_api_key_rejected_for_unauthorized_model_when_advanced_auth_enabled(
     user_id = _create_user(advanced_auth_service, "bob", ["models:read"])
     api_key = advanced_auth_service.create_api_key_for_user(
         user_id=user_id,
+        name=f"restricted-key-{user_id}",
         model_permissions=[
             {"permission_type": "model", "permission_value": "other-model"}
         ],

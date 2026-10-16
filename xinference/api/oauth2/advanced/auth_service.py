@@ -87,7 +87,10 @@ INITIAL_ADMIN_PERMISSIONS = [
     "virtualenv:list",
     "virtualenv:delete",
     "logs:list",
+    "model_requests:read_body",
     "monitor:view",
+    "settings:read",
+    "settings:write",
     "routers:list",
     "routers:read",
     "routers:write",
@@ -134,6 +137,7 @@ class AdvancedAuthService:
         self._jwt_secret_key = jwt_secret_key
         self._encryption_key = derive_encryption_key(encryption_key)
         self._cache = ApiKeyCache(self._db)
+        self._db.get_or_create_setup_token()
 
         try:
             from .rate_limiter import RateLimiter
@@ -153,6 +157,22 @@ class AdvancedAuthService:
     def needs_setup(self) -> bool:
         """True until the first admin account is created via /v1/admin/setup."""
         return self._db.user_count() == 0
+
+    @property
+    def setup_token(self) -> Optional[str]:
+        """Bootstrap secret for the operator's startup log, never an API response."""
+        return self._db.get_or_create_setup_token()
+
+    def verify_setup_token(self, token: Any) -> bool:
+        if not isinstance(token, str):
+            return False
+        token = token.strip()
+        expected = self.setup_token
+        return (
+            expected is not None
+            and token.isascii()
+            and secrets.compare_digest(token, expected)
+        )
 
     # --- JWT ---
 
@@ -309,7 +329,7 @@ class AdvancedAuthService:
     def create_api_key_for_user(
         self,
         user_id: int,
-        name: Optional[str] = None,
+        name: str,
         description: Optional[str] = None,
         expires_at: Optional[str] = None,
         model_permissions: Optional[List[Dict[str, Optional[str]]]] = None,
@@ -349,7 +369,12 @@ class AdvancedAuthService:
         cache_data["username"] = user["username"] if user else ""
         self._cache.add(cache_data)
 
-        return {"id": key_id, "key": plaintext_key, "prefix": key_prefix, "name": name}
+        return {
+            "id": key_id,
+            "key": plaintext_key,
+            "prefix": key_prefix,
+            "name": cache_data["name"],
+        }
 
     def reveal_api_key(self, key_id: int) -> Optional[str]:
         key_data = self._db.get_api_key_by_id(key_id)
@@ -379,21 +404,16 @@ class AdvancedAuthService:
         if get_request_route_path(request) in {
             "/v1/messages",
             "/anthropic/v1/messages",
+            "/v1/messages/count_tokens",
+            "/anthropic/v1/messages/count_tokens",
         }:
             # Anthropic clients send the same Xinference credential in
             # ``x-api-key`` rather than an Authorization header.
             token = token or request.headers.get("x-api-key", "").strip() or None
 
         try:
-            from .audit import (
-                classify_endpoint,
-                record_audit_event,
-                resolve_model_info,
-                should_skip_audit,
-            )
+            from .audit import resolve_model_info, should_skip_audit
         except ImportError:
-            classify_endpoint = None  # type: ignore[assignment]
-            record_audit_event = None  # type: ignore[assignment]
             resolve_model_info = None  # type: ignore[assignment]
             should_skip_audit = None  # type: ignore[assignment]
 
@@ -436,6 +456,19 @@ class AdvancedAuthService:
         else:
             _model_name, _model_type = "", ""
 
+        def _set_audit_identity(
+            user: str = "",
+            key_name: str = "",
+            key_prefix: str = "",
+            auth_type: str = "",
+        ) -> None:
+            request.state.audit_identity = {
+                "user": user,
+                "api_key_name": key_name,
+                "api_key_prefix": key_prefix,
+                "auth_type": auth_type,
+            }
+
         def _audit(
             status_val: str,
             user: str = "",
@@ -443,20 +476,13 @@ class AdvancedAuthService:
             key_prefix: str = "",
             auth_type: str = "",
         ):
-            if _skip_audit or record_audit_event is None:
+            if _skip_audit:
                 return
-            record_audit_event(
-                user=user,
-                api_key_name=key_name,
-                api_key_prefix=key_prefix,
-                model_id=_request_model,
-                model_name=_model_name,
-                model_type=_model_type,
-                endpoint=endpoint,
-                status=status_val,
-                client_ip=client_ip,
-                auth_type=auth_type,
-            )
+            _set_audit_identity(user, key_name, key_prefix, auth_type)
+            request.state.audit_status = status_val
+            request.state.audit_model_id = _request_model
+            request.state.audit_model_name = _model_name
+            request.state.audit_model_type = _model_type
 
         # Check IP ban
         if (
@@ -590,18 +616,14 @@ class AdvancedAuthService:
             # Success — reset counters
             if client_ip and self._rate_limiter:
                 self._rate_limiter.reset_key(client_ip, api_key_entry.key_id)
-            # Record success for non-inference endpoints (inference success is recorded by audit_middleware)
-            _category = (
-                classify_endpoint(endpoint) if classify_endpoint is not None else ""
+            # Successful requests are audited after the endpoint returns so the
+            # final HTTP status and latency are recorded exactly once.
+            _set_audit_identity(
+                user=_username,
+                key_name=api_key_entry.name or "",
+                key_prefix=api_key_entry.key_prefix,
+                auth_type="api_key",
             )
-            if _category != "inference":
-                _audit(
-                    "success",
-                    user=_username,
-                    key_name=api_key_entry.name or "",
-                    key_prefix=api_key_entry.key_prefix,
-                    auth_type="api_key",
-                )
             return user_obj
 
         # Token not found in API key cache — check prefix
@@ -619,7 +641,6 @@ class AdvancedAuthService:
             raise credentials_exception
 
         username: Optional[str] = payload.get("sub")
-        token_scopes = payload.get("scopes", [])
         user_id = payload.get("user_id")
 
         if user_id:
@@ -652,12 +673,9 @@ class AdvancedAuthService:
                 headers={"WWW-Authenticate": authenticate_value},
             )
 
-        if "admin" in token_scopes:
-            _category = (
-                classify_endpoint(endpoint) if classify_endpoint is not None else ""
-            )
-            if _category != "inference":
-                _audit("success", user=username or "", auth_type="jwt")
+        db_scopes = _normalize_scopes(user.get("permissions", []))
+        if "admin" in db_scopes:
+            _set_audit_identity(user=username or "", auth_type="jwt")
             return user
 
         # Live-read: use DB-current permissions (already loaded above) instead
@@ -665,7 +683,6 @@ class AdvancedAuthService:
         # every request to verify existence/enabled, so user["permissions"] is
         # already in hand at zero extra DB cost. This makes admin permission
         # changes take effect on the next request rather than the next login.
-        db_scopes = _normalize_scopes(user.get("permissions", []))
         for scope in security_scopes.scopes:
             if scope not in db_scopes:
                 _audit("insufficient_scope", user=username or "", auth_type="jwt")
@@ -674,9 +691,7 @@ class AdvancedAuthService:
                     detail="Not enough permissions",
                     headers={"WWW-Authenticate": authenticate_value},
                 )
-        _category = classify_endpoint(endpoint) if classify_endpoint is not None else ""
-        if _category != "inference":
-            _audit("success", user=username or "", auth_type="jwt")
+        _set_audit_identity(user=username or "", auth_type="jwt")
         return user
 
     def validate_model_access(

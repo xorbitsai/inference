@@ -419,6 +419,9 @@ msgstr ""
 "reference/embeddings <https://platform.openai.com/docs/api-"
 "reference/embeddings>`_"
 
+msgid "Responses (stateless, used by Codex CLI): `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. Refer to :ref:`responses client <openai_responses_client>` for more details."
+msgstr "Responses (sans état, utilisée par Codex CLI) : `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. Consultez :ref:`responses client <openai_responses_client>` pour plus de détails."
+
 #: ../../source/getting_started/using_xinference.rst:329
 msgid ""
 "Xinference also supports Anthropic API via base url "
@@ -644,6 +647,18 @@ msgid ""
 ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ":ref:`Choisir le bon moteur d'inférence <user_guide_backends>`"
 
+#: ../../source/getting_started/using_xinference.rst:134
+msgid ""
+"Use **Recommend configuration** in the Web UI's model deployment dialog to"
+" fill in a suggested engine, format, size, and quantization. See "
+":ref:`launch recommendations <launch_recommendations>` for details."
+msgstr ""
+"Dans la boîte de dialogue de déploiement du modèle de l’interface Web, "
+"cliquez sur **Recommander une configuration** pour renseigner les valeurs "
+"suggérées du moteur, du format, de la taille et de la quantification. "
+"Consultez :ref:`les recommandations de lancement <launch_recommendations>`"
+" pour plus de détails."
+
 #~ msgid ". code-block:: bash"
 #~ msgstr ""
 
@@ -652,3 +667,24 @@ msgstr ":ref:`Choisir le bon moteur d'inférence <user_guide_backends>`"
 #~ "xprobe/xinference:<your_version>-cu129 xinference-local -H 0.0.0.0 --log-"
 #~ "level debug"
 #~ msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:138
+msgid "For LLM, embedding and rerank models, engine discovery combines results from all registered workers. Engine names and parameter combinations retain their first-seen order, with duplicate combinations removed; an available engine takes precedence over another worker's unavailability message. Empty worker results are skipped, and local discovery is used if all results are empty. A worker query error fails the request instead of returning an incomplete capability list."
+msgstr "Pour les modèles LLM, d'embedding et de reranking, la découverte des moteurs combine les résultats de tous les workers enregistrés. Les noms des moteurs et les combinaisons de paramètres conservent leur ordre de première apparition, sans combinaisons en double ; un moteur disponible prévaut sur le message d'un autre worker indiquant son indisponibilité. Les résultats vides sont ignorés et, si tous les résultats sont vides, la découverte locale est utilisée. Une erreur lors de l'interrogation d'un worker fait échouer la requête au lieu de renvoyer une liste incomplète des capacités."
+
+#: ../../source/getting_started/using_xinference.rst:426
+msgid ""
+"Before starting the cluster, configure the same ``XOSCAR_AUTH_KEY`` on the "
+"supervisor and every worker as described in "
+":ref:`actor_transport_authentication`. HTTP API authentication does not "
+"protect actor ports; an unset or empty key leaves the actor transport "
+"unauthenticated. Limit actor-port access to trusted cluster peers using your"
+" deployment's network controls."
+msgstr ""
+"Avant de démarrer le cluster, configurez le même ``XOSCAR_AUTH_KEY`` sur le "
+"superviseur et tous les workers, comme indiqué dans "
+":ref:`actor_transport_authentication`. L’authentification de l’API HTTP ne "
+"protège pas les ports des acteurs ; une clé absente ou vide laisse leur "
+"transport sans authentification. Limitez l’accès aux ports des acteurs aux "
+"pairs de confiance du cluster avec les contrôles réseau de votre "
+"déploiement."

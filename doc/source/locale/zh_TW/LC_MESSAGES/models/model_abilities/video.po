@@ -275,3 +275,7 @@ msgstr "此範例將需要 20GB 的視訊記憶體。"
 
 #~ msgid "/v1/video/generations/image"
 #~ msgstr ""
+
+#: ../../source/models/model_abilities/video.rst
+msgid "On Linux with CUDA, ``Wan2.1-1.3B``, ``Wan2.1-14B`` and ``Wan2.2-A14B`` also support text-to-video with ``SGLang`` (0.5.20 or newer) and ``vLLM`` (vLLM-Omni and vLLM 0.28). Concurrent requests are submitted to the native engine scheduler. Use ``batching_max_size`` and ``batching_delay_ms`` for SGLang, or ``max_num_seqs`` for vLLM. These engine variants do not expose image-to-video or Lightning/GGUF adapters. Diffusers remains the default."
+msgstr "在 Linux CUDA 環境中，``Wan2.1-1.3B``、``Wan2.1-14B`` 和 ``Wan2.2-A14B`` 也支援使用 ``SGLang`` （0.5.20 及更新版本）和 ``vLLM`` （vLLM-Omni 與 vLLM 0.28）進行文字生成影片。並行請求會提交給引擎原生排程器。SGLang 使用 ``batching_max_size`` 和 ``batching_delay_ms``，vLLM 使用 ``max_num_seqs``。這些引擎變體不提供圖片生成影片或 Lightning/GGUF 適配器。預設引擎仍為 Diffusers。"

@@ -91,3 +91,126 @@ def test_verbose_for_funasr(setup):
         )
         assert len(completion.segments) == 1
         assert len(completion.words) > 0
+
+
+def _new_funasr_model(generate_result=None):
+    from types import SimpleNamespace
+
+    from ..funasr import FunASRModel
+
+    model = FunASRModel(
+        model_uid="funasr-test",
+        model_path="unused",
+        model_spec=SimpleNamespace(default_transcription_config={}),
+    )
+    model._model = SimpleNamespace(generate=lambda **_: generate_result)
+    return model
+
+
+def _install_fake_funasr(monkeypatch):
+    import sys
+    from types import ModuleType
+
+    funasr = ModuleType("funasr")
+    utils = ModuleType("funasr.utils")
+    postprocess = ModuleType("funasr.utils.postprocess_utils")
+    postprocess.rich_transcription_postprocess = lambda text: text
+    funasr.utils = utils
+    utils.postprocess_utils = postprocess
+    monkeypatch.setitem(sys.modules, "funasr", funasr)
+    monkeypatch.setitem(sys.modules, "funasr.utils", utils)
+    monkeypatch.setitem(sys.modules, "funasr.utils.postprocess_utils", postprocess)
+
+
+def test_funasr_converts_empty_timestamps():
+    model = _new_funasr_model()
+
+    response = model.convert_to_openai_format({"text": "", "timestamp": []})
+
+    assert response == {
+        "task": "transcribe",
+        "text": "",
+        "duration": 0,
+        "words": [],
+        "segments": [],
+    }
+
+
+def test_funasr_converts_missing_or_invalid_timestamps():
+    model = _new_funasr_model()
+
+    missing = model.convert_to_openai_format({"text": ""})
+    invalid = model.convert_to_openai_format(
+        {"text": "", "timestamp": [None, [], ["invalid", 1]]}
+    )
+
+    assert missing["words"] == []
+    assert missing["segments"] == []
+    assert invalid["words"] == []
+    assert invalid["segments"] == []
+
+
+def test_funasr_converts_timestamps_without_sentence_info():
+    model = _new_funasr_model()
+    input_data = {
+        "text": "hello world",
+        "timestamp": [[1000, 1500], [1500, 2500]],
+    }
+    expected = {
+        "task": "transcribe",
+        "text": "hello world",
+        "duration": 1.5,
+        "words": [
+            {"start": 1.0, "end": 1.5},
+            {"start": 1.5, "end": 2.5},
+        ],
+        "segments": [],
+    }
+
+    assert model.convert_to_openai_format(input_data) == expected
+    assert (
+        model.convert_to_openai_format({**input_data, "sentence_info": None})
+        == expected
+    )
+
+
+def test_funasr_rejects_empty_audio():
+    import pytest
+
+    from ....core.exceptions import InvalidAudioInputError
+
+    with pytest.raises(InvalidAudioInputError, match="audio is empty"):
+        _new_funasr_model().transcriptions(b"")
+
+
+def test_funasr_returns_empty_json_for_no_speech(monkeypatch):
+    _install_fake_funasr(monkeypatch)
+
+    response = _new_funasr_model([]).transcriptions(b"audio")
+
+    assert response == {"text": ""}
+
+
+def test_funasr_returns_empty_verbose_json_for_no_speech(monkeypatch):
+    _install_fake_funasr(monkeypatch)
+
+    response = _new_funasr_model([]).transcriptions(
+        b"audio", response_format="verbose_json"
+    )
+
+    assert response == {
+        "task": "transcribe",
+        "text": "",
+        "duration": 0,
+        "words": [],
+        "segments": [],
+    }
+
+
+def test_funasr_rejects_invalid_result(monkeypatch):
+    import pytest
+
+    _install_fake_funasr(monkeypatch)
+
+    with pytest.raises(RuntimeError, match="returned invalid result"):
+        _new_funasr_model(None).transcriptions(b"audio")

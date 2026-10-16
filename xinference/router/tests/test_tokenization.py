@@ -23,9 +23,18 @@ def make_assets(tmp_path: Path) -> Path:
     encoding.mkdir()
     (encoding / "encoding_dsv4.py").write_text(
         "import time\n"
+        "from pathlib import Path\n"
         "\n"
         "def encode_messages(messages, thinking_mode, reasoning_effort=None):\n"
         "    content = ' '.join(str(m.get('content', '')) for m in messages)\n"
+        "    if content.startswith('__wait__:'):\n"
+        "        release = Path(content.split(':', 1)[1])\n"
+        "        release.with_name(release.name + '.started').touch()\n"
+        "        deadline = time.perf_counter() + 30\n"
+        "        while not release.exists():\n"
+        "            if time.perf_counter() >= deadline:\n"
+        "                raise TimeoutError('tokenization worker was not released')\n"
+        "        return 'hello'\n"
         "    if content.startswith('__cpu__:'):\n"
         "        duration = float(content.split(':', 1)[1])\n"
         "        deadline = time.perf_counter() + duration\n"
@@ -108,25 +117,35 @@ async def test_spawn_workers_are_prestarted_and_remove_router_credentials(
 @pytest.mark.asyncio
 async def test_process_tokenization_does_not_block_event_loop(tmp_path: Path) -> None:
     service, _ = make_service(tmp_path)
+    release = tmp_path / "release-tokenization"
+    started = release.with_name(release.name + ".started")
     try:
         await service.start()
         task = asyncio.create_task(
-            service.estimate(payload("__cpu__:0.3"), input_bytes=123)
+            service.estimate(payload(f"__wait__:{release}"), input_bytes=123)
         )
-        await wait_for_active(service)
 
-        ticks = 0
-        deadline = time.monotonic() + 0.15
-        while time.monotonic() < deadline:
-            await asyncio.sleep(0.01)
-            ticks += 1
+        async def wait_for_worker_started() -> None:
+            while not started.exists():
+                assert not task.done()
+                await asyncio.sleep(0.01)
 
-        assert ticks >= 8
+        await asyncio.wait_for(wait_for_worker_started(), timeout=10)
+
+        # Keep the worker busy until the event loop demonstrates progress. This
+        # checks responsiveness without requiring a particular scheduling rate.
+        async def heartbeat() -> None:
+            for _ in range(8):
+                await asyncio.sleep(0)
+
+        await asyncio.wait_for(heartbeat(), timeout=5)
         assert not task.done()
-        result = await task
+        release.touch()
+        result = await asyncio.wait_for(task, timeout=10)
         assert result.prompt_tokens == 1
         assert (await service.snapshot()).active == 0
     finally:
+        release.touch()
         await service.aclose()
 
 

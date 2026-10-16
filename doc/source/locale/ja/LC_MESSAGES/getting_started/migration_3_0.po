@@ -19,8 +19,8 @@ msgstr ""
 "Generated-By: Babel 2.17.0\n"
 
 #: ../../source/getting_started/migration_3_0.rst:5
-msgid "Migrating to Xinference 3.0"
-msgstr "Xinference 3.0 への移行"
+msgid "Migrating to Xinference 3.0+"
+msgstr "Xinference 3.0+ への移行"
 
 #: ../../source/getting_started/migration_3_0.rst:7
 msgid ""
@@ -47,13 +47,14 @@ msgstr ""
 
 #: ../../source/getting_started/migration_3_0.rst:19
 msgid ""
-"On first startup, open the web UI (or call ``POST /v1/admin/setup``) to "
-"create the initial admin account. See :ref:`user_guide_auth_system` for "
-"the full flow."
+"On first startup, copy the setup token from the server startup log. Enter"
+" it in the web UI, or include it as ``setup_token`` alongside "
+"``username`` and ``password`` when calling ``POST /v1/admin/setup``. See "
+":ref:`user_guide_auth_system` for the full flow."
 msgstr ""
-"初回起動時に Web UI を開いて（または ``POST /v1/admin/setup`` "
-"を呼び出して）初期管理者アカウントを作成してください。手順の全体像は :ref:`user_guide_auth_system` "
-"を参照してください。"
+"初回起動時に、サーバー起動ログからセットアップトークンをコピーしてください。Web UI に入力するか、``POST "
+"/v1/admin/setup`` を呼び出す際に ``username``、``password`` とともに ``setup_token`` "
+"として送信します。手順全体は :ref:`user_guide_auth_system` を参照してください。"
 
 #: ../../source/getting_started/migration_3_0.rst:22
 msgid "To restore the previous unauthenticated behavior, set:"
@@ -246,7 +247,7 @@ msgid ""
 "engines."
 msgstr ""
 "公式の 3.0 GPU イメージは、``nvidia/cuda:13.0.2-devel-ubuntu22.04`` "
-"をベースとする軽量イメージになりました。NVIDIA ドライバーは **580 以降**が必要です。Python 3.12、共有 CUDA "
+"をベースとする軽量イメージになりました。NVIDIA ドライバーは **580 以降**\\ が必要です。Python 3.12、共有 CUDA "
 "PyTorch スタック、Transformers "
 "エンジンは引き続き含まれますが、vLLM、SGLang、llama.cpp、その他のオプションの推論エンジンはプリインストールされません。"
 

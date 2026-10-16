@@ -64,6 +64,14 @@ def test_assets_and_many_to_many_bindings_are_persistent(tmp_path):
     }
 
 
+def test_legacy_binding_mode_is_rejected(tmp_path):
+    _, store = _stores(tmp_path)
+    store.create_asset(_asset())
+
+    with pytest.raises(ValueError, match="Invalid Tokenizer Asset Binding mode"):
+        store.upsert_binding("asset-a", "node-a", binding_mode="legacy")
+
+
 def test_binding_generation_fences_status_and_asset_updates(tmp_path):
     _, store = _stores(tmp_path)
     store.create_asset(_asset())

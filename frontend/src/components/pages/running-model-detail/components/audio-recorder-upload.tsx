@@ -8,6 +8,7 @@ import { FileUpload } from '@/components/ui/file-upload';
 import { cn } from '@/lib/utils';
 import type { FileUploadValue } from '@/types/common';
 import type { FormInstance } from '@/types/form';
+import { useI18n, type TFunc } from '@/contexts/i18n-context';
 
 type RecorderStatus = 'idle' | 'requesting' | 'recording' | 'stopping';
 
@@ -54,20 +55,20 @@ function formatDuration(duration: number) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-function getRecordingErrorMessage(error: unknown) {
+function getRecordingErrorMessage(error: unknown, t: TFunc) {
   if (error instanceof DOMException) {
     if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
-      return 'Microphone access was denied. Allow access in your browser and try again.';
+      return t('runningModels.detail.microphoneDenied');
     }
     if (error.name === 'NotFoundError') {
-      return 'No microphone was found.';
+      return t('runningModels.detail.microphoneNotFound');
     }
     if (error.name === 'NotReadableError') {
-      return 'The microphone is unavailable or already in use.';
+      return t('runningModels.detail.microphoneUnavailable');
     }
   }
 
-  return 'Unable to start microphone recording.';
+  return t('runningModels.detail.microphoneStartFailed');
 }
 
 export function AudioRecorderUpload({
@@ -77,6 +78,7 @@ export function AudioRecorderUpload({
   error,
   disabled,
 }: AudioRecorderUploadProps) {
+  const { t } = useI18n();
   const [status, setStatus] = useState<RecorderStatus>('idle');
   const [duration, setDuration] = useState(0);
   const [recordingError, setRecordingError] = useState('');
@@ -148,14 +150,14 @@ export function AudioRecorderUpload({
           onChangeRef.current?.([{ file, type: 'audio', url }]);
           showRecordingError('');
         } else {
-          showRecordingError('No audio was captured. Please try again.');
+          showRecordingError(t('runningModels.detail.noAudioCaptured'));
         }
       }
 
       discardRef.current = false;
       updateStatus('idle');
     },
-    [clearTimer, releaseStream, revokeRecordedUrl, showRecordingError, updateStatus]
+    [clearTimer, releaseStream, revokeRecordedUrl, showRecordingError, t, updateStatus]
   );
 
   const cancelRecording = useCallback(() => {
@@ -185,7 +187,7 @@ export function AudioRecorderUpload({
       !navigator.mediaDevices?.getUserMedia ||
       typeof MediaRecorder === 'undefined'
     ) {
-      showRecordingError('Microphone recording is not supported in this browser or context.');
+      showRecordingError(t('runningModels.detail.microphoneUnsupported'));
       return;
     }
 
@@ -219,7 +221,7 @@ export function AudioRecorderUpload({
       };
       recorder.onerror = () => {
         discardRef.current = true;
-        showRecordingError('Recording failed. Please try again.');
+        showRecordingError(t('runningModels.detail.recordingFailed'));
         if (recorder.state !== 'inactive') {
           recorder.stop();
         }
@@ -242,7 +244,7 @@ export function AudioRecorderUpload({
       }
 
       updateStatus('idle');
-      showRecordingError(getRecordingErrorMessage(recordingException));
+      showRecordingError(getRecordingErrorMessage(recordingException, t));
     }
   };
 
@@ -298,15 +300,15 @@ export function AudioRecorderUpload({
         value={value}
         onChange={handleUploadChange}
         accept="audio/*,video/*"
-        label="Upload or drop audio"
-        description="MP3, WAV, M4A, WebM..."
+        label={t('runningModels.detail.uploadOrDropAudio')}
+        description={t('runningModels.detail.audioFormats')}
         error={error}
         disabled={disabled || status !== 'idle'}
       />
 
       <div className="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
         <span className="h-px flex-1 bg-border" />
-        <span>or</span>
+        <span>{t('runningModels.detail.or')}</span>
         <span className="h-px flex-1 bg-border" />
       </div>
 
@@ -315,7 +317,9 @@ export function AudioRecorderUpload({
           <div className="flex items-center justify-between gap-3" aria-live="polite">
             <span className="flex items-center gap-2 text-sm font-medium">
               <span className="size-2.5 animate-pulse rounded-full bg-destructive" />
-              {status === 'stopping' ? 'Finishing recording...' : 'Recording'}
+              {status === 'stopping'
+                ? t('runningModels.detail.finishingRecording')
+                : t('runningModels.detail.recording')}
             </span>
             <span className="font-mono text-sm tabular-nums">{formatDuration(duration)}</span>
           </div>
@@ -327,7 +331,7 @@ export function AudioRecorderUpload({
               disabled={status === 'stopping'}
             >
               <Square className="size-3.5 fill-current" />
-              Stop
+              {t('runningModels.detail.stop')}
             </Button>
             <Button
               type="button"
@@ -336,7 +340,7 @@ export function AudioRecorderUpload({
               disabled={status === 'stopping'}
             >
               <X className="size-4" />
-              Cancel
+              {t('runningModels.detail.cancel')}
             </Button>
           </div>
         </div>
@@ -352,10 +356,10 @@ export function AudioRecorderUpload({
         >
           <Mic className="size-4" />
           {status === 'requesting'
-            ? 'Requesting microphone...'
+            ? t('runningModels.detail.requestingMicrophone')
             : value.length > 0
-              ? 'Record again'
-              : 'Record audio'}
+              ? t('runningModels.detail.recordAgain')
+              : t('runningModels.detail.recordAudio')}
         </Button>
       )}
 

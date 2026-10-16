@@ -458,38 +458,59 @@ def main() -> None:
     # ------------------------------------------------------------------
     # 2. Per-model pins, constrained to the shared substrate.
     # ------------------------------------------------------------------
+    artifact_indexes: Dict[str, List[str]] = {}
+
+    def download_model_artifacts(
+        requirements: List[str],
+        extra_index_urls: List[str],
+        constraints: Optional[Path] = None,
+    ) -> subprocess.CompletedProcess:
+        before = set(dest.iterdir())
+        proc = pip_download(
+            requirements,
+            dest,
+            index_url=args.index_url,
+            extra_index_urls=extra_index_urls,
+            constraints=constraints,
+            env=package_build_env,
+        )
+        # Keep the same indexes if a downloaded sdist is built into a wheel
+        # whose metadata exposes additional transitive dependencies later.
+        for artifact in set(dest.iterdir()).difference(before):
+            artifact_indexes[artifact.name] = extra_index_urls.copy()
+        return proc
+
     pins = json.loads((manifest_dir / "pins.json").read_text())
     for entry in pins:
         spec = entry["spec"]
+        extra_index_urls = list(
+            dict.fromkeys((entry.get("extra_index_urls") or []) + [args.pytorch_index])
+        )
         pin_name = spec_name(spec)
         pruned = work / "constraints-pruned.txt"
         pruned.write_text(
             "".join(f"{line}\n" for n, line in merged.items() if n != pin_name)
         )
-        proc = pip_download(
+        proc = download_model_artifacts(
             [spec],
-            dest,
-            index_url=args.index_url,
-            extra_index_urls=[args.pytorch_index],
+            extra_index_urls,
             constraints=pruned,
-            env=package_build_env,
         )
         if proc.returncode != 0:
             print(f"WARN: retrying '{spec}' without constraints", flush=True)
-            proc = pip_download(
-                [spec],
-                dest,
-                index_url=args.index_url,
-                extra_index_urls=[args.pytorch_index],
-                env=package_build_env,
-            )
+            proc = download_model_artifacts([spec], extra_index_urls)
             if proc.returncode != 0:
-                sdist = download_sdist_without_metadata(
-                    spec,
-                    dest,
-                    index_url=args.index_url,
-                    python_version=args.python_version,
-                )
+                sdist = None
+                for index_url in dict.fromkeys([args.index_url, *extra_index_urls]):
+                    sdist = download_sdist_without_metadata(
+                        spec,
+                        dest,
+                        index_url=index_url,
+                        python_version=args.python_version,
+                    )
+                    if sdist is not None:
+                        artifact_indexes[sdist.name] = extra_index_urls.copy()
+                        break
                 if sdist is None:
                     sys.exit(f"FATAL: pin '{spec}' cannot be downloaded")
                 raw_sdist_fallbacks.append(spec)
@@ -565,23 +586,27 @@ def main() -> None:
                 env=package_build_env,
             )
             if proc.returncode == 0:
-                sdist.unlink()
-                built_wheels.extend(
-                    p for p in dest.glob("*.whl") if p.name not in wheels_before
+                extra_index_urls = artifact_indexes.get(
+                    sdist.name, [args.pytorch_index]
                 )
+                sdist.unlink()
+                new_wheels = [
+                    p for p in dest.glob("*.whl") if p.name not in wheels_before
+                ]
+                for wheel in new_wheels:
+                    artifact_indexes[wheel.name] = extra_index_urls.copy()
+                built_wheels.extend(new_wheels)
             else:
                 print(f"WARN: keeping sdist {sdist.name}", flush=True)
                 failed_sdists.add(sdist.name)
         if not built_wheels:
             break
         for wheel in built_wheels:
-            proc = pip_download(
+            extra_index_urls = artifact_indexes.get(wheel.name, [args.pytorch_index])
+            proc = download_model_artifacts(
                 [str(wheel)],
-                dest,
-                index_url=args.index_url,
-                extra_index_urls=[args.pytorch_index],
+                extra_index_urls,
                 constraints=master_constraints,
-                env=package_build_env,
             )
             if proc.returncode != 0:
                 print(
@@ -589,13 +614,7 @@ def main() -> None:
                     "without constraints",
                     flush=True,
                 )
-                proc = pip_download(
-                    [str(wheel)],
-                    dest,
-                    index_url=args.index_url,
-                    extra_index_urls=[args.pytorch_index],
-                    env=package_build_env,
-                )
+                proc = download_model_artifacts([str(wheel)], extra_index_urls)
                 if proc.returncode != 0:
                     sys.exit(
                         f"FATAL: failed to fetch dependencies of built "

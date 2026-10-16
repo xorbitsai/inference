@@ -116,3 +116,38 @@ class TestRequireModel:
         # Should not raise any error when report_error_event is None
         with pytest.raises(HTTPException):
             await require_model(get_supervisor, "missing-model")
+
+
+@pytest.mark.asyncio
+async def test_require_model_forwards_correlation_id_without_changing_signature():
+    from ..model_request_logging import (
+        _reset_current_model_request_id,
+        _set_current_model_request_id,
+    )
+
+    calls = []
+    model = DummyModel("test-model")
+
+    class CorrelatedSupervisor:
+        async def get_model(self, model_uid: str, **kwargs):
+            calls.append((model_uid, kwargs))
+            return model
+
+    async def get_supervisor():
+        return CorrelatedSupervisor()
+
+    token = _set_current_model_request_id("http-request-id")
+    try:
+        result = await require_model(get_supervisor, "test-model")
+    finally:
+        _reset_current_model_request_id(token)
+
+    assert result.uid == model.uid
+    assert len(calls) == 1
+    model_uid, kwargs = calls[0]
+    assert model_uid == "test-model"
+    metadata = kwargs["__xinf_rpc_metadata__"]
+    assert metadata["version"] == 1
+    assert metadata["correlation_id"] == "http-request-id"
+    assert metadata["actor_call_id"]
+    assert "operation_request_id" not in metadata

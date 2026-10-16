@@ -1,0 +1,55 @@
+[
+  {
+    "version": 2,
+    "model_name": "whisper-tiny",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-tiny",
+        "model_revision": "167c219b21f11ef214220b8fdb7536b8a88c2475"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-tiny",
+    "cache_name": "whisper-tiny-mlx",
+    "model_family": "whisper",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-tiny"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    }
+  }
+]

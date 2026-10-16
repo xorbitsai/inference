@@ -170,34 +170,6 @@ class RouterOrchestrationController:
 
     def register_node(self, data: Dict[str, Any]) -> Dict[str, Any]:
         node = self.nodes.register(data)
-        # Compatibility migration: turn the old static capability into persisted
-        # legacy Bindings when the Asset is already present in the Catalog.
-        for value in data.get("capabilities", {}).get("tokenizer_assets", []):
-            asset_id = value if isinstance(value, str) else value.get("asset_id", "")
-            asset = self.tokenizer_assets.get_asset(str(asset_id))
-            if asset is None:
-                continue
-            binding = self.tokenizer_assets.upsert_binding(
-                str(asset_id),
-                node["node_id"],
-                desired_state="present",
-                binding_mode="legacy",
-                username="legacy-capability-import",
-            )
-            try:
-                self.tokenizer_assets.report_binding_status(
-                    str(asset_id),
-                    node["node_id"],
-                    binding["generation"],
-                    "ready",
-                    observed_revision=asset["revision"],
-                    observed_fingerprint=asset["fingerprint"],
-                    local_path=str(asset.get("source", {}).get("path") or ""),
-                )
-            except ValueError:
-                # A structured legacy capability may advertise a different
-                # revision/fingerprint. It stays pending until Agent reconcile.
-                pass
         self.scheduler.reconcile_all()
         return self.render_node(node)
 

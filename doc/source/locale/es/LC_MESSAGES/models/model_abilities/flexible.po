@@ -311,3 +311,11 @@ msgstr ""
 "<https://github.com/xorbitsai/inference/tree/main/xinference/model/flexible/launchers>`_."
 " ¡Las contribuciones para añadir soporte a más modelos de aprendizaje "
 "automático clásico son bienvenidas!"
+
+#: ../../source/models/model_abilities/flexible.rst
+msgid "Local text classification models"
+msgstr "Modelos locales de clasificación de texto"
+
+#: ../../source/models/model_abilities/flexible.rst
+msgid "Register a local BERT or other Transformers sequence classification model using the same launcher with ``task=\"text-classification\"``. The directory must contain a trained classification model and tokenizer saved with ``save_pretrained``; a base encoder or a training checkpoint alone is insufficient. The model's ``config.json`` supplies ``id2label``, ``label2id`` and ``problem_type``. The directory must be accessible on the worker that loads the model."
+msgstr "Registre un modelo local BERT u otro modelo Transformers de clasificación de secuencias con el mismo launcher y ``task=\"text-classification\"``. El directorio debe contener un modelo de clasificación entrenado y un tokenizador guardados con ``save_pretrained``; un codificador base o un punto de control de entrenamiento por sí solo no es suficiente. El archivo ``config.json`` del modelo proporciona ``id2label``, ``label2id`` y ``problem_type``. El worker que carga el modelo debe poder acceder al directorio."

@@ -14,16 +14,74 @@
 
 import json
 import logging
+from logging.config import DictConfigurator
 from unittest.mock import MagicMock
 
 import pytest
 
 from ..utils import (
+    AddressFormatter,
     JsonFileFormatter,
     StreamToLogger,
     TextFileFormatter,
+    get_process_log_identity,
     handle_click_args_type,
+    set_process_log_identity,
+    update_logging_config_addresses,
 )
+
+
+class TestFormatterIdentity:
+    @pytest.mark.parametrize(
+        "formatter_factory",
+        [
+            "xinference.deploy.utils.AddressFormatter",
+            "xinference.deploy.utils.JsonFileFormatter",
+            "xinference.deploy.utils.TextFileFormatter",
+        ],
+    )
+    def test_dict_config_rebuild_falls_back_to_process_identity(
+        self, formatter_factory
+    ):
+        previous_identity = get_process_log_identity()
+        try:
+            set_process_log_identity("supervisor", "supervisor:9999")
+
+            formatter = DictConfigurator({"version": 1}).configure_formatter(
+                {"()": formatter_factory, "role": "", "address": ""}
+            )
+
+            assert formatter.role == "supervisor"
+            assert formatter.address == "supervisor:9999"
+        finally:
+            set_process_log_identity(
+                previous_identity["role"], previous_identity["address"]
+            )
+
+    def test_logging_config_updates_only_xinference_formatters(self):
+        logging_conf = {
+            "formatters": {
+                "json": {
+                    "()": "xinference.deploy.utils.JsonFileFormatter",
+                    "role": "",
+                    "address": "",
+                },
+                "address": {
+                    "()": AddressFormatter,
+                    "role": "old-role",
+                    "address": "old-address",
+                },
+                "standard": {"format": "%(message)s"},
+            }
+        }
+
+        update_logging_config_addresses(logging_conf, "supervisor", "supervisor:9999")
+
+        assert logging_conf["formatters"]["json"]["role"] == "supervisor"
+        assert logging_conf["formatters"]["json"]["address"] == "supervisor:9999"
+        assert logging_conf["formatters"]["address"]["role"] == "supervisor"
+        assert logging_conf["formatters"]["address"]["address"] == "supervisor:9999"
+        assert logging_conf["formatters"]["standard"] == {"format": "%(message)s"}
 
 
 class TestStructuredLogFields:

@@ -29,6 +29,12 @@ class DeepseekV3_1ToolParser(ToolParser):
             r"(?:<｜tool▁calls▁begin｜>|<｜tool▁call▁begin｜>)(?:<｜tool▁call▁begin｜>)?\s*(.*?)\s*<｜tool▁sep｜>\s*(.*?)\s*<｜tool▁call▁end｜>",
             re.DOTALL,
         )
+        # One call plus a trailing end-of-calls token, so the text around it
+        # can be returned as content.
+        self.tool_call_span_regex = re.compile(
+            self.new_tool_calls_regex.pattern + r"(?:\s*<｜tool▁calls▁end｜>)?",
+            re.DOTALL,
+        )
 
     def extract_tool_calls(
         self, model_output: str
@@ -57,7 +63,7 @@ class DeepseekV3_1ToolParser(ToolParser):
             >>> print(result)
             [(None, 'get_weather', {'location': 'Beijing'})]
         """
-        new_matches = self.new_tool_calls_regex.findall(model_output)
+        new_matches = list(self.tool_call_span_regex.finditer(model_output))
 
         if not new_matches:
             # No tool calls found, return the original output as content
@@ -69,13 +75,21 @@ class DeepseekV3_1ToolParser(ToolParser):
             []
         )
 
-        for name, args_json in new_matches:
+        content_start = 0
+        for match in new_matches:
+            content = model_output[content_start : match.start()]
+            if content:
+                results.append((content, None, None))
+            name, args_json = match.groups()
+            content_start = match.end()
             tool_call_tuple: Tuple[
                 Optional[str], Optional[str], Optional[Dict[str, Any]]
             ]
             try:
                 arguments = json.loads(args_json)
-                arguments_hashable = frozenset(arguments)
+                # Key on the argument values too, so parallel calls to the same
+                # function with different arguments are not merged.
+                arguments_hashable = json.dumps(arguments, sort_keys=True)
                 tool_call_tuple = (
                     None,
                     name,
@@ -99,6 +113,9 @@ class DeepseekV3_1ToolParser(ToolParser):
                 tool_calls.add(dedup_key)
                 results.append(tool_call_tuple)
 
+        content = model_output[content_start:]
+        if content:
+            results.append((content, None, None))
         return results
 
     def extract_tool_calls_streaming(
@@ -156,14 +173,14 @@ class DeepseekV3_1ToolParser(ToolParser):
                 # In tool call mode, we suppress output until we find a complete tool call
                 return None
 
-            # Check for potential start of new pattern
-            for i in range(1, len(new_pattern_start)):
-                prefix = new_pattern_start[:i]
-                if current_text.endswith(prefix):
-                    return None
-
-            # No tool call detected and not forming one, return delta text as regular content
-            return (delta_text, None, None)
+            # No tool call yet. Hold back a trailing piece that may start the
+            # tool calls token, and release it once it turns out to be text.
+            content = self._plain_text_delta(
+                current_text, delta_text, [new_pattern_start]
+            )
+            if content is None:
+                return None if delta_text else (delta_text, None, None)
+            return (content, None, None)
 
         except json.JSONDecodeError as e:
             logger.error("JSON decode error in streaming tool call extraction: %s", e)

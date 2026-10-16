@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Xinference audio built-in model catalog",
+  "description": "Raw catalog records before runtime flattening. A file may contain multiple engine variants of the same model.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "$ref": "#/$defs/record"
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/source"
+        }
+      ],
+      "properties": {
+        "vae_model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vae_model_revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "enum": [
+          "huggingface",
+          "modelscope",
+          "openmind_hub",
+          "csghub"
+        ]
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "record": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/record"
+        }
+      ],
+      "properties": {
+        "version": {
+          "const": 2
+        },
+        "model_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_src": {
+          "$ref": "#/$defs/sources"
+        },
+        "model_ability": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "text2audio",
+              "text2audio_zero_shot",
+              "text2audio_voice_cloning",
+              "text2audio_voice_design",
+              "text2audio_emotion_control",
+              "text2music",
+              "audio2text",
+              "speaker_embedding"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "multilingual": {
+          "type": "boolean"
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_lang": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "engine": {
+          "type": "string",
+          "enum": [
+            "PyTorch",
+            "MLX",
+            "transformers",
+            "diffusers"
+          ]
+        },
+        "model_format": {
+          "type": "string",
+          "enum": [
+            "pytorch",
+            "mlx"
+          ]
+        },
+        "cache_name": {
+          "$ref": "common.schema.json#/$defs/name"
+        },
+        "quantization": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_file_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "default_model_config": {
+          "type": "object",
+          "description": "Engine-specific parameters; keys are intentionally open."
+        },
+        "default_transcription_config": {
+          "type": "object",
+          "description": "Engine-specific parameters; keys are intentionally open."
+        }
+      },
+      "required": [
+        "model_name",
+        "model_family",
+        "model_ability",
+        "multilingual",
+        "model_src"
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}

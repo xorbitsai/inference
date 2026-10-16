@@ -27,12 +27,14 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Software Development :: Libraries",
 ]
 dynamic = ["version"]
 dependencies = [
-    "xoscar>=0.9.7",
+    "xoscar>=0.12.0",
+    "psutil>=5.9.0",
     "torch",
     "pillow",
     "click<8.2.0",
@@ -41,14 +43,16 @@ dependencies = [
     "requests",
     "aiohttp",
     "pydantic",
+    "anyio",
     "fastapi>=0.110.3,<0.137",
     "python-multipart>=0.0.18",  # required by FastAPI's Form/File/UploadFile params; used to come in transitively via gradio
     "orjson",  # used by core.utils.json_dumps for all REST API JSON responses; used to come in transitively via gradio
     "uvicorn",
     "PyYAML",
     "huggingface-hub>=0.19.4",
+    "filelock>=3.30.0",  # preserve_lock_file keeps Wan MLX conversion locks stable on Windows
     "typing_extensions",
-    "modelscope>=1.19.0",
+    "modelscope>=1.21.0",
     "sse_starlette>=1.6.5",  # ensure_bytes API break change: https://github.com/sysid/sse-starlette/issues/65
     "openai>=1.40.0",  # For typing
     "anthropic>=0.25.0",  # For Anthropic protocol typing & route registration
@@ -82,8 +86,17 @@ xinference-router-agent = "xinference.deploy.router_agent:main"
 xinference-migrate-auth = "xinference.api.oauth2.advanced.migrate:main"
 xinference-reset-auth-password = "xinference.api.oauth2.advanced.reset_password:main"
 
+[project.entry-points."vllm.general_plugins"]
+xinference_navidc_ocr = "xinference.thirdparty.navidc_ocr:register"
+
+[project.entry-points."sglang.srt.plugins"]
+xinference_xavier = "xinference.model.llm.sglang.xavier.plugin:register"
+xinference_reasoning = "xinference.model.llm.sglang.reasoning:register"
+
 [project.optional-dependencies]
 dev = [
+    "jsonschema>=4.18,<5",  # Built-in model catalog authoring/CI validation
+    "xxhash",  # CPU tests for the Xavier connector
     "cython>=0.29",
     "pytest>=3.5.0",
     "pytest-cov>=2.5.0",
@@ -106,6 +119,7 @@ dev = [
     "sphinx-tabs",
     "sphinx-design",
     "pypdfium2",  # For PDF OCR tests
+    "tomli; python_version < '3.11'",
 ]
 otel = [
     "opentelemetry-api>=1.20.0",
@@ -114,6 +128,15 @@ otel = [
     "opentelemetry-exporter-otlp-proto-grpc>=1.20.0",
     "opentelemetry-instrumentation-fastapi>=0.41b0",
     "opentelemetry-instrumentation-httpx>=0.41b0",
+]
+guard = [
+    # Optional fastapi-guard security middleware
+    # (api/guard_integration.py; default-off)
+    "fastapi-guard>=8.1.0,<9.0.0",
+]
+
+router = [
+    "tokenizers>=0.21.0,<0.23.0",
 ]
 all = [
     "xinference[anthropic]",
@@ -126,6 +149,7 @@ all = [
     "xinference[image]",
     "xinference[video]",
     "xinference[audio]",
+    "xinference[router]",
 ]
 intel = [
     "torch==2.1.0a0",
@@ -201,6 +225,15 @@ image = [
     "torchvision",  # For got_ocr2
     "gguf",  # For flux and sd3.5 series
     "pypdfium2",  # For PDF input on the OCR API
+]
+sdapi = [
+    "xinference[image]",
+    "piexif",
+    "opencv-python-headless",
+    "scikit-image",
+    "einops",
+    "adetailer>=26.2.0,<27",
+    "spandrel>=0.4.1",
 ]
 video = [
     "diffusers>=0.32.0",

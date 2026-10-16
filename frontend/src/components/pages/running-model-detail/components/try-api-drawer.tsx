@@ -25,6 +25,7 @@ import {
   type CodeLanguage,
 } from '@/constants/running';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
+import { useI18n, type TFunc } from '@/contexts/i18n-context';
 import { copyToClipboard, getApiUrl } from '@/lib/utils';
 
 import { CAPABILITY_CONFIGS } from '../capability-config';
@@ -53,9 +54,18 @@ function resolveValue(field: CodeExampleField, modelUid: string) {
   return '';
 }
 
-function fieldComment(field: CodeExampleField, prefix: string) {
+function fieldComment(field: CodeExampleField, prefix: string, t: TFunc) {
   if (field.required && !field.comment) return '';
-  return ` ${prefix} ${field.comment || 'Optional'}`;
+  const comment = field.comment
+    ? field.comment === 'Optional(other key/value)'
+      ? t('runningModels.detail.optionalOtherFields')
+      : field.comment === 'Optional model-specific controls'
+        ? t('runningModels.detail.optionalModelControls')
+        : field.comment === 'Optional'
+          ? t('runningModels.detail.optional')
+          : field.comment
+    : t('runningModels.detail.optional');
+  return ` ${prefix} ${comment}`;
 }
 
 function escapeString(value: string) {
@@ -156,7 +166,7 @@ function tsFieldValue(field: CodeExampleField, modelUid: string) {
   return jsLiteral(value);
 }
 
-function generatePython(config: CodeExampleConfig, url: string, modelUid: string) {
+function generatePython(config: CodeExampleConfig, url: string, modelUid: string, t: TFunc) {
   const fields = config.fields;
   const isForm = config.contentType === 'form';
   const imports = ['import requests'];
@@ -173,7 +183,7 @@ function generatePython(config: CodeExampleConfig, url: string, modelUid: string
     lines.push('data = {');
     dataFields.forEach((field) => {
       lines.push(
-        `    "${field.key}": ${pyFieldValue(field, modelUid)},${fieldComment(field, '#')}`
+        `    "${field.key}": ${pyFieldValue(field, modelUid)},${fieldComment(field, '#', t)}`
       );
     });
     lines.push('}', '');
@@ -183,7 +193,7 @@ function generatePython(config: CodeExampleConfig, url: string, modelUid: string
       fileFields.forEach((field) => {
         const value = resolveValue(field, modelUid);
         lines.push(
-          `    "${field.key}": open("${escapeString(String(value))}", "rb"),${fieldComment(field, '#')}`
+          `    "${field.key}": open("${escapeString(String(value))}", "rb"),${fieldComment(field, '#', t)}`
         );
       });
       lines.push('}', '');
@@ -192,7 +202,7 @@ function generatePython(config: CodeExampleConfig, url: string, modelUid: string
     lines.push('data = {');
     fields.forEach((field) => {
       lines.push(
-        `    "${field.key}": ${pyFieldValue(field, modelUid)},${fieldComment(field, '#')}`
+        `    "${field.key}": ${pyFieldValue(field, modelUid)},${fieldComment(field, '#', t)}`
       );
     });
     lines.push('}', '');
@@ -212,7 +222,7 @@ function generatePython(config: CodeExampleConfig, url: string, modelUid: string
   return lines.join('\n');
 }
 
-function generateTS(config: CodeExampleConfig, url: string, modelUid: string) {
+function generateTS(config: CodeExampleConfig, url: string, modelUid: string, t: TFunc) {
   const isForm = config.contentType === 'form';
   const lines = [`const url = "${url}";`, ''];
 
@@ -225,12 +235,16 @@ function generateTS(config: CodeExampleConfig, url: string, modelUid: string) {
       if (field.type === 'file') {
         lines.push(`const ${field.key}File = new File([""], "${escapeString(String(value))}");`);
       }
-      lines.push(`formData.append("${field.key}", ${resolvedValue});${fieldComment(field, '//')}`);
+      lines.push(
+        `formData.append("${field.key}", ${resolvedValue});${fieldComment(field, '//', t)}`
+      );
     });
   } else {
     lines.push('const data = {');
     config.fields.forEach((field) => {
-      lines.push(`  ${field.key}: ${tsFieldValue(field, modelUid)},${fieldComment(field, '//')}`);
+      lines.push(
+        `  ${field.key}: ${tsFieldValue(field, modelUid)},${fieldComment(field, '//', t)}`
+      );
     });
     lines.push('};');
   }
@@ -250,7 +264,7 @@ function generateTS(config: CodeExampleConfig, url: string, modelUid: string) {
   return lines.join('\n');
 }
 
-function generateJava(config: CodeExampleConfig, url: string, modelUid: string) {
+function generateJava(config: CodeExampleConfig, url: string, modelUid: string, t: TFunc) {
   if (config.contentType === 'form') {
     const lines = [
       'import java.io.File;',
@@ -265,11 +279,11 @@ function generateJava(config: CodeExampleConfig, url: string, modelUid: string) 
       const value = resolveValue(field, modelUid);
       if (field.type === 'file') {
         lines.push(
-          `formData.addFormDataPart("${field.key}", "${escapeString(String(value))}", RequestBody.create(new File("${escapeString(String(value))}"), MediaType.parse("application/octet-stream")));${fieldComment(field, '//')}`
+          `formData.addFormDataPart("${field.key}", "${escapeString(String(value))}", RequestBody.create(new File("${escapeString(String(value))}"), MediaType.parse("application/octet-stream")));${fieldComment(field, '//', t)}`
         );
       } else {
         lines.push(
-          `formData.addFormDataPart("${field.key}", ${javaFormValue(field, value)});${fieldComment(field, '//')}`
+          `formData.addFormDataPart("${field.key}", ${javaFormValue(field, value)});${fieldComment(field, '//', t)}`
         );
       }
     });
@@ -303,7 +317,7 @@ function generateJava(config: CodeExampleConfig, url: string, modelUid: string) 
 
   config.fields.forEach((field) => {
     lines.push(
-      `data.put("${field.key}", ${javaValue(resolveValue(field, modelUid))});${fieldComment(field, '//')}`
+      `data.put("${field.key}", ${javaValue(resolveValue(field, modelUid))});${fieldComment(field, '//', t)}`
     );
   });
 
@@ -325,7 +339,7 @@ function generateJava(config: CodeExampleConfig, url: string, modelUid: string) 
   return lines.join('\n');
 }
 
-function generateGo(config: CodeExampleConfig, url: string, modelUid: string) {
+function generateGo(config: CodeExampleConfig, url: string, modelUid: string, t: TFunc) {
   if (config.contentType === 'form') {
     const lines = [
       'package main',
@@ -348,14 +362,14 @@ function generateGo(config: CodeExampleConfig, url: string, modelUid: string) {
       if (field.type === 'file') {
         const key = field.key;
         lines.push(
-          `  file_${key}, _ := os.Open("${escapeString(String(value))}")${fieldComment(field, '//')}`,
+          `  file_${key}, _ := os.Open("${escapeString(String(value))}")${fieldComment(field, '//', t)}`,
           `  defer file_${key}.Close()`,
           `  part_${key}, _ := writer.CreateFormFile("${field.key}", "${escapeString(String(value))}")`,
           `  io.Copy(part_${key}, file_${key})`
         );
       } else {
         lines.push(
-          `  writer.WriteField("${field.key}", ${goFormValue(field, value)})${fieldComment(field, '//')}`
+          `  writer.WriteField("${field.key}", ${goFormValue(field, value)})${fieldComment(field, '//', t)}`
         );
       }
     });
@@ -389,7 +403,7 @@ function generateGo(config: CodeExampleConfig, url: string, modelUid: string) {
 
   config.fields.forEach((field) => {
     lines.push(
-      `    "${field.key}": ${goValue(resolveValue(field, modelUid))},${fieldComment(field, '//')}`
+      `    "${field.key}": ${goValue(resolveValue(field, modelUid))},${fieldComment(field, '//', t)}`
     );
   });
 
@@ -440,17 +454,18 @@ function generateCodeExample(
   language: CodeLanguage,
   config: CodeExampleConfig,
   url: string,
-  modelUid: string
+  modelUid: string,
+  t: TFunc
 ) {
   switch (language) {
     case 'python':
-      return generatePython(config, url, modelUid);
+      return generatePython(config, url, modelUid, t);
     case 'typescript':
-      return generateTS(config, url, modelUid);
+      return generateTS(config, url, modelUid, t);
     case 'java':
-      return generateJava(config, url, modelUid);
+      return generateJava(config, url, modelUid, t);
     case 'go':
-      return generateGo(config, url, modelUid);
+      return generateGo(config, url, modelUid, t);
     case 'shell':
       return generateShell(config, url, modelUid);
   }
@@ -489,14 +504,15 @@ export function TryApiDrawer({
   ability,
 }: TryApiDrawerProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const { canAccessKeysPage } = useMenuAuth();
   const [language, setLanguage] = useState(CODE_LANGUAGE_OPTIONS[0].value);
   const codeExample = getCodeExample(ability);
   const url = codeExample ? `${getApiUrl()}${codeExample.requestApi}` : '';
   const code = useMemo(() => {
     if (!codeExample) return '';
-    return generateCodeExample(language, codeExample.config, url, modelUid);
-  }, [codeExample, language, modelUid, url]);
+    return generateCodeExample(language, codeExample.config, url, modelUid, t);
+  }, [codeExample, language, modelUid, t, url]);
   const activeLanguage = CODE_LANGUAGE_OPTIONS.find((item) => item.value === language);
 
   return (
@@ -517,9 +533,9 @@ export function TryApiDrawer({
               </Button>
             </SheetClose>
             <div className="min-w-0">
-              <SheetTitle className="truncate text-xl">Try To API</SheetTitle>
+              <SheetTitle className="truncate text-xl">{t('runningModels.tryApi')}</SheetTitle>
               <SheetDescription className="sr-only">
-                API request examples for the selected model ability.
+                {t('runningModels.detail.apiExamplesDescription')}
               </SheetDescription>
             </div>
           </div>
@@ -530,7 +546,7 @@ export function TryApiDrawer({
             onClick={() => router.push('/api-key-management')}
           >
             <ExternalLink className="size-4" />
-            Get API Key
+            {t('runningModels.detail.getApiKey')}
           </Button>
         </SheetHeader>
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
@@ -570,7 +586,7 @@ export function TryApiDrawer({
             </Tabs>
           ) : (
             <div className="flex min-h-80 items-center justify-center rounded-2xl border bg-card text-sm text-muted-foreground">
-              No API example available for this model ability.
+              {t('runningModels.detail.noApiExample')}
             </div>
           )}
         </div>

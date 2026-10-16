@@ -65,6 +65,48 @@ def test_rerank_model_raises_xllamacpp_error(nested):
     assert str(exc_info.value) == message
 
 
+def test_gguf_rerank_defaults_engine_and_quantization(tmp_path, monkeypatch):
+    # A GGUF-only custom rerank model launched without ``--model-engine`` or
+    # ``--quantization`` must pick llama.cpp and the spec's quantization
+    # instead of failing on sentence_transformers / rendering ``None`` into
+    # the GGUF file name.
+    from ...custom import CustomRerankModelFamilyV2, register_rerank, unregister_rerank
+
+    model_name = "custom_test_rerank_gguf"
+    model_family = CustomRerankModelFamilyV2(
+        model_name=model_name,
+        type="normal",
+        language=["en"],
+        max_tokens=512,
+        model_specs=[
+            LlamaCppRerankSpecV1(
+                model_format="ggufv2",
+                model_id=None,
+                model_revision=None,
+                model_uri=str(tmp_path),
+                model_file_name_template="bge-reranker-v2-m3-{quantization}.gguf",
+                quantization="Q4_K_M",
+                model_file_name_split_template=None,
+                quantization_parts=None,
+            )
+        ],
+    )
+    # Engine registration checks that xllamacpp is importable.
+    monkeypatch.setattr(XllamaCppRerankModel, "check_lib", classmethod(lambda _: True))
+
+    register_rerank(model_family, False)
+    try:
+        model = create_rerank_model_instance(
+            "mock", model_name, None, model_path=str(tmp_path)
+        )
+    finally:
+        unregister_rerank(model_name)
+
+    assert isinstance(model, XllamaCppRerankModel)
+    assert model.model_family.model_engine == "llama.cpp"
+    assert model._quantization == "Q4_K_M"
+
+
 def test_rerank_model_with_xllamacpp():
     model_path = None
     try:

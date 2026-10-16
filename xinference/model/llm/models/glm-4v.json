@@ -1,0 +1,102 @@
+[
+  {
+    "version": 2,
+    "context_length": 8192,
+    "model_name": "glm-4v",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "zai-org/glm-4v-9b",
+            "model_revision": "01328faefe122fe605c1c127b62e6031d3ffebf7",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/zai-org/glm-4v-9b/resolve/01328faefe122fe605c1c127b62e6031d3ffebf7/config.json",
+              "config_sha256": "7c80de82168f1fac04cd97c7c200fb618ce16a90ccd87cc8c662f429a3b2550e",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ZhipuAI/glm-4v-9b",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/glm-4v-9b/resolve/master/config.json",
+              "config_sha256": "7c80de82168f1fac04cd97c7c200fb618ce16a90ccd87cc8c662f429a3b2550e",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
+          },
+          "openmind_hub": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "AI-Research/glm-4v-9b",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelers.cn/api/v1/file/AI-Research/glm-4v-9b/main/media/config.json",
+              "config_sha256": "4a08aae8c4793b5279cf632d6d9ccb727d2b4a6d1293ec09c25d17a257c9b4f8",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ],
+    "updated_at": 1769418526,
+    "featured": false,
+    "architectures": [
+      "ChatGLMModel"
+    ],
+    "model_type": "chatglm",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

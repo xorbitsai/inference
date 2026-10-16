@@ -98,7 +98,7 @@ def test_to_description_strict_flag():
 
 def test_check_message_roles_rejects_missing_and_unsupported_roles():
     allowed_roles = {"system", "user", "assistant", "tool"}
-    with pytest.raises(MessageRoleError, match="messages\\[0\\]\\.role is required"):
+    with pytest.raises(MessageRoleError, match=r"messages\[0\]\.role is required"):
         check_message_roles([{"content": "missing role"}], allowed_roles)
     with pytest.raises(MessageRoleError, match="'developer' is not supported"):
         check_message_roles([{"role": "developer", "content": "hi"}], allowed_roles)

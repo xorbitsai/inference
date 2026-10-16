@@ -24,7 +24,7 @@ cross-replica GPU conflicts) live in the supervisor, which has access to the
 cluster topology.
 """
 
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from .._compat import BaseModel, Field, validator
 from .utils import parse_replica_model_uid
@@ -56,6 +56,8 @@ class DeviceConfig(_PlacementConfigBase):
     def _validate_n_gpu(cls, value):
         if value != "auto" and (isinstance(value, bool) or not isinstance(value, int)):
             raise TypeError("n_gpu must be an integer or 'auto'")
+        if value != "auto" and value < 0:
+            raise ValueError("n_gpu must be a non-negative integer or 'auto'")
         return value
 
     @validator("gpu_idx", pre=True)
@@ -77,7 +79,10 @@ class ReplicaConfig(_PlacementConfigBase):
     """Placement spec for a single replica."""
 
     replica_uid: Optional[str] = None
+    role: Literal["hybrid", "prefill", "decode"] = "hybrid"
     devices: List[DeviceConfig] = Field(default_factory=list)
+    model_engine: Optional[str] = None
+    engine_config: Dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict) -> "ReplicaConfig":
@@ -169,3 +174,90 @@ def _validate_device_consistency(idx: int, device: DeviceConfig) -> None:
             raise ValueError(
                 f"replica_config[{idx}].devices[0].gpu_idx must be non-negative integers."
             )
+
+
+def validate_pd_replica_configs(
+    configs: Optional[List[ReplicaConfig]],
+    model_engine: Optional[str],
+    model_type: Optional[str],
+) -> bool:
+    """Validate a complete P/D topology before allocating any runtime resources."""
+    engines = {
+        (cfg.model_engine or model_engine or "").lower() for cfg in configs or []
+    }
+    reserved = {
+        "model_uid",
+        "model_name",
+        "model_size_in_billions",
+        "model_format",
+        "quantization",
+        "model_engine",
+        "model_type",
+        "model_path",
+        "n_gpu",
+        "n_worker",
+        "shard",
+        "driver_info",
+        "gpu_idx",
+        "worker_ip",
+        "replica",
+        "replica_uid",
+        "replica_config",
+        "role",
+        "request_limits",
+        "peft_model_config",
+        "download_hub",
+        "enable_virtual_env",
+        "virtual_env_packages",
+        "virtual_env_find_links",
+        "envs",
+        "xavier_config",
+        "enable_xavier",
+        "transfer_backend_type",
+        "xavier_cache_bytes",
+        "xavier_gpu_cache_bytes",
+    }
+    if "mlx" in engines and len(engines) > 1:
+        # CUDA and Metal replicas need their own local checkpoint paths/formats.
+        reserved -= {"model_path", "model_format"}
+    for cfg in configs or []:
+        invalid = {
+            key for key in cfg.engine_config if key in reserved or key.startswith("_")
+        }
+        if invalid:
+            raise ValueError(
+                f"Reserved replica engine_config keys: {', '.join(sorted(invalid))}"
+            )
+    roles = {cfg.role for cfg in configs or []}
+    if not roles.intersection({"prefill", "decode"}):
+        if any(cfg.model_engine or cfg.engine_config for cfg in configs or []):
+            raise ValueError("Per-replica engine settings require explicit PD roles")
+        return False
+    if (
+        not engines <= {"vllm", "sglang", "mlx"}
+        or (model_type or "LLM").lower() != "llm"
+    ):
+        raise ValueError(
+            "PD separation requires model_type=LLM and model_engine=vLLM, SGLang or MLX"
+        )
+    if roles != {"prefill", "decode"}:
+        raise ValueError(
+            "PD separation requires both prefill and decode replicas, without hybrid replicas"
+        )
+    if "mlx" in engines and len(engines) > 1:
+        role_engines = {
+            role: {
+                (cfg.model_engine or model_engine or "").lower()
+                for cfg in configs or []
+                if cfg.role == role
+            }
+            for role in ("prefill", "decode")
+        }
+        if not any(
+            role_engines[role] == {"mlx"} and role_engines[other] <= {"vllm", "sglang"}
+            for role, other in (("prefill", "decode"), ("decode", "prefill"))
+        ):
+            raise ValueError(
+                "Cross-engine MLX PD requires MLX on one role and NVIDIA on the other"
+            )
+    return True

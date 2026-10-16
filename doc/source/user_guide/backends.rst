@@ -175,8 +175,11 @@ Currently, supported model includes:
 - ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
 - ``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``
 - ``GLM-4.7-Flash``
-- ``glm-5``, ``glm-5.1``, ``glm-5.2``
+- ``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``
 - ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Flash-0731``, ``DeepSeek-V4-Pro``
+- ``Hy-MT2-1.8B``, ``Hy-MT2-7B``
+- ``Hy-MT2-30B-A3B``
+
 .. vllm_end
 
 Besides LLMs, vLLM can also serve embedding models. Model families whose
@@ -188,7 +191,7 @@ vLLM can also serve as the engine for some text-to-image models
 (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see
 :ref:`image engines <image>`. This requires the vLLM-Omni add-on with a vLLM
 of the same major.minor version, e.g.
-``pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'``.
+``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``.
 
 .. _sglang_backend:
 
@@ -201,7 +204,7 @@ And it also supports other common techniques like continuous batching and tensor
 Besides LLMs, SGLang can also serve as the engine for some text-to-image models
 (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see
 :ref:`image engines <image>`. This requires SGLang with diffusion support:
-``pip install 'sglang[diffusion]'``.
+``pip install 'sglang[diffusion]>=0.5.20,<0.6'``.
 
 .. _mlx_backend:
 

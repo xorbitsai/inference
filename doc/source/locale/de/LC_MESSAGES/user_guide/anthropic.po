@@ -1,0 +1,384 @@
+# Translations for the Anthropic API compatibility chapter.
+# Copyright (C) 2026 XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-13 11:07+0800\n"
+"PO-Revision-Date: 2026-10-16 12:22+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: user_guide/anthropic.rst:4
+msgid "Anthropic API compatibility"
+msgstr "Anthropic-API-Kompatibilität"
+
+#: user_guide/anthropic.rst:6
+msgid ""
+"Xinference exposes Anthropic-compatible Messages APIs for already launched "
+"models. Use the model UID in requests. The available features depend on the "
+"model and engine."
+msgstr ""
+"Xinference stellt Anthropic-kompatible Messages-APIs für bereits gestartete "
+"Modelle bereit. Verwenden Sie in Anfragen die Modell-UID. Die verfügbaren "
+"Funktionen hängen vom Modell und der Engine ab."
+
+#: user_guide/anthropic.rst:11
+msgid "Endpoints and authentication"
+msgstr "Endpunkte und Authentifizierung"
+
+#: user_guide/anthropic.rst:13
+msgid ""
+"Send message requests to ``/v1/messages`` and token-count requests to "
+"``/v1/messages/count_tokens``. The standard routes require ``anthropic-"
+"version: 2023-06-01``. The ``/anthropic/v1/messages`` and "
+"``/anthropic/v1/messages/count_tokens`` aliases remain available."
+msgstr ""
+"Senden Sie Nachrichtenanfragen an ``/v1/messages`` und Anfragen zur "
+"Tokenzählung an ``/v1/messages/count_tokens``. Die Standardrouten erfordern "
+"``anthropic-version: 2023-06-01``. Die Aliase ``/anthropic/v1/messages`` und "
+"``/anthropic/v1/messages/count_tokens`` bleiben verfügbar."
+
+#: user_guide/anthropic.rst:18
+msgid ""
+"Use your Xinference API key when authentication is enabled. An arbitrary non-"
+"empty key is sufficient when authentication is disabled."
+msgstr ""
+"Verwenden Sie bei aktivierter Authentifizierung Ihren Xinference-API-"
+"Schlüssel. Bei deaktivierter Authentifizierung genügt ein beliebiger nicht "
+"leerer Schlüssel."
+
+#: user_guide/anthropic.rst:22
+msgid "Claude Code"
+msgstr "Claude Code"
+
+#: user_guide/anthropic.rst:24
+msgid ""
+"Launch a model with chat and tool-calling support first (see :ref:`launch`), "
+"then configure Claude Code to use the Xinference server and model UID:"
+msgstr ""
+"Starten Sie zunächst ein Modell mit Chat- und Werkzeugaufruf-Unterstützung "
+"(siehe :ref:`launch`) und konfigurieren Sie anschließend Claude Code mit dem "
+"Xinference-Server und der Modell-UID:"
+
+#: user_guide/anthropic.rst:38
+msgid "Python SDK"
+msgstr "Python-SDK"
+
+#: user_guide/anthropic.rst:57
+msgid "Token counting"
+msgstr "Tokenzählung"
+
+#: user_guide/anthropic.rst:59
+msgid ""
+"The standard ``/v1/messages/count_tokens`` endpoint and its "
+"``/anthropic/v1/messages/count_tokens`` alias use the loaded model's chat "
+"template and tokenizer, including tool definitions and images where "
+"supported. Both routes use the same model permissions and Xinference API key"
+" as message generation. SGLang supports text and tool token counting; image "
+"counting returns 501."
+msgstr ""
+"Der Standardendpunkt ``/v1/messages/count_tokens`` und sein Alias "
+"``/anthropic/v1/messages/count_tokens`` verwenden die Chatvorlage und den "
+"Tokenizer des geladenen Modells und berücksichtigen, soweit unterstützt, "
+"Werkzeugdefinitionen und Bilder. Beide Routen verwenden dieselben "
+"Modellberechtigungen und denselben Xinference-API-Schlüssel wie die "
+"Nachrichtengenerierung. SGLang unterstützt die Tokenzählung für Text und "
+"Werkzeuge; die Bildzählung liefert 501."
+
+#: user_guide/anthropic.rst:74
+msgid "Images and documents"
+msgstr "Bilder und Dokumente"
+
+#: user_guide/anthropic.rst:76
+msgid ""
+"Messages support text, base64 or URL images, tool results containing images, "
+"and tool references to tools declared in the request. Plain-text documents "
+"are supported; PDF pages are rendered as images with ``pypdfium2`` (install "
+"the ``image`` extra), require a vision model, and are limited to 20 pages per"
+" request. File IDs and document citations are not supported."
+msgstr ""
+"Nachrichten unterstützen Text, Bilder als base64 oder URL, Werkzeugergebnisse"
+" mit Bildern sowie Verweise auf in der Anfrage deklarierte Werkzeuge. "
+"Klartextdokumente werden unterstützt; PDF-Seiten werden mit ``pypdfium2`` als"
+" Bilder gerendert (die Zusatzabhängigkeiten ``image`` installieren), "
+"erfordern ein Bildmodell und sind auf 20 Seiten pro Anfrage begrenzt. Datei-"
+"IDs und Dokumentzitate werden nicht unterstützt."
+
+#: user_guide/anthropic.rst:83
+msgid ""
+"Xinference's vLLM vision models default to two images per prompt. The limit "
+"includes images in conversation history and tool results, so successive "
+"single-image messages can also exceed it. Set ``limit_mm_per_prompt`` when "
+"launching the model, for example ``{\"image\": 8, \"video\": 0}``, to allow "
+"more images within the model's context length and available GPU memory."
+msgstr ""
+"Die vLLM-Vision-Modelle von Xinference erlauben standardmäßig zwei Bilder "
+"pro Prompt. Das Limit umfasst Bilder im Gesprächsverlauf und in "
+"Werkzeugergebnissen, sodass auch aufeinanderfolgende Nachrichten mit jeweils"
+" einem Bild es überschreiten können. Setzen Sie beim Starten des Modells "
+"``limit_mm_per_prompt``, beispielsweise auf ``{\"image\": 8, \"video\": "
+"0}``, um mehr Bilder innerhalb der Kontextlänge des Modells und des "
+"verfügbaren GPU-Speichers zuzulassen."
+
+#: user_guide/anthropic.rst:89
+msgid ""
+"PDF limits apply to the entire request: at most 20 pages and 20 million "
+"rendered pixels. Decoded PDF bytes and rendered PNG bytes each use "
+"``XINFERENCE_MEDIA_MAX_BYTES`` (64 MiB by default). Each PDF block is "
+"rendered once per request, and model access is checked before fetching or "
+"rendering content."
+msgstr ""
+"PDF-Grenzen gelten für die gesamte Anfrage: höchstens 20 Seiten und 20 "
+"Millionen gerenderte Pixel. Für dekodierte PDF-Daten und gerenderte PNG-"
+"Daten gilt jeweils ``XINFERENCE_MEDIA_MAX_BYTES`` (standardmäßig 64 MiB). "
+"Jeder PDF-Block wird pro Anfrage einmal gerendert; der Modellzugriff wird "
+"vor dem Abrufen oder Rendern des Inhalts geprüft."
+
+#: user_guide/anthropic.rst:83
+msgid "Thinking"
+msgstr "Denken"
+
+#: user_guide/anthropic.rst:86
+msgid ""
+"Adaptive thinking enables the model's reasoning mode. The ``effort`` option "
+"maps to prompt guidance, with ``medium`` preserving the default prompt. "
+"Explicit thinking responses carry Xinference signatures, which can be "
+"replayed with the same model UID and signing key; configure "
+"``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers. "
+"The MLX, vLLM and SGLang adapters do not currently enforce manual "
+"``budget_tokens`` as a separate reasoning-token limit."
+msgstr ""
+"Adaptive thinking aktiviert den Denkmodus des Modells. Die Option ``effort``"
+" wird in Promptanweisungen umgesetzt; ``medium`` behält den Standardprompt "
+"bei. Ausdrücklich angeforderte Denkantworten enthalten Xinference-Signaturen"
+" und können mit derselben Modell-UID und demselben Signaturschlüssel erneut "
+"übergeben werden. Konfigurieren Sie ``XINFERENCE_ANTHROPIC_THINKING_SECRET``"
+" auf allen API-Servern einheitlich. Die Adapter für MLX, vLLM und SGLang "
+"erzwingen manuelle ``budget_tokens`` derzeit nicht als separate Begrenzung "
+"der Reasoning-Tokens."
+
+#: user_guide/anthropic.rst:105
+msgid ""
+"Stale, unsigned or foreign thinking blocks are ignored during replay; "
+"accompanying answers and tool calls are preserved."
+msgstr ""
+"Veraltete, unsignierte oder fremde Thinking-Blöcke werden bei der Wiedergabe"
+" ignoriert; zugehörige Antworten und Werkzeugaufrufe bleiben erhalten."
+
+#: user_guide/anthropic.rst:92
+msgid "Tool choice and structured output"
+msgstr "Werkzeugauswahl und strukturierte Ausgabe"
+
+#: user_guide/anthropic.rst:95
+msgid ""
+"Structured JSON output requires a supporting engine. The vLLM and SGLang "
+"engines support named and required tool choice through constrained JSON "
+"decoding, and disabled parallel tool use returns at most one tool per "
+"response. Forced tool arguments are buffered until complete."
+msgstr ""
+"Strukturierte JSON-Ausgabe erfordert eine unterstützende Engine. Die Engines"
+" vLLM und SGLang unterstützen benannte und erforderliche Werkzeugauswahl "
+"durch eingeschränkte JSON-Dekodierung; bei deaktivierten parallelen "
+"Werkzeugaufrufen wird höchstens ein Aufruf pro Antwort zurückgegeben. "
+"Erzwungene Werkzeugargumente werden bis zur Fertigstellung gepuffert."
+
+#: ../docs-source/user_guide/anthropic.rst:116
+msgid ""
+"Xinference automatically connects its existing reasoning parser to vLLM and "
+"SGLang structured decoding for supported reasoning markers and engines with "
+"parser plugin support. Qwen3.5 needs no extra parser configuration. Explicit"
+" engine parser settings are preserved. Manual thinking cannot be combined "
+"with forced tool choice. P/D models return 501 for forced tool choice. Other"
+" engines return 501 for unsupported controls."
+msgstr ""
+"Xinference verbindet seinen vorhandenen Reasoning-Parser automatisch mit der"
+" strukturierten Dekodierung von vLLM und SGLang, wenn die Markierungen "
+"unterstützt werden und die Engine Parser-Plugins laden kann. Für Qwen3.5 ist"
+" keine zusätzliche Parser-Konfiguration nötig. Explizite Parser-"
+"Einstellungen der Engine bleiben erhalten. Manuelles Denken kann nicht mit "
+"erzwungener Werkzeugauswahl kombiniert werden. Andere Engines liefern für "
+"nicht unterstützte Optionen 501. P/D-Modelle geben bei erzwungener "
+"Werkzeugwahl den Status 501 zurück."
+
+#: user_guide/anthropic.rst:103
+msgid "Prompt caching"
+msgstr "Prompt-Caching"
+
+#: ../docs-source/user_guide/anthropic.rst:126
+msgid ""
+"For text requests, the MLX vision engine reuses the furthest "
+"``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports "
+"actual cache writes and reads. Earlier cache breakpoints do not have "
+"independently enforced lifetimes in this path. Cache hits do not currently "
+"refresh the lifetime, and expiry clears the reusable cache. Other paths "
+"retain automatic engine caching, indicated by the ``x-xinference-cache-"
+"control: automatic`` response header."
+msgstr ""
+"Bei Textanfragen verwendet die MLX-Bildverarbeitungsengine das Präfix bis "
+"zur letzten ``cache_control``-Grenze mit einer Lebensdauer von ``5m`` oder "
+"``1h`` wieder und meldet tatsächliche Cache-Schreib- und Lesevorgänge. "
+"Andere Pfade behalten das automatische Engine-Caching bei, angezeigt durch "
+"den Antwortheader ``x-xinference-cache-control: automatic``. Frühere Cache-"
+"Grenzen haben in diesem Pfad keine unabhängig durchgesetzten Lebensdauern. "
+"Cache-Treffer verlängern die Lebensdauer derzeit nicht; bei Ablauf wird der "
+"wiederverwendbare Cache geleert."
+
+#: ../source/user_guide/anthropic.rst:83
+msgid ""
+"The request-wide safety limit is 64 rendered images, counting direct images,"
+" tool-result images and PDF pages together. A lower deployment limit still "
+"applies. Exceeding either limit returns HTTP 400 before generation, "
+"including for streaming requests."
+msgstr ""
+"Die Sicherheitsgrenze pro Anfrage beträgt 64 gerenderte Bilder. Direkte "
+"Bilder, Bilder in Werkzeugergebnissen und PDF-Seiten werden gemeinsam "
+"gezählt. Eine niedrigere Bereitstellungsgrenze gilt weiterhin. Wird eine der"
+" Grenzen überschritten, wird vor der Generierung HTTP 400 zurückgegeben, "
+"auch bei Streaming-Anfragen."
+
+#: ../source/user_guide/anthropic.rst:113
+msgid ""
+"On vLLM reasoning models, ``stop_sequences`` applies to both streaming and "
+"non-streaming requests, including when thinking is disabled. A stop match "
+"during thinking can end the response before a final answer is produced. "
+"Native stop matches currently report ``stop_reason: \"end_turn\"`` and "
+"``stop_sequence: null`` in the response."
+msgstr ""
+"Bei vLLM-Reasoning-Modellen gilt ``stop_sequences`` für Streaming- und "
+"Nicht-Streaming-Anfragen, auch bei deaktiviertem Denken. Ein Treffer während"
+" des Denkens kann die Antwort beenden, bevor eine endgültige Antwort erzeugt"
+" wird. Native Stopp-Treffer werden in der Antwort derzeit mit ``stop_reason:"
+" \"end_turn\"`` und ``stop_sequence: null`` gemeldet."
+
+#: ../source/user_guide/anthropic.rst:118
+msgid "Context management"
+msgstr "Kontextverwaltung"
+
+#: ../source/user_guide/anthropic.rst:120
+msgid ""
+"``context_management`` supports ``clear_thinking_20251015``. Set ``keep`` to"
+" ``\"all\"`` or ``{\"type\": \"all\"}`` to retain all thinking (the "
+"default), or use a positive ``thinking_turns`` value to retain recent "
+"thinking turns:"
+msgstr ""
+"``context_management`` unterstützt ``clear_thinking_20251015``. Setzen Sie "
+"``keep`` auf ``\"all\"`` oder ``{\"type\": \"all\"}``, um sämtliche "
+"Denkinhalte zu behalten (Standard), oder verwenden Sie einen positiven "
+"``thinking_turns``-Wert, um die jüngsten Denkrunden zu behalten:"
+
+#: ../source/user_guide/anthropic.rst:137
+msgid ""
+"User messages containing only ``tool_result`` blocks do not start a new "
+"assistant turn. Additional user content starts a new turn. Thinking attached"
+" to unresolved tool calls is retained. Generation, cache-prefix processing "
+"and token counting use the same edited history. Omitting ``edits`` is a no-"
+"op; unsupported edit types return HTTP 400."
+msgstr ""
+"Benutzernachrichten, die ausschließlich ``tool_result``-Blöcke enthalten, "
+"beginnen keine neue Assistentenrunde. Zusätzliche Benutzerinhalte beginnen "
+"eine neue Runde. Denkinhalte zu noch nicht beantworteten Werkzeugaufrufen "
+"bleiben erhalten. Generierung, Cache-Präfixverarbeitung und Tokenzählung "
+"verwenden denselben bearbeiteten Verlauf. Ohne ``edits`` erfolgt keine "
+"Änderung; nicht unterstützte Bearbeitungstypen liefern HTTP 400."
+
+#: ../source/user_guide/anthropic.rst:156
+msgid "Backend capabilities"
+msgstr "Backend-Fähigkeiten"
+
+#: ../source/user_guide/anthropic.rst:158
+msgid ""
+"Xinference checks explicit feature requests against the loaded model and "
+"engine before generation. Unsupported controls return HTTP 501; image input "
+"to a text-only model returns HTTP 400. Translated, emulated, degraded and "
+"rejected compatibility decisions are logged with their reasons. Capability "
+"checks do not add features that the engine cannot implement."
+msgstr ""
+"Xinference prüft explizite Funktionsanforderungen vor der Generierung anhand"
+" des geladenen Modells und der Engine. Nicht unterstützte Steuerungsoptionen"
+" liefern HTTP 501; Bildeingaben an ein reines Textmodell liefern HTTP 400. "
+"Entscheidungen über Übersetzung, Emulation, eingeschränkte Unterstützung und"
+" Ablehnung werden mit ihren Gründen protokolliert. Fähigkeitsprüfungen "
+"ergänzen keine Funktionen, die die Engine nicht implementieren kann."
+
+#: ../source/user_guide/anthropic.rst:164
+msgid ""
+"The following limitations still apply. Supported controls also require a "
+"compatible model and engine version, as described above."
+msgstr ""
+"Die folgenden Einschränkungen gelten weiterhin. Unterstützte "
+"Steuerungsoptionen erfordern außerdem ein kompatibles Modell und eine "
+"passende Engine-Version, wie oben beschrieben."
+
+#: ../source/user_guide/anthropic.rst:171
+msgid "Feature"
+msgstr "Funktion"
+
+#: ../source/user_guide/anthropic.rst:172
+msgid "vLLM"
+msgstr "vLLM"
+
+#: ../source/user_guide/anthropic.rst:173
+msgid "SGLang"
+msgstr "SGLang"
+
+#: ../source/user_guide/anthropic.rst:174
+msgid "MLX"
+msgstr "MLX"
+
+#: ../source/user_guide/anthropic.rst:175
+msgid "Forced tool choice / disabling parallel tools"
+msgstr "Erzwungene Werkzeugwahl / Deaktivierung paralleler Werkzeuge"
+
+#: ../source/user_guide/anthropic.rst:176
+#: ../source/user_guide/anthropic.rst:177
+#: ../source/user_guide/anthropic.rst:180
+#: ../source/user_guide/anthropic.rst:181
+#: ../source/user_guide/anthropic.rst:184
+#: ../source/user_guide/anthropic.rst:186
+msgid "Supported"
+msgstr "Unterstützt"
+
+#: ../source/user_guide/anthropic.rst:178
+#: ../source/user_guide/anthropic.rst:182
+#: ../source/user_guide/anthropic.rst:185
+msgid "HTTP 501"
+msgstr "HTTP 501"
+
+#: ../source/user_guide/anthropic.rst:179
+msgid "Structured JSON"
+msgstr "Strukturiertes JSON"
+
+#: ../source/user_guide/anthropic.rst:183
+msgid "Image token counting"
+msgstr "Tokenzählung für Bilder"
+
+#: ../source/user_guide/anthropic.rst:187
+msgid "Explicit cache lifetime"
+msgstr "Explizite Cache-Gültigkeitsdauer"
+
+#: ../source/user_guide/anthropic.rst:188
+#: ../source/user_guide/anthropic.rst:189
+msgid "Automatic caching"
+msgstr "Automatisches Caching"
+
+#: ../source/user_guide/anthropic.rst:190
+msgid "Partial (text requests to vision models)"
+msgstr "Teilweise (Textanfragen an Bildmodelle)"
+
+#: ../source/user_guide/anthropic.rst:191
+msgid "Separate reasoning-token budget"
+msgstr "Separates Tokenbudget für Reasoning"
+
+#: ../source/user_guide/anthropic.rst:192
+#: ../source/user_guide/anthropic.rst:193
+#: ../source/user_guide/anthropic.rst:194
+msgid "Not enforced"
+msgstr "Nicht erzwungen"

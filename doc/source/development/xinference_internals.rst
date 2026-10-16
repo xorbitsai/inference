@@ -184,9 +184,8 @@ Therefore, there is a lot of adaptation work to be done after the model generate
 JSON
 ----
 
-In `model/llm/llm_family.json <https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_,
-we utilize JSON files to manage the metadata of emerging open-source models. Adding a new model does not necessitate writing new code,
-it merely requires appending new metadata to the existing JSON file.
+In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_,
+each model has a JSON file containing all its variants. Add or remove a model by adding or deleting its file. Files are discovered automatically in case-insensitive filename order; the order of records within each file is preserved.
 
 ::
 
@@ -274,3 +273,19 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
   and caching. See `Model`_ for more information.
 
 - `frontend/ <https://github.com/xorbitsai/inference/tree/main/frontend>`_: The Next.js code of the frontend (Web UI).
+
+
+Runtime extensions
+==================
+
+Set ``XINFERENCE_EXTENSIONS`` to comma-separated ``module:factory`` entries before starting Xinference. Each process loads its own extension instances, including spawned API, worker, and recovery processes. An unset variable preserves the standard runtime; an invalid configured extension fails explicitly.
+
+A factory returns an object with a unique ``name``, ``api_version = 1``, and four methods: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)``, and ``control_operation(operation, payload)``. API context includes the app, router, authentication service, authentication mode, and an asynchronous supervisor reference getter. Routes and middleware are composed before the static frontend fallback. Reuse the authentication service when protecting extension routes.
+
+The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build.
+
+Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop.
+
+``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API.
+
+Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement.

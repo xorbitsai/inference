@@ -154,9 +154,15 @@ def test_no_drafter_is_a_noop(monkeypatch):
 
 
 def _model_for_config(architecture="DeepseekV4ForCausalLM"):
+    from ...llm_family import LLMFamilyV2
+
     model = _model(model_name="DeepSeek-V4-Flash-0731", model_size=304)
-    model.model_family = SimpleNamespace(
+    model.model_family = LLMFamilyV2(
+        version=2,
         model_name="DeepSeek-V4-Flash-0731",
+        model_lang=["en"],
+        model_ability=["chat"],
+        model_specs=[],
         architectures=[architecture],
     )
     model.model_spec = SimpleNamespace(model_size_in_billions=304, model_format="fp8")

@@ -30,6 +30,7 @@ const MINUTES = Array.from({ length: 60 }, (_, index) => index);
 const MONTH_FORMAT_MAP: Record<Locale, string> = {
   en: 'MMM yyyy',
   zh: 'yyyy年MM月',
+  'zh-TW': 'yyyy年MM月',
   ja: 'yyyy年MM月',
   ko: 'yyyy년 MM월',
 };

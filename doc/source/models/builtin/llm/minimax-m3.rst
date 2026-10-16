@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 428 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 428
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** MiniMaxAI/MiniMax-M3
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/MiniMaxAI/MiniMax-M3>`__, `ModelScope <https://modelscope.cn/models/MiniMax/MiniMax-M3>`__
 

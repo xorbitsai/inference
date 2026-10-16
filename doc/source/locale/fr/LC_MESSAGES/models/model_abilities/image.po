@@ -572,3 +572,10 @@ msgstr ""
 
 #~ msgid "Learn from a Stable Diffusion ControlNet example"
 #~ msgstr "Apprenez un exemple de réseau de contrôle Stable Diffusion."
+
+#: ../../source/models/model_abilities/image.rst
+msgid "SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request."
+msgstr "SGLang 0.5.20 ou ultérieur accepte aussi les requêtes image simultanées pour le regroupement dynamique natif. Définissez ``batching_max_size`` et, éventuellement, ``batching_delay_ms`` au lancement. Avec vLLM-Omni 0.28, utilisez ``max_num_seqs`` ; les pipelines compatibles peuvent aussi activer le regroupement continu expérimental avec ``step_execution=true``. Le regroupement doit être activé explicitement, nécessite des requêtes compatibles et un modèle pris en charge, et augmente la mémoire GPU utilisée. Envoyez des requêtes API indépendantes simultanément ; ``n`` contrôle uniquement le nombre de sorties dans une requête."
+
+msgid "To use them, install SGLang with diffusion support via ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, then launch the model with ``--model-engine SGLang`` or ``--model-engine vLLM``, for example:"
+msgstr "Installez SGLang avec le support diffusion via ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, ou vLLM-Omni et vLLM avec les mêmes versions majeure et mineure via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, puis lancez le modèle avec ``--model-engine SGLang`` ou ``--model-engine vLLM``, par exemple :"

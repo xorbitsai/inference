@@ -1,6 +1,17 @@
 import logging
 import re
-from typing import Any, AsyncGenerator, Dict, Iterator, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    AsyncGenerator,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 from ...types import (
     ChatCompletionChunk,
@@ -22,6 +33,7 @@ class ReasoningParser:
         reasoning_end_tag: str = "",
         enable_thinking: bool = True,
         auto_insert_start_tag: bool = True,
+        allow_disable_thinking: bool = True,
     ):
         self.reasoning_content = reasoning_content
         self.reasoning_start_tag = reasoning_start_tag
@@ -34,6 +46,68 @@ class ReasoningParser:
         # e.g. qwen3, which can support both thinking and non-thinking
         self.enable_thinking = enable_thinking
         self.auto_insert_start_tag = auto_insert_start_tag
+        self.allow_disable_thinking = allow_disable_thinking
+
+    def get_config(self) -> Dict[str, Any]:
+        """Serialize the parser for an engine process without request state."""
+        return {
+            "reasoning_content": self.reasoning_content,
+            "reasoning_start_tag": self.reasoning_start_tag,
+            "reasoning_end_tag": self.reasoning_end_tag,
+            "enable_thinking": self.enable_thinking,
+            "auto_insert_start_tag": self.auto_insert_start_tag,
+            "allow_disable_thinking": self.allow_disable_thinking,
+        }
+
+    def bind_tokenizer(self, tokenizer: Any) -> None:
+        """Compile the configured markers once for token-based decoding."""
+        self._start_token_ids = tuple(
+            tokenizer.encode(self.reasoning_start_tag, add_special_tokens=False)
+        )
+        self._end_token_ids = tuple(
+            tokenizer.encode(self.reasoning_end_tag, add_special_tokens=False)
+        )
+        unknown = getattr(tokenizer, "unk_token_id", None)
+        if (
+            not self._start_token_ids
+            or not self._end_token_ids
+            or self._start_token_ids == self._end_token_ids
+            or unknown is not None
+            and unknown in self._start_token_ids + self._end_token_ids
+        ):
+            raise ValueError(
+                "Reasoning token boundaries require non-empty, distinct known markers"
+            )
+
+    @staticmethod
+    def _last_token_marker(ids: Sequence[int], marker: Tuple[int, ...]) -> int:
+        for index in range(len(ids) - len(marker), -1, -1):
+            if all(ids[index + offset] == token for offset, token in enumerate(marker)):
+                return index
+        return -1
+
+    def is_reasoning_end(self, input_ids: Sequence[int]) -> bool:
+        """Inspect the latest marker, including the generation prompt prefix."""
+        start = self._last_token_marker(input_ids, self._start_token_ids)
+        end = self._last_token_marker(input_ids, self._end_token_ids)
+        return end >= 0 and end > start
+
+    def is_reasoning_end_streaming(
+        self, input_ids: Sequence[int], delta_ids: Iterable[int]
+    ) -> bool:
+        """Recognize a completed end marker, even across decode steps."""
+        delta = list(delta_ids)
+        if not delta:
+            return False
+        width = len(delta) + len(self._end_token_ids) - 1
+        tail = input_ids[max(0, len(input_ids) - width) :]
+        end = self._last_token_marker(tail, self._end_token_ids)
+        return end >= 0 and end + len(self._end_token_ids) > len(tail) - len(delta)
+
+    def extract_content_ids(self, input_ids: List[int]) -> List[int]:
+        """Return generated content following the reasoning end marker."""
+        end = self._last_token_marker(input_ids, self._end_token_ids)
+        return input_ids[end + len(self._end_token_ids) :] if end >= 0 else []
 
     def extract_reasoning_content_streaming(
         self,
@@ -228,8 +302,20 @@ class ReasoningParser:
             bool: True if reasoning content should be extracted, False otherwise
         """
         if self.is_enable_thinking():
-            return self.reasoning_content
+            from .core import chat_context_var
+
+            return chat_context_var.get({}).get(
+                "reasoning_content", self.reasoning_content
+            )
         return False
+
+    def should_insert_start_tag(self) -> bool:
+        from .core import chat_context_var
+
+        return self.auto_insert_start_tag or (
+            self.reasoning_start_tag == "<think>"
+            and chat_context_var.get({}).get("reasoning_content", False)
+        )
 
     def _create_chat_completion_chunk(
         self, chunk: Union[Dict[str, Any], CompletionChunk], content: str
@@ -243,7 +329,7 @@ class ReasoningParser:
         Returns:
             ChatCompletionChunk: A new chat completion chunk
         """
-        return ChatCompletionChunk(
+        result = ChatCompletionChunk(
             id="chat" + chunk["id"],
             model=chunk["model"],
             created=chunk["created"],
@@ -258,6 +344,12 @@ class ReasoningParser:
                 }
             ],
         )
+        from .core import chat_context_var
+
+        usage = chunk.get("usage")
+        if usage is not None and chat_context_var.get({}).get("_anthropic_request"):
+            result["usage"] = usage
+        return result
 
     def _create_completion_chunk(
         self, chunk: Union[Dict[str, Any], CompletionChunk], text: str
@@ -271,7 +363,7 @@ class ReasoningParser:
         Returns:
             CompletionChunk: A new completion chunk
         """
-        return CompletionChunk(
+        result = CompletionChunk(
             id=chunk["id"],
             model=chunk["model"],
             created=chunk["created"],
@@ -285,8 +377,16 @@ class ReasoningParser:
                 }
             ],
         )
+        from .core import chat_context_var
+
+        usage = chunk.get("usage")
+        if usage is not None and chat_context_var.get({}).get("_anthropic_request"):
+            result["usage"] = usage
+        return result
 
     def is_enable_thinking(self):
+        if not self.allow_disable_thinking:
+            return True
         from .core import chat_context_var
 
         context = chat_context_var.get({})
@@ -310,7 +410,7 @@ class ReasoningParser:
         if (
             not self.reasoning_start_tag
             or not self.is_enable_thinking()
-            or not self.auto_insert_start_tag
+            or not self.should_insert_start_tag()
         ):
             async for chunk in chunks:
                 yield chunk
@@ -391,7 +491,7 @@ class ReasoningParser:
         if (
             not self.reasoning_start_tag
             or not self.is_enable_thinking()
-            or not self.auto_insert_start_tag
+            or not self.should_insert_start_tag()
         ):
             for chunk in chunks:
                 yield chunk
@@ -466,7 +566,7 @@ class ReasoningParser:
         if (
             not self.reasoning_start_tag
             or not self.is_enable_thinking()
-            or not self.auto_insert_start_tag
+            or not self.should_insert_start_tag()
         ):
             return completion
 
@@ -512,7 +612,7 @@ class ReasoningParser:
         if (
             not self.reasoning_start_tag
             or not self.is_enable_thinking()
-            or not self.auto_insert_start_tag
+            or not self.should_insert_start_tag()
         ):
             return chunks
 
@@ -536,3 +636,126 @@ class ReasoningParser:
             )
 
         return chunks
+
+
+class KimiK3ReasoningParser(ReasoningParser):
+    """Split Kimi-K3 XTML think/response channels.
+
+    Kimi-K3 may consume the opening think marker as a generation prefix, so a
+    missing opening marker still means that text before the closing marker is
+    reasoning.  Response wrappers are removed while tool-channel text is kept
+    for ``KimiK3ToolParser``.
+    """
+
+    THINK_OPEN = "<|open|>think<|sep|>"
+    THINK_CLOSE = "<|close|>think<|sep|>"
+    RESPONSE_OPEN = "<|open|>response<|sep|>"
+    RESPONSE_CLOSE = "<|close|>response<|sep|>"
+    MESSAGE_CLOSE = "<|close|>message<|sep|>"
+
+    def __init__(self, reasoning_content: bool = False, **kwargs):
+        super().__init__(
+            reasoning_content=reasoning_content,
+            reasoning_start_tag=self.THINK_OPEN,
+            reasoning_end_tag=self.THINK_CLOSE,
+            enable_thinking=True,
+            auto_insert_start_tag=False,
+        )
+
+    def get_config(self) -> Dict[str, Any]:
+        return {"reasoning_content": self.reasoning_content}
+
+    @staticmethod
+    def _hold_partial_marker(text: str, markers: Tuple[str, ...]) -> str:
+        overlap = 0
+        for marker in markers:
+            for length in range(min(len(text), len(marker) - 1), 0, -1):
+                if text.endswith(marker[:length]):
+                    overlap = max(overlap, length)
+                    break
+        return text[:-overlap] if overlap else text
+
+    @classmethod
+    def _reasoning_text_ready(cls, text: str) -> str:
+        if cls.THINK_OPEN in text:
+            text = text.split(cls.THINK_OPEN, 1)[1]
+        elif cls.THINK_OPEN.startswith(text):
+            return ""
+        if cls.THINK_CLOSE in text:
+            return text.split(cls.THINK_CLOSE, 1)[0]
+        return cls._hold_partial_marker(text, (cls.THINK_OPEN, cls.THINK_CLOSE))
+
+    @classmethod
+    def _content_after_reasoning(cls, text: str) -> str:
+        if cls.THINK_CLOSE not in text:
+            return ""
+        return text.split(cls.THINK_CLOSE, 1)[1]
+
+    @classmethod
+    def _content_text_ready(cls, text: str) -> str:
+        if cls.RESPONSE_OPEN in text:
+            text = text.split(cls.RESPONSE_OPEN, 1)[1]
+        elif cls.RESPONSE_OPEN.startswith(text):
+            return ""
+        text = text.replace(cls.RESPONSE_CLOSE, "")
+        text = text.replace(cls.MESSAGE_CLOSE, "")
+        return cls._hold_partial_marker(
+            text,
+            (cls.RESPONSE_OPEN, cls.RESPONSE_CLOSE, cls.MESSAGE_CLOSE),
+        )
+
+    def extract_reasoning_content(
+        self, model_output: Union[str, CompletionChoice]
+    ) -> Tuple[Optional[str], Optional[str]]:
+        if not isinstance(model_output, str):
+            model_output = model_output["text"]
+        if self.THINK_CLOSE not in model_output:
+            if self.THINK_OPEN in model_output:
+                model_output = model_output.split(self.THINK_OPEN, 1)[1]
+            reasoning = model_output or None if self.reasoning_content else None
+            return reasoning, ""
+        before, after = model_output.split(self.THINK_CLOSE, 1)
+        if self.THINK_OPEN in before:
+            before = before.split(self.THINK_OPEN, 1)[1]
+        reasoning = before or None if self.reasoning_content else None
+        return reasoning, self._content_text_ready(after)
+
+    def check_content_parser(self) -> bool:
+        # Kimi-K3 always emits XTML channels. Even when callers do not request
+        # reasoning_content, the parser must run to suppress the think channel
+        # and unwrap the response channel.
+        return True
+
+    def extract_reasoning_content_streaming(
+        self,
+        previous_text: str,
+        current_text: str,
+        delta_text: str,
+    ) -> ChatCompletionChunkDelta:
+        delta = ChatCompletionChunkDelta()
+
+        previous_reasoning = self._reasoning_text_ready(previous_text)
+        current_reasoning = self._reasoning_text_ready(current_text)
+        if current_reasoning.startswith(previous_reasoning):
+            reasoning_delta = current_reasoning[len(previous_reasoning) :]
+        else:
+            reasoning_delta = current_reasoning
+        if reasoning_delta and self.reasoning_content:
+            delta["reasoning_content"] = reasoning_delta
+
+        previous_content = self._content_text_ready(
+            self._content_after_reasoning(previous_text)
+        )
+        current_content = self._content_text_ready(
+            self._content_after_reasoning(current_text)
+        )
+        if current_content.startswith(previous_content):
+            content_delta = current_content[len(previous_content) :]
+        else:
+            content_delta = current_content
+        if content_delta:
+            delta["content"] = content_delta
+        elif reasoning_delta and self.reasoning_content:
+            delta["content"] = None
+
+        return delta

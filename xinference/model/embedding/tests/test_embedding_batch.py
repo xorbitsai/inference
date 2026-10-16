@@ -113,3 +113,15 @@ def test_create_embedding_batch_single_input_at_nonzero_offset():
 
     assert [d["index"] for d in results[0]["data"]] == [0]
     assert [d["index"] for d in results[1]["data"]] == [0]
+
+
+def test_create_embedding_batch_treats_dict_as_one_multimodal_input():
+    model = _make_stub_model()
+    results = model.create_embedding.batch(
+        _ExtensibleWrapper.delay({"image": "one.jpg", "text": "first"}),
+        _ExtensibleWrapper.delay({"video": "two.mp4", "text": "second"}),
+    )
+
+    assert len(results) == 2
+    assert [len(result["data"]) for result in results] == [1, 1]
+    assert [result["data"][0]["index"] for result in results] == [0, 0]

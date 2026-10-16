@@ -1,0 +1,79 @@
+[
+  {
+    "version": 2,
+    "context_length": 128000,
+    "model_name": "deepseek-v2-chat-0628",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "DeepSeek-V2-Chat-0628 is an improved version of DeepSeek-V2-Chat. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 236,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/DeepSeek-V2-Chat-0628",
+            "model_revision": "5d09e272c2b223830f4e84359cd9dd047a5d7c78",
+            "model_metadata": {
+              "vocab_size": 102400,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V2-Chat-0628/resolve/5d09e272c2b223830f4e84359cd9dd047a5d7c78/config.json",
+              "config_sha256": "4cb37d1e07da958c0367cc9697cec37ae0a80ee9a7c922c37232d798fb311e3e",
+              "architecture_type": "mla",
+              "hidden_size": 5120,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 60
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/DeepSeek-V2-Chat-0628",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 102400,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V2-Chat-0628/resolve/master/config.json",
+              "config_sha256": "4cb37d1e07da958c0367cc9697cec37ae0a80ee9a7c922c37232d798fb311e3e",
+              "architecture_type": "mla",
+              "hidden_size": 5120,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 60
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{{ '<｜begin▁of▁sentence｜>' }}{% for message in messages %}{% if message['role'] == 'user' %}{{ '<｜User｜>' + message['content'] }}{% elif message['role'] == 'assistant' %}{{ '<｜Assistant｜>' + message['content'] + '<｜end▁of▁sentence｜>' }}{% elif message['role'] == 'system' %}{{ message['content'] + '\n\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<｜Assistant｜>' }}{% endif %}",
+    "stop_token_ids": [
+      100001
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "updated_at": 1769418518,
+    "featured": false,
+    "architectures": [
+      "DeepseekV2ForCausalLM"
+    ],
+    "model_type": "deepseek_v2",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

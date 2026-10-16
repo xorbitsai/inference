@@ -37,6 +37,22 @@ msgstr ""
 "utilizando cualquier LLM de código abierto, modelos de incrustación y "
 "modelos multimodales, y crear potentes aplicaciones de IA."
 
+#: ../../source/index.rst:23
+msgid ""
+"**Xinference Enterprise** is the commercial edition for teams running models "
+"in production. Deploy it in your own cloud or data centre, or choose a "
+"managed dedicated deployment with **Xinference Cloud**. The hosted **Model "
+"API** gives you access to supported models through an OpenAI-compatible API "
+"without managing inference infrastructure. Learn more at `xinference.co "
+"<https://xinference.co>`_."
+msgstr ""
+"**Xinference Enterprise** es la edición comercial para equipos que ejecutan "
+"modelos en producción. Puede desplegarla en su propia nube o centro de "
+"datos, o elegir un despliegue dedicado gestionado con **Xinference Cloud**. "
+"La **Model API** alojada le permite acceder a los modelos compatibles "
+"mediante una API compatible con OpenAI sin gestionar la infraestructura de "
+"inferencia. Más información en `xinference.co <https://xinference.co>`_."
+
 #: ../../source/index.rst:25
 msgid "Developing Real-world AI Applications with Xinference"
 msgstr ""

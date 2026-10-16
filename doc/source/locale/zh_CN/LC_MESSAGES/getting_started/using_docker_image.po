@@ -3,7 +3,6 @@
 # This file is distributed under the same license as the Xinference package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
@@ -25,7 +24,7 @@ msgstr "Docker 镜像"
 
 #: ../../source/getting_started/using_docker_image.rst:7
 msgid "Xinference provides official images for use on Dockerhub."
-msgstr "Xinference 在 Dockerhub 和 阿里云容器镜像服务 中上传了官方镜像。"
+msgstr "Xinference 在 DockerHub 上提供官方镜像。"
 
 #: ../../source/getting_started/using_docker_image.rst:11
 msgid ""
@@ -51,14 +50,14 @@ msgid ""
 "command."
 msgstr "保证 CUDA 在机器上正确安装。可以使用 ``nvidia-smi`` 检查是否正确运行。"
 
-#: ../../source/getting_started/using_docker_image.rst:17
+#: ../../source/getting_started/using_docker_image.rst:28
 msgid ""
-"For CUDA version >= 12.9, CUDA version in the docker image is ``12.9``, "
-"and the CUDA version on the host machine should be ``12.9`` or above, and"
-" the NVIDIA driver version should be ``575`` or above."
+"The CUDA version in the docker image is ``13.0``; the CUDA version on the "
+"host machine should be ``13.0`` or above, and the NVIDIA driver version "
+"should be ``580`` or above."
 msgstr ""
-"对于 CUDA 版本 >= 12.9，Docker 镜像中使用的 CUDA 版本为 ``12.9``。宿主机上的 CUDA 版本需为 "
-"``12.9`` 或以上，同时 NVIDIA 驱动版本需为 ``575`` 或以上。"
+"Docker 镜像中的 CUDA 版本为 ``13.0``；宿主机上的 CUDA 版本应为 ``13.0`` 或更高，NVIDIA 驱动版本应为 "
+"``580`` 或更高。"
 
 #: ../../source/getting_started/using_docker_image.rst:18
 msgid ""
@@ -78,12 +77,14 @@ msgid ""
 "repository ``xprobe/xinference``. Available tags include:"
 msgstr "Xinference 官方镜像已发布在 DockerHub 上的 ``xprobe/xinference`` 仓库中。当前可用的标签包括："
 
-#: ../../source/getting_started/using_docker_image.rst:26
+#: ../../source/getting_started/using_docker_image.rst:37
 msgid ""
 "``nightly-main``: This image is built daily from the `GitHub main branch "
-"<https://github.com/xorbitsai/inference>`_ and generally does not "
-"guarantee stability."
-msgstr "``nightly-main``: 这个镜像会每天从 GitHub main 分支更新制作，不保证稳定可靠。"
+"<https://github.com/xorbitsai/inference>`_ and generally does not guarantee "
+"stability."
+msgstr ""
+"``nightly-main``：每天基于 `GitHub main 分支 "
+"<https://github.com/xorbitsai/inference>`_ 构建，通常不保证稳定性。"
 
 #: ../../source/getting_started/using_docker_image.rst:27
 msgid ""
@@ -122,14 +123,14 @@ msgstr ""
 msgid "Image usage"
 msgstr "使用镜像"
 
-#: ../../source/getting_started/using_docker_image.rst:46
+#: ../../source/getting_started/using_docker_image.rst:68
 msgid ""
-"You can start Xinference in the container like this, simultaneously "
-"mapping port 9997 in the container to port 9998 on the host, enabling "
-"debug logging, and downloading models from modelscope."
+"You can start Xinference in the container like this, simultaneously mapping "
+"port 9997 in the container to port 9998 on the host, enabling debug logging,"
+" and downloading models from modelscope."
 msgstr ""
-"你可以使用如下方式在容器内启动 Xinference，同时将 9997 端口映射到宿主机的 9998 端口，并且指定日志级别为 "
-"DEBUG，也可以指定需要的环境变量。"
+"可以通过以下命令在容器中启动 Xinference，将容器的 9997 端口映射到宿主机的 9998 端口，启用 DEBUG 日志，并从 "
+"ModelScope 下载模型。"
 
 #: ../../source/getting_started/using_docker_image.rst:54
 msgid ""
@@ -157,27 +158,27 @@ msgid ""
 "container and start Xinference in any desired way."
 msgstr "当然，也可以运行容器后，进入容器内手动拉起 Xinference。"
 
-#: ../../source/getting_started/using_docker_image.rst:63
+#: ../../source/getting_started/using_docker_image.rst:85
 msgid ""
 "For multiple GPUs, make sure to set the shared memory size, for example: "
 "`docker run --shm-size=128g ...`"
-msgstr "对于多张 GPU，确保设置共享内存大小，例如：`docker run --shm-size=128g ...`"
+msgstr "使用多张 GPU 时，请确保设置共享内存大小，例如：``docker run --shm-size=128g ...``。"
 
 #: ../../source/getting_started/using_docker_image.rst:67
 msgid "Mount your volume for loading and saving models"
 msgstr "挂载模型目录"
 
-#: ../../source/getting_started/using_docker_image.rst:68
+#: ../../source/getting_started/using_docker_image.rst:90
 msgid ""
-"The image does not contain any model files by default, and it downloads "
-"the models into the container. Typically, you would need to mount a "
-"directory on the host machine to the docker container, so that Xinference"
-" can download the models onto it, allowing for reuse. In this case, you "
-"need to specify a volume when running the Docker image and configure "
-"environment variables for Xinference:"
+"The image does not contain any model files by default, and it downloads the "
+"models into the container. Typically, you would need to mount a directory on"
+" the host machine to the docker container, so that Xinference can download "
+"the models onto it, allowing for reuse. In this case, you need to specify a "
+"volume when running the Docker image and configure environment variables for"
+" Xinference:"
 msgstr ""
-"默认情况下，镜像中不包含任何模型文件，使用过程中会在容器内下载模型。如果需要使用已经下载好的模型，需要将宿主机的目录挂载到容器内。这种情况下，需要在运行容器时指定本地卷，并且为"
-" Xinference 配置环境变量。"
+"镜像默认不包含模型文件，使用时会将模型下载到容器内。通常需要将宿主机上的目录挂载到 Docker 容器中，让 Xinference "
+"将模型下载到该目录，便于后续复用。为此，运行 Docker 镜像时需要指定挂载卷，并配置 Xinference 的环境变量："
 
 #: ../../source/getting_started/using_docker_image.rst:77
 msgid ""
@@ -210,6 +211,57 @@ msgstr ""
 "作为模型仓库，那么需要将这两个对应的目录挂载到容器内，一般对应的 cache 目录分别在 "
 "<home_path>/.cache/huggingface 和 <home_path>/.cache/modelscope，使用的命令如下："
 
+#: ../../source/getting_started/using_docker_image.rst:15
+msgid ""
+"Starting from **Xinference v3.0.0**, the GPU image is a *slim* image based "
+"on ``nvidia/cuda:13.0.2-devel-ubuntu22.04``. It no longer pre-installs "
+"inference engines such as vLLM or SGLang; engines are installed "
+"automatically into a per-model virtual environment at model launch time (see"
+" ``XINFERENCE_ENABLE_VIRTUAL_ENV`` in :ref:`environments`). This requires "
+"access to PyPI at model launch — for offline / air-gapped hosts, use the "
+"private PyPI mirror of the Docker Compose offline profile, see "
+":ref:`using_docker_compose`. The minimum supported CUDA version of the image"
+" is **CUDA 13.0**."
+msgstr ""
+"从 **Xinference v3.0.0** 起，GPU 镜像是基于 ``nvidia/cuda:13.0.2-devel-ubuntu22.04``"
+" 的 *精简镜像*。它不再预装 vLLM、SGLang 等推理引擎，而是在模型启动时，将引擎自动安装到各模型独立的虚拟环境中（参见 "
+":ref:`environments` 中的 ``XINFERENCE_ENABLE_VIRTUAL_ENV``）。因此，启动模型时需要访问 "
+"PyPI；对于离线或与外网隔离的主机，可使用 Docker Compose 离线配置中的私有 PyPI 镜像源，参见 "
+":ref:`using_docker_compose`。该镜像支持的最低 CUDA 版本为 **CUDA 13.0**。"
+
+#: ../../source/getting_started/using_docker_image.rst:43
+msgid "What is inside the GPU image"
+msgstr "GPU 镜像包含哪些组件"
+
+#: ../../source/getting_started/using_docker_image.rst:44
+msgid ""
+"The GPU image ships Python 3.12, the CUDA 13.0 toolkit, a shared CUDA build "
+"of PyTorch, the Transformers engine (``transformers`` / ``accelerate``) and "
+"Xinference itself with the Web UI. Other inference engines (vLLM, SGLang, "
+"llama.cpp, ...) are **not** pre-installed: when a model is launched, "
+"Xinference creates a virtual environment for it and installs the engine "
+"packages declared by the model spec. The first launch of a model with a "
+"given engine therefore downloads packages from PyPI (or from a private "
+"mirror in offline deployments) and takes longer; subsequent launches reuse "
+"the virtual environment."
+msgstr ""
+"GPU 镜像包含 Python 3.12、CUDA 13.0 工具包、共享的 CUDA 版 PyTorch、Transformers "
+"引擎（``transformers`` / ``accelerate``），以及带有 Web UI 的 "
+"Xinference。其他推理引擎（vLLM、SGLang、llama.cpp 等） **不会预装**：启动模型时，Xinference "
+"会为其创建虚拟环境，并安装模型配置中声明的引擎依赖包。因此，首次使用某个引擎启动模型时，需要从 "
+"PyPI（离线部署时从私有镜像源）下载依赖包，耗时会更长；后续启动会复用该虚拟环境。"
+
+#: ../../source/getting_started/using_docker_image.rst:55
+msgid ""
+"For offline deployments that install engine dependencies into per-model "
+"virtual environments at model launch time, use the Docker Compose "
+"``offline`` profile to provide a private PyPI mirror. See :ref:`Docker "
+"Compose offline deployment <docker_compose_offline>` for image preparation "
+"and dependency source configuration."
+msgstr ""
+"在离线环境中，如果需要在模型启动时自动向各模型的虚拟环境安装引擎依赖，请使用 Docker Compose 的 ``offline`` 配置提供私有 "
+"PyPI 镜像源。镜像准备和依赖源配置步骤见 :ref:`Docker Compose 离线部署 <docker_compose_offline>`。"
+
 #~ msgid ""
 #~ "For CUDA 12.8, add ``-cu128`` suffix,"
 #~ " e.g. ``nightly-main-cu128``. (Xinference"
@@ -240,4 +292,3 @@ msgstr ""
 #~ "``nightly-main``. (Xinference version should "
 #~ "be v2.0 at least)"
 #~ msgstr "对于 CUDA 12.9，不带后缀，例如 ``nightly-main`` 。（Xinference 版本应至少为 v2.0）"
-
