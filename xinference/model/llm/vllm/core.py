@@ -2717,10 +2717,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if not generate_config:
             generate_config = {}
 
-        if "reasoning" in getattr(self.model_family, "model_ability", []):
-            generate_config.pop("stop", None)
-            generate_config.pop("stop_token_ids", None)
-        else:
+        if "reasoning" not in getattr(self.model_family, "model_ability", []):
             if not generate_config.get("stop") and self.model_family.stop:
                 generate_config["stop"] = self.model_family.stop.copy()
             if (
