@@ -114,6 +114,10 @@ def _cached_memory_fraction(
 
 
 HOT_RELOAD_FIELDS = {"reasoning_content": "bool"}
+IMAGE_LIMIT_FIELDS = {
+    "vllm": "limit_mm_per_prompt",
+    "sglang": "limit_mm_data_per_request",
+}
 
 # Only execution parameters may change while the daemon owns the weights.
 # In particular, do not accept arbitrary engine arguments: some change packed
@@ -130,6 +134,7 @@ RELOAD_FIELDS = {
     },
     "sglang": {
         **HOT_RELOAD_FIELDS,
+        "limit_mm_data_per_request": "image_limits",
         "max_running_requests": "positive_int",
         "max_prefill_tokens": "positive_int",
         "context_length": "positive_int",
@@ -396,9 +401,13 @@ class WeightCachedModel:
     if TYPE_CHECKING:
 
         def _sanitize_model_config(self, config: Any) -> Any: ...
+
         def _stop_engine(self) -> None: ...
+
         def load(self) -> None: ...
+
         def wait_for_load(self) -> None: ...
+
         def _get_xinference_executor_backend(self) -> str: ...
 
     def _init_weight_cache(self, config: Any) -> None:
@@ -490,15 +499,23 @@ class WeightCachedModel:
     def _reload_parameters(self) -> Dict[str, str]:
         parameters = dict(RELOAD_FIELDS[self._weight_cache_engine])
         abilities = getattr(getattr(self, "model_family", None), "model_ability", [])
-        limits = self._reload_config.get("limit_mm_per_prompt")
+        image_field = IMAGE_LIMIT_FIELDS[self._weight_cache_engine]
+        limits = self._reload_config.get(image_field)
         image_limit = limits.get("image") if isinstance(limits, dict) else None
+        minimum = 1 if self._weight_cache_engine == "vllm" else 0
+        valid_limit = type(image_limit) is int and image_limit >= minimum
+        if self._weight_cache_engine == "sglang" and (
+            limits is None or (isinstance(limits, dict) and "image" not in limits)
+        ):
+            # SGLang defaults to no request-count limit; zero does not unload
+            # its encoder either. Both can become a positive request limit.
+            valid_limit = True
         if (
             not self._enable_weight_cache
             or not {"vision", "omni"}.intersection(abilities)
-            or type(image_limit) is not int
-            or image_limit <= 0
+            or not valid_limit
         ):
-            parameters.pop("limit_mm_per_prompt", None)
+            parameters.pop(image_field, None)
         if not getattr(
             getattr(self, "reasoning_parser", None), "reasoning_end_tag", None
         ):
@@ -542,27 +559,30 @@ class WeightCachedModel:
                 "Launch this model with enable_weight_cache=true before reloading"
             )
         self._weight_cache.client_config()
-        if "limit_mm_per_prompt" in patch:
+        image_field = IMAGE_LIMIT_FIELDS[self._weight_cache_engine]
+        if image_field in patch:
             abilities = getattr(
                 getattr(self, "model_family", None), "model_ability", []
             )
             if not {"vision", "omni"}.intersection(abilities):
                 raise ValueError("Image-limit reload requires a vision model")
             previous = self._sanitize_model_config(copy.deepcopy(self._reload_config))
-            limits = previous.get("limit_mm_per_prompt") or {}
+            limits = previous.get(image_field) or {}
             image_limit = limits.get("image")
-            if type(image_limit) is not int or image_limit <= 0:
+            if self._weight_cache_engine == "vllm" and (
+                type(image_limit) is not int or image_limit <= 0
+            ):
                 raise ValueError(
                     "Image-limit reload requires an existing positive image limit; "
                     "switching between disabled and enabled encoders is not supported"
                 )
-            requested = patch["limit_mm_per_prompt"]
+            requested = patch[image_field]
             if any(k != "image" and v != limits.get(k) for k, v in requested.items()):
                 raise ValueError("Only the image count can change through reload")
-            config["limit_mm_per_prompt"] = {**limits, **requested}
+            config[image_field] = {**limits, **requested}
             validate_reload_patch(
                 self._weight_cache_engine,
-                {"limit_mm_per_prompt": config["limit_mm_per_prompt"]},
+                {image_field: config[image_field]},
             )
         candidate = self._sanitize_model_config(copy.deepcopy(config))
         candidate.pop("reasoning_content", None)

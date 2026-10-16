@@ -14,11 +14,11 @@ from ...model.llm.weight_cache import RELOAD_FIELDS
 from ..restful_api import RESTfulAPI
 
 
-def make_api():
+def make_api(engine="vllm"):
     api = RESTfulAPI.__new__(RESTfulAPI)
     supervisor = MagicMock()
     supervisor.get_model_reload_config = AsyncMock(
-        return_value={"engine": "vllm", "parameters": RELOAD_FIELDS["vllm"]}
+        return_value={"engine": engine, "parameters": RELOAD_FIELDS[engine]}
     )
     supervisor.reload_model = AsyncMock(
         return_value={"operation_id": "one", "status": "reloading"}
@@ -71,10 +71,16 @@ async def test_reload_accepted_and_duplicate_conflict():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "patch", [{"reasoning_content": True}, {"limit_mm_per_prompt": {"image": 8}}]
+    "engine,patch",
+    [
+        ("vllm", {"reasoning_content": True}),
+        ("vllm", {"limit_mm_per_prompt": {"image": 8}}),
+        ("sglang", {"reasoning_content": True}),
+        ("sglang", {"limit_mm_data_per_request": {"image": 8}}),
+    ],
 )
-async def test_runtime_settings_are_forwarded_without_coercion(patch):
-    api, supervisor = make_api()
+async def test_runtime_settings_are_forwarded_without_coercion(engine, patch):
+    api, supervisor = make_api(engine)
     request = MagicMock(json=AsyncMock(return_value={"model_config": patch}))
     response = await api.reload_model("test", request)
     assert response.status_code == 202

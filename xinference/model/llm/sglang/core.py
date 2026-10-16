@@ -89,6 +89,7 @@ class SGLANGModelConfig(TypedDict, total=False):
     dist_init_addr: Optional[str]
     reasoning_content: bool
     enable_thinking: bool
+    limit_mm_data_per_request: Optional[Union[str, Dict[str, int]]]
     # engine-neutral speculative decoding options, translated into the
     # speculative_* server args below and never forwarded to the engine as-is
     draft_model_path: Optional[str]
@@ -520,6 +521,10 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                 model_config["mem_fraction_static"] = 0.87
             else:
                 model_config["mem_fraction_static"] = 0.88
+        limits = model_config.get("limit_mm_data_per_request")
+        if isinstance(limits, str):
+            # Normalize before taking the retained-weight reload snapshot.
+            model_config["limit_mm_data_per_request"] = json.loads(limits)
         model_config.setdefault("log_level", "info")
         model_config.setdefault("launch_timeout", self._get_launch_timeout())
         model_config.setdefault("reasoning_content", False)

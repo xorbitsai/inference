@@ -101,7 +101,7 @@ def test_nonreasoning_model_does_not_advertise_or_accept_parser_updates():
         model.reload({"reasoning_content": True}, lambda stage: None)
 
 
-def make_vision_model(monkeypatch):
+def make_vision_model(monkeypatch, backend="vllm"):
     class EngineArgs:
         def __init__(self, **config):
             self.config = config
@@ -114,15 +114,97 @@ def make_vision_model(monkeypatch):
         "vllm.engine.arg_utils",
         SimpleNamespace(AsyncEngineArgs=EngineArgs),
     )
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.srt.server_args",
+        SimpleNamespace(ServerArgs=lambda **config: config),
+    )
     model = FakeCachedModel()
+    model._weight_cache_engine = backend
     model.model_path = "/models/test"
     model.model_family = SimpleNamespace(model_ability=["vision"])
-    model._reload_config["limit_mm_per_prompt"] = {"image": 2, "video": 0}
+    field = "limit_mm_per_prompt" if backend == "vllm" else "limit_mm_data_per_request"
+    model._reload_config[field] = {"image": 2, "video": 0}
     model._weight_cache.engine_config = lambda config: config
     model.validate_reload = lambda patch: WeightCachedModel.validate_reload(
         model, patch
     )
     return model
+
+
+@pytest.mark.parametrize("previous", [None, {}, {"video": 0}, {"image": 0, "video": 0}])
+def test_sglang_request_limits_can_start_unlimited_or_disabled(monkeypatch, previous):
+    model = make_vision_model(monkeypatch, "sglang")
+    field = "limit_mm_data_per_request"
+    model._reload_config[field] = previous
+    assert model.get_reload_config()["parameters"][field] == "image_limits"
+    cache = model._weight_cache
+    model.reload({field: {"image": 8}}, lambda stage: None)
+    assert model._weight_cache is cache and model.stops == 1
+    assert model.get_reload_config()["model_config"][field] == {
+        **(previous or {}),
+        "image": 8,
+    }
+
+
+@pytest.mark.parametrize("cached", [False, True])
+def test_sglang_image_reload_capabilities_and_modality_preservation(
+    monkeypatch, cached
+):
+    model = make_vision_model(monkeypatch, "sglang")
+    field = "limit_mm_data_per_request"
+    model._enable_weight_cache = cached
+    if not cached:
+        model._weight_cache = None
+        assert field not in model.get_reload_config()["parameters"]
+        with pytest.raises(ValueError, match="enable_weight_cache=true"):
+            model.reload({field: {"image": 8}}, lambda stage: None)
+        assert model.stops == 0
+        return
+    cache, engine = model._weight_cache, model.engine
+    model.reload({field: {"image": 8}}, lambda stage: None)
+    assert model._weight_cache is cache and model.engine is not engine
+    assert model.get_reload_config()["model_config"][field] == {"image": 8, "video": 0}
+    with pytest.raises(ValueError, match="Only the image count"):
+        model.validate_reload({field: {"image": 8, "video": 1}})
+    model.model_family.model_ability = ["chat"]
+    assert field not in model.get_reload_config()["parameters"]
+    with pytest.raises(ValueError, match="requires a vision model"):
+        model.validate_reload({field: {"image": 8}})
+
+
+def test_sglang_normalizes_launch_json_before_image_reload(monkeypatch):
+    import copy
+
+    from ..sglang.core import SGLANGVisionModel
+
+    family = match_llm("qwen2.5-vl-instruct", "pytorch", "3", "none", "modelscope")
+    model = SGLANGVisionModel(
+        "test",
+        family,
+        "/models/test",
+        {
+            "enable_weight_cache": True,
+            "limit_mm_data_per_request": '{"image": 2, "video": 0}',
+        },
+    )
+    monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
+    model._reload_config = model._sanitize_model_config(
+        copy.deepcopy(model._reload_config)
+    )
+    assert model.get_reload_config()["model_config"]["limit_mm_data_per_request"] == {
+        "image": 2,
+        "video": 0,
+    }
+    model._weight_cache = MagicMock()
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.srt.server_args",
+        SimpleNamespace(ServerArgs=lambda **config: config),
+    )
+    assert model.validate_reload({"limit_mm_data_per_request": {"image": 8}})[
+        "limit_mm_data_per_request"
+    ] == {"image": 8, "video": 0}
 
 
 @pytest.fixture
@@ -236,6 +318,10 @@ def test_changing_other_modalities_is_rejected_before_stop(vision_model):
         {"image": 8, "other": 1},
     ],
 )
-def test_invalid_image_limit_shape_is_rejected(limits):
+@pytest.mark.parametrize(
+    "engine,field",
+    [("vllm", "limit_mm_per_prompt"), ("sglang", "limit_mm_data_per_request")],
+)
+def test_invalid_image_limit_shape_is_rejected(limits, engine, field):
     with pytest.raises(ValueError, match="image_limits"):
-        validate_reload_patch("vllm", {"limit_mm_per_prompt": limits})
+        validate_reload_patch(engine, {field: limits})
