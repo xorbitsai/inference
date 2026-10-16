@@ -45,7 +45,7 @@ class WhisperModel:
         model_path: str,
         model_spec: "AudioModelFamilyV2",
         device: Optional[str] = None,
-        max_new_tokens: Optional[int] = 128,
+        max_new_tokens: Optional[int] = None,
         **kwargs,
     ):
         self.model_family = model_spec
@@ -211,7 +211,10 @@ class WhisperModel:
             logger.warning(
                 "Prompt for whisper transcriptions will be ignored: %s", prompt
             )
-        generate_kwargs = {"max_new_tokens": self._max_new_tokens, "task": "transcribe"}
+        generate_kwargs: Dict = {"task": "transcribe"}
+        # Let Whisper's generation config account for the decoder prefix by default.
+        if self._max_new_tokens is not None:
+            generate_kwargs["max_new_tokens"] = self._max_new_tokens
         if language is not None:
             generate_kwargs["language"] = language
 
