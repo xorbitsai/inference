@@ -202,3 +202,29 @@ def test_tool_parser_streaming_holds_partial_start_after_a_call():
     )
 
     assert result is None
+
+
+def test_tool_parser_streaming_long_call_in_small_deltas():
+    parser = Glm5ToolParser()
+    content = "\n".join(["print(1)"] * 500)
+    deltas = ["Sure.", "<tool_call>", "write_file\n", "<arg_key>", "content"]
+    deltas += ["</arg_key>", "<arg_value>"]
+    deltas += [content[i : i + 3] for i in range(0, len(content), 3)]
+    deltas += ["</arg_value>", "</tool_call>", " Done."]
+
+    events = []
+    previous_texts = [""]
+    for delta in deltas:
+        current_text = previous_texts[-1] + delta
+        result = parser.extract_tool_calls_streaming(
+            previous_texts, current_text, delta
+        )
+        previous_texts[-1] = current_text
+        if result is not None:
+            events.extend(result if isinstance(result, list) else [result])
+
+    assert events == [
+        ("Sure.", None, None),
+        (None, "write_file", {"content": content}),
+        (" Done.", None, None),
+    ]
