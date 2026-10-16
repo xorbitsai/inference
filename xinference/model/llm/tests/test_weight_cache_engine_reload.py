@@ -27,7 +27,7 @@ from ..vllm import core as vllm_core
 async def test_real_model_class_reloads_on_same_instance(
     monkeypatch, tmp_path, backend
 ):
-    family = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none", "huggingface")
+    family = match_llm("qwen3", "pytorch", "0_6", "none", "huggingface")
     engines = []
     constructors = []
 

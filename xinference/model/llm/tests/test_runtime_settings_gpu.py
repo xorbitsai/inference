@@ -20,14 +20,15 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.skipif(
+vision_checkpoint = pytest.mark.skipif(
     not os.getenv("XINFERENCE_TEST_VISION_WEIGHT_CACHE_MODEL_PATH"),
     reason="Set XINFERENCE_TEST_VISION_WEIGHT_CACHE_MODEL_PATH for real GPU tests",
 )
 
 
 @pytest.mark.asyncio
-async def test_vllm_image_count_and_reasoning_updates():
+@vision_checkpoint
+async def test_vllm_image_count_reload():
     import torch
     from PIL import Image
 
@@ -54,7 +55,7 @@ async def test_vllm_image_count_and_reasoning_updates():
         "mm_processor_cache_gb": 0,
     }
     records = []
-    for cached in (True, False):
+    for cached in (True,):
         model = VLLMMultiModel(
             "runtime-settings-test",
             family,
@@ -84,17 +85,12 @@ async def test_vllm_image_count_and_reasoning_updates():
             await asyncio.to_thread(model.wait_for_load)
             before = await generate(1)
             engine = model._engine
-            started = time.perf_counter()
-            await actor.reload({"reasoning_content": True}, drain_timeout=30)
-            hot_seconds = time.perf_counter() - started
+            assert "reasoning_content" not in model.get_reload_config()["parameters"]
+            with pytest.raises(ValueError, match="does not support reasoning-content"):
+                await actor.reload({"reasoning_content": True}, drain_timeout=30)
             assert model._engine is engine
-            assert model.reasoning_parser.reasoning_content
-            assert await generate(1) == before
-            record = {"cached": cached, "hot_seconds": hot_seconds, "output": before}
+            record = {"cached": cached, "output": before}
             records.append(record)
-            if not cached:
-                assert model._weight_cache is None
-                continue
             daemon = model._weight_cache
             pid = daemon.process.pid
             sockets = {p: p.stat().st_ino for p in daemon._socket_paths}
@@ -129,3 +125,78 @@ async def test_vllm_image_count_and_reasoning_updates():
             await asyncio.sleep(0)
     if path := os.getenv("XINFERENCE_TEST_RUNTIME_SETTINGS_RESULT"):
         Path(path).write_text(json.dumps(records, indent=2))
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    not os.getenv("XINFERENCE_TEST_REASONING_MODEL_PATH"),
+    reason="Set a local Qwen3-0.6B path",
+)
+async def test_reasoning_hot_update_with_and_without_weight_retention():
+    import torch
+
+    from ....core.model import ModelActor
+    from ..llm_family import match_llm
+    from ..vllm.core import VLLMChatModel
+
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA/ROCm GPU required")
+    pytest.importorskip("vllm")
+    family = match_llm("qwen3", "pytorch", "0_6", "none", "modelscope")
+    records = []
+    for cached in (False, True):
+        model = VLLMChatModel(
+            "reasoning-settings-test",
+            family,
+            os.environ["XINFERENCE_TEST_REASONING_MODEL_PATH"],
+            {
+                "enable_weight_cache": cached,
+                "enable_thinking": True,
+                "max_model_len": 512,
+                "max_num_seqs": 2,
+                "max_num_batched_tokens": 512,
+                "gpu_memory_utilization": 0.8,
+                "kv_cache_memory_bytes": 128 * 1024**2,
+                "enforce_eager": True,
+            },
+        )
+        model.set_loop(asyncio.get_running_loop())
+        actor = ModelActor.__new__(ModelActor)
+        actor._model, actor._model_state, actor._serve_count = model, "ready", 0
+
+        async def generate():
+            result = await model.async_chat(
+                [{"role": "user", "content": "What is 2 plus 2?"}],
+                {"temperature": 0, "max_tokens": 16},
+            )
+            message = result["choices"][0]["message"]
+            combined = (message.get("reasoning_content") or "") + (
+                message.get("content") or ""
+            )
+            return (
+                combined.replace("<think>", "").replace("</think>", "").strip(),
+                message,
+            )
+
+        try:
+            await asyncio.to_thread(model.load)
+            await asyncio.to_thread(model.wait_for_load)
+            before, message = await generate()
+            assert before and not message.get("reasoning_content")
+            parser, engine = model.reasoning_parser, model._engine
+            started = time.perf_counter()
+            await actor.reload({"reasoning_content": True}, drain_timeout=30)
+            elapsed = time.perf_counter() - started
+            assert model._engine is engine and not parser.reasoning_content
+            after, message = await generate()
+            assert message.get("reasoning_content") and after == before
+            await actor.reload({"reasoning_content": False}, drain_timeout=30)
+            assert model._engine is engine
+            after, message = await generate()
+            assert not message.get("reasoning_content") and after == before
+            records.append({"cached": cached, "hot_seconds": elapsed, "output": after})
+        finally:
+            await asyncio.to_thread(model.stop)
+            await asyncio.sleep(0)
+    if path := os.getenv("XINFERENCE_TEST_RUNTIME_SETTINGS_RESULT"):
+        Path(path + ".reasoning.json").write_text(json.dumps(records, indent=2))

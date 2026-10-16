@@ -485,23 +485,25 @@ class WeightCachedModel:
         abilities = getattr(getattr(self, "model_family", None), "model_ability", [])
         if not {"vision", "omni"}.intersection(abilities):
             parameters.pop("limit_mm_per_prompt", None)
+        if not getattr(
+            getattr(self, "reasoning_parser", None), "reasoning_end_tag", None
+        ):
+            parameters.pop("reasoning_content", None)
         config = {
             k: copy.deepcopy(v)
             for k, v in self._reload_config.items()
             if k in parameters and v is not None
         }
-        config.setdefault(
-            "reasoning_content",
-            getattr(
-                getattr(self, "reasoning_parser", None), "reasoning_content", False
-            ),
-        )
+        if "reasoning_content" in parameters:
+            config.setdefault(
+                "reasoning_content", self.reasoning_parser.reasoning_content
+            )
         return {
             "enabled": self._enable_weight_cache,
             "engine": self._weight_cache_engine,
             "model_config": config,
             "parameters": parameters,
-            "hot_parameters": list(HOT_RELOAD_FIELDS),
+            "hot_parameters": [key for key in HOT_RELOAD_FIELDS if key in parameters],
         }
 
     def _weight_cache_engine_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -512,9 +514,12 @@ class WeightCachedModel:
     def validate_reload(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         validate_reload_patch(self._weight_cache_engine, patch)
         config = {**copy.deepcopy(self._reload_config), **copy.deepcopy(patch)}
+        if (
+            "reasoning_content" in patch
+            and "reasoning_content" not in self.get_reload_config()["hot_parameters"]
+        ):
+            raise ValueError("This model does not support reasoning-content parsing")
         if set(patch) <= HOT_RELOAD_FIELDS.keys():
-            if getattr(self, "reasoning_parser", None) is None:
-                raise ValueError("Reasoning parser is not initialized")
             return config
         if self._weight_cache is None:
             raise ValueError(

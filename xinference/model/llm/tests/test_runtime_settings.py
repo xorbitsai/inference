@@ -51,6 +51,16 @@ def test_reasoning_update_keeps_engine_and_parser_snapshot(engine, cached):
     assert model._engine is old_engine
 
 
+def test_nonreasoning_model_does_not_advertise_or_accept_parser_updates():
+    family = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none")
+    model = VLLMChatModel("test", family, "/models/test", {})
+    model.prepare_parse_reasoning_content(False)
+    assert "reasoning_content" not in model.get_reload_config()["parameters"]
+    assert model.get_reload_config()["hot_parameters"] == []
+    with pytest.raises(ValueError, match="does not support reasoning-content"):
+        model.reload({"reasoning_content": True}, lambda stage: None)
+
+
 @pytest.fixture
 def vision_model(monkeypatch):
     class EngineArgs:
