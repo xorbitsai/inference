@@ -119,27 +119,22 @@ async def test_jwt_scope_check_uses_db_permissions_grant(auth_service):
 
 
 @pytest.mark.asyncio
-async def test_admin_bypass_still_uses_jwt(auth_service):
-    """Admin bypass at L550 checks JWT scopes, not DB permissions.
-
-    This is by design: the ``admin`` wildcard stays in the JWT and cannot
-    be revoked mid-session via DB changes. If a deployment needs to
-    revoke admin mid-session, that's a separate issue (e.g., disable the
-    user account, which IS checked against DB at L546).
-    """
+async def test_admin_bypass_is_revoked_with_current_permissions(auth_service):
+    """An old JWT must not retain administrator access after revocation."""
     user_id = _create_user(auth_service, "admin2", ["admin", "models:read"])
     token = auth_service.create_access_token(
         user_id, "admin2", ["admin", "models:read"]
     )
-    # Even if DB no longer lists admin, the JWT still carries it.
+    # The JWT still carries admin, but it no longer authorizes requests.
     auth_service.db.set_user_permissions(user_id, ["models:read"])
 
-    user = await auth_service(
-        _make_request(),
-        SecurityScopes(scopes=["users:manage"]),
-        token,
-    )
-    assert user["username"] == "admin2"
+    with pytest.raises(HTTPException) as exc:
+        await auth_service(
+            _make_request(),
+            SecurityScopes(scopes=["users:manage"]),
+            token,
+        )
+    assert exc.value.status_code == 403
 
 
 def test_refresh_re_reads_permissions_from_db(auth_service):

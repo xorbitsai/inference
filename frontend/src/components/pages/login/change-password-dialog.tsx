@@ -22,9 +22,17 @@ interface ChangePasswordDialogProps {
   open: boolean;
   userId: number | null;
   onChanged: () => void;
+  forced?: boolean;
+  onCancel?: () => void;
 }
 
-export function ChangePasswordDialog({ open, userId, onChanged }: ChangePasswordDialogProps) {
+export function ChangePasswordDialog({
+  open,
+  userId,
+  onChanged,
+  forced = true,
+  onCancel,
+}: ChangePasswordDialogProps) {
   const { t } = useI18n();
   const [form] = useForm();
   const [loading, setLoading] = useState(false);
@@ -42,6 +50,7 @@ export function ChangePasswordDialog({ open, userId, onChanged }: ChangePassword
     try {
       await request.put(`/v1/admin/users/${userId}/password`, {
         new_password: values.new_password,
+        current_password: values.current_password,
       });
       toast.success(t('userManagement.passwordChanged'));
       onChanged();
@@ -52,18 +61,34 @@ export function ChangePasswordDialog({ open, userId, onChanged }: ChangePassword
     }
   };
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!value && !forced) onCancel?.();
+      }}
+    >
       <DialogContent
         className="!w-lg"
-        showCloseButton={false}
-        maskClosable={false}
-        onEscapeKeyDown={(event) => event.preventDefault()}
+        showCloseButton={!forced}
+        maskClosable={!forced}
+        onEscapeKeyDown={(event) => {
+          if (forced) event.preventDefault();
+        }}
       >
         <DialogHeader>
           <DialogTitle>{t('userManagement.changePassword')}</DialogTitle>
-          <DialogDescription>{t('login.mustChangePasswordDesc')}</DialogDescription>
+          {forced && <DialogDescription>{t('login.mustChangePasswordDesc')}</DialogDescription>}
         </DialogHeader>
         <Form form={form} onFinish={handleChangePassword}>
+          {!forced && (
+            <FormField
+              name="current_password"
+              label={t('login.password')}
+              rules={[{ required: true }]}
+            >
+              <Input type="password" autoComplete="current-password" />
+            </FormField>
+          )}
           <FormField
             name="new_password"
             label={t('userManagement.newPassword')}

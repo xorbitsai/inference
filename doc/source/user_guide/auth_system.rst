@@ -274,6 +274,16 @@ Granting or revoking a permission takes effect on the user's next API
 call — no re-login required. This applies to JWT-based browser sessions;
 API keys are also live-read (they always have been).
 
+Administrator revocation also takes effect on the next API request.
+``GET /v1/auth/me`` returns current account permissions; the Web UI refreshes
+them periodically and when the window regains focus.
+
+Local users can change their own password through
+``PUT /v1/admin/users/{user_id}/password`` without ``users:manage``.
+Supply ``current_password`` and ``new_password``; a forced first password
+change only requires ``new_password``. After a password change, sign in again
+because existing access and refresh tokens are revoked.
+
 Configurable access-token lifetime
 -------------------------------------
 The access-token lifetime defaults to 30 minutes and can be overridden

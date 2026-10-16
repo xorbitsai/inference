@@ -622,7 +622,6 @@ class AdvancedAuthService:
             raise credentials_exception
 
         username: Optional[str] = payload.get("sub")
-        token_scopes = payload.get("scopes", [])
         user_id = payload.get("user_id")
 
         if user_id:
@@ -655,7 +654,8 @@ class AdvancedAuthService:
                 headers={"WWW-Authenticate": authenticate_value},
             )
 
-        if "admin" in token_scopes:
+        db_scopes = _normalize_scopes(user.get("permissions", []))
+        if "admin" in db_scopes:
             _set_audit_identity(user=username or "", auth_type="jwt")
             return user
 
@@ -664,7 +664,6 @@ class AdvancedAuthService:
         # every request to verify existence/enabled, so user["permissions"] is
         # already in hand at zero extra DB cost. This makes admin permission
         # changes take effect on the next request rather than the next login.
-        db_scopes = _normalize_scopes(user.get("permissions", []))
         for scope in security_scopes.scopes:
             if scope not in db_scopes:
                 _audit("insufficient_scope", user=username or "", auth_type="jwt")

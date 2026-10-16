@@ -943,3 +943,11 @@ msgstr ""
 #~ " forma descrita na seção `Usage`_ "
 #~ "acima para o sistema simples."
 
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Administrator revocation also takes effect on the next API request. ``GET /v1/auth/me`` returns current account permissions; the Web UI refreshes them periodically and when the window regains focus."
+msgstr "A revogação de privilégios de administrador também entra em vigor na próxima solicitação à API. ``GET /v1/auth/me`` retorna as permissões atuais da conta; a interface web as atualiza periodicamente e quando a janela recupera o foco."
+
+#: ../../source/user_guide/auth_system.rst
+msgid "Local users can change their own password through ``PUT /v1/admin/users/{user_id}/password`` without ``users:manage``. Supply ``current_password`` and ``new_password``; a forced first password change only requires ``new_password``. After a password change, sign in again because existing access and refresh tokens are revoked."
+msgstr "Usuários locais podem alterar a própria senha por ``PUT /v1/admin/users/{user_id}/password`` sem ``users:manage``. Envie ``current_password`` e ``new_password``; a primeira alteração obrigatória exige apenas ``new_password``. Após a alteração, entre novamente, pois os tokens de acesso e renovação existentes são revogados."

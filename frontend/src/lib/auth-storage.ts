@@ -21,6 +21,7 @@ export function setAccessToken(token: string): void {
   }
 
   sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
+  window.dispatchEvent(new Event('xinference-auth-change'));
 }
 
 export function getRefreshToken(): string | undefined {
@@ -46,4 +47,5 @@ export function removeAuthTokens(): void {
 
   sessionStorage.removeItem(ACCESS_TOKEN_KEY);
   sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  window.dispatchEvent(new Event('xinference-auth-change'));
 }
