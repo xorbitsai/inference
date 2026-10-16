@@ -6,6 +6,8 @@ services:
     environment:
       # All supervisor and worker services inherit the same deployment secret.
       XOSCAR_AUTH_KEY: ${XOSCAR_AUTH_KEY:-}
+      # Optional model download source:
+      # XINFERENCE_MODEL_SRC: modelscope
     deploy:
       resources:
         reservations:
@@ -22,8 +24,6 @@ services:
 #      # If models are downloaded from modelscope, replace <huggingface_cache_dir> with
 #      # your modelscope cache path, default is <home_path>/.cache/modelscope
 #      - <modelscope_cache_dir>:/root/.cache/modelscope
-#    # Add other runtime options to the environment mapping above, for example:
-#      XINFERENCE_MODEL_SRC: modelscope
 
   xinference-supervisor:
     <<: *xinference
