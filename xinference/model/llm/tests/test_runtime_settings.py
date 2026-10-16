@@ -176,16 +176,23 @@ def test_sglang_image_reload_capabilities_and_modality_preservation(
 
 
 @pytest.mark.parametrize("cached", [False, True])
-@pytest.mark.parametrize("limits", ['{"image": 2, "video": 0}', "", " \t "])
+@pytest.mark.parametrize(
+    "limits,expected",
+    [
+        ('{"image": 2, "video": 0}', {"image": 2, "video": 0}),
+        ('{"image": 0, "video": 0}', {"image": 0, "video": 0}),
+        ("", None),
+        (" \t ", None),
+    ],
+)
 def test_sglang_normalizes_limits_before_launch_and_cache_snapshot(
-    monkeypatch, cached, limits
+    monkeypatch, cached, limits, expected
 ):
     from .. import weight_cache
     from ..sglang import core
     from ..sglang.core import SGLANGVisionModel
 
     field = "limit_mm_data_per_request"
-    expected = {"image": 2, "video": 0} if limits.strip() else None
     family = match_llm("qwen2.5-vl-instruct", "pytorch", "3", "none", "modelscope")
     model = SGLANGVisionModel(
         "test",
@@ -226,6 +233,10 @@ def test_sglang_normalizes_limits_before_launch_and_cache_snapshot(
     try:
         model.load()
         assert construct.call_args.kwargs[field] == expected
+        zero_images = expected is not None and expected["image"] == 0
+        assert (
+            construct.call_args.kwargs.get("skip_server_warmup", False) is zero_images
+        )
         metadata = model.get_reload_config()
         if cached:
             preload.assert_called_once()
@@ -241,6 +252,11 @@ def test_sglang_normalizes_limits_before_launch_and_cache_snapshot(
                 **(expected or {}),
                 "image": 8,
             }
+            if zero_images:
+                model.reload({field: {"image": 8}}, lambda stage: None)
+                assert construct.call_count == 2
+                assert construct.call_args.kwargs[field] == {"image": 8, "video": 0}
+                assert not construct.call_args.kwargs.get("skip_server_warmup", False)
         else:
             preload.assert_not_called()
             assert field not in metadata["parameters"]
