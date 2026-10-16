@@ -71,8 +71,10 @@ async def test_pd_decode_stream_rejects_transport_errors_and_missing_finish(resu
     model._engine = SimpleNamespace(generate_url=url + "/generate")
     try:
         if result == "finished":
+            # The terminal event adds no text but carries the finish reason.
             assert [text async for _, text in model._stream_generate("prompt")] == [
-                "ok"
+                "ok",
+                "",
             ]
         else:
             error = (

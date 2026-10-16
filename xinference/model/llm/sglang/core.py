@@ -929,7 +929,13 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                                     self._check_pd_finish(data["meta_info"]) or finished
                                 )
                             cur = data["text"][pos:]
-                            if cur:
+                            finish_reason = data["meta_info"].get("finish_reason")
+                            if isinstance(finish_reason, dict):
+                                finish_reason = finish_reason.get("type")
+                            if cur or (
+                                finish_reason is not None
+                                and str(finish_reason).lower() != "none"
+                            ):
                                 (
                                     meta_info,
                                     logprob_consumed,
@@ -1368,7 +1374,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                         # Completion is immutable; check before exposing output
                         # without a supervisor RPC for each decoded token.
                         handoff_checked = True
-                    chunk = self._convert_state_to_completion_chunk(
+                    new_chunk = self._convert_state_to_completion_chunk(
                         request_id,
                         self.model_uid,
                         output_text=out,
@@ -1380,7 +1386,11 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                     prompt_tokens = meta_info["prompt_tokens"]
                     completion_tokens = meta_info["completion_tokens"]
                     total_tokens = prompt_tokens + completion_tokens
-                    usage = chunk["usage"]
+                    usage = new_chunk["usage"]
+                    if not out:
+                        # Keep terminal metadata without replacing buffered tool text.
+                        continue
+                    chunk = new_chunk
                     if tools:
                         """
                         The qwen2 tool call returns format like this:
