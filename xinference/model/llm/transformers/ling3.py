@@ -9,7 +9,6 @@ from ....types import (
 )
 from ...utils import allow_trust_remote_code
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
-from ..media import validate_messages_media
 from .core import PytorchChatModel, register_non_default_model
 from .direct_chat import PytorchDirectChatMixin
 
@@ -123,13 +122,7 @@ class Ling3PytorchChatModel(PytorchDirectChatMixin, PytorchChatModel):
         messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        validate_messages_media(messages)
-        if generate_config and generate_config.get("stream"):
-            return self._to_chat_completion_chunks(
-                self.generate_streaming(messages, generate_config),
-                self.reasoning_parser,
-            )
-        return self.generate_non_streaming(messages, generate_config)
+        return self.build_direct_chat_result(messages, generate_config)
 
     @classmethod
     def match_json(

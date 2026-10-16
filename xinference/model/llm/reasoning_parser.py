@@ -502,6 +502,7 @@ class ReasoningParser:
             if is_first_chunk:
                 choices = chunk.get("choices")
                 if not choices or not choices[0]:
+                    yield chunk
                     continue
                 if (
                     chunk.get("object") == "chat.completion.chunk"
@@ -510,6 +511,7 @@ class ReasoningParser:
                     # For chat completion chunks with delta format
                     delta = choices[0].get("delta")
                     if delta is None:
+                        yield chunk
                         continue
                     assert isinstance(delta, dict)
                     text = delta.get("content")
@@ -517,6 +519,7 @@ class ReasoningParser:
                         logger.debug(
                             "[ReasoningParser] first delta chunk missing content, waiting for next chunk"
                         )
+                        yield chunk
                         continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
@@ -535,6 +538,7 @@ class ReasoningParser:
                         logger.debug(
                             "[ReasoningParser] first chunk text is empty, waiting for next chunk"
                         )
+                        yield chunk
                         continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
