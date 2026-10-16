@@ -1388,6 +1388,8 @@ const zh = {
     ssoLogin: '使用 SSO 登录',
   },
   setup: {
+    token: '初始化令牌',
+    tokenHelp: '请从 Xinference 服务启动日志中复制初始化令牌。',
     welcome: '欢迎使用 Xinference',
     welcomeDesc: '当前实例还没有任何账号，请创建第一个管理员账号以完成部署初始化。',
     title: '设置管理员账号',

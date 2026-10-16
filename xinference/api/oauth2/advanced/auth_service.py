@@ -137,6 +137,7 @@ class AdvancedAuthService:
         self._jwt_secret_key = jwt_secret_key
         self._encryption_key = derive_encryption_key(encryption_key)
         self._cache = ApiKeyCache(self._db)
+        self._setup_token = self._db.get_or_create_setup_token()
 
         try:
             from .rate_limiter import RateLimiter
@@ -156,6 +157,20 @@ class AdvancedAuthService:
     def needs_setup(self) -> bool:
         """True until the first admin account is created via /v1/admin/setup."""
         return self._db.user_count() == 0
+
+    @property
+    def setup_token(self) -> Optional[str]:
+        """Bootstrap secret for the operator's startup log, never an API response."""
+        return self._setup_token if self.needs_setup() else None
+
+    def verify_setup_token(self, token: Any) -> bool:
+        expected = self.setup_token
+        return (
+            expected is not None
+            and isinstance(token, str)
+            and token.isascii()
+            and secrets.compare_digest(token, expected)
+        )
 
     # --- JWT ---
 

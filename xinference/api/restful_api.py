@@ -641,21 +641,18 @@ def _parse_replica_config(payload: dict) -> Optional[List[ReplicaConfig]]:
         )
 
 
-def _log_setup_required_notice() -> None:
-    """Log the first-run setup notice, called while setup is pending.
-
-    The first admin account is created by whoever reaches POST /v1/admin/setup
-    first. If someone else wins that race, an operator with shell access to the
-    deployment can take control back with ``xinference-reset-auth-password``.
-    """
+def _log_setup_required_notice(setup_token: str) -> None:
+    """Show the operator's bootstrap secret only while initial setup is pending."""
     logger.warning(
         "\n"
         + "=" * 60
         + "\n"
         + "  FIRST-RUN SETUP REQUIRED\n"
+        + "  Setup token: %s\n"
         + "  Create the initial admin account at POST /v1/admin/setup\n"
         + "  (or via the web UI's setup page).\n"
-        + "=" * 60
+        + "=" * 60,
+        setup_token,
     )
 
 
@@ -752,8 +749,9 @@ class RESTfulAPI(CancelMixin):
                 encryption_key=encryption_key,
             )
             self._auth_service = self._advanced_auth_service
-            if self._advanced_auth_service.needs_setup():
-                _log_setup_required_notice()
+            setup_token = self._advanced_auth_service.setup_token
+            if setup_token is not None:
+                _log_setup_required_notice(setup_token)
 
         from ..core.launch_history_store import LaunchHistoryStore
 

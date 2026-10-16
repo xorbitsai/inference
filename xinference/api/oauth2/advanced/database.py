@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import secrets
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -302,6 +303,25 @@ class Database:
                     permissions,
                 )
 
+    def get_or_create_setup_token(self) -> Optional[str]:
+        """Share one bootstrap secret across restarts and concurrent API processes."""
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                if conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is not None:
+                    return None
+                row = conn.execute(
+                    "SELECT value FROM system_config WHERE key = 'setup_token'"
+                ).fetchone()
+                if row is not None:
+                    return row["value"]
+                token = secrets.token_urlsafe(32)
+                conn.execute(
+                    "INSERT INTO system_config (key, value) VALUES ('setup_token', ?)",
+                    (token,),
+                )
+                return token
+
     def create_first_user(
         self,
         username: str,
@@ -323,7 +343,7 @@ class Database:
                 existing = conn.execute("SELECT COUNT(*) AS cnt FROM users").fetchone()
                 if existing["cnt"] > 0:
                     return None
-                return self._insert_user(
+                user_id = self._insert_user(
                     conn,
                     username,
                     password_hash,
@@ -333,6 +353,8 @@ class Database:
                     0,
                     permissions,
                 )
+                conn.execute("DELETE FROM system_config WHERE key = 'setup_token'")
+                return user_id
 
     @staticmethod
     def _insert_user(

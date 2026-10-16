@@ -1236,6 +1236,8 @@ const zhTW = {
     ssoLogin: '使用 SSO 登入',
   },
   setup: {
+    token: '初始化權杖',
+    tokenHelp: '請從 Xinference 服務啟動日誌中複製初始化權杖。',
     welcome: '歡迎使用 Xinference',
     welcomeDesc: '當前例項還沒有任何帳號，請建立第一個管理員帳號以完成部署初始化。',
     title: '設定管理員帳號',
