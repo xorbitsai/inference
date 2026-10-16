@@ -12,13 +12,198 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import os
+
+import pytest
+
+from xinference._model_catalog import load_model_catalog
+
 from ..utils import (
     build_replica_model_uid,
     build_subpool_envs_for_virtual_env,
+    filter_virtualenv_packages_by_markers,
+    get_path_size,
+    is_valid_model_uid,
     iter_replica_model_uid,
+    merge_virtual_env_packages,
+    normalize_n_worker,
+    normalize_sglang_kernel_packages,
+    parse_legacy_replica_model_uid,
     parse_replica_model_uid,
 )
-from ..virtual_env_manager import ENGINE_VIRTUALENV_PACKAGES
+from ..virtual_env_manager import (
+    ENGINE_VIRTUALENV_PACKAGES,
+    XLLAMACPP_CUDA_INDEX_URLS,
+    ensure_system_torch_pin,
+    get_xllamacpp_cuda_index_url,
+    pin_sentence_transformers_numpy_abi,
+)
+
+
+@pytest.mark.parametrize(
+    "torch_version, expected",
+    [
+        ("2.4.1", "==0.0.3"),
+        ("2.5.1", ">=0.1,<0.2"),
+        ("2.6.0", ">=0.2,<0.3"),
+        ("2.7.1", ">=0.3,<0.6"),
+        ("2.8.0", ">=0.6,<0.8"),
+        ("2.9.1+cu128", ">=0.8,<0.10"),
+        ("2.10.0", ">=0.10,<0.11"),
+        ("2.11.0", ">=0.11,<0.17"),
+        ("2.12.0", ">=0.12,<0.17"),
+    ],
+)
+@pytest.mark.parametrize("include_torch_pin", [False, True])
+def test_missing_system_torchcodec_uses_torch_compatibility(
+    monkeypatch, torch_version, expected, include_torch_pin
+):
+    from importlib import metadata
+
+    from packaging.requirements import Requirement
+    from xoscar.virtualenv.core import VirtualEnvManager
+
+    def version(name):
+        if name == "torch":
+            return torch_version
+        raise metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(metadata, "version", version)
+    packages = ["#system_torchcodec#"]
+    if include_torch_pin:
+        packages.append("#system_torch#")
+    original = packages.copy()
+    result = ensure_system_torch_pin(packages)
+    # Exercise the downstream marker resolver: it must not see a bare codec.
+    assert [
+        Requirement(package) for package in VirtualEnvManager.process_packages(result)
+    ] == [
+        Requirement(f"torchcodec{expected}"),
+        Requirement(f"torch=={torch_version.split('+')[0]}"),
+    ]
+    assert packages == original
+
+
+def test_missing_system_torchcodec_after_condition_filtering(monkeypatch):
+    from importlib import metadata
+
+    def version(name):
+        if name == "torch":
+            return "2.9.1"
+        raise metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(metadata, "version", version)
+    packages = ['#system_torchcodec# ; #engine# == "PyTorch"', "#system_torch#"]
+    from ..utils import filter_virtualenv_packages_by_markers
+
+    active = filter_virtualenv_packages_by_markers(packages, "PyTorch", None)
+    assert ensure_system_torch_pin(active) == [
+        "torchcodec>=0.8,<0.10",
+        "#system_torch#",
+    ]
+
+
+@pytest.mark.parametrize(
+    "packages",
+    [
+        ["#system_torch#"],
+        ["#system_torch#", "torchcodec==0.8.1"],
+        ["torch==2.10.0", "#system_torchcodec#"],
+    ],
+)
+def test_missing_system_torchcodec_does_not_override_explicit_packages(packages):
+    assert ensure_system_torch_pin(packages) is packages
+
+
+def test_missing_system_torchcodec_skips_inactive_marker():
+    packages = ['#system_torchcodec# ; #engine# == "PyTorch"', "#system_torch#"]
+    from ..utils import filter_virtualenv_packages_by_markers
+
+    active = filter_virtualenv_packages_by_markers(packages, "Other", None)
+    assert ensure_system_torch_pin(active) == ["#system_torch#"]
+
+
+def test_system_torchcodec_keeps_installed_host_version(monkeypatch):
+    from importlib import metadata
+
+    monkeypatch.setattr(metadata, "version", lambda name: "0.8.1")
+    packages = ["#system_torch#", "#system_torchcodec#"]
+    assert ensure_system_torch_pin(packages) is packages
+
+
+def test_missing_system_torchcodec_reports_missing_host_torch(monkeypatch):
+    from importlib import metadata
+
+    def version(name):
+        raise metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(metadata, "version", version)
+    packages = ["#system_torch#", "#system_torchcodec#"]
+    with pytest.raises(
+        ValueError, match="Torch is not installed.*virtual_env_packages"
+    ):
+        ensure_system_torch_pin(packages)
+
+
+@pytest.mark.parametrize("torch_version", ["2.3.1", "2.12.0.dev20260930"])
+def test_missing_system_torchcodec_reports_unknown_torch(monkeypatch, torch_version):
+    from importlib import metadata
+
+    def version(name):
+        if name == "torch":
+            return torch_version
+        raise metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(metadata, "version", version)
+    packages = ["#system_torch#", "#system_torchcodec#"]
+    with pytest.raises(ValueError, match="virtual_env_packages"):
+        ensure_system_torch_pin(packages)
+
+
+@pytest.mark.parametrize(("value", "expected"), [(None, 1), (1, 1), ("2", 2)])
+def test_normalize_n_worker(value, expected):
+    assert normalize_n_worker(value) == expected
+
+
+@pytest.mark.parametrize("value", [True, 1.5, "2.0", "invalid", 0, "0", -1])
+def test_normalize_n_worker_rejects_non_positive_or_non_integral_values(value):
+    with pytest.raises(ValueError, match="n_worker must be a positive integer"):
+        normalize_n_worker(value)
+
+
+def test_get_path_size_handles_file_symlinks_without_double_counting(tmp_path):
+    payload = tmp_path / "payload.bin"
+    payload.write_bytes(b"x" * 4096)
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "first.bin").symlink_to(payload)
+    (cache_dir / "second.bin").symlink_to(payload)
+
+    expected = get_path_size(str(payload))
+    assert get_path_size(str(cache_dir)) == 0
+    assert get_path_size(str(cache_dir), follow_file_symlinks=True) == expected
+
+
+def test_get_path_size_never_traverses_directory_symlinks(tmp_path):
+    payload_dir = tmp_path / "payload"
+    payload_dir.mkdir()
+    (payload_dir / "payload.bin").write_bytes(b"x" * 4096)
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "linked-directory").symlink_to(payload_dir, target_is_directory=True)
+
+    assert get_path_size(str(cache_dir), follow_file_symlinks=True) == 0
+
+
+def test_get_path_size_follows_root_directory_symlink(tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "payload.bin").write_bytes(b"x" * 4096)
+    cache_link = tmp_path / "cache-link"
+    cache_link.symlink_to(cache_dir, target_is_directory=True)
+
+    assert get_path_size(str(cache_link)) == get_path_size(str(cache_dir))
 
 
 def test_replica_model_uid():
@@ -33,12 +218,50 @@ def test_replica_model_uid():
     assert len(set(all_gen_ids)) == 5
 
 
+def test_parse_replica_model_uid_bare_names_ending_in_digits():
+    """Bare model uids like llama-2 must not be treated as replicas (#5198)."""
+    assert parse_replica_model_uid("llama-2") == ("llama-2", -1)
+    assert parse_replica_model_uid("phi-2") == ("phi-2", -1)
+    assert parse_replica_model_uid("gpt-4") == ("gpt-4", -1)
+    assert parse_replica_model_uid("mymodel") == ("mymodel", -1)
+
+    built = build_replica_model_uid("llama-2", 0)
+    assert built == "llama-2-rep0"
+    assert parse_replica_model_uid(built) == ("llama-2", 0)
+
+    built2 = build_replica_model_uid("gpt-4", 3)
+    assert parse_replica_model_uid(built2) == ("gpt-4", 3)
+    assert build_replica_model_uid(*parse_replica_model_uid(built2)) == built2
+
+
+def test_is_valid_model_uid_rejects_replica_shaped_names():
+    assert is_valid_model_uid("llama-2")
+    assert is_valid_model_uid("my-model")
+    assert not is_valid_model_uid("llama-2-rep0")
+    assert not is_valid_model_uid("")
+
+
+def test_parse_legacy_replica_model_uid():
+    """Migration helper for pre--rep{n} recovery files."""
+    assert parse_legacy_replica_model_uid("myllm-0") == ("myllm", 0)
+    assert parse_legacy_replica_model_uid("llama-2-1") == ("llama-2", 1)
+    # Ambiguous by design: bare names ending in digits also match; callers
+    # must verify the base uid against known models.
+    assert parse_legacy_replica_model_uid("llama-2") == ("llama", 2)
+    assert parse_legacy_replica_model_uid("mymodel") is None
+    assert parse_legacy_replica_model_uid("myllm-rep0") is None
+
+
 class DummyVirtualEnvManager:
-    def __init__(self, python_path: str):
+    def __init__(self, python_path: str, lib_path: str = "/venv/site-packages"):
         self._python_path = python_path
+        self._lib_path = lib_path
 
     def get_python_path(self) -> str:
         return self._python_path
+
+    def get_lib_path(self) -> str:
+        return self._lib_path
 
 
 def test_sentence_transformers_virtualenv_packages_include_accelerate():
@@ -51,6 +274,482 @@ def test_sentence_transformers_virtualenv_packages_include_accelerate():
     # it is supplied per-model via #system_torchvision# in model_spec.
 
 
+def test_get_xllamacpp_cuda_index_url():
+    cu132 = XLLAMACPP_CUDA_INDEX_URLS["cu132"]
+    cu128 = XLLAMACPP_CUDA_INDEX_URLS["cu128"]
+
+    # CUDA 13.x -> cu132
+    assert get_xllamacpp_cuda_index_url("13.2") == cu132
+    assert get_xllamacpp_cuda_index_url("13.0") == cu132
+    # Major-only version strings are handled too.
+    assert get_xllamacpp_cuda_index_url("13") == cu132
+    # A future CUDA major line still maps to the latest available wheel index.
+    assert get_xllamacpp_cuda_index_url("14.0") == cu132
+    assert get_xllamacpp_cuda_index_url("14") == cu132
+
+    # CUDA 12.8+ -> cu128
+    assert get_xllamacpp_cuda_index_url("12.8") == cu128
+    assert get_xllamacpp_cuda_index_url("12.9") == cu128
+
+    # Older CUDA 12 lines have no prebuilt wheel -> fall back to CPU (None).
+    # A major-only "12" is treated as 12.0, which is below the cu128 cutoff.
+    assert get_xllamacpp_cuda_index_url("12") is None
+    assert get_xllamacpp_cuda_index_url("12.6") is None
+    assert get_xllamacpp_cuda_index_url("12.1") is None
+    assert get_xllamacpp_cuda_index_url("11.8") is None
+
+    # No CUDA detected / unparsable -> None.
+    assert get_xllamacpp_cuda_index_url(None) is None
+    assert get_xllamacpp_cuda_index_url("") is None
+    assert get_xllamacpp_cuda_index_url("unknown") is None
+
+
+def test_filter_virtualenv_packages_keeps_system_pandas_marker():
+    # #system_pandas# is used in model specs (e.g. audio) and must be treated
+    # as a system placeholder like the torch/numpy ones
+    packages = [
+        '#system_pandas# ; #engine# == "vllm"',
+        "#system_pandas#",
+    ]
+    assert filter_virtualenv_packages_by_markers(
+        packages, model_engine="vllm", cuda_version=None
+    ) == ["#system_pandas#", "#system_pandas#"]
+    assert filter_virtualenv_packages_by_markers(
+        packages, model_engine="transformers", cuda_version=None
+    ) == ["#system_pandas#"]
+
+
+def test_merge_virtual_env_packages_user_package_overrides_system_marker():
+    base_packages = [
+        "funasr==1.2.7",
+        "#system_torch# ; sys_platform == 'linux'",
+        "#system_torchaudio#",
+        "#system_numpy#",
+    ]
+    extra_packages = ["torch==2.1.0", "torchaudio==2.13.0", "numpy==2.1.0"]
+
+    merged = merge_virtual_env_packages(base_packages, extra_packages)
+
+    assert merged == [
+        "funasr==1.2.7",
+        "torch==2.1.0",
+        "torchaudio==2.13.0",
+        "numpy==2.1.0",
+    ]
+
+
+def test_merge_virtual_env_packages_user_package_overrides_marked_system_marker():
+    base_packages = [
+        "funasr==1.2.7",
+        "#system_torchaudio# ; sys_platform == 'linux'",
+    ]
+    extra_packages = ["torchaudio==2.13.0"]
+
+    assert merge_virtual_env_packages(base_packages, extra_packages) == [
+        "funasr==1.2.7",
+        "torchaudio==2.13.0",
+    ]
+
+
+def test_merge_virtual_env_packages_preserves_conditional_system_markers_without_override():
+    base_packages = [
+        '#system_numpy# ; #engine# == "vllm"',
+        '#system_numpy# ; #engine# == "transformers"',
+    ]
+
+    assert merge_virtual_env_packages(base_packages, None) == base_packages
+
+
+def test_merge_virtual_env_packages_handles_engine_variants_and_default_override():
+    base_packages = [
+        "xllamacpp>=0.2.6",
+        'xllamacpp>=2026.6.9713 ; #engine# == "llama.cpp"',
+        'qwen-vl-utils!=0.0.9 ; #engine# == "sglang"',
+        'qwen-vl-utils!=0.0.9 ; #engine# == "Transformers"',
+    ]
+
+    assert merge_virtual_env_packages(base_packages, None) == [
+        'xllamacpp>=2026.6.9713 ; #engine# == "llama.cpp"',
+        'qwen-vl-utils!=0.0.9 ; #engine# == "sglang"',
+        'qwen-vl-utils!=0.0.9 ; #engine# == "Transformers"',
+    ]
+
+
+def test_normalize_sglang_kernel_packages_for_modern_recipe():
+    legacy_wheel = (
+        "https://github.com/sgl-project/whl/releases/download/v0.3.21/"
+        "sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl"
+    )
+    packages, migrate_legacy = normalize_sglang_kernel_packages(
+        [
+            "sglang==0.5.11",
+            legacy_wheel,
+            "sglang-kernel==0.4.2",
+            "flash-attn-4==4.0.0b9",
+        ]
+    )
+
+    assert packages == [
+        "sglang==0.5.11",
+        "sglang-kernel==0.4.2",
+        "flash-attn-4==4.0.0b9",
+    ]
+    assert migrate_legacy is True
+
+
+def test_normalize_sglang_kernel_packages_keeps_legacy_recipe():
+    packages = ["sglang>=0.5.6", "sgl_kernel"]
+
+    assert normalize_sglang_kernel_packages(packages) == (packages, False)
+
+
+def _run_prepare_virtual_env(
+    cuda_version,
+    inherited_index_url,
+    skip_installed=True,
+    cuda_available=True,
+    model_engine="llama.cpp",
+    packages=("xllamacpp>=0.2.6",),
+):
+    """
+    Drive WorkerActor._prepare_virtual_env for the llama.cpp engine and report
+    what happened: the settings handed to install_packages(), and which
+    packages were uninstalled first. CUDA detection, real device availability
+    and pip-config inheritance are mocked so the test does not depend on the
+    host.
+
+    ``skip_installed`` mirrors XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED, which
+    defaults to on. ``cuda_available`` mirrors whether a CUDA device is actually
+    usable (distinct from the PyTorch-build CUDA version).
+    """
+    import contextlib
+    from unittest import mock
+
+    from ...model.core import VirtualEnvSettings
+    from ..worker import WorkerActor
+
+    result = {"conf": None, "packages": None, "uninstalled": []}
+
+    class _FakeVEM:
+        env_path = "/tmp/fake_venv"
+
+        def install_packages(self, packages, **conf):
+            result["packages"] = packages
+            result["conf"] = conf
+
+    @contextlib.contextmanager
+    def _nullctx(*args, **kwargs):
+        yield
+
+    from .. import worker as worker_mod
+
+    pip_config = {"index_url": inherited_index_url} if inherited_index_url else {}
+    with (
+        mock.patch.object(worker_mod, "get_pip_config_args", return_value=pip_config),
+        mock.patch(
+            "xoscar.virtualenv.platform.get_cuda_version", return_value=cuda_version
+        ),
+        mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx),
+        mock.patch.object(
+            worker_mod, "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED", skip_installed
+        ),
+        mock.patch.object(
+            WorkerActor, "_is_cuda_device_available", return_value=cuda_available
+        ),
+        mock.patch.object(
+            WorkerActor,
+            "_uninstall_venv_package",
+            side_effect=lambda _vem, pkg: result["uninstalled"].append(pkg),
+        ),
+    ):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=list(packages)),
+            virtual_env_packages=None,
+            model_engine=model_engine,
+            model_name="qwen3",
+            architectures=None,
+        )
+    return result
+
+
+def test_prepare_virtual_env_modern_sglang_migrates_legacy_kernel():
+    legacy_wheel = (
+        "https://github.com/sgl-project/whl/releases/download/v0.3.21/"
+        "sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl"
+    )
+    result = _run_prepare_virtual_env(
+        cuda_version="13.0",
+        inherited_index_url=None,
+        model_engine="sglang",
+        packages=(
+            "sglang==0.5.11",
+            legacy_wheel,
+            "sglang-kernel==0.4.2",
+            "flash-attn-4==4.0.0b9",
+        ),
+    )
+
+    assert result["packages"] == [
+        "sglang==0.5.11",
+        "sglang-kernel==0.4.2",
+        "flash-attn-4==4.0.0b9",
+    ]
+    assert result["conf"]["skip_installed"] is False
+    assert result["uninstalled"] == ["sgl-kernel"]
+
+
+def test_prepare_virtual_env_llama_cpp_gpu_uses_exclusive_index():
+    # On a GPU host with an inherited PyPI mirror, xllamacpp must install from
+    # the CUDA-matched GPU index exclusively -- the mirror is dropped so the
+    # resolver cannot satisfy the same-version CPU wheel from PyPI.
+    result = _run_prepare_virtual_env(
+        cuda_version="12.8",
+        inherited_index_url="https://mirrors.cloud.tencent.com/pypi/simple/",
+    )
+    conf = result["conf"]
+    assert conf["index_url"] == XLLAMACPP_CUDA_INDEX_URLS["cu128"]
+    assert not conf.get("extra_index_url")
+
+
+def test_prepare_virtual_env_llama_cpp_gpu_force_reinstalls_over_skip_installed():
+    # Even with skip-installed on (the default), a GPU launch must force the GPU
+    # wheel in: the pre-existing (possibly CPU) xllamacpp is uninstalled first
+    # and skip_installed is turned off for this install, so uv is actually
+    # invoked against the GPU index instead of the requirement being filtered
+    # out as already-satisfied.
+    result = _run_prepare_virtual_env(
+        cuda_version="12.8",
+        inherited_index_url="https://mirrors.cloud.tencent.com/pypi/simple/",
+        skip_installed=True,
+    )
+    assert result["uninstalled"] == ["xllamacpp"]
+    assert result["conf"]["skip_installed"] is False
+    assert result["conf"]["index_url"] == XLLAMACPP_CUDA_INDEX_URLS["cu128"]
+
+
+def test_prepare_virtual_env_llama_cpp_cpu_keeps_inherited_mirror():
+    # On a CPU host (no CUDA) the inherited mirror is kept and the CPU wheel is
+    # installed normally, without any forced uninstall.
+    result = _run_prepare_virtual_env(
+        cuda_version=None,
+        inherited_index_url="https://mirrors.cloud.tencent.com/pypi/simple/",
+    )
+    assert (
+        result["conf"]["index_url"] == "https://mirrors.cloud.tencent.com/pypi/simple/"
+    )
+    assert result["uninstalled"] == []
+
+
+def test_prepare_virtual_env_llama_cpp_no_gpu_device_keeps_cpu_index():
+    # get_cuda_version() reports the PyTorch build (e.g. "13.0") even on a
+    # CPU-only host with a CUDA-built torch. When no CUDA device is actually
+    # available, the GPU wheel would fail to import (missing libcuda.so.1), so
+    # keep the inherited index and do not force a reinstall.
+    result = _run_prepare_virtual_env(
+        cuda_version="13.0",
+        inherited_index_url="https://mirrors.cloud.tencent.com/pypi/simple/",
+        cuda_available=False,
+    )
+    assert (
+        result["conf"]["index_url"] == "https://mirrors.cloud.tencent.com/pypi/simple/"
+    )
+    assert result["uninstalled"] == []
+
+
+def _run_prepare_with_torchvision_version(model_engine, tv_version="0.20.0+cu130"):
+    # Built-in embedding/rerank specs share this engine-guarded companion entry
+    # across engines. Pin the reported torchvision version so the PyTorch CUDA
+    # index decision is deterministic regardless of the test host.
+    import importlib.metadata
+    from unittest import mock
+
+    real_version = importlib.metadata.version
+
+    def _fake_version(name):
+        if name.lower() == "torchvision":
+            return tv_version
+        return real_version(name)
+
+    with mock.patch("importlib.metadata.version", side_effect=_fake_version):
+        return _run_prepare_virtual_env(
+            cuda_version="13.0",
+            inherited_index_url=None,
+            model_engine=model_engine,
+            packages=(
+                'sentence_transformers ; #engine# == "sentence_transformers"',
+                '#system_torchvision# ; #engine# == "sentence_transformers"',
+            ),
+        )
+
+
+def test_prepare_virtual_env_pytorch_index_skipped_for_nonmatching_engine():
+    # A flag launch must NOT auto-configure the PyTorch CUDA index from the
+    # sentence_transformers-guarded #system_torchvision# marker, and the
+    # inactive companion is filtered out entirely (issue #5156 review).
+    result = _run_prepare_with_torchvision_version("flag")
+    extra = result["conf"].get("extra_index_url")
+    assert not extra or "download.pytorch.org" not in str(extra)
+    assert result["packages"] == []
+
+
+def test_prepare_virtual_env_pytorch_index_used_for_matching_engine():
+    # The sentence_transformers launch keeps the companion (guard stripped) and
+    # does auto-configure the matching PyTorch CUDA index.
+    result = _run_prepare_with_torchvision_version("sentence_transformers")
+    extra = result["conf"].get("extra_index_url")
+    assert extra and "https://download.pytorch.org/whl/cu130" in extra
+    # #system_torchvision# survives (guard stripped) and #system_torch# is added.
+    assert "#system_torchvision#" in result["packages"]
+    assert "#system_torch#" in result["packages"]
+
+
+def test_ensure_system_torch_pin_injects_when_missing():
+    # #system_torchvision# present but torch unpinned -> #system_torch# added,
+    # inheriting the companion's environment marker (issue #5156).
+    packages = [
+        "sentence_transformers",
+        '#system_torchvision# ; #engine# == "sentence_transformers"',
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert '#system_torch# ; #engine# == "sentence_transformers"' in result
+    # original entries preserved, torch pin appended once
+    assert result[: len(packages)] == packages
+    assert sum(1 for p in result if p.split(";", 1)[0].strip() == "#system_torch#") == 1
+
+
+def test_ensure_system_torch_pin_no_marker_when_companion_unmarked():
+    packages = ["sentence_transformers", "#system_torchvision#"]
+    result = ensure_system_torch_pin(packages)
+    assert "#system_torch#" in result
+
+
+def test_ensure_system_torch_pin_noop_when_torch_already_pinned_marker():
+    packages = [
+        '#system_torchvision# ; #engine# == "sentence_transformers"',
+        '#system_torch# ; #engine# == "sentence_transformers"',
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert result == packages
+
+
+def test_ensure_system_torch_pin_noop_when_torch_already_pinned_plain():
+    # A plain torch pin (e.g. user-registered model) also counts as pinned.
+    packages = ["torch==2.11.0", "#system_torchvision#"]
+    result = ensure_system_torch_pin(packages)
+    assert result == packages
+
+
+def test_ensure_system_torch_pin_noop_without_companion():
+    packages = ["sentence_transformers", "einops", "#system_numpy#"]
+    result = ensure_system_torch_pin(packages)
+    assert result == packages
+    assert not any("torch" in p for p in result)
+
+
+def test_ensure_system_torch_pin_empty():
+    assert ensure_system_torch_pin([]) == []
+
+
+def test_ensure_system_torch_pin_multiple_companions_different_markers():
+    # Two companions guarded by different engine markers each get a matching
+    # torch pin under the same condition (issue #5156 review follow-up).
+    packages = [
+        '#system_torchvision# ; #engine# == "sentence_transformers"',
+        '#system_torchaudio# ; #engine# == "audio"',
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert '#system_torch# ; #engine# == "sentence_transformers"' in result
+    assert '#system_torch# ; #engine# == "audio"' in result
+    assert result[: len(packages)] == packages
+    assert len(result) == 4
+
+
+def test_ensure_system_torch_pin_only_fills_missing_marker():
+    # A conditional torch pin already covers one companion; the other companion
+    # (different marker) still gets its own torch pin, and the existing one is
+    # left untouched.
+    packages = [
+        '#system_torchvision# ; #engine# == "sentence_transformers"',
+        '#system_torch# ; #engine# == "sentence_transformers"',
+        '#system_torchaudio# ; #engine# == "audio"',
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert result[: len(packages)] == packages
+    assert result[len(packages) :] == ['#system_torch# ; #engine# == "audio"']
+
+
+def test_ensure_system_torch_pin_unconditional_torch_covers_all():
+    # An unconditional torch pin satisfies every companion regardless of marker.
+    packages = [
+        "torch==2.11.0",
+        '#system_torchvision# ; #engine# == "sentence_transformers"',
+        "#system_torchaudio#",
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert result == packages
+
+
+def test_ensure_system_torch_pin_deduplicates_same_marker():
+    # Two companions sharing one marker yield a single torch pin.
+    packages = [
+        '#system_torchvision# ; #engine# == "x"',
+        '#system_torchaudio# ; #engine# == "x"',
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert result.count('#system_torch# ; #engine# == "x"') == 1
+    assert len(result) == 3
+
+
+def test_pin_sentence_transformers_numpy_abi(monkeypatch):
+    import importlib.metadata
+
+    versions = {
+        "numpy": "1.26.4",
+        "scipy": "1.13.1",
+        "scikit-learn": "1.4.2",
+        "pandas": "2.2.2",
+    }
+
+    def _version(name):
+        try:
+            return versions[name]
+        except KeyError:
+            raise importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(importlib.metadata, "version", _version)
+    result = pin_sentence_transformers_numpy_abi(
+        ["sentence_transformers"], "sentence_transformers"
+    )
+    assert result == [
+        "sentence_transformers",
+        "numpy==1.26.4",
+        "scipy==1.13.1",
+        "scikit-learn==1.4.2",
+        "pandas==2.2.2",
+    ]
+
+
+def test_pin_sentence_transformers_numpy_abi_preserves_explicit_requirements(
+    monkeypatch,
+):
+    import importlib.metadata
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda _name: "1.0")
+    packages = ["sentence_transformers", "numpy>=2", "scipy==1.12.0"]
+    result = pin_sentence_transformers_numpy_abi(packages, "sentence_transformers")
+    assert result[: len(packages)] == packages
+    assert "numpy==1.0" not in result
+    assert "scipy==1.0" not in result
+    assert "scikit-learn==1.0" in result
+    assert "pandas==1.0" in result
+
+
+def test_pin_sentence_transformers_numpy_abi_other_engine_is_noop():
+    packages = ["xllamacpp"]
+    assert pin_sentence_transformers_numpy_abi(packages, "llama.cpp") is packages
+
+
 def test_build_subpool_envs_for_virtual_env_disabled():
     base_envs = {"PATH": "/usr/bin", "FLASHINFER_NINJA_PATH": "/custom/ninja"}
     result = build_subpool_envs_for_virtual_env(base_envs, False, None)
@@ -59,15 +758,694 @@ def test_build_subpool_envs_for_virtual_env_disabled():
     assert result is not base_envs
 
 
-def test_build_subpool_envs_for_virtual_env_enabled():
-    manager = DummyVirtualEnvManager("/venv/bin/python")
-    base_envs = {"PATH": "/usr/bin", "FLASHINFER_NINJA_PATH": "/custom/ninja"}
+def test_build_subpool_envs_for_virtual_env_enabled(monkeypatch):
+    import sysconfig
 
-    result = build_subpool_envs_for_virtual_env(base_envs, True, manager)
+    manager = DummyVirtualEnvManager("/venv/bin/python")
+    base_envs = {
+        "PATH": "/usr/bin",
+        "FLASHINFER_NINJA_PATH": "/custom/ninja",
+        "LD_LIBRARY_PATH": "/custom/lib",
+    }
+    monkeypatch.setattr("sys.platform", "linux")
+    monkeypatch.setattr(sysconfig, "get_path", lambda name: "/parent/site-packages")
+
+    result = build_subpool_envs_for_virtual_env(
+        base_envs, True, manager, model_engine="sglang"
+    )
 
     import os
 
     assert result["PATH"] == "/venv/bin" + os.pathsep + "/usr/bin"
     assert result["VIRTUAL_ENV"] == "/venv"
     assert result["FLASHINFER_NINJA_PATH"] == "/custom/ninja"
+    assert result["LD_LIBRARY_PATH"] == os.pathsep.join(
+        [
+            os.path.join("/venv/site-packages", "nvidia", "cusparselt", "lib"),
+            os.path.join("/venv/site-packages", "nvidia", "cu13", "lib"),
+            os.path.join("/parent/site-packages", "nvidia", "cusparselt", "lib"),
+            os.path.join("/parent/site-packages", "nvidia", "cu13", "lib"),
+            "/custom/lib",
+        ]
+    )
     assert result is not base_envs
+
+
+def test_model_specs_pin_system_torch_with_torchvision():
+    """Every model that pins torchvision to the system version must also pin
+    torch to the system version under the same environment markers/conditions.
+
+    Otherwise torch is pulled fresh from PyPI into the sub venv while
+    torchvision stays on the (older) system version, producing an ABI
+    mismatch such as ``operator torchvision::nms does not exist`` (see #5208).
+    """
+    import os
+
+    here = os.path.dirname(__file__)
+    spec_files = [
+        os.path.join(here, "..", "..", "model", "embedding", "models"),
+        os.path.join(here, "..", "..", "model", "rerank", "models"),
+    ]
+
+    offenders = []
+    for spec_file in spec_files:
+        data = load_model_catalog(spec_file)
+        for m in data:
+            pkgs = (m.get("virtualenv") or {}).get("packages") or []
+            parsed_pkgs = []
+            for p in pkgs:
+                parts = p.split(";", 1)
+                name = parts[0].strip()
+                marker = parts[1].strip() if len(parts) > 1 else ""
+                parsed_pkgs.append((name, marker))
+
+            torchvision_markers = {
+                marker for name, marker in parsed_pkgs if name == "#system_torchvision#"
+            }
+            torch_markers = {
+                marker for name, marker in parsed_pkgs if name == "#system_torch#"
+            }
+
+            if torchvision_markers - torch_markers:
+                family = os.path.basename(os.path.dirname(spec_file))
+                offenders.append("{}/{}".format(family, m.get("model_name")))
+
+    assert not offenders, (
+        "Models declare #system_torchvision# but not #system_torch# under the "
+        "same environment markers (torch/torchvision would be mixed-source): "
+        + ", ".join(offenders)
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tests for venv setup dedup (_should_skip_venv_setup / _mark_venv_setup_done)
+# ---------------------------------------------------------------------------
+
+
+def _clean_venv_setup_done():
+    """Reset the process-local setup cache between tests."""
+    from .. import worker as worker_mod
+
+    worker_mod._venv_setup_done.clear()
+
+
+def test_should_skip_venv_setup_first_install(tmp_path):
+    """First install: cache is empty → should NOT skip."""
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1"]
+
+    assert not worker_mod._should_skip_venv_setup(venv, packages, {}, {})
+
+
+def test_should_skip_venv_setup_same_packages(tmp_path):
+    """Same path + same packages + marker file exists → should skip."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1"]
+
+    # Simulate first setup
+    os.makedirs(venv, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv, packages, {}, {})
+
+    assert worker_mod._should_skip_venv_setup(venv, packages, {}, {})
+
+
+def test_should_skip_venv_setup_different_packages(tmp_path):
+    """Same path but different packages → should NOT skip."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    first_packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1"]
+    second_packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1", "extra-pkg"]
+
+    # Simulate first setup with first_packages
+    os.makedirs(venv, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv, first_packages, {}, {})
+
+    # second_packages differ → should NOT skip
+    assert not worker_mod._should_skip_venv_setup(venv, second_packages, {}, {})
+
+
+def test_should_skip_venv_setup_marker_missing(tmp_path):
+    """Same path + same packages but marker file is gone (venv deleted) →
+    should NOT skip."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0"]
+
+    # Set up via helper, then remove the marker to simulate external deletion
+    os.makedirs(venv, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv, packages, {}, {})
+    os.remove(os.path.join(venv, ".xinference_setup_done"))
+
+    assert not worker_mod._should_skip_venv_setup(venv, packages, {}, {})
+
+
+def test_should_skip_venv_setup_different_path(tmp_path):
+    """Different venv path → should NOT skip."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv_a = str(tmp_path / "venv_a")
+    venv_b = str(tmp_path / "venv_b")
+    packages = ["vllm==0.21.0"]
+
+    # Set up venv_a
+    os.makedirs(venv_a, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv_a, packages, {}, {})
+
+    # venv_b is a different path → should NOT skip
+    assert not worker_mod._should_skip_venv_setup(venv_b, packages, {}, {})
+
+
+def test_mark_venv_setup_done_writes_marker(tmp_path):
+    """_mark_venv_setup_done adds the path+fingerprint to the dict and creates the
+    marker file with the fingerprint value."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0"]
+    os.makedirs(venv, exist_ok=True)
+
+    worker_mod._mark_venv_setup_done(venv, packages, {}, {})
+
+    expected_fp = worker_mod._make_fingerprint(packages, {}, {}, None)
+    assert venv in worker_mod._venv_setup_done
+    assert worker_mod._venv_setup_done[venv] == expected_fp
+    assert os.path.exists(os.path.join(venv, ".xinference_setup_done"))
+    # Verify the restart-safe structured marker contains all setup inputs.
+    import json
+
+    with open(os.path.join(venv, ".xinference_setup_done")) as f:
+        marker = json.load(f)
+    assert marker["schema_version"] == 1
+    assert marker["fingerprint"] == expected_fp
+    assert marker["model_name"] is None
+    assert marker["model_engine"] is None
+    assert marker["python_version"] is None
+    assert marker["setup_inputs"] == {
+        "environment_format_version": 4,
+        "model_name": None,
+        "model_engine": None,
+        "python_version": None,
+        "packages": packages,
+        "conf": {},
+        "variables": {},
+        "architectures": [],
+    }
+    assert isinstance(marker["updated_at"], int)
+
+
+def test_make_fingerprint_handles_list_valued_conf(tmp_path):
+    """_make_fingerprint must hash conf values that are lists
+    (e.g., extra_index_url, trusted_host) without raising TypeError."""
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    packages = ["vllm==0.21.0"]
+    conf_a = {"extra_index_url": ["https://pypi.org/simple", "https://example.com"]}
+    conf_b = {"extra_index_url": ["https://different.org"]}
+    variables = {}
+    architectures = None
+
+    # Must not raise TypeError: unhashable type: 'list'
+    fp_a = worker_mod._make_fingerprint(packages, conf_a, variables, architectures)
+    fp_b = worker_mod._make_fingerprint(packages, conf_b, variables, architectures)
+
+    assert isinstance(fp_a, str) and len(fp_a) == 64
+    assert isinstance(fp_b, str) and len(fp_b) == 64
+    int(fp_a, 16)
+    int(fp_b, 16)
+    # Different list values → different fingerprints
+    assert fp_a != fp_b
+
+    # Same inputs → same fingerprint
+    fp_a2 = worker_mod._make_fingerprint(packages, conf_a, variables, architectures)
+    assert fp_a == fp_a2
+
+
+def test_prepare_virtual_env_skips_on_second_call(tmp_path):
+    """Second call with same packages skips install_packages."""
+    import contextlib
+    import os
+    from unittest import mock
+
+    from ...model.core import VirtualEnvSettings
+    from .. import worker as worker_mod
+    from ..worker import WorkerActor
+
+    _clean_venv_setup_done()
+    venv_dir = str(tmp_path / "venv_skip")
+    os.makedirs(venv_dir, exist_ok=True)
+    call_count = 0
+
+    class _FakeVEM:
+        env_path = venv_dir
+
+        def install_packages(self, packages, **conf):
+            nonlocal call_count
+            call_count += 1
+
+    @contextlib.contextmanager
+    def _nullctx(*args, **kwargs):
+        yield
+
+    packages = ["vllm==0.21.0"]
+
+    # First call: should install
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model",
+            architectures=None,
+        )
+    assert call_count == 1
+
+    # Second call with same packages: should skip
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model",
+            architectures=None,
+        )
+    assert call_count == 1  # Still 1 — second call skipped
+
+
+def test_prepare_virtual_env_does_not_skip_different_packages(tmp_path):
+    """Different packages invalidate the cache → install_packages runs again."""
+    import contextlib
+    import os
+    from unittest import mock
+
+    from ...model.core import VirtualEnvSettings
+    from .. import worker as worker_mod
+    from ..worker import WorkerActor
+
+    _clean_venv_setup_done()
+    venv_dir = str(tmp_path / "venv_diff")
+    os.makedirs(venv_dir, exist_ok=True)
+    call_count = 0
+
+    class _FakeVEM:
+        env_path = venv_dir
+
+        def install_packages(self, packages, **conf):
+            nonlocal call_count
+            call_count += 1
+
+    @contextlib.contextmanager
+    def _nullctx(*args, **kwargs):
+        yield
+
+    first_packages = ["vllm==0.21.0"]
+    second_packages = ["vllm==0.21.0", "new-package"]
+
+    # First call
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=first_packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model-diff",
+            architectures=None,
+        )
+    assert call_count == 1
+
+    # Second call with different packages
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=second_packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model-diff",
+            architectures=None,
+        )
+    assert call_count == 2  # Second call installed because packages differ
+
+
+def test_exclusive_venv_path_lock_serializes_concurrent_callers(tmp_path):
+    """Two threads entering _exclusive_venv_path_lock for the same path
+    must never occupy the critical section simultaneously.  Tests the
+    process-local threading lock that is the only in-process guard on
+    Windows and the fast uncontended path on Unix."""
+    import os
+    import threading
+    import time
+
+    from .. import worker as worker_mod
+
+    venv_dir = str(tmp_path / "venv_lock_test")
+    os.makedirs(venv_dir, exist_ok=True)
+
+    occupants = 0
+    max_occupants = 0
+    lock = threading.Lock()
+
+    # Barrier ensures both threads are ready before either enters the lock,
+    # guaranteeing they overlap in time.
+    barrier = threading.Barrier(2, timeout=5)
+
+    errors = []
+
+    def critical_section():
+        nonlocal occupants, max_occupants
+        barrier.wait()
+        with worker_mod._exclusive_venv_path_lock(venv_dir):
+            with lock:
+                nonlocal occupants
+                occupants += 1
+                max_occupants = max(max_occupants, occupants)
+            time.sleep(0.1)
+            with lock:
+                occupants -= 1
+
+    t1 = threading.Thread(target=critical_section)
+    t2 = threading.Thread(target=critical_section)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert not errors, f"Errors in concurrent lock test: {errors}"
+    assert (
+        max_occupants == 1
+    ), f"Lock failed to serialize: max_occupants={max_occupants}, expected 1"
+
+
+def test_make_fingerprint_is_order_independent_for_packages_and_architectures():
+    from .. import worker as worker_mod
+
+    fp_a = worker_mod._make_fingerprint(
+        ["vllm==0.28.0", "transformers==5.8.0"],
+        {"index_url": "https://example.invalid/simple"},
+        {"cuda_version": "13.0"},
+        ["ArchitectureB", "ArchitectureA"],
+    )
+    fp_b = worker_mod._make_fingerprint(
+        ["transformers==5.8.0", "vllm==0.28.0"],
+        {"index_url": "https://example.invalid/simple"},
+        {"cuda_version": "13.0"},
+        ["ArchitectureA", "ArchitectureB"],
+    )
+
+    assert fp_a == fp_b
+
+
+def test_should_skip_venv_setup_survives_worker_restart(tmp_path):
+    import os
+
+    from .. import worker as worker_mod
+
+    _clean_venv_setup_done()
+    venv = str(tmp_path / "restart-safe-venv")
+    packages = ["vllm==0.28.0"]
+    os.makedirs(venv, exist_ok=True)
+    worker_mod._mark_venv_setup_done(
+        venv, packages, {"index_strategy": "unsafe-best-match"}, {}, None
+    )
+
+    worker_mod._venv_setup_done.clear()
+
+    assert worker_mod._should_skip_venv_setup(
+        venv, packages, {"index_strategy": "unsafe-best-match"}, {}, None
+    )
+    assert venv in worker_mod._venv_setup_done
+
+
+def _usage_tracking_worker():
+    import threading
+
+    from ..worker import WorkerActor
+
+    worker = WorkerActor.__new__(WorkerActor)
+    worker._virtual_env_usages = {}
+    worker._model_uid_to_virtual_env_path = {}
+    worker._virtual_env_usage_lock = threading.Lock()
+    return worker
+
+
+def test_virtual_env_usage_shares_matching_fingerprint(tmp_path):
+    worker = _usage_tracking_worker()
+    env_path = str(tmp_path / "shared-venv")
+
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-1")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-1")
+
+    usage = worker._virtual_env_usages[os.path.realpath(env_path)]
+    assert usage.active_model_uids == {"model-0", "model-1"}
+    assert not usage.preparing_model_uids
+
+
+def test_virtual_env_usage_rejects_dependency_mutation_while_active(tmp_path):
+    from ..virtual_env_manager import VirtualEnvConflictError
+
+    worker = _usage_tracking_worker()
+    env_path = str(tmp_path / "shared-venv")
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+
+    with pytest.raises(VirtualEnvConflictError, match="different setup fingerprint"):
+        worker._reserve_virtual_env_usage(env_path, "fingerprint-b", "model-1")
+
+
+def test_virtual_env_usage_rejects_mutation_when_marker_is_stale(tmp_path):
+    from ..virtual_env_manager import VirtualEnvConflictError
+
+    worker = _usage_tracking_worker()
+    env_path = str(tmp_path / "shared-venv")
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+
+    with pytest.raises(VirtualEnvConflictError, match="refusing to mutate"):
+        worker._reserve_virtual_env_usage(
+            env_path, "fingerprint-a", "model-1", setup_required=True
+        )
+
+
+def test_virtual_env_usage_final_release_clears_reference(tmp_path):
+    worker = _usage_tracking_worker()
+    env_path = str(tmp_path / "shared-venv")
+    real_path = os.path.realpath(env_path)
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-1")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-1")
+
+    worker._release_virtual_env_usage("model-0")
+    assert worker._virtual_env_usages[real_path].active_model_uids == {"model-1"}
+
+    worker._release_virtual_env_usage("model-1")
+    assert real_path not in worker._virtual_env_usages
+    assert not worker._model_uid_to_virtual_env_path
+
+
+@pytest.mark.asyncio
+async def test_log_async_separates_correlation_and_operation_request_ids(caplog):
+    from ..utils import log_async
+
+    test_logger = logging.getLogger("xinference.test.log_async.correlation")
+    received = []
+
+    @log_async(test_logger)
+    async def operation(*, request_id=None):
+        received.append(request_id)
+        return "ok"
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        result = await operation(
+            request_id="operation-id",
+            __xinf_rpc_metadata__={
+                "version": 1,
+                "correlation_id": "http-correlation-id",
+                "actor_call_id": "actor-call-id",
+                "parent_call_id": "parent-call-id",
+            },
+        )
+
+    assert result == "ok"
+    assert received == ["operation-id"]
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    assert records[0].xinference_fields == {
+        "request_id": "http-correlation-id",
+        "correlation_id": "http-correlation-id",
+        "operation_request_id": "operation-id",
+        "actor_call_id": "actor-call-id",
+        "parent_call_id": "parent-call-id",
+        "operation": "operation",
+        "phase": "enter",
+    }
+    assert records[1].xinference_fields["request_id"] == "http-correlation-id"
+    assert records[1].xinference_fields["operation_request_id"] == "operation-id"
+    assert records[1].xinference_fields["phase"] == "leave"
+
+
+def test_log_sync_separates_correlation_and_operation_request_ids(caplog):
+    from ..utils import log_sync
+
+    test_logger = logging.getLogger("xinference.test.log_sync.correlation")
+    received = []
+
+    @log_sync(test_logger)
+    def operation(*, request_id=None):
+        received.append(request_id)
+        return "ok"
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        result = operation(
+            request_id="operation-id",
+            __xinf_rpc_metadata__={
+                "version": 1,
+                "correlation_id": "http-correlation-id",
+                "actor_call_id": "actor-call-id",
+                "parent_call_id": "parent-call-id",
+            },
+        )
+
+    assert result == "ok"
+    assert received == ["operation-id"]
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    assert records[0].xinference_fields == {
+        "request_id": "http-correlation-id",
+        "correlation_id": "http-correlation-id",
+        "operation_request_id": "operation-id",
+        "actor_call_id": "actor-call-id",
+        "parent_call_id": "parent-call-id",
+        "operation": "operation",
+        "phase": "enter",
+    }
+    assert "elapsed_ms" not in records[0].xinference_fields
+    assert records[1].xinference_fields["request_id"] == "http-correlation-id"
+    assert records[1].xinference_fields["operation_request_id"] == "operation-id"
+    assert records[1].xinference_fields["phase"] == "leave"
+    assert records[1].xinference_fields["elapsed_ms"] >= 0
+
+
+@pytest.mark.parametrize("log_exception", [True, False])
+def test_log_sync_error_includes_request_id_and_elapsed_ms(caplog, log_exception):
+    from ..rpc_context import get_current_rpc_metadata
+    from ..utils import log_sync
+
+    test_logger = logging.getLogger(f"xinference.test.log_sync.error.{log_exception}")
+
+    @log_sync(test_logger, log_exception=log_exception)
+    def operation(*, request_id=None):
+        raise RuntimeError("boom")
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        with pytest.raises(RuntimeError, match="boom"):
+            operation(
+                request_id="operation-id",
+                __xinf_rpc_metadata__={
+                    "version": 1,
+                    "correlation_id": "http-correlation-id",
+                },
+            )
+
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    assert records[1].xinference_fields["request_id"] == "http-correlation-id"
+    assert records[1].xinference_fields["operation_request_id"] == "operation-id"
+    assert records[1].xinference_fields["phase"] == "error"
+    assert records[1].xinference_fields["error_type"] == "RuntimeError"
+    assert records[1].xinference_fields["elapsed_ms"] >= 0
+    assert get_current_rpc_metadata() is None
+
+
+def test_log_sync_uses_operation_request_id_without_correlation_id(caplog):
+    from ..utils import log_sync
+
+    test_logger = logging.getLogger("xinference.test.log_sync.operation_id")
+
+    @log_sync(test_logger)
+    def operation(*, request_id=None):
+        return request_id
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        result = operation(request_id="operation-id")
+
+    assert result == "operation-id"
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    assert records[0].xinference_fields["request_id"] == "operation-id"
+    assert records[0].xinference_fields["correlation_id"] == ""
+    assert records[0].xinference_fields["operation_request_id"] == "operation-id"
+    assert records[0].getMessage().startswith("[request operation-id] Enter")
+    assert records[1].xinference_fields["elapsed_ms"] >= 0
+
+
+def test_log_sync_does_not_generate_request_id_without_context(caplog):
+    from ..utils import log_sync
+
+    test_logger = logging.getLogger("xinference.test.log_sync.no_context")
+
+    @log_sync(test_logger)
+    def operation():
+        return "ok"
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        result = operation()
+
+    assert result == "ok"
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    assert "request_id" not in records[0].xinference_fields
+    assert records[0].xinference_fields["correlation_id"] == ""
+    assert records[0].xinference_fields["operation_request_id"] == ""
+    assert "[request " not in records[0].getMessage()
+    assert "request_id" not in records[1].xinference_fields
+    assert records[1].xinference_fields["elapsed_ms"] >= 0
+
+
+def test_log_sync_sanitizes_and_truncates_request_id(caplog):
+    from ..utils import log_sync
+
+    test_logger = logging.getLogger("xinference.test.log_sync.safe_request_id")
+    unsafe_request_id = "unsafe\n" + "x" * 300
+
+    @log_sync(test_logger)
+    def operation(*, request_id=None):
+        return request_id
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        result = operation(request_id=unsafe_request_id)
+
+    assert result == unsafe_request_id
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    request_id = records[0].xinference_fields["request_id"]
+    assert len(request_id) == 256
+    assert request_id.startswith("unsafe?")
+    assert "\n" not in request_id
+    assert records[0].getMessage().startswith(f"[request {request_id}] Enter")
+    assert records[1].xinference_fields["request_id"] == request_id

@@ -5,18 +5,18 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Xinference\n"
+"Project-Id-Version:  Xinference\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ko <LL@li.org>\n"
 "Language: ko\n"
+"Language-Team: ko <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
-"Generated-By: Babel 2.18.0\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: ../../source/getting_started/installation.rst:5
 msgid "Installation"
@@ -24,83 +24,31 @@ msgstr "설치"
 
 #: ../../source/getting_started/installation.rst:6
 msgid ""
-"Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To "
-"run models using Xinference, you will need to install the backend "
-"corresponding to the type of model you intend to serve."
+"Install the base Xinference package with ``pip`` on Linux, Windows, or "
+"macOS::"
+msgstr "Linux, Windows 또는 macOS에서 ``pip`` 을 사용해 Xinference 기본 패키지를 설치합니다::"
+
+#: ../../source/getting_started/installation.rst:10
+msgid ""
+"Model virtual environments install supported engine dependencies on demand. "
+"To install a backend manually, use its corresponding extra; see "
+":ref:`inference_backend`."
 msgstr ""
-"Xinference는 Linux, Windows, MacOS에서 ``pip``를 통해 설치할 수 있습니다. 모델 추론에 "
-"Xinference를 사용해야 하는 경우, 모델에 따라 다른 엔진을 지정할 수 있습니다."
+"모델 가상 환경은 지원되는 엔진의 의존성을 필요할 때 설치합니다. 백엔드를 수동으로 설치하려면 해당 extra를 사용하세요. "
+":ref:`inference_backend` 를 참고하세요."
 
-#: ../../source/getting_started/installation.rst:8
+#: ../../source/getting_started/installation.rst:127
 msgid ""
-"If you aim to serve all supported models, you can install all the necessary "
-"dependencies with a single command::"
-msgstr "모든 지원되는 모델을 추론할 수 있기를 원한다면 다음 명령을 사용하여 필요한 모든 종속성을 설치할 수 있습니다::"
-
-#: ../../source/getting_started/installation.rst:14
-msgid ""
-"Due to irreconcilable package dependency conflicts between vLLM and sglang, "
-"we have removed sglang from the all extra. If you want to use sglang, please"
-" install it separately via ``pip install 'xinference[sglang]'``."
+"These dependencies can change versions of shared packages such as "
+"``transformers``. Install only the backend dependencies you need in an "
+"isolated environment."
 msgstr ""
-"vllm과 sglang이 패키지 의존성에서 충돌하기 때문에, 우리는 all에서 sglang을 제거했습니다. sglang을 사용하려면 "
-"``pip install 'xinference[sglang]'`` 를 사용하세요."
-
-#: ../../source/getting_started/installation.rst:17
-msgid "Several usage scenarios require special attention."
-msgstr "일부 사용 시나리오에서는 특별히 주의가 필요합니다."
-
-#: ../../source/getting_started/installation.rst:19
-msgid "**GGUF format** with **llama.cpp engine**"
-msgstr "**GGUF 포맷**은 **llama.cpp 엔진**과 함께 사용됩니다."
-
-#: ../../source/getting_started/installation.rst:21
-msgid ""
-"In this situation, it's advised to install its dependencies manually based "
-"on your hardware specifications to enable acceleration. For more details, "
-"see the :ref:`installation_gguf` section."
-msgstr ""
-"이 경우, 하드웨어 사양에 따라 수동으로 종속성을 설치하여 가속을 활성화하는 것이 좋습니다. 자세한 내용은 "
-":ref:`installation_gguf` 섹션을 참조하십시오."
-
-#: ../../source/getting_started/installation.rst:23
-msgid "**AWQ or GPTQ** format with **transformers engine**"
-msgstr "**AWQ 또는 GPTQ 형식**을 **transformers 엔진**과 함께 사용"
-
-#: ../../source/getting_started/installation.rst:25
-msgid "**This section is added in v1.6.0.**"
-msgstr "**본 섹션의 내용은 v1.6.0에서 추가되었습니다.**"
-
-#: ../../source/getting_started/installation.rst:27
-msgid ""
-"This is because the dependencies at this stage require special options and "
-"are difficult to install. Please run command below in advance"
-msgstr "이는 이 단계의 종속 항목에 특별한 옵션이 필요하고 설치가 비교적 어렵기 때문입니다. 다음 명령을 미리 실행하십시오."
-
-#: ../../source/getting_started/installation.rst:33
-msgid ""
-"Some dependencies like ``transformers`` might be downgraded, you can run "
-"``pip install \"xinference[all]\"`` afterwards."
-msgstr ""
-"일부 종속성(예: ``transformers``)이 다운그레이드될 수 있으며, 이후에 ``pip install "
-"\"xinference[all]\"``을 실행할 수 있습니다."
-
-#: ../../source/getting_started/installation.rst:36
-msgid ""
-"If you want to install only the necessary backends, here's a breakdown of "
-"how to do it."
-msgstr "필요한 의존성만 설치하려면, 다음은 이를 수행하는 방법에 대한 자세한 단계입니다."
+"이러한 의존성은 ``transformers`` 와 같은 공유 패키지의 버전을 변경할 수 있습니다. 격리된 환경에 필요한 백엔드 의존성만 "
+"설치하세요."
 
 #: ../../source/getting_started/installation.rst:41
 msgid "Transformers Backend"
 msgstr "Transformers 엔진"
-
-#: ../../source/getting_started/installation.rst:42
-msgid ""
-"PyTorch (transformers) supports the inference of most state-of-art models. "
-"It is the default backend for models in PyTorch format::"
-msgstr ""
-"PyTorch(transformers) 엔진은 거의 모든 최신 모델을 지원하며, 이는 Pytorch 모델이 기본적으로 사용하는 엔진입니다::"
 
 #: ../../source/getting_started/installation.rst:46
 msgid "Notes:"
@@ -108,19 +56,11 @@ msgstr "주의:"
 
 #: ../../source/getting_started/installation.rst:48
 msgid ""
-"The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` "
-"/ ``fp4`` formats."
+"The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / "
+"``bnb`` / ``fp4`` formats."
 msgstr ""
-"Transformers 엔진은 ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4`` 형식을 "
-"지원합니다."
-
-#: ../../source/getting_started/installation.rst:49
-msgid ""
-"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If you "
-"see an import error, please upgrade ``transformers`` to a newer version."
-msgstr ""
-"FP4 형식은 FPQuantConfig를 지원하는 transformers 라이브러리가 필요합니다. 임포트 오류가 발생할 경우 "
-"transformers를 최신 버전으로 업그레이드하세요."
+"Transformers 엔진은 ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4`` 형식을"
+" 지원합니다."
 
 #: ../../source/getting_started/installation.rst:54
 msgid "vLLM Backend"
@@ -129,18 +69,17 @@ msgstr "vLLM Engine"
 #: ../../source/getting_started/installation.rst:55
 msgid ""
 "vLLM is a fast and easy-to-use library for LLM inference and serving. "
-"Xinference will choose vLLM as the backend to achieve better throughput when"
-" the following conditions are met:"
+"Xinference will choose vLLM as the backend to achieve better throughput "
+"when the following conditions are met:"
 msgstr ""
-"vLLM은 높은 동시성을 지원하는 고성능 대규모 모델 추론 엔진입니다. 다음 조건을 충족할 때 Xinference는 자동으로 vllm을 "
-"엔진으로 선택하여 더 높은 처리량을 달성합니다:"
+"vLLM은 높은 동시성을 지원하는 고성능 대규모 모델 추론 엔진입니다. 다음 조건을 충족할 때 Xinference는 자동으로 "
+"vllm을 엔진으로 선택하여 더 높은 처리량을 달성합니다:"
 
 #: ../../source/getting_started/installation.rst:57
 msgid ""
 "The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or "
 "``bnb``."
-msgstr ""
-"모델 포맷은 ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` 또는 ``bnb``입니다."
+msgstr "모델 포맷은 ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` 또는 ``bnb``입니다."
 
 #: ../../source/getting_started/installation.rst:58
 msgid "When the model format is ``pytorch``, the quantization is ``none``."
@@ -152,8 +91,8 @@ msgstr "모델 형식이 ``awq``인 경우, 양자화 옵션은 ``Int4``여야 �
 
 #: ../../source/getting_started/installation.rst:60
 msgid ""
-"When the model format is ``gptq``, the quantization is ``Int3``, ``Int4`` or"
-" ``Int8``."
+"When the model format is ``gptq``, the quantization is ``Int3``, ``Int4``"
+" or ``Int8``."
 msgstr "모델 형식이 ``gptq``인 경우, 양자화 옵션은 ``Int3``, ``Int4`` 또는 ``Int8``이어야 합니다."
 
 #: ../../source/getting_started/installation.rst:61
@@ -162,10 +101,11 @@ msgstr "Linux 운영 체제이며 최소 하나의 CUDA 지원 장치가 있어�
 
 #: ../../source/getting_started/installation.rst:62
 msgid ""
-"The model family (for custom models) / model name (for builtin models) is "
-"within the list of models supported by vLLM"
+"The model family (for custom models) / model name (for builtin models) is"
+" within the list of models supported by vLLM"
 msgstr ""
-"사용자 정의 모델의 ``model_family`` 필드와 내장 모델의 ``model_name`` 필드가 vLLM 지원 목록에 있습니다."
+"사용자 정의 모델의 ``model_family`` 필드와 내장 모델의 ``model_name`` 필드가 vLLM 지원 목록에 "
+"있습니다."
 
 #: ../../source/getting_started/installation.rst:64
 msgid "Currently, supported models include:"
@@ -178,27 +118,27 @@ msgid ""
 "instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, "
 "``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, "
 "``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, "
-"``llama-3.3-instruct``, ``tiny-llama``, ``wizardcoder-python-v1.0``, "
-"``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
+"``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``wizardcoder-"
+"python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
 "``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:69
 msgid ""
-"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, "
-"``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
+"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``,"
+" ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
 "instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:70
 msgid ""
-"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, "
-"``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, "
-"``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, "
-"``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-"
-"instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, "
-"``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, "
-"``skywork-or1-preview``, ``XiYanSQL-QwenCoder-2504``"
+"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1"
+"-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, "
+"``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+"``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, "
+"``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-"
+"32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-"
+"or1-preview``, ``vibethinker``, ``XiYanSQL-QwenCoder-2504``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:71
@@ -219,7 +159,8 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:75
 msgid ""
-"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, ``mixtral-v0.1``"
+"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, "
+"``mixtral-v0.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:76
@@ -259,8 +200,8 @@ msgstr ""
 #: ../../source/getting_started/installation.rst:84
 msgid ""
 "``deepseek-prover-v2``, ``deepseek-r1``, ``deepseek-r1-0528``, "
-"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, "
-"``moonlight-16b-a3b-instruct``"
+"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, ``moonlight-"
+"16b-a3b-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:85
@@ -285,8 +226,8 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:90
 msgid ""
-"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-fp32``, "
-"``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
+"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-"
+"fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:91
@@ -298,7 +239,7 @@ msgid "``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:93
-msgid "``glm-4.5``"
+msgid "``glm-4.5``, ``GLM-4.6``, ``GLM-4.7``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:94
@@ -318,28 +259,36 @@ msgid "``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:98
-msgid "``MiniMax-M2``"
+msgid "``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:99
+msgid "``GLM-4.7-Flash``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:100
+msgid "``glm-5``, ``glm-5.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:101
-msgid "To install Xinference and vLLM::"
-msgstr "xinference 및 vLLM 설치::"
+msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
+msgstr ""
 
-#: ../../source/getting_started/installation.rst:114
+#: ../../source/getting_started/installation.rst:117
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp 엔진"
 
-#: ../../source/getting_started/installation.rst:115
+#: ../../source/getting_started/installation.rst:118
 msgid ""
-"Xinference supports models in ``gguf`` format via ``xllamacpp``. `xllamacpp "
-"<https://github.com/xorbitsai/xllamacpp>`_ is developed by Xinference team, "
-"and is the sole backend for llama.cpp since v1.6.0."
+"Xinference supports models in ``gguf`` format via ``xllamacpp``. "
+"`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by "
+"Xinference team, and is the sole backend for llama.cpp since v1.6.0."
 msgstr ""
 "Xinference는 xllamacpp를 통해 gguf 형식의 모델을 지원합니다. `xllamacpp "
-"<https://github.com/xorbitsai/xllamacpp>`_ 는 Xinference 팀이 개발했으며, v1.6.0부터 "
-"llama.cpp의 유일한 백엔드가 되었습니다."
+"<https://github.com/xorbitsai/xllamacpp>`_ 는 Xinference 팀이 개발했으며, "
+"v1.6.0부터 llama.cpp의 유일한 백엔드가 되었습니다."
 
-#: ../../source/getting_started/installation.rst:121
+#: ../../source/getting_started/installation.rst:124
 msgid ""
 "Since Xinference v1.5.0, ``llama-cpp-python`` is deprecated. Since "
 "Xinference v1.6.0, ``llama-cpp-python`` has been removed."
@@ -347,47 +296,524 @@ msgstr ""
 "Xinference v1.5.0부터 ``llama-cpp-python``이(가) 더 이상 사용되지 않으며, Xinference "
 "v1.6.0부터 해당 백엔드가 제거되었습니다."
 
-#: ../../source/getting_started/installation.rst:124
-#: ../../source/getting_started/installation.rst:134
-#: ../../source/getting_started/installation.rst:143
-msgid "Initial setup::"
-msgstr "초기 단계::"
-
-#: ../../source/getting_started/installation.rst:128
-msgid ""
-"For more installation instructions for ``xllamacpp`` to enable GPU "
-"acceleration, please refer to: https://github.com/xorbitsai/xllamacpp"
-msgstr ""
-"GPU 가속을 위한 추가 ``xllamacpp`` 설치 설명은 다음을 참조하세요: "
-"https://github.com/xorbitsai/xllamacpp"
-
 #: ../../source/getting_started/installation.rst:131
+msgid ""
+"With per-model virtual environments enabled, Xinference 3.0 automatically"
+" selects the matching ``xllamacpp`` GPU wheel for supported CUDA "
+"versions; see :ref:`user_guide_backends`. For a manual installation into "
+"the process environment, refer to https://github.com/xorbitsai/xllamacpp."
+msgstr "모델별 가상 환경을 활성화하면 Xinference 3.0은 지원되는 CUDA 버전에 맞는 ``xllamacpp`` GPU wheel을 자동으로 선택합니다. :ref:`user_guide_backends`를 참조하십시오. 프로세스 환경에 수동으로 설치하려면 https://github.com/xorbitsai/xllamacpp 를 참조하십시오."
+
+#: ../../source/getting_started/installation.rst:137
 msgid "SGLang Backend"
 msgstr "SGLang 엔진"
 
-#: ../../source/getting_started/installation.rst:132
+#: ../../source/getting_started/installation.rst:138
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
-"significantly accelerates the execution of complex LLM programs by automatic"
-" KV cache reuse across multiple calls. And it also supports other common "
-"techniques like continuous batching and tensor parallelism."
+"significantly accelerates the execution of complex LLM programs by "
+"automatic KV cache reuse across multiple calls. And it also supports "
+"other common techniques like continuous batching and tensor parallelism."
 msgstr ""
-"SGLang은 RadixAttention 기반의 고성능 추론 런타임을 갖추고 있습니다. 여러 호출 간에 KV 캐시를 자동으로 재사용하여 "
-"복잡한 LLM 프로그램의 실행 속도를 크게 향상시킵니다. 또한 연속 배치 처리 및 텐서 병렬 처리와 같은 일반적인 추론 기술을 "
-"지원합니다."
+"SGLang은 RadixAttention 기반의 고성능 추론 런타임을 갖추고 있습니다. 여러 호출 간에 KV 캐시를 자동으로 "
+"재사용하여 복잡한 LLM 프로그램의 실행 속도를 크게 향상시킵니다. 또한 연속 배치 처리 및 텐서 병렬 처리와 같은 일반적인 추론 "
+"기술을 지원합니다."
 
-#: ../../source/getting_started/installation.rst:140
+#: ../../source/getting_started/installation.rst:146
 msgid "MLX Backend"
 msgstr "MLX 엔진"
 
-#: ../../source/getting_started/installation.rst:141
+#: ../../source/getting_started/installation.rst:147
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
 msgstr "MLX-lm은 Apple Silicon 칩에서 효율적인 LLM 추론을 제공합니다."
 
-#: ../../source/getting_started/installation.rst:148
+#: ../../source/getting_started/installation.rst:156
 msgid "Other Platforms"
 msgstr "다른 플랫폼"
 
-#: ../../source/getting_started/installation.rst:150
+#: ../../source/getting_started/installation.rst:158
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
+
+#: ../../source/getting_started/installation.rst:6
+msgid "Install Xinference with ``pip`` on Linux, Windows, or macOS::"
+msgstr "Linux, Windows 또는 macOS에서 ``pip`` 로 Xinference를 설치합니다::"
+
+#: ../../source/getting_started/installation.rst:11
+msgid "Automatic engine installation"
+msgstr "자동 엔진 설치"
+
+#: ../../source/getting_started/installation.rst:12
+msgid ""
+"Model virtual environments are enabled by default. When you launch a "
+"model, Xinference prepares a virtual environment for that model and engine"
+" and automatically installs the dependencies declared by its "
+"configuration. You do not need to install ``xinference[all]`` or an engine"
+" extra first."
+msgstr ""
+"모델 가상 환경은 기본적으로 활성화되어 있습니다. 모델을 시작하면 Xinference가 해당 모델과 엔진의 가상 환경을 준비하고 "
+"설정에 선언된 의존성을 자동으로 설치합니다. ``xinference[all]`` 이나 엔진 extra를 미리 설치할 필요가 없습니다."
+
+#: ../../source/getting_started/installation.rst:17
+msgid ""
+"This applies to engines such as Transformers, vLLM, SGLang, llama.cpp, and"
+" MLX. Choose a supported engine when launching the model; Xinference "
+"manages its Python dependencies. The engine's operating system, hardware, "
+"and driver requirements still apply."
+msgstr ""
+"이는 Transformers, vLLM, SGLang, llama.cpp, MLX 등의 엔진에 적용됩니다. 모델을 시작할 때 지원되는"
+" 엔진을 선택하면 Xinference가 Python 의존성을 관리합니다. 엔진의 운영 체제, 하드웨어 및 드라이버 요구 사항은 여전히"
+" 충족해야 합니다."
+
+#: ../../source/getting_started/installation.rst:22
+msgid ""
+"The first launch may take longer while packages are downloaded and "
+"installed. Later launches reuse the prepared environment when its "
+"dependencies are unchanged. The Worker needs access to the configured "
+"package indexes, or a prepared offline package source. See "
+":ref:`model_virtual_env` for dependency overrides and local wheel sources,"
+" and :ref:`using_docker_compose` for offline deployments."
+msgstr ""
+"처음 시작할 때는 패키지를 다운로드하고 설치하므로 시간이 더 걸릴 수 있습니다. 의존성이 변경되지 않으면 이후에는 준비된 환경을 "
+"재사용합니다. Worker는 설정된 패키지 인덱스 또는 미리 준비한 오프라인 패키지 소스에 접근할 수 있어야 합니다. 의존성 재정의와"
+" 로컬 wheel 소스는 :ref:`model_virtual_env`, 오프라인 배포는 "
+":ref:`using_docker_compose` 를 참고하세요."
+
+#: ../../source/getting_started/installation.rst:28
+msgid ""
+"The following sections describe the available engines. Manual installation"
+" is covered in :ref:`manual_backend_installation` for deployments that "
+"disable model virtual environments."
+msgstr ""
+"다음 절에서는 사용 가능한 엔진을 설명합니다. 모델 가상 환경을 비활성화한 배포의 수동 설치 방법은 "
+":ref:`manual_backend_installation` 을 참고하세요."
+
+#: ../../source/getting_started/installation.rst:37
+msgid ""
+"PyTorch (transformers) supports the inference of most state-of-art models."
+" It is the default backend for models in PyTorch format."
+msgstr ""
+"PyTorch(transformers)는 대부분의 최신 모델 추론을 지원하며 PyTorch 형식 모델의 기본 백엔드입니다."
+
+#: ../../source/getting_started/installation.rst:42
+msgid ""
+"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. Use "
+":ref:`model_virtual_env` to override dependencies for a model when needed."
+msgstr ""
+"FP4 형식에는 ``FPQuantConfig`` 를 지원하는 ``transformers`` 가 필요합니다. 모델의 의존성을 재정의해야"
+" 할 경우 :ref:`model_virtual_env` 를 참고하세요."
+
+#: ../../source/getting_started/installation.rst:101
+msgid ""
+"With model virtual environments enabled, Xinference installs the "
+"configured vLLM dependencies at launch. No separate vLLM or FlashInfer "
+"installation command is required for this path."
+msgstr ""
+"모델 가상 환경이 활성화되어 있으면 Xinference가 시작 시 설정된 vLLM 의존성을 설치합니다. 이 방식에서는 별도의 vLLM"
+" 또는 FlashInfer 설치 명령이 필요하지 않습니다."
+
+#: ../../source/getting_started/installation.rst:127
+msgid ""
+"Select ``SGLang`` as the engine when launching a supported model. "
+"Xinference installs the configured SGLang dependencies in that model's "
+"virtual environment; you do not need to install ``xinference[sglang]`` "
+"separately."
+msgstr ""
+"지원되는 모델을 시작할 때 엔진으로 ``SGLang`` 을 선택하세요. Xinference가 해당 모델의 가상 환경에 설정된 "
+"SGLang 의존성을 설치하므로 ``xinference[sglang]`` 을 별도로 설치할 필요가 없습니다."
+
+#: ../../source/getting_started/installation.rst:136
+msgid ""
+"Xinference installs the configured MLX dependencies automatically when you"
+" launch a supported model with the MLX engine."
+msgstr "지원되는 모델을 MLX 엔진으로 시작하면 Xinference가 설정된 MLX 의존성을 자동으로 설치합니다."
+
+#: ../../source/getting_started/installation.rst:140
+msgid "Optional components"
+msgstr "선택적 구성 요소"
+
+#: ../../source/getting_started/installation.rst:144
+msgid ""
+"Token Router is an optional component for routing requests across model "
+"replicas. It is not required to install Xinference or launch models. If "
+"your deployment uses the Token Router Runtime or Router Agent, install the"
+" ``router`` extra in the environment where those processes run::"
+msgstr ""
+"Token Router는 모델 복제본 사이에서 요청을 라우팅하는 선택적 구성 요소입니다. Xinference 설치나 모델 시작에 "
+"필요하지 않습니다. 배포에서 Token Router Runtime 또는 Router Agent를 사용하는 경우 해당 프로세스가 "
+"실행되는 환경에 ``router`` extra를 설치하세요::"
+
+#: ../../source/getting_started/installation.rst:151
+msgid "When installing from a source checkout, use::"
+msgstr "체크아웃한 소스에서 설치하는 경우 다음을 사용합니다::"
+
+#: ../../source/getting_started/installation.rst:155
+msgid ""
+"Installing the package creates the ``xinference-router`` and ``xinference-"
+"router-agent`` commands. Installing the extra provides their dependencies;"
+" start the required processes separately."
+msgstr ""
+"패키지를 설치하면 ``xinference-router`` 와 ``xinference-router-agent`` 명령이 생성됩니다. "
+"extra를 설치하면 해당 의존성이 제공됩니다. 필요한 프로세스는 별도로 시작하세요."
+
+#: ../../source/getting_started/installation.rst:162
+msgid "Manual backend installation"
+msgstr "수동 백엔드 설치"
+
+#: ../../source/getting_started/installation.rst:163
+msgid ""
+"If you disable model virtual environments with "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` or ``--disable-virtual-env`` at model "
+"launch, install the required backend dependencies in the Xinference Worker"
+" environment yourself. Engine extras such as ``transformers``, ``vllm``, "
+"``sglang``, ``llama_cpp``, and ``mlx`` remain available for this use case,"
+" for example:"
+msgstr ""
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` 또는 모델 시작 시 ``--disable-virtual-env`` 로"
+" 모델 가상 환경을 비활성화한 경우, 필요한 백엔드 의존성을 Xinference Worker 환경에 직접 설치하세요. 이 경우 "
+"``transformers``, ``vllm``, ``sglang``, ``llama_cpp``, ``mlx`` 등의 엔진 "
+"extra를 계속 사용할 수 있습니다. 예:"
+
+#: ../../source/getting_started/installation.rst:173
+msgid ""
+"Some hardware or quantization configurations require additional "
+"installation steps. Follow the selected backend's installation "
+"instructions for compatible packages and GPU support. Avoid installing "
+"unrelated engines together, since their dependencies may conflict."
+msgstr ""
+"일부 하드웨어 또는 양자화 설정에는 추가 설치 단계가 필요합니다. 선택한 백엔드의 설치 지침에 따라 호환 패키지와 GPU 지원을 "
+"설정하세요. 의존성이 충돌할 수 있으므로 관련 없는 엔진을 함께 설치하지 마세요."
+
+#: ../../source/getting_started/installation.rst:143
+msgid "Token Router"
+msgstr "Token Router"
+
+#~ msgid ""
+#~ "``code-llama``, ``code-llama-instruct``, "
+#~ "``code-llama-python``, ``deepseek``, "
+#~ "``deepseek-chat``, ``deepseek-coder``, "
+#~ "``deepseek-coder-instruct``, ``deepseek-r1-distill-"
+#~ "llama``, ``gorilla-openfunctions-v2``, "
+#~ "``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``,"
+#~ " ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, "
+#~ "``llama-3.1-instruct``, ``llama-3.3-instruct``, ``tiny-"
+#~ "llama``, ``wizardcoder-python-v1.0``, "
+#~ "``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, "
+#~ "``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-"
+#~ "200k``, ``Yi-chat``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``,"
+#~ " ``deepseek-r1-distill-qwen``, ``DianJin-R1``, "
+#~ "``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, "
+#~ "``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+#~ "``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-"
+#~ "instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-"
+#~ "1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-"
+#~ "32B-Preview``, ``seallms-v3``, ``skywork-"
+#~ "or1``, ``skywork-or1-preview``, ``XiYanSQL-"
+#~ "QwenCoder-2504``"
+#~ msgstr ""
+
+#~ msgid "``glm-4.5``"
+#~ msgstr ""
+
+#~ msgid "``MiniMax-M2``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "For more installation instructions for "
+#~ "``xllamacpp`` to enable GPU acceleration, "
+#~ "please refer to: "
+#~ "https://github.com/xorbitsai/xllamacpp"
+#~ msgstr ""
+#~ "GPU 가속을 위한 추가 ``xllamacpp`` 설치 설명은"
+#~ " 다음을 참조하세요: https://github.com/xorbitsai/xllamacpp"
+
+#: ../../source/getting_started/installation.rst:10
+msgid "One-command installation"
+msgstr "명령 하나로 설치"
+
+#: ../../source/getting_started/installation.rst:43
+msgid ""
+"The installer prepares uv, Python 3.12, and an isolated Xinference tool "
+"environment, then starts the local server in the foreground. Press Ctrl+C to"
+" stop it. On Linux and macOS::"
+msgstr ""
+"설치 프로그램은 uv, Python 3.12 및 격리된 Xinference 도구 환경을 준비한 후 로컬 서버를 포그라운드에서 시작합니다."
+" Ctrl+C로 중지합니다. Linux와 macOS에서는 다음을 실행합니다::"
+
+#: ../../source/getting_started/installation.rst:47
+msgid "On Windows, run this in PowerShell::"
+msgstr "Windows에서는 PowerShell에서 다음을 실행합니다::"
+
+#: ../../source/getting_started/installation.rst:51
+msgid ""
+"Set ``XINFERENCE_START=0`` to install without starting. Use "
+"``XINFERENCE_VERSION`` to pin a release, ``XINFERENCE_PYTHON`` to select "
+"Python, ``XINFERENCE_EXTRAS`` to preinstall backends, and "
+"``XINFERENCE_TOOL_DIR`` to change the uv tool store. ``XINFERENCE_HOME`` "
+"controls persistent model data; it is separate from the tool environment."
+msgstr ""
+"``XINFERENCE_START=0`` 을 설정하면 시작하지 않고 설치만 합니다. ``XINFERENCE_VERSION`` 으로 "
+"릴리스를 고정하고, ``XINFERENCE_PYTHON`` 으로 Python을 선택하고, ``XINFERENCE_EXTRAS`` 로 "
+"백엔드를 미리 설치하며, ``XINFERENCE_TOOL_DIR`` 로 uv 도구 저장소를 변경합니다. "
+"``XINFERENCE_HOME`` 은 영구 모델 데이터를 관리하며 도구 환경과 별개입니다."
+
+#: ../../source/getting_started/installation.rst:53
+msgid ""
+"On Linux and Windows, ``XINFERENCE_BACKEND=auto`` selects PyTorch for the "
+"detected GPU driver or CPU. Override it with ``cpu``, ``cu128``, or another "
+"backend supported by uv. macOS uses its native PyTorch wheel. Recent PyTorch"
+" wheels require Apple Silicon; Intel Macs may resolve older dependencies or "
+"fail installation. Model virtual environments install engine dependencies on"
+" demand. Engine platform restrictions still apply, including Linux-only vLLM"
+" and Apple-Silicon-only MLX."
+msgstr ""
+"Linux와 Windows에서는 ``XINFERENCE_BACKEND=auto``가 감지된 GPU 드라이버 또는 CPU에 맞는 "
+"PyTorch를 선택합니다. ``cpu``, ``cu128`` 또는 uv가 지원하는 다른 백엔드로 재정의할 수 있습니다. macOS는 "
+"기본 PyTorch wheel을 사용합니다. 최근 PyTorch wheel에는 Apple Silicon이 필요하며, Intel "
+"Mac에서는 이전 의존성이 선택되거나 설치에 실패할 수 있습니다. 모델 가상 환경은 필요에 따라 엔진 의존성을 설치합니다. Linux "
+"전용 vLLM과 Apple Silicon 전용 MLX 등 엔진의 플랫폼 제한은 계속 적용됩니다."
+
+#: ../../source/getting_started/installation.rst:55
+msgid ""
+"To run without a persistent tool installation, use ``uvx``. This requires "
+"uv; the first invocation downloads the Python environment and dependencies::"
+msgstr ""
+"영구 도구 설치 없이 실행하려면 ``uvx`` 를 사용합니다. uv가 필요하며 첫 호출 시 Python 환경과 종속성을 다운로드합니다::"
+
+#: ../../source/getting_started/installation.rst:59
+msgid ""
+"Use a recent uv supporting ``uv tool install --torch-backend`` (tested with "
+"uv 0.11.26). Services require a persistent installation; uvx environments "
+"can be removed by cache cleanup."
+msgstr ""
+"``uv tool install --torch-backend`` 를 지원하는 최신 uv를 사용하세요(uv 0.11.26으로 테스트됨). "
+"서비스에는 영구 설치가 필요합니다. uvx 환경은 캐시 정리로 제거될 수 있습니다."
+
+#: ../../source/getting_started/installation.rst:62
+msgid "System services"
+msgstr "시스템 서비스"
+
+#: ../../source/getting_started/installation.rst:63
+msgid ""
+"After installing with pip, Conda, or uv, register and start a local service "
+"with::"
+msgstr "pip, Conda 또는 uv로 설치한 후 다음 명령으로 로컬 서비스를 등록하고 시작할 수 있습니다::"
+
+#: ../../source/getting_started/installation.rst:72
+msgid ""
+"Linux uses a systemd user service. To start it at boot without logging in, "
+"enable lingering for the account with ``loginctl enable-linger USER``. macOS"
+" uses a LaunchAgent that starts at login. For a systemd system service or "
+"macOS LaunchDaemon, use an elevated terminal, an absolute command path, and "
+"``--system`` before the action::"
+msgstr ""
+"Linux는 systemd 사용자 서비스를 사용합니다. 로그인하지 않고 부팅 시 시작하려면 ``loginctl enable-linger "
+"USER`` 로 계정의 lingering을 활성화하세요. macOS는 로그인 시 시작하는 LaunchAgent를 사용합니다. "
+"systemd 시스템 서비스 또는 macOS LaunchDaemon에는 관리자 권한 터미널과 명령의 절대 경로를 사용하고 작업 앞에 "
+"``--system`` 을 지정하세요::"
+
+#: ../../source/getting_started/installation.rst:78
+msgid ""
+"Windows services currently require x86-64 Windows and an Administrator "
+"PowerShell terminal and run as LocalSystem. The installer downloads a "
+"pinned, checksum-verified WinSW wrapper. Service control files and the "
+"working directory use ``%ProgramFiles%\\Xinference\\service``. Use an "
+"administrator-controlled Python installation and model data because the "
+"service executes model code with its account's privileges. Service data "
+"defaults to ``%PROGRAMDATA%\\Xinference\\data``. Linux and macOS default to "
+"the runtime account's ``~/.xinference``. Override the data directory with "
+"``--home`` and the address with ``--host`` and ``--port`` on ``service "
+"install``."
+msgstr ""
+"Windows 서비스는 현재 x86-64 Windows와 관리자 PowerShell 터미널이 필요하며 LocalSystem으로 "
+"실행됩니다. 설치 프로그램은 버전이 고정되고 체크섬이 검증된 WinSW 래퍼를 다운로드합니다. 서비스 제어 파일과 작업 디렉터리는 "
+"``%ProgramFiles%\\Xinference\\service``에 저장됩니다. 서비스가 해당 계정 권한으로 모델 코드를 실행하므로"
+" 관리자가 제어하는 Python 설치 및 모델 데이터를 사용하세요. 서비스 데이터의 기본 경로는 "
+"``%PROGRAMDATA%\\Xinference\\data``입니다. Linux와 macOS의 기본값은 실행 계정의 "
+"``~/.xinference``입니다. ``service install``에서 ``--home``으로 데이터 디렉터리를, "
+"``--host``와 ``--port``로 주소를 변경할 수 있습니다."
+
+#: ../../source/getting_started/installation.rst:80
+msgid ""
+"For one-command service installation, set ``XINFERENCE_SERVICE=user`` on "
+"Linux/macOS or ``XINFERENCE_SERVICE=system`` on any supported platform. "
+"System mode uses sudo on Linux/macOS after installing as your account, and "
+"requires an Administrator Windows terminal. ``XINFERENCE_START=0`` registers"
+" without starting. ``XINFERENCE_HOST`` and ``XINFERENCE_PORT`` default to "
+"``127.0.0.1`` and ``9997``. Service mode requires a Xinference release "
+"containing the service CLI::"
+msgstr ""
+"서비스를 한 명령으로 설치하려면 Linux/macOS에서 ``XINFERENCE_SERVICE=user`` 또는 지원되는 모든 플랫폼에서"
+" ``XINFERENCE_SERVICE=system``을 설정합니다. 시스템 모드는 Linux/macOS에서 현재 계정으로 설치한 다음 "
+"sudo로 서비스를 등록하며, Windows에서는 관리자 터미널이 필요합니다. ``XINFERENCE_START=0`` 은 시작하지 않고"
+" 등록만 합니다. ``XINFERENCE_HOST`` 와 ``XINFERENCE_PORT`` 의 기본값은 ``127.0.0.1`` 과 "
+"``9997`` 입니다. 서비스 모드에는 서비스 CLI를 포함한 Xinference 릴리스가 필요합니다::"
+
+#: ../../source/getting_started/installation.rst:86
+msgid ""
+"Services restart after failures. Starting waits for the cluster's "
+"``/status`` response; a failed readiness check stops a newly started "
+"service. Repeated installation reuses the same configuration. Stop and "
+"uninstall before changing the installation environment or service settings. "
+"Uninstall preserves model data and logs. This service interface manages "
+"single-machine local mode."
+msgstr ""
+"서비스는 실패 후 다시 시작합니다. 시작 시 클러스터의 ``/status`` 응답을 기다리며 준비 상태 확인이 실패하면 새로 시작한 "
+"서비스를 중지합니다. 재설치는 동일한 구성을 재사용합니다. 설치 환경이나 서비스 설정을 변경하기 전에 서비스를 중지하고 제거하세요. "
+"제거해도 모델 데이터와 로그는 보존됩니다. 이 서비스 인터페이스는 단일 머신 로컬 모드를 관리합니다."
+
+#: getting_started/installation.rst:61
+msgid "Upgrading an installation"
+msgstr "설치 업그레이드"
+
+#: getting_started/installation.rst:63
+msgid ""
+"Run the same one-command installer again to update to the latest stable "
+"release. Set ``XINFERENCE_VERSION`` each time to select a specific release, "
+"including a downgrade. Without this variable, a previously pinned "
+"installation also updates to the latest stable release. If the selected "
+"version, Python, extras, and PyTorch backend are unchanged, the installer "
+"keeps the existing environment and does not restart a running service."
+msgstr ""
+"동일한 원클릭 설치 명령을 다시 실행하면 최신 안정 버전으로 업데이트됩니다. 다운그레이드를 포함하여 특정 버전을 선택하려면 매번 "
+"``XINFERENCE_VERSION``을 설정하세요. 이 변수가 없으면 이전에 버전을 고정한 설치도 최신 안정 버전으로 업데이트됩니다."
+" 선택한 버전, Python, 추가 의존성 및 PyTorch 백엔드가 그대로라면 기존 환경을 유지하고 실행 중인 서비스를 다시 시작하지 "
+"않습니다."
+
+#: getting_started/installation.rst:65
+msgid ""
+"The default ``XINFERENCE_SERVICE=auto`` detects an existing managed service "
+"for this tool environment. Upgrades preserve its service account, address, "
+"port, data directory, and registration. Python, extras, and the PyTorch "
+"backend are also retained unless explicitly overridden. Run as the original "
+"installation account and reuse any custom ``XINFERENCE_TOOL_DIR`` and "
+"``UV_TOOL_BIN_DIR``. Stop a foreground server before updating it."
+msgstr ""
+"기본값인 ``XINFERENCE_SERVICE=auto``는 이 도구 환경을 사용하는 기존 관리 서비스를 감지합니다. 업그레이드는 서비스"
+" 계정, 주소, 포트, 데이터 디렉터리 및 등록을 유지합니다. 명시적으로 재정의하지 않는 한 Python, 추가 의존성 및 PyTorch"
+" 백엔드도 유지됩니다. 원래 설치 계정으로 실행하고 사용자 지정 ``XINFERENCE_TOOL_DIR`` 및 "
+"``UV_TOOL_BIN_DIR``을 계속 사용하세요. 업데이트 전에 포그라운드 서버를 중지하세요."
+
+#: getting_started/installation.rst:67
+msgid ""
+"During an upgrade, the installer downloads and checks the candidate "
+"environment before stopping a service. It then backs up the complete "
+"previous environment, switches versions, and waits for the service to become"
+" ready. If installation or service startup fails, it restores the previous "
+"environment and the service's original running or stopped state. Preparing "
+"the candidate and keeping the full backup require additional disk space. On "
+"a first installation, failed startup removes a newly registered service and "
+"keeps the installed package for retrying. Model data and caches are "
+"preserved; models that were running must be launched again after a service "
+"restart. Foreground startup does not perform a service readiness check or "
+"automatic startup rollback."
+msgstr ""
+"업그레이드 시 서비스를 중지하기 전에 후보 환경을 다운로드하고 확인합니다. 그런 다음 이전 환경 전체를 백업하고 버전을 전환한 후 "
+"서비스가 준비될 때까지 기다립니다. 설치 또는 서비스 시작에 실패하면 이전 환경과 서비스의 원래 실행 또는 중지 상태를 복원합니다. 후보"
+" 환경 준비와 전체 백업에는 추가 디스크 공간이 필요합니다. 최초 설치에서 시작에 실패하면 새로 등록한 서비스를 제거하고 재시도를 위해 "
+"설치된 패키지는 유지합니다. 모델 데이터와 캐시는 유지되지만 서비스 재시작 후 이전에 실행하던 모델을 다시 시작해야 합니다. 포그라운드 "
+"시작은 서비스 준비 확인이나 시작 실패 시 자동 롤백을 수행하지 않습니다."
+
+#: getting_started/installation.rst:69
+msgid ""
+"Concurrent installers for the same tool store are rejected. If an upgrade is"
+" interrupted, the next run restores the saved environment before trying "
+"again. Keep the recovery files in the tool store until recovery completes. "
+"``XINFERENCE_TIMEOUT`` sets the service readiness timeout in seconds "
+"(default 120). With ``XINFERENCE_START=0``, an updated service remains "
+"stopped."
+msgstr ""
+"같은 도구 저장소에 대한 설치 프로그램의 동시 실행은 거부됩니다. 업그레이드가 중단되면 다음 실행에서 저장된 환경을 먼저 복원한 후 다시"
+" 시도합니다. 복원이 완료될 때까지 도구 저장소의 복구 파일을 유지하세요. ``XINFERENCE_TIMEOUT``은 서비스 준비 제한 "
+"시간을 초 단위로 설정합니다(기본값 120). ``XINFERENCE_START=0``이면 업데이트된 서비스가 중지 상태로 유지됩니다."
+
+#: getting_started/installation.rst:90
+msgid ""
+"A macOS user service requires a logged-in graphical session; use system mode"
+" on headless hosts. The launchd ``console.log`` does not rotate "
+"automatically."
+msgstr ""
+"macOS 사용자 서비스에는 로그인한 그래픽 세션이 필요합니다. 헤드리스 호스트에서는 시스템 모드를 사용하세요. launchd의 "
+"``console.log``는 자동으로 순환되지 않습니다."
+
+#: getting_started/installation.rst:71
+msgid ""
+"The installer checks the candidate's service installer API before stopping a"
+" service. An incompatible release cannot be managed in service mode. Same-"
+"version checks still prepare a candidate to resolve the requested Python, "
+"extras, and backend. Installed dependencies are constrained to that "
+"candidate, so use this installer for upgrades; ``uv tool upgrade "
+"xinference`` retains these constraints."
+msgstr ""
+"설치 프로그램은 서비스를 중지하기 전에 후보 버전의 서비스 설치 API를 확인합니다. 호환되지 않는 릴리스는 서비스 모드에서 관리할 수 "
+"없습니다. 같은 버전도 요청한 Python, extras, 백엔드를 확인하기 위해 후보 환경을 준비합니다. 설치된 종속성은 후보 환경의 "
+"버전으로 제한되므로 업그레이드에는 이 설치 프로그램을 사용하세요. ``uv tool upgrade xinference``는 이러한 제약을"
+" 유지합니다."
+
+#: getting_started/installation.rst:73
+msgid ""
+"Do not run ``xinference service`` commands while the installer is running; "
+"they do not share its lock. If a service was uninstalled after an "
+"interrupted upgrade, recovery restores the package without recreating the "
+"service. For manual recovery, stop processes using the tool, read "
+"``.xinference-transaction.json`` in the tool store, copy its backup's "
+"``environment`` and ``shims`` back to their original tool and command "
+"directories, and remove the journal only after restoration succeeds."
+msgstr ""
+"설치 프로그램이 실행 중일 때는 ``xinference service`` 명령을 실행하지 마세요. 이 명령은 설치 프로그램의 잠금을 "
+"공유하지 않습니다. 업그레이드 중단 후 서비스를 제거했다면 복구는 패키지를 복원하되 서비스를 다시 만들지 않습니다. 수동 복구 시 도구를"
+" 사용하는 프로세스를 중지하고 도구 저장소의 ``.xinference-transaction.json``을 읽은 뒤 백업의 "
+"``environment``와 ``shims``를 원래 도구 및 명령 디렉터리로 복사하세요. 복원이 성공한 후에만 저널을 삭제하세요."
+
+#: getting_started/installation.rst:92
+msgid ""
+"For ``--user USER``, that account must be able to traverse the Python "
+"installation's parent directories and execute its interpreter. The "
+"environment owner can modify code executed as the service account. Use a "
+"shared installation with appropriate ownership and permissions when these "
+"accounts differ."
+msgstr ""
+"``--user USER``를 사용하면 해당 계정이 Python 설치 경로의 상위 디렉터리에 접근하고 인터프리터를 실행할 수 있어야 "
+"합니다. 환경 소유자는 서비스 계정으로 실행되는 코드를 수정할 수 있습니다. 두 계정이 다르면 적절한 소유권과 권한을 설정한 공유 설치를"
+" 사용하세요."
+
+#: getting_started/installation.rst:96
+msgid ""
+"The one-command Windows system installer uses the installing user's uv tool "
+"store and does not restrict runtime or data ACLs. This default is not an "
+"administrator-only Python installation. Protect both Python (including "
+"packages) and model data before starting a LocalSystem service, or use "
+"foreground mode. Any account able to modify them can execute code with the "
+"service account's privileges."
+msgstr ""
+"Windows 시스템용 원커맨드 설치 프로그램은 설치 사용자의 uv 도구 저장소를 사용하며 런타임이나 데이터의 ACL을 제한하지 "
+"않습니다. 이 기본 Python 설치는 관리자만 쓸 수 있는 설치가 아닙니다. LocalSystem 서비스를 시작하기 전에 "
+"Python(패키지 포함)과 모델 데이터를 보호하거나 포그라운드 모드를 사용하세요. 이를 수정할 수 있는 계정은 서비스 계정 권한으로 "
+"코드를 실행할 수 있습니다."
+
+#: ../../source/getting_started/installation.rst:15
+msgid "Installation and startup"
+msgstr "설치 및 시작"
+
+#: ../../source/getting_started/installation.rst:86
+msgid "Installation with pip"
+msgstr "pip으로 설치"
+
+#: ../../source/getting_started/installation.rst:6
+msgid ""
+"Xinference can be installed with the :ref:`one-command installer "
+"<one_line_install>` or :ref:`pip <pip_installation>`. Choose the installer "
+"for a managed tool environment, or pip to use an existing Python "
+"environment."
+msgstr ""
+"Xinference 설치에는 두 가지 방법이 있습니다: :ref:`단일 명령 설치 프로그램 <one_line_install>` 또는 "
+":ref:`pip <pip_installation>`. 관리되는 도구 환경을 사용하려면 설치 프로그램을 선택하고, 기존 Python "
+"환경을 사용하려면 pip을 선택하세요."
+
+#: ../glm53-doc-check/getting_started/installation.rst:176
+msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"

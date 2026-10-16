@@ -1,17 +1,19 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
-import { ImageIcon, Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Binary, Download, ImageIcon, LoaderCircle, Sparkles } from 'lucide-react';
 
 import ReactMarkdown from '@/components/ui/markdown-renderer';
 import { MediaPreview } from '@/components/ui/media-preview';
 import { Progress } from '@/components/ui/progress';
 import type { FormValues } from '@/types/form';
-import type { CompletionResponse } from '@/types/services';
+import type { AudioEmbeddingResponse, CompletionResponse } from '@/types/services';
 import { ModelAbility } from '@/constants';
 import { cn } from '@/lib/utils';
 import { isNumber } from '@/lib/is';
+import { useI18n, type TFunc } from '@/contexts/i18n-context';
 
+import { isAudioStreamResult, type AudioStreamResult } from '../audio-stream';
 import type { CapabilityResultProps } from '../types';
 import { booleanValue, isRecord, stringValue } from '../utils';
 
@@ -31,16 +33,18 @@ function formatProgress(progress: number) {
   return Number.isInteger(progress) ? String(progress) : progress.toFixed(1);
 }
 
-function EmptyResult({ label = 'Results will appear here.' }: { label?: string }) {
+function EmptyResult({ label }: { label?: string }) {
+  const { t } = useI18n();
   return (
     <div className="flex min-h-80 flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 text-center text-sm text-muted-foreground">
       <ImageIcon className="mb-3 size-8" />
-      {label}
+      {label || t('runningModels.detail.resultsPlaceholder')}
     </div>
   );
 }
 
 function Generating({ progress }: { progress?: number }) {
+  const { t } = useI18n();
   const hasProgress = progress !== undefined;
 
   return (
@@ -59,7 +63,7 @@ function Generating({ progress }: { progress?: number }) {
         />
       </div>
       <div className="flex items-center gap-2 text-sm font-medium">
-        Generating
+        {t('runningModels.detail.generating')}
         <div className="flex gap-1">
           <span className="size-1.5 animate-bounce rounded-full bg-primary/60" />
           <span
@@ -76,7 +80,7 @@ function Generating({ progress }: { progress?: number }) {
         <div className="w-full max-w-xs space-y-1">
           <Progress value={progress} />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Progress</span>
+            <span>{t('runningModels.detail.progress')}</span>
             <span className="font-mono">{formatProgress(progress)}%</span>
           </div>
         </div>
@@ -93,11 +97,14 @@ function isVisualAbility(ability: ModelAbility) {
     ModelAbility.Text2video,
     ModelAbility.Image2video,
     ModelAbility.Firstlastframe2video,
+    ModelAbility.Text2world,
+    ModelAbility.Image2world,
+    ModelAbility.Video2world,
   ].includes(ability);
 }
 
 function isAudioResultAbility(ability: ModelAbility) {
-  return [ModelAbility.Text2audio, ModelAbility.Audio2audio, ModelAbility.Audio2audio].includes(
+  return [ModelAbility.Text2audio, ModelAbility.Text2music, ModelAbility.Audio2audio].includes(
     ability
   );
 }
@@ -106,9 +113,14 @@ function mediaTypeForAbility(ability: ModelAbility): MediaType {
   if (isAudioResultAbility(ability)) return 'audio';
 
   if (
-    [ModelAbility.Text2video, ModelAbility.Image2video, ModelAbility.Firstlastframe2video].includes(
-      ability
-    )
+    [
+      ModelAbility.Text2video,
+      ModelAbility.Image2video,
+      ModelAbility.Firstlastframe2video,
+      ModelAbility.Text2world,
+      ModelAbility.Image2world,
+      ModelAbility.Video2world,
+    ].includes(ability)
   ) {
     return 'video';
   }
@@ -163,25 +175,129 @@ function BlobMediaPreview({
   blob,
   type,
   className,
+  thumbnailClassName,
 }: {
   blob: Blob;
   type: MediaType;
   className: string;
+  thumbnailClassName?: string;
 }) {
-  const url = useMemo(() => URL.createObjectURL(blob), [blob]);
+  const [url, setUrl] = useState<string>();
 
   useEffect(() => {
-    return () => URL.revokeObjectURL(url);
-  }, [url]);
+    const expectedMimeType = mediaMimeType(type);
+    const mediaBlob =
+      blob.type && blob.type !== 'application/octet-stream'
+        ? blob
+        : new Blob([blob], { type: expectedMimeType });
+    const objectUrl = URL.createObjectURL(mediaBlob);
 
-  return <MediaPreview type={type} url={url} className={className} />;
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [blob, type]);
+
+  if (!url) return null;
+
+  return (
+    <MediaPreview
+      type={type}
+      url={url}
+      title={blob instanceof File ? blob.name : undefined}
+      className={className}
+      thumbnailClassName={thumbnailClassName}
+    />
+  );
+}
+
+function StreamingAudioPreview({ result }: { result: AudioStreamResult }) {
+  const { t } = useI18n();
+  const [downloadUrl, setDownloadUrl] = useState<string>();
+
+  useEffect(() => {
+    if (!result.file) {
+      setDownloadUrl(undefined);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(result.file);
+    setDownloadUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [result.file]);
+
+  const audioUrl = result.playbackUrl || downloadUrl;
+  const waitingForCompletePlayback = result.streaming && !result.playbackUrl;
+
+  return (
+    <div className="grid w-full max-w-full gap-3">
+      {audioUrl ? (
+        <audio
+          key={audioUrl}
+          src={audioUrl}
+          controls
+          autoPlay={Boolean(result.playbackUrl)}
+          preload="auto"
+          className="h-10 w-full"
+          onClick={(event) => event.stopPropagation()}
+        />
+      ) : (
+        <div className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm text-muted-foreground">
+          <LoaderCircle className="size-4 animate-spin" />
+          {t('runningModels.detail.receivingAudioStream')}
+        </div>
+      )}
+      <div className="flex min-h-9 items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span aria-live="polite">
+          {result.streaming
+            ? waitingForCompletePlayback
+              ? t('runningModels.detail.audioPlaybackAfterComplete')
+              : t('runningModels.detail.audioStreamingPlayback')
+            : t('runningModels.detail.audioGenerationComplete')}
+        </span>
+        {downloadUrl && result.file && (
+          <a
+            href={downloadUrl}
+            download={result.file.name}
+            aria-label={t('runningModels.detail.downloadAudio')}
+            className="flex size-9 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:text-foreground"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Download className="size-4" />
+          </a>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function MediaResultPanel({ result, type }: { result: unknown; type: MediaType }) {
   const isAudio = type === 'audio';
-  const mediaClassName = isAudio ? 'w-full max-w-full' : 'h-72 w-full max-w-full';
+  const isImage = type === 'image';
+  const mediaClassName = isAudio
+    ? 'w-full max-w-full'
+    : isImage
+      ? 'h-fit w-fit max-h-72 max-w-full'
+      : 'h-72 w-full max-w-full';
+  const thumbnailClassName = isImage
+    ? 'h-auto max-h-72 w-auto max-w-full object-contain'
+    : undefined;
+  const resultLayoutClassName = isAudio
+    ? 'grid'
+    : isImage
+      ? 'flex flex-wrap items-start'
+      : 'grid grid-cols-2';
+  if (isAudio && isAudioStreamResult(result)) {
+    return <StreamingAudioPreview result={result} />;
+  }
+
   if (result instanceof Blob) {
-    return <BlobMediaPreview blob={result} type={type} className={mediaClassName} />;
+    return (
+      <BlobMediaPreview
+        blob={result}
+        type={type}
+        className={mediaClassName}
+        thumbnailClassName={thumbnailClassName}
+      />
+    );
   }
 
   const mediaResults = extractMediaResults(result, type);
@@ -191,7 +307,7 @@ function MediaResultPanel({ result, type }: { result: unknown; type: MediaType }
   }
 
   return (
-    <div className={cn('grid gap-2', !isAudio && 'grid-cols-2')}>
+    <div className={cn('gap-2', resultLayoutClassName)}>
       {mediaResults.map((item, index) => (
         <MediaPreview
           key={item.title || index}
@@ -199,6 +315,7 @@ function MediaResultPanel({ result, type }: { result: unknown; type: MediaType }
           url={item.url}
           title={item.title}
           className={mediaClassName}
+          thumbnailClassName={thumbnailClassName}
         />
       ))}
     </div>
@@ -247,7 +364,7 @@ function CompletionResultPanel({ result }: { result: CompletionResponse }) {
   );
 }
 
-function formatOcrText(result: unknown, values?: FormValues) {
+function formatOcrText(result: unknown, t: TFunc, values?: FormValues) {
   const ocrType = stringValue(values?.ocr_type, 'ocr');
   let text = '';
   let renderAs: 'plain' | 'markdown' = ocrType === 'markdown' ? 'markdown' : 'plain';
@@ -255,33 +372,26 @@ function formatOcrText(result: unknown, values?: FormValues) {
   if (isRecord(result)) {
     if (result.success === false) {
       return {
-        text: `**Error**: ${stringValue(result.error, 'OCR failed')}`,
+        text: `**${t('runningModels.detail.error')}**: ${stringValue(
+          result.error,
+          t('runningModels.detail.ocrFailed')
+        )}`,
         renderAs: 'markdown' as const,
       };
     }
 
-    text = stringValue(result.text, 'No text extracted');
+    text = stringValue(result.text, t('runningModels.detail.noTextExtracted'));
 
     if (!text.trim()) {
-      text = `**OCR Recognition Complete, No Text Detected**
-
-**Possible Reasons:**
-- Text in image is unclear or insufficient resolution
-- Image format not supported
-- Model unable to recognize text in image
-
-**Suggestions:**
-- Try uploading a clearer image
-- Ensure text in image is clear and legible
-- Handwritten text may have poor results`;
+      text = t('runningModels.detail.ocrNoTextHelp');
       renderAs = 'markdown';
     }
 
     if (booleanValue(values?.test_compress) && result.compression_ratio !== undefined) {
-      text += '\n\n--- Compression Ratio Information ---\n';
-      text += `Compression Ratio: ${String(result.compression_ratio ?? 'N/A')}\n`;
-      text += `Valid Image Tokens: ${String(result.valid_image_tokens ?? 'N/A')}\n`;
-      text += `Output Text Tokens: ${String(result.output_text_tokens ?? 'N/A')}`;
+      text += `\n\n--- ${t('runningModels.detail.compressionInfo')} ---\n`;
+      text += `${t('runningModels.detail.compressionRatio')}: ${String(result.compression_ratio ?? 'N/A')}\n`;
+      text += `${t('runningModels.detail.validImageTokens')}: ${String(result.valid_image_tokens ?? 'N/A')}\n`;
+      text += `${t('runningModels.detail.outputTextTokens')}: ${String(result.output_text_tokens ?? 'N/A')}`;
     }
   } else if (typeof result === 'string') {
     text = result;
@@ -300,7 +410,8 @@ function formatOcrText(result: unknown, values?: FormValues) {
 }
 
 function OcrResultPanel({ result, values }: { result: unknown; values?: FormValues }) {
-  const { text, renderAs } = formatOcrText(result, values);
+  const { t } = useI18n();
+  const { text, renderAs } = formatOcrText(result, t, values);
 
   return renderAs === 'markdown' ? (
     <ReactMarkdown parseHtml>{text}</ReactMarkdown>
@@ -331,6 +442,65 @@ function AudioToTextResultPanel({ result }: { result: AudioToTextResult }) {
   return <div className="grid gap-4 overflow-hidden">{result.text}</div>;
 }
 
+function formatEmbeddingVector(embedding: number[]) {
+  const valuesPerLine = 4;
+  const lines = [];
+
+  for (let index = 0; index < embedding.length; index += valuesPerLine) {
+    lines.push(embedding.slice(index, index + valuesPerLine).join(', '));
+  }
+
+  return `[\n  ${lines.join(',\n  ')}\n]`;
+}
+
+function SpeakerEmbeddingResultPanel({ result }: { result: unknown }) {
+  const { t } = useI18n();
+  if (!isRecord(result) || !Array.isArray(result.embedding) || !result.embedding.every(isNumber)) {
+    return <RawResultPanel result={result} />;
+  }
+
+  const response = result as unknown as AudioEmbeddingResponse;
+  const dimensions = isNumber(response.dimensions)
+    ? response.dimensions
+    : response.embedding.length;
+
+  return (
+    <div className="grid min-w-0 gap-4">
+      <div className="flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Binary className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="font-semibold">
+              {t('runningModels.detail.speakerEmbeddingGenerated')}
+            </div>
+            <div className="truncate text-sm text-muted-foreground">{response.model}</div>
+          </div>
+        </div>
+        <div className="shrink-0 sm:text-right">
+          <div className="text-2xl font-semibold tabular-nums">{dimensions}</div>
+          <div className="text-sm text-muted-foreground">
+            {t('runningModels.detail.dimensions')}
+          </div>
+        </div>
+      </div>
+
+      <div className="min-w-0 overflow-hidden rounded-xl border bg-muted/20">
+        <div className="flex items-center justify-between border-b bg-card px-4 py-3">
+          <span className="text-sm font-medium">{t('runningModels.detail.embeddingVector')}</span>
+          <span className="text-xs text-muted-foreground">
+            {t('runningModels.detail.valueCount', { count: response.embedding.length })}
+          </span>
+        </div>
+        <pre className="max-h-[calc(100vh-430px)] min-h-64 w-full max-w-full overflow-auto p-4 text-xs leading-6 tabular-nums">
+          {formatEmbeddingVector(response.embedding)}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
 export function UniversalResultPanel({
   result,
   values,
@@ -338,12 +508,25 @@ export function UniversalResultPanel({
   progress,
   ability,
 }: CapabilityResultProps) {
-  if (loading) {
+  const { t } = useI18n();
+  if (
+    loading &&
+    !isAudioStreamResult(result) &&
+    !(ability === ModelAbility.Generate && (result as CompletionResponse)?.choices?.[0]?.text)
+  ) {
     return <Generating progress={progress} />;
   }
 
   if (result === undefined) {
-    return <EmptyResult />;
+    return (
+      <EmptyResult
+        label={
+          ability === ModelAbility.SpeakerEmbedding
+            ? t('runningModels.detail.speakerEmbeddingPlaceholder')
+            : undefined
+        }
+      />
+    );
   }
 
   if (isVisualAbility(ability) || isAudioResultAbility(ability)) {
@@ -364,6 +547,10 @@ export function UniversalResultPanel({
 
   if (ability === ModelAbility.Audio2text) {
     return <AudioToTextResultPanel result={result as AudioToTextResult} />;
+  }
+
+  if (ability === ModelAbility.SpeakerEmbedding) {
+    return <SpeakerEmbeddingResultPanel result={result} />;
   }
 
   return <RawResultPanel result={result} />;

@@ -14,13 +14,22 @@
 
 import importlib
 import os
+from typing import Set
 
 _LAUNCHER_ALLOWLIST_ENV = "XINFERENCE_FLEXIBLE_LAUNCHERS"
+_BUILTIN_LAUNCHERS = {
+    "xinference.model.flexible.launchers.transformers",
+    "xinference.model.flexible.launchers.modelscope",
+    "xinference.model.flexible.launchers.yolo",
+    "xinference.model.flexible.launchers.image_process",
+}
 
 
-def _get_launcher_allowlist() -> set:
+def _get_launcher_allowlist() -> Set[str]:
     raw = os.environ.get(_LAUNCHER_ALLOWLIST_ENV, "")
-    return {name.strip() for name in raw.split(",") if name.strip()}
+    return _BUILTIN_LAUNCHERS | {
+        name.strip() for name in raw.split(",") if name.strip()
+    }
 
 
 def get_launcher(launcher_name: str):

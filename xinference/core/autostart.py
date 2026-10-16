@@ -46,12 +46,27 @@ def normalize_launch_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     model_uid = launch.get("model_uid") or model_name
     if not isinstance(model_uid, str) or not is_valid_model_uid(model_uid):
         raise ValueError(
-            "Autostart launch config requires a non-empty model_uid up to 100 characters."
+            "Autostart launch config requires a non-empty model_uid up to 100 "
+            "characters, not ending with the reserved replica suffix "
+            "'-rep<number>'."
         )
 
     launch["model_name"] = model_name.strip()
     launch["model_uid"] = model_uid.strip()
     launch.setdefault("model_type", "LLM")
+    if "replica" in launch:
+        replica = launch["replica"]
+        if isinstance(replica, (bool, float)):
+            raise ValueError("Autostart launch config replica must be an integer.")
+        try:
+            replica = int(replica)
+        except (TypeError, ValueError, OverflowError):
+            raise ValueError(
+                "Autostart launch config replica must be an integer."
+            ) from None
+        if replica < 1:
+            raise ValueError("Autostart launch config replica must be greater than 0.")
+        launch["replica"] = replica
     launch.pop("wait_ready", None)
     return launch
 

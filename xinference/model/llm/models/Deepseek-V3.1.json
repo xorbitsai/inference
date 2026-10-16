@@ -1,0 +1,215 @@
+[
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "Deepseek-V3.1",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_description": "DeepSeek-V3.1 is a hybrid model that supports both thinking mode and non-thinking mode.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/DeepSeek-V3.1",
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V3.1/resolve/c0781d039fb7a1ba2abc4add0bdc293e92d2b8db/config.json",
+              "config_sha256": "3e5d192d745758862b0a3e6338ee181991db49933dbbd3185e1bde34944e7bad",
+              "architecture_type": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/DeepSeek-V3.1",
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V3.1/resolve/master/config.json",
+              "config_sha256": "3e5d192d745758862b0a3e6338ee181991db49933dbbd3185e1bde34944e7bad",
+              "architecture_type": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/DeepSeek-V3.1-AWQ",
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/QuantTrio/DeepSeek-V3.1-AWQ/resolve/0fdeb8b8b37bfee1dd7feda37cdc57effb1ab480/config.json",
+              "config_sha256": "34510388e7edfac3f650084139ee3749c00e7a66d2d3b654f06f0e931017f6da",
+              "architecture_type": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/DeepSeek-V3.1-AWQ",
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/tclf90/DeepSeek-V3.1-AWQ/resolve/master/config.json",
+              "config_sha256": "34510388e7edfac3f650084139ee3749c00e7a66d2d3b654f06f0e931017f6da",
+              "architecture_type": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bit",
+              "4bit"
+            ],
+            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}",
+            "model_metadata_by_quantization": {
+              "8bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V3.1-8bit/resolve/cd6c63546a6d33a8cc75158dc60d1746787306ac/config.json",
+                "config_sha256": "b840fd63f039141b6d7fb5ad1ef44ffd549ba56509c1e7ef60c700ab6b5c9d4d",
+                "architecture_type": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              },
+              "4bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V3.1-4bit/resolve/1634da2179770a14024405afa6d1e0ce70a71ff4/config.json",
+                "config_sha256": "24e101be55af313a6fa708697e715bf98fdfb633658798d6973c60a3daec1686",
+                "architecture_type": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              }
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "8bit",
+              "4bit"
+            ],
+            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}",
+            "model_metadata_by_quantization": {
+              "8bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V3.1-8bit/resolve/master/config.json",
+                "config_sha256": "b840fd63f039141b6d7fb5ad1ef44ffd549ba56509c1e7ef60c700ab6b5c9d4d",
+                "architecture_type": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              },
+              "4bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V3.1-4bit/resolve/master/config.json",
+                "config_sha256": "24e101be55af313a6fa708697e715bf98fdfb633658798d6973c60a3daec1686",
+                "architecture_type": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              }
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}  {% set add_generation_prompt = false %}{% endif %}{% if not thinking is defined %}  {% set thinking = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, system_prompt='', is_first_sp=true, is_last_user=false) %}{%- for message in messages %}  {%- if message['role'] == 'system' %}    {%- if ns.is_first_sp %}      {% set ns.system_prompt = ns.system_prompt + message['content'] %}      {% set ns.is_first_sp = false %}    {%- else %}      {% set ns.system_prompt = ns.system_prompt + '\n\n' + message['content'] %}    {%- endif %}  {%- endif %}{%- endfor %}{% if tools is defined and tools is not none %}  {% set tool_ns = namespace(text='## Tools\nYou have access to the following tools:\n') %}  {% for tool in tools %}    {% set tool_ns.text = tool_ns.text + '\n### ' + tool.function.name + '\nDescription: ' + tool.function.description + '\n\nParameters: ' + (tool.function.parameters | tojson) + '\n' %}  {% endfor %}  {% set tool_ns.text = tool_ns.text + \"\nIMPORTANT: ALWAYS adhere to this exact format for tool use:\n<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>tool_call_name<｜tool▁sep｜>tool_call_arguments<｜tool▁call▁end｜>{{additional_tool_calls}}<｜tool▁calls▁end｜>\n\nWhere:\n\n- `tool_call_name` must be an exact match to one of the available tools\n- `tool_call_arguments` must be valid JSON that strictly follows the tool's Parameters Schema\n- For multiple tool calls, chain them directly without separators or spaces\n\" %}  {% set ns.system_prompt = ns.system_prompt + '\n\n' + tool_ns.text %}{% endif %}{{ bos_token }}{{ ns.system_prompt }}{%- for message in messages %}  {%- if message['role'] == 'user' %}    {%- set ns.is_tool = false -%}    {%- set ns.is_first = false -%}    {%- set ns.is_last_user = true -%}    {{'<｜User｜>' + message['content']}}  {%- endif %}  {%- if message['role'] == 'assistant' and message['tool_calls'] is defined and message['tool_calls'] is not none %}    {%- if ns.is_last_user %}      {{'<｜Assistant｜></think>'}}    {%- endif %}    {%- set ns.is_last_user = false -%}    {%- set ns.is_first = false %}    {%- set ns.is_tool = false -%}    {%- for tool in message['tool_calls'] %}      {%- if not ns.is_first %}        {%- if message['content'] is none %}          {{'<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments']|tojson + '<｜tool▁call▁end｜>'}}        {%- else %}          {{message['content'] + '<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments']|tojson + '<｜tool▁call▁end｜>'}}        {%- endif %}        {%- set ns.is_first = true -%}      {%- else %}        {{'<｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments']|tojson + '<｜tool▁call▁end｜>'}}      {%- endif %}    {%- endfor %}    {{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}  {%- endif %}  {%- if message['role'] == 'assistant' and (message['tool_calls'] is not defined or message['tool_calls'] is none) %}    {%- if ns.is_last_user %}      {{'<｜Assistant｜>'}}      {%- if message['prefix'] is defined and message['prefix'] and thinking %}        {{'<think>'}}        {%- else %}        {{'</think>'}}      {%- endif %}    {%- endif %}    {%- set ns.is_last_user = false -%}    {%- if ns.is_tool %}      {{message['content'] + '<｜end▁of▁sentence｜>'}}      {%- set ns.is_tool = false -%}    {%- else %}      {%- set content = message['content'] -%}      {%- if '</think>' in content %}        {%- set content = content.split('</think>', 1)[1] -%}      {%- endif %}      {{content + '<｜end▁of▁sentence｜>'}}    {%- endif %}  {%- endif %}  {%- if message['role'] == 'tool' %}    {%- set ns.is_last_user = false -%}    {%- set ns.is_tool = true -%}    {{'<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}  {%- endif %}{%- endfor -%}{%- if add_generation_prompt and ns.is_last_user and not ns.is_tool %}  {{'<｜Assistant｜>'}}  {%- if not thinking %}    {{'</think>'}}  {%- else %}    {{'<think>'}}  {%- endif %}{% endif %}",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "tool_parser": "deepseek-v3.1",
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "updated_at": 1771925175,
+    "featured": false,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ],
+    "model_type": "deepseek_v3"
+  }
+]

@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import base64
-import io
-import warnings
+"""SD WebUI request orchestration on top of the community image pipelines."""
 
-from PIL import Image, ImageOps
+import asyncio
+import inspect
+import math
+import time
+from contextlib import nullcontext
+
+from PIL import ImageOps
 
 
 class SDAPIToDiffusersConverter:
@@ -24,10 +28,20 @@ class SDAPIToDiffusersConverter:
         "prompt",
         "negative_prompt",
         "seed",
+        "subseed",
+        "subseed_strength",
+        "seed_resize_from_h",
+        "seed_resize_from_w",
         "width",
         "height",
         "sampler_name",
+        "scheduler",
+        "enable_hr",
+        "hr_scale",
+        "hr_upscaler",
+        "hr_second_pass_steps",
         "progressor",
+        "request_id",
     }
     txt2img_arg_mapping = {
         "steps": "num_inference_steps",
@@ -38,10 +52,19 @@ class SDAPIToDiffusersConverter:
         "prompt",
         "negative_prompt",
         "seed",
+        "subseed",
+        "subseed_strength",
+        "seed_resize_from_h",
+        "seed_resize_from_w",
         "width",
         "height",
         "sampler_name",
+        "scheduler",
+        "resize_mode",
+        "mask_blur",
+        "inpainting_mask_invert",
         "progressor",
+        "request_id",
     }
     img2img_arg_mapping = {
         "init_images": "image",
@@ -75,93 +98,391 @@ class SDAPIToDiffusersConverter:
         return identical_args.union(mapping_args)
 
 
+class _NoProgress(nullcontext):
+    request_id = None
+
+    def split_stages(self, *args, **kwargs):
+        pass
+
+    def set_progress(self, *args, **kwargs):
+        pass
+
+
 class SDAPIDiffusionModelMixin:
     @staticmethod
-    def _check_kwargs(sd_type: str, kwargs: dict):
-        available_args = SDAPIToDiffusersConverter.get_available_args(sd_type)
-        unknown_args = []
-        available_kwargs = {}
-        for arg, value in kwargs.items():
-            if arg in available_args:
-                available_kwargs[arg] = value
-            else:
-                unknown_args.append(arg)
-        if unknown_args:
-            warnings.warn(
-                f"Some args are not supported for now and will be ignored: {unknown_args}"
-            )
+    def _decode_b64_img(value):
+        from .utils import decode_base64_to_image
 
-        converted_kwargs = SDAPIToDiffusersConverter.convert_to_diffusers(
-            sd_type, available_kwargs
-        )
-
-        width, height = converted_kwargs.pop("width", None), converted_kwargs.pop(
-            "height", None
-        )
-        if width and height:
-            converted_kwargs["size"] = f"{width}*{height}"
-
-        return converted_kwargs
-
-    def txt2img(self, **kwargs):
-        converted_kwargs = self._check_kwargs("txt2img", kwargs)
-        result = self.text_to_image(response_format="b64_json", **converted_kwargs)  # type: ignore
-
-        # convert to SD API result
-        return {
-            "images": [r["b64_json"] for r in result["data"]],
-            "info": {"created": result["created"]},
-            "parameters": {},
-        }
+        return decode_base64_to_image(value)
 
     @staticmethod
-    def _decode_b64_img(img_str: str) -> Image:
-        # img_str in a format: "data:image/png;base64," + raw_b64_img(image)
-        f, data = img_str.split(",", 1)
-        f, encode_type = f.split(";", 1)
-        assert encode_type == "base64"
-        f = f.split("/", 1)[1]
-        b = base64.b64decode(data)
-        return Image.open(io.BytesIO(b), formats=[f])
-
-    def img2img(self, **kwargs):
-        init_images = kwargs.pop("init_images", [])
-        kwargs["init_images"] = init_images = [
-            self._decode_b64_img(i) for i in init_images
-        ]
-        if len(init_images) == 1:
-            kwargs["init_images"] = init_images[0]
-        mask_image = kwargs.pop("mask", None)
-        if mask_image:
-            if kwargs.pop("inpainting_mask_invert"):
-                mask_image = ImageOps.invert(mask_image)
-
-            kwargs["mask"] = self._decode_b64_img(mask_image)
-
-            # process inpaint_full_res and inpaint_full_res_padding
-            if kwargs.pop("inpaint_full_res", None):
-                kwargs["inpaint_full_res_padding"] = kwargs.pop(
+    def _check_kwargs(sd_type: str, kwargs: dict):
+        available = SDAPIToDiffusersConverter.get_available_args(sd_type)
+        converted = SDAPIToDiffusersConverter.convert_to_diffusers(
+            sd_type,
+            {k: v for k, v in kwargs.items() if k in available and v is not None},
+        )
+        if sd_type == "img2img":
+            # Diffusers enables mask cropping even when padding is zero.
+            if kwargs.get("mask") and kwargs.get("inpaint_full_res"):
+                converted["padding_mask_crop"] = kwargs.get(
                     "inpaint_full_res_padding", 0
                 )
             else:
-                # inpaint_full_res_padding is turned `into padding_mask_crop`
-                # in diffusers, if padding_mask_crop is passed, it will do inpaint_full_res
-                # so if not inpaint_full_rs, we need to pop this option
-                kwargs.pop("inpaint_full_res_padding", None)
+                converted.pop("padding_mask_crop", None)
+        width = converted.pop("width", 512)
+        height = converted.pop("height", 512)
+        if min(width, height) < 8:
+            raise ValueError("Image dimensions must be at least 8 pixels")
+        converted["size"] = f"{width // 8 * 8}*{height // 8 * 8}"
+        scheduler = (converted.get("scheduler") or "automatic").lower()
+        if scheduler == "automatic":
+            scheduler = {
+                "DPM++ 2M": "karras",
+                "DPM++ SDE": "karras",
+                "DPM++ 2M SDE": "exponential",
+                "DPM2": "karras",
+                "DPM2 a": "karras",
+            }.get(converted.get("sampler_name") or "", "automatic")
+        converted["scheduler"] = scheduler
+        return converted
 
-        clip_skip = kwargs.get("override_settings", {}).get("clip_skip")
-        converted_kwargs = self._check_kwargs("img2img", kwargs)
-        if clip_skip:
-            converted_kwargs["clip_skip"] = clip_skip
+    @staticmethod
+    async def _sdapi_call(fn, **kwargs):
+        import threading
 
-        if not converted_kwargs.get("mask_image"):
-            result = self.image_to_image(response_format="b64_json", **converted_kwargs)  # type: ignore
+        cancelled = kwargs["_cancel_event"] = threading.Event()
+        operation = (
+            fn(**kwargs)
+            if inspect.iscoroutinefunction(fn)
+            else asyncio.to_thread(fn, **kwargs)
+        )
+        task = asyncio.create_task(operation)
+        try:
+            return await asyncio.shield(task)
+        except asyncio.CancelledError:
+            cancelled.set()
+            # Keep the actor's serialization lock until the pipeline has stopped.
+            try:
+                await task
+            except Exception:
+                pass
+            raise
+
+    async def txt2img(self, **kwargs):
+        return await self._sdapi_generate("txt2img", kwargs)
+
+    async def img2img(self, **kwargs):
+        return await self._sdapi_generate("img2img", kwargs)
+
+    async def _basic_sdapi_generate(self, sd_type, params):
+        # Preserve SDAPI access to other community image engines, including MLX.
+        if (
+            params.get("enable_hr")
+            or params.get("alwayson_scripts")
+            or params.get("subseed_strength")
+        ):
+            raise ValueError(
+                "SD WebUI extensions require a Stable Diffusion or SDXL model"
+            )
+        kwargs = self._check_kwargs(sd_type, params)
+        for key in (
+            "subseed",
+            "subseed_strength",
+            "seed_resize_from_h",
+            "seed_resize_from_w",
+            "enable_hr",
+            "hr_scale",
+            "hr_upscaler",
+            "hr_second_pass_steps",
+        ):
+            kwargs.pop(key, None)
+        kwargs["progressor"] = params.get("progressor") or _NoProgress()
+        if sd_type == "txt2img":
+            method = self.text_to_image
         else:
-            result = self.inpainting(response_format="b64_json", **converted_kwargs)  # type: ignore
-
-        # convert to SD API result
+            images = [
+                self._decode_b64_img(value) for value in params.get("init_images", [])
+            ]
+            if not images:
+                raise ValueError("init_images must contain at least one image")
+            kwargs["image"] = images[0] if len(images) == 1 else images
+            if params.get("mask"):
+                kwargs["mask_image"] = self._decode_b64_img(params["mask"]).convert("L")
+                if params.get("inpainting_mask_invert"):
+                    kwargs["mask_image"] = ImageOps.invert(kwargs["mask_image"])
+                method = self.inpainting
+            else:
+                method = self.image_to_image
+        result = await self._sdapi_call(method, response_format="b64_json", **kwargs)
         return {
-            "images": [r["b64_json"] for r in result["data"]],
+            "images": [item["b64_json"] for item in result["data"]],
             "info": {"created": result["created"]},
             "parameters": {},
         }
+
+    async def _sdapi_generate(self, sd_type, params):
+        if getattr(self._model_spec, "model_base", None) not in (
+            "SD 1.5",
+            "SD 2.0",
+            "SD 2.1",
+            "SDXL",
+        ):
+            return await self._basic_sdapi_generate(sd_type, params)
+
+        from .lora import process_loras
+        from .prompt_converter import gen_prompt_embeds
+        from .rng import create_generator
+        from .utils import (
+            create_binary_mask,
+            encode_pil_to_base64,
+            get_fixed_seed,
+            resize_image,
+        )
+
+        defaults = dict(
+            prompt="",
+            negative_prompt="",
+            width=512,
+            height=512,
+            seed=-1,
+            subseed=-1,
+            subseed_strength=0.0,
+            seed_resize_from_h=0,
+            seed_resize_from_w=0,
+            batch_size=1,
+            n_iter=1,
+            cfg_scale=7.0,
+            enable_hr=False,
+            hr_scale=2.0,
+            hr_upscaler="Latent",
+            hr_second_pass_steps=0,
+            resize_mode=0,
+            mask_blur=0,
+            inpainting_mask_invert=0,
+        )
+        defaults.update({k: v for k, v in params.items() if v is not None})
+        params = defaults
+        batch_size, n_iter = params["batch_size"], params["n_iter"]
+        if batch_size < 1 or n_iter < 1:
+            raise ValueError("batch_size and n_iter must be positive")
+        count = batch_size * n_iter
+        seed, subseed = get_fixed_seed(params["seed"]), get_fixed_seed(
+            params["subseed"]
+        )
+        seeds = [
+            seed + (i if params["subseed_strength"] == 0 else 0) for i in range(count)
+        ]
+        subseeds = [subseed + i for i in range(count)]
+        settings = params.get("override_settings") or {}
+        scripts = params.get("alwayson_scripts") or {}
+        converted = self._check_kwargs(sd_type, params)
+        for key in ("enable_hr", "hr_scale", "hr_upscaler", "hr_second_pass_steps"):
+            converted.pop(key, None)
+        converted["num_inference_steps"] = params.get("steps") or (
+            getattr(self._model_spec, "default_generate_config", None) or {}
+        ).get("num_inference_steps", 20)
+        converted["strength"] = params.get("denoising_strength", 0.75)
+        if not 0 < converted["strength"] <= 1:
+            raise ValueError("denoising_strength must be greater than 0 and at most 1")
+        converted["clip_skip"] = settings.get("clip_skip", 1)
+        converted["gen_prompt_embeds"] = gen_prompt_embeds
+        lora_specs = params.pop("_sdapi_lora_specs", None)
+        if lora_specs is not None:
+            from .custom import CustomImageModelFamilyV2
+
+            lora_specs = [
+                CustomImageModelFamilyV2.parse_obj(spec) for spec in lora_specs
+            ]
+        process_loras(converted, strict=settings.get("strict", True), specs=lora_specs)
+        # An empty adapter list resets adapters enabled by the preceding SDAPI request.
+        converted.setdefault("loras", [])
+        progressor = converted["progressor"] = params.get("progressor") or _NoProgress()
+        progressor.split_stages(n_iter)
+        width, height = map(int, converted["size"].split("*"))
+        mask = None
+        if sd_type == "img2img":
+            inputs = params.get("init_images") or []
+            if not inputs:
+                raise ValueError("init_images must contain at least one image")
+            inputs = [self._decode_b64_img(value) for value in inputs]
+            if len(inputs) not in (1, batch_size):
+                raise ValueError(
+                    "init_images must contain one image or batch_size images"
+                )
+            inputs = [
+                resize_image(params["resize_mode"], image, width, height)
+                for image in inputs
+            ]
+            converted["image"] = inputs[0] if len(inputs) == 1 else inputs
+            if params.get("mask"):
+                mask = create_binary_mask(self._decode_b64_img(params["mask"]))
+                if params["inpainting_mask_invert"]:
+                    mask = ImageOps.invert(mask)
+                converted["mask_image"] = resize_image(
+                    params["resize_mode"], mask, width, height
+                )
+            converted["num_inference_steps"] = math.ceil(
+                converted["num_inference_steps"] / converted["strength"]
+            )
+        has_adetailer = bool(
+            ((scripts.get("ADetailer") or {}).get("args") or [False])[0]
+        )
+        results = []
+        for iteration in range(n_iter):
+            with progressor:
+                batch = converted.copy()
+                batch["seed"] = seeds[
+                    iteration * batch_size : (iteration + 1) * batch_size
+                ]
+                batch["subseed"] = subseeds[
+                    iteration * batch_size : (iteration + 1) * batch_size
+                ]
+                batch["generator"] = create_generator(
+                    batch["seed"][0], getattr(self, "_device", None)
+                )
+                batch["n"] = batch_size
+                hires = sd_type == "txt2img" and params["enable_hr"]
+                progressor.split_stages(1 + int(hires) + int(has_adetailer))
+                first = batch.copy()
+                if scripts.get("ControlNet") or scripts.get("controlnet"):
+                    from .controlnet import (
+                        generate_controlnet_kwargs_for_image2image,
+                        generate_controlnet_kwargs_for_text2image,
+                    )
+
+                    convert = (
+                        generate_controlnet_kwargs_for_text2image
+                        if sd_type == "txt2img"
+                        else generate_controlnet_kwargs_for_image2image
+                    )
+                    await asyncio.to_thread(convert, self._model_spec, first, scripts)
+                if hires:
+                    from .upscaler import HiResUpscaler, upscaler_preprocess
+
+                    hr_upscaler = HiResUpscaler(params["hr_upscaler"])
+                    upscaler_preprocess(hr_upscaler, first)
+                method = (
+                    self.text_to_image
+                    if sd_type == "txt2img"
+                    else (self.inpainting if mask is not None else self.image_to_image)
+                )
+                with progressor:
+                    images = await self._sdapi_call(
+                        method, _return_images=True, **first
+                    )
+                if hires:
+                    from .upscaler import upscale
+
+                    scale = params["hr_scale"]
+                    if scale < 1:
+                        raise ValueError("hr_scale must be at least 1")
+                    dest = (int(width * scale) // 8 * 8, int(height * scale) // 8 * 8)
+                    with progressor:
+                        if hr_upscaler == HiResUpscaler.none:
+                            from ._compat import LANCZOS
+
+                            images = [image.resize(dest, LANCZOS) for image in images]
+                        else:
+                            images = await asyncio.to_thread(
+                                upscale,
+                                hr_upscaler,
+                                images,
+                                scale,
+                                dest,
+                                downsample_factor=getattr(
+                                    getattr(self, "_model", None), "vae_scale_factor", 8
+                                ),
+                            )
+                        second = batch.copy()
+                        second["size"] = f"{dest[0]}*{dest[1]}"
+                        second["image"] = images
+                        second["num_inference_steps"] = math.ceil(
+                            (
+                                params["hr_second_pass_steps"]
+                                or batch["num_inference_steps"]
+                            )
+                            / batch["strength"]
+                        )
+                        if scripts.get("ControlNet") or scripts.get("controlnet"):
+                            from .controlnet import (
+                                generate_controlnet_kwargs_for_image2image,
+                            )
+
+                            second["_sdapi_hires"] = True
+                            await asyncio.to_thread(
+                                generate_controlnet_kwargs_for_image2image,
+                                self._model_spec,
+                                second,
+                                scripts,
+                            )
+                        images = await self._sdapi_call(
+                            self.image_to_image, _return_images=True, **second
+                        )
+                if has_adetailer:
+                    from .adetailer import process_adetailer
+
+                    with progressor:
+                        progressor.split_stages(len(images))
+                        enhanced = []
+                        for index, image in enumerate(images):
+                            detail = batch.copy()
+                            detail["num_inference_steps"] = params.get("steps") or 20
+                            detail.update(
+                                seed=[batch["seed"][index]],
+                                subseed=[batch["subseed"][index]],
+                                size=f"{image.width}*{image.height}",
+                            )
+                            with progressor:
+                                enhanced.append(
+                                    await self._sdapi_call(
+                                        process_adetailer,
+                                        model=self,
+                                        sd_type=sd_type,
+                                        image=image,
+                                        kwargs=detail,
+                                        alwayson_scripts=scripts,
+                                    )
+                                )
+                        images = enhanced
+                results.extend(encode_pil_to_base64(image) for image in images)
+        return {
+            "images": results,
+            "parameters": {k: v for k, v in params.items() if k != "progressor"},
+            "info": {
+                "created": int(time.time()),
+                "seed": seeds[0],
+                "all_seeds": seeds,
+                "subseed": subseeds[0],
+                "all_subseeds": subseeds,
+                "subseed_strength": params["subseed_strength"],
+                "width": width,
+                "height": height,
+                "batch_size": batch_size,
+                "prompt": params["prompt"],
+                "negative_prompt": params["negative_prompt"],
+                "all_prompts": [params["prompt"]] * count,
+                "all_negative_prompts": [params["negative_prompt"]] * count,
+            },
+        }
+
+    def controlnet_detect(self, *args, **kwargs):
+        from .controlnet import detect
+
+        return detect(*args, **kwargs)
+
+    def controlnet_model_list(self):
+        from .controlnet import list_models
+
+        return list_models(self._model_spec)  # type: ignore
+
+    @staticmethod
+    def controlnet_module_list():
+        from .controlnet import list_modules
+
+        return list_modules()
+
+    def controlnet_control_types(self):
+        from .controlnet import control_types
+
+        return control_types(self._model_spec)  # type: ignore

@@ -12,8 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import json
+import os
 from typing import Any, AsyncIterator, Iterator, Union
+
+
+def encode_world_reference(reference: Union[str, bytes], media_type: str) -> str:
+    if isinstance(reference, str) and not os.path.isfile(reference):
+        return reference
+    if isinstance(reference, str):
+        with open(reference, "rb") as reference_file:
+            data = reference_file.read()
+    elif isinstance(reference, bytes):
+        data = reference
+    else:
+        raise TypeError("World generation references must be strings or bytes")
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:{media_type};base64,{encoded}"
 
 
 def convert_float_to_int_or_str(model_size: float) -> Union[int, str]:
@@ -64,7 +80,7 @@ def streaming_response_iterator(
 
 
 async def async_streaming_response_iterator(
-    response_lines: AsyncIterator[bytes],
+    response_or_lines: Any,
 ) -> AsyncIterator[Any]:
     """
     Create an AsyncIterator to handle the streaming type of generation.
@@ -76,8 +92,8 @@ async def async_streaming_response_iterator(
 
     Parameters
     ----------
-    response_lines: AsyncIterator[bytes]
-        Generated lines by the Model Generator.
+    response_or_lines: aiohttp.ClientResponse or AsyncIterator[bytes]
+        The owning HTTP response, or generated lines for compatibility.
 
     Returns
     -------
@@ -86,14 +102,26 @@ async def async_streaming_response_iterator(
 
     """
 
-    async for line in response_lines:
-        line = line.strip()
-        if line.startswith(b"data:"):
-            json_str = line[len(b"data:") :].strip()
-            if json_str == b"[DONE]":
-                continue
-            data = json.loads(json_str.decode("utf-8"))
-            error = data.get("error", None)
-            if error is not None:
-                raise Exception(str(error))
-            yield data
+    response = (
+        response_or_lines
+        if hasattr(response_or_lines, "content")
+        and hasattr(response_or_lines, "release")
+        else None
+    )
+    response_lines = response.content if response is not None else response_or_lines
+    try:
+        async for line in response_lines:
+            line = line.strip()
+            if line.startswith(b"data:"):
+                json_str = line[len(b"data:") :].strip()
+                if json_str == b"[DONE]":
+                    continue
+                data = json.loads(json_str.decode("utf-8"))
+                error = data.get("error", None)
+                if error is not None:
+                    raise Exception(str(error))
+                yield data
+    finally:
+        if response is not None:
+            response.release()
+            await response.wait_for_close()

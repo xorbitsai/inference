@@ -264,13 +264,14 @@ This issue has three contributing factors:
 
 1. **Binary Incompatibility**: vLLM versions before 0.12.0 were compiled against PyTorch 2.8.0. These versions are incompatible with PyTorch 2.9. Reference: `vLLM v0.12.0 Release Notes <https://github.com/vllm-project/vllm/releases/tag/v0.12.0>`_
 
-2. **Xinference's Unbounded Torch Dependency**: Xinference's ``setup.cfg`` does not specify an upper bound for PyTorch:
+2. **Xinference's Unbounded Torch Dependency**: Xinference's ``pyproject.toml`` does not specify an upper bound for PyTorch:
 
-   .. code-block:: ini
+   .. code-block:: toml
 
-      [options]
-      install_requires =
-          torch                    # No version constraint!
+      [project]
+      dependencies = [
+          "torch",                 # No version constraint!
+      ]
 
    This allows package managers to upgrade PyTorch to incompatible versions.
 

@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import type { TFunc } from '@/contexts/i18n-context';
 
 import type { FileUploadValue } from '@/types/common';
 import type { ModelAbility } from '@/constants';
@@ -15,6 +16,8 @@ export interface CapabilityFormProps {
   form: FormInstance;
   model: RunningModelDetail;
   modelUid: string;
+  /** Optional action controls rendered alongside the form fields. */
+  actions?: ReactNode;
 }
 
 export interface CapabilityResultProps {
@@ -30,19 +33,27 @@ export interface TransformContext {
   model: RunningModelDetail;
   values: FormValues;
   requestId?: string;
+  t?: TFunc;
 }
 
 export interface CapabilityConfig {
   ability: ModelAbility;
   label: string;
+  labelKey?: string;
+  descriptionKey?: string;
   icon: LucideIcon;
   requestApi: string;
   initialValues?: FormValues;
   showProgress?: boolean;
+  stream?: boolean;
+  submitLabel?: string;
+  submitLabelKey?: string;
   formPanel: ComponentType<CapabilityFormProps>;
   resultPanel: ComponentType<CapabilityResultProps>;
-  transformValues: (context: TransformContext) => BodyInit | Record<string, unknown>;
-  responseType?: 'blob';
+  transformValues: (
+    context: TransformContext
+  ) => BodyInit | Record<string, unknown> | Promise<BodyInit | Record<string, unknown>>;
+  responseType?: 'blob' | 'audio-stream';
   codeExample?: CodeExampleConfig;
 }
 

@@ -12,8 +12,15 @@ Kokoro-82M
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** hexgrad/Kokoro-82M
+- **PyTorch model ID:** hexgrad/Kokoro-82M
+- **MLX model ID:** prince-canuma/Kokoro-82M
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name Kokoro-82M --model-type audio
+   xinference launch --model-name Kokoro-82M --model-type audio --model-engine PyTorch
+
+Available engines
+^^^^^^^^^^^^^^^^^
+
+* ``PyTorch``
+* ``MLX``

@@ -14,6 +14,11 @@ export const ALL_PERMISSIONS = [
   'models:list',
   'models:read',
   'models:write',
+  'models:register',
+  'routers:list',
+  'routers:read',
+  'routers:write',
+  'routers:operate',
   'keys:create',
   'keys:manage',
   'users:manage',
@@ -21,6 +26,11 @@ export const ALL_PERMISSIONS = [
   'cache:delete',
   'virtualenv:list',
   'virtualenv:delete',
+  'logs:list',
+  'model_requests:read_body',
+  'monitor:view',
+  'settings:read',
+  'settings:write',
 ];
 
 const PERMISSION_GROUPS = [
@@ -30,7 +40,11 @@ const PERMISSION_GROUPS = [
   },
   {
     key: 'models',
-    permissions: ['models:list', 'models:read', 'models:write'],
+    permissions: ['models:list', 'models:read', 'models:write', 'models:register'],
+  },
+  {
+    key: 'routers',
+    permissions: ['routers:list', 'routers:read', 'routers:write', 'routers:operate'],
   },
   {
     key: 'keys',
@@ -47,6 +61,18 @@ const PERMISSION_GROUPS = [
   {
     key: 'virtualenv',
     permissions: ['virtualenv:list', 'virtualenv:delete'],
+  },
+  {
+    key: 'logs',
+    permissions: ['logs:list', 'model_requests:read_body'],
+  },
+  {
+    key: 'monitor',
+    permissions: ['monitor:view'],
+  },
+  {
+    key: 'settings',
+    permissions: ['settings:read', 'settings:write'],
   },
 ];
 

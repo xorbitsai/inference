@@ -1,0 +1,165 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""In-tree PEP 517 build backend.
+
+Wraps ``setuptools.build_meta`` to run three extra steps before producing
+wheels, sdists, and editable installs:
+
+- validate the built-in model metadata (set
+  ``XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1`` only for a partial source tree
+  used to install dependencies; the complete project build must still validate);
+- build the Web UI (see ``build_web.py``; set ``NO_WEB_UI=1`` to skip);
+- record the full git revision in ``xinference/_commit.py`` so the
+  ``/v1/cluster/version`` API keeps exposing the 40-character SHA that the
+  versioneer-era ``full-revisionid`` field carried. The revision comes from
+  the source tree's own git checkout, or from the expanded
+  ``.git_archival.txt`` when building from a git archive; when neither is
+  available (e.g. building a wheel from an sdist), an existing recorded
+  file is kept as-is.
+"""
+
+import importlib.util
+import os
+import re
+import subprocess
+
+from setuptools import build_meta as _build_meta
+from setuptools.build_meta import *  # noqa: F401,F403
+
+from build_web import build_web
+
+_repo_root = os.path.dirname(os.path.abspath(__file__))
+_FULL_SHA = re.compile(r"[0-9a-f]{40}")
+
+
+def _validate_builtin_model_specs(root=None):
+    """Reject malformed built-in model metadata before packaging it."""
+    root = root or _repo_root
+    relative_path = os.path.join("xinference", "model", "llm", "models")
+    path = os.path.join(root, relative_path)
+    if not os.path.exists(path):
+        # Accept legacy source trees as well as the split catalog layout.
+        relative_path = os.path.join("xinference", "model", "llm", "llm_family.json")
+        path = os.path.join(root, relative_path)
+
+    try:
+        # Do not import xinference: isolated builds have no runtime dependencies.
+        spec = importlib.util.spec_from_file_location(
+            "_model_catalog",
+            os.path.join(_repo_root, "xinference", "_model_catalog.py"),
+        )
+        catalog = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(catalog)
+        families = catalog.load_model_catalog(path)
+    except (OSError, ValueError) as exc:
+        raise RuntimeError(f"Cannot validate {relative_path}: {exc}") from exc
+
+    if not isinstance(families, list):
+        raise RuntimeError(f"{relative_path} must contain a list of model families")
+
+    invalid_families = []
+    for index, family in enumerate(families):
+        if not isinstance(family, dict):
+            invalid_families.append(f"entry {index}")
+        elif not isinstance(family.get("model_specs"), list):
+            invalid_families.append(family.get("model_name") or f"entry {index}")
+
+    if invalid_families:
+        names = ", ".join(repr(name) for name in invalid_families)
+        raise RuntimeError(
+            f"Invalid LLM families {names} in {relative_path}: "
+            "each entry must define 'model_specs' as a list"
+        )
+
+
+def _git_head_revision(root):
+    """Return HEAD's SHA only when ``root`` itself is the checkout's toplevel.
+
+    ``git rev-parse`` walks up parent directories, so an sdist or archive
+    extracted inside an unrelated repository would otherwise be attributed
+    to that enclosing repository's commit.
+    """
+
+    def _git(*args):
+        return subprocess.run(
+            ["git", *args], cwd=root, capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+    try:
+        toplevel = _git("rev-parse", "--show-toplevel")
+        if os.path.normcase(os.path.realpath(toplevel)) != os.path.normcase(
+            os.path.realpath(root)
+        ):
+            return None
+        sha = _git("rev-parse", "HEAD")
+    except Exception:
+        return None
+    return sha if _FULL_SHA.fullmatch(sha) else None
+
+
+def _archival_revision(root):
+    """Return the ``node:`` SHA from an export-subst expanded archival file.
+
+    In a plain checkout the placeholders are unexpanded and no SHA matches.
+    """
+    try:
+        with open(os.path.join(root, ".git_archival.txt")) as f:
+            for line in f:
+                if line.startswith("node:"):
+                    node = line.split(":", 1)[1].strip()
+                    if _FULL_SHA.fullmatch(node):
+                        return node
+    except OSError:
+        pass
+    return None
+
+
+def _record_full_revision(root=None):
+    root = root or _repo_root
+    sha = _git_head_revision(root) or _archival_revision(root)
+    if sha is None:
+        # e.g. building from an sdist: keep the file recorded at sdist time
+        return
+    with open(os.path.join(root, "xinference", "_commit.py"), "w") as f:
+        f.write(
+            "# file generated by the xinference build backend; do not edit\n"
+            f'full_revisionid = "{sha}"\n'
+        )
+
+
+def _pre_build():
+    skip_model_spec_validation = os.environ.get(
+        "XINFERENCE_SKIP_MODEL_SPEC_VALIDATION", "0"
+    ).strip().lower() in ("1", "true", "yes", "on")
+    if not skip_model_spec_validation:
+        _validate_builtin_model_specs()
+    _record_full_revision()
+    build_web()
+
+
+def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
+    _pre_build()
+    return _build_meta.build_wheel(wheel_directory, config_settings, metadata_directory)
+
+
+def build_sdist(sdist_directory, config_settings=None):
+    _pre_build()
+    return _build_meta.build_sdist(sdist_directory, config_settings)
+
+
+def build_editable(wheel_directory, config_settings=None, metadata_directory=None):
+    _pre_build()
+    return _build_meta.build_editable(
+        wheel_directory, config_settings, metadata_directory
+    )

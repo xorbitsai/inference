@@ -13,8 +13,8 @@ diffusers>=0.32.0
 gdown
 pyarrow
 HyperPyYAML
-onnxruntime-gpu==1.16.0; sys_platform == 'linux'
-onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'
+# CPU-only runtime with Python 3.12 wheels; do not install onnxruntime-gpu here.
+onnxruntime==1.30.0
 pyworld>=0.3.4  # For CosyVoice
 
 # Fish Speech
@@ -86,5 +86,7 @@ ffmpy  # audiotools' core.ffmpeg imports this unconditionally
 
 # Others
 funasr==1.2.7
-nemo_text_processing<1.1.0  # 1.1.0 requires pynini==2.1.6.post1
-WeTextProcessing<1.0.4  # 1.0.4 requires pynini==2.1.6
+# Compatible text normalization stack with Linux/Python 3.12 Pynini wheels.
+nemo_text_processing==1.1.0
+WeTextProcessing==1.2.0
+pynini==2.1.6.post1

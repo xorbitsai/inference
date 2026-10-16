@@ -13,14 +13,14 @@
 # limitations under the License.
 
 import asyncio
-import json
 import logging
 import multiprocessing
 import os
 import signal
+import socket
 import sys
-import tempfile
-from typing import Dict, Optional
+from contextlib import ExitStack
+from typing import Dict, Iterator, Optional, Tuple
 
 import pytest
 import xoscar as xo
@@ -29,11 +29,15 @@ import xoscar as xo
 if os.environ.get("GITHUB_ACTIONS"):
     os.environ["XINFERENCE_DISABLE_HEALTH_CHECK"] = "1"
 
-from .api.oauth2.types import AuthConfig, AuthStartupConfig, User
 from .constants import XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
 from .core.supervisor import SupervisorActor
 from .deploy.utils import create_worker_actor_pool, get_log_file, get_timestamp_ms
 from .deploy.worker import start_worker_components
+
+# Vendored modules may be named test_*.py without being Xinference tests.
+# Do not import optional third-party frameworks during test collection.
+collect_ignore = ["thirdparty"]
+
 
 TEST_LOGGING_CONF = {
     "version": 1,
@@ -128,12 +132,14 @@ def api_health_check(endpoint: str, max_attempts: int, sleep_interval: int = 3):
 async def _start_test_cluster(
     address: str,
     logging_conf: Optional[Dict] = None,
+    use_test_pool: bool = True,
 ):
     logging.config.dictConfig(logging_conf)  # type: ignore
     pool = None
     try:
         pool = await create_worker_actor_pool(
-            address=f"test://{address}", logging_conf=logging_conf
+            address=f"test://{address}" if use_test_pool else address,
+            logging_conf=logging_conf,
         )
         await xo.create_actor(
             SupervisorActor, address=address, uid=SupervisorActor.default_uid()
@@ -152,32 +158,54 @@ async def _start_test_cluster(
             await pool.stop()
 
 
-def run_test_cluster(address: str, logging_conf: Optional[Dict] = None):
+def run_test_cluster(
+    address: str,
+    logging_conf: Optional[Dict] = None,
+    use_test_pool: bool = True,
+):
     def sigterm_handler(signum, frame):
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    loop = asyncio.get_event_loop()
-    task = loop.create_task(
-        _start_test_cluster(address=address, logging_conf=logging_conf)
+    asyncio.run(
+        _start_test_cluster(
+            address=address, logging_conf=logging_conf, use_test_pool=use_test_pool
+        )
     )
-    loop.run_until_complete(task)
 
 
 def run_test_cluster_in_subprocess(
-    address: str, logging_conf: Optional[Dict] = None
+    address: str,
+    logging_conf: Optional[Dict] = None,
+    use_test_pool: bool = True,
 ) -> multiprocessing.Process:
     # prevent re-init cuda error.
     multiprocessing.set_start_method(method="spawn", force=True)
 
-    p = multiprocessing.Process(target=run_test_cluster, args=(address, logging_conf))
+    p = multiprocessing.Process(
+        target=run_test_cluster, args=(address, logging_conf, use_test_pool)
+    )
     p.start()
     return p
 
 
-@pytest.fixture
-def setup():
+def _get_test_port() -> int:
+    # Let the OS choose a bindable port, including on Windows where netstat
+    # does not list excluded/reserved port ranges. Use the same IPv4 interface
+    # for port selection and both test servers.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def _stop_test_process(process: multiprocessing.Process) -> None:
+    if process.is_alive():
+        process.kill()
+    process.join(timeout=10)
+
+
+def _setup_cluster(use_test_pool: bool = True) -> Iterator[Tuple[str, str]]:
     from .api.restful_api import run_in_subprocess as run_restful_api
     from .deploy.utils import health_check as cluster_health_check
 
@@ -188,29 +216,40 @@ def setup():
     # before any subprocess (which inherits this env) is started.
     os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
-    supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
-    local_cluster_proc = run_test_cluster_in_subprocess(
-        supervisor_addr, TEST_LOGGING_CONF
-    )
-    if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
-        raise RuntimeError("Cluster is not available after multiple attempts")
+    with ExitStack() as cleanup:
+        supervisor_addr = f"127.0.0.1:{_get_test_port()}"
+        local_cluster_proc = run_test_cluster_in_subprocess(
+            supervisor_addr, TEST_LOGGING_CONF, use_test_pool
+        )
+        cleanup.callback(_stop_test_process, local_cluster_proc)
+        if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
+            raise RuntimeError("Cluster is not available after multiple attempts")
 
-    port = xo.utils.get_next_port()
-    restful_api_proc = run_restful_api(
-        supervisor_addr,
-        host="localhost",
-        port=port,
-        logging_conf=TEST_LOGGING_CONF,
-    )
-    endpoint = f"http://localhost:{port}"
-    if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
-        raise RuntimeError("Endpoint is not available after multiple attempts")
+        port = _get_test_port()
+        restful_api_proc = run_restful_api(
+            supervisor_addr,
+            host="127.0.0.1",
+            port=port,
+            logging_conf=TEST_LOGGING_CONF,
+        )
+        cleanup.callback(_stop_test_process, restful_api_proc)
+        endpoint = f"http://127.0.0.1:{port}"
+        if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
+            raise RuntimeError("Endpoint is not available after multiple attempts")
 
-    try:
-        yield f"http://localhost:{port}", supervisor_addr
-    finally:
-        local_cluster_proc.kill()
-        restful_api_proc.kill()
+        yield f"http://127.0.0.1:{port}", supervisor_addr
+
+
+@pytest.fixture
+def setup():
+    yield from _setup_cluster()
+
+
+@pytest.fixture
+def setup_real_actor_pool() -> Iterator[Tuple[str, str]]:
+    # The in-process test pool ignores start_python and cannot exercise
+    # models whose virtualenv dependencies differ from the host environment.
+    yield from _setup_cluster(use_test_pool=False)
 
 
 @pytest.fixture
@@ -225,98 +264,25 @@ def setup_with_file_logging():
     # before any subprocess (which inherits this env) is started.
     os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
-    supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
-    local_cluster_proc = run_test_cluster_in_subprocess(
-        supervisor_addr, TEST_FILE_LOGGING_CONF
-    )
-    if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
-        raise RuntimeError("Cluster is not available after multiple attempts")
+    with ExitStack() as cleanup:
+        supervisor_addr = f"127.0.0.1:{_get_test_port()}"
+        local_cluster_proc = run_test_cluster_in_subprocess(
+            supervisor_addr, TEST_FILE_LOGGING_CONF
+        )
+        cleanup.callback(_stop_test_process, local_cluster_proc)
+        if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
+            raise RuntimeError("Cluster is not available after multiple attempts")
 
-    port = xo.utils.get_next_port()
-    restful_api_proc = run_restful_api(
-        supervisor_addr,
-        host="localhost",
-        port=port,
-        logging_conf=TEST_FILE_LOGGING_CONF,
-    )
-    endpoint = f"http://localhost:{port}"
-    if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
-        raise RuntimeError("Endpoint is not available after multiple attempts")
+        port = _get_test_port()
+        restful_api_proc = run_restful_api(
+            supervisor_addr,
+            host="127.0.0.1",
+            port=port,
+            logging_conf=TEST_FILE_LOGGING_CONF,
+        )
+        cleanup.callback(_stop_test_process, restful_api_proc)
+        endpoint = f"http://127.0.0.1:{port}"
+        if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
+            raise RuntimeError("Endpoint is not available after multiple attempts")
 
-    try:
-        yield f"http://localhost:{port}", supervisor_addr, TEST_LOG_FILE_PATH
-    finally:
-        local_cluster_proc.kill()
-        restful_api_proc.kill()
-
-
-@pytest.fixture
-def setup_with_auth():
-    from .api.restful_api import run_in_subprocess as run_restful_api
-    from .deploy.utils import health_check as cluster_health_check
-
-    logging.config.dictConfig(TEST_LOGGING_CONF)  # type: ignore
-
-    # This fixture exercises the legacy file-based auth config, which is
-    # mutually exclusive with advanced auth (on by default). Disable it
-    # before any subprocess (which inherits this env) is started.
-    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
-
-    supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
-    local_cluster_proc = run_test_cluster_in_subprocess(
-        supervisor_addr, TEST_LOGGING_CONF
-    )
-    if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
-        raise RuntimeError("Cluster is not available after multiple attempts")
-
-    user1 = User(
-        username="user1",
-        password="pass1",
-        permissions=["admin"],
-        api_keys=["sk-3sjLbdwqAhhAF", "sk-0HCRO1rauFQDL"],
-    )
-    user2 = User(
-        username="user2",
-        password="pass2",
-        permissions=["models:list"],
-        api_keys=["sk-72tkvudyGLPMi"],
-    )
-    user3 = User(
-        username="user3",
-        password="pass3",
-        permissions=["models:list", "models:read", "models:write"],
-        api_keys=["sk-m6jEzEwmCc4iQ", "sk-ZOTLIY4gt9w11"],
-    )
-    auth_config = AuthConfig(
-        algorithm="HS256",
-        secret_key="09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7",
-        token_expire_in_minutes=30,
-    )
-    startup_config = AuthStartupConfig(
-        auth_config=auth_config, user_config=[user1, user2, user3]
-    )
-    _, auth_file = tempfile.mkstemp()
-    with open(auth_file, "w") as fd:
-        fd.write(json.dumps(startup_config.dict()))
-
-    port = xo.utils.get_next_port()
-    restful_api_proc = run_restful_api(
-        supervisor_addr,
-        host="localhost",
-        port=port,
-        logging_conf=TEST_LOGGING_CONF,
-        auth_config_file=auth_file,
-    )
-    endpoint = f"http://localhost:{port}"
-    if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
-        raise RuntimeError("Endpoint is not available after multiple attempts")
-
-    try:
-        yield f"http://localhost:{port}", supervisor_addr
-    finally:
-        local_cluster_proc.kill()
-        restful_api_proc.kill()
-        try:
-            os.remove(auth_file)
-        except Exception:
-            pass
+        yield f"http://127.0.0.1:{port}", supervisor_addr, TEST_LOG_FILE_PATH

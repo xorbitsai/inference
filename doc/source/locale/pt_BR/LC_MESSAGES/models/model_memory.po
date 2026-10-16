@@ -36,8 +36,8 @@ msgid "Use algorithm from https://github.com/RahulSChand/gpu_poor"
 msgstr "Algoritmo proveniente de: https://github.com/RahulSChand/gpu_poor"
 
 #: ../../source/models/model_memory.rst:11
-msgid "Output: model_mem, kv_cache, overhead, active_mem"
-msgstr "model_mem, kv_cache, overhead, active_mem"
+msgid "Output: model_mem, kv_cache, recurrent_state_mem, prefix_cache_mem, overhead, active_mem"
+msgstr "model_mem, kv_cache, recurrent_state_mem, prefix_cache_mem, overhead, active_mem"
 
 #: ../../source/models/model_memory.rst:13
 msgid ""
@@ -149,3 +149,6 @@ msgstr ""
 "servidor HuggingFace. Por exemplo, quando a rede estiver instável, pode-se "
 "escolher hf-mirror como Endpoint. Para mais informações, consulte :ref:`este"
 " documento <models_download>`."
+
+msgid "The total includes recurrent state and retained prefix cache. Activation memory includes vision workspace when present, so vision workspace is not added again. Sliding attention uses a full-attention cache upper bound. Unsupported layouts or missing checkpoint-size facts produce an explanatory error instead of an estimate."
+msgstr "O total inclui o estado recorrente e o cache de prefixos retido. O espaço de trabalho de visão, quando presente, está incluído na memória de ativação e não é somado novamente. A atenção deslizante usa o cache de atenção completa como limite superior. Estruturas não suportadas ou dados ausentes do tamanho do checkpoint produzem um erro explicativo em vez de uma estimativa."

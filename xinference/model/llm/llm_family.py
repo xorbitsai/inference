@@ -36,9 +36,10 @@ from ..utils import (
     download_from_csghub,
     download_from_modelscope,
     download_from_openmind_hub,
-    retry_download,
+    retry_snapshot_download,
 )
 from . import LLM
+from .model_metadata import ModelMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,7 @@ def is_strict_system_first_template(chat_template: Optional[str]) -> bool:
 
 
 class LlamaCppLLMSpecV2(BaseModel):
+    model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["ggufv2"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
@@ -85,6 +87,18 @@ class LlamaCppLLMSpecV2(BaseModel):
     model_revision: Optional[str]
     # for MOE model, illustrates the activated model size
     activated_size_in_billions: Optional[Union[str, int]]
+    # see MLXLLMSpecV2 for the semantics of these. A gguf drafter is a single
+    # file, usually inside the target's own repo, hence the extra template;
+    # ``draft_model_id`` defaults to ``model_id`` when it is left out.
+    draft_model_id: Optional[str]
+    draft_model_file_name_template: Optional[str]
+    draft_quantizations: Optional[List[str]]
+    draft_model_revision: Optional[str]
+
+    class Config:
+        # Optional Union ordering may be cached as int first by Python.
+        # Keep radix strings intact until the validator normalizes sizes.
+        smart_union = True
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
@@ -99,6 +113,7 @@ class LlamaCppLLMSpecV2(BaseModel):
 
 
 class PytorchLLMSpecV2(BaseModel):
+    model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
@@ -109,6 +124,13 @@ class PytorchLLMSpecV2(BaseModel):
     model_revision: Optional[str]
     # for MOE model, illustrates the activated model size
     activated_size_in_billions: Optional[Union[str, int]]
+    # see MLXLLMSpecV2 for the semantics of these three
+    draft_model_id: Optional[str]
+    draft_quantizations: Optional[List[str]]
+    draft_model_revision: Optional[str]
+
+    class Config:
+        smart_union = True
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
@@ -123,6 +145,7 @@ class PytorchLLMSpecV2(BaseModel):
 
 
 class MLXLLMSpecV2(BaseModel):
+    model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["mlx"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
@@ -133,6 +156,18 @@ class MLXLLMSpecV2(BaseModel):
     model_revision: Optional[str]
     # for MOE model, illustrates the activated model size
     activated_size_in_billions: Optional[Union[str, int]]
+    # Paired drafter checkpoint for speculative decoding (e.g. Gemma 4 MTP),
+    # only downloaded when speculative decoding is enabled at launch time.
+    # ``draft_model_id`` may carry a ``{draft_quantization}`` placeholder filled
+    # from ``draft_quantizations``; do NOT use ``{quantization}`` here, that one
+    # is substituted with the *target* model's quantization when specs are
+    # flattened, which is unrelated to how the drafter was converted.
+    draft_model_id: Optional[str]
+    draft_quantizations: Optional[List[str]]
+    draft_model_revision: Optional[str]
+
+    class Config:
+        smart_union = True
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
@@ -402,7 +437,7 @@ def cache_model_tokenizer_and_config(
     if llm_spec.model_hub == "huggingface":
         from huggingface_hub import snapshot_download
 
-        download_dir = retry_download(
+        download_dir = retry_snapshot_download(
             snapshot_download,
             llm_family.model_name,
             {
@@ -417,7 +452,7 @@ def cache_model_tokenizer_and_config(
     elif llm_spec.model_hub == "modelscope":
         from modelscope.hub.snapshot_download import snapshot_download
 
-        download_dir = retry_download(
+        download_dir = retry_snapshot_download(
             snapshot_download,
             llm_family.model_name,
             {

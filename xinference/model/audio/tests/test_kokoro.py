@@ -14,6 +14,34 @@
 
 import os
 import tempfile
+from types import SimpleNamespace
+
+from ..kokoro import KokoroModel
+
+
+def test_kokoro_resolves_bundled_voice(tmp_path):
+    voices_dir = tmp_path / "voices"
+    voices_dir.mkdir()
+    voice_path = voices_dir / "af_sky.pt"
+    voice_path.write_bytes(b"voice")
+    model = KokoroModel(
+        "kokoro",
+        str(tmp_path),
+        SimpleNamespace(model_ability=[]),
+    )
+
+    assert model._resolve_voice("af_sky") == str(voice_path)
+
+
+def test_kokoro_preserves_explicit_and_missing_voices(tmp_path):
+    model = KokoroModel(
+        "kokoro",
+        str(tmp_path),
+        SimpleNamespace(model_ability=[]),
+    )
+
+    assert model._resolve_voice("/custom/voice.pt") == "/custom/voice.pt"
+    assert model._resolve_voice("af_missing") == "af_missing"
 
 
 def test_kokoro(setup):

@@ -5,18 +5,18 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Xinference\n"
+"Project-Id-Version:  Xinference\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: zh_TW <LL@li.org>\n"
 "Language: zh_TW\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
-"Generated-By: Babel 2.18.0\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: ../../source/getting_started/installation.rst:5
 msgid "Installation"
@@ -24,79 +24,28 @@ msgstr "安裝"
 
 #: ../../source/getting_started/installation.rst:6
 msgid ""
-"Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To "
-"run models using Xinference, you will need to install the backend "
-"corresponding to the type of model you intend to serve."
+"Install the base Xinference package with ``pip`` on Linux, Windows, or "
+"macOS::"
+msgstr "在 Linux、Windows 或 macOS 上使用 ``pip`` 安裝 Xinference 基礎套件::"
+
+#: ../../source/getting_started/installation.rst:10
+msgid ""
+"Model virtual environments install supported engine dependencies on demand. "
+"To install a backend manually, use its corresponding extra; see "
+":ref:`inference_backend`."
 msgstr ""
-"Xinference 在 Linux, Windows, MacOS 上都可以透過 ``pip`` 來安裝。如果需要使用 Xinference "
-"進行模型推理，可以根據不同的模型指定不同的引擎。"
+"模型虛擬環境會按需安裝支援的推論引擎相依套件。若要手動安裝後端，請使用對應的 extra；詳見 :ref:`inference_backend`。"
 
-#: ../../source/getting_started/installation.rst:8
+#: ../../source/getting_started/installation.rst:127
 msgid ""
-"If you aim to serve all supported models, you can install all the necessary "
-"dependencies with a single command::"
-msgstr "如果你希望能夠推理所有支援的模型，可以使用以下命令安裝所有需要的依賴::"
-
-#: ../../source/getting_started/installation.rst:14
-msgid ""
-"Due to irreconcilable package dependency conflicts between vLLM and sglang, "
-"we have removed sglang from the all extra. If you want to use sglang, please"
-" install it separately via ``pip install 'xinference[sglang]'``."
-msgstr ""
-"由於 vllm 和 sglang 在套件相依性上無法調和，因此我們從 all 中移除了 sglang，若需使用 sglang，請使用 ``pip "
-"install 'xinference[sglang]'``。"
-
-#: ../../source/getting_started/installation.rst:17
-msgid "Several usage scenarios require special attention."
-msgstr "某些使用場景需要特別注意。"
-
-#: ../../source/getting_started/installation.rst:19
-msgid "**GGUF format** with **llama.cpp engine**"
-msgstr "**GGUF 格式** 配合 **llama.cpp 引擎** 使用"
-
-#: ../../source/getting_started/installation.rst:21
-msgid ""
-"In this situation, it's advised to install its dependencies manually based "
-"on your hardware specifications to enable acceleration. For more details, "
-"see the :ref:`installation_gguf` section."
-msgstr "在這種情況下，建議根據您的硬體規格手動安裝其依賴項以啟用加速。更多詳情請參閱 :ref:`installation_gguf` 部分。"
-
-#: ../../source/getting_started/installation.rst:23
-msgid "**AWQ or GPTQ** format with **transformers engine**"
-msgstr "**AWQ 或 GPTQ 格式** 搭配 **transformers 引擎** 使用"
-
-#: ../../source/getting_started/installation.rst:25
-msgid "**This section is added in v1.6.0.**"
-msgstr "**本節內容新增於 v1.6.0。**"
-
-#: ../../source/getting_started/installation.rst:27
-msgid ""
-"This is because the dependencies at this stage require special options and "
-"are difficult to install. Please run command below in advance"
-msgstr "這是因為此階段的依賴項需要特殊選項，且安裝過程較為困難。請提前執行以下命令"
-
-#: ../../source/getting_started/installation.rst:33
-msgid ""
-"Some dependencies like ``transformers`` might be downgraded, you can run "
-"``pip install \"xinference[all]\"`` afterwards."
-msgstr ""
-"某些依賴項，如 ``transformers``，可能會被降級，您可以之後執行 ``pip install \"xinference[all]\"``。"
-
-#: ../../source/getting_started/installation.rst:36
-msgid ""
-"If you want to install only the necessary backends, here's a breakdown of "
-"how to do it."
-msgstr "如果你只想安裝必要的依賴，接下來是如何操作的詳細步驟。"
+"These dependencies can change versions of shared packages such as "
+"``transformers``. Install only the backend dependencies you need in an "
+"isolated environment."
+msgstr "這些相依套件可能變更 ``transformers`` 等共用套件的版本。請在隔離環境中僅安裝所需的後端相依套件。"
 
 #: ../../source/getting_started/installation.rst:41
 msgid "Transformers Backend"
 msgstr "Transformers 引擎"
-
-#: ../../source/getting_started/installation.rst:42
-msgid ""
-"PyTorch (transformers) supports the inference of most state-of-art models. "
-"It is the default backend for models in PyTorch format::"
-msgstr "PyTorch(transformers) 引擎支援幾乎所有的最新模型，這是 PyTorch 模型預設使用的引擎::"
 
 #: ../../source/getting_started/installation.rst:46
 msgid "Notes:"
@@ -104,16 +53,11 @@ msgstr "注意："
 
 #: ../../source/getting_started/installation.rst:48
 msgid ""
-"The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` "
-"/ ``fp4`` formats."
+"The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / "
+"``bnb`` / ``fp4`` formats."
 msgstr ""
-"Transformers引擎支援 ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4`` 格式。"
-
-#: ../../source/getting_started/installation.rst:49
-msgid ""
-"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If you "
-"see an import error, please upgrade ``transformers`` to a newer version."
-msgstr "FP4格式需要支援FPQuantConfig的transformers庫。若遇到匯入錯誤，請將transformers升級至新版本。"
+"Transformers引擎支援 ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4``"
+" 格式。"
 
 #: ../../source/getting_started/installation.rst:54
 msgid "vLLM Backend"
@@ -122,17 +66,15 @@ msgstr "vLLM 引擎"
 #: ../../source/getting_started/installation.rst:55
 msgid ""
 "vLLM is a fast and easy-to-use library for LLM inference and serving. "
-"Xinference will choose vLLM as the backend to achieve better throughput when"
-" the following conditions are met:"
-msgstr ""
-"vLLM 是一個支援高併發的高性能大型模型推理引擎。當滿足以下條件時，Xinference 會自動選擇 vllm 作為引擎以達到更高的吞吐量："
+"Xinference will choose vLLM as the backend to achieve better throughput "
+"when the following conditions are met:"
+msgstr "vLLM 是一個支援高併發的高性能大型模型推理引擎。當滿足以下條件時，Xinference 會自動選擇 vllm 作為引擎以達到更高的吞吐量："
 
 #: ../../source/getting_started/installation.rst:57
 msgid ""
 "The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or "
 "``bnb``."
-msgstr ""
-"模型格式為 ``pytorch`` 、 ``gptq`` 、 ``awq`` 、 ``fp4`` 、 ``fp8`` 或者 ``bnb`` 。"
+msgstr "模型格式為 ``pytorch`` 、 ``gptq`` 、 ``awq`` 、 ``fp4`` 、 ``fp8`` 或者 ``bnb`` 。"
 
 #: ../../source/getting_started/installation.rst:58
 msgid "When the model format is ``pytorch``, the quantization is ``none``."
@@ -144,8 +86,8 @@ msgstr "當模型格式為 ``awq`` 時，量化選項需為 ``Int4``。"
 
 #: ../../source/getting_started/installation.rst:60
 msgid ""
-"When the model format is ``gptq``, the quantization is ``Int3``, ``Int4`` or"
-" ``Int8``."
+"When the model format is ``gptq``, the quantization is ``Int3``, ``Int4``"
+" or ``Int8``."
 msgstr "當模型格式為 ``gptq`` 時，量化選項需為 ``Int3`` 、 ``Int4`` 或者 ``Int8`` 。"
 
 #: ../../source/getting_started/installation.rst:61
@@ -154,8 +96,8 @@ msgstr "作業系統為 Linux 並且至少有一個支援 CUDA 的裝置"
 
 #: ../../source/getting_started/installation.rst:62
 msgid ""
-"The model family (for custom models) / model name (for builtin models) is "
-"within the list of models supported by vLLM"
+"The model family (for custom models) / model name (for builtin models) is"
+" within the list of models supported by vLLM"
 msgstr "自定义模型的 ``model_family`` 欄位和內建模型的 ``model_name`` 欄位在 vLLM 的支援清單中。"
 
 #: ../../source/getting_started/installation.rst:64
@@ -169,27 +111,27 @@ msgid ""
 "instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, "
 "``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, "
 "``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, "
-"``llama-3.3-instruct``, ``tiny-llama``, ``wizardcoder-python-v1.0``, "
-"``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
+"``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``wizardcoder-"
+"python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
 "``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:69
 msgid ""
-"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, "
-"``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
+"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``,"
+" ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
 "instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:70
 msgid ""
-"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, "
-"``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, "
-"``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, "
-"``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-"
-"instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, "
-"``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, "
-"``skywork-or1-preview``, ``XiYanSQL-QwenCoder-2504``"
+"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1"
+"-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, "
+"``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+"``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, "
+"``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-"
+"32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-"
+"or1-preview``, ``vibethinker``, ``XiYanSQL-QwenCoder-2504``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:71
@@ -210,7 +152,8 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:75
 msgid ""
-"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, ``mixtral-v0.1``"
+"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, "
+"``mixtral-v0.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:76
@@ -250,8 +193,8 @@ msgstr ""
 #: ../../source/getting_started/installation.rst:84
 msgid ""
 "``deepseek-prover-v2``, ``deepseek-r1``, ``deepseek-r1-0528``, "
-"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, "
-"``moonlight-16b-a3b-instruct``"
+"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, ``moonlight-"
+"16b-a3b-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:85
@@ -276,8 +219,8 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:90
 msgid ""
-"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-fp32``, "
-"``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
+"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-"
+"fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:91
@@ -289,7 +232,7 @@ msgid "``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:93
-msgid "``glm-4.5``"
+msgid "``glm-4.5``, ``GLM-4.6``, ``GLM-4.7``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:94
@@ -309,74 +252,541 @@ msgid "``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:98
-msgid "``MiniMax-M2``"
+msgid "``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:99
+msgid "``GLM-4.7-Flash``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:100
+msgid "``glm-5``, ``glm-5.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:101
-msgid "To install Xinference and vLLM::"
-msgstr "安裝 xinference 和 vLLM::"
+msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
+msgstr ""
 
-#: ../../source/getting_started/installation.rst:114
+#: ../../source/getting_started/installation.rst:117
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp 引擎"
 
-#: ../../source/getting_started/installation.rst:115
+#: ../../source/getting_started/installation.rst:118
 msgid ""
-"Xinference supports models in ``gguf`` format via ``xllamacpp``. `xllamacpp "
-"<https://github.com/xorbitsai/xllamacpp>`_ is developed by Xinference team, "
-"and is the sole backend for llama.cpp since v1.6.0."
+"Xinference supports models in ``gguf`` format via ``xllamacpp``. "
+"`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by "
+"Xinference team, and is the sole backend for llama.cpp since v1.6.0."
 msgstr ""
-"Xinference 透過 xllamacpp 支援 gguf 格式的模型。`xllamacpp "
-"<https://github.com/xorbitsai/xllamacpp>`_ 由 Xinference 團隊開發，並從 v1.6.0 開始成為 "
-"llama.cpp 的唯一後端。"
+"Xinference 透過 xllamacpp 支援 gguf 格式的模型。`xllamacpp <https://github."
+"com/xorbitsai/xllamacpp>`_ 由 Xinference 團隊開發，並從 v1.6.0 開始成為 llama.cpp "
+"的唯一後端。"
 
-#: ../../source/getting_started/installation.rst:121
+#: ../../source/getting_started/installation.rst:124
 msgid ""
 "Since Xinference v1.5.0, ``llama-cpp-python`` is deprecated. Since "
 "Xinference v1.6.0, ``llama-cpp-python`` has been removed."
 msgstr ""
-"自 Xinference v1.5.0 起，``llama-cpp-python`` 已被棄用；從 Xinference v1.6.0 "
-"開始，該後端已被移除。"
-
-#: ../../source/getting_started/installation.rst:124
-#: ../../source/getting_started/installation.rst:134
-#: ../../source/getting_started/installation.rst:143
-msgid "Initial setup::"
-msgstr "初始步驟::"
-
-#: ../../source/getting_started/installation.rst:128
-msgid ""
-"For more installation instructions for ``xllamacpp`` to enable GPU "
-"acceleration, please refer to: https://github.com/xorbitsai/xllamacpp"
-msgstr ""
-"更多 ``xllamacpp`` 安裝說明以便開啟 GPU 加速，請參考：https://github.com/xorbitsai/xllamacpp"
+"自 Xinference v1.5.0 起，``llama-cpp-python`` 已被棄用；從 Xinference v1.6.0"
+" 開始，該後端已被移除。"
 
 #: ../../source/getting_started/installation.rst:131
+msgid ""
+"With per-model virtual environments enabled, Xinference 3.0 automatically"
+" selects the matching ``xllamacpp`` GPU wheel for supported CUDA "
+"versions; see :ref:`user_guide_backends`. For a manual installation into "
+"the process environment, refer to https://github.com/xorbitsai/xllamacpp."
+msgstr "啟用個別模型虛擬環境後，Xinference 3.0 會為支援的 CUDA 版本自動選擇相符的 ``xllamacpp`` GPU wheel；請參閱 :ref:`user_guide_backends`。若要手動安裝到程序環境中，請參閱 https://github.com/xorbitsai/xllamacpp。"
+
+#: ../../source/getting_started/installation.rst:137
 msgid "SGLang Backend"
 msgstr "SGLang 引擎"
 
-#: ../../source/getting_started/installation.rst:132
+#: ../../source/getting_started/installation.rst:138
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
-"significantly accelerates the execution of complex LLM programs by automatic"
-" KV cache reuse across multiple calls. And it also supports other common "
-"techniques like continuous batching and tensor parallelism."
+"significantly accelerates the execution of complex LLM programs by "
+"automatic KV cache reuse across multiple calls. And it also supports "
+"other common techniques like continuous batching and tensor parallelism."
 msgstr ""
-"SGLang 具有基於 RadixAttention 的高效能推理執行時間。它透過在多個呼叫之間自動重用 KV 快取，顯著加速了複雜 LLM "
-"程式的執行。它也支援其他常見推理技術，如連續批次處理和張量平行處理。"
+"SGLang 具有基於 RadixAttention 的高效能推理執行時間。它透過在多個呼叫之間自動重用 KV "
+"快取，顯著加速了複雜 LLM 程式的執行。它也支援其他常見推理技術，如連續批次處理和張量平行處理"
+"。"
 
-#: ../../source/getting_started/installation.rst:140
+#: ../../source/getting_started/installation.rst:146
 msgid "MLX Backend"
 msgstr "MLX 引擎"
 
-#: ../../source/getting_started/installation.rst:141
+#: ../../source/getting_started/installation.rst:147
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
 msgstr "MLX-lm 用來在蘋果 Silicon 晶片上提供高效的 LLM 推理。"
 
-#: ../../source/getting_started/installation.rst:148
+#: ../../source/getting_started/installation.rst:156
 msgid "Other Platforms"
 msgstr "其他平台"
 
-#: ../../source/getting_started/installation.rst:150
+#: ../../source/getting_started/installation.rst:158
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
+
+#: ../../source/getting_started/installation.rst:6
+msgid "Install Xinference with ``pip`` on Linux, Windows, or macOS::"
+msgstr "在 Linux、Windows 或 macOS 上，透過 ``pip`` 安裝 Xinference::"
+
+#: ../../source/getting_started/installation.rst:11
+msgid "Automatic engine installation"
+msgstr "自動安裝引擎"
+
+#: ../../source/getting_started/installation.rst:12
+msgid ""
+"Model virtual environments are enabled by default. When you launch a "
+"model, Xinference prepares a virtual environment for that model and engine"
+" and automatically installs the dependencies declared by its "
+"configuration. You do not need to install ``xinference[all]`` or an engine"
+" extra first."
+msgstr ""
+"模型虛擬環境預設啟用。啟動模型時，Xinference 會為該模型和引擎準備虛擬環境，並自動安裝設定中宣告的相依套件。無需預先安裝 "
+"``xinference[all]`` 或引擎 extra。"
+
+#: ../../source/getting_started/installation.rst:17
+msgid ""
+"This applies to engines such as Transformers, vLLM, SGLang, llama.cpp, and"
+" MLX. Choose a supported engine when launching the model; Xinference "
+"manages its Python dependencies. The engine's operating system, hardware, "
+"and driver requirements still apply."
+msgstr ""
+"這適用於 Transformers、vLLM、SGLang、llama.cpp 和 MLX 等引擎。啟動模型時選擇支援的引擎，Xinference "
+"會管理其 Python 相依套件。仍須符合引擎對作業系統、硬體和驅動程式的要求。"
+
+#: ../../source/getting_started/installation.rst:22
+msgid ""
+"The first launch may take longer while packages are downloaded and "
+"installed. Later launches reuse the prepared environment when its "
+"dependencies are unchanged. The Worker needs access to the configured "
+"package indexes, or a prepared offline package source. See "
+":ref:`model_virtual_env` for dependency overrides and local wheel sources,"
+" and :ref:`using_docker_compose` for offline deployments."
+msgstr ""
+"首次啟動需要下載和安裝套件，可能耗時較長。相依套件未變更時，後續啟動會重用已準備好的環境。Worker "
+"需要能夠存取設定的套件索引，或使用預先準備的離線套件來源。相依套件覆寫和本機 wheel 來源請參閱 "
+":ref:`model_virtual_env`，離線部署請參閱 :ref:`using_docker_compose`。"
+
+#: ../../source/getting_started/installation.rst:28
+msgid ""
+"The following sections describe the available engines. Manual installation"
+" is covered in :ref:`manual_backend_installation` for deployments that "
+"disable model virtual environments."
+msgstr ""
+"以下各節介紹可用引擎。停用模型虛擬環境的部署可參閱 :ref:`manual_backend_installation` 手動安裝相依套件。"
+
+#: ../../source/getting_started/installation.rst:37
+msgid ""
+"PyTorch (transformers) supports the inference of most state-of-art models."
+" It is the default backend for models in PyTorch format."
+msgstr "PyTorch（transformers）支援大多數先進模型的推論，是 PyTorch 格式模型的預設後端。"
+
+#: ../../source/getting_started/installation.rst:42
+msgid ""
+"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. Use "
+":ref:`model_virtual_env` to override dependencies for a model when needed."
+msgstr ""
+"FP4 格式需要支援 ``FPQuantConfig`` 的 ``transformers``。如需覆寫個別模型的相依套件，請參閱 "
+":ref:`model_virtual_env`。"
+
+#: ../../source/getting_started/installation.rst:101
+msgid ""
+"With model virtual environments enabled, Xinference installs the "
+"configured vLLM dependencies at launch. No separate vLLM or FlashInfer "
+"installation command is required for this path."
+msgstr ""
+"啟用模型虛擬環境時，Xinference 會在啟動模型時安裝設定的 vLLM 相依套件。此流程無需另外執行 vLLM 或 FlashInfer "
+"安裝命令。"
+
+#: ../../source/getting_started/installation.rst:127
+msgid ""
+"Select ``SGLang`` as the engine when launching a supported model. "
+"Xinference installs the configured SGLang dependencies in that model's "
+"virtual environment; you do not need to install ``xinference[sglang]`` "
+"separately."
+msgstr ""
+"啟動支援的模型時，選擇 ``SGLang`` 引擎。Xinference 會在該模型的虛擬環境中安裝設定的 SGLang 相依套件，無需另外安裝 "
+"``xinference[sglang]``。"
+
+#: ../../source/getting_started/installation.rst:136
+msgid ""
+"Xinference installs the configured MLX dependencies automatically when you"
+" launch a supported model with the MLX engine."
+msgstr "使用 MLX 引擎啟動支援的模型時，Xinference 會自動安裝設定的 MLX 相依套件。"
+
+#: ../../source/getting_started/installation.rst:140
+msgid "Optional components"
+msgstr "選用元件"
+
+#: ../../source/getting_started/installation.rst:144
+msgid ""
+"Token Router is an optional component for routing requests across model "
+"replicas. It is not required to install Xinference or launch models. If "
+"your deployment uses the Token Router Runtime or Router Agent, install the"
+" ``router`` extra in the environment where those processes run::"
+msgstr ""
+"Token Router 是在模型副本之間路由請求的選用元件，安裝 Xinference 或啟動模型無需使用它。如果部署使用 Token "
+"Router Runtime 或 Router Agent，請在這些程序執行的環境中安裝 ``router`` extra::"
+
+#: ../../source/getting_started/installation.rst:151
+msgid "When installing from a source checkout, use::"
+msgstr "從原始碼簽出目錄安裝時，使用::"
+
+#: ../../source/getting_started/installation.rst:155
+msgid ""
+"Installing the package creates the ``xinference-router`` and ``xinference-"
+"router-agent`` commands. Installing the extra provides their dependencies;"
+" start the required processes separately."
+msgstr ""
+"安裝套件會建立 ``xinference-router`` 和 ``xinference-router-agent`` 命令。安裝 extra "
+"會提供它們的相依套件；所需程序須另外啟動。"
+
+#: ../../source/getting_started/installation.rst:162
+msgid "Manual backend installation"
+msgstr "手動安裝後端"
+
+#: ../../source/getting_started/installation.rst:163
+msgid ""
+"If you disable model virtual environments with "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` or ``--disable-virtual-env`` at model "
+"launch, install the required backend dependencies in the Xinference Worker"
+" environment yourself. Engine extras such as ``transformers``, ``vllm``, "
+"``sglang``, ``llama_cpp``, and ``mlx`` remain available for this use case,"
+" for example:"
+msgstr ""
+"如果透過 ``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` 或啟動模型時的 ``--disable-virtual-env``"
+" 停用模型虛擬環境，請自行在 Xinference Worker 環境中安裝所需的後端相依套件。此情境仍可使用 "
+"``transformers``、``vllm``、``sglang``、``llama_cpp`` 和 ``mlx`` 等引擎 extra，例如："
+
+#: ../../source/getting_started/installation.rst:173
+msgid ""
+"Some hardware or quantization configurations require additional "
+"installation steps. Follow the selected backend's installation "
+"instructions for compatible packages and GPU support. Avoid installing "
+"unrelated engines together, since their dependencies may conflict."
+msgstr ""
+"某些硬體或量化設定需要額外的安裝步驟。請依所選後端的安裝說明設定相容套件和 GPU 支援。避免同時安裝無關的引擎，以免產生相依套件衝突。"
+
+#: ../../source/getting_started/installation.rst:143
+msgid "Token Router"
+msgstr "Token Router"
+
+#~ msgid ""
+#~ "``code-llama``, ``code-llama-instruct``, "
+#~ "``code-llama-python``, ``deepseek``, "
+#~ "``deepseek-chat``, ``deepseek-coder``, "
+#~ "``deepseek-coder-instruct``, ``deepseek-r1-distill-"
+#~ "llama``, ``gorilla-openfunctions-v2``, "
+#~ "``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``,"
+#~ " ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, "
+#~ "``llama-3.1-instruct``, ``llama-3.3-instruct``, ``tiny-"
+#~ "llama``, ``wizardcoder-python-v1.0``, "
+#~ "``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, "
+#~ "``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-"
+#~ "200k``, ``Yi-chat``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``,"
+#~ " ``deepseek-r1-distill-qwen``, ``DianJin-R1``, "
+#~ "``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, "
+#~ "``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+#~ "``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-"
+#~ "instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-"
+#~ "1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-"
+#~ "32B-Preview``, ``seallms-v3``, ``skywork-"
+#~ "or1``, ``skywork-or1-preview``, ``XiYanSQL-"
+#~ "QwenCoder-2504``"
+#~ msgstr ""
+
+#~ msgid "``glm-4.5``"
+#~ msgstr ""
+
+#~ msgid "``MiniMax-M2``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "For more installation instructions for "
+#~ "``xllamacpp`` to enable GPU acceleration, "
+#~ "please refer to: "
+#~ "https://github.com/xorbitsai/xllamacpp"
+#~ msgstr ""
+#~ "更多 ``xllamacpp`` 安裝說明以便開啟 "
+#~ "GPU 加速，請參考：https://github."
+#~ "com/xorbitsai/xllamacpp"
+
+#: ../../source/getting_started/installation.rst:10
+msgid "One-command installation"
+msgstr "一鍵安裝"
+
+#: ../../source/getting_started/installation.rst:43
+msgid ""
+"The installer prepares uv, Python 3.12, and an isolated Xinference tool "
+"environment, then starts the local server in the foreground. Press Ctrl+C to"
+" stop it. On Linux and macOS::"
+msgstr ""
+"安裝程式準備 uv、Python 3.12 和隔離的 Xinference 工具環境，然後在前景啟動本機服務。按 Ctrl+C 停止。在 Linux 和"
+" macOS 上執行::"
+
+#: ../../source/getting_started/installation.rst:47
+msgid "On Windows, run this in PowerShell::"
+msgstr "在 Windows 上，在 PowerShell 中執行::"
+
+#: ../../source/getting_started/installation.rst:51
+msgid ""
+"Set ``XINFERENCE_START=0`` to install without starting. Use "
+"``XINFERENCE_VERSION`` to pin a release, ``XINFERENCE_PYTHON`` to select "
+"Python, ``XINFERENCE_EXTRAS`` to preinstall backends, and "
+"``XINFERENCE_TOOL_DIR`` to change the uv tool store. ``XINFERENCE_HOME`` "
+"controls persistent model data; it is separate from the tool environment."
+msgstr ""
+"設定 ``XINFERENCE_START=0`` 可只安裝而不啟動。透過 ``XINFERENCE_VERSION`` "
+"固定版本、``XINFERENCE_PYTHON`` 選擇 Python、``XINFERENCE_EXTRAS`` "
+"預先安裝後端、``XINFERENCE_TOOL_DIR`` 更改 uv 工具儲存目錄。``XINFERENCE_HOME`` "
+"控制持久化模型資料，與工具環境分開。"
+
+#: ../../source/getting_started/installation.rst:53
+msgid ""
+"On Linux and Windows, ``XINFERENCE_BACKEND=auto`` selects PyTorch for the "
+"detected GPU driver or CPU. Override it with ``cpu``, ``cu128``, or another "
+"backend supported by uv. macOS uses its native PyTorch wheel. Recent PyTorch"
+" wheels require Apple Silicon; Intel Macs may resolve older dependencies or "
+"fail installation. Model virtual environments install engine dependencies on"
+" demand. Engine platform restrictions still apply, including Linux-only vLLM"
+" and Apple-Silicon-only MLX."
+msgstr ""
+"在 Linux 和 Windows 上，``XINFERENCE_BACKEND=auto`` 會依據偵測到的 GPU 驅動程式或 CPU 選擇 "
+"PyTorch。可用 ``cpu``、``cu128`` 或 uv 支援的其他後端覆寫。macOS 使用原生 PyTorch wheel。近期的 "
+"PyTorch wheel 要求 Apple Silicon；Intel Mac "
+"可能解析到較舊的相依套件，或安裝失敗。模型虛擬環境按需安裝引擎相依套件。引擎的平台限制仍然適用，包括僅支援 Linux 的 vLLM 和僅支援 "
+"Apple Silicon 的 MLX。"
+
+#: ../../source/getting_started/installation.rst:55
+msgid ""
+"To run without a persistent tool installation, use ``uvx``. This requires "
+"uv; the first invocation downloads the Python environment and dependencies::"
+msgstr "若不需要持久化工具安裝，可使用 ``uvx``。這要求已安裝 uv；首次呼叫會下載 Python 環境和相依套件::"
+
+#: ../../source/getting_started/installation.rst:59
+msgid ""
+"Use a recent uv supporting ``uv tool install --torch-backend`` (tested with "
+"uv 0.11.26). Services require a persistent installation; uvx environments "
+"can be removed by cache cleanup."
+msgstr ""
+"請使用支援 ``uv tool install --torch-backend`` 的較新 uv（已用 uv 0.11.26 "
+"測試）。服務需要持久化安裝；uvx 環境可能被快取清理移除。"
+
+#: ../../source/getting_started/installation.rst:62
+msgid "System services"
+msgstr "系統服務"
+
+#: ../../source/getting_started/installation.rst:63
+msgid ""
+"After installing with pip, Conda, or uv, register and start a local service "
+"with::"
+msgstr "透過 pip、Conda 或 uv 安裝後，可用以下命令註冊並啟動本機服務::"
+
+#: ../../source/getting_started/installation.rst:72
+msgid ""
+"Linux uses a systemd user service. To start it at boot without logging in, "
+"enable lingering for the account with ``loginctl enable-linger USER``. macOS"
+" uses a LaunchAgent that starts at login. For a systemd system service or "
+"macOS LaunchDaemon, use an elevated terminal, an absolute command path, and "
+"``--system`` before the action::"
+msgstr ""
+"Linux 使用 systemd 使用者服務。若要在未登入時開機啟動，請用 ``loginctl enable-linger USER`` 為該帳戶啟用"
+" lingering。macOS 使用登入時啟動的 LaunchAgent。對於 systemd 系統服務或 macOS "
+"LaunchDaemon，請使用提升權限的終端、命令的絕對路徑，並將 ``--system`` 放在操作之前::"
+
+#: ../../source/getting_started/installation.rst:78
+msgid ""
+"Windows services currently require x86-64 Windows and an Administrator "
+"PowerShell terminal and run as LocalSystem. The installer downloads a "
+"pinned, checksum-verified WinSW wrapper. Service control files and the "
+"working directory use ``%ProgramFiles%\\Xinference\\service``. Use an "
+"administrator-controlled Python installation and model data because the "
+"service executes model code with its account's privileges. Service data "
+"defaults to ``%PROGRAMDATA%\\Xinference\\data``. Linux and macOS default to "
+"the runtime account's ``~/.xinference``. Override the data directory with "
+"``--home`` and the address with ``--host`` and ``--port`` on ``service "
+"install``."
+msgstr ""
+"Windows 服務目前要求 x86-64 Windows 和系統管理員 PowerShell 終端，並以 LocalSystem "
+"執行。安裝程式會下載版本固定且經過校驗和驗證的 WinSW 包裝器。服務控制檔案和工作目錄位於 "
+"``%ProgramFiles%\\Xinference\\service``。請使用系統管理員控制的 Python "
+"安裝和模型資料，因為服務會以其帳戶權限執行模型程式碼。服務資料預設位於 "
+"``%PROGRAMDATA%\\Xinference\\data``。Linux 和 macOS 預設為執行帳戶的 "
+"``~/.xinference``。可在 ``service install`` 中用 ``--home`` 覆寫資料目錄，用 ``--host`` 和"
+" ``--port`` 覆寫位址。"
+
+#: ../../source/getting_started/installation.rst:80
+msgid ""
+"For one-command service installation, set ``XINFERENCE_SERVICE=user`` on "
+"Linux/macOS or ``XINFERENCE_SERVICE=system`` on any supported platform. "
+"System mode uses sudo on Linux/macOS after installing as your account, and "
+"requires an Administrator Windows terminal. ``XINFERENCE_START=0`` registers"
+" without starting. ``XINFERENCE_HOST`` and ``XINFERENCE_PORT`` default to "
+"``127.0.0.1`` and ``9997``. Service mode requires a Xinference release "
+"containing the service CLI::"
+msgstr ""
+"要一鍵安裝服務，在 Linux/macOS 上設定 ``XINFERENCE_SERVICE=user``，或在任何支援的平台上設定 "
+"``XINFERENCE_SERVICE=system``。系統模式在 Linux/macOS 上先以目前帳戶安裝，再透過 sudo 註冊服務；在 "
+"Windows 上需要系統管理員終端。``XINFERENCE_START=0`` 只註冊而不啟動。``XINFERENCE_HOST`` 和 "
+"``XINFERENCE_PORT`` 預設為 ``127.0.0.1`` 和 ``9997``。服務模式要求 Xinference 版本包含服務 "
+"CLI::"
+
+#: ../../source/getting_started/installation.rst:86
+msgid ""
+"Services restart after failures. Starting waits for the cluster's "
+"``/status`` response; a failed readiness check stops a newly started "
+"service. Repeated installation reuses the same configuration. Stop and "
+"uninstall before changing the installation environment or service settings. "
+"Uninstall preserves model data and logs. This service interface manages "
+"single-machine local mode."
+msgstr ""
+"服務在失敗後自動重新啟動。啟動時等待叢集的 ``/status`` "
+"回應；就緒檢查失敗會停止剛啟動的服務。重複安裝重用相同設定。更改安裝環境或服務設定前，請先停止並解除安裝服務。解除安裝保留模型資料和日誌。此服務介面管理單機本機模式。"
+
+#: getting_started/installation.rst:61
+msgid "Upgrading an installation"
+msgstr "升級安裝"
+
+#: getting_started/installation.rst:63
+msgid ""
+"Run the same one-command installer again to update to the latest stable "
+"release. Set ``XINFERENCE_VERSION`` each time to select a specific release, "
+"including a downgrade. Without this variable, a previously pinned "
+"installation also updates to the latest stable release. If the selected "
+"version, Python, extras, and PyTorch backend are unchanged, the installer "
+"keeps the existing environment and does not restart a running service."
+msgstr ""
+"再次執行相同的一鍵安裝指令即可更新至最新穩定版。每次設定 ``XINFERENCE_VERSION`` "
+"可選擇指定版本，包括降級。不設定此變數時，之前固定版本的安裝也會更新至最新穩定版。如果所選版本、Python、額外相依套件和 PyTorch "
+"後端均未變更，安裝程式會保留現有環境，不會重新啟動正在執行的服務。"
+
+#: getting_started/installation.rst:65
+msgid ""
+"The default ``XINFERENCE_SERVICE=auto`` detects an existing managed service "
+"for this tool environment. Upgrades preserve its service account, address, "
+"port, data directory, and registration. Python, extras, and the PyTorch "
+"backend are also retained unless explicitly overridden. Run as the original "
+"installation account and reuse any custom ``XINFERENCE_TOOL_DIR`` and "
+"``UV_TOOL_BIN_DIR``. Stop a foreground server before updating it."
+msgstr ""
+"預設的 ``XINFERENCE_SERVICE=auto`` "
+"會偵測使用此工具環境的現有受管理服務。升級會保留服務帳戶、位址、連接埠、資料目錄和服務註冊。除非明確覆寫，Python、額外相依套件和 PyTorch "
+"後端也會保留。請使用原安裝帳戶執行，並繼續使用自訂的 ``XINFERENCE_TOOL_DIR`` 和 "
+"``UV_TOOL_BIN_DIR``。更新前請先停止前景伺服器。"
+
+#: getting_started/installation.rst:67
+msgid ""
+"During an upgrade, the installer downloads and checks the candidate "
+"environment before stopping a service. It then backs up the complete "
+"previous environment, switches versions, and waits for the service to become"
+" ready. If installation or service startup fails, it restores the previous "
+"environment and the service's original running or stopped state. Preparing "
+"the candidate and keeping the full backup require additional disk space. On "
+"a first installation, failed startup removes a newly registered service and "
+"keeps the installed package for retrying. Model data and caches are "
+"preserved; models that were running must be launched again after a service "
+"restart. Foreground startup does not perform a service readiness check or "
+"automatic startup rollback."
+msgstr ""
+"升級時，安裝程式會先下載並檢查候選環境，再停止服務。接著備份完整的舊環境、切換版本，並等待服務就緒。如果安裝或服務啟動失敗，會還原舊環境以及服務原本的執行或停止狀態。準備候選環境和保留完整備份需要額外磁碟空間。首次安裝時，啟動失敗會移除新註冊的服務，並保留已安裝的套件以便重試。模型資料和快取會保留；服務重新啟動後，需要重新啟動之前執行的模型。前景啟動不會執行服務就緒檢查，也不會在啟動失敗時自動回復。"
+
+#: getting_started/installation.rst:69
+msgid ""
+"Concurrent installers for the same tool store are rejected. If an upgrade is"
+" interrupted, the next run restores the saved environment before trying "
+"again. Keep the recovery files in the tool store until recovery completes. "
+"``XINFERENCE_TIMEOUT`` sets the service readiness timeout in seconds "
+"(default 120). With ``XINFERENCE_START=0``, an updated service remains "
+"stopped."
+msgstr ""
+"同一工具目錄不允許同時執行多個安裝程式。如果升級中斷，下次執行會先還原已儲存的環境，再嘗試升級。請保留工具目錄中的還原檔案，直到還原完成。``XINFERENCE_TIMEOUT``"
+" 設定服務就緒逾時秒數（預設為 120）。設定 ``XINFERENCE_START=0`` 時，更新後的服務維持停止狀態。"
+
+#: getting_started/installation.rst:90
+msgid ""
+"A macOS user service requires a logged-in graphical session; use system mode"
+" on headless hosts. The launchd ``console.log`` does not rotate "
+"automatically."
+msgstr ""
+"macOS 使用者服務要求已登入的圖形工作階段；無圖形登入的主機請使用系統模式。launchd 的 ``console.log`` 不會自動輪替。"
+
+#: getting_started/installation.rst:71
+msgid ""
+"The installer checks the candidate's service installer API before stopping a"
+" service. An incompatible release cannot be managed in service mode. Same-"
+"version checks still prepare a candidate to resolve the requested Python, "
+"extras, and backend. Installed dependencies are constrained to that "
+"candidate, so use this installer for upgrades; ``uv tool upgrade "
+"xinference`` retains these constraints."
+msgstr ""
+"安裝器會在停止服務前檢查候選版本的服務安裝 API。不相容的版本無法以服務模式管理。同版本檢查仍會準備候選環境，以解析所要求的 "
+"Python、extras 和後端。安裝後的相依套件受限於候選環境中的版本，因此請使用此安裝器升級；``uv tool upgrade "
+"xinference`` 會保留這些限制。"
+
+#: getting_started/installation.rst:73
+msgid ""
+"Do not run ``xinference service`` commands while the installer is running; "
+"they do not share its lock. If a service was uninstalled after an "
+"interrupted upgrade, recovery restores the package without recreating the "
+"service. For manual recovery, stop processes using the tool, read "
+"``.xinference-transaction.json`` in the tool store, copy its backup's "
+"``environment`` and ``shims`` back to their original tool and command "
+"directories, and remove the journal only after restoration succeeds."
+msgstr ""
+"安裝器執行期間，請勿執行 ``xinference service`` "
+"命令；這些命令不使用安裝器的鎖定。如果升級中斷後服務已被解除安裝，復原程序會還原套件，但不會重新建立服務。如需手動復原，請停止使用此工具的程序，讀取工具目錄中的"
+" ``.xinference-transaction.json``，將備份中的 ``environment`` 和 ``shims`` "
+"複製回原工具目錄和命令目錄，並僅在復原成功後刪除交易記錄。"
+
+#: getting_started/installation.rst:92
+msgid ""
+"For ``--user USER``, that account must be able to traverse the Python "
+"installation's parent directories and execute its interpreter. The "
+"environment owner can modify code executed as the service account. Use a "
+"shared installation with appropriate ownership and permissions when these "
+"accounts differ."
+msgstr ""
+"使用 ``--user USER`` 時，該帳戶必須能夠存取 Python "
+"安裝路徑的各層父目錄並執行直譯器。環境擁有者可以修改以服務帳戶身分執行的程式碼。當兩個帳戶不同時，請使用具有適當擁有權和權限的共用安裝。"
+
+#: getting_started/installation.rst:96
+msgid ""
+"The one-command Windows system installer uses the installing user's uv tool "
+"store and does not restrict runtime or data ACLs. This default is not an "
+"administrator-only Python installation. Protect both Python (including "
+"packages) and model data before starting a LocalSystem service, or use "
+"foreground mode. Any account able to modify them can execute code with the "
+"service account's privileges."
+msgstr ""
+"Windows 系統一鍵安裝器使用安裝使用者的 uv 工具目錄，不會限制執行環境或資料的 ACL。此預設配置並非僅管理員可寫入的 Python "
+"安裝。在啟動 LocalSystem 服務前，請保護 "
+"Python（包括套件）和模型資料，或使用前景模式。任何能夠修改它們的帳戶都可以以服務帳戶的權限執行程式碼。"
+
+#: ../../source/getting_started/installation.rst:15
+msgid "Installation and startup"
+msgstr "安裝與啟動"
+
+#: ../../source/getting_started/installation.rst:86
+msgid "Installation with pip"
+msgstr "pip 安裝"
+
+#: ../../source/getting_started/installation.rst:6
+msgid ""
+"Xinference can be installed with the :ref:`one-command installer "
+"<one_line_install>` or :ref:`pip <pip_installation>`. Choose the installer "
+"for a managed tool environment, or pip to use an existing Python "
+"environment."
+msgstr ""
+"可以使用 :ref:`一鍵安裝腳本 <one_line_install>` 或 :ref:`pip <pip_installation>` 安裝 "
+"Xinference。若希望由安裝腳本管理工具環境，請選擇一鍵安裝；若要使用既有的 Python 環境，請選擇 pip。"
+
+#: ../glm53-doc-check/getting_started/installation.rst:176
+msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"

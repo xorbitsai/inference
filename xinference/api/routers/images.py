@@ -51,6 +51,12 @@ def register_routes(api: "RESTfulAPI") -> None:
         response_model=ImageList,
         dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
     )
+    router.add_api_route(
+        "/v1/images/docanalyze",
+        api.create_doc_analyze,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
 
     # SD WebUI API
     router.add_api_route(
@@ -83,5 +89,61 @@ def register_routes(api: "RESTfulAPI") -> None:
         api.sdapi_img2img,
         methods=["POST"],
         response_model=SDAPIResult,
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/sdapi/v1/loras",
+        api.sdapi_loras,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/sdapi/v1/upscalers",
+        api.sdapi_upscalers,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/sdapi/v1/progress",
+        api.sdapi_progress,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/sdapi/v1/interrupt",
+        api.sdapi_interrupt,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/controlnet/model_list",
+        api.sdapi_controlnet_model_list,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/controlnet/module_list",
+        api.sdapi_controlnet_module_list,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/controlnet/control_types",
+        api.sdapi_controlnet_control_types,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/controlnet/detect",
+        api.sdapi_controlnet_detect,
+        methods=["POST"],
         dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
     )

@@ -95,6 +95,9 @@ def register_audio(model_spec: CustomAudioModelFamilyV2, persist: bool):
 
     registry = RegistryManager.get_registry("audio")
     registry.register(model_spec, persist)
+    from .engine_family import generate_engine_config_by_model_name
+
+    generate_engine_config_by_model_name(model_spec)
 
 
 def unregister_audio(model_name: str, raise_error: bool = True):
@@ -102,3 +105,7 @@ def unregister_audio(model_name: str, raise_error: bool = True):
 
     registry = RegistryManager.get_registry("audio")
     registry.unregister(model_name, raise_error)
+    from .engine_family import AUDIO_ENGINES
+
+    if model_name in AUDIO_ENGINES:
+        del AUDIO_ENGINES[model_name]

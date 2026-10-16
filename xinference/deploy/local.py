@@ -15,6 +15,7 @@
 import asyncio
 import logging
 import multiprocessing
+import os
 import signal
 import sys
 import traceback
@@ -125,12 +126,19 @@ def run_in_subprocess(
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[Dict] = None,
+    environment: Optional[Dict[str, str]] = None,
 ) -> multiprocessing.Process:
     parent_conn, child_conn = multiprocessing.Pipe()
     p = multiprocessing.Process(
-        target=run,
-        args=(address, metrics_exporter_host, metrics_exporter_port, logging_conf),
-        kwargs={"conn": child_conn},
+        target=_run_with_environment,
+        args=(
+            address,
+            metrics_exporter_host,
+            metrics_exporter_port,
+            logging_conf,
+            child_conn,
+            environment,
+        ),
     )
     # Since Xoscar 0.7, we do not uses multiprocessing to create subpool any more,
     # we should be able to use daemon here
@@ -150,13 +158,31 @@ def run_in_subprocess(
     return p
 
 
+def _run_with_environment(
+    address: str,
+    metrics_exporter_host: Optional[str],
+    metrics_exporter_port: Optional[int],
+    logging_conf: Optional[Dict],
+    conn: Connection,
+    environment: Optional[Dict[str, str]],
+):
+    if environment:
+        os.environ.update(environment)
+    run(
+        address,
+        metrics_exporter_host,
+        metrics_exporter_port,
+        logging_conf,
+        conn,
+    )
+
+
 def main(
     host: str,
     port: int,
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[Dict] = None,
-    auth_config_file: Optional[str] = None,
 ):
     # force to set spawn,
     # cuda may be inited in xoscar virtualenv
@@ -183,7 +209,7 @@ def main(
             host=host,
             port=port,
             logging_conf=logging_conf,
-            auth_config_file=auth_config_file,
+            api_role="local",
         )
     finally:
         local_cluster.kill()

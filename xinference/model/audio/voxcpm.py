@@ -311,7 +311,9 @@ class VoxCPMModel:
     ):
         assert self._model is not None
 
-        from .utils import audio_stream_generator
+        from .utils import apply_audio_seed, audio_stream_generator
+
+        apply_audio_seed(kwargs)
 
         temp_files = []
         cleanup_temp_files = True

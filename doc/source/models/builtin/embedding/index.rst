@@ -27,8 +27,6 @@ The following is a list of built-in embedding models in Xinference:
   
    bge-large-zh
   
-   bge-large-zh-noinstruct
-  
    bge-large-zh-v1.5
   
    bge-m3
@@ -89,13 +87,18 @@ The following is a list of built-in embedding models in Xinference:
   
    qwen3-vl-embedding-8b
   
+   r3-embedding-0.6b
+  
    text2vec-base-chinese
   
    text2vec-base-chinese-paraphrase
   
-   text2vec-base-chinese-sentence
-  
    text2vec-base-multilingual
   
    text2vec-large-chinese
-  
+
+   wemm-embedding-2b
+
+   wemm-embedding-4b
+
+   wemm-embedding-9b

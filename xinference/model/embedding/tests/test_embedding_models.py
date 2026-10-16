@@ -19,8 +19,14 @@ import tempfile
 
 import pytest
 
+from xinference._model_catalog import load_model_catalog
+
 from ..cache_manager import EmbeddingCacheManager as CacheManager
-from ..core import EmbeddingModelFamilyV2, TransformersEmbeddingSpecV1
+from ..core import (
+    EMBEDDING_MODEL_DESCRIPTIONS,
+    EmbeddingModelFamilyV2,
+    TransformersEmbeddingSpecV1,
+)
 from ..embed_family import BUILTIN_EMBEDDING_MODELS, EMBEDDING_ENGINES
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
@@ -78,6 +84,81 @@ def test_engine_supported():
     assert model_name in EMBEDDING_ENGINES
     assert "flag" in EMBEDDING_ENGINES[model_name]
     assert "sentence_transformers" in EMBEDDING_ENGINES[model_name]
+
+
+def test_multimodal_model_abilities_are_exposed():
+    expected = {
+        "jina-clip-v2": ["embed_vision"],
+        "jina-embeddings-v4": ["embed_vision"],
+        "jina-embeddings-v5-omni-nano": [
+            "embed_vision",
+            "embed_video",
+            "embed_audio",
+        ],
+        "jina-embeddings-v5-omni-small": [
+            "embed_vision",
+            "embed_video",
+            "embed_audio",
+        ],
+        "gme-Qwen2-VL-2B-Instruct": ["embed_vision"],
+        "gme-Qwen2-VL-7B-Instruct": ["embed_vision"],
+        "Qwen3-VL-Embedding-2B": ["embed_vision", "embed_video"],
+        "Qwen3-VL-Embedding-8B": ["embed_vision", "embed_video"],
+        "WeMM-Embedding-2B": ["embed_vision", "embed_video"],
+        "WeMM-Embedding-4B": ["embed_vision", "embed_video"],
+        "WeMM-Embedding-9B": ["embed_vision", "embed_video"],
+    }
+
+    for model_name, abilities in expected.items():
+        family = BUILTIN_EMBEDDING_MODELS[model_name][0]
+        assert family.model_ability == abilities
+        assert family.to_description()["model_ability"] == ["embed", *abilities]
+
+
+def test_jina_v5_requires_transformers_5_compatible_sentence_transformers():
+    from packaging.requirements import InvalidRequirement, Requirement
+    from packaging.utils import canonicalize_name
+
+    from .. import _install
+
+    _install()
+    matched_families = []
+    for families in BUILTIN_EMBEDDING_MODELS.values():
+        for family in families:
+            if family.virtualenv is None:
+                continue
+
+            requirements = {}
+            for package in family.virtualenv.packages:
+                try:
+                    requirement = Requirement(package)
+                except InvalidRequirement:
+                    continue
+                requirements[canonicalize_name(requirement.name)] = requirement
+
+            transformers = requirements.get("transformers")
+            if transformers is None or not any(
+                spec.operator == "==" and spec.version == "5.7.0"
+                for spec in transformers.specifier
+            ):
+                continue
+
+            matched_families.append(family.model_name)
+            sentence_transformers = requirements.get("sentence-transformers")
+            assert sentence_transformers is not None, family.model_name
+            assert str(sentence_transformers.specifier) == ">=5.2.0", family.model_name
+
+    assert matched_families
+
+
+def test_jina_v3_pins_custom_flash_attn_wheel():
+    from .. import _install
+
+    _install()
+    family = BUILTIN_EMBEDDING_MODELS["jina-embeddings-v3"][0]
+
+    assert family.virtualenv is not None
+    assert "flash-attn==2.8.3.post1" in family.virtualenv.packages
 
 
 def test_bce_embedding_vllm_engine_params_with_virtualenv():
@@ -342,3 +423,193 @@ def test_convert_ids_to_tokens():
     assert tokens == [["ｘ", "ｉ", "ｎ", "ｆ"], ["b", "e", "r", "r", "p"]]
 
     shutil.rmtree(model_path, ignore_errors=True)
+
+
+def test_register_builtin_model_is_idempotent():
+    # Worker.update_model_type() calls register_builtin_model() again on
+    # every runtime hub-refresh, on the same already-imported process. It
+    # must leave the engine registry as if it had only run once.
+    from .. import register_builtin_model
+    from ..embed_family import SUPPORTED_ENGINES
+
+    register_builtin_model()
+    model_name = next(iter(EMBEDDING_ENGINES))
+    baseline_classes = {
+        engine: list(classes) for engine, classes in SUPPORTED_ENGINES.items()
+    }
+    baseline_engine_entries = sum(
+        len(specs) for specs in EMBEDDING_ENGINES[model_name].values()
+    )
+    baseline_model_table = sum(
+        len(specs) for specs in BUILTIN_EMBEDDING_MODELS.values()
+    )
+
+    for _ in range(3):
+        register_builtin_model()
+
+    assert {
+        engine: list(classes) for engine, classes in SUPPORTED_ENGINES.items()
+    } == baseline_classes
+    assert (
+        sum(len(specs) for specs in EMBEDDING_ENGINES[model_name].values())
+        == baseline_engine_entries
+    )
+    # BUILTIN_EMBEDDING_MODELS itself must not grow either: load_model_family_from_json
+    # unconditionally appended a fresh spec per model name on every refresh, independent
+    # of the engine-class and engine-entry guards above.
+    assert (
+        sum(len(specs) for specs in BUILTIN_EMBEDDING_MODELS.values())
+        == baseline_model_table
+    )
+
+
+def test_register_builtin_model_downloaded_catalog_merge_is_idempotent(
+    tmp_path, monkeypatch
+):
+    # Worker.update_model_type() re-parses a downloaded catalog file and
+    # merges it into the built-in table on every refresh. A downloaded entry
+    # that is value-identical to the built-in one (same content, same
+    # updated_at) must not keep padding the family list on repeat refreshes.
+    from .... import constants
+    from .. import register_builtin_model
+
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    raw_entry = load_model_catalog(spec_path)[0]
+    model_name = raw_entry["model_name"]
+
+    register_builtin_model()
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "embedding")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "embedding_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([raw_entry], f)
+
+    register_builtin_model()
+    baseline_count = len(BUILTIN_EMBEDDING_MODELS[model_name])
+
+    for _ in range(3):
+        register_builtin_model()
+
+    assert len(BUILTIN_EMBEDDING_MODELS[model_name]) == baseline_count
+    # the vetted built-in entry must still be present, not shadowed out
+    # by the freshly re-parsed downloaded duplicate.
+    assert any(f.is_builtin for f in BUILTIN_EMBEDDING_MODELS[model_name])
+
+
+def test_register_builtin_model_preserves_equal_timestamp_family_engines(
+    tmp_path, monkeypatch
+):
+    from .... import constants
+    from .. import register_builtin_model
+
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", True)
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    downloaded_entry = next(
+        entry
+        for entry in load_model_catalog(spec_path)
+        if entry["model_name"] == "bge-m3"
+    )
+    # Keep the same updated_at but only one of the built-in family's formats.
+    # The merge intentionally retains both distinct equal-timestamp families,
+    # so the derived engine table must contain the union of their formats.
+    downloaded_entry["model_specs"] = [downloaded_entry["model_specs"][1]]
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "embedding")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "embedding_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([downloaded_entry], f)
+
+    register_builtin_model()
+    assert len(BUILTIN_EMBEDDING_MODELS["bge-m3"]) == 2
+    engine_formats = {
+        param["model_format"]
+        for params in EMBEDDING_ENGINES["bge-m3"].values()
+        for param in params
+    }
+    assert {"pytorch", "ggufv2"}.issubset(engine_formats)
+    baseline_engines = {
+        engine: list(params) for engine, params in EMBEDDING_ENGINES["bge-m3"].items()
+    }
+    register_builtin_model()
+    assert EMBEDDING_ENGINES["bge-m3"] == baseline_engines
+
+
+def test_register_builtin_model_preserves_downloaded_provenance(tmp_path, monkeypatch):
+    # A downloaded family newer than its built-in counterpart correctly wins
+    # the merge and keeps is_builtin=False on the first refresh that sees it.
+    # A later refresh must not silently promote it to is_builtin=True: that
+    # flag gates allow_trust_remote_code(), so promoting a downloaded family
+    # bypasses the operator opt-in this dedup guard exists to protect.
+    from .... import constants
+    from .. import register_builtin_model
+
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    raw_entry = load_model_catalog(spec_path)[0]
+    model_name = raw_entry["model_name"]
+    raw_entry["updated_at"] = raw_entry["updated_at"] + 1
+
+    register_builtin_model()
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "embedding")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "embedding_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([raw_entry], f)
+
+    register_builtin_model()
+    active = BUILTIN_EMBEDDING_MODELS[model_name]
+    assert len(active) == 1
+    assert active[0].is_builtin is False
+
+    for _ in range(3):
+        register_builtin_model()
+
+    active = BUILTIN_EMBEDDING_MODELS[model_name]
+    assert len(active) == 1
+    assert active[0].is_builtin is False
+
+
+def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
+    tmp_path, monkeypatch
+):
+    # A downloaded-only model still in EMBEDDING_ENGINES/EMBEDDING_MODEL_DESCRIPTIONS
+    # after it drops out of a later catalog refresh keeps advertising a launch
+    # config and a description, even though BUILTIN_EMBEDDING_MODELS (the table
+    # both derive from) no longer has it.
+    from .... import constants
+    from .. import register_builtin_model
+
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    raw_entry = load_model_catalog(spec_path)[0]
+    downloaded_only = dict(raw_entry)
+    downloaded_only["model_name"] = "downloaded-only-catalog-removal-test"
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "embedding")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "embedding_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([downloaded_only], f)
+
+    register_builtin_model()
+    assert "downloaded-only-catalog-removal-test" in BUILTIN_EMBEDDING_MODELS
+    assert "downloaded-only-catalog-removal-test" in EMBEDDING_ENGINES
+    assert "downloaded-only-catalog-removal-test" in EMBEDDING_MODEL_DESCRIPTIONS
+
+    # A later refresh's catalog no longer lists the model (removed upstream).
+    with open(catalog_path, "w") as f:
+        json.dump([], f)
+
+    register_builtin_model()
+    assert "downloaded-only-catalog-removal-test" not in BUILTIN_EMBEDDING_MODELS
+    assert "downloaded-only-catalog-removal-test" not in EMBEDDING_ENGINES
+    assert "downloaded-only-catalog-removal-test" not in EMBEDDING_MODEL_DESCRIPTIONS

@@ -1,18 +1,15 @@
-import time
-
-import json5
-import librosa
-import numpy as np
-import safetensors
+import os
 import torch
-from huggingface_hub import hf_hub_download
-from indextts.utils.maskgct.models.codec.amphion_codec.codec import (
-    CodecDecoder,
-    CodecEncoder,
-)
+import librosa
+import json5
+from transformers import SeamlessM4TFeatureExtractor, Wav2Vec2BertModel
+import safetensors
+import numpy as np
+
 from indextts.utils.maskgct.models.codec.kmeans.repcodec_model import RepCodec
 from indextts.utils.maskgct.models.tts.maskgct.maskgct_s2a import MaskGCT_S2A
-from transformers import SeamlessM4TFeatureExtractor, Wav2Vec2BertModel
+from indextts.utils.maskgct.models.codec.amphion_codec.codec import CodecEncoder, CodecDecoder
+import time
 
 
 def _load_config(config_fn, lowercase=False):
@@ -88,13 +85,13 @@ class JsonHParams:
 
 
 def build_semantic_model(
-    path_="./models/tts/maskgct/ckpt/wav2vec2bert_stats.pt", model_path=None
+    path_='./models/tts/maskgct/ckpt/wav2vec2bert_stats.pt',
+    model_path="facebook/w2v-bert-2.0",
+    local_files_only: bool | None = None,
 ):
-    if model_path is not None:
-        semantic_model = Wav2Vec2BertModel.from_pretrained(model_path)
-    else:
-        semantic_model = Wav2Vec2BertModel.from_pretrained("facebook/w2v-bert-2.0")
-    semantic_model.eval()
+    if local_files_only is None:
+        local_files_only = os.path.isdir(model_path)
+    semantic_model = Wav2Vec2BertModel.from_pretrained(model_path, local_files_only=local_files_only)
     stat_mean_var = torch.load(path_)
     semantic_mean = stat_mean_var["mean"]
     semantic_std = torch.sqrt(stat_mean_var["var"])
@@ -124,18 +121,18 @@ def build_acoustic_codec(cfg, device):
     return codec_encoder, codec_decoder
 
 
-class Inference_Pipeline:
+class Inference_Pipeline():
     def __init__(
-        self,
-        semantic_model,
-        semantic_codec,
-        semantic_mean,
-        semantic_std,
-        codec_encoder,
-        codec_decoder,
-        s2a_model_1layer,
-        s2a_model_full,
-    ):
+            self,
+            semantic_model,
+            semantic_codec,
+            semantic_mean,
+            semantic_std,
+            codec_encoder,
+            codec_decoder,
+            s2a_model_1layer,
+            s2a_model_full,
+            ):
         self.semantic_model = semantic_model
         self.semantic_codec = semantic_codec
         self.semantic_mean = semantic_mean
@@ -251,7 +248,7 @@ class Inference_Pipeline:
         combine_semantic_code,
     ):
         speech = librosa.load(prompt_speech_path, sr=24000)[0]
-        """
+        '''
         acoustic_code = self.extract_acoustic_code(
             torch.tensor(speech).unsqueeze(0).to(combine_semantic_code.device)
         )
@@ -259,14 +256,9 @@ class Inference_Pipeline:
         prompt_vq_emb = self.codec_decoder.vq2emb(
             prompt.permute(2, 0, 1), n_quantizers=12
         )
-        """
+        '''
 
-        prompt_vq_emb = self.codec_encoder(
-            torch.tensor(speech)
-            .unsqueeze(0)
-            .unsqueeze(1)
-            .to(combine_semantic_code.device)
-        )
+        prompt_vq_emb = self.codec_encoder(torch.tensor(speech).unsqueeze(0).unsqueeze(1).to(combine_semantic_code.device))
         recovered_prompt_audio = self.codec_decoder(prompt_vq_emb)
         recovered_prompt_audio = recovered_prompt_audio[0][0].cpu().numpy()
         return recovered_prompt_audio

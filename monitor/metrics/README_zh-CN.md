@@ -41,6 +41,14 @@ scrape_configs:
 
 > **指标隔离：** Supervisor 端点不会暴露 Worker 专属指标（如 token 计数），Worker 端点不会暴露 Supervisor 专属指标（如集群概览），以避免空 HELP/TYPE 头。
 
+> **集群标签约定（`cluster`）：** Xinference 代码仅在 `xinference:build_info` 与 `xinference:config_info` 上写入 `cluster` 标签。若需对所有 `xinference:*` 指标及 HTTP 中间件计数器按集群过滤（多集群 Prometheus / 联邦部署），须在 Prometheus scrape 配置中用 `relabel_configs` 将 `cluster` 注入到全部 series。示例：
+>
+> ```yaml
+> relabel_configs:
+>   - target_label: cluster
+>     replacement: <集群标识>
+> ```
+
 ## OpenTelemetry 端点
 
 通过环境变量配置 OTLP 导出（详见 `xinference/core/otel.py`）：
@@ -144,7 +152,7 @@ Supervisor 端指标提供**集群全局视图**，包含节点资源、模型�
 | 指标名 | 标签 | 说明 |
 |--------|------|------|
 | `xinference:model_info` | `model_uid`, `model_name`, `model_type`, `worker_address`, `replica_on_worker`, `replica_total` | 运行中模型的副本分布信息 |
-| `xinference:model_status` | `model_uid`, `model_name`, `status` | 模型生命周期状态（启动中 / 就绪 / 下线等） |
+| `xinference:model_status` | `model_uid`, `model_name`, `status` | 模型生命周期状态。`status` 取自 `LaunchStatus` 枚举：`CREATING` / `UPDATING` / `LOADING` / `READY` / `ERROR` / `TERMINATING` / `TERMINATED`。`/metrics` 活跃态主要为 `CREATING` / `LOADING` / `READY` / `ERROR`（`TERMINATED` 副本会被剔除；瞬态可见 `UPDATING` / `TERMINATING`） |
 | `xinference:model_gpu_binding` | `model_uid`, `model_name`, `model_type`, `worker_address`, `gpu_index`, `replica_index` | 每个副本绑定的 GPU 列表 |
 | `xinference:model_gpu_memory_used_bytes` | `model_uid`, `model_name`, `model_type`, `gpu_index`, `worker_address`, `replica_index` | 每个副本进程实际占用的 GPU 显存 |
 | `xinference:model_unexpected_termination` | `model_uid`, `model_name`, `replica_index` | 因 Worker 故障异常下线的副本（redeploy 后自动清除） |
@@ -159,7 +167,7 @@ Supervisor 端指标提供**集群全局视图**，包含节点资源、模型�
 
 | 指标名 | 类型 | 单位 | 说明 |
 |--------|------|------|------|
-| `xinference:api_key_requests_total` | Counter | requests | API Key 鉴权接口请求总数 |
+| `xinference:api_key_requests_total` | Counter | requests | API Key 鉴权接口请求总数。`status` 标签 ∈ {`success`, `model_not_found`, `error`, `denied`}（API Key 无权访问所请求模型时为 denied；其余情况下响应码 <400 为 success、404 为 model_not_found、其余为 error） |
 | `xinference:api_key_request_duration_seconds` | Histogram | seconds | 鉴权接口耗时分布 |
 | `xinference:api_keys_active_total` | Gauge | count | 当前有效的 API Key 数量 |
 | `xinference:api_keys_expired_total` | Gauge | count | 已过期的 API Key 数量 |
@@ -175,12 +183,30 @@ Supervisor 端指标提供**集群全局视图**，包含节点资源、模型�
 
 | 指标名 | 标签 | 说明 |
 |--------|------|------|
-| `xinference:build_info` | `version`, `python_version`, `cluster`, `xinference_role`, `worker_address`, `supervisor_address` | 版本与运行时信息 |
+| `xinference:build_info` | `version`, `python_version`, `cluster`, `xinference_role`（`supervisor` / `worker`）, `worker_address`, `supervisor_address` | 版本与运行时信息 |
 | `xinference:config_info` | `xinference_home`, `xinference_role`, `cluster`, `worker_address`, `supervisor_address` | 配置信息（如 XINFERENCE_HOME） |
 
 **用途：**
 - 多集群场景下区分版本、集群、角色
 - 与业务指标做 join，支持按版本分组对比
+
+#### 2.6 HTTP 中间件指标（仅 Supervisor 端）
+
+由 `aioprometheus` 的 `MetricsMiddleware` 自动产生（在 Supervisor API Server 上挂载），用于 API 层 HTTP 健康 / 错误率监控。这些指标**不带 `xinference:` 前缀**，仅 Supervisor 端暴露（Worker 的 metrics server 是独立 FastAPI app，未挂该 middleware）。
+
+| 指标名 | 类型 | 标签 | 说明 |
+|--------|------|------|------|
+| `requests_total_counter` | Counter | `method`, `path` | API 请求总数 |
+| `responses_total_counter` | Counter | `method`, `path` | API 响应总数 |
+| `exceptions_total_counter` | Counter | `method`, `path` | 抛出异常的请求数 |
+| `status_codes_counter` | Counter | `method`, `path`, `status_code` | 按状态码统计的响应数（`status_code` 为完整码如 `200`/`404`/`500`，未按组归并） |
+
+**用途：**
+- API 错误率 = `sum without(status_code) (rate(status_codes_counter{status_code=~"4..|5.."}[5m])) / rate(requests_total_counter[5m])`
+- API QPS = `sum(rate(requests_total_counter[5m]))`
+- 异常请求数突增 = `rate(exceptions_total_counter[5m])`
+
+> **`cluster` 标签：** 这些中间件指标由 Xinference 代码产生但本身不含 `cluster` 标签，需通过 Prometheus scrape relabel 注入（见上文「集群标签约定」）。
 
 ---
 
@@ -232,3 +258,21 @@ OTEL 指标与 Supervisor 端 Prometheus 指标语义等价，命名采用 OTLP 
 - OpenTelemetry 初始化：`xinference/core/otel.py`
 - REST API 中的 `/metrics` 路由注册：`xinference/api/restful_api.py`
 - Worker 侧指标埋点：`xinference/core/model.py`
+
+## Token Router Runtime 动态发现
+
+Token Router Runtime 端口由 Router Agent 动态分配，不能扫描整个端口池，也不应维护
+静态 Runtime target。Prometheus 应通过以下 Supervisor HTTP 服务发现接口获取目标：
+
+```text
+GET /v1/monitor/prometheus/http-sd/token-router-runtimes
+所需权限：routers:read
+```
+
+完整抓取示例见 `prometheus-token-router-http-sd.yml`。Supervisor 会在 Runtime 有效期及
+stale 保留窗口内持续返回 target，包括 Starting/Degraded 实例，以及 Agent 控制链路离线、
+但数据面仍可能服务的 Runtime；超过 Runtime Registry 保留期后 target 自动删除。
+
+Supervisor `/metrics` 是 Agent、Assignment、Runtime 控制面、Tokenizer Binding、逻辑
+Router 汇总的权威来源；Runtime `/metrics` 是请求、路由、后端、并发池、
+Tokenization 和 Runtime 进程资源指标的权威来源。

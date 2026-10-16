@@ -15,7 +15,6 @@ import asyncio
 import logging
 from typing import Any, Dict, Optional
 
-import xoscar as xo
 from vllm.core.block.interfaces import BlockId
 from vllm.core.block.prefix_caching_block import (
     BlockTracker,
@@ -23,6 +22,7 @@ from vllm.core.block.prefix_caching_block import (
 )
 
 from .....isolation import Isolation
+from .xavier_remote_kvcache_manager import XavierRemoteKVCacheManager
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class XavierPrefixCachingBlockAllocator(PrefixCachingBlockAllocator):
             self._block_tracker[_id] = XavierInnerBlockTracker()
 
         self._xavier_config: Optional[Dict[str, Any]] = None
-        self._block_tracker_ref = None
+        self._block_tracker_ref: Optional[XavierRemoteKVCacheManager] = None
         if run_isolation:
             self._isolation = Isolation(
                 asyncio.new_event_loop(), threaded=True, daemon=True
@@ -75,22 +75,30 @@ class XavierPrefixCachingBlockAllocator(PrefixCachingBlockAllocator):
     def xavier_config(self, v: Dict[str, Any]):
         self._xavier_config = v
 
-    async def _get_block_tracker_ref(self):
+    async def _get_block_tracker_ref(self) -> XavierRemoteKVCacheManager:
         if self._block_tracker_ref is None:
-            block_tracker_address = self.xavier_config.get("block_tracker_address")
-            block_tracker_uid = self.xavier_config.get("block_tracker_uid")
-            self._block_tracker_ref = await xo.actor_ref(
-                address=block_tracker_address, uid=block_tracker_uid
-            )
+            self._block_tracker_ref = XavierRemoteKVCacheManager()
+            await self._block_tracker_ref.setup(xavier_config=self.xavier_config)
         return self._block_tracker_ref
 
     async def unregister_block(self, block_id: int):
         assert self._xavier_config is not None
-        tracker_ref = await self._get_block_tracker_ref()
-        await tracker_ref.unregister_block(
-            self.xavier_config.get("virtual_engine"),
-            self.xavier_config.get("rank"),
-            block_id,
+        block_tracker_ref = await self._get_block_tracker_ref()
+
+        engine_metadata = {
+            "virtual_engine": self.xavier_config.get("virtual_engine"),
+        }
+
+        cache_metadatas = [
+            {
+                "rank": self.xavier_config.get("rank"),
+                "block_id": block_id,
+            }
+        ]
+
+        await block_tracker_ref.unregister_blocks(
+            engine_metadata,
+            cache_metadatas,
         )
 
     def _maybe_allocate_evicted_block_id(self) -> Optional[BlockId]:

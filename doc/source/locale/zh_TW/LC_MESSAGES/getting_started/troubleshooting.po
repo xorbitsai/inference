@@ -488,10 +488,10 @@ msgstr ""
 
 #: ../../source/getting_started/troubleshooting.rst:267
 msgid ""
-"**Xinference's Unbounded Torch Dependency**: Xinference's ``setup.cfg`` does"
-" not specify an upper bound for PyTorch:"
+"**Xinference's Unbounded Torch Dependency**: Xinference's "
+"``pyproject.toml`` does not specify an upper bound for PyTorch:"
 msgstr ""
-"**Xinference 對 Torch 依賴未設定上限**：Xinference 的 ``setup.cfg`` 中未為 PyTorch "
+"**Xinference 對 Torch 依賴未設定上限**：Xinference 的 ``pyproject.toml`` 中未為 PyTorch "
 "指定版本上限："
 
 #: ../../source/getting_started/troubleshooting.rst:275

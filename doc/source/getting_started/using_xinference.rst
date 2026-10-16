@@ -129,11 +129,25 @@ Currently, xinference supports the following inference engines:
 
 About the details of these inference engine, please refer to :ref:`here <inference_backend>`.
 
+.. tip::
+
+   .. versionadded:: v3.5.0
+
+   Use **Recommend configuration** in the Web UI's model deployment dialog to
+   fill in a suggested engine, format, size, and quantization. See
+   :ref:`launch recommendations <launch_recommendations>` for details.
+
 Note that when launching a LLM model, the ``model_format`` and ``quantization`` of the model you want to launch
 is closely related to the inference engine.
 
 You can use ``xinference engine`` command to query the combination of parameters of the model you want to launch.
 This will demonstrate under what conditions a model can run on which inference engines.
+
+For LLM, embedding and rerank models, engine discovery combines results from all registered workers.
+Engine names and parameter combinations retain their first-seen order, with duplicate combinations
+removed; an available engine takes precedence over another worker's unavailability message. Empty
+worker results are skipped, and local discovery is used if all results are empty. A worker query
+error fails the request instead of returning an incomplete capability list.
 
 For example:
 
@@ -334,6 +348,8 @@ The following OpenAI APIs are supported:
 
 - Embeddings: `https://platform.openai.com/docs/api-reference/embeddings <https://platform.openai.com/docs/api-reference/embeddings>`_
 
+- Responses (stateless, used by Codex CLI): `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. Refer to :ref:`responses client <openai_responses_client>` for more details.
+
 Xinference also supports Anthropic API via base url ``http://127.0.0.1:9997/anthropic``, you can use Xinference in Claude Code and so forth.
 Refer to :ref:`anthropic client <anthropic_client>` for more details.
 
@@ -404,6 +420,14 @@ Deploy Xinference In a Cluster
 
 To deploy Xinference in a cluster, you need to start a Xinference supervisor on one server and Xinference workers
 on the other servers.
+
+.. warning::
+
+   Before starting the cluster, configure the same ``XOSCAR_AUTH_KEY`` on the
+   supervisor and every worker as described in :ref:`actor_transport_authentication`.
+   HTTP API authentication does not protect actor ports; an unset or empty key
+   leaves the actor transport unauthenticated. Limit actor-port access to trusted
+   cluster peers using your deployment's network controls.
 
 First, make sure you have already installed Xinference on each of the servers according to the instructions
 provided :ref:`here <installation>`. Then follow the steps below:

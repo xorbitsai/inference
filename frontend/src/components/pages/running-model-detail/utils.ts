@@ -1,7 +1,19 @@
+import { ModelAbility } from '@/constants';
 import { MODEL_TYPE_ABILITY_MAP } from '@/constants/running';
 import type { FormValues } from '@/types/form';
 import type { ChatChoicesMessage } from '@/types/services';
 import type { FileUploadValue } from '@/types/common';
+
+import { parseImageSeeds } from './image-seed-utils';
+import { parseScalarSeed } from './seed-utils';
+
+const UNDERSCORED_PRIMARY_ABILITIES: ModelAbility[] = [ModelAbility.SpeakerEmbedding];
+
+export function getPrimaryModelAbilities(abilities: ModelAbility[] = []) {
+  return abilities.filter(
+    (ability) => !ability.includes('_') || UNDERSCORED_PRIMARY_ABILITIES.includes(ability)
+  );
+}
 
 export function createId(prefix = 'item') {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -58,6 +70,7 @@ export function appendIfPresent(formData: FormData, key: string, value: unknown)
 
 interface BuildGenerationKwargsOptions {
   excludeKeys?: string[];
+  seedMode?: 'image-list' | 'scalar';
 }
 
 export function buildGenerationKwargs(
@@ -65,7 +78,7 @@ export function buildGenerationKwargs(
   requestId?: string,
   options: BuildGenerationKwargsOptions = {}
 ) {
-  const kwargs: Record<string, string | number | boolean> = {};
+  const kwargs: Record<string, string | number | boolean | number[]> = {};
   const excludedKeys = new Set(options.excludeKeys || []);
   const guidanceScale = positiveNumber(values.guidance_scale);
   const numInferenceSteps = positiveNumber(values.num_inference_steps);
@@ -97,6 +110,16 @@ export function buildGenerationKwargs(
     kwargs.sampler_name = samplerName;
   }
 
+  if (Object.prototype.hasOwnProperty.call(values, 'seed')) {
+    if (options.seedMode === 'image-list') {
+      const imageCount = Math.max(1, Math.round(numberValue(values.n, 1)));
+      kwargs.seed = parseImageSeeds(values.seed, imageCount);
+    } else {
+      const seed = parseScalarSeed(values.seed);
+      if (seed !== undefined) kwargs.seed = seed;
+    }
+  }
+
   ['num_frames', 'fps', 'width', 'height'].forEach((key) => {
     if (excludedKeys.has(key)) return;
 
@@ -112,6 +135,43 @@ export function buildGenerationKwargs(
 export function firstUpload(values: FormValues, key: string): FileUploadValue | undefined {
   const value = values[key];
   return Array.isArray(value) ? value[0] : undefined;
+}
+
+export function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error(`Failed to encode ${file.name}`));
+      }
+    };
+    reader.onerror = () => reject(reader.error || new Error(`Failed to read ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+export function parseJsonObject(value: unknown): Record<string, unknown> {
+  const source = stringValue(value).trim();
+  if (!source) return {};
+
+  const parsed: unknown = JSON.parse(source);
+  if (!isRecord(parsed)) {
+    throw new Error('Expected a JSON object');
+  }
+
+  return parsed;
+}
+
+export function isJsonObject(value: unknown): boolean {
+  try {
+    parseJsonObject(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function uploadList(values: FormValues, key: string): FileUploadValue[] {
@@ -159,15 +219,24 @@ export function transformFileInfoForResult(message?: ChatChoicesMessage) {
   return undefined;
 }
 
+export function isTokenRouterModel(model: unknown): boolean {
+  if (!isRecord(model)) return false;
+  return (
+    model.model_kind === 'virtual' ||
+    model.virtual_model_type === 'token_router' ||
+    model.model_engine === 'token_router'
+  );
+}
+
 export function transformRunningModelDetail<T extends object>(detail: T) {
   if (!isRecord(detail) || !detail) return {};
   const modelType = typeof detail.model_type === 'string' ? detail.model_type : undefined;
-
+  const fallbackAbilities = isTokenRouterModel(detail)
+    ? [ModelAbility.Chat]
+    : (modelType && MODEL_TYPE_ABILITY_MAP[modelType]) || [];
   return {
     ...detail,
-    // fix model_ability was not returned when model_type was Rerank or Embedding.
-    model_ability: Array.isArray(detail.model_ability)
-      ? detail.model_ability
-      : (modelType && MODEL_TYPE_ABILITY_MAP[modelType]) || [],
+    // Older backends may omit abilities for capability-specific or virtual models.
+    model_ability: Array.isArray(detail.model_ability) ? detail.model_ability : fallbackAbilities,
   };
 }

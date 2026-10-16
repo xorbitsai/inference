@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
+import copy
 import json
 import logging
 import multiprocessing
@@ -19,7 +21,17 @@ import sys
 import threading
 import time
 import uuid
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import (
+    Any,
+    AsyncGenerator,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
+    cast,
+)
 
 from xoscar.utils import get_next_port
 
@@ -27,24 +39,36 @@ from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
-    ChatCompletionMessage,
     Completion,
     CompletionChoice,
     CompletionChunk,
+    CompletionLogprobs,
     CompletionUsage,
 )
 from ...utils import check_dependency_available
 from .. import LLM, LLMFamilyV2, LLMSpecV1
-from ..core import chat_context_var
+from ..core import chat_context_var, get_model_speculative_tokens_default
+from ..media import materialize_messages_media, media_workspace
+from ..tool_controls import (
+    convert_forced_completion,
+    is_forced_tool_choice,
+    prepare_forced_tools,
+    single_tool_completion,
+    single_tool_stream,
+    stream_forced_completion,
+)
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
     GLM5_TOOL_CALL_FAMILY,
+    MINICPM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
     generate_completion_chunk,
 )
+from ..weight_cache import WeightCachedModel
+from .gc_lifecycle import InitializationGCFreeze
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +79,7 @@ class SGLANGModelConfig(TypedDict, total=False):
     tp_size: int
     mem_fraction_static: float
     log_level: str
+    launch_timeout: float
     attention_reduce_in_fp32: bool  # For gemma
     quantization: Optional[str]
     dtype: Optional[str]
@@ -63,6 +88,18 @@ class SGLANGModelConfig(TypedDict, total=False):
     node_rank: Optional[int]
     dist_init_addr: Optional[str]
     reasoning_content: bool
+    enable_thinking: bool
+    limit_mm_data_per_request: Optional[Union[str, Dict[str, int]]]
+    skip_server_warmup: bool
+    # engine-neutral speculative decoding options, translated into the
+    # speculative_* server args below and never forwarded to the engine as-is
+    draft_model_path: Optional[str]
+    num_speculative_tokens: Optional[int]
+    speculative_algorithm: Optional[str]
+    speculative_draft_model_path: Optional[str]
+    speculative_num_steps: Optional[int]
+    speculative_num_draft_tokens: Optional[int]
+    speculative_eagle_topk: Optional[int]
 
 
 class SGLANGGenerateConfig(TypedDict, total=False):
@@ -74,9 +111,13 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     max_new_tokens: int
     stop: Optional[Union[str, List[str]]]
     ignore_eos: bool
+    cache_salt: str
     stream: bool
     stream_options: Optional[Union[dict, None]]
-    json_schema: Optional[dict]
+    json_schema: Optional[Union[str, dict]]
+    _require_structured_output: bool
+    skip_special_tokens: bool
+    require_reasoning: bool
     response_format: dict
 
 
@@ -87,12 +128,33 @@ try:
 except ImportError:
     SGLANG_INSTALLED = False
 
+
+def _virtual_env_allows_missing_sglang() -> bool:
+    """Whether virtualenv mode should tolerate a missing SGLang install.
+
+    When enabled, SGLang and its runtime are installed on demand, so engine
+    listing must not depend on the library being present locally. Delegates to
+    the shared helper so discovery honors the effective request-level flag
+    (virtualenv_discovery_var), falling back to the global constant otherwise.
+    """
+    try:
+        from ...utils import virtual_env_allows_missing_engine
+    except Exception:
+        try:
+            from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+        except Exception:
+            return False
+        return bool(XINFERENCE_ENABLE_VIRTUAL_ENV)
+    return virtual_env_allows_missing_engine()
+
+
 SGLANG_SUPPORTED_MODELS = [
     "LlamaForCausalLM",
     "MistralForCausalLM",
     "MixtralForCausalLM",
     "Qwen2ForCausalLM",
     "OPTForCausalLM",
+    "Spark2_5ForCausalLM",
 ]
 SGLANG_SUPPORTED_CHAT_MODELS = [
     "LlamaForCausalLM",
@@ -106,8 +168,12 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "DeepseekV2ForCausalLM",
     "DeepseekV3ForCausalLM",
     "Qwen3ForCausalLM",
+    "Qwen3NextForCausalLM",
+    "Qwen3_5MoeForCausalLM",
     "HunYuanDenseV1ForCausalLM",
     "HYV3ForCausalLM",
+    "Spark2_5ForCausalLM",
+    "BailingMoeV3ForCausalLM",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Qwen2_5_VLForConditionalGeneration",
@@ -115,12 +181,19 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "MiniCPMV",
     "MiniCPMV4_6ForConditionalGeneration",
     "MllamaForConditionalGeneration",
+    "Qwen3_5ForConditionalGeneration",
     "Qwen3_5MoeForConditionalGeneration",
+    "MiniMaxM3SparseForConditionalGeneration",
 ]
 
+LING3_FLASH_SGLANG_LAUNCH_TIMEOUT = 900.0
 
-class SGLANGModel(LLM):
+
+class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
+    _weight_cache_engine = "sglang"
     allow_batch = True
+    support_draft_model = True
+    supports_tool_controls = True
 
     def __init__(
         self,
@@ -138,6 +211,11 @@ class SGLANGModel(LLM):
         self._driver_info = model_config.pop("driver_info", None)  # type: ignore
         self._loading_thread = None
         self._loading_error = None
+        self._init_weight_cache(model_config or {})
+        self._xavier_handoff = None
+        self._nixl_handoff = None
+        self._active_request_ids: set[str] = set()
+        self._gc_freeze = InitializationGCFreeze()
 
     @property
     def driver_info(self) -> Optional[dict]:
@@ -162,13 +240,56 @@ class SGLANGModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+        cache_config = self._model_config.pop("_xavier_cache_config", None)  # type: ignore[typeddict-item]
+        nixl_config = self._model_config.pop("_nixl_config", None)  # type: ignore[typeddict-item]
+        if cache_config is not None:
+            self._model_config.setdefault("dtype", "float16")
         self._model_config = self._sanitize_model_config(self._model_config)
+        if nixl_config is not None:
+            from .pd import configure_nixl
+
+            configure_nixl(
+                self._model_config, nixl_config, sgl.__version__, self._n_worker
+            )
+        if cache_config is not None:
+            from packaging.version import Version
+
+            from .xavier.config import configure_xavier
+
+            if Version(sgl.__version__) < Version("0.5.21"):
+                raise ValueError("SGLang Xavier requires SGLang >= 0.5.21")
+            if self._n_worker != 1:
+                raise ValueError("SGLang Xavier requires one worker per replica")
+            configure_xavier(self.model_path, self._model_config, cache_config)
+            if cache_config.get("role"):
+                from sglang.srt.plugins.hook_registry import HookRegistry
+
+                from ...llm.xavier.transport import get_transport_host
+                from .xavier.gpu import GPU_CONFIG_ENV
+                from .xavier.plugin import register
+
+                cache_config["host"] = get_transport_host(
+                    cache_config.get("host") or self._address
+                )
+                os.environ[GPU_CONFIG_ENV] = json.dumps(cache_config)
+                plugins = os.environ.get("SGLANG_PLUGINS")
+                if plugins:
+                    os.environ["SGLANG_PLUGINS"] = plugins + ",xinference_xavier"
+                # Also install in the Runtime parent, including when another
+                # engine already loaded SGLang's general plugins in this process.
+                register()
+                HookRegistry.apply_hooks()
         reasoning_content = self._model_config.pop("reasoning_content")
         enable_thinking = self._model_config.pop("enable_thinking", False)
         self.prepare_parse_reasoning_content(
             reasoning_content, enable_thinking=enable_thinking
         )
         self.prepare_parse_tool_calls()
+        from .reasoning import configure_structured_reasoning
+
+        configure_structured_reasoning(
+            self._model_config, getattr(self, "reasoning_parser", None)
+        )
 
         # Fix: GH#2169
         if sgl.__version__ >= "0.2.14":
@@ -191,8 +312,18 @@ class SGLANGModel(LLM):
             raise ValueError("Failed to find a port for sglang")
 
         # fork may cause sglang stuck, force set to spawn
-        multiprocessing.set_start_method("spawn")
+        multiprocessing.set_start_method("spawn", force=True)
 
+        from .runtime import create_runtime, prepare_jit_cache
+
+        # The weight daemon compiles JIT kernels before Runtime starts.
+        prepare_jit_cache()
+        self._prepare_weight_cache()
+
+        logged_config = {
+            key: "***" if key in ("api_key", "admin_api_key") else value
+            for key, value in self._model_config.items()
+        }
         if self._n_worker > 1:
             # distributed inference
             self._model_config["nnodes"] = self._n_worker
@@ -214,12 +345,13 @@ class SGLANGModel(LLM):
                 ]
 
             logger.info(
-                f"Loading {self.model_uid}, shard({self._shard} of {self._n_worker}) with following model config: {self._model_config}"
+                f"Loading {self.model_uid}, shard({self._shard} of {self._n_worker}) with following model config: {logged_config}"
             )
 
             def _load():
                 try:
-                    self._engine = sgl.Runtime(
+                    self._engine = create_runtime(
+                        sgl.Runtime,
                         model_path=self.model_path,
                         tokenizer_path=self.model_path,
                         port=sgl_port,
@@ -236,15 +368,42 @@ class SGLANGModel(LLM):
                 self._loading_thread.join(3)
         else:
             logger.info(
-                f"Loading {self.model_uid} with following model config: {self._model_config}"
+                f"Loading {self.model_uid} with following model config: {logged_config}"
             )
 
-            self._engine = sgl.Runtime(
+            self._engine = create_runtime(
+                sgl.Runtime,
                 model_path=self.model_path,
                 tokenizer_path=self.model_path,
                 port=sgl_port,
                 **self._model_config,
             )
+            if cache_config is not None and cache_config.get("role"):
+                from .xavier.pd import SGLangXavierHandoff
+
+                self._xavier_handoff = SGLangXavierHandoff(
+                    cache_config, self._get_tokenizer()
+                )
+            elif nixl_config is not None:
+                from .pd import SGLangNixlHandoff
+
+                self._nixl_handoff = SGLangNixlHandoff(nixl_config)
+            if self._xavier_handoff is not None or self._nixl_handoff is not None:
+                # Freeze the initialized wrapper in its dedicated model process.
+                # New request cycles remain collectible. Apply the same policy
+                # to both transports so their P/D comparison stays equivalent.
+                self._gc_freeze.start()
+
+    def get_pd_bootstrap(self) -> dict:
+        handoff = getattr(self, "_nixl_handoff", None)
+        if handoff is None or handoff.role != "prefill":
+            raise ValueError("SGLang bootstrap requires a native NIXL prefill replica")
+        return dict(host=handoff.config["host"], port=handoff.config["port"])
+
+    def _get_launch_timeout(self) -> float:
+        if self.model_family.has_architecture("BailingMoeV3ForCausalLM"):
+            return LING3_FLASH_SGLANG_LAUNCH_TIMEOUT
+        return 300.0
 
     def wait_for_load(self):
         if self._loading_thread:
@@ -258,14 +417,88 @@ class SGLANGModel(LLM):
                 raise err.with_traceback(tb)
 
     def stop(self):
-        logger.info("Stopping SGLang engine, sglang pid: %s", self._engine.pid)
-        self._engine.shutdown()
+        try:
+            self._stop_engine()
+        finally:
+            if self._weight_cache is not None:
+                self._weight_cache.stop()
+                self._weight_cache = None
+
+    def _stop_engine(self):
+        try:
+            if self._engine is not None:
+                logger.info("Stopping SGLang engine, sglang pid: %s", self._engine.pid)
+                self._engine.shutdown()
+                self._engine = None
+        finally:
+            self._gc_freeze.close()
+
+    # Generic fallback for NEXTN families without a model-specific recipe.
+    DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS = 6
+
+    def _default_num_speculative_tokens(self) -> int:
+        return get_model_speculative_tokens_default(
+            getattr(self.model_family, "model_name", None),
+            getattr(self.model_spec, "model_size_in_billions", None),
+            self.DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS,
+        )
+
+    def _apply_draft_model(self, model_config: SGLANGModelConfig) -> None:
+        """Turn a downloaded drafter into SGLang's ``speculative_*`` server args.
+
+        ``draft_model_path`` / ``num_speculative_tokens`` are the engine-neutral
+        launch options; the whole model_config is splatted into the engine, so
+        they must be consumed here whether or not they end up being used.
+        """
+        draft_model_path = model_config.pop("draft_model_path", None)  # type: ignore[typeddict-item]
+        num_speculative_tokens = model_config.pop("num_speculative_tokens", None)  # type: ignore[typeddict-item]
+        if not draft_model_path:
+            return
+
+        if model_config.get("speculative_algorithm"):
+            # The user is configuring SGLang's speculative decoding directly.
+            logger.info(
+                "Ignoring the drafter of %s, speculative_algorithm was set explicitly",
+                self.model_uid,
+            )
+            return
+
+        from ..core import parse_num_speculative_tokens
+
+        requested = parse_num_speculative_tokens(num_speculative_tokens)
+        num_draft_tokens = (
+            requested
+            if requested is not None
+            else self._default_num_speculative_tokens()
+        )
+        model_config["speculative_algorithm"] = "NEXTN"
+        model_config["speculative_draft_model_path"] = draft_model_path
+        # an explicitly provided count wins, like the two keys below. Coerce the
+        # entry itself, not just the local: the Web UI submits strings, and the
+        # engine expects an int.
+        provided = parse_num_speculative_tokens(
+            model_config.get("speculative_num_draft_tokens")
+        )
+        effective_draft_tokens = provided if provided is not None else num_draft_tokens
+        model_config["speculative_num_draft_tokens"] = effective_draft_tokens
+        # one bonus token from the target plus one draft per step
+        model_config.setdefault(
+            "speculative_num_steps", max(1, effective_draft_tokens - 1)
+        )
+        model_config.setdefault("speculative_eagle_topk", 1)
+        logger.info(
+            "Speculative decoding enabled for %s: NEXTN with %s, %s draft tokens",
+            self.model_uid,
+            draft_model_path,
+            effective_draft_tokens,
+        )
 
     def _sanitize_model_config(
         self, model_config: Optional[SGLANGModelConfig]
     ) -> SGLANGModelConfig:
         if model_config is None:
             model_config = SGLANGModelConfig()
+        self._apply_draft_model(model_config)
 
         cuda_count = self._get_cuda_count()
         model_config.setdefault("tokenizer_mode", "auto")
@@ -289,8 +522,26 @@ class SGLANGModel(LLM):
                 model_config["mem_fraction_static"] = 0.87
             else:
                 model_config["mem_fraction_static"] = 0.88
+        limits = model_config.get("limit_mm_data_per_request")
+        if isinstance(limits, str):
+            # Normalize before taking the retained-weight reload snapshot.
+            limits = json.loads(limits) if limits.strip() else None
+            model_config["limit_mm_data_per_request"] = limits
+        if (
+            isinstance(limits, dict)
+            and type(limits.get("image")) is int
+            and limits["image"] == 0
+            and {"vision", "omni"}.intersection(self.model_family.model_ability)
+        ):
+            # SGLang's default vision warmup sends an image, which a zero
+            # request limit rejects. This derived flag is not in the reload
+            # snapshot, so a positive image limit restores normal warmup.
+            model_config.setdefault("skip_server_warmup", True)
         model_config.setdefault("log_level", "info")
+        model_config.setdefault("launch_timeout", self._get_launch_timeout())
         model_config.setdefault("reasoning_content", False)
+        if self.model_family.has_architecture("BailingMoeV3ForCausalLM"):
+            model_config.setdefault("enable_thinking", True)
         self._apply_fp4_config(model_config)
 
         return model_config
@@ -331,14 +582,44 @@ class SGLANGModel(LLM):
         generate_config.setdefault("ignore_eos", False)
         response_format = generate_config.pop("response_format", None)
         if response_format:
-            json_schema_config = response_format.pop("json_schema", None)
-            json_schema = None
-            if "schema_" in json_schema_config:
-                json_schema = json_schema_config.pop("schema_")
-            elif "schema" in json_schema_config:
-                json_schema = json_schema_config.pop("schema")
-            if json_schema:
-                generate_config.setdefault("json_schema", json.dumps(json_schema))  # type: ignore
+            if response_format.get("type") == "json_object":
+                generate_config.setdefault(
+                    "json_schema", json.dumps({"type": "object"})
+                )
+            elif response_format.get("type") == "json_schema":
+                schema_config = response_format.get("json_schema") or {}
+                schema = schema_config.get("schema_", schema_config.get("schema"))
+                if not isinstance(schema, dict):
+                    raise ValueError("Structured output requires a JSON schema object")
+                generate_config.setdefault("json_schema", json.dumps(schema))
+        require_structured = generate_config.pop("_require_structured_output", False)
+        if require_structured and not generate_config.get("json_schema"):
+            raise NotImplementedError("SGLang requires a structured output constraint")
+
+        # Map the OpenAI logprobs request to sglang's native engine params. The
+        # raw OpenAI keys must not reach sglang's SamplingParams (#3553: passing
+        # them crashes the msgspec.Struct with unknown kwargs); sglang reads
+        # return_logprob/top_logprobs_num/return_text_in_logprobs as top-level
+        # GenerateReqInput fields, lifted out of sampling_params by the generate
+        # methods so the engine both produces and returns logprob data.
+        logprobs_req = generate_config.pop("logprobs", None)  # type: ignore
+        top_logprobs_req = generate_config.pop("top_logprobs", None)  # type: ignore
+        # A request is active when the caller explicitly opted in. For chat
+        # completions ``logprobs`` is a bool flag (False = opt out); for legacy
+        # /v1/completions it is an int count where 0 means "selected-token
+        # logprob, no alternatives". A bare truthiness check treated completion
+        # 0 as opt-out, so ``return_logprob`` was never sent and the response
+        # stayed ``logprobs=None``. Distinguish chat False from completion int 0.
+        if logprobs_req is not None and logprobs_req is not False:
+            if isinstance(logprobs_req, bool):
+                # chat completions: logprobs is a flag, top_logprobs holds the count
+                top_k = max(int(top_logprobs_req or 0), 0)
+            else:
+                # legacy completions: logprobs is the requested count directly
+                top_k = max(int(logprobs_req or 0), 0)
+            generate_config["return_logprob"] = True  # type: ignore
+            generate_config["top_logprobs_num"] = top_k  # type: ignore
+            generate_config["return_text_in_logprobs"] = True  # type: ignore
 
         return generate_config
 
@@ -385,13 +666,29 @@ class SGLANGModel(LLM):
             )
         if "generate" not in llm_family.model_ability:
             return False, "SGLang base engine requires generate ability"
-        if not SGLANG_INSTALLED:
+        if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
             return False, "sglang library is not installed"
         return True
 
     @staticmethod
+    def _get_completion_usage(meta_info: Dict) -> CompletionUsage:
+        usage = CompletionUsage(
+            prompt_tokens=meta_info["prompt_tokens"],
+            completion_tokens=meta_info["completion_tokens"],
+            total_tokens=meta_info["prompt_tokens"] + meta_info["completion_tokens"],
+        )
+        cached_tokens = meta_info.get("cached_tokens")
+        if cached_tokens is not None:
+            usage["prompt_tokens_details"] = {"cached_tokens": cached_tokens}
+        return usage
+
+    @staticmethod
     def _convert_state_to_completion_chunk(
-        request_id: str, model: str, output_text: str, meta_info: Dict
+        request_id: str,
+        model: str,
+        output_text: str,
+        meta_info: Dict,
+        text_offset_base: int = 0,
     ) -> CompletionChunk:
         finish_reason_raw = meta_info.get("finish_reason", None)
         finish_reason: Optional[str] = None
@@ -407,15 +704,11 @@ class SGLANGModel(LLM):
             CompletionChoice(
                 text=output_text,
                 index=0,
-                logprobs=None,
+                logprobs=SGLANGModel._build_logprobs(meta_info, text_offset_base),
                 finish_reason=finish_reason,
             )
         ]
-        usage = CompletionUsage(
-            prompt_tokens=meta_info["prompt_tokens"],
-            completion_tokens=meta_info["completion_tokens"],
-            total_tokens=meta_info["prompt_tokens"] + meta_info["completion_tokens"],
-        )
+        usage = SGLANGModel._get_completion_usage(meta_info)
         chunk = CompletionChunk(
             id=request_id,
             object="text_completion",
@@ -444,16 +737,12 @@ class SGLANGModel(LLM):
             CompletionChoice(
                 text=output_text,
                 index=0,
-                logprobs=None,
+                logprobs=SGLANGModel._build_logprobs(meta_info),
                 finish_reason=finish_reason,
             )
         ]
 
-        usage = CompletionUsage(
-            prompt_tokens=meta_info["prompt_tokens"],
-            completion_tokens=meta_info["completion_tokens"],
-            total_tokens=meta_info["prompt_tokens"] + meta_info["completion_tokens"],
-        )
+        usage = SGLANGModel._get_completion_usage(meta_info)
         return Completion(
             id=request_id,
             object="text_completion",
@@ -463,16 +752,158 @@ class SGLANGModel(LLM):
             usage=usage,
         )
 
+    @staticmethod
+    def _extract_logprob_entry(
+        entry: Any,
+    ) -> Tuple[Optional[float], Optional[str]]:
+        """Pull (logprob, decoded_text) from one sglang logprob tuple.
+
+        sglang emits each sampled/top position as a ``(logprob, token_id,
+        token_text)`` 3-tuple when ``return_text_in_logprobs`` is set (text
+        is ``None`` on versions without that flag); older releases used a
+        ``(token_id, logprob)`` pair. After the JSON round-trip from the
+        engine logprobs are floats and token ids are ints, so when the arity
+        is ambiguous we identify the logprob by type. Returns ``(None, None)``
+        on any shape we cannot read safely -- no fabricated probabilities.
+        """
+        if not isinstance(entry, (list, tuple)) or not entry:
+            return None, None
+        if len(entry) >= 3:
+            return entry[0], entry[2]
+        if len(entry) == 2:
+            if isinstance(entry[0], float):
+                return entry[0], None
+            if isinstance(entry[1], float):
+                return entry[1], None
+        return None, None
+
+    @staticmethod
+    def _build_logprobs(
+        meta_info: Dict, text_offset_base: int = 0
+    ) -> Optional[CompletionLogprobs]:
+        """Build a legacy ``CompletionLogprobs`` from sglang ``meta_info``.
+
+        Mirrors ``vllm/core.py:_build_logprobs``: parallel
+        ``text_offset`` / ``tokens`` / ``token_logprobs`` / ``top_logprobs``
+        lists with a ``-9999.0`` floor and ``text_offset`` accumulation.
+        ``text_offset_base`` shifts every ``text_offset`` by the number of
+        completion characters already streamed, so each streamed chunk reports
+        absolute offsets instead of restarting at 0 (vLLM gets the same result
+        by building cumulative logprobs and then slicing).
+        Returns ``None`` when ``meta_info`` carries no output logprob data
+        (the caller did not request ``return_logprob``, or the fields are
+        absent/malformed) -- no crash, no fabricated probabilities.
+        """
+        token_lps = meta_info.get("output_token_logprobs")
+        if not token_lps:
+            return None
+        # current sglang field is output_top_logprobs; older releases used
+        # output_topk_logprobs (a dict of decoded_text -> logprob).
+        top_lps = meta_info.get("output_top_logprobs") or meta_info.get(
+            "output_topk_logprobs"
+        )
+        tokens: List[str] = []
+        token_logprobs: List[Optional[float]] = []
+        top_logprobs: List[Optional[Dict[str, float]]] = []
+        text_offset: List[int] = []
+        offset = text_offset_base
+        for i, entry in enumerate(token_lps):
+            lp, token_text = SGLANGModel._extract_logprob_entry(entry)
+            tokens.append(token_text or "")
+            token_logprobs.append(max(float(lp), -9999.0) if lp is not None else None)
+            top_entry = top_lps[i] if (top_lps and i < len(top_lps)) else None
+            if isinstance(top_entry, dict):
+                top_dict = {
+                    text: max(float(v), -9999.0)
+                    for text, v in top_entry.items()
+                    if v is not None
+                }
+                top_logprobs.append(top_dict or None)
+            elif top_entry:
+                alt_top: Dict[str, float] = {}
+                for alt in top_entry:
+                    alt_lp, alt_text = SGLANGModel._extract_logprob_entry(alt)
+                    if alt_text is not None and alt_lp is not None:
+                        alt_top[alt_text] = max(float(alt_lp), -9999.0)
+                top_logprobs.append(alt_top or None)
+            else:
+                top_logprobs.append(None)
+            text_offset.append(offset)
+            if token_text:
+                offset += len(token_text)
+        return CompletionLogprobs(
+            text_offset=text_offset,
+            token_logprobs=token_logprobs,
+            tokens=tokens,
+            top_logprobs=top_logprobs,
+        )
+
     @classmethod
     def _filter_sampling_params(cls, sampling_params: dict):
         if not sampling_params.get("lora_name"):
             sampling_params.pop("lora_name", None)
         return sampling_params
 
+    @staticmethod
+    def _lift_logprob_request_params(sampling_params: dict) -> dict:
+        """Pop sglang's top-level GenerateReqInput logprob fields out of the
+        sampling_params dict. sglang reads them off GenerateReqInput, not
+        SamplingParams; leaving them in sampling_params crashes the msgspec
+        SamplingParams with unknown kwargs (#3553).
+        """
+        top: Dict = {}
+        for k in (
+            "return_logprob",
+            "top_logprobs_num",
+            "return_text_in_logprobs",
+            "cache_salt",
+            "require_reasoning",
+            "bootstrap_host",
+            "bootstrap_port",
+            "bootstrap_room",
+        ):
+            if k in sampling_params:
+                top[k] = sampling_params.pop(k)
+        return top
+
+    @staticmethod
+    def _slice_stream_logprobs(meta_info: Dict, consumed: int) -> Tuple[Dict, int]:
+        """Slice cumulative sglang streaming logprob arrays to the per-chunk delta.
+
+        With ``incremental_streaming_output=False`` (sglang default), every
+        streamed ``meta_info`` carries cumulative ``output_token_logprobs`` and
+        ``output_top_logprobs``. Forwarding it unchanged re-emits earlier tokens
+        on every chunk (chunk 1 -> ``[A]``, chunk 2 -> ``[A, B]`` instead of
+        ``[B]``). This returns a shallow-copied ``meta_info`` whose logprob
+        arrays hold only the not-yet-consumed tail, plus the new consumed count
+        (the full cumulative length after this chunk). When this chunk carries
+        no logprob data, ``meta_info`` is returned unchanged and the counter is
+        untouched so a later cumulative chunk still slices correctly.
+        """
+        token_lps = meta_info.get("output_token_logprobs")
+        if not token_lps:
+            return meta_info, consumed
+        total = len(token_lps)
+        delta = dict(meta_info)
+        delta["output_token_logprobs"] = token_lps[consumed:]
+        top_lps = meta_info.get("output_top_logprobs") or meta_info.get(
+            "output_topk_logprobs"
+        )
+        if isinstance(top_lps, list):
+            sliced_top = top_lps[consumed:]
+            if "output_top_logprobs" in meta_info:
+                delta["output_top_logprobs"] = sliced_top
+            elif "output_topk_logprobs" in meta_info:
+                delta["output_topk_logprobs"] = sliced_top
+            else:
+                delta["output_top_logprobs"] = sliced_top
+        return delta, total
+
     async def _stream_generate(
         self,
         prompt: str,
         image_data: Optional[Union[List[str], str]] = None,
+        request_id: Optional[str] = None,
         **sampling_params,
     ):
         import aiohttp
@@ -480,17 +911,26 @@ class SGLANGModel(LLM):
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
             "text": prompt,
+            "rid": request_id,
             "image_data": image_data,
             "sampling_params": sampling_params,
             "stream": True,
+            **self._lift_logprob_request_params(sampling_params),
         }
         pos = 0
+        # sglang (incremental_streaming_output=False) sends cumulative logprob
+        # arrays per chunk; track how many we have already emitted so each chunk
+        # only carries its delta, not the whole prefix again.
+        logprob_consumed = 0
 
         timeout = aiohttp.ClientTimeout(total=3 * 3600)
+        pd_decode = self._is_pd_decode()
+        finished = False
         async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
             async with session.post(
-                self._engine.generate_url, json=json_data  # type: ignore
+                self._engine.generate_url, json=json_data, headers=self._engine_headers()  # type: ignore
             ) as response:
+                response.raise_for_status()
                 async for chunk, _ in response.content.iter_chunks():
                     chunk = chunk.decode("utf-8")
                     if chunk and chunk.startswith("data:"):
@@ -501,17 +941,36 @@ class SGLANGModel(LLM):
                             need_stop = True
                         if chunk:
                             data = json.loads(chunk[5:].strip("\n"))
+                            if pd_decode:
+                                finished = (
+                                    self._check_pd_finish(data["meta_info"]) or finished
+                                )
                             cur = data["text"][pos:]
-                            if cur:
-                                yield data["meta_info"], cur
+                            finish_reason = data["meta_info"].get("finish_reason")
+                            if isinstance(finish_reason, dict):
+                                finish_reason = finish_reason.get("type")
+                            if cur or (
+                                finish_reason is not None
+                                and str(finish_reason).lower() != "none"
+                            ):
+                                (
+                                    meta_info,
+                                    logprob_consumed,
+                                ) = SGLANGModel._slice_stream_logprobs(
+                                    data["meta_info"], logprob_consumed
+                                )
+                                yield meta_info, cur
                             pos += len(cur)
                             if need_stop:
                                 break
+        if pd_decode and not finished:
+            raise RuntimeError("SGLang PD decode stream ended without a finish reason")
 
     async def _non_stream_generate(
         self,
         prompt: str,
         image_data: Optional[Union[List[str], str]] = None,
+        request_id: Optional[str] = None,
         **sampling_params,
     ) -> dict:
         import aiohttp
@@ -519,25 +978,322 @@ class SGLANGModel(LLM):
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
             "text": prompt,
+            "rid": request_id,
             "image_data": image_data,
             "sampling_params": sampling_params,
+            **self._lift_logprob_request_params(sampling_params),
         }
-        async with aiohttp.ClientSession(trust_env=True) as session:
+        session_options: Dict[str, Any] = {"trust_env": True}
+        if getattr(self, "_xavier_handoff", None) is not None:
+            # The handoff has its own configurable progress/lease deadlines.
+            # aiohttp's default total=300 must not shorten that wait.
+            session_options["timeout"] = aiohttp.ClientTimeout(total=None)
+        async with aiohttp.ClientSession(**session_options) as session:
             async with session.post(
-                self._engine.generate_url, json=json_data  # type: ignore
+                self._engine.generate_url, json=json_data, headers=self._engine_headers()  # type: ignore
             ) as response:
-                return await response.json()
+                response.raise_for_status()
+                state = await response.json()
+                if self._is_pd_decode():
+                    self._check_pd_finish(state["meta_info"])
+                return state
+
+    def _is_pd_decode(self) -> bool:
+        handoff = getattr(self, "_xavier_handoff", None) or getattr(
+            self, "_nixl_handoff", None
+        )
+        return handoff is not None and handoff.role == "decode"
+
+    @staticmethod
+    def _check_pd_finish(meta_info: dict) -> bool:
+        reason = meta_info.get("finish_reason")
+        if isinstance(reason, dict):
+            if reason.get("type") == "abort":
+                raise RuntimeError(
+                    f"SGLang PD decode aborted: {reason.get('message', 'KV transfer failed')}"
+                )
+            reason = reason.get("type")
+        elif reason == "abort":
+            raise RuntimeError("SGLang PD decode aborted")
+        return reason is not None and str(reason).lower() != "none"
+
+    def _engine_headers(self) -> dict:
+        api_key = getattr(self, "_model_config", {}).get("api_key")
+        return {"Authorization": f"Bearer {api_key}"} if api_key else {}
+
+    async def abort_request(self, request_id: str) -> str:
+        import aiohttp
+
+        if request_id not in self._active_request_ids:
+            return "NO_OP"
+        assert self._engine is not None
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=5), trust_env=True
+        ) as session:
+            async with session.post(
+                self._engine.url + "/abort_request",
+                json={"rid": request_id},
+                headers=self._engine_headers(),
+            ) as response:
+                response.raise_for_status()
+        return "DONE"
+
+    def _validate_structured_reasoning(self, thinking: bool) -> None:
+        if not thinking and not getattr(self, "_model_config", {}).get(
+            "reasoning_parser"
+        ):
+            return
+        try:
+            from sglang.srt.managers.io_struct import GenerateReqInput
+
+            supported = "require_reasoning" in getattr(
+                GenerateReqInput, "__dataclass_fields__", {}
+            )
+        except (ImportError, AttributeError):
+            supported = False
+        if not supported or not getattr(self, "_model_config", {}).get(
+            "reasoning_parser"
+        ):
+            raise NotImplementedError(
+                "This SGLang engine cannot combine structured output with thinking; "
+                "it requires a reasoning parser and request-level reasoning constraints"
+            )
+
+    def _validate_forced_tools(self, config: Dict) -> None:
+        if is_forced_tool_choice(config):
+            context = (
+                self._get_chat_template_kwargs_from_generate_config(
+                    config, self.reasoning_parser
+                )
+                or {}
+            )
+            if (
+                context.get("enable_thinking")
+                and self.reasoning_parser
+                and self.reasoning_parser.reasoning_end_tag
+            ):
+                if context.get("thinking_budget") is not None:
+                    raise ValueError(
+                        "Forced tool choice is incompatible with manual thinking"
+                    )
+                self._validate_structured_reasoning(True)
+
+    async def async_prepare_anthropic_request(self, messages: List[Dict], config: Dict):
+        self._validate_forced_tools(config)
+        if config.get("response_format"):
+            context = (
+                self._get_chat_template_kwargs_from_generate_config(
+                    config, self.reasoning_parser
+                )
+                or {}
+            )
+            self._validate_structured_reasoning(
+                bool(
+                    context.get("enable_thinking")
+                    and self.reasoning_parser
+                    and self.reasoning_parser.reasoning_end_tag
+                )
+            )
+        prepared = super().prepare_anthropic_request(messages, config)
+        try:
+            prepared["input_tokens"] = await self.async_count_tokens(
+                prepared["messages"], prepared["generate_config"]
+            )
+        except NotImplementedError:
+            pass
+        return prepared
+
+    async def async_count_tokens(
+        self, messages: List[Dict], config: Optional[Dict] = None
+    ) -> int:
+        # Native multimodal processing expands image tokens after templating.
+        if any(
+            isinstance(m.get("content"), list)
+            and any(part.get("type") != "text" for part in m["content"])
+            for m in messages
+        ):
+            raise NotImplementedError(
+                "SGLang does not expose multimodal token counting"
+            )
+        config = copy.deepcopy(config or {})
+        messages = copy.deepcopy(messages)
+        if is_forced_tool_choice(config):
+            messages, config = prepare_forced_tools(messages, config)
+        prepare = getattr(self, "_prepare_chat_inputs", None)
+        tokenizer = self._get_tokenizer()
+        if prepare is None or tokenizer is None:
+            raise NotImplementedError(
+                "This SGLang model does not expose chat token counting"
+            )
+        prompt, _images, _tools, _context, _config = await prepare(messages, config)
+        return len(tokenizer.encode(prompt))
+
+    async def _forced_tool_chat(self, messages, config, request_id):
+        self._validate_forced_tools(config)
+        stream = config.get("stream", False)
+        include_usage = (config.get("stream_options") or {}).get("include_usage", False)
+        context = (
+            self._get_chat_template_kwargs_from_generate_config(
+                config, self.reasoning_parser
+            )
+            or {}
+        )
+        expose_reasoning = context.get(
+            "reasoning_content",
+            getattr(self.reasoning_parser, "reasoning_content", False),
+        )
+        config = {
+            **config,
+            "chat_template_kwargs": {**context, "reasoning_content": True},
+        }
+        messages, config = prepare_forced_tools(messages, config)
+        config["_anthropic_request"] = True
+        config["stream"] = False
+        completion = await self.async_chat(messages, config, request_id=request_id)
+        completion = convert_forced_completion(completion)
+        if self.reasoning_parser and not expose_reasoning:
+            for choice in completion["choices"]:
+                choice["message"].pop("reasoning_content", None)
+        if stream:
+            return stream_forced_completion(completion, include_usage)
+        return completion
+
+    async def _prepare_chat_inputs(
+        self, messages: List[Dict], generate_config: Dict
+    ) -> Tuple[str, Optional[List[str]], Optional[List[Dict]], Dict, Dict]:
+        raise NotImplementedError("This SGLang model does not support chat")
+
+    async def async_chat(
+        self,
+        messages: List[Dict],
+        generate_config: Optional[Dict] = None,
+        request_id: Optional[str] = None,
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        config = dict(generate_config or {})
+        anthropic = config.get("_anthropic_request", False)
+        if anthropic and is_forced_tool_choice(config):
+            return await self._forced_tool_chat(messages, config, request_id)
+        plain_json = bool(
+            not anthropic
+            and (config.get("response_format") or {}).get("type")
+            in {"json_schema", "json_object"}
+        )
+        parallel = config.pop("parallel_tool_calls", True)
+        choice = config.pop("tool_choice", None)
+        if choice == "none":
+            config.pop("tools", None)
+        prompt, images, tools, context, config = await self._prepare_chat_inputs(
+            messages, config
+        )
+        parser = None if plain_json else self.reasoning_parser
+        context = {**context, "_anthropic_request": anthropic}
+        completion = await self.async_generate(
+            prompt,
+            image_data=images,
+            generate_config=cast(SGLANGGenerateConfig, config),
+            tools=tools,
+            request_id=request_id,
+        )
+        if config.get("stream"):
+            assert isinstance(completion, AsyncGenerator)
+            if tools:
+                chunks = self._async_to_tool_completion_chunks(
+                    completion, context, tools
+                )
+            else:
+                chunks = self._async_to_chat_completion_chunks(
+                    completion, parser, context
+                )
+            return (
+                cast(
+                    AsyncGenerator[ChatCompletionChunk, None],
+                    single_tool_stream(chunks),
+                )
+                if parallel is False
+                else chunks
+            )
+        assert not isinstance(completion, AsyncGenerator)
+        if tools:
+            result = self._post_process_completion(
+                self.model_family, self.model_uid, completion, tools
+            )
+        else:
+            result = self._to_chat_completion(completion, parser)
+        transfer = cast(Dict[str, Any], completion).get("_pd_kv_transfer_params")
+        if transfer is not None:
+            result["_pd_kv_transfer_params"] = transfer
+        return (
+            cast(ChatCompletion, single_tool_completion(result))
+            if parallel is False
+            else result
+        )
 
     async def async_generate(
         self,
         prompt: str,
+        generate_config: Optional[SGLANGGenerateConfig] = None,
         *,
         image_data: Optional[Union[List[str], str]] = None,
-        generate_config: Optional[SGLANGGenerateConfig] = None,
         tools: Optional[List[Dict]] = None,
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
-        sanitized_generate_config = self._sanitize_generate_config(generate_config)
+        config = dict(generate_config or {})
+        anthropic = config.pop("_anthropic_request", False)
+        transfer = config.pop("_pd_kv_transfer_params", None)
+        pd: Any = getattr(self, "_xavier_handoff", None) or getattr(
+            self, "_nixl_handoff", None
+        )
+        handoff = None
+        pending_handoff = None
+
+        async def release_handoff(active_handoff, failed):
+            try:
+                await pd.release(active_handoff, failed=failed)
+            except Exception:
+                logger.warning(
+                    "Failed to release SGLang handoff for request %s",
+                    request_id,
+                    exc_info=True,
+                )
+
+        prefill = isinstance(transfer, dict) and transfer.get("do_remote_decode")
+        if transfer is not None:
+            if pd is None or image_data is not None:
+                raise ValueError("KV handoff requires a SGLang text PD replica")
+            if config.pop("n", 1) != 1:
+                raise ValueError("SGLang PD requires n=1")
+            if prefill:
+                if pd.role != "prefill":
+                    raise ValueError("Remote decode requires a SGLang prefill replica")
+                config.update(
+                    max_tokens=1,
+                    max_new_tokens=1,
+                    stream=False,
+                )
+        sanitized_generate_config = self._sanitize_generate_config(
+            cast(SGLANGGenerateConfig, config)
+        )
+        parser = getattr(self, "reasoning_parser", None)
+        thinking = bool(
+            parser and parser.reasoning_end_tag and parser.is_enable_thinking()
+        )
+        if thinking or tools:
+            sanitized_generate_config["skip_special_tokens"] = False
+        if sanitized_generate_config.get("json_schema"):
+            if anthropic:
+                self._validate_structured_reasoning(thinking)
+                if getattr(self, "_model_config", {}).get("reasoning_parser"):
+                    sanitized_generate_config["require_reasoning"] = thinking
+            else:
+                # OpenAI historically constrained from the first generated token.
+                # Old engines need neither a plugin nor the new request field.
+                try:
+                    self._validate_structured_reasoning(False)
+                except NotImplementedError:
+                    pass
+                else:
+                    if getattr(self, "_model_config", {}).get("reasoning_parser"):
+                        sanitized_generate_config["require_reasoning"] = False
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
@@ -549,46 +1305,109 @@ class SGLANGModel(LLM):
             if isinstance(stream_options, dict)
             else False
         )
+
+        # Validate generation options before reserving any shared KV capacity.
+        async def prepare_handoff():
+            nonlocal pending_handoff, handoff
+            if transfer is None:
+                return
+            if prefill:
+                pending_handoff = await pd.prepare(prompt, transfer)
+            else:
+                handoff = await pd.accept(prompt, transfer)
+            active_handoff = pending_handoff if prefill else handoff
+            assert active_handoff is not None
+            cast(Dict[str, Any], sanitized_generate_config).update(
+                bootstrap_host=active_handoff.get("host", "xavier"),
+                bootstrap_port=active_handoff.get("port", 1),
+                bootstrap_room=active_handoff["room"],
+            )
+
         if not request_id:
             request_id = str(uuid.uuid1())
         if not stream:
-            state = await self._non_stream_generate(
-                prompt, image_data, **sanitized_generate_config
-            )
-            return self._convert_state_to_completion(
-                request_id,
-                model=self.model_uid,
-                output_text=state["text"],
-                meta_info=state["meta_info"],
-            )
+            completed = False
+            self._active_request_ids.add(request_id)
+            try:
+                await prepare_handoff()
+                state = await self._non_stream_generate(
+                    prompt,
+                    image_data,
+                    request_id=request_id,
+                    **sanitized_generate_config,
+                )
+                if handoff is not None:
+                    await pd.check_hit(state["meta_info"], handoff)
+                result = self._convert_state_to_completion(
+                    request_id,
+                    model=self.model_uid,
+                    output_text=state["text"],
+                    meta_info=state["meta_info"],
+                )
+                if prefill:
+                    cast(Dict[str, Any], result)["_pd_kv_transfer_params"] = (
+                        await pd.publish(pending_handoff)
+                    )
+                    pending_handoff = None
+                completed = True
+                return result
+            finally:
+                if not completed:
+                    try:
+                        await self.abort_request(request_id)
+                    except Exception:
+                        logger.warning(
+                            "Failed to abort SGLang request %s",
+                            request_id,
+                            exc_info=True,
+                        )
+                self._active_request_ids.discard(request_id)
+                if handoff is not None:
+                    await release_handoff(handoff, failed=not completed)
+                if pending_handoff is not None:
+                    await release_handoff(pending_handoff, failed=True)
         else:
 
             async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
                 prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+                usage = CompletionUsage(
+                    prompt_tokens=0, completion_tokens=0, total_tokens=0
+                )
                 complete_response = ""
                 match_tool_call_tmp_results: List[CompletionChunk] = []
                 is_match_tool_call = False
                 chunk = None
                 finish_reason = None
+                handoff_checked = False
                 async for meta_info, out in self._stream_generate(
-                    prompt, image_data, **sanitized_generate_config
+                    prompt,
+                    image_data,
+                    request_id=request_id,
+                    **sanitized_generate_config,
                 ):
-                    chunk = self._convert_state_to_completion_chunk(
+                    if handoff is not None and not handoff_checked:
+                        await pd.check_hit(meta_info, handoff)
+                        # Native decode starts only after the full KV handoff.
+                        # Completion is immutable; check before exposing output
+                        # without a supervisor RPC for each decoded token.
+                        handoff_checked = True
+                    new_chunk = self._convert_state_to_completion_chunk(
                         request_id,
                         self.model_uid,
                         output_text=out,
                         meta_info=meta_info,
+                        text_offset_base=len(complete_response),
                     )
                     complete_response += out
                     finish_reason = meta_info["finish_reason"]
                     prompt_tokens = meta_info["prompt_tokens"]
                     completion_tokens = meta_info["completion_tokens"]
                     total_tokens = prompt_tokens + completion_tokens
-                    chunk["usage"] = CompletionUsage(
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        total_tokens=total_tokens,
-                    )
+                    usage = new_chunk["usage"]
+                    if not out:
+                        # Keep terminal metadata without replacing buffered tool text.
+                        continue
+                    chunk = new_chunk
                     if tools:
                         """
                         The qwen2 tool call returns format like this:
@@ -634,6 +1453,8 @@ class SGLANGModel(LLM):
                     assert chunk is not None
                     yield chunk
 
+                if isinstance(finish_reason, dict):
+                    finish_reason = finish_reason.get("type")
                 finish_reason = (
                     "stop"
                     if finish_reason is None
@@ -643,7 +1464,7 @@ class SGLANGModel(LLM):
                     )
                     else finish_reason
                 )
-                yield generate_completion_chunk(
+                final_chunk = generate_completion_chunk(
                     "",
                     finish_reason=finish_reason,
                     chunk_id=request_id,
@@ -652,6 +1473,8 @@ class SGLANGModel(LLM):
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
                 )
+                final_chunk["usage"] = usage
+                yield final_chunk
 
                 if include_usage:
                     chunk = CompletionChunk(
@@ -661,33 +1484,56 @@ class SGLANGModel(LLM):
                         model=self.model_uid,
                         choices=[],
                     )
-                    chunk["usage"] = CompletionUsage(
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        total_tokens=total_tokens,
-                    )
+                    chunk["usage"] = usage
                     yield chunk
 
-            return stream_results()
+            async def pd_stream():
+                completed = False
+                self._active_request_ids.add(request_id)
+                try:
+                    await prepare_handoff()
+                    async for chunk in stream_results():
+                        yield chunk
+                    completed = True
+                finally:
+                    if not completed:
+                        try:
+                            await self.abort_request(request_id)
+                        except Exception:
+                            logger.warning(
+                                "Failed to abort SGLang request %s",
+                                request_id,
+                                exc_info=True,
+                            )
+                    self._active_request_ids.discard(request_id)
+                    if handoff is not None:
+                        await release_handoff(handoff, failed=not completed)
+
+            return pd_stream()
 
 
-class SGLANGChatModel(SGLANGModel, ChatModelMixin):
+class SGLANGChatModel(SGLANGModel):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
+        is_ling3 = llm_family.has_architecture("BailingMoeV3ForCausalLM")
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
+        if is_ling3:
+            supported_formats.append("fp4")
+        if llm_spec.model_format not in supported_formats:
             return (
                 False,
-                "SGLang chat engine supports pytorch/gptq/awq/fp8/bnb formats only",
+                f"SGLang chat engine supports {'/'.join(supported_formats)} formats only",
             )
-        if llm_spec.model_format == "fp4":
+        if llm_spec.model_format == "fp4" and not is_ling3:
             return (
                 False,
                 "SGLang chat engine does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
             )
         if llm_spec.model_format == "pytorch":
-            if quantization not in (None, "none"):
+            offline_ling_int4 = is_ling3 and quantization == "Int4"
+            if quantization not in (None, "none") and not offline_ling_int4:
                 return (
                     False,
                     "pytorch format with quantization is not supported by SGLang chat",
@@ -699,7 +1545,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             )
         if "chat" not in llm_family.model_ability:
             return False, "SGLang chat engine requires chat ability"
-        if not SGLANG_INSTALLED:
+        if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
             return False, "sglang library is not installed"
         return True
 
@@ -723,16 +1569,25 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def is_tool_call_chunk_end(chunk):
         return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
 
-    async def async_chat(
-        self,
-        messages: List[Dict],
-        generate_config: Optional[Dict] = None,
-        request_id: Optional[str] = None,
-    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+    async def _prepare_chat_inputs(
+        self, messages: List[Dict], generate_config: Dict
+    ) -> Tuple[str, Optional[List[str]], Optional[List[Dict]], Dict, Dict]:
         # Handle empty chat_template by using empty string (sglang server will use model's default)
         chat_template: str = (
             self.model_family.chat_template if self.model_family.chat_template else ""
         )
+        if not chat_template and self.model_family.has_architecture(
+            "Spark2_5ForCausalLM"
+        ):
+            chat_template_path = os.path.join(self.model_path, "chat_template.jinja")
+            try:
+                with open(chat_template_path, encoding="utf-8") as template_file:
+                    chat_template = template_file.read()
+            except OSError as exc:
+                raise ValueError(
+                    "Spark-X2.5 SGLang requires chat_template.jinja from the "
+                    "official model snapshot"
+                ) from exc
         # fix: Object of type list_iterator is not JSON serializable
         tools = list(generate_config.pop("tools", [])) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
@@ -750,32 +1605,17 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
                 or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
                 or model_family in GLM5_TOOL_CALL_FAMILY
+                or model_family in MINICPM5_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
         full_prompt = self.get_full_context(
             messages, chat_template, **full_context_kwargs
         )
         generate_config = self._sanitize_chat_config(generate_config)
-        stream = generate_config.get("stream", None)
-        if stream:
-            agen = await self.async_generate(full_prompt, generate_config=generate_config, tools=tools)  # type: ignore
-            assert isinstance(agen, AsyncGenerator)
-            if tools:
-                return self._async_to_tool_completion_chunks(agen)
-            return self._async_to_chat_completion_chunks(
-                agen, self.reasoning_parser, chat_template_kwargs
-            )
-        else:
-            c = await self.async_generate(full_prompt, generate_config=generate_config, tools=tools)  # type: ignore
-            assert not isinstance(c, AsyncGenerator)
-            if tools:
-                return self._post_process_completion(
-                    self.model_family, self.model_uid, c
-                )
-            return self._to_chat_completion(c, self.reasoning_parser)
+        return full_prompt, None, tools, chat_template_kwargs, generate_config
 
 
-class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
+class SGLANGVisionModel(SGLANGModel):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
@@ -809,7 +1649,10 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
             )
         if "vision" not in llm_family.model_ability:
             return False, "SGLang vision engine requires vision ability"
-        if not SGLANG_INSTALLED:
+        # Align with SGLANGChatModel: virtualenv installs SGLang on demand, so a
+        # missing local install must not hide the engine. GPU/OS checks above
+        # stay unconditional because virtualenv cannot add a GPU or change the OS.
+        if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
             return False, "sglang library is not installed"
         return True
 
@@ -824,19 +1667,30 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
                 generate_config["stop"] = self.model_family.stop.copy()
         return generate_config
 
-    async def async_chat(
-        self,
-        messages: List[ChatCompletionMessage],  # type: ignore
-        generate_config: Optional[Dict] = None,
-        request_id: Optional[str] = None,
-    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+    async def _prepare_chat_inputs(
+        self, messages: List[Dict], generate_config: Dict
+    ) -> Tuple[str, Optional[List[str]], Optional[List[Dict]], Dict, Dict]:
         import base64
+        import copy
         from io import BytesIO
 
         from PIL import Image
         from qwen_vl_utils import process_vision_info
 
-        messages = self._transform_messages(messages)
+        # qwen_vl_utils fetches urls itself and follows redirects, so the bytes are
+        # pulled here and the messages rewritten to local copies; the reader then
+        # has nothing left to resolve.  Work on a copy so the request never keeps
+        # paths that vanish with the directory.
+        with media_workspace("xinference-sglang-") as temp_dir:
+            messages = copy.deepcopy(messages)
+            # to_thread: blocking I/O on the model actor's event loop.
+            await asyncio.to_thread(materialize_messages_media, messages, temp_dir)
+            messages = self._transform_messages(messages)
+            images, video_inputs = await asyncio.to_thread(
+                process_vision_info, messages
+            )
+        if video_inputs:
+            raise ValueError("Not support video input now.")
 
         tools = list(generate_config.pop("tools", [])) if generate_config else None
         # Handle empty chat_template by falling back to tokenizer's chat_template
@@ -858,13 +1712,11 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         )
         chat_context_var.set(chat_template_kwargs)
         full_context_kwargs = chat_template_kwargs.copy()
+        if tools:
+            full_context_kwargs["tools"] = tools
         prompt = self.get_full_context(
             messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
         )
-
-        images, video_inputs = process_vision_info(messages)
-        if video_inputs:
-            raise ValueError("Not support video input now.")
 
         base64_images: Optional[List[str]] = None
         if images:
@@ -873,7 +1725,10 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
                 if isinstance(image, Image.Image):
                     buffered = BytesIO()
                     image.save(buffered, format="JPEG", quality=100)
-                    base64_images.append(base64.b64encode(buffered.getvalue()).decode())
+                    base64_images.append(
+                        "data:image/jpeg;base64,"
+                        + base64.b64encode(buffered.getvalue()).decode()
+                    )
                 elif isinstance(image, str):
                     base64_images.append(image)
                 else:
@@ -882,18 +1737,5 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
                     )
 
         generate_config = self._sanitize_chat_config(generate_config)
-        stream = generate_config.get("stream", None)
-        if stream:
-            agen = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
-            assert isinstance(agen, AsyncGenerator)
-            if tools:
-                return self._async_to_tool_completion_chunks(agen)
-            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
-        else:
-            c = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
-            assert not isinstance(c, AsyncGenerator)
-            if tools:
-                return self._post_process_completion(
-                    self.model_family, self.model_uid, c
-                )
-            return self._to_chat_completion(c, self.reasoning_parser)
+        generate_config.pop("chat_template_kwargs", None)
+        return prompt, base64_images, tools, chat_template_kwargs, generate_config

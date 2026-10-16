@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type FC, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Info, WandSparkles, Code } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -17,43 +17,114 @@ import CapabilityTaskPanel, { CapabilityTaskPanelMethod } from './panels/capabil
 import { ChatPanel } from './panels/chat-panel';
 import { Select } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
+import { ReloadDialog } from './components/reload-dialog';
 import { TryApiDrawer } from './components/try-api-drawer';
-import { transformRunningModelDetail } from './utils';
+import { RouterStatusBadge } from '@/components/pages/token-router/router-status-badge';
+import { getPrimaryModelAbilities, isTokenRouterModel, transformRunningModelDetail } from './utils';
 
 interface RunningModelDetailProps {
   modelUid: string;
 }
 
-function DetailItem({ label, value }: { label: string; value?: string | number | null }) {
+function DetailItem({ label, value }: { label: string; value?: ReactNode }) {
+  const content = value === undefined || value === null || value === '' ? '-' : value;
   return (
     <div className="min-w-0 rounded-2xl bg-muted/40 px-4 py-3">
       <div className="text-xs font-medium tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 truncate text-sm font-medium text-foreground">{value || '-'}</div>
+      <div className="mt-1 truncate text-sm font-medium text-foreground">{content}</div>
     </div>
   );
 }
 
 function ModelDetails({ model, modelUid }: { model: RunningModelDetailType; modelUid: string }) {
+  const { t } = useI18n();
+  const tokenRouterModel = isTokenRouterModel(model);
+  const deployment = model.deployment;
+
   return (
     <CollapsiblePanel
       defaultOpen={false}
-      title="Model Details"
-      description="Runtime metadata is collapsed by default so the capability workspace stays in focus."
+      title={
+        tokenRouterModel
+          ? t('runningModels.detail.tokenRouterDetails')
+          : t('runningModels.detail.modelDetails')
+      }
+      description={
+        tokenRouterModel
+          ? t('runningModels.detail.tokenRouterDescription')
+          : t('runningModels.detail.modelDetailsDescription')
+      }
       icon={<Info className="size-5 text-primary" />}
       className="rounded-xl"
       contentClassName="p-5"
     >
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <DetailItem label="Model UID" value={modelUid} />
-        <DetailItem label="Model Name" value={model.model_name} />
-        <DetailItem label="Model Type" value={model.model_type} />
-        <DetailItem label="Model Engine" value={model.model_hub} />
-        <DetailItem label="Model Format" value={model.model_format} />
-        <DetailItem label="Model Size" value={model.model_size_in_billions} />
-        <DetailItem label="Quantization" value={model.quantization} />
-        <DetailItem label="Context" value={model.context_length} />
-        <DetailItem label="Replica" value={model.replica} />
-        <DetailItem label="Address" value={model.address} />
+        <DetailItem label={t('runningModels.detail.modelUid')} value={modelUid} />
+        <DetailItem label={t('runningModels.detail.modelName')} value={model.model_name} />
+        <DetailItem label={t('runningModels.modelType')} value={model.model_type} />
+        <DetailItem
+          label={t('runningModels.modelEngine')}
+          value={model.model_engine || model.model_hub}
+        />
+        {tokenRouterModel ? (
+          <>
+            <DetailItem
+              label={t('runningModels.modelKind')}
+              value={t('runningModels.detail.virtual')}
+            />
+            <DetailItem
+              label={t('runningModels.virtualModelType')}
+              value={model.virtual_model_type}
+            />
+            <DetailItem
+              label={t('runningModels.modelAbility')}
+              value={model.model_ability.join(', ')}
+            />
+            <DetailItem label={t('runningModels.routerUid')} value={model.router_uid} />
+            <DetailItem
+              label={t('runningModels.routerStatus')}
+              value={
+                model.router_status ? <RouterStatusBadge status={model.router_status} /> : undefined
+              }
+            />
+            <DetailItem label={t('runningModels.routeProfile')} value={model.route_profile} />
+            <DetailItem
+              label={t('runningModels.managementMode')}
+              value={deployment?.management_mode}
+            />
+            <DetailItem label={t('runningModels.backendCount')} value={model.backend_count} />
+            <DetailItem
+              label={t('runningModels.runtimeInstances')}
+              value={model.runtime_instances}
+            />
+            <DetailItem label={t('runningModels.onlineInstances')} value={model.online_instances} />
+            <DetailItem label={t('runningModels.readyInstances')} value={model.ready_instances} />
+            <DetailItem
+              label={t('runningModels.desiredReplicas')}
+              value={deployment?.desired_replicas}
+            />
+            <DetailItem
+              label={t('runningModels.readyReplicas')}
+              value={deployment?.ready_replicas}
+            />
+            <DetailItem
+              label={t('runningModels.pendingReplicas')}
+              value={deployment?.pending_replicas}
+            />
+          </>
+        ) : (
+          <>
+            <DetailItem label={t('runningModels.modelFormat')} value={model.model_format} />
+            <DetailItem label={t('runningModels.modelSize')} value={model.model_size_in_billions} />
+            <DetailItem label={t('runningModels.quantization')} value={model.quantization} />
+            <DetailItem
+              label={t('runningModels.detail.contextLength')}
+              value={model.context_length}
+            />
+            <DetailItem label={t('runningModels.detail.replica')} value={model.replica} />
+            <DetailItem label={t('runningModels.detail.address')} value={model.address} />
+          </>
+        )}
       </div>
       {!!model.model_description && (
         <div className="mt-4 rounded-2xl bg-muted/40 px-4 py-3 text-sm leading-6 text-muted-foreground">
@@ -63,23 +134,30 @@ function ModelDetails({ model, modelUid }: { model: RunningModelDetailType; mode
     </CollapsiblePanel>
   );
 }
-const EmptyForAbility = () => (
-  <div className="flex min-h-[calc(100vh-216px)] flex-col items-center justify-center rounded-3xl border bg-card text-center">
-    <WandSparkles className="mb-4 size-10 text-muted-foreground" />
-    <h2 className="text-lg font-semibold">No supported interactive capability</h2>
-    <p className="mt-2 text-sm text-muted-foreground">
-      This model is running, but the current UI does not have a panel for its abilities yet.
-    </p>
-  </div>
-);
+const EmptyForAbility = () => {
+  const { t } = useI18n();
+  return (
+    <div className="flex min-h-[calc(100vh-216px)] flex-col items-center justify-center rounded-3xl border bg-card text-center">
+      <WandSparkles className="mb-4 size-10 text-muted-foreground" />
+      <h2 className="text-lg font-semibold">{t('runningModels.detail.noInteractiveCapability')}</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {t('runningModels.detail.noInteractiveCapabilityDescription')}
+      </p>
+    </div>
+  );
+};
 const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   const router = useRouter();
   const { t } = useI18n();
   const [model, setModel] = useState<RunningModelDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const isChat = (model?.model_ability || []).includes(ModelAbility.Chat);
+  const tokenRouterModel = isTokenRouterModel(model);
+  const routerCanServe =
+    !tokenRouterModel || ['ready', 'degraded'].includes(model?.router_status || '');
   const [selectAbility, setSelectAbility] = useState<ModelAbility | undefined>(undefined);
   const [tryApiOpen, setTryApiOpen] = useState(false);
+  const [reloadOpen, setReloadOpen] = useState(false);
   const capabilityTaskPanelRef = useRef<CapabilityTaskPanelMethod>(null);
   const tryApiAbility = isChat ? ModelAbility.Chat : selectAbility;
 
@@ -94,9 +172,7 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
       .get<RunningModelDetailType>(`/v1/models/${modelUid}`)
       .then((res) => {
         const newModelDetail = transformRunningModelDetail(res) as RunningModelDetailType;
-        const firstAbility = newModelDetail.model_ability.filter(
-          (item) => !item.includes('_')
-        )?.[0];
+        const firstAbility = getPrimaryModelAbilities(newModelDetail.model_ability)[0];
         setSelectAbility(firstAbility);
         setModel(newModelDetail);
       })
@@ -106,16 +182,14 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   const abilityOptions = useMemo(() => {
     const abilities = model?.model_ability || [];
     if (!abilities.length) return [];
-    return abilities
-      .filter((item) => !item.includes('_')) // Filter out sub-capabilities (as agreed upon by the front-end and back-end, where those underlined are sub-capabilities)
-      .map((item) => {
-        const Icon = CAPABILITY_CONFIGS[item]?.icon;
-        return {
-          value: item,
-          prefix: Icon ? <Icon className="size-4" /> : undefined,
-          label: t(`launchModel.${item}`),
-        };
-      });
+    return getPrimaryModelAbilities(abilities).map((item) => {
+      const Icon = CAPABILITY_CONFIGS[item]?.icon;
+      return {
+        value: item,
+        prefix: Icon ? <Icon className="size-4" /> : undefined,
+        label: t(`launchModel.${item}`),
+      };
+    });
   }, [model, t]);
 
   const handleAbility = (value?: ModelAbility) => {
@@ -150,34 +224,43 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   return (
     <PageContainer
       title={
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 rounded-full"
+            className="size-8 shrink-0 rounded-full"
+            aria-label={t('runningModels.detail.backToRunningModels')}
             onClick={() => router.back()}
           >
             <ArrowLeft className="size-5" />
           </Button>
-          {modelUid}
+          <span className="truncate">{modelUid}</span>
         </div>
       }
       loading={loading}
       className="gap-5"
+      headerClassName="flex-col items-stretch gap-3 sm:flex-row sm:items-center"
       extraContent={
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {!isChat && (
             <Select
-              className="w-40"
+              className="min-w-0 flex-1 sm:w-40 sm:flex-none"
               allowClear={false}
               options={abilityOptions}
               value={selectAbility}
               onChange={handleAbility}
             />
           )}
-          <Button type="button"  onClick={() => setTryApiOpen(true)}>
+          {['vllm', 'sglang'].includes((model?.model_engine || '').toLowerCase()) &&
+            model?.replica === 1 &&
+            (model?.n_worker || 1) === 1 && (
+              <Button variant="outline" onClick={() => setReloadOpen(true)}>
+                {t('runningModels.reload.title')}
+              </Button>
+            )}
+          <Button type="button" className="shrink-0" onClick={() => setTryApiOpen(true)}>
             <Code />
-            Try To API
+            {t('runningModels.tryApi')}
           </Button>
         </div>
       }
@@ -185,9 +268,22 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
       {model && (
         <div className="space-y-5">
           <ModelDetails model={model} modelUid={modelUid} />
+          {!routerCanServe && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              {t('runningModels.routerRequestUnavailable', {
+                status: model.router_status || 'unavailable',
+              })}
+            </div>
+          )}
           {renderCapability()}
         </div>
       )}
+      <ReloadDialog
+        open={reloadOpen}
+        onOpenChange={setReloadOpen}
+        modelUid={modelUid}
+        onReady={fetchModel}
+      />
       <TryApiDrawer
         open={tryApiOpen}
         onOpenChange={setTryApiOpen}

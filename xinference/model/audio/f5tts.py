@@ -46,6 +46,26 @@ class F5TTSModel:
     def model_ability(self):
         return self._model_spec.model_ability
 
+    @staticmethod
+    def _download_modelscope_vocos() -> str:
+        from ..utils import ModelArtifactSource
+
+        return ModelArtifactSource("modelscope").snapshot_download(
+            "pengzhendong/vocos-mel-24khz",
+            allow_patterns=["config.yaml", "pytorch_model.bin"],
+        )
+
+    def _resolve_vocoder_path(
+        self, vocoder_name: str, vocoder_path: Optional[str]
+    ) -> Optional[str]:
+        if (
+            vocoder_name == "vocos"
+            and vocoder_path is None
+            and getattr(self._model_spec, "model_hub", None) == "modelscope"
+        ):
+            return self._download_modelscope_vocos()
+        return vocoder_path
+
     def load(self):
         import os
         import sys
@@ -62,6 +82,7 @@ class F5TTSModel:
         if vocoder_name not in ["vocos", "bigvgan"]:
             raise Exception(f"Unsupported vocoder name: {vocoder_name}")
 
+        vocoder_path = self._resolve_vocoder_path(vocoder_name, vocoder_path)
         if vocoder_path is not None:
             self._vocoder = load_vocoder(
                 vocoder_name=vocoder_name, is_local=True, local_path=vocoder_path
@@ -107,9 +128,9 @@ class F5TTSModel:
             ) = preprocess_ref_audio_text(
                 voices[voice]["ref_audio"], voices[voice]["ref_text"]
             )
-            logger.info("Voice:", voice)
-            logger.info("Ref_audio:", voices[voice]["ref_audio"])
-            logger.info("Ref_text:", voices[voice]["ref_text"])
+            logger.info("Voice: %s", voice)
+            logger.info("Ref_audio: %s", voices[voice]["ref_audio"])
+            logger.info("Ref_text: %s", voices[voice]["ref_text"])
 
         final_sample_rate = None
         generated_audio_segments = []
@@ -162,8 +183,12 @@ class F5TTSModel:
         import soundfile
         import tomli
 
+        from .utils import apply_audio_seed
+
         if stream:
             raise Exception("F5-TTS does not support stream generation.")
+
+        apply_audio_seed(kwargs)
 
         prompt_speech: Optional[bytes] = kwargs.pop("prompt_speech", None)
         prompt_text: Optional[str] = kwargs.pop("prompt_text", None)

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+from types import SimpleNamespace
 
 import pytest
 
@@ -20,6 +21,39 @@ from .. import BUILTIN_VIDEO_MODELS
 from ..diffusers import DiffusersVideoModel
 
 logger = logging.getLogger(__name__)
+
+
+def test_process_seed_builds_generator_or_ignores_it(monkeypatch):
+    import torch
+
+    from .. import diffusers as diffusers_module
+
+    model = DiffusersVideoModel(
+        "mock",
+        "/tmp/mock",
+        SimpleNamespace(model_ability=[], default_generate_config={}),  # type: ignore[arg-type]
+    )
+    monkeypatch.setattr(diffusers_module, "get_available_device", lambda: "cpu")
+
+    class AcceptsGenerator:
+        def __call__(self, prompt, generator=None):
+            return prompt, generator
+
+    model._model = AcceptsGenerator()
+    kwargs = {"seed": 42}
+    model._process_seed(kwargs)
+    assert "seed" not in kwargs
+    assert isinstance(kwargs["generator"], torch.Generator)
+    assert kwargs["generator"].initial_seed() == 42
+
+    class RejectsGenerator:
+        def __call__(self, prompt):
+            return prompt
+
+    model._model = RejectsGenerator()
+    kwargs = {"seed": 42}
+    model._process_seed(kwargs)
+    assert kwargs == {}
 
 
 @pytest.mark.skip(reason="Video model requires too many GRAM.")

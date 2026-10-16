@@ -50,15 +50,6 @@ msgid ""
 "feature."
 msgstr "為了解決這個問題，我們引入了 **模型虛擬環境** 功能。"
 
-#: ../../source/models/virtualenv.rst:23
-msgid "Install requirements for this functionality via"
-msgstr "透過以下命令安裝該功能所需的依賴"
-
-#: ../../source/models/virtualenv.rst:32
-msgid ""
-"Enable by setting environment variable ``XINFERENCE_ENABLE_VIRTUAL_ENV=1``."
-msgstr "透過設定環境變數 ``XINFERENCE_ENABLE_VIRTUAL_ENV=1`` 來啟用該功能。"
-
 #: ../../source/models/virtualenv.rst:34
 #: ../../source/models/virtualenv.rst:217
 #: ../../source/models/virtualenv.rst:233
@@ -492,5 +483,14 @@ msgstr ""
 "進行比較（區分大小寫）。引擎值在內部以小寫形式傳遞，因此建議使用小寫值，例如 ``#engine# == \"vllm\"`` 或 ``#engine#"
 " == \"transformers\"``。"
 
-#~ msgid "Manage Virtual Enviroments"
-#~ msgstr "虛擬環境管理"
+#: ../../source/models/virtualenv.rst:23
+msgid ""
+"Model virtual environments are included in the base Xinference "
+"installation:"
+msgstr "Xinference 基本安裝已包含模型虛擬環境功能："
+
+#: ../../source/models/virtualenv.rst:29
+msgid ""
+"The feature is enabled by default. You do not need to install engine "
+"extras before launching a model."
+msgstr "此功能預設啟用。啟動模型前無需安裝引擎 extra。"

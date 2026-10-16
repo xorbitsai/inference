@@ -136,12 +136,12 @@ msgstr "從原始碼安裝"
 #: ../../source/development/contributing_environment.rst:70
 msgid ""
 "Before we begin, please make sure that you have cloned the repository. "
-"Suppose you clone the repository as ``inference`` directory,  ``cd`` to this"
-" directory where the ``setup.cfg`` and ``setup.py`` files are located, and "
-"run the following command:"
+"Suppose you clone the repository as ``inference`` directory,  ``cd`` to "
+"this directory where the ``pyproject.toml`` file is located, and run the "
+"following command:"
 msgstr ""
-"在開始之前，請確保您已經克隆了儲存庫。假設您將儲存庫克隆到名為 ``inference`` 的目錄中，請進入該目錄，其中包含 ``setup.cfg``"
-" 和 ``setup.py`` 檔案，並執行以下命令："
+"在開始之前，請確保您已經克隆了儲存庫。假設您將儲存庫克隆到名為 ``inference`` 的目錄中，請進入該目錄，其中包含 "
+"``pyproject.toml`` 檔案，並執行以下命令："
 
 #: ../../source/development/contributing_environment.rst:79
 msgid ""
@@ -194,9 +194,9 @@ msgstr "如果第一個指令執行失敗，您仍然可以嘗試透過加入 ``
 
 #: ../../source/development/contributing_environment.rst:112
 msgid ""
-"After compiling the frontend, you can ``cd`` back to the directory where the"
-" ``setup.cfg`` and ``setup.py`` files are located, and install Xinference "
-"via ``pip install -e .``."
+"After compiling the frontend, you can ``cd`` back to the directory where "
+"the ``pyproject.toml`` file is located, and install Xinference via ``pip "
+"install -e .``."
 msgstr ""
-"編譯完前端後，您可以返回到包含 ``setup.cfg`` 和 ``setup.py`` 檔案的目錄，然後透過 ``pip install -e .``"
-" 安裝 Xinference。"
+"編譯完前端後，您可以返回到包含 ``pyproject.toml`` 檔案的目錄，然後透過 ``pip install -e .`` 安裝 "
+"Xinference。"

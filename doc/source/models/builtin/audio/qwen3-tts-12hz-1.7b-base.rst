@@ -12,8 +12,15 @@ Qwen3-TTS-12Hz-1.7B-Base
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** Qwen/Qwen3-TTS-12Hz-1.7B-Base
+- **PyTorch model ID:** Qwen/Qwen3-TTS-12Hz-1.7B-Base
+- **MLX model ID:** mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name Qwen3-TTS-12Hz-1.7B-Base --model-type audio
+   xinference launch --model-name Qwen3-TTS-12Hz-1.7B-Base --model-type audio --model-engine PyTorch
+
+Available engines
+^^^^^^^^^^^^^^^^^
+
+* ``PyTorch``
+* ``MLX``

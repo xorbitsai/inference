@@ -20,16 +20,14 @@ Solution
 
 To address this issue, we have introduced the **Model Virtual Environment** feature.
 
-Install requirements for this functionality via
+Model virtual environments are included in the base Xinference installation:
 
 .. code-block:: bash
 
-    # all
-    pip install 'xinference[all]'
-    # or virtualenv
-    pip install 'xinference[virtualenv]'
+    pip install xinference
 
-Enable by setting environment variable ``XINFERENCE_ENABLE_VIRTUAL_ENV=1``.
+The feature is enabled by default. You do not need to install engine extras
+before launching a model.
 
 Example usage:
 
@@ -111,6 +109,48 @@ Use ``--virtual-env-package`` (or ``-vp``) multiple times:
 
 If you specify a package that already exists in the model's default virtualenv package list,
 your version replaces the default instead of being appended.
+
+
+Use local wheel directories at launch time
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Administrators can expose worker-local wheel directories for per-launch package
+installation. By default, request-level paths must be located under
+``${XINFERENCE_HOME}/wheels``. Configure one or more allowed roots on every
+worker with the platform path separator (``:`` on Linux/macOS and ``;`` on
+Windows):
+
+.. code-block:: bash
+
+  export XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS=/srv/xinference/wheels:/opt/model-wheels
+
+Then pass an absolute directory path when launching the model:
+
+.. code-block:: bash
+
+  xinference launch -n qwen2.5-instruct --model-engine transformers \
+    --virtual-env-package custom-kernel==1.0.0 \
+    --virtual-env-find-link /srv/xinference/wheels
+
+The REST and Python clients use the ``virtual_env_find_links`` field:
+
+.. code-block:: python
+
+  client.launch_model(
+      model_name="qwen2.5-instruct",
+      model_engine="transformers",
+      virtual_env_packages=["custom-kernel==1.0.0"],
+      virtual_env_find_links=["/srv/xinference/wheels"],
+  )
+
+Paths are validated by the selected worker after resolving symbolic links. They
+must exist, be readable directories, and remain inside an administrator-configured
+allowed root. URLs and relative paths are rejected. In a distributed deployment,
+the path must be available on every worker that may launch a replica or shard.
+Set ``XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS`` to an empty value to
+disable request-level local wheel directories. Allowed roots should not be
+writable by untrusted users because Python wheels execute code during installation
+and import.
 
 
 Storage Location

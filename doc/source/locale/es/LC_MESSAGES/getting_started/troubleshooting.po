@@ -570,11 +570,11 @@ msgstr ""
 
 #: ../../source/getting_started/troubleshooting.rst:267
 msgid ""
-"**Xinference's Unbounded Torch Dependency**: Xinference's ``setup.cfg`` does"
-" not specify an upper bound for PyTorch:"
+"**Xinference's Unbounded Torch Dependency**: Xinference's "
+"``pyproject.toml`` does not specify an upper bound for PyTorch:"
 msgstr ""
 "**Dependencia de Torch sin límite superior en Xinference**: En el archivo "
-"``setup.cfg`` de Xinference no se especifica un límite de versión para "
+"``pyproject.toml`` de Xinference no se especifica un límite de versión para "
 "PyTorch."
 
 #: ../../source/getting_started/troubleshooting.rst:275

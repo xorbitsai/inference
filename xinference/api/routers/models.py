@@ -17,6 +17,12 @@ def register_routes(api: "RESTfulAPI") -> None:
 
     # --- must be registered before /v1/models/{model_uid} to avoid conflicts ---
     router.add_api_route(
+        "/v1/models/recommend",
+        api.recommend_model,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+    router.add_api_route(
         "/v1/models/prompts", api._get_builtin_prompts, methods=["GET"]
     )
     router.add_api_route(
@@ -156,6 +162,24 @@ def register_routes(api: "RESTfulAPI") -> None:
         dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
     router.add_api_route(
+        "/v1/models/{model_uid}/reload",
+        api.reload_model,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/models/{model_uid}/reload",
+        api.get_model_reload_status,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/models/{model_uid}/reload/config",
+        api.get_model_reload_config,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+    router.add_api_route(
         "/v1/models/{model_uid}/events",
         api.get_model_events,
         methods=["GET"],
@@ -166,6 +190,12 @@ def register_routes(api: "RESTfulAPI") -> None:
         api.get_model_replicas,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/models/{model_uid}/replicas",
+        api.add_model_replica,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
     router.add_api_route(
         "/v1/models/{model_uid}/replicas/{replica_id}",

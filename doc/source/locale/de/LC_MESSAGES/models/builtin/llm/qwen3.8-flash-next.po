@@ -1,0 +1,134 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C)
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-13 11:59+0800\n"
+"PO-Revision-Date: 2026-10-13 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language: de\n"
+"Language-Team: de\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:5
+msgid "qwen3.8-Flash-Next"
+msgstr "qwen3.8-Flash-Next"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:7
+msgid "**Context Length:** 262144"
+msgstr "**Kontextlänge:** 262144"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:8
+msgid "**Model Name:** qwen3.8-Flash-Next"
+msgstr "**Modellname:** qwen3.8-Flash-Next"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:9
+msgid "**Languages:** en, zh"
+msgstr "**Sprachen:** Englisch, Chinesisch"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:10
+msgid "**Abilities:** chat, vision, tools, reasoning, hybrid"
+msgstr ""
+"**Fähigkeiten:** Chat, Bildverarbeitung, Werkzeugaufrufe, Schlussfolgern, "
+"hybrider Denkmodus"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:11
+msgid ""
+"**Description:** Qwen3.8-Flash-Next is a native vision-language Mixture-of-"
+"Experts model with 125B main-model parameters, 6B activated per token, and "
+"an additional 51B n-gram embedding table. Its Qwen4 experimental "
+"architecture combines Gated DeltaNet, Qwen Sparse Attention, gated "
+"residuals, and flexible thinking control."
+msgstr ""
+"**Beschreibung:** Qwen3.8-Flash-Next ist ein natives Vision-Language-Modell "
+"mit einer Mixture-of-Experts-Architektur. Es besitzt 125 Milliarden "
+"Parameter im Hauptmodell, aktiviert 6 Milliarden pro Token und verfügt "
+"zusätzlich über eine N-Gramm-Einbettungstabelle mit 51 Milliarden "
+"Parametern. Seine experimentelle Qwen4-Architektur kombiniert Gated "
+"DeltaNet, Qwen Sparse Attention, gesteuerte Residualverbindungen und eine "
+"flexible Steuerung des Denkmodus."
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:14
+msgid "Specifications"
+msgstr "Spezifikationen"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:18
+msgid "Model Spec 1 (pytorch, 125 Billion)"
+msgstr "Modellspezifikation 1 (pytorch, 125 Milliarden)"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:20
+msgid "**Model Format:** pytorch"
+msgstr "**Modellformat:** pytorch"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:21
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:37
+msgid "**Model Size (in billions):** 125"
+msgstr "**Modellgröße (in Milliarden Parametern):** 125"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:22
+msgid "**Quantizations:** none"
+msgstr "**Quantisierungen:** none"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:24
+msgid "**Model ID:** Qwen/Qwen3.8-Flash-Next"
+msgstr "**Modell-ID:** Qwen/Qwen3.8-Flash-Next"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:25
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.8-Flash-"
+"Next>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.8-Flash-"
+"Next>`__"
+msgstr ""
+"**Modell-Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.8-Flash-"
+"Next>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.8-Flash-"
+"Next>`__"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:27
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:43
+#, python-brace-format
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options "
+"listed above::"
+msgstr ""
+"Starten Sie das Modell mit dem folgenden Befehl. Ersetzen Sie "
+"``${quantization}`` durch eine der oben aufgeführten Quantisierungsmethoden:"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:34
+msgid "Model Spec 2 (fp8, 125 Billion)"
+msgstr "Modellspezifikation 2 (fp8, 125 Milliarden)"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:36
+msgid "**Model Format:** fp8"
+msgstr "**Modellformat:** fp8"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:38
+msgid "**Quantizations:** FP8"
+msgstr "**Quantisierungen:** FP8"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:39
+msgid "**Engines**: vLLM"
+msgstr "**Inferenz-Engines**: vLLM"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:40
+msgid "**Model ID:** Qwen/Qwen3.8-Flash-Next-FP8"
+msgstr "**Modell-ID:** Qwen/Qwen3.8-Flash-Next-FP8"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:41
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.8-Flash-"
+"Next-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.8-Flash-"
+"Next-FP8>`__"
+msgstr ""
+"**Modell-Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.8-Flash-"
+"Next-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.8-Flash-"
+"Next-FP8>`__"
+

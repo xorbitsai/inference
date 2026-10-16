@@ -28,6 +28,7 @@ from xinference.model.embedding.core import create_embedding_model_instance
 from xinference.model.embedding.embed_family import match_embedding
 from xinference.model.utils import (
     check_dependency_available,
+    get_engine_params_by_name,
     get_engine_params_by_name_with_virtual_env,
 )
 
@@ -52,6 +53,121 @@ def test_qwen3_vl_embedding_engine_params_with_virtualenv():
     assert isinstance(params, dict)
     _assert_engine_params(params, "sentence_transformers")
     _assert_engine_params(params, "vllm")
+    # vLLM is a declared virtualenv marker for this model, so it must be
+    # offered even when vLLM is not installed locally (installed on demand).
+    # This guards the regression where the vision match_json rejected the
+    # engine with "vLLM is not installed" before the virtualenv exemption.
+    assert isinstance(
+        params["vllm"], list
+    ), f"vLLM should be available under virtualenv, got {params['vllm']!r}"
+
+
+def test_qwen3_vl_embedding_strict_with_old_vllm_when_virtualenv_disabled(
+    monkeypatch,
+):
+    """Request-level enable_virtual_env=False must stay strict.
+
+    Exercises the exact function the Worker calls on the disabled path
+    (get_engine_params_by_name), not just the virtualenv-aware wrapper. Even
+    when the process-global XINFERENCE_ENABLE_VIRTUAL_ENV default is true, a
+    disabled discovery must not exempt the Qwen3-VL vLLM>=0.14.0 version check:
+    with an old vLLM installed and no virtualenv, launching would fail, so vLLM
+    must not be listed. When virtualenv is enabled it is offered again
+    (installed on demand). Regression for the registry baking the exemption in
+    at import time and the strict path reusing it.
+    """
+    import sys
+    import types
+
+    import xinference.constants as constants
+
+    _install()
+
+    # Global default true (as shipped), plus a simulated old local vLLM.
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", True)
+    fake_vllm = types.ModuleType("vllm")
+    fake_vllm.__version__ = "0.11.2"
+    monkeypatch.setitem(sys.modules, "vllm", fake_vllm)
+
+    # Worker's disabled path.
+    disabled = get_engine_params_by_name(
+        "embedding", "Qwen3-VL-Embedding-2B", enable_virtual_env=False
+    )
+    assert not isinstance(
+        disabled.get("vllm"), list
+    ), f"vLLM must be strict (not available) with old vLLM and virtualenv disabled, got {disabled.get('vllm')!r}"
+
+    # Worker's virtualenv-enabled path.
+    enabled = get_engine_params_by_name_with_virtual_env(
+        "embedding", "Qwen3-VL-Embedding-2B", enable_virtual_env=True
+    )
+    assert isinstance(
+        enabled.get("vllm"), list
+    ), f"vLLM should be available under virtualenv, got {enabled.get('vllm')!r}"
+
+
+def test_qwen3_vl_embedding_prepared_install_list_has_single_vllm_req():
+    """Only one vLLM requirement must reach the installer.
+
+    The virtualenv spec must not carry both #vllm_dependencies# (vllm>=0.11.2)
+    and vllm>=0.14.0: with skip_installed and a parent vLLM 0.11.2-0.13.x, the
+    resolver pins the first (satisfied) requirement and then conflicts with the
+    second. This asserts the *prepared install list* (expansion + marker
+    filtering, i.e. the Worker path), not just discovery, contains exactly one
+    vLLM requirement pinned to >=0.14.0.
+    """
+    from xinference.core.utils import filter_virtualenv_packages_by_markers
+    from xinference.core.virtual_env_manager import (
+        expand_engine_dependency_placeholders,
+    )
+
+    _install()
+    family = match_embedding("Qwen3-VL-Embedding-2B", "pytorch", "none")
+    expanded = expand_engine_dependency_placeholders(family.virtualenv.packages, "vllm")
+    prepared = filter_virtualenv_packages_by_markers(expanded, "vllm", None)
+    vllm_reqs = [p for p in prepared if p.lower().startswith("vllm")]
+    assert vllm_reqs == [
+        "vllm>=0.14.0"
+    ], f"expected a single vllm>=0.14.0 requirement, got {vllm_reqs!r}"
+
+
+def test_qwen3_vl_embedding_format_check_not_bypassed_under_virtualenv(monkeypatch):
+    """virtualenv must not bypass format/prefix compatibility checks.
+
+    The virtualenv exemption only covers the missing-library / old-version
+    rejection; an incompatible model_format (e.g. ggufv2, which the vLLM
+    embedding engine does not support) must still be rejected even when vLLM is
+    absent and virtualenv is enabled, since virtualenv cannot make an
+    incompatible spec work. Regression for the early ``return True``.
+    """
+    import sys
+
+    from xinference.model.embedding.vllm.core import VLLMEmbeddingModel
+    from xinference.model.utils import virtualenv_discovery_var
+
+    _install()
+
+    # vLLM absent + virtualenv enabled for this discovery scope.
+    monkeypatch.delitem(sys.modules, "vllm", raising=False)
+    token = virtualenv_discovery_var.set(True)
+    try:
+        family = match_embedding("Qwen3-VL-Embedding-2B", "pytorch", "none")
+        good_spec = family.model_specs[0]
+        assert good_spec.model_format == "pytorch"
+
+        # Derive an incompatible spec by flipping the format to ggufv2.
+        if hasattr(good_spec, "model_copy"):
+            bad_spec = good_spec.model_copy(update={"model_format": "ggufv2"})
+        else:
+            bad_spec = good_spec.copy(update={"model_format": "ggufv2"})
+
+        result = VLLMEmbeddingModel.match_json(family, bad_spec, "none")
+        assert result is not True, "ggufv2 must not be accepted by vLLM embedding"
+        assert isinstance(result, tuple) and result[0] is False
+
+        assert VLLMEmbeddingModel.match_json(family, good_spec, "none") is True
+    finally:
+        virtualenv_discovery_var.reset(token)
 
 
 def _get_cached_model_path():

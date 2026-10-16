@@ -1,0 +1,268 @@
+[
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "llama-3.3-instruct",
+    "model_lang": [
+      "en",
+      "de",
+      "fr",
+      "it",
+      "pt",
+      "hi",
+      "es",
+      "th"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "The Llama 3.3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "meta-llama/Llama-3.3-70B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "LLM-Research/Llama-3.3-70B-Instruct",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Llama-3.3-70B-Instruct/resolve/master/config.json",
+              "config_sha256": "95ef9768e4741543dbfaf0c274f101855883ff338b235c99eca2b6a4f4abee12",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 70,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "shuyuej/Llama-3.3-70B-Instruct-GPTQ",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/shuyuej/Llama-3.3-70B-Instruct-GPTQ/resolve/3a7f7f7d46e362291821aaefb0a38b632f1190a8/config.json",
+              "config_sha256": "38e0d92b9730c9dd4a82bb938961c26ef23f9f2e12449f0eb50646bde0153a15",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 70,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "casperhansen/llama-3.3-70b-instruct-awq",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/casperhansen/llama-3.3-70b-instruct-awq/resolve/64d255621f40b42adaf6d1f32a47e1d4534c0f14/config.json",
+              "config_sha256": "1da1d369c9996294fe4312600eaa1f632aa33cdc8068c079a5b6930aba29d6f4",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 70,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "6bit",
+              "8bit",
+              "fp16"
+            ],
+            "model_id": "mlx-community/Llama-3.3-70B-Instruct-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Llama-3.3-70B-Instruct-3bit/resolve/abc291acd216b0dab5ba759a438f4714588806f4/config.json",
+                "config_sha256": "18eb1fa65530967587999594b4b6fe9455baac33008cea939f5be6e5e68a4f9f",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "4bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Llama-3.3-70B-Instruct-4bit/resolve/de2dfaf56839b7d0e834157d2401dee02726874d/config.json",
+                "config_sha256": "3027455f6ce315c983f1955f20d39617c839d417972252a29cdc89c57f6f1106",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "6bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Llama-3.3-70B-Instruct-6bit/resolve/ec3b38b5b49fe9fd4d649d6826be82840864b120/config.json",
+                "config_sha256": "1531cf9e626dfc06f56a44727604eab33b8ad206ff76e74666d70cae53fac275",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "8bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Llama-3.3-70B-Instruct-8bit/resolve/c5bfd839cd4cda0e5a39a97e00218d9c56e468af/config.json",
+                "config_sha256": "7c067e416990dfd135240a57d3717e662bf5392fa0bf012db29f423944d319e3",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "fp16": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Llama-3.3-70B-Instruct-fp16/resolve/8103891b028a8933068e47751bc2acc10bb59aa2/config.json",
+                "config_sha256": "ce739ed76cffce0e736af36dd455bcb7fdd21546cdbec41fef0b0a3e4b2228e2",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              }
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 70,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q3_K_L",
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "quantization_parts": {
+              "Q6_K": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q8_0": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "model_id": "lmstudio-community/Llama-3.3-70B-Instruct-GGUF",
+            "model_file_name_template": "Llama-3.3-70B-Instruct-{quantization}.gguf",
+            "model_file_name_split_template": "Llama-3.3-70B-Instruct-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/lmstudio-community/Llama-3.3-70B-Instruct-GGUF/resolve/main/Llama-3.3-70B-Instruct-Q3_K_L.gguf",
+              "config_sha256": "9020266a1f4b89f290b42ad8262ab6795af0ac393a4306a2608be453878e1d7d",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q3_K_L",
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "quantization_parts": {
+              "Q6_K": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q8_0": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "model_id": "lmstudio-community/Llama-3.3-70B-Instruct-GGUF",
+            "model_file_name_template": "Llama-3.3-70B-Instruct-{quantization}.gguf",
+            "model_file_name_split_template": "Llama-3.3-70B-Instruct-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/lmstudio-community/Llama-3.3-70B-Instruct-GGUF/resolve/master/Llama-3.3-70B-Instruct-Q3_K_L.gguf",
+              "config_sha256": "9020266a1f4b89f290b42ad8262ab6795af0ac393a4306a2608be453878e1d7d",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{{- bos_token }}\n{%- if custom_tools is defined %}\n    {%- set tools = custom_tools %}\n{%- endif %}\n{%- if not tools_in_user_message is defined %}\n    {%- set tools_in_user_message = true %}\n{%- endif %}\n{%- if not date_string is defined %}\n    {%- set date_string = \"26 Jul 2024\" %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n\n{#- This block extracts the system message, so we can slot it into the right place. #}\n{%- if messages[0]['role'] == 'system' %}\n    {%- set system_message = messages[0]['content']|trim %}\n    {%- set messages = messages[1:] %}\n{%- else %}\n    {%- set system_message = \"\" %}\n{%- endif %}\n\n{#- System message + builtin tools #}\n{{- \"<|start_header_id|>system<|end_header_id|>\\n\\n\" }}\n{%- if builtin_tools is defined or tools is not none %}\n    {{- \"Environment: ipython\\n\" }}\n{%- endif %}\n{%- if builtin_tools is defined %}\n    {{- \"Tools: \" + builtin_tools | reject('equalto', 'code_interpreter') | join(\", \") + \"\\n\\n\"}}\n{%- endif %}\n{{- \"Cutting Knowledge Date: December 2023\\n\" }}\n{{- \"Today Date: \" + date_string + \"\\n\\n\" }}\n{%- if tools is not none and not tools_in_user_message %}\n    {{- \"You have access to the following functions. To call a function, please respond with JSON for a function call.\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n{%- endif %}\n{{- system_message }}\n{{- \"<|eot_id|>\" }}\n\n{#- Custom tools are passed in a user message with some extra guidance #}\n{%- if tools_in_user_message and not tools is none %}\n    {#- Extract the first user message so we can plug it in here #}\n    {%- if messages | length != 0 %}\n        {%- set first_user_message = messages[0]['content']|trim %}\n        {%- set messages = messages[1:] %}\n    {%- else %}\n        {{- raise_exception(\"Cannot put tools in the first user message when there's no first user message!\") }}\n{%- endif %}\n    {{- '<|start_header_id|>user<|end_header_id|>\\n\\n' -}}\n    {{- \"Given the following functions, please respond with a JSON for a function call \" }}\n    {{- \"with its proper arguments that best answers the given prompt.\\n\\n\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n    {{- first_user_message + \"<|eot_id|>\"}}\n{%- endif %}\n\n{%- for message in messages %}\n    {%- if not (message.role == 'ipython' or message.role == 'tool' or 'tool_calls' in message) %}\n        {{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n\\n'+ message['content'] | trim + '<|eot_id|>' }}\n    {%- elif 'tool_calls' in message %}\n        {%- if not message.tool_calls|length == 1 %}\n            {{- raise_exception(\"This model only supports single tool-calls at once!\") }}\n        {%- endif %}\n        {%- set tool_call = message.tool_calls[0].function %}\n        {%- if builtin_tools is defined and tool_call.name in builtin_tools %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- \"<|python_tag|>\" + tool_call.name + \".call(\" }}\n            {%- for arg_name, arg_val in tool_call.arguments | items %}\n                {{- arg_name + '=\"' + arg_val + '\"' }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- endif %}\n                {%- endfor %}\n            {{- \")\" }}\n        {%- else  %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- '{\"name\": \"' + tool_call.name + '\", ' }}\n            {{- '\"parameters\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- \"}\" }}\n        {%- endif %}\n        {%- if builtin_tools is defined %}\n            {#- This means we're in ipython mode #}\n            {{- \"<|eom_id|>\" }}\n        {%- else %}\n            {{- \"<|eot_id|>\" }}\n        {%- endif %}\n    {%- elif message.role == \"tool\" or message.role == \"ipython\" %}\n        {{- \"<|start_header_id|>ipython<|end_header_id|>\\n\\n\" }}\n        {%- if message.content is mapping or message.content is iterable %}\n            {{- message.content | tojson }}\n        {%- else %}\n            {{- message.content }}\n        {%- endif %}\n        {{- \"<|eot_id|>\" }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      128001,
+      128008,
+      128009
+    ],
+    "stop": [
+      "<|end_of_text|>",
+      "<|eot_id|>",
+      "<|eom_id|>"
+    ],
+    "updated_at": 1769418538,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

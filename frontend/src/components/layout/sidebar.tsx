@@ -16,18 +16,23 @@ import {
   Globe,
   BotIcon,
   Rocket,
+  Route,
   Monitor,
   ScrollText,
   ShieldCheck,
+  Settings2,
   Users,
   UserRound,
   KeyRound,
+  Database,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
-import { getAccessToken } from '@/lib/auth-storage';
+import { getAccessToken, removeAuthTokens } from '@/lib/auth-storage';
+import { ChangePasswordDialog } from '@/components/pages/login/change-password-dialog';
+import { navigationExtensions } from '@/lib/ui-extensions';
 import { cn, decodeJwtPayload } from '@/lib/utils';
 import { getBrandingFromEnv } from '@/lib/branding';
 import {
@@ -35,6 +40,7 @@ import {
   XINFERENCE_BASE_URL,
   XINFERENCE_CN_URL,
   XINFERENCE_GITHUB,
+  XAGENT_BASE_URL,
   NO_AUTH,
 } from '@/constants';
 import ThemeToggle from '@/components/layout/theme-toggle';
@@ -55,6 +61,7 @@ interface NavItem {
 }
 
 interface NavGroup {
+  id: string;
   name: string;
   items: NavItem[];
 }
@@ -145,9 +152,22 @@ const NavGroupSection: FC<NavGroup & { collapsed: boolean; showDivider: boolean 
 export function Sidebar() {
   const { t, locale } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
-  const { isAdmin, usersManagePage, canAccessKeysPage } = useMenuAuth();
+  const {
+    isAdmin,
+    usersManagePage,
+    canAccessKeysPage,
+    hasLogsList,
+    hasMonitorView,
+    hasSettingsRead,
+    canRegisterModel,
+    canAccessRouterPage,
+    canAccessCacheManagement,
+    hasPageAccess,
+    canChangePassword,
+  } = useMenuAuth();
   const [token, setToken] = useState<string | undefined>();
   const showLoginOut = useMemo(
     () => Boolean(clusterAuth?.auth && token && token !== NO_AUTH),
@@ -183,6 +203,7 @@ export function Sidebar() {
   const navGroups = useMemo<NavGroup[]>(() => {
     const groups: NavGroup[] = [
       {
+        id: 'models',
         name: t('menu.modelManagement'),
         items: [
           {
@@ -198,14 +219,35 @@ export function Sidebar() {
             Extra: ChevronRight,
           },
           {
+            path: '/token-router',
+            name: t('menu.tokenRouter'),
+            Icon: Route,
+            Extra: ChevronRight,
+            show:
+              clusterUIConfig?.token_router_enabled !== false &&
+              (!clusterUIConfig?.auth_advanced || canAccessRouterPage),
+          },
+          {
             path: '/register-model',
             name: t('menu.registerModel'),
             Icon: Box,
             Extra: ChevronRight,
+            show: !clusterUIConfig?.auth_advanced || canRegisterModel,
+          },
+          {
+            path: '/cache-management',
+            name: t('menu.cacheManagement'),
+            Icon: Database,
+            Extra: ChevronRight,
+            show:
+              clusterAuth?.auth === false ||
+              !clusterUIConfig?.auth_advanced ||
+              canAccessCacheManagement,
           },
         ],
       },
       {
+        id: 'monitoring',
         name: t('menu.monitoringManagement'),
         items: [
           {
@@ -219,17 +261,19 @@ export function Sidebar() {
             name: t('menu.monitorCenter'),
             Icon: Monitor,
             Extra: ChevronRight,
+            show: !clusterUIConfig?.auth_advanced || hasMonitorView,
           },
           {
             path: '/log-center',
             name: t('menu.logCenter'),
             Icon: ScrollText,
             Extra: ChevronRight,
-            show: Boolean(clusterUIConfig?.es_enabled),
+            show: !clusterUIConfig?.auth_advanced || hasLogsList,
           },
         ],
       },
       {
+        id: 'system',
         name: t('menu.systemManagement'),
         items: [
           {
@@ -254,6 +298,15 @@ export function Sidebar() {
             show: Boolean(clusterUIConfig?.auth_advanced) && isAdmin,
           },
           {
+            path: '/system-settings',
+            name: t('menu.systemSettings'),
+            Icon: Settings2,
+            Extra: ChevronRight,
+            show:
+              Object.keys(clusterUIConfig).length > 0 &&
+              (!clusterUIConfig.auth_advanced || hasSettingsRead),
+          },
+          {
             path: '/audit-center',
             name: t('menu.auditCenter'),
             Icon: FileSearch,
@@ -263,10 +316,11 @@ export function Sidebar() {
         ],
       },
       {
+        id: 'resources',
         name: t('menu.resourcesAndSupport'),
         items: [
           {
-            path: `${XINFERENCE_DOCS_URL}/${locale === 'zh' ? 'zh-cn' : ''}`,
+            path: `${XINFERENCE_DOCS_URL}/${locale.startsWith('zh') ? 'zh-cn' : ''}`,
             name: t('menu.documentation'),
             target: '_blank',
             Icon: FileTextIcon,
@@ -280,14 +334,14 @@ export function Sidebar() {
             Extra: SquareArrowOutUpRight,
           },
           {
-            path: locale === 'zh' ? XINFERENCE_CN_URL : XINFERENCE_BASE_URL,
+            path: locale.startsWith('zh') ? XINFERENCE_CN_URL : XINFERENCE_BASE_URL,
             name: t('menu.website'),
             target: '_blank',
             Icon: Globe,
             Extra: SquareArrowOutUpRight,
           },
           {
-            path: `${XINFERENCE_GITHUB}/xagent`,
+            path: XAGENT_BASE_URL,
             name: t('menu.xagent'),
             target: '_blank',
             Icon: BotIcon,
@@ -297,13 +351,39 @@ export function Sidebar() {
       },
     ];
 
+    const extensionGroup = groups.find((group) => group.id === 'system');
+    extensionGroup?.items.push(
+      ...navigationExtensions.map((item) => ({
+        path: item.path,
+        name: item.label,
+        Icon: Box,
+        Extra: ChevronRight,
+        show: !item.adminOnly || clusterAuth?.auth === false || isAdmin,
+      }))
+    );
+
     return groups
       .map((group) => ({
         ...group,
-        items: group.items.filter(({ show = true }) => show),
+        items: group.items.filter(({ show = true, path }) => show && hasPageAccess(path)),
       }))
       .filter(({ items }) => items.length > 0);
-  }, [clusterUIConfig, locale, t, usersManagePage, canAccessKeysPage, isAdmin]);
+  }, [
+    clusterUIConfig,
+    clusterAuth,
+    locale,
+    t,
+    usersManagePage,
+    canAccessKeysPage,
+    isAdmin,
+    hasLogsList,
+    hasMonitorView,
+    hasSettingsRead,
+    canRegisterModel,
+    canAccessRouterPage,
+    canAccessCacheManagement,
+    hasPageAccess,
+  ]);
 
   return (
     <div
@@ -349,7 +429,7 @@ export function Sidebar() {
               {...group}
               collapsed={collapsed}
               showDivider={index > 0}
-              key={group.name}
+              key={group.id}
             />
           ))}
         </nav>
@@ -378,6 +458,17 @@ export function Sidebar() {
                   {username}
                 </span>
               </div>
+              {canChangePassword && (
+                <button
+                  type="button"
+                  title={t('userManagement.changePassword')}
+                  aria-label={t('userManagement.changePassword')}
+                  onClick={() => setPasswordOpen(true)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </button>
+              )}
               <LoginOut className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md" />
             </div>
           )}
@@ -388,6 +479,18 @@ export function Sidebar() {
             <LoginOut className="flex h-8 w-8 items-center justify-center rounded-md" />
           </div>
         )
+      )}
+      {passwordOpen && (
+        <ChangePasswordDialog
+          open
+          userId={Number(decodeJwtPayload(token ?? '')?.user_id)}
+          forced={false}
+          onCancel={() => setPasswordOpen(false)}
+          onChanged={() => {
+            removeAuthTokens();
+            window.location.assign('/login');
+          }}
+        />
       )}
     </div>
   );

@@ -98,19 +98,43 @@ msgstr ""
 
 #: ../../source/user_guide/distributed_inference.rst:35
 msgid ""
-"vLLM (v0.11.0+) note: Starting from vLLM v0.11.0, distributed deployment "
-"with vLLM requires Xinference >= v1.17.1. In addition to setting "
-"``--n-worker`` as before, you must also set ``tensor_parallel_size`` (set it"
-" to the **GPU count**) and ``pipeline_parallel_size=1`` when launching the "
-"model."
+"vLLM V1 (v0.11.1+) supports tensor parallelism (TP) and pipeline parallelism"
+" (PP) through Xinference's xoscar executor. For a model spanning workers, "
+"the defaults are ``tensor_parallel_size`` = GPUs per worker and "
+"``pipeline_parallel_size`` = worker count."
 msgstr ""
-"vLLM (v0.11.0+) Note: A partire dalla versione vLLM v0.11.0, la "
-"distribuzione distribuita con vLLM richiede Xinference >= v1.17.1. Oltre al "
-"parametro originale ``--n-worker``, è necessario impostare anche i parametri"
-" ``tensor_parallel_size`` (impostarlo al **numero di GPU**) e "
-"``pipeline_parallel_size=1`` durante l'avvio del modello."
+"vLLM V1 (v0.11.1+) supporta il parallelismo tensoriale (TP) e il "
+"parallelismo di pipeline (PP) tramite l'esecutore xoscar di Xinference. Per "
+"un modello distribuito su più worker, ``tensor_parallel_size`` corrisponde "
+"per impostazione predefinita al numero di GPU per worker e "
+"``pipeline_parallel_size`` al numero di worker."
 
-#: ../../source/user_guide/distributed_inference.rst:40
+#: ../../source/user_guide/distributed_inference.rst:39
+msgid ""
+"For example, two workers with four GPUs each use ``--n-worker 2 --n-gpu 4``,"
+" ``tensor_parallel_size=4`` and ``pipeline_parallel_size=2``. Explicit TP/PP"
+" settings must satisfy ``TP * PP = total allocated GPUs``. Each worker must "
+"allocate the same GPU count, and the model architecture must support vLLM "
+"PP."
+msgstr ""
+"Ad esempio, due worker con quattro GPU ciascuno utilizzano ``--n-worker 2 "
+"--n-gpu 4``, ``tensor_parallel_size=4`` e ``pipeline_parallel_size=2``. Le "
+"impostazioni esplicite TP/PP devono soddisfare ``TP * PP = total allocated "
+"GPUs``: il loro prodotto deve essere uguale al numero totale di GPU "
+"assegnate. Ogni worker deve avere lo stesso numero di GPU assegnate e "
+"l'architettura del modello deve supportare vLLM PP."
+
+#: ../../source/user_guide/distributed_inference.rst:44
+msgid ""
+"This PP deployment does not require a Ray cluster. Xavier V1 and native NIXL"
+" P/D separation currently require ``TP=1`` and ``PP=1`` and cannot be "
+"combined with this configuration."
+msgstr ""
+"Questa distribuzione PP non richiede un cluster Ray. Xavier V1 e la "
+"separazione P/D nativa di NIXL richiedono attualmente ``TP=1`` e ``PP=1`` e "
+"non possono essere combinati con questa configurazione."
+
+#: ../../source/user_guide/distributed_inference.rst:47
 msgid ""
 "Then if are using web UI, choose expected machines for ``worker count`` in "
 "the optional configurations, if you are using command line, add ``--n-worker"
@@ -123,7 +147,7 @@ msgstr ""
 " quando avvii il modello. Il modello verrà avviato di conseguenza su più "
 "nodi di lavoro."
 
-#: ../../source/user_guide/distributed_inference.rst:48
+#: ../../source/user_guide/distributed_inference.rst:55
 msgid ""
 "``GPU count`` on web UI, or ``--n-gpu`` for command line now mean GPUs count"
 " per worker if you are using distributed inference."

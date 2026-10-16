@@ -24,13 +24,20 @@ Next static export emits one HTML file per route. Dynamic routes
 file (see the server wrappers under ``frontend/src/app``); the matching client
 page reads the real value from the URL. This module reconstructs the route
 table from those files so an arbitrary URL resolves to the correct HTML shell.
+
+Hot-reload: the dynamic-route shell table is cached but rebuilt automatically
+when the export directory changes (mtime), so a fresh ``npm run build`` is
+served without restarting the supervisor. Entry documents (HTML / RSC ``.txt``)
+carry ``Cache-Control: no-cache`` so browsers always revalidate them.
 """
 
 from __future__ import annotations
 
 import logging
 import re
+import threading
 from pathlib import Path
+from typing import TypedDict
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
@@ -40,6 +47,12 @@ logger = logging.getLogger(__name__)
 
 _SHELL_TOKEN = "__shell__"
 _SPA_ROUTE_NAME = "xinference_spa_fallback"
+
+# Entry documents (HTML shells / RSC .txt payloads) must revalidate on every
+# request so a rebuilt export (new hashed chunk names) reaches the browser.
+# Hashed assets under ``_next`` are exempt (StaticFiles; content-addressed).
+_ENTRY_NO_CACHE_HEADERS = {"cache-control": "no-cache"}
+_ENTRY_NO_CACHE_SUFFIXES = (".html", ".txt")
 
 
 def _collect_backend_prefixes(app: FastAPI) -> frozenset[str]:
@@ -103,6 +116,10 @@ def mount_frontend(app: FastAPI, dist_dir: Path) -> bool:
     Returns True if the frontend was mounted, False if the directory is absent
     (in which case the backend stays API-only). Must be called after all API
     routers are registered so the catch-all only receives unmatched paths.
+
+    Hot-reload: the dynamic-route shell table is rebuilt automatically when
+    ``dist_dir`` changes (mtime), so a rebuilt export is reflected without
+    restarting the process. Files themselves are read from disk per request.
     """
     if not dist_dir.is_dir() or not (dist_dir / "index.html").is_file():
         logger.info(
@@ -115,10 +132,49 @@ def mount_frontend(app: FastAPI, dist_dir: Path) -> bool:
     if next_assets.is_dir():
         app.mount("/_next", StaticFiles(directory=str(next_assets)), name="next-assets")
 
-    shell_patterns = _build_shell_patterns(dist_dir)
     not_found = dist_dir / "404.html"
     resolved_root = dist_dir.resolve()
     backend_prefixes = _collect_backend_prefixes(app)
+
+    # Hot-reload: rebuild the dynamic-route shell table when the export
+    # directory changes (mtime), so a fresh ``npm run build`` (which wipes and
+    # rewrites dist) is reflected without restarting the supervisor.
+    # index.html / 404.html / _next/* are already read from disk per request,
+    # so only the route table is cached.
+
+    class _ShellState(TypedDict):
+        mtime: float | None
+        patterns: list[tuple[re.Pattern[str], Path]]
+
+    try:
+        shell_mtime = dist_dir.stat().st_mtime
+    except OSError:
+        shell_mtime = None
+    shell_state: _ShellState = {
+        "mtime": shell_mtime,
+        "patterns": _build_shell_patterns(dist_dir),
+    }
+    _shell_lock = threading.Lock()
+
+    def _current_shell_patterns() -> list[tuple[re.Pattern[str], Path]]:
+        try:
+            mtime = dist_dir.stat().st_mtime
+        except OSError:
+            mtime = None
+        if mtime != shell_state["mtime"]:
+            with _shell_lock:
+                # Double-check: another request may have already rebuilt
+                # between the first mtime check and acquiring the lock.
+                if mtime != shell_state["mtime"]:
+                    shell_state["mtime"] = mtime
+                    shell_state["patterns"] = _build_shell_patterns(dist_dir)
+                    logger.info(
+                        "Re-loaded frontend shell routes from %s"
+                        " (%d dynamic-route shells)",
+                        dist_dir,
+                        len(shell_state["patterns"]),
+                    )
+        return shell_state["patterns"]
 
     def _resolve(rel_path: str) -> Path | None:
         # Reject path traversal: the request path must stay within dist_dir.
@@ -159,7 +215,7 @@ def mount_frontend(app: FastAPI, dist_dir: Path) -> bool:
                 return index
 
         # Dynamic route -> shell, in the format the request asked for.
-        for pattern, target in shell_patterns:
+        for pattern, target in _current_shell_patterns():
             if pattern.match(lookup):
                 if is_rsc:
                     txt = target.with_suffix(".txt")
@@ -174,9 +230,11 @@ def mount_frontend(app: FastAPI, dist_dir: Path) -> bool:
         return RedirectResponse(url="/")
 
     @app.get("/{full_path:path}", include_in_schema=False, name=_SPA_ROUTE_NAME)
-    async def serve_spa(full_path: str) -> Response:
+    def serve_spa(full_path: str) -> Response:
         if full_path == "":
-            return FileResponse(dist_dir / "index.html")
+            return FileResponse(
+                dist_dir / "index.html", headers=_ENTRY_NO_CACHE_HEADERS
+            )
 
         first_segment = full_path.split("/", 1)[0]
         if first_segment in backend_prefixes:
@@ -187,15 +245,24 @@ def mount_frontend(app: FastAPI, dist_dir: Path) -> bool:
 
         resolved = _resolve(full_path)
         if resolved is not None:
-            return FileResponse(resolved)
+            # Entry documents (HTML / RSC .txt) must revalidate; binary assets
+            # (favicon, images) keep default caching.
+            resolved_headers = (
+                _ENTRY_NO_CACHE_HEADERS
+                if resolved.suffix in _ENTRY_NO_CACHE_SUFFIXES
+                else None
+            )
+            return FileResponse(resolved, headers=resolved_headers)
 
         if not_found.is_file():
-            return FileResponse(not_found, status_code=404)
+            return FileResponse(
+                not_found, status_code=404, headers=_ENTRY_NO_CACHE_HEADERS
+            )
         return JSONResponse({"detail": "Not Found"}, status_code=404)
 
     logger.info(
         "Serving frontend static export from %s (%d dynamic-route shells)",
         dist_dir,
-        len(shell_patterns),
+        len(shell_state["patterns"]),
     )
     return True

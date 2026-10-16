@@ -1,4 +1,4 @@
-"""Audio route registration (transcriptions, translations, speech)."""
+"""Audio route registration (embeddings, transcriptions, translations, speech)."""
 
 from __future__ import annotations
 
@@ -15,6 +15,12 @@ def register_routes(api: "RESTfulAPI") -> None:
     auth = api._auth_service
     is_auth = api.is_authenticated()
 
+    router.add_api_route(
+        "/v1/audio/embeddings",
+        api.create_audio_embedding,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
     router.add_api_route(
         "/v1/audio/transcriptions",
         api.create_transcriptions,

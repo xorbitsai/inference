@@ -32,7 +32,6 @@ import pytest
 from fastapi import HTTPException
 
 from xinference.api.oauth2.advanced.auth_service import AdvancedAuthService
-from xinference.api.oauth2.auth_service import AuthService
 from xinference.api.restful_api import RESTfulAPI
 
 
@@ -82,7 +81,9 @@ def test_api_key_accepted_when_advanced_auth_enabled(advanced_auth_service):
     api._auth_service = advanced_auth_service
 
     user_id = _create_user(advanced_auth_service, "alice", ["models:read"])
-    api_key = advanced_auth_service.create_api_key_for_user(user_id=user_id)["key"]
+    api_key = advanced_auth_service.create_api_key_for_user(
+        user_id=user_id, name=f"test-key-{user_id}"
+    )["key"]
 
     request = _make_request()
     request.headers = {"Authorization": f"Bearer {api_key}"}
@@ -101,6 +102,7 @@ def test_api_key_rejected_for_unauthorized_model_when_advanced_auth_enabled(
     user_id = _create_user(advanced_auth_service, "bob", ["models:read"])
     api_key = advanced_auth_service.create_api_key_for_user(
         user_id=user_id,
+        name=f"restricted-key-{user_id}",
         model_permissions=[
             {"permission_type": "model", "permission_value": "other-model"}
         ],
@@ -138,7 +140,7 @@ def test_model_access_is_unchecked_when_advanced_auth_disabled(tmp_path):
     """
     api = _bare_api_instance()
     api._advanced_auth_service = None
-    api._auth_service = AuthService(auth_config_file=None)
+    api._auth_service = None
 
     for headers in (
         {},
@@ -157,7 +159,7 @@ def test_admin_key_routes_not_registered_when_advanced_auth_disabled():
     """
     api = _bare_api_instance()
     api._advanced_auth_service = None
-    api._auth_service = AuthService(auth_config_file=None)
+    api._auth_service = None
 
     assert api._advanced_auth_service is None
     # Mirrors the gating condition in RESTfulAPI init_app / __init__.

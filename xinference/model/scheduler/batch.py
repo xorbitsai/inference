@@ -80,10 +80,25 @@ class BatchScheduler:
             running_list.append(req)
 
         waiting_list: List[InferenceRequest] = []
+        waiting_batch_key = None
+        get_prefill_batch_key = getattr(
+            self._model, "get_batching_prefill_compatibility_key", None
+        )
         if len(running_list) < max_num_seqs:
             while len(self._waiting_queue) > 0:
                 req = self._waiting_queue.popleft()
                 self._check_request_aborted(req)
+                req_batch_key = (
+                    get_prefill_batch_key(req) if get_prefill_batch_key else None
+                )
+                if waiting_list and req_batch_key != waiting_batch_key:
+                    # A processor applies chat-template kwargs to the entire batch.
+                    # Keep requests with different template inputs for the next step
+                    # instead of leaking tools or reasoning settings across requests.
+                    self._waiting_queue.appendleft(req)
+                    break
+                if not waiting_list:
+                    waiting_batch_key = req_batch_key
                 waiting_list.append(req)
                 if len(running_list) + len(waiting_list) == max_num_seqs:
                     break
@@ -97,14 +112,80 @@ class BatchScheduler:
 
         empty_cache()
 
+    async def _fail_batch_requests(
+        self, req_list: List[InferenceRequest], error: Exception
+    ):
+        """Fail a batch without stopping the scheduler task.
+
+        Requests are removed from the scheduler queues and are completed with
+        an explicit error so a model or cache failure cannot leave callers
+        waiting forever.
+        """
+        error_message = f"Batch inference failed: {error}"
+        failed_requests = set(req_list)
+        self._running_queue = deque(
+            req for req in self._running_queue if req not in failed_requests
+        )
+
+        for req in req_list:
+            req.stopped = True
+            req.error_msg = error_message
+            req.kv_cache = None
+
+            rid = req.request_id
+            if rid is not None:
+                self._id_to_req.pop(rid, None)
+                self._abort_req_ids.discard(rid)
+
+            if req.stream:
+                await req.future_or_queue.put(
+                    XINFERENCE_STREAMING_ERROR_FLAG + error_message
+                )
+            else:
+                future = req.future_or_queue
+                if not future.done():
+                    future.set_exception(RuntimeError(error_message))
+
     async def step(self):
         req_list = self._handle_request()
         if not req_list:
             return
-        self._model.batch_inference(req_list)
+        try:
+            # Fresh prefills precede running requests, but have no cache row yet.
+            cached_requests = [
+                r for r in req_list if not r.is_prefill and r.kv_cache is not None
+            ]
+            aborted_indexes = {
+                idx for idx, r in enumerate(cached_requests) if r.aborted
+            }
+            if aborted_indexes:
+                surviving_requests = [r for r in cached_requests if not r.aborted]
+                if surviving_requests:
+                    reduced_kv_cache = self._model.build_reduced_kv_cache(
+                        cached_requests[0].kv_cache, aborted_indexes
+                    )
+                    for r in surviving_requests:
+                        r.kv_cache = reduced_kv_cache
+                for r in cached_requests:
+                    if r.aborted:
+                        r.kv_cache = None
 
-        stopped_batch_indexes = set()
-        for idx, r in enumerate(req_list):
+            active_requests = [r for r in req_list if not r.aborted]
+            if active_requests:
+                self._model.batch_inference(active_requests)
+        except Exception as e:
+            logger.exception("Batch inference failed: %s", e)
+            await self._fail_batch_requests(req_list, e)
+            self._empty_cache()
+            return
+
+        # Snapshot row ownership before terminal delivery clears cache references.
+        # Retired aborts and invalid prefills must not shift completion indexes.
+        cached_requests = [r for r in req_list if r.kv_cache is not None]
+        stopped_batch_indexes = {
+            idx for idx, r in enumerate(cached_requests) if r.stopped
+        }
+        for r in req_list:
             if r.stream:
                 for completion in r.completion:
                     await r.future_or_queue.put(completion)
@@ -113,8 +194,6 @@ class BatchScheduler:
             if not r.stopped:
                 self._running_queue.append(r)
             else:
-                if r.new_tokens:
-                    stopped_batch_indexes.add(idx)
                 # set kv_cache to None for collection
                 r.kv_cache = None
                 rid = r.request_id
@@ -150,9 +229,16 @@ class BatchScheduler:
         # Some requests have been completed. Batch size needs to be reduced for kv cache.
         if stopped_batch_indexes and len(self._running_queue) > 0:
             kv_cache = self._running_queue[0].kv_cache
-            reduced_kv_cache = self._model.build_reduced_kv_cache(
-                kv_cache, stopped_batch_indexes
-            )
+            active_requests = [r for r in req_list if not r.stopped]
+            try:
+                reduced_kv_cache = self._model.build_reduced_kv_cache(
+                    kv_cache, stopped_batch_indexes
+                )
+            except Exception as e:
+                logger.exception("KV cache reduction failed: %s", e)
+                await self._fail_batch_requests(active_requests, e)
+                self._empty_cache()
+                return
             for r in self._running_queue:
                 r.kv_cache = reduced_kv_cache
 
@@ -190,12 +276,18 @@ class BatchScheduler:
             return AbortRequestMessage.DONE.name
 
     async def _run(self):
-        try:
-            while self._running:
+        while self._running:
+            try:
                 # wait 10ms
                 await asyncio.sleep(0.01)
                 await self.step()
-        except asyncio.CancelledError:
-            logger.debug(f"Scheduler stopped")
-        except Exception as e:
-            logger.exception(f"Scheduler run with error: {e}")
+            except asyncio.CancelledError:
+                logger.debug("Scheduler stopped")
+                raise
+            except Exception as e:
+                # Keep the scheduler alive for subsequent requests. Known
+                # batch failures are handled in step() and complete their
+                # requests explicitly; this is a final guard for unexpected
+                # scheduler errors.
+                logger.exception("Scheduler step failed: %s", e)
+                await asyncio.sleep(0.1)

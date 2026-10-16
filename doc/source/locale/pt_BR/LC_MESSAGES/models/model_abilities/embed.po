@@ -6,17 +6,17 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Xinference\n"
+"Project-Id-Version:  Xinference\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: pt_BR <LL@li.org>\n"
 "Language: pt_BR\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/models/model_abilities/embed.rst:5
@@ -33,36 +33,37 @@ msgstr "Introdução"
 
 #: ../../source/models/model_abilities/embed.rst:14
 msgid ""
-"Text embeddings are used to quantify how related different pieces of text "
-"are. They can be used in various applications including search, clustering, "
-"recommendations, anomaly detection, diversity measurement, and "
-"classification."
+"Text embeddings are used to quantify how related different pieces of text"
+" are. They can be used in various applications including search, "
+"clustering, recommendations, anomaly detection, diversity measurement, "
+"and classification."
 msgstr ""
 "Embeddings de texto são usados para quantificar a correlação entre "
 "diferentes textos. Eles podem ser aplicados em diversas aplicações, "
-"incluindo busca, agrupamento, recomendação, detecção de anomalias, métricas "
-"de diversidade e classificação."
+"incluindo busca, agrupamento, recomendação, detecção de anomalias, "
+"métricas de diversidade e classificação."
 
 #: ../../source/models/model_abilities/embed.rst:17
 msgid ""
-"An embedding is a vector of floating point numbers. The proximity between "
-"two vectors serves as an indicator of their similarity. Less distance "
+"An embedding is a vector of floating point numbers. The proximity between"
+" two vectors serves as an indicator of their similarity. Less distance "
 "implies a higher correlation, while a larger distance indicates reduced "
 "correlation."
 msgstr ""
-"Embeddings são vetores de números de ponto flutuante. A proximidade entre "
-"dois vetores pode ser usada como um indicador de sua similaridade. Quanto "
-"menor a distância, maior a correlação; quanto maior a distância, menor a "
-"correlação."
+"Embeddings são vetores de números de ponto flutuante. A proximidade entre"
+" dois vetores pode ser usada como um indicador de sua similaridade. "
+"Quanto menor a distância, maior a correlação; quanto maior a distância, "
+"menor a correlação."
 
 #: ../../source/models/model_abilities/embed.rst:20
 msgid ""
-"Embedding models in Xinference can be invoked through the Embeddings API to "
-"create embeddings. The Embeddings API mimics OpenAI's `create embeddings API"
-" <https://platform.openai.com/docs/api-reference/embeddings/create>`_."
+"Embedding models in Xinference can be invoked through the Embeddings API "
+"to create embeddings. The Embeddings API mimics OpenAI's `create "
+"embeddings API <https://platform.openai.com/docs/api-"
+"reference/embeddings/create>`_."
 msgstr ""
-"Modelos de incorporação podem ser chamados através da API de Embeddings no "
-"Xinference para criar embeddings. A API de Embeddings imita a `create "
+"Modelos de incorporação podem ser chamados através da API de Embeddings "
+"no Xinference para criar embeddings. A API de Embeddings imita a `create "
 "embeddings API <https://platform.openai.com/docs/api-"
 "reference/embeddings/create>`_ do OpenAI."
 
@@ -76,11 +77,11 @@ msgstr "Endpoint compatível com a OpenAI"
 
 #: ../../source/models/model_abilities/embed.rst:30
 msgid "Embeddings API"
-msgstr ""
+msgstr "API de Embeddings"
 
 #: ../../source/models/model_abilities/embed.rst:31
 msgid "/v1/embeddings"
-msgstr ""
+msgstr "/v1/embeddings"
 
 #: ../../source/models/model_abilities/embed.rst:35
 msgid "Supported models"
@@ -94,60 +95,150 @@ msgstr ""
 "Você pode visualizar todos os modelos de incorporação integrados do "
 ":ref:`Xinference <models_embedding_index>`."
 
-#: ../../source/models/model_abilities/embed.rst:41
+#: ../../source/models/model_abilities/embed.rst:40
+msgid "Embedding engines"
+msgstr "Mecanismos de embedding"
+
+#: ../../source/models/model_abilities/embed.rst:42
+msgid ""
+"When launching an embedding model, you can pick the serving engine with "
+"the ``model_engine`` parameter (``--model-engine`` on the command line):"
+msgstr ""
+"Ao inicializar um modelo de embedding, é possível escolher o mecanismo de"
+" serviço com o parâmetro ``model_engine`` (``--model-engine`` na linha de"
+" comando):"
+
+#: ../../source/models/model_abilities/embed.rst:45
+msgid ""
+"``sentence_transformers``: the default engine, available for all "
+"embedding models."
+msgstr ""
+"``sentence_transformers``: o mecanismo padrão, disponível para todos os "
+"modelos de embedding."
+
+#: ../../source/models/model_abilities/embed.rst:47
+msgid ""
+"``vllm``: high-throughput serving for supported model families — "
+"currently models whose names start with ``bge``, ``gte``, ``text2vec``, "
+"``m3e``, ``Qwen3``, or ``bce`` (e.g. ``bce-embedding-base_v1``)."
+msgstr ""
+"``vllm``: serviço de alta vazão para as famílias de modelos suportadas — "
+"atualmente, modelos cujos nomes começam com ``bge``, ``gte``, "
+"``text2vec``, ``m3e``, ``Qwen3`` ou ``bce`` (por exemplo, ``bce-"
+"embedding-base_v1``)."
+
+#: ../../source/models/model_abilities/embed.rst:50
+msgid ""
+"``flag``: FlagEmbedding-based engine; also supports hybrid (sparse+dense)"
+" output, see the FAQ below."
+msgstr ""
+"``flag``: mecanismo baseado em FlagEmbedding; também suporta saída "
+"híbrida (esparsa+densa), consulte o FAQ abaixo."
+
+#: ../../source/models/model_abilities/embed.rst:52
+msgid "``llama.cpp``: serve GGUF-format embedding models."
+msgstr "``llama.cpp``: serve modelos de embedding no formato GGUF."
+
+#: ../../source/models/model_abilities/embed.rst:55
+msgid "Truncating input"
+msgstr "Truncando a entrada"
+
+#: ../../source/models/model_abilities/embed.rst:57
+msgid ""
+"The Embeddings API accepts an optional ``truncate_prompt_tokens`` "
+"parameter to cap the token length of each input before encoding:"
+msgstr ""
+"A API de Embeddings aceita um parâmetro opcional "
+"``truncate_prompt_tokens`` para limitar o comprimento em tokens de cada "
+"entrada antes da codificação:"
+
+#: ../../source/models/model_abilities/embed.rst:60
+msgid "unset / ``null``: no truncation."
+msgstr "não definido / ``null``: sem truncamento."
+
+#: ../../source/models/model_abilities/embed.rst:61
+msgid "a positive integer ``N``: truncate each input to at most ``N`` tokens."
+msgstr ""
+"um inteiro positivo ``N``: trunca cada entrada para no máximo ``N`` "
+"tokens."
+
+#: ../../source/models/model_abilities/embed.rst:62
+msgid "``-1``: truncate to the model's own maximum input length."
+msgstr "``-1``: trunca para o comprimento máximo de entrada do próprio modelo."
+
+#: ../../source/models/model_abilities/embed.rst:77
 msgid "Quickstart"
 msgstr "Início Rápido"
 
-#: ../../source/models/model_abilities/embed.rst:43
+#: ../../source/models/model_abilities/embed.rst:79
 msgid ""
 "We can try Embeddings API out either via cURL, OpenAI Client, or "
 "Xinference's python client:"
 msgstr ""
-"Podemos experimentar a API de Embeddings através do cURL, do OpenAI Client "
-"ou do cliente Python do Xinference."
+"Podemos experimentar a API de Embeddings através do cURL, do OpenAI "
+"Client ou do cliente Python do Xinference."
 
-#: ../../source/models/model_abilities/embed.rst:103
-msgid ""
-"You can find more examples of ``embed`` ability in the tutorial notebook:"
-msgstr ""
-"Você pode encontrar mais exemplos sobre a capacidade de ``embed`` no caderno"
-" de tutorial."
-
-#: ../../source/models/model_abilities/embed.rst:107
-msgid "LangChain Streamlit Doc Chat"
-msgstr "Chat de documentos LangChain Streamlit"
-
-#: ../../source/models/model_abilities/embed.rst:110
-msgid "Learn from an example demonstrating how to use embed API via LangChain"
-msgstr ""
-"Aprenda a usar a API de embeddings com LangChain a partir de um exemplo."
-
-#: ../../source/models/model_abilities/embed.rst:114
+#: ../../source/models/model_abilities/embed.rst:140
 msgid "FAQ"
-msgstr ""
+msgstr "FAQ"
 
-#: ../../source/models/model_abilities/embed.rst:117
+#: ../../source/models/model_abilities/embed.rst:143
 msgid "Does the LLM in Xinference support Embeddings API?"
 msgstr "O LLM suporta a API Embeddings em Xinference?"
 
-#: ../../source/models/model_abilities/embed.rst:119
+#: ../../source/models/model_abilities/embed.rst:145
 msgid ""
-"No. Xinference doesn't provide embed API for LLMs due to considerations of "
-"performance."
+"No. Xinference doesn't provide embed API for LLMs due to considerations "
+"of performance."
 msgstr ""
+"Não. O Xinference não fornece uma API de embedding para LLMs por "
+"considerações de desempenho."
 
-#: ../../source/models/model_abilities/embed.rst:123
+#: ../../source/models/model_abilities/embed.rst:149
 msgid "Does Embeddings API provides integration method for LangChain?"
 msgstr "A API Embeddings fornece métodos de integração com o LangChain?"
 
-#: ../../source/models/model_abilities/embed.rst:125
+#: ../../source/models/model_abilities/embed.rst:151
 msgid ""
 "Yes, you can refer to the related sections in LangChain's respective "
-"official Xinference documentation. Here is the link: `Text Embedding Models:"
-" Xinference "
+"official Xinference documentation. Here is the link: `Text Embedding "
+"Models: Xinference "
 "<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
 msgstr ""
 "Sim, você pode consultar a documentação oficial de Xinference na seção "
 "relacionada ao LangChain. Aqui está o link: `Text Embedding Models: "
 "Xinference "
 "<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
+
+#: ../../source/models/model_abilities/embed.rst:156
+msgid "Does Embeddings API support hrbrid model?"
+msgstr "A API de Embeddings suporta modelos híbridos?"
+
+#: ../../source/models/model_abilities/embed.rst:158
+msgid ""
+"Yes, you can use ``flag`` as the engine to deploy the model and call "
+"Embeddings API by setting the extra parameter ``return_parse=True`` which"
+" will return sparse vectors."
+msgstr ""
+"Sim, você pode usar ``flag`` como mecanismo para implantar o modelo e "
+"chamar a API de Embeddings definindo o parâmetro extra "
+"``return_parse=True``, que retornará vetores esparsos."
+
+#~ msgid ""
+#~ "You can find more examples of "
+#~ "``embed`` ability in the tutorial "
+#~ "notebook:"
+#~ msgstr ""
+#~ "Você pode encontrar mais exemplos sobre"
+#~ " a capacidade de ``embed`` no caderno"
+#~ " de tutorial."
+
+#~ msgid "LangChain Streamlit Doc Chat"
+#~ msgstr "Chat de documentos LangChain Streamlit"
+
+#~ msgid "Learn from an example demonstrating how to use embed API via LangChain"
+#~ msgstr ""
+#~ "Aprenda a usar a API de embeddings"
+#~ " com LangChain a partir de um "
+#~ "exemplo."
+

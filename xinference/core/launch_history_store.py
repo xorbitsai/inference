@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS launch_history (
     model_name TEXT NOT NULL,
     model_uid TEXT NOT NULL DEFAULT '',
     data TEXT NOT NULL,
+    ui_data TEXT NOT NULL DEFAULT '{}',
     autostart_enabled INTEGER NOT NULL DEFAULT 0,
     autostart_priority INTEGER NOT NULL DEFAULT 100,
     autostart_max_retries INTEGER NOT NULL DEFAULT 3,
@@ -47,7 +48,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_launch_history_model
     ON launch_history(model_name, model_uid, created_by);
 """
 
-AUTOSTART_COLUMNS = {
+LAUNCH_HISTORY_COLUMNS = {
+    "ui_data": "TEXT NOT NULL DEFAULT '{}'",
     "autostart_enabled": "INTEGER NOT NULL DEFAULT 0",
     "autostart_priority": f"INTEGER NOT NULL DEFAULT {DEFAULT_PRIORITY}",
     "autostart_max_retries": f"INTEGER NOT NULL DEFAULT {DEFAULT_MAX_RETRIES}",
@@ -61,6 +63,8 @@ AUTOSTART_COLUMNS = {
 # paths, infra hints) is stripped from another user's entries on read so that
 # secrets such as tokens injected via `envs` or custom parameters never leak
 # across users. The owner of an entry always receives the full payload.
+UI_METADATA_KEYS = frozenset({"n_gpu"})
+
 SHAREABLE_KEYS = frozenset(
     {
         "model_uid",
@@ -113,7 +117,7 @@ class LaunchHistoryStore:
         existing_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(launch_history)")
         }
-        for column, definition in AUTOSTART_COLUMNS.items():
+        for column, definition in LAUNCH_HISTORY_COLUMNS.items():
             if column not in existing_columns:
                 conn.execute(
                     f"ALTER TABLE launch_history ADD COLUMN {column} {definition}"
@@ -141,18 +145,24 @@ class LaunchHistoryStore:
         self,
         model_name: Optional[str] = None,
         username: Optional[str] = None,
+        owner_only: bool = False,
     ) -> List[Dict[str, Any]]:
+        filters = []
+        params: List[Any] = []
+        if model_name:
+            filters.append("model_name = ?")
+            params.append(model_name)
+        if owner_only:
+            filters.append("created_by = ?")
+            params.append(username or "")
+
+        query = "SELECT * FROM launch_history"
+        if filters:
+            query += " WHERE " + " AND ".join(filters)
+        query += " ORDER BY updated_at DESC"
+
         with self._get_conn() as conn:
-            if model_name:
-                rows = conn.execute(
-                    "SELECT * FROM launch_history WHERE model_name = ? "
-                    "ORDER BY updated_at DESC",
-                    (model_name,),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM launch_history ORDER BY updated_at DESC"
-                ).fetchall()
+            rows = conn.execute(query, params).fetchall()
         return [self._row_to_item(row, username) for row in rows]
 
     @staticmethod
@@ -165,10 +175,11 @@ class LaunchHistoryStore:
         self, row: sqlite3.Row, username: Optional[str] = None
     ) -> Dict[str, Any]:
         item = dict(row)
-        try:
-            item["data"] = json.loads(item["data"])
-        except (json.JSONDecodeError, TypeError):
-            pass
+        for key in ("data", "ui_data"):
+            try:
+                item[key] = json.loads(item[key])
+            except (json.JSONDecodeError, TypeError):
+                pass
         # Redact sensitive fields from entries owned by other users so that
         # secrets (envs, custom kwargs, ...) never leak across users.
         # ``username is None`` means an unscoped/trusted call (no redaction).
@@ -176,6 +187,13 @@ class LaunchHistoryStore:
             data = item.get("data")
             if isinstance(data, dict):
                 item["data"] = {k: v for k, v in data.items() if k in SHAREABLE_KEYS}
+            ui_data = item.get("ui_data")
+            if isinstance(ui_data, dict):
+                item["ui_data"] = {
+                    key: value
+                    for key, value in ui_data.items()
+                    if key in UI_METADATA_KEYS
+                }
         if "autostart_enabled" in item:
             item["autostart_enabled"] = bool(item["autostart_enabled"])
         # SQLite CURRENT_TIMESTAMP yields naive UTC "YYYY-MM-DD HH:MM:SS";
@@ -230,21 +248,41 @@ class LaunchHistoryStore:
         model_uid: str,
         data: Dict[str, Any],
         username: str = "",
+        ui_data: Optional[Dict[str, Any]] = None,
     ) -> None:
         # Each user owns a separate row per (model_name, model_uid); a later
         # upsert by the same user updates only their own row.
         data_json = json.dumps(data, ensure_ascii=False)
+        preserve_ui_data = ui_data is None
+        ui_metadata = (
+            {key: value for key, value in ui_data.items() if key in UI_METADATA_KEYS}
+            if isinstance(ui_data, dict)
+            else {}
+        )
+        ui_data_json = json.dumps(ui_metadata, ensure_ascii=False)
         with self._lock:
             with self._get_conn() as conn:
                 conn.execute(
                     """INSERT INTO launch_history
-                           (model_name, model_uid, data, created_by, updated_by)
-                       VALUES (?, ?, ?, ?, ?)
+                           (model_name, model_uid, data, ui_data, created_by, updated_by)
+                       VALUES (?, ?, ?, ?, ?, ?)
                        ON CONFLICT(model_name, model_uid, created_by) DO UPDATE SET
                            data = excluded.data,
+                           ui_data = CASE
+                               WHEN ? THEN launch_history.ui_data
+                               ELSE excluded.ui_data
+                           END,
                            updated_by = excluded.updated_by,
                            updated_at = CURRENT_TIMESTAMP""",
-                    (model_name, model_uid, data_json, username, username),
+                    (
+                        model_name,
+                        model_uid,
+                        data_json,
+                        ui_data_json,
+                        username,
+                        username,
+                        preserve_ui_data,
+                    ),
                 )
 
     def upsert_autostart(self, entry: Dict[str, Any], username: str = "") -> None:
@@ -293,6 +331,26 @@ class LaunchHistoryStore:
                         ),
                     ),
                 )
+
+    def update_autostart_launch_config(
+        self, model_uid: str, config: Dict[str, Any]
+    ) -> None:
+        """Persist committed execution limits without replacing owner or policy."""
+        with self._lock:
+            with self._get_conn() as conn:
+                rows = conn.execute(
+                    "SELECT id, data FROM launch_history "
+                    "WHERE model_uid = ? AND autostart_enabled = 1",
+                    (model_uid,),
+                ).fetchall()
+                for row in rows:
+                    data = json.loads(row["data"])
+                    data.update(config)
+                    conn.execute(
+                        "UPDATE launch_history SET data = ?, updated_at = CURRENT_TIMESTAMP "
+                        "WHERE id = ?",
+                        (json.dumps(data, ensure_ascii=False), row["id"]),
+                    )
 
     def remove_autostart(self, model_uid: str) -> bool:
         with self._lock:

@@ -55,18 +55,16 @@ class CacheTrackerActor(xo.Actor):
                 self._model_name_to_version_info[model_name] = model_versions
             else:
                 existing = self._model_name_to_version_info[model_name]
-                if len(model_versions) != len(existing):
-                    logger.warning(
-                        "Model version info inconsistency for %s: "
-                        "supervisor has %d versions, worker %s reports %d; "
-                        "skipping version sync for this model",
-                        model_name,
-                        len(existing),
-                        address,
-                        len(model_versions),
-                    )
-                    continue
-                for version, origin_version in zip(model_versions, existing):
+                existing_by_version = {
+                    version["model_version"]: version for version in existing
+                }
+                for version in model_versions:
+                    model_version = version["model_version"]
+                    origin_version = existing_by_version.get(model_version)
+                    if origin_version is None:
+                        existing.append(version)
+                        existing_by_version[model_version] = version
+                        continue
                     if (
                         version["cache_status"]
                         and version["model_file_location"] is not None

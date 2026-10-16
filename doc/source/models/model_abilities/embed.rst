@@ -36,6 +36,81 @@ Supported models
 
 You can examine all the :ref:`builtin embedding models in Xinference <models_embedding_index>`.
 
+Embedding engines
+-------------------
+
+When launching an embedding model, you can pick the serving engine with the
+``model_engine`` parameter (``--model-engine`` on the command line):
+
+* ``sentence_transformers``: the default engine, available for all embedding
+  models.
+* ``vllm``: high-throughput serving for supported model families — currently
+  models whose names start with ``bge``, ``gte``, ``text2vec``, ``m3e``,
+  ``Qwen3``, ``WeMM``, or ``bce`` (e.g. ``bce-embedding-base_v1``).
+* ``flag``: FlagEmbedding-based engine; also supports hybrid (sparse+dense)
+  output, see the FAQ below.
+* ``llama.cpp``: serve GGUF-format embedding models.
+
+Truncating input
+-------------------
+
+The Embeddings API accepts an optional ``truncate_prompt_tokens`` parameter
+to cap the token length of each input before encoding:
+
+* unset / ``null``: no truncation.
+* a positive integer ``N``: truncate each input to at most ``N`` tokens.
+* ``-1``: truncate to the model's own maximum input length.
+
+.. code-block:: bash
+
+    curl -X 'POST' \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/embeddings' \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "model": "<MODEL_UID>",
+        "input": "A very long document ...",
+        "truncate_prompt_tokens": 512
+      }'
+
+
+Multimodal WeMM-Embedding input
+-------------------------------
+
+The WeMM-Embedding family accepts text, image, video, visual-document, and
+interleaved multimodal input. Audio is not supported. Supported engines are
+``sentence_transformers`` (default) and ``vllm``.
+
+A flat input dictionary can contain any ordered combination of ``text``,
+``image``, and ``video``. For precise interleaving, pass a ``role``/``content``
+message. ``image_url`` and ``video_url`` content items are also accepted.
+Local media paths refer to files on the Xinference server.
+
+.. code-block:: bash
+
+    xinference launch \
+      --model-name WeMM-Embedding-2B \
+      --model-type embedding \
+      --model-engine sentence_transformers
+
+    curl -X POST \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/embeddings' \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "model": "<MODEL_UID>",
+        "input": {
+          "role": "user",
+          "content": [
+            {"type": "image_url", "image_url": {"url": "https://example.com/image.jpg"}},
+            {"type": "text", "text": "Find content related to this image."},
+            {"type": "video_url", "video_url": {"url": "https://example.com/video.mp4"}}
+          ]
+        },
+        "dimensions": 256
+      }'
+
+``dimensions`` selects one of the model's Matryoshka dimensions. By default,
+Xinference truncates the vector and applies L2 normalization again.
+
 
 Quickstart
 ============

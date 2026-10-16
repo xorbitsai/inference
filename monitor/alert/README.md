@@ -115,3 +115,37 @@ route:
         severity: warning
       receiver: warning-channel
 ```
+
+## Token Router Monitoring V2.1 alerts
+
+The `xinference-token-router-monitoring-v2` group adds layered alerts for Agent
+connectivity, Assignment readiness, Runtime availability/control/config revision,
+Tokenizer Asset Bindings, and logical Router health.
+
+The key availability semantics are intentional:
+
+- Agent suspected/offline is a **warning** and does not directly mean that the Router
+  data plane is unavailable.
+- An effective Runtime that is no longer controllable raises
+  `TokenRouterRuntimeUncontrollable`.
+- `TokenRouterUnavailable` is **critical** only when desired replicas are greater than
+  zero and effective ready replicas are zero.
+- Do not inhibit `TokenRouterUnavailable` merely because an Agent-offline warning is
+  active; Runtime availability is the higher-level service signal.
+
+### Alertmanager inhibition
+
+`alertmanager-inhibition.yml` is an integration fragment. Merge its
+`inhibit_rules` list into the production `alertmanager.yml` rather than loading it
+as a Prometheus rule file. The example applies two narrowly scoped rules:
+
+- `TokenRouterUnavailable` suppresses `TokenRouterRuntimeDown` and
+  `TokenRouterAssignmentNotReady` only for the same `router_uid`.
+- `TokenRouterAgentOffline` suppresses only lower-level Agent connectivity or
+  capacity symptoms for the same `node_id`.
+
+It deliberately does **not** suppress `TokenRouterUnavailable`, Runtime data-plane
+alerts, or other service-level symptoms when an Agent is offline. The existing
+aggregate `WorkerOffline` alert has no `worker_address` label, so a safe
+same-worker replica inhibition cannot be expressed until Worker offline alerts are
+emitted per worker.

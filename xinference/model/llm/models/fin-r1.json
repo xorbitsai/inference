@@ -1,0 +1,181 @@
+[
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "fin-r1",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Fin-R1 is a large language model specifically designed for the field of financial reasoning",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "SUFE-AIFLM-Lab/Fin-R1",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/SUFE-AIFLM-Lab/Fin-R1/resolve/026768c4a015b591b54b240743edeac1de0970fa/config.json",
+              "config_sha256": "a9533f6d8bf8deef4a38bc746b2d339983f509adeabf93cbb93dec6b6779f4d2",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "AI-ModelScope/Fin-R1",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Fin-R1/resolve/master/config.json",
+              "config_sha256": "a9533f6d8bf8deef4a38bc746b2d339983f509adeabf93cbb93dec6b6779f4d2",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "JunHowie/Fin-R1-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/JunHowie/Fin-R1-GPTQ-Int4/resolve/44d4d6c28ebcde7d04cc18b059264184ba90d217/config.json",
+                "config_sha256": "31deb208bd933f8ecac24cd84387c393c46b141f1f3b296818fae46564dd353f",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              },
+              "Int8": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/JunHowie/Fin-R1-GPTQ-Int8/resolve/a9bd01b87efe9af76ec48a128ff29bc48954b8c2/config.json",
+                "config_sha256": "4ab074cd6c34a7536ea618c63dd62a832f04140cd13d233a2d68ba5f46c3cc62",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              }
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "JunHowie/Fin-R1-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/JunHowie/Fin-R1-GPTQ-Int4/resolve/master/config.json",
+                "config_sha256": "8f920c99745eee060261df7159f9f3d32d2c801a266a24efcdeb46b1626a7d16",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              },
+              "Int8": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/JunHowie/Fin-R1-GPTQ-Int8/resolve/master/config.json",
+                "config_sha256": "7ac441ab2d172a33ed4e4140cc130f6843a0be19e3d96886c8e4530f10ea5521",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              }
+            }
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "JunHowie/Fin-R1-FP8-Dynamic",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/JunHowie/Fin-R1-FP8-Dynamic/resolve/cf211e71bcd1f26f6513384009a0903009465283/config.json",
+              "config_sha256": "756f7f9956f2a6bd2fab406e69726871659c974218a5a356996a56a74a0702bc",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "JunHowie/Fin-R1-FP8-Dynamic",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/JunHowie/Fin-R1-FP8-Dynamic/resolve/master/config.json",
+              "config_sha256": "dcc6c688374dc79c9a83a0366d5611c07a34e37d0912c6b5862301a789df2399",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ],
+    "updated_at": 1769418523,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ],
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

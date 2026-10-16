@@ -72,6 +72,8 @@ def _make_worker():
     self.allocate_devices_with_gpu_idx = (
         WorkerActor.allocate_devices_with_gpu_idx.__get__(self)
     )
+    self._allocate_subpool_devices = WorkerActor._allocate_subpool_devices.__get__(self)
+    self._spawn_subpool = WorkerActor._spawn_subpool.__get__(self)
     self._create_subpool = WorkerActor._create_subpool.__get__(self)
     self._append_sub_pool_protected = WorkerActor._append_sub_pool_protected.__get__(
         self
@@ -417,9 +419,23 @@ async def test_kill_gpu_orphans_by_ppid_no_orphans_returns_empty(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+async def test_startup_cleanup_skips_without_nvidia_gpu(monkeypatch):
+    import xinference.core.worker as w
+
+    monkeypatch.setattr(w, "get_available_device_env_name", lambda: None)
+    self = _make_worker()
+    with patch("xinference.core.worker._nvml_init_with_timeout") as mock_init:
+        await self._cleanup_gpu_orphans_on_startup()
+    mock_init.assert_not_called()
+
+
 async def test_startup_cleanup_nvml_failure_degrades(monkeypatch):
     import xinference.core.worker as w
 
+    monkeypatch.setattr(
+        w, "get_available_device_env_name", lambda: "CUDA_VISIBLE_DEVICES"
+    )
+    monkeypatch.setattr(w, "gpu_count", lambda: 1)
     monkeypatch.setattr(w, "_nvml_init_with_timeout", lambda timeout=10: False)
     self = _make_worker()
     # Must not raise and must not attempt any snapshot/kill.
@@ -431,6 +447,10 @@ async def test_startup_cleanup_nvml_failure_degrades(monkeypatch):
 async def test_startup_cleanup_no_orphans_returns_cleanly(monkeypatch):
     import xinference.core.worker as w
 
+    monkeypatch.setattr(
+        w, "get_available_device_env_name", lambda: "CUDA_VISIBLE_DEVICES"
+    )
+    monkeypatch.setattr(w, "gpu_count", lambda: 1)
     monkeypatch.setattr(w, "_nvml_init_with_timeout", lambda timeout=10: True)
     monkeypatch.setattr(
         "xinference.core.worker._snapshot_gpu_occupying_pids", lambda devs: set()
@@ -445,6 +465,10 @@ async def test_startup_cleanup_no_orphans_returns_cleanly(monkeypatch):
 async def test_startup_cleanup_kills_orphans(monkeypatch):
     import xinference.core.worker as w
 
+    monkeypatch.setattr(
+        w, "get_available_device_env_name", lambda: "CUDA_VISIBLE_DEVICES"
+    )
+    monkeypatch.setattr(w, "gpu_count", lambda: 1)
     monkeypatch.setattr(w, "_nvml_init_with_timeout", lambda timeout=10: True)
 
     # nvmlDeviceGetCount inside the method (pynvml is imported locally).
@@ -520,3 +544,16 @@ def test_nvml_init_with_timeout_background_thread_falls_back():
     t.join()
     assert result["ok"] is True
     mock_pynvml.nvmlInit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_nixl_external_address_reaches_subpool(patched_subpool_deps):
+    worker = _make_worker()
+    worker._main_pool.append_sub_pool = AsyncMock(return_value="nixl://test:1234")
+    result = await worker._spawn_subpool(
+        "gpu-model", {}, [], external_address="nixl://test:0"
+    )
+    assert result == "nixl://test:1234"
+    worker._main_pool.append_sub_pool.assert_awaited_once_with(
+        env={}, start_python=None, external_address="nixl://test:0"
+    )

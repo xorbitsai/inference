@@ -6,17 +6,17 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Xinference\n"
+"Project-Id-Version:  Xinference\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ko <LL@li.org>\n"
 "Language: ko\n"
+"Language-Team: ko <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/models/model_abilities/embed.rst:5
@@ -33,18 +33,18 @@ msgstr "Introduce"
 
 #: ../../source/models/model_abilities/embed.rst:14
 msgid ""
-"Text embeddings are used to quantify how related different pieces of text "
-"are. They can be used in various applications including search, clustering, "
-"recommendations, anomaly detection, diversity measurement, and "
-"classification."
+"Text embeddings are used to quantify how related different pieces of text"
+" are. They can be used in various applications including search, "
+"clustering, recommendations, anomaly detection, diversity measurement, "
+"and classification."
 msgstr ""
-"텍스트 임베딩은 서로 다른 텍스트 간의 상관성을 정량화하는 데 사용됩니다. 이는 검색, 클러스터링, 추천, 이상 탐지, 다양성 측정 및 "
-"분류를 포함한 다양한 애플리케이션에 적용될 수 있습니다."
+"텍스트 임베딩은 서로 다른 텍스트 간의 상관성을 정량화하는 데 사용됩니다. 이는 검색, 클러스터링, 추천, 이상 탐지, 다양성 측정"
+" 및 분류를 포함한 다양한 애플리케이션에 적용될 수 있습니다."
 
 #: ../../source/models/model_abilities/embed.rst:17
 msgid ""
-"An embedding is a vector of floating point numbers. The proximity between "
-"two vectors serves as an indicator of their similarity. Less distance "
+"An embedding is a vector of floating point numbers. The proximity between"
+" two vectors serves as an indicator of their similarity. Less distance "
 "implies a higher correlation, while a larger distance indicates reduced "
 "correlation."
 msgstr ""
@@ -53,9 +53,10 @@ msgstr ""
 
 #: ../../source/models/model_abilities/embed.rst:20
 msgid ""
-"Embedding models in Xinference can be invoked through the Embeddings API to "
-"create embeddings. The Embeddings API mimics OpenAI's `create embeddings API"
-" <https://platform.openai.com/docs/api-reference/embeddings/create>`_."
+"Embedding models in Xinference can be invoked through the Embeddings API "
+"to create embeddings. The Embeddings API mimics OpenAI's `create "
+"embeddings API <https://platform.openai.com/docs/api-"
+"reference/embeddings/create>`_."
 msgstr ""
 "Xinference에서 Embeddings API를 통해 모델을 임베딩하여 호출할 수 있습니다. Embeddings API는 "
 "OpenAI의 `create embeddings API <https://platform.openai.com/docs/api-"
@@ -71,11 +72,11 @@ msgstr "OpenAI 호환 엔드포인트"
 
 #: ../../source/models/model_abilities/embed.rst:30
 msgid "Embeddings API"
-msgstr ""
+msgstr "Embeddings API"
 
 #: ../../source/models/model_abilities/embed.rst:31
 msgid "/v1/embeddings"
-msgstr ""
+msgstr "/v1/embeddings"
 
 #: ../../source/models/model_abilities/embed.rst:35
 msgid "Supported models"
@@ -85,58 +86,133 @@ msgstr "지원되는 모델 목록"
 msgid ""
 "You can examine all the :ref:`builtin embedding models in Xinference "
 "<models_embedding_index>`."
-msgstr ":ref:`Xinference 내장 임베딩 모델 <models_embedding_index>`을 모두 확인할 수 있습니다."
+msgstr ":ref:`Xinference 내장 임베딩 모델 <models_embedding_index>` 을 모두 확인할 수 있습니다."
 
-#: ../../source/models/model_abilities/embed.rst:41
+#: ../../source/models/model_abilities/embed.rst:40
+msgid "Embedding engines"
+msgstr "임베딩 엔진"
+
+#: ../../source/models/model_abilities/embed.rst:42
+msgid ""
+"When launching an embedding model, you can pick the serving engine with "
+"the ``model_engine`` parameter (``--model-engine`` on the command line):"
+msgstr ""
+"임베딩 모델을 시작할 때 ``model_engine`` 매개변수(명령줄에서는 ``--model-engine``)로 서빙 엔진을 "
+"선택할 수 있습니다:"
+
+#: ../../source/models/model_abilities/embed.rst:45
+msgid ""
+"``sentence_transformers``: the default engine, available for all "
+"embedding models."
+msgstr "``sentence_transformers``: 기본 엔진으로, 모든 임베딩 모델에서 사용할 수 있습니다."
+
+#: ../../source/models/model_abilities/embed.rst:47
+msgid ""
+"``vllm``: high-throughput serving for supported model families — "
+"currently models whose names start with ``bge``, ``gte``, ``text2vec``, "
+"``m3e``, ``Qwen3``, or ``bce`` (e.g. ``bce-embedding-base_v1``)."
+msgstr ""
+"``vllm``: 지원되는 모델 계열을 위한 고처리량 서빙 엔진입니다. 현재 이름이 ``bge``, ``gte``, "
+"``text2vec``, ``m3e``, ``Qwen3``, ``bce`` 로 시작하는 모델(예: ``bce-embedding-"
+"base_v1``)을 지원합니다."
+
+#: ../../source/models/model_abilities/embed.rst:50
+msgid ""
+"``flag``: FlagEmbedding-based engine; also supports hybrid (sparse+dense)"
+" output, see the FAQ below."
+msgstr "``flag``: FlagEmbedding 기반 엔진입니다. 하이브리드(희소+밀집) 출력도 지원합니다. 아래 FAQ를 참조하세요."
+
+#: ../../source/models/model_abilities/embed.rst:52
+msgid "``llama.cpp``: serve GGUF-format embedding models."
+msgstr "``llama.cpp``: GGUF 형식의 임베딩 모델을 서빙합니다."
+
+#: ../../source/models/model_abilities/embed.rst:55
+msgid "Truncating input"
+msgstr "입력 자르기"
+
+#: ../../source/models/model_abilities/embed.rst:57
+msgid ""
+"The Embeddings API accepts an optional ``truncate_prompt_tokens`` "
+"parameter to cap the token length of each input before encoding:"
+msgstr ""
+"Embeddings API는 인코딩 전에 각 입력의 토큰 길이를 제한하는 선택적 ``truncate_prompt_tokens`` "
+"매개변수를 지원합니다:"
+
+#: ../../source/models/model_abilities/embed.rst:60
+msgid "unset / ``null``: no truncation."
+msgstr "설정하지 않음 / ``null``: 자르지 않습니다."
+
+#: ../../source/models/model_abilities/embed.rst:61
+msgid "a positive integer ``N``: truncate each input to at most ``N`` tokens."
+msgstr "양의 정수 ``N``: 각 입력을 최대 ``N`` 토큰으로 자릅니다."
+
+#: ../../source/models/model_abilities/embed.rst:62
+msgid "``-1``: truncate to the model's own maximum input length."
+msgstr "``-1``: 모델 자체의 최대 입력 길이에 맞춰 자릅니다."
+
+#: ../../source/models/model_abilities/embed.rst:77
 msgid "Quickstart"
 msgstr "빠른 시작"
 
-#: ../../source/models/model_abilities/embed.rst:43
+#: ../../source/models/model_abilities/embed.rst:79
 msgid ""
 "We can try Embeddings API out either via cURL, OpenAI Client, or "
 "Xinference's python client:"
 msgstr ""
-"cURL, OpenAI Client 또는 Xinference의 Python 클라이언트를 통해 Embeddings API를 시도할 수 "
-"있습니다."
+"cURL, OpenAI Client 또는 Xinference의 Python 클라이언트를 통해 Embeddings API를 시도할 수"
+" 있습니다."
 
-#: ../../source/models/model_abilities/embed.rst:103
-msgid ""
-"You can find more examples of ``embed`` ability in the tutorial notebook:"
-msgstr "튜토리얼 노트북에서 ``embed`` 기능에 대한 더 많은 예제를 찾을 수 있습니다."
-
-#: ../../source/models/model_abilities/embed.rst:107
-msgid "LangChain Streamlit Doc Chat"
-msgstr "LangChain Streamlit 문서 대화"
-
-#: ../../source/models/model_abilities/embed.rst:110
-msgid "Learn from an example demonstrating how to use embed API via LangChain"
-msgstr "LangChain을 통해 임베딩 API를 사용하는 방법을 예제 하나로 배워보세요."
-
-#: ../../source/models/model_abilities/embed.rst:114
+#: ../../source/models/model_abilities/embed.rst:140
 msgid "FAQ"
-msgstr ""
+msgstr "FAQ"
 
-#: ../../source/models/model_abilities/embed.rst:117
+#: ../../source/models/model_abilities/embed.rst:143
 msgid "Does the LLM in Xinference support Embeddings API?"
 msgstr "LLM은 Xinference에서 Embeddings API를 지원합니까?"
 
-#: ../../source/models/model_abilities/embed.rst:119
+#: ../../source/models/model_abilities/embed.rst:145
 msgid ""
-"No. Xinference doesn't provide embed API for LLMs due to considerations of "
-"performance."
-msgstr ""
+"No. Xinference doesn't provide embed API for LLMs due to considerations "
+"of performance."
+msgstr "아니요. Xinference는 성능상의 이유로 LLM에 대한 임베딩 API를 제공하지 않습니다."
 
-#: ../../source/models/model_abilities/embed.rst:123
+#: ../../source/models/model_abilities/embed.rst:149
 msgid "Does Embeddings API provides integration method for LangChain?"
 msgstr "Embeddings API는 LangChain과의 통합 방법을 제공합니까?"
 
-#: ../../source/models/model_abilities/embed.rst:125
+#: ../../source/models/model_abilities/embed.rst:151
 msgid ""
 "Yes, you can refer to the related sections in LangChain's respective "
-"official Xinference documentation. Here is the link: `Text Embedding Models:"
-" Xinference "
+"official Xinference documentation. Here is the link: `Text Embedding "
+"Models: Xinference "
 "<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
 msgstr ""
 "네, LangChain 관련 부분의 공식 Xinference 문서를 참고할 수 있습니다. 링크는 다음과 같습니다: `Text "
 "Embedding Models: Xinference "
 "<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
+
+#: ../../source/models/model_abilities/embed.rst:156
+msgid "Does Embeddings API support hrbrid model?"
+msgstr "Embeddings API는 하이브리드 모델을 지원하나요?"
+
+#: ../../source/models/model_abilities/embed.rst:158
+msgid ""
+"Yes, you can use ``flag`` as the engine to deploy the model and call "
+"Embeddings API by setting the extra parameter ``return_parse=True`` which"
+" will return sparse vectors."
+msgstr ""
+"네. ``flag`` 엔진으로 모델을 배포한 뒤 추가 매개변수 ``return_parse=True`` 를 설정하여 "
+"Embeddings API를 호출하면 희소 벡터를 반환받을 수 있습니다."
+
+#~ msgid ""
+#~ "You can find more examples of "
+#~ "``embed`` ability in the tutorial "
+#~ "notebook:"
+#~ msgstr "튜토리얼 노트북에서 ``embed`` 기능에 대한 더 많은 예제를 찾을 수 있습니다."
+
+#~ msgid "LangChain Streamlit Doc Chat"
+#~ msgstr "LangChain Streamlit 문서 대화"
+
+#~ msgid "Learn from an example demonstrating how to use embed API via LangChain"
+#~ msgstr "LangChain을 통해 임베딩 API를 사용하는 방법을 예제 하나로 배워보세요."
+

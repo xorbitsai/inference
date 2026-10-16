@@ -123,24 +123,29 @@ def check_engine_by_model_name_and_engine_with_virtual_env(
     raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
 
 
-def generate_engine_config_by_model_name(model_family: "ImageModelFamilyV2") -> None:
+def generate_engine_config_by_model_name(
+    model_family: "ImageModelFamilyV2",
+    target_engines: Optional[Dict[str, Dict[str, List[Dict[str, Any]]]]] = None,
+) -> None:
     model_name = model_family.model_name
     model_format = getattr(model_family, "model_format", None)
     quantization = getattr(model_family, "quantization", None)
-    engines: Dict[str, List[Dict[str, Any]]] = OCR_ENGINES.get(model_name, {})
+    if target_engines is None:
+        target_engines = OCR_ENGINES
+    engines = target_engines.get(model_name, {})
     for engine, classes in SUPPORTED_ENGINES.items():
         for cls in classes:
             if cls.match(model_family):
-                engine_params = engines.get(engine, [])
-                engine_params.append(
-                    {
-                        "model_name": model_name,
-                        "model_format": model_format,
-                        "quantization": quantization,
-                        "ocr_class": cls,
-                    }
-                )
+                engine_params = engines.setdefault(engine, [])
+                param = {
+                    "model_name": model_name,
+                    "model_format": model_format,
+                    "quantization": quantization,
+                    "ocr_class": cls,
+                }
+                if param not in engine_params:
+                    engine_params.append(param)
                 engines[engine] = engine_params
                 break
     if engines:
-        OCR_ENGINES[model_name] = engines
+        target_engines[model_name] = engines

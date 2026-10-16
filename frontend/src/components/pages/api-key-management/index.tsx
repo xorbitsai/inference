@@ -24,9 +24,10 @@ import { Switch } from '@/components/ui/switch';
 import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import request from '@/lib/request';
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 import { ApiKeyDialog } from './api-key-dialog';
 import {
+  getApiKeyDisplayName,
   getBannedCount,
   getPermissionLabel,
   getPermissionType,
@@ -46,7 +47,15 @@ const toDash = (value: unknown) => {
 
 const padDatePart = (value: number) => String(value).padStart(2, '0');
 
-const permissionTypeValues = new Set(['LLM', 'embedding', 'rerank', 'image', 'video', 'audio']);
+const permissionTypeValues = new Set([
+  'LLM',
+  'embedding',
+  'rerank',
+  'image',
+  'video',
+  'world',
+  'audio',
+]);
 
 export default function ApiKeyManagement() {
   const { t } = useI18n();
@@ -193,17 +202,6 @@ export default function ApiKeyManagement() {
     } finally {
       setBannedLoading(false);
     }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        toast.success(t('common.copySuccess'));
-      })
-      .catch((err) => {
-        console.error('Failed to copy text: ', err);
-      });
   };
 
   const formatDate = (iso: string | null) => {
@@ -367,6 +365,7 @@ export default function ApiKeyManagement() {
         <div className="space-y-4">
           {keys.map((key) => {
             const expanded = expandedIds[key.id] ?? false;
+            const displayName = getApiKeyDisplayName(key);
 
             return (
               <div
@@ -385,8 +384,11 @@ export default function ApiKeyManagement() {
                     }
                   >
                     <KeyRound className="size-5 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                      {t('apiKey.key')} {key.id}
+                    <span
+                      className="min-w-0 flex-1 truncate text-sm font-semibold"
+                      title={displayName}
+                    >
+                      {displayName}
                     </span>
                     <ChevronDown
                       className={cn(
@@ -495,7 +497,7 @@ export default function ApiKeyManagement() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {t('apiKey.bannedList')} - {t('apiKey.key')} {bannedKey?.id}
+              {t('apiKey.bannedList')} - {bannedKey && getApiKeyDisplayName(bannedKey)}
             </DialogTitle>
           </DialogHeader>
 

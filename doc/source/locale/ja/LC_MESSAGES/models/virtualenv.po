@@ -50,15 +50,6 @@ msgid ""
 "feature."
 msgstr "この問題を解決するために、**モデル仮想環境**機能を導入しました。"
 
-#: ../../source/models/virtualenv.rst:23
-msgid "Install requirements for this functionality via"
-msgstr "以下のコマンドで、この機能に必要な依存関係をインストールします。"
-
-#: ../../source/models/virtualenv.rst:32
-msgid ""
-"Enable by setting environment variable ``XINFERENCE_ENABLE_VIRTUAL_ENV=1``."
-msgstr "環境変数 ``XINFERENCE_ENABLE_VIRTUAL_ENV=1`` を設定することで、この機能を有効にします。"
-
 #: ../../source/models/virtualenv.rst:34
 #: ../../source/models/virtualenv.rst:217
 #: ../../source/models/virtualenv.rst:233
@@ -505,5 +496,14 @@ msgstr ""
 "を使用します（大文字と小文字を区別）。エンジン値は内部で小文字として扱われるため、 ``#engine# == \"vllm\"`` や "
 "``#engine# == \"transformers\"`` のように小文字の値を使用することを推奨します。"
 
-#~ msgid "Manage Virtual Enviroments"
-#~ msgstr "仮想環境管理"
+#: ../../source/models/virtualenv.rst:23
+msgid ""
+"Model virtual environments are included in the base Xinference "
+"installation:"
+msgstr "モデル仮想環境は Xinference の基本インストールに含まれます："
+
+#: ../../source/models/virtualenv.rst:29
+msgid ""
+"The feature is enabled by default. You do not need to install engine "
+"extras before launching a model."
+msgstr "この機能はデフォルトで有効です。モデルの起動前にエンジン extra をインストールする必要はありません。"

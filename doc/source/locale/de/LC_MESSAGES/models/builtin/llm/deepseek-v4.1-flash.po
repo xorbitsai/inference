@@ -1,0 +1,92 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C)
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-10 16:46+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: de\n"
+"Language-Team: de <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:5
+msgid "DeepSeek-V4.1-Flash"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:7
+msgid "**Context Length:** 1048576"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:8
+msgid "**Model Name:** DeepSeek-V4.1-Flash"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:9
+msgid "**Languages:** en, zh"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:10
+msgid "**Abilities:** chat, vision, reasoning, hybrid, tools"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:11
+msgid ""
+"**Description:** We introduce DeepSeek-V4.1-Flash, a multimodal Mixture-of-"
+"Experts (MoE) model with 552B backbone parameters and support for contexts "
+"of up to one million tokens. The model natively processes images and text, "
+"and generates text autoregressively."
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:14
+msgid "Specifications"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:18
+msgid "Model Spec 1 (fp8, 552 Billion)"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:20
+msgid "**Model Format:** fp8"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:21
+msgid "**Model Size (in billions):** 552"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:22
+msgid "**Quantizations:** fp8"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:23
+msgid "**Engines**: vLLM"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:24
+msgid "**Model ID:** deepseek-ai/DeepSeek-V4.1-Flash"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:25
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-"
+"ai/DeepSeek-V4.1-Flash>`__, `ModelScope <https://modelscope.cn/models"
+"/deepseek-ai/DeepSeek-V4.1-Flash>`__"
+msgstr ""
+
+#: ../source/models/builtin/llm/deepseek-v4.1-flash.rst:27
+#, python-brace-format
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options "
+"listed above::"
+msgstr ""
+

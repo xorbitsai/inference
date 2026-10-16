@@ -138,13 +138,13 @@ msgstr "ソースコードからインストールする"
 #: ../../source/development/contributing_environment.rst:70
 msgid ""
 "Before we begin, please make sure that you have cloned the repository. "
-"Suppose you clone the repository as ``inference`` directory,  ``cd`` to this"
-" directory where the ``setup.cfg`` and ``setup.py`` files are located, and "
-"run the following command:"
+"Suppose you clone the repository as ``inference`` directory,  ``cd`` to "
+"this directory where the ``pyproject.toml`` file is located, and run the "
+"following command:"
 msgstr ""
 "開始する前に、リポジトリをクローンしていることを確認してください。リポジトリを ``inference`` "
-"という名前のディレクトリにクローンしたと仮定し、そのディレクトリに移動してください。このディレクトリには ``setup.cfg`` と "
-"``setup.py`` ファイルが含まれています。以下のコマンドを実行してください："
+"という名前のディレクトリにクローンしたと仮定し、そのディレクトリに移動してください。このディレクトリには ``pyproject.toml`` "
+"ファイルが含まれています。以下のコマンドを実行してください："
 
 #: ../../source/development/contributing_environment.rst:79
 msgid ""
@@ -200,9 +200,9 @@ msgstr "最初のコマンドが失敗した場合でも、``--force`` オプシ
 
 #: ../../source/development/contributing_environment.rst:112
 msgid ""
-"After compiling the frontend, you can ``cd`` back to the directory where the"
-" ``setup.cfg`` and ``setup.py`` files are located, and install Xinference "
-"via ``pip install -e .``."
+"After compiling the frontend, you can ``cd`` back to the directory where "
+"the ``pyproject.toml`` file is located, and install Xinference via ``pip "
+"install -e .``."
 msgstr ""
-"フロントエンドのコンパイルが完了したら、``setup.cfg`` と ``setup.py`` ファイルが含まれているディレクトリに戻り、``pip "
-"install -e .`` で Xinference をインストールしてください。"
+"フロントエンドのコンパイルが完了したら、``pyproject.toml`` ファイルが含まれているディレクトリに戻り、``pip install "
+"-e .`` で Xinference をインストールしてください。"
