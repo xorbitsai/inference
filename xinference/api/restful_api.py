@@ -2261,6 +2261,8 @@ class RESTfulAPI(CancelMixin):
             kwargs.pop("request_id", None)
             raw_kwargs.pop("request_id", None)
             model_call_kwargs["request_id"] = request_id
+        elif await model.is_transformers_batching_enabled():
+            model_call_kwargs["request_id"] = request_id
 
         if body.stream:
             abort_controller = _SSERequestAbortController(
@@ -4555,6 +4557,8 @@ class RESTfulAPI(CancelMixin):
         if is_vllm_backend:
             kwargs.pop("request_id", None)
             raw_kwargs.pop("request_id", None)
+            model_call_kwargs["request_id"] = request_id
+        elif await model.is_transformers_batching_enabled():
             model_call_kwargs["request_id"] = request_id
 
         try:

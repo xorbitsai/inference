@@ -951,6 +951,9 @@ async def test_physical_chat_keeps_existing_path(monkeypatch):
         async def is_vllm_backend(self):
             return False
 
+        async def is_transformers_batching_enabled(self):
+            return False
+
     async def fake_require_model(*args, **kwargs):
         return FakeModel()
 

@@ -137,6 +137,7 @@ async def test_context_overflow_is_a_client_error(
     model = SimpleNamespace(
         uid="test",
         is_vllm_backend=AsyncMock(return_value=False),
+        is_transformers_batching_enabled=AsyncMock(return_value=False),
         generate=AsyncMock(side_effect=error),
         chat=AsyncMock(side_effect=error),
         abort_request=AsyncMock(return_value="DONE"),
