@@ -56,6 +56,7 @@ class CanonicalChatRequest:
     parallel_tool_calls: Optional[bool] = None
     cache_control: Optional[Dict[str, Any]] = None
     content_metrics: Optional[Dict[str, int]] = None
+    requested_features: FrozenSet[str] = frozenset()
 
     def to_openai_body(self) -> Dict[str, Any]:
         body: Dict[str, Any] = {
@@ -84,6 +85,10 @@ class CanonicalChatRequest:
             body["parallel_tool_calls"] = self.parallel_tool_calls
         if self.cache_control is not None:
             body["_anthropic_cache_control"] = self.cache_control
+        if self.content_metrics is not None:
+            body["_anthropic_content_metrics"] = self.content_metrics
+        if self.requested_features:
+            body["_anthropic_requested_features"] = sorted(self.requested_features)
         if self.thinking_enabled is not None:
             chat_template_kwargs: Dict[str, Any] = {
                 "enable_thinking": self.thinking_enabled,
@@ -667,6 +672,27 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
             f"{MAX_ANTHROPIC_IMAGES_PER_REQUEST} rendered images, including "
             "direct images, tool-result images, and PDF pages"
         )
+    requested_features = set()
+    if content_metrics["total_images"]:
+        requested_features.add("vision")
+    if content_metrics["document_count"]:
+        requested_features.add("documents")
+    if tools and _normalize_tool_choice(raw_body.get("tool_choice")) != "none":
+        requested_features.add("tools")
+    if parallel is False:
+        requested_features.add("parallel_tools")
+    if thinking_enabled:
+        requested_features.add("reasoning")
+    if isinstance(thinking, dict) and thinking.get("type") == "adaptive":
+        requested_features.add("adaptive_thinking")
+    if effort is not None:
+        requested_features.add("reasoning_effort")
+    if response_format is not None:
+        requested_features.add("structured_output")
+    if clear_thinking is not None:
+        requested_features.add("context_management")
+    if cache_control is not None:
+        requested_features.add("prompt_cache")
     return CanonicalChatRequest(
         requested_model=model,
         messages=messages,
@@ -686,6 +712,7 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         parallel_tool_calls=parallel,
         cache_control=cache_control,
         content_metrics=content_metrics,
+        requested_features=frozenset(requested_features),
     )
 
 
