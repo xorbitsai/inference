@@ -421,6 +421,14 @@ Deploy Xinference In a Cluster
 To deploy Xinference in a cluster, you need to start a Xinference supervisor on one server and Xinference workers
 on the other servers.
 
+.. warning::
+
+   Before starting the cluster, configure the same ``XOSCAR_AUTH_KEY`` on the
+   supervisor and every worker as described in :ref:`actor_transport_authentication`.
+   HTTP API authentication does not protect actor ports; an unset or empty key
+   leaves the actor transport unauthenticated. Limit actor-port access to trusted
+   cluster peers using your deployment's network controls.
+
 First, make sure you have already installed Xinference on each of the servers according to the instructions
 provided :ref:`here <installation>`. Then follow the steps below:
 

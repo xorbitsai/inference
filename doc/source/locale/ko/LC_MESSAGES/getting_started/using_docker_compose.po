@@ -407,3 +407,18 @@ msgstr ""
 "그런 다음 모델을 시작하고 ``docker compose logs -f xinference`` 를 관찰하세요. 패키지 설치 로그에 "
 "``http://xinference-pypiserver:8080/simple`` 주소가 표시되어야 합니다."
 
+
+#: ../../source/getting_started/using_docker_compose.rst:67
+msgid ""
+"``XOSCAR_AUTH_KEY``: optional shared actor transport secret, passed to the "
+"Xinference service and all supervisor/worker services in ``docker-compose-"
+"distributed.yml``. Set one generated value in ``.env`` or export it before "
+"running Compose; unset or empty keeps actor messages unauthenticated. Use "
+"images containing Xoscar 0.12.0 or later and follow "
+":ref:`actor_transport_authentication` before enabling or rotating the key."
+msgstr ""
+"``XOSCAR_AUTH_KEY``: 선택적 actor 전송 공유 비밀 키로, Xinference 서비스와 ``docker-"
+"compose-distributed.yml`` 의 모든 supervisor/worker 서비스에 전달됩니다. 생성한 동일한 값을 "
+"``.env`` 에 설정하거나 Compose 실행 전에 내보내세요. 설정하지 않거나 비워 두면 actor 메시지는 인증되지 않습니다. "
+"Xoscar 0.12.0 이상이 포함된 이미지를 사용하고, 키 활성화 또는 교체 전에 "
+":ref:`actor_transport_authentication` 을 따르세요."

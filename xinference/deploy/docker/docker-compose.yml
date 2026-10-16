@@ -33,6 +33,8 @@ services:
       # Model download source: auto (default, probes Hugging Face reachability
       # and falls back to modelscope), huggingface, or modelscope.
       XINFERENCE_MODEL_SRC: ${XINFERENCE_MODEL_SRC:-auto}
+      # Share one deployment secret across all actor peers to enable authentication.
+      XOSCAR_AUTH_KEY: ${XOSCAR_AUTH_KEY:-}
     env_file:
       # Only present in offline deployments (cp offline.env.example offline.env).
       # Silently skipped when the file does not exist.

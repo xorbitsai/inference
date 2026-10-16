@@ -64,6 +64,7 @@ Available variables:
 * ``XINFERENCE_MODEL_SRC``: model download source, ``auto`` (default, probes Hugging Face reachability and falls back to ModelScope), ``huggingface`` or ``modelscope``.
 * ``XINFERENCE_SHM_SIZE``: shared memory size, defaults to ``8gb``. Increase for multi-GPU inference.
 * ``XINFERENCE_LOG_LEVEL``: log level, defaults to ``info``.
+* ``XOSCAR_AUTH_KEY``: optional shared actor transport secret, passed to the Xinference service and all supervisor/worker services in ``docker-compose-distributed.yml``. Set one generated value in ``.env`` or export it before running Compose; unset or empty keeps actor messages unauthenticated. Use images containing Xoscar 0.12.0 or later and follow :ref:`actor_transport_authentication` before enabling or rotating the key.
 * ``XINFERENCE_HOME_DIR`` / ``XINFERENCE_HF_CACHE_DIR`` / ``XINFERENCE_MODELSCOPE_CACHE_DIR``: persistence locations. They default to named Docker volumes; point them at absolute host paths to reuse existing model caches, in the same way as described in :ref:`using_docker_image`.
 * ``XINFERENCE_WHEELS_DIR`` / ``XINFERENCE_PYPISERVER_PORT`` / ``XINFERENCE_PYPISERVER_IMAGE``: offline profile settings, see below.
 

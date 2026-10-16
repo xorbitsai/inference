@@ -424,3 +424,17 @@ msgstr "若要提供自行整理的 wheel 目录而非内置镜像源（例如�
 
 msgid "Set ``XINFERENCE_BYO_PYPISERVER_IMAGE`` if that stock image has been mirrored into a private registry. This setting is intentionally independent of ``XINFERENCE_PYPISERVER_IMAGE``, which selects the prebuilt Xinference mirror in the normal offline profile."
 msgstr "如果已将该官方镜像同步到私有镜像仓库，请设置 ``XINFERENCE_BYO_PYPISERVER_IMAGE``。该设置特意与 ``XINFERENCE_PYPISERVER_IMAGE`` 分开；后者用于选择常规离线 profile 中的 Xinference 预构建镜像源。"
+
+#: ../../source/getting_started/using_docker_compose.rst:67
+msgid ""
+"``XOSCAR_AUTH_KEY``: optional shared actor transport secret, passed to the "
+"Xinference service and all supervisor/worker services in ``docker-compose-"
+"distributed.yml``. Set one generated value in ``.env`` or export it before "
+"running Compose; unset or empty keeps actor messages unauthenticated. Use "
+"images containing Xoscar 0.12.0 or later and follow "
+":ref:`actor_transport_authentication` before enabling or rotating the key."
+msgstr ""
+"``XOSCAR_AUTH_KEY``：可选的 actor 传输共享密钥，传入 Xinference 服务和 ``docker-compose-"
+"distributed.yml`` 中的所有 supervisor/worker 服务。在 ``.env`` 中设置同一个生成的值，或在运行 "
+"Compose 前导出它；未设置或为空时，actor 消息仍未鉴权。使用包含 Xoscar 0.12.0 或更高版本的镜像，并在启用或轮换密钥前遵循 "
+":ref:`actor_transport_authentication` 的说明。"
