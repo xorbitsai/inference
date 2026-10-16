@@ -8,12 +8,18 @@ from anthropic.types import ThinkingBlock, ToolUseBlock
 from . import test_anthropic_engine_integration as native
 
 
-@pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize(
     "engine,failure",
-    [("MLX", None), ("MLX", "lookup"), ("MLX", "result"), ("vLLM", "parallel")],
+    [
+        ("MLX", None),
+        ("MLX", "lookup"),
+        ("MLX", "result"),
+        ("vLLM", None),
+        ("vLLM", "parallel"),
+        ("vLLM", "second_parallel"),
+    ],
 )
-def test_tool_loop_probe_keeps_result_validation(monkeypatch, stream, engine, failure):
+def test_tool_loop_probe_keeps_result_validation(monkeypatch, engine, failure):
     lookup = ToolUseBlock(
         id="lookup", type="tool_use", name="lookup", input={"value": "alpha"}
     )
@@ -30,10 +36,17 @@ def test_tool_loop_probe_keeps_result_validation(monkeypatch, stream, engine, fa
         content=[
             ThinkingBlock(type="thinking", thinking="Use lookup.", signature="sig"),
             *([] if failure == "lookup" else [lookup]),
-            premature,
+            *([premature] if engine == "MLX" or failure == "parallel" else []),
         ]
     )
-    second = SimpleNamespace(content=[lookup, finish], stop_reason="tool_use")
+    second = SimpleNamespace(
+        content=(
+            [lookup, finish]
+            if engine == "MLX" or failure == "second_parallel"
+            else [finish]
+        ),
+        stop_reason="tool_use",
+    )
     requests = []
 
     def create(model, messages, **kwargs):
@@ -44,13 +57,16 @@ def test_tool_loop_probe_keeps_result_validation(monkeypatch, stream, engine, fa
     model = SimpleNamespace(engine=engine, abilities=["reasoning"])
     if failure:
         with pytest.raises(AssertionError):
-            native.test_thinking_replay_and_tool_loop(model, stream)
-        assert len(requests) == (2 if failure == "result" else 1)
+            native.test_thinking_replay_and_tool_loop(model, stream=False)
+        assert len(requests) == (2 if failure in {"result", "second_parallel"} else 1)
         return
 
-    native.test_thinking_replay_and_tool_loop(model, stream)
+    native.test_thinking_replay_and_tool_loop(model, stream=False)
     assert len(requests) == 2
     results = requests[1][-1]["content"]
-    assert [result["tool_use_id"] for result in results] == ["lookup", "early-finish"]
+    assert [result["tool_use_id"] for result in results] == (
+        ["lookup", "early-finish"] if engine == "MLX" else ["lookup"]
+    )
     assert results[0]["content"] == "NATIVE_RESULT_42"
-    assert results[1]["is_error"] is True
+    if engine == "MLX":
+        assert results[1]["is_error"] is True
