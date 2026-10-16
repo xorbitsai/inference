@@ -459,6 +459,7 @@ def test_stop_sequences(native_model, stream):
     kwargs = {"max_tokens": 128, "thinking": {"type": "disabled"}}
     baseline = create(native_model, messages, stream=stream, **kwargs)
     output = text(baseline)
+    assert baseline.stop_reason == "end_turn" and baseline.stop_sequence is None
     assert len(output) > 8, baseline
     # Derive a stop from actual greedy output instead of testing spelling or
     # counting ability. Keep a nonempty prefix to exercise terminal SSE usage.
@@ -471,6 +472,8 @@ def test_stop_sequences(native_model, stream):
     )
     assert text(stopped) == output[:offset], (baseline, stopped)
     assert stop not in text(stopped)
+    assert stopped.stop_reason == "stop_sequence", stopped
+    assert stopped.stop_sequence == stop, stopped
 
 
 @pytest.mark.parametrize("stream", [False, True])

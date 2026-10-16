@@ -548,6 +548,40 @@ def test_openai_response_omits_unsigned_thinking_and_maps_text_tools():
     assert [block.type for block in sdk_message.content] == ["text", "tool_use"]
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "finish_reason,expected",
+    [("stop", "stop_sequence"), ("length", "max_tokens"), ("tool_calls", "tool_use")],
+)
+async def test_stop_sequence_preserves_length_and_tool_finish_reasons(
+    stream, finish_reason, expected
+):
+    choice = {
+        "message": {"content": "hello"},
+        "delta": {"content": "hello"},
+        "finish_reason": finish_reason,
+        "stop_sequence": "HALT",
+    }
+    response = {"choices": [choice], "usage": {}}
+    if stream:
+
+        async def chunks():
+            yield response
+
+        events = [
+            json.loads(e["data"])
+            async for e in anthropic_stream_events(
+                chunks(), "test", "req_test", stop_sequences=["HALT"]
+            )
+        ]
+        result = next(e["delta"] for e in events if e["type"] == "message_delta")
+    else:
+        result = openai_to_anthropic(response, "test", stop_sequences=["HALT"])
+    assert result["stop_reason"] == expected
+    assert result["stop_sequence"] == ("HALT" if finish_reason == "stop" else None)
+
+
 @pytest.mark.parametrize(
     "arguments",
     ["{invalid", "[]", '"value"', "1", "null", ["already-decoded"]],

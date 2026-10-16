@@ -753,6 +753,8 @@ class ChatModelMixin:
                     "finish_reason": choice["finish_reason"],
                 }
             )
+            if "stop_sequence" in choice:
+                choices_list[-1]["stop_sequence"] = choice["stop_sequence"]
         assert choices is not None
         usage = (
             cls._sanitize_usage(chunk.get("usage"))
@@ -1063,6 +1065,8 @@ class ChatModelMixin:
                     "finish_reason": choice["finish_reason"],
                 }
             )
+            if "stop_sequence" in choice:
+                choices[-1]["stop_sequence"] = choice["stop_sequence"]
         return {
             "id": "chat" + completion["id"],
             "object": "chat.completion",
@@ -1226,6 +1230,11 @@ class ChatModelMixin:
                     # here so a real logprob is not collapsed to ``{"content": []}``.
                     "logprobs": c["choices"][0].get("logprobs"),
                     "finish_reason": finish_reason,
+                    **(
+                        {"stop_sequence": c["choices"][0]["stop_sequence"]}
+                        if "stop_sequence" in c["choices"][0]
+                        else {}
+                    ),
                 }
             ],
             "usage": usage,
@@ -1331,6 +1340,11 @@ class ChatModelMixin:
                         c["choices"][0].get("logprobs")
                     ),
                     "finish_reason": finish_reason,
+                    **(
+                        {"stop_sequence": c["choices"][0]["stop_sequence"]}
+                        if "stop_sequence" in c["choices"][0]
+                        else {}
+                    ),
                 }
             ],
             "usage": usage,
