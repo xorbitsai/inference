@@ -25,8 +25,11 @@ vision_checkpoint = pytest.mark.skipif(
 
 @pytest.mark.asyncio
 @vision_checkpoint
-@pytest.mark.parametrize("backend", ["vllm", "sglang"])
-async def test_image_count_reload(backend):
+@pytest.mark.parametrize(
+    "backend,initial_limit",
+    [("vllm", 1), ("sglang", 1), ("sglang", 0), ("sglang", None)],
+)
+async def test_image_count_reload(backend, initial_limit):
     import torch
     from PIL import Image
 
@@ -59,19 +62,11 @@ async def test_image_count_reload(backend):
 
         model_class = VLLMMultiModel
         field = "limit_mm_per_prompt"
-        error = VLLMValidationError
-        error_pattern = (
-            r"(?i)(at most|maximum|limit).*(image)|image.*(at most|maximum|limit)"
-        )
     else:
-        from aiohttp import ClientResponseError
-
         from ..sglang.core import SGLANGVisionModel
 
         model_class = SGLANGVisionModel
         field = "limit_mm_data_per_request"
-        error = ClientResponseError
-        error_pattern = "400"
         config = {
             "context_length": 2048,
             "max_running_requests": 2,
@@ -81,7 +76,10 @@ async def test_image_count_reload(backend):
             "mem_fraction_static": 0.65,
             "disable_cuda_graph": True,
             "disable_radix_cache": True,
-            field: {"image": 1, "video": 0},
+            field: {
+                "video": 0,
+                **({"image": initial_limit} if initial_limit is not None else {}),
+            },
         }
     model = model_class(
         "runtime-settings-test",
@@ -94,23 +92,55 @@ async def test_image_count_reload(backend):
     actor = ModelActor.__new__(ModelActor)
     actor._model, actor._model_state, actor._serve_count = model, "ready", 0
 
-    async def generate(count):
+    def messages(count):
         content = [
             {"type": "image_url", "image_url": {"url": image_url}} for _ in range(count)
         ]
         content.append({"type": "text", "text": "Name the main color."})
+        return [{"role": "user", "content": content}]
+
+    async def generate(count):
         output = await model.async_chat(
-            [{"role": "user", "content": content}],
+            messages(count),
             {"temperature": 0, "top_k": 1, "max_tokens": 8},
         )
         text = output["choices"][0]["message"]["content"]
         assert text
         return text
 
+    async def assert_rejected(count, limit):
+        if backend == "vllm":
+            with pytest.raises(
+                VLLMValidationError,
+                match=r"(?i)(at most|maximum|limit).*(image)|image.*(at most|maximum|limit)",
+            ):
+                await generate(count)
+        else:
+            import aiohttp
+
+            # Inspect the native response before raise_for_status discards its
+            # body: unrelated HTTP 400 failures must not satisfy this check.
+            prompt, images, *_ = await model._prepare_chat_inputs(messages(count), {})
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    model._engine.generate_url,
+                    json={
+                        "text": prompt,
+                        "image_data": images,
+                        "sampling_params": {"temperature": 0, "max_new_tokens": 8},
+                    },
+                    headers=model._engine_headers(),
+                ) as response:
+                    assert response.status == 400
+                    assert (
+                        f"Image count {count} exceeds limit {limit} per request."
+                        in await response.text()
+                    )
+
     try:
         await asyncio.to_thread(model.load)
         await asyncio.to_thread(model.wait_for_load)
-        before = await generate(1)
+        before = await generate(1) if initial_limit != 0 else None
         engine = model._engine
         assert "reasoning_content" not in model.get_reload_config()["parameters"]
         with pytest.raises(ValueError, match="does not support reasoning-content"):
@@ -119,8 +149,10 @@ async def test_image_count_reload(backend):
         daemon = model._weight_cache
         pid = daemon.process.pid
         sockets = {p: p.stat().st_ino for p in daemon._socket_paths}
-        with pytest.raises(error, match=error_pattern):
-            await generate(2)
+        if initial_limit is None:
+            assert await generate(3)
+        else:
+            await assert_rejected(initial_limit + 1, initial_limit)
         with pytest.raises(ValueError, match="image_limits"):
             await actor.reload({field: {"image": 0}}, drain_timeout=30)
         assert model._engine is engine
@@ -141,7 +173,11 @@ async def test_image_count_reload(backend):
             "video": 0,
         }
         assert await generate(2)
-        assert await generate(1) == before
+        after = await generate(1)
+        if before is not None:
+            assert after == before
+        if backend == "sglang":
+            await assert_rejected(3, 2)
     finally:
         await asyncio.to_thread(model.stop)
         await asyncio.sleep(0)

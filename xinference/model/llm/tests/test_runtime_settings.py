@@ -141,6 +141,7 @@ def test_sglang_request_limits_can_start_unlimited_or_disabled(monkeypatch, prev
     cache = model._weight_cache
     model.reload({field: {"image": 8}}, lambda stage: None)
     assert model._weight_cache is cache and model.stops == 1
+    assert model.loads[0][0][field] == {**(previous or {}), "image": 8}
     assert model.get_reload_config()["model_config"][field] == {
         **(previous or {}),
         "image": 8,
@@ -164,6 +165,7 @@ def test_sglang_image_reload_capabilities_and_modality_preservation(
     cache, engine = model._weight_cache, model.engine
     model.reload({field: {"image": 8}}, lambda stage: None)
     assert model._weight_cache is cache and model.engine is not engine
+    assert model.loads[0][0][field] == {"image": 8, "video": 0}
     assert model.get_reload_config()["model_config"][field] == {"image": 8, "video": 0}
     with pytest.raises(ValueError, match="Only the image count"):
         model.validate_reload({field: {"image": 8, "video": 1}})
@@ -173,38 +175,77 @@ def test_sglang_image_reload_capabilities_and_modality_preservation(
         model.validate_reload({field: {"image": 8}})
 
 
-def test_sglang_normalizes_launch_json_before_image_reload(monkeypatch):
-    import copy
-
+@pytest.mark.parametrize("cached", [False, True])
+@pytest.mark.parametrize("limits", ['{"image": 2, "video": 0}', "", " \t "])
+def test_sglang_normalizes_limits_before_launch_and_cache_snapshot(
+    monkeypatch, cached, limits
+):
+    from .. import weight_cache
+    from ..sglang import core
     from ..sglang.core import SGLANGVisionModel
 
+    field = "limit_mm_data_per_request"
+    expected = {"image": 2, "video": 0} if limits.strip() else None
     family = match_llm("qwen2.5-vl-instruct", "pytorch", "3", "none", "modelscope")
     model = SGLANGVisionModel(
         "test",
         family,
         "/models/test",
         {
-            "enable_weight_cache": True,
-            "limit_mm_data_per_request": '{"image": 2, "video": 0}',
+            "enable_weight_cache": cached,
+            field: limits,
         },
     )
     monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
-    model._reload_config = model._sanitize_model_config(
-        copy.deepcopy(model._reload_config)
+    monkeypatch.setattr(model, "prepare_parse_tool_calls", lambda: None)
+    monkeypatch.setattr(core, "get_next_port", lambda: 30001)
+    monkeypatch.setattr(
+        core.multiprocessing, "set_start_method", lambda *args, **kw: None
     )
-    assert model.get_reload_config()["model_config"]["limit_mm_data_per_request"] == {
-        "image": 2,
-        "video": 0,
-    }
-    model._weight_cache = MagicMock()
+    monkeypatch.setattr(weight_cache, "sys", SimpleNamespace(platform="linux"))
+    monkeypatch.setattr(weight_cache, "package_version", lambda engine: "0.5.21")
+    monkeypatch.setitem(
+        sys.modules,
+        "torch",
+        SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: True)),
+    )
+    daemon = MagicMock()
+    daemon.client_config.return_value = {"weight_cache_mode": "client"}
+    preload = MagicMock(return_value=daemon)
+    monkeypatch.setattr(weight_cache, "WeightCacheDaemon", preload)
+    runtime = SimpleNamespace(pid=1, shutdown=MagicMock())
+    construct = MagicMock(return_value=runtime)
+    monkeypatch.setitem(
+        sys.modules, "sglang", SimpleNamespace(__version__="0.5.21", Runtime=construct)
+    )
     monkeypatch.setitem(
         sys.modules,
         "sglang.srt.server_args",
         SimpleNamespace(ServerArgs=lambda **config: config),
     )
-    assert model.validate_reload({"limit_mm_data_per_request": {"image": 8}})[
-        "limit_mm_data_per_request"
-    ] == {"image": 8, "video": 0}
+    try:
+        model.load()
+        assert construct.call_args.kwargs[field] == expected
+        metadata = model.get_reload_config()
+        if cached:
+            preload.assert_called_once()
+            assert preload.call_args.args[2][field] == expected
+            assert metadata["parameters"][field] == "image_limits"
+            assert metadata["model_config"].get(field) == expected
+            if expected is not None:
+                # Native engine construction can mutate its own config, but
+                # must not alter the committed reload snapshot.
+                model._model_config[field]["image"] = 99
+                assert model.get_reload_config()["model_config"][field] == expected
+            assert model.validate_reload({field: {"image": 8}})[field] == {
+                **(expected or {}),
+                "image": 8,
+            }
+        else:
+            preload.assert_not_called()
+            assert field not in metadata["parameters"]
+    finally:
+        model.stop()
 
 
 @pytest.fixture
@@ -224,15 +265,30 @@ def test_mixed_reasoning_and_engine_patch_requires_weight_cache():
 
 
 @pytest.mark.parametrize(
-    "limits", ['{"image": 2}', ['{"image": 2}'], {"image": {"count": 2}}]
+    "limits",
+    [
+        '{"image": 2}',
+        ['{"image": 2}'],
+        {"image": {"count": 2}},
+        {"image": -1},
+        {"image": True},
+        {"image": None},
+    ],
 )
 @pytest.mark.parametrize("cached", [False, True])
-def test_unsupported_image_metadata_is_not_advertised(vision_model, limits, cached):
-    vision_model._enable_weight_cache = cached
-    vision_model._reload_config["limit_mm_per_prompt"] = limits
-    metadata = vision_model.get_reload_config()
-    assert "limit_mm_per_prompt" not in metadata["parameters"]
-    assert "limit_mm_per_prompt" not in metadata["model_config"]
+@pytest.mark.parametrize(
+    "backend,field",
+    [("vllm", "limit_mm_per_prompt"), ("sglang", "limit_mm_data_per_request")],
+)
+def test_unsupported_image_metadata_is_not_advertised(
+    monkeypatch, backend, field, limits, cached
+):
+    model = make_vision_model(monkeypatch, backend)
+    model._enable_weight_cache = cached
+    model._reload_config[field] = limits
+    metadata = model.get_reload_config()
+    assert field not in metadata["parameters"]
+    assert field not in metadata["model_config"]
 
 
 def test_image_reload_requires_vision_model(vision_model):

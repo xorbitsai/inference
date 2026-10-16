@@ -524,7 +524,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         limits = model_config.get("limit_mm_data_per_request")
         if isinstance(limits, str):
             # Normalize before taking the retained-weight reload snapshot.
-            model_config["limit_mm_data_per_request"] = json.loads(limits)
+            model_config["limit_mm_data_per_request"] = (
+                json.loads(limits) if limits.strip() else None
+            )
         model_config.setdefault("log_level", "info")
         model_config.setdefault("launch_timeout", self._get_launch_timeout())
         model_config.setdefault("reasoning_content", False)
