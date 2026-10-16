@@ -44,8 +44,13 @@ def test_is_valid_model_name():
     assert is_valid_model_name("foo@bar")
     assert is_valid_model_name("_foo")
     assert is_valid_model_name("-foo")
+    assert is_valid_model_name("my.model.v2")
     assert not is_valid_model_name("foo bar")
     assert not is_valid_model_name("foo/bar")
+    assert not is_valid_model_name("foo\\bar")
+    assert not is_valid_model_name("..\\..\\evil")
+    assert not is_valid_model_name(".")
+    assert not is_valid_model_name("..")
     assert not is_valid_model_name("   ")
     assert not is_valid_model_name("")
 
