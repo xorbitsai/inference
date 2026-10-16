@@ -211,3 +211,11 @@ msgid ""
 "supported features and limitations."
 msgstr ""
 "Claude Code の設定、Python SDK の使用例、対応機能と制限については :ref:`anthropic_api` を参照してください。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Chat request errors"
+msgstr "チャットリクエストのエラー"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request."
+msgstr "チャットワーカーで予期しない障害が発生した場合、汎用のエラーメッセージを返します。元の診断情報はサーバーログとエラーイベントに保持されます。リクエストの失敗を報告する際は、サーバー側の記録を確認してください。"

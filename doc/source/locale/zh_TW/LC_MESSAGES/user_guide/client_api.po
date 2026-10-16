@@ -206,3 +206,11 @@ msgid ""
 "See :ref:`anthropic_api` for Claude Code setup, Python SDK examples, and "
 "supported features and limitations."
 msgstr "Claude Code 設定、Python SDK 範例以及支援的功能和限制，請參見 :ref:`anthropic_api`。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Chat request errors"
+msgstr "聊天請求錯誤"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request."
+msgstr "聊天工作程序發生非預期錯誤時，會傳回通用錯誤訊息。伺服器日誌和錯誤事件會保留原始診斷資訊。回報請求失敗時，請檢查這些伺服器端記錄。"

@@ -227,3 +227,11 @@ msgid ""
 msgstr ""
 "Veja :ref:`anthropic_api` para configurar o Claude Code, consultar exemplos "
 "do SDK Python e conhecer os recursos compatíveis e suas limitações."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Chat request errors"
+msgstr "Erros nas solicitações de chat"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request."
+msgstr "Falhas inesperadas do worker de chat retornam uma mensagem de erro genérica. Os logs do servidor e os eventos de erro preservam os diagnósticos originais. Consulte esses registros do servidor ao relatar uma solicitação com falha."

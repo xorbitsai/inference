@@ -494,3 +494,9 @@ Output:
      'document': 'A man is riding a horse.'}, {'index': 2, 'relevance_score': 3.742107219295576e-05,
      'document': 'The girl is carrying a baby.'}, {'index': 4, 'relevance_score': 3.739788007806055e-05,
      'document': 'A woman is playing violin.'}]}
+
+
+Chat request errors
+===================
+
+Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request.
