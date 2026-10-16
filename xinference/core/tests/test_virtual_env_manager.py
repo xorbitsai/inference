@@ -45,7 +45,9 @@ from ..virtual_env_manager import (
     build_uv_source_options,
     ensure_flashinfer_cubin_matches_post_install,
     ensure_sglang_inherited_packages_compatible_post_install,
+    expand_engine_dependency_placeholders,
     get_engine_critical_dependency_specs,
+    get_engine_virtualenv_packages,
     is_flash_attn_requirement,
     is_model_find_links_only_requirement,
     merge_virtual_env_find_links,
@@ -54,6 +56,56 @@ from ..virtual_env_manager import (
     resolve_dependency_install_plan,
     validate_virtual_env_find_links,
 )
+
+
+@pytest.mark.parametrize(
+    "transformers,hub", [("4.57.3", "0.36.2"), ("5.17.0", "1.33.0")]
+)
+@pytest.mark.parametrize("fresh_diffusers", [False, True])
+def test_diffusers_keeps_parent_hub(tmp_path, transformers, hub, fresh_diffusers):
+    from xoscar.virtualenv.uv import UVVirtualEnvManager
+
+    installed = {"transformers": transformers, "huggingface-hub": hub}
+    if not fresh_diffusers:
+        installed["diffusers"] = "0.41.0"
+    distributions = [
+        mock.Mock(metadata={"Name": name}, version=version)
+        for name, version in installed.items()
+    ]
+    packages = expand_engine_dependency_placeholders(
+        ["#diffusers_dependencies#", "transformers>=4.51.0"], "diffusers"
+    )
+    manager = UVVirtualEnvManager(tmp_path)
+    with mock.patch("importlib.metadata.version", side_effect=installed.__getitem__):
+        packages = manager.process_packages(packages)
+    assert f"huggingface-hub=={hub}" in packages
+    expected = ["diffusers==0.41.0"] if fresh_diffusers else []
+    with (
+        mock.patch("xoscar.virtualenv.uv.distributions", return_value=distributions),
+        mock.patch.object(
+            manager, "_resolve_install_plan", return_value=expected
+        ) as resolve,
+    ):
+        assert manager._filter_packages_not_installed(packages) == expected
+    if fresh_diffusers:
+        specs, pins = resolve.call_args.args[:2]
+        assert specs == ["diffusers>=0.32.0"]
+        assert pins == {"transformers": transformers, "huggingface-hub": hub}
+    else:
+        resolve.assert_not_called()
+
+
+def test_diffusers_hub_override_and_other_engine_control():
+    from ..utils import merge_virtual_env_packages
+
+    packages = merge_virtual_env_packages(
+        get_engine_virtualenv_packages("diffusers"), ["huggingface-hub==1.33.0"]
+    )
+    assert packages == ["diffusers>=0.32.0", "huggingface-hub==1.33.0"]
+    assert get_engine_virtualenv_packages("transformers") == [
+        "transformers>=4.53.3",
+        "accelerate>=0.28.0",
+    ]
 
 
 def test_dependency_install_plan_uses_actual_resolved_distributions(tmp_path):
