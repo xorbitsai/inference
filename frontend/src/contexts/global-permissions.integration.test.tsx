@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Load UI after jsdom. */
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
+import { createServer } from 'node:http';
 import React, { act, useEffect, useRef } from 'react';
 // @ts-expect-error -- jsdom has no declarations in this dependency tree.
 import { JSDOM } from 'jsdom';
@@ -105,5 +106,38 @@ it('refreshes menus and direct-page grants from the server while JWT scopes rema
     });
     host.remove();
     request.get = originalGet;
+  }
+});
+
+it('keeps an optional forbidden version request out of global permission notifications', async () => {
+  const { eventBus } = require('@/lib/event-bus') as typeof import('@/lib/event-bus');
+  const { RequestEvents } = require('@/constants') as typeof import('@/constants');
+  const { requestManager } =
+    require('@/lib/request-manager') as typeof import('@/lib/request-manager');
+  const server = createServer((_, response) => {
+    response.writeHead(403, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ detail: 'Not enough permissions' }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+  let notifications = 0;
+  const forbidden = () => {
+    notifications += 1;
+  };
+  eventBus.on(RequestEvents.FORBIDDEN, forbidden);
+  requestManager.reset403();
+  try {
+    const url = `http://127.0.0.1:${address.port}/v1/cluster/version`;
+    await assert.rejects(request.get(url, { suppressGlobalError: true, proxy: false }));
+    assert.equal(notifications, 0);
+    await assert.rejects(request.get(url, { proxy: false }));
+    assert.equal(notifications, 1);
+  } finally {
+    eventBus.off(RequestEvents.FORBIDDEN, forbidden);
+    requestManager.reset403();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    );
   }
 });

@@ -149,7 +149,7 @@ requestInstance.interceptors.response.use(
       }
       case 403: {
         /** trigger only once */
-        if (requestManager.canHandle403()) {
+        if (!originalRequest?.suppressGlobalError && requestManager.canHandle403()) {
           eventBus.emit(RequestEvents.FORBIDDEN);
         }
         break;

@@ -89,7 +89,7 @@ export function GlobalProvider({ children, initClusterAuth = null }: Props) {
     try {
       // Extend global APIs here as needed
       const [versionRes, uiConfigRes] = await Promise.allSettled([
-        request.get('/v1/cluster/version'),
+        request.get('/v1/cluster/version', { suppressGlobalError: true }),
         request.get('/v1/cluster/ui_config'),
       ]);
 

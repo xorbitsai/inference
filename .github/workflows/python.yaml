@@ -45,6 +45,8 @@ jobs:
         run: cd frontend && npm ci
       - name: ESLint Check
         run: cd frontend && npx eslint .
+      - name: Test live account permissions
+        run: cd frontend && npm run test:permissions
       - name: Build frontend (static export)
         run: cd frontend && npm run build
       - name: Verify static export output
