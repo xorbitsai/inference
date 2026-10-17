@@ -263,6 +263,8 @@ class ReasoningParser:
         # Thus we assume the reasoning content is always at the start.
         # Ref https://huggingface.co/deepseek-ai/DeepSeek-R1/commit/8a58a132790c9935686eb97f042afa8013451c9f
         if self.reasoning_end_tag not in model_output:
+            if self.reasoning_start_tag in model_output:
+                model_output = model_output.split(self.reasoning_start_tag, 1)[1]
             logger.debug(
                 "[ReasoningParser] non-stream parse: reasoning=%r content=%r",
                 model_output,
