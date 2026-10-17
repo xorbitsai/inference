@@ -233,6 +233,9 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
 
         inputs = self.build_inputs_from_messages(messages, generate_config)
         config = self.build_generate_kwargs(generate_config)
+        config["max_new_tokens"] = self._cap_context_max_new_tokens(
+            len(inputs["input_ids"][0]), config["max_new_tokens"]
+        )
         errors: List[Exception] = []
 
         def model_generate():
