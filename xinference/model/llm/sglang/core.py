@@ -1101,12 +1101,20 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                 )
             )
         prepared = super().prepare_anthropic_request(messages, config)
-        try:
-            prepared["input_tokens"] = await self.async_count_tokens(
-                prepared["messages"], prepared["generate_config"]
-            )
-        except NotImplementedError:
-            pass
+        has_images = any(
+            isinstance(message.get("content"), list)
+            and any(part.get("type") == "image_url" for part in message["content"])
+            for message in prepared["messages"]
+        )
+        # Image counting performs a native prefill. Reserve it for the explicit
+        # count_tokens route, which falls back when input_tokens is zero.
+        if not has_images:
+            try:
+                prepared["input_tokens"] = await self.async_count_tokens(
+                    prepared["messages"], prepared["generate_config"]
+                )
+            except NotImplementedError:
+                pass
         return prepared
 
     async def async_count_tokens(

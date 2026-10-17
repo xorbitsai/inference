@@ -96,6 +96,9 @@ class LLM(abc.ABC):
             tokenizer, "chat_template", None
         )
         prompt = self.get_full_context(copy.deepcopy(messages), template, tokenizer=tokenizer, **context)  # type: ignore[attr-defined]
+        prepare_prompt = getattr(self, "_prepare_reasoning_prompt", None)
+        if prepare_prompt is not None:
+            prompt = prepare_prompt(prompt, config)
         return len(tokenizer.encode(prompt))
 
     def prepare_anthropic_request(
@@ -190,6 +193,7 @@ class LLM(abc.ABC):
                 or hasattr(self, "_prepare_reusable_prompt_cache")
             )
             and not has_images
+            and getattr(self, "_cache_has_prompt_cache_api", True)
             and getattr(self, "_model_config", {}).get("prompt_cache_size", 2) > 0
         )
         if cache_control is not None and not cache_control_applied:

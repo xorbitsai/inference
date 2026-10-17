@@ -393,7 +393,7 @@ def _parse_cache_control(
         if tool.get("cache_control") is not None:
             controls.append(tool["cache_control"])
             prefix_tools = _normalize_tools(raw_body["tools"][: index + 1])
-            boundaries.append((tool["cache_control"], [], None, prefix_tools))
+            boundaries.append((tool["cache_control"], system, None, prefix_tools))
     system_blocks = system if isinstance(system, list) else []
     for index, block in enumerate(system_blocks):
         if isinstance(block, dict) and block.get("cache_control") is not None:
@@ -471,7 +471,7 @@ def _parse_cache_control(
         if boundary_tools is not None:
             checkpoint["tools"] = boundary_tools
         breakpoints.append(checkpoint)
-    result = dict(breakpoints[-1])
+    result = copy.deepcopy(breakpoints[-1])
     if len(breakpoints) > 1:
         result["breakpoints"] = breakpoints
 

@@ -437,3 +437,25 @@ async def test_openai_json_schema_works_without_request_reasoning_capability(
     assert json.loads(result["choices"][0]["text"]) == {"answer": 42}
     assert "require_reasoning" not in instance._non_stream_generate.call_args.kwargs
     assert "_anthropic_request" not in instance._non_stream_generate.call_args.kwargs
+
+
+@pytest.mark.asyncio
+async def test_image_generation_preparation_skips_native_count_prefill():
+    instance = model(SGLANGVisionModel)
+    instance.async_count_tokens = AsyncMock(
+        side_effect=RuntimeError("must only run on explicit count route")
+    )
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64,AA=="},
+                }
+            ],
+        }
+    ]
+    prepared = await instance.async_prepare_anthropic_request(messages, {})
+    assert prepared["input_tokens"] == 0
+    instance.async_count_tokens.assert_not_called()

@@ -886,3 +886,69 @@ def test_cache_creation_lifetimes_are_preserved_in_usage():
     assert usage["cache_read_input_tokens"] == 40
     assert usage["cache_creation_input_tokens"] == 50
     assert usage["cache_creation"] == creation
+
+
+def test_tool_cache_checkpoint_keeps_system_and_selected_tools():
+    tool = {
+        "name": "lookup",
+        "input_schema": {"type": "object"},
+        "cache_control": {"type": "ephemeral"},
+    }
+    request = parse_anthropic_request(
+        _base_request(
+            system="stable system",
+            tools=[tool, {"name": "finish", "input_schema": {"type": "object"}}],
+        )
+    )
+    assert request.cache_control["messages"] == [
+        {"role": "system", "content": "stable system"}
+    ]
+    assert [tool["function"]["name"] for tool in request.cache_control["tools"]] == [
+        "lookup"
+    ]
+
+
+def test_effort_with_multiple_cache_checkpoints_adds_guidance_once():
+    from types import SimpleNamespace
+
+    from xinference.model.llm.mlx.core import MLXChatModel
+
+    request = parse_anthropic_request(
+        _base_request(
+            system=[
+                {
+                    "type": "text",
+                    "text": "stable",
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                }
+            ],
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "cached",
+                            "cache_control": {"type": "ephemeral"},
+                        }
+                    ],
+                }
+            ],
+            output_config={"effort": "low"},
+        )
+    )
+    model = object.__new__(MLXChatModel)
+    model.model_uid = "effort-checkpoints"
+    model.model_family = SimpleNamespace(model_ability=["chat"])
+    model.reasoning_parser = None
+    model._model_config = {}
+    model.count_tokens = lambda *args: 10
+    config = request.to_openai_body()
+    config["_anthropic_cache_control"] = request.cache_control
+    prepared = model.prepare_anthropic_request(request.messages, config)
+    control = prepared["generate_config"]["_anthropic_cache_control"]
+    for checkpoint in [control, *control["breakpoints"]]:
+        system = checkpoint["messages"][0]["content"]
+        assert system.count("Use brief reasoning") == 1
+        assert system == prepared["messages"][0]["content"]
+    assert request.cache_control["messages"][0]["content"] == "stable"

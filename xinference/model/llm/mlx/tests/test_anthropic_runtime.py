@@ -20,7 +20,13 @@ def test_manual_budget_rejects_missing_reasoning_markers(start, end):
     model._tokenizer = SimpleNamespace(encode=lambda text, **kw: list(text.encode()))
     with pytest.raises(NotImplementedError, match="thinking budgets require"):
         model._apply_thinking_budget(
-            {"chat_template_kwargs": {"enable_thinking": True, "thinking_budget": 1024}}
+            {
+                "chat_template_kwargs": {
+                    "_anthropic_request": True,
+                    "enable_thinking": True,
+                    "thinking_budget": 1024,
+                }
+            }
         )
 
 
@@ -269,3 +275,406 @@ def test_cache_write_lifetime_includes_prefill_time(monkeypatch):
     cache = prompt_cache.TimedPromptCache()
     cache.store([1, 2], [SimpleNamespace(state=[])], 300, started=100)
     assert cache.entries[(1, 2)].expires == 400
+
+
+def control_model(cls=core.MLXChatModel):
+    from ...reasoning_parser import ReasoningParser
+
+    model = object.__new__(cls)
+    model.model_uid = "controls"
+    model.model_family = SimpleNamespace(
+        model_name="qwen3",
+        model_family="qwen3",
+        chat_template="template",
+        model_ability=["chat", "vision"],
+        stop=None,
+        stop_token_ids=None,
+    )
+    model.reasoning_parser = ReasoningParser(
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+        allow_disable_thinking=True,
+    )
+    model.tool_parser = None
+    model._tokenizer = SimpleNamespace(
+        encode=lambda text, **kw: list(text.encode()), eos_token_id=0
+    )
+    model._model = object()
+    model._model_generation_config = {}
+    model._context_length_limit = None
+    model._xavier = None
+    return model
+
+
+@pytest.mark.parametrize("cls", [core.MLXChatModel, core.MLXVisionModel])
+@pytest.mark.parametrize("format_type", ["text", "json_object"])
+def test_openai_controls_normalize_format_and_string_kwargs(cls, format_type):
+    model = control_model(cls)
+    original = {
+        "response_format": {"type": format_type},
+        "chat_template_kwargs": '{"enable_thinking":true}',
+        "tool_choice": "none",
+        "tools": [{"type": "function"}],
+        "parallel_tool_calls": False,
+    }
+    parallel, config = model._prepare_chat_controls(original)
+    assert parallel is False and "tools" not in config
+    assert config["chat_template_kwargs"]["enable_thinking"] is (format_type == "text")
+    assert ("response_format" in config) is (format_type != "text")
+    assert original["tools"] and isinstance(original["chat_template_kwargs"], str)
+    assert "response_format" not in model._sanitize_generate_config(
+        {"response_format": {"type": "text"}}
+    )
+
+
+def test_openai_thinking_budget_is_ignored():
+    model = control_model()
+    _, config = model._prepare_chat_controls(
+        {"chat_template_kwargs": {"enable_thinking": True, "thinking_budget": "unused"}}
+    )
+    assert "_mlx_thinking_budget" not in config
+    with pytest.raises(ValueError, match="positive integer"):
+        model._prepare_chat_controls(config, anthropic=True)
+
+
+@pytest.mark.parametrize(
+    "prompt", ["assistant\n", "<think>old</think>assistant\n", "assistant<think>\n"]
+)
+@pytest.mark.parametrize("control", ["json", "budget"])
+def test_reasoning_prompt_opens_actual_block_and_count_matches(prompt, control):
+    model = control_model()
+    config = {
+        "chat_template_kwargs": {"_anthropic_request": True, "enable_thinking": True}
+    }
+    if control == "json":
+        config["response_format"] = {"type": "json_object"}
+    else:
+        config["chat_template_kwargs"]["thinking_budget"] = 4
+    _, config = model._prepare_chat_controls(config)
+    model.get_full_context = lambda *args, **kwargs: prompt
+    expected = prompt if prompt.endswith("<think>\n") else prompt + "<think>\n"
+    assert model._prepare_reasoning_prompt(prompt, config) == expected
+    assert model.count_tokens([{"role": "user", "content": "hello"}], config) == len(
+        expected
+    )
+    config["chat_template_kwargs"]["enable_thinking"] = False
+    assert model._prepare_reasoning_prompt(prompt, config) == prompt
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_fallback_decode_and_close_do_not_block_actor_loop(stream):
+    import asyncio
+    import threading
+    import time
+    from unittest.mock import AsyncMock
+
+    model = control_model()
+    model._batch_model = SimpleNamespace(generate=AsyncMock(return_value=("batch", {})))
+    owner = threading.get_ident()
+    workers = []
+    ticks = []
+    closed = []
+
+    def generate(*args):
+        try:
+            for _ in range(3):
+                workers.append(threading.get_ident())
+                time.sleep(0.02)
+                yield {"choices": [{"text": "x", "finish_reason": "stop"}]}, {}
+        finally:
+            closed.append(threading.get_ident())
+
+    model._generate_stream = generate
+
+    async def heartbeat():
+        for _ in range(5):
+            await asyncio.sleep(0.005)
+            ticks.append(len(workers))
+
+    async def run():
+        result = await model.async_generate(
+            "prompt", {"stream": stream, "response_format": {"type": "json_object"}}
+        )
+        if stream:
+            assert len([chunk async for chunk in result]) == 3
+        else:
+            assert result["choices"][0]["text"] == "xxx"
+
+    try:
+        await asyncio.gather(run(), heartbeat())
+        assert ticks and min(ticks) < 3
+        assert len(set(workers)) == 1 and workers[0] != owner
+        assert closed == [workers[0]]
+        model._batch_model.generate.assert_not_called()
+        result = await model.async_generate(
+            "prompt", {"response_format": {"type": "text"}, "max_tokens": 1}
+        )
+        assert result["choices"][0]["text"] == "batch"
+    finally:
+        model.stop()
+
+
+def test_store_purges_expired_entries_before_live_eviction(monkeypatch):
+    from .. import prompt_cache
+
+    clock = [0]
+    monkeypatch.setattr(prompt_cache.time, "monotonic", lambda: clock[0])
+    cache = prompt_cache.TimedPromptCache(max_size=2)
+    state = [SimpleNamespace(state=[])]
+    cache.store([1], state, 3600)
+    cache.store([2], state, 300)
+    clock[0] = 301
+    cache.store([3], state, 300)
+    assert list(cache.entries) == [(1,), (3,)]
+    assert not cache.store([4], state, 300, started=0)
+    assert list(cache.entries) == [(1,), (3,)]
+
+
+@pytest.mark.parametrize("max_bytes,created", [(None, 4), (0, 0)])
+def test_cache_creation_counts_writes_even_when_later_prefix_evicts_earlier(
+    monkeypatch, max_bytes, created
+):
+    fake = SimpleNamespace(array=Array, eval=lambda arrays: None)
+    monkeypatch.setitem(sys.modules, "mlx", SimpleNamespace(core=fake))
+    monkeypatch.setitem(sys.modules, "mlx.core", fake)
+    monkeypatch.setitem(
+        sys.modules,
+        "mlx_lm.models.cache",
+        SimpleNamespace(
+            make_prompt_cache=lambda *args: [
+                SimpleNamespace(state=SimpleNamespace(nbytes=10))
+            ]
+        ),
+    )
+    model = control_model()
+    model._model = lambda *args, **kwargs: None
+    model._model_config = {"prompt_cache_size": 1, "prompt_cache_bytes": max_bytes}
+    model._max_kv_size = None
+    tokens = [1, 2, 3, 4, 5]
+    config = {}
+    assert model._prepare_explicit_prompt_cache(tokens, [(2, 3600), (4, 300)], config)[
+        0
+    ] == [5]
+    assert config["_anthropic_cache_created_tokens"] == created
+    assert config["_anthropic_cache_creation"] == {
+        "ephemeral_5m_input_tokens": created // 2,
+        "ephemeral_1h_input_tokens": created // 2,
+    }
+    if created:
+        assert list(model._explicit_cache.entries) == [(1, 2, 3, 4)]
+        assert (
+            model._prepare_explicit_prompt_cache(tokens, [(2, 3600), (4, 300)], config)[
+                2
+            ]
+            == 4
+        )
+        assert config["_anthropic_cache_created_tokens"] == 0
+    assert model._explicit_cache.max_size == 1
+    model._model_config = {}
+    model._explicit_cache_key = None
+    model._prepare_explicit_prompt_cache(tokens, [(2, 300)], {})
+    assert model._explicit_cache.max_size == core._DEFAULT_MLX_PROMPT_CACHE_SIZE
+
+
+def test_coincident_cache_boundaries_use_longer_lifetime():
+    model = control_model()
+    model._get_reusable_prompt_prefix_len = lambda *args: 10
+    config = {}
+    model._set_explicit_cache_boundaries(
+        [],
+        "prompt",
+        "template",
+        None,
+        {},
+        {"breakpoints": [{"ttl": 3600}, {"ttl": 300}]},
+        config,
+    )
+    assert config["_mlx_cache_boundaries"] == [(10, 3600)]
+
+
+def test_vlm_without_prompt_cache_api_does_not_apply_explicit_markers(monkeypatch):
+    model = control_model(core.MLXVisionModel)
+    model._model_config = {}
+    monkeypatch.setattr(
+        core,
+        "_ensure_mlx_vlm_thread_local_stream",
+        lambda: SimpleNamespace(generate_step=lambda model, input_ids: None),
+    )
+    model._init_reusable_prompt_cache()
+    assert model._cache_has_prompt_cache_api is False
+    model.count_tokens = lambda *args: 3
+    prepared = model.prepare_anthropic_request(
+        [{"role": "user", "content": "hello"}],
+        {
+            "_anthropic_cache_control": {
+                "messages": [{"role": "user", "content": "hello"}],
+                "ttl": 300,
+            }
+        },
+    )
+    assert prepared["cache_control_applied"] is False
+    assert "_anthropic_cache_control" not in prepared["generate_config"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cls", [core.MLXChatModel, core.MLXVisionModel])
+@pytest.mark.parametrize("choice", ["required", "named", "none", "auto"])
+async def test_openai_tool_controls_reach_text_and_vision_generation(cls, choice):
+    from unittest.mock import AsyncMock, Mock
+
+    model = control_model(cls)
+    declared = [
+        {
+            "type": "function",
+            "function": {"name": "Read", "parameters": {"type": "object"}},
+        }
+    ]
+    generated = {
+        "id": "test",
+        "model": "test",
+        "created": 1,
+        "choices": [
+            {
+                "index": 0,
+                "text": '[{"name":"Read","arguments":{}}]',
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {},
+    }
+    seen = []
+
+    def render(*args, **kwargs):
+        seen.append(kwargs.get("tools", []))
+        return "prompt"
+
+    model.get_full_context = render
+    model._get_reusable_prompt_prefix_len = lambda *args: None
+    model._set_explicit_cache_boundaries = lambda *args: None
+
+    def prepare(messages, config):
+        seen.append(config.pop("tools", []))
+        return {"prompt": "prompt"}, seen[-1], config["chat_template_kwargs"], config
+
+    model._prepare_chat_inputs = prepare
+    model._to_chat_completion = lambda c, *args: {
+        "id": "test",
+        "choices": [
+            {"message": {"content": c["choices"][0]["text"]}, "finish_reason": "stop"}
+        ],
+        "usage": {},
+    }
+    model._post_process_completion = lambda *args: {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {"id": "one", "function": {"name": "Read", "arguments": "{}"}},
+                        {"id": "two", "function": {"name": "Read", "arguments": "{}"}},
+                    ]
+                },
+                "finish_reason": "tool_calls",
+            }
+        ]
+    }
+    generate = (
+        AsyncMock(return_value=generated)
+        if cls is core.MLXChatModel
+        else Mock(return_value=generated)
+    )
+    if cls is core.MLXChatModel:
+        model.async_generate = generate
+    else:
+        model.generate = generate
+    config = {
+        "tools": declared,
+        "tool_choice": (
+            {"type": "function", "function": {"name": "Read"}}
+            if choice == "named"
+            else choice
+        ),
+        "parallel_tool_calls": False,
+        "chat_template_kwargs": '{"enable_thinking":true}',
+    }
+    messages = [{"role": "user", "content": "read"}]
+    if cls is core.MLXChatModel:
+        result = await model.async_chat(messages, config)
+    else:
+        result = model.chat(messages, config)
+    used = generate.call_args.args[1]
+    if choice in {"named", "required"}:
+        assert used["response_format"]["json_schema"]["schema"]["maxItems"] == 1
+        assert used["chat_template_kwargs"]["enable_thinking"] is False
+        assert (
+            result["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+            == "Read"
+        )
+    elif choice == "none":
+        assert seen == [[]]
+        assert "tool_calls" not in result["choices"][0]["message"]
+    else:
+        assert len(result["choices"][0]["message"]["tool_calls"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_closing_fallback_stream_closes_decode_on_its_worker():
+    import threading
+
+    model = control_model()
+    model._batch_model = None
+    closed = []
+
+    def generate(*args):
+        try:
+            yield {"choices": [{"text": "x"}]}, {}
+            raise AssertionError("closed stream must not decode again")
+        finally:
+            closed.append(threading.get_ident())
+
+    model._generate_stream = generate
+    chunks = await model.async_generate("prompt", {"stream": True})
+    try:
+        assert await anext(chunks)
+        await chunks.aclose()
+        assert len(closed) == 1 and closed[0] != threading.get_ident()
+    finally:
+        model.stop()
+
+
+@pytest.mark.asyncio
+async def test_cancelling_inflight_fallback_waits_for_worker_cleanup():
+    import asyncio
+    import threading
+    import time
+
+    model = control_model()
+    model._batch_model = None
+    started = threading.Event()
+    closed = []
+
+    def generate(*args):
+        try:
+            started.set()
+            time.sleep(0.05)
+            yield {"choices": [{"text": "x"}]}, {}
+        finally:
+            closed.append(threading.get_ident())
+
+    model._generate_stream = generate
+    task = asyncio.create_task(model.async_generate("prompt", {"max_tokens": 1}))
+    try:
+
+        async def wait_for_decode():
+            while not started.is_set():
+                await asyncio.sleep(0.001)
+
+        await asyncio.wait_for(wait_for_decode(), timeout=2)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert len(closed) == 1 and closed[0] != threading.get_ident()
+        assert not model._fallback_lock.locked()
+    finally:
+        model.stop()
