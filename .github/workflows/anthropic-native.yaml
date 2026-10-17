@@ -122,7 +122,7 @@ jobs:
                                         mm_processor_kwargs={"max_pixels": 65536})
                   else:
                       config["context_length"] = 8192
-                  if engine == "MLX":
+                  if engine == "MLX" and profile == "TEXT":
                       config["cache_limit_gb"] = 1
                   if engine == "SGLang":
                       config.update(attention_backend="triton", sampling_backend="pytorch")
@@ -143,6 +143,9 @@ jobs:
             "$NATIVE_TEST_FILE::test_openai_path"
             "$NATIVE_TEST_FILE::test_claude_code[0]"
           )
+          # MLX thinking/tool replay runs on the VLM below: Qwen3-4B's
+          # unconstrained tool loop is unreliable. LM-specific thinking
+          # therefore has no native coverage in this workflow.
           if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" != MLX ]; then
             text_tests=("$NATIVE_TEST_FILE::test_thinking_replay_and_tool_loop" "${text_tests[@]}")
           fi
