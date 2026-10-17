@@ -149,6 +149,9 @@ class MiniCPMV47Model(MiniCPMV46Model):
         if self._has_visual_content(messages):
             # Placeholder count and vision encoding must use the same mode.
             config["downsample_mode"] = self._get_downsample_mode(generate_config)
+        config["max_new_tokens"] = self._cap_context_max_new_tokens(
+            len(inputs["input_ids"][0]), config["max_new_tokens"]
+        )
         streamer = TextIteratorStreamer(
             self._tokenizer, timeout=60.0, skip_prompt=True, skip_special_tokens=True
         )
