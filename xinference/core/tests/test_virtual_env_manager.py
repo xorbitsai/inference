@@ -75,8 +75,18 @@ def test_diffusers_keeps_parent_hub(tmp_path, transformers, hub, fresh_diffusers
     packages = expand_engine_dependency_placeholders(
         ["#diffusers_dependencies#", "transformers>=4.51.0"], "diffusers"
     )
+    real_version = importlib.metadata.version
+
+    def version(name):
+        # Fake only the modelled packages; Torch's lazy import looks up others.
+        if name not in ("transformers", "huggingface-hub", "diffusers"):
+            return real_version(name)
+        if name not in installed:
+            raise importlib.metadata.PackageNotFoundError(name)
+        return installed[name]
+
     manager = UVVirtualEnvManager(tmp_path)
-    with mock.patch("importlib.metadata.version", side_effect=installed.__getitem__):
+    with mock.patch("importlib.metadata.version", side_effect=version):
         packages = manager.process_packages(packages)
     assert f"huggingface-hub=={hub}" in packages
     expected = ["diffusers==0.41.0"] if fresh_diffusers else []
