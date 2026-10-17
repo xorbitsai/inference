@@ -4,7 +4,21 @@
 import copy
 import json
 import uuid
-from typing import Any, AsyncGenerator, Dict, Iterator, List, Mapping, Tuple
+from typing import (
+    Any,
+    AsyncGenerator,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Tuple,
+    TypeVar,
+    cast,
+)
+
+from ...types import ChatCompletionChunk
+
+_CompletionT = TypeVar("_CompletionT", bound=Mapping[str, Any])
 
 
 def is_forced_tool_choice(config: Mapping[str, Any]) -> bool:
@@ -89,7 +103,7 @@ def prepare_forced_tools(
     return messages, config
 
 
-def convert_forced_completion(completion: Dict[str, Any]) -> Dict[str, Any]:
+def convert_forced_completion(completion: _CompletionT) -> _CompletionT:
     for choice in completion["choices"]:
         if choice.get("finish_reason") == "length":
             # Truncated arguments cannot be executed as a tool call.
@@ -130,15 +144,15 @@ def convert_forced_completion(completion: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def stream_forced_completion(
-    completion: Dict[str, Any], include_usage: bool
-) -> AsyncGenerator[Dict[str, Any], None]:
+    completion: Mapping[str, Any], include_usage: bool
+) -> AsyncGenerator[ChatCompletionChunk, None]:
     for chunk in iter_forced_completion(completion, include_usage):
         yield chunk
 
 
 def iter_forced_completion(
-    completion: Dict[str, Any], include_usage: bool
-) -> Iterator[Dict[str, Any]]:
+    completion: Mapping[str, Any], include_usage: bool
+) -> Iterator[ChatCompletionChunk]:
     # Emit only complete, constrained arguments. Partial/truncated JSON must
     # never become an executable tool call.
     metadata = {k: completion[k] for k in ("id", "created", "model")}
@@ -159,22 +173,28 @@ def iter_forced_completion(
                 "finish_reason": choice["finish_reason"],
             }
         )
-    yield {
-        **metadata,
-        "object": "chat.completion.chunk",
-        "choices": choices,
-        "usage": completion.get("usage"),
-    }
-    if include_usage:
-        yield {
+    yield cast(
+        ChatCompletionChunk,
+        {
             **metadata,
             "object": "chat.completion.chunk",
-            "choices": [],
+            "choices": choices,
             "usage": completion.get("usage"),
-        }
+        },
+    )
+    if include_usage:
+        yield cast(
+            ChatCompletionChunk,
+            {
+                **metadata,
+                "object": "chat.completion.chunk",
+                "choices": [],
+                "usage": completion.get("usage"),
+            },
+        )
 
 
-def single_tool_completion(completion: Dict[str, Any]) -> Dict[str, Any]:
+def single_tool_completion(completion: _CompletionT) -> _CompletionT:
     for choice in completion.get("choices", []):
         message = choice["message"]
         if message.get("tool_calls"):
@@ -182,7 +202,7 @@ def single_tool_completion(completion: Dict[str, Any]) -> Dict[str, Any]:
     return completion
 
 
-def single_tool_chunks(chunks) -> Iterator[Dict[str, Any]]:
+def single_tool_chunks(chunks) -> Iterator[ChatCompletionChunk]:
     first_indexes: Dict[int, int] = {}
     try:
         for chunk in chunks:
@@ -199,7 +219,7 @@ def single_tool_chunks(chunks) -> Iterator[Dict[str, Any]]:
         chunks.close()
 
 
-async def single_tool_stream(chunks) -> AsyncGenerator[Dict[str, Any], None]:
+async def single_tool_stream(chunks) -> AsyncGenerator[ChatCompletionChunk, None]:
     first_indexes: Dict[int, int] = {}
     try:
         async for chunk in chunks:
