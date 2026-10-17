@@ -178,8 +178,53 @@ async def test_text_count_uses_same_tools_and_template():
     assert render_tools == tools()
     assert count == len(prompt)
     assert config["tools"] == tools()
-    with pytest.raises(NotImplementedError, match="multimodal"):
-        await instance.async_count_tokens([{"content": [{"type": "image_url"}]}])
+
+
+@pytest.mark.asyncio
+async def test_image_count_uses_native_zero_output_prefill():
+    instance = model(SGLANGVisionModel)
+    instance._engine = SimpleNamespace(get_tokenizer=lambda: object())
+    instance._prepare_chat_inputs = AsyncMock(
+        return_value=("image prompt", ["data:image"], None, {}, {})
+    )
+    instance._non_stream_generate = AsyncMock(
+        return_value={"meta_info": {"prompt_tokens": 237, "completion_tokens": 0}}
+    )
+    assert await instance.async_count_tokens([{"role": "user", "content": []}]) == 237
+    args = instance._non_stream_generate.call_args
+    assert args.args == ("image prompt",)
+    assert args.kwargs["image_data"] == ["data:image"]
+    assert args.kwargs["max_new_tokens"] == 0
+
+
+@pytest.mark.parametrize(
+    "supported,strict", [(True, True), (False, True), (True, False)]
+)
+def test_manual_budget_requires_native_support(monkeypatch, supported, strict):
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.srt.managers.io_struct",
+        SimpleNamespace(
+            GenerateReqInput=SimpleNamespace(
+                __dataclass_fields__={"max_thinking_tokens": None} if supported else {}
+            )
+        ),
+    )
+    instance = model()
+    instance._model_config["enable_strict_thinking"] = strict
+    config = {
+        "chat_template_kwargs": {"enable_thinking": True, "thinking_budget": 1024}
+    }
+    if supported and strict:
+        instance._apply_thinking_budget(config)
+        assert config["max_thinking_tokens"] == 1024
+        assert instance._lift_logprob_request_params(config) == {
+            "max_thinking_tokens": 1024,
+            "require_reasoning": True,
+        }
+    else:
+        with pytest.raises(NotImplementedError, match="thinking budgets"):
+            instance._apply_thinking_budget(config)
 
 
 @pytest.mark.asyncio
