@@ -251,3 +251,26 @@ def test_zero_elapsed_time_does_not_fail(monkeypatch):
 
     assert request.stopped
     assert request.finish_reason == "length"
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "stop,suffix",
+    [("\n", "\n\n"), (["B", "A"], "AB"), (["A", "B"], "AB")],
+    ids=["repeated-stop", "later-stop-first", "earlier-stop-first"],
+)
+def test_stop_strings_use_earliest_match(monkeypatch, stream, stop, suffix):
+    request = _make_token_limit_request(8, stream=stream, stop=stop)
+    monkeypatch.setattr(
+        _TokenStreamTokenizer,
+        "decode",
+        lambda self, tokens, **kwargs: "".join(
+            "hello" if token == 5 else suffix for token in tokens
+        ),
+    )
+
+    _run_step(monkeypatch, request, decode_round=2)
+
+    chunks = [chunk for chunk in request.completion if isinstance(chunk, dict)]
+    assert "".join(chunk["choices"][0]["text"] for chunk in chunks) == "hello"
+    assert request.finish_reason == "stop"
