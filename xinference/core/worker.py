@@ -141,6 +141,7 @@ except ImportError:
     VirtualEnvManager = None
 
 if TYPE_CHECKING:
+    from ..extensions import ModelCatalogCredentials
     from .progress_tracker import Progressor
 
 logger = getLogger(__name__)
@@ -2644,7 +2645,12 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
-    async def update_model_type(self, model_type: str):
+    async def update_model_type(
+        self,
+        model_type: str,
+        *,
+        credentials: Optional["ModelCatalogCredentials"] = None,
+    ) -> None:
         """
         Update model configurations for a specific model type by downloading
         the latest JSON from the remote API and storing it locally.
@@ -2652,9 +2658,15 @@ class WorkerActor(xo.StatelessActor):
         Args:
             model_type: Type of model (LLM, embedding, image, etc.)
         """
-        import json
-
         import requests
+
+        from ..extensions import ModelCatalogCredentials
+        from .exceptions import ModelCatalogUpdateError
+
+        if credentials is not None and not isinstance(
+            credentials, ModelCatalogCredentials
+        ):
+            raise ValueError("Invalid model catalog credentials")
 
         supported_types = list(self._custom_register_type_to_cls.keys())
 
@@ -2677,16 +2689,27 @@ class WorkerActor(xo.StatelessActor):
             f"?model_type={model_type.lower()}"
         )
 
+        status_code = None
+        stage = "download"
         try:
             # Download JSON from remote API. Run the blocking request in a
             # worker thread so it does not freeze the actor's event loop.
-            response = await asyncio.to_thread(requests.get, url, timeout=30)
+            request_options: Dict[str, Any] = {"timeout": 30}
+            if credentials is not None:
+                request_options["allow_redirects"] = False
+                request_options["headers"] = {"X-Models-Token": credentials.token}
+            response = await asyncio.to_thread(requests.get, url, **request_options)
+            status_code = response.status_code
+            if credentials is not None and 300 <= status_code < 400:
+                raise ValueError("Model catalog redirects are not supported")
             response.raise_for_status()
 
             # Parse JSON response
+            stage = "decode"
             model_data = response.json()
 
             # Store the JSON data using CacheManager as built-in models
+            stage = "store"
             await self._store_complete_model_configurations(model_type, model_data)
 
             # Dynamically reload built-in models to make them immediately available
@@ -2723,25 +2746,22 @@ class WorkerActor(xo.StatelessActor):
                     logger.warning(
                         f"No dynamic loading available for model type: {model_type}"
                     )
-            except Exception as reload_error:
-                logger.error(
-                    f"Error reloading built-in models: {reload_error}",
-                    exc_info=True,
-                )
+            except Exception as e:
+                logger.error("Error reloading built-in models (%s)", type(e).__name__)
                 # Don't fail the update if reload fails, just log the error
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error downloading model configurations: {e}")
-            raise ValueError(f"Failed to download model configurations: {str(e)}")
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON decode error: {e}")
-            raise ValueError(f"Invalid JSON response from remote API: {str(e)}")
         except Exception as e:
+            # Remote errors can echo request headers. Do not put their message
+            # or chained traceback in actor/API logs or client responses.
             logger.error(
-                f"Unexpected error during model update: {e}",
-                exc_info=True,
+                "Model catalog update failed (stage=%s, error=%s, status=%s)",
+                stage,
+                type(e).__name__,
+                status_code,
             )
-            raise ValueError(f"Failed to update model configurations: {str(e)}")
+            raise ModelCatalogUpdateError(
+                "Failed to update model configurations"
+            ) from None
 
     async def _store_complete_model_configurations(self, model_type: str, model_data):
         """

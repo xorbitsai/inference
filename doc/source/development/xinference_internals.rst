@@ -284,8 +284,14 @@ A factory returns an object with a unique ``name``, ``api_version = 1``, and fou
 
 The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build.
 
-Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop.
+Factories and all hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop.
 
 ``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API.
 
 Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement.
+
+Extensions may optionally implement synchronous, non-blocking ``model_catalog_credentials(request, model_type)``. For ``POST /v1/models/update_type``, this hook runs after the configured authentication and ``models:register`` permission checks. Return ``xinference.extensions.ModelCatalogCredentials(token=...)`` to supply a server-owned catalog token, or ``None`` to keep anonymous refresh. Existing extensions need no changes. Multiple credential providers and provider failures reject the refresh without an anonymous retry. Providers must keep tokens out of their own logs and HTTP error details or headers.
+
+Credentials travel only with that refresh through the supervisor to each worker, which sends ``X-Models-Token`` to ``https://model.xinference.io/api/models/download``. Xinference does not persist the token or export it to the process environment; its credential object hides the token in actor argument logs. Credentialed requests reject redirects. Remote errors are sanitized, and unavailable or failing workers cause the refresh to fail. Workers that already updated are not rolled back; retry after correcting the failure. Update all runtime nodes before using this hook. Catalog updates affect the shared model registry; this hook does not provide per-user model visibility or model-weight download credentials.
+
+Malformed request bodies return HTTP 400. Credential provider failures return HTTP 500; explicit HTTP errors from providers keep their status and headers. Worker refresh failures return HTTP 502. No available workers or an unreachable supervisor return HTTP 503.

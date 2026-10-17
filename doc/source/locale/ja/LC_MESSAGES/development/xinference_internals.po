@@ -699,8 +699,8 @@ msgid "The supervisor verifies matching worker extensions and supplies the live 
 msgstr "Supervisor は Worker の拡張が一致することを検証し、稼働中の Worker 一覧をリソースフィルタに渡します。フィルタは可視 GPU インデックスを制限するか、例外を送出して CPU 起動を含む利用を拒否できます。割り当てとプロセス作成の両方でポリシーを検証し、準備と復旧も対象にします。名前付き制御操作は Supervisor で実行され、拡張は操作名と引数を検証する必要があります。既定のフロントエンドナビゲーション設定は空で、配布版のビルドで構成できます。"
 
 #: ../../development/xinference_internals.rst
-msgid "Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
-msgstr "ファクトリと4つすべてのフックは同期的かつ非ブロッキングでなければなりません。待機可能な結果は拒否されます。API とアクターは起動時に設定済みファクトリを読み込み、その後にリクエストを処理したりワーカーを登録したりします。アクターフックはアクターのイベントループで実行されます。"
+msgid "Factories and all hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "ファクトリとすべてのフックは同期的かつ非ブロッキングでなければなりません。待機可能な結果は拒否されます。API とアクターは起動時に設定済みファクトリを読み込み、その後にリクエストを処理したりワーカーを登録したりします。アクターフックはアクターのイベントループで実行されます。"
 
 #: ../../development/xinference_internals.rst
 msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
@@ -709,3 +709,15 @@ msgstr "``context.auth_enabled`` はサーバー全体の認証設定を表し�
 #: ../../development/xinference_internals.rst
 msgid "Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement."
 msgstr "リソースポリシーはモデルの配置、割り当て、プロセス作成に適用され、GPU のクリーンアップ前にチェックされます。キャッシュやダウンロードのみのワーカー配置はフィルタリングしません。"
+
+#: ../../development/xinference_internals.rst
+msgid "Extensions may optionally implement synchronous, non-blocking ``model_catalog_credentials(request, model_type)``. For ``POST /v1/models/update_type``, this hook runs after the configured authentication and ``models:register`` permission checks. Return ``xinference.extensions.ModelCatalogCredentials(token=...)`` to supply a server-owned catalog token, or ``None`` to keep anonymous refresh. Existing extensions need no changes. Multiple credential providers and provider failures reject the refresh without an anonymous retry. Providers must keep tokens out of their own logs and HTTP error details or headers."
+msgstr "拡張は、同期かつ非ブロッキングの ``model_catalog_credentials(request, model_type)`` を任意で実装できます。``POST /v1/models/update_type`` では、設定された認証と ``models:register`` 権限の確認後にこのフックが実行されます。サーバー側で管理するカタログトークンを渡すには ``xinference.extensions.ModelCatalogCredentials(token=...)`` を返し、匿名の更新を維持するには ``None`` を返します。既存の拡張を変更する必要はありません。複数の認証情報プロバイダーがある場合やプロバイダーが失敗した場合は、匿名で再試行せず更新を拒否します。プロバイダー自身のログや HTTP エラーの詳細、ヘッダーにトークンを含めないでください。"
+
+#: ../../development/xinference_internals.rst
+msgid "Credentials travel only with that refresh through the supervisor to each worker, which sends ``X-Models-Token`` to ``https://model.xinference.io/api/models/download``. Xinference does not persist the token or export it to the process environment; its credential object hides the token in actor argument logs. Credentialed requests reject redirects. Remote errors are sanitized, and unavailable or failing workers cause the refresh to fail. Workers that already updated are not rolled back; retry after correcting the failure. Update all runtime nodes before using this hook. Catalog updates affect the shared model registry; this hook does not provide per-user model visibility or model-weight download credentials."
+msgstr "認証情報は、その更新リクエストに限って supervisor 経由で各 worker に渡され、worker が ``X-Models-Token`` を付けて ``https://model.xinference.io/api/models/download`` に送信します。Xinference はトークンを永続化せず、プロセス環境にも設定しません。認証情報オブジェクトは actor の引数ログでトークンを隠します。認証情報付きのリクエストはリダイレクトを拒否します。リモートエラーは機密情報を除去し、利用可能な worker がない場合や失敗した worker がある場合は更新を失敗させます。更新済みの worker はロールバックされません。問題を解消してから再試行してください。このフックを使う前にすべての実行ノードを更新してください。カタログの更新は共有モデルレジストリに反映されます。このフックはユーザー別のモデル可視性やモデル重みのダウンロード認証情報を提供しません。"
+
+#: ../../development/xinference_internals.rst
+msgid "Malformed request bodies return HTTP 400. Credential provider failures return HTTP 500; explicit HTTP errors from providers keep their status and headers. Worker refresh failures return HTTP 502. No available workers or an unreachable supervisor return HTTP 503."
+msgstr "不正なリクエスト本文には HTTP 400 を返します。認証情報プロバイダーの失敗には HTTP 500 を返しますが、プロバイダーが明示した HTTP エラーのステータスとヘッダーは維持します。worker の更新失敗には HTTP 502 を返します。利用可能な worker がない場合や supervisor に接続できない場合は HTTP 503 を返します。"

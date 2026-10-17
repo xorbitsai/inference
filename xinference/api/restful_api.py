@@ -61,6 +61,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
 from starlette.background import BackgroundTask
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import PlainTextResponse, StreamingResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
@@ -4935,31 +4936,48 @@ class RESTfulAPI(CancelMixin):
         return JSONResponse(content=None)
 
     async def update_model_type(self, request: Request) -> JSONResponse:
+        from ..core.exceptions import (
+            ModelCatalogUnavailableError,
+            ModelCatalogUpdateError,
+        )
+        from ..extensions import resolve_model_catalog_credentials
+
+        # Parse client input before invoking any credential provider.
         try:
-            # Parse request
-            raw_json = await request.json()
-            body = UpdateModelRequest.parse_obj(raw_json)
-            model_type = body.model_type
+            body = UpdateModelRequest.parse_obj(await request.json())
+        except (ValueError, TypeError):
+            raise HTTPException(400, "Invalid request body") from None
+        model_type = body.model_type
 
-            # Get supervisor reference
-            supervisor_ref = await self._get_supervisor_ref()
-
-            # Call supervisor with model_type
-            await supervisor_ref.update_model_type(model_type)
-
-        except ValueError as re:
-            logger.error(f"ValueError in update_model_type API: {re}", exc_info=True)
-            logger.error(f"ValueError details: {type(re).__name__}: {re}")
-            raise HTTPException(status_code=400, detail=str(re))
+        try:
+            credentials = resolve_model_catalog_credentials(request, model_type)
+        except StarletteHTTPException:
+            raise
         except Exception as e:
             logger.error(
-                f"Unexpected error in update_model_type API: {e}", exc_info=True
+                "Model catalog credential provider failed (%s)", type(e).__name__
             )
-            logger.error(f"Error details: {type(e).__name__}: {e}")
-            import traceback
+            raise HTTPException(
+                500, "Failed to resolve model catalog credentials"
+            ) from None
 
-            logger.error(f"Full traceback: {traceback.format_exc()}")
-            raise HTTPException(status_code=500, detail=str(e))
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            if credentials is None:
+                await supervisor_ref.update_model_type(model_type)
+            else:
+                await supervisor_ref.update_model_type(
+                    model_type, credentials=credentials
+                )
+        except ModelCatalogUnavailableError:
+            raise HTTPException(
+                503, "No workers available to update model catalog"
+            ) from None
+        except ModelCatalogUpdateError:
+            raise HTTPException(502, "Failed to update model catalog") from None
+        except Exception as e:
+            logger.error("Model catalog supervisor unavailable (%s)", type(e).__name__)
+            raise HTTPException(503, "Model catalog supervisor unavailable") from None
 
         response_data = {
             "data": {

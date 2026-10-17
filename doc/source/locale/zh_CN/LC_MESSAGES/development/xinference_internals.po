@@ -746,8 +746,8 @@ msgid "The supervisor verifies matching worker extensions and supplies the live 
 msgstr "Supervisor 校验 Worker 扩展是否一致，并向资源过滤器提供当前在线的 Worker 清单。过滤器可以缩小可见 GPU 索引范围，也可以抛出异常拒绝准入，包括 CPU 模型启动。资源分配和进程创建均检查策略，覆盖准备与恢复路径。具名控制操作在 Supervisor 上运行；扩展必须校验操作名和参数。默认前端导航配置为空，发行版构建可以组合自己的配置。"
 
 #: ../../development/xinference_internals.rst
-msgid "Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
-msgstr "工厂和全部四个 hook 必须同步且不阻塞；返回可等待对象会被拒绝。API 和 Actor 在启动时加载配置的工厂，之后才处理请求或注册 Worker。Actor hook 在 Actor 的事件循环上运行。"
+msgid "Factories and all hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "工厂和全部 hook 必须同步且不阻塞；返回可等待对象会被拒绝。API 和 Actor 在启动时加载配置的工厂，之后才处理请求或注册 Worker。Actor hook 在 Actor 的事件循环上运行。"
 
 #: ../../development/xinference_internals.rst
 msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
@@ -756,3 +756,15 @@ msgstr "``context.auth_enabled`` 表示服务器整体的认证配置，而非�
 #: ../../development/xinference_internals.rst
 msgid "Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement."
 msgstr "资源策略用于模型调度、分配和进程创建，并在 GPU 清理前检查。仅缓存或下载的 Worker 调度不受此过滤。"
+
+#: ../../development/xinference_internals.rst
+msgid "Extensions may optionally implement synchronous, non-blocking ``model_catalog_credentials(request, model_type)``. For ``POST /v1/models/update_type``, this hook runs after the configured authentication and ``models:register`` permission checks. Return ``xinference.extensions.ModelCatalogCredentials(token=...)`` to supply a server-owned catalog token, or ``None`` to keep anonymous refresh. Existing extensions need no changes. Multiple credential providers and provider failures reject the refresh without an anonymous retry. Providers must keep tokens out of their own logs and HTTP error details or headers."
+msgstr "扩展可以选择实现同步、非阻塞的 ``model_catalog_credentials(request, model_type)``。对于 ``POST /v1/models/update_type``，此钩子在配置的身份认证和 ``models:register`` 权限检查通过后执行。返回 ``xinference.extensions.ModelCatalogCredentials(token=...)`` 可提供服务端管理的目录 token，返回 ``None`` 则保持匿名刷新。现有扩展无需修改。多个凭据提供方或提供方执行失败会拒绝刷新，不会以匿名方式重试。提供方必须确保自己的日志以及 HTTP 错误详情和响应头中不包含 token。"
+
+#: ../../development/xinference_internals.rst
+msgid "Credentials travel only with that refresh through the supervisor to each worker, which sends ``X-Models-Token`` to ``https://model.xinference.io/api/models/download``. Xinference does not persist the token or export it to the process environment; its credential object hides the token in actor argument logs. Credentialed requests reject redirects. Remote errors are sanitized, and unavailable or failing workers cause the refresh to fail. Workers that already updated are not rolled back; retry after correcting the failure. Update all runtime nodes before using this hook. Catalog updates affect the shared model registry; this hook does not provide per-user model visibility or model-weight download credentials."
+msgstr "凭据仅随本次刷新经 supervisor 传递至各 worker，worker 通过 ``X-Models-Token`` 将其发送至 ``https://model.xinference.io/api/models/download``。Xinference 不会持久化 token，也不会将其导出至进程环境；凭据对象会在 actor 参数日志中隐藏 token。携带凭据的请求拒绝重定向。远端错误会经过脱敏处理；没有可用 worker 或有 worker 失败时，刷新会失败。已经更新的 worker 不会回滚；修复故障后可重试。使用此钩子前请更新所有运行节点。目录更新影响共享的模型注册表；此钩子不提供按用户隔离的模型可见性，也不提供模型权重下载凭据。"
+
+#: ../../development/xinference_internals.rst
+msgid "Malformed request bodies return HTTP 400. Credential provider failures return HTTP 500; explicit HTTP errors from providers keep their status and headers. Worker refresh failures return HTTP 502. No available workers or an unreachable supervisor return HTTP 503."
+msgstr "非法请求体返回 HTTP 400。凭据提供方执行失败返回 HTTP 500；提供方显式抛出的 HTTP 错误保留其状态码和响应头。Worker 刷新失败返回 HTTP 502。没有可用 Worker 或无法联系 Supervisor 时返回 HTTP 503。"
