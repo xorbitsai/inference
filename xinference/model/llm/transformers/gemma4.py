@@ -170,10 +170,15 @@ class Gemma4ChatModel(PytorchDirectChatMixin, PytorchChatModel):
         self,
         generate_config: Dict,
     ) -> Dict[str, Any]:
-        return dict(
-            max_new_tokens=generate_config.get("max_tokens") or 512,
-            temperature=generate_config.get("temperature", 1),
-        )
+        temperature = generate_config.get("temperature", 1)
+        # Only zero selects greedy decoding; every positive temperature samples.
+        kwargs: Dict[str, Any] = {
+            "max_new_tokens": generate_config.get("max_tokens") or 512,
+            "do_sample": temperature != 0,
+        }
+        if kwargs["do_sample"]:
+            kwargs["temperature"] = temperature
+        return kwargs
 
     def build_streaming_iter(
         self,

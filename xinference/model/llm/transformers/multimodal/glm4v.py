@@ -137,12 +137,16 @@ class Glm4VModel(PytorchMultiModalModel):
         self,
         generate_config: Dict,
     ) -> Dict[str, Any]:
-        return {
+        temperature = generate_config.get("temperature", 0.7)
+        # Only zero selects greedy decoding; every positive temperature samples.
+        kwargs: Dict[str, Any] = {
             "eos_token_id": [151329, 151336, 151338],
-            "do_sample": True,
+            "do_sample": temperature != 0,
             "max_length": generate_config.get("max_tokens") or 2048,
-            "temperature": generate_config.get("temperature", 0.7),
         }
+        if kwargs["do_sample"]:
+            kwargs["temperature"] = temperature
+        return kwargs
 
     def get_stop_strs(self) -> List[str]:
         return ["<|endoftext|>"]
