@@ -60,8 +60,7 @@ The standard ``/v1/messages/count_tokens`` endpoint and its
 ``/anthropic/v1/messages/count_tokens`` alias use the loaded model's chat
 template and tokenizer, including tool definitions and images where supported.
 Both routes use the same model permissions and Xinference API key as message
-generation. SGLang supports text and tool token counting; image counting returns
-501.
+generation.
 
 .. code-block:: python
 
