@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
 
-from ..._compat import BaseModel, Field
+from ..._compat import BaseModel, Field, validator
 from ...types import CreateCompletion
 
 
@@ -176,3 +176,13 @@ class AutoConfigLLMRequest(BaseModel):
 
 class UpdateModelRequest(BaseModel):
     model_type: str
+
+
+class UpdateModelSpecRequest(UpdateModelRequest):
+    model_name: str
+
+    @validator("model_name", pre=True)
+    def validate_model_name(cls, value):
+        from ...core.model_catalog import validate_catalog_model_name
+
+        return validate_catalog_model_name(value)

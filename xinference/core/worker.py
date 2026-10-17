@@ -2650,18 +2650,22 @@ class WorkerActor(xo.StatelessActor):
         model_type: str,
         *,
         credentials: Optional["ModelCatalogCredentials"] = None,
+        model_name: Optional[str] = None,
     ) -> None:
         """
-        Update model configurations for a specific model type by downloading
-        the latest JSON from the remote API and storing it locally.
+        Download a model category or one named model and reload its catalog.
 
         Args:
             model_type: Type of model (LLM, embedding, image, etc.)
+            model_name: Refresh only this model when provided.
         """
         import requests
 
         from ..extensions import ModelCatalogCredentials
         from .exceptions import ModelCatalogUpdateError
+        from .model_catalog import validate_catalog_model_name
+
+        validate_catalog_model_name(model_name)
 
         if credentials is not None and not isinstance(
             credentials, ModelCatalogCredentials
@@ -2688,6 +2692,10 @@ class WorkerActor(xo.StatelessActor):
             "https://model.xinference.io/api/models/download"
             f"?model_type={model_type.lower()}"
         )
+        if model_name is not None:
+            from urllib.parse import urlencode
+
+            url += "&" + urlencode({"model_name": model_name, "include_readme": "true"})
 
         status_code = None
         stage = "download"
@@ -2710,7 +2718,12 @@ class WorkerActor(xo.StatelessActor):
 
             # Store the JSON data using CacheManager as built-in models
             stage = "store"
-            await self._store_complete_model_configurations(model_type, model_data)
+            if model_name is None:
+                await self._store_complete_model_configurations(model_type, model_data)
+            else:
+                await self._store_complete_model_configurations(
+                    model_type, model_data, model_name=model_name
+                )
 
             # Dynamically reload built-in models to make them immediately available
             try:
@@ -2763,18 +2776,19 @@ class WorkerActor(xo.StatelessActor):
                 "Failed to update model configurations"
             ) from None
 
-    async def _store_complete_model_configurations(self, model_type: str, model_data):
+    async def _store_complete_model_configurations(
+        self, model_type: str, model_data, *, model_name: Optional[str] = None
+    ):
         """
-        Store complete model configurations as a unified JSON file.
-        This is used by update_model_type to preserve the original JSON structure.
+        Publish a complete catalog or merge one model into the downloaded file.
 
         Args:
             model_type: Type of model (as provided by user, e.g., "llm")
             model_data: JSON data containing model configurations (complete array)
+            model_name: Limit the update to this model when provided.
         """
-        import json
-
         from ..constants import XINFERENCE_MODEL_DIR
+        from .model_catalog import store_model_catalog
 
         try:
             model_type_lower = model_type.lower()
@@ -2787,19 +2801,16 @@ class WorkerActor(xo.StatelessActor):
                 builtin_dir, f"{model_type_lower}_models.json"
             )
 
-            # Ensure directory exists
-            os.makedirs(builtin_dir, exist_ok=True)
-
-            # Store the complete JSON file (preserving original structure)
-            with open(json_file_path, "w", encoding="utf-8") as f:
-                json.dump(model_data, f, indent=2, ensure_ascii=False)
+            await asyncio.to_thread(
+                store_model_catalog,
+                pathlib.Path(json_file_path),
+                model_data,
+                model_name=model_name,
+            )
 
         except Exception as e:
-            logger.error(
-                f"Error storing complete model configurations: {str(e)}",
-                exc_info=True,
-            )
-            raise ValueError(f"Failed to store complete model configurations: {str(e)}")
+            logger.error("Error storing model configurations (%s)", type(e).__name__)
+            raise ValueError("Failed to store model configurations") from None
 
     @log_async(logger=logger)
     async def list_model_registrations(

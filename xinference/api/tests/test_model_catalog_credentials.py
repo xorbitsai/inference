@@ -69,25 +69,34 @@ def bearer(api, permissions):
     return {"Authorization": "Bearer " + token}
 
 
-async def update(api, headers, **request_kwargs):
+async def update(api, headers, *, single=False, **request_kwargs):
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=api._app), base_url="http://test"
     ) as client:
         return await client.post(
-            "/v1/models/update_type",
+            "/v1/models/update_spec" if single else "/v1/models/update_type",
             headers=headers,
-            **(request_kwargs or {"json": {"model_type": "llm"}}),
+            **(
+                request_kwargs
+                or {
+                    "json": {
+                        "model_type": "llm",
+                        **({"model_name": "wanted"} if single else {}),
+                    }
+                }
+            ),
         )
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("single", [False, True])
 @pytest.mark.parametrize("permissions, status", [(None, 401), (["models:read"], 403)])
 async def test_authentication_and_scope_checks_precede_provider(
-    api, permissions, status
+    api, permissions, status, single
 ):
     runtime, hook = api
     headers = bearer(runtime, permissions) if permissions is not None else {}
-    result = await update(runtime, headers)
+    result = await update(runtime, headers, single=single)
     assert result.status_code == status
     hook.assert_not_called()
     runtime._get_supervisor_ref.assert_not_awaited()
@@ -167,6 +176,110 @@ async def test_invalid_body_is_400_before_provider_or_rpc(api, caplog, request_k
     assert TOKEN not in caplog.text
     hook.assert_not_called()
     runtime._get_supervisor_ref.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("credentialed", [False, True])
+async def test_single_model_refresh_uses_the_existing_provider_and_permission_path(
+    api, monkeypatch, credentialed
+):
+    runtime, hook = api
+    if not credentialed:
+        monkeypatch.setattr(extensions, "get_extensions", lambda: ())
+    result = await update(
+        runtime,
+        bearer(runtime, ["models:register"]),
+        single=True,
+        json={"model_type": "llm", "model_name": "wanted"},
+    )
+    assert result.status_code == 200
+    assert result.json() == {
+        "data": {
+            "model_type": "llm",
+            "model_name": "wanted",
+            "message": "Successfully updated model: wanted",
+        }
+    }
+    expected: dict = {"model_name": "wanted"}
+    if credentialed:
+        expected["credentials"] = ModelCatalogCredentials(TOKEN)
+        hook.assert_called_once()
+    supervisor = await runtime._get_supervisor_ref()
+    supervisor.update_model_type.assert_awaited_once_with("llm", **expected)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "name", [None, "", " padded", "a\nb", "a\x7fb", 42, False, [], "a" * 513]
+)
+async def test_single_model_name_is_required_and_validated_before_credentials(
+    api, name
+):
+    runtime, hook = api
+    result = await update(
+        runtime,
+        bearer(runtime, ["models:register"]),
+        single=True,
+        json={"model_type": "llm", "model_name": name},
+    )
+    assert result.status_code == 400
+    assert result.json() == {"detail": "Invalid request body"}
+    hook.assert_not_called()
+    runtime._get_supervisor_ref.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_single_model_api_reaches_supervisor_worker_and_persisted_catalog(
+    api, tmp_path, monkeypatch
+):
+    import json
+    from functools import partial
+
+    import requests
+
+    from xinference.core.model_catalog import store_model_catalog
+    from xinference.core.supervisor import SupervisorActor
+    from xinference.core.worker import WorkerActor
+
+    runtime, _ = api
+    monkeypatch.setattr("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr("xinference.model.llm.register_builtin_model", Mock())
+    path = tmp_path / "v2" / "builtin" / "llm" / "llm_models.json"
+    store_model_catalog(
+        path, [{"model_name": "keep"}, {"model_name": "wanted", "updated_at": 1}]
+    )
+    worker = SimpleNamespace(_custom_register_type_to_cls={"LLM": None})
+    worker._store_complete_model_configurations = partial(
+        WorkerActor._store_complete_model_configurations, worker
+    )
+    supervisor = SupervisorActor()
+    supervisor._worker_address_to_worker = {
+        "worker": SimpleNamespace(
+            update_model_type=partial(WorkerActor.update_model_type, worker)
+        )
+    }
+    runtime._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    download = Mock(
+        return_value=SimpleNamespace(
+            status_code=200,
+            raise_for_status=Mock(),
+            json=lambda: {"model_name": "wanted", "updated_at": 2},
+        )
+    )
+    monkeypatch.setattr(requests, "get", download)
+    result = await update(
+        runtime,
+        bearer(runtime, ["models:register"]),
+        single=True,
+        json={"model_type": "llm", "model_name": "wanted"},
+    )
+    assert result.status_code == 200
+    assert json.loads(path.read_text()) == [
+        {"model_name": "keep"},
+        {"model_name": "wanted", "updated_at": 2},
+    ]
+    assert download.call_args.kwargs["headers"] == {"X-Models-Token": TOKEN}
+    assert TOKEN not in result.text
 
 
 @pytest.mark.asyncio
