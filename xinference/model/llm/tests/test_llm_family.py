@@ -805,6 +805,16 @@ def test_match_llm():
     "model_name,expected_architecture,expected_formats",
     [
         (
+            "Qwen3-VL-Instruct",
+            "Qwen3VLMoeForConditionalGeneration",
+            {"pytorch": {"none"}, "fp8": {"fp8"}, "awq": {"4bit", "8bit"}},
+        ),
+        (
+            "Qwen3-VL-Thinking",
+            "Qwen3VLMoeForConditionalGeneration",
+            {"pytorch": {"none"}, "fp8": {"fp8"}, "awq": {"4bit", "8bit"}},
+        ),
+        (
             "Qwen3-Next-Instruct",
             "Qwen3NextForCausalLM",
             {

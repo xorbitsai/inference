@@ -177,6 +177,8 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Qwen2_5_VLForConditionalGeneration",
+    "Qwen3VLForConditionalGeneration",
+    "Qwen3VLMoeForConditionalGeneration",
     "Gemma3ForConditionalGeneration",
     "MiniCPMV",
     "MiniCPMV4_6ForConditionalGeneration",
@@ -288,7 +290,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         from .reasoning import configure_structured_reasoning
 
         configure_structured_reasoning(
-            self._model_config, getattr(self, "reasoning_parser", None)
+            self._model_config,
+            getattr(self, "reasoning_parser", None),
+            self.model_family.stop,
         )
 
         # Fix: GH#2169

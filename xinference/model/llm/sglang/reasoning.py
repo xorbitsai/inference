@@ -3,6 +3,7 @@
 """Expose Xinference's existing parsers to SGLang reasoning grammars."""
 
 import hashlib
+import inspect
 import json
 import os
 import re
@@ -10,7 +11,7 @@ import sys
 import tempfile
 from importlib.metadata import entry_points
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ....constants import XINFERENCE_CACHE_DIR
 from .. import reasoning_parser as parsers
@@ -25,7 +26,9 @@ def _config_path(name: str) -> Path:
 
 
 def configure_structured_reasoning(
-    model_config: Dict[str, Any], parser: Optional[ReasoningParser]
+    model_config: Dict[str, Any],
+    parser: Optional[ReasoningParser],
+    stop: Optional[List[str]] = None,
 ) -> None:
     if parser is None or "reasoning_parser" in model_config:
         return
@@ -46,7 +49,11 @@ def configure_structured_reasoning(
         return
     config = parser.get_config()
     config["reasoning_content"] = True
-    payload = {"parser_class": type(parser).__name__, "config": config}
+    payload = {
+        "parser_class": type(parser).__name__,
+        "config": config,
+        "stop": stop or [],
+    }
     serialized = json.dumps(payload, sort_keys=True)
     name = "xinference_" + hashlib.sha256(serialized.encode()).hexdigest()
     path = _config_path(name)
@@ -64,6 +71,19 @@ def configure_structured_reasoning(
         os.environ["SGLANG_PLUGINS"] = f"{plugins},{PLUGIN_NAME}"
     register()
     model_config["reasoning_parser"] = name
+    try:
+        from sglang.srt.constrained.reasoner_grammar_backend import (
+            ReasonerGrammarBackend,
+        )
+    except ImportError:
+        return
+    if (
+        model_config.get("grammar_backend") in (None, "xgrammar")
+        and "enable_strict_thinking"
+        in inspect.signature(ReasonerGrammarBackend).parameters
+    ):
+        # Otherwise an EOS inside reasoning can bypass the JSON grammar entirely.
+        model_config.setdefault("enable_strict_thinking", True)
 
 
 def _detector_class(payload: Dict[str, Any]):
@@ -87,12 +107,34 @@ def _detector_class(payload: Dict[str, Any]):
             **kwargs: Any,
         ):
             self.parser = parser_class(**payload["config"])
-            super().__init__(
-                think_start_token=self.parser.reasoning_start_tag,
-                think_end_token=self.parser.reasoning_end_tag,
-                force_reasoning=bool(force_reasoning),
-                stream_reasoning=stream_reasoning,
-            )
+            detector_config: Dict[str, Any] = {
+                "think_start_token": self.parser.reasoning_start_tag,
+                "think_end_token": self.parser.reasoning_end_tag,
+                "force_reasoning": bool(force_reasoning),
+                "stream_reasoning": stream_reasoning,
+            }
+            if (
+                "think_excluded_tokens"
+                in inspect.signature(BaseReasoningFormatDetector).parameters
+            ):
+                excluded = []
+                if tokenizer is not None:
+                    end_ids = tokenizer.encode(
+                        self.parser.reasoning_end_tag, add_special_tokens=False
+                    )
+                    candidates = [*payload.get("stop", [])]
+                    if getattr(tokenizer, "eos_token", None):
+                        candidates.append(tokenizer.eos_token)
+                    for token in dict.fromkeys(candidates):
+                        ids = tokenizer.encode(token, add_special_tokens=False)
+                        if (
+                            len(ids) == 1
+                            and ids[0] not in end_ids
+                            and ids[0] != getattr(tokenizer, "unk_token_id", None)
+                        ):
+                            excluded.append(token)
+                detector_config["think_excluded_tokens"] = excluded
+            super().__init__(**detector_config)
             self._text = ""
             if tokenizer is not None:
                 self.parser.bind_tokenizer(tokenizer)
