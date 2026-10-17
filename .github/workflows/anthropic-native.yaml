@@ -40,7 +40,7 @@ jobs:
     timeout-minutes: 90
     env:
       NO_WEB_UI: 1
-      XINFERENCE_TEST_ANTHROPIC_ENGINE: ${{ inputs.engine || 'SGLang' }}
+      XINFERENCE_TEST_ANTHROPIC_ENGINE: ${{ inputs.engine || 'vLLM' }}
       XINFERENCE_TEST_CLAUDE_CODE: '1'
       TEXT_MODEL_PATH: ${{ inputs.text_model_path }}
       VISION_MODEL_PATH: ${{ inputs.vision_model_path }}
