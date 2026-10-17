@@ -75,6 +75,11 @@ jobs:
           esac
           python -m pip install -e '.[dev]' 'anthropic>=0.84' pillow \
             'qwen-vl-utils!=0.0.9' qwen_omni_utils audioread "${engine_packages[@]}"
+          if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = SGLang ]; then
+            # These dense, single-GPU models do not use DeepEP. Its optional
+            # package tries to initialize JIT without a CUDA toolkit on T4 CI.
+            python -m pip uninstall -y sgl-deep-ep
+          fi
           npm install -g '@anthropic-ai/claude-code@2.1.81'
           python -m pip freeze > native-packages.txt
           claude --version >> native-packages.txt
