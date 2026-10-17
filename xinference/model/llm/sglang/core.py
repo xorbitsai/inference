@@ -1592,6 +1592,9 @@ class SGLANGChatModel(SGLANGModel):
                     "Spark-X2.5 SGLang requires chat_template.jinja from the "
                     "official model snapshot"
                 ) from exc
+        # Same as vLLM: templates expect string content, so null or missing
+        # content on a tool-call turn would fail to render.
+        messages = self.prefill_messages(messages)
         # fix: Object of type list_iterator is not JSON serializable
         tools = list(generate_config.pop("tools", [])) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name

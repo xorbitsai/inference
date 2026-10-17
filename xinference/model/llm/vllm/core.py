@@ -2776,32 +2776,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def is_tool_call_chunk_end(chunk):
         return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
 
-    @staticmethod
-    def prefill_messages(messages: List[Dict]) -> List[Dict]:
-        """
-        Preprocess messages to ensure content is not None
-
-        Args:
-            messages: Original message list
-
-        Returns:
-            Processed message list, where content is not None
-        """
-        processed_messages = []
-
-        for msg in messages:
-            if isinstance(msg, dict):
-                if msg.get("content") is None:
-                    msg_copy = msg.copy()
-                    msg_copy["content"] = ""  # Replace None with empty string
-                    processed_messages.append(msg_copy)
-                else:
-                    processed_messages.append(msg)
-            else:
-                processed_messages.append(msg)
-
-        return processed_messages
-
     async def _prepare_chat_inputs(
         self, messages: List[Dict], generate_config: Optional[Dict]
     ):
