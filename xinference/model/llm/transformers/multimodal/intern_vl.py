@@ -410,6 +410,9 @@ class InternVLChatModel(PytorchMultiModalModel):
 
         configs = self.build_generate_kwargs(generate_config)
         inputs = self.build_inputs_from_messages(messages, generate_config)
+        configs["max_new_tokens"] = self._cap_context_max_new_tokens(
+            len(inputs["input_ids"][0]), configs["max_new_tokens"]
+        )
         generate_kwargs = {**inputs, **configs, "streamer": streamer}
         thread = Thread(
             target=self._model.generate,

@@ -25,6 +25,7 @@ def adapter():
     from transformers import BatchFeature
 
     model = object.__new__(Qwen2VLChatModel)
+    model._pytorch_model_config = {}
     model.model_uid = "qwen2-vl-test"
     model.reasoning_parser = None
     model._tokenizer = Mock(encode=lambda text, **kwargs: text.split())
