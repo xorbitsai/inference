@@ -69,7 +69,7 @@ jobs:
           set -euo pipefail
           python -m pip install -U pip 'setuptools<82'
           case "$XINFERENCE_TEST_ANTHROPIC_ENGINE" in
-            MLX) engine_packages=('mlx-lm==0.31.3' 'mlx-vlm==0.4.4') ;;
+            MLX) engine_packages=('mlx-lm==0.31.3' 'mlx-vlm==0.4.4' 'llguidance>=1.7.0') ;;
             vLLM) engine_packages=('vllm==0.19.0') ;;
             SGLang) engine_packages=('sglang[srt]==0.5.21' ninja 'cuda-toolkit[nvcc,cccl]==13.0.3.0') ;;
           esac
@@ -137,17 +137,18 @@ jobs:
           set -euo pipefail
           export XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG="$TEXT_MODEL_CONFIG"
           text_tests=(
+            "$NATIVE_TEST_FILE::test_structured_schema_is_enforced"
             "$NATIVE_TEST_FILE::test_counting_and_unsupported_controls"
             "$NATIVE_TEST_FILE::test_text_model_rejects_images"
             "$NATIVE_TEST_FILE::test_stop_sequences"
             "$NATIVE_TEST_FILE::test_openai_path"
             "$NATIVE_TEST_FILE::test_claude_code[0]"
           )
-          # MLX thinking/tool replay runs on the VLM below: Qwen3-4B's
-          # unconstrained tool loop is unreliable. LM-specific thinking
-          # therefore has no native coverage in this workflow.
-          if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" != MLX ]; then
-            text_tests=("$NATIVE_TEST_FILE::test_thinking_replay_and_tool_loop" "${text_tests[@]}")
+          text_tests=("$NATIVE_TEST_FILE::test_thinking_replay_and_tool_loop" "${text_tests[@]}")
+          if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = MLX ]; then
+            text_tests+=("$NATIVE_TEST_FILE::test_mlx_cache_breakpoints")
+          elif [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = SGLang ]; then
+            text_tests+=("$NATIVE_TEST_FILE::test_sglang_thinking_budget")
           fi
           pytest --timeout=600 -s -vv \
             --junitxml=native-text.xml --basetemp=native-text \
@@ -159,6 +160,7 @@ jobs:
           set -euo pipefail
           export XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG="$VISION_MODEL_CONFIG"
           vision_tests=(
+            "$NATIVE_TEST_FILE::test_structured_schema_is_enforced"
             "$NATIVE_TEST_FILE::test_images"
             "$NATIVE_TEST_FILE::test_image_limits"
             "$NATIVE_TEST_FILE::test_counting_and_unsupported_controls"
@@ -167,6 +169,7 @@ jobs:
           )
           if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = MLX ]; then
             vision_tests=("$NATIVE_TEST_FILE::test_thinking_replay_and_tool_loop" "${vision_tests[@]}")
+            vision_tests+=("$NATIVE_TEST_FILE::test_mlx_cache_breakpoints")
           fi
           pytest --timeout=600 -s -vv \
             --junitxml=native-vision.xml --basetemp=native-vision \

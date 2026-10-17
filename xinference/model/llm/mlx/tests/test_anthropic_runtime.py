@@ -108,17 +108,103 @@ def test_expired_cache_is_not_reused(monkeypatch, stored_tokens):
     assert not model._anthropic_cache_expiry
 
 
-def test_unsupported_controls_fail_and_default_effort_preserves_prompt():
+def test_invalid_schema_fails_and_default_effort_preserves_prompt():
     model = object.__new__(core.MLXChatModel)
     model.model_family = SimpleNamespace(model_ability=["chat"])
     model.reasoning_parser = None
+    model._tokenizer = None
     messages = [{"role": "user", "content": "hello"}]
     prepared = model.prepare_anthropic_request(messages, {"reasoning_effort": "medium"})
     assert prepared["messages"] == messages
     assert messages == [{"role": "user", "content": "hello"}]
-    with pytest.raises(NotImplementedError, match="Structured"):
+    with pytest.raises(ValueError, match="JSON schema object"):
         model.prepare_anthropic_request(
             messages, {"response_format": {"type": "json_schema"}}
         )
-    with pytest.raises(NotImplementedError, match="disable_parallel"):
-        model.prepare_anthropic_request(messages, {"parallel_tool_calls": False})
+    prepared = model.prepare_anthropic_request(messages, {"parallel_tool_calls": False})
+    assert prepared["generate_config"]["parallel_tool_calls"] is False
+
+
+def test_explicit_checkpoints_refresh_and_expire_independently(monkeypatch):
+    from .. import prompt_cache
+
+    clock = [100.0]
+    monkeypatch.setattr(prompt_cache.time, "monotonic", lambda: clock[0])
+    cache = prompt_cache.TimedPromptCache()
+    state = [SimpleNamespace(state=["original"])]
+    assert cache.store([1, 2], state, 3600)
+    assert cache.store([1, 2, 3, 4], state, 300)
+    state[0].state.append("generation")
+    clock[0] = 300
+    hit, length = cache.fetch([1, 2, 3, 4, 5])
+    assert length == 4 and hit[0].state == ["original"]
+    hit[0].state.append("request")
+    assert cache.entries[(1, 2)].expires == 3900
+    assert cache.entries[(1, 2, 3, 4)].expires == 600
+    clock[0] = 600
+    hit, length = cache.fetch([1, 2, 3, 4, 5])
+    assert length == 2 and hit[0].state == ["original"]
+    assert (1, 2, 3, 4) not in cache.entries
+    clock[0] = 4200
+    assert cache.fetch([1, 2, 3, 4, 5]) == (None, 0)
+
+
+def test_explicit_checkpoint_memory_limit_and_unrelated_expiry(monkeypatch):
+    from .. import prompt_cache
+
+    clock = [0.0]
+    monkeypatch.setattr(prompt_cache.time, "monotonic", lambda: clock[0])
+    state = [SimpleNamespace(state=SimpleNamespace(nbytes=10))]
+    cache = prompt_cache.TimedPromptCache(max_bytes=15)
+    cache.store([1], state, 300)
+    cache.store([2], state, 3600)
+    assert list(cache.entries) == [(2,)]
+    clock[0] = 300
+    assert cache.fetch([2, 3])[1] == 1
+    assert cache.entries[(2,)].expires == 3900
+    cache = prompt_cache.TimedPromptCache(max_bytes=5)
+    assert not cache.store([1], state, 300)
+    assert cache.fetch([1, 2]) == (None, 0)
+
+
+def test_added_checkpoint_is_prefilled_but_eviction_does_not_force_a_miss():
+    from ..prompt_cache import TimedPromptCache
+
+    state = [SimpleNamespace(state=[])]
+    cache = TimedPromptCache(max_size=1)
+    cache.store([1, 2, 3, 4], state, 300)
+    assert cache.fetch([1, 2, 3, 4, 5], [2, 4]) == (None, 0)
+    cache.store([1, 2], state, 3600)
+    cache.store([1, 2, 3, 4], state, 300)
+    assert cache.fetch([1, 2, 3, 4, 5], [2, 4])[1] == 4
+
+
+def test_final_detokenizer_fragment_preserves_length_finish():
+    model = object.__new__(core.MLXVisionModel)
+    model.model_uid = "test"
+    model._tokenizer = SimpleNamespace(eos_token_id=99)
+    model._prompt_cache = None
+    model._prepare_inputs = lambda prompt, config: ([], 1, 0)
+    model._get_max_tokens = lambda length, requested: 2
+    model._structured_processor = lambda config: []
+    model._generate_stream_inner = lambda **kwargs: iter(
+        [
+            SimpleNamespace(token=1, text="a"),
+            SimpleNamespace(token=2, text="b"),
+            SimpleNamespace(token=2, text=""),
+        ]
+    )
+    chunks = list(
+        model._generate_stream(
+            "prompt",
+            {
+                "max_tokens": 2,
+                "temperature": 0,
+                "top_p": 1,
+                "top_k": 0,
+                "repetition_penalty": None,
+                "repetition_context_size": 20,
+            },
+        )
+    )
+    assert chunks[-1][0]["choices"][0]["finish_reason"] == "length"

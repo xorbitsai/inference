@@ -4,10 +4,10 @@
 import copy
 import json
 import uuid
-from typing import Any, AsyncGenerator, Dict, List, Tuple
+from typing import Any, AsyncGenerator, Dict, Iterator, List, Mapping, Tuple
 
 
-def is_forced_tool_choice(config: Dict[str, Any]) -> bool:
+def is_forced_tool_choice(config: Mapping[str, Any]) -> bool:
     choice = config.get("tool_choice")
     return choice == "required" or isinstance(choice, dict)
 
@@ -15,7 +15,7 @@ def is_forced_tool_choice(config: Dict[str, Any]) -> bool:
 def prepare_forced_tools(
     messages: List[Dict[str, Any]], config: Dict[str, Any]
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    config = copy.deepcopy(config)
+    config = copy.deepcopy(dict(config))
     tools = config.pop("tools", [])
     choice = config.pop("tool_choice")
     parallel = config.pop("parallel_tool_calls", True)
@@ -132,6 +132,13 @@ def convert_forced_completion(completion: Dict[str, Any]) -> Dict[str, Any]:
 async def stream_forced_completion(
     completion: Dict[str, Any], include_usage: bool
 ) -> AsyncGenerator[Dict[str, Any], None]:
+    for chunk in iter_forced_completion(completion, include_usage):
+        yield chunk
+
+
+def iter_forced_completion(
+    completion: Dict[str, Any], include_usage: bool
+) -> Iterator[Dict[str, Any]]:
     # Emit only complete, constrained arguments. Partial/truncated JSON must
     # never become an executable tool call.
     metadata = {k: completion[k] for k in ("id", "created", "model")}
@@ -173,6 +180,23 @@ def single_tool_completion(completion: Dict[str, Any]) -> Dict[str, Any]:
         if message.get("tool_calls"):
             message["tool_calls"] = message["tool_calls"][:1]
     return completion
+
+
+def single_tool_chunks(chunks) -> Iterator[Dict[str, Any]]:
+    first_indexes: Dict[int, int] = {}
+    try:
+        for chunk in chunks:
+            chunk = copy.deepcopy(chunk)
+            for choice in chunk.get("choices", []):
+                calls = choice["delta"].get("tool_calls")
+                if calls:
+                    index = first_indexes.setdefault(choice["index"], calls[0]["index"])
+                    choice["delta"]["tool_calls"] = [
+                        c for c in calls if c["index"] == index
+                    ]
+            yield chunk
+    finally:
+        chunks.close()
 
 
 async def single_tool_stream(chunks) -> AsyncGenerator[Dict[str, Any], None]:

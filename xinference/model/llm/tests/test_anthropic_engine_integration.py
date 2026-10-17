@@ -128,6 +128,7 @@ def native_model(record_testsuite_property):
                 key=key,
                 anthropic=anthropic,
                 openai=openai,
+                description=description,
             )
     finally:
         try:
@@ -252,6 +253,21 @@ def test_images(native_model, colors, in_tool_result, stream):
         **kwargs,
     )
     assert result.stop_reason == "end_turn", result
+    counted = requests.post(
+        native_model.endpoint + "/v1/messages/count_tokens",
+        headers={"anthropic-version": "2023-06-01", "x-api-key": native_model.key},
+        json={
+            "model": native_model.model,
+            "messages": messages + [{"role": "user", "content": content}],
+            "thinking": {"type": "disabled"},
+            **kwargs,
+        },
+        timeout=180,
+    )
+    assert counted.status_code == 200, counted.text
+    assert counted.json()["input_tokens"] == result.usage.input_tokens + (
+        getattr(result.usage, "cache_read_input_tokens", 0) or 0
+    )
     answer = text(result).lower()
     assert all(color in answer for color in colors), result
 
@@ -284,10 +300,7 @@ def test_thinking_replay_and_tool_loop(native_model, stream):
     messages = [
         {
             "role": "user",
-            "content": (
-                "Call lookup with value alpha. Then call finish, copying the text "
-                "returned by lookup verbatim into finish.value."
-            ),
+            "content": "Call lookup with value alpha.",
         }
     ]
     kwargs = dict(
@@ -298,19 +311,16 @@ def test_thinking_replay_and_tool_loop(native_model, stream):
         thinking={"type": "adaptive"},
         output_config={"effort": "low"},
     )
-    if native_model.engine != "MLX":
-        kwargs["tool_choice"] = {"type": "tool", "name": "lookup"}
+    kwargs["tool_choice"] = {
+        "type": "tool",
+        "name": "lookup",
+        **({"disable_parallel_tool_use": True} if native_model.engine == "MLX" else {}),
+    }
     first = create(native_model, messages, stream=stream, **kwargs)
     thought = [b for b in first.content if b.type == "thinking"]
     assert thought and all(b.thinking and b.signature for b in thought), first
     calls = [b for b in first.content if b.type == "tool_use"]
-    if native_model.engine == "MLX":
-        # Auto tool choice allows parallel calls; MLX cannot enforce a single
-        # named tool. Still require lookup and reply to every returned call.
-        assert any(call.name == "lookup" for call in calls), first
-        assert all(call.name in {"lookup", "finish"} for call in calls), first
-    else:
-        assert len(calls) == 1 and calls[0].name == "lookup", first
+    assert len(calls) == 1 and calls[0].name == "lookup", first
     messages += [
         {"role": "assistant", "content": [b.model_dump() for b in first.content]},
         {
@@ -318,20 +328,21 @@ def test_thinking_replay_and_tool_loop(native_model, stream):
             "content": [
                 {
                     "type": "tool_result",
-                    "tool_use_id": call.id,
-                    "content": (
-                        "NATIVE_RESULT_42"
-                        if call.name == "lookup"
-                        else "Finish was called before the lookup result. Retry using that result."
-                    ),
-                    **({"is_error": True} if call.name != "lookup" else {}),
-                }
-                for call in calls
+                    "tool_use_id": calls[0].id,
+                    "content": "NATIVE_RESULT_42",
+                },
+                {
+                    "type": "text",
+                    "text": "Now call finish, copying the latest lookup tool result verbatim into finish.value.",
+                },
             ],
         },
     ]
-    if native_model.engine != "MLX":
-        kwargs["tool_choice"] = {"type": "tool", "name": "finish"}
+    kwargs["tool_choice"] = {
+        "type": "tool",
+        "name": "finish",
+        **({"disable_parallel_tool_use": True} if native_model.engine == "MLX" else {}),
+    }
     messages[:0] = [
         {"role": "user", "content": "An earlier task."},
         {
@@ -364,12 +375,7 @@ def test_thinking_replay_and_tool_loop(native_model, stream):
         **kwargs,
     )
     calls = [b for b in second.content if b.type == "tool_use"]
-    if native_model.engine == "MLX":
-        assert all(call.name in {"lookup", "finish"} for call in calls), second
-        calls = [call for call in calls if call.name == "finish"]
-        assert calls, second
-    else:
-        assert len(calls) == 1 and calls[0].name == "finish", second
+    assert len(calls) == 1 and calls[0].name == "finish", second
     assert all(call.input == {"value": "NATIVE_RESULT_42"} for call in calls), second
     assert second.stop_reason == "tool_use", second
 
@@ -386,41 +392,118 @@ def test_counting_and_unsupported_controls(native_model):
     assert counted.input_tokens == result.usage.input_tokens + (
         getattr(result.usage, "cache_read_input_tokens", 0) or 0
     )
-    if native.engine == "MLX":
-        from anthropic import APIStatusError
 
-        with pytest.raises(APIStatusError) as error:
-            create(
-                native,
-                request["messages"],
-                tools=tools(),
-                tool_choice={"type": "any"},
-                thinking=request["thinking"],
-            )
-        assert error.value.status_code == 501
-        with pytest.raises(APIStatusError) as error:
-            create(
-                native,
-                request["messages"],
-                thinking=request["thinking"],
-                output_config={
-                    "format": {"type": "json_schema", "schema": {"type": "object"}}
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_structured_schema_is_enforced(native_model, stream):
+    result = create(
+        native_model,
+        [{"role": "user", "content": "Reply with plain text HELLO, not JSON."}],
+        stream=stream,
+        thinking={"type": "disabled"},
+        output_config={
+            "format": {
+                "type": "json_schema",
+                "schema": {
+                    "type": "object",
+                    "properties": {"status": {"const": "SCHEMA_ACCEPTED"}},
+                    "required": ["status"],
+                    "additionalProperties": False,
                 },
-            )
-        assert error.value.status_code == 501
-    if native.engine == "SGLang":
-        response = requests.post(
-            native.endpoint + "/v1/messages/count_tokens",
-            headers={"anthropic-version": "2023-06-01", "x-api-key": native.key},
-            json={
-                "model": native.model,
-                "messages": [{"role": "user", "content": [image("red")]}],
-            },
-            timeout=30,
-        )
-        assert response.status_code == (
-            501 if "vision" in native.abilities else 400
-        ), response.text
+            }
+        },
+    )
+    assert json.loads(text(result)) == {"status": "SCHEMA_ACCEPTED"}
+    assert result.stop_reason == "end_turn"
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_sglang_thinking_budget(native_model, stream, record_property):
+    if native_model.engine != "SGLang":
+        pytest.skip("SGLang request-level reasoning budget")
+    from transformers import AutoTokenizer
+
+    from ..llm_family import match_llm
+
+    description = native_model.description
+    family = match_llm(
+        description["model_name"],
+        description["model_format"],
+        description["model_size_in_billions"],
+        description["quantization"],
+    )
+    assert family is not None
+    launch = json.loads(os.environ.get("XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG", "{}"))
+    tokenizer = AutoTokenizer.from_pretrained(
+        launch.get("model_path") or family.model_specs[0].model_id
+    )
+    result = create(
+        native_model,
+        [
+            {
+                "role": "user",
+                "content": (
+                    "Consider every integer from 1 through 300, checking each for primality "
+                    "one by one in your reasoning. Then state how many are prime."
+                ),
+            }
+        ],
+        stream=stream,
+        max_tokens=1536,
+        thinking={"type": "enabled", "budget_tokens": 1024},
+    )
+    thought = "".join(
+        block.thinking for block in result.content if block.type == "thinking"
+    )
+    # The native closer may add a newline and its closing marker at the boundary.
+    count = len(tokenizer.encode(thought, add_special_tokens=False))
+    record_property("thinking_tokens", count)
+    assert 0 < count <= 1026, result
+    assert text(result).strip(), result
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_mlx_cache_breakpoints(native_model, stream):
+    if native_model.engine != "MLX":
+        pytest.skip("MLX explicit cache checkpoints")
+    system = [
+        {
+            "type": "text",
+            "text": uuid.uuid4().hex + " Stable context. " * 64,
+            "cache_control": {"type": "ephemeral", "ttl": "1h"},
+        }
+    ]
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Earlier facts. " * 32,
+                    "cache_control": {"type": "ephemeral"},
+                },
+                {"type": "text", "text": "Reply READY."},
+            ],
+        }
+    ]
+    cold = create(
+        native_model,
+        messages,
+        stream=stream,
+        system=system,
+        thinking={"type": "disabled"},
+    )
+    hot = create(
+        native_model,
+        messages,
+        stream=stream,
+        system=system,
+        thinking={"type": "disabled"},
+    )
+    assert cold.usage.cache_creation_input_tokens > 0
+    assert hot.usage.cache_read_input_tokens == cold.usage.cache_creation_input_tokens
+    assert hot.usage.cache_creation_input_tokens == 0
+    assert text(cold).strip() and text(hot).strip()
 
 
 @pytest.mark.parametrize("stream", [False, True])
@@ -496,8 +579,6 @@ def test_stop_sequences(native_model, stream):
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("json_output", [False, True])
 def test_openai_path(native_model, stream, json_output):
-    if json_output and native_model.engine == "MLX":
-        pytest.skip("MLX has no constrained JSON support")
     kwargs = {"response_format": {"type": "json_object"}} if json_output else {}
     prompt = (
         "Return JSON with key answer and value 42."

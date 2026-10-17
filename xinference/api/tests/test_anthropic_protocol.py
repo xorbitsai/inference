@@ -829,3 +829,41 @@ async def test_stream_closes_inner_iterator_when_consumer_stops_early():
     await events.aclose()
 
     assert closed is True
+
+
+def test_cache_breakpoints_retain_individual_lifetimes():
+    body = _base_request(
+        system=[
+            {
+                "type": "text",
+                "text": "stable system",
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            }
+        ],
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "stable user",
+                        "cache_control": {"type": "ephemeral"},
+                    },
+                    {"type": "text", "text": "uncached tail"},
+                ],
+            }
+        ],
+    )
+    request = parse_anthropic_request(body)
+    checkpoints = request.cache_control["breakpoints"]
+    assert [item["ttl"] for item in checkpoints] == [3600, 300]
+    assert checkpoints[0]["messages"] == [
+        {"role": "system", "content": "stable system"}
+    ]
+    assert checkpoints[0]["tools"] == []
+    assert checkpoints[1]["messages"][-1] == {"role": "user", "content": "stable user"}
+    assert request.messages[-1]["content"] == "stable user\nuncached tail"
+    body["system"][0]["cache_control"]["ttl"] = "5m"
+    body["messages"][0]["content"][0]["cache_control"]["ttl"] = "1h"
+    with pytest.raises(AnthropicProtocolError, match="Longer cache lifetimes"):
+        parse_anthropic_request(body)
