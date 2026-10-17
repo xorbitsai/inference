@@ -914,6 +914,14 @@ class MLXModel(LLM, ChatModelMixin):
             )
         ]
 
+    def count_tokens(
+        self, messages: List[Dict], generate_config: Optional[Dict] = None
+    ) -> int:
+        config = copy.deepcopy(generate_config or {})
+        if is_forced_tool_choice(config):
+            messages, config = prepare_forced_tools(messages, config)
+        return super().count_tokens(messages, config)
+
     def _set_explicit_cache_boundaries(
         self,
         messages: List[Dict],
@@ -1021,6 +1029,10 @@ class MLXModel(LLM, ChatModelMixin):
         )
         if cache_control is not None and "tools" in cache_control:
             context_kwargs["tools"] = cache_control["tools"]
+        if cache_control is not None:
+            # A checkpoint ends at message content, before the next assistant
+            # prefix; otherwise it cannot survive appending a conversation turn.
+            context_kwargs["add_generation_prompt"] = False
         if cache_control is None:
             prefix_messages[-1]["content"] = ""
         elif not any(message.get("role") == "user" for message in prefix_messages):
@@ -2832,6 +2844,8 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
     def _count_chat_tokens(
         self, messages: List[Dict], generate_config: Optional[Dict]
     ) -> int:
+        if generate_config and is_forced_tool_choice(generate_config):
+            messages, generate_config = prepare_forced_tools(messages, generate_config)
         inputs, _tools, _context, _config = self._prepare_chat_inputs(
             copy.deepcopy(messages),
             cast(Optional[MLXGenerateConfig], copy.deepcopy(generate_config)),

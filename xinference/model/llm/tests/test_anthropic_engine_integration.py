@@ -317,6 +317,16 @@ def test_thinking_replay_and_tool_loop(native_model, stream):
         **({"disable_parallel_tool_use": True} if native_model.engine == "MLX" else {}),
     }
     first = create(native_model, messages, stream=stream, **kwargs)
+    counted = requests.post(
+        native_model.endpoint + "/v1/messages/count_tokens",
+        headers={"anthropic-version": "2023-06-01", "x-api-key": native_model.key},
+        json={"model": native_model.model, "messages": messages, **kwargs},
+        timeout=180,
+    )
+    assert counted.status_code == 200, counted.text
+    assert counted.json()["input_tokens"] == first.usage.input_tokens + (
+        getattr(first.usage, "cache_read_input_tokens", 0) or 0
+    ) + (getattr(first.usage, "cache_creation_input_tokens", 0) or 0)
     thought = [b for b in first.content if b.type == "thinking"]
     assert thought and all(b.thinking and b.signature for b in thought), first
     calls = [b for b in first.content if b.type == "tool_use"]
@@ -480,9 +490,12 @@ def test_mlx_cache_breakpoints(native_model, stream):
                 {
                     "type": "text",
                     "text": "Earlier facts. " * 32,
+                },
+                {
+                    "type": "text",
+                    "text": "Reply READY.",
                     "cache_control": {"type": "ephemeral"},
                 },
-                {"type": "text", "text": "Reply READY."},
             ],
         }
     ]
@@ -511,6 +524,20 @@ def test_mlx_cache_breakpoints(native_model, stream):
     assert hot.usage.cache_read_input_tokens == cold.usage.cache_creation_input_tokens
     assert hot.usage.cache_creation_input_tokens == 0
     assert text(cold).strip() and text(hot).strip()
+    followup = create(
+        native_model,
+        [
+            *messages,
+            {"role": "assistant", "content": text(hot)},
+            {"role": "user", "content": "Reply OK."},
+        ],
+        stream=stream,
+        system=system,
+        thinking={"type": "disabled"},
+    )
+    assert (
+        followup.usage.cache_read_input_tokens == cold.usage.cache_creation_input_tokens
+    )
 
 
 @pytest.mark.parametrize("stream", [False, True])
