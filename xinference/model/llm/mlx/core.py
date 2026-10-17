@@ -956,7 +956,7 @@ class MLXModel(LLM, ChatModelMixin):
         start, end = parser.reasoning_start_tag, parser.reasoning_end_tag
         if start and end and start.startswith("<") and end.startswith("<"):
             if prompt.rfind(start) <= prompt.rfind(end):
-                prompt += start + "\n"
+                prompt += start if start.endswith("\n") else start + "\n"
         return prompt
 
     def _apply_thinking_budget(self, config: Dict) -> None:
@@ -973,15 +973,36 @@ class MLXModel(LLM, ChatModelMixin):
             or not context.get("enable_thinking")
         ):
             return
+        parser = self.reasoning_parser
+        if parser is None or not (
+            parser.reasoning_start_tag or parser.reasoning_end_tag
+        ):
+            return
         from .structured import ReasoningBudgetLogitsProcessor
 
-        parser = self.reasoning_parser
-        if parser is None or not (parser.reasoning_start_tag or "").startswith("<"):
+        if not (parser.reasoning_start_tag or "").startswith("<"):
             raise NotImplementedError("MLX thinking budgets require reasoning markers")
         ReasoningBudgetLogitsProcessor(
             self._tokenizer, parser.reasoning_end_tag, budget
         )
         config["_mlx_thinking_budget"] = budget
+
+    def _get_eos_token_ids(
+        self, stop_token_ids: Optional[Union[int, List[int]]] = None
+    ) -> List[int]:
+        eos = getattr(self._tokenizer, "eos_token_ids", None)
+        if eos is None:
+            eos = [self._tokenizer.eos_token_id]
+        result = {eos} if isinstance(eos, int) else set(eos)
+        family_stop = getattr(
+            getattr(self, "model_family", None), "stop_token_ids", None
+        )
+        for stops in (family_stop, stop_token_ids):
+            if isinstance(stops, int):
+                result.add(stops)
+            elif stops:
+                result.update(stops)
+        return sorted(token for token in result if token is not None)
 
     def _structured_processor(self, config: MLXGenerateConfig) -> List[Any]:
         from .structured import (
@@ -991,6 +1012,7 @@ class MLXModel(LLM, ChatModelMixin):
         )
 
         processors: List[Any] = []
+        eos_token_ids = self._get_eos_token_ids(config.get("stop_token_ids"))
         budget = config.get("_mlx_thinking_budget")
         if budget is not None:
             parser = self.reasoning_parser
@@ -1000,7 +1022,7 @@ class MLXModel(LLM, ChatModelMixin):
                 )
             processors.append(
                 ReasoningBudgetLogitsProcessor(
-                    self._tokenizer, parser.reasoning_end_tag, budget
+                    self._tokenizer, parser.reasoning_end_tag, budget, eos_token_ids
                 )
             )
         if not config.get("response_format"):
@@ -1010,7 +1032,10 @@ class MLXModel(LLM, ChatModelMixin):
             end = self.reasoning_parser.reasoning_end_tag
         return processors + [
             JSONLogitsProcessor(
-                self._tokenizer, json_schema(config["response_format"]), end
+                self._tokenizer,
+                json_schema(config["response_format"]),
+                end,
+                eos_token_ids,
             )
         ]
 
@@ -1624,7 +1649,6 @@ class MLXModel(LLM, ChatModelMixin):
         prepared_inputs: Optional[Tuple[Any, int, int]] = None,
     ):
         model_uid = self.model_uid
-        tokenizer = self._tokenizer
         max_tokens = kwargs.get("max_tokens")
         chunk_id = str(uuid.uuid4())
         stop_token_ids = kwargs.get("stop_token_ids")
@@ -1632,11 +1656,7 @@ class MLXModel(LLM, ChatModelMixin):
             stop_token_ids = [stop_token_ids]
         else:
             stop_token_ids = stop_token_ids or []
-        eos_token_ids = getattr(tokenizer, "eos_token_ids", None)
-        if eos_token_ids is None:
-            eos_token_ids = [tokenizer.eos_token_id]
-        elif isinstance(eos_token_ids, int):
-            eos_token_ids = [eos_token_ids]
+        eos_token_ids = self._get_eos_token_ids()
         stream = kwargs.get("stream", False)
         stream_options = kwargs.pop("stream_options", None)
         include_usage = (
@@ -1686,9 +1706,10 @@ class MLXModel(LLM, ChatModelMixin):
 
             is_eos = token in eos_token_ids
             stopped = is_eos or token in stop_token_ids
-            # Native EOS responses carry the detokenizer's final fragment.
-            # A caller-supplied non-EOS stop token is counted/cached, not emitted.
-            out = "" if stopped and not is_eos else chunk_resp.text
+            # Native terminal responses carry buffered detokenizer text.
+            # Suppress a nonterminal stop token's own text instead.
+            native_stop = getattr(chunk_resp, "finish_reason", None) == "stop"
+            out = "" if stopped and not (is_eos or native_stop) else chunk_resp.text
             if stream:
                 # this special character is mainly for qwen
                 out = out.strip("")
@@ -1876,6 +1897,14 @@ class MLXModel(LLM, ChatModelMixin):
         xavier = getattr(self, "_xavier", None)
         xavier_inputs = {}
         if xavier is not None:
+            if (
+                generate_config.get("response_format")
+                or is_forced_tool_choice(generate_config)
+                or generate_config.get("_mlx_thinking_budget") is not None
+            ):
+                raise NotImplementedError(
+                    "MLX P/D models do not support constrained output"
+                )
             if xavier.role == "prefill":
                 if (
                     not isinstance(transfer, dict)
@@ -2762,6 +2791,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
         inputs = kwargs.pop("prompt_token_ids")
         stop_token_ids = kwargs.pop("stop_token_ids", [])
+        eos_token_ids = self._get_eos_token_ids(stop_token_ids)
 
         extra_kwargs = kwargs.copy()
         input_ids, pixel_values, mask, kwargs = inputs
@@ -2780,7 +2810,6 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         ):
             generation_model = _CachedTextVisionModel(self._model)
 
-        tokenizer = self._processor.tokenizer
         detokenizer = self._processor.detokenizer
 
         detokenizer.reset()
@@ -2795,7 +2824,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     prompt_time = time.perf_counter() - tic
                     prompt_tps = len(input_ids) / prompt_time
                     tic = time.perf_counter()
-                if token == tokenizer.eos_token_id or token in stop_token_ids:
+                if token in eos_token_ids:
                     break
                 detokenizer.add_token(token)
 
@@ -2823,6 +2852,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 generation_tokens=n + 1,
                 generation_tps=(n + 1) / (time.perf_counter() - tic),
                 peak_memory=mx.metal.get_peak_memory() / 1e9,
+                finish_reason="stop" if token in eos_token_ids else "length",
             )
         finally:
             # after completing the inference, clear the memory

@@ -187,14 +187,15 @@ msgid ""
 " engines return 501 for unsupported controls. MLX uses ``llguidance`` "
 "(included in the ``mlx`` extra) with a fast tokenizer. Requests with "
 "constrained output, a manual thinking budget or explicit cache checkpoints "
-"use request-local decoding; other text requests retain continuous batching."
+"use request-local decoding; other text requests retain continuous batching. "
+"MLX requires ``mlx-lm>=0.31.3`` for thread-local generation streams."
 msgstr ""
 "Xinference는 지원되는 사고 마커와 파서 플러그인을 지원하는 엔진에서 기존 추론 파서를 vLLM과 SGLang의 구조화된 디코딩에"
 " 자동으로 연결합니다. Qwen3.5에는 추가 파서 설정이 필요하지 않습니다. 명시적인 엔진 파서 설정은 유지됩니다. 수동 사고는 강제 "
 "도구 선택과 함께 사용할 수 없습니다. 다른 엔진은 지원하지 않는 제어에 대해 501을 반환합니다. P/D 모델은 강제 도구 선택에 대해"
 " 501을 반환합니다. MLX는 ``mlx`` 추가 의존성에 포함된 ``llguidance`` 와 빠른 tokenizer를 사용합니다. "
 "제약 출력, 수동 사고 예산 또는 명시적 캐시 체크포인트가 있는 요청은 요청별 디코더를 사용하며 나머지 텍스트 요청은 연속 배치 처리를 "
-"유지합니다."
+"유지합니다. MLX에서 스레드 로컬 생성 스트림을 사용하려면 ``mlx-lm>=0.31.3`` 이 필요합니다."
 
 #: user_guide/anthropic.rst:103
 msgid "Prompt caching"
@@ -293,9 +294,9 @@ msgstr ""
 
 #: ../source/user_guide/anthropic.rst:164
 msgid ""
-"The following limitations still apply. Supported controls also require a "
-"compatible model and engine version, as described above."
-msgstr "다음 제한은 계속 적용됩니다. 지원되는 제어에도 위에서 설명한 대로 호환되는 모델과 엔진 버전이 필요합니다."
+"The table summarizes engine support. Supported controls require a compatible"
+" model and engine version, as described above."
+msgstr "다음 표는 각 엔진의 지원 현황을 요약합니다. 지원되는 제어 기능에도 위에서 설명한 호환 모델과 엔진 버전이 필요합니다."
 
 #: ../source/user_guide/anthropic.rst:171
 msgid "Feature"
@@ -357,11 +358,8 @@ msgstr "텍스트 요청(LM 및 VLM)"
 msgid "Separate reasoning-token budget"
 msgstr "별도 추론 토큰 예산"
 
-#: ../source/user_guide/anthropic.rst:192
-#: ../source/user_guide/anthropic.rst:193
-#: ../source/user_guide/anthropic.rst:194
-msgid "Not enforced"
-msgstr "적용하지 않음"
+#~ msgid "Not enforced"
+#~ msgstr "적용하지 않음"
 
 #: user_guide/anthropic.rst:162
 msgid ""

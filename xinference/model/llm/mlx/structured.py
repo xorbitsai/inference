@@ -1,20 +1,30 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 """Request-local JSON constraints for MLX generation."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 class ReasoningBudgetLogitsProcessor:
     """Close thinking at its token budget while leaving answer tokens available."""
 
-    def __init__(self, tokenizer: Any, end: str, budget: int):
+    def __init__(
+        self,
+        tokenizer: Any,
+        end: str,
+        budget: int,
+        eos_token_ids: Optional[List[int]] = None,
+    ):
         if type(budget) is not int or budget < 1:
             raise ValueError("Thinking budget must be a positive integer")
         self._end = tokenizer.encode(end, add_special_tokens=False) if end else []
         unknown = getattr(tokenizer, "unk_token_id", None)
         if not self._end or unknown is not None and unknown in self._end:
             raise NotImplementedError("MLX thinking budgets require known end markers")
-        eos = getattr(tokenizer, "eos_token_ids", None)
+        eos = (
+            eos_token_ids
+            if eos_token_ids is not None
+            else getattr(tokenizer, "eos_token_ids", None)
+        )
         if eos is None:
             eos = [tokenizer.eos_token_id]
         self._eos = [eos] if isinstance(eos, int) else list(eos)
@@ -56,7 +66,11 @@ class ReasoningBudgetLogitsProcessor:
 
 class JSONLogitsProcessor:
     def __init__(
-        self, tokenizer: Any, schema: Dict, reasoning_end: Optional[str] = None
+        self,
+        tokenizer: Any,
+        schema: Dict,
+        reasoning_end: Optional[str] = None,
+        eos_token_ids: Optional[List[int]] = None,
     ):
         try:
             from llguidance import LLMatcher
@@ -68,7 +82,11 @@ class JSONLogitsProcessor:
 
         from transformers import PreTrainedTokenizerFast
 
-        eos = getattr(tokenizer, "eos_token_ids", None)
+        eos = (
+            eos_token_ids
+            if eos_token_ids is not None
+            else getattr(tokenizer, "eos_token_ids", None)
+        )
         if eos is None:
             eos = [tokenizer.eos_token_id]
         self._eos = [eos] if isinstance(eos, int) else list(eos)

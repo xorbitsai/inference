@@ -1157,6 +1157,11 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         budget = context.get("thinking_budget")
         if budget is None or not context.get("enable_thinking"):
             return
+        parser = self.reasoning_parser
+        if parser is None or not (
+            parser.reasoning_start_tag or parser.reasoning_end_tag
+        ):
+            return
         try:
             from sglang.srt.managers.io_struct import GenerateReqInput
 

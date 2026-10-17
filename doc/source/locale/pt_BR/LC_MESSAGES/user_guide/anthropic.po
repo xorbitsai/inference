@@ -210,7 +210,8 @@ msgid ""
 " engines return 501 for unsupported controls. MLX uses ``llguidance`` "
 "(included in the ``mlx`` extra) with a fast tokenizer. Requests with "
 "constrained output, a manual thinking budget or explicit cache checkpoints "
-"use request-local decoding; other text requests retain continuous batching."
+"use request-local decoding; other text requests retain continuous batching. "
+"MLX requires ``mlx-lm>=0.31.3`` for thread-local generation streams."
 msgstr ""
 "O Xinference conecta automaticamente seu parser de raciocínio existente à "
 "decodificação estruturada do vLLM e SGLang para marcadores compatíveis e "
@@ -222,7 +223,8 @@ msgstr ""
 "ferramentas. O MLX usa ``llguidance``, incluído no extra ``mlx``, com um "
 "tokenizer rápido. Solicitações com saída restrita, orçamento de raciocínio "
 "manual ou pontos de cache explícitos usam um decodificador próprio; as "
-"demais solicitações de texto mantêm o processamento contínuo em lotes."
+"demais solicitações de texto mantêm o processamento contínuo em lotes. O MLX"
+" requer ``mlx-lm>=0.31.3`` para fluxos de geração locais a cada thread."
 
 #: user_guide/anthropic.rst:103
 msgid "Prompt caching"
@@ -338,12 +340,11 @@ msgstr ""
 
 #: ../source/user_guide/anthropic.rst:164
 msgid ""
-"The following limitations still apply. Supported controls also require a "
-"compatible model and engine version, as described above."
+"The table summarizes engine support. Supported controls require a compatible"
+" model and engine version, as described above."
 msgstr ""
-"As limitações a seguir continuam valendo. Os controles suportados também "
-"exigem um modelo e uma versão do mecanismo compatíveis, conforme descrito "
-"acima."
+"A tabela resume o suporte dos mecanismos. Os controles suportados exigem um "
+"modelo e uma versão do mecanismo compatíveis, conforme descrito acima."
 
 #: ../source/user_guide/anthropic.rst:171
 msgid "Feature"
@@ -405,11 +406,8 @@ msgstr "Solicitações de texto (LM e VLM)"
 msgid "Separate reasoning-token budget"
 msgstr "Orçamento separado de tokens de raciocínio"
 
-#: ../source/user_guide/anthropic.rst:192
-#: ../source/user_guide/anthropic.rst:193
-#: ../source/user_guide/anthropic.rst:194
-msgid "Not enforced"
-msgstr "Não imposto"
+#~ msgid "Not enforced"
+#~ msgstr "Não imposto"
 
 #: user_guide/anthropic.rst:162
 msgid ""

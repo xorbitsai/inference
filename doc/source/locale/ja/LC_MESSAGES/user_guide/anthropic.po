@@ -187,7 +187,8 @@ msgid ""
 " engines return 501 for unsupported controls. MLX uses ``llguidance`` "
 "(included in the ``mlx`` extra) with a fast tokenizer. Requests with "
 "constrained output, a manual thinking budget or explicit cache checkpoints "
-"use request-local decoding; other text requests retain continuous batching."
+"use request-local decoding; other text requests retain continuous batching. "
+"MLX requires ``mlx-lm>=0.31.3`` for thread-local generation streams."
 msgstr ""
 "Xinference は、対応する思考マーカーとパーサープラグインをサポートするエンジンに対して、既存の推論パーサーを vLLM と SGLang "
 "の構造化デコードに自動接続します。Qwen3.5 "
@@ -195,6 +196,7 @@ msgstr ""
 " 501 を返します。 P/D モデルは強制ツール選択に対して 501 を返します。 MLX は ``mlx`` 追加依存関係に含まれる "
 "``llguidance`` と高速 tokenizer "
 "を使用します。制約付き出力、手動の思考予算、明示的なキャッシュ境界を持つリクエストは専用デコーダーを使用し、その他のテキストリクエストは連続バッチ処理を維持します。"
+" MLX はスレッドローカルな生成ストリームを使用するため、``mlx-lm>=0.31.3`` が必要です。"
 
 #: user_guide/anthropic.rst:103
 msgid "Prompt caching"
@@ -295,9 +297,9 @@ msgstr ""
 
 #: ../source/user_guide/anthropic.rst:164
 msgid ""
-"The following limitations still apply. Supported controls also require a "
-"compatible model and engine version, as described above."
-msgstr "以下の制限は引き続き適用されます。対応している制御にも、前述のとおり、互換性のあるモデルとエンジンのバージョンが必要です。"
+"The table summarizes engine support. Supported controls require a compatible"
+" model and engine version, as described above."
+msgstr "次の表は各エンジンの対応状況をまとめたものです。対応している制御にも、上記のとおり互換性のあるモデルとエンジンのバージョンが必要です。"
 
 #: ../source/user_guide/anthropic.rst:171
 msgid "Feature"
@@ -359,11 +361,8 @@ msgstr "テキストリクエスト（LM と VLM）"
 msgid "Separate reasoning-token budget"
 msgstr "推論トークンの個別予算"
 
-#: ../source/user_guide/anthropic.rst:192
-#: ../source/user_guide/anthropic.rst:193
-#: ../source/user_guide/anthropic.rst:194
-msgid "Not enforced"
-msgstr "適用なし"
+#~ msgid "Not enforced"
+#~ msgstr "適用なし"
 
 #: user_guide/anthropic.rst:162
 msgid ""

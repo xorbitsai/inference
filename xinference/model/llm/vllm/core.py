@@ -629,6 +629,11 @@ class VLLMModel(WeightCachedModel, LLM):
         budget = context.get("thinking_budget")
         if budget is None or not context.get("enable_thinking"):
             return
+        parser = self.reasoning_parser
+        if parser is None or not (
+            parser.reasoning_start_tag or parser.reasoning_end_tag
+        ):
+            return
         from vllm import SamplingParams
 
         reasoning = getattr(
@@ -636,7 +641,6 @@ class VLLMModel(WeightCachedModel, LLM):
             "reasoning_config",
             None,
         )
-        parser = self.reasoning_parser
         if (
             "thinking_token_budget" not in inspect.signature(SamplingParams).parameters
             or parser is None
@@ -1774,7 +1778,10 @@ class VLLMModel(WeightCachedModel, LLM):
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
         sanitized.setdefault("top_k", generate_config.get("top_k", -1))
-        if generate_config.get("thinking_token_budget") is not None:
+        if (
+            generate_config.get("_anthropic_request")
+            and generate_config.get("thinking_token_budget") is not None
+        ):
             sanitized["thinking_token_budget"] = generate_config[
                 "thinking_token_budget"
             ]

@@ -16,7 +16,8 @@ def test_schema_validation_preserves_empty_schema():
 
 
 @pytest.mark.parametrize("reasoning", [False, True])
-def test_native_mask_enforces_schema_after_reasoning(reasoning):
+@pytest.mark.parametrize("family_stop", [False, True])
+def test_native_mask_enforces_schema_after_reasoning(reasoning, family_stop):
     mx = pytest.importorskip("mlx.core")
     pytest.importorskip("llguidance")
     from tokenizers import Tokenizer, decoders, models, pre_tokenizers
@@ -25,18 +26,22 @@ def test_native_mask_enforces_schema_after_reasoning(reasoning):
     alphabet = sorted(pre_tokenizers.ByteLevel.alphabet())
     vocab = {value: index for index, value in enumerate(alphabet)}
     vocab["<eos>"] = len(vocab)
+    vocab["<turn|>"] = len(vocab)
     raw = Tokenizer(models.BPE(vocab=vocab, merges=[]))
     raw.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
     raw.decoder = decoders.ByteLevel()
     tokenizer = PreTrainedTokenizerFast(tokenizer_object=raw, eos_token="<eos>")
+    eos_ids = [tokenizer.eos_token_id, vocab["<turn|>"]] if family_stop else None
     processor = JSONLogitsProcessor(
-        tokenizer, {"const": {"value": 42}}, "</think>" if reasoning else None
+        tokenizer, {"const": {"value": 42}}, "</think>" if reasoning else None, eos_ids
     )
     tokens = []
     logits = mx.zeros((len(vocab),))
     initial = processor(mx.array(tokens, dtype=mx.int32), logits)
     if reasoning:
         assert mx.isneginf(initial[tokenizer.eos_token_id]).item()
+        if family_stop:
+            assert mx.isneginf(initial[vocab["<turn|>"]]).item()
         tokens += tokenizer.encode("some reasoning</think>", add_special_tokens=False)
     valid = tokenizer.encode('{"value":42}', add_special_tokens=False)
     for token in valid:
@@ -51,22 +56,31 @@ def test_native_mask_enforces_schema_after_reasoning(reasoning):
         tokens.append(token)
     constrained = processor(mx.array(tokens, dtype=mx.int32), logits)
     assert not mx.isinf(constrained[tokenizer.eos_token_id]).item()
+    if family_stop:
+        assert not mx.isinf(constrained[vocab["<turn|>"]]).item()
     assert processor.matcher.is_accepting()
 
 
 @pytest.mark.parametrize("prompt", [[], [10, 11, 12]])
 @pytest.mark.parametrize("batched", [False, True])
-def test_budget_forces_multitoken_closer_then_releases_answer(prompt, batched):
+@pytest.mark.parametrize("family_stop", [False, True])
+def test_budget_forces_multitoken_closer_then_releases_answer(
+    prompt, batched, family_stop
+):
     from types import SimpleNamespace
 
     mx = pytest.importorskip("mlx.core")
     tokenizer = SimpleNamespace(
         encode=lambda text, **kw: list(text.encode()), eos_token_id=0
     )
-    processor = ReasoningBudgetLogitsProcessor(tokenizer, "</>", 2)
+    processor = ReasoningBudgetLogitsProcessor(
+        tokenizer, "</>", 2, [0, 106] if family_stop else None
+    )
     logits = mx.zeros((1, 256) if batched else (256,))
     tokens = list(prompt)
     assert mx.isneginf(processor(mx.array(tokens), logits).reshape(-1)[0]).item()
+    if family_stop:
+        assert mx.isneginf(processor(mx.array(tokens), logits).reshape(-1)[106]).item()
     tokens.append(ord("x"))
     processor(mx.array(tokens), logits)
     tokens.append(ord("x"))

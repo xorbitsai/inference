@@ -7,9 +7,7 @@ import pytest
 from .. import core
 
 
-@pytest.mark.parametrize(
-    "start,end", [(None, None), ("", ""), ("analysis", "final"), ("<think>", None)]
-)
+@pytest.mark.parametrize("start,end", [("analysis", "final"), ("<think>", None)])
 def test_manual_budget_rejects_missing_reasoning_markers(start, end):
     from ...reasoning_parser import ReasoningParser
 
@@ -28,6 +26,162 @@ def test_manual_budget_rejects_missing_reasoning_markers(start, end):
                 }
             }
         )
+
+
+@pytest.mark.parametrize("engine", ["mlx", "vllm", "sglang"])
+@pytest.mark.parametrize("markers", [None, (None, None), ("", "")])
+def test_non_reasoning_models_ignore_anthropic_thinking_budget(engine, markers):
+    from ...reasoning_parser import ReasoningParser
+    from ...sglang.core import SGLANGChatModel
+    from ...vllm.core import VLLMChatModel
+
+    cls = {"mlx": core.MLXChatModel, "vllm": VLLMChatModel, "sglang": SGLANGChatModel}[
+        engine
+    ]
+    model = object.__new__(cls)
+    model.reasoning_parser = (
+        ReasoningParser(reasoning_start_tag=markers[0], reasoning_end_tag=markers[1])
+        if markers is not None
+        else None
+    )
+    config = {
+        "_anthropic_request": True,
+        "chat_template_kwargs": {
+            "_anthropic_request": True,
+            "enable_thinking": True,
+            "thinking_budget": 1024,
+        },
+    }
+    model._apply_thinking_budget(config)
+    assert (
+        not {"_mlx_thinking_budget", "thinking_token_budget", "max_thinking_tokens"}
+        & config.keys()
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role", ["prefill", "decode"])
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("control", ["json", "tool"])
+async def test_xavier_rejects_openai_constraints_before_handoff(role, stream, control):
+    from unittest.mock import AsyncMock
+
+    model = control_model()
+    model._xavier = SimpleNamespace(role=role, fetch=AsyncMock(), prefill=AsyncMock())
+    config = {"stream": stream}
+    if control == "json":
+        config["response_format"] = {"type": "json_object"}
+    else:
+        config["tool_choice"] = "required"
+    with pytest.raises(NotImplementedError, match="P/D models do not support"):
+        await model.async_generate("prompt", config)
+    model._xavier.fetch.assert_not_called()
+    model._xavier.prefill.assert_not_called()
+
+
+@pytest.mark.parametrize("start", ["<think>", "<|channel>thought\n"])
+def test_reasoning_opener_preserves_existing_newline(start):
+    model = control_model()
+    model.reasoning_parser.reasoning_start_tag = start
+    config = {
+        "response_format": {"type": "json_object"},
+        "chat_template_kwargs": {"enable_thinking": True},
+    }
+    assert model._prepare_reasoning_prompt("assistant\n", config) == (
+        "assistant\n" + start.rstrip("\n") + "\n"
+    )
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "terminal,request_stop", [(106, None), (106, [77]), (77, [77]), (0, 0), (99, None)]
+)
+def test_vlm_family_stop_preserves_final_detokenizer_fragment(
+    monkeypatch, stream, terminal, request_stop
+):
+    fake_core = SimpleNamespace(metal=SimpleNamespace(get_peak_memory=lambda: 0))
+    monkeypatch.setitem(sys.modules, "mlx", SimpleNamespace(core=fake_core))
+    monkeypatch.setitem(sys.modules, "mlx.core", fake_core)
+    monkeypatch.setitem(
+        sys.modules,
+        "mlx_lm.utils",
+        SimpleNamespace(GenerationResponse=lambda **kw: SimpleNamespace(**kw)),
+    )
+    monkeypatch.setattr(
+        core,
+        "_ensure_mlx_vlm_thread_local_stream",
+        lambda: SimpleNamespace(
+            generate_step=lambda *args, **kw: iter([(10, None), (terminal, None)])
+        ),
+    )
+
+    class Detokenizer:
+        last_segment = ""
+
+        def reset(self):
+            self.last_segment = ""
+
+        def add_token(self, token):
+            pass
+
+        def finalize(self):
+            self.last_segment = "tail"
+
+    model = control_model(core.MLXVisionModel)
+    model.model_family.stop_token_ids = [106]
+    model._tokenizer = SimpleNamespace(eos_token_id=99)
+    model._processor = SimpleNamespace(
+        tokenizer=model._tokenizer, detokenizer=Detokenizer()
+    )
+    model._model = object()
+    model._draft_model = None
+    model._prompt_cache = None
+    model._cleanup_memory = lambda: None
+    model._structured_processor = lambda config: []
+    model._prepare_inputs = lambda *args: (([1, 2], None, None, {}), 2, 0)
+    chunks = list(
+        model._generate_stream(
+            {},
+            model._sanitize_generate_config(
+                {"max_tokens": 4, "stream": stream, "stop_token_ids": request_stop}
+            ),
+        )
+    )
+    assert "".join(chunk["choices"][0]["text"] for chunk, _ in chunks) == "tail"
+    assert chunks[-1][1]["completion_tokens"] == 2
+    assert chunks[-1][0]["choices"][0]["finish_reason"] == "stop"
+
+
+@pytest.mark.parametrize("cls", [core.MLXChatModel, core.MLXVisionModel])
+@pytest.mark.parametrize("request_stop", [0, [77]])
+def test_constraints_mask_model_and_request_stop_ids(monkeypatch, cls, request_stop):
+    from .. import structured
+
+    model = control_model(cls)
+    model.model_family.stop_token_ids = [106]
+    model._tokenizer.eos_token_ids = 99
+    seen = []
+
+    def processor(*args):
+        seen.append(args[-1])
+        return object()
+
+    monkeypatch.setattr(structured, "JSONLogitsProcessor", processor)
+    monkeypatch.setattr(structured, "ReasoningBudgetLogitsProcessor", processor)
+    assert (
+        len(
+            model._structured_processor(
+                {
+                    "_mlx_thinking_budget": 4,
+                    "response_format": {"type": "json_object"},
+                    "stop_token_ids": request_stop,
+                }
+            )
+        )
+        == 2
+    )
+    expected = [0, 99, 106] if request_stop == 0 else [77, 99, 106]
+    assert seen == [expected, expected]
 
 
 class Array:

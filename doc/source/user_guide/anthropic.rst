@@ -169,6 +169,7 @@ tool choice. P/D models return 501 for forced tool choice. Other engines return
 ``mlx`` extra) with a fast tokenizer. Requests with constrained output, a manual
 thinking budget or explicit cache checkpoints use
 request-local decoding; other text requests retain continuous batching.
+MLX requires ``mlx-lm>=0.31.3`` for thread-local generation streams.
 
 SGLang counts image tokens through a zero-output native prefill, using the
 same image processing as generation. This performs image processing and
@@ -190,7 +191,7 @@ to a text-only model returns HTTP 400. Translated, emulated, degraded and
 rejected compatibility decisions are logged with their reasons. Capability
 checks do not add features that the engine cannot implement.
 
-The following limitations still apply. Supported controls also require a
+The table summarizes engine support. Supported controls require a
 compatible model and engine version, as described above.
 
 .. list-table::

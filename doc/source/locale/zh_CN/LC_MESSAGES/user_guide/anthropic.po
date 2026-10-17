@@ -180,13 +180,15 @@ msgid ""
 " engines return 501 for unsupported controls. MLX uses ``llguidance`` "
 "(included in the ``mlx`` extra) with a fast tokenizer. Requests with "
 "constrained output, a manual thinking budget or explicit cache checkpoints "
-"use request-local decoding; other text requests retain continuous batching."
+"use request-local decoding; other text requests retain continuous batching. "
+"MLX requires ``mlx-lm>=0.31.3`` for thread-local generation streams."
 msgstr ""
 "对于支持的思考标记和具备 parser 插件能力的引擎，Xinference 会自动将已有的 reasoning parser 接入 vLLM 和 "
 "SGLang 的结构化解码。Qwen3.5 无需额外配置 parser。用户显式指定的引擎 parser "
 "设置会保留。手动思考模式不能与强制工具选择组合。其他引擎对不支持的控制项返回 501。 P/D 模型对强制工具选择返回 501。 MLX 使用 "
-"``llguidance``（包含在 ``mlx`` 额外依赖中）和快速 "
-"tokenizer。约束请求、手动思考预算请求和带显式缓存检查点的请求使用独立解码器；其他文本请求保留连续批处理。"
+"``llguidance`` （包含在 ``mlx`` 额外依赖中）和快速 "
+"tokenizer。约束请求、手动思考预算请求和带显式缓存检查点的请求使用独立解码器；其他文本请求保留连续批处理。 MLX 需要 ``mlx-"
+"lm>=0.31.3``，以使用线程本地的生成流。"
 
 #: user_guide/anthropic.rst:103
 msgid "Prompt caching"
@@ -282,9 +284,9 @@ msgstr ""
 
 #: ../source/user_guide/anthropic.rst:164
 msgid ""
-"The following limitations still apply. Supported controls also require a "
-"compatible model and engine version, as described above."
-msgstr "以下限制仍然适用。已支持的控制项也需要兼容的模型和引擎版本，具体条件见上文。"
+"The table summarizes engine support. Supported controls require a compatible"
+" model and engine version, as described above."
+msgstr "下表汇总各引擎的支持情况。已支持的控制项需要兼容的模型和引擎版本，具体条件见上文。"
 
 #: ../source/user_guide/anthropic.rst:171
 msgid "Feature"
@@ -346,11 +348,8 @@ msgstr "文本请求（LM 和 VLM）"
 msgid "Separate reasoning-token budget"
 msgstr "独立推理 token 预算"
 
-#: ../source/user_guide/anthropic.rst:192
-#: ../source/user_guide/anthropic.rst:193
-#: ../source/user_guide/anthropic.rst:194
-msgid "Not enforced"
-msgstr "不强制执行"
+#~ msgid "Not enforced"
+#~ msgstr "不强制执行"
 
 #: user_guide/anthropic.rst:162
 msgid ""

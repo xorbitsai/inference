@@ -213,7 +213,8 @@ msgid ""
 " engines return 501 for unsupported controls. MLX uses ``llguidance`` "
 "(included in the ``mlx`` extra) with a fast tokenizer. Requests with "
 "constrained output, a manual thinking budget or explicit cache checkpoints "
-"use request-local decoding; other text requests retain continuous batching."
+"use request-local decoding; other text requests retain continuous batching. "
+"MLX requires ``mlx-lm>=0.31.3`` for thread-local generation streams."
 msgstr ""
 "Xinference collega automaticamente il proprio parser di ragionamento "
 "esistente alla decodifica strutturata di vLLM e SGLang per i marcatori "
@@ -226,7 +227,8 @@ msgstr ""
 "``llguidance``, incluso nell’extra ``mlx``, con un tokenizer veloce. Le "
 "richieste con output vincolato, budget di ragionamento manuale o punti di "
 "cache espliciti usano un decoder dedicato; le altre richieste di testo "
-"mantengono il batching continuo."
+"mantengono il batching continuo. MLX richiede ``mlx-lm>=0.31.3`` per i "
+"flussi di generazione locali a ciascun thread."
 
 #: user_guide/anthropic.rst:103
 msgid "Prompt caching"
@@ -345,11 +347,11 @@ msgstr ""
 
 #: ../source/user_guide/anthropic.rst:164
 msgid ""
-"The following limitations still apply. Supported controls also require a "
-"compatible model and engine version, as described above."
+"The table summarizes engine support. Supported controls require a compatible"
+" model and engine version, as described above."
 msgstr ""
-"Restano valide le seguenti limitazioni. I controlli supportati richiedono "
-"anche un modello e una versione del motore compatibili, come descritto "
+"La tabella riepiloga il supporto dei motori. I controlli supportati "
+"richiedono un modello e una versione del motore compatibili, come descritto "
 "sopra."
 
 #: ../source/user_guide/anthropic.rst:171
@@ -413,11 +415,8 @@ msgstr "Richieste di testo (LM e VLM)"
 msgid "Separate reasoning-token budget"
 msgstr "Budget separato dei token di ragionamento"
 
-#: ../source/user_guide/anthropic.rst:192
-#: ../source/user_guide/anthropic.rst:193
-#: ../source/user_guide/anthropic.rst:194
-msgid "Not enforced"
-msgstr "Non imposto"
+#~ msgid "Not enforced"
+#~ msgstr "Non imposto"
 
 #: user_guide/anthropic.rst:162
 msgid ""
