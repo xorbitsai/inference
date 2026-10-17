@@ -811,6 +811,8 @@ def test_serial_stop_usage_and_kv_tokens_stay_aligned(
         "length": 11,
         "first_eos": 99,
     }[ending]
+    if ending == "custom_stop" and not stream:
+        terminal = 0
     generated = (
         [99]
         if ending == "first_eos"
@@ -836,7 +838,9 @@ def test_serial_stop_usage_and_kv_tokens_stay_aligned(
             cache.tokens.append(
                 token
             )  # mlx-lm feeds the sampled token before yielding it.
-            text = "<STOP>" if token == 77 else "tail" if token in {98, 99} else "x"
+            text = (
+                "<STOP>" if token in {0, 77} else "tail" if token in {98, 99} else "x"
+            )
             yield SimpleNamespace(token=token, text=text, generation_tokens=index + 1)
         if ending != "length":
             raise AssertionError("outer stop check must stop at the terminal token")
@@ -871,7 +875,9 @@ def test_serial_stop_usage_and_kv_tokens_stay_aligned(
         "stream": stream,
         "stream_options": {"include_usage": True},
         "max_tokens": maximum,
-        "stop_token_ids": ([77] if stream else 77) if ending == "custom_stop" else None,
+        "stop_token_ids": (
+            ([terminal] if stream else terminal) if ending == "custom_stop" else None
+        ),
     }
     if mode == "json":
         config["response_format"] = {"type": "json_object"}

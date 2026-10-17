@@ -1627,9 +1627,11 @@ class MLXModel(LLM, ChatModelMixin):
         tokenizer = self._tokenizer
         max_tokens = kwargs.get("max_tokens")
         chunk_id = str(uuid.uuid4())
-        stop_token_ids = kwargs.get("stop_token_ids") or []
+        stop_token_ids = kwargs.get("stop_token_ids")
         if isinstance(stop_token_ids, int):
             stop_token_ids = [stop_token_ids]
+        else:
+            stop_token_ids = stop_token_ids or []
         eos_token_ids = getattr(tokenizer, "eos_token_ids", None)
         if eos_token_ids is None:
             eos_token_ids = [tokenizer.eos_token_id]
