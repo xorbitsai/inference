@@ -159,6 +159,13 @@ parser settings are preserved. Manual thinking cannot be combined with forced
 tool choice. P/D models return 501 for forced tool choice. Other engines return
 501 for unsupported controls.
 
+With compatible SGLang versions, Xinference enables strict thinking for its
+reasoning adapter on the default XGrammar backend, including ordinary requests.
+This adds token-filtering overhead, requires a compatible tokenizer and does not
+support UNO speculative decoding. Set ``enable_strict_thinking=False`` in model
+launch options to disable it; EOS can then end thinking before structured output
+begins.
+
 Backend capabilities
 --------------------
 

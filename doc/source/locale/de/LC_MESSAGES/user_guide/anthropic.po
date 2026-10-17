@@ -394,3 +394,7 @@ msgstr "Separates Tokenbudget für Reasoning"
 #: ../source/user_guide/anthropic.rst:194
 msgid "Not enforced"
 msgstr "Nicht erzwungen"
+
+#: user_guide/anthropic.rst:162
+msgid "With compatible SGLang versions, Xinference enables strict thinking for its reasoning adapter on the default XGrammar backend, including ordinary requests. This adds token-filtering overhead, requires a compatible tokenizer and does not support UNO speculative decoding. Set ``enable_strict_thinking=False`` in model launch options to disable it; EOS can then end thinking before structured output begins."
+msgstr "Bei kompatiblen SGLang-Versionen aktiviert Xinference striktes Thinking für seinen Reasoning-Adapter im standardmäßigen XGrammar-Backend, auch für gewöhnliche Anfragen. Dies verursacht zusätzlichen Aufwand für die Tokenfilterung, erfordert einen kompatiblen Tokenizer und unterstützt kein spekulatives UNO-Decoding. Mit ``enable_strict_thinking=False`` in den Modellstartoptionen lässt es sich deaktivieren; EOS kann dann das Thinking beenden, bevor die strukturierte Ausgabe beginnt."
