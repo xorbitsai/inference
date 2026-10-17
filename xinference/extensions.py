@@ -30,7 +30,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 EXTENSION_API_VERSION = 1
@@ -43,6 +43,26 @@ class APIExtensionContext:
     auth_service: Any
     auth_enabled: bool
     get_supervisor_ref: Callable[[], Awaitable[Any]]
+
+
+@dataclass(frozen=True)
+class ModelCatalogCredentials:
+    """An ephemeral catalog token whose repr stays safe in actor call logs."""
+
+    token: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.token, str)
+            or not self.token
+            or self.token != self.token.strip()
+            or any(ord(c) < 32 or ord(c) == 127 for c in self.token)
+        ):
+            raise ValueError("Invalid model catalog credential")
+        try:
+            self.token.encode("latin-1")
+        except UnicodeError:
+            raise ValueError("Invalid model catalog credential") from None
 
 
 _loaded: Optional[Tuple[str, Tuple[Any, ...]]] = None
@@ -101,6 +121,34 @@ def _call_hook(extension: Any, method: str, *args: Any) -> Any:
 def configure_api(context: APIExtensionContext) -> None:
     for extension in get_extensions():
         _call_hook(extension, "configure_api", context)
+
+
+def resolve_model_catalog_credentials(
+    request: Any, model_type: str
+) -> Optional[ModelCatalogCredentials]:
+    """Resolve optional server-owned credentials after route authentication.
+
+    Returning None preserves anonymous catalog refresh. Providers may reject a
+    request; their failures never cause an anonymous retry. Existing extensions
+    do not need to implement this optional hook.
+    """
+    credentials = None
+    for extension in get_extensions():
+        if not hasattr(extension, "model_catalog_credentials"):
+            continue
+        candidate = _call_hook(
+            extension, "model_catalog_credentials", request, model_type
+        )
+        if candidate is None:
+            continue
+        if not isinstance(candidate, ModelCatalogCredentials):
+            raise TypeError(
+                "Catalog credential hooks must return ModelCatalogCredentials or None"
+            )
+        if credentials is not None:
+            raise ValueError("Multiple model catalog credential providers")
+        credentials = candidate
+    return credentials
 
 
 def worker_extension_metadata() -> Dict[str, Any]:
