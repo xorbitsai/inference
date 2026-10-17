@@ -428,7 +428,7 @@ def test_structured_schema_is_enforced(native_model, stream):
 
 
 @pytest.mark.parametrize("stream", [False, True])
-def test_sglang_thinking_budget(native_model, stream, record_property):
+def test_sglang_thinking_budget(native_model, stream, record_testsuite_property):
     if native_model.engine != "SGLang":
         pytest.skip("SGLang request-level reasoning budget")
     from transformers import AutoTokenizer
@@ -467,7 +467,7 @@ def test_sglang_thinking_budget(native_model, stream, record_property):
     )
     # The native closer may add a newline and its closing marker at the boundary.
     count = len(tokenizer.encode(thought, add_special_tokens=False))
-    record_property("thinking_tokens", count)
+    record_testsuite_property(f"thinking_tokens_stream_{stream}", count)
     assert 0 < count <= 1026, result
     assert text(result).strip(), result
 

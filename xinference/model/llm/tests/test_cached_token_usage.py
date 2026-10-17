@@ -338,3 +338,17 @@ def test_vllm_multiple_outputs_do_not_multiply_cached_tokens():
         total_tokens=103,
         prompt_tokens_details={"cached_tokens": 64},
     )
+
+
+def test_cache_creation_tiers_survive_chat_usage_sanitization():
+    from ..utils import ChatModelMixin
+
+    creation = {"ephemeral_5m_input_tokens": 20, "ephemeral_1h_input_tokens": 30}
+    usage = {
+        "prompt_tokens": 100,
+        "completion_tokens": 1,
+        "total_tokens": 101,
+        "cache_creation_input_tokens": 50,
+        "cache_creation": creation,
+    }
+    assert ChatModelMixin._sanitize_usage(usage)["cache_creation"] == creation

@@ -260,6 +260,7 @@ class ChatModelMixin:
                         "total_tokens",
                         "prompt_tokens_details",
                         "cache_creation_input_tokens",
+                        "cache_creation",
                     )
                 }
 
@@ -276,6 +277,8 @@ class ChatModelMixin:
             sanitized["cache_creation_input_tokens"] = usage_data[
                 "cache_creation_input_tokens"
             ]
+        if isinstance(usage_data.get("cache_creation"), dict):
+            sanitized["cache_creation"] = usage_data["cache_creation"]
         prompt_tokens_details = usage_data.get("prompt_tokens_details")
         if prompt_tokens_details is not None:
             if not isinstance(prompt_tokens_details, dict):
