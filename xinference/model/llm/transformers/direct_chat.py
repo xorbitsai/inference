@@ -21,6 +21,7 @@ from ....types import (
     CompletionChunk,
     PytorchGenerateConfig,
 )
+from ..core import chat_context_var
 from ..media import validate_messages_media
 from ..utils import ChatModelMixin, generate_completion, generate_completion_chunk
 
@@ -160,14 +161,16 @@ class PytorchDirectChatMixin(ChatModelMixin):
                     previous_texts,
                     ensure_role=is_first_chunk,
                 )
-                delta = chat_chunk["choices"][0]["delta"]
-                if delta.get("reasoning_content") is not None:
-                    yield cast(CompletionChunk, chat_chunk)
-                else:
+                reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(
+                    chat_chunk
+                )
+                if reasoning_chunk is not None:
+                    yield cast(CompletionChunk, reasoning_chunk)
+                if tool_chunk is not None:
                     processed_chunk = self._post_process_completion_chunk(
                         self.model_family,
                         self.model_uid,
-                        chat_chunk,
+                        tool_chunk,
                         previous_texts=previous_tools_texts,
                         tool_call_state=tool_call_state,
                         tools=tools,
@@ -249,9 +252,27 @@ class PytorchDirectChatMixin(ChatModelMixin):
         # Single funnel for every direct-chat model, including families that
         # never call _transform_messages (deepseek_vl2) or override it (qwen2_audio).
         validate_messages_media(messages)
-        stream = bool(generate_config and generate_config.get("stream"))
-        if stream:
-            return self._to_chat_completion_chunks(
-                self.generate_streaming(messages, generate_config)
+        ctx = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
             )
-        return self.generate_non_streaming(messages, generate_config)
+            or {}
+        )
+        token = chat_context_var.set(ctx)
+        try:
+            stream = bool(generate_config and generate_config.get("stream"))
+            if stream:
+                use_tool_calls = bool(
+                    generate_config
+                    and generate_config.get("tools")
+                    and self.tool_parser
+                )
+                parser = self.reasoning_parser
+                if use_tool_calls or (parser and not parser.check_content_parser()):
+                    parser = None
+                return self._to_chat_completion_chunks(
+                    self.generate_streaming(messages, generate_config), parser, ctx=ctx
+                )
+            return self.generate_non_streaming(messages, generate_config)
+        finally:
+            chat_context_var.reset(token)
