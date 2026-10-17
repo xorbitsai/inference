@@ -1456,6 +1456,13 @@ class MLXModel(LLM, ChatModelMixin):
             )
             kwargs["_mlx_prompt_cache"] = cache
             return remaining, input_echo_len, cached
+        if kwargs.get("response_format"):
+            from mlx_lm.models.cache import make_prompt_cache
+
+            kwargs["_mlx_prompt_cache"] = make_prompt_cache(
+                self._model, self._max_kv_size
+            )
+            return prompt_token_ids, input_echo_len, 0
         uncached_prompt_token_ids = self._get_prompt_cache(
             prompt_token_ids, kwargs.get("lora_name")
         )
@@ -1552,7 +1559,11 @@ class MLXModel(LLM, ChatModelMixin):
             f"Average generation speed: {i / (time.time() - start):.2f} tokens/s."  # noqa: E231
         )
 
-        if self._prompt_cache and not kwargs.get("_mlx_cache_boundaries"):
+        if (
+            self._prompt_cache
+            and not kwargs.get("_mlx_cache_boundaries")
+            and not kwargs.get("response_format")
+        ):
             self._prompt_cache.tokens.extend(tokens)  # type: ignore
 
         if i >= max_tokens - 1:
@@ -2623,7 +2634,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             if kwargs.get("_mlx_cache_boundaries"):
                 prompt_token_ids, cache, cached_prompt_tokens = (
                     self._prepare_explicit_prompt_cache(
-                        prompt_token_ids, kwargs.pop("_mlx_cache_boundaries"), kwargs
+                        prompt_token_ids, kwargs["_mlx_cache_boundaries"], kwargs
                     )
                 )
                 prompt_tokens = mx.array(prompt_token_ids)

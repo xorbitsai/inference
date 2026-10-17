@@ -208,3 +208,23 @@ def test_final_detokenizer_fragment_preserves_length_finish():
         )
     )
     assert chunks[-1][0]["choices"][0]["finish_reason"] == "length"
+
+
+def test_structured_text_requests_have_independent_kv_caches(monkeypatch):
+    monkeypatch.setitem(
+        sys.modules,
+        "mlx_lm.models.cache",
+        SimpleNamespace(
+            make_prompt_cache=lambda *args: [object()],
+        ),
+    )
+    model = object.__new__(core.MLXChatModel)
+    model._tokenizer = SimpleNamespace(encode=lambda prompt: [1, 2, 3])
+    model._model = object()
+    model._context_length_limit = None
+    model._max_kv_size = None
+    first = {"response_format": {"type": "json_object"}}
+    second = {"response_format": {"type": "json_object"}}
+    assert model._prepare_inputs("prompt", first) == ([1, 2, 3], 3, 0)
+    assert model._prepare_inputs("prompt", second) == ([1, 2, 3], 3, 0)
+    assert first["_mlx_prompt_cache"] is not second["_mlx_prompt_cache"]
