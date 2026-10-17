@@ -79,6 +79,14 @@ jobs:
             # These dense, single-GPU models do not use DeepEP. Its optional
             # package tries to initialize JIT without a CUDA toolkit on T4 CI.
             python -m pip uninstall -y sgl-deep-ep
+            # FlashInfer RMSNorm still uses JIT with Triton attention. The CUDA
+            # compiler is installed in NVIDIA's wheel, outside the default PATH.
+            cuda_home="$(python -c 'import nvidia.cu13; print(next(iter(nvidia.cu13.__path__)))')"
+            test -x "$cuda_home/bin/nvcc"
+            test -f "$cuda_home/include/cuda_runtime.h"
+            "$cuda_home/bin/nvcc" --version
+            echo "CUDA_HOME=$cuda_home" >> "$GITHUB_ENV"
+            echo "$cuda_home/bin" >> "$GITHUB_PATH"
           fi
           npm install -g '@anthropic-ai/claude-code@2.1.81'
           python -m pip freeze > native-packages.txt
