@@ -937,9 +937,14 @@ class MLXModel(LLM, ChatModelMixin):
         processors: List[Any] = []
         budget = config.get("_mlx_thinking_budget")
         if budget is not None:
+            parser = self.reasoning_parser
+            if parser is None:
+                raise NotImplementedError(
+                    "MLX thinking budgets require a reasoning parser"
+                )
             processors.append(
                 ReasoningBudgetLogitsProcessor(
-                    self._tokenizer, self.reasoning_parser.reasoning_end_tag, budget
+                    self._tokenizer, parser.reasoning_end_tag, budget
                 )
             )
         if not config.get("response_format"):
