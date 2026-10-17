@@ -183,6 +183,50 @@ async def test_text_count_uses_same_tools_and_template():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("model_name", ["QwQ-32B", "deepseek-r1-0528"])
+@pytest.mark.parametrize("content", [None, "omitted"])
+async def test_text_preparation_renders_tool_call_turn_without_content(
+    model_name, content
+):
+    from ... import BUILTIN_LLM_FAMILIES
+
+    instance = model()
+    instance.model_family = next(
+        f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name
+    )
+    call = {
+        "role": "assistant",
+        "content": content,
+        "tool_calls": [
+            {
+                "id": "call_read",
+                "type": "function",
+                "function": {"name": "Read", "arguments": '{"file_path":"a"}'},
+            }
+        ],
+    }
+    if content == "omitted":
+        del call["content"]
+
+    def history(assistant):
+        return [
+            {"role": "user", "content": "read a"},
+            assistant,
+            {"role": "tool", "tool_call_id": "call_read", "content": "TOOL_RESULT_42"},
+        ]
+
+    messages = history(call)
+    original = copy.deepcopy(messages)
+    prompt, *_ = await instance._prepare_chat_inputs(messages, {"tools": tools()})
+    expected, *_ = await instance._prepare_chat_inputs(
+        history({**call, "content": ""}), {"tools": tools()}
+    )
+    assert prompt == expected
+    assert "TOOL_RESULT_42" in prompt
+    assert messages == original
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("thinking", [False, True])
 async def test_generate_passes_per_request_reasoning_and_preserves_markers(thinking):
     instance = model()
