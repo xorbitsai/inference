@@ -20,7 +20,7 @@ on:
         type: string
         default: ''
       vision_model_path:
-        description: Optional cached Qwen3-VL-2B-Instruct path
+        description: Optional cached vision model path (Qwen3.5-2B for SGLang, Qwen3-VL-2B-Instruct otherwise)
         type: string
         default: ''
 
@@ -71,7 +71,7 @@ jobs:
           case "$XINFERENCE_TEST_ANTHROPIC_ENGINE" in
             MLX) engine_packages=('mlx-lm==0.31.3' 'mlx-vlm==0.4.4') ;;
             vLLM) engine_packages=('vllm==0.19.0') ;;
-            SGLang) engine_packages=('sglang[srt]==0.5.21' ninja) ;;
+            SGLang) engine_packages=('sglang[srt]==0.5.21' ninja 'cuda-toolkit[nvcc,cccl]==13.0.3.0') ;;
           esac
           python -m pip install -e '.[dev]' 'anthropic>=0.84' pillow \
             'qwen-vl-utils!=0.0.9' qwen_omni_utils audioread "${engine_packages[@]}"
@@ -79,11 +79,13 @@ jobs:
             # These dense, single-GPU models do not use DeepEP. Its optional
             # package tries to initialize JIT without a CUDA toolkit on T4 CI.
             python -m pip uninstall -y sgl-deep-ep
-            # FlashInfer RMSNorm still uses JIT with Triton attention. The CUDA
-            # compiler is installed in NVIDIA's wheel, outside the default PATH.
+            # FlashInfer RMSNorm uses JIT even with Triton attention. Keep the
+            # compiler/headers matched and expose the wheel's toolkit layout.
             cuda_home="$(python -c 'import nvidia.cu13; print(next(iter(nvidia.cu13.__path__)))')"
             test -x "$cuda_home/bin/nvcc"
             test -f "$cuda_home/include/cuda_runtime.h"
+            ln -s lib "$cuda_home/lib64"
+            ln -s libcudart.so.13 "$cuda_home/lib/libcudart.so"
             "$cuda_home/bin/nvcc" --version
             echo "CUDA_HOME=$cuda_home" >> "$GITHUB_ENV"
             echo "$cuda_home/bin" >> "$GITHUB_PATH"
@@ -100,6 +102,8 @@ jobs:
               "TEXT": {"model_name": "qwen3", "model_size_in_billions": "0_6"},
               "VISION": {"model_name": "Qwen3-VL-Instruct", "model_size_in_billions": 2},
           }
+          if engine == "SGLang":
+              configs["VISION"]["model_name"] = "qwen3.5"
           with open(os.environ["GITHUB_ENV"], "a") as output:
               for profile, config in configs.items():
                   config.update(model_format="mlx" if engine == "MLX" else "pytorch",
