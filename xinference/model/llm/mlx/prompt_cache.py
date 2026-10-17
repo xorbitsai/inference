@@ -5,7 +5,7 @@ import copy
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -24,7 +24,10 @@ class TimedPromptCache:
         self._known: OrderedDict[Tuple[int, ...], None] = OrderedDict()
 
     def fetch(
-        self, tokens: List[int], checkpoints: Optional[List[int]] = None
+        self,
+        tokens: List[int],
+        checkpoints: Optional[List[int]] = None,
+        lifetimes: Optional[Dict[int, int]] = None,
     ) -> Tuple[Optional[Any], int]:
         now = time.monotonic()
         for key in list(self.entries):
@@ -46,7 +49,10 @@ class TimedPromptCache:
         longest = max(matches, key=len)
         # Reading a later checkpoint also reads all its earlier cached prefixes.
         for key in matches:
-            self.entries[key].expires = now + self.entries[key].ttl
+            entry = self.entries[key]
+            entry.ttl = (lifetimes or {}).get(len(key), entry.ttl)
+            # A shorter new lease must not revoke an existing longer lease.
+            entry.expires = max(entry.expires, now + entry.ttl)
             self.entries.move_to_end(key)
         return copy.deepcopy(self.entries[longest].cache), len(longest)
 

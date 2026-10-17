@@ -955,7 +955,7 @@ class MLXModel(LLM, ChatModelMixin):
                 max_bytes=self._model_config.get("prompt_cache_bytes"),
             )
         cache, cached = self._explicit_cache.fetch(
-            tokens, [end for end, _ttl in boundaries]
+            tokens, [end for end, _ttl in boundaries], dict(boundaries)
         )
         if cache is None:
             cache = make_prompt_cache(language_model, self._max_kv_size)

@@ -228,3 +228,18 @@ def test_structured_text_requests_have_independent_kv_caches(monkeypatch):
     assert model._prepare_inputs("prompt", first) == ([1, 2, 3], 3, 0)
     assert model._prepare_inputs("prompt", second) == ([1, 2, 3], 3, 0)
     assert first["_mlx_prompt_cache"] is not second["_mlx_prompt_cache"]
+
+
+def test_cache_hit_can_extend_lifetime_without_revoking_an_existing_lease(monkeypatch):
+    from .. import prompt_cache
+
+    clock = [0.0]
+    monkeypatch.setattr(prompt_cache.time, "monotonic", lambda: clock[0])
+    cache = prompt_cache.TimedPromptCache()
+    cache.store([1, 2], [SimpleNamespace(state=[])], 300)
+    clock[0] = 100
+    assert cache.fetch([1, 2, 3], [2], {2: 3600})[1] == 2
+    assert cache.entries[(1, 2)].expires == 3700
+    clock[0] = 200
+    cache.fetch([1, 2, 3], [2], {2: 300})
+    assert cache.entries[(1, 2)].expires == 3700
