@@ -348,3 +348,7 @@ msgstr "별도 추론 토큰 예산"
 #: ../source/user_guide/anthropic.rst:194
 msgid "Not enforced"
 msgstr "적용하지 않음"
+
+#: user_guide/anthropic.rst:162
+msgid "With compatible SGLang versions, Xinference enables strict thinking for its reasoning adapter on the default XGrammar backend, including ordinary requests. This adds token-filtering overhead, requires a compatible tokenizer and does not support UNO speculative decoding. Set ``enable_strict_thinking=False`` in model launch options to disable it; EOS can then end thinking before structured output begins."
+msgstr "호환되는 SGLang 버전에서 Xinference는 기본 XGrammar 백엔드의 reasoning 어댑터에 엄격한 thinking을 활성화하며 일반 요청에도 적용합니다. 이로 인해 토큰 필터링 오버헤드가 발생하고 호환되는 토크나이저가 필요하며 UNO 추측 디코딩은 지원하지 않습니다. 모델 시작 옵션에 ``enable_strict_thinking=False`` 를 설정하면 비활성화할 수 있지만, 구조화된 출력이 시작되기 전에 EOS가 thinking을 종료할 수 있습니다."

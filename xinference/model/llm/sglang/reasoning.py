@@ -5,6 +5,7 @@
 import hashlib
 import inspect
 import json
+import logging
 import os
 import re
 import sys
@@ -19,6 +20,7 @@ from ..reasoning_parser import ReasoningParser
 
 PLUGIN_NAME = "xinference_reasoning"
 PARSER_NAME = re.compile(r"xinference_[0-9a-f]{64}\Z")
+logger = logging.getLogger(__name__)
 
 
 def _config_path(name: str) -> Path:
@@ -75,15 +77,23 @@ def configure_structured_reasoning(
         from sglang.srt.constrained.reasoner_grammar_backend import (
             ReasonerGrammarBackend,
         )
+        from sglang.srt.parser.reasoning_parser import ReasoningParser as SGLangParser
     except ImportError:
         return
     if (
         model_config.get("grammar_backend") in (None, "xgrammar")
+        and "enable_strict_thinking" not in model_config
         and "enable_strict_thinking"
         in inspect.signature(ReasonerGrammarBackend).parameters
     ):
+        if "tokenizer" not in inspect.signature(SGLangParser).parameters:
+            logger.warning(
+                "SGLang's reasoning parser cannot receive a tokenizer; "
+                "automatic strict thinking is disabled and EOS can end reasoning"
+            )
+            return
         # Otherwise an EOS inside reasoning can bypass the JSON grammar entirely.
-        model_config.setdefault("enable_strict_thinking", True)
+        model_config["enable_strict_thinking"] = True
 
 
 def _detector_class(payload: Dict[str, Any]):
