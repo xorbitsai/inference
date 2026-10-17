@@ -178,8 +178,53 @@ async def test_text_count_uses_same_tools_and_template():
     assert render_tools == tools()
     assert count == len(prompt)
     assert config["tools"] == tools()
-    with pytest.raises(NotImplementedError, match="multimodal"):
-        await instance.async_count_tokens([{"content": [{"type": "image_url"}]}])
+
+
+@pytest.mark.asyncio
+async def test_image_count_uses_native_zero_output_prefill():
+    instance = model(SGLANGVisionModel)
+    instance._engine = SimpleNamespace(get_tokenizer=lambda: object())
+    instance._prepare_chat_inputs = AsyncMock(
+        return_value=("image prompt", ["data:image"], None, {}, {})
+    )
+    instance._non_stream_generate = AsyncMock(
+        return_value={"meta_info": {"prompt_tokens": 237, "completion_tokens": 0}}
+    )
+    assert await instance.async_count_tokens([{"role": "user", "content": []}]) == 237
+    args = instance._non_stream_generate.call_args
+    assert args.args == ("image prompt",)
+    assert args.kwargs["image_data"] == ["data:image"]
+    assert args.kwargs["max_new_tokens"] == 0
+
+
+@pytest.mark.parametrize(
+    "supported,strict", [(True, True), (False, True), (True, False)]
+)
+def test_manual_budget_requires_native_support(monkeypatch, supported, strict):
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.srt.managers.io_struct",
+        SimpleNamespace(
+            GenerateReqInput=SimpleNamespace(
+                __dataclass_fields__={"max_thinking_tokens": None} if supported else {}
+            )
+        ),
+    )
+    instance = model()
+    instance._model_config["enable_strict_thinking"] = strict
+    config = {
+        "chat_template_kwargs": {"enable_thinking": True, "thinking_budget": 1024}
+    }
+    if supported and strict:
+        instance._apply_thinking_budget(config)
+        assert config["max_thinking_tokens"] == 1024
+        assert instance._lift_logprob_request_params(config) == {
+            "max_thinking_tokens": 1024,
+            "require_reasoning": True,
+        }
+    else:
+        with pytest.raises(NotImplementedError, match="thinking budgets"):
+            instance._apply_thinking_budget(config)
 
 
 @pytest.mark.asyncio
@@ -392,3 +437,48 @@ async def test_openai_json_schema_works_without_request_reasoning_capability(
     assert json.loads(result["choices"][0]["text"]) == {"answer": 42}
     assert "require_reasoning" not in instance._non_stream_generate.call_args.kwargs
     assert "_anthropic_request" not in instance._non_stream_generate.call_args.kwargs
+
+
+@pytest.mark.asyncio
+async def test_image_generation_preparation_skips_native_count_prefill():
+    instance = model(SGLANGVisionModel)
+    instance.async_count_tokens = AsyncMock(
+        side_effect=RuntimeError("must only run on explicit count route")
+    )
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64,AA=="},
+                }
+            ],
+        }
+    ]
+    prepared = await instance.async_prepare_anthropic_request(messages, {})
+    assert prepared["input_tokens"] == 0
+    instance.async_count_tokens.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("handoff", ["_xavier_handoff", "_nixl_handoff"])
+@pytest.mark.parametrize("images", [False, True])
+async def test_pd_decode_image_count_fails_without_engine_rpc(handoff, images):
+    instance = model(SGLANGVisionModel)
+    setattr(instance, handoff, SimpleNamespace(role="decode"))
+    instance._engine = SimpleNamespace(
+        get_tokenizer=lambda: SimpleNamespace(encode=lambda text: list(text))
+    )
+    instance._prepare_chat_inputs = AsyncMock(
+        return_value=("count prompt", ["data:image"] if images else None, None, {}, {})
+    )
+    instance._non_stream_generate = AsyncMock(
+        side_effect=AssertionError("decode counting cannot generate without a handoff")
+    )
+    if images:
+        with pytest.raises(NotImplementedError, match="P/D decode replicas"):
+            await instance.async_count_tokens([])
+    else:
+        assert await instance.async_count_tokens([]) == len("count prompt")
+    instance._non_stream_generate.assert_not_called()

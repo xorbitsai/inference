@@ -46,8 +46,8 @@ from ....types import (
     CompletionUsage,
 )
 from ...utils import check_dependency_available
-from .. import LLM, LLMFamilyV2, LLMSpecV1
-from ..core import chat_context_var, get_model_speculative_tokens_default
+from .. import LLMFamilyV2, LLMSpecV1
+from ..core import LLM, chat_context_var, get_model_speculative_tokens_default
 from ..media import materialize_messages_media, media_workspace
 from ..tool_controls import (
     convert_forced_completion,
@@ -862,6 +862,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             "return_text_in_logprobs",
             "cache_salt",
             "require_reasoning",
+            "max_thinking_tokens",
             "bootstrap_host",
             "bootstrap_port",
             "bootstrap_room",
@@ -1084,6 +1085,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
     async def async_prepare_anthropic_request(self, messages: List[Dict], config: Dict):
         self._validate_forced_tools(config)
+        self._apply_thinking_budget(dict(config))
         if config.get("response_format"):
             context = (
                 self._get_chat_template_kwargs_from_generate_config(
@@ -1099,26 +1101,25 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                 )
             )
         prepared = super().prepare_anthropic_request(messages, config)
-        try:
-            prepared["input_tokens"] = await self.async_count_tokens(
-                prepared["messages"], prepared["generate_config"]
-            )
-        except NotImplementedError:
-            pass
+        has_images = any(
+            isinstance(message.get("content"), list)
+            and any(part.get("type") == "image_url" for part in message["content"])
+            for message in prepared["messages"]
+        )
+        # Image counting performs a native prefill. Reserve it for the explicit
+        # count_tokens route, which falls back when input_tokens is zero.
+        if not has_images:
+            try:
+                prepared["input_tokens"] = await self.async_count_tokens(
+                    prepared["messages"], prepared["generate_config"]
+                )
+            except NotImplementedError:
+                pass
         return prepared
 
     async def async_count_tokens(
         self, messages: List[Dict], config: Optional[Dict] = None
     ) -> int:
-        # Native multimodal processing expands image tokens after templating.
-        if any(
-            isinstance(m.get("content"), list)
-            and any(part.get("type") != "text" for part in m["content"])
-            for m in messages
-        ):
-            raise NotImplementedError(
-                "SGLang does not expose multimodal token counting"
-            )
         config = copy.deepcopy(config or {})
         messages = copy.deepcopy(messages)
         if is_forced_tool_choice(config):
@@ -1129,8 +1130,55 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             raise NotImplementedError(
                 "This SGLang model does not expose chat token counting"
             )
-        prompt, _images, _tools, _context, _config = await prepare(messages, config)
+        prompt, images, _tools, _context, _config = await prepare(messages, config)
+        if images:
+            if self._is_pd_decode():
+                raise NotImplementedError(
+                    "SGLang P/D decode replicas do not support image token counting"
+                )
+            # The native processor expands image placeholders into model-specific
+            # tokens. A zero-output request runs that same processing/prefill path.
+            result = await self._non_stream_generate(
+                prompt,
+                image_data=images,
+                request_id=uuid.uuid4().hex,
+                max_new_tokens=0,
+            )
+            return int(result["meta_info"]["prompt_tokens"])
         return len(tokenizer.encode(prompt))
+
+    def _apply_thinking_budget(self, config: Dict) -> None:
+        context = (
+            self._get_chat_template_kwargs_from_generate_config(
+                config, self.reasoning_parser
+            )
+            or {}
+        )
+        budget = context.get("thinking_budget")
+        if budget is None or not context.get("enable_thinking"):
+            return
+        parser = self.reasoning_parser
+        if parser is None or not (
+            parser.reasoning_start_tag or parser.reasoning_end_tag
+        ):
+            return
+        try:
+            from sglang.srt.managers.io_struct import GenerateReqInput
+
+            supported = "max_thinking_tokens" in getattr(
+                GenerateReqInput, "__dataclass_fields__", {}
+            )
+        except ImportError:
+            supported = False
+        if not supported or not (self._model_config or {}).get(
+            "enable_strict_thinking"
+        ):
+            raise NotImplementedError(
+                "SGLang thinking budgets require request-level max_thinking_tokens "
+                "and enable_strict_thinking=True"
+            )
+        config["max_thinking_tokens"] = budget
+        config["require_reasoning"] = True
 
     async def _forced_tool_chat(self, messages, config, request_id):
         self._validate_forced_tools(config)
@@ -1175,6 +1223,8 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         config = dict(generate_config or {})
         anthropic = config.get("_anthropic_request", False)
+        if anthropic:
+            self._apply_thinking_budget(config)
         if anthropic and is_forced_tool_choice(config):
             return await self._forced_tool_chat(messages, config, request_id)
         plain_json = bool(

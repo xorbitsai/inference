@@ -385,6 +385,7 @@ def _parse_cache_control(
 ) -> Optional[Dict[str, Any]]:
     """Retain the furthest explicit cache boundary, including its lifetime."""
     controls: List[Dict[str, Any]] = []
+    boundaries: List[Any] = []
     system = raw_body.get("system")
     prefix_system = system
     prefix_tools = None
@@ -392,6 +393,7 @@ def _parse_cache_control(
         if tool.get("cache_control") is not None:
             controls.append(tool["cache_control"])
             prefix_tools = _normalize_tools(raw_body["tools"][: index + 1])
+            boundaries.append((tool["cache_control"], system, None, prefix_tools))
     system_blocks = system if isinstance(system, list) else []
     for index, block in enumerate(system_blocks):
         if isinstance(block, dict) and block.get("cache_control") is not None:
@@ -400,6 +402,9 @@ def _parse_cache_control(
             # Chat templates may place tools after the system text. Do not
             # extend such a template's prefix past the marked system block.
             prefix_tools = []
+            boundaries.append(
+                (block["cache_control"], prefix_system, None, prefix_tools)
+            )
     prefix = None
     for index, message in enumerate(raw_body.get("messages") or []):
         content = message.get("content")
@@ -414,11 +419,17 @@ def _parse_cache_control(
                 ]
                 prefix_system = system
                 prefix_tools = None
+                boundaries.append(
+                    (block["cache_control"], prefix_system, prefix, prefix_tools)
+                )
     if raw_body.get("cache_control") is not None:
         controls.append(raw_body["cache_control"])
         prefix = raw_body.get("messages")
         prefix_system = system
         prefix_tools = None
+        boundaries.append(
+            (raw_body["cache_control"], prefix_system, prefix, prefix_tools)
+        )
     if not controls:
         return None
     if len(controls) > 4:
@@ -428,29 +439,42 @@ def _parse_cache_control(
             raise _invalid("cache_control requires type 'ephemeral'")
         if control.get("ttl", "5m") not in {"5m", "1h"}:
             raise _invalid("cache_control.ttl must be '5m' or '1h'")
-    ttl = 3600 if controls[-1].get("ttl") == "1h" else 300
+    lifetimes = [3600 if control.get("ttl") == "1h" else 300 for control in controls]
+    if any(left < right for left, right in zip(lifetimes, lifetimes[1:])):
+        raise _invalid("Longer cache lifetimes must precede shorter cache lifetimes")
     has_images = any(
         isinstance(message.get("content"), list)
         and any(part.get("type") == "image_url" for part in message["content"])
         for message in messages
     )
-    if has_images:
-        # Current image paths use automatic engine caching. Do not carry a
-        # second copy of rendered pages through the preparation/generation RPCs.
-        prefix_messages = []
-    elif prefix is None:
-        prefix_messages = (
-            [{"role": "system", "content": _text_from_blocks(prefix_system)}]
-            if prefix_system
-            else []
-        )
-    else:
-        prefix_messages = _normalize_messages(
-            system, prefix, tool_names, budget=budget, model=raw_body["model"].strip()
-        )
-    result: Dict[str, Any] = {"messages": prefix_messages, "ttl": ttl}
-    if prefix_tools is not None:
-        result["tools"] = prefix_tools
+    breakpoints = []
+    for (control, boundary_system, boundary, boundary_tools), ttl in zip(
+        boundaries, lifetimes
+    ):
+        if has_images:
+            prefix_messages = []
+        elif boundary is None:
+            prefix_messages = (
+                [{"role": "system", "content": _text_from_blocks(boundary_system)}]
+                if boundary_system
+                else []
+            )
+        else:
+            prefix_messages = _normalize_messages(
+                boundary_system,
+                boundary,
+                tool_names,
+                budget=budget,
+                model=raw_body["model"].strip(),
+            )
+        checkpoint: Dict[str, Any] = {"messages": prefix_messages, "ttl": ttl}
+        if boundary_tools is not None:
+            checkpoint["tools"] = boundary_tools
+        breakpoints.append(checkpoint)
+    result = copy.deepcopy(breakpoints[-1])
+    if len(breakpoints) > 1:
+        result["breakpoints"] = breakpoints
+
     return result
 
 
@@ -662,9 +686,10 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         parallel = not disabled
     cache_control = _parse_cache_control(raw_body, tool_names, messages, budget)
     if cache_control is not None:
-        cache_control["messages"] = _apply_context_management(
-            cache_control["messages"], clear_assistant_ordinals
-        )
+        for checkpoint in [cache_control, *cache_control.get("breakpoints", [])]:
+            checkpoint["messages"] = _apply_context_management(
+                checkpoint["messages"], clear_assistant_ordinals
+            )
     content_metrics = budget.metrics()
     if content_metrics["total_images"] > MAX_ANTHROPIC_IMAGES_PER_REQUEST:
         raise _invalid(
@@ -734,13 +759,13 @@ def _sanitize_stop_sequence(
     return value if allowed is None or value in allowed else None
 
 
-def _anthropic_usage(usage: Dict[str, Any]) -> Dict[str, int]:
+def _anthropic_usage(usage: Dict[str, Any]) -> Dict[str, Any]:
     details = usage.get("prompt_tokens_details") or {}
     cached = int(
         details.get("cached_tokens") or usage.get("cache_read_input_tokens") or 0
     )
     created = int(usage.get("cache_creation_input_tokens") or 0)
-    result = {
+    result: Dict[str, Any] = {
         "input_tokens": max(0, int(usage.get("prompt_tokens") or 0) - cached - created),
         "output_tokens": int(usage.get("completion_tokens") or 0),
     }
@@ -752,6 +777,12 @@ def _anthropic_usage(usage: Dict[str, Any]) -> Dict[str, int]:
         result.update(
             cache_read_input_tokens=cached, cache_creation_input_tokens=created
         )
+    creation = usage.get("cache_creation")
+    if isinstance(creation, dict):
+        result["cache_creation"] = {
+            key: int(creation.get(key) or 0)
+            for key in ("ephemeral_5m_input_tokens", "ephemeral_1h_input_tokens")
+        }
     return result
 
 
