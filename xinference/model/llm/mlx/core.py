@@ -2283,23 +2283,26 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             async def _log_streaming_chunks():
                 full_text = ""
                 full_reasoning = ""
-                async for chunk in chunks:  # type: ignore[arg-type]
-                    choices = chunk.get("choices")
-                    if choices:
-                        first = choices[0]
-                        delta = first.get("delta")
-                        if isinstance(delta, dict):
-                            delta_reasoning = delta.get("reasoning_content")
-                            if isinstance(delta_reasoning, str):
-                                full_reasoning += delta_reasoning
-                            delta_text = delta.get("content")
-                            if delta_text:
-                                full_text += delta_text
-                        else:
-                            text = first.get("text")
-                            if isinstance(text, str):
-                                full_text += text
-                    yield chunk
+                async with aclosing(
+                    cast(AsyncGenerator[CompletionChunk, None], chunks)
+                ) as source:
+                    async for chunk in source:
+                        choices = chunk.get("choices")
+                        if choices:
+                            first = choices[0]
+                            delta = first.get("delta")
+                            if isinstance(delta, dict):
+                                delta_reasoning = delta.get("reasoning_content")
+                                if isinstance(delta_reasoning, str):
+                                    full_reasoning += delta_reasoning
+                                delta_text = delta.get("content")
+                                if delta_text:
+                                    full_text += delta_text
+                            else:
+                                text = first.get("text")
+                                if isinstance(text, str):
+                                    full_text += text
+                        yield chunk
                 logger.debug(
                     "[MLX] Full accumulated output: reasoning=%r, content=%r",
                     full_reasoning,
@@ -2386,6 +2389,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             self._mlx_executor = None
         if executor is not None:
             executor.shutdown(wait=False)
+        super().stop()
 
     def _iterate_on_mlx_thread(
         self, iterator: Iterator[CompletionChunk]

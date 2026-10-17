@@ -776,6 +776,70 @@ async def test_openai_tool_controls_reach_text_and_vision_generation(cls, choice
 
 
 @pytest.mark.asyncio
+async def test_closing_chat_stream_closes_held_upstream():
+    from unittest.mock import AsyncMock
+
+    model = control_model()
+    model.reasoning_parser = None
+    model.get_full_context = lambda *args, **kwargs: "prompt"
+    model._get_reusable_prompt_prefix_len = lambda *args: None
+    closed = []
+
+    async def generate():
+        try:
+            yield core.generate_completion_chunk(
+                chunk_text="x",
+                finish_reason=None,
+                chunk_id="held-upstream",
+                model_uid=model.model_uid,
+                prompt_tokens=1,
+                completion_tokens=1,
+                total_tokens=2,
+            )
+        finally:
+            closed.append(True)
+
+    upstream = generate()
+    model.async_generate = AsyncMock(return_value=upstream)
+    chunks = await model.async_chat(
+        [{"role": "user", "content": "hello"}], {"stream": True}
+    )
+    try:
+        await anext(chunks)
+        await chunks.aclose()
+        assert closed == [True]
+    finally:
+        await chunks.aclose()
+        await upstream.aclose()
+
+
+@pytest.mark.asyncio
+async def test_vision_stop_shuts_down_both_executors():
+    model = control_model(core.MLXVisionModel)
+    model._mlx_executor = None
+    model._batch_model = None
+
+    def generate(*args):
+        yield {"choices": [{"text": "x", "finish_reason": "stop"}]}, {}
+
+    model._generate_stream = generate
+    try:
+        model._run_on_mlx_thread(lambda: None)
+        await model.async_generate("prompt", {"max_tokens": 1})
+        executors = [model._mlx_executor, model._fallback_executor]
+        assert all(executor is not None for executor in executors)
+        model.stop()
+        assert model._mlx_executor is None and model._fallback_executor is None
+        assert model._fallback_stopping
+        for executor in executors:
+            with pytest.raises(RuntimeError, match="cannot schedule new futures"):
+                executor.submit(lambda: None)
+    finally:
+        model.stop()
+        core.MLXModel.stop(model)
+
+
+@pytest.mark.asyncio
 async def test_closing_fallback_stream_closes_decode_on_its_worker():
     import threading
 
