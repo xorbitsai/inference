@@ -960,6 +960,72 @@ def test_async_to_chat_completion_chunks_preserves_usage_only_chunk():
     }
 
 
+@pytest.mark.parametrize(
+    "leading",
+    [
+        {"object": "text_completion", "choices": []},
+        {"object": "text_completion", "choices": [{"text": ""}]},
+        {"object": "chat.completion.chunk", "choices": [{"delta": None}]},
+        {"object": "chat.completion.chunk", "choices": [{"delta": {"content": ""}}]},
+    ],
+)
+def test_async_prepare_reasoning_keeps_leading_chunk_without_text(leading):
+    parser = ReasoningParser(True, "<think>", "</think>")
+    text = {
+        "id": "cmpl-test",
+        "model": "test-model",
+        "created": 123,
+        "object": "text_completion",
+        "choices": [{"index": 0, "text": "hi"}],
+    }
+
+    async def _chunks():
+        yield leading
+        yield text
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in parser.prepare_reasoning_content_streaming(_chunks())
+        ]
+
+    results = asyncio.run(_collect())
+
+    assert results[0] == leading
+    assert results[1]["choices"][0]["text"] == "<think>\n"
+    assert results[2] == text
+
+
+def test_async_to_chat_completion_chunks_with_reasoning_keeps_empty_stream():
+    parser = ReasoningParser(True, "<think>", "</think>")
+
+    async def _chunks():
+        yield {
+            "id": "cmpl-test",
+            "model": "test-model",
+            "created": 123,
+            "object": "text_completion",
+            "choices": [{"index": 0, "text": "", "finish_reason": "stop"}],
+        }
+        yield {
+            "choices": [],
+            "usage": {"prompt_tokens": 3, "completion_tokens": 0, "total_tokens": 3},
+        }
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in ChatModelMixin._async_to_chat_completion_chunks(
+                _chunks(), parser
+            )
+        ]
+
+    results = asyncio.run(_collect())
+
+    assert results[-2]["choices"][0]["finish_reason"] == "stop"
+    assert results[-1]["usage"]["total_tokens"] == 3
+
+
 def test_transform_messages_preserves_tool_call_fields():
     mixin = ChatModelMixin()
     messages = [
