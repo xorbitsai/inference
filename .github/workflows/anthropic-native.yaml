@@ -20,7 +20,7 @@ on:
         type: string
         default: ''
       vision_model_path:
-        description: Optional cached vision model path (Qwen2.5-VL-3B-Instruct for SGLang, Qwen3-VL-2B-Instruct otherwise)
+        description: Optional cached Qwen3-VL-2B-Instruct path
         type: string
         default: ''
 
@@ -102,8 +102,6 @@ jobs:
               "TEXT": {"model_name": "qwen3", "model_size_in_billions": "0_6"},
               "VISION": {"model_name": "Qwen3-VL-Instruct", "model_size_in_billions": 2},
           }
-          if engine == "SGLang":
-              configs["VISION"] = {"model_name": "qwen2.5-vl-instruct", "model_size_in_billions": 3}
           with open(os.environ["GITHUB_ENV"], "a") as output:
               for profile, config in configs.items():
                   config.update(model_format="mlx" if engine == "MLX" else "pytorch",
