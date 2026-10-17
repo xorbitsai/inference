@@ -111,8 +111,8 @@ SGLang enforces manual ``budget_tokens`` with its request-level
 versions or disabled strict thinking return HTTP 501 for a manual budget.
 vLLM uses native ``thinking_token_budget`` with boundaries from Xinference's
 reasoning parser; unsupported versions or conflicting boundaries return HTTP 501.
-MLX enforces the budget through request-local token constraints. Both close
-thinking when the budget is reached and continue generating the answer within
+MLX enforces the budget through request-local token constraints. All three engines
+close thinking when the budget is reached and continue generating the answer within
 ``max_tokens``.
 
 Stale, unsigned or foreign thinking blocks are ignored during replay;

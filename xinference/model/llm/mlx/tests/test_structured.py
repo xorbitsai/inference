@@ -96,3 +96,54 @@ def test_budget_accepts_natural_closer_and_finishes_partial_closer():
             assert mx.isfinite(masked[token]).item()
             tokens.append(token)
         assert mx.isfinite(processor(mx.array(tokens), logits)).all().item()
+
+
+@pytest.mark.parametrize("kind", ["json", "budget"])
+def test_processors_copy_only_new_tokens_to_host(monkeypatch, kind):
+    import sys
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    copied = []
+
+    class Tokens:
+        def __init__(self, values):
+            self.values = values
+
+        def reshape(self, *args):
+            return self
+
+        def __len__(self):
+            return len(self.values)
+
+        def __getitem__(self, item):
+            return Tokens(self.values[item])
+
+        def tolist(self):
+            copied.append(len(self.values))
+            return self.values
+
+    fake_core = SimpleNamespace()
+    fake_guidance = SimpleNamespace(apply_token_bitmask=lambda logits, mask: logits)
+    monkeypatch.setitem(sys.modules, "mlx", SimpleNamespace(core=fake_core))
+    monkeypatch.setitem(sys.modules, "mlx.core", fake_core)
+    monkeypatch.setitem(sys.modules, "llguidance", SimpleNamespace(mlx=fake_guidance))
+    monkeypatch.setitem(sys.modules, "llguidance.mlx", fake_guidance)
+    if kind == "budget":
+        processor = ReasoningBudgetLogitsProcessor(
+            SimpleNamespace(encode=lambda *args, **kwargs: [88], eos_token_ids=[]),
+            "</think>",
+            100,
+        )
+    else:
+        processor = object.__new__(JSONLogitsProcessor)
+        processor._seen = None
+        processor._reasoning = True
+        processor._reasoning_end = [88]
+        processor._tail = []
+        processor._eos = []
+    logits = np.zeros(128)
+    assert processor(Tokens([99] * 4096), logits) is logits
+    assert processor(Tokens([99] * 4096 + [10, 11]), logits) is logits
+    assert copied == [0, 2]

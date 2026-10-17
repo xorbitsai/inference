@@ -1032,13 +1032,25 @@ class MLXModel(LLM, ChatModelMixin):
         context: Dict,
         control: Optional[Dict],
         config: Optional[MLXGenerateConfig],
+        full_prompt_tokens: Optional[List[int]] = None,
     ) -> None:
         if control is None or config is None:
             return
         boundaries: Dict[int, int] = {}
+        prompt_tokens = (
+            self._tokenizer.encode(prompt)
+            if full_prompt_tokens is None
+            else full_prompt_tokens
+        )
         for checkpoint in control.get("breakpoints", [control]):
             length = self._get_reusable_prompt_prefix_len(
-                messages, prompt, template, tokenizer, context.copy(), checkpoint
+                messages,
+                prompt,
+                template,
+                tokenizer,
+                context.copy(),
+                checkpoint,
+                prompt_tokens,
             )
             if length is not None:
                 boundaries[length] = max(boundaries.get(length, 0), checkpoint["ttl"])
@@ -1125,6 +1137,7 @@ class MLXModel(LLM, ChatModelMixin):
         tokenizer: Any,
         context_kwargs: Dict[str, Any],
         cache_control: Optional[Dict[str, Any]] = None,
+        full_prompt_tokens: Optional[List[int]] = None,
     ) -> Optional[int]:
         cache_tokenizer = self._tokenizer
         if cache_tokenizer is None or not messages:
@@ -1150,7 +1163,11 @@ class MLXModel(LLM, ChatModelMixin):
                 tokenizer=tokenizer,
                 **context_kwargs,
             )
-            prompt_tokens = cache_tokenizer.encode(full_prompt)
+            prompt_tokens = (
+                cache_tokenizer.encode(full_prompt)
+                if full_prompt_tokens is None
+                else full_prompt_tokens
+            )
             prefix_tokens = cache_tokenizer.encode(prefix_prompt)
             prefix_len = 0
             for prompt_token, prefix_token in zip(prompt_tokens, prefix_tokens):
@@ -1535,7 +1552,7 @@ class MLXModel(LLM, ChatModelMixin):
             top_k=kwargs.pop("top_k"),
         )
         prompt_token_ids = kwargs.pop("prompt_token_ids")
-        stop_token_ids = kwargs.pop("stop_token_ids", []) or []
+        kwargs.pop("stop_token_ids", None)
         logits_processors = make_logits_processors(
             logit_bias=kwargs.pop("logits_bias", None),
             repetition_penalty=kwargs.pop("repetition_penalty"),
@@ -1543,17 +1560,14 @@ class MLXModel(LLM, ChatModelMixin):
         )
         logits_processors.extend(kwargs.pop("logits_processors", []))
         try:
-            for response in stream_generate(
+            yield from stream_generate(
                 self._model,
                 self._tokenizer,
                 prompt_token_ids,
                 sampler=sampler,
                 logits_processors=logits_processors,
                 **kwargs,
-            ):
-                if response.token in stop_token_ids:
-                    break
-                yield response
+            )
         finally:
             # after completing the inference, clear the memory.
             self._cleanup_memory()
@@ -1613,7 +1627,14 @@ class MLXModel(LLM, ChatModelMixin):
         tokenizer = self._tokenizer
         max_tokens = kwargs.get("max_tokens")
         chunk_id = str(uuid.uuid4())
-        stop_token_ids = kwargs.get("stop_token_ids", [])
+        stop_token_ids = kwargs.get("stop_token_ids") or []
+        if isinstance(stop_token_ids, int):
+            stop_token_ids = [stop_token_ids]
+        eos_token_ids = getattr(tokenizer, "eos_token_ids", None)
+        if eos_token_ids is None:
+            eos_token_ids = [tokenizer.eos_token_id]
+        elif isinstance(eos_token_ids, int):
+            eos_token_ids = [eos_token_ids]
         stream = kwargs.get("stream", False)
         stream_options = kwargs.pop("stream_options", None)
         include_usage = (
@@ -1631,7 +1652,8 @@ class MLXModel(LLM, ChatModelMixin):
         cache_creation = kwargs.pop("_anthropic_cache_creation", None)
         max_tokens = self._get_max_tokens(input_echo_len, max_tokens)
 
-        i = 0
+        output_tokens = 0
+        stopped = False
         start = time.time()
         tokens = []
         # For VLM models, let generate_step handle cache creation internally
@@ -1653,11 +1675,18 @@ class MLXModel(LLM, ChatModelMixin):
         if kwargs.get("_mlx_prompt_cache") is not None:
             stream_kwargs["prompt_cache"] = kwargs["_mlx_prompt_cache"]
 
-        for i, chunk_resp in enumerate(self._generate_stream_inner(**stream_kwargs)):
+        for chunk_resp in self._generate_stream_inner(**stream_kwargs):
+            previous_output_tokens = output_tokens
+            output_tokens = getattr(chunk_resp, "generation_tokens", output_tokens + 1)
             token = chunk_resp.token
-            tokens.append(token)
+            if output_tokens > previous_output_tokens:
+                tokens.append(token)
 
-            out = chunk_resp.text
+            is_eos = token in eos_token_ids
+            stopped = is_eos or token in stop_token_ids
+            # Native EOS responses carry the detokenizer's final fragment.
+            # A caller-supplied non-EOS stop token is counted/cached, not emitted.
+            out = "" if stopped and not is_eos else chunk_resp.text
             if stream:
                 # this special character is mainly for qwen
                 out = out.strip("")
@@ -1667,8 +1696,8 @@ class MLXModel(LLM, ChatModelMixin):
 
             completion_usage = CompletionUsage(
                 prompt_tokens=input_echo_len,
-                completion_tokens=i,
-                total_tokens=(input_echo_len + i),
+                completion_tokens=output_tokens,
+                total_tokens=(input_echo_len + output_tokens),
                 prompt_tokens_details={"cached_tokens": cached_prompt_tokens},
                 cache_creation_input_tokens=cache_created_tokens,
             )
@@ -1681,17 +1710,17 @@ class MLXModel(LLM, ChatModelMixin):
                 chunk_id=chunk_id,
                 model_uid=model_uid,
                 prompt_tokens=input_echo_len,
-                completion_tokens=i,
-                total_tokens=(input_echo_len + i),
+                completion_tokens=output_tokens,
+                total_tokens=(input_echo_len + output_tokens),
             )
             completion_chunk["usage"] = completion_usage
             yield completion_chunk, completion_usage
 
-            if token == tokenizer.eos_token_id or token in stop_token_ids:  # type: ignore
+            if stopped:
                 break
 
         logger.info(
-            f"Average generation speed: {i / (time.time() - start):.2f} tokens/s."  # noqa: E231
+            f"Average generation speed: {output_tokens / (time.time() - start):.2f} tokens/s."  # noqa: E231
         )
 
         if (
@@ -1702,15 +1731,15 @@ class MLXModel(LLM, ChatModelMixin):
         ):
             self._prompt_cache.tokens.extend(tokens)  # type: ignore
 
-        if i >= max_tokens - 1:
+        if not stopped and output_tokens >= max_tokens:
             finish_reason = "length"
         else:
             finish_reason = "stop"
 
         completion_usage = CompletionUsage(
             prompt_tokens=input_echo_len,
-            completion_tokens=i,
-            total_tokens=(input_echo_len + i),
+            completion_tokens=output_tokens,
+            total_tokens=(input_echo_len + output_tokens),
             prompt_tokens_details={"cached_tokens": cached_prompt_tokens},
             cache_creation_input_tokens=cache_created_tokens,
         )
@@ -1722,8 +1751,8 @@ class MLXModel(LLM, ChatModelMixin):
             chunk_id=chunk_id,
             model_uid=model_uid,
             prompt_tokens=input_echo_len,
-            completion_tokens=i,
-            total_tokens=(input_echo_len + i),
+            completion_tokens=output_tokens,
+            total_tokens=(input_echo_len + output_tokens),
         )
         completion_chunk["usage"] = completion_usage
         yield completion_chunk, completion_usage
@@ -2167,6 +2196,9 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         )
 
         full_prompt = self._prepare_reasoning_prompt(full_prompt, generate_config)
+        full_prompt_tokens = (
+            self._tokenizer.encode(full_prompt) if cache_control else None
+        )
         self._set_explicit_cache_boundaries(
             messages,
             full_prompt,
@@ -2175,6 +2207,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             prefix_context_kwargs,
             cache_control,
             generate_config,
+            full_prompt_tokens,
         )
 
         prefix_len = self._get_reusable_prompt_prefix_len(
@@ -2183,6 +2216,8 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             chat_template,
             tokenizer,
             prefix_context_kwargs,
+            None,
+            full_prompt_tokens,
         )
         if prefix_len is not None:
             if generate_config is None:
@@ -2951,6 +2986,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             if video_inputs:
                 raise ValueError("Not support video input now.")
             if not images:
+                full_prompt_tokens = (
+                    self._tokenizer.encode(prompt) if cache_control else None
+                )
                 self._set_explicit_cache_boundaries(
                     messages,
                     prompt,
@@ -2959,6 +2997,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     full_context_kwargs,
                     cache_control,
                     generate_config,
+                    full_prompt_tokens,
                 )
                 prefix_len = self._get_reusable_prompt_prefix_len(
                     messages,
@@ -2967,6 +3006,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     tokenizer,
                     full_context_kwargs.copy(),
                     cache_control,
+                    full_prompt_tokens,
                 )
                 if prefix_len is not None:
                     if generate_config is None:

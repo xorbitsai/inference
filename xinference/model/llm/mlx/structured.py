@@ -27,10 +27,10 @@ class ReasoningBudgetLogitsProcessor:
     def __call__(self, tokens: Any, logits: Any) -> Any:
         import mlx.core as mx
 
-        current = tokens.reshape(-1).tolist()
+        current = tokens.reshape(-1)
         if self._seen is None:
             self._seen = len(current)
-        self._generated.extend(current[self._seen :])
+        self._generated.extend(current[self._seen :].tolist())
         self._seen = len(current)
         if self._generated[-len(self._end) :] == self._end:
             self._done = True
@@ -93,12 +93,12 @@ class JSONLogitsProcessor:
         import numpy as np
         from llguidance.mlx import apply_token_bitmask
 
-        current = tokens.reshape(-1).tolist()
+        current = tokens.reshape(-1)
         if self._seen is None:
             # mlx-lm passes prompt+output, mlx-vlm passes output only. Neither
             # has generated a token on the first call.
             self._seen = len(current)
-        for token in current[self._seen :]:
+        for token in current[self._seen :].tolist():
             if self._reasoning:
                 self._tail = (self._tail + [token])[-len(self._reasoning_end) :]
                 if self._tail == self._reasoning_end:

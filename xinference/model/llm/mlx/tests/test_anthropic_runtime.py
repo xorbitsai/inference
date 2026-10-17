@@ -202,19 +202,20 @@ def test_added_checkpoint_is_prefilled_but_eviction_does_not_force_a_miss():
     assert cache.fetch([1, 2, 3, 4, 5], [2, 4])[1] == 4
 
 
-def test_final_detokenizer_fragment_preserves_length_finish():
-    model = object.__new__(core.MLXVisionModel)
+@pytest.mark.parametrize("cls", [core.MLXModel, core.MLXVisionModel])
+def test_final_detokenizer_fragment_preserves_length_finish(cls):
+    model = object.__new__(cls)
     model.model_uid = "test"
     model._tokenizer = SimpleNamespace(eos_token_id=99)
-    model._prompt_cache = None
+    model._prompt_cache = SimpleNamespace(tokens=[])
     model._prepare_inputs = lambda prompt, config: ([], 1, 0)
     model._get_max_tokens = lambda length, requested: 2
     model._structured_processor = lambda config: []
     model._generate_stream_inner = lambda **kwargs: iter(
         [
-            SimpleNamespace(token=1, text="a"),
-            SimpleNamespace(token=2, text="b"),
-            SimpleNamespace(token=2, text=""),
+            SimpleNamespace(token=1, text="a", generation_tokens=1),
+            SimpleNamespace(token=2, text="b", generation_tokens=2),
+            SimpleNamespace(token=2, text="", generation_tokens=2),
         ]
     )
     chunks = list(
@@ -231,6 +232,8 @@ def test_final_detokenizer_fragment_preserves_length_finish():
         )
     )
     assert chunks[-1][0]["choices"][0]["finish_reason"] == "length"
+    assert chunks[-1][1]["completion_tokens"] == 2
+    assert model._prompt_cache.tokens == [1, 2]
 
 
 def test_structured_text_requests_have_independent_kv_caches(monkeypatch):
@@ -784,3 +787,237 @@ async def test_stop_during_decode_keeps_cleanup_on_worker_and_preserves_error(
             await model.async_generate("prompt", {"max_tokens": 1})
     finally:
         model.stop()
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("mode", ["standard", "json", "budget", "checkpoint"])
+@pytest.mark.parametrize(
+    "ending", ["eos", "second_eos", "custom_stop", "length", "first_eos"]
+)
+def test_serial_stop_usage_and_kv_tokens_stay_aligned(
+    monkeypatch, stream, mode, ending
+):
+    from itertools import count
+    from unittest.mock import Mock
+
+    clock = Mock(wraps=core.time)
+    clock.time.side_effect = count(100.0, 0.01)
+    monkeypatch.setattr(core, "time", clock)
+    prompt = [1, 2, 3]
+    terminal = {
+        "eos": 99,
+        "second_eos": 98,
+        "custom_stop": 77,
+        "length": 11,
+        "first_eos": 99,
+    }[ending]
+    generated = (
+        [99]
+        if ending == "first_eos"
+        else [10, 11] if ending == "length" else [10, 11, terminal]
+    )
+    maximum = len(generated) if ending != "first_eos" else 5
+
+    class Cache:
+        def __init__(self, tokens=()):
+            self.tokens = list(tokens)
+
+    caches = []
+
+    def make_cache(*args):
+        cache = [Cache()]
+        caches.append(cache)
+        return cache
+
+    def native_generate(model, tokenizer, tokens, **kwargs):
+        cache = kwargs["prompt_cache"][0]
+        cache.tokens.extend(tokens)
+        for index, token in enumerate(generated):
+            cache.tokens.append(
+                token
+            )  # mlx-lm feeds the sampled token before yielding it.
+            text = "<STOP>" if token == 77 else "tail" if token in {98, 99} else "x"
+            yield SimpleNamespace(token=token, text=text, generation_tokens=index + 1)
+        if ending != "length":
+            raise AssertionError("outer stop check must stop at the terminal token")
+
+    # Use the real _generate_stream_inner adapter, with an mlx-lm-shaped source.
+    monkeypatch.setitem(
+        sys.modules,
+        "mlx_lm.utils",
+        SimpleNamespace(
+            make_logits_processors=lambda **kwargs: [],
+            make_sampler=lambda **kwargs: None,
+            stream_generate=native_generate,
+        ),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "mlx_lm.models.cache",
+        SimpleNamespace(make_prompt_cache=make_cache),
+    )
+    model = control_model()
+    model.model_path = "serial-model"
+    model._max_kv_size = None
+    model._prompt_cache = core.PromptCache() if mode == "standard" else None
+    model._tokenizer = SimpleNamespace(
+        encode=lambda text: prompt if text == "prompt" else prompt + generated + [42],
+        eos_token_id=99,
+        eos_token_ids={98, 99},
+    )
+    model._structured_processor = lambda config: []
+    model._cleanup_memory = Mock()
+    config = {
+        "stream": stream,
+        "stream_options": {"include_usage": True},
+        "max_tokens": maximum,
+        "stop_token_ids": ([77] if stream else 77) if ending == "custom_stop" else None,
+    }
+    if mode == "json":
+        config["response_format"] = {"type": "json_object"}
+    elif mode == "budget":
+        config["_mlx_thinking_budget"] = 10
+    elif mode == "checkpoint":
+        config["_mlx_cache_boundaries"] = [(2, 300)]
+
+        def prepare(tokens, boundaries, config):
+            cache = make_cache()
+            cache[0].tokens.extend(tokens[:2])
+            return tokens[2:], cache, 2
+
+        model._prepare_explicit_prompt_cache = prepare
+    config = model._sanitize_generate_config(config)
+    chunks = list(model._generate_stream("prompt", config))
+    usage = chunks[-1][1]
+    assert usage["completion_tokens"] == len(generated)
+    assert usage["total_tokens"] == len(prompt) + len(generated)
+    assert usage["prompt_tokens_details"]["cached_tokens"] == (
+        2 if mode == "checkpoint" else 0
+    )
+    terminal_chunks = [
+        chunk
+        for chunk, _ in chunks
+        if chunk["choices"] and chunk["choices"][0]["finish_reason"]
+    ]
+    assert terminal_chunks[-1]["choices"][0]["finish_reason"] == (
+        "length" if ending == "length" else "stop"
+    )
+    text = "".join(
+        chunk["choices"][0]["text"] for chunk, _ in chunks if chunk["choices"]
+    )
+    assert "<STOP>" not in text
+    if ending in {"eos", "second_eos", "first_eos"}:
+        assert text.endswith("tail")
+    assert caches[-1][0].tokens == prompt + generated
+    if mode == "standard":
+        assert model._prompt_cache.tokens == caches[-1][0].tokens
+        assert model._prepare_inputs("followup", {}) == (
+            [42],
+            len(prompt + generated) + 1,
+            len(prompt + generated),
+        )
+    else:
+        assert model._prompt_cache is None
+    model._cleanup_memory.assert_called_once()
+
+
+def test_explicit_boundaries_encode_full_prompt_only_once():
+    from unittest.mock import Mock
+
+    model = control_model()
+    model._tokenizer = SimpleNamespace(
+        encode=Mock(side_effect=lambda text: list(text.encode()))
+    )
+    model.get_full_context = lambda messages, *args, **kwargs: messages[0]["content"]
+    config = {}
+    checkpoints = [
+        {"messages": [{"role": "user", "content": "ab"}], "ttl": 3600},
+        {"messages": [{"role": "user", "content": "abcd"}], "ttl": 300},
+    ]
+    full_tokens = model._tokenizer.encode("abcde")
+    model._set_explicit_cache_boundaries(
+        [{"role": "user", "content": "abcde"}],
+        "abcde",
+        "template",
+        None,
+        {},
+        {"breakpoints": checkpoints},
+        config,
+        full_tokens,
+    )
+    model._get_reusable_prompt_prefix_len(
+        [{"role": "user", "content": "abcde"}],
+        "abcde",
+        "template",
+        None,
+        {},
+        None,
+        full_tokens,
+    )
+    assert config["_mlx_cache_boundaries"] == [(2, 3600), (4, 300)]
+    encoded = [call.args[0] for call in model._tokenizer.encode.call_args_list]
+    assert encoded.count("abcde") == 1
+    assert set(encoded) == {"abcde", "ab", "abcd", ""}
+
+
+def test_native_mlx_lm_eos_usage_matches_kv_and_followup(monkeypatch):
+    mx = pytest.importorskip("mlx.core")
+    pytest.importorskip("mlx_lm")
+    from mlx_lm import sample_utils
+    from mlx_lm.models.qwen2 import Model, ModelArgs
+    from tokenizers import Tokenizer, decoders, models, pre_tokenizers
+    from transformers import PreTrainedTokenizerFast
+
+    vocab = {
+        value: index
+        for index, value in enumerate(sorted(pre_tokenizers.ByteLevel.alphabet()))
+    }
+    vocab["<eos>"] = len(vocab)
+    raw = Tokenizer(models.BPE(vocab=vocab, merges=[]))
+    raw.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
+    raw.decoder = decoders.ByteLevel()
+    tokenizer = PreTrainedTokenizerFast(tokenizer_object=raw, eos_token="<eos>")
+    language = Model(
+        ModelArgs(
+            model_type="qwen2",
+            hidden_size=32,
+            num_hidden_layers=2,
+            intermediate_size=64,
+            num_attention_heads=4,
+            rms_norm_eps=1e-6,
+            vocab_size=len(vocab),
+            num_key_value_heads=2,
+        )
+    )
+    language.set_dtype(mx.float16)
+    mx.eval(language.parameters())
+    generated = tokenizer.encode("ab") + [tokenizer.eos_token_id]
+    samples = iter(generated + [tokenizer.eos_token_id])
+    monkeypatch.setattr(
+        sample_utils,
+        "make_sampler",
+        lambda **kwargs: lambda logits: mx.array([next(samples)]),
+    )
+    model = object.__new__(core.MLXModel)
+    model.model_uid = "native-serial"
+    model.model_path = "/unused"
+    model._model = language
+    model._tokenizer = tokenizer
+    model._prompt_cache = core.PromptCache()
+    model._max_kv_size = None
+    model._context_length_limit = None
+    model._model_generation_config = {}
+    config = model._sanitize_generate_config(
+        {"max_tokens": 5, "stop_token_ids": [tokenizer.eos_token_id]}
+    )
+    chunks = list(model._generate_stream("Q", config))
+    expected = tokenizer.encode("Q") + generated
+    assert chunks[-1][1]["completion_tokens"] == len(generated)
+    assert model._prompt_cache.tokens == expected
+    assert model._prompt_cache.cache[0].offset == len(expected)
+    assert "".join(chunk["choices"][0]["text"] for chunk, _ in chunks) == "ab"
+    remaining, count, cached = model._prepare_inputs(
+        tokenizer.decode(expected) + "Z", {}
+    )
+    assert remaining == tokenizer.encode("Z")
+    assert count == len(expected) + 1 and cached == len(expected)
