@@ -475,7 +475,6 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 **kwargs,
             ).cpu()
             if similarity_scores.dtype == torch.bfloat16:
-                similarity_scores = torch.float16
                 similarity_scores = similarity_scores.float()
         elif "jina-reranker-v3.5" in self.model_family.model_name.lower():
             # Native listwise API: returns dicts sorted by score desc, each
