@@ -56,7 +56,9 @@ class TimedPromptCache:
             self.entries.move_to_end(key)
         return copy.deepcopy(self.entries[longest].cache), len(longest)
 
-    def store(self, tokens: List[int], cache: Any, ttl: int) -> bool:
+    def store(
+        self, tokens: List[int], cache: Any, ttl: int, started: Optional[float] = None
+    ) -> bool:
         def nbytes(value):
             if isinstance(value, (list, tuple)):
                 return sum(nbytes(item) for item in value)
@@ -68,9 +70,10 @@ class TimedPromptCache:
         while len(self._known) > max(4, self.max_size * 4):
             self._known.popitem(last=False)
         size = sum(nbytes(entry.state) for entry in cache)
-        self.entries[key] = Checkpoint(
-            copy.deepcopy(cache), ttl, time.monotonic() + ttl, size
-        )
+        expires = (time.monotonic() if started is None else started) + ttl
+        if key in self.entries:
+            expires = max(expires, self.entries[key].expires)
+        self.entries[key] = Checkpoint(copy.deepcopy(cache), ttl, expires, size)
         self.entries.move_to_end(key)
         while self.entries and (
             len(self.entries) > self.max_size

@@ -243,3 +243,12 @@ def test_cache_hit_can_extend_lifetime_without_revoking_an_existing_lease(monkey
     clock[0] = 200
     cache.fetch([1, 2, 3], [2], {2: 300})
     assert cache.entries[(1, 2)].expires == 3700
+
+
+def test_cache_write_lifetime_includes_prefill_time(monkeypatch):
+    from .. import prompt_cache
+
+    monkeypatch.setattr(prompt_cache.time, "monotonic", lambda: 200)
+    cache = prompt_cache.TimedPromptCache()
+    cache.store([1, 2], [SimpleNamespace(state=[])], 300, started=100)
+    assert cache.entries[(1, 2)].expires == 400

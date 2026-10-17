@@ -501,6 +501,13 @@ def test_mlx_cache_breakpoints(native_model, stream):
         thinking={"type": "disabled"},
     )
     assert cold.usage.cache_creation_input_tokens > 0
+    creation = cold.usage.cache_creation
+    assert creation.ephemeral_1h_input_tokens > 0
+    assert creation.ephemeral_5m_input_tokens > 0
+    assert (
+        creation.ephemeral_1h_input_tokens + creation.ephemeral_5m_input_tokens
+        == cold.usage.cache_creation_input_tokens
+    )
     assert hot.usage.cache_read_input_tokens == cold.usage.cache_creation_input_tokens
     assert hot.usage.cache_creation_input_tokens == 0
     assert text(cold).strip() and text(hot).strip()

@@ -867,3 +867,22 @@ def test_cache_breakpoints_retain_individual_lifetimes():
     body["messages"][0]["content"][0]["cache_control"]["ttl"] = "1h"
     with pytest.raises(AnthropicProtocolError, match="Longer cache lifetimes"):
         parse_anthropic_request(body)
+
+
+def test_cache_creation_lifetimes_are_preserved_in_usage():
+    from xinference.api.protocols.anthropic import _anthropic_usage
+
+    creation = {"ephemeral_5m_input_tokens": 20, "ephemeral_1h_input_tokens": 30}
+    usage = _anthropic_usage(
+        {
+            "prompt_tokens": 100,
+            "completion_tokens": 5,
+            "prompt_tokens_details": {"cached_tokens": 40},
+            "cache_creation_input_tokens": 50,
+            "cache_creation": creation,
+        }
+    )
+    assert usage["input_tokens"] == 10
+    assert usage["cache_read_input_tokens"] == 40
+    assert usage["cache_creation_input_tokens"] == 50
+    assert usage["cache_creation"] == creation

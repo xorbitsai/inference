@@ -712,6 +712,7 @@ class MLXGenerateConfig(TypedDict, total=False):
     prompt_cache_prefix_len: Optional[int]
     _anthropic_cache_ttl: int
     _anthropic_cache_created_tokens: int
+    _anthropic_cache_creation: Dict[str, int]
     _anthropic_cache_control: Dict[str, Any]
     _mlx_cache_boundaries: List[Tuple[int, int]]
     _mlx_prompt_cache: Any
@@ -946,6 +947,7 @@ class MLXModel(LLM, ChatModelMixin):
 
         from .prompt_cache import TimedPromptCache
 
+        started = time.monotonic()
         language_model = getattr(self._model, "language_model", self._model)
         model_key = (id(language_model), config.get("lora_name"))
         if getattr(self, "_explicit_cache_key", None) != model_key:
@@ -961,6 +963,7 @@ class MLXModel(LLM, ChatModelMixin):
             cache = make_prompt_cache(language_model, self._max_kv_size)
         position = cached
         written = 0
+        creation = {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 0}
         for boundary, ttl in boundaries:
             if boundary <= cached:
                 continue
@@ -973,10 +976,18 @@ class MLXModel(LLM, ChatModelMixin):
                     cache=cache,
                 )
                 mx.eval([entry.state for entry in cache])
-            if self._explicit_cache.store(tokens[:boundary], cache, ttl):
+            if self._explicit_cache.store(tokens[:boundary], cache, ttl, started):
                 written += boundary - position
+                creation[
+                    (
+                        "ephemeral_1h_input_tokens"
+                        if ttl == 3600
+                        else "ephemeral_5m_input_tokens"
+                    )
+                ] += (boundary - position)
             position = boundary
         config["_anthropic_cache_created_tokens"] = written
+        config["_anthropic_cache_creation"] = creation
         return tokens[position:], cache, cached
 
     def _update_model_generation_config(self, config: Dict[str, Any]) -> None:
@@ -1496,6 +1507,7 @@ class MLXModel(LLM, ChatModelMixin):
             else self._prepare_inputs(prompt, kwargs)
         )
         cache_created_tokens = kwargs.pop("_anthropic_cache_created_tokens", 0)
+        cache_creation = kwargs.pop("_anthropic_cache_creation", None)
         max_tokens = self._get_max_tokens(input_echo_len, max_tokens)
 
         i = 0
@@ -1539,6 +1551,8 @@ class MLXModel(LLM, ChatModelMixin):
                 prompt_tokens_details={"cached_tokens": cached_prompt_tokens},
                 cache_creation_input_tokens=cache_created_tokens,
             )
+            if cache_creation is not None:
+                completion_usage["cache_creation"] = cache_creation
 
             completion_chunk = generate_completion_chunk(
                 chunk_text=out,
@@ -1578,6 +1592,8 @@ class MLXModel(LLM, ChatModelMixin):
             prompt_tokens_details={"cached_tokens": cached_prompt_tokens},
             cache_creation_input_tokens=cache_created_tokens,
         )
+        if cache_creation is not None:
+            completion_usage["cache_creation"] = cache_creation
         completion_chunk = generate_completion_chunk(
             "",
             finish_reason=finish_reason,

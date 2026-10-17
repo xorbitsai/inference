@@ -759,13 +759,13 @@ def _sanitize_stop_sequence(
     return value if allowed is None or value in allowed else None
 
 
-def _anthropic_usage(usage: Dict[str, Any]) -> Dict[str, int]:
+def _anthropic_usage(usage: Dict[str, Any]) -> Dict[str, Any]:
     details = usage.get("prompt_tokens_details") or {}
     cached = int(
         details.get("cached_tokens") or usage.get("cache_read_input_tokens") or 0
     )
     created = int(usage.get("cache_creation_input_tokens") or 0)
-    result = {
+    result: Dict[str, Any] = {
         "input_tokens": max(0, int(usage.get("prompt_tokens") or 0) - cached - created),
         "output_tokens": int(usage.get("completion_tokens") or 0),
     }
@@ -777,6 +777,12 @@ def _anthropic_usage(usage: Dict[str, Any]) -> Dict[str, int]:
         result.update(
             cache_read_input_tokens=cached, cache_creation_input_tokens=created
         )
+    creation = usage.get("cache_creation")
+    if isinstance(creation, dict):
+        result["cache_creation"] = {
+            key: int(creation.get(key) or 0)
+            for key in ("ephemeral_5m_input_tokens", "ephemeral_1h_input_tokens")
+        }
     return result
 
 
