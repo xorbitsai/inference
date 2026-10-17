@@ -352,3 +352,34 @@ def test_cache_creation_tiers_survive_chat_usage_sanitization():
         "cache_creation": creation,
     }
     assert ChatModelMixin._sanitize_usage(usage)["cache_creation"] == creation
+
+
+def test_sync_anthropic_stream_exposes_initial_cache_usage():
+    from ..utils import ChatModelMixin
+
+    creation = {"ephemeral_5m_input_tokens": 20, "ephemeral_1h_input_tokens": 30}
+    usage = {
+        "prompt_tokens": 100,
+        "completion_tokens": 0,
+        "total_tokens": 100,
+        "cache_creation_input_tokens": 50,
+        "cache_creation": creation,
+    }
+    chunk = {
+        "id": "test",
+        "created": 1,
+        "model": "test",
+        "object": "text_completion",
+        "choices": [
+            {"index": 0, "text": "hello", "finish_reason": None, "logprobs": None}
+        ],
+        "usage": usage,
+    }
+    first = next(
+        ChatModelMixin._to_chat_completion_chunks(
+            iter([chunk]), ctx={"_anthropic_request": True}
+        )
+    )
+    assert first["usage"]["cache_creation"] == creation
+    ordinary = next(ChatModelMixin._to_chat_completion_chunks(iter([chunk])))
+    assert ordinary["usage"] is None

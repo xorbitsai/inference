@@ -949,6 +949,10 @@ class ChatModelMixin:
                         previous_texts,
                         ensure_role=is_first_chunk,
                     )
+                    if is_first_chunk and ctx and ctx.get("_anthropic_request"):
+                        first_usage = cls._sanitize_usage(chunk.get("usage"))
+                        if first_usage is not None:
+                            r["usage"] = first_usage
                     is_first_chunk = False
                     fallback_chunk = chunk
             finally:
@@ -1558,6 +1562,10 @@ class ChatModelMixin:
                 previous_texts,
                 ensure_role=choice_chunk_idx == 0,
             )
+            if choice_chunk_idx == 0 and ctx and ctx.get("_anthropic_request"):
+                first_usage = self._sanitize_usage(completion_chunk.get("usage"))
+                if first_usage is not None:
+                    chat_chunk["usage"] = first_usage
             choice_chunk_idx += 1
             reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(chat_chunk)
             if reasoning_chunk is not None:
