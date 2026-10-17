@@ -106,7 +106,11 @@ with the same model UID and signing key; configure
 SGLang enforces manual ``budget_tokens`` with its request-level
 ``max_thinking_tokens`` control when strict thinking is enabled. Unsupported
 versions or disabled strict thinking return HTTP 501 for a manual budget.
-MLX and vLLM do not currently enforce a separate reasoning-token limit.
+vLLM uses native ``thinking_token_budget`` with boundaries from Xinference's
+reasoning parser; unsupported versions or conflicting boundaries return HTTP 501.
+MLX enforces the budget through request-local token constraints. Both close
+thinking when the budget is reached and continue generating the answer within
+``max_tokens``.
 
 Stale, unsigned or foreign thinking blocks are ignored during replay;
 accompanying answers and tool calls are preserved.
@@ -159,7 +163,8 @@ plugin support. Qwen3.5 needs no extra parser configuration. Explicit engine
 parser settings are preserved. Manual thinking cannot be combined with forced
 tool choice. P/D models return 501 for forced tool choice. Other engines return
 501 for unsupported controls. MLX uses ``llguidance`` (included in the
-``mlx`` extra) with a fast tokenizer. Requests with constrained output or explicit cache checkpoints use
+``mlx`` extra) with a fast tokenizer. Requests with constrained output, a manual
+thinking budget or explicit cache checkpoints use
 request-local decoding; other text requests retain continuous batching.
 
 SGLang counts image tokens through a zero-output native prefill, using the
@@ -210,9 +215,9 @@ compatible model and engine version, as described above.
      - Automatic caching
      - Text requests (LM and VLM)
    * - Separate reasoning-token budget
-     - Not enforced
+     - Supported with matching reasoning boundaries
      - Supported with strict thinking
-     - Not enforced
+     - Supported with reasoning markers
 
 Prompt caching
 --------------

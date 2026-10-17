@@ -717,6 +717,7 @@ class MLXGenerateConfig(TypedDict, total=False):
     _mlx_cache_boundaries: List[Tuple[int, int]]
     _mlx_prompt_cache: Any
     _mlx_structured_thinking: bool
+    _mlx_thinking_budget: int
     response_format: Dict[str, Any]
     parallel_tool_calls: bool
     tool_choice: Any
@@ -863,7 +864,12 @@ class MLXModel(LLM, ChatModelMixin):
     def prepare_anthropic_request(
         self, messages: List[Dict], config: Dict
     ) -> Dict[str, Any]:
-        if config.get("response_format") or is_forced_tool_choice(config):
+        self._apply_thinking_budget(config)
+        if (
+            config.get("response_format")
+            or is_forced_tool_choice(config)
+            or config.get("_mlx_thinking_budget") is not None
+        ):
             if getattr(self, "_xavier", None) is not None:
                 raise NotImplementedError(
                     "MLX P/D models do not support constrained output"
@@ -873,9 +879,10 @@ class MLXModel(LLM, ChatModelMixin):
             checked = config
             if is_forced_tool_choice(config):
                 _, checked = prepare_forced_tools(messages, config)
-            JSONLogitsProcessor(
-                self._tokenizer, json_schema(checked["response_format"])
-            )
+            if checked.get("response_format"):
+                JSONLogitsProcessor(
+                    self._tokenizer, json_schema(checked["response_format"])
+                )
             if (
                 isinstance(self, MLXVisionModel)
                 and "logits_processors"
@@ -900,15 +907,47 @@ class MLXModel(LLM, ChatModelMixin):
                 )
         return super().prepare_anthropic_request(messages, config)
 
-    def _structured_processor(self, config: MLXGenerateConfig) -> List[Any]:
-        if not config.get("response_format"):
-            return []
-        from .structured import JSONLogitsProcessor, json_schema
+    def _apply_thinking_budget(self, config: Dict) -> None:
+        context = (
+            self._get_chat_template_kwargs_from_generate_config(
+                config, self.reasoning_parser
+            )
+            or {}
+        )
+        budget = context.get("thinking_budget")
+        if budget is None or not context.get("enable_thinking"):
+            return
+        from .structured import ReasoningBudgetLogitsProcessor
 
+        parser = self.reasoning_parser
+        if parser is None or not parser.reasoning_start_tag.startswith("<"):
+            raise NotImplementedError("MLX thinking budgets require reasoning markers")
+        ReasoningBudgetLogitsProcessor(
+            self._tokenizer, parser.reasoning_end_tag, budget
+        )
+        config["_mlx_thinking_budget"] = budget
+
+    def _structured_processor(self, config: MLXGenerateConfig) -> List[Any]:
+        from .structured import (
+            JSONLogitsProcessor,
+            ReasoningBudgetLogitsProcessor,
+            json_schema,
+        )
+
+        processors: List[Any] = []
+        budget = config.get("_mlx_thinking_budget")
+        if budget is not None:
+            processors.append(
+                ReasoningBudgetLogitsProcessor(
+                    self._tokenizer, self.reasoning_parser.reasoning_end_tag, budget
+                )
+            )
+        if not config.get("response_format"):
+            return processors
         end = None
         if config.get("_mlx_structured_thinking") and self.reasoning_parser:
             end = self.reasoning_parser.reasoning_end_tag
-        return [
+        return processors + [
             JSONLogitsProcessor(
                 self._tokenizer, json_schema(config["response_format"]), end
             )
@@ -1479,7 +1518,10 @@ class MLXModel(LLM, ChatModelMixin):
             )
             kwargs["_mlx_prompt_cache"] = cache
             return remaining, input_echo_len, cached
-        if kwargs.get("response_format"):
+        if (
+            kwargs.get("response_format")
+            or kwargs.get("_mlx_thinking_budget") is not None
+        ):
             from mlx_lm.models.cache import make_prompt_cache
 
             kwargs["_mlx_prompt_cache"] = make_prompt_cache(
@@ -1589,6 +1631,7 @@ class MLXModel(LLM, ChatModelMixin):
             self._prompt_cache
             and not kwargs.get("_mlx_cache_boundaries")
             and not kwargs.get("response_format")
+            and kwargs.get("_mlx_thinking_budget") is None
         ):
             self._prompt_cache.tokens.extend(tokens)  # type: ignore
 
@@ -1761,6 +1804,7 @@ class MLXModel(LLM, ChatModelMixin):
         if (
             self._batch_model is not None
             and not generate_config.get("response_format")
+            and generate_config.get("_mlx_thinking_budget") is None
             and not generate_config.get("_mlx_cache_boundaries")
         ):
             # Extract prompt text
@@ -1944,6 +1988,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         generate_config = cast(MLXGenerateConfig, dict(generate_config or {}))
+        self._apply_thinking_budget(cast(Dict[str, Any], generate_config))
         if is_forced_tool_choice(generate_config):
             messages, config = prepare_forced_tools(
                 messages, cast(Dict[str, Any], generate_config)
@@ -2859,6 +2904,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         generate_config: Optional[MLXGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         generate_config = cast(MLXGenerateConfig, dict(generate_config or {}))
+        self._apply_thinking_budget(cast(Dict[str, Any], generate_config))
         if is_forced_tool_choice(generate_config):
             messages, config = prepare_forced_tools(
                 messages, cast(Dict[str, Any], generate_config)

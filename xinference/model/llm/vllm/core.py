@@ -156,6 +156,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     temperature: float
     top_p: float
     top_k: int
+    thinking_token_budget: int
     max_tokens: int
     stop_token_ids: Optional[List[int]]
     stop: Optional[Union[str, List[str]]]
@@ -613,6 +614,7 @@ class VLLMModel(WeightCachedModel, LLM):
 
     async def async_prepare_anthropic_request(self, messages: List[Dict], config: Dict):
         self._validate_forced_tools(config)
+        self._apply_thinking_budget(dict(config))
         prepared = super().prepare_anthropic_request(messages, config)
         try:
             prepared["input_tokens"] = await self.async_count_tokens(
@@ -621,6 +623,33 @@ class VLLMModel(WeightCachedModel, LLM):
         except NotImplementedError:
             pass
         return prepared
+
+    def _apply_thinking_budget(self, config: Dict) -> None:
+        context = self._get_chat_template_kwargs_from_generate_config(config, self.reasoning_parser) or {}  # type: ignore[attr-defined]
+        budget = context.get("thinking_budget")
+        if budget is None or not context.get("enable_thinking"):
+            return
+        from vllm import SamplingParams
+
+        reasoning = getattr(
+            getattr(getattr(self, "_engine", None), "vllm_config", None),
+            "reasoning_config",
+            None,
+        )
+        parser = self.reasoning_parser
+        if (
+            "thinking_token_budget" not in inspect.signature(SamplingParams).parameters
+            or parser is None
+            or reasoning is None
+            or getattr(reasoning, "reasoning_start_str", None)
+            != parser.reasoning_start_tag
+            or getattr(reasoning, "reasoning_end_str", None) != parser.reasoning_end_tag
+        ):
+            raise NotImplementedError(
+                "vLLM thinking budgets require native thinking_token_budget support "
+                "and reasoning boundaries matching the Xinference parser"
+            )
+        config["thinking_token_budget"] = budget
 
     async def async_count_tokens(
         self, messages: List[Dict], config: Optional[Dict] = None
@@ -981,8 +1010,12 @@ class VLLMModel(WeightCachedModel, LLM):
         parser = getattr(self, "reasoning_parser", None)
         if parser is not None:
             from ....constants import XINFERENCE_CACHE_DIR
-            from .reasoning import configure_structured_reasoning
+            from .reasoning import (
+                configure_structured_reasoning,
+                configure_thinking_budget,
+            )
 
+            configure_thinking_budget(self._model_config, parser)
             configure_structured_reasoning(
                 self._model_config, parser, XINFERENCE_CACHE_DIR
             )
@@ -1658,6 +1691,7 @@ class VLLMModel(WeightCachedModel, LLM):
             "compilation_config",
             "model_loader_extra_config",
             "structured_outputs_config",
+            "reasoning_config",
         ]
         for field in config_dict_list:
             if field in model_config:
@@ -1740,6 +1774,10 @@ class VLLMModel(WeightCachedModel, LLM):
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
         sanitized.setdefault("top_k", generate_config.get("top_k", -1))
+        if generate_config.get("thinking_token_budget") is not None:
+            sanitized["thinking_token_budget"] = generate_config[
+                "thinking_token_budget"
+            ]
         sanitized.setdefault(  # type: ignore
             "max_tokens",
             generate_config.get("max_tokens", XINFERENCE_MAX_TOKENS)  # type: ignore
@@ -2133,6 +2171,8 @@ class VLLMModel(WeightCachedModel, LLM):
             generate_config["skip_special_tokens"] = False
 
         anthropic = bool((generate_config or {}).get("_anthropic_request"))
+        if anthropic and generate_config is not None:
+            self._apply_thinking_budget(generate_config)
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
         if self._use_legacy_constraints(sanitized_generate_config, anthropic):
             if isinstance(prompt, str):

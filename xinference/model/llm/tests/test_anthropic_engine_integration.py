@@ -428,9 +428,7 @@ def test_structured_schema_is_enforced(native_model, stream):
 
 
 @pytest.mark.parametrize("stream", [False, True])
-def test_sglang_thinking_budget(native_model, stream, record_testsuite_property):
-    if native_model.engine != "SGLang":
-        pytest.skip("SGLang request-level reasoning budget")
+def test_thinking_budget(native_model, stream, record_testsuite_property):
     from transformers import AutoTokenizer
 
     from ..llm_family import match_llm
@@ -444,9 +442,8 @@ def test_sglang_thinking_budget(native_model, stream, record_testsuite_property)
     )
     assert family is not None
     launch = json.loads(os.environ.get("XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG", "{}"))
-    tokenizer = AutoTokenizer.from_pretrained(
-        launch.get("model_path") or family.model_specs[0].model_id
-    )
+    model_path = launch.get("model_path") or family.model_specs[0].model_id
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
     result = create(
         native_model,
         [

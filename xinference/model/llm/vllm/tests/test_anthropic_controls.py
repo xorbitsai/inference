@@ -52,6 +52,44 @@ def completion(text, finish_reason="stop"):
     }
 
 
+@pytest.mark.parametrize("unsupported", [None, "sampling", "markers", "disabled"])
+def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported):
+    from ...reasoning_parser import ReasoningParser
+
+    def sampling(*, thinking_token_budget=None):
+        pass
+
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm",
+        SimpleNamespace(
+            SamplingParams=(lambda: None) if unsupported == "sampling" else sampling
+        ),
+    )
+    instance = object.__new__(core.VLLMChatModel)
+    instance.reasoning_parser = ReasoningParser(
+        reasoning_start_tag="<think>", reasoning_end_tag="</think>"
+    )
+    reasoning = SimpleNamespace(
+        reasoning_start_str="<think>",
+        reasoning_end_str="custom" if unsupported == "markers" else "</think>",
+    )
+    instance._engine = SimpleNamespace(
+        vllm_config=SimpleNamespace(
+            reasoning_config=None if unsupported == "disabled" else reasoning
+        )
+    )
+    config = {
+        "chat_template_kwargs": {"enable_thinking": True, "thinking_budget": 1024}
+    }
+    if unsupported:
+        with pytest.raises(NotImplementedError, match="thinking budgets require"):
+            instance._apply_thinking_budget(config)
+    else:
+        instance._apply_thinking_budget(config)
+        assert config["thinking_token_budget"] == 1024
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("cls", [core.VLLMChatModel, core.VLLMMultiModel])
 @pytest.mark.parametrize("forced", [False, True])

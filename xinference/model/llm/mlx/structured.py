@@ -4,6 +4,56 @@
 from typing import Any, Dict, Optional
 
 
+class ReasoningBudgetLogitsProcessor:
+    """Close thinking at its token budget while leaving answer tokens available."""
+
+    def __init__(self, tokenizer: Any, end: str, budget: int):
+        if type(budget) is not int or budget < 1:
+            raise ValueError("Thinking budget must be a positive integer")
+        self._end = tokenizer.encode(end, add_special_tokens=False) if end else []
+        unknown = getattr(tokenizer, "unk_token_id", None)
+        if not self._end or unknown is not None and unknown in self._end:
+            raise NotImplementedError("MLX thinking budgets require known end markers")
+        eos = getattr(tokenizer, "eos_token_ids", None)
+        if eos is None:
+            eos = [tokenizer.eos_token_id]
+        self._eos = [eos] if isinstance(eos, int) else list(eos)
+        self._budget = budget
+        self._seen: Optional[int] = None
+        self._generated: list = []
+        self._forced = 0
+        self._done = False
+
+    def __call__(self, tokens: Any, logits: Any) -> Any:
+        import mlx.core as mx
+
+        current = tokens.reshape(-1).tolist()
+        if self._seen is None:
+            self._seen = len(current)
+        self._generated.extend(current[self._seen :])
+        self._seen = len(current)
+        if self._generated[-len(self._end) :] == self._end:
+            self._done = True
+        if self._done:
+            return logits
+        if len(self._generated) >= self._budget:
+            if not self._forced:
+                for width in range(len(self._end) - 1, 0, -1):
+                    if self._generated[-width:] == self._end[:width]:
+                        self._forced = width
+                        break
+            token = self._end[self._forced]
+            self._forced += 1
+            return mx.where(
+                mx.arange(logits.shape[-1]) == token, 0.0, -float("inf")
+            ).reshape(logits.shape)
+        for token in self._eos:
+            logits = mx.where(
+                mx.arange(logits.shape[-1]) == token, -float("inf"), logits
+            )
+        return logits
+
+
 class JSONLogitsProcessor:
     def __init__(
         self, tokenizer: Any, schema: Dict, reasoning_end: Optional[str] = None

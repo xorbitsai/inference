@@ -138,6 +138,7 @@ jobs:
           export XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG="$TEXT_MODEL_CONFIG"
           text_tests=(
             "$NATIVE_TEST_FILE::test_structured_schema_is_enforced"
+            "$NATIVE_TEST_FILE::test_thinking_budget"
             "$NATIVE_TEST_FILE::test_counting_and_unsupported_controls"
             "$NATIVE_TEST_FILE::test_text_model_rejects_images"
             "$NATIVE_TEST_FILE::test_stop_sequences"
@@ -147,8 +148,6 @@ jobs:
           text_tests=("$NATIVE_TEST_FILE::test_thinking_replay_and_tool_loop" "${text_tests[@]}")
           if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = MLX ]; then
             text_tests+=("$NATIVE_TEST_FILE::test_mlx_cache_breakpoints")
-          elif [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = SGLang ]; then
-            text_tests+=("$NATIVE_TEST_FILE::test_sglang_thinking_budget")
           fi
           pytest --timeout=600 -s -vv \
             --junitxml=native-text.xml --basetemp=native-text \
@@ -169,6 +168,7 @@ jobs:
           )
           if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = MLX ]; then
             vision_tests=("$NATIVE_TEST_FILE::test_thinking_replay_and_tool_loop" "${vision_tests[@]}")
+            vision_tests+=("$NATIVE_TEST_FILE::test_thinking_budget")
             vision_tests+=("$NATIVE_TEST_FILE::test_mlx_cache_breakpoints")
           fi
           pytest --timeout=600 -s -vv \

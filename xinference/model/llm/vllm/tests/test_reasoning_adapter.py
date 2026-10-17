@@ -9,7 +9,11 @@ from unittest.mock import Mock
 import pytest
 
 from ...reasoning_parser import KimiK3ReasoningParser, ReasoningParser
-from ..reasoning import configure_structured_reasoning, create_reasoning_plugin
+from ..reasoning import (
+    configure_structured_reasoning,
+    configure_thinking_budget,
+    create_reasoning_plugin,
+)
 
 
 @dataclass
@@ -23,6 +27,26 @@ class FakeStructuredOutputsConfig:
 class FakeVLLMReasoningParser:
     def __init__(self, tokenizer, *args, **kwargs):
         self.model_tokenizer = tokenizer
+
+
+def test_thinking_budget_config_uses_existing_parser_markers(monkeypatch):
+    @dataclass
+    class BudgetConfig:
+        reasoning_start_str: str
+        reasoning_end_str: str
+
+    monkeypatch.setitem(
+        sys.modules, "vllm.config", SimpleNamespace(ReasoningConfig=BudgetConfig)
+    )
+    parser = ReasoningParser(
+        reasoning_start_tag="<thought>", reasoning_end_tag="</thought>"
+    )
+    config = {}
+    configure_thinking_budget(config, parser)
+    assert config["reasoning_config"] == BudgetConfig("<thought>", "</thought>")
+    explicit = {"reasoning_config": {"reasoning_start_str": "custom"}}
+    configure_thinking_budget(explicit, parser)
+    assert explicit == {"reasoning_config": {"reasoning_start_str": "custom"}}
 
 
 @pytest.fixture
