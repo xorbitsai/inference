@@ -49,6 +49,17 @@ def test_thinking_budget_config_uses_existing_parser_markers(monkeypatch):
     assert explicit == {"reasoning_config": {"reasoning_start_str": "custom"}}
 
 
+@pytest.mark.parametrize(
+    "start,end", [(None, None), ("", ""), ("analysis", "final"), ("<think>", None)]
+)
+def test_missing_reasoning_markers_do_not_enable_budget_at_load(start, end):
+    # Non-thinking families such as Qwen3-VL-Instruct have null markers.
+    parser = ReasoningParser(reasoning_start_tag=start, reasoning_end_tag=end)
+    config = {}
+    configure_thinking_budget(config, parser)
+    assert config == {}
+
+
 @pytest.fixture
 def vllm_reasoning(monkeypatch):
     registered = {}

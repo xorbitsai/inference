@@ -920,7 +920,7 @@ class MLXModel(LLM, ChatModelMixin):
         from .structured import ReasoningBudgetLogitsProcessor
 
         parser = self.reasoning_parser
-        if parser is None or not parser.reasoning_start_tag.startswith("<"):
+        if parser is None or not (parser.reasoning_start_tag or "").startswith("<"):
             raise NotImplementedError("MLX thinking budgets require reasoning markers")
         ReasoningBudgetLogitsProcessor(
             self._tokenizer, parser.reasoning_end_tag, budget

@@ -7,6 +7,23 @@ import pytest
 from .. import core
 
 
+@pytest.mark.parametrize(
+    "start,end", [(None, None), ("", ""), ("analysis", "final"), ("<think>", None)]
+)
+def test_manual_budget_rejects_missing_reasoning_markers(start, end):
+    from ...reasoning_parser import ReasoningParser
+
+    model = object.__new__(core.MLXChatModel)
+    model.reasoning_parser = ReasoningParser(
+        reasoning_start_tag=start, reasoning_end_tag=end
+    )
+    model._tokenizer = SimpleNamespace(encode=lambda text, **kw: list(text.encode()))
+    with pytest.raises(NotImplementedError, match="thinking budgets require"):
+        model._apply_thinking_budget(
+            {"chat_template_kwargs": {"enable_thinking": True, "thinking_budget": 1024}}
+        )
+
+
 class Array:
     def __init__(self, value):
         self.value = value

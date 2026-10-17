@@ -19,7 +19,7 @@ def configure_thinking_budget(
     if (
         parser is None
         or "reasoning_config" in model_config
-        or not parser.reasoning_start_tag.startswith("<")
+        or not (parser.reasoning_start_tag or "").startswith("<")
         or not parser.reasoning_end_tag
     ):
         return
