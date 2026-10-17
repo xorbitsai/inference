@@ -1153,10 +1153,19 @@ def test_qwen3_renders_tool_only_history(content, reasoning, enable_thinking):
 
     assert '<tool_call>\n{"name": "lookup", "arguments": {"value":"alpha"}}' in prompt
     assert "<tool_response>\nNATIVE_RESULT_42\n</tool_response>" in prompt
+    assert "None" not in prompt
+    if content in (None, "", "omitted"):
+        prefix = "<|im_start|>assistant\n"
+        if reasoning is not None:
+            prefix += f"<think>\n{reasoning}\n</think>\n\n"
+        assert f"{prefix}<tool_call>" in prompt
     if reasoning is not None:
         assert f"<think>\n{reasoning}\n</think>" in prompt
-    elif content and content.startswith("<think>"):
-        assert "<think>\nInline reasoning.\n</think>" in prompt
+    if content and content.startswith("<think>"):
+        if reasoning is not None:
+            assert f"<think>\n{reasoning}\n</think>\n\n{content}" in prompt
+        else:
+            assert "<think>\nInline reasoning.\n</think>\n\nVisible answer" in prompt
     if content and "Visible answer" in content:
         assert "Visible answer" in prompt
     suffix = "<|im_start|>assistant\n"
