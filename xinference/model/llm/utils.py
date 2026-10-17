@@ -408,7 +408,7 @@ class ChatModelMixin:
     ) -> str:
         compiled_template = self._compile_jinja_template(chat_template)
         rendered = compiled_template.render(
-            messages=messages, add_generation_prompt=True, **kwargs
+            messages=messages, **{"add_generation_prompt": True, **kwargs}
         )
         return rendered
 
