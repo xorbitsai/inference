@@ -678,3 +678,109 @@ async def test_cancelling_inflight_fallback_waits_for_worker_cleanup():
         assert not model._fallback_lock.locked()
     finally:
         model.stop()
+
+
+def test_active_system_checkpoint_survives_known_history_overflow():
+    from ..prompt_cache import TimedPromptCache
+
+    cache = TimedPromptCache(max_size=2)
+    state = [SimpleNamespace(state=[])]
+    previous = 0
+    for turn in range(25):
+        tokens = list(range(6 + 2 * turn))
+        boundaries = [2, len(tokens) - 1]
+        _, cached = cache.fetch(tokens, boundaries)
+        assert cached == previous, (turn, cached, previous)
+        for end in boundaries:
+            if end > cached:
+                assert cache.store(tokens[:end], state, 300)
+        previous = boundaries[-1]
+        assert len(cache.entries) <= 2
+        assert len(cache._known) <= 8
+        assert (0, 1) in cache._known
+    assert len(cache._known) == 8
+
+
+@pytest.mark.parametrize("candidate", [[1], [9]])
+def test_oversized_checkpoint_does_not_evict_live_cache(candidate):
+    from ..prompt_cache import TimedPromptCache
+
+    cache = TimedPromptCache(max_bytes=10)
+    assert cache.store([1], [SimpleNamespace(state=SimpleNamespace(nbytes=5))], 300)
+    assert not cache.store(
+        candidate, [SimpleNamespace(state=SimpleNamespace(nbytes=11))], 300
+    )
+    assert list(cache.entries) == [(1,)]
+    assert cache.fetch([1, 2], [1])[1] == 1
+    assert cache.entries[(1,)].nbytes == 5
+
+
+@pytest.mark.parametrize("role", [None, "prefill", "decode"])
+def test_xavier_keeps_automatic_cache_without_explicit_checkpoints(role):
+    model = control_model()
+    model._model_config = {}
+    model._xavier = SimpleNamespace(role=role)
+    model.count_tokens = lambda *args: 5
+    messages = [{"role": "user", "content": "hello"}]
+    prepared = model.prepare_anthropic_request(
+        messages, {"_anthropic_cache_control": {"messages": messages, "ttl": 300}}
+    )
+    assert prepared["cache_control_applied"] is False
+    assert "_anthropic_cache_control" not in prepared["generate_config"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("fail", [False, True])
+async def test_stop_during_decode_keeps_cleanup_on_worker_and_preserves_error(
+    stream, fail
+):
+    import asyncio
+    import threading
+    import time
+
+    model = control_model()
+    model._batch_model = None
+    started = threading.Event()
+    closed = []
+
+    def generate(*args):
+        try:
+            started.set()
+            time.sleep(0.05)
+            if fail:
+                raise ValueError("original decode error")
+            yield {"choices": [{"text": "x"}]}, {}
+        finally:
+            closed.append(threading.get_ident())
+
+    model._generate_stream = generate
+
+    async def run():
+        result = await model.async_generate(
+            "prompt", {"stream": stream, "max_tokens": 1}
+        )
+        if stream:
+            return [chunk async for chunk in result]
+        return result
+
+    task = asyncio.create_task(run())
+    try:
+
+        async def wait_for_decode():
+            while not started.is_set():
+                await asyncio.sleep(0.001)
+
+        await asyncio.wait_for(wait_for_decode(), timeout=5)
+        await asyncio.to_thread(model.stop)
+        with pytest.raises(
+            ValueError if fail else RuntimeError,
+            match="original decode error" if fail else "model is stopping",
+        ):
+            await task
+        assert len(closed) == 1 and closed[0] != threading.get_ident()
+        assert model._fallback_executor is None
+        with pytest.raises(RuntimeError, match="model is stopping"):
+            await model.async_generate("prompt", {"max_tokens": 1})
+    finally:
+        model.stop()

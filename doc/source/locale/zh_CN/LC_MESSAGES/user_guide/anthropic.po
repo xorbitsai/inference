@@ -390,3 +390,11 @@ msgstr "推理边界匹配时支持"
 
 msgid "Supported with reasoning markers"
 msgstr "具有思考标记时支持"
+
+#: user_guide/anthropic.rst:235
+msgid "The limits apply separately to automatic caching and explicit checkpoint caching; their combined capacity can reach twice the configured limits. MLX P/D models retain automatic caching."
+msgstr "这些限制分别作用于自动缓存和显式检查点缓存，两者的总容量可达到配置上限的两倍。MLX P/D 模型继续使用自动缓存。"
+
+#: user_guide/anthropic.rst:65
+msgid "SGLang P/D decode replicas support text token counting; image token counting returns HTTP 501."
+msgstr "SGLang P/D 解码副本支持文本 token 计数；图片 token 计数返回 HTTP 501。"

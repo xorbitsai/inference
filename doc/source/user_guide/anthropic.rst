@@ -62,6 +62,9 @@ template and tokenizer, including tool definitions and images where supported.
 Both routes use the same model permissions and Xinference API key as message
 generation.
 
+SGLang P/D decode replicas support text token counting; image token counting
+returns HTTP 501.
+
 .. code-block:: python
 
     token_count = client.messages.count_tokens(
@@ -230,6 +233,10 @@ still be reused after a later one expires. Cache storage obeys the configured
 ``prompt_cache_size`` and ``prompt_cache_bytes`` capacity limits, so memory
 pressure can evict checkpoints before their lifetime ends. Usage reports
 actual cache writes and reads.
+
+The limits apply separately to automatic caching and explicit checkpoint
+caching; their combined capacity can reach twice the configured limits.
+MLX P/D models retain automatic caching.
 
 Image requests, vLLM and SGLang retain automatic engine caching, indicated by
 the ``x-xinference-cache-control: automatic`` response header. Their engine

@@ -459,3 +459,26 @@ async def test_image_generation_preparation_skips_native_count_prefill():
     prepared = await instance.async_prepare_anthropic_request(messages, {})
     assert prepared["input_tokens"] == 0
     instance.async_count_tokens.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("handoff", ["_xavier_handoff", "_nixl_handoff"])
+@pytest.mark.parametrize("images", [False, True])
+async def test_pd_decode_image_count_fails_without_engine_rpc(handoff, images):
+    instance = model(SGLANGVisionModel)
+    setattr(instance, handoff, SimpleNamespace(role="decode"))
+    instance._engine = SimpleNamespace(
+        get_tokenizer=lambda: SimpleNamespace(encode=lambda text: list(text))
+    )
+    instance._prepare_chat_inputs = AsyncMock(
+        return_value=("count prompt", ["data:image"] if images else None, None, {}, {})
+    )
+    instance._non_stream_generate = AsyncMock(
+        side_effect=AssertionError("decode counting cannot generate without a handoff")
+    )
+    if images:
+        with pytest.raises(NotImplementedError, match="P/D decode replicas"):
+            await instance.async_count_tokens([])
+    else:
+        assert await instance.async_count_tokens([]) == len("count prompt")
+    instance._non_stream_generate.assert_not_called()

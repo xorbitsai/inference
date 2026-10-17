@@ -792,6 +792,8 @@ class MLXModel(LLM, ChatModelMixin):
         self._batch_model = None
         self._fallback_executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
         self._fallback_lock: Optional[asyncio.Lock] = None
+        self._fallback_active = False
+        self._fallback_stopping = False
         self._xavier_config = self._model_config.pop("_xavier_cache_config", None)
         self._xavier = None
 
@@ -1769,24 +1771,31 @@ class MLXModel(LLM, ChatModelMixin):
         return asyncio.run_coroutine_threadsafe(run_non_driver_shards(), self._loop)
 
     def stop(self):
-        executor = getattr(self, "_fallback_executor", None)
-        if executor is not None:
+        with _mlx_executor_lock:
+            self._fallback_stopping = True
+            # An active request closes its iterator on the worker before shutdown.
+            if getattr(self, "_fallback_active", False):
+                return
+            executor = getattr(self, "_fallback_executor", None)
             self._fallback_executor = None
+        if executor is not None:
             executor.shutdown(wait=False)
 
     async def _iterate_fallback(self, prompt, config):
         if getattr(self, "_fallback_lock", None) is None:
             self._fallback_lock = asyncio.Lock()
         async with self._fallback_lock:
-            if getattr(self, "_fallback_executor", None) is None:
-                self._fallback_executor = concurrent.futures.ThreadPoolExecutor(
-                    max_workers=1, thread_name_prefix=f"mlx-{self.model_uid}"
-                )
-            executor = self._fallback_executor
+            with _mlx_executor_lock:
+                if getattr(self, "_fallback_stopping", False):
+                    raise RuntimeError("MLX model is stopping")
+                if getattr(self, "_fallback_executor", None) is None:
+                    self._fallback_executor = concurrent.futures.ThreadPoolExecutor(
+                        max_workers=1, thread_name_prefix=f"mlx-{self.model_uid}"
+                    )
+                executor = self._fallback_executor
+                self._fallback_active = True
             loop = asyncio.get_running_loop()
-            iterator = await loop.run_in_executor(
-                executor, self._generate_stream, prompt, config
-            )
+            iterator = self._generate_stream(prompt, config)
 
             def advance():
                 try:
@@ -1796,13 +1805,24 @@ class MLXModel(LLM, ChatModelMixin):
 
             try:
                 while True:
+                    if getattr(self, "_fallback_stopping", False):
+                        raise RuntimeError("MLX model is stopping")
                     present, item = await loop.run_in_executor(executor, advance)
                     if not present:
                         break
                     yield item
             finally:
-                # Queued behind an in-flight decode even when the caller cancels.
-                await asyncio.shield(loop.run_in_executor(executor, iterator.close))
+                try:
+                    # Queued behind an in-flight decode even when the caller cancels.
+                    await asyncio.shield(loop.run_in_executor(executor, iterator.close))
+                finally:
+                    with _mlx_executor_lock:
+                        self._fallback_active = False
+                        stopping = getattr(self, "_fallback_stopping", False)
+                        if stopping:
+                            self._fallback_executor = None
+                    if stopping:
+                        executor.shutdown(wait=False)
 
     async def async_generate(
         self,

@@ -458,3 +458,11 @@ msgstr "Compatível com delimitadores de raciocínio correspondentes"
 
 msgid "Supported with reasoning markers"
 msgstr "Compatível com marcadores de raciocínio"
+
+#: user_guide/anthropic.rst:235
+msgid "The limits apply separately to automatic caching and explicit checkpoint caching; their combined capacity can reach twice the configured limits. MLX P/D models retain automatic caching."
+msgstr "Os limites se aplicam separadamente ao cache automático e ao cache de checkpoints explícitos; a capacidade combinada pode atingir o dobro dos limites configurados. Os modelos MLX P/D mantêm o cache automático."
+
+#: user_guide/anthropic.rst:65
+msgid "SGLang P/D decode replicas support text token counting; image token counting returns HTTP 501."
+msgstr "As réplicas de decodificação SGLang P/D permitem contar tokens de texto; a contagem de tokens de imagens retorna HTTP 501."

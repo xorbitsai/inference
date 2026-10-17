@@ -23,6 +23,12 @@ class TimedPromptCache:
         self.entries: OrderedDict[Tuple[int, ...], Checkpoint] = OrderedDict()
         self._known: OrderedDict[Tuple[int, ...], None] = OrderedDict()
 
+    def _remember(self, key: Tuple[int, ...]) -> None:
+        self._known[key] = None
+        self._known.move_to_end(key)
+        while len(self._known) > max(4, self.max_size * 4):
+            self._known.popitem(last=False)
+
     def _purge_expired(self, now: float) -> None:
         for key in list(self.entries):
             if self.entries[key].expires <= now:
@@ -50,6 +56,9 @@ class TimedPromptCache:
         if not matches:
             return None, 0
         longest = max(matches, key=len)
+        for end in checkpoints or []:
+            if end <= len(longest):
+                self._remember(tuple(tokens[:end]))
         # Reading a later checkpoint also reads all its earlier cached prefixes.
         for key in matches:
             entry = self.entries[key]
@@ -72,12 +81,11 @@ class TimedPromptCache:
         expires = (now if started is None else started) + ttl
         if expires <= now:
             return False
-        key = tuple(tokens)
-        self._known[key] = None
-        self._known.move_to_end(key)
-        while len(self._known) > max(4, self.max_size * 4):
-            self._known.popitem(last=False)
         size = sum(nbytes(entry.state) for entry in cache)
+        if self.max_bytes is not None and size > self.max_bytes:
+            return False
+        key = tuple(tokens)
+        self._remember(key)
         if key in self.entries:
             expires = max(expires, self.entries[key].expires)
         self.entries[key] = Checkpoint(copy.deepcopy(cache), ttl, expires, size)

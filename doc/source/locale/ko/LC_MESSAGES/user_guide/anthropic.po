@@ -404,3 +404,11 @@ msgstr "추론 경계 일치 시 지원"
 
 msgid "Supported with reasoning markers"
 msgstr "사고 마커가 있으면 지원"
+
+#: user_guide/anthropic.rst:235
+msgid "The limits apply separately to automatic caching and explicit checkpoint caching; their combined capacity can reach twice the configured limits. MLX P/D models retain automatic caching."
+msgstr "제한은 자동 캐시와 명시적 체크포인트 캐시에 각각 적용되므로 합산 용량은 설정된 제한의 두 배에 이를 수 있습니다. MLX P/D 모델은 자동 캐시를 유지합니다."
+
+#: user_guide/anthropic.rst:65
+msgid "SGLang P/D decode replicas support text token counting; image token counting returns HTTP 501."
+msgstr "SGLang P/D 디코드 복제본은 텍스트 토큰 수 계산을 지원하며, 이미지 토큰 수 계산은 HTTP 501을 반환합니다."

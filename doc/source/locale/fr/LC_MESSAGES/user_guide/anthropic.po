@@ -467,3 +467,11 @@ msgstr "Pris en charge avec des délimiteurs correspondants"
 
 msgid "Supported with reasoning markers"
 msgstr "Pris en charge avec des marqueurs de raisonnement"
+
+#: user_guide/anthropic.rst:235
+msgid "The limits apply separately to automatic caching and explicit checkpoint caching; their combined capacity can reach twice the configured limits. MLX P/D models retain automatic caching."
+msgstr "Les limites s’appliquent séparément au cache automatique et au cache des points de contrôle explicites ; leur capacité totale peut atteindre le double des limites configurées. Les modèles MLX P/D conservent le cache automatique."
+
+#: user_guide/anthropic.rst:65
+msgid "SGLang P/D decode replicas support text token counting; image token counting returns HTTP 501."
+msgstr "Les réplicas de décodage SGLang P/D permettent de compter les tokens de texte ; le comptage des tokens d’image renvoie HTTP 501."

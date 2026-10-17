@@ -193,6 +193,7 @@ class LLM(abc.ABC):
                 or hasattr(self, "_prepare_reusable_prompt_cache")
             )
             and not has_images
+            and getattr(self, "_xavier", None) is None
             and getattr(self, "_cache_has_prompt_cache_api", True)
             and getattr(self, "_model_config", {}).get("prompt_cache_size", 2) > 0
         )

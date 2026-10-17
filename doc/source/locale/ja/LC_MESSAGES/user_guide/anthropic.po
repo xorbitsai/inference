@@ -407,3 +407,11 @@ msgstr "推論境界が一致する場合に対応"
 
 msgid "Supported with reasoning markers"
 msgstr "思考マーカーがある場合に対応"
+
+#: user_guide/anthropic.rst:235
+msgid "The limits apply separately to automatic caching and explicit checkpoint caching; their combined capacity can reach twice the configured limits. MLX P/D models retain automatic caching."
+msgstr "制限は自動キャッシュと明示的なチェックポイントキャッシュにそれぞれ適用され、合計容量は設定値の2倍に達する場合があります。MLX P/Dモデルは自動キャッシュを使用します。"
+
+#: user_guide/anthropic.rst:65
+msgid "SGLang P/D decode replicas support text token counting; image token counting returns HTTP 501."
+msgstr "SGLang P/Dのデコードレプリカはテキストのトークン数計算に対応しています。画像のトークン数計算はHTTP 501を返します。"

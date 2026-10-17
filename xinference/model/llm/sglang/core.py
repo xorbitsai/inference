@@ -1132,6 +1132,10 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             )
         prompt, images, _tools, _context, _config = await prepare(messages, config)
         if images:
+            if self._is_pd_decode():
+                raise NotImplementedError(
+                    "SGLang P/D decode replicas do not support image token counting"
+                )
             # The native processor expands image placeholders into model-specific
             # tokens. A zero-output request runs that same processing/prefill path.
             result = await self._non_stream_generate(
