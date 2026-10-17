@@ -704,3 +704,7 @@ msgstr "憑證僅隨本次重新整理經 supervisor 傳遞至各 worker，worke
 #: ../../development/xinference_internals.rst
 msgid "Malformed request bodies return HTTP 400. Credential provider failures return HTTP 500; explicit HTTP errors from providers keep their status and headers. Worker refresh failures return HTTP 502. No available workers or an unreachable supervisor return HTTP 503."
 msgstr "無效的請求本文會傳回 HTTP 400。憑證提供者執行失敗會傳回 HTTP 500；提供者明確拋出的 HTTP 錯誤會保留其狀態碼和回應標頭。Worker 重新整理失敗會傳回 HTTP 502。沒有可用 Worker 或無法連線至 Supervisor 時會傳回 HTTP 503。"
+
+#: ../../development/xinference_internals.rst
+msgid "To refresh one model, send ``POST /v1/models/update_spec`` with ``model_type`` and ``model_name``. It uses the same credential hook and ``models:register`` permission. The catalog response must contain one record or a non-empty list of variants, all with the requested ``model_name``. Only that model is replaced in the downloaded catalog; other downloaded models and packaged built-ins remain available. Full-category refresh through ``/v1/models/update_type`` is unchanged. Both paths coordinate file writes and publish complete JSON atomically. Upgrade the API, supervisor and all workers together before using the new endpoint."
+msgstr "重新整理單一模型時，向 ``POST /v1/models/update_spec`` 傳送 ``model_type`` 和 ``model_name``。此介面使用相同的憑證掛鉤及 ``models:register`` 權限。目錄回應必須包含一筆記錄或非空的變體清單，所有記錄的 ``model_name`` 都必須與請求相符。僅取代下載目錄中的該模型；其他已下載模型和套件內建模型仍可使用。``/v1/models/update_type`` 的整類重新整理行為維持不變。兩個入口協調檔案寫入，並以不可分割的操作發布完整 JSON。使用新介面前，請一併升級 API、Supervisor 和所有 Worker。"

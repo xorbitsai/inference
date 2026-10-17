@@ -2446,6 +2446,7 @@ class SupervisorActor(xo.StatelessActor):
         model_type: str,
         *,
         credentials: Optional["ModelCatalogCredentials"] = None,
+        model_name: Optional[str] = None,
     ) -> None:
         """
         Update model configurations for a specific model type by forwarding
@@ -2453,6 +2454,7 @@ class SupervisorActor(xo.StatelessActor):
 
         Args:
             model_type: Type of model (LLM, embedding, image, etc.)
+            model_name: Refresh only this model when provided.
         """
 
         from .exceptions import ModelCatalogUnavailableError, ModelCatalogUpdateError
@@ -2465,10 +2467,12 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         async def update_worker(worker_ref: Any) -> None:
-            if credentials is None:
-                await worker_ref.update_model_type(model_type)
-            else:
-                await worker_ref.update_model_type(model_type, credentials=credentials)
+            options: Dict[str, Any] = {}
+            if credentials is not None:
+                options["credentials"] = credentials
+            if model_name is not None:
+                options["model_name"] = model_name
+            await worker_ref.update_model_type(model_type, **options)
 
         results = await asyncio.gather(
             *(update_worker(worker_ref) for _, worker_ref in workers),

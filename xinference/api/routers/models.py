@@ -50,6 +50,14 @@ def register_routes(api: "RESTfulAPI") -> None:
         ),
     )
     router.add_api_route(
+        "/v1/models/update_spec",
+        api.update_model_spec,
+        methods=["POST"],
+        dependencies=(
+            [Security(auth, scopes=["models:register"])] if is_auth else None
+        ),
+    )
+    router.add_api_route(
         "/v1/models/instances",
         api.get_instance_info,
         methods=["GET"],

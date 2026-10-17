@@ -140,6 +140,7 @@ from .schemas import (
     TextToImageRequest,
     TextToVideoRequest,
     UpdateModelRequest,
+    UpdateModelSpecRequest,
     WorldGenerationRequest,
 )
 from .streaming_outcome import (
@@ -4936,6 +4937,14 @@ class RESTfulAPI(CancelMixin):
         return JSONResponse(content=None)
 
     async def update_model_type(self, request: Request) -> JSONResponse:
+        return await self._update_model_catalog(request, single_model=False)
+
+    async def update_model_spec(self, request: Request) -> JSONResponse:
+        return await self._update_model_catalog(request, single_model=True)
+
+    async def _update_model_catalog(
+        self, request: Request, *, single_model: bool
+    ) -> JSONResponse:
         from ..core.exceptions import (
             ModelCatalogUnavailableError,
             ModelCatalogUpdateError,
@@ -4944,10 +4953,14 @@ class RESTfulAPI(CancelMixin):
 
         # Parse client input before invoking any credential provider.
         try:
-            body = UpdateModelRequest.parse_obj(await request.json())
+            schema = UpdateModelSpecRequest if single_model else UpdateModelRequest
+            body = schema.parse_obj(await request.json())
         except (ValueError, TypeError):
             raise HTTPException(400, "Invalid request body") from None
         model_type = body.model_type
+        model_name = (
+            body.model_name if isinstance(body, UpdateModelSpecRequest) else None
+        )
 
         try:
             credentials = resolve_model_catalog_credentials(request, model_type)
@@ -4963,12 +4976,12 @@ class RESTfulAPI(CancelMixin):
 
         try:
             supervisor_ref = await self._get_supervisor_ref()
-            if credentials is None:
-                await supervisor_ref.update_model_type(model_type)
-            else:
-                await supervisor_ref.update_model_type(
-                    model_type, credentials=credentials
-                )
+            options: Dict[str, Any] = {}
+            if credentials is not None:
+                options["credentials"] = credentials
+            if model_name is not None:
+                options["model_name"] = model_name
+            await supervisor_ref.update_model_type(model_type, **options)
         except ModelCatalogUnavailableError:
             raise HTTPException(
                 503, "No workers available to update model catalog"
@@ -4985,6 +4998,12 @@ class RESTfulAPI(CancelMixin):
                 "message": f"Successfully updated model type: {model_type}",
             }
         }
+
+        if model_name is not None:
+            response_data["data"].update(
+                model_name=model_name,
+                message=f"Successfully updated model: {model_name}",
+            )
 
         return JSONResponse(content=response_data)
 
