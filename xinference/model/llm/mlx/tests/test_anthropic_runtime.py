@@ -1120,7 +1120,8 @@ def test_explicit_boundaries_encode_full_prompt_only_once():
     assert set(encoded) == {"abcde", "ab", "abcd", ""}
 
 
-def test_native_mlx_lm_eos_usage_matches_kv_and_followup(monkeypatch):
+@pytest.mark.parametrize("cancel_first", [False, True])
+def test_native_mlx_lm_eos_usage_matches_kv_and_followup(monkeypatch, cancel_first):
     mx = pytest.importorskip("mlx.core")
     pytest.importorskip("mlx_lm")
     from mlx_lm import sample_utils
@@ -1170,6 +1171,13 @@ def test_native_mlx_lm_eos_usage_matches_kv_and_followup(monkeypatch):
     config = model._sanitize_generate_config(
         {"max_tokens": 5, "stop_token_ids": [tokenizer.eos_token_id]}
     )
+    if cancel_first:
+        partial = model._generate_stream("Q", dict(config))
+        next(partial)
+        partial.close()
+        assert model._prompt_cache.tokens == []
+        assert model._prompt_cache.cache == []
+        samples = iter(generated + [tokenizer.eos_token_id])
     chunks = list(model._generate_stream("Q", config))
     expected = tokenizer.encode("Q") + generated
     assert chunks[-1][1]["completion_tokens"] == len(generated)
@@ -1181,3 +1189,83 @@ def test_native_mlx_lm_eos_usage_matches_kv_and_followup(monkeypatch):
     )
     assert remaining == tokenizer.encode("Z")
     assert count == len(expected) + 1 and cached == len(expected)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["close", "prefill", "decode"])
+async def test_interrupted_serial_cache_is_discarded_before_next_request(
+    monkeypatch, failure
+):
+    prompt = [1, 2, 3]
+    caches = []
+    received = []
+
+    def make_cache(*args):
+        cache = [SimpleNamespace(tokens=[])]
+        caches.append(cache)
+        return cache
+
+    def native_generate(model, tokenizer, tokens, **kwargs):
+        received.append(list(tokens))
+        cache = kwargs["prompt_cache"][0]
+        cache.tokens.extend(tokens[:1])
+        if failure == "prefill":
+            raise RuntimeError("prefill failed")
+        cache.tokens.extend(tokens[1:])
+        cache.tokens.append(10)
+        yield SimpleNamespace(token=10, text="x", generation_tokens=1)
+        if failure == "decode":
+            cache.tokens.append(11)
+            raise RuntimeError("decode failed")
+        cache.tokens.append(99)
+        yield SimpleNamespace(token=99, text="", generation_tokens=2)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "mlx_lm.models.cache",
+        SimpleNamespace(make_prompt_cache=make_cache),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "mlx_lm.utils",
+        SimpleNamespace(
+            stream_generate=native_generate,
+            make_sampler=lambda **kwargs: None,
+            make_logits_processors=lambda **kwargs: [],
+        ),
+    )
+    model = control_model(core.MLXModel)
+    model.model_path = "serial-cache"
+    model._batch_model = None
+    model._max_kv_size = None
+    model._prompt_cache = core.PromptCache()
+    model._cleanup_memory = lambda: None
+    model._tokenizer = SimpleNamespace(
+        encode=lambda text: prompt if text == "prompt" else prompt + [42],
+        eos_token_id=99,
+    )
+    previous_cache = model._prompt_cache
+    chunks = await model.async_generate("prompt", {"stream": True, "max_tokens": 4})
+    try:
+        if failure == "prefill":
+            with pytest.raises(RuntimeError, match="prefill failed"):
+                await anext(chunks)
+        else:
+            await anext(chunks)
+            if failure == "decode":
+                with pytest.raises(RuntimeError, match="decode failed"):
+                    await anext(chunks)
+            else:
+                await chunks.aclose()
+        assert len(previous_cache.tokens) != len(caches[0][0].tokens)
+        assert model._prompt_cache.tokens == []
+        assert model._prompt_cache.cache == []
+        failure = None
+        result = await model.async_generate("followup", {"max_tokens": 4})
+        assert received[-1] == prompt + [42]
+        assert result["usage"]["prompt_tokens_details"]["cached_tokens"] == 0
+        assert model._prompt_cache.tokens == caches[-1][0].tokens
+        assert caches[-1] is not caches[0]
+    finally:
+        await chunks.aclose()
+        model.stop()

@@ -154,7 +154,8 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "#system_huggingface-hub#",
     ],
     "mlx": [
-        "mlx-lm>=0.24.0",
+        "mlx-lm>=0.31.3",
+        "llguidance>=1.7.0",
     ],
     "llama.cpp": [
         "xllamacpp>=0.2.6",

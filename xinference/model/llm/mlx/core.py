@@ -783,7 +783,7 @@ class MLXModel(LLM, ChatModelMixin):
         self._loading_error = None
         self._all_worker_started = asyncio.Event()
         self._max_kv_size = None
-        self._prompt_cache = None
+        self._prompt_cache: Optional[PromptCache] = None
         self._model_generation_config: Dict[str, Any] = {}
         if peft_model is not None:
             raise ValueError("MLX engine has not supported lora yet")
@@ -1643,6 +1643,21 @@ class MLXModel(LLM, ChatModelMixin):
         return uncached_prompt_token_ids, input_echo_len, cached_prompt_tokens
 
     def _generate_stream(
+        self,
+        prompt: Union[str, Dict[str, Any]],
+        kwargs: MLXGenerateConfig,
+        prepared_inputs: Optional[Tuple[Any, int, int]] = None,
+    ):
+        completed = False
+        try:
+            yield from self._generate_stream_impl(prompt, kwargs, prepared_inputs)
+            completed = True
+        finally:
+            if not completed and getattr(self, "_prompt_cache", None) is not None:
+                # Prefill/decode can mutate KV before the token ledger is committed.
+                self._prompt_cache = PromptCache()
+
+    def _generate_stream_impl(
         self,
         prompt: Union[str, Dict[str, Any]],
         kwargs: MLXGenerateConfig,
