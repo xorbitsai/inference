@@ -1107,6 +1107,65 @@ def test_qwen3_vl_renders_tool_only_history(model_name, protocol):
     assert messages == original
 
 
+@pytest.mark.parametrize(
+    "content",
+    [
+        None,
+        "",
+        "omitted",
+        "Visible answer",
+        "<think>\nInline reasoning.\n</think>\nVisible answer",
+    ],
+)
+@pytest.mark.parametrize("reasoning", [None, "I need to look up the value."])
+@pytest.mark.parametrize("enable_thinking", [False, True])
+def test_qwen3_renders_tool_only_history(content, reasoning, enable_thinking):
+    from copy import deepcopy
+
+    from .. import BUILTIN_LLM_FAMILIES
+
+    messages = [
+        {"role": "user", "content": "Look up alpha."},
+        {
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [
+                {
+                    "id": "call_lookup",
+                    "type": "function",
+                    "function": {"name": "lookup", "arguments": '{"value":"alpha"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_lookup", "content": "NATIVE_RESULT_42"},
+    ]
+    if content == "omitted":
+        del messages[1]["content"]
+    if reasoning is not None:
+        messages[1]["reasoning_content"] = reasoning
+    original = deepcopy(messages)
+    mixin = ChatModelMixin()
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen3")
+    mixin.model_family = family
+    prompt = mixin.get_full_context(
+        messages, family.chat_template, enable_thinking=enable_thinking
+    )
+
+    assert '<tool_call>\n{"name": "lookup", "arguments": {"value":"alpha"}}' in prompt
+    assert "<tool_response>\nNATIVE_RESULT_42\n</tool_response>" in prompt
+    if reasoning is not None:
+        assert f"<think>\n{reasoning}\n</think>" in prompt
+    elif content and content.startswith("<think>"):
+        assert "<think>\nInline reasoning.\n</think>" in prompt
+    if content and "Visible answer" in content:
+        assert "Visible answer" in prompt
+    suffix = "<|im_start|>assistant\n"
+    if not enable_thinking:
+        suffix += "<think>\n\n</think>\n\n"
+    assert prompt.endswith(suffix)
+    assert messages == original
+
+
 def test_transform_messages_materializes_tool_call_iterators():
     mixin = ChatModelMixin()
     messages = [
