@@ -84,8 +84,8 @@ jobs:
             cuda_home="$(python -c 'import nvidia.cu13; print(next(iter(nvidia.cu13.__path__)))')"
             test -x "$cuda_home/bin/nvcc"
             test -f "$cuda_home/include/cuda_runtime.h"
-            ln -s lib "$cuda_home/lib64"
-            ln -s libcudart.so.13 "$cuda_home/lib/libcudart.so"
+            ln -sfn lib "$cuda_home/lib64"
+            ln -sfn libcudart.so.13 "$cuda_home/lib/libcudart.so"
             "$cuda_home/bin/nvcc" --version
             echo "CUDA_HOME=$cuda_home" >> "$GITHUB_ENV"
             echo "$cuda_home/bin" >> "$GITHUB_PATH"
