@@ -47,8 +47,8 @@ msgstr ""
 
 #: user_guide/anthropic.rst:18
 msgid ""
-"Use your Xinference API key when authentication is enabled. An arbitrary non-"
-"empty key is sufficient when authentication is disabled."
+"Use your Xinference API key when authentication is enabled. An arbitrary "
+"non-empty key is sufficient when authentication is disabled."
 msgstr "認証が有効な場合は Xinference API キーを使用してください。認証が無効な場合は、空でない任意のキーを指定できます。"
 
 #: user_guide/anthropic.rst:22
@@ -57,11 +57,11 @@ msgstr "Claude Code"
 
 #: user_guide/anthropic.rst:24
 msgid ""
-"Launch a model with chat and tool-calling support first (see :ref:`launch`), "
-"then configure Claude Code to use the Xinference server and model UID:"
+"Launch a model with chat and tool-calling support first (see :ref:`launch`),"
+" then configure Claude Code to use the Xinference server and model UID:"
 msgstr ""
-"まずチャットとツール呼び出しに対応したモデルを起動し（:ref:`launch` を参照）、Xinference サーバーとモデル UID を使用するよう"
-" Claude Code を設定します。"
+"まずチャットとツール呼び出しに対応したモデルを起動し（:ref:`launch` を参照）、Xinference サーバーとモデル UID "
+"を使用するよう Claude Code を設定します。"
 
 #: user_guide/anthropic.rst:38
 msgid "Python SDK"
@@ -91,16 +91,16 @@ msgstr "画像とドキュメント"
 
 #: user_guide/anthropic.rst:76
 msgid ""
-"Messages support text, base64 or URL images, tool results containing images, "
-"and tool references to tools declared in the request. Plain-text documents "
+"Messages support text, base64 or URL images, tool results containing images,"
+" and tool references to tools declared in the request. Plain-text documents "
 "are supported; PDF pages are rendered as images with ``pypdfium2`` (install "
-"the ``image`` extra), require a vision model, and are limited to 20 pages per"
-" request. File IDs and document citations are not supported."
+"the ``image`` extra), require a vision model, and are limited to 20 pages "
+"per request. File IDs and document citations are not supported."
 msgstr ""
 "メッセージはテキスト、base64 または URL "
-"の画像、画像を含むツール結果、リクエストで宣言されたツールへの参照に対応します。プレーンテキスト文書にも対応します。PDF は ``pypdfium2``"
-" で画像に変換され（``image`` の追加依存関係をインストール）、視覚モデルが必要です。1 リクエストにつき最大 20 ページです。ファイル ID "
-"と文書の引用注釈には対応していません。"
+"の画像、画像を含むツール結果、リクエストで宣言されたツールへの参照に対応します。プレーンテキスト文書にも対応します。PDF は "
+"``pypdfium2`` で画像に変換され（``image`` の追加依存関係をインストール）、視覚モデルが必要です。1 リクエストにつき最大 20 "
+"ページです。ファイル ID と文書の引用注釈には対応していません。"
 
 #: user_guide/anthropic.rst:83
 msgid ""
@@ -132,21 +132,24 @@ msgstr ""
 msgid "Thinking"
 msgstr "思考"
 
-#: user_guide/anthropic.rst:86
+#: user_guide/anthropic.rst:102
 msgid ""
 "Adaptive thinking enables the model's reasoning mode. The ``effort`` option "
 "maps to prompt guidance, with ``medium`` preserving the default prompt. "
 "Explicit thinking responses carry Xinference signatures, which can be "
 "replayed with the same model UID and signing key; configure "
 "``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers. "
-"The MLX, vLLM and SGLang adapters do not currently enforce manual "
-"``budget_tokens`` as a separate reasoning-token limit."
+"SGLang enforces manual ``budget_tokens`` with its request-level "
+"``max_thinking_tokens`` control when strict thinking is enabled. Unsupported"
+" versions or disabled strict thinking return HTTP 501 for a manual budget. "
+"MLX and vLLM do not currently enforce a separate reasoning-token limit."
 msgstr ""
 "Adaptive thinking はモデルの推論モードを有効にします。``effort`` はプロンプトによる指示に対応し、``medium`` "
 "は既定のプロンプトを維持します。明示的に要求した思考応答には Xinference の署名が含まれ、同じモデル UID と署名キーで再送できます。複数の"
-" API サーバーでは ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` "
-"を統一してください。MLX、vLLM、SGLang のアダプターは現在、手動の ``budget_tokens`` "
-"を独立した推論トークン数の上限として強制しません。"
+" API サーバーでは ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` を統一してください。 SGLang "
+"は厳密な思考が有効な場合、リクエスト単位の ``max_thinking_tokens`` により手動の ``budget_tokens`` "
+"を適用します。未対応のバージョンや厳密な思考が無効な場合、手動予算のリクエストは HTTP 501 を返します。MLX と vLLM "
+"は現在、独立した推論トークン上限を適用しません。"
 
 #: user_guide/anthropic.rst:105
 msgid ""
@@ -159,49 +162,55 @@ msgstr ""
 msgid "Tool choice and structured output"
 msgstr "ツール選択と構造化出力"
 
-#: user_guide/anthropic.rst:95
+#: user_guide/anthropic.rst:152
 msgid ""
-"Structured JSON output requires a supporting engine. The vLLM and SGLang "
-"engines support named and required tool choice through constrained JSON "
-"decoding, and disabled parallel tool use returns at most one tool per "
-"response. Forced tool arguments are buffered until complete."
+"The vLLM, SGLang and MLX engines support structured JSON, named and required"
+" tool choice through constrained JSON decoding. Disabled parallel tool use "
+"returns at most one tool per response. Forced tool arguments are buffered "
+"until complete."
 msgstr ""
-"構造化 JSON 出力には対応エンジンが必要です。vLLM と SGLang エンジンは制約付き JSON "
-"デコードで名前指定と必須のツール選択をサポートし、並列ツール使用を無効にすると応答ごとに最大一つのツール呼び出しを返します。強制ツールの引数は完成するまでバッファリングされます。"
+"vLLM、SGLang、MLX は制約付き JSON デコードにより、構造化 "
+"JSON、名前指定および必須のツール選択に対応します。並列ツールを無効にすると、応答ごとのツール呼び出しは最大一つです。強制ツールの引数は完成するまでバッファーされます。"
 
-#: ../docs-source/user_guide/anthropic.rst:116
+#: user_guide/anthropic.rst:157
 msgid ""
 "Xinference automatically connects its existing reasoning parser to vLLM and "
 "SGLang structured decoding for supported reasoning markers and engines with "
 "parser plugin support. Qwen3.5 needs no extra parser configuration. Explicit"
 " engine parser settings are preserved. Manual thinking cannot be combined "
 "with forced tool choice. P/D models return 501 for forced tool choice. Other"
-" engines return 501 for unsupported controls."
+" engines return 501 for unsupported controls. MLX uses ``llguidance`` "
+"(included in the ``mlx`` extra) with a fast tokenizer. Requests with "
+"constrained output or explicit cache checkpoints use request-local decoding;"
+" other text requests retain continuous batching."
 msgstr ""
 "Xinference は、対応する思考マーカーとパーサープラグインをサポートするエンジンに対して、既存の推論パーサーを vLLM と SGLang "
 "の構造化デコードに自動接続します。Qwen3.5 "
 "では追加のパーサー設定は不要です。エンジンのパーサー設定が明示されている場合は、その設定を維持します。手動思考モードと強制ツール選択は併用できません。他のエンジンは未対応の制御に対して"
-" 501 を返します。 P/D モデルは強制ツール選択に対して 501 を返します。"
+" 501 を返します。 P/D モデルは強制ツール選択に対して 501 を返します。 MLX は ``mlx`` 追加依存関係に含まれる "
+"``llguidance`` と高速 tokenizer "
+"を使用します。制約付き出力や明示的なキャッシュ境界を持つリクエストは専用デコーダーを使用し、その他のテキストリクエストは連続バッチ処理を維持します。"
 
 #: user_guide/anthropic.rst:103
 msgid "Prompt caching"
 msgstr "プロンプトキャッシュ"
 
-#: ../docs-source/user_guide/anthropic.rst:126
+#: user_guide/anthropic.rst:221
 msgid ""
-"For text requests, the MLX vision engine reuses the furthest "
-"``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports "
-"actual cache writes and reads. Earlier cache breakpoints do not have "
-"independently enforced lifetimes in this path. Cache hits do not currently "
-"refresh the lifetime, and expiry clears the reusable cache. Other paths "
-"retain automatic engine caching, indicated by the ``x-xinference-cache-"
-"control: automatic`` response header."
+"For text requests, both MLX text and vision models support up to four "
+"explicit ``cache_control`` breakpoints. Each checkpoint has its own ``5m`` "
+"or ``1h`` lifetime, refreshed on a cache hit. Put longer lifetimes before "
+"shorter ones. Expired checkpoints are removed independently; a live earlier "
+"checkpoint can still be reused after a later one expires. Cache storage "
+"obeys the configured ``prompt_cache_size`` and ``prompt_cache_bytes`` "
+"capacity limits, so memory pressure can evict checkpoints before their "
+"lifetime ends. Usage reports actual cache writes and reads."
 msgstr ""
-"テキストリクエストでは、MLX ビジョンエンジンが最後の ``cache_control`` 境界までのプレフィックスを ``5m`` または "
-"``1h`` "
-"の有効期間で再利用し、実際のキャッシュ書き込み量と読み取り量を報告します。他の経路ではエンジンの自動キャッシュを維持し、``x-xinference-"
-"cache-control: automatic`` レスポンスヘッダーで示します。この経路では、前のキャッシュ境界に独立した有効期間は適用されません。"
-" 現在、キャッシュヒットによって有効期間は更新されず、期限切れになると再利用可能なキャッシュ全体が消去されます。"
+"MLX のテキストモデルと視覚モデルは、テキストリクエストで最大四つの明示的な ``cache_control`` "
+"境界に対応します。各チェックポイントには独立した ``5m`` または ``1h`` "
+"の有効期間があり、キャッシュヒットで更新されます。長い有効期間を短い有効期間より先に配置してください。期限切れのチェックポイントは個別に削除され、後の境界が期限切れになっても前の有効な境界は再利用できます。保存容量は"
+" ``prompt_cache_size`` と ``prompt_cache_bytes`` "
+"に従うため、メモリ不足で期限前に削除される場合があります。使用量は実際の書き込みと読み取りを報告します。"
 
 #: ../source/user_guide/anthropic.rst:83
 msgid ""
@@ -337,9 +346,9 @@ msgstr "明示的なキャッシュ有効期間"
 msgid "Automatic caching"
 msgstr "自動キャッシュ"
 
-#: ../source/user_guide/anthropic.rst:190
-msgid "Partial (text requests to vision models)"
-msgstr "一部対応（視覚モデルへのテキストリクエスト）"
+#: user_guide/anthropic.rst:212
+msgid "Text requests (LM and VLM)"
+msgstr "テキストリクエスト（LM と VLM）"
 
 #: ../source/user_guide/anthropic.rst:191
 msgid "Separate reasoning-token budget"
@@ -352,5 +361,38 @@ msgid "Not enforced"
 msgstr "適用なし"
 
 #: user_guide/anthropic.rst:162
-msgid "With compatible SGLang versions, Xinference enables strict thinking for its reasoning adapter on the default XGrammar backend, including ordinary requests. This adds token-filtering overhead, requires a compatible tokenizer and does not support UNO speculative decoding. Set ``enable_strict_thinking=False`` in model launch options to disable it; EOS can then end thinking before structured output begins."
-msgstr "互換性のある SGLang バージョンでは、Xinference はデフォルトの XGrammar バックエンドで reasoning アダプターの厳密な thinking を有効にし、通常のリクエストにも適用します。これによりトークンフィルタリングの負荷が増え、互換性のあるトークナイザーが必要になり、UNO 投機的デコードは使用できません。モデル起動オプションで ``enable_strict_thinking=False`` を設定すると無効にできますが、構造化出力の開始前に EOS が thinking を終了させる場合があります。"
+msgid ""
+"With compatible SGLang versions, Xinference enables strict thinking for its "
+"reasoning adapter on the default XGrammar backend, including ordinary "
+"requests. This adds token-filtering overhead, requires a compatible "
+"tokenizer and does not support UNO speculative decoding. Set "
+"``enable_strict_thinking=False`` in model launch options to disable it; EOS "
+"can then end thinking before structured output begins."
+msgstr ""
+"互換性のある SGLang バージョンでは、Xinference はデフォルトの XGrammar バックエンドで reasoning "
+"アダプターの厳密な thinking "
+"を有効にし、通常のリクエストにも適用します。これによりトークンフィルタリングの負荷が増え、互換性のあるトークナイザーが必要になり、UNO "
+"投機的デコードは使用できません。モデル起動オプションで ``enable_strict_thinking=False`` "
+"を設定すると無効にできますが、構造化出力の開始前に EOS が thinking を終了させる場合があります。"
+
+#: user_guide/anthropic.rst:166
+msgid ""
+"SGLang counts image tokens through a zero-output native prefill, using the "
+"same image processing as generation. This performs image processing and "
+"prefill work and can warm the engine cache."
+msgstr ""
+"SGLang "
+"は生成と同じ画像処理を行う出力ゼロのネイティブプリフィルで画像トークンを数えます。画像処理とプリフィルの計算を行い、エンジンキャッシュがウォームアップされる場合があります。"
+
+#: user_guide/anthropic.rst:215
+msgid "Supported with strict thinking"
+msgstr "厳密な思考が有効な場合に対応"
+
+#: user_guide/anthropic.rst:230
+msgid ""
+"Image requests, vLLM and SGLang retain automatic engine caching, indicated "
+"by the ``x-xinference-cache-control: automatic`` response header. Their "
+"engine caches do not expose independent per-breakpoint lifetime control."
+msgstr ""
+"画像リクエスト、vLLM、SGLang は引き続きエンジンの自動キャッシュを使用し、``x-xinference-cache-control: "
+"automatic`` 応答ヘッダーで示されます。これらのキャッシュは境界ごとの独立した有効期間制御を公開していません。"

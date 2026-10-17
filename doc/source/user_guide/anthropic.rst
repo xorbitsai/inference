@@ -104,8 +104,10 @@ maps to prompt guidance, with ``medium`` preserving the default prompt.
 Explicit thinking responses carry Xinference signatures, which can be replayed
 with the same model UID and signing key; configure
 ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers.
-The MLX, vLLM and SGLang adapters do not currently enforce manual
-``budget_tokens`` as a separate reasoning-token limit.
+SGLang enforces manual ``budget_tokens`` with its request-level
+``max_thinking_tokens`` control when strict thinking is enabled. Unsupported
+versions or disabled strict thinking return HTTP 501 for a manual budget.
+MLX and vLLM do not currently enforce a separate reasoning-token limit.
 
 Stale, unsigned or foreign thinking blocks are ignored during replay;
 accompanying answers and tool calls are preserved.
@@ -147,8 +149,8 @@ unsupported edit types return HTTP 400.
 Tool choice and structured output
 ---------------------------------
 
-Structured JSON output requires a supporting engine. The vLLM and SGLang engines support
-named and required tool choice through constrained JSON decoding, and disabled
+The vLLM, SGLang and MLX engines support structured JSON,
+named and required tool choice through constrained JSON decoding. Disabled
 parallel tool use returns at most one tool per response. Forced tool arguments
 are buffered until complete.
 
@@ -157,7 +159,13 @@ vLLM and SGLang structured decoding for supported reasoning markers and engines 
 plugin support. Qwen3.5 needs no extra parser configuration. Explicit engine
 parser settings are preserved. Manual thinking cannot be combined with forced
 tool choice. P/D models return 501 for forced tool choice. Other engines return
-501 for unsupported controls.
+501 for unsupported controls. MLX uses ``llguidance`` (included in the
+``mlx`` extra) with a fast tokenizer. Requests with constrained output or explicit cache checkpoints use
+request-local decoding; other text requests retain continuous batching.
+
+SGLang counts image tokens through a zero-output native prefill, using the
+same image processing as generation. This performs image processing and
+prefill work and can warm the engine cache.
 
 With compatible SGLang versions, Xinference enables strict thinking for its
 reasoning adapter on the default XGrammar backend, including ordinary requests.
@@ -189,30 +197,36 @@ compatible model and engine version, as described above.
    * - Forced tool choice / disabling parallel tools
      - Supported
      - Supported
-     - HTTP 501
+     - Supported
    * - Structured JSON
      - Supported
      - Supported
-     - HTTP 501
+     - Supported
    * - Image token counting
      - Supported
-     - HTTP 501
+     - Supported
      - Supported
    * - Explicit cache lifetime
      - Automatic caching
      - Automatic caching
-     - Partial (text requests to vision models)
+     - Text requests (LM and VLM)
    * - Separate reasoning-token budget
      - Not enforced
-     - Not enforced
+     - Supported with strict thinking
      - Not enforced
 
 Prompt caching
 --------------
 
-For text requests, the MLX vision engine reuses the furthest ``cache_control``
-boundary with a ``5m`` or ``1h`` lifetime and reports actual cache writes and
-reads. Earlier cache breakpoints do not have independently enforced lifetimes
-in this path. Cache hits do not currently refresh the lifetime, and expiry
-clears the reusable cache. Other paths retain automatic engine caching, indicated by the
-``x-xinference-cache-control: automatic`` response header.
+For text requests, both MLX text and vision models support up to four explicit
+``cache_control`` breakpoints. Each checkpoint has its own ``5m`` or ``1h``
+lifetime, refreshed on a cache hit. Put longer lifetimes before shorter ones.
+Expired checkpoints are removed independently; a live earlier checkpoint can
+still be reused after a later one expires. Cache storage obeys the configured
+``prompt_cache_size`` and ``prompt_cache_bytes`` capacity limits, so memory
+pressure can evict checkpoints before their lifetime ends. Usage reports
+actual cache writes and reads.
+
+Image requests, vLLM and SGLang retain automatic engine caching, indicated by
+the ``x-xinference-cache-control: automatic`` response header. Their engine
+caches do not expose independent per-breakpoint lifetime control.
