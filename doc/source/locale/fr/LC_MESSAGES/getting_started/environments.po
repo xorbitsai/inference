@@ -563,3 +563,19 @@ msgstr ""
 "n’empêche pas les attaques par rejeu ; les transferts GPU authentifiés "
 "copient temporairement les tampons du périphérique dans la mémoire hôte pour"
 " le hachage, avec un surcoût CPU et mémoire hôte."
+
+#: ../../source/getting_started/environments.rst:155
+msgid "For text-only ``sentence_transformers`` models, the engine may group similar character lengths to reduce padding while preserving response order. The internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE`` controls input merging by the server."
+msgstr "Pour les modèles ``sentence_transformers`` limités au texte, le moteur peut regrouper les entrées de longueurs similaires en caractères afin de réduire le remplissage tout en préservant l’ordre des réponses. Le paramètre interne ``batch_size`` de ``encode()`` limite ces groupes ; ``XINFERENCE_BATCH_SIZE`` contrôle la fusion des entrées par le serveur."
+
+#: ../../source/getting_started/environments.rst:164
+msgid "XINFERENCE_EMBEDDING_GC_INTERVAL"
+msgstr "XINFERENCE_EMBEDDING_GC_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:166
+msgid "Minimum interval (seconds) between full Python garbage collections during embedding cache cleanup. Default is 60. The first cleanup collects immediately. Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged."
+msgstr "Intervalle minimal (en secondes) entre les collectes complètes du ramasse-miettes Python lors du nettoyage du cache des embeddings. La valeur par défaut est 60. La première collecte est immédiate. Avec 0, une collecte est effectuée à chaque nettoyage. La fréquence de libération du cache GPU reste inchangée."
+
+#: ../../source/getting_started/environments.rst:171
+msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
+msgstr "Le délai s’applique aussi au nettoyage déclenché par le nombre de tokens. Les tenseurs conservés par des références cycliques Python peuvent rester alloués jusqu’au ramasse-miettes automatique ou à une collecte complète ultérieure ; ``empty_cache()`` ne peut pas les libérer. Définissez cet intervalle sur 0 pour les modèles nécessitant une collecte complète à chaque nettoyage."

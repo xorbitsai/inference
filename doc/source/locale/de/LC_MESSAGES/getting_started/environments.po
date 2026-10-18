@@ -554,3 +554,19 @@ msgstr ""
 "Replay-Angriffe; authentifizierte GPU-Transfers puffern Gerätespeicher zum "
 "Hashen im Hostspeicher und verursachen zusätzlichen CPU- und "
 "Hostspeicheraufwand."
+
+#: ../../source/getting_started/environments.rst:155
+msgid "For text-only ``sentence_transformers`` models, the engine may group similar character lengths to reduce padding while preserving response order. The internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE`` controls input merging by the server."
+msgstr "Bei reinen Textmodellen mit ``sentence_transformers`` kann die Engine Eingaben mit ähnlicher Zeichenlänge gruppieren, um Padding zu reduzieren und dabei die Antwortreihenfolge beizubehalten. Der interne Parameter ``batch_size`` von ``encode()`` begrenzt diese Gruppen; ``XINFERENCE_BATCH_SIZE`` steuert das Zusammenführen von Eingaben auf dem Server."
+
+#: ../../source/getting_started/environments.rst:164
+msgid "XINFERENCE_EMBEDDING_GC_INTERVAL"
+msgstr "XINFERENCE_EMBEDDING_GC_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:166
+msgid "Minimum interval (seconds) between full Python garbage collections during embedding cache cleanup. Default is 60. The first cleanup collects immediately. Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged."
+msgstr "Mindestintervall (Sekunden) zwischen vollständigen Python-Garbage-Collections bei der Bereinigung des Embedding-Caches. Der Standardwert ist 60. Bei der ersten Bereinigung erfolgt die Sammlung sofort. Mit 0 wird sie bei jeder Bereinigung ausgeführt. Die Häufigkeit der GPU-Cache-Freigabe bleibt unverändert."
+
+#: ../../source/getting_started/environments.rst:171
+msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
+msgstr "Die Wartezeit gilt auch für eine durch die Tokenanzahl ausgelöste Bereinigung. Durch zyklische Python-Referenzen gehaltene Tensoren können bis zur automatischen Garbage Collection oder einer späteren vollständigen Sammlung Speicher belegen; ``empty_cache()`` kann sie nicht freigeben. Setzen Sie das Intervall für Modelle, die bei jeder Bereinigung eine vollständige Sammlung benötigen, auf 0."

@@ -486,3 +486,19 @@ msgstr ""
 "コードの実行権限を持つ信頼済みの通信相手です。デプロイ管理者は actor "
 "ポートへのアクセスを想定したクラスターノードに制限してください。認証は通信の暗号化やリプレイ防止を提供しません。認証付き GPU "
 "転送はハッシュ計算のためにデバイスバッファーをホストメモリーにステージングし、CPU とホストメモリーの負荷が増加します。"
+
+#: ../../source/getting_started/environments.rst:155
+msgid "For text-only ``sentence_transformers`` models, the engine may group similar character lengths to reduce padding while preserving response order. The internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE`` controls input merging by the server."
+msgstr "テキスト専用の ``sentence_transformers`` モデルでは、応答の順序を維持しながら、文字数が近い入力をグループ化してパディングを減らすことがあります。内部の ``encode()`` の ``batch_size`` がこれらのグループのサイズを制限し、``XINFERENCE_BATCH_SIZE`` はサーバー側での入力の結合を制御します。"
+
+#: ../../source/getting_started/environments.rst:164
+msgid "XINFERENCE_EMBEDDING_GC_INTERVAL"
+msgstr "XINFERENCE_EMBEDDING_GC_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:166
+msgid "Minimum interval (seconds) between full Python garbage collections during embedding cache cleanup. Default is 60. The first cleanup collects immediately. Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged."
+msgstr "埋め込みキャッシュのクリーンアップ時に Python の完全なガベージコレクションを実行する最小間隔（秒）です。デフォルトは 60 です。最初のクリーンアップでは直ちに実行します。0 に設定すると毎回実行します。GPU キャッシュの解放頻度は変わりません。"
+
+#: ../../source/getting_started/environments.rst:171
+msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
+msgstr "クールダウンはトークン数によって起動されるクリーンアップにも適用されます。Python の循環参照によって保持されるテンソルは、自動 GC または後続の完全なガベージコレクションまでメモリを占有する場合があります。``empty_cache()`` ではこれらを解放できません。クリーンアップのたびに完全な回収が必要なモデルでは、この間隔を 0 に設定してください。"
