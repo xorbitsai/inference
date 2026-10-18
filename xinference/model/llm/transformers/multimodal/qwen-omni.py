@@ -29,6 +29,7 @@ from .....types import (
     CompletionUsage,
 )
 from ....utils import allow_trust_remote_code, is_flash_attn_available, select_device
+from ...context_length import ContextLengthExceeded
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import PytorchGenerateConfig, register_non_default_model
 from .core import PytorchMultiModalModel
@@ -211,6 +212,9 @@ class QwenOmniChatModel(PytorchMultiModalModel):
             config["generation_mode"] = "text"
         inputs = self.build_inputs_from_messages(messages, generate_config)
         gen_kwargs = dict(**inputs, **config, streamer=streamer)
+        gen_kwargs["thinker_max_new_tokens"] = self._cap_context_max_new_tokens(
+            inputs.input_ids.shape[-1], gen_kwargs["thinker_max_new_tokens"]
+        )
         thread = Thread(target=self._model.generate, kwargs=gen_kwargs)
         thread.start()
         return streamer, len(inputs.input_ids[0])
@@ -230,6 +234,15 @@ class QwenOmniChatModel(PytorchMultiModalModel):
         inputs = self.build_inputs_from_messages(messages, generate_config)  # type: ignore
         use_audio_in_video = generate_config.get("use_audio_in_video", True)
         gen_kwargs = dict(**inputs, **config, use_audio_in_video=use_audio_in_video)
+        gen_kwargs["thinker_max_new_tokens"] = self._cap_context_max_new_tokens(
+            inputs.input_ids.shape[-1], gen_kwargs["thinker_max_new_tokens"]
+        )
+        if gen_kwargs["thinker_max_new_tokens"] < 2 <= config["thinker_max_new_tokens"]:
+            raise ContextLengthExceeded(
+                f"Prompt leaves {gen_kwargs['thinker_max_new_tokens']} output token(s) within "
+                f"context_length {self._pytorch_model_config['context_length']}; "
+                "audio generation needs at least 2 thinker tokens."
+            )
         # === Run model.generate() (handle both (ids, audio) and ids-only cases) ===
         result = self._model.generate(**gen_kwargs)
         if isinstance(result, tuple) and len(result) == 2:
