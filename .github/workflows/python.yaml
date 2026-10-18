@@ -47,6 +47,8 @@ jobs:
         run: cd frontend && npx eslint .
       - name: Test live account permissions
         run: cd frontend && npm run test:permissions
+      - name: Test catalog refresh controls
+        run: cd frontend && npm run test:catalog-refresh
       - name: Build frontend (static export)
         run: cd frontend && npm run build
       - name: Verify static export output

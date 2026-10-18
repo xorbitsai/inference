@@ -517,3 +517,11 @@ msgid ""
 msgstr ""
 "So ändern Sie die Bildanzahl eines mit Gewichtserhaltung gestarteten SGLang-"
 "Bildmodells:"
+
+#: ../../user_guide/launch.rst
+msgid "Updating the model catalog"
+msgstr "Modellkatalog aktualisieren"
+
+#: ../../user_guide/launch.rst
+msgid "On the **Launch Model** page, choose the model type beside **Update**. **Update** refreshes the whole category. Choose **Update one model** and enter the exact Hub model name (or world family name) to update just that model, including a model not yet listed. Other catalog entries are preserved. This updates shared metadata without downloading weights or restarting running models. With authentication enabled, both actions require administrator or ``models:register`` permission."
+msgstr "Wählen Sie auf der Seite **Launch Model** neben **Update** den Modelltyp aus. **Update** aktualisiert die gesamte Kategorie. Wählen Sie **Update one model** und geben Sie den genauen Hub-Modellnamen (oder World-Familiennamen) ein, um nur dieses Modell zu aktualisieren, auch wenn es noch nicht aufgelistet ist. Andere Katalogeinträge bleiben erhalten. Dabei werden gemeinsame Metadaten aktualisiert, ohne Gewichte herunterzuladen oder laufende Modelle neu zu starten. Bei aktivierter Authentifizierung erfordern beide Aktionen Administratorrechte oder die Berechtigung ``models:register``."

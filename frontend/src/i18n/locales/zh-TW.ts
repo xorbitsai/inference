@@ -492,6 +492,11 @@ const zhTW = {
     emptyFile: '上傳檔案不能為空。',
   },
   launchModel: {
+    updateOneModel: '更新單個模型',
+    updateOneModelDescription:
+      '更新共享目錄中的單個模型，保留其他模型。此操作不會下載模型權重或重新啟動執行中的模型。',
+    catalogModelNamePlaceholder: '準確的模型名稱，或 world 模型族名稱',
+    catalogUpdated: '模型目錄已更新。',
     enableWeightCache: '保留 GPU 權重以支援重載',
     enableWeightCacheTip:
       '需要 vLLM 0.31.0+ 或 SGLang 0.5.21+、Linux GPU、單一 worker 和單一副本。引擎重載期間權重保留在 GPU 記憶體中。',

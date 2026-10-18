@@ -504,6 +504,11 @@ const en = {
     emptyFile: 'The uploaded file cannot be empty.',
   },
   launchModel: {
+    updateOneModel: 'Update one model',
+    updateOneModelDescription:
+      'Update one model in the shared catalog while keeping other models. This does not download weights or restart running models.',
+    catalogModelNamePlaceholder: 'Exact model name, or world family name',
+    catalogUpdated: 'Model catalog updated.',
     enableWeightCache: 'Keep GPU weights for reload',
     enableWeightCacheTip:
       'Requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux GPU, one worker and one replica. Weights stay in GPU memory between engine reloads.',
