@@ -1211,7 +1211,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         kwargs.pop("request_id", None)
         if hasattr(self._model, "transcriptions"):
             return await self._call_wrapper_json(
-                self._model.transcriptions,
+                getattr(
+                    self._model, "async_transcriptions", self._model.transcriptions
+                ),
                 audio,
                 language,
                 prompt,
@@ -1240,7 +1242,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         kwargs.pop("request_id", None)
         if hasattr(self._model, "translations"):
             return await self._call_wrapper_json(
-                self._model.translations,
+                getattr(self._model, "async_translations", self._model.translations),
                 audio,
                 language,
                 prompt,
@@ -1276,7 +1278,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 else:
                     kwargs["seed"] = seed
 
-            speech = self._model.speech
+            speech = getattr(self._model, "async_speech", self._model.speech)
             parameters = inspect.signature(speech).parameters
             accepts_kwargs = any(
                 parameter.kind == inspect.Parameter.VAR_KEYWORD

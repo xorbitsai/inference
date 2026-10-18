@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import logging
 import os
 import re
@@ -20,6 +21,8 @@ import wave
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from ...utils import make_hashable
+from .batch import AudioRequestBatcher
 from .utils import MLXModelThreadMixin
 
 if TYPE_CHECKING:
@@ -286,6 +289,12 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
         self._device = device
         self._model = None
         self._kwargs = kwargs
+        self._batcher = AudioRequestBatcher(
+            self._run_speech_batch,
+            self._speech_batch_key,
+            request_batch_size=int(kwargs.pop("request_batch_size", 4)),
+            batch_interval=float(kwargs.pop("batch_interval", 0.01)),
+        )
 
     @property
     def model_ability(self):
@@ -592,6 +601,167 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
             raise ValueError(f"Unsupported mlx-audio TTS family: {model_family}")
         return generate_kwargs
 
+    @property
+    def allow_batch(self) -> bool:
+        return self._model_spec.model_family == "qwen3_tts"
+
+    _QWEN_BATCH_OPTIONS = {
+        "temperature",
+        "max_tokens",
+        "top_k",
+        "top_p",
+        "repetition_penalty",
+        "verbose",
+        "streaming_interval",
+        "streaming_context_size",
+        "language",
+        "instruct",
+        "prompt_speech",
+        "prompt_text",
+        "reference_speech",
+        "reference_text",
+    }
+
+    def _can_batch_qwen(self, kwargs: dict, speed: float) -> bool:
+        return (
+            self.allow_batch
+            and callable(getattr(self._model, "batch_generate", None))
+            and speed == 1.0
+            and kwargs.get("seed") is None
+            and not (set(kwargs) - self._QWEN_BATCH_OPTIONS)
+        )
+
+    def _speech_batch_key(self, request: dict):
+        if not self._can_batch_qwen(request["kwargs"], request["speed"]):
+            return object()
+        # Native MLX batching shares language, sampling settings and cloning
+        # reference; voices and instructions can vary between rows.
+        kwargs = dict(request["kwargs"])
+        kwargs.pop("instruct", None)
+        return make_hashable(kwargs)
+
+    async def async_speech(
+        self,
+        input: str,
+        voice: str,
+        response_format: str = "mp3",
+        speed: float = 1.0,
+        stream: bool = False,
+        **kwargs,
+    ):
+        if not self.allow_batch:
+            return await asyncio.to_thread(
+                self.speech, input, voice, response_format, speed, stream, **kwargs
+            )
+        if stream:
+            raise RuntimeError(
+                "Streaming mlx-audio output is not yet supported by Xinference"
+            )
+        return await self._batcher.submit(
+            dict(
+                input=input,
+                voice=voice,
+                response_format=response_format,
+                speed=speed,
+                stream=stream,
+                kwargs=kwargs,
+            )
+        )
+
+    def _run_speech_batch(self, requests: List[dict]) -> List[bytes]:
+        if len(requests) == 1:
+            request = dict(requests[0])
+            return [self.speech(**request.pop("kwargs"), **request)]
+        return self._run_on_mlx_thread(self._run_qwen_speech_batch, requests)
+
+    def _run_qwen_speech_batch(self, requests: List[dict]) -> List[bytes]:
+        import numpy as np
+
+        assert self._model is not None
+        temp_files: List[str] = []
+        try:
+            prepared = []
+            rows: List[tuple] = []
+            for request_index, request in enumerate(requests):
+                segments = self._split_qwen_text(request["input"])
+                generation_kwargs = self._build_generation_kwargs(
+                    request["input"],
+                    request["voice"],
+                    request["speed"],
+                    dict(request["kwargs"]),
+                    temp_files,
+                )
+                prepared.append((segments, generation_kwargs))
+                rows.extend(
+                    (request_index, segment_index, text)
+                    for segment_index, text in enumerate(segments)
+                )
+            results_by_request: List[List[List[dict]]] = [
+                [[] for _ in segments] for segments, _ in prepared
+            ]
+            sample_rate = None
+            for offset in range(0, len(rows), self._batcher.batch_size):
+                batch = rows[offset : offset + self._batcher.batch_size]
+                native_kwargs = dict(prepared[batch[0][0]][1])
+                for key in ("text", "voice", "instruct", "speed"):
+                    native_kwargs.pop(key, None)
+                results = self._model.batch_generate(
+                    texts=[row[2] for row in batch],
+                    voices=[prepared[row[0]][1].get("voice") for row in batch],
+                    instructs=[prepared[row[0]][1].get("instruct") for row in batch],
+                    stream=False,
+                    **native_kwargs,
+                )
+                seen = set()
+                for result in results:
+                    sequence_idx = _read_result_field(result, "sequence_idx")
+                    if not isinstance(sequence_idx, int) or not 0 <= sequence_idx < len(
+                        batch
+                    ):
+                        raise RuntimeError(
+                            "mlx-audio returned an invalid batch sequence index"
+                        )
+                    if sequence_idx in seen:
+                        raise RuntimeError(
+                            "mlx-audio returned a duplicate batch sequence index"
+                        )
+                    seen.add(sequence_idx)
+                    result_sample_rate = int(_read_result_field(result, "sample_rate"))
+                    if sample_rate is None:
+                        sample_rate = result_sample_rate
+                    elif result_sample_rate != sample_rate:
+                        raise ValueError("mlx-audio returned inconsistent sample rates")
+                    request_index, segment_index, _ = batch[sequence_idx]
+                    # Materialize MLX arrays on the dedicated MLX thread.
+                    results_by_request[request_index][segment_index].append(
+                        {
+                            "audio": np.asarray(_read_result_field(result, "audio")),
+                            "sample_rate": result_sample_rate,
+                        }
+                    )
+                if len(seen) != len(batch):
+                    raise RuntimeError(
+                        "mlx-audio returned an unexpected batch result count"
+                    )
+            if sample_rate is None:
+                raise RuntimeError("mlx-audio returned no generated audio")
+            return [
+                self._audio_to_bytes(
+                    request["response_format"],
+                    sample_rate,
+                    self._join_qwen_results(results, segments, sample_rate),
+                )
+                for request, (segments, _), results in zip(
+                    requests, prepared, results_by_request
+                )
+            ]
+        finally:
+            for temp_file in temp_files:
+                try:
+                    os.unlink(temp_file)
+                except OSError:
+                    logger.warning("Failed to remove temporary audio %s", temp_file)
+
     def speech(self, *args, **kwargs):
         return self._run_on_mlx_thread(self._speech, *args, **kwargs)
 
@@ -611,6 +781,24 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
             raise RuntimeError(
                 "Streaming mlx-audio output is not yet supported by Xinference"
             )
+
+        if (
+            self._can_batch_qwen(kwargs, speed)
+            and self._batcher.batch_size > 1
+            and len(self._split_qwen_text(input)) > 1
+        ):
+            return self._run_qwen_speech_batch(
+                [
+                    dict(
+                        input=input,
+                        voice=voice,
+                        response_format=response_format,
+                        speed=speed,
+                        stream=stream,
+                        kwargs=kwargs,
+                    )
+                ]
+            )[0]
 
         temp_files: List[str] = []
         try:

@@ -15,7 +15,7 @@ import logging
 import os
 import typing
 from glob import glob
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from typing_extensions import TypedDict
 
@@ -24,6 +24,8 @@ from ...device_utils import (
     get_device_preferred_dtype,
     is_device_available,
 )
+from ...utils import make_hashable
+from .batch import AudioRequestBatcher
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
@@ -39,6 +41,8 @@ class WhisperModelConfig(TypedDict, total=False):
 
 
 class WhisperModel:
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,
@@ -55,6 +59,12 @@ class WhisperModel:
         self._device = device
         self._model = None
         self._max_new_tokens = max_new_tokens
+        self._batcher = AudioRequestBatcher(
+            self._run_transcription_batch,
+            lambda request: make_hashable(request["pipeline_kwargs"]),
+            request_batch_size=int(kwargs.pop("request_batch_size", 4)),
+            batch_interval=float(kwargs.pop("batch_interval", 0.01)),
+        )
         self._model_config: WhisperModelConfig = self._sanitize_model_config(
             typing.cast(WhisperModelConfig, kwargs)
         )
@@ -109,6 +119,30 @@ class WhisperModel:
             device=self._device,
         )
 
+    @staticmethod
+    def _pipeline_kwargs(
+        generate_kwargs: Dict,
+        response_format: str,
+        temperature: float,
+        timestamp_granularities: Optional[List[str]],
+    ) -> dict:
+        generate_kwargs = dict(generate_kwargs)
+        if temperature != 0:
+            generate_kwargs.update(temperature=temperature, do_sample=True)
+        pipeline_kwargs: dict = {"generate_kwargs": generate_kwargs}
+        if response_format == "verbose_json":
+            if not timestamp_granularities or timestamp_granularities == ["segment"]:
+                pipeline_kwargs["return_timestamps"] = True
+            elif timestamp_granularities == ["word"]:
+                pipeline_kwargs["return_timestamps"] = "word"
+            else:
+                raise Exception(
+                    f"Unsupported timestamp_granularities: {timestamp_granularities}"
+                )
+        elif response_format != "json":
+            raise ValueError(f"Unsupported response format: {response_format}")
+        return pipeline_kwargs
+
     def _call_model(
         self,
         audio: bytes,
@@ -117,86 +151,72 @@ class WhisperModel:
         temperature: float = 0,
         timestamp_granularities: Optional[List[str]] = None,
     ):
-        if temperature != 0:
-            generate_kwargs.update({"temperature": temperature, "do_sample": True})
+        pipeline_kwargs = self._pipeline_kwargs(
+            generate_kwargs, response_format, temperature, timestamp_granularities
+        )
+        assert callable(self._model)
+        result = self._model(audio, **pipeline_kwargs)
+        return self._format_result(
+            result, response_format, temperature, pipeline_kwargs
+        )
 
+    @staticmethod
+    def _format_result(results, response_format, temperature, pipeline_kwargs):
         if response_format == "json":
-            logger.debug("Call whisper model with generate_kwargs: %s", generate_kwargs)
-            assert callable(self._model)
-            result = self._model(audio, generate_kwargs=generate_kwargs)
-            return {"text": result["text"]}
-        elif response_format == "verbose_json":
-            return_timestamps: Union[bool, str] = False
-            if not timestamp_granularities:
-                return_timestamps = True
-            elif timestamp_granularities == ["segment"]:
-                return_timestamps = True
-            elif timestamp_granularities == ["word"]:
-                return_timestamps = "word"
-            else:
-                raise Exception(
-                    f"Unsupported timestamp_granularities: {timestamp_granularities}"
-                )
-            assert callable(self._model)
-            results = self._model(
-                audio,
-                generate_kwargs=generate_kwargs,
-                return_timestamps=return_timestamps,
-            )
+            return {"text": results["text"]}
+        generate_kwargs = pipeline_kwargs["generate_kwargs"]
+        return_timestamps = pipeline_kwargs["return_timestamps"]
+        language = generate_kwargs.get("language", "english")
 
-            language = generate_kwargs.get("language", "english")
+        if return_timestamps is True:
+            segments: List[dict] = []
 
-            if return_timestamps is True:
-                segments: List[dict] = []
-
-                def _get_chunk_segment_json(idx, text, start, end):
-                    find_start = 0
-                    if segments:
-                        find_start = segments[-1]["seek"] + len(segments[-1]["text"])
-                    return {
-                        "id": idx,
-                        "seek": results["text"].find(text, find_start),
-                        "start": start,
-                        "end": end,
-                        "text": text,
-                        "tokens": [],
-                        "temperature": temperature,
-                        # We can't provide these values.
-                        "avg_logprob": 0.0,
-                        "compression_ratio": 0.0,
-                        "no_speech_prob": 0.0,
-                    }
-
-                for idx, c in enumerate(results.get("chunks", [])):
-                    text = c["text"]
-                    start, end = c["timestamp"]
-                    segments.append(_get_chunk_segment_json(idx, text, start, end))
-
+            def _get_chunk_segment_json(idx, text, start, end):
+                find_start = 0
+                if segments:
+                    find_start = segments[-1]["seek"] + len(segments[-1]["text"])
                 return {
-                    "task": "transcribe",
-                    "language": language,
-                    "duration": segments[-1]["end"] if segments else 0,
-                    "text": results["text"],
-                    "segments": segments,
+                    "id": idx,
+                    "seek": results["text"].find(text, find_start),
+                    "start": start,
+                    "end": end,
+                    "text": text,
+                    "tokens": [],
+                    "temperature": temperature,
+                    # We can't provide these values.
+                    "avg_logprob": 0.0,
+                    "compression_ratio": 0.0,
+                    "no_speech_prob": 0.0,
                 }
-            else:
-                assert return_timestamps == "word"
 
-                words = []
-                for idx, c in enumerate(results.get("chunks", [])):
-                    text = c["text"]
-                    start, end = c["timestamp"]
-                    words.append({"word": text, "start": start, "end": end})
+            for idx, c in enumerate(results.get("chunks", [])):
+                text = c["text"]
+                start, end = c["timestamp"]
+                segments.append(_get_chunk_segment_json(idx, text, start, end))
 
-                return {
-                    "task": "transcribe",
-                    "language": language,
-                    "duration": words[-1]["end"] if words else 0,
-                    "text": results["text"],
-                    "words": words,
-                }
+            return {
+                "task": "transcribe",
+                "language": language,
+                "duration": segments[-1]["end"] if segments else 0,
+                "text": results["text"],
+                "segments": segments,
+            }
         else:
-            raise ValueError(f"Unsupported response format: {response_format}")
+            assert return_timestamps == "word"
+
+            words = []
+            for idx, c in enumerate(results.get("chunks", [])):
+                text = c["text"]
+                start, end = c["timestamp"]
+                words.append({"word": text, "start": start, "end": end})
+
+            return {
+                "task": "transcribe",
+                "language": language,
+                "duration": words[-1]["end"] if words else 0,
+                "text": results["text"],
+                "words": words,
+            }
 
     def transcriptions(
         self,
@@ -254,3 +274,66 @@ class WhisperModel:
             temperature=temperature,
             timestamp_granularities=timestamp_granularities,
         )
+
+    def _run_transcription_batch(self, requests: List[dict]) -> List[dict]:
+        assert callable(self._model)
+        first = requests[0]
+        audios = [request["audio"] for request in requests]
+        results = self._model(
+            audios if len(audios) > 1 else audios[0], **first["pipeline_kwargs"]
+        )
+        if len(audios) == 1:
+            results = [results]
+        if not isinstance(results, list) or len(results) != len(requests):
+            raise RuntimeError("Whisper returned an unexpected batch result count")
+        return [
+            self._format_result(
+                result,
+                request["response_format"],
+                request["temperature"],
+                request["pipeline_kwargs"],
+            )
+            for result, request in zip(results, requests)
+        ]
+
+    async def _async_transcription(
+        self,
+        audio: bytes,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
+        response_format: str = "json",
+        temperature: float = 0,
+        timestamp_granularities: Optional[List[str]] = None,
+        *,
+        task: str = "transcribe",
+    ):
+        if task == "translate" and not self._model_spec.multilingual:
+            raise RuntimeError(
+                f"Model {self._model_spec.model_name} is not suitable for translations."
+            )
+        if prompt is not None:
+            logger.warning(
+                "Prompt for whisper transcriptions will be ignored: %s", prompt
+            )
+        generate_kwargs: Dict = {"task": task}
+        if task == "transcribe" and self._max_new_tokens is not None:
+            generate_kwargs["max_new_tokens"] = self._max_new_tokens
+        if language is not None:
+            generate_kwargs["language"] = language
+        pipeline_kwargs = self._pipeline_kwargs(
+            generate_kwargs, response_format, temperature, timestamp_granularities
+        )
+        return await self._batcher.submit(
+            dict(
+                audio=audio,
+                response_format=response_format,
+                temperature=temperature,
+                pipeline_kwargs=pipeline_kwargs,
+            )
+        )
+
+    async def async_transcriptions(self, *args, **kwargs):
+        return await self._async_transcription(*args, **kwargs)
+
+    async def async_translations(self, *args, **kwargs):
+        return await self._async_transcription(*args, task="translate", **kwargs)
