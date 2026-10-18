@@ -3122,6 +3122,40 @@ def test_post_process_completion_stopped_while_thinking():
     )
 
 
+@pytest.mark.parametrize("text", ["The user asks", "<think>\nThe user asks"])
+def test_to_chat_completion_stopped_while_thinking(text):
+    # Generation hits max_tokens inside the thinking block, so there is no end
+    # tag. The reasoning content is the text after the start tag, as in a stream.
+    parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+    )
+    completion = {
+        "id": "1",
+        "object": "text_completion",
+        "created": 0,
+        "model": "qwen3",
+        "choices": [
+            {
+                "text": text,
+                "index": 0,
+                "logprobs": None,
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {"prompt_tokens": 159, "completion_tokens": 12, "total_tokens": 171},
+    }
+
+    result = ChatModelMixin._to_chat_completion(completion, parser)
+
+    choice = result["choices"][0]
+    assert choice["finish_reason"] == "length"
+    assert choice["message"]["content"] == ""
+    assert choice["message"]["reasoning_content"] == "\nThe user asks"
+
+
 # ── Security tests for Llama3ToolParser ────────────────────
 
 
