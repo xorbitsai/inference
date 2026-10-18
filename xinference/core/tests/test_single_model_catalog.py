@@ -15,8 +15,14 @@
 """Single-model refresh preserves other entries and request-local credentials."""
 
 import json
+import os
+import stat
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from importlib import import_module
+from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -33,6 +39,24 @@ from xinference.core.worker import WorkerActor
 from xinference.extensions import ModelCatalogCredentials
 
 TOKEN = "single-catalog-test-secret"
+
+
+def catalog_record(model_type, name):
+    directory = Path(__file__).parents[2] / "model" / model_type / "models"
+    source = (
+        directory / "LingBot-World-V2.json"
+        if model_type == "world"
+        else sorted(directory.glob("*.json"))[0]
+    )
+    record = json.loads(source.read_text(encoding="utf-8"))[0]
+    if model_type == "world":
+        record.pop("model_name", None)
+        record["model_family"] = name
+        for index, spec in enumerate(record["model_specs"]):
+            spec["model_name"] = f"{name}-{index}"
+    else:
+        record["model_name"] = name
+    return record
 
 
 def test_single_model_replaces_all_its_variants_and_preserves_other_models(tmp_path):
@@ -55,17 +79,17 @@ def test_single_model_replaces_all_its_variants_and_preserves_other_models(tmp_p
         {"model_name": "wanted", "engine": "new-b"},
     ]
     store_model_catalog(path, variants, model_name="wanted")
-    assert json.loads(path.read_text()) == [unrelated, *variants]
+    assert json.loads(path.read_text(encoding="utf-8")) == [unrelated, *variants]
     store_model_catalog(
         path, {"model_name": "new", "readme": "原始说明"}, model_name="new"
     )
-    assert json.loads(path.read_text()) == [
+    assert json.loads(path.read_text(encoding="utf-8")) == [
         unrelated,
         *variants,
         {"model_name": "new", "readme": "原始说明"},
     ]
     store_model_catalog(path, [])
-    assert json.loads(path.read_text()) == []
+    assert json.loads(path.read_text(encoding="utf-8")) == []
 
 
 @pytest.mark.parametrize(
@@ -108,9 +132,9 @@ def test_concurrent_partial_updates_preserve_every_model(tmp_path):
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         list(pool.map(write, range(16)))
-    assert sorted(json.loads(path.read_text()), key=lambda row: row["index"]) == [
-        {"model_name": f"model-{i}", "index": i} for i in range(16)
-    ]
+    assert sorted(
+        json.loads(path.read_text(encoding="utf-8")), key=lambda row: row["index"]
+    ) == [{"model_name": f"model-{i}", "index": i} for i in range(16)]
 
 
 @pytest.mark.parametrize("stage", ["dump", "replace"])
@@ -160,14 +184,19 @@ def test_readers_and_partial_writes_see_complete_full_refresh(tmp_path, monkeypa
         replace = pool.submit(store_model_catalog, path, full)
         try:
             assert writing.wait(10)
-            assert json.loads(path.read_text()) == [{"model_name": "old"}]
+            assert json.loads(path.read_text(encoding="utf-8")) == [
+                {"model_name": "old"}
+            ]
             merge = pool.submit(write_partial)
             assert partial_started.wait(10)
         finally:
             release.set()
         replace.result()
         merge.result()
-    assert json.loads(path.read_text()) == [*full, {"model_name": "wanted"}]
+    assert json.loads(path.read_text(encoding="utf-8")) == [
+        *full,
+        {"model_name": "wanted"},
+    ]
 
 
 @pytest.fixture
@@ -194,14 +223,20 @@ async def test_worker_encodes_name_and_stores_only_requested_model(
     monkeypatch.setattr(f"xinference.model.{model_type}.register_builtin_model", Mock())
     path = path.parents[1] / model_type / f"{model_type}_models.json"
     name = "org/model & variant?x=1"
-    store_model_catalog(path, [{"model_name": "unrelated"}])
+    unrelated = catalog_record(model_type, "unrelated")
+    record = catalog_record(model_type, name)
+    record["updated_at"] = 42
+    store_model_catalog(path, [unrelated])
     response = SimpleNamespace(
         status_code=200,
         raise_for_status=Mock(),
-        json=lambda: {"model_name": name, "updated_at": 42},
+        json=lambda: record,
     )
     download = Mock(return_value=response)
     monkeypatch.setattr(requests, "get", download)
+    reload = getattr(
+        import_module(f"xinference.model.{model_type}"), "register_builtin_model"
+    )
     kwargs = {"credentials": ModelCatalogCredentials(TOKEN)} if credentialed else {}
     await WorkerActor.update_model_type(worker, model_type, model_name=name, **kwargs)
     assert parse_qs(urlsplit(download.call_args.args[0]).query) == {
@@ -214,15 +249,14 @@ async def test_worker_encodes_name_and_stores_only_requested_model(
         if credentialed
         else {"timeout": 30}
     )
-    assert json.loads(path.read_text()) == [
-        {"model_name": "unrelated"},
-        {"model_name": name, "updated_at": 42},
-    ]
+    assert json.loads(path.read_text(encoding="utf-8")) == [unrelated, record]
+    reload.assert_called_once_with()
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "failure", ["401", "503", "redirect", "network", "json", "mismatch"]
+    "failure",
+    ["401", "404", "503", "redirect", "network", "json", "mismatch", "stored"],
 )
 async def test_single_refresh_failures_do_not_retry_write_or_expose_credentials(
     worker, monkeypatch, caplog, failure
@@ -233,6 +267,10 @@ async def test_single_refresh_failures_do_not_retry_write_or_expose_credentials(
     result = SimpleNamespace(
         status_code=200, raise_for_status=Mock(), json=lambda: {"model_name": TOKEN}
     )
+    if failure == "stored":
+        before = b"malformed local JSON"
+        path.write_bytes(before)
+        result.json = lambda: {"model_name": "wanted"}
     download = Mock(return_value=result)
     if failure == "network":
         download.side_effect = requests.ConnectionError(TOKEN)
@@ -240,7 +278,7 @@ async def test_single_refresh_failures_do_not_retry_write_or_expose_credentials(
         result.json = Mock(side_effect=ValueError(TOKEN))
     elif failure == "redirect":
         result.status_code = 302
-    elif failure != "mismatch":
+    elif failure not in ("mismatch", "stored"):
         result.status_code = int(failure)
         result.raise_for_status.side_effect = requests.HTTPError(TOKEN)
     monkeypatch.setattr(requests, "get", download)
@@ -254,6 +292,155 @@ async def test_single_refresh_failures_do_not_retry_write_or_expose_credentials(
     assert download.call_count == 1
     assert path.read_bytes() == before
     assert TOKEN not in str(caught.value) + caplog.text
+    if failure in ("401", "404"):
+        assert "stage=download" in caplog.text and f"status={failure}" in caplog.text
+    elif failure in ("mismatch", "stored"):
+        assert "stage=store" in caplog.text and "status=200" in caplog.text
+        if failure == "stored":
+            assert "JSONDecodeError" in caplog.text
+
+
+@pytest.mark.parametrize("model_type", ["llm", "world"])
+def test_single_update_loads_refreshed_and_unrelated_models_with_real_loader(
+    tmp_path, monkeypatch, model_type
+):
+    path = tmp_path / "models.json"
+    module = import_module(f"xinference.model.{model_type}")
+    if model_type == "llm":
+        metadata = Mock()
+        monkeypatch.setattr(module, "_register_model_family_metadata", metadata)
+    keep = catalog_record(model_type, "keep")
+    old = catalog_record(model_type, "wanted")
+    new = catalog_record(model_type, "wanted")
+    new["updated_at"] = 42
+    store_model_catalog(path, [old, keep])
+    store_model_catalog(path, new, model_name="wanted", model_type=model_type)
+    families = [] if model_type == "llm" else {}
+    options = {"register_metadata": False} if model_type == "llm" else {}
+    module.load_model_family_from_json(str(path), families, **options)
+    if model_type == "llm":
+        assert {family.model_name: family.updated_at for family in families} == {
+            "wanted": 42,
+            "keep": keep["updated_at"],
+        }
+        metadata.assert_not_called()
+    else:
+        assert set(families) == {
+            spec["model_name"] for row in (keep, new) for spec in row["model_specs"]
+        }
+        assert all(
+            family.updated_at == 42
+            for name, variants in families.items()
+            if name.startswith("wanted-")
+            for family in variants
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model_type", ["llm", "embedding", "rerank", "image", "audio", "video", "world"]
+)
+async def test_worker_rejects_invalid_family_before_publication(
+    worker, monkeypatch, caplog, model_type
+):
+    worker, path = worker
+    worker._custom_register_type_to_cls[model_type] = None
+    reload = Mock()
+    monkeypatch.setattr(f"xinference.model.{model_type}.register_builtin_model", reload)
+    path = path.parents[1] / model_type / f"{model_type}_models.json"
+    store_model_catalog(path, [catalog_record(model_type, "keep")])
+    before = path.read_bytes()
+    record = catalog_record(model_type, "wanted")
+    record["version"] = 999
+    monkeypatch.setattr(
+        requests,
+        "get",
+        Mock(
+            return_value=SimpleNamespace(
+                status_code=200, raise_for_status=Mock(), json=lambda: record
+            )
+        ),
+    )
+    with pytest.raises(ModelCatalogUpdateError):
+        await WorkerActor.update_model_type(worker, model_type, model_name="wanted")
+    assert path.read_bytes() == before
+    reload.assert_not_called()
+    assert "stage=store" in caplog.text
+    assert not list(path.parent.glob(".catalog-*"))
+
+
+@pytest.mark.parametrize("raw", [b"broken JSON", b"{}", b'["bad row"]'])
+def test_full_refresh_can_repair_a_malformed_catalog(tmp_path, raw):
+    path = tmp_path / "models.json"
+    path.write_bytes(raw)
+    replacement = [{"model_name": "fresh"}]
+    store_model_catalog(path, replacement)
+    assert json.loads(path.read_text(encoding="utf-8")) == replacement
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
+@pytest.mark.parametrize("single", [False, True])
+@pytest.mark.parametrize("mode", [0o600, 0o640, 0o664])
+def test_refresh_preserves_existing_permissions(tmp_path, single, mode):
+    path = tmp_path / "models.json"
+    path.write_bytes(b"[]")
+    path.chmod(mode)
+    store_model_catalog(
+        path, [{"model_name": "wanted"}], model_name="wanted" if single else None
+    )
+    assert stat.S_IMODE(path.stat().st_mode) == mode
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX umask")
+@pytest.mark.parametrize("mask", [0o022, 0o027])
+def test_new_catalog_obeys_umask_in_an_isolated_process(tmp_path, mask):
+    path = tmp_path / "models.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import os, sys; from pathlib import Path; "
+            "from xinference.core.model_catalog import store_model_catalog; "
+            "os.umask(int(sys.argv[2])); "
+            "store_model_catalog(Path(sys.argv[1]), [])",
+            str(path),
+            str(mask),
+        ],
+        check=True,
+    )
+    assert stat.S_IMODE(path.stat().st_mode) == 0o666 & ~mask
+
+
+@pytest.mark.parametrize("permanent", [False, True])
+def test_windows_busy_reader_retries_replacement_without_truncating(
+    tmp_path, monkeypatch, permanent
+):
+    path = tmp_path / "models.json"
+    store_model_catalog(path, [{"model_name": "keep"}])
+    before = path.read_bytes()
+    original = model_catalog.os.replace
+    attempts = []
+
+    def replace(source, target):
+        attempts.append(source)
+        assert path.read_bytes() == before
+        if permanent or len(attempts) < 3:
+            raise PermissionError("busy reader")
+        original(source, target)
+
+    monkeypatch.setattr(model_catalog.sys, "platform", "win32")
+    monkeypatch.setattr(model_catalog.os, "replace", replace)
+    monkeypatch.setattr(model_catalog.time, "sleep", Mock())
+    if permanent:
+        with pytest.raises(PermissionError):
+            store_model_catalog(path, [])
+        assert path.read_bytes() == before
+        assert len(attempts) == 5
+    else:
+        store_model_catalog(path, [])
+        assert json.loads(path.read_text(encoding="utf-8")) == []
+        assert len(attempts) == 3
+    assert not list(tmp_path.glob(".catalog-*"))
 
 
 @pytest.mark.asyncio

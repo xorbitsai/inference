@@ -229,6 +229,20 @@ async def test_single_model_name_is_required_and_validated_before_credentials(
 
 
 @pytest.mark.asyncio
+async def test_single_model_name_cannot_be_omitted(api):
+    runtime, hook = api
+    result = await update(
+        runtime,
+        bearer(runtime, ["models:register"]),
+        single=True,
+        json={"model_type": "llm"},
+    )
+    assert result.status_code == 400
+    hook.assert_not_called()
+    runtime._get_supervisor_ref.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_single_model_api_reaches_supervisor_worker_and_persisted_catalog(
     api, tmp_path, monkeypatch
 ):
@@ -242,12 +256,35 @@ async def test_single_model_api_reaches_supervisor_worker_and_persisted_catalog(
     from xinference.core.worker import WorkerActor
 
     runtime, _ = api
+
+    def record(name, timestamp):
+        return {
+            "version": 2,
+            "model_name": name,
+            "context_length": 4096,
+            "model_lang": ["en"],
+            "model_ability": ["generate"],
+            "updated_at": timestamp,
+            "model_specs": [
+                {
+                    "model_format": "pytorch",
+                    "model_size_in_billions": 1,
+                    "model_src": {
+                        "huggingface": {
+                            "model_id": "org/demo",
+                            "model_revision": "main",
+                            "quantizations": ["none"],
+                        }
+                    },
+                }
+            ],
+        }
+
     monkeypatch.setattr("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path))
     monkeypatch.setattr("xinference.model.llm.register_builtin_model", Mock())
     path = tmp_path / "v2" / "builtin" / "llm" / "llm_models.json"
-    store_model_catalog(
-        path, [{"model_name": "keep"}, {"model_name": "wanted", "updated_at": 1}]
-    )
+    keep, fresh = record("keep", 1), record("wanted", 2)
+    store_model_catalog(path, [keep, record("wanted", 1)])
     worker = SimpleNamespace(_custom_register_type_to_cls={"LLM": None})
     worker._store_complete_model_configurations = partial(
         WorkerActor._store_complete_model_configurations, worker
@@ -263,7 +300,7 @@ async def test_single_model_api_reaches_supervisor_worker_and_persisted_catalog(
         return_value=SimpleNamespace(
             status_code=200,
             raise_for_status=Mock(),
-            json=lambda: {"model_name": "wanted", "updated_at": 2},
+            json=lambda: fresh,
         )
     )
     monkeypatch.setattr(requests, "get", download)
@@ -274,10 +311,7 @@ async def test_single_model_api_reaches_supervisor_worker_and_persisted_catalog(
         json={"model_type": "llm", "model_name": "wanted"},
     )
     assert result.status_code == 200
-    assert json.loads(path.read_text()) == [
-        {"model_name": "keep"},
-        {"model_name": "wanted", "updated_at": 2},
-    ]
+    assert json.loads(path.read_text(encoding="utf-8")) == [keep, fresh]
     assert download.call_args.kwargs["headers"] == {"X-Models-Token": TOKEN}
     assert TOKEN not in result.text
 

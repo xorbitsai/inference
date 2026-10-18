@@ -237,7 +237,9 @@ def _register_model_family_metadata(model_spec: "LLMFamilyV2") -> None:
                 )
 
 
-def load_model_family_from_json(json_filename, target_families):
+def load_model_family_from_json(
+    json_filename, target_families, *, register_metadata: bool = True
+):
     # Handle both relative (module directory) and absolute paths
     if os.path.isabs(json_filename):
         json_path = json_filename
@@ -260,7 +262,8 @@ def load_model_family_from_json(json_filename, target_families):
         if key not in seen:
             target_families.append(model_spec)
             seen.add(key)
-        _register_model_family_metadata(model_spec)
+        if register_metadata:
+            _register_model_family_metadata(model_spec)
 
 
 def _install():

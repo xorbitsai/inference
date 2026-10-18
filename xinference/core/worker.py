@@ -2718,43 +2718,25 @@ class WorkerActor(xo.StatelessActor):
 
             # Store the JSON data using CacheManager as built-in models
             stage = "store"
-            if model_name is None:
-                await self._store_complete_model_configurations(model_type, model_data)
-            else:
-                await self._store_complete_model_configurations(
-                    model_type, model_data, model_name=model_name
-                )
+            await self._store_complete_model_configurations(
+                model_type, model_data, model_name=model_name
+            )
 
             # Dynamically reload built-in models to make them immediately available
             try:
-                if model_type.lower() == "llm":
-                    from ..model.llm import register_builtin_model
+                from importlib import import_module
 
-                    register_builtin_model()
-                elif model_type.lower() == "embedding":
-                    from ..model.embedding import register_builtin_model
-
-                    register_builtin_model()
-                elif model_type.lower() == "audio":
-                    from ..model.audio import register_builtin_model
-
-                    register_builtin_model()
-                elif model_type.lower() == "image":
-                    from ..model.image import register_builtin_model
-
-                    register_builtin_model()
-                elif model_type.lower() == "rerank":
-                    from ..model.rerank import register_builtin_model
-
-                    register_builtin_model()
-                elif model_type.lower() == "video":
-                    from ..model.video import register_builtin_model
-
-                    register_builtin_model()
-                elif model_type.lower() == "world":
-                    from ..model.world import register_builtin_model
-
-                    register_builtin_model()
+                if model_type.lower() in (
+                    "llm",
+                    "embedding",
+                    "audio",
+                    "image",
+                    "rerank",
+                    "video",
+                    "world",
+                ):
+                    module = import_module(f"xinference.model.{model_type.lower()}")
+                    module.register_builtin_model()
                 else:
                     logger.warning(
                         f"No dynamic loading available for model type: {model_type}"
@@ -2806,6 +2788,7 @@ class WorkerActor(xo.StatelessActor):
                 pathlib.Path(json_file_path),
                 model_data,
                 model_name=model_name,
+                model_type=model_type,
             )
 
         except Exception as e:
