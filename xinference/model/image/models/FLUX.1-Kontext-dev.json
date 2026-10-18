@@ -55,8 +55,8 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
-        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
+        "diffusers==0.35.2 ; #engine# == \"diffusers\"",
+        "#system_huggingface-hub# ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"

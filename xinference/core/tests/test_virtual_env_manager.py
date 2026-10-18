@@ -19,6 +19,7 @@ See optimize/20260702/2026070209.md for root cause analysis.
 
 import http.server
 import importlib.metadata
+import json
 import os
 import shutil
 import subprocess
@@ -103,6 +104,92 @@ def test_diffusers_keeps_parent_hub(tmp_path, transformers, hub, fresh_diffusers
         assert pins == {"transformers": transformers, "huggingface-hub": hub}
     else:
         resolve.assert_not_called()
+
+
+PINNED_DIFFUSERS_MODELS = [
+    ("image", "FLUX.1-Kontext-dev"),
+    ("image", "Qwen-Image"),
+    ("image", "Qwen-Image-Edit"),
+    ("image", "Qwen-Image-2512"),
+    ("video", "Wan2.1-flf2v-14B-720p"),
+    ("video", "Wan2.2-A14B"),
+    ("video", "Wan2.2-i2v-A14B"),
+    ("video", "Wan2.2-ti2v-5B"),
+]
+
+
+def _load_diffusers_model_records(kind: str, model_name: str) -> list:
+    path = Path(__file__).parents[2] / "model" / kind / "models" / f"{model_name}.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("kind,model_name", PINNED_DIFFUSERS_MODELS)
+def test_pinned_diffusers_model_packages(kind, model_name):
+    from xoscar.virtualenv.uv import UVVirtualEnvManager
+
+    records = [
+        record
+        for record in _load_diffusers_model_records(kind, model_name)
+        if record.get("engine", "diffusers") == "diffusers"
+    ]
+    assert records
+    for record in records:
+        packages = UVVirtualEnvManager.process_packages(
+            record["virtualenv"]["packages"], engine="diffusers"
+        )
+        assert [p for p in packages if p.startswith("diffusers==")] == [
+            "diffusers==0.35.2"
+        ]
+        assert not any("0.35.1" in p for p in packages)
+
+
+@pytest.mark.parametrize("kind,model_name", PINNED_DIFFUSERS_MODELS)
+def test_pinned_diffusers_other_engine_packages_unchanged(kind, model_name):
+    packages = [
+        package
+        for record in _load_diffusers_model_records(kind, model_name)
+        for package in record["virtualenv"]["packages"]
+    ]
+    expected_vllm = []
+    expected_sglang = []
+    if model_name in ("Qwen-Image", "Qwen-Image-2512", "Wan2.2-A14B"):
+        expected_vllm = [
+            'vllm-omni==0.28.* ; #engine# == "vLLM"',
+            'vllm==0.28.* ; #engine# == "vLLM"',
+        ]
+        expected_sglang = ['sglang[diffusion]>=0.5.20,<0.6 ; #engine# == "SGLang"']
+        if kind == "image":
+            expected_vllm += [
+                '#system_torch# ; #engine# == "vLLM"',
+                '#system_numpy# ; #engine# == "vLLM"',
+            ]
+    assert [p for p in packages if '#engine# == "vLLM"' in p] == expected_vllm
+    assert [p for p in packages if '#engine# == "SGLang"' in p] == expected_sglang
+
+
+@pytest.mark.parametrize(
+    "transformers,hub", [("4.57.3", "0.36.2"), ("5.17.0", "1.33.0")]
+)
+def test_qwen_image_keeps_parent_hub(tmp_path, transformers, hub):
+    from xoscar.virtualenv.uv import UVVirtualEnvManager
+
+    installed = {"transformers": transformers, "huggingface-hub": hub}
+    real_version = importlib.metadata.version
+
+    def version(name):
+        if name in installed:
+            return installed[name]
+        return real_version(name)
+
+    manager = UVVirtualEnvManager(tmp_path)
+    for record in _load_diffusers_model_records("image", "Qwen-Image"):
+        with mock.patch("importlib.metadata.version", side_effect=version):
+            packages = manager.process_packages(
+                record["virtualenv"]["packages"], engine="diffusers"
+            )
+        assert [p for p in packages if p.startswith("huggingface-hub")] == [
+            f"huggingface-hub=={hub}"
+        ]
 
 
 def test_diffusers_hub_override_and_other_engine_control():
