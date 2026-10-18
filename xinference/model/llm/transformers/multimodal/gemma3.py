@@ -124,6 +124,9 @@ class Gemma3ChatModel(PytorchMultiModalModel):
         )
 
         gen_kwargs = {"streamer": streamer, **inputs, **configs}
+        gen_kwargs["max_new_tokens"] = self._cap_context_max_new_tokens(
+            len(inputs["input_ids"][0]), gen_kwargs["max_new_tokens"]
+        )
         t = Thread(target=self._model.generate, kwargs=gen_kwargs)
         t.start()
         return streamer, len(inputs.input_ids[0])
