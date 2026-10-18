@@ -2423,7 +2423,11 @@ class RESTfulAPI(CancelMixin):
         return normalized
 
     @staticmethod
-    def _anthropic_error_type(status_code: int) -> str:
+    def _anthropic_error_type(status_code: int, exc: Optional[Exception] = None) -> str:
+        from ..model.llm.context_length import ContextLengthExceeded
+
+        if isinstance(exc, ContextLengthExceeded):
+            return "invalid_request_error"
         return {
             400: "invalid_request_error",
             401: "authentication_error",
@@ -2444,7 +2448,12 @@ class RESTfulAPI(CancelMixin):
         *,
         error_type: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
+        exc: Optional[Exception] = None,
     ) -> JSONResponse:
+        from ..model.llm.context_length import ContextLengthExceeded
+
+        if isinstance(exc, ContextLengthExceeded):
+            status_code = 400
         response_headers = {"request-id": request_id}
         if headers:
             response_headers.update(headers)
@@ -2695,7 +2704,12 @@ class RESTfulAPI(CancelMixin):
                     except Exception as exc:
                         report_stream_failure(request, exc, FailureOrigin.PROTOCOL)
                         logger.exception("Anthropic Token Router stream failed")
-                        yield {"error": {"type": "api_error", "message": str(exc)}}
+                        yield {
+                            "error": {
+                                "type": self._anthropic_error_type(500, exc),
+                                "message": str(exc),
+                            }
+                        }
                     finally:
                         await release_resources()
 
@@ -2868,7 +2882,12 @@ class RESTfulAPI(CancelMixin):
                     exc = await self._get_model_last_error(model.uid, exc)
                     logger.exception("Anthropic physical model stream failed")
                     await self._report_error_event(model_uid, str(exc))
-                    yield {"error": {"type": "api_error", "message": str(exc)}}
+                    yield {
+                        "error": {
+                            "type": self._anthropic_error_type(500, exc),
+                            "message": str(exc),
+                        }
+                    }
                 finally:
                     if abort_controller is not None:
                         await release_stream_resources()
@@ -2943,7 +2962,7 @@ class RESTfulAPI(CancelMixin):
                 logger.error(exc, exc_info=True)
                 await self._report_error_event(model_uid, str(exc))
                 status_code = 429 if "Rate limit reached" in str(exc) else 500
-                return self._anthropic_error(status_code, str(exc), request_id)
+                return self._anthropic_error(status_code, str(exc), request_id, exc=exc)
             finally:
                 if is_vllm_backend and not stream_transferred:
                     await release_stream_resources()
@@ -2987,7 +3006,7 @@ class RESTfulAPI(CancelMixin):
             logger.error(exc, exc_info=True)
             await self._report_error_event(model_uid, str(exc))
             status_code = 429 if "Rate limit reached" in str(exc) else 500
-            return self._anthropic_error(status_code, str(exc), request_id)
+            return self._anthropic_error(status_code, str(exc), request_id, exc=exc)
 
     @staticmethod
     def _responses_error(
@@ -3014,7 +3033,7 @@ class RESTfulAPI(CancelMixin):
     @classmethod
     def _responses_model_error(cls, exc: Exception) -> JSONResponse:
         message = str(exc)
-        code = responses_error_code(message)
+        code = responses_error_code(message, exc)
         # A 400 keeps clients from retrying a request that can never fit.
         if code == "context_length_exceeded":
             return cls._responses_error(400, message, code=code)
@@ -3144,7 +3163,7 @@ class RESTfulAPI(CancelMixin):
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.exception("Responses physical model stream failed")
                 await self._report_error_event(model_uid, str(exc))
-                yield {"error": {"message": str(exc)}}
+                yield {"error": exc}
             finally:
                 await release_resources()
 
@@ -3244,7 +3263,7 @@ class RESTfulAPI(CancelMixin):
             except Exception as exc:
                 report_stream_failure(request, exc, FailureOrigin.PROTOCOL)
                 logger.exception("Responses Token Router stream failed")
-                yield {"error": {"message": str(exc)}}
+                yield {"error": exc}
             finally:
                 await release_resources()
 
