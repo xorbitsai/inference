@@ -172,6 +172,9 @@ class Glm4_1VModel(PytorchMultiModalModel):
 
         generate_kwargs = self.build_generate_kwargs(generate_config)
         inputs = self.build_inputs_from_messages(messages, generate_config)
+        generate_kwargs["max_new_tokens"] = self._cap_context_max_new_tokens(
+            len(inputs["input_ids"][0]), generate_kwargs["max_new_tokens"]
+        )
         streamer = TextIteratorStreamer(
             tokenizer=self._tokenizer,
             timeout=60,

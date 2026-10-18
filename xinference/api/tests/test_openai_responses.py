@@ -1,5 +1,6 @@
 import json
 from types import MethodType
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -13,6 +14,7 @@ from xinference.api.protocols.openai_responses import (
     responses_stream_events,
 )
 from xinference.api.restful_api import RESTfulAPI
+from xinference.model.llm.context_length import ContextLengthExceeded
 
 CODEX_TOOLS = [
     {
@@ -353,6 +355,7 @@ def _make_app(monkeypatch, model):
     monkeypatch.setattr(restful_api_module, "require_model", fake_require_model)
     app = FastAPI()
     app.add_api_route("/v1/responses", api.create_response, methods=["POST"])
+    app.add_api_route("/v1/messages", api.create_message, methods=["POST"])
     return app
 
 
@@ -644,6 +647,74 @@ async def test_context_length_error_is_400_with_code(monkeypatch):
         response = await client.post("/v1/responses", json={"model": "m", "input": "x"})
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "context_length_exceeded"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["/v1/responses", "/v1/messages"])
+@pytest.mark.parametrize("stream", [False, True, "startup"])
+@pytest.mark.parametrize(
+    "exception,status",
+    [(ContextLengthExceeded, 400), (RuntimeError, 500), (RuntimeError, 429)],
+)
+async def test_context_exception_endpoint_classification(
+    monkeypatch, endpoint, stream, exception, status
+):
+    # The multimodal helper's exact message; a plain RuntimeError must stay 500.
+    error = exception(
+        "Rate limit reached"
+        if status == 429
+        else "Prompt length 8 reaches or exceeds context_length 8, leaving no output capacity."
+    )
+
+    class FailingModel(FakeModel):
+        async def chat(self, *args, **kwargs):
+            async def chunks():
+                raise error
+                yield  # pragma: no cover
+
+            if stream is True:
+                return chunks()
+            raise error
+
+    monkeypatch.setattr(RESTfulAPI, "_report_error_event", AsyncMock())
+    app = _make_app(monkeypatch, FailingModel())
+    body = {"model": "m", "stream": bool(stream)}
+    if endpoint == "/v1/responses":
+        body["input"] = "x"
+        code_key = "code"
+        expected = "context_length_exceeded" if status == 400 else "server_error"
+        if status == 429:
+            expected = "rate_limit_exceeded"
+    else:
+        body.update(messages=[{"role": "user", "content": "x"}], max_tokens=6)
+        code_key = "type"
+        expected = "invalid_request_error" if status == 400 else "api_error"
+        if status == 429 and stream is not True:
+            expected = "rate_limit_error"
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            endpoint, json=body, headers={"anthropic-version": "2023-06-01"}
+        )
+    assert response.status_code == (200 if stream is True else status)
+    if stream is True:
+        events = [
+            json.loads(line[6:])
+            for line in response.text.splitlines()
+            if line.startswith("data: ")
+        ]
+        event = events[-1]
+        if endpoint == "/v1/responses":
+            assert event["type"] == "response.failed"
+            error_body = event["response"]["error"]
+        else:
+            assert event["type"] == "error"
+            error_body = event["error"]
+    else:
+        error_body = response.json()["error"]
+    assert error_body[code_key] == expected
+    assert error_body["message"] == str(error)
 
 
 async def _noop():

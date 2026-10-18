@@ -585,7 +585,11 @@ def _reasoning_of(message: Dict[str, Any]) -> str:
     return value if isinstance(value, str) else ""
 
 
-def responses_error_code(message: str) -> str:
+def responses_error_code(message: str, exc: Optional[Exception] = None) -> str:
+    from ...model.llm.context_length import ContextLengthExceeded
+
+    if isinstance(exc, ContextLengthExceeded):
+        return "context_length_exceeded"
     lowered = message.lower()
     if (
         "context length" in lowered
@@ -851,7 +855,12 @@ async def responses_stream_events(
                     req,
                     "failed",
                     [output[i] for i in sorted(output)],
-                    error={"code": responses_error_code(message), "message": message},
+                    error={
+                        "code": responses_error_code(
+                            message, error if isinstance(error, Exception) else None
+                        ),
+                        "message": message,
+                    },
                 )
                 yield event("response.failed", response=failed)
                 return
