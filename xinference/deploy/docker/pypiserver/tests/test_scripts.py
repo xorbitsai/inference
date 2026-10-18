@@ -64,6 +64,10 @@ def test_generate_package_list_classification():
     assert generator.system_placeholder_name("#system_torch#") == "torch"
     assert generator.system_placeholder_name("#system_numpy# ; marker") == "numpy"
     assert (
+        generator.system_placeholder_name("#system_huggingface-hub# ; marker")
+        == "huggingface-hub"
+    )
+    assert (
         generator.normalize_mirror_spec("deepdoc-lib[gpu]~=0.2.2 ; has_cuda")
         == "deepdoc-lib[gpu]~=0.2.2"
     )
