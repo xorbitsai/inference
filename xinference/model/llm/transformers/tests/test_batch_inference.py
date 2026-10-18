@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
@@ -26,6 +27,56 @@ def _make_request() -> InferenceRequest:
     request = InferenceRequest("prompt", object(), True, "generate", {})
     request.prompt_tokens = [1, 2, 3]
     return request
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    ["Baichuan-M2", "Deepseek-V3.1", "QwQ-32B", "deepseek-r1-0528", "marco-o1"],
+)
+@pytest.mark.parametrize("content", [None, "omitted", ""])
+def test_chat_batch_renders_tool_call_turn_without_content(model_name, content):
+    from ... import BUILTIN_LLM_FAMILIES
+    from ..core import PytorchChatModel
+
+    model = object.__new__(PytorchChatModel)
+    model.model_family = next(
+        f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name
+    )
+    model.reasoning_parser = None
+    model._tokenizer = None
+    model._context_length = 8192
+    call = {
+        "role": "assistant",
+        "content": content,
+        "tool_calls": [
+            {
+                "id": "call_read",
+                "type": "function",
+                "function": {"name": "Read", "arguments": '{"file_path":"a"}'},
+            }
+        ],
+    }
+    if content == "omitted":
+        del call["content"]
+
+    def prepare(assistant):
+        messages = [
+            {"role": "user", "content": "read a"},
+            assistant,
+            {"role": "tool", "tool_call_id": "call_read", "content": "TOOL_RESULT_42"},
+        ]
+        original = deepcopy(messages)
+        request = InferenceRequest(messages, None, True, "chat", {})
+        request.sanitized_generate_config = {"max_tokens": 16, "stream_interval": 1}
+        model.prepare_batch_inference([request])
+        assert request.error_msg is None
+        assert not request.stopped
+        assert messages == original
+        return request.full_prompt
+
+    prompt = prepare(call)
+    assert prompt == prepare({**call, "content": ""})
+    assert "TOOL_RESULT_42" in prompt
 
 
 @pytest.mark.parametrize(
