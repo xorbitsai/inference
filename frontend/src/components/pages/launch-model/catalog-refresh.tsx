@@ -110,7 +110,8 @@ function RefreshControls({ modelType, onModelTypeChange, onRefreshed }: CatalogR
             }}
           >
             <p className="text-sm">
-              {t('launchModel.modelType')}: {modelType}
+              {t('launchModel.modelType')}:{' '}
+              {LAUNCH_MODEL_UPDATE_OPTIONS.find((option) => option.value === modelType)?.label}
             </p>
             <div className="space-y-2">
               <label htmlFor={inputId} className="text-sm font-medium">

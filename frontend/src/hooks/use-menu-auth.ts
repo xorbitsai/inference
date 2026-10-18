@@ -68,7 +68,7 @@ export function useMenuAuth() {
     canDeleteVirtualEnv: hasScope('admin', 'virtualenv:delete'),
     canAccessCacheManagement: hasScope('admin', 'models:read', 'cache:list', 'virtualenv:list'),
     canRegisterModel: hasScope('admin', 'models:register', 'models:add', 'models:unregister'),
-    canRefreshModelCatalog: hasScope('admin', 'models:register'),
+    canRefreshModelCatalog: hasScope('admin', 'models:register', 'models:add', 'models:unregister'),
     hasRouterList: hasScope('admin', 'routers:list'),
     hasRouterRead: hasScope('admin', 'routers:read'),
     canWriteRouters: hasScope('admin', 'routers:write'),

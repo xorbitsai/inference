@@ -463,5 +463,5 @@ msgid "Updating the model catalog"
 msgstr "更新模型目錄"
 
 #: ../../user_guide/launch.rst
-msgid "On the Launch Model page, choose the model type beside Update. Update refreshes the whole category. Choose Update one model and enter the exact Hub model name (or world family name) to update just that model, including a model not yet listed. Other catalog entries are preserved. This updates shared metadata without downloading weights or restarting running models. With authentication enabled, both actions require administrator or ``models:register`` permission."
-msgstr "在模型啟動頁面中，選擇「更新」旁的模型類型。「更新」會重新整理整個類別。選擇「更新單個模型」，輸入 Hub 中準確的模型名稱（或 world 模型族名稱），即可僅更新該模型，也支援尚未出現在清單中的模型。其他目錄項目會保留。此操作僅更新共享中繼資料，不會下載權重或重新啟動執行中的模型。啟用驗證時，兩種操作都要求管理員或 ``models:register`` 權限。"
+msgid "On the **Launch Model** page, choose the model type beside **Update**. **Update** refreshes the whole category. Choose **Update one model** and enter the exact Hub model name (or world family name) to update just that model, including a model not yet listed. Other catalog entries are preserved. This updates shared metadata without downloading weights or restarting running models. With authentication enabled, both actions require administrator or ``models:register`` permission."
+msgstr "在 **模型啟動** 頁面中，選擇 **更新** 旁的模型類型。 **更新** 會重新整理整個類別。選擇 **更新單個模型**，輸入 Hub 中準確的模型名稱（或 world 模型族名稱），即可僅更新該模型，也支援尚未出現在清單中的模型。其他目錄項目會保留。此操作僅更新共享中繼資料，不會下載權重或重新啟動執行中的模型。啟用驗證時，兩種操作都要求管理員或 ``models:register`` 權限。"

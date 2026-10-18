@@ -436,7 +436,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
             </div>
           </TabsList>
           <CatalogRefresh
-            key={`${routeType}:${refreshType}`}
+            key={routeType}
             modelType={refreshType}
             onModelTypeChange={setRefreshType}
             onRefreshed={onCatalogRefreshed}

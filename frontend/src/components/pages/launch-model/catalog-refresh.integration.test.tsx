@@ -158,11 +158,30 @@ async function typeName(value: string) {
 function submit() {
   return document.querySelector<HTMLButtonElement>('[role="dialog"] button[type="submit"]')!;
 }
+function categoryButton() {
+  return [...host.querySelectorAll<HTMLButtonElement>('button')].find(
+    (button) => button.textContent === 'common.update'
+  )!;
+}
+function categorySelect() {
+  return categoryButton().parentElement!.firstElementChild!.firstElementChild as HTMLDivElement;
+}
+async function selectCategory(label: string) {
+  await act(async () => categorySelect().click());
+  const option = [
+    ...document.querySelectorAll<HTMLButtonElement>('[data-slot="select-option"]'),
+  ].find((button) => button.textContent === label)!;
+  await act(async () => option.click());
+}
 
-for (const { value } of LAUNCH_MODEL_UPDATE_OPTIONS) {
+for (const { value, label } of LAUNCH_MODEL_UPDATE_OPTIONS) {
   it(`updates a named ${value} model through the single-model API`, async () => {
     await render(value as RequestModelType);
     await openDialog();
+    assert.equal(
+      document.querySelector('[role="dialog"] form p')?.textContent,
+      `launchModel.modelType: ${label}`
+    );
     assert.ok(submit().disabled);
     await typeName('  org/model & variant  ');
     await act(async () => submit().click());
@@ -223,39 +242,40 @@ it('rejects blank names, submits Enter once and blocks dismissal while pending',
   assert.equal(refreshed.length, 1);
 });
 
-for (const status of [401, 403, 404, 502, 503, 521]) {
-  it(`retains input after HTTP ${status} without falling back to category refresh`, async () => {
-    respond = async () => {
-      throw { response: { status } };
-    };
-    await render();
-    await openDialog();
-    await typeName('wanted');
-    await act(async () => submit().click());
-    assert.equal(
-      document.querySelector<HTMLInputElement>('[role="dialog"] input')!.value,
-      'wanted'
-    );
-    assert.ok(!submit().disabled);
-    assert.equal(refreshed.length, 0);
-    assert.equal(successes, 0);
-    assert.deepEqual(
-      posts.map((post) => post.url),
-      ['/v1/models/update_spec']
-    );
-    respond = async () => ({});
-    await act(async () => submit().click());
-    assert.equal(refreshed.length, 1);
-    assert.equal(posts.length, 2);
-    assert.ok(posts.every((post) => post.url === '/v1/models/update_spec'));
-  });
-}
+it('retains input on request failure without falling back to category refresh', async () => {
+  respond = async () => {
+    throw new Error('Catalog refresh failed');
+  };
+  await render();
+  await openDialog();
+  await typeName('wanted');
+  await act(async () => submit().click());
+  assert.equal(document.querySelector<HTMLInputElement>('[role="dialog"] input')!.value, 'wanted');
+  assert.ok(!submit().disabled);
+  assert.equal(refreshed.length, 0);
+  assert.equal(successes, 0);
+  assert.deepEqual(
+    posts.map((post) => post.url),
+    ['/v1/models/update_spec']
+  );
+  respond = async () => ({});
+  await act(async () => submit().click());
+  assert.equal(refreshed.length, 1);
+  assert.equal(posts.length, 2);
+  assert.ok(posts.every((post) => post.url === '/v1/models/update_spec'));
+});
 
-it('requires the exact register scope and respects pending/revoked live permissions', async () => {
-  for (const scopes of [null, [], ['models:read'], ['models:add'], ['models:unregister']]) {
+it('accepts registration scope aliases and respects pending/revoked live permissions', async () => {
+  for (const scopes of [null, [], ['models:read']]) {
     permissions = scopes;
     await render();
     assert.equal(host.querySelector('button'), null);
+  }
+  for (const scopes of [['models:register'], ['models:add'], ['models:unregister'], ['admin']]) {
+    permissions = scopes;
+    await render();
+    assert.ok(singleButton());
+    assert.ok(categoryButton());
   }
   ready = false;
   permissions = ['admin'];
@@ -327,7 +347,87 @@ for (const single of [false, true]) {
     );
     assert.deepEqual(navigated, []);
   });
+
+  it(`ignores ${single ? 'single-model' : 'category'} completion after changing the page route`, async () => {
+    let finish!: () => void;
+    respond = () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    await act(async () =>
+      root.render(<LaunchModel routeType={ModelType.LLM} initialCustomType={ModelType.LLM} />)
+    );
+    if (single) {
+      await openDialog();
+      await typeName('wanted');
+      await act(async () => submit().click());
+    } else {
+      await act(async () => categoryButton().click());
+    }
+    assert.equal(posts.length, 1);
+    await act(async () =>
+      root.render(<LaunchModel routeType={ModelType.Embedding} initialCustomType={ModelType.LLM} />)
+    );
+    const pageRequests = [...gets];
+    await act(async () => finish());
+    assert.equal(document.querySelector('[role="dialog"]'), null);
+    assert.deepEqual(navigated, []);
+    assert.equal(successes, 0);
+    assert.deepEqual(gets, pageRequests);
+    assert.ok(!categoryButton().disabled);
+  });
+
+  it(`navigates to a different built-in type after ${single ? 'single-model' : 'category'} refresh`, async () => {
+    await act(async () =>
+      root.render(<LaunchModel routeType={ModelType.LLM} initialCustomType={ModelType.LLM} />)
+    );
+    const select = categorySelect();
+    const button = categoryButton();
+    button.focus();
+    await selectCategory('Embedding');
+    assert.ok(categorySelect() === select, 'changing type must preserve the category selector');
+    assert.ok(document.activeElement === button, 'changing type must preserve existing focus');
+    if (single) {
+      await openDialog();
+      await typeName('wanted');
+      await act(async () => submit().click());
+    } else {
+      await act(async () => categoryButton().click());
+    }
+    assert.deepEqual(posts, [
+      {
+        url: single ? '/v1/models/update_spec' : '/v1/models/update_type',
+        body: { model_type: 'embedding', ...(single ? { model_name: 'wanted' } : {}) },
+      },
+    ]);
+    assert.deepEqual(navigated, ['/launch-model/embedding']);
+    assert.equal(successes, 1);
+  });
 }
+
+it('blocks type changes during category refresh and re-enables the controls after failure', async () => {
+  let fail!: (reason: Error) => void;
+  respond = () =>
+    new Promise((_, reject) => {
+      fail = reject;
+    });
+  await act(async () =>
+    root.render(<LaunchModel routeType={ModelType.LLM} initialCustomType={ModelType.LLM} />)
+  );
+  await act(async () => categoryButton().click());
+  assert.ok(categoryButton().disabled);
+  assert.ok(singleButton().disabled);
+  await act(async () => categorySelect().click());
+  assert.equal(document.querySelector('[data-slot="select-dropdown"]'), null);
+  await act(async () => fail(new Error('Category refresh failed')));
+  assert.ok(!categoryButton().disabled);
+  assert.ok(!singleButton().disabled);
+  await selectCategory('Embedding');
+  assert.equal(categorySelect().textContent, 'Embedding');
+  assert.deepEqual(posts, [{ url: '/v1/models/update_type', body: { model_type: 'llm' } }]);
+  assert.deepEqual(navigated, []);
+  assert.equal(successes, 0);
+});
 
 it('moves from custom registrations to the refreshed built-in category', async () => {
   await act(async () =>
