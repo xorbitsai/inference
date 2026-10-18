@@ -26,6 +26,7 @@ from .....types import (
     ChatCompletion,
     ChatCompletionAudio,
     ChatCompletionChoice,
+    ChatCompletionMessage,
     CompletionUsage,
 )
 from ....utils import allow_trust_remote_code, is_flash_attn_available, select_device
@@ -278,7 +279,7 @@ class QwenOmniChatModel(PytorchMultiModalModel):
             clean_up_tokenization_spaces=False,
         )[0]
 
-        message: Dict[str, Any] = {"role": "assistant", "content": output_text}
+        message: ChatCompletionMessage = {"role": "assistant", "content": output_text}
         if audio is not None:
             import soundfile as sf
 
