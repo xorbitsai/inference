@@ -21,8 +21,10 @@ import pytest
 import torch
 
 from ..context_length import ContextLengthExceeded
+from ..transformers.multimodal.gemma3 import Gemma3ChatModel
 from ..transformers.multimodal.glm4_1v import Glm4_1VModel
 from ..transformers.multimodal.intern_vl import InternVLChatModel
+from ..transformers.multimodal.minicpmv46 import MiniCPMV46Model
 from ..transformers.multimodal.minicpmv47 import MiniCPMV47Model
 from ..transformers.multimodal.qwen2_vl import Qwen2VLChatModel
 from . import test_minicpmv47, test_qwen2_vl
@@ -31,9 +33,7 @@ minicpm_adapter = test_minicpmv47.adapter
 qwen_adapter = test_qwen2_vl.adapter
 
 
-@pytest.fixture(
-    params=[MiniCPMV47Model, Qwen2VLChatModel, Glm4_1VModel, InternVLChatModel]
-)
+@pytest.fixture
 def adapter(request, minicpm_adapter, qwen_adapter):
     cls = request.param
     if cls is MiniCPMV47Model:
@@ -58,7 +58,16 @@ def adapter(request, minicpm_adapter, qwen_adapter):
 
 
 @pytest.mark.parametrize("stream", [False, True])
-@pytest.mark.parametrize("media", [None, "image", "video"])
+@pytest.mark.parametrize(
+    "adapter,media",
+    [
+        (cls, media)
+        for cls in (MiniCPMV47Model, Qwen2VLChatModel, Glm4_1VModel, InternVLChatModel)
+        for media in (None, "image", "video")
+    ]
+    + [(Gemma3ChatModel, None), (MiniCPMV46Model, None)],
+    indirect=["adapter"],
+)
 @pytest.mark.parametrize(
     "prompt_tokens,limit,max_tokens,expected",
     [
@@ -133,3 +142,21 @@ def test_context_budget(
             assert kwargs["downsample_mode"] == "4x"
     assert (messages, config) == original
     assert adapter._pytorch_model_config == launch_config
+
+
+@pytest.mark.parametrize("adapter", [Gemma3ChatModel, MiniCPMV46Model], indirect=True)
+@pytest.mark.parametrize("stream", [False, True])
+def test_image_context_budget(adapter, monkeypatch, stream):
+    inputs = adapter.build_inputs_from_messages.return_value
+    inputs["pixel_values"] = torch.zeros(1, 3, 2, 2)
+    test_context_budget(adapter, monkeypatch, stream, "image", 7, 8, 12, 1)
+    kwargs = adapter._model.generate.call_args.kwargs
+    assert kwargs["do_sample"] is True
+    if isinstance(adapter, MiniCPMV46Model):
+        assert kwargs["downsample_mode"] == "16x"
+        assert kwargs["temperature"] == 0.7
+        assert kwargs["top_p"] == 0.8
+        assert kwargs["top_k"] == 100
+        assert kwargs["repetition_penalty"] == 1.05
+    else:
+        assert kwargs["temperature"] == 1

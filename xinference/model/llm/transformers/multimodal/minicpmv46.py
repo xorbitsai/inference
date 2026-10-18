@@ -261,6 +261,9 @@ class MiniCPMV46Model(PytorchMultiModalModel):
             config["downsample_mode"] = self._pytorch_model_config.get(
                 "downsample_mode", "16x"
             )
+        config["max_new_tokens"] = self._cap_context_max_new_tokens(
+            len(inputs["input_ids"][0]), config["max_new_tokens"]
+        )
 
         def model_generate():
             try:
