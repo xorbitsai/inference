@@ -3156,6 +3156,45 @@ def test_to_chat_completion_stopped_while_thinking(text):
     assert choice["message"]["reasoning_content"] == "\nThe user asks"
 
 
+@pytest.mark.parametrize(
+    "text, content",
+    [
+        ("\n<think>\nThe user asks\n</think>\n\nHello", "\n\nHello"),
+        ("\n<think>\nThe user asks\n</think>", ""),
+    ],
+)
+def test_to_chat_completion_text_before_start_tag(text, content):
+    # A newline comes before the start tag. The content is the text after the
+    # end tag, whatever comes before the start tag.
+    parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+    )
+    completion = {
+        "id": "1",
+        "object": "text_completion",
+        "created": 0,
+        "model": "reasoning-model",
+        "choices": [
+            {
+                "text": text,
+                "index": 0,
+                "logprobs": None,
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 159, "completion_tokens": 12, "total_tokens": 171},
+    }
+
+    result = ChatModelMixin._to_chat_completion(completion, parser)
+
+    message = result["choices"][0]["message"]
+    assert message["reasoning_content"] == "\nThe user asks\n"
+    assert message["content"] == content
+
+
 # ── Security tests for Llama3ToolParser ────────────────────
 
 

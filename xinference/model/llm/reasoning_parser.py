@@ -278,10 +278,7 @@ class ReasoningParser:
             # Use a regex to find the reasoning content
             reasoning_content = self.reasoning_regex.findall(model_output)[0]
 
-            end_index = len(
-                f"{self.reasoning_start_tag}{reasoning_content}{self.reasoning_end_tag}"
-            )
-            final_output = model_output[end_index:]
+            final_output = model_output.split(self.reasoning_end_tag, 1)[1]
 
             if len(final_output) == 0:
                 logger.debug(
