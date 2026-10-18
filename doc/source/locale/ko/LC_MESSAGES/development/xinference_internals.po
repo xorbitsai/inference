@@ -738,3 +738,11 @@ msgstr "자격 증명은 해당 새로 고침 요청에만 포함되어 supervis
 #: ../../development/xinference_internals.rst
 msgid "Malformed request bodies return HTTP 400. Credential provider failures return HTTP 500; explicit HTTP errors from providers keep their status and headers. Worker refresh failures return HTTP 502. No available workers or an unreachable supervisor return HTTP 503."
 msgstr "잘못된 요청 본문에는 HTTP 400을 반환합니다. 자격 증명 제공자 실패에는 HTTP 500을 반환하며, 제공자가 명시한 HTTP 오류의 상태와 헤더는 유지합니다. worker 새로 고침 실패에는 HTTP 502를 반환합니다. 사용 가능한 worker가 없거나 supervisor에 연결할 수 없으면 HTTP 503을 반환합니다."
+
+#: ../../development/xinference_internals.rst
+msgid "To refresh one model, send ``POST /v1/models/update_spec`` with ``model_type`` and ``model_name``. It uses the same credential hook and ``models:register`` permission. The catalog response must contain one record or a non-empty list of variants, all with the requested ``model_name``. Only that model is replaced in the downloaded catalog; other downloaded models and packaged built-ins remain available. Full-category refresh through ``/v1/models/update_type`` is unchanged. Both paths coordinate file writes and publish complete JSON atomically. Upgrade the API, supervisor and all workers together before using the new endpoint."
+msgstr "모델 하나를 갱신하려면 ``model_type`` 과 ``model_name`` 을 지정하여 ``POST /v1/models/update_spec`` 을 전송합니다. 동일한 자격 증명 훅과 ``models:register`` 권한을 사용합니다. 카탈로그 응답은 요청한 ``model_name`` 을 가진 단일 레코드 또는 비어 있지 않은 변형 목록이어야 합니다. 다운로드한 카탈로그에서 해당 모델만 교체되며 다른 다운로드 모델과 패키지 내장 모델은 계속 사용할 수 있습니다. ``/v1/models/update_type`` 의 전체 유형 갱신 동작은 그대로 유지됩니다. 두 경로는 파일 쓰기를 조정하고 완전한 JSON을 원자적으로 게시합니다. 새 엔드포인트를 사용하기 전에 API, Supervisor 및 모든 Worker를 함께 업그레이드하세요."
+
+#: ../../development/xinference_internals.rst
+msgid "For family-shaped world records, ``model_family`` is used when the top-level ``model_name`` is absent. Before a single-model update is published, the merged catalog must load successfully through the existing model-family loaders. Single-model downloads request the Hub README; a later full-category refresh replaces the catalog with the full-download response, which may omit README fields."
+msgstr "패밀리 형식의 world 레코드는 최상위 ``model_name`` 이 없으면 ``model_family`` 를 사용합니다. 단일 모델 업데이트를 게시하기 전에 병합된 카탈로그를 기존 모델 패밀리 로더로 정상적으로 읽을 수 있어야 합니다. 단일 모델 다운로드는 Hub의 README를 요청합니다. 이후 전체 카테고리를 새로 고치면 카탈로그가 전체 다운로드 응답으로 교체되며, 이 응답에는 README 필드가 없을 수 있습니다."

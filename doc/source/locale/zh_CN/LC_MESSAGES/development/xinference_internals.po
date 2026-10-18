@@ -768,3 +768,11 @@ msgstr "凭据仅随本次刷新经 supervisor 传递至各 worker，worker 通�
 #: ../../development/xinference_internals.rst
 msgid "Malformed request bodies return HTTP 400. Credential provider failures return HTTP 500; explicit HTTP errors from providers keep their status and headers. Worker refresh failures return HTTP 502. No available workers or an unreachable supervisor return HTTP 503."
 msgstr "非法请求体返回 HTTP 400。凭据提供方执行失败返回 HTTP 500；提供方显式抛出的 HTTP 错误保留其状态码和响应头。Worker 刷新失败返回 HTTP 502。没有可用 Worker 或无法联系 Supervisor 时返回 HTTP 503。"
+
+#: ../../development/xinference_internals.rst
+msgid "To refresh one model, send ``POST /v1/models/update_spec`` with ``model_type`` and ``model_name``. It uses the same credential hook and ``models:register`` permission. The catalog response must contain one record or a non-empty list of variants, all with the requested ``model_name``. Only that model is replaced in the downloaded catalog; other downloaded models and packaged built-ins remain available. Full-category refresh through ``/v1/models/update_type`` is unchanged. Both paths coordinate file writes and publish complete JSON atomically. Upgrade the API, supervisor and all workers together before using the new endpoint."
+msgstr "刷新单个模型时，向 ``POST /v1/models/update_spec`` 发送 ``model_type`` 和 ``model_name``。此接口使用相同的凭据钩子和 ``models:register`` 权限。目录响应必须包含一条记录或非空的变体列表，所有记录的 ``model_name`` 均须与请求一致。仅替换下载目录中的该模型；其他已下载模型和随包提供的内置模型继续可用。``/v1/models/update_type`` 的整类刷新行为保持不变。两个入口协调文件写入，并以原子方式发布完整 JSON。使用新接口前，请一起升级 API、Supervisor 和所有 Worker。"
+
+#: ../../development/xinference_internals.rst
+msgid "For family-shaped world records, ``model_family`` is used when the top-level ``model_name`` is absent. Before a single-model update is published, the merged catalog must load successfully through the existing model-family loaders. Single-model downloads request the Hub README; a later full-category refresh replaces the catalog with the full-download response, which may omit README fields."
+msgstr "对于按模型族组织的 world 记录，顶层缺少 ``model_name`` 时使用 ``model_family``。发布单模型更新前，合并后的目录必须能通过现有模型族 loader 成功加载。单模型下载会请求 Hub 的 README；之后的整类刷新会用完整下载响应替换目录，该响应可能不包含 README 字段。"
