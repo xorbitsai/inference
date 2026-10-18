@@ -517,3 +517,11 @@ msgid ""
 msgstr ""
 "Para cambiar el número de imágenes de un modelo visual SGLang iniciado con "
 "conservación de pesos:"
+
+#: ../../user_guide/launch.rst
+msgid "Updating the model catalog"
+msgstr "Actualizar el catálogo de modelos"
+
+#: ../../user_guide/launch.rst
+msgid "On the Launch Model page, choose the model type beside Update. Update refreshes the whole category. Choose Update one model and enter the exact Hub model name (or world family name) to update just that model, including a model not yet listed. Other catalog entries are preserved. This updates shared metadata without downloading weights or restarting running models. With authentication enabled, both actions require administrator or ``models:register`` permission."
+msgstr "En la página Launch Model, elija el tipo de modelo junto a Update. Update actualiza toda la categoría. Elija Update one model e introduzca el nombre exacto del modelo en el Hub (o de la familia world) para actualizar solo ese modelo, incluso si aún no aparece en la lista. Se conservan las demás entradas del catálogo. Esto actualiza los metadatos compartidos sin descargar pesos ni reiniciar modelos en ejecución. Con la autenticación habilitada, ambas acciones requieren permisos de administrador o ``models:register``."

@@ -490,6 +490,11 @@ const ko = {
     emptyFile: '빈 파일은 업로드할 수 없습니다.',
   },
   launchModel: {
+    updateOneModel: '단일 모델 업데이트',
+    updateOneModelDescription:
+      '다른 모델을 유지하면서 공유 카탈로그의 단일 모델을 업데이트합니다. 가중치를 다운로드하거나 실행 중인 모델을 다시 시작하지 않습니다.',
+    catalogModelNamePlaceholder: '정확한 모델 이름 또는 world 패밀리 이름',
+    catalogUpdated: '모델 카탈로그가 업데이트되었습니다.',
     enableWeightCache: '재로드를 위해 GPU 가중치 유지',
     enableWeightCacheTip:
       'vLLM 0.31.0+ 또는 SGLang 0.5.21+, Linux GPU, 단일 워커 및 단일 복제본이 필요합니다. 엔진 재로드 중에도 가중치를 GPU 메모리에 유지합니다.',

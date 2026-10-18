@@ -2,7 +2,7 @@
 
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ExternalLink, Info, Loader2, RefreshCw, Rocket, Search, Star, Trash2 } from 'lucide-react';
+import { ExternalLink, Info, Loader2, Rocket, Search, Star, Trash2 } from 'lucide-react';
 import request from '@/lib/request';
 import PageContainer from '@/components/ui/page-container';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,15 +15,12 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { cn } from '@/lib/utils';
 import { ModelType, CUSTOM_MODEL_OPTIONS } from '@/constants';
-import {
-  LAUNCH_MODEL_ROUTE_TABS,
-  COLLECTION_STORAGE_KEY,
-  LAUNCH_MODEL_UPDATE_OPTIONS,
-} from '@/constants/launch';
+import { LAUNCH_MODEL_ROUTE_TABS, COLLECTION_STORAGE_KEY } from '@/constants/launch';
 import LaunchDialog from './launch-dialog/launch-dialog';
 import CacheManagementDialog from './cache-management.dialog';
 import EnvManagementDialog from './env-management-dialog';
 import CustomEditDialog from './custom-edit-dialog';
+import CatalogRefresh from './catalog-refresh';
 import type { VirtualEnv } from '@/types/services';
 import type { CatalogModel, RouteModelType, RequestModelType } from './types';
 import {
@@ -62,7 +59,6 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
   const modelRequestIdRef = useRef(0);
   const [virtualenvs, setVirtualenvs] = useState<VirtualEnv[]>([]);
   const [loading, setLoading] = useState(false);
-  const [updateLoading, setUpdateLoading] = useState(false);
   const [refreshType, setRefreshType] = useState<RequestModelType>(ModelType.LLM);
   const [query, setQuery] = useState('');
   const [ability, setAbility] = useState('');
@@ -285,17 +281,11 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
       router.push(`/launch-model/${target.path}`);
     }
   };
-  const updateModels = async () => {
-    setUpdateLoading(true);
-    try {
-      await request.post('/v1/models/update_type', { model_type: refreshType.toLowerCase() });
-      if (isCustomRoute) {
-        fetchModels(refreshType);
-      } else {
-        onTabChange(refreshType);
-      }
-    } finally {
-      setUpdateLoading(false);
+  const onCatalogRefreshed = (modelType: RequestModelType) => {
+    if (!isCustomRoute && requestType === modelType) {
+      void fetchModels(modelType);
+    } else {
+      onTabChange(modelType);
     }
   };
   const handleFavorite = (event: MouseEvent<HTMLButtonElement>, model: CatalogModel) => {
@@ -431,7 +421,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
   return (
     <PageContainer title={t('menu.launchModel')}>
       <Tabs value={routeType} onValueChange={onTabChange} className="w-full gap-6">
-        <div className="flex items-end justify-between gap-4 border-b border-border/80">
+        <div className="flex flex-col gap-3 border-b border-border/80 xl:flex-row xl:items-end xl:justify-between xl:gap-4">
           <TabsList className="min-w-0 flex-1 justify-start bg-transparent p-0 h-auto rounded-none overflow-x-auto">
             <div className="flex space-x-4">
               {LAUNCH_MODEL_ROUTE_TABS.map((item) => (
@@ -445,20 +435,12 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
               ))}
             </div>
           </TabsList>
-          <div className="relative z-20 mb-1 flex shrink-0">
-            <Select
-              value={refreshType}
-              onChange={(value) => setRefreshType(value as RequestModelType)}
-              options={LAUNCH_MODEL_UPDATE_OPTIONS}
-              allowClear={false}
-              className="w-32 rounded-r-none"
-              dropdownAutoWidth
-            />
-            <Button onClick={updateModels} disabled={updateLoading} className="rounded-l-none">
-              <RefreshCw className={cn(updateLoading ? 'animate-spin' : '')} />
-              {t('common.update')}
-            </Button>
-          </div>
+          <CatalogRefresh
+            key={`${routeType}:${refreshType}`}
+            modelType={refreshType}
+            onModelTypeChange={setRefreshType}
+            onRefreshed={onCatalogRefreshed}
+          />
         </div>
 
         <TabsContent value={routeType} className="space-y-5">

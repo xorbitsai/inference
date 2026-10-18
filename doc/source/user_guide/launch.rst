@@ -6,6 +6,11 @@ Model Launching Instructions
 
 This document aims to provide a functional overview of model launching.
 
+Updating the model catalog
+==========================
+
+On the Launch Model page, choose the model type beside Update. Update refreshes the whole category. Choose Update one model and enter the exact Hub model name (or world family name) to update just that model, including a model not yet listed. Other catalog entries are preserved. This updates shared metadata without downloading weights or restarting running models. With authentication enabled, both actions require administrator or ``models:register`` permission.
+
 .. _launch_recommendations:
 
 LLM launch recommendations

@@ -461,3 +461,11 @@ msgid ""
 "To change the image count of a SGLang vision model launched with weight "
 "retention:"
 msgstr "重み保持を有効にして起動した SGLang 視覚モデルの画像数を変更するには："
+
+#: ../../user_guide/launch.rst
+msgid "Updating the model catalog"
+msgstr "モデルカタログの更新"
+
+#: ../../user_guide/launch.rst
+msgid "On the Launch Model page, choose the model type beside Update. Update refreshes the whole category. Choose Update one model and enter the exact Hub model name (or world family name) to update just that model, including a model not yet listed. Other catalog entries are preserved. This updates shared metadata without downloading weights or restarting running models. With authentication enabled, both actions require administrator or ``models:register`` permission."
+msgstr "「モデル起動」ページで「更新」の横にあるモデル種類を選択します。「更新」はカテゴリ全体を更新します。「単一モデルを更新」を選び、Hub の正確なモデル名（または world ファミリー名）を入力すると、まだ一覧にないモデルも含めて、そのモデルだけを更新できます。他のカタログエントリは保持されます。共有メタデータのみが更新され、重みのダウンロードや実行中モデルの再起動は行われません。認証が有効な場合、どちらの操作にも管理者権限または ``models:register`` 権限が必要です。"
