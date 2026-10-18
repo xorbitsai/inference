@@ -2248,7 +2248,9 @@ def test_qwen3_8_local_engine_virtualenv_requirements():
         if not package.lstrip().startswith("#")
         for requirement in [Requirement(package.split(";", 1)[0].strip())]
     }
-    assert requirements["mlx-lm"].specifier.contains("0.24.0")
+    assert requirements["mlx-lm"].specifier.contains("0.31.3")
+    assert not requirements["mlx-lm"].specifier.contains("0.31.2")
+    assert requirements["llguidance"].specifier.contains("1.7.0")
     assert requirements["mlx-vlm"].specifier.contains("0.6.13")
     assert not requirements["mlx-vlm"].specifier.contains("0.6.12")
 

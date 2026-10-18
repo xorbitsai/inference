@@ -14,6 +14,8 @@ from . import test_anthropic_engine_integration as native
         ("MLX", None),
         ("MLX", "lookup"),
         ("MLX", "result"),
+        ("MLX", "parallel"),
+        ("MLX", "second_parallel"),
         ("vLLM", None),
         ("vLLM", "parallel"),
         ("vLLM", "second_parallel"),
@@ -33,18 +35,15 @@ def test_tool_loop_probe_keeps_result_validation(monkeypatch, engine, failure):
         input={"value": "alpha" if failure == "result" else "NATIVE_RESULT_42"},
     )
     first = SimpleNamespace(
+        usage=SimpleNamespace(input_tokens=42),
         content=[
             ThinkingBlock(type="thinking", thinking="Use lookup.", signature="sig"),
             *([] if failure == "lookup" else [lookup]),
-            *([premature] if engine == "MLX" or failure == "parallel" else []),
-        ]
+            *([premature] if failure == "parallel" else []),
+        ],
     )
     second = SimpleNamespace(
-        content=(
-            [lookup, finish]
-            if engine == "MLX" or failure == "second_parallel"
-            else [finish]
-        ),
+        content=([lookup, finish] if failure == "second_parallel" else [finish]),
         stop_reason="tool_use",
     )
     requests = []
@@ -54,7 +53,22 @@ def test_tool_loop_probe_keeps_result_validation(monkeypatch, engine, failure):
         return first if len(requests) == 1 else second
 
     monkeypatch.setattr(native, "create", create)
-    model = SimpleNamespace(engine=engine, abilities=["reasoning"])
+    counts = []
+
+    def count(url, **kwargs):
+        counts.append(kwargs["json"])
+        assert url == "http://probe/v1/messages/count_tokens"
+        assert kwargs["json"]["messages"] == requests[0]
+        return SimpleNamespace(status_code=200, json=lambda: {"input_tokens": 42})
+
+    monkeypatch.setattr(native.requests, "post", count)
+    model = SimpleNamespace(
+        engine=engine,
+        abilities=["reasoning"],
+        endpoint="http://probe",
+        key="test",
+        model="probe",
+    )
     if failure:
         with pytest.raises(AssertionError):
             native.test_thinking_replay_and_tool_loop(model, stream=False)
@@ -63,10 +77,9 @@ def test_tool_loop_probe_keeps_result_validation(monkeypatch, engine, failure):
 
     native.test_thinking_replay_and_tool_loop(model, stream=False)
     assert len(requests) == 2
-    results = requests[1][-1]["content"]
-    assert [result["tool_use_id"] for result in results] == (
-        ["lookup", "early-finish"] if engine == "MLX" else ["lookup"]
-    )
+    assert len(counts) == 1
+    results = [
+        part for part in requests[1][-1]["content"] if part["type"] == "tool_result"
+    ]
+    assert [result["tool_use_id"] for result in results] == ["lookup"]
     assert results[0]["content"] == "NATIVE_RESULT_42"
-    if engine == "MLX":
-        assert results[1]["is_error"] is True

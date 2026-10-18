@@ -3608,3 +3608,18 @@ async def test_synthetic_reasoning_start_preserves_initial_cache_usage():
     ]
     assert chunks[0]["usage"]["prompt_tokens"] == 100
     assert chunks[0]["usage"]["prompt_tokens_details"]["cached_tokens"] == 60
+
+
+def test_raw_template_can_omit_generation_prefix():
+    from ..utils import ChatModelMixin
+
+    model = ChatModelMixin()
+    template = (
+        "{{ messages[0].content }}{% if add_generation_prompt %}ASSISTANT{% endif %}"
+    )
+    messages = [{"role": "user", "content": "hello"}]
+    assert model._build_from_raw_template(messages, template) == "helloASSISTANT"
+    assert (
+        model._build_from_raw_template(messages, template, add_generation_prompt=False)
+        == "hello"
+    )
