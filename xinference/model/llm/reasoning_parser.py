@@ -273,7 +273,9 @@ class ReasoningParser:
             return model_output, ""
         else:
             # Add a start token if it's missing to keep compatibility.
-            if self.reasoning_start_tag not in model_output:
+            # A start token after the end token is part of the content.
+            before_end = model_output.split(self.reasoning_end_tag, 1)[0]
+            if self.reasoning_start_tag not in before_end:
                 model_output = f"{self.reasoning_start_tag}{model_output}"
             # Use a regex to find the reasoning content
             reasoning_content = self.reasoning_regex.findall(model_output)[0]
