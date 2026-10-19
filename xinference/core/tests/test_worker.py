@@ -397,6 +397,66 @@ async def test_allocate_cuda_devices(setup_pool):
     assert devices == [0, 1, 2, 3, 4]
 
 
+@pytest.mark.parametrize(
+    "devices,existing,specified,n_gpu,allowed,expected",
+    [
+        ([0, 1], {0: {"a", "b"}}, {}, 2, None, [0, 1]),
+        ([0, 1], {}, {}, 2, None, [0, 1]),
+        ([0, 1], {0: {"a"}, 1: {"b"}}, {}, 2, None, [0, 1]),
+        ([0, 1], {0: {"a", "b"}}, {}, 1, None, [1]),
+        ([0, 1], {0: {"a"}}, {1: {("b", "LLM")}}, 1, None, [1]),
+        ([1, 0], {}, {}, 1, None, [0]),
+        ([0, 1, 2], {0: {"a"}}, {}, 2, [0, 2], [0, 2]),
+        ([0, 1], {}, {}, 0, None, []),
+        ([], {}, {}, 0, None, []),
+    ],
+    ids=[
+        "uneven-load",
+        "idle-control",
+        "even-load-control",
+        "single-gpu-control",
+        "running-model-tie-control",
+        "device-index-tie-control",
+        "allowed-devices-control",
+        "zero-gpu-control",
+        "no-devices-control",
+    ],
+)
+@pytest.mark.asyncio
+async def test_allocate_devices_least_loaded(
+    devices, existing, specified, n_gpu, allowed, expected
+):
+    worker = WorkerActor("test", None, SimpleNamespace(), gpu_devices=devices)
+    worker._allow_multi_replica_per_gpu = True
+    worker._gpu_to_model_uids.update(existing)
+    worker._user_specified_gpu_to_model_uids.update(specified)
+
+    assert worker.allocate_devices("new", n_gpu, allowed) == expected
+    assert (
+        sorted(dev for dev, uids in worker._gpu_to_model_uids.items() if "new" in uids)
+        == expected
+    )
+    worker.release_devices("new")
+    assert dict(worker._gpu_to_model_uids) == existing
+    assert dict(worker._user_specified_gpu_to_model_uids) == specified
+
+
+@pytest.mark.parametrize(
+    "devices,allowed", [([0, 1], None), ([0, 1, 2], [0, 2]), ([], None)]
+)
+@pytest.mark.asyncio
+async def test_allocate_devices_exceeds_available(devices, allowed):
+    worker = WorkerActor("test", None, SimpleNamespace(), gpu_devices=devices)
+    worker._allow_multi_replica_per_gpu = True
+    with pytest.raises(
+        RuntimeError, match="^Requested GPUs exceed the number of available devices$"
+    ):
+        worker.allocate_devices(
+            "new", len(devices) + 1 if allowed is None else 3, allowed
+        )
+    assert not worker._gpu_to_model_uids
+
+
 @pytest.mark.asyncio
 async def test_terminate_model_flag(setup_pool):
     pool = setup_pool
