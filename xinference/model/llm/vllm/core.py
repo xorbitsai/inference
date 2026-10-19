@@ -2154,12 +2154,25 @@ class VLLMModel(WeightCachedModel, LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        if cache_salt is not None and VLLM_VERSION < version.parse("0.11.0"):
-            if not getattr(self, "_xavier_config", None):
-                raise ValueError("cache_salt on legacy vLLM requires Xavier")
-            from .xavier.legacy_salt import XavierSamplingParams
+        use_native_cache_salt = False
+        if cache_salt is not None:
+            use_native_cache_salt = (
+                VLLM_VERSION >= version.parse("0.11.0") or self._is_vllm_v1()
+            )
+            if use_native_cache_salt and VLLM_VERSION < version.parse("0.11.0"):
+                from vllm.inputs.data import TextPrompt, TokensPrompt
 
-            SamplingParams = XavierSamplingParams
+                if not all(
+                    "cache_salt" in prompt_type.__annotations__
+                    for prompt_type in (TextPrompt, TokensPrompt)
+                ):
+                    raise ValueError("This vLLM V1 version does not support cache_salt")
+            if not use_native_cache_salt:
+                if not getattr(self, "_xavier_config", None):
+                    raise ValueError("cache_salt on legacy vLLM requires Xavier")
+                from .xavier.legacy_salt import XavierSamplingParams
+
+                SamplingParams = XavierSamplingParams
 
         require_structured = (generate_config or {}).pop(
             "_require_structured_output", False
@@ -2192,7 +2205,7 @@ class VLLMModel(WeightCachedModel, LLM):
         if anthropic and generate_config is not None:
             self._apply_thinking_budget(generate_config)
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
-        if cache_salt is not None and VLLM_VERSION < version.parse("0.11.0"):
+        if cache_salt is not None and not use_native_cache_salt:
             sanitized_generate_config["cache_salt"] = cache_salt
         if self._use_legacy_constraints(sanitized_generate_config, anthropic):
             if isinstance(prompt, str):
@@ -2432,7 +2445,7 @@ class VLLMModel(WeightCachedModel, LLM):
                 cache_salt,
             )
 
-        if cache_salt is not None and VLLM_VERSION >= version.parse("0.11.0"):
+        if use_native_cache_salt:
             if isinstance(prompt_or_token_ids, str):
                 prompt_or_token_ids = {"prompt": prompt_or_token_ids}
             elif isinstance(prompt_or_token_ids, list):
