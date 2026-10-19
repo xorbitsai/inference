@@ -2531,7 +2531,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         """Generate method for vision models (not using continuous batching)."""
         generate_config = self._sanitize_generate_config(generate_config)
-        logger.debug(f"[MLXVisionModel] generation params: {generate_config}")
+        logger.debug(
+            "[MLXVisionModel] generation params: %s", redact_cache_salt(generate_config)
+        )
 
         assert self._model is not None
         assert self._tokenizer is not None

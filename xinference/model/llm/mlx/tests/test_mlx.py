@@ -17,6 +17,7 @@ import base64
 import concurrent.futures
 import importlib
 import json
+import logging
 import os
 import platform
 import sys
@@ -26,6 +27,45 @@ from types import SimpleNamespace
 import pytest
 
 from .....client import Client
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_mlx_vision_generation_redacts_salt_only_in_logs(monkeypatch, caplog, stream):
+    from ..core import MLXVisionModel
+
+    family = SimpleNamespace(
+        model_specs=[SimpleNamespace(model_revision="test", quantization="4bit")],
+        stop=None,
+        stop_token_ids=None,
+    )
+    model = MLXVisionModel("vision-salt-test", family, "/unused", {})
+    model._model = model._tokenizer = object()
+    observed = []
+
+    def generate_stream(prompt, config, prepared_inputs):
+        observed.append(config)
+        yield (
+            {"choices": [{"text": "ok", "index": 0, "finish_reason": "stop"}]},
+            {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        )
+
+    monkeypatch.setattr(model, "_generate_stream", generate_stream)
+    config = {"cache_salt": "vision-private-cache-scope", "stream": stream}
+    try:
+        with caplog.at_level(logging.DEBUG, logger="xinference.model.llm.mlx.core"):
+            result = model.generate({"prompt": "hello"}, config)
+            if stream:
+                assert list(result)[0]["choices"][0]["text"] == "ok"
+            else:
+                assert result["choices"][0]["text"] == "ok"
+        assert observed == [config]
+        assert observed[0] is config
+        assert config["cache_salt"] == "vision-private-cache-scope"
+        assert "generation params" in caplog.text
+        assert "<redacted>" in caplog.text
+        assert config["cache_salt"] not in caplog.text
+    finally:
+        model.stop()
 
 
 def test_mlx_model_uses_model_sampling_defaults():

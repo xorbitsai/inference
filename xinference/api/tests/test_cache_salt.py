@@ -1,17 +1,19 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
 # CI: linux
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 
 from xinference import extensions
-from xinference.api import restful_api
+from xinference.api import model_request_logging, restful_api
+from xinference.api.model_request_logging import ModelRequestLoggingRoute
 from xinference.api.restful_api import RESTfulAPI
-from xinference.cache_isolation import cache_scope, validate_cache_salt
+from xinference.cache_isolation import validate_cache_salt
 from xinference.core.model import ModelActor
 from xinference.core.utils import truncate_log_arg
 from xinference.types import CreateChatCompletion, CreateCompletion
@@ -98,28 +100,53 @@ def test_unsupported_engine_rejects_salt():
 @pytest.mark.parametrize(
     "endpoint", ["completions", "chat/completions", "messages", "responses"]
 )
+@pytest.mark.parametrize("authoritative", [False, True])
 async def test_api_resolves_salt_after_auth_before_model_dispatch(
-    monkeypatch, endpoint
+    monkeypatch, endpoint, authoritative
 ):
     api = object.__new__(RESTfulAPI)
     api._advanced_auth_service = None
     api._uid_to_model_name = {}
     order = []
-    api._check_model_access = lambda *args: order.append("auth")
+    requests = []
+
+    def check_access(request, *args):
+        requests.append(request)
+        order.append("auth")
+
+    api._check_model_access = check_access
+    client_salt = "client-private-cache-scope"
+    provider_salt = "provider-private-cache-scope"
+    expected_salt = provider_salt if authoritative else client_salt
     provider = SimpleNamespace(
         name="test",
         cache_salt=lambda request: (
             order.append("salt"),
-            extensions.CacheSalt("server"),
+            extensions.CacheSalt(provider_salt),
         )[1],
     )
-    monkeypatch.setattr(extensions, "get_extensions", lambda: (provider,))
+    monkeypatch.setattr(
+        extensions, "get_extensions", lambda: (provider,) if authoritative else ()
+    )
+    events = []
+    monkeypatch.setattr(
+        model_request_logging, "XINFERENCE_MODEL_REQUEST_LOG_ENABLED", True
+    )
+    monkeypatch.setattr(
+        model_request_logging,
+        "_get_model_request_logger",
+        lambda: SimpleNamespace(info=lambda value: events.append(json.loads(value))),
+    )
     model = SimpleNamespace(uid="m", is_vllm_backend=AsyncMock(return_value=True))
+    inference_configs = []
+    cached_bodies = []
 
     async def called(*args, **kwargs):
         order.append("model")
-        assert args[1]["cache_salt"] == "server"
-        assert kwargs["raw_params"]["cache_salt"] == "server"
+        inference_configs.extend((args[1], kwargs["raw_params"]))
+        assert args[1]["cache_salt"] == expected_salt
+        assert kwargs["raw_params"]["cache_salt"] == expected_salt
+        cached_bodies.append(json.loads(json.dumps(await requests[-1].json())))
         raise HTTPException(418, "Reached engine")
 
     model.generate = model.chat = called
@@ -142,6 +169,7 @@ async def test_api_resolves_salt_after_auth_before_model_dispatch(
     api._report_error_event = AsyncMock()
     monkeypatch.setattr(restful_api, "require_model", AsyncMock(return_value=model))
     app = FastAPI()
+    app.router.route_class = ModelRequestLoggingRoute
     app.add_api_route(
         "/v1/" + endpoint,
         getattr(
@@ -155,7 +183,7 @@ async def test_api_resolves_salt_after_auth_before_model_dispatch(
         ),
         methods=["POST"],
     )
-    body = dict(model="m", cache_salt="spoofed", max_tokens=1)
+    body = dict(model="m", cache_salt=client_salt, max_tokens=1)
     body.update(
         {"prompt": "hi"}
         if endpoint == "completions"
@@ -171,5 +199,53 @@ async def test_api_resolves_salt_after_auth_before_model_dispatch(
         await client.post(
             "/v1/" + endpoint, json=body, headers={"anthropic-version": "2023-06-01"}
         )
-    assert order == ["auth", "salt", "model"]
-    assert cache_scope("server") != cache_scope("spoofed")
+    assert order == (["auth", "salt", "model"] if authoritative else ["auth", "model"])
+    assert all(config["cache_salt"] == expected_salt for config in inference_configs)
+    assert await requests[0].json() == cached_bodies[0]
+    started = next(
+        event for event in events if event["event"] == "model_request_started"
+    )
+    assert started["request_body"]["cache_salt"] == "<redacted>"
+    assert started["request_body"]["model"] == "m"
+    assert client_salt not in json.dumps(events)
+    assert provider_salt not in json.dumps(events)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "body",
+    [
+        b'{"cache_salt":"private-scope"} trailing',
+        b'{"cache_salt":"private-scope',
+        b'{"\\u0063ache_salt":"private-scope",',
+        b'{"cache_salt":"private-scope", "prompt":"\xff"}',
+    ],
+)
+async def test_request_log_omits_invalid_json_instead_of_logging_raw_salt(
+    monkeypatch, body
+):
+    events = []
+    monkeypatch.setattr(
+        model_request_logging, "XINFERENCE_MODEL_REQUEST_LOG_ENABLED", True
+    )
+    monkeypatch.setattr(model_request_logging, "_write_event", events.append)
+    app = FastAPI()
+    app.router.route_class = ModelRequestLoggingRoute
+
+    @app.post("/v1/completions")
+    async def endpoint(request: Request):
+        assert await request.body() == body
+        raise HTTPException(400, "Request body must be valid JSON")
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/completions",
+            content=body,
+            headers={"content-type": "application/json"},
+        )
+    assert response.status_code == 400
+    assert events[0]["request_body_omitted"] == {"reason": "invalid_json"}
+    assert "request_body_raw" not in events[0]
+    assert "private-scope" not in json.dumps(events)
