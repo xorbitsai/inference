@@ -18,6 +18,8 @@ XINFERENCE_EXTENSIONS is a comma-separated list of ``module:factory`` entries.
 Factories are loaded in every API/actor process at startup, including spawn and
 recovery. A configured extension that cannot load is a startup error. Unset
 configuration leaves upstream behavior unchanged and requires no extra package.
+An optional auth-store hook selects storage before authentication starts and
+may perform database initialization during startup.
 
 Extensions may compose the API, contribute worker identity metadata, restrict
 worker resources, and expose named control-plane operations. Resource filters
@@ -31,7 +33,7 @@ import importlib
 import inspect
 import os
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, Tuple
 
 EXTENSION_API_VERSION = 1
 
@@ -43,6 +45,14 @@ class APIExtensionContext:
     auth_service: Any
     auth_enabled: bool
     get_supervisor_ref: Callable[[], Awaitable[Any]]
+
+
+@dataclass(frozen=True)
+class AuthStoreContext:
+    """Requested auth store and caller, available before API composition."""
+
+    db_path: str
+    purpose: Literal["service", "reset_password", "migrate"]
 
 
 @dataclass(frozen=True)
@@ -121,6 +131,21 @@ def _call_hook(extension: Any, method: str, *args: Any) -> Any:
 def configure_api(context: APIExtensionContext) -> None:
     for extension in get_extensions():
         _call_hook(extension, "configure_api", context)
+
+
+def resolve_auth_store(context: AuthStoreContext) -> Any:
+    """Allow one distribution to supply auth storage during initialization.
+
+    This synchronous startup hook may initialize a database. Returning None
+    selects the default SQLite store; provider errors never select a fallback.
+    Reject multiple providers before invoking any of them.
+    """
+    providers = [e for e in get_extensions() if hasattr(e, "create_auth_store")]
+    if len(providers) > 1:
+        raise ValueError("Multiple auth store providers")
+    if not providers:
+        return None
+    return _call_hook(providers[0], "create_auth_store", context)
 
 
 def resolve_model_catalog_credentials(

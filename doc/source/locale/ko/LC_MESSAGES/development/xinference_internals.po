@@ -716,8 +716,8 @@ msgid "The supervisor verifies matching worker extensions and supplies the live 
 msgstr "Supervisor는 Worker 확장이 일치하는지 확인하고 현재 활성 Worker 목록을 리소스 필터에 제공합니다. 필터는 표시되는 GPU 인덱스를 제한하거나 예외를 발생시켜 CPU 실행을 포함한 승인을 거부할 수 있습니다. 할당과 프로세스 생성 모두 정책을 검사하여 준비 및 복구 경로를 포함합니다. 이름이 지정된 제어 작업은 Supervisor에서 실행되며 확장은 작업 이름과 인수를 검증해야 합니다. 기본 프런트엔드 탐색 설정은 비어 있으며 배포판 빌드에서 구성할 수 있습니다."
 
 #: ../../development/xinference_internals.rst
-msgid "Factories and all hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
-msgstr "팩토리와 모든 훅은 동기식이며 비차단이어야 합니다. 대기 가능한 결과는 거부됩니다. API와 액터는 시작 시 설정된 팩토리를 로드한 후 요청을 처리하거나 워커를 등록합니다. 액터 훅은 액터의 이벤트 루프에서 실행됩니다."
+msgid "Factories and runtime hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "팩터리와 런타임 훅은 동기식이고 비차단이어야 하며 awaitable 결과는 거부됩니다. API와 액터는 요청을 처리하거나 워커를 등록하기 전에 구성된 팩터리를 로드합니다. 액터 훅은 액터의 이벤트 루프에서 실행됩니다."
 
 #: ../../development/xinference_internals.rst
 msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
@@ -746,3 +746,19 @@ msgstr "모델 하나를 갱신하려면 ``model_type`` 과 ``model_name`` 을 �
 #: ../../development/xinference_internals.rst
 msgid "For family-shaped world records, ``model_family`` is used when the top-level ``model_name`` is absent. Before a single-model update is published, the merged catalog must load successfully through the existing model-family loaders. Single-model downloads request the Hub README; a later full-category refresh replaces the catalog with the full-download response, which may omit README fields."
 msgstr "패밀리 형식의 world 레코드는 최상위 ``model_name`` 이 없으면 ``model_family`` 를 사용합니다. 단일 모델 업데이트를 게시하기 전에 병합된 카탈로그를 기존 모델 패밀리 로더로 정상적으로 읽을 수 있어야 합니다. 단일 모델 다운로드는 Hub의 README를 요청합니다. 이후 전체 카테고리를 새로 고치면 카탈로그가 전체 다운로드 응답으로 교체되며, 이 응답에는 README 필드가 없을 수 있습니다."
+
+#: ../../development/xinference_internals.rst
+msgid "Advanced-auth storage"
+msgstr "고급 인증 저장소"
+
+#: ../../development/xinference_internals.rst
+msgid "Extensions may optionally implement ``create_auth_store(context)`` to select advanced-auth storage before the authentication service is initialized. ``AuthStoreContext`` supplies ``db_path`` (the requested default SQLite path) and ``purpose``: ``service``, ``reset_password`` or ``migrate``. Return an object implementing ``xinference.api.oauth2.advanced.auth_store.AuthStore``, or ``None`` to retain SQLite. At most one extension may provide this hook; multiple providers are rejected before either is called. Provider failures or invalid stores abort initialization without falling back to SQLite."
+msgstr "확장은 선택적으로 ``create_auth_store(context)`` 를 구현하여 인증 서비스 초기화 전에 저장소를 선택할 수 있습니다. ``AuthStoreContext`` 는 ``db_path`` (요청된 기본 SQLite 경로)와 ``purpose`` ( ``service``, ``reset_password`` 또는 ``migrate`` )를 제공합니다. ``xinference.api.oauth2.advanced.auth_store.AuthStore`` 를 구현한 객체를 반환하거나 SQLite를 유지하려면 ``None`` 을 반환합니다. 이 훅을 제공하는 확장은 하나만 허용되며 여러 공급자는 호출 전에 거부됩니다. 공급자 오류나 잘못된 저장소는 SQLite로 전환하지 않고 초기화를 중단합니다."
+
+#: ../../development/xinference_internals.rst
+msgid "The store keeps the existing method signatures, row dictionaries and API-key name validation errors. It provides a mutable ``permission_resolver`` and a ``path`` property containing the local SQLite ``pathlib.Path`` or ``None`` for other storage. Setup, refresh-token rotation and password updates with token revocation must be atomic across processes; user deletion must preserve the existing dependent-record cleanup. Database drivers, schema upgrades and backend-specific configuration belong to the provider."
+msgstr "저장소는 기존 메서드 서명, 행 딕셔너리 및 API 키 이름 검증 오류를 유지합니다. 변경 가능한 ``permission_resolver`` 와 로컬 SQLite ``pathlib.Path`` 또는 다른 저장소의 경우 ``None`` 을 담는 ``path`` 속성을 제공합니다. 초기 설정, 갱신 토큰 교체, 토큰 폐기를 포함한 비밀번호 변경은 프로세스 간 원자적이어야 하며 사용자 삭제 시 종속 레코드 정리를 유지해야 합니다. 드라이버, 스키마 업그레이드 및 백엔드별 구성은 공급자가 담당합니다."
+
+#: ../../development/xinference_internals.rst
+msgid "The API service, offline administrator-password recovery and legacy JSON auth importer use the same selection mechanism. With a provider configured, ``--db-path`` is passed to its context; it does not override the provider's connection configuration. Use the same extension and backend configuration for the service and these tools. Unlike request/actor hooks, this synchronous initialization hook may connect to storage during startup. Store operations remain synchronous; asynchronous or incomplete implementations are rejected. Providers must keep connection credentials out of logs and error messages. Without a provider, SQLite behavior and dependencies are unchanged."
+msgstr "API 서비스, 오프라인 관리자 비밀번호 복구 및 기존 JSON 인증 가져오기는 같은 선택 방식을 사용합니다. 공급자가 구성되면 ``--db-path`` 는 컨텍스트로 전달되며 연결 구성을 덮어쓰지 않습니다. 서비스와 도구에 같은 확장 및 백엔드 구성을 사용하세요. 요청/액터 훅과 달리 이 동기 초기화 훅은 시작 중 저장소에 연결할 수 있습니다. 저장소 작업은 동기식이며 비동기 또는 불완전한 구현은 거부됩니다. 공급자는 로그와 오류에 연결 자격 증명을 포함하지 않아야 합니다. 공급자가 없으면 SQLite 동작과 의존성은 변경되지 않습니다."

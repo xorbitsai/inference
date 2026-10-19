@@ -682,8 +682,8 @@ msgid "The supervisor verifies matching worker extensions and supplies the live 
 msgstr "Supervisor 驗證 Worker 擴充是否一致，並向資源篩選器提供目前在線的 Worker 清單。篩選器可縮小可見 GPU 索引範圍，或拋出例外拒絕准入，包括 CPU 模型啟動。資源分配與程序建立皆檢查策略，涵蓋準備與復原路徑。具名控制操作在 Supervisor 執行；擴充必須驗證操作名稱與參數。預設前端導覽設定為空，發行版建置可組合自己的設定。"
 
 #: ../../development/xinference_internals.rst
-msgid "Factories and all hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
-msgstr "工廠和全部 hook 必須同步且不阻塞；傳回可等待物件會被拒絕。API 和 Actor 在啟動時載入設定的工廠，之後才處理請求或註冊 Worker。Actor hook 在 Actor 的事件迴圈上執行。"
+msgid "Factories and runtime hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "工廠和執行階段 hook 必須同步且不阻塞；傳回可等待物件會被拒絕。API 和 Actor 在啟動時載入設定的工廠，之後才處理請求或註冊 Worker。Actor hook 在 Actor 的事件迴圈上執行。"
 
 #: ../../development/xinference_internals.rst
 msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
@@ -712,3 +712,19 @@ msgstr "重新整理單一模型時，向 ``POST /v1/models/update_spec`` 傳送
 #: ../../development/xinference_internals.rst
 msgid "For family-shaped world records, ``model_family`` is used when the top-level ``model_name`` is absent. Before a single-model update is published, the merged catalog must load successfully through the existing model-family loaders. Single-model downloads request the Hub README; a later full-category refresh replaces the catalog with the full-download response, which may omit README fields."
 msgstr "對於按模型族組織的 world 記錄，頂層缺少 ``model_name`` 時使用 ``model_family``。發布單模型更新前，合併後的目錄必須能透過現有模型族 loader 成功載入。單模型下載會請求 Hub 的 README；之後的整類重新整理會用完整下載回應取代目錄，該回應可能不包含 README 欄位。"
+
+#: ../../development/xinference_internals.rst
+msgid "Advanced-auth storage"
+msgstr "進階認證儲存"
+
+#: ../../development/xinference_internals.rst
+msgid "Extensions may optionally implement ``create_auth_store(context)`` to select advanced-auth storage before the authentication service is initialized. ``AuthStoreContext`` supplies ``db_path`` (the requested default SQLite path) and ``purpose``: ``service``, ``reset_password`` or ``migrate``. Return an object implementing ``xinference.api.oauth2.advanced.auth_store.AuthStore``, or ``None`` to retain SQLite. At most one extension may provide this hook; multiple providers are rejected before either is called. Provider failures or invalid stores abort initialization without falling back to SQLite."
+msgstr "擴充可以實作選用的 ``create_auth_store(context)``，在認證服務初始化前選擇儲存。``AuthStoreContext`` 提供 ``db_path``（要求的預設 SQLite 路徑）和 ``purpose``：``service``、``reset_password`` 或 ``migrate``。傳回實作 ``xinference.api.oauth2.advanced.auth_store.AuthStore`` 的物件，或傳回 ``None`` 保留 SQLite。最多只能有一個擴充提供此 hook；多個提供者會在任何呼叫前被拒絕。提供者失敗或傳回無效儲存時會中止初始化，不會退回 SQLite。"
+
+#: ../../development/xinference_internals.rst
+msgid "The store keeps the existing method signatures, row dictionaries and API-key name validation errors. It provides a mutable ``permission_resolver`` and a ``path`` property containing the local SQLite ``pathlib.Path`` or ``None`` for other storage. Setup, refresh-token rotation and password updates with token revocation must be atomic across processes; user deletion must preserve the existing dependent-record cleanup. Database drivers, schema upgrades and backend-specific configuration belong to the provider."
+msgstr "儲存保持既有的方法簽章、資料列字典和 API Key 名稱驗證錯誤，提供可修改的 ``permission_resolver`` 及 ``path`` 屬性：本機 SQLite 的 ``pathlib.Path``，或其他儲存的 ``None``。首次設定、重新整理權杖輪替，以及密碼修改與權杖撤銷必須跨處理程序保持原子性；刪除使用者必須保留關聯紀錄的清理行為。資料庫驅動程式、schema 升級與後端專屬設定由提供者負責。"
+
+#: ../../development/xinference_internals.rst
+msgid "The API service, offline administrator-password recovery and legacy JSON auth importer use the same selection mechanism. With a provider configured, ``--db-path`` is passed to its context; it does not override the provider's connection configuration. Use the same extension and backend configuration for the service and these tools. Unlike request/actor hooks, this synchronous initialization hook may connect to storage during startup. Store operations remain synchronous; asynchronous or incomplete implementations are rejected. Providers must keep connection credentials out of logs and error messages. Without a provider, SQLite behavior and dependencies are unchanged."
+msgstr "API 服務、離線管理員密碼復原與舊 JSON 認證匯入使用相同的選擇機制。設定提供者後，``--db-path`` 傳入其內容，不會覆寫提供者的連線設定。服務與這些工具應使用相同的擴充與後端設定。與請求/Actor hook 不同，此同步初始化 hook 可在啟動時連線儲存。儲存操作維持同步；非同步或不完整實作會被拒絕。提供者不得在日誌或錯誤訊息中輸出連線憑據。未設定提供者時，SQLite 行為與相依性保持不變。"

@@ -13,9 +13,9 @@
 # limitations under the License.
 """Offline command to reset an admin password in the advanced auth database.
 
-This operates directly on the SQLite database and bypasses the API and its
-permission checks, so it works even when nobody can log in (e.g. the only
-admin password was lost, or someone else won the first-admin race). It only
+This operates directly on the selected database (SQLite by default) and bypasses
+the API and its permission checks, so it works even when nobody can log in (e.g.
+the only admin password was lost, or someone else won the first-admin race). It only
 touches the ``users`` and ``refresh_tokens`` tables, so no encryption key is
 required.
 """
@@ -27,8 +27,8 @@ import os
 import sys
 from typing import Optional
 
+from .auth_store import AuthStore, create_auth_store
 from .crypto import get_password_hash
-from .database import Database
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ Examples:
     parser.add_argument(
         "--db-path",
         default=None,
-        help="Path to the auth SQLite database "
+        help="Default SQLite path passed to the selected auth store provider "
         "(default: XINFERENCE_AUTH_DB_PATH, i.e. <XINFERENCE_HOME>/auth/auth.db)",
     )
     parser.add_argument(
@@ -130,7 +130,7 @@ def _confirm_reset(username: str, skip_confirmation: bool) -> None:
         raise ValueError("Operation cancelled")
 
 
-def reset_admin_password(db: Database, username: str, new_password: str) -> None:
+def reset_admin_password(db: AuthStore, username: str, new_password: str) -> None:
     if len(new_password) < PASSWORD_MIN_LENGTH:
         raise ValueError(f"Password must be at least {PASSWORD_MIN_LENGTH} characters")
 
@@ -157,7 +157,7 @@ def main() -> None:
 
             db_path = XINFERENCE_AUTH_DB_PATH
 
-        db = Database(db_path)
+        db = create_auth_store(db_path, purpose="reset_password")
         username = _read_username(args.username)
         _confirm_reset(username, args.yes)
         new_password = _read_password(args.password)
