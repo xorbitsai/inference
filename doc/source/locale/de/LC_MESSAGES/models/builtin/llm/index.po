@@ -782,3 +782,7 @@ msgstr "Qwen3.8-Flash-Next ist ein natives Vision-Language-Modell mit einer Mixt
 #: doc/source/models/builtin/llm/index.rst
 msgid "chat, vision, tools, reasoning, hybrid"
 msgstr "Chat, Bildverarbeitung, Werkzeugaufrufe, Schlussfolgern, hybrider Denkmodus"
+
+#: ../../models/builtin/llm/index.rst
+msgid "We introduce DeepSeek-V4.1-Flash-1017, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively."
+msgstr ""
