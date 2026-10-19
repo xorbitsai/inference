@@ -75,6 +75,8 @@ The following is a list of built-in image models in Xinference:
 
    monkeyocr
   
+   moss-image-sft
+
    navidc-ocr
 
    ovisocr2

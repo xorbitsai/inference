@@ -1,0 +1,43 @@
+[
+  {
+    "version": 2,
+    "model_name": "MOSS-Image-SFT",
+    "model_family": "moss_image",
+    "model_description": "MOSS-Image-SFT is a 5B text-to-image model with strong text rendering and JSON layout control.",
+    "model_ability": [
+      "text2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "OpenMOSS-Team/MOSS-Image-SFT",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "openmoss/MOSS-Image-SFT",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "num_inference_steps": 50,
+      "guidance_scale": 3.0,
+      "uncond_skip_layers": [
+        22
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.38.0 ; #engine# == \"diffusers\"",
+        "transformers>=5.3.0,<6 ; #engine# == \"diffusers\"",
+        "accelerate>=1.10.0 ; #engine# == \"diffusers\"",
+        "safetensors>=0.6.0 ; #engine# == \"diffusers\"",
+        "Pillow>=10 ; #engine# == \"diffusers\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torchvision# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"diffusers\""
+      ]
+    }
+  }
+]
