@@ -3157,15 +3157,21 @@ def test_to_chat_completion_stopped_while_thinking(text):
 
 
 @pytest.mark.parametrize(
-    "text, content",
+    "text, reasoning, content",
     [
-        ("\n<think>\nThe user asks\n</think>\n\nHello", "\n\nHello"),
-        ("\n<think>\nThe user asks\n</think>", ""),
+        (
+            "\n<think>\nThe user asks\n</think>\n\nHello",
+            "\nThe user asks\n",
+            "\n\nHello",
+        ),
+        ("\n<think>\nThe user asks\n</think>", "\nThe user asks\n", ""),
+        ("a</think>Use the <think> tag", "a", "Use the <think> tag"),
+        ("a</think>b<think>c</think>d", "a", "b<think>c</think>d"),
     ],
 )
-def test_to_chat_completion_text_before_start_tag(text, content):
-    # A newline comes before the start tag. The content is the text after the
-    # end tag, whatever comes before the start tag.
+def test_to_chat_completion_text_before_start_tag(text, reasoning, content):
+    # The content is the text after the end tag, whatever comes before the start
+    # tag. When the prompt ended with the start tag, one after the end tag is content.
     parser = ReasoningParser(
         reasoning_content=True,
         reasoning_start_tag="<think>",
@@ -3191,7 +3197,7 @@ def test_to_chat_completion_text_before_start_tag(text, content):
     result = ChatModelMixin._to_chat_completion(completion, parser)
 
     message = result["choices"][0]["message"]
-    assert message["reasoning_content"] == "\nThe user asks\n"
+    assert message["reasoning_content"] == reasoning
     assert message["content"] == content
 
 
