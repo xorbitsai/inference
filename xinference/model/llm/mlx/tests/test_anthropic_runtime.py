@@ -357,7 +357,14 @@ def test_added_checkpoint_is_prefilled_but_eviction_does_not_force_a_miss():
 
 
 @pytest.mark.parametrize("cls", [core.MLXModel, core.MLXVisionModel])
-def test_final_detokenizer_fragment_preserves_length_finish(cls):
+@pytest.mark.parametrize("elapsed", [0.0, -1.0, 0.5])
+def test_final_detokenizer_fragment_preserves_length_finish(cls, elapsed, monkeypatch):
+    from unittest.mock import Mock
+
+    clock = Mock(wraps=core.time)
+    clock.time.return_value = 100.0
+    clock.perf_counter.side_effect = [100.0, 100.0 + elapsed]
+    monkeypatch.setattr(core, "time", clock)
     model = object.__new__(cls)
     model.model_uid = "test"
     model._tokenizer = SimpleNamespace(eos_token_id=99)
