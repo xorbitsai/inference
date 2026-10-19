@@ -25,6 +25,7 @@ from jose import JWTError, jwt
 from typing_extensions import Annotated
 
 from ...utils import get_request_route_path
+from .auth_store import AuthStore, create_auth_store
 from .cache import ApiKeyCache, ApiKeyCacheEntry
 from .crypto import (
     aes_decrypt,
@@ -34,7 +35,6 @@ from .crypto import (
     sha256_hex,
     verify_password,
 )
-from .database import Database
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +133,7 @@ except (TypeError, ValueError):
 
 class AdvancedAuthService:
     def __init__(self, db_path: str, jwt_secret_key: str, encryption_key: str):
-        self._db = Database(db_path)
+        self._db = create_auth_store(db_path)
         self._jwt_secret_key = jwt_secret_key
         self._encryption_key = derive_encryption_key(encryption_key)
         self._cache = ApiKeyCache(self._db)
@@ -147,7 +147,7 @@ class AdvancedAuthService:
             self._rate_limiter = None
 
     @property
-    def db(self) -> Database:
+    def db(self) -> AuthStore:
         return self._db
 
     @property

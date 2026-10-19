@@ -284,7 +284,7 @@ A factory returns an object with a unique ``name``, ``api_version = 1``, and fou
 
 The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build.
 
-Factories and all hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop.
+Factories and runtime hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop.
 
 ``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API.
 
@@ -299,3 +299,12 @@ To refresh one model, send ``POST /v1/models/update_spec`` with ``model_type`` a
 Malformed request bodies return HTTP 400. Credential provider failures return HTTP 500; explicit HTTP errors from providers keep their status and headers. Worker refresh failures return HTTP 502. No available workers or an unreachable supervisor return HTTP 503.
 
 For family-shaped world records, ``model_family`` is used when the top-level ``model_name`` is absent. Before a single-model update is published, the merged catalog must load successfully through the existing model-family loaders. Single-model downloads request the Hub README; a later full-category refresh replaces the catalog with the full-download response, which may omit README fields.
+
+Advanced-auth storage
+---------------------
+
+Extensions may optionally implement ``create_auth_store(context)`` to select advanced-auth storage before the authentication service is initialized. ``AuthStoreContext`` supplies ``db_path`` (the requested default SQLite path) and ``purpose``: ``service``, ``reset_password`` or ``migrate``. Return an object implementing ``xinference.api.oauth2.advanced.auth_store.AuthStore``, or ``None`` to retain SQLite. At most one extension may provide this hook; multiple providers are rejected before either is called. Provider failures or invalid stores abort initialization without falling back to SQLite.
+
+The store keeps the existing method signatures, row dictionaries and API-key name validation errors. It provides a mutable ``permission_resolver`` and a ``path`` property containing the local SQLite ``pathlib.Path`` or ``None`` for other storage. Setup, refresh-token rotation and password updates with token revocation must be atomic across processes; user deletion must preserve the existing dependent-record cleanup. Database drivers, schema upgrades and backend-specific configuration belong to the provider.
+
+The API service, offline administrator-password recovery and legacy JSON auth importer use the same selection mechanism. With a provider configured, ``--db-path`` is passed to its context; it does not override the provider's connection configuration. Use the same extension and backend configuration for the service and these tools. Unlike request/actor hooks, this synchronous initialization hook may connect to storage during startup. Store operations remain synchronous; asynchronous or incomplete implementations are rejected. Providers must keep connection credentials out of logs and error messages. Without a provider, SQLite behavior and dependencies are unchanged.
