@@ -488,6 +488,7 @@ jobs:
             xinference/model/llm/vllm/tests/test_reasoning_adapter.py
             xinference/model/llm/vllm/tests/test_core_chat_model.py::TestVLLMSanitizeGenerateConfig
             xinference/model/llm/vllm/tests/test_core_chat_model.py::TestVLLMFP8Quantization
+            xinference/model/llm/vllm/tests/test_core_chat_model.py::test_async_chat_tool_choice_rendering
             xinference/model/llm/mlx/tests/test_anthropic_runtime.py
             xinference/model/llm/mlx/tests/test_structured.py
             xinference/model/llm/mlx/tests/test_context_length.py

@@ -21,7 +21,7 @@ import tempfile
 import types
 from contextlib import nullcontext
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from packaging import version
@@ -2053,6 +2053,83 @@ class TestVLLMChatModel:
             expected_result = filter_ids_and_created(expected_chunks[i])
             assert result == expected_result
             i = i + 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_class", ["VLLMChatModel", "VLLMMultiModel"])
+@pytest.mark.parametrize("tool_choice", ["none", "auto", None, "absent"])
+@pytest.mark.parametrize("tools_state", ["populated", "empty", "absent"])
+@pytest.mark.parametrize("stream", [False, True])
+async def test_async_chat_tool_choice_rendering(
+    monkeypatch, model_class, tool_choice, tools_state, stream
+):
+    from .. import core
+
+    model = object.__new__(getattr(core, model_class))
+    family = json.loads((Path(__file__).parents[2] / "models/qwen3.json").read_text())[
+        0
+    ]
+    model.model_family = types.SimpleNamespace(
+        **family, model_family=None, has_architecture=lambda _: False
+    )
+    model.model_uid = "test-model"
+    model.reasoning_parser = None
+    model.tool_parser = QwenToolParser()
+    model._get_tokenizer = AsyncMock(return_value=None)
+    # Run text-only preparation inline; no background media I/O is needed.
+    monkeypatch.setattr(
+        core.asyncio,
+        "to_thread",
+        AsyncMock(side_effect=lambda fn, *a, **kw: fn(*a, **kw)),
+    )
+    # Text-only requests still import the optional multimodal readers.
+    monkeypatch.setitem(
+        sys.modules,
+        "qwen_omni_utils",
+        types.SimpleNamespace(
+            process_audio_info=None, process_mm_info=None, process_vision_info=None
+        ),
+    )
+    tools = [
+        {
+            "type": "function",
+            "function": {"name": "get_weather", "parameters": {"type": "object"}},
+        }
+    ]
+    config = {"stream": stream, "stop_token_ids": [151645]}
+    if tool_choice != "absent":
+        config["tool_choice"] = tool_choice
+    if tools_state != "absent":
+        config["tools"] = tools if tools_state == "populated" else []
+    original = copy.deepcopy(config)
+    enabled = tools_state == "populated" and tool_choice != "none"
+
+    async def generate(prompt, generate_config, tools, request_id=None):
+        rendered = prompt["prompt"] if isinstance(prompt, dict) else prompt
+        assert ("get_weather" in rendered) is enabled
+        assert bool(tools) is enabled
+        assert "tool_choice" not in generate_config
+        completion = {
+            "id": "test",
+            "model": model.model_uid,
+            "created": 1,
+            "choices": [{"index": 0, "text": "Hello", "finish_reason": "stop"}],
+            "usage": {},
+        }
+
+        async def chunks():
+            yield completion
+
+        return chunks() if stream else completion
+
+    model.async_generate = generate
+    result = await model.async_chat([{"role": "user", "content": "Hi"}], config)
+    if stream:
+        chunks = [chunk async for chunk in result]
+        assert chunks[-1]["choices"][0]["finish_reason"] == "stop"
+    else:
+        assert result["choices"][0]["message"]["content"] == "Hello"
+    assert config == original
 
 
 class TestVLLMSanitizeGenerateConfig:
