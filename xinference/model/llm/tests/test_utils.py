@@ -998,17 +998,23 @@ def test_async_prepare_reasoning_keeps_leading_chunk_without_text(leading):
 
 @pytest.mark.parametrize("delta_format", [False, True])
 @pytest.mark.parametrize(
-    "texts, reasoning, content",
+    "texts, reasoning, content, insert_start_tag",
     [
-        (["\n", "<think>", "a", "</think>", "b"], "a", "b"),
-        (["\n", "hi"], "\n\nhi", ""),
+        (["\n", "<think>", "a", "</think>", "b"], "a", "b", True),
+        (["\n", "hi"], "\n\nhi", "", True),
+        (["a", "</think>", "b", "</think>", "c"], "\na", "b</think>c", True),
+        (["a", "</think>", "b", "</think>", "c"], "a", "b</think>c", False),
+        (["a</think>b", "c</think>d"], "\na", "bc</think>d", True),
+        (["a", "</think>", "use ", "<think>", "x"], "a", "use <think>x", False),
     ],
 )
 def test_to_chat_completion_chunks_start_tag_after_leading_whitespace(
-    delta_format, texts, reasoning, content
+    delta_format, texts, reasoning, content, insert_start_tag
 ):
     parser = ReasoningParser(True, "<think>", "</think>", auto_insert_start_tag=False)
-    ctx = {"enable_thinking": True, "reasoning_content": True}
+    ctx = {"enable_thinking": True}
+    if insert_start_tag:
+        ctx["reasoning_content"] = True
 
     def _source():
         base = {"id": "cmpl-test", "model": "test-model", "created": 123}

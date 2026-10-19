@@ -126,6 +126,13 @@ class ReasoningParser:
         """
         delta = ChatCompletionChunkDelta()
 
+        if self.reasoning_end_tag in previous_text:
+            # </think> in previous, reasoning content ended earlier,
+            # so a tag in delta is part of the content
+            delta["reasoning_content"] = None
+            delta["content"] = delta_text
+            return self._log_streaming_result(previous_text, delta_text, delta)
+
         # Check if <think> is present in previous or delta.
         # Keep compatibility with models that don't generate <think> tokens.
         if self.reasoning_start_tag in previous_text:
@@ -140,13 +147,6 @@ class ReasoningParser:
                     delta["content"] = content
                 else:
                     delta["content"] = None
-                return self._log_streaming_result(previous_text, delta_text, delta)
-            elif self.reasoning_end_tag in previous_text:
-                # <think> in previous, </think> in previous,
-                # <think> in previous, </think> in previous,
-                # reasoning content ends
-                delta["reasoning_content"] = None
-                delta["content"] = delta_text
                 return self._log_streaming_result(previous_text, delta_text, delta)
             else:
                 # <think> in previous, no </think> in previous or delta,
@@ -229,11 +229,6 @@ class ReasoningParser:
                     delta["content"] = content
                 else:
                     delta["content"] = None
-                return self._log_streaming_result(previous_text, delta_text, delta)
-            elif self.reasoning_end_tag in previous_text:
-                # </think> in previous, thinking content ends
-                delta["reasoning_content"] = None
-                delta["content"] = delta_text
                 return self._log_streaming_result(previous_text, delta_text, delta)
             else:
                 # no </think> in previous or delta, reasoning content continues
