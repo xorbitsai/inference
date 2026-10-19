@@ -15,7 +15,7 @@ import logging
 import os
 import typing
 from glob import glob
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from typing_extensions import TypedDict
 
@@ -275,26 +275,49 @@ class WhisperModel:
             timestamp_granularities=timestamp_granularities,
         )
 
-    def _run_transcription_batch(self, requests: List[dict]) -> List[dict]:
+    def _decode_audio(self, audio: bytes):
+        from transformers.pipelines.audio_utils import ffmpeg_read
+
+        assert self._model is not None
+        # Use the same decoder and target rate as the native pipeline, before
+        # its list preprocessing can let one malformed upload abort its peers.
+        return ffmpeg_read(audio, self._model.feature_extractor.sampling_rate)
+
+    def _run_transcription_batch(
+        self, requests: List[dict]
+    ) -> List[Union[dict, Exception]]:
         assert callable(self._model)
         first = requests[0]
-        audios = [request["audio"] for request in requests]
+        outputs: List[Union[dict, Exception]] = [{} for _ in requests]
+        audios = []
+        indices = []
+        for index, request in enumerate(requests):
+            try:
+                audio = request["audio"]
+                if len(requests) > 1 and isinstance(audio, bytes):
+                    audio = self._decode_audio(audio)
+                audios.append(audio)
+                indices.append(index)
+            except Exception as error:
+                outputs[index] = error
+        if not audios:
+            return outputs
         results = self._model(
             audios if len(audios) > 1 else audios[0], **first["pipeline_kwargs"]
         )
         if len(audios) == 1:
             results = [results]
-        if not isinstance(results, list) or len(results) != len(requests):
+        if not isinstance(results, list) or len(results) != len(indices):
             raise RuntimeError("Whisper returned an unexpected batch result count")
-        return [
-            self._format_result(
+        for index, result in zip(indices, results):
+            request = requests[index]
+            outputs[index] = self._format_result(
                 result,
                 request["response_format"],
                 request["temperature"],
                 request["pipeline_kwargs"],
             )
-            for result, request in zip(results, requests)
-        ]
+        return outputs
 
     async def _async_transcription(
         self,

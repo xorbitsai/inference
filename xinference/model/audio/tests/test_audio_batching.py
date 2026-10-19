@@ -161,10 +161,18 @@ class _WhisperBackend:
         )
 
 
+def _whisper(**kwargs):
+    model = WhisperModel("asr", "/unused", _spec("whisper", "whisper"), **kwargs)
+    model._model = _WhisperBackend()
+    # Ordinary grouping tests use text tokens rather than encoded audio;
+    # decoder contract coverage below exercises real row/error mapping.
+    model._decode_audio = lambda audio: audio
+    return model
+
+
 @pytest.mark.asyncio
 async def test_whisper_groups_tasks_languages_and_timestamps():
-    model = WhisperModel("asr", "/unused", _spec("whisper", "whisper"), batch_size=16)
-    model._model = _WhisperBackend()
+    model = _whisper(batch_size=16)
     try:
         results = await asyncio.gather(
             model.async_transcriptions(b"first", language="en"),
@@ -199,6 +207,87 @@ async def test_whisper_groups_tasks_languages_and_timestamps():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["async_transcriptions", "async_translations"])
+@pytest.mark.parametrize("layout", ["mixed", "one_valid", "all_invalid"])
+async def test_whisper_decode_failures_are_local_to_each_upload(
+    monkeypatch, method, layout
+):
+    from transformers.pipelines import audio_utils
+
+    def wav_bytes(value):
+        with BytesIO() as out:
+            with wave.open(out, "wb") as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(16000)
+                wav.writeframes(np.full(32, value * 1000, dtype="<i2").tobytes())
+            return out.getvalue()
+
+    def decode(payload, sampling_rate):
+        assert sampling_rate == 16000
+        try:
+            with wave.open(BytesIO(payload), "rb") as wav:
+                frames = wav.readframes(wav.getnframes())
+            if not frames:
+                raise ValueError("malformed audio")
+            return np.frombuffer(frames, "<i2").astype(np.float32) / 32768
+        except (wave.Error, EOFError) as error:
+            raise ValueError("malformed audio") from error
+
+    monkeypatch.setattr(audio_utils, "ffmpeg_read", decode)
+
+    class Pipeline:
+        feature_extractor = SimpleNamespace(sampling_rate=16000)
+
+        def __init__(self):
+            self.calls = []
+
+        def __call__(self, audio, **kwargs):
+            self.calls.append(audio)
+
+            def result(item):
+                # Like Transformers, materializing raw-byte list inputs can
+                # fail the entire invocation during preprocessing.
+                if isinstance(item, bytes):
+                    item = audio_utils.ffmpeg_read(item, 16000)
+                return {"text": str(round(float(item[0]) * 32768 / 1000))}
+
+            return (
+                [result(a) for a in audio] if isinstance(audio, list) else result(audio)
+            )
+
+    payloads, expected = {
+        "mixed": ([wav_bytes(1), b"", wav_bytes(3)], ["1", None, "3"]),
+        "one_valid": ([b"corrupt audio", wav_bytes(3)], [None, "3"]),
+        "all_invalid": ([b"", b"corrupt audio"], [None, None]),
+    }[layout]
+    model = WhisperModel("asr", "/unused", _spec("whisper", "whisper"))
+    model._model = Pipeline()
+    try:
+        results = await asyncio.gather(
+            *[getattr(model, method)(audio, language="en") for audio in payloads],
+            return_exceptions=True,
+        )
+        for result, text in zip(results, expected):
+            if text is None:
+                assert isinstance(result, ValueError)
+            else:
+                assert result == {"text": text}
+        if layout == "all_invalid":
+            assert not model._model.calls
+        else:
+            assert len(model._model.calls) == 1
+            inputs = model._model.calls[0]
+            arrays = inputs if isinstance(inputs, list) else [inputs]
+            assert all(isinstance(array, np.ndarray) for array in arrays)
+            assert await getattr(model, method)(wav_bytes(1), language="en") == {
+                "text": "1"
+            }
+    finally:
+        await _shutdown(model)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("method", ["transcriptions", "translations", "speech"])
 async def test_audio_actor_routes_concurrent_requests_to_async_batch_methods(method):
     from ....core.model import ModelActor
@@ -208,8 +297,7 @@ async def test_audio_actor_routes_concurrent_requests_to_async_batch_methods(met
         inputs = [("1", "Vivian"), ("2", "Ryan")]
         kwargs = {"response_format": "wav"}
     else:
-        model = WhisperModel("asr", "/unused", _spec("whisper", "whisper"))
-        model._model = _WhisperBackend()
+        model = _whisper()
         inputs = [(b"a",), (b"b",)]
         kwargs = {}
     actor = ModelActor("test:123", "test:345", model, "asr-0")
@@ -230,9 +318,22 @@ async def test_audio_actor_routes_concurrent_requests_to_async_batch_methods(met
 
 
 class _MLXBackend:
-    def __init__(self):
+    def __init__(self, variant="CustomVoice"):
         self.calls = []
         self.threads = []
+        self.variant = variant
+
+    def get_supported_speakers(self):
+        return ["Vivian", "Ryan", "Chelsie"]
+
+    def _validate_scalar(self, voice, instruct):
+        if self.variant == "CustomVoice":
+            if not voice:
+                raise ValueError("CustomVoice model requires 'voice'")
+            if voice.lower() not in [s.lower() for s in self.get_supported_speakers()]:
+                raise ValueError(f"Speaker '{voice}' not supported")
+        elif self.variant == "VoiceDesign" and not instruct:
+            raise ValueError("VoiceDesign model requires 'instruct'")
 
     def batch_generate(self, texts, **kwargs):
         self.calls.append((texts, kwargs))
@@ -258,6 +359,9 @@ class _MLXBackend:
             )
 
     def generate(self, **kwargs):
+        # Match the pinned scalar dispatcher. batch_generate intentionally
+        # lacks these guards, as in mlx-audio 0.4.6.
+        self._validate_scalar(kwargs.get("voice"), kwargs.get("instruct"))
         self.calls.append(([kwargs["text"]], kwargs))
         self.threads.append(threading.get_ident())
         yield SimpleNamespace(
@@ -267,7 +371,7 @@ class _MLXBackend:
 
 def _mlx(name="Qwen3-TTS-CustomVoice", **kwargs):
     model = MLXAudioTTSModel("mlx", "/unused", _spec(name), **kwargs)
-    model._model = _MLXBackend()
+    model._model = _MLXBackend(name.rsplit("-", 1)[-1])
     return model
 
 
@@ -390,6 +494,49 @@ async def test_mlx_voice_design_batch_preserves_row_instructions():
         assert len(model._model.calls) == 1
         assert model._model.calls[0][1]["voices"] == [None, None]
         assert model._model.calls[0][1]["instructs"] == ["calm", "happy"]
+    finally:
+        await _shutdown(model)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", ["merged", "segments", "scalar"])
+@pytest.mark.parametrize(
+    "variant, voice, instruct",
+    [
+        ("CustomVoice", None, None),
+        ("CustomVoice", "", None),
+        ("CustomVoice", "unknown", None),
+        ("VoiceDesign", "", None),
+        ("VoiceDesign", "", ""),
+    ],
+)
+async def test_mlx_batching_preserves_scalar_variant_validation(
+    path, variant, voice, instruct
+):
+    model = _mlx(f"Qwen3-TTS-12Hz-1.7B-{variant}")
+    kwargs = dict(response_format="wav", instruct=instruct)
+    try:
+        if path == "merged":
+            valid_voice = "vIvIaN" if variant == "CustomVoice" else ""
+            results = await asyncio.gather(
+                model.async_speech(
+                    "first", valid_voice, response_format="wav", instruct="calm"
+                ),
+                model.async_speech("bad", voice, **kwargs),
+                model.async_speech(
+                    "last", valid_voice, response_format="wav", instruct="happy"
+                ),
+                return_exceptions=True,
+            )
+            assert isinstance(results[1], ValueError)
+            assert all(isinstance(results[i], bytes) for i in (0, 2))
+            assert len(model._model.calls) == 1
+            assert model._model.calls[0][0] == ["first", "last"]
+        else:
+            text = "一。二。" if path == "segments" else "short"
+            with pytest.raises(ValueError):
+                model.speech(text, voice, **kwargs)
+            assert not model._model.calls
     finally:
         await _shutdown(model)
 

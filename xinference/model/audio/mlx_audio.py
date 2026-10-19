@@ -631,9 +631,29 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
             and not (set(kwargs) - self._QWEN_BATCH_OPTIONS)
         )
 
+    def _validate_qwen_batch_request(self, voice: str, kwargs: dict) -> None:
+        assert self._model is not None
+        if self._model_spec.model_name.endswith("CustomVoice"):
+            if not voice:
+                raise ValueError("CustomVoice model requires 'voice' (speaker name)")
+            # This native method only reads immutable speaker metadata.
+            speakers = self._model.get_supported_speakers()
+            if voice.lower() not in [speaker.lower() for speaker in speakers]:
+                raise ValueError(
+                    f"Speaker '{voice}' not supported. Available: {speakers}"
+                )
+        elif self._model_spec.model_name.endswith("VoiceDesign") and not kwargs.get(
+            "instruct"
+        ):
+            raise ValueError(
+                "VoiceDesign model requires 'instruct' to describe the voice"
+            )
+
     def _speech_batch_key(self, request: dict):
         if not self._can_batch_qwen(request["kwargs"], request["speed"]):
             return object()
+        # Reject invalid rows before native batch assembly.
+        self._validate_qwen_batch_request(request["voice"], request["kwargs"])
         # Native MLX batching shares language, sampling settings and cloning
         # reference; voices and instructions can vary between rows.
         kwargs = dict(request["kwargs"])
@@ -805,6 +825,7 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
             and self._batcher.batch_size > 1
             and len(self._split_qwen_text(input)) > 1
         ):
+            self._validate_qwen_batch_request(voice, kwargs)
             return self._run_qwen_speech_batch(
                 [
                     dict(
