@@ -560,3 +560,19 @@ msgstr ""
 "evita ataques de repetición; las transferencias GPU autenticadas almacenan "
 "temporalmente los búferes del dispositivo en memoria del host para calcular "
 "su hash, lo que añade consumo de CPU y memoria del host."
+
+#: ../../source/getting_started/environments.rst:155
+msgid "For text-only ``sentence_transformers`` models, the engine may group similar character lengths to reduce padding while preserving response order. The internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE`` controls input merging by the server."
+msgstr "Para los modelos ``sentence_transformers`` de solo texto, el motor puede agrupar entradas de longitud similar en caracteres para reducir el relleno y conservar el orden de las respuestas. El parámetro interno ``batch_size`` de ``encode()`` limita estos grupos; ``XINFERENCE_BATCH_SIZE`` controla la combinación de entradas en el servidor."
+
+#: ../../source/getting_started/environments.rst:164
+msgid "XINFERENCE_EMBEDDING_GC_INTERVAL"
+msgstr "XINFERENCE_EMBEDDING_GC_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:166
+msgid "Minimum interval (seconds) between full Python garbage collections during embedding cache cleanup. Default is 60. The first cleanup collects immediately. Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged."
+msgstr "Intervalo mínimo (segundos) entre recolecciones completas de basura de Python durante la limpieza de la caché de embeddings. El valor predeterminado es 60. La primera limpieza realiza la recolección de inmediato. Con 0 se realiza en cada limpieza. La frecuencia de liberación de la caché de GPU no cambia."
+
+#: ../../source/getting_started/environments.rst:171
+msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
+msgstr "El intervalo también se aplica a la limpieza activada por el número de tokens. Los tensores retenidos por referencias cíclicas de Python pueden seguir ocupando memoria hasta la recolección automática o una recolección completa posterior; ``empty_cache()`` no puede liberarlos. Establezca este intervalo en 0 para los modelos que necesiten una recolección completa en cada limpieza."

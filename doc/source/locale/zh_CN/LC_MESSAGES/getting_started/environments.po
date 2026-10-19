@@ -551,3 +551,19 @@ msgstr ""
 "Socket 和 UCX 消息均在反序列化前完成鉴权。持有密钥的节点被视为可信节点，拥有执行 Python 代码的权限。部署管理员必须将 actor "
 "端口的访问限制在预期集群节点内。鉴权不加密流量，也不防止重放；启用鉴权的 GPU 传输会将设备缓冲区暂存到主机内存进行哈希计算，增加 CPU "
 "和主机内存开销。"
+
+#: ../../source/getting_started/environments.rst:155
+msgid "For text-only ``sentence_transformers`` models, the engine may group similar character lengths to reduce padding while preserving response order. The internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE`` controls input merging by the server."
+msgstr "对于使用 ``sentence_transformers`` 的纯文本模型，引擎可将字符长度相近的输入分组，以减少填充并保持响应顺序。内部 ``encode()`` 的 ``batch_size`` 限制这些分组的大小；``XINFERENCE_BATCH_SIZE`` 控制服务端的输入合并。"
+
+#: ../../source/getting_started/environments.rst:164
+msgid "XINFERENCE_EMBEDDING_GC_INTERVAL"
+msgstr "XINFERENCE_EMBEDDING_GC_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:166
+msgid "Minimum interval (seconds) between full Python garbage collections during embedding cache cleanup. Default is 60. The first cleanup collects immediately. Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged."
+msgstr "嵌入缓存清理期间执行完整 Python 垃圾回收的最短间隔（秒），默认为 60。首次清理立即执行回收。设为 0 可在每次清理时执行回收。GPU 缓存释放频率保持不变。"
+
+#: ../../source/getting_started/environments.rst:171
+msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
+msgstr "冷却间隔也适用于由 token 数量触发的清理。Python 循环引用保留的张量可能持续占用显存，直到自动 GC 或后续完整回收；``empty_cache()`` 无法释放这些张量。对于每次清理都需要完整回收的模型，请将此间隔设为 0。"

@@ -152,10 +152,26 @@ XINFERENCE_BATCH_SIZE
 Default batch size used by the server when batching is enabled.
 Default value is 32.
 
+For text-only ``sentence_transformers`` models, the engine may group similar
+character lengths to reduce padding while preserving response order. The
+internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE``
+controls input merging by the server.
+
 XINFERENCE_BATCH_INTERVAL
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Default batching interval (seconds).
 Default value is 0.003.
+
+XINFERENCE_EMBEDDING_GC_INTERVAL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Minimum interval (seconds) between full Python garbage collections during
+embedding cache cleanup. Default is 60. The first cleanup collects immediately.
+Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged.
+
+The cooldown also applies to token-triggered cleanup. Tensors kept alive by
+Python reference cycles may remain allocated until automatic GC or a later full
+collection; ``empty_cache()`` cannot release them. Set this interval to 0 for
+models that require full collection on every cleanup.
 
 XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

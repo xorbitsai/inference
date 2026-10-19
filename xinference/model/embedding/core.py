@@ -17,6 +17,7 @@ import gc
 import inspect
 import logging
 import os
+import time
 from abc import abstractmethod
 from collections import defaultdict
 from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union
@@ -49,8 +50,10 @@ EMBEDDING_EMPTY_CACHE_COUNT = int(
 EMBEDDING_EMPTY_CACHE_TOKENS = int(
     os.getenv("XINFERENCE_EMBEDDING_EMPTY_CACHE_TOKENS", "8192")
 )
+EMBEDDING_GC_INTERVAL = float(os.getenv("XINFERENCE_EMBEDDING_GC_INTERVAL", "60"))
 assert EMBEDDING_EMPTY_CACHE_COUNT > 0
 assert EMBEDDING_EMPTY_CACHE_TOKENS > 0
+assert EMBEDDING_GC_INTERVAL >= 0
 
 # Char-per-token estimate used by ``EmbeddingModel._truncate_sentences`` for the
 # character-based fallback (engines without a Python tokenizer, e.g. llama_cpp,
@@ -187,6 +190,7 @@ class EmbeddingModel(abc.ABC):
         self._model = None
         self._tokenizer = None
         self._counter = 0
+        self._last_gc_time: Optional[float] = None
         self.model_family = model_family
         self._model_spec = model_family.model_specs[0]
         self._quantization = quantization
@@ -584,7 +588,16 @@ class EmbeddingModel(abc.ABC):
                 self._counter,
                 all_token_nums,
             )
-            gc.collect()
+            # A full heap scan can take much longer than GPU cache cleanup.
+            # Keep the existing cache-release policy, but collect cycles only
+            # on the first cleanup and at most once per GC interval afterwards.
+            now = time.monotonic()
+            if (
+                self._last_gc_time is None
+                or now - self._last_gc_time >= EMBEDDING_GC_INTERVAL
+            ):
+                gc.collect()
+                self._last_gc_time = time.monotonic()
             empty_cache()
 
 
