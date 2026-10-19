@@ -125,6 +125,21 @@ class Qwen2AudioChatModel(PytorchMultiModalModel):
 
         inputs = self.build_inputs_from_messages(messages, generate_config)
         config = self.build_generate_kwargs(generate_config)
+        input_length = inputs.input_ids.shape[-1]
+        max_length = config["max_length"]
+        max_new_tokens = self._model.generation_config.max_new_tokens
+        if max_new_tokens is None:
+            max_new_tokens = max_length - input_length
+        max_new_tokens = self._cap_context_max_new_tokens(input_length, max_new_tokens)
+        if max_new_tokens <= 0:
+            raise ValueError(
+                f"Input length of input_ids is {input_length}, but `max_length` is set to"
+                f" {max_length}. This can lead to unexpected behavior. You should consider"
+                " increasing `max_length` or, better yet, setting `max_new_tokens`."
+            )
+        if self._pytorch_model_config.get("context_length") is not None:
+            config.pop("max_length")
+            config["max_new_tokens"] = max_new_tokens
 
         tokenizer = self._processor.tokenizer
         streamer = TextIteratorStreamer(
