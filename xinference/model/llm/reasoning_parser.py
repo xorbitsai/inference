@@ -420,6 +420,7 @@ class ReasoningParser:
             return
 
         is_first_chunk = True
+        leading_space = ""
         async for chunk in chunks:
             if is_first_chunk:
                 choices = chunk.get("choices")
@@ -443,6 +444,13 @@ class ReasoningParser:
                         )
                         yield chunk
                         continue
+                    if text.isspace():
+                        # Whitespace can come before the start tag, so hold it
+                        # back until a chunk shows whether the tag follows.
+                        leading_space += text
+                        delta["content"] = ""
+                        yield chunk
+                        continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         logger.debug(
@@ -451,7 +459,7 @@ class ReasoningParser:
                         )
                         # Create and yield chunks with reasoning_start_tag and newline
                         yield self._create_chat_completion_chunk(
-                            chunk, f"{self.reasoning_start_tag}\n"
+                            chunk, f"{self.reasoning_start_tag}\n{leading_space}"
                         )
                 else:
                     # For standard completion chunks
@@ -462,6 +470,13 @@ class ReasoningParser:
                         )
                         yield chunk
                         continue
+                    if text.isspace():
+                        # Whitespace can come before the start tag, so hold it
+                        # back until a chunk shows whether the tag follows.
+                        leading_space += text
+                        choices[0]["text"] = ""
+                        yield chunk
+                        continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         logger.debug(
@@ -470,7 +485,7 @@ class ReasoningParser:
                         )
                         # Create and yield chunks with reasoning_start_tag and newline
                         yield self._create_completion_chunk(
-                            chunk, f"{self.reasoning_start_tag}\n"
+                            chunk, f"{self.reasoning_start_tag}\n{leading_space}"
                         )
                 is_first_chunk = False
                 yield chunk
@@ -501,6 +516,7 @@ class ReasoningParser:
             return
 
         is_first_chunk = True
+        leading_space = ""
         for chunk in chunks:
             if is_first_chunk:
                 choices = chunk.get("choices")
@@ -524,6 +540,13 @@ class ReasoningParser:
                         )
                         yield chunk
                         continue
+                    if text.isspace():
+                        # Whitespace can come before the start tag, so hold it
+                        # back until a chunk shows whether the tag follows.
+                        leading_space += text
+                        delta["content"] = ""
+                        yield chunk
+                        continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         logger.debug(
@@ -532,7 +555,7 @@ class ReasoningParser:
                         )
                         # Create and yield chunks with reasoning_start_tag and newline
                         yield self._create_chat_completion_chunk(
-                            chunk, f"{self.reasoning_start_tag}\n"
+                            chunk, f"{self.reasoning_start_tag}\n{leading_space}"
                         )
                 else:
                     # For standard completion chunks
@@ -543,6 +566,13 @@ class ReasoningParser:
                         )
                         yield chunk
                         continue
+                    if text.isspace():
+                        # Whitespace can come before the start tag, so hold it
+                        # back until a chunk shows whether the tag follows.
+                        leading_space += text
+                        choices[0]["text"] = ""
+                        yield chunk
+                        continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         logger.debug(
@@ -551,7 +581,7 @@ class ReasoningParser:
                         )
                         # Create and yield chunks with reasoning_start_tag and newline
                         yield self._create_completion_chunk(
-                            chunk, f"{self.reasoning_start_tag}\n"
+                            chunk, f"{self.reasoning_start_tag}\n{leading_space}"
                         )
                 is_first_chunk = False
                 yield chunk
