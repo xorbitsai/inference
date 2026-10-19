@@ -42,6 +42,7 @@ jobs:
       - name: Test CI workflow
         env:
           TEST_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          TEST_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python -m unittest discover -s .github/scripts/tests -v
       - name: Set up Node.js
         uses: actions/setup-node@v1

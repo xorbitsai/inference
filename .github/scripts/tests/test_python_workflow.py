@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
@@ -496,6 +497,7 @@ class TestPythonWorkflow(unittest.TestCase):
 
     def test_changed_tests_have_explicit_platform_coverage(self):
         base = os.environ.get("TEST_BASE_SHA")
+        head = os.environ.get("TEST_HEAD_SHA") or "HEAD"
         if not base or not base.strip("0"):
             self.skipTest(
                 "GitHub supplies TEST_BASE_SHA for PR/main coverage classification"
@@ -507,7 +509,7 @@ class TestPythonWorkflow(unittest.TestCase):
                 "--no-renames",
                 "--diff-filter=AM",
                 "--name-only",
-                f"{base}...HEAD",
+                f"{base}...{head}",
             ],
             cwd=ROOT,
             check=True,
@@ -526,6 +528,64 @@ class TestPythonWorkflow(unittest.TestCase):
                 f"{name}: add it to PLATFORM_TEST_PATHS (or the macOS scope), or declare "
                 "'# CI: linux' for a portable/Linux-only regression. Do not silently omit new tests.",
             )
+
+    def test_pr_classification_excludes_main_changes_in_merge_checkout(self):
+        lint_step = next(
+            step
+            for step in JOBS["lint"]["steps"]
+            if step.get("name") == "Test CI workflow"
+        )
+        self.assertEqual(
+            lint_step["env"]["TEST_HEAD_SHA"],
+            "${{ github.event.pull_request.head.sha || github.sha }}",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+
+            def git(*args):
+                return subprocess.check_output(
+                    [
+                        "git",
+                        "-c",
+                        "core.hooksPath=/dev/null",
+                        "-c",
+                        "commit.gpgsign=false",
+                        "-c",
+                        "user.name=CI",
+                        "-c",
+                        "user.email=ci@example.invalid",
+                        *args,
+                    ],
+                    cwd=work,
+                    text=True,
+                ).strip()
+
+            git("init", "-q", "-b", "main")
+            (work / "README.md").write_text("base\n")
+            git("add", ".")
+            git("commit", "-qm", "base")
+            base = git("rev-parse", "HEAD")
+            git("checkout", "-qb", "topic")
+            selected = work / "xinference/deploy/test/test_branch.py"
+            selected.parent.mkdir(parents=True)
+            selected.write_text("def test_branch(): pass\n")
+            git("add", ".")
+            git("commit", "-qm", "PR test")
+            head = git("rev-parse", "HEAD")
+            git("checkout", "-q", "main")
+            unrelated = "xinference/model/llm/tests/test_utils.py"
+            upstream_test = work / unrelated
+            upstream_test.parent.mkdir(parents=True)
+            upstream_test.write_text("def test_upstream(): pass\n")
+            git("add", ".")
+            git("commit", "-qm", "unrelated main test")
+            git("merge", "-q", "--no-ff", "topic", "-m", "CI merge checkout")
+            self.assertIn(unrelated, git("diff", "--name-only", f"{base}...HEAD"))
+            with (
+                patch.dict(os.environ, {"TEST_BASE_SHA": base, "TEST_HEAD_SHA": head}),
+                patch(f"{__name__}.ROOT", work),
+            ):
+                self.test_changed_tests_have_explicit_platform_coverage()
 
     def test_slow_marker_cannot_exclude_whole_modules_or_classes(self):
         for path in (ROOT / "xinference").rglob("test_*.py"):
