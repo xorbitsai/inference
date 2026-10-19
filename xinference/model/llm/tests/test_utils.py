@@ -996,6 +996,51 @@ def test_async_prepare_reasoning_keeps_leading_chunk_without_text(leading):
     assert results[2] == text
 
 
+@pytest.mark.parametrize("delta_format", [False, True])
+@pytest.mark.parametrize(
+    "texts, reasoning, content",
+    [
+        (["\n", "<think>", "a", "</think>", "b"], "a", "b"),
+        (["\n", "hi"], "\n\nhi", ""),
+    ],
+)
+def test_to_chat_completion_chunks_start_tag_after_leading_whitespace(
+    delta_format, texts, reasoning, content
+):
+    parser = ReasoningParser(True, "<think>", "</think>", auto_insert_start_tag=False)
+    ctx = {"enable_thinking": True, "reasoning_content": True}
+
+    def _source():
+        base = {"id": "cmpl-test", "model": "test-model", "created": 123}
+        for text in texts:
+            if delta_format:
+                choice = {"index": 0, "delta": {"content": text}, "finish_reason": None}
+                yield {**base, "object": "chat.completion.chunk", "choices": [choice]}
+            else:
+                choice = {"index": 0, "text": text, "finish_reason": None}
+                yield {**base, "object": "text_completion", "choices": [choice]}
+
+    async def _chunks():
+        for chunk in _source():
+            yield chunk
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in ChatModelMixin._async_to_chat_completion_chunks(
+                _chunks(), parser, ctx
+            )
+        ]
+
+    for results in (
+        list(ChatModelMixin._to_chat_completion_chunks(_source(), parser, ctx)),
+        asyncio.run(_collect()),
+    ):
+        deltas = [chunk["choices"][0]["delta"] for chunk in results if chunk["choices"]]
+        assert "".join(d.get("reasoning_content") or "" for d in deltas) == reasoning
+        assert "".join(d.get("content") or "" for d in deltas) == content
+
+
 def test_async_to_chat_completion_chunks_with_reasoning_keeps_empty_stream():
     parser = ReasoningParser(True, "<think>", "</think>")
 
