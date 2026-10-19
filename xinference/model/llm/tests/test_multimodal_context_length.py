@@ -28,6 +28,7 @@ from ..transformers.multimodal.intern_vl import InternVLChatModel
 from ..transformers.multimodal.minicpmv46 import MiniCPMV46Model
 from ..transformers.multimodal.minicpmv47 import MiniCPMV47Model
 from ..transformers.multimodal.ovis2 import Ovis2ChatModel
+from ..transformers.multimodal.qwen2_audio import Qwen2AudioChatModel
 from ..transformers.multimodal.qwen2_vl import Qwen2VLChatModel
 from . import test_minicpmv47, test_qwen2_vl
 
@@ -223,3 +224,112 @@ def test_embedding_context_budget(
             if key != "max_new_tokens":
                 assert kwargs[key] == value
     assert (config, adapter._pytorch_model_config) == original
+
+
+@pytest.fixture(scope="module")
+def qwen2_audio_model():
+    from tokenizers import Tokenizer
+    from tokenizers.models import WordLevel
+    from transformers import (
+        PreTrainedTokenizerFast,
+        Qwen2AudioConfig,
+        Qwen2AudioForConditionalGeneration,
+    )
+
+    threads = torch.get_num_threads()
+    torch.set_num_threads(1)
+    audio = dict(d_model=8, encoder_layers=1, encoder_attention_heads=2)
+    text = dict(vocab_size=16, hidden_size=8, intermediate_size=16)
+    text.update(num_hidden_layers=1, num_attention_heads=2, num_key_value_heads=2)
+    model = Qwen2AudioForConditionalGeneration(
+        Qwen2AudioConfig(audio_config=audio, text_config=text)
+    ).eval()
+    tokenizer = PreTrainedTokenizerFast(
+        tokenizer_object=Tokenizer(WordLevel({str(i): i for i in range(16)}))
+    )
+    yield model, tokenizer
+    torch.set_num_threads(threads)
+
+
+@pytest.mark.parametrize(
+    "checkpoint,prompt,limit,max_tokens,expected",
+    [
+        pytest.param(8, 300, "missing", 512, 8, id="checkpoint_8_no_budget"),
+        pytest.param(8, 300, 320, 512, 8, id="checkpoint_8_budget_320"),
+        pytest.param(8, 300, 305, 512, 5, id="checkpoint_8_budget_305"),
+        pytest.param(50, 300, 320, 512, 20, id="checkpoint_50_budget_320"),
+        pytest.param(None, 300, "missing", 512, 212, id="request_no_budget"),
+        pytest.param(None, 300, 320, 512, 20, id="request_budget_320"),
+        pytest.param(None, 300, 300, 512, "reject", id="exhausted_budget"),
+        pytest.param(8, 512, "missing", 512, 8, id="checkpoint_at_max_length"),
+        (None, 300, None, 512, 212),
+        (None, 300, 1024, 512, 212),
+        (None, 300, 301, 512, 1),
+        (None, 300, 299, 512, "reject"),
+        (None, 512, "missing", 512, "max_length"),
+        (None, 513, "missing", 512, "max_length"),
+        (None, 512, 1024, 512, "max_length"),
+        (None, 513, 1024, 512, "max_length"),
+        (None, 512, 512, 512, "reject"),
+        (None, 300, "missing", "omitted", 212),
+        (None, 300, "missing", None, 212),
+        (None, 300, "missing", 0, 212),
+        (None, 300, "missing", 304, 4),
+        (None, 1, "missing", 2, 1),
+    ],
+)
+def test_qwen2_audio_generation_limit(
+    qwen2_audio_model, monkeypatch, checkpoint, prompt, limit, max_tokens, expected
+):
+    from transformers import BatchEncoding, GenerationConfig
+
+    model, tokenizer = qwen2_audio_model
+    model.generation_config = GenerationConfig(
+        max_new_tokens=checkpoint,
+        max_length=350,
+        pad_token_id=0,
+        eos_token_id=None,
+        do_sample=False,
+    )
+    adapter = object.__new__(Qwen2AudioChatModel)
+    adapter._model = model
+    adapter._processor = SimpleNamespace(tokenizer=tokenizer)
+    adapter._pytorch_model_config = {}
+    if limit != "missing":
+        adapter._pytorch_model_config["context_length"] = limit
+    inputs = BatchEncoding({"input_ids": torch.ones((1, prompt), dtype=torch.long)})
+    adapter.build_inputs_from_messages = Mock(return_value=inputs)
+    config = {} if max_tokens == "omitted" else {"max_tokens": max_tokens}
+    original = deepcopy(model.generation_config)
+    outputs = []
+
+    def thread_factory(*, target, kwargs):
+        return SimpleNamespace(start=lambda: outputs.append(target(**kwargs)))
+
+    thread = Mock(side_effect=thread_factory)
+    monkeypatch.setattr(
+        "xinference.model.llm.transformers.multimodal.qwen2_audio.Thread", thread
+    )
+    try:
+        if isinstance(expected, str):
+            error = ContextLengthExceeded if expected == "reject" else ValueError
+            match = (
+                "context_length" if expected == "reject" else "Input length.*max_length"
+            )
+            with pytest.raises(error, match=match) as caught:
+                adapter.build_streaming_iter([], config)
+            if expected == "max_length":
+                assert type(caught.value) is ValueError
+                assert str(caught.value) == (
+                    f"Input length of input_ids is {prompt}, but `max_length` is set to"
+                    " 512. This can lead to unexpected behavior. You should consider"
+                    " increasing `max_length` or, better yet, setting `max_new_tokens`."
+                )
+            thread.assert_not_called()
+            assert not outputs
+        else:
+            _, prompt_tokens = adapter.build_streaming_iter([], config)
+            assert prompt_tokens == prompt
+            assert outputs[0].shape[-1] - prompt == expected
+    finally:
+        assert model.generation_config == original
