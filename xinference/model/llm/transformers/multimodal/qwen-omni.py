@@ -26,6 +26,7 @@ from .....types import (
     ChatCompletion,
     ChatCompletionAudio,
     ChatCompletionChoice,
+    ChatCompletionMessage,
     CompletionUsage,
 )
 from ....utils import allow_trust_remote_code, is_flash_attn_available, select_device
@@ -227,8 +228,6 @@ class QwenOmniChatModel(PytorchMultiModalModel):
         """
         Special case for qwen2.5-omni, since it has audio output
         """
-        import soundfile as sf
-
         generate_config = generate_config if generate_config else {}  # type: ignore
         config = self.build_generate_kwargs(generate_config)  # type: ignore
         inputs = self.build_inputs_from_messages(messages, generate_config)  # type: ignore
@@ -280,15 +279,25 @@ class QwenOmniChatModel(PytorchMultiModalModel):
             clean_up_tokenization_spaces=False,
         )[0]
 
-        wav_io = io.BytesIO()
-        sf.write(
-            wav_io,
-            audio.reshape(-1).detach().cpu().numpy(),
-            samplerate=24000,
-            format="WAV",
-        )
-        wav_bytes = wav_io.getvalue()
-        audio_content = base64.b64encode(wav_bytes).decode()
+        message: ChatCompletionMessage = {"role": "assistant", "content": output_text}
+        if audio is not None:
+            import soundfile as sf
+
+            wav_io = io.BytesIO()
+            sf.write(
+                wav_io,
+                audio.reshape(-1).detach().cpu().numpy(),
+                samplerate=24000,
+                format="WAV",
+            )
+            wav_bytes = wav_io.getvalue()
+            audio_content = base64.b64encode(wav_bytes).decode()
+            message["audio"] = ChatCompletionAudio(
+                id="audio" + str(uuid.uuid1()),
+                data=audio_content,
+                expires_at=int(time.time()),
+                transcript="",
+            )
 
         return ChatCompletion(
             id="chat" + str(uuid.uuid1()),
@@ -298,16 +307,7 @@ class QwenOmniChatModel(PytorchMultiModalModel):
             choices=[
                 ChatCompletionChoice(
                     index=0,
-                    message={
-                        "role": "assistant",
-                        "content": output_text,
-                        "audio": ChatCompletionAudio(
-                            id="audio" + str(uuid.uuid1()),
-                            data=audio_content,
-                            expires_at=int(time.time()),
-                            transcript="",
-                        ),
-                    },
+                    message=message,
                     finish_reason="stop",
                 )
             ],

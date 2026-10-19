@@ -107,6 +107,42 @@ def test_non_streaming_keeps_audio(adapter, monkeypatch):
     assert captured["return_dict_in_generate"] is True
 
 
+@pytest.mark.parametrize("return_dict", [False, True])
+def test_non_streaming_without_audio(adapter, monkeypatch, return_dict):
+    import torch
+
+    model, _ = adapter
+    model.model_uid = "omni-thinking-0"
+    generated_ids = torch.tensor([[1, 2, 3, 4]])
+    result = SimpleNamespace(sequences=generated_ids) if return_dict else generated_ids
+    model._model.generate = Mock(return_value=result)
+    model._processor = Mock()
+    model._processor.batch_decode.return_value = ["answer"]
+    soundfile = Mock()
+    monkeypatch.setitem(sys.modules, "soundfile", soundfile)
+    with patch("builtins.__import__", wraps=__import__) as imports:
+        response = model.generate_non_streaming([], {"max_tokens": 2})
+    assert response["choices"] == [
+        {
+            "index": 0,
+            "message": {"role": "assistant", "content": "answer"},
+            "finish_reason": "stop",
+        }
+    ]
+    assert response["id"].startswith("chat")
+    assert response["object"] == "chat.completion"
+    assert response["model"] == "omni-thinking-0"
+    assert isinstance(response["created"], int)
+    assert response["usage"] == dict(
+        prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
+    )
+    model._processor.batch_decode.assert_called_once_with(
+        [[3, 4]], skip_special_tokens=True, clean_up_tokenization_spaces=False
+    )
+    assert not any(call.args[0] == "soundfile" for call in imports.call_args_list)
+    assert soundfile.mock_calls == []
+
+
 @pytest.mark.parametrize("mode", ["return_audio", "generation_mode", "non_streaming"])
 @pytest.mark.parametrize(
     "limit,max_tokens,expected",
