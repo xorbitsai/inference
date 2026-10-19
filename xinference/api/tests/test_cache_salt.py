@@ -101,8 +101,11 @@ def test_unsupported_engine_rejects_salt():
     "endpoint", ["completions", "chat/completions", "messages", "responses"]
 )
 @pytest.mark.parametrize("authoritative", [False, True])
+@pytest.mark.parametrize(
+    "client_salt", ["client-private-cache-scope", {}, [], 123, False]
+)
 async def test_api_resolves_salt_after_auth_before_model_dispatch(
-    monkeypatch, endpoint, authoritative
+    monkeypatch, endpoint, authoritative, client_salt
 ):
     api = object.__new__(RESTfulAPI)
     api._advanced_auth_service = None
@@ -115,7 +118,6 @@ async def test_api_resolves_salt_after_auth_before_model_dispatch(
         order.append("auth")
 
     api._check_model_access = check_access
-    client_salt = "client-private-cache-scope"
     provider_salt = "provider-private-cache-scope"
     expected_salt = provider_salt if authoritative else client_salt
     provider = SimpleNamespace(
@@ -194,20 +196,32 @@ async def test_api_resolves_salt_after_auth_before_model_dispatch(
         )
     )
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
+        transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://test",
     ) as client:
-        await client.post(
+        response = await client.post(
             "/v1/" + endpoint, json=body, headers={"anthropic-version": "2023-06-01"}
         )
-    assert order == (["auth", "salt", "model"] if authoritative else ["auth", "model"])
-    assert all(config["cache_salt"] == expected_salt for config in inference_configs)
-    assert await requests[0].json() == cached_bodies[0]
+    if not authoritative and not isinstance(client_salt, str):
+        assert response.status_code == 400
+        assert "cache_salt" in response.text
+        assert order == ["auth"]
+        assert not inference_configs
+    else:
+        assert order == (
+            ["auth", "salt", "model"] if authoritative else ["auth", "model"]
+        )
+        assert all(
+            config["cache_salt"] == expected_salt for config in inference_configs
+        )
+        assert await requests[0].json() == cached_bodies[0]
     started = next(
         event for event in events if event["event"] == "model_request_started"
     )
     assert started["request_body"]["cache_salt"] == "<redacted>"
     assert started["request_body"]["model"] == "m"
-    assert client_salt not in json.dumps(events)
+    if isinstance(client_salt, str):
+        assert client_salt not in json.dumps(events)
     assert provider_salt not in json.dumps(events)
 
 

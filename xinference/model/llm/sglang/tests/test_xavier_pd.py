@@ -389,6 +389,51 @@ async def test_salted_rooms_bind_digest_and_reject_mismatched_scope():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("salted_first", [False, True])
+async def test_salted_and_literal_unsalted_prompts_have_separate_memo_entries(
+    deployment, salted_first
+):
+    from xinference.cache_isolation import cache_scope
+
+    from ...xavier.pd_contract import prompt_digest
+
+    actor, _, decode = deployment
+    handoff = decode._xavier_handoff
+    handoff.config.update(heterogeneous=True, rank=1)
+    handoff.tokenizer.encode = Mock(side_effect=lambda text: list(text.encode()))
+    prompt, salt = "prompt", "scope"
+    literal_prompt = json.dumps([prompt, cache_scope(salt)])
+    requests = [(prompt, salt), (literal_prompt, None)]
+    if not salted_first:
+        requests.reverse()
+    for room, (text, request_salt) in enumerate(requests * 2, start=1):
+        tokens = list(text.encode())
+        # The vLLM peer fingerprints actual token IDs for each request.
+        await actor.prepare(
+            room,
+            "gpu-namespace",
+            prompt_digest(tokens, request_salt),
+            "prefill",
+            0,
+            600,
+            len(tokens),
+        )
+        await handoff.prepare(
+            text,
+            dict(
+                sglang_xavier=dict(
+                    mode="gpu", room=room, cache_scope=cache_scope(request_salt)
+                )
+            ),
+            request_salt,
+        )
+        assert (await actor.request_info(room))["prompt_tokens"] == len(tokens)
+        await actor.release(room)
+    assert handoff.tokenizer.encode.call_count == 2
+    assert len(handoff._prompt_hashes) == 2
+
+
+@pytest.mark.asyncio
 async def test_salted_pd_generation_keeps_native_radix_scope(deployment):
     from xinference.cache_isolation import cache_scope
 
@@ -446,7 +491,7 @@ async def test_repeated_prompt_reuses_fingerprint_and_validates_every_room(
     if heterogeneous:
         arguments += (len(b"prompt"),)
     assert h._directory_actor.prepare.call_args.args == arguments
-    assert list(h._prompt_hashes) == [hashlib.sha256(b"prompt").digest()]
+    assert list(h._prompt_hashes) == [(None, hashlib.sha256(b"prompt").digest())]
     assert list(h._prompt_hashes.values()) == [(expected, len(b"prompt"))]
 
 
@@ -458,8 +503,8 @@ async def test_fingerprints_are_bounded_and_recently_used_entry_survives():
     await prepare(h, "0")
     await prepare(h, "new")
     assert len(h._prompt_hashes) == 256
-    assert hashlib.sha256(b"0").digest() in h._prompt_hashes
-    assert hashlib.sha256(b"1").digest() not in h._prompt_hashes
+    assert (None, hashlib.sha256(b"0").digest()) in h._prompt_hashes
+    assert (None, hashlib.sha256(b"1").digest()) not in h._prompt_hashes
     await prepare(h, "1")
     assert h.tokenizer.encode.call_count == 258
 

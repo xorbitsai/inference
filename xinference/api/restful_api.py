@@ -2275,7 +2275,10 @@ class RESTfulAPI(CancelMixin):
 
     async def create_completion(self, request: Request) -> Response:
         raw_body = await request.json()
-        body = CreateCompletionRequest.parse_obj(raw_body)
+        # Resolve/validate the raw salt after authorization, allowing provider overrides.
+        body = CreateCompletionRequest.parse_obj(
+            {key: value for key, value in raw_body.items() if key != "cache_salt"}
+        )
         exclude = {
             "prompt",
             "model",
@@ -4647,7 +4650,10 @@ class RESTfulAPI(CancelMixin):
 
     async def create_chat_completion(self, request: Request) -> Response:
         raw_body = await request.json()
-        body = CreateChatCompletion.parse_obj(raw_body)
+        # Resolve/validate the raw salt after authorization, allowing provider overrides.
+        body = CreateChatCompletion.parse_obj(
+            {key: value for key, value in raw_body.items() if key != "cache_salt"}
+        )
         raw_body = _normalize_token_router_chat_payload(raw_body)
         exclude = {
             "prompt",

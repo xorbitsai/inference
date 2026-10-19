@@ -4,7 +4,6 @@
 
 import asyncio
 import hashlib
-import json
 from collections import OrderedDict
 from typing import Optional
 
@@ -24,7 +23,9 @@ class SGLangXavierHandoff:
         self._directory_actor: Optional[xo.ActorRef] = None
         self._namespace: Optional[str] = None
         # Keep fixed-size digests only, scoped to this deployment/tokenizer.
-        self._prompt_hashes: OrderedDict[bytes, tuple[str, int]] = OrderedDict()
+        self._prompt_hashes: OrderedDict[
+            tuple[Optional[str], bytes], tuple[str, int]
+        ] = OrderedDict()
         self._lease_tasks: dict[int, asyncio.Task] = {}
 
     async def _call(self, method, *args, timeout=10):
@@ -45,11 +46,7 @@ class SGLangXavierHandoff:
         if not isinstance(handoff, dict) or handoff.get("mode") != mode:
             raise ValueError(f"Missing SGLang Xavier {mode} bootstrap metadata")
         validate_handoff_scope(handoff, cache_salt)
-        key = hashlib.sha256(
-            prompt.encode()
-            if cache_salt is None
-            else json.dumps([prompt, cache_scope(cache_salt)]).encode()
-        ).digest()
+        key = (cache_scope(cache_salt), hashlib.sha256(prompt.encode()).digest())
         cached = self._prompt_hashes.pop(key, None)
         if cached is None:
             tokens = self.tokenizer.encode(prompt)
