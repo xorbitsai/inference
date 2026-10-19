@@ -135,20 +135,26 @@ class AuthStore(Protocol):
     def set_config(self, key: str, value: str) -> None: ...
 
 
+def _is_sync_callable(value: Any) -> bool:
+    return callable(value) and not (
+        inspect.iscoroutinefunction(value)
+        or inspect.iscoroutinefunction(getattr(value, "__call__", None))
+    )
+
+
 def validate_auth_store(store: Any) -> AuthStore:
     """Reject incomplete or asynchronous providers before serving requests."""
     for name, member in AuthStore.__dict__.items():
         if name.startswith("_") or not inspect.isfunction(member):
             continue
         method = getattr(store, name, None)
-        if not callable(method) or inspect.iscoroutinefunction(method):
+        is_stub = getattr(method, "__func__", method) is member
+        if is_stub or not _is_sync_callable(method):
             raise TypeError(f"Auth store requires synchronous {name}()")
     if not hasattr(store, "permission_resolver"):
         raise TypeError("Auth store requires permission_resolver")
     resolver = store.permission_resolver
-    if resolver is not None and (
-        not callable(resolver) or inspect.iscoroutinefunction(resolver)
-    ):
+    if resolver is not None and not _is_sync_callable(resolver):
         raise TypeError("Auth store permission_resolver must be synchronous")
     path = getattr(store, "path", False)
     if path is not None and not isinstance(path, Path):

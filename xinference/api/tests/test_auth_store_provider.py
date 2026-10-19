@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 from xinference import extensions
 from xinference.api.oauth2.advanced import migrate, reset_password
 from xinference.api.oauth2.advanced.auth_service import AdvancedAuthService
-from xinference.api.oauth2.advanced.auth_store import create_auth_store
+from xinference.api.oauth2.advanced.auth_store import AuthStore, create_auth_store
 from xinference.api.oauth2.advanced.crypto import verify_password
 from xinference.api.oauth2.advanced.database import Database
 from xinference.api.oauth2.advanced.routes import register_advanced_auth_routes
@@ -93,8 +93,15 @@ def test_provider_can_explicitly_choose_default(monkeypatch, tmp_path):
     assert isinstance(create_auth_store(str(tmp_path / "auth.db")), Database)
 
 
-def test_real_routes_use_provider_and_live_permissions(monkeypatch, tmp_path):
+@pytest.mark.parametrize("callable_operation", [False, True])
+def test_real_routes_use_provider_and_live_permissions(
+    monkeypatch, tmp_path, callable_operation
+):
     store = AlternateStore(tmp_path / "provided.db")
+    if callable_operation:
+        store.update_password_and_revoke_tokens = Mock(
+            wraps=store.update_password_and_revoke_tokens
+        )
     requested = tmp_path / "must-not-create.db"
     contexts = []
 
@@ -243,17 +250,53 @@ def test_async_factory_is_rejected(monkeypatch, tmp_path):
     assert not (tmp_path / "provided.db").exists()
 
 
-@pytest.mark.parametrize("invalid", ["missing", "async", "path", "resolver"])
+@pytest.mark.parametrize("omit_operation", [None, "update_password_and_revoke_tokens"])
+def test_explicit_protocol_subclass_requires_every_operation(
+    monkeypatch, tmp_path, omit_operation
+):
+    backing = AlternateStore(tmp_path / "provided.db")
+    implementations = {
+        name: getattr(backing, name)
+        for name, member in vars(AuthStore).items()
+        if not name.startswith("_") and callable(member) and name != omit_operation
+    }
+    # Supply every operation except the selected one, which inherits the stub.
+    store = type(
+        "ExplicitStore",
+        (AuthStore,),
+        dict(implementations, path=None, permission_resolver=None),
+    )()
+    install(monkeypatch, lambda context: store)
+    requested = tmp_path / "must-not-create.db"
+    if omit_operation is None:
+        auth = AdvancedAuthService(str(requested), "test-jwt", "test-encryption")
+        assert auth.db is store
+    else:
+        with pytest.raises(TypeError, match=omit_operation):
+            AdvancedAuthService(str(requested), "test-jwt", "test-encryption")
+    assert not requested.exists()
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    ["missing", "async", "async_callable", "path", "resolver", "resolver_callable"],
+)
 def test_invalid_store_rejected_at_startup(monkeypatch, tmp_path, invalid):
     store = AlternateStore(tmp_path / "provided.db")
 
     async def async_operation(*args):
         pass
 
+    class AsyncOperation:
+        async def __call__(self, *args):
+            pass
+
     if invalid == "missing":
         store.create_user = None
     elif invalid == "async":
         store.rotate_refresh_token = async_operation
+    elif invalid == "async_callable":
+        store.update_password_and_revoke_tokens = AsyncOperation()
     elif invalid == "path":
         store = SimpleNamespace(
             **{
@@ -264,8 +307,10 @@ def test_invalid_store_rejected_at_startup(monkeypatch, tmp_path, invalid):
             permission_resolver=None,
         )
         store.path = "not-a-path"
-    else:
+    elif invalid == "resolver":
         store.permission_resolver = async_operation
+    else:
+        store.permission_resolver = AsyncOperation()
     install(monkeypatch, lambda context: store)
     requested = tmp_path / "unused.db"
     with pytest.raises(TypeError, match="Auth store"):
