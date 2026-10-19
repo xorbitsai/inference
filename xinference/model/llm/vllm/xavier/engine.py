@@ -105,7 +105,7 @@ class XavierEngine:
                     "and async_scheduling=False"
                 )
 
-        engine_args.kv_transfer_config = KVTransferConfig(
+        transfer_kwargs: Dict[str, Any] = dict(
             kv_connector=(
                 "CrossEngineConnector"
                 if xavier_config.get("heterogeneous")
@@ -118,14 +118,21 @@ class XavierEngine:
             ),
             engine_id=xavier_config.get("engine_id"),
             kv_role=kv_role,
-            kv_rank=xavier_config.get("kv_rank", kv_rank),
-            kv_parallel_size=xavier_config.get("kv_parallel_size", 2),
             kv_connector_extra_config=extra_config,
             kv_load_failure_policy=xavier_config.get(
                 "kv_load_failure_policy",
                 "fail" if xavier_config.get("heterogeneous") else "recompute",
             ),
         )
+        # vLLM 0.32 removed kv_rank and kv_parallel_size. Preserve them only
+        # when the installed configuration still declares these legacy fields.
+        fields = getattr(KVTransferConfig, "__dataclass_fields__", None) or {}
+        legacy = {
+            "kv_rank": xavier_config.get("kv_rank", kv_rank),
+            "kv_parallel_size": xavier_config.get("kv_parallel_size", 2),
+        }
+        transfer_kwargs.update({k: v for k, v in legacy.items() if k in fields})
+        engine_args.kv_transfer_config = KVTransferConfig(**transfer_kwargs)
 
     @classmethod
     def from_engine_args(
