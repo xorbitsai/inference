@@ -1,3 +1,4 @@
+# CI: linux
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
