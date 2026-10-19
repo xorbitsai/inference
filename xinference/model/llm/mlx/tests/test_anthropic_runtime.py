@@ -357,7 +357,17 @@ def test_added_checkpoint_is_prefilled_but_eviction_does_not_force_a_miss():
 
 
 @pytest.mark.parametrize("cls", [core.MLXModel, core.MLXVisionModel])
-def test_final_detokenizer_fragment_preserves_length_finish(cls):
+@pytest.mark.parametrize("elapsed,expected_speed", [(0.0, "0.00"), (0.5, "4.00")])
+def test_final_detokenizer_fragment_preserves_length_finish(
+    cls, elapsed, expected_speed, monkeypatch, caplog
+):
+    from unittest.mock import Mock
+
+    clock = Mock(wraps=core.time)
+    clock.time.return_value = 100.0
+    clock.perf_counter.side_effect = [100.0, 100.0 + elapsed]
+    monkeypatch.setattr(core, "time", clock)
+    caplog.set_level("INFO", logger=core.logger.name)
     model = object.__new__(cls)
     model.model_uid = "test"
     model._tokenizer = SimpleNamespace(eos_token_id=99)
@@ -388,6 +398,7 @@ def test_final_detokenizer_fragment_preserves_length_finish(cls):
     assert chunks[-1][0]["choices"][0]["finish_reason"] == "length"
     assert chunks[-1][1]["completion_tokens"] == 2
     assert model._prompt_cache.tokens == [1, 2]
+    assert f"Average generation speed: {expected_speed} tokens/s." in caplog.messages
 
 
 def test_structured_text_requests_have_independent_kv_caches(monkeypatch):

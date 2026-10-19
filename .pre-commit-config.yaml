@@ -1,4 +1,4 @@
-files: xinference
+files: ^(xinference/|\.github/scripts/tests/)
 repos:
   - repo: local
     hooks:
@@ -35,7 +35,7 @@ repos:
     rev: v1.15.0
     hooks:
       - id: mypy
-        additional_dependencies: ["tokenize-rt==3.2.0", "types-requests", "types-tabulate"]
+        additional_dependencies: ["tokenize-rt==3.2.0", "types-requests", "types-tabulate", "types-PyYAML"]
         args: [--ignore-missing-imports, --follow-imports, skip]
         exclude: ^xinference/(thirdparty|router/tokenizer_assets/[^/]+/)
   - repo: https://github.com/codespell-project/codespell

@@ -1691,7 +1691,7 @@ class MLXModel(LLM, ChatModelMixin):
 
         output_tokens = 0
         stopped = False
-        start = time.time()
+        start = time.perf_counter()
         tokens = []
         # For VLM models, let generate_step handle cache creation internally
         # to avoid incompatible cache types between mlx_lm and mlx_vlm
@@ -1757,9 +1757,9 @@ class MLXModel(LLM, ChatModelMixin):
             if stopped:
                 break
 
-        logger.info(
-            f"Average generation speed: {output_tokens / (time.time() - start):.2f} tokens/s."  # noqa: E231
-        )
+        elapsed = time.perf_counter() - start
+        generation_speed = output_tokens / elapsed if elapsed > 0 else 0.0
+        logger.info("Average generation speed: %.2f tokens/s.", generation_speed)
 
         if (
             self._prompt_cache
