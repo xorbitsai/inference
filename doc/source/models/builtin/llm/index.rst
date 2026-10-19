@@ -181,6 +181,11 @@ The following is a list of built-in LLM in Xinference:
      - 1048576
      - We introduce DeepSeek-V4.1-Flash, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively.
 
+   * - :ref:`deepseek-v4.1-flash-1017 <models_llm_deepseek-v4.1-flash-1017>`
+     - chat, vision, reasoning, hybrid, tools
+     - 1048576
+     - We introduce DeepSeek-V4.1-Flash-1017, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively.
+
    * - :ref:`deepseek-vl2 <models_llm_deepseek-vl2>`
      - chat, vision
      - 4096
@@ -931,6 +936,8 @@ The following is a list of built-in LLM in Xinference:
    deepseek-v4-pro
   
    deepseek-v4.1-flash
+
+   deepseek-v4.1-flash-1017
 
    deepseek-vl2
   

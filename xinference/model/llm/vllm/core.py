@@ -3022,7 +3022,8 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             if effective_version < version.parse("0.30.0.dev0"):
                 return (
                     False,
-                    "DeepSeek-V4.1-Flash requires vLLM >= 0.30.0.dev0 (nightly with DeepseekV41 support)",
+                    f"{llm_family.model_name} requires vLLM >= 0.30.0.dev0 "
+                    f"(nightly with DeepseekV41 support); found {effective_version}",
                 )
             _append_unique(supported_architectures, "DeepseekV41ForCausalLM")
         if effective_version >= version.parse("0.22.0"):
