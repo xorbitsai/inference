@@ -77,6 +77,7 @@ from ..constants import (
     XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE,
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_MONITOR_CONFIG_DB_PATH,
+    XINFERENCE_REQUIRE_CACHE_SALT,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
     XINFERENCE_SYSTEM_SETTINGS_PATH,
     XINFERENCE_TOKEN_ROUTER_ENABLED,
@@ -2249,6 +2250,29 @@ class RESTfulAPI(CancelMixin):
             return ex
         return e
 
+    @staticmethod
+    def _apply_cache_salt(request: Request, source: dict, *targets: dict) -> None:
+        from ..cache_isolation import validate_cache_salt
+        from ..extensions import resolve_cache_salt
+
+        try:
+            provided = resolve_cache_salt(request)
+        except Exception:
+            # Extension errors may contain credentials; do not log or echo them.
+            raise HTTPException(500, "Cache salt provider failed") from None
+        try:
+            salt = validate_cache_salt(
+                provided.value if provided is not None else source.get("cache_salt")
+            )
+            if XINFERENCE_REQUIRE_CACHE_SALT and salt is None:
+                raise ValueError("cache_salt is required")
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+        for target in (source, *targets):
+            target.pop("cache_salt", None)
+            if salt is not None:
+                target["cache_salt"] = salt
+
     async def create_completion(self, request: Request) -> Response:
         raw_body = await request.json()
         body = CreateCompletionRequest.parse_obj(raw_body)
@@ -2279,6 +2303,8 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("llm")
         self._check_model_access(request, model_uid, "LLM")
+
+        self._apply_cache_salt(request, raw_body, kwargs, raw_kwargs)
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -2574,6 +2600,7 @@ class RESTfulAPI(CancelMixin):
         try:
             body = await request.json()
             self._check_model_access(request, anthropic_request_model(body), "LLM")
+            self._apply_cache_salt(request, body)
             canonical = await asyncio.to_thread(parse_anthropic_request, body)
         except HTTPException as exc:
             return self._anthropic_error(
@@ -2608,6 +2635,8 @@ class RESTfulAPI(CancelMixin):
             )
 
         openai_body = canonical.to_openai_body()
+        if body.get("cache_salt") is not None:
+            openai_body["cache_salt"] = body["cache_salt"]
         if token_router_runtime is not None:
             if canonical.parallel_tool_calls is False:
                 return self._anthropic_error(
@@ -3060,6 +3089,7 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model_type("llm")
         try:
             self._check_model_access(request, model_uid, "LLM")
+            self._apply_cache_salt(request, raw_body, req.chat_body)
         except HTTPException as exc:
             return self._responses_error(
                 exc.status_code, str(exc.detail), headers=exc.headers
@@ -4680,6 +4710,7 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("llm")
         self._check_model_access(request, model_uid, "LLM")
+        self._apply_cache_salt(request, raw_body, kwargs, raw_kwargs)
 
         supervisor_ref = await self._get_supervisor_ref()
         token_router_runtime = None

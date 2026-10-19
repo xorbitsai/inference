@@ -10,6 +10,8 @@ from typing import Optional
 
 import xoscar as xo
 
+from .....cache_isolation import cache_scope
+from ...xavier.pd_contract import prompt_digest, validate_handoff_scope
 from .settings import transfer_timeout
 
 
@@ -35,16 +37,23 @@ class SGLangXavierHandoff:
 
         return await asyncio.wait_for(invoke(), timeout=timeout)
 
-    async def prepare(self, prompt: str, transfer: dict) -> dict:
+    async def prepare(
+        self, prompt: str, transfer: dict, cache_salt: Optional[str] = None
+    ) -> dict:
         handoff = transfer.get("sglang_xavier")
         mode = "host" if self.config.get("host_handoff") else "gpu"
         if not isinstance(handoff, dict) or handoff.get("mode") != mode:
             raise ValueError(f"Missing SGLang Xavier {mode} bootstrap metadata")
-        key = hashlib.sha256(prompt.encode()).digest()
+        validate_handoff_scope(handoff, cache_salt)
+        key = hashlib.sha256(
+            prompt.encode()
+            if cache_salt is None
+            else json.dumps([prompt, cache_scope(cache_salt)]).encode()
+        ).digest()
         cached = self._prompt_hashes.pop(key, None)
         if cached is None:
             tokens = self.tokenizer.encode(prompt)
-            prompt_hash = hashlib.sha256(json.dumps(tokens).encode()).hexdigest()
+            prompt_hash = prompt_digest(tokens, cache_salt)
             prompt_tokens = len(tokens)
         else:
             prompt_hash, prompt_tokens = cached
@@ -68,10 +77,12 @@ class SGLangXavierHandoff:
         await self._call("prepare", *arguments)
         return handoff
 
-    async def accept(self, prompt: str, transfer: dict) -> dict:
+    async def accept(
+        self, prompt: str, transfer: dict, cache_salt: Optional[str] = None
+    ) -> dict:
         if self.role != "decode":
             raise ValueError("Remote prefill requires a SGLang decode replica")
-        handoff = await self.prepare(prompt, transfer)
+        handoff = await self.prepare(prompt, transfer, cache_salt)
         room = handoff["room"]
         self._lease_tasks[room] = asyncio.create_task(self._renew_completed(room))
         return handoff

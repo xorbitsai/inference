@@ -17,6 +17,8 @@ from typing import List, Optional, Tuple
 
 import xxhash
 
+from ....cache_isolation import cache_scope
+
 
 def hash_block_tokens(
     is_first_block: bool,
@@ -24,6 +26,7 @@ def hash_block_tokens(
     cur_block_token_ids: List[int],
     extra_hash: Optional[int] = None,
     none_hash: int = -1,
+    cache_salt: Optional[str] = None,
 ) -> int:
     """
     Computes a stable hash value corresponding to the contents of a block
@@ -41,6 +44,7 @@ def hash_block_tokens(
         int(prev_block_hash) & 0xFFFFFFFFFFFFFFFF,
         tuple(cur_block_token_ids),
         int(extra_hash) & 0xFFFFFFFFFFFFFFFF,
+        cache_scope(cache_salt),
     )
 
 
@@ -50,6 +54,7 @@ def _hash_block_tokens(
     prev_block_hash: int,
     cur_block_token_ids: Tuple[int, ...],
     extra_hash: int,
+    scope: Optional[str] = None,
 ) -> int:
     # Cache whole hash inputs, including the predecessor. Identical token
     # chunks at different prefix positions must not share a content address.
@@ -76,6 +81,9 @@ def _hash_block_tokens(
 
     # 5. extra_hash: int64
     buf += struct.pack("<Q", int(extra_hash) & 0xFFFFFFFFFFFFFFFF)
+
+    if scope is not None:
+        buf += b"cache-salt-v1" + bytes.fromhex(scope)
 
     # xxhash64, fixed seed for determinism
     return xxhash.xxh64_intdigest(bytes(buf), seed=0)

@@ -95,6 +95,32 @@ async def test_cross_prepare_checks_actual_token_ids_once(cross_module):
         await instance._prepare(request)
 
 
+@pytest.mark.asyncio
+async def test_cross_prepare_checks_native_request_scope(cross_module):
+    from xinference.cache_isolation import cache_scope
+
+    instance = cross_module.CrossEngineConnector.__new__(
+        cross_module.CrossEngineConnector
+    )
+    instance._xavier_config = {}
+    request = SimpleNamespace(
+        prompt_token_ids=[1, 2, 3],
+        cache_salt="a",
+        kv_transfer_params={
+            "sglang_xavier": {
+                "mode": "gpu",
+                "room": 1,
+                "cache_scope": cache_scope("a"),
+            },
+            "xavier_prompt_digest": cross_module.prompt_digest([1, 2, 3], "a"),
+        },
+    )
+    assert await instance._prepare(request) == 1
+    request.cache_salt = "b"
+    with pytest.raises(ValueError, match="scope mismatch"):
+        await instance._prepare(request)
+
+
 @pytest.mark.parametrize(
     "option,value",
     [

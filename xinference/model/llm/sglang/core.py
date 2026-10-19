@@ -35,6 +35,7 @@ from typing import (
 
 from xoscar.utils import get_next_port
 
+from ....cache_isolation import redact_cache_salt, validate_cache_salt
 from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....types import (
     ChatCompletion,
@@ -192,6 +193,7 @@ LING3_FLASH_SGLANG_LAUNCH_TIMEOUT = 900.0
 
 
 class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
+    supports_cache_salt = True
     _weight_cache_engine = "sglang"
     allow_batch = True
     support_draft_model = True
@@ -569,6 +571,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         if generate_config is None:
             generate_config = SGLANGGenerateConfig()
 
+        validate_cache_salt(generate_config.get("cache_salt"))
         generate_config.setdefault("presence_penalty", 0.0)
         generate_config.setdefault("frequency_penalty", 0.0)
         generate_config.setdefault("temperature", 1.0)
@@ -1349,7 +1352,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                     if getattr(self, "_model_config", {}).get("reasoning_parser"):
                         sanitized_generate_config["require_reasoning"] = False
         logger.debug(
-            "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
+            "Enter generate, prompt: %s, generate config: %s",
+            prompt,
+            redact_cache_salt(generate_config),
         )
         stream = sanitized_generate_config.pop("stream")
         stream_options = sanitized_generate_config.pop("stream_options")
@@ -1365,10 +1370,13 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             nonlocal pending_handoff, handoff
             if transfer is None:
                 return
+            options = {}
+            if getattr(self, "_xavier_handoff", None) is not None:
+                options["cache_salt"] = (generate_config or {}).get("cache_salt")
             if prefill:
-                pending_handoff = await pd.prepare(prompt, transfer)
+                pending_handoff = await pd.prepare(prompt, transfer, **options)
             else:
-                handoff = await pd.accept(prompt, transfer)
+                handoff = await pd.accept(prompt, transfer, **options)
             active_handoff = pending_handoff if prefill else handoff
             assert active_handoff is not None
             cast(Dict[str, Any], sanitized_generate_config).update(

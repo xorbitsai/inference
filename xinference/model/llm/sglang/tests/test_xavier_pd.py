@@ -367,6 +367,50 @@ def fingerprint_handoff():
     return h
 
 
+@pytest.mark.asyncio
+async def test_salted_rooms_bind_digest_and_reject_mismatched_scope():
+    from xinference.cache_isolation import cache_scope
+
+    from ...xavier.pd_contract import prompt_digest
+
+    handoff = fingerprint_handoff()
+    for salt in ("a", "b", "a"):
+        transfer = dict(
+            sglang_xavier=dict(mode="gpu", room=1, cache_scope=cache_scope(salt))
+        )
+        await handoff.prepare("prompt", transfer, cache_salt=salt)
+        assert handoff._directory_actor.prepare.call_args.args[2] == prompt_digest(
+            list(b"prompt"), salt
+        )
+    assert handoff.tokenizer.encode.call_count == 2
+    with pytest.raises(ValueError, match="scope mismatch"):
+        await handoff.prepare("prompt", transfer, cache_salt="b")
+
+
+@pytest.mark.asyncio
+async def test_salted_pd_generation_keeps_native_radix_scope(deployment):
+    from xinference.cache_isolation import cache_scope
+
+    actor, prefill, decode = deployment
+    configs = [config(role, cache_salt="scope") for role in ("prefill", "decode")]
+    for value in configs:
+        value["_pd_kv_transfer_params"]["sglang_xavier"]["cache_scope"] = cache_scope(
+            "scope"
+        )
+
+    async def generated(*args, **kwargs):
+        await actor.complete(123, 4096)
+        return prefill._non_stream_generate.return_value
+
+    decode._non_stream_generate.side_effect = generated
+    await asyncio.gather(
+        prefill.async_generate("prompt", configs[0]),
+        decode.async_generate("prompt", configs[1]),
+    )
+    for model in (prefill, decode):
+        assert model._non_stream_generate.call_args.kwargs["cache_salt"] == "scope"
+
+
 async def prepare(h, prompt, room=1):
     return await h.prepare(prompt, dict(sglang_xavier=dict(mode="gpu", room=room)))
 

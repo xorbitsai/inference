@@ -221,6 +221,35 @@ def test_mlx_batch_generator_stores_reusable_prefix():
     assert model._prompt_cache.inserted[0][0][1] is not cached_tokens
 
 
+def test_batch_local_prefix_cache_is_scoped_per_uid():
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from ..core import MLXBatchModel
+
+    batch = object.__new__(MLXBatchModel)
+    batch._prompt_cache_model_key = 123
+    state = {"cache_boundaries": {1: 3, 2: 3}, "cache_salts": {1: "a", 2: "b"}}
+    generator = SimpleNamespace(
+        extract_cache=lambda uids: {uids[0]: ([object()], [1, 2, 3])}
+    )
+    batch._prompt_cache = MagicMock()
+    batch._store_segment_prompt_caches(
+        generator, [SimpleNamespace(uid=i, end_of_segment=True) for i in (1, 2)], state
+    )
+    keys = [call.args[0] for call in batch._prompt_cache.insert_cache.call_args_list]
+    assert keys == [
+        batch._scoped_prompt_cache_key("a"),
+        batch._scoped_prompt_cache_key("b"),
+    ]
+    assert keys[0] != keys[1] != batch._scoped_prompt_cache_key(None)
+    batch._prompt_cache.fetch_nearest_cache.return_value = (None, [1, 2, 3, 4])
+    batch._fetch_prompt_cache([1, 2, 3, 4], "a")
+    batch._prompt_cache.fetch_nearest_cache.assert_called_once_with(
+        keys[0], [1, 2, 3, 4]
+    )
+
+
 @pytest.mark.asyncio
 async def test_mlx_batch_generator_reports_cached_tokens(monkeypatch):
     from ..core import MLXBatchModel

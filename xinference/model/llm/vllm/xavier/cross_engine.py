@@ -16,7 +16,11 @@ from vllm.distributed.kv_transfer.kv_connector.v1.base import KVConnectorMetadat
 from ...xavier.actor_loop import release_actor_loop
 from ...xavier.backends.torch.pd import CrossEngineGPUActor, canonical_vllm_views
 from ...xavier.contract import KVCacheContract
-from ...xavier.pd_contract import build_pd_contract, prompt_digest
+from ...xavier.pd_contract import (
+    build_pd_contract,
+    prompt_digest,
+    validate_handoff_scope,
+)
 from ...xavier.transport import gpu_pool_options
 from .v1_connector import XavierConnector
 
@@ -158,9 +162,10 @@ class CrossEngineConnector(XavierConnector):
         mode = "host" if self._xavier_config.get("host_handoff") else "gpu"
         if not isinstance(handoff, dict) or handoff.get("mode") != mode:
             raise ValueError("Missing cross-engine Xavier handoff room")
+        validate_handoff_scope(handoff, getattr(request, "cache_salt", None))
         room = handoff["room"]
         if params.get("xavier_prompt_digest") != prompt_digest(
-            request.prompt_token_ids
+            request.prompt_token_ids, getattr(request, "cache_salt", None)
         ):
             raise ValueError(
                 "Cross-engine Xavier prompt was not prepared with these token IDs"

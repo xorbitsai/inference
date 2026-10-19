@@ -47,6 +47,7 @@ def get_llm_version_infos():
 
 
 class LLM(abc.ABC):
+    supports_cache_salt = False
     allow_batch = False
     supports_tool_controls = False
     # whether the engine can run speculative decoding with a paired drafter

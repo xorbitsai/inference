@@ -87,6 +87,48 @@ async def test_infer_preserves_decode_config(router, method):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vllm", "sglang", "mlx", "heterogeneous"])
+async def test_pd_preserves_request_salt(router, engine):
+    from xinference.cache_isolation import cache_scope
+
+    actor, prefill, decode = router
+    actor._model_engine = engine
+    actor._transport_backend = "xavier"
+    actor._direct_handoff = True
+    key = "mlx_xavier" if engine == "mlx" else "xavier_direct"
+    prefill.generate.return_value = {
+        "_pd_kv_transfer_params": {
+            "do_remote_prefill": True,
+            key: {"cache_scope": cache_scope("scope")},
+        }
+    }
+    config = {"cache_salt": "scope", "max_tokens": 4}
+    raw = dict(config)
+    await actor._infer("generate", "prompt", config, raw_params=raw)
+    for model in (prefill, decode):
+        call = model.generate.call_args
+        assert (
+            call.args[1]["cache_salt"]
+            == call.kwargs["raw_params"]["cache_salt"]
+            == "scope"
+        )
+        if engine in ("sglang", "heterogeneous"):
+            assert call.args[1]["_pd_kv_transfer_params"]["sglang_xavier"][
+                "cache_scope"
+            ] == cache_scope("scope")
+    assert config == raw == {"cache_salt": "scope", "max_tokens": 4}
+
+
+@pytest.mark.asyncio
+async def test_pd_rejects_wrong_prefill_scope_before_decode(router):
+    actor, prefill, decode = router
+    actor._direct_handoff = True
+    with pytest.raises(ValueError, match="scope mismatch"):
+        await actor._infer("generate", "prompt", {"cache_salt": "scope"})
+    decode.generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_cross_engine_allows_plain_text_response_format(router):
     actor, prefill, decode = router
     actor._model_engine = "heterogeneous"

@@ -31,6 +31,98 @@ def contract():
     )
 
 
+@pytest.mark.parametrize("length", [1, 63, 64, 65, 128, 130])
+def test_salt_isolates_complete_and_partial_pages(length):
+    client = MLXXavierCache(contract(), {})
+    tokens = list(range(length))
+    a, b, public = [client.keys(tokens, salt) for salt in ("a", "b", None)]
+    assert not (set(a) & set(b + public))
+    assert a == client.keys(tokens, "a")
+
+
+@metal
+@pytest.mark.asyncio
+async def test_salted_metal_pages_share_only_with_same_scope():
+    import mlx.core as mx
+    from mlx_lm.models.cache import make_prompt_cache
+
+    tokens = [i % 128 for i in range(130)]
+    m = model()
+    cache = make_prompt_cache(m)
+    m(mx.array([tokens[:-1]]), cache=cache)
+    mx.eval([entry.state for entry in cache])
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        ref = await xo.create_actor(
+            XavierBytesCacheActor,
+            1024 * 1024,
+            address=pool.external_address,
+            uid="salted-cache",
+        )
+        cfg = dict(address=ref.address, uid=ref.uid)
+        writer, reader = MLXXavierCache(contract(), cfg), MLXXavierCache(
+            contract(), cfg
+        )
+        task = writer.publish(cache, tokens[:-1], cache_salt="a")
+        await writer.flush([task])
+        assert await reader.fetch(tokens, cache_salt="b") == (None, 0)
+        assert await reader.fetch(tokens) == (None, 0)
+        restored, count = await reader.fetch(tokens, cache_salt="a")
+        assert count == len(tokens) - 1
+
+        for expected, actual in zip(cache, restored):
+            for left, right in zip(expected.state, actual.state):
+                assert mx.all(left[:, :, :count] == right).item()
+        p = MLXXavierCache(contract(), dict(cfg, role="prefill"))
+        d = MLXXavierCache(contract(), dict(cfg, role="decode"))
+        transfer = await p.prefill(m, tokens, generate_config={"cache_salt": "a"})
+        with pytest.raises(ValueError, match="scope mismatch"):
+            await d.fetch(tokens, transfer, cache_salt="b")
+        _, count = await d.fetch(tokens, transfer, cache_salt="a")
+        assert count == len(tokens) - 1
+
+
+@metal
+def test_salted_native_mlx_lru_cache():
+    import mlx.core as mx
+    from mlx_lm.models.cache import LRUPromptCache, make_prompt_cache
+
+    from ..core import MLXBatchModel, MLXModel, PromptCache
+
+    m = model()
+    tokens = list(range(64))
+    cache = make_prompt_cache(m)
+    m(mx.array([tokens]), cache=cache)
+    mx.eval([entry.state for entry in cache])
+    batch = object.__new__(MLXBatchModel)
+    batch._prompt_cache = LRUPromptCache(max_size=4)
+    batch._prompt_cache_model_key = id(m)
+    batch._prompt_cache.insert_cache(batch._scoped_prompt_cache_key("a"), tokens, cache)
+    assert batch._fetch_prompt_cache(tokens + [1], "b")[2] == 0
+    assert batch._fetch_prompt_cache(tokens + [1])[2] == 0
+    assert batch._fetch_prompt_cache(tokens + [1], "a")[2] == 64
+
+    serial = object.__new__(MLXModel)
+    serial._prompt_cache = PromptCache()
+    serial._model, serial._max_kv_size, serial.model_path, serial.model_uid = (
+        m,
+        None,
+        "model",
+        "m",
+    )
+    assert serial._get_prompt_cache([1, 2], cache_salt="a") == [1, 2]
+    assert serial._get_prompt_cache([1, 2, 3], cache_salt="a") == [3]
+    assert serial._get_prompt_cache([1, 2, 3, 4], cache_salt="b") == [1, 2, 3, 4]
+    serial._model_config = {}
+    tokens = [1, 2, 3]
+    for salt, expected in (("a", 0), ("a", 2), ("b", 0), ("b", 2), (None, 0)):
+        config = {"cache_salt": salt}
+        assert (
+            serial._prepare_explicit_prompt_cache(tokens, [(2, 300)], config)[2]
+            == expected
+        )
+
+
 def model(model_type="qwen2"):
     import mlx.core as mx
 
