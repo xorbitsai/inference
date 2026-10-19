@@ -6,14 +6,11 @@ on:
       - main
   pull_request:
     types: ['opened', 'reopened', 'synchronize', 'ready_for_review']
-  # Full cross-platform coverage at 03:00 Asia/Shanghai, plus a manual
-  # pre-release entry point. PRs and main pushes use the path-selected matrix.
-  schedule:
-    - cron: '0 19 * * *'
+  # Manual full-suite entry point for pre-release checks.
   workflow_dispatch:
 
 concurrency:
-  # Main pushes must not cancel the nightly/manual full matrix.
+  # Main pushes must not cancel manual full-suite checks.
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
@@ -38,12 +35,12 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-      - name: Test CI platform selection
-        run: python -m unittest discover -s .github/scripts/tests -v
       - name: Install pre-commit
         run: pip install pre-commit
       - name: Run pre-commit
         run: pre-commit run --all-files
+      - name: Test CI workflow
+        run: python -m unittest discover -s .github/scripts/tests -v
       - name: Set up Node.js
         uses: actions/setup-node@v1
         with:
@@ -79,17 +76,15 @@ jobs:
     outputs:
       gpu: ${{ steps.gpu.outputs.gpu }}
       groups: ${{ steps.gpu.outputs.groups }}
-      matrix: ${{ steps.platform.outputs.matrix }}
+      platform: ${{ steps.platform.outputs.platform }}
+      metal: ${{ steps.platform.outputs.metal }}
+      platform_suite: ${{ steps.platform.outputs.suite }}
     steps:
       - name: Check out code
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
-
-      - name: Select platform test matrix
-        id: platform
-        run: python .github/scripts/ci_platform_matrix.py
 
       - name: Detect GPU CI changes
         id: gpu
@@ -110,6 +105,7 @@ jobs:
           fi
 
           full=false
+          diff_available=true
           llm=false; embedding=false; image=false; audio=false
 
           # Fall back to a full run when there is no usable diff base (new
@@ -117,6 +113,7 @@ jobs:
           if [ -z "$base_sha" ] || [[ "$base_sha" =~ ^0+$ ]] \
               || ! git diff --name-only "$diff_range" > changed-files.txt 2>/dev/null; then
             full=true
+            diff_available=false
           else
             # Map each changed path to the GPU test group(s) it affects.
             # Paths matching no pattern (docs, examples, web UI, other
@@ -190,24 +187,70 @@ jobs:
           [ -z "$groups" ] && gpu=false
           echo "gpu=$gpu" >> "$GITHUB_OUTPUT"
           echo "groups=$groups" >> "$GITHUB_OUTPUT"
+          echo "diff_available=$diff_available" >> "$GITHUB_OUTPUT"
           echo "GPU CI required: $gpu (groups: ${groups:-none})"
+
+      - name: Detect platform test changes
+        id: platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          platform=false; metal=false; suite=smoke
+
+          # Manual checks and unavailable diffs retain the full suite.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] \
+              || [ "${{ steps.gpu.outputs.diff_available }}" != "true" ]; then
+            platform=true; metal=true; suite=full
+          else
+            while IFS= read -r file; do
+              case "$file" in
+                .github/workflows/python.yaml|.github/platform-smoke-tests.txt|.github/requirements/*|.github/scripts/*|pyproject.toml|setup.cfg|setup.py|MANIFEST.in|build_backend.py|build_web.py)
+                  platform=true; metal=true; suite=full; break ;;
+                xinference/ui/*) continue ;;
+                xinference/*|scripts/*) platform=true ;;
+              esac
+
+              case "$file" in
+                # MLX uses SGLang's Xavier settings and directory.
+                xinference/model/llm/sglang/xavier/*) metal=true ;;
+                # Other engine implementations do not affect Metal.
+                xinference/model/llm/llama_cpp/*|xinference/model/llm/lmdeploy/*|xinference/model/llm/sglang/*|xinference/model/llm/transformers/*|xinference/model/llm/vllm/*) ;;
+                xinference/model/llm/*|xinference/model/audio/*|xinference/model/scheduler/*|xinference/thirdparty/*) metal=true ;;
+                xinference/model/*)
+                  # Top-level model modules are shared by every engine.
+                  if [[ "${file#xinference/model/}" != */* ]]; then
+                    metal=true
+                  fi
+                  ;;
+                xinference/*) metal=true ;;
+              esac
+            done < changed-files.txt
+          fi
+
+          echo "platform=$platform" >> "$GITHUB_OUTPUT"
+          echo "metal=$metal" >> "$GITHUB_OUTPUT"
+          echo "suite=$suite" >> "$GITHUB_OUTPUT"
+          echo "Platform CI: $platform (suite: $suite); Metal CI: $metal"
 
   build_test_job:
     name: build_test_job (${{ matrix.os }}, ${{ matrix.python-version }}, ${{ matrix.module }})
     runs-on: ${{ matrix.os }}
     needs: [lint, changes]
-    # Draft PRs skip changes; do not parse an empty matrix output for them.
-    if: ${{ needs.changes.outputs.matrix != '' }}
     env:
       CONDA_ENV: test
-    defaults:
+      TEST_SUITE: full
+    defaults: &python-test-defaults
       run:
         shell: bash -l {0}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
+      matrix:
+        os: [ "ubuntu-latest" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        module: [ "xinference" ]
 
-    steps:
+    # Share installation and test commands with the platform jobs below.
+    steps: &python-test-steps
       - name: Check out code
         uses: actions/checkout@v7
         with:
@@ -333,7 +376,7 @@ jobs:
       - name: Test with pytest
         env:
           MODULE: ${{ matrix.module }}
-          SUITE: ${{ matrix.suite }}
+          SUITE: ${{ env.TEST_SUITE }}
           TEST_PLATFORM: ${{ matrix.os }}
           PYTORCH_MPS_HIGH_WATERMARK_RATIO: 1.0
           PYTORCH_MPS_LOW_WATERMARK_RATIO: 0.2
@@ -461,12 +504,47 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
 
+  platform_test_job:
+    name: build_test_job (${{ matrix.os }}, ${{ matrix.python-version }}, xinference)
+    needs: [lint, changes]
+    if: ${{ needs.changes.outputs.platform == 'true' }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CONDA_ENV: test
+      TEST_SUITE: ${{ needs.changes.outputs.platform_suite }}
+    defaults: *python-test-defaults
+    strategy:
+      fail-fast: false
+      # Both Python endpoints always use the same trigger and test suite.
+      matrix:
+        os: [ "macos-latest", "windows-latest" ]
+        python-version: [ "3.10", "3.14" ]
+        module: [ "xinference" ]
+    steps: *python-test-steps
+
+  metal_test_job:
+    name: build_test_job (${{ matrix.os }}, ${{ matrix.python-version }}, metal)
+    needs: [lint, changes]
+    if: ${{ needs.changes.outputs.metal == 'true' }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CONDA_ENV: test
+      TEST_SUITE: metal
+    defaults: *python-test-defaults
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "macos-latest" ]
+        python-version: [ "3.10" ]
+        module: [ "metal" ]
+    steps: *python-test-steps
+
   gpu_test_job:
     name: build_test_job (gpu-t4, gpu, 3.12)
     runs-on: gpu-t4
     needs: [lint, changes]
     # Runners are billed per-minute: skip when no GPU-relevant path changed.
-    # PRs and runs on main are eligible, including scheduled/manual full runs;
+    # PRs and runs on main are eligible, including manual full runs;
     # a push to a PR branch already triggers the pull_request run.
     if: ${{ needs.changes.outputs.gpu == 'true' && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') }}
     timeout-minutes: 90

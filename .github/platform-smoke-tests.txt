@@ -1,5 +1,5 @@
 # Windows/macOS PR checks run on both Python 3.10 and 3.14.
-# Full integration coverage runs on Linux and in the scheduled/manual matrix.
+# Full integration coverage runs on Linux and in manual/CI/dependency checks.
 # Keep real local/distributed actor transport and one small GGUF model alongside
 # platform-sensitive units.
 # Keep selectors in path order, as in the full pytest collection.
