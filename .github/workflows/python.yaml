@@ -35,8 +35,8 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-      - name: Install pre-commit
-        run: pip install pre-commit
+      - name: Install lint and workflow test dependencies
+        run: pip install pre-commit pytest
       - name: Run pre-commit
         run: pre-commit run --all-files
       - name: Test CI workflow
@@ -195,7 +195,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          platform=false; metal=false; suite=smoke
+          platform=false; metal=false; suite=fast
 
           # Manual checks and unavailable diffs retain the full suite.
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] \
@@ -204,7 +204,7 @@ jobs:
           else
             while IFS= read -r file; do
               case "$file" in
-                .github/workflows/python.yaml|.github/platform-smoke-tests.txt|.github/requirements/*|.github/scripts/*|pyproject.toml|setup.cfg|setup.py|MANIFEST.in|build_backend.py|build_web.py)
+                .github/workflows/python.yaml|.github/requirements/*|.github/scripts/*|pyproject.toml|setup.cfg|setup.py|MANIFEST.in|build_backend.py|build_web.py)
                   platform=true; metal=true; suite=full; break ;;
                 xinference/ui/*) continue ;;
                 xinference/*|scripts/*) platform=true ;;
@@ -391,11 +391,32 @@ jobs:
           if [ "$TEST_PLATFORM" == "ubuntu-latest" ] && [ "${{ matrix.python-version }}" == "3.10" ]; then
             coverage=(--cov-config=pyproject.toml --cov-report=xml --cov=xinference)
           fi
+          # Discover the same suite as Linux. Only explicitly marked model
+          # integration cases are excluded from fast Windows/macOS checks;
+          # new unmarked files and tests are included automatically.
+          selection=()
+          if [ "$SUITE" == "fast" ]; then
+            selection=(-m "not platform_slow")
+          fi
+          # Only exercise engine-specific code on platforms that support it.
+          platform_ignores=()
+          if [ "$TEST_PLATFORM" != "ubuntu-latest" ]; then
+            platform_ignores+=(
+              --ignore xinference/model/llm/lmdeploy
+              --ignore xinference/model/embedding/vllm
+              --ignore xinference/model/rerank/vllm
+            )
+          fi
+          if [ "$TEST_PLATFORM" == "windows-latest" ]; then
+            platform_ignores+=(--ignore xinference/model/llm/xavier)
+          fi
           run_pytest() {
             pytest --timeout=3000 \
               --durations=30 \
               -W ignore::PendingDeprecationWarning \
               "${coverage[@]}" \
+              "${selection[@]}" \
+              "${platform_ignores[@]}" \
               "$@"
           }
 
@@ -418,22 +439,6 @@ jobs:
               echo "::endgroup::"
             done
             [ "$status" -eq 0 ]
-          elif [ "$SUITE" == "smoke" ]; then
-            tests=()
-            while IFS= read -r test_path; do
-              case "$test_path" in
-                ''|\#*) continue ;;
-              esac
-              tests+=("$test_path")
-            done < .github/platform-smoke-tests.txt
-            [ "${#tests[@]}" -gt 0 ]
-            # Download/cancellation integration tests remain in the full
-            # suite; the small GGUF test is this suite's inference smoke.
-            run_pytest -vv \
-              --deselect xinference/model/tests/test_utils.py::test_download_hugginface \
-              --deselect xinference/model/tests/test_utils.py::test_download_modelscope \
-              --deselect xinference/model/tests/test_utils.py::test_cancel \
-              "${tests[@]}"
           else
             run_pytest \
               -vv \
@@ -450,6 +455,11 @@ jobs:
               --ignore xinference/client/tests/test_async_client.py \
               --ignore xinference/model/llm/mlx \
               xinference
+          fi
+
+          if [ "$MODULE" != "metal" ] && [ "$TEST_PLATFORM" == "ubuntu-latest" ]; then
+            # Linux-only engine/P-D regressions. These do not belong to the
+            # Windows or macOS engine support paths.
             run_pytest \
               -vv \
               benchmark/tests/test_benchmark_pd.py \
@@ -466,9 +476,6 @@ jobs:
               xinference/model/llm/vllm/tests/test_anthropic_controls.py \
               xinference/model/llm/vllm/tests/test_reasoning_adapter.py \
               xinference/model/llm/vllm/tests/test_core_chat_model.py::TestVLLMSanitizeGenerateConfig \
-              xinference/model/llm/mlx/tests/test_anthropic_runtime.py \
-              xinference/model/llm/mlx/tests/test_structured.py \
-              xinference/model/llm/mlx/tests/test_context_length.py \
               xinference/model/llm/vllm/tests/test_distributed_executor_v1.py \
               xinference/model/llm/vllm/tests/test_executor_routing.py \
               xinference/model/llm/vllm/tests/test_speculative_config.py \
@@ -493,6 +500,16 @@ jobs:
               xinference/model/llm/vllm/xavier/test/test_request_transfer.py \
               xinference/model/llm/vllm/xavier/test/test_transfer_blocks.py \
               xinference/model/llm/vllm/xavier/test/test_review_regressions.py
+          fi
+
+          if [ "$MODULE" != "metal" ] && [ "$TEST_PLATFORM" == "macos-latest" ]; then
+            # Discover MLX unit tests on macOS; native Metal integration
+            # files remain in the dedicated Metal job above.
+            run_pytest -vv \
+              --ignore xinference/model/llm/mlx/tests/test_mlx.py \
+              --ignore xinference/model/llm/mlx/tests/test_xavier.py \
+              --ignore xinference/model/llm/mlx/tests/test_distributed_model.py \
+              xinference/model/llm/mlx/tests
           fi
         working-directory: .
 

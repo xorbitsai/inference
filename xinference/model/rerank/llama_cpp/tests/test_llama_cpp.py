@@ -107,6 +107,7 @@ def test_gguf_rerank_defaults_engine_and_quantization(tmp_path, monkeypatch):
     assert model._quantization == "Q4_K_M"
 
 
+@pytest.mark.platform_slow
 def test_rerank_model_with_xllamacpp():
     model_path = None
     try:

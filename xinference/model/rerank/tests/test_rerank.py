@@ -15,6 +15,7 @@
 import json
 import os
 import shutil
+import sys
 import tempfile
 
 import pytest
@@ -67,19 +68,29 @@ def test_causal_lm_rerank_forward_kwargs_handles_uninspectable_forward():
 
 
 @pytest.mark.parametrize("model_name", ["bge-reranker-v2-m3", "bge-reranker-base"])
-@pytest.mark.parametrize("model_engine", ["sentence_transformers", "vllm"])
-def test_restful_api(model_name, model_engine, setup):
+@pytest.mark.parametrize(
+    "model_engine",
+    [
+        "sentence_transformers",
+        pytest.param(
+            "vllm",
+            marks=pytest.mark.skipif(
+                sys.platform != "linux", reason="vLLM requires Linux"
+            ),
+        ),
+    ],
+)
+@pytest.mark.platform_slow
+def test_restful_api(model_name, model_engine, request):
     if model_name == "bge-reranker-base" and model_engine == "vllm":
         pytest.skip("bge-reranker-base exceeds the max_model_len( 560 > 512 ) of vllm")
     if model_engine == "vllm":
         pytest.importorskip("vllm", reason="vllm is not installed")
 
     # Skip network-intensive tests on CI to avoid timeout issues
-    import os
-
     if os.environ.get("CI") and model_engine == "sentence_transformers":
         pytest.skip("Skip network-intensive rerank test on CI to avoid timeout")
-    endpoint, _ = setup
+    endpoint, _ = request.getfixturevalue("setup")
     client = Client(endpoint)
 
     model_uid = client.launch_model(

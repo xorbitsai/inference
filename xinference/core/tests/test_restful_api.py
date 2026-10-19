@@ -72,6 +72,7 @@ async def test_rerank_multimodal_inputs_pass_through(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.platform_slow
 async def test_restful_api(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
@@ -350,6 +351,7 @@ async def test_restful_api(setup):
     assert custom_model_reg is None
 
 
+@pytest.mark.platform_slow
 def test_restful_api_for_embedding(setup):
     model_name = "gte-base"
     # BUILTIN_EMBEDDING_MODELS stores a list of model families for each model name
@@ -1074,6 +1076,7 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     # _check_invalid_tool_calls(endpoint, model_uid_res)
 
 
+@pytest.mark.platform_slow
 def test_restful_api_with_request_limits(setup):
     model_name = "gte-base"
 
@@ -1140,6 +1143,7 @@ def test_restful_api_with_request_limits(setup):
 @pytest.mark.skipif(
     sys.platform == "win32", reason="Window CI hangs after run this case."
 )
+@pytest.mark.platform_slow
 async def test_openai(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
@@ -1203,6 +1207,7 @@ async def test_openai(setup):
     assert type(result).__name__ == response_type_name
 
 
+@pytest.mark.platform_slow
 def test_lang_chain(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
@@ -1500,6 +1505,7 @@ async def test_qwen38_conflicting_reasoning_effort_raises_400(monkeypatch, model
     model.chat.assert_not_called()
 
 
+@pytest.mark.platform_slow
 def test_launch_model_async(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models?wait_ready=false"
@@ -1542,6 +1548,7 @@ def test_launch_model_async(setup):
     assert len(response.json()) == 0
 
 
+@pytest.mark.platform_slow
 def test_cancel_launch_model(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models?wait_ready=false"
@@ -1581,6 +1588,7 @@ def test_cancel_launch_model(setup):
             break
 
 
+@pytest.mark.platform_slow
 def test_events(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
@@ -1621,6 +1629,7 @@ def test_events(setup):
     assert "Terminate" in response_data[1]["event_content"]
 
 
+@pytest.mark.platform_slow
 def test_launch_model_by_version(setup):
     endpoint, supervisor_addr = setup
     url = f"{endpoint}/v1/models/instance"

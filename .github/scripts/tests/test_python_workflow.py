@@ -1,7 +1,10 @@
 """Check static platform matrices and their path selection in Python CI."""
 
+import ast
+import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,6 +20,48 @@ PLATFORM_STEP = next(
 
 
 class TestPythonWorkflow(unittest.TestCase):
+    def commands(self, platform, version="3.10", suite="fast"):
+        step = next(
+            step
+            for step in JOBS["build_test_job"]["steps"]
+            if step.get("name") == "Test with pytest"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            (work / "bin").mkdir()
+            fake_pytest = work / "bin/pytest"
+            fake_pytest.write_text(
+                f"#!{sys.executable}\n"
+                "import json, os, sys\n"
+                "with open(os.environ['TRACE'], 'a') as trace:\n"
+                "    trace.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+            )
+            fake_pytest.chmod(0o755)
+            trace = work / "trace"
+            subprocess.run(
+                [
+                    "bash",
+                    "-e",
+                    "-o",
+                    "pipefail",
+                    "-c",
+                    step["run"].replace("${{ matrix.python-version }}", version),
+                ],
+                cwd=work,
+                env={
+                    **os.environ,
+                    "PATH": str(work / "bin") + os.pathsep + os.environ["PATH"],
+                    "TRACE": str(trace),
+                    "MODULE": "xinference",
+                    "SUITE": suite,
+                    "TEST_PLATFORM": platform,
+                },
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            return [json.loads(line) for line in trace.read_text().splitlines()]
+
     def select(self, paths, *, event="pull_request", diff_available=True):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
@@ -83,7 +128,7 @@ class TestPythonWorkflow(unittest.TestCase):
             with self.subTest(paths=paths):
                 self.assertEqual(
                     self.select(paths),
-                    {"platform": "false", "metal": "false", "suite": "smoke"},
+                    {"platform": "false", "metal": "false", "suite": "fast"},
                 )
 
     def test_shared_runtime_and_mlx_changes_run_platforms_and_metal(self):
@@ -107,7 +152,7 @@ class TestPythonWorkflow(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(
                     self.select([path]),
-                    {"platform": "true", "metal": "true", "suite": "smoke"},
+                    {"platform": "true", "metal": "true", "suite": "fast"},
                 )
 
     def test_other_engines_and_scripts_do_not_trigger_metal(self):
@@ -124,13 +169,12 @@ class TestPythonWorkflow(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(
                     self.select([path]),
-                    {"platform": "true", "metal": "false", "suite": "smoke"},
+                    {"platform": "true", "metal": "false", "suite": "fast"},
                 )
 
     def test_infrastructure_changes_require_full_coverage(self):
         for path in (
             ".github/workflows/python.yaml",
-            ".github/platform-smoke-tests.txt",
             ".github/requirements/model-ci-constraints.txt",
             ".github/scripts/tests/test_python_workflow.py",
             "pyproject.toml",
@@ -156,21 +200,136 @@ class TestPythonWorkflow(unittest.TestCase):
                 with self.subTest(event=event, paths=ordered):
                     self.assertEqual(
                         self.select(ordered, event=event),
-                        {"platform": "true", "metal": "true", "suite": "smoke"},
+                        {"platform": "true", "metal": "true", "suite": "fast"},
                     )
 
-    def test_smoke_manifest_is_valid(self):
-        selectors = [
-            line
-            for line in (ROOT / ".github/platform-smoke-tests.txt")
-            .read_text()
-            .splitlines()
-            if line and not line.startswith("#")
+    def test_engine_suites_run_only_on_supported_platforms(self):
+        windows = self.commands("windows-latest")
+        self.assertEqual(len(windows), 1)
+        self.assertEqual(windows[0][-1], "xinference")
+        for path in (
+            "xinference/model/llm/mlx",
+            "xinference/model/llm/vllm",
+            "xinference/model/llm/sglang",
+            "xinference/model/llm/lmdeploy",
+            "xinference/model/embedding/vllm",
+            "xinference/model/rerank/vllm",
+            "xinference/model/llm/xavier",
+        ):
+            index = windows[0].index(path)
+            self.assertEqual(windows[0][index - 1], "--ignore")
+        macos = self.commands("macos-latest")
+        self.assertEqual(len(macos), 2)
+        self.assertEqual(macos[1][-1], "xinference/model/llm/mlx/tests")
+        linux = self.commands("ubuntu-latest", suite="full")
+        self.assertEqual(len(linux), 2)
+        self.assertIn("benchmark/tests/test_benchmark_pd.py", linux[1])
+        self.assertNotIn("xinference/model/llm/mlx/tests", linux[1])
+
+    def test_both_python_versions_use_identical_selection(self):
+        for platform in ("windows-latest", "macos-latest"):
+            for suite in ("fast", "full"):
+                with self.subTest(platform=platform, suite=suite):
+                    self.assertEqual(
+                        self.commands(platform, "3.10", suite),
+                        self.commands(platform, "3.14", suite),
+                    )
+        for command in self.commands("windows-latest", suite="full"):
+            self.assertNotIn("-m", command)
+
+    def test_new_engine_test_directories_require_platform_classification(self):
+        # Shared directories discover new tests automatically. A new engine
+        # directory needs an explicit platform decision before CI can pass.
+        shared = {
+            "llm": {"llama_cpp", "tests", "tool_parsers", "transformers"},
+            "embedding": {"flag", "llama_cpp", "sentence_transformers", "tests"},
+            "rerank": {"llama_cpp", "sentence_transformers", "tests"},
+        }
+        restricted = {
+            "llm": {"mlx", "sglang", "vllm", "xavier"},
+            "embedding": {"vllm"},
+            "rerank": {"vllm"},
+        }
+        windows = self.commands("windows-latest")[0]
+        ignores = {
+            value for option, value in zip(windows, windows[1:]) if option == "--ignore"
+        }
+        for family, shared_names in shared.items():
+            root = ROOT / "xinference/model" / family
+            actual = {
+                path.relative_to(root).parts[0] for path in root.rglob("test_*.py")
+            }
+            self.assertEqual(
+                actual,
+                shared_names | restricted[family],
+                f"Classify new {family} test directories and update platform selection",
+            )
+            for name in restricted[family]:
+                self.assertIn(f"xinference/model/{family}/{name}", ignores)
+            for name in shared_names:
+                self.assertNotIn(f"xinference/model/{family}/{name}", ignores)
+
+    def test_new_files_and_cases_run_without_registration(self):
+        command = self.commands("windows-latest")[0]
+        marker = command[command.index("-m") + 1]
+        self.assertEqual(marker, "not platform_slow")
+        ignores = [
+            value for option, value in zip(command, command[1:]) if option == "--ignore"
         ]
-        self.assertTrue(selectors)
-        self.assertEqual(selectors, sorted(set(selectors)))
-        for selector in selectors:
-            self.assertTrue((ROOT / selector.split("::")[0]).is_file(), selector)
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            package = work / "xinference"
+            package.mkdir()
+            (work / "pytest.ini").write_text(
+                "[pytest]\nmarkers = platform_slow: slow model integration\n"
+            )
+            existing = package / "test_existing.py"
+            existing.write_text(
+                "import pytest\n"
+                "def test_existing_unit(): pass\n"
+                "@pytest.mark.platform_slow\n"
+                "def test_download(): raise AssertionError('expensive integration')\n"
+            )
+            # A new case in an existing module and a completely new module
+            # both run; even sharing a slow test's name prefix is safe.
+            with existing.open("a") as output:
+                output.write("def test_download_new_unit(): pass\n")
+            (package / "test_new.py").write_text("def test_new_unit(): pass\n")
+            args = [
+                sys.executable,
+                "-m",
+                "pytest",
+                "--noconftest",
+                "-q",
+                "-m",
+                marker,
+            ]
+            for path in ignores:
+                args.extend(["--ignore", path])
+            result = subprocess.run(
+                [*args, command[-1]],
+                cwd=work,
+                env={**os.environ, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"},
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertIn("3 passed, 1 deselected", result.stdout)
+
+    def test_slow_marker_cannot_exclude_whole_modules_or_classes(self):
+        for path in (ROOT / "xinference").rglob("test_*.py"):
+            if "thirdparty" in path.parts:
+                continue
+            for node in ast.walk(ast.parse(path.read_text())):
+                if isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name) and target.id == "pytestmark":
+                            self.assertNotIn(
+                                "platform_slow", ast.unparse(node.value), path
+                            )
+                if isinstance(node, ast.ClassDef):
+                    for decorator in node.decorator_list:
+                        self.assertNotIn("platform_slow", ast.unparse(decorator), path)
 
 
 if __name__ == "__main__":

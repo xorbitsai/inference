@@ -354,6 +354,9 @@ extend-exclude = '''
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "platform_slow: model download/inference integration tests excluded from fast Windows/macOS checks; unmarked tests run by default",
+]
 
 [tool.coverage.run]
 branch = true
