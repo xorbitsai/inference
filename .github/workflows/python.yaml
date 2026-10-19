@@ -111,7 +111,7 @@ jobs:
           # Fall back to a full run when there is no usable diff base (new
           # branch, or a force push whose previous head no longer exists).
           if [ -z "$base_sha" ] || [[ "$base_sha" =~ ^0+$ ]] \
-              || ! git diff --name-only "$diff_range" > changed-files.txt 2>/dev/null; then
+              || ! git diff --no-renames --name-only "$diff_range" > changed-files.txt 2>/dev/null; then
             full=true
             diff_available=false
           else
@@ -204,7 +204,7 @@ jobs:
           else
             while IFS= read -r file; do
               case "$file" in
-                .github/workflows/python.yaml|.github/requirements/*|.github/scripts/*|pyproject.toml|setup.cfg|setup.py|MANIFEST.in|build_backend.py|build_web.py)
+                .github/workflows/python.yaml|.github/requirements/*|.github/scripts/*|.pre-commit-config.yaml|pyproject.toml|setup.cfg|setup.py|MANIFEST.in|build_backend.py|build_web.py)
                   platform=true; metal=true; suite=full; break ;;
                 xinference/ui/*) continue ;;
                 xinference/*|scripts/*) platform=true ;;
@@ -225,6 +225,12 @@ jobs:
                 xinference/*) metal=true ;;
               esac
             done < changed-files.txt
+          fi
+
+          # Every relevant main push runs the slow integration cases too.
+          # PRs use the fast suite; main validates integrations automatically.
+          if [ "$platform" = true ] && [ "${{ github.event_name }}" = push ]; then
+            suite=full
           fi
 
           echo "platform=$platform" >> "$GITHUB_OUTPUT"
@@ -407,9 +413,6 @@ jobs:
               --ignore xinference/model/rerank/vllm
             )
           fi
-          if [ "$TEST_PLATFORM" == "windows-latest" ]; then
-            platform_ignores+=(--ignore xinference/model/llm/xavier)
-          fi
           run_pytest() {
             pytest --timeout=3000 \
               --durations=30 \
@@ -458,8 +461,7 @@ jobs:
           fi
 
           if [ "$MODULE" != "metal" ] && [ "$TEST_PLATFORM" == "ubuntu-latest" ]; then
-            # Linux-only engine/P-D regressions. These do not belong to the
-            # Windows or macOS engine support paths.
+            # Linux engine/P-D regressions and portable MLX mock tests.
             run_pytest \
               -vv \
               benchmark/tests/test_benchmark_pd.py \
@@ -476,6 +478,9 @@ jobs:
               xinference/model/llm/vllm/tests/test_anthropic_controls.py \
               xinference/model/llm/vllm/tests/test_reasoning_adapter.py \
               xinference/model/llm/vllm/tests/test_core_chat_model.py::TestVLLMSanitizeGenerateConfig \
+              xinference/model/llm/mlx/tests/test_anthropic_runtime.py \
+              xinference/model/llm/mlx/tests/test_structured.py \
+              xinference/model/llm/mlx/tests/test_context_length.py \
               xinference/model/llm/vllm/tests/test_distributed_executor_v1.py \
               xinference/model/llm/vllm/tests/test_executor_routing.py \
               xinference/model/llm/vllm/tests/test_speculative_config.py \

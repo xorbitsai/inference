@@ -17,6 +17,7 @@ JOBS = WORKFLOW["jobs"]
 PLATFORM_STEP = next(
     step for step in JOBS["changes"]["steps"] if step.get("id") == "platform"
 )
+GPU_STEP = next(step for step in JOBS["changes"]["steps"] if step.get("id") == "gpu")
 
 
 class TestPythonWorkflow(unittest.TestCase):
@@ -177,6 +178,7 @@ class TestPythonWorkflow(unittest.TestCase):
             ".github/workflows/python.yaml",
             ".github/requirements/model-ci-constraints.txt",
             ".github/scripts/tests/test_python_workflow.py",
+            ".pre-commit-config.yaml",
             "pyproject.toml",
             "build_backend.py",
             "build_web.py",
@@ -200,8 +202,95 @@ class TestPythonWorkflow(unittest.TestCase):
                 with self.subTest(event=event, paths=ordered):
                     self.assertEqual(
                         self.select(ordered, event=event),
-                        {"platform": "true", "metal": "true", "suite": "fast"},
+                        {
+                            "platform": "true",
+                            "metal": "true",
+                            "suite": "full" if event == "push" else "fast",
+                        },
                     )
+
+    def test_main_pushes_run_full_platform_tests_without_a_schedule(self):
+        for path, metal in (
+            ("xinference/core/worker.py", "true"),
+            ("xinference/model/llm/llama_cpp/core.py", "false"),
+            ("scripts/install.ps1", "false"),
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(
+                    self.select([path], event="push"),
+                    {"platform": "true", "metal": metal, "suite": "full"},
+                )
+        self.assertEqual(self.select(["README.md"], event="push")["platform"], "false")
+
+    def test_renames_classify_both_source_and_destination(self):
+        for source, destination in (
+            ("xinference/core/worker.py", "doc/worker.py"),
+            ("xinference/model/llm/mlx/core.py", "xinference/model/llm/vllm/core.py"),
+        ):
+            with (
+                self.subTest(source=source),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                work = Path(directory)
+
+                def git(*args):
+                    return subprocess.run(
+                        [
+                            "git",
+                            "-c",
+                            "core.hooksPath=/dev/null",
+                            "-c",
+                            "commit.gpgsign=false",
+                            "-c",
+                            "user.name=CI",
+                            "-c",
+                            "user.email=ci@example.invalid",
+                            *args,
+                        ],
+                        cwd=work,
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    ).stdout.strip()
+
+                git("init", "-q")
+                old = work / source
+                old.parent.mkdir(parents=True)
+                old.write_text("# unchanged content\n")
+                git("add", ".")
+                git("commit", "-qm", "before")
+                base = git("rev-parse", "HEAD")
+                new = work / destination
+                new.parent.mkdir(parents=True)
+                old.rename(new)
+                git("add", "-A")
+                git("commit", "-qm", "rename")
+                head = git("rev-parse", "HEAD")
+                self.assertEqual(
+                    git("diff", "-M", "--name-only", base, head), destination
+                )
+                script = (
+                    GPU_STEP["run"]
+                    .replace("${{ github.event_name }}", "pull_request")
+                    .replace("${{ github.event.pull_request.base.sha }}", base)
+                    .replace("${{ github.event.pull_request.head.sha }}", head)
+                    .replace("${{ github.event.before }}", base)
+                    .replace("${{ github.sha }}", head)
+                )
+                subprocess.run(
+                    ["bash", "-e", "-o", "pipefail", "-c", script],
+                    cwd=work,
+                    env={**os.environ, "GITHUB_OUTPUT": str(work / "outputs")},
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                paths = (work / "changed-files.txt").read_text().splitlines()
+                self.assertEqual(set(paths), {source, destination})
+                self.assertEqual(
+                    self.select(paths),
+                    {"platform": "true", "metal": "true", "suite": "fast"},
+                )
 
     def test_engine_suites_run_only_on_supported_platforms(self):
         windows = self.commands("windows-latest")
@@ -214,10 +303,10 @@ class TestPythonWorkflow(unittest.TestCase):
             "xinference/model/llm/lmdeploy",
             "xinference/model/embedding/vllm",
             "xinference/model/rerank/vllm",
-            "xinference/model/llm/xavier",
         ):
             index = windows[0].index(path)
             self.assertEqual(windows[0][index - 1], "--ignore")
+        self.assertNotIn("xinference/model/llm/xavier", windows[0])
         macos = self.commands("macos-latest")
         self.assertEqual(len(macos), 2)
         self.assertEqual(macos[1][-1], "xinference/model/llm/mlx/tests")
@@ -225,6 +314,12 @@ class TestPythonWorkflow(unittest.TestCase):
         self.assertEqual(len(linux), 2)
         self.assertIn("benchmark/tests/test_benchmark_pd.py", linux[1])
         self.assertNotIn("xinference/model/llm/mlx/tests", linux[1])
+        for name in (
+            "test_anthropic_runtime.py",
+            "test_context_length.py",
+            "test_structured.py",
+        ):
+            self.assertIn(f"xinference/model/llm/mlx/tests/{name}", linux[1])
 
     def test_both_python_versions_use_identical_selection(self):
         for platform in ("windows-latest", "macos-latest"):
@@ -241,12 +336,12 @@ class TestPythonWorkflow(unittest.TestCase):
         # Shared directories discover new tests automatically. A new engine
         # directory needs an explicit platform decision before CI can pass.
         shared = {
-            "llm": {"llama_cpp", "tests", "tool_parsers", "transformers"},
+            "llm": {"llama_cpp", "tests", "tool_parsers", "transformers", "xavier"},
             "embedding": {"flag", "llama_cpp", "sentence_transformers", "tests"},
             "rerank": {"llama_cpp", "sentence_transformers", "tests"},
         }
         restricted = {
-            "llm": {"mlx", "sglang", "vllm", "xavier"},
+            "llm": {"lmdeploy", "mlx", "sglang", "vllm"},
             "embedding": {"vllm"},
             "rerank": {"vllm"},
         }
@@ -259,7 +354,7 @@ class TestPythonWorkflow(unittest.TestCase):
             actual = {
                 path.relative_to(root).parts[0] for path in root.rglob("test_*.py")
             }
-            self.assertEqual(
+            self.assertLessEqual(
                 actual,
                 shared_names | restricted[family],
                 f"Classify new {family} test directories and update platform selection",
