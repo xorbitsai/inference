@@ -237,6 +237,17 @@ class _MLXBackend:
         self.threads.append(threading.get_ident())
         if "ref_audio" in kwargs:
             assert Path(kwargs["ref_audio"]).read_bytes() == b"reference"
+        if kwargs.get("ref_audio") is not None and kwargs.get("ref_text") is not None:
+            # Match the mlx-audio 0.4.6 batch ICL contract. The scalar ICL
+            # dispatch ignores these fields, while batch_generate rejects them.
+            if any(voice is not None for voice in kwargs.get("voices") or []):
+                raise ValueError(
+                    "Qwen3-TTS batch reference cloning does not support voices"
+                )
+            if any(instruct is not None for instruct in kwargs.get("instructs") or []):
+                raise ValueError(
+                    "Qwen3-TTS batch reference cloning does not support instructs"
+                )
         for index in reversed(range(len(texts))):
             yield SimpleNamespace(
                 sequence_idx=index,
@@ -252,8 +263,8 @@ class _MLXBackend:
         )
 
 
-def _mlx(**kwargs):
-    model = MLXAudioTTSModel("mlx", "/unused", _spec(), **kwargs)
+def _mlx(name="Qwen3-TTS-CustomVoice", **kwargs):
+    model = MLXAudioTTSModel("mlx", "/unused", _spec(name), **kwargs)
     model._model = _MLXBackend()
     return model
 
@@ -296,7 +307,7 @@ def test_mlx_batches_long_text_with_bounded_native_batches():
 
 @pytest.mark.asyncio
 async def test_mlx_groups_reference_language_and_sampling_settings():
-    model = _mlx()
+    model = _mlx("Qwen3-TTS-12Hz-0.6B-Base")
     try:
         await asyncio.gather(
             *[
@@ -318,6 +329,65 @@ async def test_mlx_groups_reference_language_and_sampling_settings():
         assert all(
             not Path(call[1]["ref_audio"]).exists() for call in model._model.calls
         )
+    finally:
+        await _shutdown(model)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("size", ["0.6B", "1.7B"])
+@pytest.mark.parametrize("path", ["sync_segments", "async_segments", "requests"])
+async def test_mlx_base_clone_batches_ignore_voice_and_instruct(size, path):
+    model = _mlx(f"Qwen3-TTS-12Hz-{size}-Base")
+    kwargs = dict(
+        response_format="wav",
+        prompt_speech=b"reference",
+        prompt_text="reference text",
+        instruct="ignored in scalar Base ICL",
+        language="English",
+    )
+    try:
+        if path == "requests":
+            outputs = await asyncio.gather(
+                model.async_speech("第一句。", "Chelsie", **kwargs),
+                model.async_speech("第二句！", "Vivian", **kwargs),
+            )
+            expected_frames = [100, 100]
+        else:
+            if path == "sync_segments":
+                output = model.speech("第一句。第二句！", "Chelsie", **kwargs)
+            else:
+                output = await model.async_speech(
+                    "第一句。第二句！", "Chelsie", **kwargs
+                )
+            outputs = [output]
+            expected_frames = [480]
+        assert len(model._model.calls) == 1
+        texts, native_kwargs = model._model.calls[0]
+        assert texts == ["第一句。", "第二句！"]
+        assert native_kwargs["voices"] == [None, None]
+        assert native_kwargs["instructs"] == [None, None]
+        assert native_kwargs["ref_text"] == "reference text"
+        assert native_kwargs["lang_code"] == "English"
+        assert not Path(native_kwargs["ref_audio"]).exists()
+        for output, frames in zip(outputs, expected_frames):
+            with wave.open(BytesIO(output), "rb") as wav:
+                assert wav.getframerate() == 1000
+                assert wav.getnframes() == frames
+    finally:
+        await _shutdown(model)
+
+
+@pytest.mark.asyncio
+async def test_mlx_voice_design_batch_preserves_row_instructions():
+    model = _mlx("Qwen3-TTS-12Hz-1.7B-VoiceDesign")
+    try:
+        await asyncio.gather(
+            model.async_speech("第一句。", "", response_format="wav", instruct="calm"),
+            model.async_speech("第二句！", "", response_format="wav", instruct="happy"),
+        )
+        assert len(model._model.calls) == 1
+        assert model._model.calls[0][1]["voices"] == [None, None]
+        assert model._model.calls[0][1]["instructs"] == ["calm", "happy"]
     finally:
         await _shutdown(model)
 

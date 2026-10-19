@@ -691,6 +691,15 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
                     dict(request["kwargs"]),
                     temp_files,
                 )
+                if (
+                    self._model_spec.model_name.endswith("-Base")
+                    and generation_kwargs.get("ref_audio") is not None
+                    and generation_kwargs.get("ref_text") is not None
+                ):
+                    # Scalar Base ICL ignores these fields; mlx-audio 0.4.6
+                    # batch ICL requires every row to leave them unset.
+                    generation_kwargs["voice"] = None
+                    generation_kwargs["instruct"] = None
                 prepared.append((segments, generation_kwargs))
                 rows.extend(
                     (request_index, segment_index, text)
