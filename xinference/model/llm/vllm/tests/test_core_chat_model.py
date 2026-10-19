@@ -13,9 +13,11 @@
 # limitations under the License.
 
 import base64
+import copy
 import sys
 import tempfile
 import types
+from contextlib import nullcontext
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -315,39 +317,83 @@ class TestVLLMBase64Media:
         qwen_omni_utils.process_vision_info.assert_not_called()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("abilities", "media", "reader_error"),
+        [
+            ("audio vision", "image", None),
+            ("vision", "image", None),
+            ("audio", "audio", None),
+            ("omni audio vision", "audio image", None),
+            ("audio vision", "audio image", None),
+            ("audio vision", "video", None),
+            ("audio vision", "audio image", "audio"),
+            ("audio vision", "audio image", "vision"),
+        ],
+    )
     async def test_async_chat_runs_media_reader_off_event_loop(
-        self, model, monkeypatch
+        self, model, monkeypatch, abilities, media, reader_error
     ):
         import asyncio
 
-        data_uri = "data:image/png;base64," + base64.b64encode(b"png-bytes").decode()
         messages = [
             {
                 "role": "user",
-                "content": [{"type": "image_url", "image_url": {"url": data_uri}}],
+                "content": [
+                    {
+                        "type": f"{kind}_url",
+                        f"{kind}_url": {"url": f"https://8.8.8.8/{kind}"},
+                    }
+                    for kind in media.split()
+                ],
             }
         ]
-        captured = {}
+        original = copy.deepcopy(messages)
+        paths = set()
+        calls = []
+        monkeypatch.setattr(
+            "xinference.model.llm.media.fetch_media", lambda *_: b"media"
+        )
+        audios = ["audio"] if "audio" in media else None
+        images = ["image"] if "image" in media else None
+        videos = [self.FakeVideo()] if "video" in media else None
 
-        def process_vision_info(transformed_messages, *, return_video_kwargs):
-            try:
-                asyncio.get_running_loop()
-                captured["on_loop"] = True
-            except RuntimeError:
-                captured["on_loop"] = False
-            return ["image"], None, None
+        def reader(kind, result, **expected_kwargs):
+            def process(transformed_messages, **kwargs):
+                with pytest.raises(RuntimeError, match="no running event loop"):
+                    asyncio.get_running_loop()
+                assert kwargs == expected_kwargs
+                calls.append(kind)
+                for part in transformed_messages[0]["content"]:
+                    path = Path(part[part["type"]].removeprefix("file://"))
+                    assert path.read_bytes() == b"media"
+                    paths.add(path)
+                if reader_error == kind:
+                    raise ValueError("reader failed")
+                return result
+
+            return process
 
         qwen_omni_utils = types.ModuleType("qwen_omni_utils")
-        qwen_omni_utils.process_vision_info = process_vision_info
-        qwen_omni_utils.process_audio_info = MagicMock()
-        qwen_omni_utils.process_mm_info = MagicMock()
+        qwen_omni_utils.process_vision_info = reader(
+            "vision", (images, videos, None), return_video_kwargs=True
+        )
+        qwen_omni_utils.process_audio_info = reader(
+            "audio", audios, use_audio_in_video=False
+        )
+        qwen_omni_utils.process_mm_info = reader(
+            "omni",
+            (audios, images, videos, None),
+            use_audio_in_video=True,
+            return_video_kwargs=True,
+        )
         monkeypatch.setitem(sys.modules, "qwen_omni_utils", qwen_omni_utils)
 
         model.model_uid = "test-model"
         model.model_family = MagicMock()
         model.model_family.model_family = "qwen2-vl"
         model.model_family.model_name = "qwen2-vl"
-        model.model_family.model_ability = ["chat", "vision"]
+        model.model_family.model_ability = ["chat", *abilities.split()]
+        model.model_family.has_architecture.return_value = False
         model.model_family.chat_template = "chat-template"
         model.reasoning_parser = None
         model._get_chat_template_kwargs_from_generate_config = MagicMock(
@@ -362,13 +408,35 @@ class TestVLLMBase64Media:
         model._sanitize_chat_config = MagicMock(return_value={"stream": False})
 
         async def async_generate(inputs, *_args, **_kwargs):
+            expected = {kind: [kind] for kind in media.split()}
+            actual = dict(inputs["multi_modal_data"])
+            if videos:
+                assert actual.pop("video")[0][0] is videos[0]
+                expected.pop("video")
+            assert actual == expected
+            assert inputs.get("mm_processor_kwargs", {}) == (
+                {"use_audio_in_video": True} if "omni" in abilities else {}
+            )
             return {"completion": "ok"}
 
         model.async_generate = async_generate
         model._to_chat_completion = MagicMock(return_value={"result": "ok"})
 
-        assert await model.async_chat(messages, {}) == {"result": "ok"}
-        assert captured["on_loop"] is False
+        expectation = (
+            pytest.raises(ValueError, match="reader failed")
+            if reader_error
+            else nullcontext()
+        )
+        with expectation:
+            assert await model.async_chat(messages, {}) == {"result": "ok"}
+        expected_calls = ["omni"] if "omni" in abilities else abilities.split()
+        if reader_error:
+            expected_calls = expected_calls[: expected_calls.index(reader_error) + 1]
+        assert calls == expected_calls
+        assert messages == original
+        assert paths and all(
+            not path.exists() and not path.parent.exists() for path in paths
+        )
 
 
 class TestVLLMChatModel:

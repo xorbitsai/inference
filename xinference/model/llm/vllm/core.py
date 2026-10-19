@@ -3380,6 +3380,10 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     audios = await asyncio.to_thread(
                         process_audio_info, messages, use_audio_in_video=False
                     )
+                    if "vision" in self.model_family.model_ability:
+                        images, videos, video_kwargs = await asyncio.to_thread(
+                            process_vision_info, messages, return_video_kwargs=True
+                        )
                 elif "vision" in self.model_family.model_ability:
                     images, videos, video_kwargs = await asyncio.to_thread(  # type: ignore
                         process_vision_info, messages, return_video_kwargs=True
