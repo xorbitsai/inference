@@ -103,7 +103,7 @@ class Qwen2AudioChatModel(PytorchMultiModalModel):
     ):
         text, audios = self._transform_messages(messages)
         inputs = self._processor(
-            text=text, audios=audios, return_tensors="pt", padding=True
+            text=text, audio=audios or None, return_tensors="pt", padding=True
         )
         # Make sure that the inputs and the model are on the same device.
         inputs.data = {k: v.to(self._device) for k, v in inputs.data.items()}
