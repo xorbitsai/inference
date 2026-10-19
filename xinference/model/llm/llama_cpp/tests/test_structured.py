@@ -1,3 +1,5 @@
+# CI: linux
+
 import importlib
 import importlib.util
 import json

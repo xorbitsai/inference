@@ -3,6 +3,7 @@
 import ast
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -18,10 +19,26 @@ PLATFORM_STEP = next(
     step for step in JOBS["changes"]["steps"] if step.get("id") == "platform"
 )
 GPU_STEP = next(step for step in JOBS["changes"]["steps"] if step.get("id") == "gpu")
+TEST_STEP = next(
+    step
+    for step in JOBS["build_test_job"]["steps"]
+    if step.get("name") == "Test with pytest"
+)
+PLATFORM_PATHS = TEST_STEP["env"]["PLATFORM_TEST_PATHS"].split()
+
+
+def classified_test(path, content):
+    if any(
+        path == target or path.startswith(target + "/") for target in PLATFORM_PATHS
+    ):
+        return True
+    if path.startswith("xinference/model/llm/mlx/tests/"):
+        return True  # Discovered by the macOS unit/Metal jobs.
+    return re.search(r"^# CI: linux$", content, re.MULTILINE) is not None
 
 
 class TestPythonWorkflow(unittest.TestCase):
-    def commands(self, platform, version="3.10", suite="fast"):
+    def commands(self, platform, version="3.10", suite="platform"):
         step = next(
             step
             for step in JOBS["build_test_job"]["steps"]
@@ -55,6 +72,7 @@ class TestPythonWorkflow(unittest.TestCase):
                     "TRACE": str(trace),
                     "MODULE": "xinference",
                     "SUITE": suite,
+                    "PLATFORM_TEST_PATHS": step["env"]["PLATFORM_TEST_PATHS"],
                     "TEST_PLATFORM": platform,
                 },
                 check=True,
@@ -129,7 +147,7 @@ class TestPythonWorkflow(unittest.TestCase):
             with self.subTest(paths=paths):
                 self.assertEqual(
                     self.select(paths),
-                    {"platform": "false", "metal": "false", "suite": "fast"},
+                    {"platform": "false", "metal": "false", "suite": "platform"},
                 )
 
     def test_shared_runtime_and_mlx_changes_run_platforms_and_metal(self):
@@ -153,7 +171,7 @@ class TestPythonWorkflow(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(
                     self.select([path]),
-                    {"platform": "true", "metal": "true", "suite": "fast"},
+                    {"platform": "true", "metal": "true", "suite": "platform"},
                 )
 
     def test_other_engines_and_scripts_do_not_trigger_metal(self):
@@ -170,10 +188,10 @@ class TestPythonWorkflow(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(
                     self.select([path]),
-                    {"platform": "true", "metal": "false", "suite": "fast"},
+                    {"platform": "true", "metal": "false", "suite": "platform"},
                 )
 
-    def test_infrastructure_changes_require_full_coverage(self):
+    def test_ci_and_dependency_changes_keep_focused_platform_scope(self):
         for path in (
             ".github/workflows/python.yaml",
             ".github/requirements/model-ci-constraints.txt",
@@ -186,7 +204,7 @@ class TestPythonWorkflow(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(
                     self.select([path]),
-                    {"platform": "true", "metal": "true", "suite": "full"},
+                    {"platform": "true", "metal": "true", "suite": "platform"},
                 )
 
     def test_manual_checks_missing_diffs_and_mixed_changes(self):
@@ -194,7 +212,15 @@ class TestPythonWorkflow(unittest.TestCase):
             with self.subTest(options=options):
                 self.assertEqual(
                     self.select(["README.md"], **options),
-                    {"platform": "true", "metal": "true", "suite": "full"},
+                    {
+                        "platform": "true",
+                        "metal": "true",
+                        "suite": (
+                            "full"
+                            if options.get("event") == "workflow_dispatch"
+                            else "platform"
+                        ),
+                    },
                 )
         paths = ["xinference/model/llm/vllm/core.py", "xinference/core/worker.py"]
         for event in ("pull_request", "push"):
@@ -205,11 +231,11 @@ class TestPythonWorkflow(unittest.TestCase):
                         {
                             "platform": "true",
                             "metal": "true",
-                            "suite": "full" if event == "push" else "fast",
+                            "suite": "platform",
                         },
                     )
 
-    def test_main_pushes_run_full_platform_tests_without_a_schedule(self):
+    def test_main_pushes_use_the_same_focused_platform_scope(self):
         for path, metal in (
             ("xinference/core/worker.py", "true"),
             ("xinference/model/llm/llama_cpp/core.py", "false"),
@@ -218,7 +244,7 @@ class TestPythonWorkflow(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(
                     self.select([path], event="push"),
-                    {"platform": "true", "metal": metal, "suite": "full"},
+                    {"platform": "true", "metal": metal, "suite": "platform"},
                 )
         self.assertEqual(self.select(["README.md"], event="push")["platform"], "false")
 
@@ -289,11 +315,11 @@ class TestPythonWorkflow(unittest.TestCase):
                 self.assertEqual(set(paths), {source, destination})
                 self.assertEqual(
                     self.select(paths),
-                    {"platform": "true", "metal": "true", "suite": "fast"},
+                    {"platform": "true", "metal": "true", "suite": "platform"},
                 )
 
     def test_engine_suites_run_only_on_supported_platforms(self):
-        windows = self.commands("windows-latest")
+        windows = self.commands("windows-latest", suite="full")
         self.assertEqual(len(windows), 1)
         self.assertEqual(windows[0][-1], "xinference")
         for path in (
@@ -323,7 +349,7 @@ class TestPythonWorkflow(unittest.TestCase):
 
     def test_both_python_versions_use_identical_selection(self):
         for platform in ("windows-latest", "macos-latest"):
-            for suite in ("fast", "full"):
+            for suite in ("platform", "full"):
                 with self.subTest(platform=platform, suite=suite):
                     self.assertEqual(
                         self.commands(platform, "3.10", suite),
@@ -345,7 +371,7 @@ class TestPythonWorkflow(unittest.TestCase):
             "embedding": {"vllm"},
             "rerank": {"vllm"},
         }
-        windows = self.commands("windows-latest")[0]
+        windows = self.commands("windows-latest", suite="full")[0]
         ignores = {
             value for option, value in zip(windows, windows[1:]) if option == "--ignore"
         }
@@ -373,8 +399,9 @@ class TestPythonWorkflow(unittest.TestCase):
         ]
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
-            package = work / "xinference"
-            package.mkdir()
+            package = work / "xinference/deploy/test"
+            package.mkdir(parents=True)
+            self.assertIn("xinference/deploy/test", command)
             (work / "pytest.ini").write_text(
                 "[pytest]\nmarkers = platform_slow: slow model integration\n"
             )
@@ -402,7 +429,7 @@ class TestPythonWorkflow(unittest.TestCase):
             for path in ignores:
                 args.extend(["--ignore", path])
             result = subprocess.run(
-                [*args, command[-1]],
+                [*args, "xinference/deploy/test"],
                 cwd=work,
                 env={**os.environ, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"},
                 check=True,
@@ -410,6 +437,95 @@ class TestPythonWorkflow(unittest.TestCase):
                 text=True,
             )
             self.assertIn("3 passed, 1 deselected", result.stdout)
+
+    def test_platform_scope_excludes_pure_model_regression_grids(self):
+        for platform in ("windows-latest", "macos-latest"):
+            command = self.commands(platform)[0]
+            self.assertNotIn("xinference", command)
+            self.assertNotIn("xinference/model/llm/tests", command)
+            self.assertNotIn(
+                "xinference/model/llm/tests/test_multimodal_context_length.py", command
+            )
+            for path in PLATFORM_PATHS:
+                self.assertTrue((ROOT / path).exists(), path)
+                self.assertIn(path, command)
+
+    def test_platform_install_skips_unused_model_engine_dependencies(self):
+        step = next(
+            step
+            for step in JOBS["build_test_job"]["steps"]
+            if step.get("name") == "Install dependencies"
+        )
+        for platform in ("windows-latest", "macos-latest"):
+            for version in ("3.10", "3.14"):
+                with (
+                    self.subTest(platform=platform, version=version),
+                    tempfile.TemporaryDirectory() as directory,
+                ):
+                    trace = Path(directory) / "pip-calls"
+                    script = (
+                        'pip() { printf "%s\\n" "$*" >> "$TRACE"; }\n'
+                        "python() { :; }\n"
+                        + step["run"].replace("${{ matrix.python-version }}", version)
+                    )
+                    subprocess.run(
+                        ["bash", "-e", "-o", "pipefail", "-c", script],
+                        cwd=ROOT,
+                        env={
+                            **os.environ,
+                            "TRACE": str(trace),
+                            "MODULE": "xinference",
+                            "OS": platform,
+                            "TEST_SUITE": "platform",
+                        },
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    calls = trace.read_text().splitlines()
+                    self.assertEqual(
+                        calls, ["install -e .[dev]", "install xllamacpp>=0.2.0"]
+                    )
+
+    def test_new_test_files_need_an_explicit_coverage_decision(self):
+        self.assertTrue(classified_test("xinference/deploy/test/test_new.py", ""))
+        self.assertFalse(classified_test("xinference/core/tests/test_new.py", ""))
+        self.assertTrue(
+            classified_test("xinference/core/tests/test_new.py", "# CI: linux\n")
+        )
+
+    def test_changed_tests_have_explicit_platform_coverage(self):
+        base = os.environ.get("TEST_BASE_SHA")
+        if not base or not base.strip("0"):
+            self.skipTest(
+                "GitHub supplies TEST_BASE_SHA for PR/main coverage classification"
+            )
+        changed = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--no-renames",
+                "--diff-filter=AM",
+                "--name-only",
+                f"{base}...HEAD",
+            ],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+        for name in changed:
+            if not name.startswith("xinference/") or not Path(name).name.startswith(
+                "test_"
+            ):
+                continue
+            if name.startswith("xinference/thirdparty/"):
+                continue
+            self.assertTrue(
+                classified_test(name, (ROOT / name).read_text()),
+                f"{name}: add it to PLATFORM_TEST_PATHS (or the macOS scope), or declare "
+                "'# CI: linux' for a portable/Linux-only regression. Do not silently omit new tests.",
+            )
 
     def test_slow_marker_cannot_exclude_whole_modules_or_classes(self):
         for path in (ROOT / "xinference").rglob("test_*.py"):

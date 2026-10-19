@@ -6,7 +6,7 @@ on:
       - main
   pull_request:
     types: ['opened', 'reopened', 'synchronize', 'ready_for_review']
-  # Manual full-suite entry point for pre-release checks.
+  # Run this full cross-platform suite manually before releases.
   workflow_dispatch:
 
 concurrency:
@@ -40,6 +40,8 @@ jobs:
       - name: Run pre-commit
         run: pre-commit run --all-files
       - name: Test CI workflow
+        env:
+          TEST_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: python -m unittest discover -s .github/scripts/tests -v
       - name: Set up Node.js
         uses: actions/setup-node@v1
@@ -195,17 +197,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          platform=false; metal=false; suite=fast
+          platform=false; metal=false; suite=platform
 
-          # Manual checks and unavailable diffs retain the full suite.
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] \
-              || [ "${{ steps.gpu.outputs.diff_available }}" != "true" ]; then
+          # Manual release checks retain the full suite. Unknown diffs still
+          # run every platform job, using its normal compatibility scope.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             platform=true; metal=true; suite=full
+          elif [ "${{ steps.gpu.outputs.diff_available }}" != "true" ]; then
+            platform=true; metal=true
           else
             while IFS= read -r file; do
               case "$file" in
                 .github/workflows/python.yaml|.github/requirements/*|.github/scripts/*|.pre-commit-config.yaml|pyproject.toml|setup.cfg|setup.py|MANIFEST.in|build_backend.py|build_web.py)
-                  platform=true; metal=true; suite=full; break ;;
+                  platform=true; metal=true; break ;;
                 xinference/ui/*) continue ;;
                 xinference/*|scripts/*) platform=true ;;
               esac
@@ -225,12 +229,6 @@ jobs:
                 xinference/*) metal=true ;;
               esac
             done < changed-files.txt
-          fi
-
-          # Every relevant main push runs the slow integration cases too.
-          # PRs use the fast suite; main validates integrations automatically.
-          if [ "$platform" = true ] && [ "${{ github.event_name }}" = push ]; then
-            suite=full
           fi
 
           echo "platform=$platform" >> "$GITHUB_OUTPUT"
@@ -276,7 +274,7 @@ jobs:
           python -m pip install -U pip "setuptools<82"
 
       - name: Install PyTorch for Python 3.13 and newer
-        if: ${{ matrix.python-version == '3.13' || matrix.python-version == '3.14' }}
+        if: ${{ (matrix.python-version == '3.13' || matrix.python-version == '3.14') && (matrix.os == 'ubuntu-latest' || env.TEST_SUITE != 'platform') }}
         run: |
           python -m pip install torch torchvision torchaudio
 
@@ -316,6 +314,10 @@ jobs:
             # that isolated dependency set instead of inheriting this one.
             pip install qwen-vl-utils!=0.0.9
             pip install tomli
+          elif [ "$OS" != "ubuntu-latest" ] && [ "$TEST_SUITE" == "platform" ]; then
+            # Compatibility checks do not load embedding/image/video engines.
+            # Base dependencies plus xllamacpp cover the native smoke test.
+            python -c "import xinference; from xinference.deploy.cmdline import cli"
           else
             pip install transformers
             pip install attrdict
@@ -384,6 +386,36 @@ jobs:
           MODULE: ${{ matrix.module }}
           SUITE: ${{ env.TEST_SUITE }}
           TEST_PLATFORM: ${{ matrix.os }}
+          # Native OS boundaries: files/locks, sockets/processes, virtualenvs,
+          # CLI/services, and one small llama.cpp inference smoke test.
+          PLATFORM_TEST_PATHS: >-
+            xinference/api/tests/test_frontend_static.py
+            xinference/api/tests/test_runtime_logs.py
+            xinference/client/tests
+            xinference/core/tests/test_download_task_store.py
+            xinference/core/tests/test_monitor_config_store.py
+            xinference/core/tests/test_router_assignment_store.py
+            xinference/core/tests/test_router_config_store.py
+            xinference/core/tests/test_router_node_store.py
+            xinference/core/tests/test_subpool_hardening.py
+            xinference/core/tests/test_system_settings_store.py
+            xinference/core/tests/test_tokenizer_asset_store.py
+            xinference/core/tests/test_utils.py
+            xinference/core/tests/test_virtual_env_deletion.py
+            xinference/core/tests/test_virtual_env_manager.py
+            xinference/core/tests/test_virtualenv_package_rewrite.py
+            xinference/core/tests/test_worker.py
+            xinference/core/tests/test_worker_address_resolution.py
+            xinference/deploy/test
+            xinference/model/llm/llama_cpp/tests/test_gguf.py
+            xinference/model/llm/tests/test_cache_download_lock.py
+            xinference/model/llm/tests/test_media.py
+            xinference/model/tests/test_llmman.py
+            xinference/model/tests/test_oci_utils.py
+            xinference/model/tests/test_utils.py
+            xinference/tests/test_build_backend.py
+            xinference/tests/test_logging_filters.py
+            xinference/tests/test_persisted_secret.py
           PYTORCH_MPS_HIGH_WATERMARK_RATIO: 1.0
           PYTORCH_MPS_LOW_WATERMARK_RATIO: 0.2
           XFORMERS_FORCE_DISABLE_TRITON: 1
@@ -397,11 +429,10 @@ jobs:
           if [ "$TEST_PLATFORM" == "ubuntu-latest" ] && [ "${{ matrix.python-version }}" == "3.10" ]; then
             coverage=(--cov-config=pyproject.toml --cov-report=xml --cov=xinference)
           fi
-          # Discover the same suite as Linux. Only explicitly marked model
-          # integration cases are excluded from fast Windows/macOS checks;
-          # new unmarked files and tests are included automatically.
+          # Linux keeps the complete regression suite. Windows/macOS exercise
+          # OS boundaries; new tests inside these directories run automatically.
           selection=()
-          if [ "$SUITE" == "fast" ]; then
+          if [ "$SUITE" == "platform" ]; then
             selection=(-m "not platform_slow")
           fi
           # Only exercise engine-specific code on platforms that support it.
@@ -442,6 +473,12 @@ jobs:
               echo "::endgroup::"
             done
             [ "$status" -eq 0 ]
+          elif [ "$SUITE" == "platform" ]; then
+            read -r -a platform_tests <<< "$PLATFORM_TEST_PATHS"
+            run_pytest -vv \
+              --ignore xinference/client/tests/test_client.py \
+              --ignore xinference/client/tests/test_async_client.py \
+              "${platform_tests[@]}"
           else
             run_pytest \
               -vv \

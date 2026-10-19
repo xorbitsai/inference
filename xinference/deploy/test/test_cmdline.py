@@ -151,6 +151,7 @@ def test_cmdline(setup, stream, model_uid):
     assert model_uid not in result.stdout
 
 
+@pytest.mark.platform_slow
 def test_cmdline_model_path_error(setup):
     endpoint, _ = setup
     runner = CliRunner()
@@ -183,6 +184,7 @@ def test_cmdline_model_path_error(setup):
         raise e.with_traceback(tb)
 
 
+@pytest.mark.platform_slow
 def test_cmdline_of_custom_model(setup):
     endpoint, _ = setup
     runner = CliRunner()
@@ -353,6 +355,7 @@ def test_rotate_logs(setup_with_file_logging):
         assert len(content) > 0
 
 
+@pytest.mark.platform_slow
 def test_list_cached_models(setup):
     endpoint, _ = setup
     runner = CliRunner()
@@ -370,6 +373,7 @@ def test_list_cached_models(setup):
     assert "actor_ip_address" in result.stdout
 
 
+@pytest.mark.platform_slow
 def test_remove_cache(setup):
     endpoint, _ = setup
     runner = CliRunner()
