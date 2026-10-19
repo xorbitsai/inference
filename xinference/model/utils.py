@@ -1189,7 +1189,7 @@ def is_valid_model_name(model_name: str) -> bool:
 
 def parse_uri(uri: str) -> Tuple[str, str]:
     import glob
-    from urllib.parse import urlparse
+    from urllib.parse import unquote, urlparse
 
     if os.path.exists(uri) or glob.glob(uri):
         return "file", uri
@@ -1197,6 +1197,13 @@ def parse_uri(uri: str) -> Tuple[str, str]:
         parsed = urlparse(uri)
         scheme = parsed.scheme
         path = parsed.netloc + parsed.path
+        if scheme == "file":
+            if os.name == "nt":
+                from nturl2path import url2pathname
+
+                path = url2pathname(path)
+            else:
+                path = unquote(path)
         if parsed.scheme == "" or len(parsed.scheme) == 1:  # len == 1 for windows
             scheme = "file"
         return scheme, path

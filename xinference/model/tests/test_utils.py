@@ -15,12 +15,13 @@
 import asyncio
 import io
 import json
+import ntpath
 import os
 import shutil
 import sys
 import threading
 from contextvars import copy_context
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import pytest
 import tqdm as tqdm_module
@@ -40,9 +41,11 @@ from ..utils import (
     extend_classes_once,
     family_identity_key,
     get_cache_source_paths,
+    is_valid_model_uri,
     neutralize_broken_torchcodec,
     parse_uri,
     resolve_media_seed,
+    resolve_model_uri,
     retry_download,
     retry_snapshot_download,
     symlink_local_file,
@@ -110,22 +113,44 @@ def test_resolve_media_seed():
         resolve_media_seed(-2)
 
 
-def test_parse_uri():
-    scheme, path = parse_uri("dir")
-    assert scheme == "file"
-    assert path == "dir"
+@pytest.mark.parametrize(
+    "uri, expected",
+    [
+        ("", ("file", "")),
+        ("dir", ("file", "dir")),
+        ("dir/file", ("file", "dir/file")),
+        ("/plain/path", ("file", "/plain/path")),
+        ("file:///plain/path", ("file", os.path.normpath("/plain/path"))),
+        ("s3://bucket", ("s3", "bucket")),
+        ("s3://bucket/dir%20name", ("s3", "bucket/dir%20name")),
+        ("hf://org/model%20name", ("hf", "org/model%20name")),
+        ("oci://registry/org/model:tag", ("oci", "registry/org/model:tag")),
+    ],
+)
+def test_parse_uri(uri, expected):
+    assert parse_uri(uri) == expected
 
-    scheme, path = parse_uri("dir/file")
-    assert scheme == "file"
-    assert path == "dir/file"
 
-    scheme, path = parse_uri("s3://bucket")
-    assert scheme == "s3"
-    assert path == "bucket"
+@pytest.mark.parametrize("name", ["my model", "my%20model"])
+def test_file_uri_round_trip(tmp_path, name):
+    model_dir = tmp_path / name
+    model_dir.mkdir()
+    path = str(model_dir)
+    assert parse_uri(path) == ("file", path)
+    assert resolve_model_uri(path) == path
+    assert parse_uri(model_dir.as_uri()) == ("file", path)
+    assert is_valid_model_uri(model_dir.as_uri())
+    assert resolve_model_uri(model_dir.as_uri()) == path
 
-    scheme, path = parse_uri("s3://bucket/dir")
-    assert scheme == "s3"
-    assert path == "bucket/dir"
+
+def test_parse_file_uri_windows_drive(monkeypatch):
+    from .. import utils
+
+    monkeypatch.setattr(utils, "os", SimpleNamespace(name="nt", path=ntpath))
+    assert parse_uri("file:///C:/models/my%20model") == (
+        "file",
+        r"C:\models\my model",
+    )
 
 
 def test_retry_snapshot_download_applies_environment_max_workers(monkeypatch):
