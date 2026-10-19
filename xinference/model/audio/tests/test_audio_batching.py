@@ -395,6 +395,57 @@ async def test_mlx_voice_design_batch_preserves_row_instructions():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("factory", [_qwen, _mlx], ids=["pytorch", "mlx"])
+@pytest.mark.parametrize("bad_format", [None, "not-a-format"])
+async def test_audio_batch_encoding_failure_does_not_fail_other_requests(
+    factory, bad_format
+):
+    model = factory()
+    try:
+        results = await asyncio.gather(
+            model.async_speech("1", "Vivian", response_format="wav"),
+            model.async_speech("2", "Ryan", response_format=bad_format),
+            model.async_speech("3", "Vivian", response_format="wav"),
+            return_exceptions=True,
+        )
+        assert len(model._model.calls) == 1
+        assert isinstance(results[1], Exception)
+        peaks = []
+        for output in (results[0], results[2]):
+            assert isinstance(output, bytes)
+            with wave.open(BytesIO(output), "rb") as wav:
+                assert wav.getnframes() > 0
+                peaks.append(
+                    np.frombuffer(wav.readframes(wav.getnframes()), "<i2").max()
+                )
+        assert peaks[1] > peaks[0] > 0
+        # A failed row must also leave the worker usable for later requests.
+        assert isinstance(
+            await model.async_speech("4", "Vivian", response_format="wav"), bytes
+        )
+        assert len(model._model.calls) == 2
+    finally:
+        await _shutdown(model)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("factory", [_qwen, _mlx], ids=["pytorch", "mlx"])
+@pytest.mark.parametrize("method", ["speech", "async_speech"])
+async def test_audio_single_request_encoding_failure_is_raised(factory, method):
+    model = factory()
+    # The long MLX input also exercises the synchronous segment batch path.
+    text = "1。2。" if factory is _mlx else "1"
+    try:
+        with pytest.raises(AttributeError):
+            if method == "speech":
+                model.speech(text, "Vivian", response_format=None)
+            else:
+                await model.async_speech(text, "Vivian", response_format=None)
+    finally:
+        await _shutdown(model)
+
+
+@pytest.mark.asyncio
 async def test_batch_cancellation_failures_and_recovery():
     calls = []
 

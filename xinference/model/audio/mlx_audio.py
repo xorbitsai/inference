@@ -19,7 +19,7 @@ import re
 import tempfile
 import wave
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from ...utils import make_hashable
 from .batch import AudioRequestBatcher
@@ -668,13 +668,15 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
             )
         )
 
-    def _run_speech_batch(self, requests: List[dict]) -> List[bytes]:
+    def _run_speech_batch(self, requests: List[dict]) -> List[Union[bytes, Exception]]:
         if len(requests) == 1:
             request = dict(requests[0])
             return [self.speech(**request.pop("kwargs"), **request)]
         return self._run_on_mlx_thread(self._run_qwen_speech_batch, requests)
 
-    def _run_qwen_speech_batch(self, requests: List[dict]) -> List[bytes]:
+    def _run_qwen_speech_batch(
+        self, requests: List[dict]
+    ) -> List[Union[bytes, Exception]]:
         import numpy as np
 
         assert self._model is not None
@@ -754,16 +756,23 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
                     )
             if sample_rate is None:
                 raise RuntimeError("mlx-audio returned no generated audio")
-            return [
-                self._audio_to_bytes(
-                    request["response_format"],
-                    sample_rate,
-                    self._join_qwen_results(results, segments, sample_rate),
-                )
-                for request, (segments, _), results in zip(
-                    requests, prepared, results_by_request
-                )
-            ]
+            outputs: List[Union[bytes, Exception]] = []
+            for request, (segments, _), results in zip(
+                requests, prepared, results_by_request
+            ):
+                try:
+                    outputs.append(
+                        self._audio_to_bytes(
+                            request["response_format"],
+                            sample_rate,
+                            self._join_qwen_results(results, segments, sample_rate),
+                        )
+                    )
+                except Exception as error:
+                    if len(requests) == 1:
+                        raise
+                    outputs.append(error)
+            return outputs
         finally:
             for temp_file in temp_files:
                 try:

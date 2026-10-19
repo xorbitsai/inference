@@ -15,7 +15,7 @@ import io
 import logging
 import os
 import tempfile
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from ...utils import make_hashable
 from ..utils import is_flash_attn_available, resolve_media_seed
@@ -164,7 +164,7 @@ class Qwen3TTSModel:
                 audio_file.write(audio)
             return out.getvalue()
 
-    def _run_speech_batch(self, requests: List[dict]) -> List[bytes]:
+    def _run_speech_batch(self, requests: List[dict]) -> List[Union[bytes, Exception]]:
         assert self._model is not None
         from .utils import apply_audio_seed
 
@@ -204,10 +204,17 @@ class Qwen3TTSModel:
             audios, sample_rate = getattr(self._model, method)(**native_kwargs)
         if len(audios) != len(requests):
             raise RuntimeError("Qwen3-TTS returned an unexpected result count")
-        return [
-            self._encode_audio(audio, sample_rate, request["response_format"])
-            for audio, request in zip(audios, requests)
-        ]
+        outputs: List[Union[bytes, Exception]] = []
+        for audio, request in zip(audios, requests):
+            try:
+                outputs.append(
+                    self._encode_audio(audio, sample_rate, request["response_format"])
+                )
+            except Exception as error:
+                if not batched:
+                    raise
+                outputs.append(error)
+        return outputs
 
     def speech(self, *args, **kwargs):
         return self._run_speech_batch([self._prepare_speech(*args, **kwargs)])[0]
