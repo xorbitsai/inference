@@ -11,14 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 
+import gc
 import logging
 import os
+import time
 from abc import abstractmethod
 from collections import defaultdict
 from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union
 
 from ..._compat import BaseModel, Field, validator
 from ...constants import XINFERENCE_TRUST_REMOTE_CODE
+from ...device_utils import empty_cache
 from ...types import Rerank
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
@@ -35,6 +38,8 @@ logger = logging.getLogger(__name__)
 RERANK_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 RERANK_EMPTY_CACHE_COUNT = int(os.getenv("XINFERENCE_RERANK_EMPTY_CACHE_COUNT", "10"))
 assert RERANK_EMPTY_CACHE_COUNT > 0
+RERANK_GC_INTERVAL = float(os.getenv("XINFERENCE_RERANK_GC_INTERVAL", "60"))
+assert RERANK_GC_INTERVAL >= 0
 
 
 def get_rerank_model_descriptions():
@@ -153,11 +158,26 @@ class RerankModel:
         self._quantization = quantization or self._model_spec.quantization
         self._device = device
         self._use_fp16 = use_fp16
-        self._model = None
+        self._model: Any = None
         self._counter = 0
+        self._last_gc_time: Optional[float] = None
         self._kwargs = kwargs
         if model_family.type == "unknown":
             model_family.type = self._auto_detect_type(model_path)
+
+    def _clean_cache_if_needed(self) -> None:
+        # Count inference groups, rather than requests split from their results.
+        self._counter += 1
+        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
+            logger.debug("Empty rerank cache.")
+            now = time.monotonic()
+            if (
+                self._last_gc_time is None
+                or now - self._last_gc_time >= RERANK_GC_INTERVAL
+            ):
+                gc.collect()
+                self._last_gc_time = time.monotonic()
+            empty_cache()
 
     @classmethod
     @abstractmethod

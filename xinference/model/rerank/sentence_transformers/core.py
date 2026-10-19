@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import gc
 import importlib.util
 import inspect
 import logging
@@ -26,7 +25,6 @@ import numpy as np
 import torch
 from xoscar import extensible
 
-from ....device_utils import empty_cache
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ....utils import make_hashable
 from ...batch import BatchMixin
@@ -35,15 +33,11 @@ from ...utils import (
     check_dependency_available,
     is_flash_attn_available,
 )
-from ..core import (
-    RERANK_EMPTY_CACHE_COUNT,
-    RerankModel,
-    RerankModelFamilyV2,
-    RerankSpecV1,
-)
+from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 from ..utils import preprocess_sentence
 
 logger = logging.getLogger(__name__)
+_RERANK_MIN_SPLIT_CHARS = 256
 
 
 def _get_causal_lm_rerank_forward_kwargs(model: Any) -> Dict[str, Any]:
@@ -378,6 +372,41 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             return getattr(self._token_tracking_data, "input_ids", [])
         return []
 
+    def _predict_sentence_pairs(self, pairs: List[List[Any]], **kwargs) -> torch.Tensor:
+        """Keep native prediction semantics while isolating long text outliers."""
+        assert self._model is not None
+        predict_kwargs = dict(convert_to_numpy=False, convert_to_tensor=True, **kwargs)
+        if (
+            self.model_family.model_ability
+            or not pairs
+            or not all(all(isinstance(text, str) for text in pair) for pair in pairs)
+        ):
+            return self._model.predict(pairs, **predict_kwargs)
+
+        lengths = [sum(len(text) for text in pair) for pair in pairs]
+        indices = sorted(range(len(pairs)), key=lambda i: lengths[i], reverse=True)
+        groups: List[List[int]] = [[]]
+        longest = max(1, lengths[indices[0]])
+        for index in indices:
+            if longest > _RERANK_MIN_SPLIT_CHARS and longest > 2 * max(
+                1, lengths[index]
+            ):
+                groups.append([])
+                longest = max(1, lengths[index])
+            groups[-1].append(index)
+        if len(groups) == 1:
+            return self._model.predict(pairs, **predict_kwargs)
+
+        # predict() retains its own batch_size, prompts and activation handling.
+        scores = torch.cat(
+            [
+                self._model.predict([pairs[i] for i in group], **predict_kwargs)
+                for group in groups
+            ]
+        )
+        original_order = torch.as_tensor(np.argsort(indices), device=scores.device)
+        return scores[original_order]
+
     def _rerank(
         self,
         documents: List[Any],
@@ -449,30 +478,28 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         ):
             logger.debug("Passing processed sentences: %s", sentence_combinations)
 
-            # Tokenize to get token counts before prediction
-            try:
-                encoded = self._tokenizer(
-                    sentence_combinations,
-                    padding=True,
-                    truncation=True,
-                    return_tensors="pt",
-                )
-                if "attention_mask" in encoded:
-                    # Track total tokens
-                    self._token_tracking_data.n_tokens = (
-                        encoded["attention_mask"].sum().item()
+            if return_len:
+                # Only tokenize separately when the caller needs token counts.
+                try:
+                    encoded = self._tokenizer(
+                        sentence_combinations,
+                        padding=True,
+                        truncation=True,
+                        return_tensors="pt",
                     )
-                    # Track per-sample tokens
-                    per_sample_tokens = encoded["attention_mask"].sum(dim=1).tolist()
-                    self._token_tracking_data.input_tokens = per_sample_tokens
-            except Exception as e:
-                logger.warning(f"Failed to track tokens: {e}")
+                    if "attention_mask" in encoded:
+                        self._token_tracking_data.n_tokens = (
+                            encoded["attention_mask"].sum().item()
+                        )
+                        per_sample_tokens = (
+                            encoded["attention_mask"].sum(dim=1).tolist()
+                        )
+                        self._token_tracking_data.input_tokens = per_sample_tokens
+                except Exception as e:
+                    logger.warning(f"Failed to track tokens: {e}")
 
-            similarity_scores = self._model.predict(
-                sentence_combinations,
-                convert_to_numpy=False,
-                convert_to_tensor=True,
-                **kwargs,
+            similarity_scores = self._predict_sentence_pairs(
+                sentence_combinations, **kwargs
             ).cpu()
             if similarity_scores.dtype == torch.bfloat16:
                 similarity_scores = similarity_scores.float()
@@ -679,12 +706,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             warnings=None,
         )
 
-        # clear cache if possible
-        self._counter += 1
-        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
-            logger.debug("Empty rerank cache.")
-            gc.collect()
-            empty_cache()
+        self._clean_cache_if_needed()
 
         return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 
@@ -798,14 +820,10 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                     warnings=None,
                 )
 
-                # clear cache if possible
-                self._counter += 1
-                if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
-                    logger.debug("Empty rerank cache.")
-                    gc.collect()
-                    empty_cache()
                 result = Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
                 results_with_index.append((idx, result))
+
+            self._clean_cache_if_needed()
 
         # 4. Sort by original call order
         results_with_index.sort(key=lambda x: x[0])

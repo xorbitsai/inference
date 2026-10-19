@@ -157,6 +157,10 @@ character lengths to reduce padding while preserving response order. The
 internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE``
 controls input merging by the server.
 
+Text-only CrossEncoder rerankers may also group pairs by combined query and
+document character length to reduce padding. The native ``predict()``
+``batch_size`` still limits each forward pass; short pairs stay together.
+
 XINFERENCE_BATCH_INTERVAL
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Default batching interval (seconds).
@@ -172,6 +176,23 @@ The cooldown also applies to token-triggered cleanup. Tensors kept alive by
 Python reference cycles may remain allocated until automatic GC or a later full
 collection; ``empty_cache()`` cannot release them. Set this interval to 0 for
 models that require full collection on every cleanup.
+
+XINFERENCE_RERANK_EMPTY_CACHE_COUNT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Number of completed inference groups between cache releases in the Sentence
+Transformers and synchronous vLLM rerank engines. Default is 10. A merged group
+counts once, regardless of how many requests it contains.
+
+XINFERENCE_RERANK_GC_INTERVAL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Minimum interval (seconds) between full Python garbage collections during
+rerank cache cleanup. Default is 60. The first cache cleanup collects immediately.
+Set to 0 to collect on every cache cleanup. GPU cache release still follows
+``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``.
+
+Python reference cycles may keep tensors allocated until automatic GC or a
+later full collection; ``empty_cache()`` cannot release them. Set this interval
+to 0 for models that need full collection on every cache cleanup.
 
 XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

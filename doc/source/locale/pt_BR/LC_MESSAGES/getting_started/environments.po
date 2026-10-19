@@ -570,3 +570,21 @@ msgstr "Intervalo mínimo (segundos) entre coletas completas de lixo do Python d
 #: ../../source/getting_started/environments.rst:171
 msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
 msgstr "O intervalo também se aplica à limpeza acionada pelo número de tokens. Tensores mantidos por referências cíclicas do Python podem permanecer alocados até a coleta automática ou uma coleta completa posterior; ``empty_cache()`` não pode liberá-los. Defina este intervalo como 0 para modelos que exijam uma coleta completa a cada limpeza."
+
+msgid "Text-only CrossEncoder rerankers may also group pairs by combined query and document character length to reduce padding. The native ``predict()`` ``batch_size`` still limits each forward pass; short pairs stay together."
+msgstr "Os modelos de reclassificação CrossEncoder somente de texto também podem agrupar pares pelo comprimento total em caracteres da consulta e do documento para reduzir o preenchimento. O parâmetro nativo ``batch_size`` de ``predict()`` ainda limita cada passagem direta; os pares curtos permanecem juntos."
+
+msgid "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+msgstr "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+
+msgid "Number of completed inference groups between cache releases in the Sentence Transformers and synchronous vLLM rerank engines. Default is 10. A merged group counts once, regardless of how many requests it contains."
+msgstr "Número de grupos de inferência concluídos entre liberações do cache nos mecanismos de reclassificação Sentence Transformers e vLLM síncrono. O padrão é 10. Um grupo combinado conta uma vez, independentemente do número de solicitações que contém."
+
+msgid "XINFERENCE_RERANK_GC_INTERVAL"
+msgstr "XINFERENCE_RERANK_GC_INTERVAL"
+
+msgid "Minimum interval (seconds) between full Python garbage collections during rerank cache cleanup. Default is 60. The first cache cleanup collects immediately. Set to 0 to collect on every cache cleanup. GPU cache release still follows ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``."
+msgstr "Intervalo mínimo (segundos) entre coletas completas de lixo do Python durante a limpeza do cache de reclassificação. O padrão é 60. A primeira limpeza coleta imediatamente. Com 0, cada limpeza realiza uma coleta. A liberação do cache GPU continua seguindo ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``."
+
+msgid "Python reference cycles may keep tensors allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that need full collection on every cache cleanup."
+msgstr "As referências cíclicas do Python podem manter tensores alocados até a coleta automática ou uma coleta completa posterior; ``empty_cache()`` não pode liberá-los. Defina este intervalo como 0 para modelos que precisem de uma coleta completa a cada limpeza do cache."

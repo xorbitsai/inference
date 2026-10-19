@@ -502,3 +502,21 @@ msgstr "埋め込みキャッシュのクリーンアップ時に Python の完�
 #: ../../source/getting_started/environments.rst:171
 msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
 msgstr "クールダウンはトークン数によって起動されるクリーンアップにも適用されます。Python の循環参照によって保持されるテンソルは、自動 GC または後続の完全なガベージコレクションまでメモリを占有する場合があります。``empty_cache()`` ではこれらを解放できません。クリーンアップのたびに完全な回収が必要なモデルでは、この間隔を 0 に設定してください。"
+
+msgid "Text-only CrossEncoder rerankers may also group pairs by combined query and document character length to reduce padding. The native ``predict()`` ``batch_size`` still limits each forward pass; short pairs stay together."
+msgstr "テキスト専用の CrossEncoder リランカーでは、クエリと文書の合計文字数に基づいて入力ペアをグループ化し、パディングを減らすこともあります。ネイティブの ``predict()`` の ``batch_size`` は引き続き各順伝播のサイズを制限し、短いペアは同じグループに保たれます。"
+
+msgid "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+msgstr "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+
+msgid "Number of completed inference groups between cache releases in the Sentence Transformers and synchronous vLLM rerank engines. Default is 10. A merged group counts once, regardless of how many requests it contains."
+msgstr "Sentence Transformers および同期 vLLM リランクエンジンで、キャッシュの解放間に完了する推論グループ数です。デフォルトは 10 です。結合されたグループは、含まれるリクエスト数にかかわらず 1 回と数えます。"
+
+msgid "XINFERENCE_RERANK_GC_INTERVAL"
+msgstr "XINFERENCE_RERANK_GC_INTERVAL"
+
+msgid "Minimum interval (seconds) between full Python garbage collections during rerank cache cleanup. Default is 60. The first cache cleanup collects immediately. Set to 0 to collect on every cache cleanup. GPU cache release still follows ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``."
+msgstr "リランクキャッシュのクリーンアップ時に Python の完全なガベージコレクションを実行する最小間隔（秒）です。デフォルトは 60 です。最初のキャッシュクリーンアップでは直ちに回収します。0 に設定すると毎回回収します。GPU キャッシュの解放は引き続き ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT`` に従います。"
+
+msgid "Python reference cycles may keep tensors allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that need full collection on every cache cleanup."
+msgstr "Python の循環参照によって、テンソルが自動 GC または後続の完全な回収までメモリを占有する場合があります。``empty_cache()`` ではこれらを解放できません。キャッシュクリーンアップのたびに完全な回収が必要なモデルでは、この間隔を 0 に設定してください。"
