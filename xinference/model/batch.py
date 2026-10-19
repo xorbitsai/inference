@@ -142,9 +142,13 @@ class BatchMixin:
             # together.
             while size < self.batch_size:
                 try:
-                    (args, kwargs), future = await asyncio.wait_for(
-                        self.queue.get(), timeout=self.batch_interval
-                    )
+                    if self.batch_interval == 0:
+                        # No wait still includes requests already in the queue.
+                        (args, kwargs), future = self.queue.get_nowait()
+                    else:
+                        (args, kwargs), future = await asyncio.wait_for(
+                            self.queue.get(), timeout=self.batch_interval
+                        )
                     if future.done():
                         continue
                     next_size = self._get_batch_size(*args, **kwargs)
@@ -156,7 +160,7 @@ class BatchMixin:
                     size += next_size
                     delays.append(self._func.delay(*args, **kwargs))
                     futures.append(future)
-                except asyncio.TimeoutError:
+                except (asyncio.QueueEmpty, asyncio.TimeoutError):
                     break
 
             # A caller awaiting its future may be cancelled while its item is

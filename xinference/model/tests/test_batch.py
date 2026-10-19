@@ -50,6 +50,7 @@ async def _shutdown_batch_processor(probe):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("batch_interval", [0, 0.001])
 @pytest.mark.parametrize(
     ("request_sizes", "expected_batch_sizes"),
     [
@@ -60,9 +61,10 @@ async def _shutdown_batch_processor(probe):
     ],
 )
 async def test_batch_mixin_respects_batch_size_and_order(
-    request_sizes, expected_batch_sizes
+    request_sizes, expected_batch_sizes, batch_interval
 ):
     probe = _BatchProbe(batch_size=4)
+    probe.batch_interval = batch_interval
     requests = [
         [f"request-{request_index}-item-{item_index}" for item_index in range(size)]
         for request_index, size in enumerate(request_sizes)

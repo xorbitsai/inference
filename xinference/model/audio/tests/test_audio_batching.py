@@ -593,6 +593,58 @@ async def test_audio_single_request_encoding_failure_is_raised(factory, method):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("cancelled_index", [None, 0, 2])
+async def test_zero_interval_drains_ready_audio_requests(cancelled_index):
+    release_processor = asyncio.Event()
+    calls = []
+
+    class QueuedAudioRequestBatcher(AudioRequestBatcher):
+        async def _process_batch(self):
+            await release_processor.wait()
+            await super()._process_batch()
+
+    def run_batch(requests):
+        values = [request["value"] for request in requests]
+        calls.append(values)
+        return values
+
+    batcher = QueuedAudioRequestBatcher(
+        run_batch, lambda request: 0, request_batch_size=3, batch_interval=0
+    )
+    tasks = [
+        asyncio.create_task(batcher.submit(dict(value=value))) for value in range(7)
+    ]
+    try:
+        await asyncio.sleep(0)
+        assert batcher.queue.qsize() == 7
+        if cancelled_index is not None:
+            tasks[cancelled_index].cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await tasks[cancelled_index]
+        release_processor.set()
+        results = await asyncio.wait_for(
+            asyncio.gather(*tasks, return_exceptions=True), timeout=3
+        )
+        expected = [value for value in range(7) if value != cancelled_index]
+        for value, result in enumerate(results):
+            if value == cancelled_index:
+                assert isinstance(result, asyncio.CancelledError)
+            else:
+                assert result == value
+        assert calls == [
+            expected[index : index + 3] for index in range(0, len(expected), 3)
+        ]
+        assert await asyncio.wait_for(batcher.submit(dict(value=7)), timeout=3) == 7
+        assert calls[-1] == [7]
+    finally:
+        release_processor.set()
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await _shutdown(SimpleNamespace(_batcher=batcher))
+
+
+@pytest.mark.asyncio
 async def test_batch_cancellation_failures_and_recovery():
     calls = []
 
