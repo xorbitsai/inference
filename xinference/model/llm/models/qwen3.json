@@ -3316,6 +3316,7 @@
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#trt_llm_dependencies# ; #engine# == \"TRT-LLM\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },

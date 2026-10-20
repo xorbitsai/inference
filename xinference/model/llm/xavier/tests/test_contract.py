@@ -1,5 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+# CI: linux
 
 import json
 import subprocess
@@ -52,6 +53,7 @@ def test_protocol_v1_golden_keys(kv_contract):
         ("num_kv_heads", 4),
         ("head_dim", 8),
         ("block_size", 8),
+        ("logical_dtype", "bfloat16"),
     ],
 )
 def test_incompatible_semantics_cannot_share_keys(kv_contract, field, value):
@@ -76,7 +78,7 @@ def test_incompatible_semantics_cannot_share_keys(kv_contract, field, value):
         ("layout", "N2HTD"),
         ("transport_dtype", "float16"),
         ("logical_dtype", "auto"),
-        ("logical_dtype", "bfloat16"),
+        ("logical_dtype", "float32"),
         ("logical_dtype", "fp8"),
         ("tensor_parallel_size", 2),
         ("pipeline_parallel_size", 2),

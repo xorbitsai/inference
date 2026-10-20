@@ -789,3 +789,59 @@ msgstr "因此，长期启用前应先实测。问题并不在验证步骤本身
 #: ../glm53-doc-check/user_guide/backends.rst:178
 msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
 msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+
+#: ../../source/user_guide/backends.rst:339
+msgid "TRT-LLM"
+msgstr "TRT-LLM"
+
+#: ../../source/user_guide/backends.rst:342
+msgid ""
+"The TRT-LLM backend uses the Python LLM API inside the model process. It "
+"requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. The initial "
+"adapter supports unquantized dense Qwen3 text models, including Qwen3-0.6B."
+msgstr ""
+"TRT-LLM 后端在模型进程内使用 Python LLM API，需要 Linux、NVIDIA CUDA GPU 和 ``tensorrt-"
+"llm==1.2.1``。初始适配支持非量化的稠密 Qwen3 文本模型，包括 Qwen3-0.6B。"
+
+#: ../../source/user_guide/backends.rst:344
+msgid ""
+"The example launches two independent replicas with a shared 512 MiB Xavier "
+"CPU cache. Each replica uses one GPU. Install TRT-LLM in a compatible CUDA "
+"environment and set ``enable_virtual_env=False``, or use a per-model virtual"
+" environment with matching dependencies. Each replica currently requires "
+"TP=PP=CP=1, with TRT's worker running directly in the Xinference model "
+"process. Qwen3 weights and KV pages use BF16."
+msgstr ""
+"此示例启动两个独立副本，共享 512 MiB 的 Xavier CPU 缓存。每个副本使用一张 GPU。在兼容的 CUDA 环境中安装 TRT-LLM "
+"并设置 ``enable_virtual_env=False``，或使用依赖匹配的按模型虚拟环境。 当前每个副本要求 TP=PP=CP=1，TRT "
+"worker 直接运行在 Xinference 模型进程内。Qwen3 权重和 KV 页使用 BF16。"
+
+#: ../../source/user_guide/backends.rst:366
+msgid ""
+"Xavier publishes complete 64-token BF16 KV pages and restores matching "
+"prefixes in another replica through actor RPC. Partial pages and the final "
+"prompt token are computed locally. The shared cache uses bounded storage and"
+" LRU eviction; transfers currently use synchronous CPU staging."
+msgstr ""
+"Xavier 发布完整的 64-token BF16 KV 页，通过 actor RPC 在另一副本中恢复匹配的前缀。不完整的页和提示词的最后一个 "
+"token 在本地计算。共享缓存具有容量上限并采用 LRU 淘汰；当前传输使用同步 CPU 暂存。"
+
+#: ../../source/user_guide/backends.rst:368
+msgid ""
+"Shared caching requires TP=PP=CP=1, BF16 weights and KV, and disabled "
+"chunked prefill and overlap scheduling. P/D separation, quantization, hybrid"
+" attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` "
+"are not supported by this initial integration."
+msgstr ""
+"共享缓存要求 TP=PP=CP=1、BF16 权重与 KV，并禁用分块 prefill 和重叠调度。此初始集成不支持 P/D "
+"分离、量化、混合注意力、多模态输入、LoRA、推测解码和 ``cache_salt``。"
+
+#: ../../source/user_guide/backends.rst:370
+msgid ""
+"The shared cache actor reports ``imported_pages`` after copies into the "
+"destination KV pool complete. Use this counter to verify cross-instance "
+"imports. Measure latency and throughput for your workload; transfer costs "
+"can exceed the saved prefill computation."
+msgstr ""
+"共享缓存 actor 在数据复制到目标 KV 池完成后记录 "
+"``imported_pages``。使用此计数器验证跨实例导入。请针对实际负载测量延迟和吞吐量；传输开销可能超过节省的 prefill 计算成本。"

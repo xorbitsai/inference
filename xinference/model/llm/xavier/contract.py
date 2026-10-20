@@ -7,7 +7,7 @@ attention configuration and effective position/RoPE configuration. A model
 name, mutable revision or local path alone does not establish compatibility.
 Engine names, physical cache slots and local layer names are not identities.
 
-Version 1 supports unquantized FP16 text models with TP=PP=1 and contiguous
+Version 1 supports unquantized FP16/BF16 text models with TP=PP=1 and contiguous
 positions starting at zero. Each logical layer uses global indices 0..L-1.
 Its canonical payload is [blocks, K/V, tokens, KV heads, head dimension], with
 K before V, serialized as little-endian uint8 bytes. Physical layout conversion
@@ -178,7 +178,6 @@ class KVCacheContract:
             if type(getattr(self, name)) is not int or getattr(self, name) != 1:
                 raise ValueError(f"Unsupported {name}")
         for name, expected in (
-            ("logical_dtype", "float16"),
             ("layout", "N2THD"),
             ("transport_dtype", "uint8"),
             ("attention_kind", "full"),
@@ -186,6 +185,8 @@ class KVCacheContract:
         ):
             if getattr(self, name) != expected:
                 raise ValueError(f"Unsupported {name}")
+        if self.logical_dtype not in ("float16", "bfloat16"):
+            raise ValueError("Unsupported logical_dtype")
         if self.is_multimodal is not False or self.has_lora is not False:
             raise ValueError("KV contract requires text-only models without LoRA")
 

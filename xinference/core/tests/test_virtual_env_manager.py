@@ -1523,6 +1523,31 @@ class TestGetEngineCriticalDependencySpecs:
             specs = get_engine_critical_dependency_specs("sglang", ["sglang>=0.5.6"])
         assert specs == []
 
+    @pytest.mark.parametrize("compatible", [False, True])
+    def test_trt_inherited_engine_enforces_its_runtime_requirements(self, compatible):
+        versions = {
+            "tensorrt_llm": "1.2.1",
+            "torch": "2.9.1+cu130" if compatible else "2.10.0+cu130",
+            "numpy": "1.26.4" if compatible else "2.3.0",
+            "transformers": "4.57.3" if compatible else "5.5.0",
+        }
+        declared = ["torch<=2.10.0a0,>=2.9.1", "numpy<2", "transformers==4.57.3"]
+        with self._patch_metadata(versions, {"tensorrt_llm": declared}):
+            specs = get_engine_critical_dependency_specs(
+                "TRT-LLM", get_engine_virtualenv_packages("TRT-LLM")
+            )
+        assert set(specs) == (set() if compatible else set(declared))
+
+    def test_trt_fresh_install_accepts_both_distribution_spellings(self):
+        with self._patch_metadata(
+            {"tensorrt_llm": "1.2.1", "numpy": "2.3.0"},
+            {"tensorrt_llm": ["numpy<2"]},
+        ):
+            assert (
+                get_engine_critical_dependency_specs("TRT-LLM", ["tensorrt-llm==1.1.0"])
+                == []
+            )
+
     def test_engine_absent_from_parent_is_noop(self):
         """Without a parent copy the venv resolves the engine and its full
         dependency closure itself; nothing to compensate for."""

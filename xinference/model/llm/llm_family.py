@@ -400,6 +400,7 @@ TRANSFORMERS_CLASSES: List[Type[LLM]] = []
 VLLM_CLASSES: List[Type[LLM]] = []
 MLX_CLASSES: List[Type[LLM]] = []
 LMDEPLOY_CLASSES: List[Type[LLM]] = []
+TRTLLM_CLASSES: List[Type[LLM]] = []
 
 LLM_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
 SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
@@ -721,6 +722,18 @@ def check_engine_by_spec_parameters_with_virtual_env(
     ) -> Optional[Type[LLM]]:
         if not engine_classes:
             return None
+        if model_engine.lower() == "trt-llm":
+            # Installing dependencies cannot extend this adapter's model support.
+            spec = _select_llm_spec(family)
+            return next(
+                (
+                    cls
+                    for cls in engine_classes
+                    if spec is not None
+                    and cls.match_json(family, spec, quantization) is True
+                ),
+                None,
+            )
         abilities = set(getattr(family, "model_ability", []) or [])
         preferred_tokens: List[Tuple[str, ...]] = []
         if any(a in abilities for a in ("vision", "audio", "omni")):

@@ -587,3 +587,64 @@ msgstr "SGLang은 Linux의 NVIDIA GPU에서 일부 텍스트 기반 이미지 �
 #: ../glm53-doc-check/user_guide/backends.rst:178
 msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
 msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+
+#: ../../source/user_guide/backends.rst:339
+msgid "TRT-LLM"
+msgstr "TRT-LLM"
+
+#: ../../source/user_guide/backends.rst:342
+msgid ""
+"The TRT-LLM backend uses the Python LLM API inside the model process. It "
+"requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. The initial "
+"adapter supports unquantized dense Qwen3 text models, including Qwen3-0.6B."
+msgstr ""
+"TRT-LLM 백엔드는 모델 프로세스 안에서 Python LLM API를 사용합니다. Linux, NVIDIA CUDA GPU 및 "
+"``tensorrt-llm==1.2.1`` 이 필요합니다. 초기 어댑터는 Qwen3-0.6B를 포함한 비양자화 밀집 Qwen3 텍스트 "
+"모델을 지원합니다."
+
+#: ../../source/user_guide/backends.rst:344
+msgid ""
+"The example launches two independent replicas with a shared 512 MiB Xavier "
+"CPU cache. Each replica uses one GPU. Install TRT-LLM in a compatible CUDA "
+"environment and set ``enable_virtual_env=False``, or use a per-model virtual"
+" environment with matching dependencies. Each replica currently requires "
+"TP=PP=CP=1, with TRT's worker running directly in the Xinference model "
+"process. Qwen3 weights and KV pages use BF16."
+msgstr ""
+"이 예제는 512 MiB Xavier CPU 캐시를 공유하는 독립 복제본 두 개를 시작합니다. 각 복제본은 GPU 한 개를 사용합니다. "
+"호환되는 CUDA 환경에 TRT-LLM을 설치하고 ``enable_virtual_env=False`` 를 설정하거나, 의존성이 일치하는 "
+"모델별 가상 환경을 사용합니다. 현재 각 복제본은 TP=PP=CP=1을 요구하며, TRT 워커는 Xinference 모델 프로세스 안에서"
+" 직접 실행됩니다. Qwen3 가중치와 KV 페이지는 BF16을 사용합니다."
+
+#: ../../source/user_guide/backends.rst:366
+msgid ""
+"Xavier publishes complete 64-token BF16 KV pages and restores matching "
+"prefixes in another replica through actor RPC. Partial pages and the final "
+"prompt token are computed locally. The shared cache uses bounded storage and"
+" LRU eviction; transfers currently use synchronous CPU staging."
+msgstr ""
+"Xavier는 완전한 64토큰 BF16 KV 페이지를 게시하고 actor RPC를 통해 다른 복제본에서 일치하는 접두사를 복원합니다. "
+"불완전한 페이지와 프롬프트의 마지막 토큰은 로컬에서 계산합니다. 공유 캐시는 용량 제한과 LRU 축출을 사용하며, 현재 전송은 동기 "
+"CPU 스테이징을 사용합니다."
+
+#: ../../source/user_guide/backends.rst:368
+msgid ""
+"Shared caching requires TP=PP=CP=1, BF16 weights and KV, and disabled "
+"chunked prefill and overlap scheduling. P/D separation, quantization, hybrid"
+" attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` "
+"are not supported by this initial integration."
+msgstr ""
+"캐시 공유에는 TP=PP=CP=1 및 BF16 가중치와 KV가 필요하며 청크 prefill과 중첩 스케줄링을 비활성화해야 합니다. 이 "
+"초기 통합은 P/D 분리, 양자화, 하이브리드 어텐션, 멀티모달 입력, LoRA, 추측 디코딩 및 ``cache_salt`` 를 지원하지"
+" 않습니다."
+
+#: ../../source/user_guide/backends.rst:370
+msgid ""
+"The shared cache actor reports ``imported_pages`` after copies into the "
+"destination KV pool complete. Use this counter to verify cross-instance "
+"imports. Measure latency and throughput for your workload; transfer costs "
+"can exceed the saved prefill computation."
+msgstr ""
+"공유 캐시 actor는 대상 KV 풀로 복사가 완료된 후 ``imported_pages`` 를 보고합니다. 이 카운터로 인스턴스 간 "
+"가져오기를 확인하세요. 실제 작업 부하에서 지연 시간과 처리량을 측정하세요. 전송 비용이 절약된 prefill 계산 비용보다 클 수 "
+"있습니다."

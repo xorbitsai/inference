@@ -39,6 +39,7 @@ from .llm_family import (
     SGLANG_CLASSES,
     SUPPORTED_ENGINES,
     TRANSFORMERS_CLASSES,
+    TRTLLM_CLASSES,
     VLLM_CLASSES,
     CustomLLMFamilyV2,
     LlamaCppLLMSpecV2,
@@ -272,6 +273,7 @@ def _install():
     from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
     from .sglang.core import SGLANGChatModel, SGLANGModel, SGLANGVisionModel
     from .transformers.core import PytorchChatModel, PytorchModel
+    from .trt_llm.core import TRTLLMModel
     from .vllm.core import VLLMChatModel, VLLMModel, VLLMMultiModel
 
     # register llm classes.
@@ -283,6 +285,7 @@ def _install():
     extend_classes_once(MLX_CLASSES, [MLXModel, MLXChatModel, MLXVisionModel])
     extend_classes_once(LMDEPLOY_CLASSES, [LMDeployModel, LMDeployChatModel])
     extend_classes_once(TRANSFORMERS_CLASSES, [PytorchChatModel, PytorchModel])
+    extend_classes_once(TRTLLM_CLASSES, [TRTLLMModel])
 
     # support 4 engines for now
     SUPPORTED_ENGINES["vLLM"] = VLLM_CLASSES
@@ -291,6 +294,7 @@ def _install():
     SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CLASSES
     SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
     SUPPORTED_ENGINES["LMDEPLOY"] = LMDEPLOY_CLASSES
+    SUPPORTED_ENGINES["TRT-LLM"] = TRTLLM_CLASSES
 
     # Distribution-specific engines are appended after the built-ins.
     _run_engine_registration_hooks(MODEL_TYPE_LLM, SUPPORTED_ENGINES)

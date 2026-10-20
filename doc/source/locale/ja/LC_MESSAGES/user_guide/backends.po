@@ -585,3 +585,64 @@ msgstr "SGLang は Linux と NVIDIA GPU 上で一部のテキストから画像�
 #: ../glm53-doc-check/user_guide/backends.rst:178
 msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
 msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+
+#: ../../source/user_guide/backends.rst:339
+msgid "TRT-LLM"
+msgstr "TRT-LLM"
+
+#: ../../source/user_guide/backends.rst:342
+msgid ""
+"The TRT-LLM backend uses the Python LLM API inside the model process. It "
+"requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. The initial "
+"adapter supports unquantized dense Qwen3 text models, including Qwen3-0.6B."
+msgstr ""
+"TRT-LLM バックエンドはモデルプロセス内で Python LLM API を使用します。Linux、NVIDIA CUDA GPU、および "
+"``tensorrt-llm==1.2.1`` が必要です。初期アダプターは Qwen3-0.6B を含む、量子化されていない密な Qwen3 "
+"テキストモデルをサポートします。"
+
+#: ../../source/user_guide/backends.rst:344
+msgid ""
+"The example launches two independent replicas with a shared 512 MiB Xavier "
+"CPU cache. Each replica uses one GPU. Install TRT-LLM in a compatible CUDA "
+"environment and set ``enable_virtual_env=False``, or use a per-model virtual"
+" environment with matching dependencies. Each replica currently requires "
+"TP=PP=CP=1, with TRT's worker running directly in the Xinference model "
+"process. Qwen3 weights and KV pages use BF16."
+msgstr ""
+"この例は、512 MiB の Xavier CPU キャッシュを共有する独立したレプリカを2つ起動します。各レプリカは GPU "
+"を1台使用します。互換性のある CUDA 環境に TRT-LLM をインストールして ``enable_virtual_env=False`` "
+"を設定するか、依存関係が一致するモデルごとの仮想環境を使用します。 現在、各レプリカは TP=PP=CP=1 を必要とし、TRT ワーカーは "
+"Xinference のモデルプロセス内で直接実行されます。Qwen3 の重みと KV ページには BF16 を使用します。"
+
+#: ../../source/user_guide/backends.rst:366
+msgid ""
+"Xavier publishes complete 64-token BF16 KV pages and restores matching "
+"prefixes in another replica through actor RPC. Partial pages and the final "
+"prompt token are computed locally. The shared cache uses bounded storage and"
+" LRU eviction; transfers currently use synchronous CPU staging."
+msgstr ""
+"Xavier は完全な64トークンの BF16 KV ページを公開し、actor RPC "
+"を介して別のレプリカで一致するプレフィックスを復元します。不完全なページとプロンプトの最後のトークンはローカルで計算します。共有キャッシュには容量制限があり、LRU"
+" で退避します。現在の転送は同期 CPU ステージングを使用します。"
+
+#: ../../source/user_guide/backends.rst:368
+msgid ""
+"Shared caching requires TP=PP=CP=1, BF16 weights and KV, and disabled "
+"chunked prefill and overlap scheduling. P/D separation, quantization, hybrid"
+" attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` "
+"are not supported by this initial integration."
+msgstr ""
+"キャッシュ共有には TP=PP=CP=1、BF16 の重みと KV が必要で、チャンク化 prefill "
+"と重複スケジューリングを無効にします。この初期統合は P/D 分離、量子化、ハイブリッド注意機構、マルチモーダル入力、LoRA、投機的デコード、および "
+"``cache_salt`` をサポートしません。"
+
+#: ../../source/user_guide/backends.rst:370
+msgid ""
+"The shared cache actor reports ``imported_pages`` after copies into the "
+"destination KV pool complete. Use this counter to verify cross-instance "
+"imports. Measure latency and throughput for your workload; transfer costs "
+"can exceed the saved prefill computation."
+msgstr ""
+"共有キャッシュ actor は転送先 KV プールへのコピー完了後に ``imported_pages`` "
+"を報告します。このカウンターでインスタンス間のインポートを確認してください。実際の負荷で遅延とスループットを測定してください。転送コストが "
+"prefill 計算の削減分を上回る場合があります。"

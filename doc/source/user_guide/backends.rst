@@ -142,8 +142,9 @@ Currently, supported model includes:
 
 .. vllm_start
 
-- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
+- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``minicpm5-1b``, ``minicpm5-2b``, ``tiny-llama``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
 - ``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``
+- ``Spark-X2.5``, ``Spark-X2.5-Base``
 - ``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-or1-preview``, ``vibethinker``, ``XiYanSQL-QwenCoder-2504``
 - ``llama-3.2-vision``, ``llama-3.2-vision-instruct``
 - ``baichuan-2``, ``baichuan-2-chat``
@@ -334,3 +335,37 @@ simply has no headroom left for speculation.
 So measure before leaving it on, and note that the verification step itself is
 not the problem: a four-token forward costs only ~40% more than a single-token
 one on either model.
+
+
+TRT-LLM
+========
+
+The TRT-LLM backend uses the Python LLM API inside the model process. It requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. The initial adapter supports unquantized dense Qwen3 text models, including Qwen3-0.6B.
+
+The example launches two independent replicas with a shared 512 MiB Xavier CPU cache. Each replica uses one GPU. Install TRT-LLM in a compatible CUDA environment and set ``enable_virtual_env=False``, or use a per-model virtual environment with matching dependencies. Each replica currently requires TP=PP=CP=1, with TRT's worker running directly in the Xinference model process. Qwen3 weights and KV pages use BF16.
+
+.. code-block:: python
+
+   from xinference.client import Client
+
+   client = Client("http://localhost:9997")
+   client.launch_model(
+       model_uid="qwen-trt",
+       model_name="qwen3",
+       model_size_in_billions="0_6",
+       model_format="pytorch",
+       model_engine="TRT-LLM",
+       quantization="none",
+       replica=2,
+       n_gpu=1,
+       context_length=4096,
+       enable_virtual_env=False,
+       enable_xavier=True,
+       xavier_cache_bytes=512 * 1024**2,
+   )
+
+Xavier publishes complete 64-token BF16 KV pages and restores matching prefixes in another replica through actor RPC. Partial pages and the final prompt token are computed locally. The shared cache uses bounded storage and LRU eviction; transfers currently use synchronous CPU staging.
+
+Shared caching requires TP=PP=CP=1, BF16 weights and KV, and disabled chunked prefill and overlap scheduling. P/D separation, quantization, hybrid attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` are not supported by this initial integration.
+
+The shared cache actor reports ``imported_pages`` after copies into the destination KV pool complete. Use this counter to verify cross-instance imports. Measure latency and throughput for your workload; transfer costs can exceed the saved prefill computation.

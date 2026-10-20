@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 
 
 from types import SimpleNamespace
@@ -33,6 +34,7 @@ from ..context_length import (
         ("Transformers", "context_length"),
         ("MLX", "context_length"),
         ("LMDeploy", "session_len"),
+        ("TRT-LLM", "max_seq_len"),
         ("llama.cpp", "n_ctx"),
     ],
 )
