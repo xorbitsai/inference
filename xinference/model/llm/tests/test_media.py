@@ -318,7 +318,6 @@ class _Blocked(Exception):
     [
         ("..vllm.core", "VLLMMultiModel", "async_chat"),
         ("..sglang.core", "SGLANGVisionModel", "async_chat"),
-        ("..lmdeploy.core", "LMDeployChatModel", "_get_prompt_input"),
     ],
 )
 async def test_media_validation_runs_off_event_loop(

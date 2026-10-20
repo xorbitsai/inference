@@ -24,7 +24,6 @@ CONTEXT_LENGTH_KEYS = {
     "llama.cpp": "n_ctx",
     "transformers": "context_length",
     "mlx": "context_length",
-    "lmdeploy": "session_len",
     "trt-llm": "max_seq_len",
 }
 

@@ -38,6 +38,9 @@ jobs:
       - name: Install lint and workflow test dependencies
         run: pip install pre-commit pytest
       - name: Run pre-commit
+        env:
+          TEST_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          TEST_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: pre-commit run --all-files
       - name: Test CI workflow
         env:
@@ -127,7 +130,7 @@ jobs:
                 # This T4 suite exercises Transformers, selected audio engines,
                 # stable diffusion, and shared embedding/rerank code. Other
                 # engine implementations are not exercised by this job.
-                xinference/model/llm/vllm/*|xinference/model/llm/sglang/*|xinference/model/llm/mlx/*|xinference/model/llm/lmdeploy/*|xinference/model/llm/llama_cpp/*|xinference/model/llm/xavier/*) ;;
+                xinference/model/llm/vllm/*|xinference/model/llm/sglang/*|xinference/model/llm/mlx/*|xinference/model/llm/llama_cpp/*|xinference/model/llm/xavier/*) ;;
                 xinference/model/embedding/vllm/*|xinference/model/rerank/vllm/*) ;;
                 xinference/model/audio/*_mlx.py|xinference/model/audio/mlx_audio.py) ;;
                 # These engines have no active cases in this T4 test list.
@@ -235,7 +238,7 @@ jobs:
                 # MLX uses SGLang's Xavier settings and directory.
                 xinference/model/llm/sglang/xavier/*) metal=true ;;
                 # Other engine implementations do not affect Metal.
-                xinference/model/llm/llama_cpp/*|xinference/model/llm/lmdeploy/*|xinference/model/llm/sglang/*|xinference/model/llm/transformers/*|xinference/model/llm/trt_llm/*|xinference/model/llm/vllm/*) ;;
+                xinference/model/llm/llama_cpp/*|xinference/model/llm/sglang/*|xinference/model/llm/transformers/*|xinference/model/llm/trt_llm/*|xinference/model/llm/vllm/*) ;;
                 xinference/model/llm/*|xinference/model/audio/*|xinference/model/scheduler/*|xinference/thirdparty/*) metal=true ;;
                 xinference/model/*)
                   # Top-level model modules are shared by every engine.
@@ -541,7 +544,6 @@ jobs:
           platform_ignores=()
           if [ "$TEST_PLATFORM" != "ubuntu-latest" ]; then
             platform_ignores+=(
-              --ignore xinference/model/llm/lmdeploy
               --ignore xinference/model/llm/trt_llm
               --ignore xinference/model/embedding/vllm
               --ignore xinference/model/rerank/vllm

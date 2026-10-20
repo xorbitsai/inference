@@ -3,7 +3,6 @@
 import ast
 import json
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -14,6 +13,13 @@ from unittest.mock import patch
 import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / ".github/scripts"))
+from check_test_platform_coverage import changed_paths  # noqa: E402
+from check_test_platform_coverage import coverage_errors  # noqa: E402
+from check_test_platform_coverage import (  # noqa: E402
+    classified_test as _classified_test,
+)
+
 WORKFLOW = yaml.safe_load((ROOT / ".github/workflows/python.yaml").read_text())
 JOBS = WORKFLOW["jobs"]
 PLATFORM_STEP = next(
@@ -33,14 +39,7 @@ LINUX_PATHS = TEST_STEP["env"]["LINUX_TEST_PATHS"].split()
 
 
 def classified_test(path, content):
-    if any(
-        path == target or path.startswith(target + "/")
-        for target in PLATFORM_PATHS + LINUX_PATHS
-    ):
-        return True
-    if path.startswith("xinference/model/llm/mlx/tests/"):
-        return True  # Discovered by the macOS unit/Metal jobs.
-    return re.search(r"^# CI: linux$", content, re.MULTILINE) is not None
+    return _classified_test(path, content, PLATFORM_PATHS + LINUX_PATHS)
 
 
 class TestPythonWorkflow(unittest.TestCase):
@@ -401,7 +400,6 @@ class TestPythonWorkflow(unittest.TestCase):
             "xinference/model/llm/vllm",
             "xinference/model/llm/sglang",
             "xinference/model/llm/trt_llm",
-            "xinference/model/llm/lmdeploy",
             "xinference/model/embedding/vllm",
             "xinference/model/rerank/vllm",
         ):
@@ -452,7 +450,7 @@ class TestPythonWorkflow(unittest.TestCase):
             "rerank": {"llama_cpp", "sentence_transformers", "tests"},
         }
         restricted = {
-            "llm": {"lmdeploy", "mlx", "sglang", "trt_llm", "vllm"},
+            "llm": {"mlx", "sglang", "trt_llm", "vllm"},
             "embedding": {"vllm"},
             "rerank": {"vllm"},
         }
@@ -608,33 +606,8 @@ class TestPythonWorkflow(unittest.TestCase):
             self.skipTest(
                 "GitHub supplies TEST_BASE_SHA for PR/main coverage classification"
             )
-        changed = subprocess.run(
-            [
-                "git",
-                "diff",
-                "--no-renames",
-                "--diff-filter=AM",
-                "--name-only",
-                f"{base}...{head}",
-            ],
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.splitlines()
-        for name in changed:
-            if not name.startswith("xinference/") or not Path(name).name.startswith(
-                "test_"
-            ):
-                continue
-            if name.startswith("xinference/thirdparty/"):
-                continue
-            self.assertTrue(
-                classified_test(name, (ROOT / name).read_text()),
-                f"{name}: add it to PLATFORM_TEST_PATHS, LINUX_TEST_PATHS "
-                "(or the macOS scope), or declare "
-                "'# CI: linux' for a portable/Linux-only regression. Do not silently omit new tests.",
-            )
+        changed = changed_paths(ROOT, base=base, head=head)
+        self.assertEqual(coverage_errors(ROOT, changed), [])
 
     def test_pr_classification_excludes_main_changes_in_merge_checkout(self):
         lint_step = next(
@@ -646,8 +619,17 @@ class TestPythonWorkflow(unittest.TestCase):
             lint_step["env"]["TEST_HEAD_SHA"],
             "${{ github.event.pull_request.head.sha || github.sha }}",
         )
+        pre_commit_step = next(
+            step
+            for step in JOBS["lint"]["steps"]
+            if step.get("name") == "Run pre-commit"
+        )
+        self.assertEqual(pre_commit_step["env"], lint_step["env"])
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
+            workflow = work / ".github/workflows/python.yaml"
+            workflow.parent.mkdir(parents=True)
+            workflow.write_text(yaml.safe_dump(WORKFLOW))
 
             def git(*args):
                 return subprocess.check_output(

@@ -47,12 +47,6 @@ def mock_engine_libraries():
     mlx_core_mock.array = type('MockArray', (), {})
     mlx_mock.core = mlx_core_mock
 
-    # Create mock lmdeploy module
-    lmdeploy_mock = ModuleType('lmdeploy')
-    lmdeploy_mock.__version__ = "0.6.0"
-    lmdeploy_mock.__spec__ = ModuleSpec('lmdeploy', None)
-    lmdeploy_mock.__file__ = "mock_lmdeploy.py"
-
     # Create mock sglang module
     sglang_mock = ModuleType('sglang')
     sglang_mock.__version__ = "0.3.0"
@@ -87,7 +81,6 @@ def mock_engine_libraries():
     sys.modules['vllm'] = vllm_mock
     sys.modules['mlx'] = mlx_mock
     sys.modules['mlx.core'] = mlx_core_mock
-    sys.modules['lmdeploy'] = lmdeploy_mock
     sys.modules['sglang'] = sglang_mock
     sys.modules['xllamacpp'] = xllamacpp_mock
     sys.modules['mlx_lm'] = mlx_lm_mock
@@ -121,16 +114,6 @@ def mock_platform_checks():
             sglang_core.SGLANGChatModel._has_cuda_device = lambda: True
             sglang_core.SGLANGVisionModel._is_linux = lambda: True
             sglang_core.SGLANGVisionModel._has_cuda_device = lambda: True
-        except ImportError:
-            pass
-
-        # Mock LMDEPLOY platform checks if available
-        try:
-            import xinference.model.llm.lmdeploy.core as lmdeploy_core
-            lmdeploy_core.LMDeployModel._is_linux = lambda: True
-            lmdeploy_core.LMDeployModel._has_cuda_device = lambda: True
-            lmdeploy_core.LMDeployChatModel._is_linux = lambda: True
-            lmdeploy_core.LMDeployChatModel._has_cuda_device = lambda: True
         except ImportError:
             pass
 

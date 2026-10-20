@@ -6,6 +6,11 @@ Model Launching Instructions
 
 This document aims to provide a functional overview of model launching.
 
+.. note::
+
+   The LMDeploy backend has been removed because its Xinference integration is
+   no longer maintained. For InternVL models, select vLLM or Transformers instead.
+
 Updating the model catalog
 ==========================
 
@@ -135,7 +140,7 @@ The slider's upper bound comes from the registered model. Context selections are
 preserved in configuration history and passed to the recommendation API.
 
 The launch layer maps this setting to vLLM's ``max_model_len``, SGLang,
-Transformers and MLX's ``context_length``, LMDeploy's ``session_len``, and
+Transformers and MLX's ``context_length``, and
 llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine
 parameters still work; contradictory unified and native values are rejected.
 Omitting the setting preserves engine defaults. This setting does not extend the

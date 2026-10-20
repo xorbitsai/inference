@@ -385,8 +385,8 @@ msgid "Set ``context_length`` in the launch API or use ``--context-length`` in t
 msgstr "在啟動 API 中設定 ``context_length``，或在 CLI 中使用 ``--context-length``，指定每個請求的輸入加輸出 token 上限。在 Web UI 中使用上下文滑動條，或輸入精確整數；**模型預設值** 會清空覆寫值。滑動條上限取自註冊模型。上下文選擇會保存在設定歷史中，並傳給推薦 API。"
 
 #: ../source/user_guide/launch.rst:103
-msgid "The launch layer maps this setting to vLLM's ``max_model_len``, SGLang, Transformers and MLX's ``context_length``, LMDeploy's ``session_len``, and llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine parameters still work; contradictory unified and native values are rejected. Omitting the setting preserves engine defaults. This setting does not extend the model's positional embeddings or enable context scaling."
-msgstr "啟動層會映射到 vLLM 的 ``max_model_len``，SGLang、Transformers 和 MLX 的 ``context_length``，LMDeploy 的 ``session_len``，以及 llama.cpp 的總槽位容量 ``n_ctx=context_length*n_parallel``。原有引擎參數仍可使用，但統一值與原生值矛盾時會拒絕。省略此設定會保留引擎預設行為。此設定不會擴展模型的位置嵌入，也不會啟用上下文縮放。"
+msgid "The launch layer maps this setting to vLLM's ``max_model_len``, SGLang, Transformers and MLX's ``context_length``, and llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine parameters still work; contradictory unified and native values are rejected. Omitting the setting preserves engine defaults. This setting does not extend the model's positional embeddings or enable context scaling."
+msgstr "啟動層會映射到 vLLM 的 ``max_model_len``，SGLang、Transformers 和 MLX 的 ``context_length``，以及 llama.cpp 的總槽位容量 ``n_ctx=context_length*n_parallel``。原有引擎參數仍可使用，但統一值與原生值矛盾時會拒絕。省略此設定會保留引擎預設行為。此設定不會擴展模型的位置嵌入，也不會啟用上下文縮放。"
 
 #: ../source/user_guide/launch.rst
 msgid "Recommendation configs expose ``context_length`` as the total per-request budget, including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the estimated concurrency; the launch layer maps the unified budget to each engine."
@@ -465,3 +465,12 @@ msgstr "更新模型目錄"
 #: ../../user_guide/launch.rst
 msgid "On the **Launch Model** page, choose the model type beside **Update**. **Update** refreshes the whole category. Choose **Update one model** and enter the exact Hub model name (or world family name) to update just that model, including a model not yet listed. Other catalog entries are preserved. This updates shared metadata without downloading weights or restarting running models. With authentication enabled, both actions require administrator or ``models:register`` permission."
 msgstr "在 **模型啟動** 頁面中，選擇 **更新** 旁的模型類型。 **更新** 會重新整理整個類別。選擇 **更新單個模型**，輸入 Hub 中準確的模型名稱（或 world 模型族名稱），即可僅更新該模型，也支援尚未出現在清單中的模型。其他目錄項目會保留。此操作僅更新共享中繼資料，不會下載權重或重新啟動執行中的模型。啟用驗證時，兩種操作都要求管理員或 ``models:register`` 權限。"
+
+#: ../source/user_guide/launch.rst:12
+msgid ""
+"The LMDeploy backend has been removed because its Xinference integration is "
+"no longer maintained. For InternVL models, select vLLM or Transformers "
+"instead."
+msgstr ""
+"LMDeploy 後端已移除，因為其 Xinference 整合已無人維護。使用 InternVL 模型時，請選擇 vLLM 或 "
+"Transformers。"

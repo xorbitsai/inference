@@ -392,8 +392,8 @@ msgid "Set ``context_length`` in the launch API or use ``--context-length`` in t
 msgstr "실행 API의 ``context_length`` 또는 CLI의 ``--context-length`` 로 요청별 입력과 출력의 총 토큰 상한을 지정합니다. 웹 UI에서는 컨텍스트 슬라이더나 정확한 정수를 사용하며 **모델 기본값** 은 지정한 값을 지웁니다. 슬라이더의 최대값은 등록된 모델에서 가져옵니다. 컨텍스트 값은 설정 기록에 저장되며 추천 API에 전달됩니다."
 
 #: ../source/user_guide/launch.rst:103
-msgid "The launch layer maps this setting to vLLM's ``max_model_len``, SGLang, Transformers and MLX's ``context_length``, LMDeploy's ``session_len``, and llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine parameters still work; contradictory unified and native values are rejected. Omitting the setting preserves engine defaults. This setting does not extend the model's positional embeddings or enable context scaling."
-msgstr "실행 계층은 이 설정을 vLLM의 ``max_model_len``, SGLang, Transformers와 MLX의 ``context_length``, LMDeploy의 ``session_len``, llama.cpp의 전체 슬롯 용량 ``n_ctx=context_length*n_parallel`` 로 변환합니다. 기존 엔진 매개변수도 계속 사용할 수 있지만 통합 값과 엔진 고유 값이 충돌하면 거부됩니다. 생략하면 엔진 기본값을 유지합니다. 이 설정은 모델의 위치 임베딩을 확장하거나 컨텍스트 스케일링을 활성화하지 않습니다."
+msgid "The launch layer maps this setting to vLLM's ``max_model_len``, SGLang, Transformers and MLX's ``context_length``, and llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine parameters still work; contradictory unified and native values are rejected. Omitting the setting preserves engine defaults. This setting does not extend the model's positional embeddings or enable context scaling."
+msgstr "실행 계층은 이 설정을 vLLM의 ``max_model_len``, SGLang, Transformers와 MLX의 ``context_length``, llama.cpp의 전체 슬롯 용량 ``n_ctx=context_length*n_parallel`` 로 변환합니다. 기존 엔진 매개변수도 계속 사용할 수 있지만 통합 값과 엔진 고유 값이 충돌하면 거부됩니다. 생략하면 엔진 기본값을 유지합니다. 이 설정은 모델의 위치 임베딩을 확장하거나 컨텍스트 스케일링을 활성화하지 않습니다."
 
 #: ../source/user_guide/launch.rst
 msgid "Recommendation configs expose ``context_length`` as the total per-request budget, including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the estimated concurrency; the launch layer maps the unified budget to each engine."
@@ -476,3 +476,12 @@ msgstr "모델 카탈로그 업데이트"
 #: ../../user_guide/launch.rst
 msgid "On the **Launch Model** page, choose the model type beside **Update**. **Update** refreshes the whole category. Choose **Update one model** and enter the exact Hub model name (or world family name) to update just that model, including a model not yet listed. Other catalog entries are preserved. This updates shared metadata without downloading weights or restarting running models. With authentication enabled, both actions require administrator or ``models:register`` permission."
 msgstr "**모델 실행** 페이지에서 **업데이트** 옆의 모델 유형을 선택합니다. **업데이트** 는 전체 카테고리를 새로 고칩니다. **단일 모델 업데이트** 를 선택하고 정확한 Hub 모델 이름(또는 world 패밀리 이름)을 입력하면 아직 목록에 없는 모델도 해당 모델만 업데이트할 수 있습니다. 다른 카탈로그 항목은 유지됩니다. 공유 메타데이터만 업데이트하며 가중치를 다운로드하거나 실행 중인 모델을 다시 시작하지 않습니다. 인증이 활성화된 경우 두 작업 모두 관리자 권한 또는 ``models:register`` 권한이 필요합니다."
+
+#: ../source/user_guide/launch.rst:12
+msgid ""
+"The LMDeploy backend has been removed because its Xinference integration is "
+"no longer maintained. For InternVL models, select vLLM or Transformers "
+"instead."
+msgstr ""
+"Xinference 통합이 더 이상 유지 관리되지 않아 LMDeploy 백엔드가 제거되었습니다. InternVL 모델에는 vLLM 또는 "
+"Transformers를 선택하세요."
