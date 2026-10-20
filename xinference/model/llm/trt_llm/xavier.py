@@ -4,6 +4,8 @@
 
 import json
 import os
+from dataclasses import replace
+from pathlib import Path
 
 from ..xavier.pd_contract import build_pd_contract
 
@@ -40,8 +42,8 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
     }
     if set(config) - allowed or config.get("trust_remote_code"):
         raise ValueError("TRT-LLM Xavier does not allow model or execution overrides")
-    if config.get("dtype", "float16") not in ("auto", "float16", "half"):
-        raise ValueError("TRT-LLM Xavier currently requires FP16 weights and KV")
+    if config.get("dtype", "bfloat16") not in ("auto", "bfloat16"):
+        raise ValueError("TRT-LLM 1.2.1 Qwen3 currently requires BF16 weights and KV")
     if config.get("enable_chunked_prefill"):
         raise ValueError("TRT-LLM Xavier does not yet support chunked prefill")
     if config.get("disable_overlap_scheduler", True) is not True:
@@ -49,6 +51,13 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
     if config.get("scheduler_config"):
         raise ValueError("TRT-LLM Xavier manages its capacity scheduler policy")
     contract = build_pd_contract(model_path, config.get("max_seq_len"))
+    checkpoint_config = json.loads((Path(model_path) / "config.json").read_text())
+    if (
+        checkpoint_config.get("dtype", checkpoint_config.get("torch_dtype"))
+        != "bfloat16"
+    ):
+        raise ValueError("TRT-LLM 1.2.1 Qwen3 requires a BF16 checkpoint")
+    contract = replace(contract, logical_dtype="bfloat16")
     kv = dict(config.get("kv_cache_config") or {})
     if set(kv) - {
         "max_tokens",
@@ -66,7 +75,7 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
         raise ValueError("TRT-LLM Xavier requires 64-token pages and block reuse")
     kv.update(tokens_per_block=64, enable_block_reuse=True)
     config.update(
-        dtype="float16",
+        dtype="bfloat16",
         kv_cache_config=kv,
         disable_overlap_scheduler=True,
         enable_chunked_prefill=False,
@@ -77,7 +86,7 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
             "connector_worker_class": "XavierConnectorWorker",
         },
     )
-    # The model process owns its environment; TRT's spawned workers inherit it.
+    # The model process owns its environment and hosts TRT's embedded worker.
     # KvCacheConnectorConfig in 1.2.1 has no user-config field.
     os.environ[CONFIG_ENV] = json.dumps(
         {**cache_config, "contract": contract.to_dict()}

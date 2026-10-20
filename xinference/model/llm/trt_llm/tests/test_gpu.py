@@ -25,24 +25,32 @@ SCRIPT = r"""
 import asyncio
 import json
 import sys
+import xoscar as xo
 from xinference.model.llm.llm_family import match_llm
 from xinference.model.llm.trt_llm.core import TRTLLMModel
 
 async def main():
     family = match_llm("qwen3", "pytorch", "0_6", "none")
     model = TRTLLMModel("live", family, sys.argv[1], {
-        "max_seq_len": 1024, "dtype": "float16", "enable_thinking": False,
+        "max_seq_len": 1024, "dtype": "bfloat16", "enable_thinking": False,
+        "max_batch_size": 4, "max_num_tokens": 1024,
+        "cuda_graph_config": None,
         "kv_cache_config": {"max_tokens": 2048},
         "_xavier_cache_config": {"address": sys.argv[2], "uid": "trt-live"},
     })
     try:
         model.load()
+        cache = await xo.actor_ref(address=sys.argv[2], uid="trt-live")
+        before = await cache.get_stats()
         result = await model.async_generate(
             "The capital of France is Paris. " * 32,
             {"max_tokens": 16, "temperature": 0, "ignore_eos": True,
              "stop": [], "stop_token_ids": []},
         )
-        print("TRT_XAVIER_RESULT=" + json.dumps(result))
+        after = await cache.get_stats()
+        print("TRT_XAVIER_RESULT=" + json.dumps({
+            "completion": result, "before": before, "after": after,
+        }))
     finally:
         model.stop()
 
@@ -88,6 +96,12 @@ async def test_fresh_gpu_instances_share_prefix_pages():
         assert (await actor.get_stats())["stored_pages"] > 0
         warm = await run()
         stats = await actor.get_stats()
+        print("TRT_XAVIER_STATS=" + json.dumps(stats, sort_keys=True))
         assert stats["imported_pages"] > 0
-        assert cold["choices"][0]["text"] == warm["choices"][0]["text"]
-        assert warm["usage"]["completion_tokens"] == 16
+        # Check the actual request, excluding any model warmup during load().
+        assert warm["after"]["imported_pages"] > warm["before"]["imported_pages"]
+        assert (
+            cold["completion"]["choices"][0]["text"]
+            == warm["completion"]["choices"][0]["text"]
+        )
+        assert warm["completion"]["usage"]["completion_tokens"] == 16

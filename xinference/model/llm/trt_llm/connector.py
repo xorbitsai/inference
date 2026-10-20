@@ -212,11 +212,16 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
             2,
             contract.block_size * contract.num_kv_heads * contract.head_dim,
         )
+        dtype = getattr(torch, contract.logical_dtype)
         if (
-            kv_cache_tensor.dtype != torch.float16
+            kv_cache_tensor.dtype != dtype
             or tuple(kv_cache_tensor.shape[1:]) != expected
         ):
-            raise ValueError("TRT-LLM GPU KV pool differs from Xavier's contract")
+            raise ValueError(
+                f"TRT-LLM GPU KV pool {tuple(kv_cache_tensor.shape)} "
+                f"({kv_cache_tensor.dtype}) differs from Xavier's contract "
+                f"(blocks, {expected}), {dtype}"
+            )
         if not kv_cache_tensor.is_contiguous():
             raise ValueError("TRT-LLM Xavier requires a contiguous KV pool")
         self.pool = kv_cache_tensor
@@ -235,7 +240,7 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         self._validate_slots([slot for slot, _ in metadata.loads])
         for slot, page in metadata.loads:
             self.pool[slot].copy_(
-                page.view(torch.float16).reshape(self.pool.shape[1:]),
+                page.view(self.pool.dtype).reshape(self.pool.shape[1:]),
                 non_blocking=False,
             )
         if metadata.loads:

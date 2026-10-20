@@ -118,7 +118,11 @@ class VirtualEnvConflictError(ValueError):
 
 
 ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
-    "trt-llm": ["tensorrt-llm==1.2.1 ; sys_platform=='linux'"],
+    "trt-llm": [
+        # Match the distribution's metadata name for xoscar's skip-installed path.
+        "tensorrt_llm==1.2.1 ; sys_platform=='linux'",
+        "pyarrow==20.0.0 ; sys_platform=='linux'",
+    ],
     "sglang": [
         "pybase64",
         "zmq",
@@ -199,9 +203,14 @@ ENGINE_VIRTUALENV_MODEL_FORMAT_PACKAGES: Dict[str, Dict[str, List[str]]] = {
 # {distribution name -> [critical dependency names]}.
 ENGINE_CRITICAL_DEPENDENCIES: Dict[str, Dict[str, List[str]]] = {
     "sglang": {"sglang": ["transformers"]},
+    "trt-llm": {"tensorrt_llm": ["torch", "numpy", "transformers"]},
 }
 
 ENGINE_VIRTUALENV_EXTRA_INDEX_URLS: Dict[str, List[str]] = {
+    "trt-llm": [
+        "https://pypi.nvidia.com",
+        "https://download.pytorch.org/whl/cu130",
+    ],
     "vllm": [
         "https://wheels.vllm.ai/0.19.0/cu130",
         "https://download.pytorch.org/whl/cu130",
@@ -212,6 +221,7 @@ ENGINE_VIRTUALENV_EXTRA_INDEX_URLS: Dict[str, List[str]] = {
 }
 
 ENGINE_VIRTUALENV_INDEX_STRATEGY: Dict[str, str] = {
+    "trt-llm": "unsafe-best-match",
     "vllm": "unsafe-best-match",
     "sglang": "unsafe-best-match",
 }
@@ -585,7 +595,7 @@ def get_engine_critical_dependency_specs(
         except Exception:
             # placeholders (#system_torch#) and direct wheel URLs
             continue
-        requested[req.name.lower()] = req
+        requested[canonicalize_name(req.name)] = req
 
     specs: List[str] = []
     for dist_name, dep_names in critical.items():
@@ -594,7 +604,7 @@ def get_engine_critical_dependency_specs(
         except importlib.metadata.PackageNotFoundError:
             continue
 
-        engine_req = requested.get(dist_name.lower())
+        engine_req = requested.get(canonicalize_name(dist_name))
         if engine_req is not None and engine_req.specifier:
             try:
                 if not engine_req.specifier.contains(parent_version, prereleases=True):
@@ -609,13 +619,13 @@ def get_engine_critical_dependency_specs(
         except importlib.metadata.PackageNotFoundError:
             continue
 
-        wanted = {name.lower() for name in dep_names}
+        wanted = {canonicalize_name(name) for name in dep_names}
         for req_str in declared:
             try:
                 req = Requirement(req_str)
             except Exception:
                 continue
-            name = req.name.lower()
+            name = canonicalize_name(req.name)
             if name not in wanted or name in requested:
                 continue
             if req.marker is not None and not req.marker.evaluate({"extra": ""}):
@@ -686,6 +696,7 @@ def expand_engine_dependency_placeholders(
     # Mapping for dependency names that differ from engine names
     dependency_to_engine_map: Dict[str, str] = {
         "llama_cpp": "llama.cpp",
+        "trt_llm": "trt-llm",
     }
     for pkg in packages:
         name = pkg.split(";", 1)[0].strip().lower()

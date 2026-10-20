@@ -46,11 +46,12 @@ def connector(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("logical_dtype", ["float16", "bfloat16"])
 async def test_two_instances_restore_owned_prefix_after_eviction(
-    monkeypatch, connector
+    monkeypatch, connector, logical_dtype
 ):
     contract = KVCacheContract(
-        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 2, 4, 4, "float16"
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 2, 4, 4, logical_dtype
     )
     page_bytes = contract.num_layers * contract.layer_nbytes
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
@@ -79,7 +80,9 @@ async def test_two_instances_restore_owned_prefix_after_eviction(
             await asyncio.to_thread(connector.XavierConnectorWorker, None)
             for _ in range(2)
         ]
-        source_pool = torch.arange(384, dtype=torch.float16).reshape(3, 2, 2, 32)
+        source_pool = torch.arange(384, dtype=getattr(torch, logical_dtype)).reshape(
+            3, 2, 2, 32
+        )
         target_pool = torch.zeros_like(source_pool)
         source.register_kv_caches(source_pool)
         target.register_kv_caches(target_pool)
@@ -208,6 +211,7 @@ def checkpoint(tmp_path):
         json.dumps(
             {
                 "model_type": "qwen3",
+                "torch_dtype": "bfloat16",
                 "num_hidden_layers": 2,
                 "num_attention_heads": 4,
                 "num_key_value_heads": 2,
@@ -228,7 +232,7 @@ def test_config_sets_versioned_native_pool_and_fingerprints(monkeypatch, checkpo
     configure_xavier(checkpoint, config, {"address": "worker:123", "uid": "cache"})
     shared = json.loads(__import__("os").environ[CONFIG_ENV])
     assert shared["contract"]["block_size"] == 64
-    assert shared["contract"]["logical_dtype"] == "float16"
+    assert shared["contract"]["logical_dtype"] == "bfloat16"
     assert config["disable_overlap_scheduler"] and not config["enable_chunked_prefill"]
     assert (
         config["kv_connector_config"]["connector_worker_class"]
@@ -240,7 +244,7 @@ def test_config_sets_versioned_native_pool_and_fingerprints(monkeypatch, checkpo
     "options",
     [
         {"tensor_parallel_size": 2},
-        {"dtype": "bfloat16"},
+        {"dtype": "float16"},
         {"enable_chunked_prefill": True},
         {"disable_overlap_scheduler": False},
         {"speculative_config": {}},

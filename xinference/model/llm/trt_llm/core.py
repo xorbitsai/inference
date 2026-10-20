@@ -43,6 +43,12 @@ class TRTLLMModel(LLM, ChatModelMixin):
         family = llm_family.model_family or llm_family.model_name
         if family != "qwen3" or "vision" in llm_family.model_ability:
             return False, "TRT-LLM currently supports dense Qwen3 text models"
+        metadata = getattr(llm_spec, "model_metadata", None)
+        if (
+            getattr(llm_spec, "activated_size_in_billions", None) is not None
+            or getattr(metadata, "architecture_type", None) == "moe"
+        ):
+            return False, "TRT-LLM currently supports dense Qwen3 text models"
         return True
 
     def load(self):
@@ -64,6 +70,8 @@ class TRTLLMModel(LLM, ChatModelMixin):
         self._context_length = validate_context_length(config["max_seq_len"])
         if config.get("backend", "pytorch") != "pytorch":
             raise ValueError("The TRT-LLM adapter requires the PyTorch backend")
+        if "_mpi_session" in config or "mpi_session" in config:
+            raise ValueError("The TRT-LLM MPI session is managed by Xinference")
         config["backend"] = "pytorch"
         if cache_config is not None:
             from .xavier import configure_xavier
@@ -71,6 +79,9 @@ class TRTLLMModel(LLM, ChatModelMixin):
             configure_xavier(self.model_path, config, cache_config)
             self._cache_enabled = True
         try:
+            from .compat import prepare_runtime
+
+            prepare_runtime(config)
             self._engine = Engine(model=self.model_path, **config)
             self._tokenizer = self._engine.tokenizer
         except BaseException:

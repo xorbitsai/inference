@@ -4,6 +4,7 @@
 import asyncio
 import sys
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -72,6 +73,10 @@ class Engine:
 
 @pytest.fixture
 def model(monkeypatch):
+    monkeypatch.setattr(
+        "xinference.model.llm.trt_llm.compat.prepare_runtime",
+        lambda config: None,
+    )
     monkeypatch.setitem(
         sys.modules,
         "tensorrt_llm",
@@ -247,3 +252,18 @@ def test_platform_format_and_model_guards(monkeypatch, model):
     assert TRTLLMModel.match_json(family, spec, "fp8")[0] is False
     family.model_family = "qwen3.5"
     assert TRTLLMModel.match_json(family, spec, "none")[0] is False
+
+
+def test_engine_construction_failure_clears_state(monkeypatch, model):
+    monkeypatch.setattr(
+        "xinference.model.llm.trt_llm.compat.prepare_runtime", lambda _: None
+    )
+    monkeypatch.setattr(
+        sys.modules["tensorrt_llm"],
+        "LLM",
+        Mock(side_effect=RuntimeError("load failed")),
+    )
+    failed = TRTLLMModel("failed", model.model_family, "/model")
+    with pytest.raises(RuntimeError, match="load failed"):
+        failed.load()
+    assert failed._engine is None and not failed._requests
