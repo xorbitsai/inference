@@ -1,3 +1,4 @@
+# CI: linux
 import json
 
 import pytest
