@@ -2241,6 +2241,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         generate_config: Optional[MLXGenerateConfig] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        messages = self.prefill_messages(messages)
         parallel, generate_config = self._prepare_chat_controls(generate_config)
         if is_forced_tool_choice(generate_config):
             messages, config = prepare_forced_tools(

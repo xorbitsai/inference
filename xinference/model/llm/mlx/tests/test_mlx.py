@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import base64
 import concurrent.futures
@@ -22,6 +24,7 @@ import os
 import platform
 import sys
 import threading
+from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
@@ -495,6 +498,60 @@ def test_mlx_vision_chat_marks_reusable_text_prompt_prefix(monkeypatch):
         "tools:search:stable-prefix:"
     )
     assert captured["tools"] == [{"type": "function", "function": {"name": "search"}}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model_name",
+    ["Baichuan-M2", "Deepseek-V3.1", "QwQ-32B", "deepseek-r1-0528", "marco-o1"],
+)
+@pytest.mark.parametrize("content", [None, "omitted", ""])
+async def test_mlx_chat_renders_tool_call_turn_without_content(model_name, content):
+    from ... import BUILTIN_LLM_FAMILIES
+    from ..core import MLXChatModel
+
+    model = object.__new__(MLXChatModel)
+    model.model_uid = "test"
+    model.model_family = next(
+        f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name
+    )
+    model.reasoning_parser = None
+    model._tokenizer = None
+    model._sanitize_generate_config = lambda config: config
+    model._to_chat_completion = lambda completion, parser: completion
+
+    async def generate(prompt, config):
+        return {"prompt": prompt}
+
+    model.async_generate = generate
+    call = {
+        "role": "assistant",
+        "content": content,
+        "tool_calls": [
+            {
+                "id": "call_read",
+                "type": "function",
+                "function": {"name": "Read", "arguments": '{"file_path":"a"}'},
+            }
+        ],
+    }
+    if content == "omitted":
+        del call["content"]
+
+    async def prepare(assistant):
+        messages = [
+            {"role": "user", "content": "read a"},
+            assistant,
+            {"role": "tool", "tool_call_id": "call_read", "content": "TOOL_RESULT_42"},
+        ]
+        original = deepcopy(messages)
+        result = await model.async_chat(messages, {})
+        assert messages == original
+        return result["prompt"]
+
+    prompt = await prepare(call)
+    assert prompt == await prepare({**call, "content": ""})
+    assert "TOOL_RESULT_42" in prompt
 
 
 @pytest.mark.asyncio
