@@ -156,6 +156,8 @@ def validate_auth_store(store: Any) -> AuthStore:
     resolver = store.permission_resolver
     if resolver is not None and not _is_sync_callable(resolver):
         raise TypeError("Auth store permission_resolver must be synchronous")
+    if not isinstance(getattr(store, "api_key_cache_enabled", True), bool):
+        raise TypeError("Auth store api_key_cache_enabled must be a bool")
     path = getattr(store, "path", False)
     if path is not None and not isinstance(path, Path):
         raise TypeError("Auth store path must be a pathlib.Path or None")
