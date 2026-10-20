@@ -457,3 +457,173 @@ async def test_unsupported_completion_options_fail_before_submission(
 async def test_chat_logprobs_false_remains_supported(model, stream):
     message = await collect_chat(model, {"logprobs": False, "stream": stream})
     assert message["content"] == "abc"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat"])
+@pytest.mark.parametrize("stream", [False, True])
+async def test_rest_admission_preserves_id_for_explicit_actor_abort(
+    model, monkeypatch, kind, stream
+):
+    import json
+    from unittest.mock import AsyncMock
+
+    from xinference.api import restful_api
+    from xinference.api.tests.test_llm_request_abort import _new_api, _Request
+    from xinference.core.model import ModelActor
+    from xinference.core.utils import CancelMixin
+
+    entered = asyncio.Event()
+
+    class PendingRequest(Request):
+        async def __anext__(self):
+            entered.set()
+            await asyncio.Event().wait()
+
+    native = PendingRequest()
+    monkeypatch.setattr(model._engine, "generate_async", lambda *a, **kw: native)
+    monkeypatch.setattr(model.model_family, "to_description", lambda: {}, raising=False)
+    actor = ModelActor("test:1", "test:2", model, "tiny-rep0")
+    actor._model_state = "ready"
+    actor.record_metrics = AsyncMock()
+
+    async def invoke(name, *args, **kwargs):
+        result = await getattr(actor, name)(*args, **kwargs)
+        if hasattr(result, "_actor_ref"):
+            result._actor_ref = actor
+            result._gc_destroy = False
+        return result
+
+    async def abort(request_id):
+        return await actor.abort_request(request_id, block_duration=0)
+
+    proxy = SimpleNamespace(
+        uid=b"tiny",
+        generate=lambda *a, **kw: invoke("generate", *a, **kw),
+        chat=lambda *a, **kw: invoke("chat", *a, **kw),
+        is_vllm_backend=AsyncMock(return_value=False),
+        is_transformers_batching_enabled=AsyncMock(return_value=False),
+        abort_request=abort,
+        decrease_serve_count=actor.decrease_serve_count,
+    )
+
+    async def require_model(*a, **kw):
+        return proxy
+
+    async def supervisor_abort(uid, request_id, block_duration, **kwargs):
+        return {"msg": await actor.abort_request(request_id, block_duration)}
+
+    supervisor = SimpleNamespace(
+        describe_model=AsyncMock(return_value={"model_family": "qwen3"}),
+        abort_request=supervisor_abort,
+    )
+    monkeypatch.setattr(restful_api, "require_model", require_model)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    api = _new_api()
+    CancelMixin.__init__(api)
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    request_id = f"public-{kind}-{stream}"
+    body = {"model": "tiny", "request_id": request_id, "stream": stream}
+    if kind == "completion":
+        body["prompt"] = "hi"
+        create = api.create_completion
+    else:
+        body["messages"] = [{"role": "user", "content": "hi"}]
+        create = api.create_chat_completion
+    response = None
+    if stream:
+        response = await create(_Request(body))
+        task = asyncio.create_task(anext(response.body_iterator))
+    else:
+        task = asyncio.create_task(create(_Request(body)))
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=3)
+        admitted = list(actor._running_tasks)
+        native_ids = list(model._requests)
+        aborted = await api.abort_request(
+            _Request({"block_duration": 0}), "tiny", request_id
+        )
+        assert json.loads(aborted.body) == {"msg": "DONE"}
+        assert admitted == native_ids == [request_id]
+        await asyncio.wait({task}, timeout=1)
+        assert task.done() and native.aborted
+        assert not model._requests
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        if response is not None:
+            await response.body_iterator.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["generate", "chat"])
+@pytest.mark.parametrize("keyword_config", [False, True])
+@pytest.mark.parametrize("explicit_id", [None, "keyword-id"])
+async def test_actor_config_request_id_respects_explicit_keyword(
+    model, monkeypatch, method, keyword_config, explicit_id
+):
+    import json
+    from unittest.mock import AsyncMock
+
+    from xinference.core.model import ModelActor
+
+    monkeypatch.setattr(model.model_family, "to_description", lambda: {}, raising=False)
+    actor = ModelActor("test:1", "test:2", model, "tiny-rep0")
+    actor._model_state = "ready"
+    actor.record_metrics = AsyncMock()
+    config = {"request_id": "config-id"}
+    args, kwargs = (
+        ((), {"generate_config": config}) if keyword_config else ((config,), {})
+    )
+    if explicit_id is not None:
+        kwargs["request_id"] = explicit_id
+    prompt = "hi" if method == "generate" else [{"role": "user", "content": "hi"}]
+    result = json.loads(await getattr(actor, method)(prompt, *args, **kwargs))
+    expected = explicit_id or "config-id"
+    assert result["id"] == ("chat" + expected if method == "chat" else expected)
+    assert list(actor._running_tasks) == [expected]
+    assert config == {"request_id": "config-id"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["generate", "chat"])
+@pytest.mark.parametrize("stop_ids", [151645, 0, None, [], [151645]])
+async def test_scalar_stop_tokens_are_normalized_without_mutating_config(
+    model, method, stop_ids
+):
+    config = {"stop_token_ids": stop_ids}
+    original = copy.deepcopy(config)
+    if method == "generate":
+        await model.async_generate("hi", config)
+    else:
+        await model.async_chat([{"role": "user", "content": "hi"}], config)
+    assert model._engine.params.stop_token_ids == (
+        [stop_ids] if type(stop_ids) is int else stop_ids
+    )
+    assert config == original
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["generate", "chat"])
+async def test_other_async_engines_keep_existing_request_id_admission(
+    monkeypatch, method
+):
+    from unittest.mock import AsyncMock
+
+    from xinference.core.model import ModelActor
+
+    legacy = SimpleNamespace(
+        model_family=SimpleNamespace(to_description=lambda: {}),
+        allow_batch=True,
+        async_generate=AsyncMock(return_value={"choices": []}),
+        async_chat=AsyncMock(return_value={"choices": []}),
+    )
+    actor = ModelActor("test:1", "test:2", legacy, "legacy-rep0")
+    actor._model_state = "ready"
+    actor.record_metrics = AsyncMock()
+    monkeypatch.setattr("xinference.core.model.uuid.uuid1", lambda: "actor-generated")
+    prompt = "hi" if method == "generate" else []
+    await getattr(actor, method)(prompt, {"request_id": "config-id"})
+    call = getattr(legacy, "async_" + method).await_args
+    assert call.kwargs["request_id"] == "actor-generated"
+    assert call.args[1] == {"request_id": "config-id"}

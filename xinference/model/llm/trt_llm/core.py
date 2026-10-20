@@ -158,6 +158,8 @@ class TRTLLMModel(LLM, ChatModelMixin):
                 "stop_token_ids", self.model_family.stop_token_ids
             ),
         )
+        if type(options["stop_token_ids"]) is int:
+            options["stop_token_ids"] = [options["stop_token_ids"]]
         if self.reasoning_parser is not None:
             options.setdefault("skip_special_tokens", False)
         return tokens, SamplingParams(**options)

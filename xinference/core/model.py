@@ -941,6 +941,19 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             if not getattr(self._model, "supports_cache_salt", False):
                 raise ValueError("cache_salt is not supported by this model engine")
 
+    def _get_async_request_id(self, args: tuple, kwargs: dict) -> str:
+        if "request_id" in kwargs:
+            return str(kwargs["request_id"])
+        from ..model.llm.trt_llm.core import TRTLLMModel
+
+        if isinstance(self._model, TRTLLMModel):
+            # REST keeps TRT's public ID in the generation config. Promote it
+            # before _call_wrapper registers the actor task for explicit abort.
+            config = args[0] if args else kwargs.get("generate_config")
+            if isinstance(config, dict) and config.get("request_id") is not None:
+                return str(config["request_id"])
+        return str(uuid.uuid1())
+
     @request_limit
     @xo.generator
     @log_async(logger=logger)
@@ -971,11 +984,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             await self._record_non_stream_completion_metrics(response, start_time)
             return response
         if hasattr(self._model, "async_generate"):
-            if "request_id" not in kwargs:
-                kwargs["request_id"] = str(uuid.uuid1())
-            else:
-                # model only accept string
-                kwargs["request_id"] = str(kwargs["request_id"])
+            kwargs["request_id"] = self._get_async_request_id(args, kwargs)
             response = await self._call_wrapper_json(
                 self._model.async_generate,
                 prompt,
@@ -1015,11 +1024,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
                 return response
             if hasattr(self._model, "async_chat"):
-                if "request_id" not in kwargs:
-                    kwargs["request_id"] = str(uuid.uuid1())
-                else:
-                    # model only accept string
-                    kwargs["request_id"] = str(kwargs["request_id"])
+                kwargs["request_id"] = self._get_async_request_id(args, kwargs)
                 response = await self._call_wrapper_json(
                     self._model.async_chat, messages, *args, **kwargs
                 )
