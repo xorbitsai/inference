@@ -519,6 +519,7 @@ jobs:
               xinference/model/llm/sglang/tests/test_anthropic_controls.py \
               xinference/model/llm/sglang/tests/test_reasoning_adapter.py \
               xinference/model/llm/vllm/tests/test_anthropic_controls.py \
+              xinference/model/llm/vllm/tests/test_cache_salt.py \
               xinference/model/llm/vllm/tests/test_reasoning_adapter.py \
               xinference/model/llm/vllm/tests/test_core_chat_model.py::TestVLLMSanitizeGenerateConfig \
               xinference/model/llm/mlx/tests/test_anthropic_runtime.py \
@@ -542,6 +543,8 @@ jobs:
               xinference/model/llm/vllm/xavier/test/test_gpu_transfer.py \
               xinference/model/llm/vllm/xavier/test/test_kv_schema.py \
               xinference/model/llm/vllm/xavier/test/test_cross_engine.py \
+              xinference/model/llm/vllm/xavier/test/test_cache_salt.py \
+              xinference/model/llm/vllm/xavier/test/test_legacy_cache_salt.py \
               xinference/model/llm/vllm/xavier/test/test_direct_handoff.py \
               xinference/model/llm/vllm/xavier/test/test_direct_history.py \
               xinference/model/llm/vllm/xavier/test/test_tiered_snapshot.py \

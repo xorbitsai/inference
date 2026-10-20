@@ -29,6 +29,7 @@ from packaging.markers import Marker
 from packaging.requirements import Requirement
 
 from .._compat import BaseModel
+from ..cache_isolation import redact_cache_salt
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_LOG_ARG_MAX_LENGTH,
@@ -50,7 +51,7 @@ class AbortRequestMessage(Enum):
 
 
 def truncate_log_arg(arg) -> str:
-    s = str(arg)
+    s = str(redact_cache_salt(arg))
     if len(s) > XINFERENCE_LOG_ARG_MAX_LENGTH:
         s = s[0:XINFERENCE_LOG_ARG_MAX_LENGTH] + "..."
     return s

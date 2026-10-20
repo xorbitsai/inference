@@ -493,6 +493,18 @@ class PDModelActor(xo.StatelessActor):
                     self._direct_transfers[request_id] = handoff
             if not isinstance(transfer, dict) or not transfer.get("do_remote_prefill"):
                 raise RuntimeError("PD prefill did not return KV transfer metadata")
+            if self._direct_handoff:
+                from ..model.llm.xavier.pd_contract import validate_handoff_scope
+
+                handoff = (
+                    transfer.get("xavier_direct")
+                    or transfer.get("mlx_xavier")
+                    or transfer.get("sglang_xavier")
+                    or {}
+                )
+                validate_handoff_scope(
+                    handoff, (prefill_args[0] or {}).get("cache_salt")
+                )
             decode_args = list(copy.deepcopy(args))
             if not decode_args or decode_args[0] is None:
                 decode_args = [{}] + decode_args[1:]
@@ -561,6 +573,11 @@ class PDModelActor(xo.StatelessActor):
             room=uuid.uuid4().int % (2**63 - 1) + 1,
             **bootstrap,
         )
+        from ..cache_isolation import cache_scope
+
+        scope = cache_scope((args[0] or {}).get("cache_salt") if args else None)
+        if scope is not None:
+            handoff["cache_scope"] = scope
         if self._model_engine == "heterogeneous":
             handoff["heterogeneous"] = True
         transfer_key = "sglang_nixl" if native else "sglang_xavier"

@@ -329,6 +329,7 @@ class LogitsProcessorList(List[LogitsProcessor]):
 
 
 class PytorchGenerateConfig(TypedDict, total=False):
+    cache_salt: Optional[str]
     temperature: float
     repetition_penalty: float
     top_p: float
@@ -474,7 +475,7 @@ class CreateCompletion(
     CreateCompletionTorch,
     CreateCompletionOpenAI,
 ):
-    pass
+    cache_salt: Optional[str] = None
 
 
 class CreateChatModel(BaseModel):
@@ -492,6 +493,7 @@ class CreateChatCompletion(  # type: ignore
     CreateChatCompletionTorch,
     CreateChatCompletionOpenAI,
 ):
+    cache_salt: Optional[str] = None
     mm_processor_kwargs: Optional[Dict[str, Any]] = None
 
 

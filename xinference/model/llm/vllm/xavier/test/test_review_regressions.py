@@ -1,5 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+# CI: linux
 import asyncio
 from collections import deque
 from types import SimpleNamespace
@@ -231,9 +232,7 @@ def test_requery_miss_discards_old_load(connector, connector_module):
     assert not connector._leased_requests
 
 
-@pytest.mark.parametrize(
-    "field", ["lora_request", "mm_features", "prompt_embeds", "cache_salt"]
-)
+@pytest.mark.parametrize("field", ["lora_request", "mm_features", "prompt_embeds"])
 def test_request_specific_cache_identity_is_rejected(connector, field):
     request = SimpleNamespace(request_id="r", prompt_token_ids=list(range(17)))
     setattr(request, field, [1])

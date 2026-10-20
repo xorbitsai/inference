@@ -75,6 +75,19 @@ class ModelCatalogCredentials:
             raise ValueError("Invalid model catalog credential") from None
 
 
+@dataclass(frozen=True)
+class CacheSalt:
+    """An authoritative cache scope supplied by an authenticated API extension."""
+
+    value: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        from .cache_isolation import validate_cache_salt
+
+        if validate_cache_salt(self.value) is None:
+            raise ValueError("Cache salt provider must supply a cache_salt")
+
+
 _loaded: Optional[Tuple[str, Tuple[Any, ...]]] = None
 
 
@@ -178,6 +191,23 @@ def resolve_model_catalog_credentials(
 
 def worker_extension_metadata() -> Dict[str, Any]:
     return {e.name: _call_hook(e, "worker_metadata") for e in get_extensions()}
+
+
+def resolve_cache_salt(request: Any) -> Optional[CacheSalt]:
+    """Resolve after authentication; a configured provider must fail closed.
+
+    The optional synchronous ``cache_salt(request)`` hook returns CacheSalt.
+    None means there is no provider, never a fallback after a provider failure.
+    """
+    providers = [e for e in get_extensions() if hasattr(e, "cache_salt")]
+    if len(providers) > 1:
+        raise ValueError("Multiple cache salt providers")
+    if not providers:
+        return None
+    result = _call_hook(providers[0], "cache_salt", request)
+    if not isinstance(result, CacheSalt):
+        raise TypeError("Cache salt provider must return CacheSalt")
+    return result
 
 
 def filter_worker_resources(

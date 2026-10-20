@@ -44,6 +44,7 @@ from typing import (
 
 import xoscar as xo
 
+from ....cache_isolation import cache_scope, redact_cache_salt, validate_cache_salt
 from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....fields import max_tokens_field
 from ....types import (
@@ -240,6 +241,7 @@ class MLXBatchModel:
                 "pending": {},  # uid -> list of results
                 "active": set(),  # active uids
                 "cache_boundaries": {},  # uid -> stable prefix token count
+                "cache_salts": {},
                 "xavier_prompts": {},
                 "xavier_writes": {},
                 "task": None,
@@ -247,14 +249,22 @@ class MLXBatchModel:
 
         return MLXBatchModel._batch_generators[key]
 
+    def _scoped_prompt_cache_key(self, cache_salt=None):
+        scope = cache_scope(cache_salt)
+        return (
+            self._prompt_cache_model_key
+            if scope is None
+            else (self._prompt_cache_model_key, scope)
+        )
+
     def _fetch_prompt_cache(
-        self, prompt_tokens: List[int]
+        self, prompt_tokens: List[int], cache_salt: Optional[str] = None
     ) -> Tuple[Optional[List[Any]], List[int], int]:
         if self._prompt_cache is None or len(prompt_tokens) < 2:
             return None, prompt_tokens, 0
 
         cache, remaining_tokens = self._prompt_cache.fetch_nearest_cache(
-            self._prompt_cache_model_key, prompt_tokens
+            self._scoped_prompt_cache_key(cache_salt), prompt_tokens
         )
         if cache is None:
             return None, prompt_tokens, 0
@@ -282,6 +292,7 @@ class MLXBatchModel:
         max_tokens: int,
         prompt_cache_prefix_len: Optional[int],
         external_cache=None,
+        cache_salt: Optional[str] = None,
     ) -> Tuple[int, int, Optional[int]]:
         if not self._is_new_mlx_lm():
             request_ids = batch_generator.insert([prompt_tokens], max_tokens=max_tokens)
@@ -292,7 +303,8 @@ class MLXBatchModel:
             remaining_tokens = prompt_tokens[cached_token_count:]
         else:
             cache, remaining_tokens, cached_token_count = self._fetch_prompt_cache(
-                prompt_tokens
+                prompt_tokens,
+                **({"cache_salt": cache_salt} if cache_salt is not None else {}),
             )
         insert_kwargs: Dict[str, Any] = {"max_tokens": [max_tokens]}
         if cache is not None:
@@ -336,7 +348,9 @@ class MLXBatchModel:
                 continue
 
             self._prompt_cache.insert_cache(
-                self._prompt_cache_model_key,
+                self._scoped_prompt_cache_key(
+                    gen_dict.get("cache_salts", {}).get(result.uid)
+                ),
                 list(cached_tokens),
                 prompt_cache,
                 cache_type="system",
@@ -367,7 +381,15 @@ class MLXBatchModel:
                 if extracted is not None:
                     cache, _ = extracted
                     gen_dict["xavier_writes"][result.uid] = self._xavier.publish(
-                        cache, tokens[:-1], cached_tokens
+                        cache,
+                        tokens[:-1],
+                        cached_tokens,
+                        **(
+                            {"cache_salt": gen_dict["cache_salts"][result.uid]}
+                            if gen_dict.get("cache_salts", {}).get(result.uid)
+                            is not None
+                            else {}
+                        ),
                     )
             except Exception:
                 logger.warning("MLX Xavier prefix publication failed", exc_info=True)
@@ -448,6 +470,7 @@ class MLXBatchModel:
         prompt_cache_prefix_len: Optional[int] = None,
         prepared_cache=None,
         prompt_token_ids: Optional[List[int]] = None,
+        cache_salt: Optional[str] = None,
     ) -> AsyncGenerator[CompletionChunk, None]:
         """Async stream generate method using BatchGenerator."""
         # Get or create generator for this sampling configuration
@@ -469,6 +492,7 @@ class MLXBatchModel:
         # Create queue first
         queue: asyncio.Queue = asyncio.Queue()
 
+        validate_cache_salt(cache_salt)
         external_cache = prepared_cache
         insert_args = (
             batch_generator,
@@ -476,11 +500,16 @@ class MLXBatchModel:
             max_tokens,
             prompt_cache_prefix_len,
         )
-        inserted_uid, cached_prompt_tokens, cache_boundary = (
-            self._insert_request(*insert_args, external_cache=external_cache)
-            if external_cache is not None
-            else self._insert_request(*insert_args)
+        insert_options = {}
+        if external_cache is not None:
+            insert_options["external_cache"] = external_cache
+        if cache_salt is not None:
+            insert_options["cache_salt"] = cache_salt
+        inserted_uid, cached_prompt_tokens, cache_boundary = self._insert_request(
+            *insert_args, **insert_options
         )
+        if cache_salt is not None:
+            gen_dict.setdefault("cache_salts", {})[inserted_uid] = cache_salt
         remote_cached_tokens = external_cache[1] if external_cache is not None else 0
         if (
             getattr(self, "_xavier", None) is not None
@@ -624,6 +653,7 @@ class MLXBatchModel:
                 if inserted_uid in gen_dict["active"]:
                     gen_dict["active"].remove(inserted_uid)
                 gen_dict["cache_boundaries"].pop(inserted_uid, None)
+                gen_dict.get("cache_salts", {}).pop(inserted_uid, None)
                 if getattr(self, "_xavier", None) is not None:
                     gen_dict["xavier_prompts"].pop(inserted_uid, None)
                     batch_generator.remove([inserted_uid])
@@ -643,6 +673,7 @@ class MLXBatchModel:
         prompt_cache_prefix_len: Optional[int] = None,
         prepared_cache=None,
         prompt_token_ids: Optional[List[int]] = None,
+        cache_salt: Optional[str] = None,
     ) -> Tuple[str, CompletionUsage]:
         """Async generate method using BatchGenerator."""
         # Non-streaming: collect all tokens
@@ -664,6 +695,7 @@ class MLXBatchModel:
             prompt_cache_prefix_len=prompt_cache_prefix_len,
             prepared_cache=prepared_cache,
             prompt_token_ids=prompt_token_ids,
+            **({"cache_salt": cache_salt} if cache_salt is not None else {}),
         ):
             if chunk.get("usage") is not None:
                 usage = chunk["usage"]
@@ -697,6 +729,7 @@ class MLXModelConfig(TypedDict, total=False):
 
 
 class MLXGenerateConfig(TypedDict, total=False):
+    cache_salt: Optional[str]
     _pd_kv_transfer_params: dict
     max_tokens: int
     temperature: float
@@ -730,7 +763,7 @@ class MLXGenerateConfig(TypedDict, total=False):
 @dataclass
 class PromptCache:
     cache: List[Any] = field(default_factory=list)
-    model_key: Tuple[str, Optional[str]] = ("", None)
+    model_key: Tuple[Any, ...] = ("", None)
     tokens: List[int] = field(default_factory=list)
 
 
@@ -753,6 +786,7 @@ class _CachedTextVisionModel:
 
 
 class MLXModel(LLM, ChatModelMixin):
+    supports_cache_salt = True
     supports_tool_controls = True
     _rank_to_addresses: Optional[Dict[int, str]]
     _context_length_limit: Optional[int] = None
@@ -850,6 +884,7 @@ class MLXModel(LLM, ChatModelMixin):
         if generate_config is None:
             generate_config = MLXGenerateConfig()
 
+        validate_cache_salt(generate_config.get("cache_salt"))
         if not normalize_response_format(generate_config.get("response_format")):
             generate_config.pop("response_format", None)
         model_defaults = self._model_generation_config
@@ -1095,7 +1130,9 @@ class MLXModel(LLM, ChatModelMixin):
 
         started = time.monotonic()
         language_model = getattr(self._model, "language_model", self._model)
-        model_key = (id(language_model), config.get("lora_name"))
+        model_key: Tuple[Any, ...] = (id(language_model), config.get("lora_name"))
+        if config.get("cache_salt") is not None:
+            model_key += (cache_scope(config["cache_salt"]),)
         if getattr(self, "_explicit_cache_key", None) != model_key:
             self._explicit_cache_key = model_key
             self._explicit_cache = TimedPromptCache(
@@ -1535,13 +1572,19 @@ class MLXModel(LLM, ChatModelMixin):
         return True
 
     def _get_prompt_cache(
-        self, prompt, lora_name: Optional[str] = None, model: Any = None
+        self,
+        prompt,
+        lora_name: Optional[str] = None,
+        model: Any = None,
+        cache_salt: Optional[str] = None,
     ):
         from mlx_lm.models.cache import make_prompt_cache
 
         assert self._prompt_cache is not None
         cache_len = len(self._prompt_cache.tokens)
-        model_key = (self.model_path, lora_name)
+        model_key: Tuple[Any, ...] = (self.model_path, lora_name)
+        if cache_salt is not None:
+            model_key += (cache_scope(cache_salt),)
         if (
             self._prompt_cache.model_key != model_key
             or cache_len >= len(prompt)
@@ -1635,7 +1678,13 @@ class MLXModel(LLM, ChatModelMixin):
             )
             return prompt_token_ids, input_echo_len, 0
         uncached_prompt_token_ids = self._get_prompt_cache(
-            prompt_token_ids, kwargs.get("lora_name")
+            prompt_token_ids,
+            kwargs.get("lora_name"),
+            **(
+                {"cache_salt": kwargs["cache_salt"]}
+                if kwargs.get("cache_salt") is not None
+                else {}
+            ),
         )
         if self._prompt_cache is not None:
             kwargs["_mlx_prompt_cache"] = self._prompt_cache.cache
@@ -1900,7 +1949,7 @@ class MLXModel(LLM, ChatModelMixin):
         logger.debug(
             "Enter async_generate, prompt: %s, generate config: %s",
             prompt,
-            generate_config,
+            redact_cache_salt(generate_config),
         )
 
         generate_config = self._sanitize_generate_config(generate_config)
@@ -1941,6 +1990,8 @@ class MLXModel(LLM, ChatModelMixin):
                     if getattr(xavier, "config", {}).get("heterogeneous")
                     else {}
                 )
+                if generate_config.get("cache_salt") is not None:
+                    prefill_options["generate_config"] = generate_config
                 metadata = await xavier.prefill(
                     self._model,
                     tokens,
@@ -1981,9 +2032,20 @@ class MLXModel(LLM, ChatModelMixin):
             # Claim/copy/release the lease before returning a lazy stream. Even
             # an unconsumed or disconnected response cannot strand the handoff.
             xavier_inputs = dict(
-                prepared_cache=await xavier.fetch(tokens, transfer),
+                prepared_cache=await xavier.fetch(
+                    tokens,
+                    transfer,
+                    **(
+                        {"cache_salt": generate_config["cache_salt"]}
+                        if generate_config.get("cache_salt") is not None
+                        else {}
+                    ),
+                ),
                 prompt_token_ids=tokens,
             )
+
+        if generate_config.get("cache_salt") is not None:
+            xavier_inputs["cache_salt"] = generate_config["cache_salt"]
 
         if self._batch_model is None and self._context_length_limit is not None:
             prompt_text = (
@@ -2469,7 +2531,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         """Generate method for vision models (not using continuous batching)."""
         generate_config = self._sanitize_generate_config(generate_config)
-        logger.debug(f"[MLXVisionModel] generation params: {generate_config}")
+        logger.debug(
+            "[MLXVisionModel] generation params: %s", redact_cache_salt(generate_config)
+        )
 
         assert self._model is not None
         assert self._tokenizer is not None
@@ -2673,8 +2737,16 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         self._reusable_prompt_cache = LRUPromptCache(**cache_kwargs)
         self._reusable_prompt_cache_model_key = id(self._model.language_model)
 
+    def _reusable_cache_key(self, cache_salt=None):
+        scope = cache_scope(cache_salt)
+        return (
+            self._reusable_prompt_cache_model_key
+            if scope is None
+            else (self._reusable_prompt_cache_model_key, scope)
+        )
+
     def _fetch_reusable_prompt_cache(
-        self, prompt_tokens: List[int]
+        self, prompt_tokens: List[int], cache_salt: Optional[str] = None
     ) -> Tuple[Optional[List[Any]], List[int], int]:
         if self._reusable_prompt_cache is None or len(prompt_tokens) < 2:
             return None, prompt_tokens, 0
@@ -2687,7 +2759,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             self._reusable_prompt_cache.trim_to(n_sequences=0)
             expiries.clear()
         cache, remaining_tokens = self._reusable_prompt_cache.fetch_nearest_cache(
-            self._reusable_prompt_cache_model_key, prompt_tokens
+            self._reusable_cache_key(cache_salt), prompt_tokens
         )
         if cache is None:
             return None, prompt_tokens, 0
@@ -2713,6 +2785,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         prompt_tokens: List[int],
         prompt_cache_prefix_len: Optional[int],
         ttl: Optional[int] = None,
+        cache_salt: Optional[str] = None,
     ) -> Tuple[List[int], Dict[str, Any], int]:
         if len(getattr(self, "_anthropic_cache_expiry", {})) > max(
             128, self._model_config.get("prompt_cache_size", 2) * 4
@@ -2727,7 +2800,8 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             return prompt_tokens, {}, 0
 
         cache, remaining_tokens, cached_token_count = self._fetch_reusable_prompt_cache(
-            prompt_tokens
+            prompt_tokens,
+            **({"cache_salt": cache_salt} if cache_salt is not None else {}),
         )
         if cache is None:
             from mlx_vlm.models.cache import make_prompt_cache
@@ -2743,7 +2817,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     return
                 checkpoint_tokens = prompt_tokens[:prompt_cache_prefix_len]
                 reusable_prompt_cache.insert_cache(
-                    self._reusable_prompt_cache_model_key,
+                    self._reusable_cache_key(cache_salt),
                     checkpoint_tokens,
                     copy.deepcopy(prompt_cache),
                     cache_type="system",
@@ -2925,7 +2999,14 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 prompt_cache_kwargs,
                 cached_prompt_tokens,
             ) = self._prepare_reusable_prompt_cache(
-                prompt_token_ids, prompt_cache_prefix_len, cache_ttl
+                prompt_token_ids,
+                prompt_cache_prefix_len,
+                cache_ttl,
+                **(
+                    {"cache_salt": kwargs["cache_salt"]}
+                    if kwargs.get("cache_salt") is not None
+                    else {}
+                ),
             )
             if (
                 cache_ttl is not None

@@ -50,6 +50,7 @@ from packaging.utils import canonicalize_name
 from typing_extensions import NotRequired
 from xoscar.utils import get_next_port
 
+from ....cache_isolation import redact_cache_salt, validate_cache_salt
 from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import is_npu_available, is_vacc_available
 from ....types import (
@@ -144,6 +145,7 @@ class VLLMModelConfig(TypedDict, total=False):
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
+    cache_salt: Optional[str]
     lora_name: Optional[str]
     n: int
     best_of: Optional[int]
@@ -524,6 +526,7 @@ _update_vllm_supported_lists()
 
 
 class VLLMModel(WeightCachedModel, LLM):
+    supports_cache_salt = True
     _weight_cache_engine = "vllm"
     allow_batch = True
     support_draft_model = True
@@ -2139,6 +2142,7 @@ class VLLMModel(WeightCachedModel, LLM):
         tools: object = False,
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
+        cache_salt = validate_cache_salt((generate_config or {}).get("cache_salt"))
         try:
             from vllm.sampling_params import SamplingParams
         except ImportError:
@@ -2149,6 +2153,26 @@ class VLLMModel(WeightCachedModel, LLM):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        use_native_cache_salt = False
+        if cache_salt is not None:
+            use_native_cache_salt = (
+                VLLM_VERSION >= version.parse("0.11.0") or self._is_vllm_v1()
+            )
+            if use_native_cache_salt and VLLM_VERSION < version.parse("0.11.0"):
+                from vllm.inputs.data import TextPrompt, TokensPrompt
+
+                if not all(
+                    "cache_salt" in prompt_type.__annotations__
+                    for prompt_type in (TextPrompt, TokensPrompt)
+                ):
+                    raise ValueError("This vLLM V1 version does not support cache_salt")
+            if not use_native_cache_salt:
+                if not getattr(self, "_xavier_config", None):
+                    raise ValueError("cache_salt on legacy vLLM requires Xavier")
+                from .xavier.legacy_salt import XavierSamplingParams
+
+                SamplingParams = XavierSamplingParams
 
         require_structured = (generate_config or {}).pop(
             "_require_structured_output", False
@@ -2181,6 +2205,8 @@ class VLLMModel(WeightCachedModel, LLM):
         if anthropic and generate_config is not None:
             self._apply_thinking_budget(generate_config)
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
+        if cache_salt is not None and not use_native_cache_salt:
+            sanitized_generate_config["cache_salt"] = cache_salt
         if self._use_legacy_constraints(sanitized_generate_config, anthropic):
             if isinstance(prompt, str):
                 prompt = ChatModelMixin._close_reasoning_prompt(
@@ -2194,7 +2220,9 @@ class VLLMModel(WeightCachedModel, LLM):
                     ),
                 }
         logger.debug(
-            "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
+            "Enter generate, prompt: %s, generate config: %s",
+            prompt,
+            redact_cache_salt(generate_config),
         )
 
         lora_model = sanitized_generate_config.pop("lora_name")
@@ -2414,7 +2442,15 @@ class VLLMModel(WeightCachedModel, LLM):
                 xavier_config,
                 cast(Dict[str, Any], prompt_or_token_ids)["prompt_token_ids"],
                 sampling_params.extra_args["kv_transfer_params"],
+                cache_salt,
             )
+
+        if use_native_cache_salt:
+            if isinstance(prompt_or_token_ids, str):
+                prompt_or_token_ids = {"prompt": prompt_or_token_ids}
+            elif isinstance(prompt_or_token_ids, list):
+                prompt_or_token_ids = {"prompt_token_ids": prompt_or_token_ids}
+            prompt_or_token_ids = {**prompt_or_token_ids, "cache_salt": cache_salt}
 
         assert self._engine is not None
         start_wall_time = time.time()
