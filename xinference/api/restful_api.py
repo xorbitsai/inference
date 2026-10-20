@@ -1065,9 +1065,15 @@ class RESTfulAPI(CancelMixin):
 
         message = str(e)
         context_error = isinstance(e, ContextLengthExceeded)
-        if sanitize and isinstance(e, ValueError):
-            # vLLM's native prompt-length validation raises ValueError rather
-            # than our typed exception. Match its known forms, but never echo
+        if sanitize and (
+            isinstance(e, ValueError)
+            or (
+                type(e).__module__ == "vllm.exceptions"
+                and type(e).__name__ == "VLLMValidationError"
+            )
+        ):
+            # Recognize vLLM's native validation type without importing the
+            # optional engine. Match known prompt-length forms, but never echo
             # worker text (which can contain credentials as well as actor IDs).
             context_error = context_error or bool(
                 re.search(
@@ -1077,6 +1083,7 @@ class RESTfulAPI(CancelMixin):
                     message,
                 )
             )
+        if sanitize and isinstance(e, ValueError):
             if re.search(
                 r"(?:Invalid|Empty) (?:base64 )?data URI"
                 r"(?: for (?:image_url|video_url))?$",
