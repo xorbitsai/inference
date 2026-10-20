@@ -15,7 +15,7 @@ import io
 import logging
 from typing import TYPE_CHECKING, Optional
 
-from ..utils import set_all_random_seed
+from ..utils import allow_trust_remote_code, set_all_random_seed
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
@@ -45,7 +45,19 @@ class CosyVoiceModel:
     def model_ability(self):
         return self._model_spec.model_ability
 
+    @staticmethod
+    def _check_model_trust(model_spec: "AudioModelFamilyV2") -> None:
+        if not allow_trust_remote_code(model_spec):
+            raise ValueError(
+                "Loading a custom CosyVoice model or an explicit model_path can "
+                "execute Python code from its configuration. Set "
+                "XINFERENCE_TRUST_REMOTE_CODE=1 on the worker before startup "
+                "only if you trust this model source."
+            )
+
     def load(self):
+        self._check_model_trust(self.model_family)
+
         import os
         import sys
 

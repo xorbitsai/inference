@@ -588,3 +588,11 @@ msgstr "Intervalo mínimo (segundos) entre coletas completas de lixo do Python d
 
 msgid "Python reference cycles may keep tensors allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that need full collection on every cache cleanup."
 msgstr "As referências cíclicas do Python podem manter tensores alocados até a coleta automática ou uma coleta completa posterior; ``empty_cache()`` não pode liberá-los. Defina este intervalo como 0 para modelos que precisem de uma coleta completa a cada limpeza do cache."
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_TRUST_REMOTE_CODE"
+msgstr "XINFERENCE_TRUST_REMOTE_CODE"
+
+#: ../../source/getting_started/environments.rst
+msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
+msgstr "As configurações do CosyVoice podem executar código Python durante o carregamento. Os modelos integrados baixados do repositório registrado continuam disponíveis. Para carregar um modelo CosyVoice personalizado ou substituir seu caminho local, defina ``XINFERENCE_TRUST_REMOTE_CODE=1`` no worker antes de iniciá-lo. Ative essa opção somente para fontes de modelos confiáveis."

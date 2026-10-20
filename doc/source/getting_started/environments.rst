@@ -43,6 +43,11 @@ administrators must restrict actor ports to intended cluster peers. Authenticati
 does not encrypt traffic or prevent replay; authenticated GPU transfers stage
 device buffers in host memory for hashing and add CPU and host-memory overhead.
 
+XINFERENCE_TRUST_REMOTE_CODE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust.
+
 XINFERENCE_MODEL_SRC
 ~~~~~~~~~~~~~~~~~~~~~
 Modelhub used for downloading models. Options are "huggingface", "modelscope"

@@ -520,3 +520,11 @@ msgstr "リランクキャッシュのクリーンアップ時に Python の完�
 
 msgid "Python reference cycles may keep tensors allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that need full collection on every cache cleanup."
 msgstr "Python の循環参照によって、テンソルが自動 GC または後続の完全な回収までメモリを占有する場合があります。``empty_cache()`` ではこれらを解放できません。キャッシュクリーンアップのたびに完全な回収が必要なモデルでは、この間隔を 0 に設定してください。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_TRUST_REMOTE_CODE"
+msgstr "XINFERENCE_TRUST_REMOTE_CODE"
+
+#: ../../source/getting_started/environments.rst
+msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
+msgstr "CosyVoice の設定は読み込み時に Python コードを実行できます。登録済みモデルハブから取得した組み込みモデルは引き続き利用できます。カスタム CosyVoice モデルの読み込みやローカルモデルパスの変更には、ワーカー起動前に ``XINFERENCE_TRUST_REMOTE_CODE=1`` を設定する必要があります。信頼できるモデルソースに対してのみ有効にしてください。"
