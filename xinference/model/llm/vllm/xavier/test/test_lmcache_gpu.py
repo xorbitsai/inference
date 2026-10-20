@@ -1,5 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+# CI: linux
 """Real CUDA/two-replica LMCache regression; opt in explicitly.
 
 Set XINFERENCE_TEST_LMCACHE_GPU_INDICES=0,1 to exercise separate GPUs.
