@@ -1,6 +1,9 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Real one-GPU/two-replica LMCache regression; opt in explicitly."""
+"""Real CUDA/two-replica LMCache regression; opt in explicitly.
+
+Set XINFERENCE_TEST_LMCACHE_GPU_INDICES=0,1 to exercise separate GPUs.
+"""
 
 import asyncio
 import json
@@ -53,6 +56,13 @@ async def _exercise_cluster(address, tmp_path):
     worker = await xo.actor_ref(address=address, uid=WorkerActor.default_uid())
     uid = "lmcache-gpu-regression"
     model_path = os.environ["XINFERENCE_TEST_LMCACHE_MODEL_PATH"]
+    gpu_indices = [
+        int(index)
+        for index in os.environ.get("XINFERENCE_TEST_LMCACHE_GPU_INDICES", "0,0").split(
+            ","
+        )
+    ]
+    assert len(gpu_indices) == 2
     disk = tmp_path / "kv"
     await supervisor.launch_builtin_model(
         model_uid=uid,
@@ -74,16 +84,18 @@ async def _exercise_cluster(address, tmp_path):
             "read_timeout": 10,
         },
         max_model_len=1024,
-        gpu_memory_utilization=0.2,
+        gpu_memory_utilization=float(
+            os.environ.get("XINFERENCE_TEST_LMCACHE_GPU_MEMORY_UTILIZATION", "0.2")
+        ),
         dtype="float16",
         enforce_eager=True,
         enable_prefix_caching=False,
         max_num_seqs=4,
         replica_config=[
             ReplicaConfig(
-                devices=[DeviceConfig(worker_ip=address, n_gpu=1, gpu_idx=[0])]
+                devices=[DeviceConfig(worker_ip=address, n_gpu=1, gpu_idx=[gpu_index])]
             )
-            for _ in range(2)
+            for gpu_index in gpu_indices
         ],
     )
     try:
@@ -121,6 +133,7 @@ async def _exercise_cluster(address, tmp_path):
         after_isolated = await transfer.get_cache_backend_stats_v1()
         content = lambda result: result["choices"][0]["message"]["content"]
         evidence = {
+            "gpu_indices": gpu_indices,
             "producer_before": before,
             "producer_after": after,
             "producer_after_different_salt": after_isolated,
