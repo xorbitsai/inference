@@ -2969,7 +2969,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             return await self._forced_tool_chat(messages, generate_config, request_id)
         plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
-        generate_config.pop("tool_choice", None)
+        choice = generate_config.pop("tool_choice", None)
+        if choice == "none":
+            generate_config.pop("tools", None)
         full_prompt, tools, chat_template_kwargs, generate_config = (
             await self._prepare_chat_inputs(messages, generate_config)
         )
@@ -3536,7 +3538,9 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             return await self._forced_tool_chat(messages, generate_config, request_id)
         plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
-        generate_config.pop("tool_choice", None)
+        choice = generate_config.pop("tool_choice", None)
+        if choice == "none":
+            generate_config.pop("tools", None)
         inputs, tools, chat_template_kwargs, generate_config = (
             await self._prepare_chat_inputs(messages, generate_config)
         )
