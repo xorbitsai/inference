@@ -1,3 +1,4 @@
+# CI: linux
 from types import SimpleNamespace
 
 import pytest
@@ -57,9 +58,9 @@ def test_multimodal_version_gate(monkeypatch, vllm_version, expected, model_name
         assert vllm_version in result[1]
 
 
-def test_tokenizer_and_cache_defaults(monkeypatch, model_name):
+def test_tokenizer_and_cache_defaults(monkeypatch, tmp_path, model_name):
     monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.30.0.dev1"))
-    model = _model_for_config("DeepseekV41ForCausalLM")
+    model = _model_for_config("DeepseekV41ForCausalLM", model_path=tmp_path)
     model.model_family.model_name = model_name
     config = model._sanitize_model_config({})
     assert config["tokenizer_mode"] == "deepseek_v41"

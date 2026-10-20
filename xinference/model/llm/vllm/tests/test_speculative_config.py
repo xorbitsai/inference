@@ -153,7 +153,7 @@ def test_no_drafter_is_a_noop(monkeypatch):
     assert model_config == {"gpu_memory_utilization": 0.9}
 
 
-def _model_for_config(architecture="DeepseekV4ForCausalLM"):
+def _model_for_config(architecture="DeepseekV4ForCausalLM", model_path=None):
     from ...llm_family import LLMFamilyV2
 
     model = _model(model_name="DeepSeek-V4-Flash-0731", model_size=304)
@@ -170,20 +170,23 @@ def _model_for_config(architecture="DeepseekV4ForCausalLM"):
     model._n_worker = 1
     model._address = None
     model._shard = 0
+    if model_path is not None:
+        # An empty checkpoint directory: no config.json keeps the FP8 default.
+        model.model_path = str(model_path)
     return model
 
 
 @pytest.mark.parametrize("npu_available", [False, True])
 @pytest.mark.parametrize("configured", [256, 128])
 def test_deepseek_v4_preserves_explicit_block_size(
-    monkeypatch, npu_available, configured
+    monkeypatch, tmp_path, npu_available, configured
 ):
     from .. import core
 
     monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
     monkeypatch.setattr(core, "is_npu_available", lambda: npu_available)
 
-    model_config = _model_for_config()._sanitize_model_config(
+    model_config = _model_for_config(model_path=tmp_path)._sanitize_model_config(
         {"block_size": configured}
     )
 
@@ -195,25 +198,29 @@ def test_deepseek_v4_preserves_explicit_block_size(
     [(False, 256), (True, 128)],
 )
 def test_deepseek_v4_uses_platform_block_size_by_default(
-    monkeypatch, npu_available, expected
+    monkeypatch, tmp_path, npu_available, expected
 ):
     from .. import core
 
     monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
     monkeypatch.setattr(core, "is_npu_available", lambda: npu_available)
 
-    model_config = _model_for_config()._sanitize_model_config({})
+    model_config = _model_for_config(model_path=tmp_path)._sanitize_model_config({})
 
     assert model_config["block_size"] == expected
 
 
 @pytest.mark.parametrize("npu_available", [False, True])
-def test_regular_model_keeps_block_size_16_default(monkeypatch, npu_available):
+def test_regular_model_keeps_block_size_16_default(
+    monkeypatch, tmp_path, npu_available
+):
     from .. import core
 
     monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
     monkeypatch.setattr(core, "is_npu_available", lambda: npu_available)
 
-    model_config = _model_for_config("LlamaForCausalLM")._sanitize_model_config({})
+    model_config = _model_for_config(
+        "LlamaForCausalLM", model_path=tmp_path
+    )._sanitize_model_config({})
 
     assert model_config["block_size"] == 16

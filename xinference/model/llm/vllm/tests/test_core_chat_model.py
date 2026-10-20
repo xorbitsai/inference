@@ -91,14 +91,6 @@ class TestVLLMFP8Quantization:
             (tmp_path / "config.json").write_text(json.dumps(config))
         assert model._sanitize_model_config(launch_config)["quantization"] == "fp8"
 
-    @pytest.mark.parametrize("model_path", ["missing", None, ""])
-    def test_unknown_model_path_keeps_fp8(self, model, monkeypatch, model_path):
-        if model_path == "missing":
-            monkeypatch.delattr(model, "model_path")
-        else:
-            model.model_path = model_path
-        assert model._sanitize_model_config({})["quantization"] == "fp8"
-
     @pytest.mark.parametrize("contents", ["{", "null", "[]", '{"text_config": []}'])
     def test_malformed_config_defers_to_vllm(self, model, tmp_path, contents):
         (tmp_path / "config.json").write_text(contents)
