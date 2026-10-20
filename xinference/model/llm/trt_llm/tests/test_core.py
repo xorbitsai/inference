@@ -2,22 +2,25 @@
 # Licensed under the Apache License, Version 2.0.
 
 import asyncio
+import copy
 import sys
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
+from ...core import chat_context_var
 from ..core import TRTLLMModel
 
 
 class Request:
-    def __init__(self):
+    def __init__(self, fragments=("ab", "c")):
         self.prompt_token_ids = [10, 20]
         self.outputs = []
         self.finished = False
         self.aborted = False
         self.position = 0
+        self.fragments = fragments
 
     def abort(self):
         self.aborted = True
@@ -26,17 +29,18 @@ class Request:
         return self
 
     async def __anext__(self):
-        if self.position == 2:
+        if self.position == len(self.fragments):
             raise StopAsyncIteration
         await asyncio.sleep(0)
         self.position += 1
-        self.finished = self.position == 2
+        self.finished = self.position == len(self.fragments)
+        text = "".join(self.fragments[: self.position])
         self.outputs = [
             SimpleNamespace(
                 index=0,
-                text="ab" if self.position == 1 else "abc",
-                text_diff="ab" if self.position == 1 else "c",
-                token_ids=[1, 2] if self.position == 1 else [1, 2, 3],
+                text=text,
+                text_diff=self.fragments[self.position - 1],
+                token_ids=list(range(len(text))),
                 finish_reason="length" if self.finished else None,
             )
         ]
@@ -63,7 +67,7 @@ class Engine:
 
     def generate_async(self, tokens, params, streaming):
         self.tokens, self.params = tokens, params
-        request = Request()
+        request = Request(getattr(self, "fragments", ("ab", "c")))
         self.requests.append(request)
         return request
 
@@ -122,7 +126,9 @@ async def test_stream_is_incremental_and_usage_keeps_last_token(model):
     assert first["choices"][0]["text"] == "ab"
     rest = [chunk async for chunk in stream]
     assert rest[0]["choices"][0]["text"] == "c"
-    assert rest[0]["choices"][0]["finish_reason"] == "length"
+    assert rest[0]["choices"][0]["finish_reason"] is None
+    assert rest[1]["choices"][0]["text"] == ""
+    assert rest[1]["choices"][0]["finish_reason"] == "length"
     assert rest[-1]["usage"] == {
         "prompt_tokens": 2,
         "completion_tokens": 3,
@@ -267,3 +273,187 @@ def test_engine_construction_failure_clears_state(monkeypatch, model):
     with pytest.raises(RuntimeError, match="load failed"):
         failed.load()
     assert failed._engine is None and not failed._requests
+
+
+async def collect_chat(model, config):
+    result = await model.async_chat([{"role": "user", "content": "hello"}], config)
+    if not config.get("stream"):
+        return result["choices"][0]["message"]
+    chunks = [chunk async for chunk in result]
+    return {
+        field: "".join(
+            choice["delta"].get(field) or ""
+            for chunk in chunks
+            for choice in chunk["choices"]
+        )
+        for field in ("content", "reasoning_content")
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("launch_thinking", [False, True])
+async def test_request_thinking_overrides_do_not_mutate_parser(
+    model, monkeypatch, stream, launch_thinking
+):
+    model._enable_thinking = launch_thinking
+    model.prepare_parse_reasoning_content(True, launch_thinking)
+    render = Mock(return_value="hi")
+    monkeypatch.setattr(model._tokenizer, "apply_chat_template", render)
+    context = {"enable_thinking": not launch_thinking}
+    config = {"stream": stream, "chat_template_kwargs": context}
+    token = chat_context_var.set({"enable_thinking": launch_thinking})
+    try:
+        message = await collect_chat(model, config)
+        assert message["content"] == ("abc" if launch_thinking else "")
+        assert (message.get("reasoning_content") or "") == (
+            "" if launch_thinking else "abc"
+        )
+        assert render.call_args.kwargs["enable_thinking"] is not launch_thinking
+        assert model.reasoning_parser.enable_thinking is launch_thinking
+        assert config["chat_template_kwargs"] == {
+            "enable_thinking": not launch_thinking
+        }
+        if not stream:
+            assert chat_context_var.get()["enable_thinking"] is launch_thinking
+    finally:
+        chat_context_var.reset(token)
+
+
+@pytest.mark.asyncio
+async def test_interleaved_chat_streams_keep_their_thinking_context(model):
+    model._enable_thinking = True
+    model.prepare_parse_reasoning_content(True, True)
+    token = chat_context_var.set({})
+    try:
+        streams = [
+            await model.async_chat(
+                [{"role": "user", "content": "hello"}],
+                {"stream": True, "chat_template_kwargs": {"enable_thinking": thinking}},
+            )
+            for thinking in (False, True)
+        ]
+        chunks = [[], []]
+        active = set(range(2))
+        while active:
+            for index in list(active):
+                try:
+                    chunks[index].append(await anext(streams[index]))
+                except StopAsyncIteration:
+                    active.remove(index)
+        for index, field in enumerate(("content", "reasoning_content")):
+            assert (
+                "".join(
+                    choice["delta"].get(field) or ""
+                    for chunk in chunks[index]
+                    for choice in chunk["choices"]
+                )
+                == "abc"
+            )
+        assert model.reasoning_parser.enable_thinking is True
+    finally:
+        chat_context_var.reset(token)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "last,reasoning,content", [("c", "abc", ""), ("</think>answer", "ab", "answer")]
+)
+async def test_terminal_chat_text_is_parsed_before_finish(
+    model, last, reasoning, content
+):
+    model.prepare_parse_reasoning_content(True, True)
+    model._engine.fragments = ("ab", last)
+    token = chat_context_var.set({"enable_thinking": True})
+    try:
+        stream = await model.async_chat(
+            [{"role": "user", "content": "hello"}],
+            {"stream": True, "stream_options": {"include_usage": True}},
+        )
+        chunks = [chunk async for chunk in stream]
+        choices = [choice for chunk in chunks for choice in chunk["choices"]]
+        assert (
+            "".join(c["delta"].get("reasoning_content") or "" for c in choices)
+            == reasoning
+        )
+        assert "".join(c["delta"].get("content") or "" for c in choices) == content
+        terminal = [c for c in choices if c["finish_reason"] is not None]
+        assert len(terminal) == 1 and terminal[0]["finish_reason"] == "length"
+        assert not terminal[0]["delta"].get("content")
+        assert chunks[-1]["usage"]["completion_tokens"] == len("ab" + last)
+    finally:
+        chat_context_var.reset(token)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_chat_accepts_json_string_template_kwargs(model, stream):
+    model._enable_thinking = True
+    model.prepare_parse_reasoning_content(True, True)
+    token = chat_context_var.set({})
+    try:
+        message = await collect_chat(
+            model,
+            {"stream": stream, "chat_template_kwargs": '{"enable_thinking": false}'},
+        )
+        assert message["content"] == "abc"
+        assert not message.get("reasoning_content")
+    finally:
+        chat_context_var.reset(token)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_chat_normalizes_text_parts_without_changing_input(
+    model, monkeypatch, stream
+):
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "hello"},
+                {"type": "text", "text": "world"},
+            ],
+        }
+    ]
+    original = copy.deepcopy(messages)
+    render = Mock(return_value="hi")
+    monkeypatch.setattr(model._tokenizer, "apply_chat_template", render)
+    result = await model.async_chat(messages, {"stream": stream})
+    if stream:
+        assert [chunk async for chunk in result]
+    assert render.call_args.args[0] == [{"role": "user", "content": "hello\nworld"}]
+    assert messages == original
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["image_url", "input_audio", "video_url"])
+async def test_chat_still_rejects_media_parts_before_submission(model, kind):
+    with pytest.raises(ValueError, match="plain text"):
+        await model.async_chat(
+            [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": "hello"}, {"type": kind}],
+                }
+            ]
+        )
+    assert not model._engine.requests
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("options", [{"echo": True}, {"logprobs": 0}])
+async def test_unsupported_completion_options_fail_before_submission(
+    model, stream, options
+):
+    with pytest.raises(ValueError, match="does not support"):
+        await model.async_generate("hi", {**options, "stream": stream})
+    assert not model._engine.requests
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_chat_logprobs_false_remains_supported(model, stream):
+    message = await collect_chat(model, {"logprobs": False, "stream": stream})
+    assert message["content"] == "abc"

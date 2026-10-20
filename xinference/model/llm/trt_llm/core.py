@@ -13,7 +13,7 @@ from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import Completion, CompletionChunk, CompletionUsage
 from ...utils import check_dependency_available
 from ..context_length import ContextLengthExceeded, validate_context_length
-from ..core import LLM
+from ..core import LLM, chat_context_var
 from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
@@ -119,11 +119,13 @@ class TRTLLMModel(LLM, ChatModelMixin):
 
         if config.get("cache_salt") is not None:
             raise ValueError("TRT-LLM cache_salt is not supported by this adapter yet")
-        for name in ("tools", "response_format", "logprobs", "prompt_logprobs"):
+        for name in ("tools", "response_format", "prompt_logprobs", "echo"):
             if config.get(name):
                 raise ValueError(
                     f"TRT-LLM does not support {name} through this adapter"
                 )
+        if config.get("logprobs") is not None and config["logprobs"] is not False:
+            raise ValueError("TRT-LLM does not support logprobs through this adapter")
         if config.get("n", 1) != 1:
             raise ValueError("TRT-LLM currently requires n=1")
         tokens = self._tokenizer.encode(prompt, add_special_tokens=False)
@@ -203,7 +205,7 @@ class TRTLLMModel(LLM, ChatModelMixin):
             request = start()
             try:
                 async for output in request:
-                    yield CompletionChunk(
+                    chunk = CompletionChunk(
                         id=request_id,
                         object="text_completion",
                         created=created,
@@ -218,6 +220,20 @@ class TRTLLMModel(LLM, ChatModelMixin):
                             for choice in output.outputs
                         ],
                     )
+                    # The shared chat parser consumes text only before finish.
+                    # A native terminal result may still contain generated text.
+                    if any(
+                        c["text"] and c["finish_reason"] is not None
+                        for c in chunk["choices"]
+                    ):
+                        yield {
+                            **chunk,
+                            "choices": [
+                                {**c, "finish_reason": None} for c in chunk["choices"]
+                            ],
+                        }
+                        chunk["choices"] = [{**c, "text": ""} for c in chunk["choices"]]
+                    yield chunk
                 if (config.get("stream_options") or {}).get("include_usage"):
                     yield CompletionChunk(
                         id=request_id,
@@ -261,17 +277,39 @@ class TRTLLMModel(LLM, ChatModelMixin):
                 "TRT-LLM tool calling is not supported by this adapter yet"
             )
         for message in messages:
-            if not isinstance(message.get("content"), (str, type(None))):
+            content = message.get("content")
+            if isinstance(content, list):
+                if any(
+                    not isinstance(part, dict)
+                    or part.get("type") != "text"
+                    or not isinstance(part.get("text"), str)
+                    for part in content
+                ):
+                    raise ValueError("TRT-LLM currently requires plain text messages")
+            elif not isinstance(content, (str, type(None))):
                 raise ValueError("TRT-LLM currently requires plain text messages")
-        context = dict(config.get("chat_template_kwargs") or {})
+        if config.get("chat_template_kwargs") is None:
+            config.pop("chat_template_kwargs", None)
+        context = (
+            self._get_chat_template_kwargs_from_generate_config(
+                config, self.reasoning_parser
+            )
+            or {}
+        )
         context.setdefault("enable_thinking", self._enable_thinking)
         prompt = self.get_full_context(
-            messages,
+            [dict(message) for message in messages],
             self.model_family.chat_template,
             tokenizer=self._tokenizer,
             **context,
         )
         result = await self.async_generate(prompt, config, request_id)
         if config.get("stream"):
-            return self._async_to_chat_completion_chunks(result, self.reasoning_parser)
-        return self._to_chat_completion(result, self.reasoning_parser)
+            return self._async_to_chat_completion_chunks(
+                result, self.reasoning_parser, context
+            )
+        token = chat_context_var.set(context)
+        try:
+            return self._to_chat_completion(result, self.reasoning_parser)
+        finally:
+            chat_context_var.reset(token)
