@@ -421,6 +421,53 @@ jobs:
             xinference/tests/test_build_backend.py
             xinference/tests/test_logging_filters.py
             xinference/tests/test_persisted_secret.py
+          # Linux engine/P-D regressions and portable MLX mock tests.
+          LINUX_TEST_PATHS: >-
+            benchmark/tests/test_benchmark_pd.py
+            benchmark/tests/test_benchmark_sglang_pd.py
+            benchmark/tests/test_analyze_pd_profile.py
+            xinference/model/audio/tests/test_audio_batching.py
+            xinference/model/llm/sglang/tests/test_xavier.py
+            xinference/model/llm/sglang/tests/test_xavier_pd.py
+            xinference/model/llm/sglang/tests/test_pd.py
+            xinference/model/llm/sglang/tests/test_xavier_gpu_lifecycle.py
+            xinference/model/llm/sglang/tests/test_gc_lifecycle.py
+            xinference/model/llm/sglang/tests/test_runtime.py
+            xinference/model/llm/sglang/tests/test_anthropic_controls.py
+            xinference/model/llm/sglang/tests/test_reasoning_adapter.py
+            xinference/model/llm/vllm/tests/test_anthropic_controls.py
+            xinference/model/llm/vllm/tests/test_cache_salt.py
+            xinference/model/llm/vllm/tests/test_reasoning_adapter.py
+            xinference/model/llm/vllm/tests/test_core_chat_model.py::TestVLLMSanitizeGenerateConfig
+            xinference/model/llm/mlx/tests/test_anthropic_runtime.py
+            xinference/model/llm/mlx/tests/test_structured.py
+            xinference/model/llm/mlx/tests/test_context_length.py
+            xinference/model/llm/vllm/tests/test_distributed_executor_v1.py
+            xinference/model/llm/vllm/tests/test_executor_routing.py
+            xinference/model/llm/vllm/tests/test_speculative_config.py
+            xinference/model/llm/vllm/xavier/test/test_profiling.py
+            xinference/model/llm/vllm/xavier/test/test_actor_loop.py
+            xinference/model/llm/vllm/tests/test_pd.py
+            xinference/model/llm/vllm/xavier/test/test_block_tracker_reuse.py
+            xinference/model/llm/vllm/xavier/test/test_remote_kvcache_manager.py
+            xinference/model/llm/vllm/xavier/test/test_v1_engine.py
+            xinference/model/llm/vllm/xavier/test/test_prefix_cache_hot_path.py
+            xinference/model/llm/vllm/xavier/test/test_snapshot_export_ipc.py
+            xinference/model/llm/vllm/xavier/test/test_snapshot_gc_lifecycle.py
+            xinference/model/llm/vllm/xavier/test/test_packed_gather.py
+            xinference/model/llm/vllm/xavier/test/test_local_directory.py
+            xinference/model/llm/vllm/xavier/test/test_local_read.py
+            xinference/model/llm/vllm/xavier/test/test_gpu_transfer.py
+            xinference/model/llm/vllm/xavier/test/test_kv_schema.py
+            xinference/model/llm/vllm/xavier/test/test_cross_engine.py
+            xinference/model/llm/vllm/xavier/test/test_cache_salt.py
+            xinference/model/llm/vllm/xavier/test/test_legacy_cache_salt.py
+            xinference/model/llm/vllm/xavier/test/test_direct_handoff.py
+            xinference/model/llm/vllm/xavier/test/test_direct_history.py
+            xinference/model/llm/vllm/xavier/test/test_tiered_snapshot.py
+            xinference/model/llm/vllm/xavier/test/test_request_transfer.py
+            xinference/model/llm/vllm/xavier/test/test_transfer_blocks.py
+            xinference/model/llm/vllm/xavier/test/test_review_regressions.py
           PYTORCH_MPS_HIGH_WATERMARK_RATIO: 1.0
           PYTORCH_MPS_LOW_WATERMARK_RATIO: 0.2
           XFORMERS_FORCE_DISABLE_TRITON: 1
@@ -503,54 +550,8 @@ jobs:
           fi
 
           if [ "$MODULE" != "metal" ] && [ "$TEST_PLATFORM" == "ubuntu-latest" ]; then
-            # Linux engine/P-D regressions and portable MLX mock tests.
-            run_pytest \
-              -vv \
-              benchmark/tests/test_benchmark_pd.py \
-              benchmark/tests/test_benchmark_sglang_pd.py \
-              benchmark/tests/test_analyze_pd_profile.py \
-              xinference/model/audio/tests/test_audio_batching.py \
-              xinference/model/llm/sglang/tests/test_xavier.py \
-              xinference/model/llm/sglang/tests/test_xavier_pd.py \
-              xinference/model/llm/sglang/tests/test_pd.py \
-              xinference/model/llm/sglang/tests/test_xavier_gpu_lifecycle.py \
-              xinference/model/llm/sglang/tests/test_gc_lifecycle.py \
-              xinference/model/llm/sglang/tests/test_runtime.py \
-              xinference/model/llm/sglang/tests/test_anthropic_controls.py \
-              xinference/model/llm/sglang/tests/test_reasoning_adapter.py \
-              xinference/model/llm/vllm/tests/test_anthropic_controls.py \
-              xinference/model/llm/vllm/tests/test_cache_salt.py \
-              xinference/model/llm/vllm/tests/test_reasoning_adapter.py \
-              xinference/model/llm/vllm/tests/test_core_chat_model.py::TestVLLMSanitizeGenerateConfig \
-              xinference/model/llm/mlx/tests/test_anthropic_runtime.py \
-              xinference/model/llm/mlx/tests/test_structured.py \
-              xinference/model/llm/mlx/tests/test_context_length.py \
-              xinference/model/llm/vllm/tests/test_distributed_executor_v1.py \
-              xinference/model/llm/vllm/tests/test_executor_routing.py \
-              xinference/model/llm/vllm/tests/test_speculative_config.py \
-              xinference/model/llm/vllm/xavier/test/test_profiling.py \
-              xinference/model/llm/vllm/xavier/test/test_actor_loop.py \
-              xinference/model/llm/vllm/tests/test_pd.py \
-              xinference/model/llm/vllm/xavier/test/test_block_tracker_reuse.py \
-              xinference/model/llm/vllm/xavier/test/test_remote_kvcache_manager.py \
-              xinference/model/llm/vllm/xavier/test/test_v1_engine.py \
-              xinference/model/llm/vllm/xavier/test/test_prefix_cache_hot_path.py \
-              xinference/model/llm/vllm/xavier/test/test_snapshot_export_ipc.py \
-              xinference/model/llm/vllm/xavier/test/test_snapshot_gc_lifecycle.py \
-              xinference/model/llm/vllm/xavier/test/test_packed_gather.py \
-              xinference/model/llm/vllm/xavier/test/test_local_directory.py \
-              xinference/model/llm/vllm/xavier/test/test_local_read.py \
-              xinference/model/llm/vllm/xavier/test/test_gpu_transfer.py \
-              xinference/model/llm/vllm/xavier/test/test_kv_schema.py \
-              xinference/model/llm/vllm/xavier/test/test_cross_engine.py \
-              xinference/model/llm/vllm/xavier/test/test_cache_salt.py \
-              xinference/model/llm/vllm/xavier/test/test_legacy_cache_salt.py \
-              xinference/model/llm/vllm/xavier/test/test_direct_handoff.py \
-              xinference/model/llm/vllm/xavier/test/test_direct_history.py \
-              xinference/model/llm/vllm/xavier/test/test_tiered_snapshot.py \
-              xinference/model/llm/vllm/xavier/test/test_request_transfer.py \
-              xinference/model/llm/vllm/xavier/test/test_transfer_blocks.py \
-              xinference/model/llm/vllm/xavier/test/test_review_regressions.py
+            read -r -a linux_tests <<< "$LINUX_TEST_PATHS"
+            run_pytest -vv "${linux_tests[@]}"
           fi
 
           if [ "$MODULE" != "metal" ] && [ "$TEST_PLATFORM" == "macos-latest" ]; then

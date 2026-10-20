@@ -26,11 +26,13 @@ TEST_STEP = next(
     if step.get("name") == "Test with pytest"
 )
 PLATFORM_PATHS = TEST_STEP["env"]["PLATFORM_TEST_PATHS"].split()
+LINUX_PATHS = TEST_STEP["env"]["LINUX_TEST_PATHS"].split()
 
 
 def classified_test(path, content):
     if any(
-        path == target or path.startswith(target + "/") for target in PLATFORM_PATHS
+        path == target or path.startswith(target + "/")
+        for target in PLATFORM_PATHS + LINUX_PATHS
     ):
         return True
     if path.startswith("xinference/model/llm/mlx/tests/"):
@@ -74,6 +76,7 @@ class TestPythonWorkflow(unittest.TestCase):
                     "MODULE": "xinference",
                     "SUITE": suite,
                     "PLATFORM_TEST_PATHS": step["env"]["PLATFORM_TEST_PATHS"],
+                    "LINUX_TEST_PATHS": step["env"]["LINUX_TEST_PATHS"],
                     "TEST_PLATFORM": platform,
                 },
                 check=True,
@@ -359,6 +362,16 @@ class TestPythonWorkflow(unittest.TestCase):
         for command in self.commands("windows-latest", suite="full"):
             self.assertNotIn("-m", command)
 
+    def test_linux_explicit_targets_are_passed_unchanged(self):
+        for version in ("3.10", "3.14"):
+            for suite in ("platform", "full"):
+                with self.subTest(version=version, suite=suite):
+                    linux = self.commands("ubuntu-latest", version, suite)
+                    self.assertEqual(len(linux), 2)
+                    self.assertEqual(linux[1][-len(LINUX_PATHS) :], LINUX_PATHS)
+        for target in LINUX_PATHS:
+            self.assertTrue((ROOT / target.split("::", 1)[0]).exists(), target)
+
     def test_new_engine_test_directories_require_platform_classification(self):
         # Shared directories discover new tests automatically. A new engine
         # directory needs an explicit platform decision before CI can pass.
@@ -495,6 +508,27 @@ class TestPythonWorkflow(unittest.TestCase):
             classified_test("xinference/core/tests/test_new.py", "# CI: linux\n")
         )
 
+    def test_explicit_linux_test_files_are_classified(self):
+        for path in (
+            "xinference/model/llm/vllm/xavier/test/test_v1_engine.py",
+            "xinference/model/llm/sglang/tests/test_runtime.py",
+            "xinference/model/audio/tests/test_audio_batching.py",
+        ):
+            with self.subTest(path=path):
+                self.assertIn(path, LINUX_PATHS)
+                self.assertTrue(classified_test(path, ""))
+
+    def test_uncovered_files_are_not_classified_by_linux_targets(self):
+        partial_file = "xinference/model/llm/vllm/tests/test_core_chat_model.py"
+        self.assertIn(partial_file + "::TestVLLMSanitizeGenerateConfig", LINUX_PATHS)
+        for path in (
+            "xinference/model/llm/vllm/xavier/test/test_v1_engine_extra.py",
+            "xinference/model/image/tests/test_stable_diffusion.py",
+            partial_file,
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(classified_test(path, ""))
+
     def test_changed_tests_have_explicit_platform_coverage(self):
         base = os.environ.get("TEST_BASE_SHA")
         head = os.environ.get("TEST_HEAD_SHA") or "HEAD"
@@ -525,7 +559,8 @@ class TestPythonWorkflow(unittest.TestCase):
                 continue
             self.assertTrue(
                 classified_test(name, (ROOT / name).read_text()),
-                f"{name}: add it to PLATFORM_TEST_PATHS (or the macOS scope), or declare "
+                f"{name}: add it to PLATFORM_TEST_PATHS, LINUX_TEST_PATHS "
+                "(or the macOS scope), or declare "
                 "'# CI: linux' for a portable/Linux-only regression. Do not silently omit new tests.",
             )
 
