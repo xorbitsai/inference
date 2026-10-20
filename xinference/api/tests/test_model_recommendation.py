@@ -178,7 +178,13 @@ async def test_context_overflow_is_a_client_error(
         response = await client.post(path, json=body)
     if stream:
         assert response.status_code == 200
-        detail = RESTfulAPI._chat_completion_error_detail() if chat else str(error)
+        detail = str(error)
+        if chat:
+            detail = (
+                "Request exceeds the model's configured context length."
+                if context_error
+                else RESTfulAPI._chat_completion_error_detail()
+            )
         assert '"error":' in response.text and detail in response.text
     else:
         assert response.status_code == (400 if context_error else 500)

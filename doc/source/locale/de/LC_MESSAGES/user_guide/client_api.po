@@ -232,13 +232,21 @@ msgstr ""
 ":ref:`anthropic_api`."
 
 #: ../../source/user_guide/client_api.rst
-msgid "Chat request errors"
-msgstr "Fehler bei Chat-Anfragen"
+msgid "Chat completion errors"
+msgstr "Fehler bei Chat-Vervollständigungen"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request."
-msgstr "Unerwartete Fehler des Chat-Workers geben eine allgemeine Fehlermeldung zurück. Serverprotokolle und Fehlerereignisse behalten die ursprünglichen Diagnosedaten. Prüfen Sie diese serverseitigen Aufzeichnungen, wenn Sie eine fehlgeschlagene Anfrage melden."
+msgid "For ``/v1/chat/completions``, unexpected worker failures return a generic error message. Server logs and error events retain the original diagnostics."
+msgstr "Bei ``/v1/chat/completions`` führen unerwartete Worker-Fehler zu einer allgemeinen Fehlermeldung. Serverprotokolle und Fehlerereignisse enthalten weiterhin die ursprünglichen Diagnoseinformationen."
 
 #: ../../source/user_guide/client_api.rst
-msgid "Rate-limit errors retain HTTP 429, and requests that exceed the configured context length retain HTTP 400. Their messages describe the failure without exposing worker details."
-msgstr "Fehler aufgrund einer Ratenbegrenzung behalten HTTP 429 bei; Anfragen, die die konfigurierte Kontextlänge überschreiten, behalten HTTP 400 bei. Die Meldungen beschreiben den Fehler, ohne Details der Worker offenzulegen."
+msgid "Before streaming starts, strict-template role errors and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
+msgstr "Vor Beginn des Streamings führen Rollenfehler bei strengen Vorlagen und erkannte Überschreitungen der multimodalen vLLM-Grenzen pro Prompt zu HTTP 400. Sind die aktuellen Grenzen nicht abrufbar, übernimmt der Worker die Validierung."
+
+#: ../../source/user_guide/client_api.rst
+msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
+msgstr "Bei Anfragen ohne Streaming führen erkannte Überschreitungen der Kontextlänge und bekannte Validierungsfehler bei Medien oder Cache-Salt zu HTTP 400; Ratenbegrenzungen führen zu HTTP 429. Die Meldungen beschreiben den Fehler, ohne Worker-Details offenzulegen. Nicht erkannte Worker-Fehler führen zu HTTP 500."
+
+#: ../../source/user_guide/client_api.rst
+msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
+msgstr "Nach Beginn einer Streaming-Antwort bleibt der HTTP-Status 200. Fehler werden in einer SSE-``error``-Nutzlast gesendet. Erkannte Kontextlängen- und Ratenbegrenzungsfehler behalten unterschiedliche sichere Meldungen; unerwartete Fehler verwenden die allgemeine Meldung."

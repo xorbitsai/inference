@@ -233,13 +233,21 @@ msgstr ""
 "Claude Code 설정, Python SDK 예제, 지원 기능 및 제한 사항은 :ref:`anthropic_api` 를 참조하세요."
 
 #: ../../source/user_guide/client_api.rst
-msgid "Chat request errors"
-msgstr "채팅 요청 오류"
+msgid "Chat completion errors"
+msgstr "채팅 완성 오류"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request."
-msgstr "채팅 워커에서 예상하지 못한 오류가 발생하면 일반 오류 메시지를 반환합니다. 서버 로그와 오류 이벤트에는 원래 진단 정보가 유지됩니다. 요청 실패를 보고할 때 서버 측 기록을 확인하세요."
+msgid "For ``/v1/chat/completions``, unexpected worker failures return a generic error message. Server logs and error events retain the original diagnostics."
+msgstr "``/v1/chat/completions`` 에서는 예기치 않은 작업자 오류에 대해 일반 오류 메시지를 반환합니다. 서버 로그와 오류 이벤트에는 원래 진단 정보가 유지됩니다."
 
 #: ../../source/user_guide/client_api.rst
-msgid "Rate-limit errors retain HTTP 429, and requests that exceed the configured context length retain HTTP 400. Their messages describe the failure without exposing worker details."
-msgstr "요청 속도 제한 오류는 HTTP 429를 유지하고, 설정된 컨텍스트 길이를 초과하는 요청은 HTTP 400을 유지합니다. 오류 메시지는 워커의 내부 정보를 노출하지 않고 실패 원인을 설명합니다."
+msgid "Before streaming starts, strict-template role errors and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
+msgstr "스트리밍이 시작되기 전에 엄격한 템플릿의 역할 오류나 감지된 vLLM 프롬프트별 멀티모달 제한 위반이 있으면 HTTP 400을 반환합니다. 현재 제한을 조회할 수 없으면 검증을 작업자에게 맡깁니다."
+
+#: ../../source/user_guide/client_api.rst
+msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
+msgstr "비스트리밍 요청에서 인식된 컨텍스트 길이 초과와 알려진 미디어 또는 cache-salt 검증 오류는 HTTP 400을 반환하고, 요청 속도 제한은 HTTP 429를 반환합니다. 메시지는 작업자 내부 정보를 노출하지 않고 오류 원인을 설명합니다. 인식되지 않은 작업자 오류는 HTTP 500을 반환합니다."
+
+#: ../../source/user_guide/client_api.rst
+msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
+msgstr "스트리밍 응답이 시작된 후에는 HTTP 상태가 200으로 유지됩니다. 오류는 SSE ``error`` 페이로드로 전송됩니다. 인식된 컨텍스트 길이 및 요청 속도 제한 오류에는 서로 다른 안전한 메시지를 사용하고, 예기치 않은 오류에는 일반 메시지를 사용합니다."

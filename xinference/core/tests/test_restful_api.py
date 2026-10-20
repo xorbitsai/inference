@@ -1723,6 +1723,13 @@ async def test_chat_completion_limit_errors_do_not_expose_worker_metadata(
         response = await api.create_chat_completion(request)
         body = response.body_iterator
         error = await anext(body)
+        assert json.loads(error["data"]) == {
+            "error": (
+                "Request exceeds the model's configured context length."
+                if context_error
+                else "Rate limit reached"
+            )
+        }
         assert "address" not in error["data"]
         assert "pid" not in error["data"]
         await body.aclose()
@@ -1735,6 +1742,181 @@ async def test_chat_completion_limit_errors_do_not_expose_worker_metadata(
             if context_error
             else "Rate limit reached"
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "stream,during_iteration", [(False, False), (True, False), (True, True)]
+)
+@pytest.mark.parametrize(
+    "reason,detail,status",
+    [
+        (
+            "The decoder prompt (length 5000) is longer than the maximum model length of 4096.",
+            "Request exceeds the model's configured context length.",
+            400,
+        ),
+        (
+            "The decoder prompt (length 4096) plus the number of requested output tokens (at least 1) is longer than the maximum model length of 4096.",
+            "Request exceeds the model's configured context length.",
+            400,
+        ),
+        ("Invalid base64 data URI", "Invalid media data URI.", 400),
+        ("Invalid base64 data URI for video_url", "Invalid media data URI.", 400),
+        (
+            "This vLLM V1 version does not support cache_salt",
+            "The model backend does not support cache_salt for this request.",
+            400,
+        ),
+        (
+            "cache_salt on legacy vLLM requires Xavier",
+            "The model backend does not support cache_salt for this request.",
+            400,
+        ),
+        (
+            "Unknown validation failure with secret-token",
+            "The chat completion request failed. Check the server logs for details.",
+            500,
+        ),
+    ],
+)
+async def test_chat_completion_worker_validation_errors(
+    monkeypatch, stream, during_iteration, reason, detail, status
+):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "other"})
+    model.is_vllm_backend = AsyncMock(return_value=False)
+    error = ValueError(f"[address=10.0.0.1:12345, pid=6789] {reason}")
+    api._report_error_event = AsyncMock()
+
+    async def broken_stream():
+        yield "first"
+        raise error
+
+    if during_iteration:
+        model.chat.return_value = broken_stream()
+    else:
+        model.chat.side_effect = error
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "stream": stream,
+            "messages": [{"role": "user", "content": "hi"}],
+        }
+    )
+    if stream:
+        response = await api.create_chat_completion(request)
+        assert response.status_code == 200
+        body = response.body_iterator
+        if during_iteration:
+            assert await anext(body) == "first"
+        assert json.loads((await anext(body))["data"]) == {"error": detail}
+        await body.aclose()
+    else:
+        with pytest.raises(HTTPException) as exc:
+            await api.create_chat_completion(request)
+        assert exc.value.status_code == status
+        assert exc.value.detail == detail
+    api._report_error_event.assert_any_await("test", str(error))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("vllm_backend,list_content", [(False, True), (True, False)])
+async def test_chat_completion_skips_unneeded_multimodal_rpc(
+    monkeypatch, vllm_backend, list_content
+):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "other"})
+    model.is_vllm_backend = AsyncMock(return_value=vllm_backend)
+    content = [{"type": "text", "text": "hi"}] if list_content else "hi"
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {"model": "test", "messages": [{"role": "user", "content": content}]}
+        )
+    )
+    assert response.status_code == 200
+    model.get_limit_mm_per_prompt.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "limits", [None, [], {"image": -1}, {"image": "0"}, {"image": False}]
+)
+async def test_chat_completion_ignores_unavailable_or_invalid_multimodal_limits(
+    monkeypatch, limits
+):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "other"})
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    model.get_limit_mm_per_prompt.return_value = limits
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "messages": [
+                    {"role": "user", "content": [{"type": "image", "image": "unused"}]}
+                ],
+            }
+        )
+    )
+    assert response.status_code == 200
+    model.chat.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_multimodal_rpc_failure_defers_to_worker(monkeypatch):
+    import xoscar as xo
+
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "other"})
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    model.get_limit_mm_per_prompt.side_effect = xo.ServerClosed(
+        "private worker address"
+    )
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "messages": [
+                    {"role": "user", "content": [{"type": "text", "text": "hi"}]}
+                ],
+            }
+        )
+    )
+    assert response.status_code == 200
+    model.chat.assert_awaited_once()
+
+
+@pytest.mark.parametrize("item_type", ["image", "video", "audio"])
+@pytest.mark.parametrize("url_part", [False, True])
+def test_count_multimodal_items_handles_url_and_direct_parts(item_type, url_part):
+    from ...api.restful_api import RESTfulAPI
+
+    key = f"{item_type}_url" if url_part else item_type
+    part = {"type": key, key: "unused"}
+    messages = [
+        {"role": "user", "content": [part, {"type": "text", "text": "hi"}, None]},
+        {"role": "assistant", "content": "text"},
+        {"role": "user", "content": [part]},
+    ]
+    assert RESTfulAPI._count_multimodal_items(messages, item_type) == 2
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        pytest.param(None, id="missing"),
+        pytest.param([], id="invalid-model-config"),
+        pytest.param({}, id="unset-limit"),
+        pytest.param({"limit_mm_per_prompt": None}, id="none-limit"),
+        pytest.param({"limit_mm_per_prompt": []}, id="invalid-limit"),
+    ],
+)
+def test_multimodal_limit_getters_without_config(config):
+    from ...core.model import ModelActor
+    from ...model.llm.vllm.core import VLLMModel
+
+    backend = object.__new__(VLLMModel)
+    backend._model_config = config
+    assert VLLMModel.get_limit_mm_per_prompt(backend) is None
+    assert ModelActor.get_limit_mm_per_prompt(SimpleNamespace(_model=backend)) is None
+    assert ModelActor.get_limit_mm_per_prompt(SimpleNamespace(_model=object())) is None
 
 
 @pytest.mark.platform_slow

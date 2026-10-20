@@ -229,13 +229,21 @@ msgstr ""
 "do SDK Python e conhecer os recursos compatíveis e suas limitações."
 
 #: ../../source/user_guide/client_api.rst
-msgid "Chat request errors"
-msgstr "Erros nas solicitações de chat"
+msgid "Chat completion errors"
+msgstr "Erros de conclusão de chat"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request."
-msgstr "Falhas inesperadas do worker de chat retornam uma mensagem de erro genérica. Os logs do servidor e os eventos de erro preservam os diagnósticos originais. Consulte esses registros do servidor ao relatar uma solicitação com falha."
+msgid "For ``/v1/chat/completions``, unexpected worker failures return a generic error message. Server logs and error events retain the original diagnostics."
+msgstr "Em ``/v1/chat/completions``, falhas inesperadas do processo de trabalho retornam uma mensagem de erro genérica. Os logs do servidor e os eventos de erro mantêm o diagnóstico original."
 
 #: ../../source/user_guide/client_api.rst
-msgid "Rate-limit errors retain HTTP 429, and requests that exceed the configured context length retain HTTP 400. Their messages describe the failure without exposing worker details."
-msgstr "Os erros de limite de solicitações mantêm HTTP 429, e as solicitações que excedem o comprimento de contexto configurado mantêm HTTP 400. As mensagens descrevem a falha sem expor detalhes dos processos de trabalho."
+msgid "Before streaming starts, strict-template role errors and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
+msgstr "Antes do início do streaming, erros de papéis em templates estritos e violações detectadas dos limites multimodais do vLLM por prompt retornam HTTP 400. Se os limites atuais não puderem ser consultados, a validação é delegada ao processo de trabalho."
+
+#: ../../source/user_guide/client_api.rst
+msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
+msgstr "Em solicitações sem streaming, excessos reconhecidos de comprimento de contexto e erros conhecidos de validação de mídia ou de cache-salt retornam HTTP 400; limites de taxa retornam HTTP 429. As mensagens descrevem a falha sem expor detalhes do processo de trabalho. Falhas não reconhecidas retornam HTTP 500."
+
+#: ../../source/user_guide/client_api.rst
+msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
+msgstr "Após o início de uma resposta em streaming, o status HTTP permanece 200. As falhas são enviadas em um payload SSE ``error``. Erros reconhecidos de comprimento de contexto e de limite de taxa mantêm mensagens seguras distintas; falhas inesperadas usam a mensagem genérica."

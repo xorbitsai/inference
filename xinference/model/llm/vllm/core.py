@@ -937,7 +937,7 @@ class VLLMModel(WeightCachedModel, LLM):
 
     def get_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
         """Return the effective multimodal item limits for request preflight."""
-        if self._model_config is None:
+        if not isinstance(self._model_config, dict):
             return None
         limit = self._model_config.get("limit_mm_per_prompt")
         return dict(limit) if isinstance(limit, dict) else None

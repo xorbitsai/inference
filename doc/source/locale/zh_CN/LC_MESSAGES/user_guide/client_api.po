@@ -247,13 +247,21 @@ msgid ""
 msgstr "Claude Code 配置、Python SDK 示例以及支持的功能和限制，参见 :ref:`anthropic_api`。"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Chat request errors"
-msgstr "聊天请求错误"
+msgid "Chat completion errors"
+msgstr "聊天补全错误"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Unexpected chat worker failures return a generic error message. Server logs and error events retain the original diagnostics. Check those server-side records when reporting a failed request."
-msgstr "聊天工作进程发生意外错误时，会返回通用错误消息。服务器日志和错误事件会保留原始诊断信息。报告请求失败时，请检查这些服务器端记录。"
+msgid "For ``/v1/chat/completions``, unexpected worker failures return a generic error message. Server logs and error events retain the original diagnostics."
+msgstr "对于 ``/v1/chat/completions``，工作进程发生意外错误时会返回通用错误消息。服务器日志和错误事件会保留原始诊断信息。"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Rate-limit errors retain HTTP 429, and requests that exceed the configured context length retain HTTP 400. Their messages describe the failure without exposing worker details."
-msgstr "限流错误保留 HTTP 429，超过配置上下文长度的请求保留 HTTP 400。错误消息会说明失败原因，同时避免暴露工作进程的内部信息。"
+msgid "Before streaming starts, strict-template role errors and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
+msgstr "流式响应开始前，严格模板的角色错误以及检测到的 vLLM 单次提示多模态数量超限会返回 HTTP 400。如果无法查询当前限制，则由工作进程执行验证。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
+msgstr "非流式请求中，已识别的上下文长度超限，以及已知的媒体或 cache-salt 验证错误会返回 HTTP 400；限流错误会返回 HTTP 429。错误消息会说明原因，同时避免暴露工作进程的内部信息。无法识别的工作进程错误会返回 HTTP 500。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
+msgstr "流式响应开始后，HTTP 状态保持为 200。错误通过 SSE 的 ``error`` 负载发送。已识别的上下文长度和限流错误保留各自不同的安全提示；意外错误使用通用消息。"
