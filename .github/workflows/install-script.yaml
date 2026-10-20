@@ -1,34 +1,7 @@
 name: Install Script CI
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/install*'
-      - 'pyproject.toml'
-      - 'scripts/check_install.py'
-      - 'scripts/manage_install.py'
-      - 'xinference/deploy/service.py'
-      - 'xinference/deploy/cmdline.py'
-      - 'xinference/deploy/test/test_service.py'
-      - 'xinference/deploy/test/test_installer.py'
-      - '.github/workflows/install-script.yaml'
-  pull_request:
-    types: ['opened', 'reopened', 'synchronize']
-    paths:
-      - 'scripts/install*'
-      - 'pyproject.toml'
-      - 'scripts/check_install.py'
-      - 'scripts/manage_install.py'
-      - 'xinference/deploy/service.py'
-      - 'xinference/deploy/cmdline.py'
-      - 'xinference/deploy/test/test_service.py'
-      - 'xinference/deploy/test/test_installer.py'
-      - '.github/workflows/install-script.yaml'
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_call:
 
 permissions:
   contents: read

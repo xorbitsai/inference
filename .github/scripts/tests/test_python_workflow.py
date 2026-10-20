@@ -1,4 +1,4 @@
-"""Check static platform matrices and their path selection in Python CI."""
+"""Check job dependencies, static matrices and path selection in Python CI."""
 
 import ast
 import json
@@ -20,6 +20,9 @@ PLATFORM_STEP = next(
     step for step in JOBS["changes"]["steps"] if step.get("id") == "platform"
 )
 GPU_STEP = next(step for step in JOBS["changes"]["steps"] if step.get("id") == "gpu")
+INSTALL_STEP = next(
+    step for step in JOBS["changes"]["steps"] if step.get("id") == "install"
+)
 TEST_STEP = next(
     step
     for step in JOBS["build_test_job"]["steps"]
@@ -85,13 +88,15 @@ class TestPythonWorkflow(unittest.TestCase):
             )
             return [json.loads(line) for line in trace.read_text().splitlines()]
 
-    def select(self, paths, *, event="pull_request", diff_available=True):
+    def select(
+        self, paths, *, event="pull_request", diff_available=True, step=PLATFORM_STEP
+    ):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             (work / "changed-files.txt").write_text("\n".join(paths) + "\n")
             output = work / "outputs"
             script = (
-                PLATFORM_STEP["run"]
+                step["run"]
                 .replace("${{ github.event_name }}", event)
                 .replace(
                     "${{ steps.gpu.outputs.diff_available }}",
@@ -140,6 +145,70 @@ class TestPythonWorkflow(unittest.TestCase):
         triggers = WORKFLOW.get("on", WORKFLOW.get(True))
         self.assertNotIn("schedule", triggers)
         self.assertIn("workflow_dispatch", triggers)
+
+    def test_installer_only_runs_after_lint_in_the_parent_workflow(self):
+        caller = JOBS["install_script"]
+        self.assertEqual(caller["needs"], ["lint", "changes"])
+        self.assertEqual(caller["if"], "${{ needs.changes.outputs.install == 'true' }}")
+        self.assertEqual(
+            JOBS["changes"]["outputs"]["install"],
+            "${{ steps.install.outputs.install }}",
+        )
+        installer = yaml.safe_load((ROOT / caller["uses"]).read_text())
+        self.assertEqual(
+            installer.get("on", installer.get(True)), {"workflow_call": None}
+        )
+        # The caller owns cancellation; a shared concurrency group in the
+        # reusable workflow could cancel its own parent.
+        self.assertNotIn("concurrency", installer)
+        self.assertEqual(
+            installer["jobs"]["install"]["strategy"]["matrix"]["os"],
+            ["ubuntu-latest", "macos-latest", "windows-latest"],
+        )
+
+    def test_installer_path_selection(self):
+        for path in (
+            "scripts/install.sh",
+            "scripts/install.ps1",
+            "scripts/check_install.py",
+            "scripts/manage_install.py",
+            "pyproject.toml",
+            "xinference/deploy/service.py",
+            "xinference/deploy/cmdline.py",
+            "xinference/deploy/test/test_service.py",
+            "xinference/deploy/test/test_installer.py",
+            ".github/workflows/install-script.yaml",
+            ".github/workflows/python.yaml",
+        ):
+            for event in ("pull_request", "push"):
+                with self.subTest(path=path, event=event):
+                    self.assertEqual(
+                        self.select([path], event=event, step=INSTALL_STEP),
+                        {"install": "true"},
+                    )
+        for paths in (
+            [],
+            ["README.md", "doc/source/getting_started.rst"],
+            ["frontend/src/app/page.tsx", "xinference/core/worker.py"],
+            ["scripts/other.py", ".github/workflows/assign.yaml"],
+        ):
+            with self.subTest(paths=paths):
+                self.assertEqual(
+                    self.select(paths, step=INSTALL_STEP), {"install": "false"}
+                )
+
+    def test_installer_runs_when_diff_is_unavailable(self):
+        for event in ("pull_request", "push", "workflow_dispatch"):
+            with self.subTest(event=event):
+                self.assertEqual(
+                    self.select(
+                        ["README.md"],
+                        event=event,
+                        diff_available=False,
+                        step=INSTALL_STEP,
+                    ),
+                    {"install": "true"},
+                )
 
     def test_docs_frontend_and_unrelated_changes_skip_platforms(self):
         for paths in (
