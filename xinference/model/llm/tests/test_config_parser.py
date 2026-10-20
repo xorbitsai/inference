@@ -54,6 +54,34 @@ def test_auto_register_huggingface_cache_root(tmp_path, ref_name):
     ]
 
 
+@pytest.mark.parametrize("filename", ["config.json", "model.safetensors"])
+def test_auto_register_explicit_snapshot_file_symlink(tmp_path, filename):
+    snapshot_dir = tmp_path / "snapshots" / "revision"
+    snapshot_dir.mkdir(parents=True)
+    blobs_dir = tmp_path / "blobs"
+    blobs_dir.mkdir()
+    config_blob = blobs_dir / "config-hash"
+    config_blob.write_text(
+        json.dumps({"max_position_embeddings": 4096, "model_size_in_billions": 7})
+    )
+    (snapshot_dir / "config.json").symlink_to(config_blob)
+    weights_blob = blobs_dir / "weights-hash"
+    weights_blob.write_bytes(b"weights")
+    (snapshot_dir / "model.safetensors").symlink_to(weights_blob)
+    (snapshot_dir / "tokenizer_config.json").write_text(
+        json.dumps({"chat_template": "{{ messages }}"})
+    )
+
+    result = build_llm_registration_from_local_config(
+        str(snapshot_dir / filename), "custom"
+    )
+
+    assert result["context_length"] == 4096
+    assert "chat" in result["model_ability"]
+    assert result["model_specs"][0]["model_size_in_billions"] == "7"
+    assert result["model_specs"][0]["model_uri"] == str(snapshot_dir)
+
+
 def test_auto_register_uses_config_before_architecture_estimate(tmp_path):
     model_dir = tmp_path / "custom-qwen"
     _write_config(

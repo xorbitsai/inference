@@ -77,7 +77,9 @@ def _resolve_huggingface_snapshot(model_dir: str) -> Optional[str]:
 
 
 def _resolve_config_and_dir(model_path: str) -> Tuple[str, str]:
-    model_path = _ensure_within_allowed_roots(model_path)
+    # Validate the target without losing a snapshot file's name and directory
+    # when it is a symlink to a differently named Hugging Face cache blob.
+    _ensure_within_allowed_roots(model_path)
     if os.path.isdir(model_path):
         config_path = os.path.join(model_path, "config.json")
         model_dir = model_path
