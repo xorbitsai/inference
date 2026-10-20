@@ -7,7 +7,7 @@ import logging
 import sys
 import time
 import uuid
-from typing import Any, AsyncGenerator, Dict, Optional, Union
+from typing import Any, AsyncGenerator, Dict, Optional, Union, cast
 
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import Completion, CompletionChunk, CompletionUsage
@@ -323,8 +323,8 @@ class TRTLLMModel(LLM, ChatModelMixin):
                 ],
             )
             if prefill:
-                result["_pd_kv_transfer_params"] = await self._pd.publish(
-                    request_id, tokens, output
+                cast(Dict[str, Any], result)["_pd_kv_transfer_params"] = (
+                    await self._pd.publish(request_id, tokens, output)
                 )
                 published = True
             return result
