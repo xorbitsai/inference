@@ -14,6 +14,7 @@
 
 from typing import Any
 
+from ..utils import allow_trust_remote_code
 from .stable_diffusion.core import DiffusionModel
 
 
@@ -43,7 +44,16 @@ class MOSSImageModel(DiffusionModel):
         self._torch_dtype = dtypes["default"]
         kwargs["torch_dtype"] = dtypes
         kwargs.setdefault("custom_pipeline", "pipeline_moss_image")
-        kwargs.setdefault("trust_remote_code", True)
+        allowed = allow_trust_remote_code(self.model_family)
+        kwargs["trust_remote_code"] = (
+            bool(kwargs.get("trust_remote_code", allowed)) and allowed
+        )
+        if not kwargs["trust_remote_code"]:
+            raise ValueError(
+                "Loading MOSS-Image executes code shipped in the model repository; "
+                "set XINFERENCE_TRUST_REMOTE_CODE=1 to allow custom models, "
+                "and remove any explicit trust_remote_code=False setting."
+            )
         for option in (
             "cpu_offload",
             "sequential_cpu_offload",

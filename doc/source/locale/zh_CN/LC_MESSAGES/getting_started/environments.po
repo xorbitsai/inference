@@ -587,6 +587,14 @@ msgid "Python reference cycles may keep tensors allocated until automatic GC or 
 msgstr "Python 循环引用可能使张量持续占用显存，直到自动 GC 或后续完整回收；``empty_cache()`` 无法释放这些张量。对于每次缓存清理都需要完整回收的模型，请将此间隔设为 0。"
 
 #: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_TRUST_REMOTE_CODE"
+msgstr "XINFERENCE_TRUST_REMOTE_CODE"
+
+#: ../../source/getting_started/environments.rst
+msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
+msgstr "CosyVoice 配置可在加载时执行 Python 代码。从已注册模型仓库下载的内置模型仍可正常使用。加载自定义 CosyVoice 模型或覆盖其本地模型路径时，需要在启动 worker 前设置 ``XINFERENCE_TRUST_REMOTE_CODE=1``。仅对可信模型来源启用此选项。"
+
+#: ../../source/getting_started/environments.rst
 msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
 msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"
 

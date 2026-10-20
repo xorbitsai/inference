@@ -527,6 +527,14 @@ msgid "Python reference cycles may keep tensors allocated until automatic GC or 
 msgstr "Python 순환 참조로 인해 텐서는 자동 GC 또는 이후의 전체 수집까지 메모리를 점유할 수 있으며, ``empty_cache()`` 로 해제할 수 없습니다. 캐시를 정리할 때마다 전체 수집이 필요한 모델은 이 간격을 0으로 설정하세요."
 
 #: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_TRUST_REMOTE_CODE"
+msgstr "XINFERENCE_TRUST_REMOTE_CODE"
+
+#: ../../source/getting_started/environments.rst
+msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
+msgstr "CosyVoice 설정은 로딩 중 Python 코드를 실행할 수 있습니다. 등록된 모델 허브에서 다운로드한 내장 모델은 계속 사용할 수 있습니다. 사용자 정의 CosyVoice 모델을 로드하거나 로컬 모델 경로를 변경하려면 워커를 시작하기 전에 ``XINFERENCE_TRUST_REMOTE_CODE=1`` 을 설정해야 합니다. 신뢰하는 모델 소스에만 활성화하세요."
+
+#: ../../source/getting_started/environments.rst
 msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
 msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"
 

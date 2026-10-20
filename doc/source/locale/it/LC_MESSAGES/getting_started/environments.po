@@ -596,6 +596,14 @@ msgid "Python reference cycles may keep tensors allocated until automatic GC or 
 msgstr "I riferimenti ciclici Python possono mantenere allocati i tensori fino alla raccolta automatica o a una successiva raccolta completa; ``empty_cache()`` non può liberarli. Impostare questo intervallo a 0 per i modelli che richiedono una raccolta completa a ogni pulizia della cache."
 
 #: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_TRUST_REMOTE_CODE"
+msgstr "XINFERENCE_TRUST_REMOTE_CODE"
+
+#: ../../source/getting_started/environments.rst
+msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
+msgstr "Le configurazioni CosyVoice possono eseguire codice Python durante il caricamento. I modelli integrati scaricati dal repository registrato restano supportati. Per caricare un modello CosyVoice personalizzato o modificarne il percorso locale, impostare ``XINFERENCE_TRUST_REMOTE_CODE=1`` sul worker prima di avviarlo. Attivare questa opzione solo per fonti di modelli attendibili."
+
+#: ../../source/getting_started/environments.rst
 msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
 msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"
 

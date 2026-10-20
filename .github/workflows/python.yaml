@@ -82,6 +82,7 @@ jobs:
       platform: ${{ steps.platform.outputs.platform }}
       metal: ${{ steps.platform.outputs.metal }}
       platform_suite: ${{ steps.platform.outputs.suite }}
+      install: ${{ steps.install.outputs.install }}
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -236,6 +237,36 @@ jobs:
           echo "metal=$metal" >> "$GITHUB_OUTPUT"
           echo "suite=$suite" >> "$GITHUB_OUTPUT"
           echo "Platform CI: $platform (suite: $suite); Metal CI: $metal"
+
+      - name: Detect installer CI changes
+        id: install
+        shell: bash
+        run: |
+          set -euo pipefail
+          install=false
+
+          # Reuse the PR/main diff; manual runs and unknown diffs run all checks.
+          if [ "${{ steps.gpu.outputs.diff_available }}" != "true" ]; then
+            install=true
+          else
+            while IFS= read -r file; do
+              case "$file" in
+                scripts/install*|scripts/check_install.py|scripts/manage_install.py|pyproject.toml|xinference/deploy/service.py|xinference/deploy/cmdline.py|xinference/deploy/test/test_service.py|xinference/deploy/test/test_installer.py|.github/workflows/install-script.yaml|.github/workflows/python.yaml)
+                  install=true; break ;;
+              esac
+            done < changed-files.txt
+          fi
+
+          echo "install=$install" >> "$GITHUB_OUTPUT"
+          echo "Installer CI required: $install"
+
+  install_script:
+    name: Install Script CI
+    needs: [lint, changes]
+    if: ${{ needs.changes.outputs.install == 'true' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/install-script.yaml
 
   build_test_job:
     name: build_test_job (${{ matrix.os }}, ${{ matrix.python-version }}, ${{ matrix.module }})
@@ -427,6 +458,7 @@ jobs:
             benchmark/tests/test_benchmark_sglang_pd.py
             benchmark/tests/test_analyze_pd_profile.py
             xinference/model/audio/tests/test_audio_batching.py
+            xinference/model/audio/tests/test_cosyvoice_security.py
             xinference/model/llm/sglang/tests/test_xavier.py
             xinference/model/llm/sglang/tests/test_xavier_pd.py
             xinference/model/llm/sglang/tests/test_pd.py
