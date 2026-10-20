@@ -634,3 +634,68 @@ msgstr "SGLang también admite algunos modelos de texto a imagen (como ``Qwen-Im
 #: ../glm53-doc-check/user_guide/backends.rst:178
 msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
 msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+
+#: ../../source/user_guide/backends.rst:339
+msgid "TRT-LLM"
+msgstr "TRT-LLM"
+
+#: ../../source/user_guide/backends.rst:342
+msgid ""
+"The TRT-LLM backend uses the Python LLM API inside the model process. It "
+"requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. The initial "
+"adapter supports unquantized dense Qwen3 text models, including Qwen3-0.6B."
+msgstr ""
+"El backend TRT-LLM utiliza la API LLM de Python dentro del proceso del "
+"modelo. Requiere Linux, GPU NVIDIA CUDA y ``tensorrt-llm==1.2.1``. El "
+"adaptador inicial admite modelos de texto Qwen3 densos sin cuantizar, "
+"incluido Qwen3-0.6B."
+
+#: ../../source/user_guide/backends.rst:344
+msgid ""
+"The example launches two independent replicas with a shared 512 MiB Xavier "
+"CPU cache. Each replica uses one GPU. Install TRT-LLM in a compatible CUDA "
+"environment and set ``enable_virtual_env=False``, or use a per-model virtual"
+" environment with matching dependencies."
+msgstr ""
+"El ejemplo inicia dos réplicas independientes con una caché CPU Xavier "
+"compartida de 512 MiB. Cada réplica utiliza una GPU. Instale TRT-LLM en un "
+"entorno CUDA compatible y establezca ``enable_virtual_env=False``, o utilice"
+" un entorno virtual por modelo con dependencias compatibles."
+
+#: ../../source/user_guide/backends.rst:366
+msgid ""
+"Xavier publishes complete 64-token FP16 KV pages and restores matching "
+"prefixes in another replica through actor RPC. Partial pages and the final "
+"prompt token are computed locally. The shared cache uses bounded storage and"
+" LRU eviction; transfers currently use synchronous CPU staging."
+msgstr ""
+"Xavier publica páginas KV FP16 completas de 64 tokens y restaura prefijos "
+"coincidentes en otra réplica mediante RPC de actores. Las páginas parciales "
+"y el último token del prompt se calculan localmente. La caché compartida "
+"tiene capacidad limitada y expulsión LRU; las transferencias utilizan "
+"actualmente almacenamiento intermedio síncrono en CPU."
+
+#: ../../source/user_guide/backends.rst:368
+msgid ""
+"Shared caching requires TP=PP=CP=1, FP16 weights and KV, and disabled "
+"chunked prefill and overlap scheduling. P/D separation, quantization, hybrid"
+" attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` "
+"are not supported by this initial integration."
+msgstr ""
+"La caché compartida requiere TP=PP=CP=1, pesos y KV FP16, y desactivar el "
+"prefill fragmentado y la planificación solapada. Esta integración inicial no"
+" admite separación P/D, cuantización, atención híbrida, entradas "
+"multimodales, LoRA, decodificación especulativa ni ``cache_salt``."
+
+#: ../../source/user_guide/backends.rst:370
+msgid ""
+"The shared cache actor reports ``imported_pages`` after copies into the "
+"destination KV pool complete. Use this counter to verify cross-instance "
+"imports. Measure latency and throughput for your workload; transfer costs "
+"can exceed the saved prefill computation."
+msgstr ""
+"El actor de caché compartida informa de ``imported_pages`` tras finalizar "
+"las copias al grupo KV de destino. Utilice este contador para verificar las "
+"importaciones entre instancias. Mida la latencia y el rendimiento para su "
+"carga; el coste de transferencia puede superar el cálculo de prefill "
+"ahorrado."

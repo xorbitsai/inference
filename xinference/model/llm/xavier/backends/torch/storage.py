@@ -28,7 +28,11 @@ class XavierCacheActor(xo.StatelessActor):
         self._page_elements = 0
         self._store: Optional[KVSnapshotStore] = None
         self._counts = dict(
-            stored_pages=0, read_pages=0, missed_pages=0, evicted_pages=0
+            stored_pages=0,
+            read_pages=0,
+            missed_pages=0,
+            evicted_pages=0,
+            imported_pages=0,
         )
         self._handoffs: dict[str, tuple[list[int], float, bool]] = {}
 
@@ -172,6 +176,12 @@ class XavierCacheActor(xo.StatelessActor):
             if key not in self._store.ready:
                 return index
         return len(storage_keys)
+
+    def record_import(self, namespace, pages: int):
+        self._keys(namespace, [])
+        if type(pages) is not int or pages <= 0:
+            raise ValueError("Imported page count must be a positive integer")
+        self._counts["imported_pages"] += pages
 
     def get_stats(self):
         self._expire_handoffs()

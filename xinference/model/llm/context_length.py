@@ -25,6 +25,7 @@ CONTEXT_LENGTH_KEYS = {
     "transformers": "context_length",
     "mlx": "context_length",
     "lmdeploy": "session_len",
+    "trt-llm": "max_seq_len",
 }
 
 

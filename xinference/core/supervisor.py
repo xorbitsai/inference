@@ -3184,6 +3184,8 @@ class SupervisorActor(xo.StatelessActor):
             for cfg in replica_config or []
         ]
         heterogeneous_pd = pd_enabled and len(set(replica_engines)) > 1
+        if (model_engine or "").lower() == "trt-llm" and n_worker != 1:
+            raise ValueError("TRT-LLM currently requires one worker per replica")
         host_handoff = heterogeneous_pd and "mlx" in replica_engines
         if (
             pd_enabled
@@ -3205,7 +3207,7 @@ class SupervisorActor(xo.StatelessActor):
             requested_xavier
             and not pd_enabled
             and replica <= 1
-            and (model_engine or "").lower() in ("mlx", "sglang")
+            and (model_engine or "").lower() in ("mlx", "sglang", "trt-llm")
         ):
             logger.warning("Enabling xavier when replica<=1 is meaningless.")
             requested_xavier = False
@@ -3245,6 +3247,21 @@ class SupervisorActor(xo.StatelessActor):
             and model_engine is not None
             and model_engine.lower() == "sglang"
         )
+        trt_xavier = requested_xavier and (model_engine or "").lower() == "trt-llm"
+        if trt_xavier:
+            if (
+                transport_backend != "xavier"
+                or model_type not in (None, "LLM")
+                or model_format not in (None, "pytorch")
+                or quantization not in (None, "none")
+            ):
+                raise ValueError(
+                    "TRT-LLM Xavier requires unquantized PyTorch LLM weights and Xavier transport"
+                )
+            kwargs["_xavier_cache_config"] = {
+                "address": self.address,
+                "uid": f"xavier-cache-{model_uid}",
+            }
         if sglang_nixl and (requested_xavier or n_worker != 1):
             raise ValueError(
                 "SGLang native NIXL requires one worker per replica without enable_xavier"
@@ -3256,12 +3273,18 @@ class SupervisorActor(xo.StatelessActor):
             for cfg in (replica_config or [])
         )
         if cache_bytes is not None and (
-            not (mlx_xavier or mlx_prefill or sglang_xavier and not pd_enabled)
+            not (
+                mlx_xavier
+                or mlx_prefill
+                or trt_xavier
+                or sglang_xavier
+                and not pd_enabled
+            )
             or type(cache_bytes) is not int
             or cache_bytes <= 0
         ):
             raise ValueError(
-                "xavier_cache_bytes requires MLX Xavier or SGLang shared CPU caching and a positive integer"
+                "xavier_cache_bytes requires MLX Xavier or SGLang/TRT-LLM shared CPU caching and a positive integer"
             )
         if sglang_xavier and n_worker != 1:
             raise ValueError(
@@ -3549,7 +3572,7 @@ class SupervisorActor(xo.StatelessActor):
                     if not hasattr(self, "_xavier_cache_mapping"):
                         self._xavier_cache_mapping = {}
                     self._xavier_cache_mapping[model_uid] = cache_ref
-                if sglang_xavier or mlx_xavier:
+                if sglang_xavier or mlx_xavier or trt_xavier:
                     if mlx_xavier:
                         from ..model.llm.xavier.backends.bytes.storage import (
                             XavierBytesCacheActor,

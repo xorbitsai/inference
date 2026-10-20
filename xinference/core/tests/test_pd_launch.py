@@ -196,10 +196,11 @@ async def test_mlx_invalid_launch_has_no_actors(launch_runtime, options):
 
 
 @pytest.mark.asyncio
-async def test_sglang_xavier_uses_hicache_without_vllm_collective(launch_runtime):
+@pytest.mark.parametrize("engine", ["SGLang", "TRT-LLM"])
+async def test_shared_cpu_xavier_avoids_vllm_collective(launch_runtime, engine):
     supervisor, workers, actors, destroy = launch_runtime
     kwargs = launch_kwargs()
-    kwargs.update(model_engine="SGLang", enable_xavier=True, xavier_cache_bytes=1024)
+    kwargs.update(model_engine=engine, enable_xavier=True, xavier_cache_bytes=1024)
     for replica in kwargs["replica_config"]:
         replica.role = None
     await supervisor.launch_builtin_model(**kwargs)
@@ -216,6 +217,18 @@ async def test_sglang_xavier_uses_hicache_without_vllm_collective(launch_runtime
     await supervisor.terminate_model("pd")
     assert not supervisor._xavier_cache_mapping
     destroy.assert_awaited_once_with(actors["XavierCacheActor"])
+
+
+@pytest.mark.asyncio
+async def test_trt_pd_is_rejected_before_creating_actors(launch_runtime):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["model_engine"] = "TRT-LLM"
+    with pytest.raises(ValueError, match="PD separation requires"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
 
 
 @pytest.mark.asyncio

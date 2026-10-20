@@ -33,6 +33,7 @@ from ..context_length import (
         ("Transformers", "context_length"),
         ("MLX", "context_length"),
         ("LMDeploy", "session_len"),
+        ("TRT-LLM", "max_seq_len"),
         ("llama.cpp", "n_ctx"),
     ],
 )

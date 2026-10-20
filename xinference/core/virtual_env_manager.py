@@ -118,6 +118,7 @@ class VirtualEnvConflictError(ValueError):
 
 
 ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
+    "trt-llm": ["tensorrt-llm==1.2.1 ; sys_platform=='linux'"],
     "sglang": [
         "pybase64",
         "zmq",
