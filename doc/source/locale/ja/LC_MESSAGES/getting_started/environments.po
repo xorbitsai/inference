@@ -528,3 +528,19 @@ msgstr "XINFERENCE_TRUST_REMOTE_CODE"
 #: ../../source/getting_started/environments.rst
 msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
 msgstr "CosyVoice の設定は読み込み時に Python コードを実行できます。登録済みモデルハブから取得した組み込みモデルは引き続き利用できます。カスタム CosyVoice モデルの読み込みやローカルモデルパスの変更には、ワーカー起動前に ``XINFERENCE_TRUST_REMOTE_CODE=1`` を設定する必要があります。信頼できるモデルソースに対してのみ有効にしてください。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
+msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"
+
+#: ../../source/getting_started/environments.rst
+msgid "LLM auto-registration reads files only under ``XINFERENCE_MODEL_DIR`` and ``XINFERENCE_CACHE_DIR`` by default. Configure additional directories in the server environment with this variable, separated by ``:`` on Unix or ``;`` on Windows. Referenced files and symbolic-link targets must also lie under an allowed directory. For Hugging Face caches, allow the repository root containing both snapshots and blobs."
+msgstr "LLM の自動登録は、既定では ``XINFERENCE_MODEL_DIR`` と ``XINFERENCE_CACHE_DIR`` 内のファイルだけを読み取ります。追加ディレクトリはサーバー環境のこの変数に指定し、Unix では ``:``、Windows では ``;`` で区切ります。参照ファイルとシンボリックリンク先も許可ディレクトリ内にある必要があります。Hugging Face キャッシュでは snapshots と blobs の両方を含むリポジトリのルートを許可してください。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_FLEXIBLE_LAUNCHERS"
+msgstr "XINFERENCE_FLEXIBLE_LAUNCHERS"
+
+#: ../../source/getting_started/environments.rst
+msgid "The shipped Flexible launchers remain available. Permit additional launchers by listing their exact dotted names in this comma-separated variable before starting workers. Allowlisted launchers execute Python code with worker privileges; add only trusted implementations."
+msgstr "組み込みの Flexible ランチャーは引き続き利用できます。追加ランチャーを許可するには、ワーカー起動前に完全なドット区切り名をこの変数へカンマ区切りで指定します。許可したランチャーはワーカー権限で Python コードを実行するため、信頼できる実装だけを追加してください。"

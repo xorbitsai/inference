@@ -48,6 +48,16 @@ XINFERENCE_TRUST_REMOTE_CODE
 
 CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust.
 
+XINFERENCE_MODEL_REGISTER_ROOTS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+LLM auto-registration reads files only under ``XINFERENCE_MODEL_DIR`` and ``XINFERENCE_CACHE_DIR`` by default. Configure additional directories in the server environment with this variable, separated by ``:`` on Unix or ``;`` on Windows. Referenced files and symbolic-link targets must also lie under an allowed directory. For Hugging Face caches, allow the repository root containing both snapshots and blobs.
+
+XINFERENCE_FLEXIBLE_LAUNCHERS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The shipped Flexible launchers remain available. Permit additional launchers by listing their exact dotted names in this comma-separated variable before starting workers. Allowlisted launchers execute Python code with worker privileges; add only trusted implementations.
+
 XINFERENCE_MODEL_SRC
 ~~~~~~~~~~~~~~~~~~~~~
 Modelhub used for downloading models. Options are "huggingface", "modelscope"

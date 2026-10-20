@@ -596,3 +596,19 @@ msgstr "XINFERENCE_TRUST_REMOTE_CODE"
 #: ../../source/getting_started/environments.rst
 msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
 msgstr "CosyVoice-Konfigurationen können beim Laden Python-Code ausführen. Integrierte Modelle aus ihrem registrierten Modell-Hub bleiben nutzbar. Für eigene CosyVoice-Modelle oder einen abweichenden lokalen Modellpfad muss vor dem Worker-Start ``XINFERENCE_TRUST_REMOTE_CODE=1`` gesetzt werden. Aktivieren Sie dies nur für vertrauenswürdige Modellquellen."
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
+msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"
+
+#: ../../source/getting_started/environments.rst
+msgid "LLM auto-registration reads files only under ``XINFERENCE_MODEL_DIR`` and ``XINFERENCE_CACHE_DIR`` by default. Configure additional directories in the server environment with this variable, separated by ``:`` on Unix or ``;`` on Windows. Referenced files and symbolic-link targets must also lie under an allowed directory. For Hugging Face caches, allow the repository root containing both snapshots and blobs."
+msgstr "Die automatische LLM-Registrierung liest standardmäßig nur Dateien unter ``XINFERENCE_MODEL_DIR`` und ``XINFERENCE_CACHE_DIR``. Zusätzliche Verzeichnisse werden in der Serverumgebung über diese Variable angegeben, getrennt durch ``:`` unter Unix oder ``;`` unter Windows. Referenzierte Dateien und symbolische Linkziele müssen ebenfalls in erlaubten Verzeichnissen liegen. Erlauben Sie bei Hugging-Face-Caches den Repository-Stamm mit snapshots und blobs."
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_FLEXIBLE_LAUNCHERS"
+msgstr "XINFERENCE_FLEXIBLE_LAUNCHERS"
+
+#: ../../source/getting_started/environments.rst
+msgid "The shipped Flexible launchers remain available. Permit additional launchers by listing their exact dotted names in this comma-separated variable before starting workers. Allowlisted launchers execute Python code with worker privileges; add only trusted implementations."
+msgstr "Die mitgelieferten Flexible-Launcher bleiben verfügbar. Zusätzliche Launcher erlauben Sie, indem Sie vor dem Worker-Start deren vollständige, punktgetrennte Namen durch Kommas getrennt in dieser Variable angeben. Erlaubte Launcher führen Python-Code mit Worker-Rechten aus; ergänzen Sie nur vertrauenswürdige Implementierungen."

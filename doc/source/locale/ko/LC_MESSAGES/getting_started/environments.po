@@ -533,3 +533,19 @@ msgstr "XINFERENCE_TRUST_REMOTE_CODE"
 #: ../../source/getting_started/environments.rst
 msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
 msgstr "CosyVoice 설정은 로딩 중 Python 코드를 실행할 수 있습니다. 등록된 모델 허브에서 다운로드한 내장 모델은 계속 사용할 수 있습니다. 사용자 정의 CosyVoice 모델을 로드하거나 로컬 모델 경로를 변경하려면 워커를 시작하기 전에 ``XINFERENCE_TRUST_REMOTE_CODE=1`` 을 설정해야 합니다. 신뢰하는 모델 소스에만 활성화하세요."
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
+msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"
+
+#: ../../source/getting_started/environments.rst
+msgid "LLM auto-registration reads files only under ``XINFERENCE_MODEL_DIR`` and ``XINFERENCE_CACHE_DIR`` by default. Configure additional directories in the server environment with this variable, separated by ``:`` on Unix or ``;`` on Windows. Referenced files and symbolic-link targets must also lie under an allowed directory. For Hugging Face caches, allow the repository root containing both snapshots and blobs."
+msgstr "LLM 자동 등록은 기본적으로 ``XINFERENCE_MODEL_DIR`` 및 ``XINFERENCE_CACHE_DIR`` 아래의 파일만 읽습니다. 추가 디렉터리는 서버 환경의 이 변수에 설정하며 Unix에서는 ``:`` 로, Windows에서는 ``;`` 로 구분합니다. 참조 파일과 심볼릭 링크 대상도 허용된 디렉터리 안에 있어야 합니다. Hugging Face 캐시는 snapshots와 blobs를 모두 포함하는 저장소 루트를 허용하세요."
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_FLEXIBLE_LAUNCHERS"
+msgstr "XINFERENCE_FLEXIBLE_LAUNCHERS"
+
+#: ../../source/getting_started/environments.rst
+msgid "The shipped Flexible launchers remain available. Permit additional launchers by listing their exact dotted names in this comma-separated variable before starting workers. Allowlisted launchers execute Python code with worker privileges; add only trusted implementations."
+msgstr "기본 제공 Flexible 런처는 계속 사용할 수 있습니다. 추가 런처를 허용하려면 워커를 시작하기 전에 전체 점 구분 이름을 이 변수에 쉼표로 구분하여 지정하세요. 허용된 런처는 워커 권한으로 Python 코드를 실행하므로 신뢰하는 구현만 추가하세요."

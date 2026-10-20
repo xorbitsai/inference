@@ -593,3 +593,19 @@ msgstr "XINFERENCE_TRUST_REMOTE_CODE"
 #: ../../source/getting_started/environments.rst
 msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
 msgstr "CosyVoice 配置可在加载时执行 Python 代码。从已注册模型仓库下载的内置模型仍可正常使用。加载自定义 CosyVoice 模型或覆盖其本地模型路径时，需要在启动 worker 前设置 ``XINFERENCE_TRUST_REMOTE_CODE=1``。仅对可信模型来源启用此选项。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
+msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"
+
+#: ../../source/getting_started/environments.rst
+msgid "LLM auto-registration reads files only under ``XINFERENCE_MODEL_DIR`` and ``XINFERENCE_CACHE_DIR`` by default. Configure additional directories in the server environment with this variable, separated by ``:`` on Unix or ``;`` on Windows. Referenced files and symbolic-link targets must also lie under an allowed directory. For Hugging Face caches, allow the repository root containing both snapshots and blobs."
+msgstr "LLM 自动注册默认仅可读取 ``XINFERENCE_MODEL_DIR`` 和 ``XINFERENCE_CACHE_DIR`` 中的文件。在服务器环境中通过此变量允许其他目录，Unix 使用 ``:`` 分隔，Windows 使用 ``;`` 分隔。引用的文件和符号链接目标也必须位于允许的目录中。对于 Hugging Face 缓存，请允许同时包含 snapshots 和 blobs 的仓库根目录。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_FLEXIBLE_LAUNCHERS"
+msgstr "XINFERENCE_FLEXIBLE_LAUNCHERS"
+
+#: ../../source/getting_started/environments.rst
+msgid "The shipped Flexible launchers remain available. Permit additional launchers by listing their exact dotted names in this comma-separated variable before starting workers. Allowlisted launchers execute Python code with worker privileges; add only trusted implementations."
+msgstr "内置 Flexible 启动器仍可使用。启动 worker 前，可在此变量中填写其他启动器的完整点分名称，以逗号分隔。允许的启动器以 worker 权限执行 Python 代码，因此仅应添加可信实现。"

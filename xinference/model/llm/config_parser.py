@@ -3,19 +3,57 @@ import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ..._model_catalog import load_model_catalog
+from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 
 _BUILTIN_FAMILY_CACHE: Optional[List[Dict[str, Any]]] = None
+
+# Colon/`os.pathsep`-separated extra roots operators may allow models to be
+# registered from via POST /v1/models/llm/auto-register.
+_MODEL_REGISTER_ROOTS_ENV = "XINFERENCE_MODEL_REGISTER_ROOTS"
+
+
+def _get_allowed_roots() -> List[str]:
+    roots = [XINFERENCE_MODEL_DIR, XINFERENCE_CACHE_DIR]
+    extra = os.environ.get(_MODEL_REGISTER_ROOTS_ENV, "")
+    if extra:
+        roots.extend(p.strip() for p in extra.split(os.pathsep) if p.strip())
+    resolved: List[str] = []
+    for root in roots:
+        try:
+            resolved.append(os.path.realpath(os.path.expanduser(root)))
+        except OSError:
+            continue
+    return resolved
+
+
+def _ensure_within_allowed_roots(model_path: str) -> str:
+    real_path = os.path.realpath(model_path)
+    for root in _get_allowed_roots():
+        try:
+            if os.path.normcase(
+                os.path.commonpath([real_path, root])
+            ) == os.path.normcase(root):
+                return real_path
+        except ValueError:
+            # e.g. different drive on Windows, or mixed absolute/relative
+            continue
+    raise ValueError(
+        "model_path is outside the allowed model directories. Set the "
+        f"{_MODEL_REGISTER_ROOTS_ENV} environment variable to permit additional "
+        "roots."
+    )
 
 
 def _resolve_huggingface_snapshot(model_dir: str) -> Optional[str]:
     """Resolve a Hugging Face repository cache root to one snapshot."""
-    snapshots_dir = os.path.join(model_dir, "snapshots")
+    snapshots_dir = _ensure_within_allowed_roots(os.path.join(model_dir, "snapshots"))
     if not os.path.isdir(snapshots_dir):
         return None
 
     for ref_name in ("main", "master"):
         ref_path = os.path.join(model_dir, "refs", ref_name)
         if os.path.isfile(ref_path):
+            ref_path = _ensure_within_allowed_roots(ref_path)
             with open(ref_path, "r", encoding="utf-8") as file:
                 revision = file.read().strip()
             if revision:
@@ -39,6 +77,9 @@ def _resolve_huggingface_snapshot(model_dir: str) -> Optional[str]:
 
 
 def _resolve_config_and_dir(model_path: str) -> Tuple[str, str]:
+    # Validate the target without losing a snapshot file's name and directory
+    # when it is a symlink to a differently named Hugging Face cache blob.
+    _ensure_within_allowed_roots(model_path)
     if os.path.isdir(model_path):
         config_path = os.path.join(model_path, "config.json")
         model_dir = model_path
@@ -55,10 +96,11 @@ def _resolve_config_and_dir(model_path: str) -> Tuple[str, str]:
             config_path = os.path.join(model_dir, "config.json")
     if not os.path.exists(config_path):
         raise ValueError(f"config.json not found under {model_path}.")
-    return config_path, model_dir
+    return _ensure_within_allowed_roots(config_path), model_dir
 
 
 def _load_json_file(path: str) -> Dict[str, Any]:
+    path = _ensure_within_allowed_roots(path)
     with open(path, "r") as file:
         return json.load(file)
 
@@ -74,6 +116,7 @@ def _load_chat_template_file(model_dir: str) -> Optional[str]:
     chat_template_path = os.path.join(model_dir, "chat_template.jinja")
     if not os.path.exists(chat_template_path):
         return None
+    chat_template_path = _ensure_within_allowed_roots(chat_template_path)
     with open(chat_template_path, "r") as file:
         content = file.read()
     return content.strip() if content else None
