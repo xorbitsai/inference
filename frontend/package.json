@@ -48,7 +48,7 @@
     "highlight.js": "^11.11.1",
     "lucide-react": "^1.16.0",
     "marked": "^5.1.2",
-    "next": "15.2.3",
+    "next": "15.5.28",
     "next-themes": "^0.4.6",
     "nunjucks": "^3.2.4",
     "react": "^19.0.0",
@@ -73,11 +73,14 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.2.3",
+    "eslint-config-next": "15.5.28",
     "eslint-config-prettier": "^10.1.8",
     "jsdom": "^26.1.0",
     "prettier": "^3.8.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": "^8.5.31"
   }
 }
