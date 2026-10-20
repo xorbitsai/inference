@@ -141,6 +141,7 @@ except ImportError:
     VirtualEnvManager = None
 
 if TYPE_CHECKING:
+    from ..extensions import ModelCatalogCredentials
     from .progress_tracker import Progressor
 
 logger = getLogger(__name__)
@@ -2644,17 +2645,32 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
-    async def update_model_type(self, model_type: str):
+    async def update_model_type(
+        self,
+        model_type: str,
+        *,
+        credentials: Optional["ModelCatalogCredentials"] = None,
+        model_name: Optional[str] = None,
+    ) -> None:
         """
-        Update model configurations for a specific model type by downloading
-        the latest JSON from the remote API and storing it locally.
+        Download a model category or one named model and reload its catalog.
 
         Args:
             model_type: Type of model (LLM, embedding, image, etc.)
+            model_name: Refresh only this model when provided.
         """
-        import json
-
         import requests
+
+        from ..extensions import ModelCatalogCredentials
+        from .exceptions import ModelCatalogUpdateError
+        from .model_catalog import validate_catalog_model_name
+
+        validate_catalog_model_name(model_name)
+
+        if credentials is not None and not isinstance(
+            credentials, ModelCatalogCredentials
+        ):
+            raise ValueError("Invalid model catalog credentials")
 
         supported_types = list(self._custom_register_type_to_cls.keys())
 
@@ -2676,85 +2692,85 @@ class WorkerActor(xo.StatelessActor):
             "https://model.xinference.io/api/models/download"
             f"?model_type={model_type.lower()}"
         )
+        if model_name is not None:
+            from urllib.parse import urlencode
 
+            url += "&" + urlencode({"model_name": model_name, "include_readme": "true"})
+
+        status_code = None
+        stage = "download"
         try:
             # Download JSON from remote API. Run the blocking request in a
             # worker thread so it does not freeze the actor's event loop.
-            response = await asyncio.to_thread(requests.get, url, timeout=30)
+            request_options: Dict[str, Any] = {"timeout": 30}
+            if credentials is not None:
+                request_options["allow_redirects"] = False
+                request_options["headers"] = {"X-Models-Token": credentials.token}
+            response = await asyncio.to_thread(requests.get, url, **request_options)
+            status_code = response.status_code
+            if credentials is not None and 300 <= status_code < 400:
+                raise ValueError("Model catalog redirects are not supported")
             response.raise_for_status()
 
             # Parse JSON response
+            stage = "decode"
             model_data = response.json()
 
             # Store the JSON data using CacheManager as built-in models
-            await self._store_complete_model_configurations(model_type, model_data)
+            stage = "store"
+            await self._store_complete_model_configurations(
+                model_type, model_data, model_name=model_name
+            )
 
             # Dynamically reload built-in models to make them immediately available
             try:
-                if model_type.lower() == "llm":
-                    from ..model.llm import register_builtin_model
+                from importlib import import_module
 
-                    register_builtin_model()
-                elif model_type.lower() == "embedding":
-                    from ..model.embedding import register_builtin_model
-
-                    register_builtin_model()
-                elif model_type.lower() == "audio":
-                    from ..model.audio import register_builtin_model
-
-                    register_builtin_model()
-                elif model_type.lower() == "image":
-                    from ..model.image import register_builtin_model
-
-                    register_builtin_model()
-                elif model_type.lower() == "rerank":
-                    from ..model.rerank import register_builtin_model
-
-                    register_builtin_model()
-                elif model_type.lower() == "video":
-                    from ..model.video import register_builtin_model
-
-                    register_builtin_model()
-                elif model_type.lower() == "world":
-                    from ..model.world import register_builtin_model
-
-                    register_builtin_model()
+                if model_type.lower() in (
+                    "llm",
+                    "embedding",
+                    "audio",
+                    "image",
+                    "rerank",
+                    "video",
+                    "world",
+                ):
+                    module = import_module(f"xinference.model.{model_type.lower()}")
+                    module.register_builtin_model()
                 else:
                     logger.warning(
                         f"No dynamic loading available for model type: {model_type}"
                     )
-            except Exception as reload_error:
-                logger.error(
-                    f"Error reloading built-in models: {reload_error}",
-                    exc_info=True,
-                )
+            except Exception as e:
+                logger.error("Error reloading built-in models (%s)", type(e).__name__)
                 # Don't fail the update if reload fails, just log the error
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error downloading model configurations: {e}")
-            raise ValueError(f"Failed to download model configurations: {str(e)}")
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON decode error: {e}")
-            raise ValueError(f"Invalid JSON response from remote API: {str(e)}")
         except Exception as e:
+            # Remote errors can echo request headers. Do not put their message
+            # or chained traceback in actor/API logs or client responses.
             logger.error(
-                f"Unexpected error during model update: {e}",
-                exc_info=True,
+                "Model catalog update failed (stage=%s, error=%s, status=%s)",
+                stage,
+                type(e).__name__,
+                status_code,
             )
-            raise ValueError(f"Failed to update model configurations: {str(e)}")
+            raise ModelCatalogUpdateError(
+                "Failed to update model configurations"
+            ) from None
 
-    async def _store_complete_model_configurations(self, model_type: str, model_data):
+    async def _store_complete_model_configurations(
+        self, model_type: str, model_data, *, model_name: Optional[str] = None
+    ):
         """
-        Store complete model configurations as a unified JSON file.
-        This is used by update_model_type to preserve the original JSON structure.
+        Publish a complete catalog or merge one model into the downloaded file.
 
         Args:
             model_type: Type of model (as provided by user, e.g., "llm")
             model_data: JSON data containing model configurations (complete array)
+            model_name: Limit the update to this model when provided.
         """
-        import json
-
         from ..constants import XINFERENCE_MODEL_DIR
+        from .model_catalog import store_model_catalog
 
         try:
             model_type_lower = model_type.lower()
@@ -2767,19 +2783,17 @@ class WorkerActor(xo.StatelessActor):
                 builtin_dir, f"{model_type_lower}_models.json"
             )
 
-            # Ensure directory exists
-            os.makedirs(builtin_dir, exist_ok=True)
-
-            # Store the complete JSON file (preserving original structure)
-            with open(json_file_path, "w", encoding="utf-8") as f:
-                json.dump(model_data, f, indent=2, ensure_ascii=False)
+            await asyncio.to_thread(
+                store_model_catalog,
+                pathlib.Path(json_file_path),
+                model_data,
+                model_name=model_name,
+                model_type=model_type,
+            )
 
         except Exception as e:
-            logger.error(
-                f"Error storing complete model configurations: {str(e)}",
-                exc_info=True,
-            )
-            raise ValueError(f"Failed to store complete model configurations: {str(e)}")
+            logger.error("Error storing model configurations (%s)", type(e).__name__)
+            raise ValueError("Failed to store model configurations") from None
 
     @log_async(logger=logger)
     async def list_model_registrations(

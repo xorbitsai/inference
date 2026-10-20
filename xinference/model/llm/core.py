@@ -47,6 +47,7 @@ def get_llm_version_infos():
 
 
 class LLM(abc.ABC):
+    supports_cache_salt = False
     allow_batch = False
     supports_tool_controls = False
     # whether the engine can run speculative decoding with a paired drafter
@@ -96,6 +97,9 @@ class LLM(abc.ABC):
             tokenizer, "chat_template", None
         )
         prompt = self.get_full_context(copy.deepcopy(messages), template, tokenizer=tokenizer, **context)  # type: ignore[attr-defined]
+        prepare_prompt = getattr(self, "_prepare_reasoning_prompt", None)
+        if prepare_prompt is not None:
+            prompt = prepare_prompt(prompt, config)
         return len(tokenizer.encode(prompt))
 
     def prepare_anthropic_request(
@@ -152,6 +156,7 @@ class LLM(abc.ABC):
             "vllm",
             "sglang",
             "llama_cpp",
+            "mlx",
         }:
             raise NotImplementedError(
                 f"Structured JSON output is not supported by the {engine} engine"
@@ -184,8 +189,14 @@ class LLM(abc.ABC):
         )
         cache_control_applied = (
             cache_control is not None
-            and hasattr(self, "_prepare_reusable_prompt_cache")
+            and (
+                hasattr(self, "_prepare_explicit_prompt_cache")
+                or hasattr(self, "_prepare_reusable_prompt_cache")
+            )
             and not has_images
+            and getattr(self, "_xavier", None) is None
+            and getattr(self, "_cache_has_prompt_cache_api", True)
+            and getattr(self, "_model_config", {}).get("prompt_cache_size", 2) > 0
         )
         if cache_control is not None and not cache_control_applied:
             # Markers are cache hints: keep other engines' automatic caching
@@ -209,11 +220,15 @@ class LLM(abc.ABC):
             else:
                 prepared.insert(0, {"role": "system", "content": guidance})
             if cache_control_applied and cache_control is not None:
-                prefix = cache_control["messages"]
-                if prefix and prefix[0].get("role") == "system":
-                    prefix[0]["content"] += "\n" + guidance
-                else:
-                    prefix.insert(0, {"role": "system", "content": guidance})
+                for checkpoint in [
+                    cache_control,
+                    *cache_control.get("breakpoints", []),
+                ]:
+                    prefix = checkpoint["messages"]
+                    if prefix and prefix[0].get("role") == "system":
+                        prefix[0]["content"] += "\n" + guidance
+                    else:
+                        prefix.insert(0, {"role": "system", "content": guidance})
         try:
             input_tokens = self.count_tokens(prepared, config)
         except NotImplementedError:
@@ -260,12 +275,13 @@ class LLM(abc.ABC):
             ),
             structured_output=(
                 SupportLevel.NATIVE
-                if engine in {"vllm", "sglang", "llama_cpp"}
+                if engine in {"vllm", "sglang", "llama_cpp", "mlx"}
                 else SupportLevel.UNSUPPORTED
             ),
             prompt_cache=(
                 SupportLevel.NATIVE
-                if hasattr(self, "_prepare_reusable_prompt_cache")
+                if hasattr(self, "_prepare_explicit_prompt_cache")
+                or hasattr(self, "_prepare_reusable_prompt_cache")
                 else SupportLevel.DEGRADED
             ),
             max_images_per_prompt=max_images,

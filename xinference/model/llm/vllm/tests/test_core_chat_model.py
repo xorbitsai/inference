@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
 import base64
+import copy
+import json
 import sys
 import tempfile
 import types
+from contextlib import nullcontext
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -23,6 +27,115 @@ import pytest
 from packaging import version
 
 from ...tool_parsers.qwen_tool_parser import QwenToolParser
+
+
+class TestVLLMFP8Quantization:
+    @pytest.fixture
+    def model(self, monkeypatch, tmp_path):
+        from ...llm_family import match_llm
+        from .. import core
+
+        monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+        family = copy.deepcopy(match_llm("glm-4.5", "fp8", 106, "FP8", "huggingface"))
+        model = core.VLLMChatModel("test-glm-fp8", family, str(tmp_path), {})
+        model._device_count = 1
+        return model
+
+    @pytest.mark.parametrize("section", [None, "text_config"])
+    @pytest.mark.parametrize(
+        "quant_config,expected",
+        [
+            ({"quant_method": "compressed-tensors"}, None),
+            ({"quant_method": "fp8"}, "fp8"),
+            ({"quant_method": "unknown"}, None),
+            ({"quant_method": 8}, None),
+            ({"quant_method": ""}, None),
+            ({"quant_method": None}, "fp8"),
+            ({}, "fp8"),
+            (None, "fp8"),
+            ([], None),
+        ],
+    )
+    def test_checkpoint_quantizer(
+        self, model, tmp_path, section, quant_config, expected
+    ):
+        config = {"quantization_config": quant_config}
+        if section:
+            config = {section: config}
+        (tmp_path / "config.json").write_text(json.dumps(config))
+        assert model._sanitize_model_config({})["quantization"] == expected
+
+    @pytest.mark.parametrize(
+        "top,nested,expected",
+        [
+            ("fp8", "compressed-tensors", "fp8"),
+            ("compressed-tensors", "fp8", None),
+            (None, "compressed-tensors", None),
+        ],
+    )
+    def test_top_level_precedence(self, model, tmp_path, top, nested, expected):
+        (tmp_path / "config.json").write_text(
+            json.dumps(
+                {
+                    "quantization_config": {"quant_method": top},
+                    "text_config": {"quantization_config": {"quant_method": nested}},
+                }
+            )
+        )
+        assert model._sanitize_model_config({})["quantization"] == expected
+
+    @pytest.mark.parametrize("config", [None, {}])
+    @pytest.mark.parametrize("launch_config", [None, {}, {"quantization": "none"}])
+    def test_missing_metadata_keeps_fp8(self, model, tmp_path, config, launch_config):
+        if config is not None:
+            (tmp_path / "config.json").write_text(json.dumps(config))
+        assert model._sanitize_model_config(launch_config)["quantization"] == "fp8"
+
+    @pytest.mark.parametrize("contents", ["{", "null", "[]", '{"text_config": []}'])
+    def test_malformed_config_defers_to_vllm(self, model, tmp_path, contents):
+        (tmp_path / "config.json").write_text(contents)
+        assert model._sanitize_model_config({})["quantization"] is None
+
+    def test_unreadable_config_defers_to_vllm(self, model, tmp_path, caplog):
+        (tmp_path / "config.json").mkdir()
+        assert model._sanitize_model_config({})["quantization"] is None
+        assert "Cannot read checkpoint quantization config" in caplog.text
+
+    @pytest.mark.parametrize("method", ["fp8", "compressed-tensors"])
+    @pytest.mark.parametrize(
+        "launch_config,expected",
+        [
+            (
+                {"model_quantization": "compressed-tensors", "quantization": "fp8"},
+                "compressed-tensors",
+            ),
+            ({"quantization": "compressed-tensors"}, "compressed-tensors"),
+            ({"model_quantization": "fp8"}, "fp8"),
+        ],
+    )
+    def test_explicit_quantizer_wins(
+        self, model, tmp_path, method, launch_config, expected
+    ):
+        (tmp_path / "config.json").write_text(
+            json.dumps(
+                {
+                    "quantization_config": {"quant_method": method},
+                }
+            )
+        )
+        assert model._sanitize_model_config(launch_config)["quantization"] == expected
+
+    @pytest.mark.parametrize("model_format", ["pytorch", "gptq", "awq", "fp4", "bnb"])
+    def test_non_fp8_format_keeps_default(self, model, tmp_path, model_format):
+        model.model_spec.model_format = model_format
+        (tmp_path / "config.json").write_text(
+            json.dumps(
+                {
+                    "quantization_config": {"quant_method": "fp8"},
+                }
+            )
+        )
+        assert model._sanitize_model_config({})["quantization"] is None
 
 
 def filter_ids_and_created(data):
@@ -315,39 +428,83 @@ class TestVLLMBase64Media:
         qwen_omni_utils.process_vision_info.assert_not_called()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("abilities", "media", "reader_error"),
+        [
+            ("audio vision", "image", None),
+            ("vision", "image", None),
+            ("audio", "audio", None),
+            ("omni audio vision", "audio image", None),
+            ("audio vision", "audio image", None),
+            ("audio vision", "video", None),
+            ("audio vision", "audio image", "audio"),
+            ("audio vision", "audio image", "vision"),
+        ],
+    )
     async def test_async_chat_runs_media_reader_off_event_loop(
-        self, model, monkeypatch
+        self, model, monkeypatch, abilities, media, reader_error
     ):
         import asyncio
 
-        data_uri = "data:image/png;base64," + base64.b64encode(b"png-bytes").decode()
         messages = [
             {
                 "role": "user",
-                "content": [{"type": "image_url", "image_url": {"url": data_uri}}],
+                "content": [
+                    {
+                        "type": f"{kind}_url",
+                        f"{kind}_url": {"url": f"https://8.8.8.8/{kind}"},
+                    }
+                    for kind in media.split()
+                ],
             }
         ]
-        captured = {}
+        original = copy.deepcopy(messages)
+        paths = set()
+        calls = []
+        monkeypatch.setattr(
+            "xinference.model.llm.media.fetch_media", lambda *_: b"media"
+        )
+        audios = ["audio"] if "audio" in media else None
+        images = ["image"] if "image" in media else None
+        videos = [self.FakeVideo()] if "video" in media else None
 
-        def process_vision_info(transformed_messages, *, return_video_kwargs):
-            try:
-                asyncio.get_running_loop()
-                captured["on_loop"] = True
-            except RuntimeError:
-                captured["on_loop"] = False
-            return ["image"], None, None
+        def reader(kind, result, **expected_kwargs):
+            def process(transformed_messages, **kwargs):
+                with pytest.raises(RuntimeError, match="no running event loop"):
+                    asyncio.get_running_loop()
+                assert kwargs == expected_kwargs
+                calls.append(kind)
+                for part in transformed_messages[0]["content"]:
+                    path = Path(part[part["type"]].removeprefix("file://"))
+                    assert path.read_bytes() == b"media"
+                    paths.add(path)
+                if reader_error == kind:
+                    raise ValueError("reader failed")
+                return result
+
+            return process
 
         qwen_omni_utils = types.ModuleType("qwen_omni_utils")
-        qwen_omni_utils.process_vision_info = process_vision_info
-        qwen_omni_utils.process_audio_info = MagicMock()
-        qwen_omni_utils.process_mm_info = MagicMock()
+        qwen_omni_utils.process_vision_info = reader(
+            "vision", (images, videos, None), return_video_kwargs=True
+        )
+        qwen_omni_utils.process_audio_info = reader(
+            "audio", audios, use_audio_in_video=False
+        )
+        qwen_omni_utils.process_mm_info = reader(
+            "omni",
+            (audios, images, videos, None),
+            use_audio_in_video=True,
+            return_video_kwargs=True,
+        )
         monkeypatch.setitem(sys.modules, "qwen_omni_utils", qwen_omni_utils)
 
         model.model_uid = "test-model"
         model.model_family = MagicMock()
         model.model_family.model_family = "qwen2-vl"
         model.model_family.model_name = "qwen2-vl"
-        model.model_family.model_ability = ["chat", "vision"]
+        model.model_family.model_ability = ["chat", *abilities.split()]
+        model.model_family.has_architecture.return_value = False
         model.model_family.chat_template = "chat-template"
         model.reasoning_parser = None
         model._get_chat_template_kwargs_from_generate_config = MagicMock(
@@ -362,13 +519,35 @@ class TestVLLMBase64Media:
         model._sanitize_chat_config = MagicMock(return_value={"stream": False})
 
         async def async_generate(inputs, *_args, **_kwargs):
+            expected = {kind: [kind] for kind in media.split()}
+            actual = dict(inputs["multi_modal_data"])
+            if videos:
+                assert actual.pop("video")[0][0] is videos[0]
+                expected.pop("video")
+            assert actual == expected
+            assert inputs.get("mm_processor_kwargs", {}) == (
+                {"use_audio_in_video": True} if "omni" in abilities else {}
+            )
             return {"completion": "ok"}
 
         model.async_generate = async_generate
         model._to_chat_completion = MagicMock(return_value={"result": "ok"})
 
-        assert await model.async_chat(messages, {}) == {"result": "ok"}
-        assert captured["on_loop"] is False
+        expectation = (
+            pytest.raises(ValueError, match="reader failed")
+            if reader_error
+            else nullcontext()
+        )
+        with expectation:
+            assert await model.async_chat(messages, {}) == {"result": "ok"}
+        expected_calls = ["omni"] if "omni" in abilities else abilities.split()
+        if reader_error:
+            expected_calls = expected_calls[: expected_calls.index(reader_error) + 1]
+        assert calls == expected_calls
+        assert messages == original
+        assert paths and all(
+            not path.exists() and not path.parent.exists() for path in paths
+        )
 
 
 class TestVLLMChatModel:

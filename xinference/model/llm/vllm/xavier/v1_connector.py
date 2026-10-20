@@ -44,9 +44,11 @@ from vllm.distributed.kv_transfer.kv_connector.v1.base import (
 )
 from vllm.v1.core.sched.output import SchedulerOutput
 
+from .....cache_isolation import cache_scope
 from ...xavier.actor_loop import acquire_actor_loop, release_actor_loop
 from ...xavier.backends.torch.snapshot import block_major_view
 from ...xavier.block_tracker import VLLMBlockTracker
+from ...xavier.pd_contract import validate_handoff_scope
 from ...xavier.profiling import profile_stage
 from ...xavier.utils import hash_block_tokens
 from .transfer import XAVIER_BF16_TRANSPORT_DTYPE, TransferActor
@@ -255,6 +257,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._registered_kv_caches: Dict[str, torch.Tensor | Sequence[torch.Tensor]] = (
             {}
         )
+        self._request_cache_salts: Dict[str, str] = {}
         self._chunked_prefill: Dict[str, Tuple[List[List[int]], List[int]]] = {}
         self._layer_group_ids = self._build_layer_group_index()
         self._tracker_ref: Optional[xo.ActorRefType["VLLMBlockTracker"]] = None
@@ -275,7 +278,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._gpu_export_registered = False
         self._gpu_export_fence: Optional[torch.cuda.Event] = None
         self._hash_cache: OrderedDict[
-            Tuple[int, int, Tuple[int, ...]], Tuple[Tuple[int, int], ...]
+            Tuple[int, int, Tuple[int, ...], Optional[str]], Tuple[Tuple[int, int], ...]
         ] = OrderedDict()
         self._hash_cache_tokens = 0
         self._local_directory: Optional["LocalBlockDirectory"] = None
@@ -624,14 +627,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             getattr(request, "lora_request", None)
             or getattr(request, "mm_features", None)
             or getattr(request, "prompt_embeds", None) is not None
-            or getattr(request, "cache_salt", None)
         ):
             raise ValueError(
-                "Xavier V1 does not support LoRA, multimodal, embedding or salted prompts"
+                "Xavier V1 does not support LoRA, multimodal or embedding prompts"
             )
         if self._direct_handoff:
             params = getattr(request, "kv_transfer_params", None) or {}
             handoff = params.get("xavier_direct")
+            if handoff is not None:
+                validate_handoff_scope(handoff, getattr(request, "cache_salt", None))
             if (
                 self._has_recurrent_cache
                 and self._is_producer
@@ -661,9 +665,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 if tokens - num_computed_tokens < self._block_size:
                     return 0, False
                 start = num_computed_tokens // self._block_size
-                hashes = self._build_xavier_hashes(request.prompt_token_ids[:tokens])[
-                    start:
-                ]
+                hashes = self._build_xavier_hashes(
+                    request.prompt_token_ids[:tokens],
+                    getattr(request, "cache_salt", None),
+                )[start:]
                 lease = "history:" + uuid.uuid4().hex
 
                 async def reserve():
@@ -762,7 +767,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         probe_tokens = min(
             external_token_count, (local_hit_blocks + 1) * self._block_size
         )
-        hashes = self._build_xavier_hashes(token_ids[:probe_tokens])
+        hashes = self._build_xavier_hashes(
+            token_ids[:probe_tokens], getattr(request, "cache_salt", None)
+        )
         if not hashes:
             return 0, False
 
@@ -786,7 +793,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if not self._build_contiguous_transfers(query_hashes, remote)[1]:
             return 0, False
         if probe_tokens < external_token_count:
-            hashes = self._build_xavier_hashes(token_ids[:external_token_count])
+            hashes = self._build_xavier_hashes(
+                token_ids[:external_token_count], getattr(request, "cache_salt", None)
+            )
             query_hashes = hashes[local_hit_blocks:]
             remainder = self._call(
                 self._query_remote_blocks(request.request_id, query_hashes[1:])
@@ -823,6 +832,11 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
     def update_state_after_alloc(
         self, request: "Request", blocks: "KVCacheBlocks", num_external_tokens: int
     ):
+        salt = getattr(request, "cache_salt", None)
+        if salt is not None:
+            if not hasattr(self, "_request_cache_salts"):
+                self._request_cache_salts = {}
+            self._request_cache_salts[request.request_id] = salt
         if not self._is_consumer or num_external_tokens <= 0:
             return
 
@@ -905,6 +919,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         block_ids: List[int],
         block_ids_by_group: Optional[Tuple[List[int], ...]] = None,
     ) -> tuple[bool, dict[str, Any] | None]:
+        getattr(self, "_request_cache_salts", {}).pop(request.request_id, None)
         if self._direct_handoff:
             pending = self._requests_need_load.get(request.request_id)
             if pending is not None and pending.lease.startswith("history:"):
@@ -926,6 +941,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         return False, {
                             "do_remote_prefill": True,
                             "xavier_direct": {
+                                "cache_scope": cache_scope(
+                                    getattr(request, "cache_salt", None)
+                                ),
                                 "rank": self._rank,
                                 "ticket": "",
                                 "blocks": [],
@@ -957,7 +975,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         history_args = ()
                         if self._history_enabled:
                             hashes = self._build_xavier_hashes(
-                                request.prompt_token_ids[:token_count]
+                                request.prompt_token_ids[:token_count],
+                                getattr(request, "cache_salt", None),
                             )
                             history_args = ([key for key, _ in hashes[:count]],)
                         await ref.register_direct_gpu_v1(
@@ -974,6 +993,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 return bool(blocks), {
                     "do_remote_prefill": True,
                     "xavier_direct": {
+                        "cache_scope": cache_scope(
+                            getattr(request, "cache_salt", None)
+                        ),
                         "rank": self._rank,
                         "address": self._xavier_config.get("rank_address"),
                         "ticket": ticket,
@@ -2173,7 +2195,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             external_token_count = (
                 min(external_token_count, num_tokens) // self._block_size
             ) * self._block_size
-        hashes = self._build_xavier_hashes(token_ids[:external_token_count])
+        hashes = self._build_xavier_hashes(
+            token_ids[:external_token_count],
+            getattr(self, "_request_cache_salts", {}).get(request_id),
+        )
         if not hashes:
             return
         if not block_ids_by_group:
@@ -2274,10 +2299,14 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             group_transfers = request.local_transfers_by_group.get(0, {})
         return dict(group_transfers.get(from_rank, {}))
 
-    def _build_xavier_hashes(self, token_ids: List[int]) -> List[Tuple[int, int]]:
+    def _build_xavier_hashes(
+        self, token_ids: List[int], cache_salt: Optional[str] = None
+    ) -> List[Tuple[int, int]]:
         cacheable = len(token_ids) <= _MAX_HASH_CACHE_TOKENS
         cache_key = (
-            (self._block_size, self._none_hash, tuple(token_ids)) if cacheable else None
+            (self._block_size, self._none_hash, tuple(token_ids), cache_salt)
+            if cacheable
+            else None
         )
         if cache_key is not None and cache_key in self._hash_cache:
             self._hash_cache.move_to_end(cache_key)
@@ -2294,6 +2323,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 chunk,
                 self._none_hash,
                 self._none_hash,
+                cache_salt if block_idx == 0 else None,
             )
             hashes.append((content_hash, block_idx))
             prev_hash = content_hash

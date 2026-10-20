@@ -14,9 +14,12 @@
 import io
 import logging
 import os
-from typing import TYPE_CHECKING, Optional
+import tempfile
+from typing import TYPE_CHECKING, List, Optional, Union
 
-from ..utils import is_flash_attn_available
+from ...utils import make_hashable
+from ..utils import is_flash_attn_available, resolve_media_seed
+from .batch import AudioRequestBatcher
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
@@ -25,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 class Qwen3TTSModel:
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,
@@ -40,6 +45,12 @@ class Qwen3TTSModel:
         self._device = device
         self._model = None
         self._kwargs = kwargs
+        self._batcher = AudioRequestBatcher(
+            self._run_speech_batch,
+            self._speech_batch_key,
+            request_batch_size=int(kwargs.pop("request_batch_size", 4)),
+            batch_interval=float(kwargs.pop("batch_interval", 0.01)),
+        )
 
     @property
     def model_ability(self):
@@ -72,7 +83,7 @@ class Qwen3TTSModel:
                 dtype=torch.bfloat16,
             )
 
-    def speech(
+    def _prepare_speech(
         self,
         input: str,
         voice: str,
@@ -80,21 +91,13 @@ class Qwen3TTSModel:
         speed: float = 1.0,
         stream: bool = False,
         **kwargs,
-    ):
+    ) -> dict:
         assert self._model is not None
-
-        import soundfile
-
-        from .utils import apply_audio_seed
-
         if stream:
             raise Exception("qwen-tts does not support stream generation.")
-
-        apply_audio_seed(kwargs)
-
-        prompt_speech: Optional[bytes] = kwargs.pop("prompt_speech", None)
-        prompt_text: Optional[str] = kwargs.pop("prompt_text", None)
-
+        seed = resolve_media_seed(kwargs.pop("seed", None))
+        prompt_speech = kwargs.pop("prompt_speech", None)
+        prompt_text = kwargs.pop("prompt_text", None)
         language = kwargs.pop("language", "chinese")
         language_list = self._model.get_supported_languages()
         if language not in language_list:
@@ -102,72 +105,120 @@ class Qwen3TTSModel:
                 f"Language '{language}' is not supported. Supported languages are: {', '.join(language_list)}"
             )
         instruct = kwargs.pop("instruct", None)
-        if prompt_speech is None:
-            if self.model_family.model_name.endswith("VoiceDesign"):
-                audio, sample_rate = self._model.generate_voice_design(
-                    text=input, language=language, instruct=instruct, **kwargs
-                )
-            elif self.model_family.model_name.endswith("CustomVoice"):
-                speaker_list = self._model.get_supported_speakers()
-                if voice and voice not in speaker_list:
-                    raise ValueError(
-                        f"voice '{voice}' is not supported for voice '{voice}'. Supported speakers are: {', '.join(speaker_list)}"
-                    )
-                audio, sample_rate = self._model.generate_custom_voice(
-                    text=input,
-                    language=language,
-                    speaker=voice,
-                    instruct=instruct,
-                )
-            else:
-                raise RuntimeError(
-                    "Base does not support generate_voice_design and generate_custom_voice, Please add prompt speech and prompt text for voice cloning."
-                )
-
-            # Non-streaming mode - return bytes directly
-            with io.BytesIO() as out:
-                with soundfile.SoundFile(
-                    out, "w", sample_rate, 1, format=response_format.upper()
-                ) as f:
-                    f.write(audio[0])
-                result = out.getvalue()
-
-            return result
-        else:
+        if prompt_speech is not None:
             if prompt_text is None:
                 raise RuntimeError(
                     "prompt_text is required when prompt_speech is provided."
                 )
-
-            # Save prompt speech to temp file
-            import tempfile
-
-            with tempfile.NamedTemporaryFile(
-                suffix=".wav", delete=False
-            ) as temp_prompt:
-                temp_prompt.write(prompt_speech)
-                temp_prompt_path = temp_prompt.name
-
-            try:
-                audio, sample_rate = self._model.generate_voice_clone(
-                    text=input,
-                    language=language,
-                    ref_audio=temp_prompt_path,
-                    ref_text=prompt_text,
+            method = "generate_voice_clone"
+        elif self.model_family.model_name.endswith("VoiceDesign"):
+            method = "generate_voice_design"
+        elif self.model_family.model_name.endswith("CustomVoice"):
+            speaker_list = self._model.get_supported_speakers()
+            if voice and voice not in speaker_list:
+                raise ValueError(
+                    f"voice '{voice}' is not supported. Supported speakers are: {', '.join(speaker_list)}"
                 )
+            method = "generate_custom_voice"
+        else:
+            raise RuntimeError(
+                "Base does not support generate_voice_design and generate_custom_voice, Please add prompt speech and prompt text for voice cloning."
+            )
+        return dict(
+            text=input,
+            voice=voice,
+            response_format=response_format,
+            language=language,
+            instruct=instruct,
+            method=method,
+            prompt_speech=prompt_speech,
+            prompt_text=prompt_text,
+            seed=seed,
+            # Preserve the existing per-variant generation options.
+            kwargs=kwargs if method == "generate_voice_design" else {},
+        )
 
-                # Non-streaming mode - return bytes directly
-                with io.BytesIO() as out:
-                    with soundfile.SoundFile(
-                        out, "w", sample_rate, 1, format=response_format.upper()
-                    ) as f:
-                        f.write(audio[0])
-                    result = out.getvalue()
+    @staticmethod
+    def _speech_batch_key(request: dict):
+        # Native generation shares an RNG across rows. Preserve explicit seeds
+        # by executing these requests individually on the same batch worker.
+        if request["seed"] is not None:
+            return object()
+        return make_hashable(
+            (
+                request["method"],
+                request["prompt_speech"],
+                request["prompt_text"],
+                request["kwargs"],
+            )
+        )
 
-                return result
-            finally:
-                # Clean up temp files
-                try:
-                    os.unlink(temp_prompt_path)
-                except Exception:
-                    pass
+    @staticmethod
+    def _encode_audio(audio, sample_rate: int, response_format: str) -> bytes:
+        import soundfile
+
+        with io.BytesIO() as out:
+            with soundfile.SoundFile(
+                out, "w", sample_rate, 1, format=response_format.upper()
+            ) as audio_file:
+                audio_file.write(audio)
+            return out.getvalue()
+
+    def _run_speech_batch(self, requests: List[dict]) -> List[Union[bytes, Exception]]:
+        assert self._model is not None
+        from .utils import apply_audio_seed
+
+        first = requests[0]
+        apply_audio_seed({"seed": first["seed"]})
+        batched = len(requests) > 1
+
+        def values(name):
+            items = [request[name] for request in requests]
+            return items if batched else items[0]
+
+        native_kwargs = dict(first["kwargs"])
+        native_kwargs.update(text=values("text"), language=values("language"))
+        method = first["method"]
+        if method == "generate_custom_voice":
+            native_kwargs.update(
+                speaker=values("voice"),
+                instruct=(
+                    [request["instruct"] or "" for request in requests]
+                    if batched
+                    else first["instruct"]
+                ),
+            )
+        elif method == "generate_voice_design":
+            native_kwargs["instruct"] = values("instruct")
+
+        with tempfile.TemporaryDirectory(prefix="xinference-qwen3-tts-") as temp_dir:
+            if method == "generate_voice_clone":
+                # Compatible requests share one reference, so native Qwen only
+                # needs to extract its prompt features once for the entire batch.
+                prompt_path = os.path.join(temp_dir, "reference.wav")
+                with open(prompt_path, "wb") as prompt_file:
+                    prompt_file.write(first["prompt_speech"])
+                native_kwargs.update(
+                    ref_audio=prompt_path, ref_text=first["prompt_text"]
+                )
+            audios, sample_rate = getattr(self._model, method)(**native_kwargs)
+        if len(audios) != len(requests):
+            raise RuntimeError("Qwen3-TTS returned an unexpected result count")
+        outputs: List[Union[bytes, Exception]] = []
+        for audio, request in zip(audios, requests):
+            try:
+                outputs.append(
+                    self._encode_audio(audio, sample_rate, request["response_format"])
+                )
+            except Exception as error:
+                if not batched:
+                    raise
+                outputs.append(error)
+        return outputs
+
+    def speech(self, *args, **kwargs):
+        return self._run_speech_batch([self._prepare_speech(*args, **kwargs)])[0]
+
+    async def async_speech(self, *args, **kwargs):
+        request = self._prepare_speech(*args, **kwargs)
+        return await self._batcher.submit(request)

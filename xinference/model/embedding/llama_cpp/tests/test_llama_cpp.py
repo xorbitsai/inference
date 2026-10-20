@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import shutil
 
 import pytest
@@ -53,6 +55,45 @@ class _FakeLlamaCppServer:
 
     def handle_embeddings(self, data):
         return self.response
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_embedding_model_honors_launch_config(nested):
+    config = {"n_ctx": 4096, "n_batch": 2048, "n_ubatch": 2048, "n_gpu_layers": 0}
+    launch_kwargs = {"llamacpp_model_config": config} if nested else config
+    model = XllamaCppEmbeddingModel(
+        "mock",
+        "/unused",
+        TEST_MODEL_SPEC,
+        quantization="Q8_0",
+        batch_size=16,
+        batch_interval=0.1,
+        **launch_kwargs,
+    )
+
+    for key, value in config.items():
+        assert model._llamacpp_model_config.get(key) == value
+    assert model._llamacpp_model_config["embedding"] is True
+    assert "embedding" not in config
+    assert "batch_size" not in model._llamacpp_model_config
+    assert "batch_interval" not in model._llamacpp_model_config
+    assert model.batch_size == 16
+    assert model.batch_interval == 0.1
+
+
+def test_embedding_model_nested_config_takes_precedence():
+    config = {"n_ctx": 2048, "n_gpu_layers": 0}
+    model = XllamaCppEmbeddingModel(
+        "mock",
+        "/unused",
+        TEST_MODEL_SPEC,
+        quantization="Q8_0",
+        n_ctx=4096,
+        llamacpp_model_config=config,
+    )
+
+    assert model._llamacpp_model_config["n_ctx"] == 2048
+    assert config == {"n_ctx": 2048, "n_gpu_layers": 0}
 
 
 @pytest.mark.parametrize("nested", [False, True])

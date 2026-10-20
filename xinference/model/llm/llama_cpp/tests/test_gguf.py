@@ -48,6 +48,7 @@ def surprise_image_base64():
     return "data:image/png;base64," + img_base64
 
 
+@pytest.mark.platform_slow
 def test_gguf_multimodal(setup, surprise_image_base64):
     endpoint, _ = setup
     client = Client(endpoint)

@@ -491,6 +491,11 @@ const ja = {
     emptyFile: '空のファイルはアップロードできません。',
   },
   launchModel: {
+    updateOneModel: '単一モデルを更新',
+    updateOneModelDescription:
+      '共有カタログの単一モデルを更新し、他のモデルを保持します。重みのダウンロードや実行中モデルの再起動は行いません。',
+    catalogModelNamePlaceholder: '正確なモデル名、または world ファミリー名',
+    catalogUpdated: 'モデルカタログを更新しました。',
     enableWeightCache: '再読み込み用に GPU の重みを保持',
     enableWeightCacheTip:
       'vLLM 0.31.0+ または SGLang 0.5.21+、Linux GPU、単一ワーカーと単一レプリカが必要です。エンジンの再読み込み中も重みを GPU メモリに保持します。',
@@ -819,6 +824,9 @@ const ja = {
       resultsPlaceholder: '結果はここに表示されます。',
       generating: '生成中',
       progress: '進捗',
+      elapsed: '経過時間',
+      eta: '推定残り時間',
+      estimating: '推定中',
       receivingAudioStream: '音声ストリームを受信中',
       audioPlaybackAfterComplete: 'ストリームの受信完了後に再生を開始します。',
       audioStreamingPlayback: '音声を受信しながら再生しています。',

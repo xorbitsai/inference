@@ -489,15 +489,13 @@ async def get_progress(
 ) -> JSONResponse:
     try:
         supervisor_ref = await api._get_supervisor_ref()
-        result = {
-            "progress": await actor_call(
-                supervisor_ref,
-                "get_progress",
-                request_id,
-                _rpc_correlation_id=get_model_request_id(request),
-                _rpc_operation_request_id=request_id,
-            )
-        }
+        result = await actor_call(
+            supervisor_ref,
+            "get_progress_snapshot",
+            request_id,
+            _rpc_correlation_id=get_model_request_id(request),
+            _rpc_operation_request_id=request_id,
+        )
         return JSONResponse(content=result)
     except KeyError as e:
         raise HTTPException(status_code=400, detail=str(e))

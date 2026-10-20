@@ -14,7 +14,7 @@
 
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -213,6 +213,60 @@ async def test_real_sse_disconnect_aborts_and_cleans_stream(monkeypatch, kind, p
     model.decrease_serve_count.assert_awaited_once()
     assert closed.is_set()
     assert decrease_completed.is_set()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat"])
+@pytest.mark.parametrize("engine", ["vllm", "sglang"])
+async def test_pd_sse_disconnect_destroys_router_stream(monkeypatch, kind, engine):
+    import xoscar as xo
+
+    from ...core.pd_model import PDModelActor
+    from ...core.tests.test_pd_model import FakeStage
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        prefill = await xo.create_actor(
+            FakeStage, address=pool.external_address, uid="p"
+        )
+        decode = await xo.create_actor(
+            FakeStage, wait_after_first=True, address=pool.external_address, uid="d"
+        )
+        router = await xo.create_actor(
+            PDModelActor,
+            "pd",
+            model_engine=engine,
+            transport_backend="nixl",
+            address=pool.external_address,
+        )
+        await router.add_prefill_actor("p", prefill)
+        await router.add_decode_actor("d", decode)
+        response, model, decreased = await _create_streaming_response(
+            monkeypatch, kind, None
+        )
+        method = "generate" if kind == "completion" else "chat"
+        streams = []
+
+        async def infer(*args, **kwargs):
+            stream = await getattr(router, method)(*args, **kwargs)
+            streams.append(stream)
+            return stream
+
+        async def abort(request_id):
+            return await router.abort_request(request_id)
+
+        getattr(model, method).side_effect = infer
+        model.abort_request.side_effect = abort
+        await _run_asgi_disconnect(response, "send", None)
+        assert await decode.get_stream_counts() == (0, 1)
+        model.abort_request.assert_awaited_once_with(f"{kind}-request")
+        assert decreased.is_set()
+        assert len(streams) == 1
+        # API cleanup owns destroy, so GC must not start a blocking retry.
+        assert streams[0]._gc_destroy is False
+        with patch.object(streams[0], "destroy", new_callable=AsyncMock) as destroy:
+            streams[0].__del__()
+        destroy.assert_not_called()
 
 
 @pytest.mark.asyncio

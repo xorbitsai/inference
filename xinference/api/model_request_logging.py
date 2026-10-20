@@ -34,6 +34,7 @@ from sse_starlette.sse import EventSourceResponse
 from starlette.datastructures import FormData, UploadFile
 from starlette.responses import Response, StreamingResponse
 
+from ..cache_isolation import redact_cache_salt
 from ..constants import (
     XINFERENCE_LOG_DIR,
     XINFERENCE_MODEL_REQUEST_LOG_BACKUP_COUNT,
@@ -340,20 +341,6 @@ def _form_to_log_body(form: FormData) -> Dict[str, Any]:
     return result
 
 
-def _decode_body(request: Request, body: bytes) -> str:
-    charset = "utf-8"
-    content_type = request.headers.get("content-type", "")
-    for item in content_type.split(";")[1:]:
-        key, separator, value = item.strip().partition("=")
-        if separator and key.lower() == "charset" and value:
-            charset = value.strip('"')
-            break
-    try:
-        return body.decode(charset)
-    except (LookupError, UnicodeDecodeError):
-        return body.decode("utf-8", errors="replace")
-
-
 def _body_size(request: Request) -> Optional[int]:
     content_length = request.headers.get("content-length")
     if content_length is not None:
@@ -386,8 +373,8 @@ async def _capture_request_body(request: Request) -> Tuple[str, Any]:
         try:
             return "request_body", await request.json()
         except (json.JSONDecodeError, UnicodeDecodeError):
-            body = await request.body()
-            return "request_body_raw", _decode_body(request, body)
+            # Invalid JSON cannot be safely redacted as structured data.
+            return "request_body_omitted", {"reason": "invalid_json"}
 
     if media_type in ("multipart/form-data", "application/x-www-form-urlencoded"):
         return "request_body", _form_to_log_body(await request.form())
@@ -598,7 +585,7 @@ class ModelRequestLoggingRoute(APIRoute):
                 "method": request.method,
                 "content_type": request.headers.get("content-type", ""),
                 "stream": stream,
-                body_field: body,
+                body_field: redact_cache_salt(body),
             }
         )
         await _write_event_async(event)

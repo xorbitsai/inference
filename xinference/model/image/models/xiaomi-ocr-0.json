@@ -1,0 +1,33 @@
+[
+  {
+    "version": 2,
+    "model_name": "xiaomi-ocr-0",
+    "model_family": "ocr",
+    "model_ability": ["ocr"],
+    "virtualenv": {
+      "packages": [
+        "transformers>=5.8.1,<6 ; #engine# == \"transformers\"",
+        "accelerate>=1.1.0,<2 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchvision# ; #engine# == \"transformers\"",
+        "Pillow>=10.0.1,<=15.0",
+        "#system_numpy#"
+      ]
+    },
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "SeerRay-Lab/Xiaomi-OCR-0",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "SeerRay-Lab/Xiaomi-OCR-0",
+            "model_revision": "master"
+          }
+        }
+      }
+    ]
+  }
+]

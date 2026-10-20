@@ -60,8 +60,10 @@ The standard ``/v1/messages/count_tokens`` endpoint and its
 ``/anthropic/v1/messages/count_tokens`` alias use the loaded model's chat
 template and tokenizer, including tool definitions and images where supported.
 Both routes use the same model permissions and Xinference API key as message
-generation. SGLang supports text and tool token counting; image counting returns
-501.
+generation.
+
+SGLang P/D decode replicas support text token counting; image token counting
+returns HTTP 501.
 
 .. code-block:: python
 
@@ -104,17 +106,27 @@ maps to prompt guidance, with ``medium`` preserving the default prompt.
 Explicit thinking responses carry Xinference signatures, which can be replayed
 with the same model UID and signing key; configure
 ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers.
-The MLX, vLLM and SGLang adapters do not currently enforce manual
-``budget_tokens`` as a separate reasoning-token limit.
+SGLang enforces manual ``budget_tokens`` with its request-level
+``max_thinking_tokens`` control when strict thinking is enabled. Unsupported
+versions or disabled strict thinking return HTTP 501 for a manual budget.
+vLLM uses native ``thinking_token_budget`` with boundaries from Xinference's
+reasoning parser; unsupported versions or conflicting boundaries return HTTP 501.
+MLX enforces the budget through request-local token constraints. All three engines
+close thinking when the budget is reached and continue generating the answer within
+``max_tokens``.
 
 Stale, unsigned or foreign thinking blocks are ignored during replay;
 accompanying answers and tool calls are preserved.
 
-On vLLM reasoning models, ``stop_sequences`` applies to both streaming and
-non-streaming requests, including when thinking is disabled. A stop match
-during thinking can end the response before a final answer is produced.
-Native stop matches currently report ``stop_reason: "end_turn"`` and
-``stop_sequence: null`` in the response.
+On physical vLLM models, ``stop_sequences`` applies to streaming and non-streaming
+requests, including when thinking is disabled. A stop match during thinking
+can end the response before a final answer is produced. A matching
+caller-provided string returns ``stop_reason: "stop_sequence"`` and the exact
+``stop_sequence``. EOS and token-ID stops return ``end_turn`` with a null
+``stop_sequence``.
+
+For physical vLLM models, disconnecting from a streaming or non-streaming
+Messages request aborts generation and releases request capacity.
 
 Context management
 ------------------
@@ -143,8 +155,8 @@ unsupported edit types return HTTP 400.
 Tool choice and structured output
 ---------------------------------
 
-Structured JSON output requires a supporting engine. The vLLM and SGLang engines support
-named and required tool choice through constrained JSON decoding, and disabled
+The vLLM, SGLang and MLX engines support structured JSON,
+named and required tool choice through constrained JSON decoding. Disabled
 parallel tool use returns at most one tool per response. Forced tool arguments
 are buffered until complete.
 
@@ -153,7 +165,22 @@ vLLM and SGLang structured decoding for supported reasoning markers and engines 
 plugin support. Qwen3.5 needs no extra parser configuration. Explicit engine
 parser settings are preserved. Manual thinking cannot be combined with forced
 tool choice. P/D models return 501 for forced tool choice. Other engines return
-501 for unsupported controls.
+501 for unsupported controls. MLX uses ``llguidance`` (included in the
+``mlx`` extra) with a fast tokenizer. Requests with constrained output, a manual
+thinking budget or explicit cache checkpoints use
+request-local decoding; other text requests retain continuous batching.
+MLX requires ``mlx-lm>=0.31.3`` for thread-local generation streams.
+
+SGLang counts image tokens through a zero-output native prefill, using the
+same image processing as generation. This performs image processing and
+prefill work and can warm the engine cache.
+
+With compatible SGLang versions, Xinference enables strict thinking for its
+reasoning adapter on the default XGrammar backend, including ordinary requests.
+This adds token-filtering overhead, requires a compatible tokenizer and does not
+support UNO speculative decoding. Set ``enable_strict_thinking=False`` in model
+launch options to disable it; EOS can then end thinking before structured output
+begins.
 
 Backend capabilities
 --------------------
@@ -164,7 +191,7 @@ to a text-only model returns HTTP 400. Translated, emulated, degraded and
 rejected compatibility decisions are logged with their reasons. Capability
 checks do not add features that the engine cannot implement.
 
-The following limitations still apply. Supported controls also require a
+The table summarizes engine support. Supported controls require a
 compatible model and engine version, as described above.
 
 .. list-table::
@@ -178,30 +205,40 @@ compatible model and engine version, as described above.
    * - Forced tool choice / disabling parallel tools
      - Supported
      - Supported
-     - HTTP 501
+     - Supported
    * - Structured JSON
      - Supported
      - Supported
-     - HTTP 501
+     - Supported
    * - Image token counting
      - Supported
-     - HTTP 501
+     - Supported
      - Supported
    * - Explicit cache lifetime
      - Automatic caching
      - Automatic caching
-     - Partial (text requests to vision models)
+     - Text requests (LM and VLM)
    * - Separate reasoning-token budget
-     - Not enforced
-     - Not enforced
-     - Not enforced
+     - Supported with matching reasoning boundaries
+     - Supported with strict thinking
+     - Supported with reasoning markers
 
 Prompt caching
 --------------
 
-For text requests, the MLX vision engine reuses the furthest ``cache_control``
-boundary with a ``5m`` or ``1h`` lifetime and reports actual cache writes and
-reads. Earlier cache breakpoints do not have independently enforced lifetimes
-in this path. Cache hits do not currently refresh the lifetime, and expiry
-clears the reusable cache. Other paths retain automatic engine caching, indicated by the
-``x-xinference-cache-control: automatic`` response header.
+For text requests, both MLX text and vision models support up to four explicit
+``cache_control`` breakpoints. Each checkpoint has its own ``5m`` or ``1h``
+lifetime, refreshed on a cache hit. Put longer lifetimes before shorter ones.
+Expired checkpoints are removed independently; a live earlier checkpoint can
+still be reused after a later one expires. Cache storage obeys the configured
+``prompt_cache_size`` and ``prompt_cache_bytes`` capacity limits, so memory
+pressure can evict checkpoints before their lifetime ends. Usage reports
+actual cache writes and reads.
+
+The limits apply separately to automatic caching and explicit checkpoint
+caching; their combined capacity can reach twice the configured limits.
+MLX P/D models retain automatic caching.
+
+Image requests, vLLM and SGLang retain automatic engine caching, indicated by
+the ``x-xinference-cache-control: automatic`` response header. Their engine
+caches do not expose independent per-breakpoint lifetime control.

@@ -49,7 +49,7 @@ from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
 PLATFORM_MACHINE = {"amd64": "x86_64", "arm64": "aarch64"}
 
-SYSTEM_PLACEHOLDER_RE = re.compile(r"^#system_([a-z0-9_]+)#$")
+SYSTEM_PLACEHOLDER_RE = re.compile(r"^#system_([a-z0-9_-]+)#$")
 ENGINE_MARKER_RE = re.compile(r"#(?:model_)?engine#\s*==\s*['\"]([^'\"]+)['\"]")
 XOSCAR_RUNTIME_MARKERS = {"has_cuda", "not has_cuda"}
 

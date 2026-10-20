@@ -930,11 +930,23 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             assert output_type == "binary", f"Unknown output type '{output_type}'"
             return ret
 
+    def _validate_cache_salt(self, args, kwargs) -> None:
+        from ..cache_isolation import validate_cache_salt
+
+        config = args[0] if args else kwargs.get("generate_config")
+        if (
+            isinstance(config, dict)
+            and validate_cache_salt(config.get("cache_salt")) is not None
+        ):
+            if not getattr(self._model, "supports_cache_salt", False):
+                raise ValueError("cache_salt is not supported by this model engine")
+
     @request_limit
     @xo.generator
     @log_async(logger=logger)
     async def generate(self, prompt: str, *args, **kwargs):
         self._require_ready()
+        self._validate_cache_salt(args, kwargs)
         start_time = time.time()
         # Directly delegate to model, let model decide how to handle (batching or not)
         kwargs.pop("raw_params", None)
@@ -979,6 +991,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     @log_async(logger=logger)
     async def chat(self, messages: List[Dict], *args, **kwargs):
         self._require_ready()
+        self._validate_cache_salt(args, kwargs)
         start_time = time.time()
         response = None
         try:
@@ -1211,7 +1224,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         kwargs.pop("request_id", None)
         if hasattr(self._model, "transcriptions"):
             return await self._call_wrapper_json(
-                self._model.transcriptions,
+                getattr(
+                    self._model, "async_transcriptions", self._model.transcriptions
+                ),
                 audio,
                 language,
                 prompt,
@@ -1240,7 +1255,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         kwargs.pop("request_id", None)
         if hasattr(self._model, "translations"):
             return await self._call_wrapper_json(
-                self._model.translations,
+                getattr(self._model, "async_translations", self._model.translations),
                 audio,
                 language,
                 prompt,
@@ -1276,7 +1291,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 else:
                     kwargs["seed"] = seed
 
-            speech = self._model.speech
+            speech = getattr(self._model, "async_speech", self._model.speech)
             parameters = inspect.signature(speech).parameters
             accepts_kwargs = any(
                 parameter.kind == inspect.Parameter.VAR_KEYWORD

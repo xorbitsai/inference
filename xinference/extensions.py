@@ -18,6 +18,8 @@ XINFERENCE_EXTENSIONS is a comma-separated list of ``module:factory`` entries.
 Factories are loaded in every API/actor process at startup, including spawn and
 recovery. A configured extension that cannot load is a startup error. Unset
 configuration leaves upstream behavior unchanged and requires no extra package.
+An optional auth-store hook selects storage before authentication starts and
+may perform database initialization during startup.
 
 Extensions may compose the API, contribute worker identity metadata, restrict
 worker resources, and expose named control-plane operations. Resource filters
@@ -30,8 +32,8 @@ from __future__ import annotations
 import importlib
 import inspect
 import os
-from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, Tuple
 
 EXTENSION_API_VERSION = 1
 
@@ -43,6 +45,47 @@ class APIExtensionContext:
     auth_service: Any
     auth_enabled: bool
     get_supervisor_ref: Callable[[], Awaitable[Any]]
+
+
+@dataclass(frozen=True)
+class AuthStoreContext:
+    """Requested auth store and caller, available before API composition."""
+
+    db_path: str
+    purpose: Literal["service", "reset_password", "migrate"]
+
+
+@dataclass(frozen=True)
+class ModelCatalogCredentials:
+    """An ephemeral catalog token whose repr stays safe in actor call logs."""
+
+    token: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.token, str)
+            or not self.token
+            or self.token != self.token.strip()
+            or any(ord(c) < 32 or ord(c) == 127 for c in self.token)
+        ):
+            raise ValueError("Invalid model catalog credential")
+        try:
+            self.token.encode("latin-1")
+        except UnicodeError:
+            raise ValueError("Invalid model catalog credential") from None
+
+
+@dataclass(frozen=True)
+class CacheSalt:
+    """An authoritative cache scope supplied by an authenticated API extension."""
+
+    value: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        from .cache_isolation import validate_cache_salt
+
+        if validate_cache_salt(self.value) is None:
+            raise ValueError("Cache salt provider must supply a cache_salt")
 
 
 _loaded: Optional[Tuple[str, Tuple[Any, ...]]] = None
@@ -103,8 +146,68 @@ def configure_api(context: APIExtensionContext) -> None:
         _call_hook(extension, "configure_api", context)
 
 
+def resolve_auth_store(context: AuthStoreContext) -> Any:
+    """Allow one distribution to supply auth storage during initialization.
+
+    This synchronous startup hook may initialize a database. Returning None
+    selects the default SQLite store; provider errors never select a fallback.
+    Reject multiple providers before invoking any of them.
+    """
+    providers = [e for e in get_extensions() if hasattr(e, "create_auth_store")]
+    if len(providers) > 1:
+        raise ValueError("Multiple auth store providers")
+    if not providers:
+        return None
+    return _call_hook(providers[0], "create_auth_store", context)
+
+
+def resolve_model_catalog_credentials(
+    request: Any, model_type: str
+) -> Optional[ModelCatalogCredentials]:
+    """Resolve optional server-owned credentials after route authentication.
+
+    Returning None preserves anonymous catalog refresh. Providers may reject a
+    request; their failures never cause an anonymous retry. Existing extensions
+    do not need to implement this optional hook.
+    """
+    credentials = None
+    for extension in get_extensions():
+        if not hasattr(extension, "model_catalog_credentials"):
+            continue
+        candidate = _call_hook(
+            extension, "model_catalog_credentials", request, model_type
+        )
+        if candidate is None:
+            continue
+        if not isinstance(candidate, ModelCatalogCredentials):
+            raise TypeError(
+                "Catalog credential hooks must return ModelCatalogCredentials or None"
+            )
+        if credentials is not None:
+            raise ValueError("Multiple model catalog credential providers")
+        credentials = candidate
+    return credentials
+
+
 def worker_extension_metadata() -> Dict[str, Any]:
     return {e.name: _call_hook(e, "worker_metadata") for e in get_extensions()}
+
+
+def resolve_cache_salt(request: Any) -> Optional[CacheSalt]:
+    """Resolve after authentication; a configured provider must fail closed.
+
+    The optional synchronous ``cache_salt(request)`` hook returns CacheSalt.
+    None means there is no provider, never a fallback after a provider failure.
+    """
+    providers = [e for e in get_extensions() if hasattr(e, "cache_salt")]
+    if len(providers) > 1:
+        raise ValueError("Multiple cache salt providers")
+    if not providers:
+        return None
+    result = _call_hook(providers[0], "cache_salt", request)
+    if not isinstance(result, CacheSalt):
+        raise TypeError("Cache salt provider must return CacheSalt")
+    return result
 
 
 def filter_worker_resources(

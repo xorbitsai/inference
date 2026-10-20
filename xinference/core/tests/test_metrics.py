@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# CI: linux
 import pytest
 import requests
 
@@ -131,6 +133,7 @@ async def test_disable_metrics_exporter_server(setup_cluster):
 
 
 @pytest.mark.timeout(300)  # 5 minutes timeout to prevent hanging in Python 3.13
+@pytest.mark.platform_slow
 async def test_metrics_exporter_data(setup_cluster):
     endpoint, metrics_exporter_address, supervisor_address = setup_cluster
 

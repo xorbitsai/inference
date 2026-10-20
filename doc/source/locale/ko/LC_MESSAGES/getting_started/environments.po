@@ -492,6 +492,40 @@ msgstr ""
 "관리자는 actor 포트 접근을 의도한 클러스터 피어로 제한해야 합니다. 인증은 트래픽을 암호화하거나 재전송 공격을 방지하지 않습니다. "
 "인증된 GPU 전송은 해시 계산을 위해 장치 버퍼를 호스트 메모리에 임시 저장하므로 CPU 및 호스트 메모리 오버헤드가 추가됩니다."
 
+#: ../../source/getting_started/environments.rst:155
+msgid "For text-only ``sentence_transformers`` models, the engine may group similar character lengths to reduce padding while preserving response order. The internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE`` controls input merging by the server."
+msgstr "텍스트 전용 ``sentence_transformers`` 모델에서는 응답 순서를 유지하면서 문자 길이가 비슷한 입력을 그룹화하여 패딩을 줄일 수 있습니다. 내부 ``encode()`` 의 ``batch_size`` 가 이 그룹의 크기를 제한하며, ``XINFERENCE_BATCH_SIZE`` 는 서버의 입력 병합을 제어합니다."
+
+#: ../../source/getting_started/environments.rst:164
+msgid "XINFERENCE_EMBEDDING_GC_INTERVAL"
+msgstr "XINFERENCE_EMBEDDING_GC_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:166
+msgid "Minimum interval (seconds) between full Python garbage collections during embedding cache cleanup. Default is 60. The first cleanup collects immediately. Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged."
+msgstr "임베딩 캐시 정리 중 Python 전체 가비지 컬렉션을 수행하는 최소 간격(초)입니다. 기본값은 60입니다. 첫 정리에서는 즉시 수행합니다. 0으로 설정하면 정리할 때마다 수행합니다. GPU 캐시 해제 빈도는 변경되지 않습니다."
+
+#: ../../source/getting_started/environments.rst:171
+msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
+msgstr "쿨다운은 토큰 수로 트리거되는 정리에도 적용됩니다. Python 순환 참조로 유지되는 텐서는 자동 GC 또는 이후의 전체 수집까지 메모리를 점유할 수 있으며, ``empty_cache()`` 로 해제할 수 없습니다. 정리할 때마다 전체 수집이 필요한 모델은 이 간격을 0으로 설정하세요."
+
+msgid "Text-only CrossEncoder rerankers may also group pairs by combined query and document character length to reduce padding. The native ``predict()`` ``batch_size`` still limits each forward pass; short pairs stay together."
+msgstr "텍스트 전용 CrossEncoder 재순위 모델은 쿼리와 문서의 총 문자 길이에 따라 입력 쌍을 그룹화하여 패딩을 줄일 수 있습니다. 기본 ``predict()`` 의 ``batch_size`` 는 각 순전파 크기를 계속 제한하며, 짧은 입력 쌍은 같은 그룹에 유지됩니다."
+
+msgid "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+msgstr "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+
+msgid "Number of completed inference groups between cache releases in the Sentence Transformers and synchronous vLLM rerank engines. Default is 10. A merged group counts once, regardless of how many requests it contains."
+msgstr "Sentence Transformers 및 동기 vLLM 재순위 엔진에서 캐시 해제 사이에 완료되는 추론 그룹 수입니다. 기본값은 10입니다. 병합된 그룹은 포함된 요청 수와 관계없이 한 번으로 계산합니다."
+
+msgid "XINFERENCE_RERANK_GC_INTERVAL"
+msgstr "XINFERENCE_RERANK_GC_INTERVAL"
+
+msgid "Minimum interval (seconds) between full Python garbage collections during rerank cache cleanup. Default is 60. The first cache cleanup collects immediately. Set to 0 to collect on every cache cleanup. GPU cache release still follows ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``."
+msgstr "재순위 캐시 정리 중 전체 Python 가비지 수집을 수행하는 최소 간격(초)입니다. 기본값은 60입니다. 첫 캐시 정리에서는 즉시 수집합니다. 0으로 설정하면 캐시를 정리할 때마다 수집합니다. GPU 캐시 해제는 계속 ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT`` 를 따릅니다."
+
+msgid "Python reference cycles may keep tensors allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that need full collection on every cache cleanup."
+msgstr "Python 순환 참조로 인해 텐서는 자동 GC 또는 이후의 전체 수집까지 메모리를 점유할 수 있으며, ``empty_cache()`` 로 해제할 수 없습니다. 캐시를 정리할 때마다 전체 수집이 필요한 모델은 이 간격을 0으로 설정하세요."
+
 #: ../../source/getting_started/environments.rst
 msgid "XINFERENCE_TRUST_REMOTE_CODE"
 msgstr "XINFERENCE_TRUST_REMOTE_CODE"

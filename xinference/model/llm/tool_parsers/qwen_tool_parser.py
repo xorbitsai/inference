@@ -218,6 +218,66 @@ class QwenToolParser(ToolParser):
         matched_ranges = self.tool_call_regex.findall(model_output)
         return matched_ranges
 
+    def _scan_tool_calls(self, text: str) -> Tuple[List[Tuple[int, int]], int]:
+        """
+        Locate tool call blocks with ``str.find`` instead of the lazy regexes.
+
+        Streaming calls this on the whole accumulated text for every token,
+        so a regex scan here makes long tool calls quadratic with a large
+        constant. The result matches ``tool_call_complete_regex`` and
+        ``tool_call_regex``.
+
+        Returns:
+            The ``(start, end)`` span of every complete block, and the start
+            of the trailing unclosed block, or -1 when there is none.
+        """
+        start_token = self.tool_call_start_token
+        end_token = self.tool_call_end_token
+        blocks: List[Tuple[int, int]] = []
+        pos = 0
+        while True:
+            start = text.find(start_token, pos)
+            if start == -1:
+                return blocks, -1
+            end = text.find(end_token, start + len(start_token))
+            if end == -1:
+                return blocks, start
+            pos = end + len(end_token)
+            blocks.append((start, pos))
+
+    def _last_function_call(
+        self, text: str, blocks: List[Tuple[int, int]], partial_start: int
+    ) -> str:
+        """Return ``_get_function_calls_streaming(text)[-1]``, or "" if empty."""
+        if partial_start != -1:
+            # ``.*?$`` stops before a final newline.
+            stop = len(text) - 1 if text.endswith("\n") else len(text)
+            return text[partial_start:stop]
+        if blocks:
+            start, end = blocks[-1]
+            return text[start:end]
+        return ""
+
+    def _iter_tool_call_tags(self, text: str):
+        """Yield ``(start, end, is_start_token)`` for each tool call tag in order."""
+        start_token = self.tool_call_start_token
+        end_token = self.tool_call_end_token
+        next_start = text.find(start_token)
+        next_end = text.find(end_token)
+        while next_start != -1 or next_end != -1:
+            if next_end == -1 or (next_start != -1 and next_start < next_end):
+                tag_end = next_start + len(start_token)
+                yield next_start, tag_end, True
+                next_start = text.find(start_token, tag_end)
+                if next_end != -1 and next_end < tag_end:
+                    next_end = text.find(end_token, tag_end)
+            else:
+                tag_end = next_end + len(end_token)
+                yield next_end, tag_end, False
+                next_end = text.find(end_token, tag_end)
+                if next_start != -1 and next_start < tag_end:
+                    next_start = text.find(start_token, tag_end)
+
     def extract_tool_calls(
         self, model_output: str
     ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
@@ -364,10 +424,12 @@ class QwenToolParser(ToolParser):
         try:
             # Check if current output contains tool_call start token
             if self.is_contain_tool_call_start_token(current_text):
-                previous_complete = self.tool_call_complete_regex.findall(
+                previous_blocks, previous_partial_start = self._scan_tool_calls(
                     previous_text[-1]
                 )
-                current_complete = self.tool_call_complete_regex.findall(current_text)
+                current_blocks, current_partial_start = self._scan_tool_calls(
+                    current_text
+                )
                 tool_events: List[
                     Union[
                         Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
@@ -396,12 +458,16 @@ class QwenToolParser(ToolParser):
                 # its closing tag. Content and tool events are emitted below by
                 # walking the generated text, rather than grouping events by
                 # type and losing their original order.
-                for tool_call_index, match in enumerate(
-                    self.tool_call_complete_regex.finditer(current_text)
+                start_len = len(self.tool_call_start_token)
+                end_len = len(self.tool_call_end_token)
+                for tool_call_index, (block_start, block_end) in enumerate(
+                    current_blocks
                 ):
-                    if tool_call_index < len(previous_complete):
+                    if tool_call_index < len(previous_blocks):
                         continue
-                    function_call = match.group(1)
+                    function_call = current_text[
+                        block_start + start_len : block_end - end_len
+                    ]
                     if not function_call.strip():
                         continue
                     try:
@@ -409,13 +475,13 @@ class QwenToolParser(ToolParser):
                         if end_index != -1:
                             parsed = self.parse_qwen35_tool_call(function_call)
                             if parsed:
-                                completed_events[match.end()] = (
+                                completed_events[block_end] = (
                                     *parsed,
                                     tool_call_index,
                                 )
                                 continue
                         parsed_json = json.loads(function_call, strict=False)
-                        completed_events[match.end()] = (
+                        completed_events[block_end] = (
                             None,
                             parsed_json["name"],
                             parsed_json["arguments"],
@@ -430,28 +496,26 @@ class QwenToolParser(ToolParser):
                         )
 
                 new_text_start = len(current_text) - len(delta_text)
-                token_regex = re.compile(
-                    rf"{re.escape(self.tool_call_start_token)}|"
-                    rf"{re.escape(self.tool_call_end_token)}"
-                )
                 inside_tool_call = False
                 cursor = 0
-                for token_match in token_regex.finditer(current_text):
+                for tag_start, tag_end, is_start_tag in self._iter_tool_call_tags(
+                    current_text
+                ):
                     if not inside_tool_call:
                         content_start = max(cursor, new_text_start)
-                        if content_start < token_match.start():
-                            content = current_text[content_start : token_match.start()]
+                        if content_start < tag_start:
+                            content = current_text[content_start:tag_start]
                             if content.strip():
                                 tool_events.append((content, None, None))
 
-                    if token_match.group() == self.tool_call_start_token:
+                    if is_start_tag:
                         inside_tool_call = True
                     else:
                         inside_tool_call = False
-                        completed_event = completed_events.get(token_match.end())
+                        completed_event = completed_events.get(tag_end)
                         if completed_event is not None:
                             tool_events.append(completed_event)
-                    cursor = token_match.end()
+                    cursor = tag_end
 
                 if not inside_tool_call:
                     content_start = max(cursor, new_text_start)
@@ -460,8 +524,9 @@ class QwenToolParser(ToolParser):
                         if content.strip():
                             tool_events.append((content, None, None))
 
-                function_calls = self._get_function_calls_streaming(current_text)
-                partial_call = function_calls[-1] if function_calls else ""
+                partial_call = self._last_function_call(
+                    current_text, current_blocks, current_partial_start
+                )
                 if self._has_unclosed_tool_call(
                     current_text
                 ) and not self.is_contain_think(partial_call):
@@ -472,10 +537,9 @@ class QwenToolParser(ToolParser):
                         re.search(r"<parameter\s*=", partial_call)
                         or re.search(r'"arguments"\s*:', partial_call)
                     )
-                    previous_calls = self._get_function_calls_streaming(
-                        previous_text[-1]
+                    previous_partial = self._last_function_call(
+                        previous_text[-1], previous_blocks, previous_partial_start
                     )
-                    previous_partial = previous_calls[-1] if previous_calls else ""
                     previous_had_argument_start = bool(
                         re.search(r"<parameter\s*=", previous_partial)
                         or re.search(r'"arguments"\s*:', previous_partial)
@@ -484,13 +548,11 @@ class QwenToolParser(ToolParser):
                         func_name is not None
                         and has_argument_start
                         and (
-                            len(current_complete) != len(previous_complete)
+                            len(current_blocks) != len(previous_blocks)
                             or not previous_had_argument_start
                         )
                     ):
-                        tool_events.append(
-                            (None, func_name, None, len(current_complete))
-                        )
+                        tool_events.append((None, func_name, None, len(current_blocks)))
 
                 if not tool_events:
                     return None

@@ -805,52 +805,87 @@ def test_match_llm():
     "model_name,expected_architecture,expected_formats",
     [
         (
+            "Qwen3-VL-Instruct",
+            "Qwen3VLMoeForConditionalGeneration",
+            {
+                ("pytorch", 235): {"none"},
+                ("fp8", 235): {"fp8"},
+                ("awq", 235): {"Int4"},
+                ("pytorch", 30): {"none"},
+                ("fp8", 30): {"fp8"},
+                ("awq", 30): {"4bit", "8bit"},
+                ("pytorch", 32): {"none"},
+                ("fp8", 32): {"fp8"},
+                ("awq", 32): {"Int4"},
+                ("pytorch", 8): {"none"},
+                ("fp8", 8): {"fp8"},
+                ("awq", 8): {"4bit", "8bit"},
+                ("pytorch", 4): {"none"},
+                ("fp8", 4): {"fp8"},
+                ("awq", 4): {"4bit", "8bit"},
+                ("pytorch", 2): {"none"},
+                ("fp8", 2): {"fp8"},
+            },
+        ),
+        (
+            "Qwen3-VL-Thinking",
+            "Qwen3VLMoeForConditionalGeneration",
+            {
+                ("pytorch", 235): {"none"},
+                ("fp8", 235): {"fp8"},
+                ("awq", 235): {"Int4"},
+                ("pytorch", 30): {"none"},
+                ("fp8", 30): {"fp8"},
+                ("awq", 30): {"4bit", "8bit"},
+            },
+        ),
+        (
             "Qwen3-Next-Instruct",
             "Qwen3NextForCausalLM",
             {
-                "pytorch": {"none"},
-                "fp8": {"fp8"},
-                "awq": {"4bit", "8bit"},
+                ("pytorch", 80): {"none"},
+                ("fp8", 80): {"fp8"},
+                ("awq", 80): {"4bit", "8bit"},
             },
         ),
         (
             "Qwen3-Next-Thinking",
             "Qwen3NextForCausalLM",
             {
-                "pytorch": {"none"},
-                "fp8": {"fp8"},
-                "awq": {"4bit", "8bit"},
+                ("pytorch", 80): {"none"},
+                ("fp8", 80): {"fp8"},
+                ("awq", 80): {"4bit", "8bit"},
             },
         ),
         (
             "MiniCPM-V-4.6",
             "MiniCPMV4_6ForConditionalGeneration",
             {
-                "pytorch": {"none"},
-                "bnb": {"4-bit"},
-                "awq": {"Int4"},
-                "gptq": {"Int4"},
+                ("pytorch", 1): {"none"},
+                ("bnb", 1): {"4-bit"},
+                ("awq", 1): {"Int4"},
+                ("gptq", 1): {"Int4"},
             },
         ),
         (
             "MiniCPM-V-4.6-Thinking",
             "MiniCPMV4_6ForConditionalGeneration",
             {
-                "pytorch": {"none"},
-                "bnb": {"4-bit"},
-                "awq": {"Int4"},
-                "gptq": {"Int4"},
+                ("pytorch", 1): {"none"},
+                ("bnb", 1): {"4-bit"},
+                ("awq", 1): {"Int4"},
+                ("gptq", 1): {"Int4"},
             },
         ),
         (
             "MiniMax-M3",
             "MiniMaxM3SparseForConditionalGeneration",
-            {"pytorch": {"none"}},
+            {("pytorch", 428): {"none"}},
         ),
         (
             "minicpm5-2b",
             "LlamaForCausalLM",
-            {"pytorch": {"none"}, "awq": {"Int4"}},
+            {("pytorch", 2): {"none"}, ("awq", 2): {"Int4"}},
         ),
     ],
 )
@@ -888,7 +923,10 @@ def test_recent_sglang_engine_registration(
 
     registrations = llm_module.LLM_ENGINES[model_name]["SGLang"]
     registered_formats = {
-        registration["model_format"]: set(registration["quantizations"])
+        (
+            registration["model_format"],
+            registration["model_size_in_billions"],
+        ): set(registration["quantizations"])
         for registration in registrations
     }
     assert registered_formats == expected_formats
@@ -2210,7 +2248,9 @@ def test_qwen3_8_local_engine_virtualenv_requirements():
         if not package.lstrip().startswith("#")
         for requirement in [Requirement(package.split(";", 1)[0].strip())]
     }
-    assert requirements["mlx-lm"].specifier.contains("0.24.0")
+    assert requirements["mlx-lm"].specifier.contains("0.31.3")
+    assert not requirements["mlx-lm"].specifier.contains("0.31.2")
+    assert requirements["llguidance"].specifier.contains("1.7.0")
     assert requirements["mlx-vlm"].specifier.contains("0.6.13")
     assert not requirements["mlx-vlm"].specifier.contains("0.6.12")
 

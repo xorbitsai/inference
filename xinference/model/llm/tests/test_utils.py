@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 from types import SimpleNamespace
 
@@ -44,8 +46,13 @@ def test_is_valid_model_name():
     assert is_valid_model_name("foo@bar")
     assert is_valid_model_name("_foo")
     assert is_valid_model_name("-foo")
+    assert is_valid_model_name("my.model.v2")
     assert not is_valid_model_name("foo bar")
     assert not is_valid_model_name("foo/bar")
+    assert not is_valid_model_name("foo\\bar")
+    assert not is_valid_model_name("..\\..\\evil")
+    assert not is_valid_model_name(".")
+    assert not is_valid_model_name("..")
     assert not is_valid_model_name("   ")
     assert not is_valid_model_name("")
 
@@ -955,6 +962,123 @@ def test_async_to_chat_completion_chunks_preserves_usage_only_chunk():
     }
 
 
+@pytest.mark.parametrize(
+    "leading",
+    [
+        {"object": "text_completion", "choices": []},
+        {"object": "text_completion", "choices": [{"text": ""}]},
+        {"object": "chat.completion.chunk", "choices": [{"delta": None}]},
+        {"object": "chat.completion.chunk", "choices": [{"delta": {"content": ""}}]},
+    ],
+)
+def test_async_prepare_reasoning_keeps_leading_chunk_without_text(leading):
+    parser = ReasoningParser(True, "<think>", "</think>")
+    text = {
+        "id": "cmpl-test",
+        "model": "test-model",
+        "created": 123,
+        "object": "text_completion",
+        "choices": [{"index": 0, "text": "hi"}],
+    }
+
+    async def _chunks():
+        yield leading
+        yield text
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in parser.prepare_reasoning_content_streaming(_chunks())
+        ]
+
+    results = asyncio.run(_collect())
+
+    assert results[0] == leading
+    assert results[1]["choices"][0]["text"] == "<think>\n"
+    assert results[2] == text
+
+
+@pytest.mark.parametrize("delta_format", [False, True])
+@pytest.mark.parametrize(
+    "texts, reasoning, content, insert_start_tag",
+    [
+        (["\n", "<think>", "a", "</think>", "b"], "a", "b", True),
+        (["\n", "hi"], "\n\nhi", "", True),
+        (["a", "</think>", "b", "</think>", "c"], "\na", "b</think>c", True),
+        (["a", "</think>", "b", "</think>", "c"], "a", "b</think>c", False),
+        (["a</think>b", "c</think>d"], "\na", "bc</think>d", True),
+        (["a", "</think>", "use ", "<think>", "x"], "a", "use <think>x", False),
+    ],
+)
+def test_to_chat_completion_chunks_start_tag_after_leading_whitespace(
+    delta_format, texts, reasoning, content, insert_start_tag
+):
+    parser = ReasoningParser(True, "<think>", "</think>", auto_insert_start_tag=False)
+    ctx = {"enable_thinking": True}
+    if insert_start_tag:
+        ctx["reasoning_content"] = True
+
+    def _source():
+        base = {"id": "cmpl-test", "model": "test-model", "created": 123}
+        for text in texts:
+            if delta_format:
+                choice = {"index": 0, "delta": {"content": text}, "finish_reason": None}
+                yield {**base, "object": "chat.completion.chunk", "choices": [choice]}
+            else:
+                choice = {"index": 0, "text": text, "finish_reason": None}
+                yield {**base, "object": "text_completion", "choices": [choice]}
+
+    async def _chunks():
+        for chunk in _source():
+            yield chunk
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in ChatModelMixin._async_to_chat_completion_chunks(
+                _chunks(), parser, ctx
+            )
+        ]
+
+    for results in (
+        list(ChatModelMixin._to_chat_completion_chunks(_source(), parser, ctx)),
+        asyncio.run(_collect()),
+    ):
+        deltas = [chunk["choices"][0]["delta"] for chunk in results if chunk["choices"]]
+        assert "".join(d.get("reasoning_content") or "" for d in deltas) == reasoning
+        assert "".join(d.get("content") or "" for d in deltas) == content
+
+
+def test_async_to_chat_completion_chunks_with_reasoning_keeps_empty_stream():
+    parser = ReasoningParser(True, "<think>", "</think>")
+
+    async def _chunks():
+        yield {
+            "id": "cmpl-test",
+            "model": "test-model",
+            "created": 123,
+            "object": "text_completion",
+            "choices": [{"index": 0, "text": "", "finish_reason": "stop"}],
+        }
+        yield {
+            "choices": [],
+            "usage": {"prompt_tokens": 3, "completion_tokens": 0, "total_tokens": 3},
+        }
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in ChatModelMixin._async_to_chat_completion_chunks(
+                _chunks(), parser
+            )
+        ]
+
+    results = asyncio.run(_collect())
+
+    assert results[-2]["choices"][0]["finish_reason"] == "stop"
+    assert results[-1]["usage"]["total_tokens"] == 3
+
+
 def test_transform_messages_preserves_tool_call_fields():
     mixin = ChatModelMixin()
     messages = [
@@ -1099,6 +1223,74 @@ def test_qwen3_vl_renders_tool_only_history(model_name, protocol):
     assert "<tool_call>" in prompt and '"name": "lookup"' in prompt
     result = prompt.split("<tool_response>", 1)[1].split("</tool_response>", 1)[0]
     assert result.count("<|image_pad|>") == 2
+    assert messages == original
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        None,
+        "",
+        "omitted",
+        "Visible answer",
+        "<think>\nInline reasoning.\n</think>\nVisible answer",
+    ],
+)
+@pytest.mark.parametrize("reasoning", [None, "I need to look up the value."])
+@pytest.mark.parametrize("enable_thinking", [False, True])
+def test_qwen3_renders_tool_only_history(content, reasoning, enable_thinking):
+    from copy import deepcopy
+
+    from .. import BUILTIN_LLM_FAMILIES
+
+    messages = [
+        {"role": "user", "content": "Look up alpha."},
+        {
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [
+                {
+                    "id": "call_lookup",
+                    "type": "function",
+                    "function": {"name": "lookup", "arguments": '{"value":"alpha"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_lookup", "content": "NATIVE_RESULT_42"},
+    ]
+    if content == "omitted":
+        del messages[1]["content"]
+    if reasoning is not None:
+        messages[1]["reasoning_content"] = reasoning
+    original = deepcopy(messages)
+    mixin = ChatModelMixin()
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen3")
+    mixin.model_family = family
+    prompt = mixin.get_full_context(
+        messages, family.chat_template, enable_thinking=enable_thinking
+    )
+
+    assert '<tool_call>\n{"name": "lookup", "arguments": {"value":"alpha"}}' in prompt
+    assert "<tool_response>\nNATIVE_RESULT_42\n</tool_response>" in prompt
+    assert "None" not in prompt
+    if content in (None, "", "omitted"):
+        prefix = "<|im_start|>assistant\n"
+        if reasoning is not None:
+            prefix += f"<think>\n{reasoning}\n</think>\n\n"
+        assert f"{prefix}<tool_call>" in prompt
+    if reasoning is not None:
+        assert f"<think>\n{reasoning}\n</think>" in prompt
+    if content and content.startswith("<think>"):
+        if reasoning is not None:
+            assert f"<think>\n{reasoning}\n</think>\n\n{content}" in prompt
+        else:
+            assert "<think>\nInline reasoning.\n</think>\n\nVisible answer" in prompt
+    if content and "Visible answer" in content:
+        assert "Visible answer" in prompt
+    suffix = "<|im_start|>assistant\n"
+    if not enable_thinking:
+        suffix += "<think>\n\n</think>\n\n"
+    assert prompt.endswith(suffix)
     assert messages == original
 
 
@@ -2983,6 +3175,85 @@ def test_post_process_completion_stopped_while_thinking():
     )
 
 
+@pytest.mark.parametrize("text", ["The user asks", "<think>\nThe user asks"])
+def test_to_chat_completion_stopped_while_thinking(text):
+    # Generation hits max_tokens inside the thinking block, so there is no end
+    # tag. The reasoning content is the text after the start tag, as in a stream.
+    parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+    )
+    completion = {
+        "id": "1",
+        "object": "text_completion",
+        "created": 0,
+        "model": "qwen3",
+        "choices": [
+            {
+                "text": text,
+                "index": 0,
+                "logprobs": None,
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {"prompt_tokens": 159, "completion_tokens": 12, "total_tokens": 171},
+    }
+
+    result = ChatModelMixin._to_chat_completion(completion, parser)
+
+    choice = result["choices"][0]
+    assert choice["finish_reason"] == "length"
+    assert choice["message"]["content"] == ""
+    assert choice["message"]["reasoning_content"] == "\nThe user asks"
+
+
+@pytest.mark.parametrize(
+    "text, reasoning, content",
+    [
+        (
+            "\n<think>\nThe user asks\n</think>\n\nHello",
+            "\nThe user asks\n",
+            "\n\nHello",
+        ),
+        ("\n<think>\nThe user asks\n</think>", "\nThe user asks\n", ""),
+        ("a</think>Use the <think> tag", "a", "Use the <think> tag"),
+        ("a</think>b<think>c</think>d", "a", "b<think>c</think>d"),
+    ],
+)
+def test_to_chat_completion_text_before_start_tag(text, reasoning, content):
+    # The content is the text after the end tag, whatever comes before the start
+    # tag. When the prompt ended with the start tag, one after the end tag is content.
+    parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+    )
+    completion = {
+        "id": "1",
+        "object": "text_completion",
+        "created": 0,
+        "model": "reasoning-model",
+        "choices": [
+            {
+                "text": text,
+                "index": 0,
+                "logprobs": None,
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 159, "completion_tokens": 12, "total_tokens": 171},
+    }
+
+    result = ChatModelMixin._to_chat_completion(completion, parser)
+
+    message = result["choices"][0]["message"]
+    assert message["reasoning_content"] == reasoning
+    assert message["content"] == content
+
+
 # ── Security tests for Llama3ToolParser ────────────────────
 
 
@@ -3469,3 +3740,18 @@ async def test_synthetic_reasoning_start_preserves_initial_cache_usage():
     ]
     assert chunks[0]["usage"]["prompt_tokens"] == 100
     assert chunks[0]["usage"]["prompt_tokens_details"]["cached_tokens"] == 60
+
+
+def test_raw_template_can_omit_generation_prefix():
+    from ..utils import ChatModelMixin
+
+    model = ChatModelMixin()
+    template = (
+        "{{ messages[0].content }}{% if add_generation_prompt %}ASSISTANT{% endif %}"
+    )
+    messages = [{"role": "user", "content": "hello"}]
+    assert model._build_from_raw_template(messages, template) == "helloASSISTANT"
+    assert (
+        model._build_from_raw_template(messages, template, add_generation_prompt=False)
+        == "hello"
+    )

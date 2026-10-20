@@ -215,3 +215,32 @@ async def test_qwen3_vl_batch_skips_empty_request():
     assert model._vl_reranker.process.call_args_list == [
         (({"query": {"text": "Q1"}, "documents": [{"text": "A"}]},), {})
     ]
+
+
+@pytest.mark.asyncio
+async def test_cross_encoder_bfloat16_scores():
+    import torch
+
+    model = SentenceTransformerRerankModel.__new__(SentenceTransformerRerankModel)
+    model.model_family = TEST_MODEL_SPEC
+    model._vl_reranker = None
+    model._tokenizer = MagicMock()
+    # CrossEncoder.predict returns bfloat16 scores for a model loaded in bfloat16.
+    model._model = MagicMock()
+    model._model.predict.return_value = torch.tensor(
+        [0.25, 0.75, 0.5], dtype=torch.bfloat16
+    )
+    model._counter = 0
+    model.batch_interval = 0.01
+    BatchMixin.__init__(model, model.rerank)
+
+    try:
+        result = await model.rerank(["A", "B", "C"], "Q", None, None, True, False)
+    finally:
+        model._process_batch_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await model._process_batch_task
+
+    assert [r["index"] for r in result["results"]] == [1, 2, 0]
+    assert [r["document"]["text"] for r in result["results"]] == ["B", "C", "A"]
+    assert [r["relevance_score"] for r in result["results"]] == [0.75, 0.5, 0.25]

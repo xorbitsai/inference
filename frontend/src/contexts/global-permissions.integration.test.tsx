@@ -78,6 +78,7 @@ function Probe() {
         data-cache={auth.hasPageAccess('/cache-management')}
         data-read={auth.hasModelsRead}
         data-env={auth.hasVirtualEnvList}
+        data-catalog={auth.canRefreshModelCatalog}
         data-password={auth.canChangePassword}
       />
       <PermissionGuard scope="monitor:view">
@@ -109,6 +110,7 @@ it('refreshes menus and direct-page grants from the server while JWT scopes rema
       );
     });
     assert.equal(host.querySelector('output')?.getAttribute('data-admin'), 'true');
+    assert.equal(host.querySelector('output')?.getAttribute('data-catalog'), 'true');
     assert.equal(host.querySelector('output')?.getAttribute('data-password'), 'true');
     assert.ok(host.querySelector('#monitor'));
     permissions = ['pages:restricted'];
@@ -117,6 +119,7 @@ it('refreshes menus and direct-page grants from the server while JWT scopes rema
     });
     assert.equal(sessionStorage.getItem('token'), token);
     assert.equal(host.querySelector('output')?.getAttribute('data-admin'), 'false');
+    assert.equal(host.querySelector('output')?.getAttribute('data-catalog'), 'false');
     assert.equal(host.querySelector('output')?.getAttribute('data-cache'), 'false');
     assert.equal(host.querySelector('#monitor'), null);
     permissions = ['pages:restricted', 'page:cache'];

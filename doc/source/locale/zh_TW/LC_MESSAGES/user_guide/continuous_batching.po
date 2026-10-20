@@ -171,3 +171,41 @@ msgid ""
 "For LLMs using Xinference's continuous batching, you can abort requests that"
 " are in the process of inference."
 msgstr "對於使用 Xinference 連續批次處理的 LLM，可以取消正在推理的請求。"
+
+#: user_guide/continuous_batching.rst:101
+msgid "Audio request batching"
+msgstr "音訊請求合批"
+
+#: user_guide/continuous_batching.rst:101
+msgid ""
+"Whisper with the ``transformers`` engine and Qwen3-TTS with the ``PyTorch`` "
+"or ``MLX`` engine collect concurrent requests into native batches within "
+"each model replica. The audio API remains unchanged."
+msgstr ""
+"使用 ``transformers`` 引擎的 Whisper 和使用 ``PyTorch`` 或 ``MLX`` 引擎的 Qwen3-TTS "
+"會在每個模型副本內收集並行請求，呼叫原生批次推論。音訊 API 維持不變。"
+
+#: user_guide/continuous_batching.rst:101
+msgid ""
+"Set ``request_batch_size`` (default ``4``) and ``batch_interval`` (default "
+"``0.01`` seconds) at model launch. Set ``request_batch_size=1`` to disable "
+"request merging and MLX segment batching, or lower it when device memory is "
+"limited. Whisper's existing ``batch_size`` still controls the pipeline's "
+"audio-chunk batch size."
+msgstr ""
+"啟動模型時設定 ``request_batch_size``（預設 ``4``）和 ``batch_interval``（預設 ``0.01`` "
+"秒）。設定 ``request_batch_size=1`` 可停用請求合併與 MLX 文字分段合批；裝置記憶體不足時可降低此值。Whisper 原有的"
+" ``batch_size`` 仍控制 pipeline 的音訊分塊批次大小。"
+
+#: user_guide/continuous_batching.rst:101
+msgid ""
+"Only requests with compatible inference settings are merged. Qwen3-TTS "
+"requests with an explicit seed run separately. MLX batching also requires "
+"the same language and reference audio; unsupported batch options use the "
+"existing single-request path. Long MLX Qwen3-TTS inputs can batch text "
+"segments while preserving their order and pauses. Streaming support is "
+"unchanged."
+msgstr ""
+"僅合併推論設定相容的請求。明確指定 seed 的 Qwen3-TTS 請求會個別執行。MLX "
+"合批還要求語言與參考音訊相同；不支援合批的選項沿用原有單一請求路徑。較長的 MLX Qwen3-TTS "
+"輸入可以對文字分段合批，同時保留分段順序與停頓。串流支援維持不變。"

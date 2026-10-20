@@ -21,6 +21,7 @@ import { EventStreamController, postEventStreamFetcher } from '@/lib/eventStream
 import { eventBus } from '@/lib/event-bus';
 import { cn, copyToClipboard, sleep } from '@/lib/utils';
 import { isNumber } from '@/lib/is';
+import { normalizeProgressTiming, type GenerationProgressTiming } from '@/lib/generation-progress';
 import type {
   RunningModelDetail,
   CompletionResponse,
@@ -43,7 +44,7 @@ interface CapabilityTaskPanelProps {
 export interface CapabilityTaskPanelMethod {
   reset: () => void;
 }
-type ProgressResponse = { progress?: number };
+type ProgressResponse = { progress?: number } & Partial<GenerationProgressTiming>;
 
 function normalizeProgress(response: ProgressResponse) {
   if (!isNumber(response?.progress)) {
@@ -82,6 +83,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
     const [loading, setLoading] = useState(false);
     const [completionStreaming, setCompletionStreaming] = useState(false);
     const [progress, setProgress] = useState<number | undefined>();
+    const [progressTiming, setProgressTiming] = useState<GenerationProgressTiming>();
     const [latencyMs, setLatencyMs] = useState<number | undefined>();
     const showLiveProgress = Boolean(
       config.showProgress &&
@@ -151,15 +153,14 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
           );
           const nextProgress = normalizeProgress(response);
 
-          if (nextProgress !== undefined && runTokenRef.current === runToken) {
+          if (nextProgress !== undefined && runTokenRef.current === runToken && !isFinished()) {
             setProgress(nextProgress);
+            setProgressTiming(normalizeProgressTiming(response));
           }
         } catch {
-          if (runTokenRef.current === runToken) {
-            setProgress(undefined);
+          if (runTokenRef.current === runToken && !isFinished()) {
+            setProgressTiming((previous) => previous && { ...previous, eta_seconds: null });
           }
-
-          return;
         }
 
         await sleep(1000);
@@ -205,6 +206,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       setLoading(true);
       setLatencyMs(undefined);
       setProgress(showLiveProgress ? 0 : undefined);
+      setProgressTiming(showLiveProgress ? { elapsed_seconds: 0, eta_seconds: null } : undefined);
 
       const values = form.getFieldsValue();
       const streamAudio = config.responseType === 'audio-stream' && booleanValue(values.stream);
@@ -366,6 +368,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
           if (runTokenRef.current === runToken) {
             setLoading(false);
             setProgress(undefined);
+            setProgressTiming(undefined);
           }
         });
 
@@ -384,6 +387,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       setLoading(false);
       setLatencyMs(undefined);
       setProgress(undefined);
+      setProgressTiming(undefined);
     };
 
     useEffect(() => {
@@ -502,6 +506,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
               values={resultValues}
               loading={loading}
               progress={progress}
+              progressTiming={progressTiming}
               ability={config.ability}
             />
           </div>
