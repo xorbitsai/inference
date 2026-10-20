@@ -24,7 +24,7 @@ from typing import Any, List, Optional
 
 from packaging import version
 
-from ....types import DocumentObj, Meta, Rerank, RerankTokens
+from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 logger = logging.getLogger(__name__)
@@ -250,7 +250,11 @@ class XllamaCppRerankModel(RerankModel):
                 lambda doc: DocumentObj(
                     index=doc["index"],
                     relevance_score=doc["relevance_score"],
-                    document=documents[doc["index"]] if return_documents else None,
+                    document=(
+                        Document(text=documents[doc["index"]])
+                        if return_documents
+                        else None
+                    ),
                 ),
                 result["results"],
             )

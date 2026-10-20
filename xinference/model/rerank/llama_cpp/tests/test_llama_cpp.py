@@ -50,6 +50,31 @@ class _FakeLlamaCppServer:
         return self.response
 
 
+@pytest.mark.parametrize("return_documents", [False, True])
+@pytest.mark.parametrize("top_n", [None, 1])
+def test_rerank_model_returns_document_objects(return_documents, top_n):
+    documents = ["less relevant", "more relevant"]
+    model = XllamaCppRerankModel.__new__(XllamaCppRerankModel)
+    model._llm = _FakeLlamaCppServer(
+        {
+            "results": [
+                {"index": 1, "relevance_score": 0.9},
+                {"index": 0, "relevance_score": 0.1},
+            ],
+            "usage": {"total_tokens": 12},
+        }
+    )
+
+    result = model.rerank(documents, "query", top_n, None, return_documents, True)
+
+    expected_indices = [1, 0] if top_n is None else [1]
+    assert [doc["index"] for doc in result["results"]] == expected_indices
+    for doc in result["results"]:
+        expected = {"text": documents[doc["index"]]} if return_documents else None
+        assert doc["document"] == expected
+    assert result["meta"]["tokens"] == {"input_tokens": 12, "output_tokens": 12}
+
+
 @pytest.mark.parametrize("nested", [False, True])
 def test_rerank_model_raises_xllamacpp_error(nested):
     message = "Field 'documents': documents must not be empty"
