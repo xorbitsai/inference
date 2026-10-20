@@ -219,7 +219,7 @@ jobs:
                 # MLX uses SGLang's Xavier settings and directory.
                 xinference/model/llm/sglang/xavier/*) metal=true ;;
                 # Other engine implementations do not affect Metal.
-                xinference/model/llm/llama_cpp/*|xinference/model/llm/lmdeploy/*|xinference/model/llm/sglang/*|xinference/model/llm/transformers/*|xinference/model/llm/vllm/*) ;;
+                xinference/model/llm/llama_cpp/*|xinference/model/llm/lmdeploy/*|xinference/model/llm/sglang/*|xinference/model/llm/transformers/*|xinference/model/llm/trt_llm/*|xinference/model/llm/vllm/*) ;;
                 xinference/model/llm/*|xinference/model/audio/*|xinference/model/scheduler/*|xinference/thirdparty/*) metal=true ;;
                 xinference/model/*)
                   # Top-level model modules are shared by every engine.
@@ -423,6 +423,7 @@ jobs:
             xinference/tests/test_persisted_secret.py
           # Linux engine/P-D regressions and portable MLX mock tests.
           LINUX_TEST_PATHS: >-
+            xinference/model/llm/trt_llm/tests
             benchmark/tests/test_benchmark_pd.py
             benchmark/tests/test_benchmark_sglang_pd.py
             benchmark/tests/test_analyze_pd_profile.py
@@ -492,6 +493,7 @@ jobs:
           if [ "$TEST_PLATFORM" != "ubuntu-latest" ]; then
             platform_ignores+=(
               --ignore xinference/model/llm/lmdeploy
+              --ignore xinference/model/llm/trt_llm
               --ignore xinference/model/embedding/vllm
               --ignore xinference/model/rerank/vllm
             )
@@ -543,6 +545,7 @@ jobs:
               --ignore xinference/model/llm/tests/test_llm_model.py \
               --ignore xinference/model/llm/vllm \
               --ignore xinference/model/llm/sglang \
+              --ignore xinference/model/llm/trt_llm \
               --ignore xinference/client/tests/test_client.py \
               --ignore xinference/client/tests/test_async_client.py \
               --ignore xinference/model/llm/mlx \

@@ -182,6 +182,7 @@ class TestPythonWorkflow(unittest.TestCase):
         for path in (
             "xinference/model/llm/vllm/core.py",
             "xinference/model/llm/sglang/core.py",
+            "xinference/model/llm/trt_llm/core.py",
             "xinference/model/llm/transformers/core.py",
             "xinference/model/llm/llama_cpp/core.py",
             "xinference/model/embedding/core.py",
@@ -330,6 +331,7 @@ class TestPythonWorkflow(unittest.TestCase):
             "xinference/model/llm/mlx",
             "xinference/model/llm/vllm",
             "xinference/model/llm/sglang",
+            "xinference/model/llm/trt_llm",
             "xinference/model/llm/lmdeploy",
             "xinference/model/embedding/vllm",
             "xinference/model/rerank/vllm",
@@ -381,7 +383,7 @@ class TestPythonWorkflow(unittest.TestCase):
             "rerank": {"llama_cpp", "sentence_transformers", "tests"},
         }
         restricted = {
-            "llm": {"lmdeploy", "mlx", "sglang", "vllm"},
+            "llm": {"lmdeploy", "mlx", "sglang", "trt_llm", "vllm"},
             "embedding": {"vllm"},
             "rerank": {"vllm"},
         }
@@ -510,6 +512,7 @@ class TestPythonWorkflow(unittest.TestCase):
 
     def test_explicit_linux_test_files_are_classified(self):
         for path in (
+            "xinference/model/llm/trt_llm/tests",
             "xinference/model/llm/vllm/xavier/test/test_v1_engine.py",
             "xinference/model/llm/sglang/tests/test_runtime.py",
             "xinference/model/audio/tests/test_audio_batching.py",
