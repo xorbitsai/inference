@@ -15,7 +15,13 @@ import xoscar as xo
 
 from ...xavier.backends.torch.storage import XavierCacheActor
 from ...xavier.contract import KVCacheContract
-from ..pd import TRTLLMPD, configure_native, forget_request, request_state
+from ..pd import (
+    TRTLLMPD,
+    configure_native,
+    forget_request,
+    request_state,
+    submit_xavier,
+)
 from ..xavier import CONFIG_ENV
 from .test_core import model as model
 from .test_xavier import checkpoint as checkpoint
@@ -186,10 +192,35 @@ async def test_cancellation_during_xavier_capacity_reservation_recovers_ticket(
     assert not pd.active
 
 
+def test_xavier_enqueue_failure_cleans_callback_state(monkeypatch):
+    from ..pd import XavierRequest
+
+    monkeypatch.setitem(
+        sys.modules,
+        "tensorrt_llm.inputs",
+        SimpleNamespace(get_cache_salt_id=lambda salt: 123),
+    )
+    state = XavierRequest("decode", (1, 2), [])
+
+    def enqueue(*args, **kwargs):
+        assert request_state(SimpleNamespace(cache_salt_id=123)) is state
+        raise RuntimeError("enqueue failed")
+
+    engine = SimpleNamespace(generate_async=enqueue)
+    with pytest.raises(RuntimeError, match="enqueue failed"):
+        submit_xavier(engine, [1, 2], None, state)
+    assert request_state(SimpleNamespace(cache_salt_id=123)) is None
+
+
 @pytest.mark.asyncio
 async def test_xavier_owned_partial_page_handoff_survives_source_release(
     monkeypatch, connector
 ):
+    monkeypatch.setitem(
+        sys.modules,
+        "tensorrt_llm.inputs",
+        SimpleNamespace(get_cache_salt_id=lambda salt: int(salt[:16], 16)),
+    )
     monkeypatch.setitem(
         sys.modules, "xinference.model.llm.trt_llm.connector", connector
     )
@@ -235,7 +266,11 @@ async def test_xavier_owned_partial_page_handoff_survives_source_release(
         engine = SimpleNamespace(generate_async=Mock(return_value=handle))
         p.submit(engine, tokens, None, state)
         request = SimpleNamespace(
-            request_id=101, py_client_id=11, get_tokens=lambda beam: tokens
+            request_id=101,
+            cache_salt_id=int(
+                engine.generate_async.call_args.kwargs["cache_salt"][:16], 16
+            ),
+            get_tokens=lambda beam: tokens,
         )
         assert request_state(request) is state["context"]
         assert ps.get_num_new_matched_tokens(request, 0) == (0, False)
@@ -277,7 +312,10 @@ async def test_xavier_owned_partial_page_handoff_survives_source_release(
         handle_d = SimpleNamespace(request_id=12, abort=Mock())
         engine.generate_async.return_value = handle_d
         d.submit(engine, tokens, None, decoded)
-        request.request_id, request.py_client_id = 102, 12
+        request.request_id = 102
+        request.cache_salt_id = int(
+            engine.generate_async.call_args.kwargs["cache_salt"][:16], 16
+        )
         assert ds.get_num_new_matched_tokens(request, 0) == (69, False)
         ds.update_state_after_alloc(request, [2, 0])
         dw.bind_connector_meta(ds.build_connector_meta(output(102, 1)))

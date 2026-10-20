@@ -17,8 +17,9 @@ from .xavier import EXECUTION_OPTIONS
 
 logger = logging.getLogger(__name__)
 
-# TRT's embedded executor schedules on a background thread. Register its client
-# ID before the scheduler can inspect the request; never key by prompt text.
+# The connector receives a C++ request, which does not retain Python client-ID
+# attributes. Its cache_salt_id survives that boundary. Register an internal,
+# unique salt before enqueueing, also isolating native prefix reuse per request.
 _lock = threading.Lock()
 _requests: dict = {}
 
@@ -33,22 +34,30 @@ class XavierRequest:
 
 
 def submit_xavier(engine, tokens, params, state):
+    from tensorrt_llm.inputs import get_cache_salt_id
+
+    salt = uuid.uuid4().hex
+    salt_id = get_cache_salt_id(salt)
     with _lock:
-        request = engine.generate_async(
-            tokens, params, streaming=True, cache_salt=uuid.uuid4().hex
-        )
-        _requests[request.request_id] = state
+        _requests[salt_id] = state
+    try:
+        request = engine.generate_async(tokens, params, streaming=True, cache_salt=salt)
+        request._xinference_xavier_salt_id = salt_id
+    except BaseException:
+        with _lock:
+            _requests.pop(salt_id, None)
+        raise
     return request
 
 
 def request_state(request):
     with _lock:
-        return _requests.get(getattr(request, "py_client_id", None))
+        return _requests.get(getattr(request, "cache_salt_id", None))
 
 
 def forget_request(request):
     with _lock:
-        _requests.pop(request.request_id, None)
+        _requests.pop(request._xinference_xavier_salt_id, None)
 
 
 def configure_native(model_path, config, replica):
