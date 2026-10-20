@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
 import sys
 import types
 from types import SimpleNamespace
@@ -240,10 +241,11 @@ def test_engine_install_requirements(family, engine, requirement):
 
 @pytest.mark.parametrize("model_format,quantization,suffix", VARIANTS)
 def test_preserve_checkpoint_quantization(
-    model_format, quantization, suffix, monkeypatch
+    model_format, quantization, suffix, monkeypatch, tmp_path
 ):
     family = match_llm("Ling-3.0-flash", model_format, 124, quantization, "huggingface")
     model = object.__new__(vllm_core.VLLMChatModel)
+    model.model_path = str(tmp_path)
     model.model_family = family
     model.model_spec = family.model_specs[0]
     model._device_count = model._n_worker = 1
