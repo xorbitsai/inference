@@ -6,6 +6,8 @@
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 
+# CI: linux
+
 import asyncio
 
 import pytest
