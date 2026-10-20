@@ -19,7 +19,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "diffusers==0.35.2 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",

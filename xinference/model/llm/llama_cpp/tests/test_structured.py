@@ -1,3 +1,5 @@
+# CI: linux
+
 import importlib
 import importlib.util
 import json
@@ -429,6 +431,7 @@ def test_apply_response_format_uses_real_xllamacpp_if_available():
     assert "grammar" in cfg and cfg["grammar"]
 
 
+@pytest.mark.platform_slow
 def test_llamacpp_qwen3_json_schema(setup):
     endpoint, _ = setup
     client = Client(endpoint)

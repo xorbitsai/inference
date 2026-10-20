@@ -288,6 +288,7 @@ class ChatModelMixin:
                         "total_tokens",
                         "prompt_tokens_details",
                         "cache_creation_input_tokens",
+                        "cache_creation",
                     )
                 }
 
@@ -304,6 +305,8 @@ class ChatModelMixin:
             sanitized["cache_creation_input_tokens"] = usage_data[
                 "cache_creation_input_tokens"
             ]
+        if isinstance(usage_data.get("cache_creation"), dict):
+            sanitized["cache_creation"] = usage_data["cache_creation"]
         prompt_tokens_details = usage_data.get("prompt_tokens_details")
         if prompt_tokens_details is not None:
             if not isinstance(prompt_tokens_details, dict):
@@ -436,7 +439,7 @@ class ChatModelMixin:
     ) -> str:
         compiled_template = self._compile_jinja_template(chat_template)
         rendered = compiled_template.render(
-            messages=messages, add_generation_prompt=True, **kwargs
+            messages=messages, **{"add_generation_prompt": True, **kwargs}
         )
         return rendered
 
@@ -452,6 +455,32 @@ class ChatModelMixin:
                 prompt += parser.reasoning_start_tag
             return prompt + parser.reasoning_end_tag + "\n"
         return prompt
+
+    @staticmethod
+    def prefill_messages(messages: List[Dict]) -> List[Dict]:
+        """
+        Preprocess messages to ensure content is not None
+
+        Args:
+            messages: Original message list
+
+        Returns:
+            Processed message list, where content is not None
+        """
+        processed_messages = []
+
+        for msg in messages:
+            if isinstance(msg, dict):
+                if msg.get("content") is None:
+                    msg_copy = msg.copy()
+                    msg_copy["content"] = ""  # Replace None with empty string
+                    processed_messages.append(msg_copy)
+                else:
+                    processed_messages.append(msg)
+            else:
+                processed_messages.append(msg)
+
+        return processed_messages
 
     def get_full_context(
         self,
@@ -781,6 +810,8 @@ class ChatModelMixin:
                     "finish_reason": choice["finish_reason"],
                 }
             )
+            if "stop_sequence" in choice:
+                choices_list[-1]["stop_sequence"] = choice["stop_sequence"]
         assert choices is not None
         usage = (
             cls._sanitize_usage(chunk.get("usage"))
@@ -946,6 +977,10 @@ class ChatModelMixin:
                         previous_texts,
                         ensure_role=is_first_chunk,
                     )
+                    if is_first_chunk and ctx and ctx.get("_anthropic_request"):
+                        first_usage = cls._sanitize_usage(chunk.get("usage"))
+                        if first_usage is not None:
+                            r["usage"] = first_usage
                     is_first_chunk = False
                     fallback_chunk = chunk
             finally:
@@ -1091,6 +1126,8 @@ class ChatModelMixin:
                     "finish_reason": choice["finish_reason"],
                 }
             )
+            if "stop_sequence" in choice:
+                choices[-1]["stop_sequence"] = choice["stop_sequence"]
         return {
             "id": "chat" + completion["id"],
             "object": "chat.completion",
@@ -1254,6 +1291,11 @@ class ChatModelMixin:
                     # here so a real logprob is not collapsed to ``{"content": []}``.
                     "logprobs": c["choices"][0].get("logprobs"),
                     "finish_reason": finish_reason,
+                    **(
+                        {"stop_sequence": c["choices"][0]["stop_sequence"]}
+                        if "stop_sequence" in c["choices"][0]
+                        else {}
+                    ),
                 }
             ],
             "usage": usage,
@@ -1359,6 +1401,11 @@ class ChatModelMixin:
                         c["choices"][0].get("logprobs")
                     ),
                     "finish_reason": finish_reason,
+                    **(
+                        {"stop_sequence": c["choices"][0]["stop_sequence"]}
+                        if "stop_sequence" in c["choices"][0]
+                        else {}
+                    ),
                 }
             ],
             "usage": usage,
@@ -1543,6 +1590,10 @@ class ChatModelMixin:
                 previous_texts,
                 ensure_role=choice_chunk_idx == 0,
             )
+            if choice_chunk_idx == 0 and ctx and ctx.get("_anthropic_request"):
+                first_usage = self._sanitize_usage(completion_chunk.get("usage"))
+                if first_usage is not None:
+                    chat_chunk["usage"] = first_usage
             choice_chunk_idx += 1
             reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(chat_chunk)
             if reasoning_chunk is not None:

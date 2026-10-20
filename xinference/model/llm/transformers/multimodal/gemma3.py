@@ -98,10 +98,15 @@ class Gemma3ChatModel(PytorchMultiModalModel):
         self,
         generate_config: Dict,
     ) -> Dict[str, Any]:
-        return dict(
-            max_new_tokens=generate_config.get("max_tokens") or 512,
-            temperature=generate_config.get("temperature", 1),
-        )
+        temperature = generate_config.get("temperature", 1)
+        # Only zero selects greedy decoding; every positive temperature samples.
+        kwargs: Dict[str, Any] = {
+            "max_new_tokens": generate_config.get("max_tokens") or 512,
+            "do_sample": temperature != 0,
+        }
+        if kwargs["do_sample"]:
+            kwargs["temperature"] = temperature
+        return kwargs
 
     def build_streaming_iter(
         self,
@@ -119,6 +124,9 @@ class Gemma3ChatModel(PytorchMultiModalModel):
         )
 
         gen_kwargs = {"streamer": streamer, **inputs, **configs}
+        gen_kwargs["max_new_tokens"] = self._cap_context_max_new_tokens(
+            len(inputs["input_ids"][0]), gen_kwargs["max_new_tokens"]
+        )
         t = Thread(target=self._model.generate, kwargs=gen_kwargs)
         t.start()
         return streamer, len(inputs.input_ids[0])

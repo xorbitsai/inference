@@ -50,6 +50,7 @@ from packaging.utils import canonicalize_name
 from typing_extensions import NotRequired
 from xoscar.utils import get_next_port
 
+from ....cache_isolation import redact_cache_salt, validate_cache_salt
 from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import is_npu_available, is_vacc_available
 from ....types import (
@@ -144,6 +145,7 @@ class VLLMModelConfig(TypedDict, total=False):
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
+    cache_salt: Optional[str]
     lora_name: Optional[str]
     n: int
     best_of: Optional[int]
@@ -156,6 +158,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     temperature: float
     top_p: float
     top_k: int
+    thinking_token_budget: int
     max_tokens: int
     stop_token_ids: Optional[List[int]]
     stop: Optional[Union[str, List[str]]]
@@ -523,6 +526,7 @@ _update_vllm_supported_lists()
 
 
 class VLLMModel(WeightCachedModel, LLM):
+    supports_cache_salt = True
     _weight_cache_engine = "vllm"
     allow_batch = True
     support_draft_model = True
@@ -613,6 +617,7 @@ class VLLMModel(WeightCachedModel, LLM):
 
     async def async_prepare_anthropic_request(self, messages: List[Dict], config: Dict):
         self._validate_forced_tools(config)
+        self._apply_thinking_budget(dict(config))
         prepared = super().prepare_anthropic_request(messages, config)
         try:
             prepared["input_tokens"] = await self.async_count_tokens(
@@ -621,6 +626,37 @@ class VLLMModel(WeightCachedModel, LLM):
         except NotImplementedError:
             pass
         return prepared
+
+    def _apply_thinking_budget(self, config: Dict) -> None:
+        context = self._get_chat_template_kwargs_from_generate_config(config, self.reasoning_parser) or {}  # type: ignore[attr-defined]
+        budget = context.get("thinking_budget")
+        if budget is None or not context.get("enable_thinking"):
+            return
+        parser = self.reasoning_parser
+        if parser is None or not (
+            parser.reasoning_start_tag or parser.reasoning_end_tag
+        ):
+            return
+        from vllm import SamplingParams
+
+        reasoning = getattr(
+            getattr(getattr(self, "_engine", None), "vllm_config", None),
+            "reasoning_config",
+            None,
+        )
+        if (
+            "thinking_token_budget" not in inspect.signature(SamplingParams).parameters
+            or parser is None
+            or reasoning is None
+            or getattr(reasoning, "reasoning_start_str", None)
+            != parser.reasoning_start_tag
+            or getattr(reasoning, "reasoning_end_str", None) != parser.reasoning_end_tag
+        ):
+            raise NotImplementedError(
+                "vLLM thinking budgets require native thinking_token_budget support "
+                "and reasoning boundaries matching the Xinference parser"
+            )
+        config["thinking_token_budget"] = budget
 
     async def async_count_tokens(
         self, messages: List[Dict], config: Optional[Dict] = None
@@ -988,8 +1024,12 @@ class VLLMModel(WeightCachedModel, LLM):
         parser = getattr(self, "reasoning_parser", None)
         if parser is not None:
             from ....constants import XINFERENCE_CACHE_DIR
-            from .reasoning import configure_structured_reasoning
+            from .reasoning import (
+                configure_structured_reasoning,
+                configure_thinking_budget,
+            )
 
+            configure_thinking_budget(self._model_config, parser)
             configure_structured_reasoning(
                 self._model_config, parser, XINFERENCE_CACHE_DIR
             )
@@ -1580,6 +1620,34 @@ class VLLMModel(WeightCachedModel, LLM):
             model_config["speculative_config"],
         )
 
+    def _should_force_fp8(self) -> bool:
+        """Keep the FP8 fallback only when checkpoint metadata permits it."""
+        try:
+            with open(os.path.join(self.model_path, "config.json")) as f:
+                config = json.load(f)
+        except FileNotFoundError:
+            return True
+        except (OSError, ValueError) as e:
+            logger.warning("Cannot read checkpoint quantization config: %s", e)
+            return False
+
+        if not isinstance(config, dict):
+            return False
+        for section in (config, config.get("text_config")):
+            if section is None:
+                continue
+            if not isinstance(section, dict):
+                return False
+            quant_config = section.get("quantization_config")
+            if quant_config is None:
+                continue
+            if not isinstance(quant_config, dict):
+                return False
+            method = quant_config.get("quant_method")
+            if method is not None:
+                return isinstance(method, str) and method.lower() == "fp8"
+        return True
+
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
@@ -1652,7 +1720,11 @@ class VLLMModel(WeightCachedModel, LLM):
             )
         ):
             if model_config.get("quantization") in (None, "none"):
-                model_config["quantization"] = "fp8"
+                # Catalog FP8 checkpoints can use another vLLM quantizer,
+                # such as compressed-tensors. Let vLLM detect those itself.
+                model_config["quantization"] = (
+                    "fp8" if self._should_force_fp8() else None
+                )
         else:
             model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
@@ -1665,6 +1737,7 @@ class VLLMModel(WeightCachedModel, LLM):
             "compilation_config",
             "model_loader_extra_config",
             "structured_outputs_config",
+            "reasoning_config",
         ]
         for field in config_dict_list:
             if field in model_config:
@@ -1747,6 +1820,13 @@ class VLLMModel(WeightCachedModel, LLM):
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
         sanitized.setdefault("top_k", generate_config.get("top_k", -1))
+        if (
+            generate_config.get("_anthropic_request")
+            and generate_config.get("thinking_token_budget") is not None
+        ):
+            sanitized["thinking_token_budget"] = generate_config[
+                "thinking_token_budget"
+            ]
         sanitized.setdefault(  # type: ignore
             "max_tokens",
             generate_config.get("max_tokens", XINFERENCE_MAX_TOKENS)  # type: ignore
@@ -1934,7 +2014,10 @@ class VLLMModel(WeightCachedModel, LLM):
 
     @staticmethod
     def _convert_request_output_to_completion_chunk(
-        request_id: str, model: str, request_output: "RequestOutput"
+        request_id: str,
+        model: str,
+        request_output: "RequestOutput",
+        include_stop_sequence: bool = False,
     ) -> Tuple[CompletionChunk, Optional[str]]:
         choices: List[CompletionChoice] = []
         finish_reason = None
@@ -1949,6 +2032,12 @@ class VLLMModel(WeightCachedModel, LLM):
                     finish_reason=None,
                 )
             )
+            if (
+                include_stop_sequence
+                and output.finish_reason == "stop"
+                and isinstance(getattr(output, "stop_reason", None), str)
+            ):
+                choices[-1]["stop_sequence"] = output.stop_reason
             finish_reason = output.finish_reason
         return (
             CompletionChunk(
@@ -1979,7 +2068,10 @@ class VLLMModel(WeightCachedModel, LLM):
 
     @staticmethod
     def _convert_request_output_to_completion(
-        request_id: str, model: str, request_output: "RequestOutput"
+        request_id: str,
+        model: str,
+        request_output: "RequestOutput",
+        include_stop_sequence: bool = False,
     ) -> Completion:
         choices = []
         prompt = getattr(request_output, "prompt", None)
@@ -1993,6 +2085,12 @@ class VLLMModel(WeightCachedModel, LLM):
                     finish_reason=output.finish_reason,
                 )
             )
+            if (
+                include_stop_sequence
+                and output.finish_reason == "stop"
+                and isinstance(getattr(output, "stop_reason", None), str)
+            ):
+                choices[-1]["stop_sequence"] = output.stop_reason
 
         usage = VLLMModel._get_completion_usage(request_output)
         return Completion(
@@ -2083,6 +2181,7 @@ class VLLMModel(WeightCachedModel, LLM):
         tools: object = False,
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
+        cache_salt = validate_cache_salt((generate_config or {}).get("cache_salt"))
         try:
             from vllm.sampling_params import SamplingParams
         except ImportError:
@@ -2093,6 +2192,26 @@ class VLLMModel(WeightCachedModel, LLM):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        use_native_cache_salt = False
+        if cache_salt is not None:
+            use_native_cache_salt = (
+                VLLM_VERSION >= version.parse("0.11.0") or self._is_vllm_v1()
+            )
+            if use_native_cache_salt and VLLM_VERSION < version.parse("0.11.0"):
+                from vllm.inputs.data import TextPrompt, TokensPrompt
+
+                if not all(
+                    "cache_salt" in prompt_type.__annotations__
+                    for prompt_type in (TextPrompt, TokensPrompt)
+                ):
+                    raise ValueError("This vLLM V1 version does not support cache_salt")
+            if not use_native_cache_salt:
+                if not getattr(self, "_xavier_config", None):
+                    raise ValueError("cache_salt on legacy vLLM requires Xavier")
+                from .xavier.legacy_salt import XavierSamplingParams
+
+                SamplingParams = XavierSamplingParams
 
         require_structured = (generate_config or {}).pop(
             "_require_structured_output", False
@@ -2122,7 +2241,11 @@ class VLLMModel(WeightCachedModel, LLM):
             generate_config["skip_special_tokens"] = False
 
         anthropic = bool((generate_config or {}).get("_anthropic_request"))
+        if anthropic and generate_config is not None:
+            self._apply_thinking_budget(generate_config)
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
+        if cache_salt is not None and not use_native_cache_salt:
+            sanitized_generate_config["cache_salt"] = cache_salt
         if self._use_legacy_constraints(sanitized_generate_config, anthropic):
             if isinstance(prompt, str):
                 prompt = ChatModelMixin._close_reasoning_prompt(
@@ -2136,7 +2259,9 @@ class VLLMModel(WeightCachedModel, LLM):
                     ),
                 }
         logger.debug(
-            "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
+            "Enter generate, prompt: %s, generate config: %s",
+            prompt,
+            redact_cache_salt(generate_config),
         )
 
         lora_model = sanitized_generate_config.pop("lora_name")
@@ -2356,7 +2481,15 @@ class VLLMModel(WeightCachedModel, LLM):
                 xavier_config,
                 cast(Dict[str, Any], prompt_or_token_ids)["prompt_token_ids"],
                 sampling_params.extra_args["kv_transfer_params"],
+                cache_salt,
             )
+
+        if use_native_cache_salt:
+            if isinstance(prompt_or_token_ids, str):
+                prompt_or_token_ids = {"prompt": prompt_or_token_ids}
+            elif isinstance(prompt_or_token_ids, list):
+                prompt_or_token_ids = {"prompt_token_ids": prompt_or_token_ids}
+            prompt_or_token_ids = {**prompt_or_token_ids, "cache_salt": cache_salt}
 
         assert self._engine is not None
         start_wall_time = time.time()
@@ -2395,6 +2528,7 @@ class VLLMModel(WeightCachedModel, LLM):
                     request_id=request_id,
                     model=self.model_uid,
                     request_output=_request_output,
+                    include_stop_sequence=anthropic,
                 )
 
                 for i, choice in enumerate(chunk["choices"]):
@@ -2487,6 +2621,10 @@ class VLLMModel(WeightCachedModel, LLM):
                 total_tokens=total_tokens,
             )
             final_chunk["usage"] = usage
+            if chunk and chunk["choices"] and "stop_sequence" in chunk["choices"][0]:
+                final_chunk["choices"][0]["stop_sequence"] = chunk["choices"][0][
+                    "stop_sequence"
+                ]
             yield final_chunk
 
             if include_usage:
@@ -2518,7 +2656,10 @@ class VLLMModel(WeightCachedModel, LLM):
                 raise RuntimeError(transfer["xavier_error"])
             self._log_pd_request_metrics(final_output)
             completion = self._convert_request_output_to_completion(
-                request_id, model=self.model_uid, request_output=final_output
+                request_id,
+                model=self.model_uid,
+                request_output=final_output,
+                include_stop_sequence=anthropic,
             )
             from .xavier.transport import uses_direct_handoff
 
@@ -2757,32 +2898,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def is_tool_call_chunk_end(chunk):
         return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
 
-    @staticmethod
-    def prefill_messages(messages: List[Dict]) -> List[Dict]:
-        """
-        Preprocess messages to ensure content is not None
-
-        Args:
-            messages: Original message list
-
-        Returns:
-            Processed message list, where content is not None
-        """
-        processed_messages = []
-
-        for msg in messages:
-            if isinstance(msg, dict):
-                if msg.get("content") is None:
-                    msg_copy = msg.copy()
-                    msg_copy["content"] = ""  # Replace None with empty string
-                    processed_messages.append(msg_copy)
-                else:
-                    processed_messages.append(msg)
-            else:
-                processed_messages.append(msg)
-
-        return processed_messages
-
     async def _prepare_chat_inputs(
         self, messages: List[Dict], generate_config: Optional[Dict]
     ):
@@ -2982,7 +3097,8 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             if effective_version < version.parse("0.30.0.dev0"):
                 return (
                     False,
-                    "DeepSeek-V4.1-Flash requires vLLM >= 0.30.0.dev0 (nightly with DeepseekV41 support)",
+                    f"{llm_family.model_name} requires vLLM >= 0.30.0.dev0 "
+                    f"(nightly with DeepseekV41 support); found {effective_version}",
                 )
             _append_unique(supported_architectures, "DeepseekV41ForCausalLM")
         if effective_version >= version.parse("0.22.0"):
@@ -3340,6 +3456,10 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     audios = await asyncio.to_thread(
                         process_audio_info, messages, use_audio_in_video=False
                     )
+                    if "vision" in self.model_family.model_ability:
+                        images, videos, video_kwargs = await asyncio.to_thread(
+                            process_vision_info, messages, return_video_kwargs=True
+                        )
                 elif "vision" in self.model_family.model_ability:
                     images, videos, video_kwargs = await asyncio.to_thread(  # type: ignore
                         process_vision_info, messages, return_video_kwargs=True

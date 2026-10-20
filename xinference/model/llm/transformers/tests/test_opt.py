@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -24,6 +26,7 @@ from ..core import PytorchModel
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("quantization", ["none"])
+@pytest.mark.platform_slow
 async def test_opt_pytorch_model(setup, quantization):
     endpoint, _ = setup
     client = Client(endpoint)

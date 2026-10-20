@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from ..deepseek_v3_1_tool_parser import DeepseekV3_1ToolParser
@@ -376,3 +378,29 @@ def test_extract_tool_calls_invalid_json():
     result_stream = parser.extract_tool_calls_streaming(previous, current, delta)
     # Since JSON is invalid, it won't extract. It returns None (swallowing content).
     assert result_stream is None
+
+
+def test_extract_tool_calls_streaming_long_calls_in_small_deltas():
+    parser = DeepseekV3_1ToolParser()
+    first = {"path": "main.py", "content": "print(1)\n" * 500}
+    second = {"path": "b.py", "content": "x = 1"}
+    deltas = ["Writing.", "<｜tool▁calls▁begin｜>"]
+    for arguments in (first, second):
+        args = json.dumps(arguments)
+        deltas += ["<｜tool▁call▁begin｜>", "write_file", "<｜tool▁sep｜>"]
+        deltas += [args[i : i + 3] for i in range(0, len(args), 3)]
+        deltas += ["<｜tool▁call▁end｜>"]
+    deltas += ["<｜tool▁calls▁end｜>"]
+
+    previous_texts = [""]
+    calls = []
+    for delta in deltas:
+        current_text = previous_texts[-1] + delta
+        result = parser.extract_tool_calls_streaming(
+            previous_texts, current_text, delta
+        )
+        previous_texts[-1] = current_text
+        if result is not None and result[1] is not None:
+            calls.append(result)
+
+    assert calls == [(None, "write_file", first), (None, "write_file", second)]

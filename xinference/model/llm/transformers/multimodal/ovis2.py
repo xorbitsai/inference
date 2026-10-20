@@ -245,6 +245,9 @@ class Ovis2ChatModel(PytorchMultiModalModel):
         input_ids = inputs.pop("input_ids")
 
         gen_kwargs = dict(**inputs, **config, streamer=streamer)
+        gen_kwargs["max_new_tokens"] = self._cap_context_max_new_tokens(
+            inputs["inputs_embeds"].shape[-2], gen_kwargs["max_new_tokens"]
+        )
 
         thread = Thread(target=self._model.llm.generate, kwargs=gen_kwargs)
         thread.start()

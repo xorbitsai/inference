@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from .database import Database
+from .auth_store import AuthStore
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class ApiKeyCacheEntry:
 
 
 class ApiKeyCache:
-    def __init__(self, db: Database):
+    def __init__(self, db: AuthStore):
         self._db = db
         self._cache: Dict[str, ApiKeyCacheEntry] = {}
         self._lock = threading.RLock()

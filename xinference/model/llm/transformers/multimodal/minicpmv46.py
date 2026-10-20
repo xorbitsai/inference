@@ -227,13 +227,14 @@ class MiniCPMV46Model(PytorchMultiModalModel):
         # Note: do NOT include downsample_mode here. If the inputs were built
         # without visual content, model.generate() should not receive that
         # kwarg either (passing it triggers vision-tower paths).
-        return {
+        kwargs: Dict[str, Any] = {
             "max_new_tokens": max_new_tokens,
-            "temperature": temperature,
-            "top_p": top_p,
-            "top_k": top_k,
+            "do_sample": temperature is not None and temperature > 0,
             "repetition_penalty": repetition_penalty,
         }
+        if kwargs["do_sample"]:
+            kwargs.update(temperature=temperature, top_p=top_p, top_k=top_k)
+        return kwargs
 
     def build_streaming_iter(
         self,
@@ -260,6 +261,9 @@ class MiniCPMV46Model(PytorchMultiModalModel):
             config["downsample_mode"] = self._pytorch_model_config.get(
                 "downsample_mode", "16x"
             )
+        config["max_new_tokens"] = self._cap_context_max_new_tokens(
+            len(inputs["input_ids"][0]), config["max_new_tokens"]
+        )
 
         def model_generate():
             try:

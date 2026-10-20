@@ -61,7 +61,6 @@ dependencies = [
     "aioprometheus[starlette]>=23.12.0",
     "httpx",
     "nvidia-ml-py",
-    "pynvml>=12",
     "async-timeout",
     # peft 0.17.1 and below import HybridCache at module level, which was
     # removed in transformers 5.0.0. peft declares an unbounded transformers
@@ -196,7 +195,8 @@ sglang = [
     "sglang[srt]>=0.4.2.post4 ; sys_platform=='linux'",
 ]
 mlx = [
-    "mlx-lm>=0.21.5 ; sys_platform=='darwin' and platform_machine=='arm64'",
+    "llguidance>=1.7.0 ; sys_platform=='darwin' and platform_machine=='arm64'",
+    "mlx-lm>=0.31.3 ; sys_platform=='darwin' and platform_machine=='arm64'",
     "mlx-vlm>=0.3.4 ; sys_platform=='darwin' and platform_machine=='arm64'",
     "mlx-whisper ; sys_platform=='darwin' and platform_machine=='arm64'",
     "f5-tts-mlx ; sys_platform=='darwin' and platform_machine=='arm64'",
@@ -354,6 +354,9 @@ extend-exclude = '''
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "platform_slow: model download/inference integration tests excluded from fast Windows/macOS checks; unmarked tests run by default",
+]
 
 [tool.coverage.run]
 branch = true

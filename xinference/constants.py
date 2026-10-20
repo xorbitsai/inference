@@ -631,6 +631,11 @@ XINFERENCE_RATE_LIMIT_KEY_BAN_SECONDS = int(
 # Trusted proxy IPs — only honor X-Forwarded-For/X-Real-IP from these peers
 XINFERENCE_TRUSTED_PROXIES = os.environ.get("XINFERENCE_TRUSTED_PROXIES", "")
 
+# Enforce caller-provided or extension-provided cache scopes at inference ingress.
+XINFERENCE_REQUIRE_CACHE_SALT = bool(
+    int(os.environ.get("XINFERENCE_REQUIRE_CACHE_SALT", "0"))
+)
+
 # Slow HTTP DoS (Slowloris, CVE-2007-6750) protection: max seconds allowed to
 # receive a complete HTTP request (headers + body). 0 disables the protection.
 XINFERENCE_HTTP_REQUEST_TIMEOUT = float(

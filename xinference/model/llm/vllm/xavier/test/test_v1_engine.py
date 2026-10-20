@@ -4,11 +4,30 @@ import importlib.util
 import json
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Optional
 from unittest.mock import Mock
 
 import pytest
+
+
+@dataclass
+class KVTransferConfig032:
+    # Strict subset of vLLM 0.32's fields used by the adapter.
+    kv_connector: str
+    kv_connector_module_path: str
+    engine_id: Optional[str]
+    kv_role: str
+    kv_connector_extra_config: dict
+    kv_load_failure_policy: str
+
+
+@dataclass
+class LegacyKVTransferConfig(KVTransferConfig032):
+    kv_rank: Optional[int] = None
+    kv_parallel_size: int = 1
 
 
 @pytest.fixture
@@ -23,7 +42,9 @@ def engine(monkeypatch):
         SimpleNamespace(AsyncEngineArgs=object, __version__="0.21.0"),
     )
     monkeypatch.setitem(
-        sys.modules, "vllm.config", SimpleNamespace(KVTransferConfig=SimpleNamespace)
+        sys.modules,
+        "vllm.config",
+        SimpleNamespace(KVTransferConfig=LegacyKVTransferConfig),
     )
     monkeypatch.setitem(
         sys.modules,
@@ -45,20 +66,39 @@ def engine(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "role,kv_role",
-    [("prefill", "kv_producer"), ("decode", "kv_consumer"), ("hybrid", "kv_both")],
+    "role,kv_role,kv_rank",
+    [
+        ("prefill", "kv_producer", 0),
+        ("decode", "kv_consumer", 1),
+        ("hybrid", "kv_both", 2),
+    ],
 )
-def test_v1_connector_configuration(engine, role, kv_role):
+@pytest.mark.parametrize("vllm_version", ["0.21.0", "0.31.0", "0.32.0"])
+@pytest.mark.parametrize("overrides", [{}, {"kv_rank": 3, "kv_parallel_size": 4}])
+def test_v1_connector_configuration(
+    engine, monkeypatch, role, kv_role, kv_rank, vllm_version, overrides
+):
     module, factory = engine
+    module.VLLM_VERSION = vllm_version
+    transfer_config = (
+        KVTransferConfig032 if vllm_version == "0.32.0" else LegacyKVTransferConfig
+    )
+    monkeypatch.setattr(sys.modules["vllm.config"], "KVTransferConfig", transfer_config)
     args = SimpleNamespace(
         additional_config={"custom": 1},
         enforce_eager=False,
         create_model_config=lambda: SimpleNamespace(is_hybrid=False),
     )
-    config = {"role": role, "rank": 2, "block_tracker_uid": b"tracker"}
+    config = {"role": role, "rank": 2, "block_tracker_uid": b"tracker", **overrides}
     module.XavierEngine.from_engine_args(args, xavier_config=config)
     assert args.kv_transfer_config.kv_role == kv_role
     assert args.kv_transfer_config.kv_connector == "XavierConnector"
+    assert args.kv_transfer_config.kv_load_failure_policy == "recompute"
+    if vllm_version != "0.32.0":
+        assert args.kv_transfer_config.kv_rank == overrides.get("kv_rank", kv_rank)
+        assert args.kv_transfer_config.kv_parallel_size == overrides.get(
+            "kv_parallel_size", 2
+        )
     assert args.additional_config["custom"] == 1
     assert args.additional_config == {"custom": 1}
     assert (
@@ -71,7 +111,12 @@ def test_v1_connector_configuration(engine, role, kv_role):
     assert not args.enforce_eager
     assert getattr(args, "disable_hybrid_kv_cache_manager", None) is None
     assert args.enable_prefix_caching is True
-    assert config == {"role": role, "rank": 2, "block_tracker_uid": b"tracker"}
+    assert config == {
+        "role": role,
+        "rank": 2,
+        "block_tracker_uid": b"tracker",
+        **overrides,
+    }
     factory.assert_called_once()
 
 

@@ -137,17 +137,6 @@ class MiniCPMV47Model(MiniCPMV46Model):
                 **template_kwargs,
             ).to(self._model.device)
 
-    def build_generate_kwargs(self, generate_config: Dict) -> Dict[str, Any]:
-        kwargs = super().build_generate_kwargs(generate_config)
-        temperature = kwargs.pop("temperature")
-        kwargs["do_sample"] = temperature is not None and temperature > 0
-        if kwargs["do_sample"]:
-            kwargs["temperature"] = temperature
-        else:
-            kwargs.pop("top_p")
-            kwargs.pop("top_k")
-        return kwargs
-
     def build_streaming_iter(
         self, messages: List[Dict], generate_config: Dict
     ) -> Tuple[Iterator, int]:
@@ -160,6 +149,9 @@ class MiniCPMV47Model(MiniCPMV46Model):
         if self._has_visual_content(messages):
             # Placeholder count and vision encoding must use the same mode.
             config["downsample_mode"] = self._get_downsample_mode(generate_config)
+        config["max_new_tokens"] = self._cap_context_max_new_tokens(
+            len(inputs["input_ids"][0]), config["max_new_tokens"]
+        )
         streamer = TextIteratorStreamer(
             self._tokenizer, timeout=60.0, skip_prompt=True, skip_special_tokens=True
         )

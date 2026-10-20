@@ -746,8 +746,8 @@ msgid "The supervisor verifies matching worker extensions and supplies the live 
 msgstr "Supervisor 校验 Worker 扩展是否一致，并向资源过滤器提供当前在线的 Worker 清单。过滤器可以缩小可见 GPU 索引范围，也可以抛出异常拒绝准入，包括 CPU 模型启动。资源分配和进程创建均检查策略，覆盖准备与恢复路径。具名控制操作在 Supervisor 上运行；扩展必须校验操作名和参数。默认前端导航配置为空，发行版构建可以组合自己的配置。"
 
 #: ../../development/xinference_internals.rst
-msgid "Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
-msgstr "工厂和全部四个 hook 必须同步且不阻塞；返回可等待对象会被拒绝。API 和 Actor 在启动时加载配置的工厂，之后才处理请求或注册 Worker。Actor hook 在 Actor 的事件循环上运行。"
+msgid "Factories and runtime hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "工厂和运行时 hook 必须同步且不阻塞；返回可等待对象会被拒绝。API 和 Actor 在启动时加载配置的工厂，之后才处理请求或注册 Worker。Actor hook 在 Actor 的事件循环上运行。"
 
 #: ../../development/xinference_internals.rst
 msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
@@ -756,3 +756,39 @@ msgstr "``context.auth_enabled`` 表示服务器整体的认证配置，而非�
 #: ../../development/xinference_internals.rst
 msgid "Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement."
 msgstr "资源策略用于模型调度、分配和进程创建，并在 GPU 清理前检查。仅缓存或下载的 Worker 调度不受此过滤。"
+
+#: ../../development/xinference_internals.rst
+msgid "Extensions may optionally implement synchronous, non-blocking ``model_catalog_credentials(request, model_type)``. For ``POST /v1/models/update_type``, this hook runs after the configured authentication and ``models:register`` permission checks. Return ``xinference.extensions.ModelCatalogCredentials(token=...)`` to supply a server-owned catalog token, or ``None`` to keep anonymous refresh. Existing extensions need no changes. Multiple credential providers and provider failures reject the refresh without an anonymous retry. Providers must keep tokens out of their own logs and HTTP error details or headers."
+msgstr "扩展可以选择实现同步、非阻塞的 ``model_catalog_credentials(request, model_type)``。对于 ``POST /v1/models/update_type``，此钩子在配置的身份认证和 ``models:register`` 权限检查通过后执行。返回 ``xinference.extensions.ModelCatalogCredentials(token=...)`` 可提供服务端管理的目录 token，返回 ``None`` 则保持匿名刷新。现有扩展无需修改。多个凭据提供方或提供方执行失败会拒绝刷新，不会以匿名方式重试。提供方必须确保自己的日志以及 HTTP 错误详情和响应头中不包含 token。"
+
+#: ../../development/xinference_internals.rst
+msgid "Credentials travel only with that refresh through the supervisor to each worker, which sends ``X-Models-Token`` to ``https://model.xinference.io/api/models/download``. Xinference does not persist the token or export it to the process environment; its credential object hides the token in actor argument logs. Credentialed requests reject redirects. Remote errors are sanitized, and unavailable or failing workers cause the refresh to fail. Workers that already updated are not rolled back; retry after correcting the failure. Update all runtime nodes before using this hook. Catalog updates affect the shared model registry; this hook does not provide per-user model visibility or model-weight download credentials."
+msgstr "凭据仅随本次刷新经 supervisor 传递至各 worker，worker 通过 ``X-Models-Token`` 将其发送至 ``https://model.xinference.io/api/models/download``。Xinference 不会持久化 token，也不会将其导出至进程环境；凭据对象会在 actor 参数日志中隐藏 token。携带凭据的请求拒绝重定向。远端错误会经过脱敏处理；没有可用 worker 或有 worker 失败时，刷新会失败。已经更新的 worker 不会回滚；修复故障后可重试。使用此钩子前请更新所有运行节点。目录更新影响共享的模型注册表；此钩子不提供按用户隔离的模型可见性，也不提供模型权重下载凭据。"
+
+#: ../../development/xinference_internals.rst
+msgid "Malformed request bodies return HTTP 400. Credential provider failures return HTTP 500; explicit HTTP errors from providers keep their status and headers. Worker refresh failures return HTTP 502. No available workers or an unreachable supervisor return HTTP 503."
+msgstr "非法请求体返回 HTTP 400。凭据提供方执行失败返回 HTTP 500；提供方显式抛出的 HTTP 错误保留其状态码和响应头。Worker 刷新失败返回 HTTP 502。没有可用 Worker 或无法联系 Supervisor 时返回 HTTP 503。"
+
+#: ../../development/xinference_internals.rst
+msgid "To refresh one model, send ``POST /v1/models/update_spec`` with ``model_type`` and ``model_name``. It uses the same credential hook and ``models:register`` permission. The catalog response must contain one record or a non-empty list of variants, all with the requested ``model_name``. Only that model is replaced in the downloaded catalog; other downloaded models and packaged built-ins remain available. Full-category refresh through ``/v1/models/update_type`` is unchanged. Both paths coordinate file writes and publish complete JSON atomically. Upgrade the API, supervisor and all workers together before using the new endpoint."
+msgstr "刷新单个模型时，向 ``POST /v1/models/update_spec`` 发送 ``model_type`` 和 ``model_name``。此接口使用相同的凭据钩子和 ``models:register`` 权限。目录响应必须包含一条记录或非空的变体列表，所有记录的 ``model_name`` 均须与请求一致。仅替换下载目录中的该模型；其他已下载模型和随包提供的内置模型继续可用。``/v1/models/update_type`` 的整类刷新行为保持不变。两个入口协调文件写入，并以原子方式发布完整 JSON。使用新接口前，请一起升级 API、Supervisor 和所有 Worker。"
+
+#: ../../development/xinference_internals.rst
+msgid "For family-shaped world records, ``model_family`` is used when the top-level ``model_name`` is absent. Before a single-model update is published, the merged catalog must load successfully through the existing model-family loaders. Single-model downloads request the Hub README; a later full-category refresh replaces the catalog with the full-download response, which may omit README fields."
+msgstr "对于按模型族组织的 world 记录，顶层缺少 ``model_name`` 时使用 ``model_family``。发布单模型更新前，合并后的目录必须能通过现有模型族 loader 成功加载。单模型下载会请求 Hub 的 README；之后的整类刷新会用完整下载响应替换目录，该响应可能不包含 README 字段。"
+
+#: ../../development/xinference_internals.rst
+msgid "Advanced-auth storage"
+msgstr "高级认证存储"
+
+#: ../../development/xinference_internals.rst
+msgid "Extensions may optionally implement ``create_auth_store(context)`` to select advanced-auth storage before the authentication service is initialized. ``AuthStoreContext`` supplies ``db_path`` (the requested default SQLite path) and ``purpose``: ``service``, ``reset_password`` or ``migrate``. Return an object implementing ``xinference.api.oauth2.advanced.auth_store.AuthStore``, or ``None`` to retain SQLite. At most one extension may provide this hook; multiple providers are rejected before either is called. Provider failures or invalid stores abort initialization without falling back to SQLite."
+msgstr "扩展可以实现可选的 ``create_auth_store(context)``，在认证服务初始化前选择存储。``AuthStoreContext`` 提供 ``db_path``（请求的默认 SQLite 路径）和 ``purpose``：``service``、``reset_password`` 或 ``migrate``。返回实现 ``xinference.api.oauth2.advanced.auth_store.AuthStore`` 的对象，或返回 ``None`` 保持 SQLite。最多只能有一个扩展提供该 hook；多个提供方会在任何调用前被拒绝。提供方失败或返回无效存储时会中止初始化，不会回退 SQLite。"
+
+#: ../../development/xinference_internals.rst
+msgid "The store keeps the existing method signatures, row dictionaries and API-key name validation errors. It provides a mutable ``permission_resolver`` and a ``path`` property containing the local SQLite ``pathlib.Path`` or ``None`` for other storage. Setup, refresh-token rotation and password updates with token revocation must be atomic across processes; user deletion must preserve the existing dependent-record cleanup. Database drivers, schema upgrades and backend-specific configuration belong to the provider."
+msgstr "存储保持现有方法签名、行字典和 API Key 名称校验错误，提供可修改的 ``permission_resolver`` 以及 ``path`` 属性：本地 SQLite 的 ``pathlib.Path``，或其他存储的 ``None``。首次设置、刷新令牌轮换以及密码修改与令牌吊销必须跨进程保持原子性；删除用户必须保留现有的关联记录清理行为。数据库驱动、schema 升级和后端专属配置由提供方负责。"
+
+#: ../../development/xinference_internals.rst
+msgid "The API service, offline administrator-password recovery and legacy JSON auth importer use the same selection mechanism. With a provider configured, ``--db-path`` is passed to its context; it does not override the provider's connection configuration. Use the same extension and backend configuration for the service and these tools. Unlike request/actor hooks, this synchronous initialization hook may connect to storage during startup. Store operations remain synchronous; asynchronous or incomplete implementations are rejected. Providers must keep connection credentials out of logs and error messages. Without a provider, SQLite behavior and dependencies are unchanged."
+msgstr "API 服务、离线管理员密码恢复和旧 JSON 鉴权导入使用同一选择机制。配置提供方后，``--db-path`` 传入其上下文，不会覆盖提供方的连接配置。服务与这些工具应使用相同的扩展和后端配置。与请求/Actor hook 不同，此同步初始化 hook 可以在启动时连接存储。存储操作保持同步；异步或不完整实现会被拒绝。提供方不得在日志或错误消息中输出连接凭据。未配置提供方时，SQLite 行为和依赖保持不变。"

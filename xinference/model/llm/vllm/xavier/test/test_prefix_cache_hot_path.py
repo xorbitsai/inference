@@ -1,5 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+# CI: linux
 import asyncio
 import socket
 import weakref
@@ -95,7 +96,7 @@ def test_cold_long_prompt_probes_only_first_uncached_block(connector):
     connector._query_remote_blocks = AsyncMock(return_value={})
     connector._build_xavier_hashes = Mock(wraps=connector._build_xavier_hashes)
     assert connector.get_num_new_matched_tokens(request, 0) == (0, False)
-    connector._build_xavier_hashes.assert_called_once_with(list(range(16)))
+    connector._build_xavier_hashes.assert_called_once_with(list(range(16)), None)
     queried = connector._query_remote_blocks.await_args.args[1]
     assert len(queried) == 1 and queried[0][1] == 0
 

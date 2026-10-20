@@ -1178,8 +1178,13 @@ def is_valid_model_name(model_name: str) -> bool:
     if len(model_name) == 0:
         return False
 
-    # check if contains +/?%#&=\s
-    return re.match(r"^[^+\/?%#&=\s]*$", model_name) is not None
+    # The name is used as a file name under the model directory, so it must
+    # not contain a path separator (backslash on Windows) or be "." or "..".
+    if model_name in (".", ".."):
+        return False
+
+    # check if contains +\/?%#&=\s
+    return re.match(r"^[^+\\/?%#&=\s]*$", model_name) is not None
 
 
 def parse_uri(uri: str) -> Tuple[str, str]:

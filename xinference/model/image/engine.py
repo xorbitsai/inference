@@ -21,6 +21,7 @@ from .engine_family import SUPPORTED_ENGINES, ImageEngineModel
 from .hidream_o1 import HIDREAM_O1_MODEL_NAMES, HiDreamO1Model
 from .iris import IrisModel
 from .ming_image import MingImageModel
+from .moss_image import MOSSImageModel
 from .sensenova_u1 import SenseNovaU1Model
 from .sglang.core import SGLANG_SUPPORTED_IMAGE_MODELS, SGLangDiffusionModel
 from .stable_diffusion.core import DiffusionModel
@@ -43,7 +44,18 @@ class DiffusersImageModel(DiffusionModel, ImageEngineModel):
             "docanalyze",
             "ming_image",
             "iris",
+            "moss_image",
         )
+
+
+class MOSSDiffusersImageModel(MOSSImageModel, ImageEngineModel):
+    engine_model_format = "diffusers"
+    engine_quantization = "none"
+    required_libs = ("torch", "diffusers", "transformers")
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        return model_family.model_family == "moss_image"
 
 
 class TransformersSenseNovaU1ImageModel(SenseNovaU1Model, ImageEngineModel):
@@ -141,6 +153,7 @@ def register_builtin_image_engines() -> None:
     SUPPORTED_ENGINES["diffusers"] = [
         HiDreamO1ImageModel,
         MingImageEngineModel,
+        MOSSDiffusersImageModel,
         DiffusersImageModel,
     ]
     SUPPORTED_ENGINES["transformers"] = [

@@ -152,6 +152,16 @@ class DeepseekV3_1ToolParser(ToolParser):
             if new_pattern_start in current_text:
                 # Calculate tool calls in previous and current text to detect new completions
                 full_previous_text = "".join(previous_text)
+                # Every match ends with the call end token, so the number of
+                # complete calls can only grow when this delta adds one.
+                call_end = "<｜tool▁call▁end｜>"
+                if current_text.startswith(full_previous_text) and (
+                    current_text.find(
+                        call_end, max(len(full_previous_text) - len(call_end) + 1, 0)
+                    )
+                    == -1
+                ):
+                    return None
                 previous_tool_calls = self.new_tool_calls_regex.findall(
                     full_previous_text
                 )

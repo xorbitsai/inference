@@ -753,6 +753,7 @@ def test_virtualenv_override_disabled_marks_unavailable():
     assert isinstance(engine_params["SGLang"], str)
 
 
+@pytest.mark.platform_slow
 async def test_download_hugginface():
     import os
 
@@ -810,6 +811,7 @@ async def test_download_hugginface():
             shutil.rmtree(cache_dir)
 
 
+@pytest.mark.platform_slow
 async def test_download_modelscope():
     import os
 
@@ -867,6 +869,7 @@ async def test_download_modelscope():
             shutil.rmtree(cache_dir)
 
 
+@pytest.mark.platform_slow
 async def test_cancel():
     from ..llm import BUILTIN_LLM_FAMILIES
     from ..llm.cache_manager import LLMCacheManager as CacheManager

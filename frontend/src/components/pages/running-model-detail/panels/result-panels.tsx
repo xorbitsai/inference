@@ -6,6 +6,7 @@ import { Binary, Download, ImageIcon, LoaderCircle, Sparkles } from 'lucide-reac
 import ReactMarkdown from '@/components/ui/markdown-renderer';
 import { MediaPreview } from '@/components/ui/media-preview';
 import { Progress } from '@/components/ui/progress';
+import { ProgressTiming } from '@/components/ui/progress-timing';
 import type { FormValues } from '@/types/form';
 import type { AudioEmbeddingResponse, CompletionResponse } from '@/types/services';
 import { ModelAbility } from '@/constants';
@@ -43,7 +44,10 @@ function EmptyResult({ label }: { label?: string }) {
   );
 }
 
-function Generating({ progress }: { progress?: number }) {
+function Generating({
+  progress,
+  progressTiming,
+}: Pick<CapabilityResultProps, 'progress' | 'progressTiming'>) {
   const { t } = useI18n();
   const hasProgress = progress !== undefined;
 
@@ -85,6 +89,7 @@ function Generating({ progress }: { progress?: number }) {
           </div>
         </div>
       )}
+      {progressTiming && <ProgressTiming timing={progressTiming} />}
     </div>
   );
 }
@@ -506,6 +511,7 @@ export function UniversalResultPanel({
   values,
   loading,
   progress,
+  progressTiming,
   ability,
 }: CapabilityResultProps) {
   const { t } = useI18n();
@@ -514,7 +520,7 @@ export function UniversalResultPanel({
     !isAudioStreamResult(result) &&
     !(ability === ModelAbility.Generate && (result as CompletionResponse)?.choices?.[0]?.text)
   ) {
-    return <Generating progress={progress} />;
+    return <Generating progress={progress} progressTiming={progressTiming} />;
   }
 
   if (result === undefined) {

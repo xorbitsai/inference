@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Migration script: old auth config JSON → new SQLite-based advanced auth."""
+"""Migration script: old auth config JSON → selected advanced auth store."""
 
 import argparse
 import base64
@@ -20,8 +20,9 @@ import logging
 import sys
 from pathlib import Path
 
+from .auth_store import create_auth_store
 from .crypto import aes_encrypt, derive_encryption_key, get_password_hash, sha256_hex
-from .database import ApiKeyNameConflictError, Database
+from .database import ApiKeyNameConflictError
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def migrate(
         print("--- END DRY RUN ---")
         return
 
-    db = Database(db_path)
+    db = create_auth_store(db_path, purpose="migrate")
     if db.user_count() > 0 and not force:
         print("ERROR: Target database already has users. Use --force to overwrite.")
         sys.exit(1)
@@ -102,18 +103,23 @@ def migrate(
                     suffix += 1
             print(f"    Migrated key: {key_prefix}...")
 
-    print(f"\nMigration complete. {len(users_config)} users migrated to {db_path}")
+    destination = f" to {db.path}" if db.path is not None else ""
+    print(f"\nMigration complete. {len(users_config)} users migrated{destination}")
 
 
 def main():
     parser = argparse.ArgumentParser(
         prog="xinference-migrate-auth",
-        description="Migrate old xinference auth config to new SQLite-based system",
+        description="Migrate old xinference auth config to the selected auth store",
     )
     parser.add_argument(
         "--auth-config", required=True, help="Path to old auth config JSON"
     )
-    parser.add_argument("--db-path", required=True, help="Path to new SQLite database")
+    parser.add_argument(
+        "--db-path",
+        required=True,
+        help="Default SQLite path passed to the selected auth store provider",
+    )
     parser.add_argument(
         "--encryption-key", required=True, help="Encryption key for API keys"
     )

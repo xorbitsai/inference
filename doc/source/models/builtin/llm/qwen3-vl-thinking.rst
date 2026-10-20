@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 235 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 235
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen3-VL-235B-A22B-Thinking
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Thinking>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3-VL-235B-A22B-Thinking>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (fp8, 235 Billion)
 - **Model Format:** fp8
 - **Model Size (in billions):** 235
 - **Quantizations:** fp8
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen3-VL-235B-A22B-Thinking-FP8
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Thinking-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3-VL-235B-A22B-Thinking-FP8>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (awq, 235 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 235
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** QuantTrio/Qwen3-VL-235B-A22B-Thinking-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/Qwen3-VL-235B-A22B-Thinking-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/Qwen3-VL-235B-A22B-Thinking-AWQ>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 30 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 30
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen3-VL-30B-A3B-Thinking
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3-VL-30B-A3B-Thinking>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3-VL-30B-A3B-Thinking>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (fp8, 30 Billion)
 - **Model Format:** fp8
 - **Model Size (in billions):** 30
 - **Quantizations:** fp8
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen3-VL-30B-A3B-Thinking-FP8
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3-VL-30B-A3B-Thinking-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3-VL-30B-A3B-Thinking-FP8>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (awq, 30 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 30
 - **Quantizations:** 4bit, 8bit
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** cpatonn/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/cpatonn/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/cpatonn-mirror/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}>`__
 

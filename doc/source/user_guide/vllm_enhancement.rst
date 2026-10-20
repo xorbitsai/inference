@@ -47,3 +47,28 @@ MLX replicas
 .. versionadded:: v4.0.0
 
 MLX replicas can share prefix KV cache with ``model_engine="MLX"`` and ``enable_xavier=True``. The supported models and FP16 requirements are described in :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` bounds the shared CPU cache (default: 512 MiB). Each replica also owns its model and Metal KV cache. Ordinary replicas compute locally on a miss or unavailable storage; incompatible deployments cannot share pages. Returned usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-engine cache sharing is not yet supported.
+
+Request-scoped cache isolation
+==============================
+
+Pass ``cache_salt`` with each inference request to isolate prefix-cache reuse. Requests with the same salt can reuse compatible caches across replicas; different salts cannot reuse each other's cached prefixes. This covers the local engine cache, Xavier shared caches and retained history, and same-engine or cross-engine P/D for vLLM, SGLang and MLX. Both P/D roles receive the same salt; incompatible cache scopes are rejected before importing KV.
+
+With the Xinference Python client, include ``cache_salt`` in ``generate_config``. With the OpenAI client, use ``extra_body``:
+
+.. code-block:: python
+
+   client.chat.completions.create(
+       model="my-model",
+       messages=[{"role": "user", "content": "Hello"}],
+       extra_body={"cache_salt": customer_cache_salt},
+   )
+
+The same top-level field is accepted by the Completions, Chat Completions, Responses and Anthropic Messages endpoints, for streaming and non-streaming inference. A salt must be a nonempty string of at most 256 characters without control characters. Unsupported model engines reject salted requests rather than ignoring the field. Legacy vLLM V0 requires Xavier to use salts.
+
+Choose a stable, unguessable salt for each intended sharing boundary. A trusted application or gateway should authenticate callers, derive the salt from its own customer identity, and overwrite any client-supplied salt. Xinference does not map salts to users or create a tenant database. Salt knowledge permits cache sharing within that scope; client-selected salts alone do not enforce customer identity.
+
+Without a salt, requests keep the existing shared-cache behavior. Set ``XINFERENCE_REQUIRE_CACHE_SALT=1`` in the API server environment to reject inference requests without a salt; the default is ``0``. Enable this policy after all callers or an API extension supply salts. The policy applies to the four inference endpoints above and does not disable prefix caching.
+
+Distribution wrappers can supply an authoritative salt through the optional synchronous ``cache_salt(request)`` extension hook, returning ``xinference.extensions.CacheSalt(value)``. The hook runs after model-access checks and may read identity prepared by authenticated API dependencies from ``request.state``. Its result overrides the request field. Configure the extension through ``XINFERENCE_EXTENSIONS``; provider failures, missing return values and multiple providers reject the request without falling back to the client salt. When no provider is configured, the request field is used. Extension hooks must remain non-blocking.
+
+Cache salting limits prefix-cache timing inference across sharing boundaries. It does not provide separate model processes, memory quotas or complete timing-side-channel isolation. Changing a salt starts a new cache scope; existing entries remain subject to normal eviction.
