@@ -10,13 +10,29 @@ from pathlib import Path
 from ..xavier.pd_contract import build_pd_contract
 
 CONFIG_ENV = "XINFERENCE_TRTLLM_XAVIER_CONFIG"
+EXECUTION_OPTIONS = {
+    "backend",
+    "dtype",
+    "max_seq_len",
+    "max_batch_size",
+    "max_num_tokens",
+    "tensor_parallel_size",
+    "pipeline_parallel_size",
+    "context_parallel_size",
+    "kv_cache_config",
+    "cuda_graph_config",
+    "enable_chunked_prefill",
+    "disable_overlap_scheduler",
+    "scheduler_config",
+    "trust_remote_code",
+}
 
 
 def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
-    if cache_config.get("role") or cache_config.get("heterogeneous"):
-        raise ValueError(
-            "TRT-LLM Xavier currently supports shared caching, without P/D"
-        )
+    if cache_config.get("role") not in (None, "prefill", "decode") or cache_config.get(
+        "heterogeneous"
+    ):
+        raise ValueError("TRT-LLM Xavier currently requires same-engine replicas")
     for name in (
         "tensor_parallel_size",
         "pipeline_parallel_size",
@@ -24,23 +40,7 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
     ):
         if config.get(name, 1) != 1:
             raise ValueError("TRT-LLM Xavier currently requires TP=PP=CP=1")
-    allowed = {
-        "backend",
-        "dtype",
-        "max_seq_len",
-        "max_batch_size",
-        "max_num_tokens",
-        "tensor_parallel_size",
-        "pipeline_parallel_size",
-        "context_parallel_size",
-        "kv_cache_config",
-        "cuda_graph_config",
-        "enable_chunked_prefill",
-        "disable_overlap_scheduler",
-        "scheduler_config",
-        "trust_remote_code",
-    }
-    if set(config) - allowed or config.get("trust_remote_code"):
+    if set(config) - EXECUTION_OPTIONS or config.get("trust_remote_code"):
         raise ValueError("TRT-LLM Xavier does not allow model or execution overrides")
     if config.get("dtype", "bfloat16") not in ("auto", "bfloat16"):
         raise ValueError("TRT-LLM 1.2.1 Qwen3 currently requires BF16 weights and KV")

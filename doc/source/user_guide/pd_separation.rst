@@ -219,6 +219,15 @@ Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment or l
 
 SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=false``; each request transfers its full prompt KV. Prefill's local radix cache remains available. Enabling decode radix caching is rejected at launch.
 
+TRT-LLM with Xavier or native NIXL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use the same ``replica_config`` with ``model_engine="TRT-LLM"``, ``model_name="qwen3"``, ``model_size_in_billions="0_6"``, ``model_format="pytorch"`` and ``quantization="none"`` through the Python clients, REST API or CLI. Both roles require Linux/CUDA, TensorRT-LLM ``1.2.1``, BF16 dense Qwen3 weights and KV, one worker and one GPU per replica (TP=PP=CP=1). Chunked prefill and overlap scheduling must remain disabled. Different engines, quantization, multimodal input, LoRA, speculative decoding and ``cache_salt`` are unsupported.
+
+The default Xavier path reserves ``xavier_cache_bytes`` on the supervisor (default: 512 MiB) before prefill. It transfers request-owned 64-token CPU pages, including the partially filled final page, through actor RPC. Decode imports all but the final prompt token, then evaluates that token locally to produce logits and sample the response. This final-token replay also applies to prompts ending at page boundaries. Source snapshots remain reserved until decode finishes or the request is cancelled. The five-minute reservation deadline includes prefill and transfer time. Insufficient capacity, missing pages or failed imports raise errors without falling back to full prefill. ``imported_pages`` counts completed destination copies. Size the byte budget for the rounded prefixes of all concurrent requests; retained GPU history is unsupported.
+
+For native TRT P/D, set ``transfer_backend_type="nixl"`` and omit ``enable_xavier`` and ``xavier_cache_bytes``. TRT runs a context-only request on prefill, transfers its native context metadata and first sampled token, and resumes a generation-only request on decode using TRT's NIXL transceiver. NIXL must be available in both model environments. ``cache_transceiver_config.kv_transfer_timeout_ms`` defaults to 30000 and can be overridden in the launch arguments. The router releases the prefill request on completion, failure or cancellation. Measure both transports against ordinary replicas for your workload; CPU staging and native transfer have different costs.
+
 MLX
 ~~~
 

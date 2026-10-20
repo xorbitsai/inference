@@ -221,11 +221,50 @@ async def test_shared_cpu_xavier_avoids_vllm_collective(launch_runtime, engine):
 
 
 @pytest.mark.asyncio
-async def test_trt_pd_is_rejected_before_creating_actors(launch_runtime):
-    supervisor, workers, actors, _ = launch_runtime
+@pytest.mark.parametrize("backend", ["xavier", "nixl"])
+async def test_trt_pd_launch_uses_selected_transport(launch_runtime, backend):
+    supervisor, workers, actors, destroy = launch_runtime
     kwargs = launch_kwargs()
     kwargs["model_engine"] = "TRT-LLM"
-    with pytest.raises(ValueError, match="PD separation requires"):
+    kwargs["transfer_backend_type"] = backend
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == (
+        {"PDModelActor", "XavierCacheActor"}
+        if backend == "xavier"
+        else {"PDModelActor"}
+    )
+    for role, worker in zip(("prefill", "decode"), workers):
+        launch = worker.launch_builtin_model.call_args.kwargs
+        assert launch["xavier_config"] is None
+        if backend == "xavier":
+            assert launch["_xavier_cache_config"] == dict(
+                address=supervisor.address, uid="xavier-cache-pd", role=role
+            )
+            assert "_nixl_config" not in launch
+        else:
+            assert launch["_nixl_config"] == {"role": role}
+            assert "_xavier_cache_config" not in launch
+        worker.launch_rank0_model.assert_not_awaited()
+        worker.start_transfer_for_vllm.assert_not_awaited()
+    await supervisor.terminate_model("pd")
+    assert not supervisor._xavier_cache_mapping and not supervisor._pd_model_mapping
+    assert destroy.await_count == len(actors)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"quantization": "4bit"},
+        {"model_format": "ggufv2"},
+        {"transfer_backend_type": "nixl", "enable_xavier": True},
+    ],
+)
+async def test_trt_pd_invalid_launch_has_no_side_effects(launch_runtime, options):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine="TRT-LLM", **options)
+    with pytest.raises(ValueError):
         await supervisor.launch_builtin_model(**kwargs)
     assert not actors
     for worker in workers:

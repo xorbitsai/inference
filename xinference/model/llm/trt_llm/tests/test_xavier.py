@@ -202,6 +202,7 @@ def test_prefix_lookup_leaves_last_token_and_respects_local_hits(connector):
     )
     scheduler._pending = {}
     scheduler._allocations = {}
+    scheduler._pd_requests = {}
     seen = []
 
     def read(keys):

@@ -3281,17 +3281,26 @@ class SupervisorActor(xo.StatelessActor):
             and model_engine is not None
             and model_engine.lower() == "sglang"
         )
-        trt_xavier = requested_xavier and (model_engine or "").lower() == "trt-llm"
-        if trt_xavier:
+        trt_engine = (model_engine or "").lower() == "trt-llm"
+        trt_xavier = (
+            (requested_xavier or pd_enabled)
+            and trt_engine
+            and transport_backend == "xavier"
+        )
+        trt_nixl = pd_enabled and trt_engine and transport_backend == "nixl"
+        if trt_xavier or trt_nixl:
             if (
-                transport_backend != "xavier"
-                or model_type not in (None, "LLM")
+                model_type not in (None, "LLM")
                 or model_format not in (None, "pytorch")
                 or quantization not in (None, "none")
+                or n_worker != 1
             ):
                 raise ValueError(
-                    "TRT-LLM Xavier requires unquantized PyTorch LLM weights and Xavier transport"
+                    "TRT-LLM P/D and Xavier require unquantized PyTorch LLM weights and one worker per replica"
                 )
+        if trt_nixl and requested_xavier:
+            raise ValueError("TRT-LLM native NIXL cannot also enable Xavier")
+        if trt_xavier:
             kwargs["_xavier_cache_config"] = {
                 "address": self.address,
                 "uid": f"xavier-cache-{model_uid}",
@@ -3518,7 +3527,7 @@ class SupervisorActor(xo.StatelessActor):
                     "rank": rank,
                     "host": get_transport_host(worker_ref.address),
                 }
-            elif mlx_xavier and pd_enabled:
+            elif (mlx_xavier or trt_xavier) and pd_enabled:
                 assert replica_config is not None
                 replica_kwargs["_xavier_cache_config"] = {
                     **kwargs["_xavier_cache_config"],
@@ -3629,7 +3638,7 @@ class SupervisorActor(xo.StatelessActor):
                             address=self.address,
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
-                    elif pd_enabled:
+                    elif pd_enabled and not trt_xavier:
                         from ..model.llm.sglang.xavier.directory import (
                             XavierPDDirectory,
                         )

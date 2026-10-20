@@ -25,6 +25,7 @@ from tensorrt_llm._torch.pyexecutor.kv_cache_connector import (
 
 from ..xavier.actor_loop import acquire_actor_loop, release_actor_loop
 from ..xavier.contract import KVCacheContract, build_prefix_keys
+from .pd import request_state
 from .xavier import CONFIG_ENV
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,7 @@ def close_clients():
 class XavierMetadata:
     loads: list = field(default_factory=list)
     saves: list = field(default_factory=list)
+    pd_loads: list = field(default_factory=list)
 
 
 class XavierConnectorScheduler(KvCacheConnectorScheduler):
@@ -140,6 +142,7 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         self.contract = self.client.contract
         self._pending = {}
         self._allocations = {}
+        self._pd_requests = {}
 
     def _keys(self, tokens):
         return [key.digest for key in build_prefix_keys(self.contract, tokens)]
@@ -147,6 +150,16 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
     def get_num_new_matched_tokens(self, request, num_computed_tokens):
         request_id = request.request_id
         self._pending.pop(request_id, None)
+        state = request_state(request)
+        if state is not None:
+            if tuple(request.get_tokens(0)) != state.tokens:
+                raise ValueError("TRT-LLM P/D scheduler prompt differs")
+            self._pd_requests[request_id] = state
+            if state.role == "prefill":
+                return 0, False
+            if num_computed_tokens:
+                raise ValueError("TRT-LLM P/D requires an isolated destination prefix")
+            return max(len(state.tokens) - 1, 0), False
         block = self.contract.block_size
         if num_computed_tokens % block:
             return 0, False
@@ -165,8 +178,13 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         return len(pages) * block, False
 
     def update_state_after_alloc(self, request, block_ids):
+        state = self._pd_requests.get(request.request_id)
         self._allocations[request.request_id] = (
-            self._keys(list(request.get_tokens(0))),
+            (
+                state.keys
+                if state is not None
+                else self._keys(list(request.get_tokens(0)))
+            ),
             list(block_ids),
         )
 
@@ -178,6 +196,16 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
             keys, blocks = self._allocations.pop(request_id, ([], []))
             if not blocks:
                 blocks = list(request.new_block_ids)
+            state = self._pd_requests.pop(request_id, None)
+            if state is not None:
+                if len(blocks) < len(state.keys):
+                    raise ValueError("TRT-LLM allocated too few P/D KV blocks")
+                if state.role == "prefill":
+                    metadata.saves.extend(zip(state.keys, blocks))
+                else:
+                    metadata.loads.extend(zip(blocks, state.pages))
+                    metadata.pd_loads.append(state)
+                continue
             imported = 0
             if pending is not None:
                 start, pages = pending
@@ -196,6 +224,7 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
     def request_finished(self, request, cache_block_ids):
         self._pending.pop(request.request_id, None)
         self._allocations.pop(request.request_id, None)
+        self._pd_requests.pop(request.request_id, None)
         return False
 
 
@@ -244,6 +273,8 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                 page.view(self.pool.dtype).reshape(self.pool.shape[1:]),
                 non_blocking=False,
             )
+        for state in metadata.pd_loads:
+            state.imported_tokens = max(len(state.tokens) - 1, 0)
         if metadata.loads:
             # Copy completion, not a lookup, is the evidence for imported KV.
             try:
