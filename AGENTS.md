@@ -80,6 +80,13 @@ Configured hooks include Black, end-of-file/trailing-whitespace checks, Ruff,
 isort, mypy with missing imports ignored, and codespell. Configuration lives in
 `.pre-commit-config.yaml` and `pyproject.toml`.
 
+The `test-platform-coverage` hook also checks changed tests against the CI
+platform scopes. Include tests in `PLATFORM_TEST_PATHS` or `LINUX_TEST_PATHS` in
+`.github/workflows/python.yaml`, use the existing macOS MLX scope, or declare
+`# CI: linux` for portable/Linux-only regressions. Local checks discover Git
+changes automatically and honor `--from-ref` / `--to-ref`; CI supplies the PR's
+base and head SHAs to check the same scope as the workflow tests.
+
 ## Python Tests
 
 Run focused tests first:

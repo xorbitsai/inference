@@ -38,6 +38,9 @@ jobs:
       - name: Install lint and workflow test dependencies
         run: pip install pre-commit pytest
       - name: Run pre-commit
+        env:
+          TEST_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          TEST_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: pre-commit run --all-files
       - name: Test CI workflow
         env:

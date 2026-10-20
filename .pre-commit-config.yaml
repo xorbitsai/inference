@@ -1,7 +1,14 @@
-files: ^(xinference/|\.github/scripts/tests/)
+files: ^(xinference/|\.github/scripts/(tests/|check_test_platform_coverage\.py$))
 repos:
   - repo: local
     hooks:
+      - id: test-platform-coverage
+        name: Validate test CI platform coverage
+        entry: python .github/scripts/check_test_platform_coverage.py
+        language: python
+        additional_dependencies: ["PyYAML>=6,<7"]
+        files: ^xinference/(?!thirdparty/)(.*/)?test_[^/]+\.py$
+        always_run: true
       - id: model-catalog-schema
         name: Validate built-in model catalog schemas
         entry: python xinference/_model_catalog.py validate --all
