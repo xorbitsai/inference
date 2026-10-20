@@ -304,6 +304,9 @@ jobs:
           fi
           pip install -e ".[dev]"
           pip install "xllamacpp>=0.2.0"
+          if [ "$OS" == "ubuntu-latest" ]; then
+            pip install soundfile
+          fi
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
@@ -506,6 +509,7 @@ jobs:
               benchmark/tests/test_benchmark_pd.py \
               benchmark/tests/test_benchmark_sglang_pd.py \
               benchmark/tests/test_analyze_pd_profile.py \
+              xinference/model/audio/tests/test_audio_batching.py \
               xinference/model/llm/sglang/tests/test_xavier.py \
               xinference/model/llm/sglang/tests/test_xavier_pd.py \
               xinference/model/llm/sglang/tests/test_pd.py \

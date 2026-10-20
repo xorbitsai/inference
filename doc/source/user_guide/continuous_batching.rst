@@ -81,6 +81,20 @@ Image Model
 -----------
 For image-model batching, select the ``vLLM`` or ``SGLang`` engine with ``--model-engine``. SGLang supports dynamic request batching via ``batching_max_size`` and ``batching_delay_ms``; new requests wait while a batch is running. vLLM-Omni supports request batching via ``max_num_seqs`` and, on supported models, experimental step-level continuous batching with ``step_execution=true`` and ``max_num_seqs>1``. Diffusers supports ordinary image generation and multiple images per request, but does not provide Xinference-managed continuous batching. See :ref:`image` for supported models, required versions, and launch instructions.
 
+Audio request batching
+----------------------
+
+Whisper with the ``transformers`` engine and Qwen3-TTS with the ``PyTorch`` or ``MLX`` engine collect concurrent requests into native batches within each model replica. The audio API remains unchanged.
+
+Set ``request_batch_size`` (default ``4``) and ``batch_interval`` (default ``0.01`` seconds) at model launch. Set ``request_batch_size=1`` to disable request merging and MLX segment batching, or lower it when device memory is limited. Whisper's existing ``batch_size`` still controls the pipeline's audio-chunk batch size.
+
+.. code-block:: bash
+
+    xinference launch --model-name whisper-large-v3 --model-type audio --model-engine transformers --request_batch_size 4 --batch_interval 0.01
+    xinference launch --model-name Qwen3-TTS-12Hz-0.6B-CustomVoice --model-type audio --model-engine MLX --request_batch_size 4 --batch_interval 0.01
+
+Only requests with compatible inference settings are merged. Qwen3-TTS requests with an explicit seed run separately. MLX batching also requires the same language and reference audio; unsupported batch options use the existing single-request path. Long MLX Qwen3-TTS inputs can batch text segments while preserving their order and pauses. Streaming support is unchanged.
+
 Abort your request
 ==================
 For LLMs using Xinference's continuous batching, you can abort requests that are in the process of inference.
