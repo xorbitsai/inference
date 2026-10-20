@@ -242,8 +242,8 @@ msgid "For ``/v1/chat/completions``, unexpected worker failures return a generic
 msgstr "Pour ``/v1/chat/completions``, les défaillances inattendues du processus de travail renvoient un message générique. Les journaux du serveur et les événements d’erreur conservent le diagnostic d’origine."
 
 #: ../../source/user_guide/client_api.rst
-msgid "Before streaming starts, strict-template role errors and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
-msgstr "Avant le début du streaming, les erreurs de rôle des modèles de conversation stricts et les dépassements détectés des limites multimodales vLLM par prompt renvoient HTTP 400. Si les limites actuelles ne peuvent pas être consultées, la validation est déléguée au processus de travail."
+msgid "Before streaming starts, system-message ordering errors on strict templates and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
+msgstr "Avant le début du streaming, les erreurs d’ordre des messages système dans les modèles de conversation stricts et les dépassements détectés des limites multimodales vLLM par prompt renvoient HTTP 400. Si les limites actuelles ne peuvent pas être consultées, la validation est déléguée au processus de travail."
 
 #: ../../source/user_guide/client_api.rst
 msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."

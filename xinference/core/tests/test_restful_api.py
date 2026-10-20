@@ -1510,41 +1510,75 @@ async def test_qwen38_conflicting_reasoning_effort_raises_400(monkeypatch, model
 
 
 @pytest.mark.asyncio
-async def test_chat_completion_preflights_strict_qwen_template_errors(monkeypatch):
-    from fastapi import HTTPException
-
-    from ...api.restful_api import RESTfulAPI
-
-    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
-    api = RESTfulAPI("localhost", "localhost", 9997)
-    mock_supervisor = AsyncMock()
-    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
-    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
-    model = AsyncMock()
-    model.uid = "test-model"
-    mock_supervisor.get_model = AsyncMock(return_value=model)
-    mock_supervisor.describe_model = AsyncMock(
-        return_value={"model_family": "qwen3.8", "strict_system_first": True}
+@pytest.mark.parametrize("stream", [False, True])
+async def test_chat_completion_preflights_strict_system_order(monkeypatch, stream):
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_family": "custom-chat", "strict_system_first": True}
     )
-
-    for stream in (False, True):
-        payload = {
-            "model": "test",
-            "stream": stream,
-            "messages": [{"role": "developer", "content": "hi"}],
-        }
-        with pytest.raises(HTTPException) as exc:
-            await api.create_chat_completion(_DummyRequest(payload))
-        assert exc.value.status_code == 400
-        assert "developer" in exc.value.detail
-
     with pytest.raises(HTTPException) as exc:
         await api.create_chat_completion(
-            _DummyRequest({"model": "test", "messages": [{"content": "hi"}]})
+            _DummyRequest(
+                {
+                    "model": "test",
+                    "stream": stream,
+                    "messages": [
+                        {"role": "user", "content": "hi"},
+                        {"role": "system", "content": "instructions"},
+                    ],
+                }
+            )
         )
     assert exc.value.status_code == 400
-    assert ".role is required" in exc.value.detail
+    assert "first message" in exc.value.detail
     model.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_chat_completion_preserves_custom_template_roles(monkeypatch, stream):
+    from jinja2 import Environment
+
+    from ...model.llm.llm_family import is_strict_system_first_template
+
+    source = (
+        "{% for message in messages %}"
+        "{% if message.role == 'system' and not loop.first %}"
+        "{{ raise_exception('System message must be at the beginning.') }}"
+        "{% endif %}{{ message.role }}:{{ message.content }}{% endfor %}"
+    )
+    strict_system_first = is_strict_system_first_template(source)
+    assert strict_system_first
+    api, model = _build_mock_chat_api(
+        monkeypatch,
+        {"model_family": "custom-chat", "strict_system_first": strict_system_first},
+    )
+    rendered = []
+
+    async def chat(messages, *_args, **_kwargs):
+        rendered.append(Environment().from_string(source).render(messages=messages))
+        if stream:
+
+            async def chunks():
+                yield "{}"
+
+            return chunks()
+        return "{}"
+
+    model.chat.side_effect = chat
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "stream": stream,
+                "messages": [{"role": "developer", "content": "hi"}],
+            }
+        )
+    )
+    assert response.status_code == 200
+    if stream:
+        assert await anext(response.body_iterator) == "{}"
+        await response.body_iterator.aclose()
+    assert rendered == ["developer:hi"]
 
 
 @pytest.mark.asyncio
@@ -1774,6 +1808,11 @@ async def test_chat_completion_limit_errors_do_not_expose_worker_metadata(
             400,
         ),
         (
+            "cache_salt is not supported by this model engine",
+            "The model backend does not support cache_salt for this request.",
+            400,
+        ),
+        (
             "Unknown validation failure with secret-token",
             "The chat completion request failed. Check the server logs for details.",
             500,
@@ -1820,7 +1859,9 @@ async def test_chat_completion_worker_validation_errors(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("vllm_backend,list_content", [(False, True), (True, False)])
+@pytest.mark.parametrize(
+    "vllm_backend,list_content", [(False, True), (True, False), (True, True)]
+)
 async def test_chat_completion_skips_unneeded_multimodal_rpc(
     monkeypatch, vllm_backend, list_content
 ):
@@ -1874,12 +1915,18 @@ async def test_chat_completion_multimodal_rpc_failure_defers_to_worker(monkeypat
             {
                 "model": "test",
                 "messages": [
-                    {"role": "user", "content": [{"type": "text", "text": "hi"}]}
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": "unused"}}
+                        ],
+                    }
                 ],
             }
         )
     )
     assert response.status_code == 200
+    model.get_limit_mm_per_prompt.assert_awaited_once()
     model.chat.assert_awaited_once()
 
 

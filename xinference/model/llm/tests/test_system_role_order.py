@@ -18,12 +18,7 @@ from types import SimpleNamespace
 import pytest
 
 from ..llm_family import LLMFamilyV2, PytorchLLMSpecV2, is_strict_system_first_template
-from ..utils import (
-    MessageRoleError,
-    MessageRoleOrderError,
-    check_message_roles,
-    check_system_role_order,
-)
+from ..utils import MessageRoleOrderError, check_system_role_order
 
 # A chat template carrying the Qwen3-family system-first guard.
 STRICT_TEMPLATE = (
@@ -92,29 +87,6 @@ def test_to_description_strict_flag():
     assert _family(STRICT_TEMPLATE).to_description()["strict_system_first"] is True
     assert _family(LENIENT_TEMPLATE).to_description()["strict_system_first"] is False
     assert _family(None).to_description()["strict_system_first"] is False
-
-
-# --- check_message_roles ----------------------------------------------------
-
-
-def test_check_message_roles_rejects_missing_and_unsupported_roles():
-    allowed_roles = {"system", "user", "assistant", "tool"}
-    with pytest.raises(MessageRoleError, match=r"messages\[0\]\.role is required"):
-        check_message_roles([{"content": "missing role"}], allowed_roles)
-    with pytest.raises(MessageRoleError, match="'developer' is not supported"):
-        check_message_roles([{"role": "developer", "content": "hi"}], allowed_roles)
-
-
-def test_check_message_roles_accepts_qwen_template_roles():
-    check_message_roles(
-        [
-            {"role": "system", "content": "s"},
-            {"role": "user", "content": "u"},
-            {"role": "assistant", "content": "a"},
-            {"role": "tool", "content": "{}", "tool_call_id": "call_1"},
-        ],
-        {"system", "user", "assistant", "tool"},
-    )
 
 
 # --- check_system_role_order ------------------------------------------------

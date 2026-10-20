@@ -255,8 +255,8 @@ msgid "For ``/v1/chat/completions``, unexpected worker failures return a generic
 msgstr "对于 ``/v1/chat/completions``，工作进程发生意外错误时会返回通用错误消息。服务器日志和错误事件会保留原始诊断信息。"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Before streaming starts, strict-template role errors and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
-msgstr "流式响应开始前，严格模板的角色错误以及检测到的 vLLM 单次提示多模态数量超限会返回 HTTP 400。如果无法查询当前限制，则由工作进程执行验证。"
+msgid "Before streaming starts, system-message ordering errors on strict templates and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
+msgstr "流式响应开始前，严格模板的系统消息顺序错误以及检测到的 vLLM 单次提示多模态数量超限会返回 HTTP 400。如果无法查询当前限制，则由工作进程执行验证。"
 
 #: ../../source/user_guide/client_api.rst
 msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."

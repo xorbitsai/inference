@@ -241,8 +241,8 @@ msgid "For ``/v1/chat/completions``, unexpected worker failures return a generic
 msgstr "``/v1/chat/completions`` 에서는 예기치 않은 작업자 오류에 대해 일반 오류 메시지를 반환합니다. 서버 로그와 오류 이벤트에는 원래 진단 정보가 유지됩니다."
 
 #: ../../source/user_guide/client_api.rst
-msgid "Before streaming starts, strict-template role errors and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
-msgstr "스트리밍이 시작되기 전에 엄격한 템플릿의 역할 오류나 감지된 vLLM 프롬프트별 멀티모달 제한 위반이 있으면 HTTP 400을 반환합니다. 현재 제한을 조회할 수 없으면 검증을 작업자에게 맡깁니다."
+msgid "Before streaming starts, system-message ordering errors on strict templates and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
+msgstr "스트리밍이 시작되기 전에 엄격한 템플릿의 시스템 메시지 순서 오류나 감지된 vLLM 프롬프트별 멀티모달 제한 위반이 있으면 HTTP 400을 반환합니다. 현재 제한을 조회할 수 없으면 검증을 작업자에게 맡깁니다."
 
 #: ../../source/user_guide/client_api.rst
 msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."

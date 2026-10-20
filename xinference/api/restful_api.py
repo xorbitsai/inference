@@ -1087,6 +1087,7 @@ class RESTfulAPI(CancelMixin):
                 (
                     "This vLLM V1 version does not support cache_salt",
                     "cache_salt on legacy vLLM requires Xavier",
+                    "cache_salt is not supported by this model engine",
                 )
             ):
                 raise HTTPException(
@@ -4875,22 +4876,17 @@ class RESTfulAPI(CancelMixin):
         # the stream/non-stream split so BOTH paths return a clean 400 instead
         # of the worker raising mid-render (non-stream 500 / stream 200+SSE).
         if desc.get("strict_system_first"):
-            from ..model.llm.utils import (
-                MessageRoleError,
-                MessageRoleOrderError,
-                check_message_roles,
-                check_system_role_order,
-            )
+            from ..model.llm.utils import MessageRoleOrderError, check_system_role_order
 
             try:
-                check_message_roles(messages, {"system", "user", "assistant", "tool"})
                 check_system_role_order(messages)
-            except (MessageRoleError, MessageRoleOrderError) as ve:
+            except MessageRoleOrderError as ve:
                 raise HTTPException(status_code=400, detail=str(ve))
 
         limits = None
         if is_vllm_backend and any(
-            isinstance(message.get("content"), list) for message in messages
+            self._count_multimodal_items(messages, item_type)
+            for item_type in ("image", "video", "audio")
         ):
             try:
                 limits = await model.get_limit_mm_per_prompt()
