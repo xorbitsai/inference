@@ -14,6 +14,7 @@
 
 from typing import Any
 
+from ..utils import allow_trust_remote_code
 from .stable_diffusion.core import DiffusionModel
 
 
@@ -43,7 +44,9 @@ class MOSSImageModel(DiffusionModel):
         self._torch_dtype = dtypes["default"]
         kwargs["torch_dtype"] = dtypes
         kwargs.setdefault("custom_pipeline", "pipeline_moss_image")
-        kwargs.setdefault("trust_remote_code", True)
+        kwargs.setdefault(
+            "trust_remote_code", allow_trust_remote_code(self.model_family)
+        )
         for option in (
             "cpu_offload",
             "sequential_cpu_offload",

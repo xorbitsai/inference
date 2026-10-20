@@ -37,7 +37,10 @@ def families():
     load_model_family_from_json(
         str(Path(__file__).parents[1] / "models" / "MOSS-Image-SFT.json"), result
     )
-    return {spec.model_hub: spec for spec in result["MOSS-Image-SFT"]}
+    return {
+        spec.model_hub: spec.copy(update={"is_builtin": True})
+        for spec in result["MOSS-Image-SFT"]
+    }
 
 
 def test_metadata_and_engine(families):
@@ -185,6 +188,26 @@ def loaded_model(families, pipeline):
     )
     model.load()
     return model
+
+
+@pytest.mark.parametrize("is_builtin", [False, True])
+@pytest.mark.parametrize("operator_trust", [False, True])
+@pytest.mark.parametrize("explicit_trust", [None, False, True])
+def test_remote_code_trust_policy(
+    families, pipeline, monkeypatch, is_builtin, operator_trust, explicit_trust
+):
+    from xinference import constants
+
+    monkeypatch.setattr(constants, "XINFERENCE_TRUST_REMOTE_CODE", operator_trust)
+    spec = families["huggingface"].copy(update={"is_builtin": is_builtin})
+    assert MOSSDiffusersImageModel.match(spec)
+    options = {} if explicit_trust is None else {"trust_remote_code": explicit_trust}
+    model = MOSSImageModel("moss", "/models/moss", model_spec=spec, **options)
+    model.load()
+    expected = (
+        is_builtin or operator_trust if explicit_trust is None else explicit_trust
+    )
+    assert model._model.load_kwargs["trust_remote_code"] is expected
 
 
 def test_text_to_image_defaults_and_batch(loaded_model):
