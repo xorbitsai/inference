@@ -1613,6 +1613,34 @@ class VLLMModel(WeightCachedModel, LLM):
             model_config["speculative_config"],
         )
 
+    def _should_force_fp8(self) -> bool:
+        """Keep the FP8 fallback only when checkpoint metadata permits it."""
+        try:
+            with open(os.path.join(self.model_path, "config.json")) as f:
+                config = json.load(f)
+        except FileNotFoundError:
+            return True
+        except (OSError, ValueError) as e:
+            logger.warning("Cannot read checkpoint quantization config: %s", e)
+            return False
+
+        if not isinstance(config, dict):
+            return False
+        for section in (config, config.get("text_config")):
+            if section is None:
+                continue
+            if not isinstance(section, dict):
+                return False
+            quant_config = section.get("quantization_config")
+            if quant_config is None:
+                continue
+            if not isinstance(quant_config, dict):
+                return False
+            method = quant_config.get("quant_method")
+            if method is not None:
+                return isinstance(method, str) and method.lower() == "fp8"
+        return True
+
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
@@ -1685,7 +1713,11 @@ class VLLMModel(WeightCachedModel, LLM):
             )
         ):
             if model_config.get("quantization") in (None, "none"):
-                model_config["quantization"] = "fp8"
+                # Catalog FP8 checkpoints can use another vLLM quantizer,
+                # such as compressed-tensors. Let vLLM detect those itself.
+                model_config["quantization"] = (
+                    "fp8" if self._should_force_fp8() else None
+                )
         else:
             model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)

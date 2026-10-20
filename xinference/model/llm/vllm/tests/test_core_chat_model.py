@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
 import base64
 import copy
+import json
 import sys
 import tempfile
 import types
@@ -25,6 +27,115 @@ import pytest
 from packaging import version
 
 from ...tool_parsers.qwen_tool_parser import QwenToolParser
+
+
+class TestVLLMFP8Quantization:
+    @pytest.fixture
+    def model(self, monkeypatch, tmp_path):
+        from ...llm_family import match_llm
+        from .. import core
+
+        monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+        family = copy.deepcopy(match_llm("glm-4.5", "fp8", 106, "FP8", "huggingface"))
+        model = core.VLLMChatModel("test-glm-fp8", family, str(tmp_path), {})
+        model._device_count = 1
+        return model
+
+    @pytest.mark.parametrize("section", [None, "text_config"])
+    @pytest.mark.parametrize(
+        "quant_config,expected",
+        [
+            ({"quant_method": "compressed-tensors"}, None),
+            ({"quant_method": "fp8"}, "fp8"),
+            ({"quant_method": "unknown"}, None),
+            ({"quant_method": 8}, None),
+            ({"quant_method": ""}, None),
+            ({"quant_method": None}, "fp8"),
+            ({}, "fp8"),
+            (None, "fp8"),
+            ([], None),
+        ],
+    )
+    def test_checkpoint_quantizer(
+        self, model, tmp_path, section, quant_config, expected
+    ):
+        config = {"quantization_config": quant_config}
+        if section:
+            config = {section: config}
+        (tmp_path / "config.json").write_text(json.dumps(config))
+        assert model._sanitize_model_config({})["quantization"] == expected
+
+    @pytest.mark.parametrize(
+        "top,nested,expected",
+        [
+            ("fp8", "compressed-tensors", "fp8"),
+            ("compressed-tensors", "fp8", None),
+            (None, "compressed-tensors", None),
+        ],
+    )
+    def test_top_level_precedence(self, model, tmp_path, top, nested, expected):
+        (tmp_path / "config.json").write_text(
+            json.dumps(
+                {
+                    "quantization_config": {"quant_method": top},
+                    "text_config": {"quantization_config": {"quant_method": nested}},
+                }
+            )
+        )
+        assert model._sanitize_model_config({})["quantization"] == expected
+
+    @pytest.mark.parametrize("config", [None, {}])
+    @pytest.mark.parametrize("launch_config", [None, {}, {"quantization": "none"}])
+    def test_missing_metadata_keeps_fp8(self, model, tmp_path, config, launch_config):
+        if config is not None:
+            (tmp_path / "config.json").write_text(json.dumps(config))
+        assert model._sanitize_model_config(launch_config)["quantization"] == "fp8"
+
+    @pytest.mark.parametrize("contents", ["{", "null", "[]", '{"text_config": []}'])
+    def test_malformed_config_defers_to_vllm(self, model, tmp_path, contents):
+        (tmp_path / "config.json").write_text(contents)
+        assert model._sanitize_model_config({})["quantization"] is None
+
+    def test_unreadable_config_defers_to_vllm(self, model, tmp_path, caplog):
+        (tmp_path / "config.json").mkdir()
+        assert model._sanitize_model_config({})["quantization"] is None
+        assert "Cannot read checkpoint quantization config" in caplog.text
+
+    @pytest.mark.parametrize("method", ["fp8", "compressed-tensors"])
+    @pytest.mark.parametrize(
+        "launch_config,expected",
+        [
+            (
+                {"model_quantization": "compressed-tensors", "quantization": "fp8"},
+                "compressed-tensors",
+            ),
+            ({"quantization": "compressed-tensors"}, "compressed-tensors"),
+            ({"model_quantization": "fp8"}, "fp8"),
+        ],
+    )
+    def test_explicit_quantizer_wins(
+        self, model, tmp_path, method, launch_config, expected
+    ):
+        (tmp_path / "config.json").write_text(
+            json.dumps(
+                {
+                    "quantization_config": {"quant_method": method},
+                }
+            )
+        )
+        assert model._sanitize_model_config(launch_config)["quantization"] == expected
+
+    @pytest.mark.parametrize("model_format", ["pytorch", "gptq", "awq", "fp4", "bnb"])
+    def test_non_fp8_format_keeps_default(self, model, tmp_path, model_format):
+        model.model_spec.model_format = model_format
+        (tmp_path / "config.json").write_text(
+            json.dumps(
+                {
+                    "quantization_config": {"quant_method": "fp8"},
+                }
+            )
+        )
+        assert model._sanitize_model_config({})["quantization"] is None
 
 
 def filter_ids_and_created(data):
