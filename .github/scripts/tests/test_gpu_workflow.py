@@ -121,7 +121,6 @@ class TestGPUWorkflow(unittest.TestCase):
             "xinference/model/llm/vllm/core.py",
             "xinference/model/llm/sglang/core.py",
             "xinference/model/llm/mlx/core.py",
-            "xinference/model/llm/lmdeploy/core.py",
             "xinference/model/llm/llama_cpp/core.py",
             "xinference/model/llm/xavier/contract.py",
             "xinference/model/embedding/vllm/core.py",

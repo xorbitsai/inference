@@ -420,8 +420,8 @@ msgid "Set ``context_length`` in the launch API or use ``--context-length`` in t
 msgstr "Configure ``context_length`` en la API de inicio o use ``--context-length`` en la CLI para elegir el límite de tokens de entrada más salida por solicitud. En la interfaz web, use el control deslizante de contexto o introduzca un entero exacto; **Valor predeterminado del modelo** elimina la configuración. El límite superior del control procede del modelo registrado. Los valores de contexto se conservan en el historial de configuraciones y se envían a la API de recomendaciones."
 
 #: ../source/user_guide/launch.rst:103
-msgid "The launch layer maps this setting to vLLM's ``max_model_len``, SGLang, Transformers and MLX's ``context_length``, LMDeploy's ``session_len``, and llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine parameters still work; contradictory unified and native values are rejected. Omitting the setting preserves engine defaults. This setting does not extend the model's positional embeddings or enable context scaling."
-msgstr "La capa de inicio traduce este valor a ``max_model_len`` de vLLM, ``context_length`` de SGLang, Transformers y MLX, ``session_len`` de LMDeploy y la capacidad total de slots ``n_ctx=context_length*n_parallel`` de llama.cpp. Los parámetros propios de los motores siguen funcionando; se rechazan valores unificados y nativos contradictorios. Omitir el ajuste conserva los valores predeterminados del motor. Este ajuste no amplía los embeddings posicionales del modelo ni activa el escalado de contexto."
+msgid "The launch layer maps this setting to vLLM's ``max_model_len``, SGLang, Transformers and MLX's ``context_length``, and llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine parameters still work; contradictory unified and native values are rejected. Omitting the setting preserves engine defaults. This setting does not extend the model's positional embeddings or enable context scaling."
+msgstr "La capa de inicio traduce este valor a ``max_model_len`` de vLLM, ``context_length`` de SGLang, Transformers y MLX y la capacidad total de slots ``n_ctx=context_length*n_parallel`` de llama.cpp. Los parámetros propios de los motores siguen funcionando; se rechazan valores unificados y nativos contradictorios. Omitir el ajuste conserva los valores predeterminados del motor. Este ajuste no amplía los embeddings posicionales del modelo ni activa el escalado de contexto."
 
 #: ../source/user_guide/launch.rst
 msgid "Recommendation configs expose ``context_length`` as the total per-request budget, including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the estimated concurrency; the launch layer maps the unified budget to each engine."
@@ -525,3 +525,12 @@ msgstr "Actualizar el catálogo de modelos"
 #: ../../user_guide/launch.rst
 msgid "On the **Launch Model** page, choose the model type beside **Update**. **Update** refreshes the whole category. Choose **Update one model** and enter the exact Hub model name (or world family name) to update just that model, including a model not yet listed. Other catalog entries are preserved. This updates shared metadata without downloading weights or restarting running models. With authentication enabled, both actions require administrator or ``models:register`` permission."
 msgstr "En la página **Launch Model**, elija el tipo de modelo junto a **Update**. **Update** actualiza toda la categoría. Elija **Update one model** e introduzca el nombre exacto del modelo en el Hub (o de la familia world) para actualizar solo ese modelo, incluso si aún no aparece en la lista. Se conservan las demás entradas del catálogo. Esto actualiza los metadatos compartidos sin descargar pesos ni reiniciar modelos en ejecución. Con la autenticación habilitada, ambas acciones requieren permisos de administrador o ``models:register``."
+
+#: ../source/user_guide/launch.rst:12
+msgid ""
+"The LMDeploy backend has been removed because its Xinference integration is "
+"no longer maintained. For InternVL models, select vLLM or Transformers "
+"instead."
+msgstr ""
+"Se ha eliminado el motor LMDeploy porque su integración con Xinference ya no"
+" se mantiene. Para los modelos InternVL, seleccione vLLM o Transformers."

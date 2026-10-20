@@ -1619,6 +1619,35 @@ def test_quert_engine_SGLang():
     )
 
 
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_internvl_engines_after_lmdeploy_removal(enable_virtual_env):
+    from ...utils import (
+        get_engine_params_by_name,
+        get_engine_params_by_name_with_virtual_env,
+    )
+    from ..llm_family import (
+        check_engine_by_spec_parameters,
+        check_engine_by_spec_parameters_with_virtual_env,
+    )
+
+    if enable_virtual_env:
+        params = get_engine_params_by_name_with_virtual_env(
+            "LLM", "InternVL3", enable_virtual_env=True
+        )
+        check_engine = check_engine_by_spec_parameters_with_virtual_env
+        error = "not listed in virtualenv packages"
+    else:
+        params = get_engine_params_by_name("LLM", "InternVL3", enable_virtual_env=False)
+        check_engine = check_engine_by_spec_parameters
+        error = "cannot be run on engine"
+
+    assert "LMDEPLOY" not in params
+    assert isinstance(params["Transformers"], list)
+    for engine in ("LMDEPLOY", "lmdeploy"):
+        with pytest.raises(ValueError, match=error):
+            check_engine(engine, "InternVL3", "pytorch", 1, "none")
+
+
 def test_query_engine_general():
     from ..custom import get_user_defined_llm_families, register_llm, unregister_llm
     from ..llama_cpp.core import XllamaCppModel
@@ -1794,12 +1823,10 @@ def test_multimodal_engine_available_with_virtualenv(monkeypatch):
             params.get(engine), list
         ), f"{engine} should be available for qwen3.5 under virtualenv, got {params.get(engine)!r}"
 
-    # MLX cannot run on this simulated Linux worker, and LMDEPLOY is not
-    # declared for qwen3.5, so both remain unavailable reason strings.
-    for engine in ("MLX", "LMDEPLOY"):
-        assert not isinstance(
-            params.get(engine), list
-        ), f"{engine} should not be available for qwen3.5, got {params.get(engine)!r}"
+    # MLX cannot run on this simulated Linux worker.
+    assert not isinstance(
+        params.get("MLX"), list
+    ), f"MLX should not be available for qwen3.5, got {params.get('MLX')!r}"
 
 
 @pytest.mark.parametrize("lib_available", [False, True])

@@ -33,7 +33,6 @@ from ..context_length import (
         ("SGLang", "context_length"),
         ("Transformers", "context_length"),
         ("MLX", "context_length"),
-        ("LMDeploy", "session_len"),
         ("TRT-LLM", "max_seq_len"),
         ("llama.cpp", "n_ctx"),
     ],
@@ -68,7 +67,7 @@ def test_factory_passes_unified_context_to_each_engine(monkeypatch, engine, key)
 
 @pytest.mark.parametrize(
     "engine,key",
-    [("vLLM", "max_model_len"), ("llama.cpp", "n_ctx"), ("LMDeploy", "session_len")],
+    [("vLLM", "max_model_len"), ("llama.cpp", "n_ctx")],
 )
 def test_native_context_defaults_and_explicit_aliases_are_preserved(engine, key):
     config = {key: 8192, "temperature": 0.5}

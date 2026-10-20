@@ -401,7 +401,6 @@ class TestPythonWorkflow(unittest.TestCase):
             "xinference/model/llm/vllm",
             "xinference/model/llm/sglang",
             "xinference/model/llm/trt_llm",
-            "xinference/model/llm/lmdeploy",
             "xinference/model/embedding/vllm",
             "xinference/model/rerank/vllm",
         ):
@@ -452,7 +451,7 @@ class TestPythonWorkflow(unittest.TestCase):
             "rerank": {"llama_cpp", "sentence_transformers", "tests"},
         }
         restricted = {
-            "llm": {"lmdeploy", "mlx", "sglang", "trt_llm", "vllm"},
+            "llm": {"mlx", "sglang", "trt_llm", "vllm"},
             "embedding": {"vllm"},
             "rerank": {"vllm"},
         }

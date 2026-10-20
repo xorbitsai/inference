@@ -34,7 +34,6 @@ from .llm_family import (
     BUILTIN_LLM_PROMPT_STYLE,
     LLAMA_CLASSES,
     LLM_ENGINES,
-    LMDEPLOY_CLASSES,
     MLX_CLASSES,
     SGLANG_CLASSES,
     SUPPORTED_ENGINES,
@@ -269,7 +268,6 @@ def load_model_family_from_json(
 
 def _install():
     from .llama_cpp.core import XllamaCppModel
-    from .lmdeploy.core import LMDeployChatModel, LMDeployModel
     from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
     from .sglang.core import SGLANGChatModel, SGLANGModel, SGLANGVisionModel
     from .transformers.core import PytorchChatModel, PytorchModel
@@ -283,17 +281,15 @@ def _install():
     )
     extend_classes_once(VLLM_CLASSES, [VLLMModel, VLLMChatModel, VLLMMultiModel])
     extend_classes_once(MLX_CLASSES, [MLXModel, MLXChatModel, MLXVisionModel])
-    extend_classes_once(LMDEPLOY_CLASSES, [LMDeployModel, LMDeployChatModel])
     extend_classes_once(TRANSFORMERS_CLASSES, [PytorchChatModel, PytorchModel])
     extend_classes_once(TRTLLM_CLASSES, [TRTLLMModel])
 
-    # support 4 engines for now
+    # Register built-in engines.
     SUPPORTED_ENGINES["vLLM"] = VLLM_CLASSES
     SUPPORTED_ENGINES["SGLang"] = SGLANG_CLASSES
     SUPPORTED_ENGINES["Transformers"] = TRANSFORMERS_CLASSES
     SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CLASSES
     SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
-    SUPPORTED_ENGINES["LMDEPLOY"] = LMDEPLOY_CLASSES
     SUPPORTED_ENGINES["TRT-LLM"] = TRTLLM_CLASSES
 
     # Distribution-specific engines are appended after the built-ins.
