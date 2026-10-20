@@ -858,9 +858,15 @@ class RESTfulAPI(CancelMixin):
         token = _request_credential(request)
         if not token:
             return
-        if not self._advanced_auth_service.validate_model_access(
-            token, model_uid, model_type
-        ):
+        entry = getattr(request.state, "authenticated_api_key", None)
+        allowed = (
+            entry.has_model_access(model_uid, model_type)
+            if entry is not None
+            else self._advanced_auth_service.validate_model_access(
+                token, model_uid, model_type
+            )
+        )
+        if not allowed:
             request.state._audit_model_uid = model_uid
             request.state._audit_model_type = model_type or ""
             request.state.audit_status = "denied"
@@ -882,18 +888,12 @@ class RESTfulAPI(CancelMixin):
     ):
         if not self._advanced_auth_service:
             return
-        token = _request_credential(request)
-        if not token:
+        identity = getattr(request.state, "audit_identity", {}) or {}
+        if identity.get("auth_type") != "api_key":
             return
-        from .oauth2.advanced.crypto import sha256_hex
-
-        key_hash = sha256_hex(token)
-        entry = self._advanced_auth_service.cache.get(key_hash)
-        if not entry:
-            return
-
-        user = self._advanced_auth_service.db.get_user_by_id(entry.user_id)
-        username = user["username"] if user else ""
+        username = identity.get("user", "")
+        api_key_name = identity.get("api_key_name", "")
+        api_key_prefix = identity.get("api_key_prefix", "")
 
         model_name = (
             getattr(request.state, "model_name", "")
@@ -906,8 +906,8 @@ class RESTfulAPI(CancelMixin):
 
         record_audit_event(
             user=username,
-            api_key_name=entry.name or "",
-            api_key_prefix=entry.key_prefix,
+            api_key_name=api_key_name,
+            api_key_prefix=api_key_prefix,
             model_id=model_uid,
             model_name=model_name,
             model_type=model_type,
@@ -927,7 +927,7 @@ class RESTfulAPI(CancelMixin):
             _requests_total.inc(
                 {
                     "user": username,
-                    "api_key_name": entry.name or "",
+                    "api_key_name": api_key_name,
                     "model_id": model_uid,
                     "model_name": model_name,
                     "model_type": model_type,

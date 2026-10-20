@@ -16,7 +16,7 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request, Security
 from fastapi.testclient import TestClient
 
 from xinference import extensions
@@ -91,6 +91,216 @@ def test_old_extension_needs_no_store_hook(monkeypatch, tmp_path):
 def test_provider_can_explicitly_choose_default(monkeypatch, tmp_path):
     install(monkeypatch, lambda context: None)
     assert isinstance(create_auth_store(str(tmp_path / "auth.db")), Database)
+
+
+@pytest.fixture
+def shared_services(monkeypatch, tmp_path):
+    def provide(context):
+        store = AlternateStore(tmp_path / "shared.db")
+        store.api_key_cache_enabled = False
+        return store
+
+    install(monkeypatch, provide)
+    first = AdvancedAuthService("unused.db", "shared-secret", "shared-encryption")
+    user = first.db.create_user("reader", None, permissions=["models:read"])
+    key = first.create_api_key_for_user(user, name="existing")
+    peer = AdvancedAuthService("unused.db", "shared-secret", "shared-encryption")
+    return first, peer, user, key
+
+
+def peer_client(auth, **kwargs):
+    app = FastAPI()
+
+    @app.get("/model/{model}")
+    def model(model: str, user=Security(auth, scopes=["models:read"])):
+        return {"user_id": user["id"]}
+
+    return TestClient(app, **kwargs)
+
+
+def test_shared_store_observes_keys_created_after_peer_start(shared_services):
+    first, peer, user, _ = shared_services
+    key = first.create_api_key_for_user(user, name="new")
+    assert peer.validate_api_key(key["key"]) is not None
+    with peer_client(peer) as client:
+        response = client.get(
+            "/model/allowed", headers={"Authorization": "Bearer " + key["key"]}
+        )
+    assert response.status_code == 200, response.text
+    assert response.json()["user_id"] == user
+
+
+@pytest.mark.parametrize("change", ["disable", "delete", "expire", "disable_owner"])
+def test_shared_store_observes_key_and_owner_revocation(shared_services, change):
+    first, peer, user, key = shared_services
+    assert peer.validate_api_key(key["key"]) is not None
+    if change == "disable":
+        first.db.update_api_key(key["id"], enabled=0)
+    elif change == "delete":
+        first.db.delete_api_key(key["id"])
+    elif change == "expire":
+        first.db.update_api_key(key["id"], expires_at="2000-01-01T00:00:00")
+    else:
+        first.disable_user(user)
+    assert peer.validate_api_key(key["key"]) is None
+    assert not peer.validate_model_access(key["key"], "any-model", "LLM")
+    with peer_client(peer) as client:
+        response = client.get(
+            "/model/allowed", headers={"Authorization": "Bearer " + key["key"]}
+        )
+    assert response.status_code == 401, response.text
+
+
+def test_shared_store_observes_model_grant_narrowing_and_restoration(shared_services):
+    first, peer, user, key = shared_services
+    assert peer.validate_model_access(key["key"], "removed", "LLM")
+    first.db.set_api_key_model_permissions(
+        key["id"], [{"permission_type": "model_id", "permission_value": "allowed"}]
+    )
+    assert peer.validate_api_key(key["key"]) is not None
+    assert not peer.validate_model_access(key["key"], "removed", "LLM")
+    assert peer.validate_model_access(key["key"], "allowed", "LLM")
+    first.db.set_api_key_model_permissions(key["id"], [{"permission_type": "all"}])
+    assert peer.validate_model_access(key["key"], "removed", "LLM")
+
+
+@pytest.mark.parametrize("operation", ["get_api_key_by_hash", "get_user_by_id"])
+def test_shared_store_failure_does_not_reuse_positive_key(
+    shared_services, monkeypatch, operation
+):
+    first, peer, user, key = shared_services
+    assert peer.validate_api_key(key["key"]) is not None
+    monkeypatch.setattr(
+        peer.db, operation, Mock(side_effect=RuntimeError("unavailable"))
+    )
+    with pytest.raises(RuntimeError, match="unavailable"):
+        peer.validate_api_key(key["key"])
+    with pytest.raises(RuntimeError, match="unavailable"):
+        peer.validate_model_access(key["key"], "allowed", "LLM")
+    with peer_client(peer, raise_server_exceptions=False) as client:
+        response = client.get(
+            "/model/allowed", headers={"Authorization": "Bearer " + key["key"]}
+        )
+    assert response.status_code == 500, response.text
+
+
+def test_shared_store_rejects_key_with_missing_owner(shared_services, monkeypatch):
+    first, peer, user, key = shared_services
+    assert peer.validate_api_key(key["key"]) is not None
+    monkeypatch.setattr(peer.db, "get_user_by_id", Mock(return_value=None))
+    assert peer.validate_api_key(key["key"]) is None
+    assert not peer.validate_model_access(key["key"], "allowed", "LLM")
+    with peer_client(peer) as client:
+        response = client.get(
+            "/model/allowed", headers={"Authorization": "Bearer " + key["key"]}
+        )
+    assert response.status_code == 401, response.text
+
+
+@pytest.mark.parametrize("explicit_cache_policy", [False, True])
+def test_provider_keeps_api_key_caching_by_default(
+    monkeypatch, tmp_path, explicit_cache_policy
+):
+    store = AlternateStore(tmp_path / "cached.db")
+    if explicit_cache_policy:
+        store.api_key_cache_enabled = True
+    install(monkeypatch, lambda context: store)
+    reader = AdvancedAuthService("unused.db", "shared-secret", "shared-encryption")
+    user = store.create_user("reader", None, permissions=["models:read"])
+    writer = AdvancedAuthService("unused.db", "shared-secret", "shared-encryption")
+    key = writer.create_api_key_for_user(user, name="created-after-reader-start")
+    assert reader.validate_api_key(key["key"]) is None
+    with peer_client(reader) as client:
+        response = client.get(
+            "/model/allowed", headers={"Authorization": "Bearer " + key["key"]}
+        )
+        assert response.status_code == 401, response.text
+        reader.cache.reload()
+        assert reader.validate_api_key(key["key"]) is not None
+        assert (
+            client.get(
+                "/model/allowed", headers={"Authorization": "Bearer " + key["key"]}
+            ).status_code
+            == 200
+        )
+
+
+@pytest.mark.parametrize("model_uid", ["allowed", "denied"])
+@pytest.mark.parametrize(
+    "change", ["none", "revoke", "storage_before_access", "storage_before_audit"]
+)
+def test_shared_store_resolves_api_key_once_per_request(
+    shared_services, monkeypatch, model_uid, change
+):
+    from xinference.api.oauth2.advanced import audit
+    from xinference.api.restful_api import RESTfulAPI
+
+    first, peer, user, key = shared_services
+    first.db.set_api_key_model_permissions(
+        key["id"], [{"permission_type": "model_id", "permission_value": "allowed"}]
+    )
+    lookups = {}
+    for operation in ("get_api_key_by_hash", "get_user_by_id"):
+        lookup = Mock(wraps=getattr(peer.db, operation))
+        monkeypatch.setattr(peer.db, operation, lookup)
+        lookups[operation] = lookup
+    record = Mock()
+    monkeypatch.setattr(audit, "record_audit_event", record)
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    api._advanced_auth_service = peer
+    api._uid_to_model_name = {}
+    app = FastAPI()
+    app.middleware("http")(api._audit_middleware)
+
+    def fail_store():
+        for lookup in lookups.values():
+            lookup.side_effect = RuntimeError("unavailable after authentication")
+
+    @app.post("/v1/chat/completions")
+    async def infer(request: Request, owner=Security(peer, scopes=["models:read"])):
+        if change == "revoke":
+            first.db.delete_api_key(key["id"])
+        elif change == "storage_before_access":
+            fail_store()
+        api._check_model_access(request, model_uid, "LLM")
+        if change == "storage_before_audit":
+            fail_store()
+        return {"user_id": owner["id"]}
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            headers={"Authorization": "Bearer " + key["key"]},
+            json={"model": model_uid},
+        )
+        expected_status = 200 if model_uid == "allowed" else 403
+        assert response.status_code == expected_status, response.text
+        for lookup in lookups.values():
+            lookup.assert_called_once()
+        record.assert_called_once()
+        event = record.call_args.kwargs
+        assert event["category"] == "inference"
+        assert event["status"] == ("success" if expected_status == 200 else "denied")
+        assert event["status_code"] == expected_status
+        assert event["user"] == "reader"
+        assert event["api_key_name"] == "existing"
+        assert event["api_key_prefix"] == key["prefix"]
+        if change == "revoke":
+            response = client.post(
+                "/v1/chat/completions",
+                headers={"Authorization": "Bearer " + key["key"]},
+                json={"model": model_uid},
+            )
+            assert response.status_code == 401, response.text
+
+
+@pytest.mark.parametrize("enabled", [None, 0, "false"])
+def test_provider_rejects_invalid_api_key_cache_policy(monkeypatch, tmp_path, enabled):
+    store = AlternateStore(tmp_path / "provided.db")
+    store.api_key_cache_enabled = enabled
+    install(monkeypatch, lambda context: store)
+    with pytest.raises(TypeError, match="api_key_cache_enabled"):
+        create_auth_store(str(tmp_path / "unused.db"))
 
 
 @pytest.mark.parametrize("callable_operation", [False, True])

@@ -27,7 +27,13 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Protocol, cast
 
 
 class AuthStore(Protocol):
-    """Synchronous authentication operations consumed by API and recovery tools."""
+    """Synchronous authentication operations consumed by API and recovery tools.
+
+    Provider stores may optionally set ``api_key_cache_enabled = False`` before
+    service initialization to read current API keys, owners and model grants
+    from storage. Omitting it or setting it to True retains process-local
+    caching. The optional attribute must be a bool when provided.
+    """
 
     permission_resolver: Optional[Callable[[int, List[str]], List[str]]]
 
@@ -156,6 +162,8 @@ def validate_auth_store(store: Any) -> AuthStore:
     resolver = store.permission_resolver
     if resolver is not None and not _is_sync_callable(resolver):
         raise TypeError("Auth store permission_resolver must be synchronous")
+    if not isinstance(getattr(store, "api_key_cache_enabled", True), bool):
+        raise TypeError("Auth store api_key_cache_enabled must be a bool")
     path = getattr(store, "path", False)
     if path is not None and not isinstance(path, Path):
         raise TypeError("Auth store path must be a pathlib.Path or None")

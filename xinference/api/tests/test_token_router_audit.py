@@ -1,3 +1,5 @@
+# CI: linux
+
 from types import MethodType, SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -11,7 +13,6 @@ from xinference.api.oauth2.advanced.audit import (
     should_skip_audit,
     should_skip_completed_audit,
 )
-from xinference.api.oauth2.advanced.crypto import sha256_hex
 from xinference.api.restful_api import RESTfulAPI
 from xinference.core import metrics as core_metrics
 
@@ -213,18 +214,9 @@ async def test_anthropic_x_api_key_records_inference_audit(
     expected_audit_status,
 ):
     token = "external-anthropic-key"
-    entry = SimpleNamespace(
-        user_id=7,
-        name="anthropic-key",
-        key_prefix="sk-test",
-    )
     auth_service = SimpleNamespace(
-        cache=MagicMock(),
-        db=MagicMock(),
         validate_model_access=MagicMock(return_value=model_access_allowed),
     )
-    auth_service.cache.get.return_value = entry
-    auth_service.db.get_user_by_id.return_value = {"username": "anthropic-user"}
 
     recorded = []
     requests_total = MagicMock()
@@ -245,6 +237,13 @@ async def test_anthropic_x_api_key_records_inference_audit(
 
     @app.post("/v1/messages")
     async def create_message(request: Request) -> Response:
+        # Authentication resolves the identity before the endpoint runs.
+        request.state.audit_identity = {
+            "user": "anthropic-user",
+            "api_key_name": "anthropic-key",
+            "api_key_prefix": "sk-test",
+            "auth_type": "api_key",
+        }
         api._check_model_access(request, "virtual-model", "LLM")
         return Response(status_code=200)
 
@@ -256,7 +255,6 @@ async def test_anthropic_x_api_key_records_inference_audit(
     auth_service.validate_model_access.assert_called_once_with(
         token, "virtual-model", "LLM"
     )
-    auth_service.cache.get.assert_called_once_with(sha256_hex(token))
     assert len(recorded) == 1
     assert recorded[0] == {
         "user": "anthropic-user",
