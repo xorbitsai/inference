@@ -9,6 +9,7 @@ import asyncio
 import json
 import multiprocessing
 import os
+import time
 from copy import deepcopy
 
 import pytest
@@ -19,7 +20,8 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_lmcache_gpu_prefix_reuse(monkeypatch, tmp_path):
+@pytest.mark.parametrize("deployment_mode", ["local", "supervisor-workers"])
+def test_lmcache_gpu_prefix_reuse(monkeypatch, tmp_path, deployment_mode):
     import torch
     import xoscar as xo
 
@@ -35,16 +37,78 @@ def test_lmcache_gpu_prefix_reuse(monkeypatch, tmp_path):
         filename=str(tmp_path / "cluster.log"), maxBytes=0, backupCount=0
     )
     address = f"127.0.0.1:{xo.utils.get_next_port()}"
-    cluster = run_in_subprocess(address, None, None, logging_config)
+    processes = []
     try:
+        worker_addresses = None
+        endpoint = None
+        if deployment_mode == "local":
+            cluster = run_in_subprocess(address, None, None, logging_config)
+        else:
+            from xinference.deploy.supervisor import run_in_subprocess as run_supervisor
+
+            cluster = run_supervisor(address, logging_config)
+        processes.append(cluster)
         assert health_check(address=address, max_attempts=30, sleep_interval=1)
-        asyncio.run(_exercise_cluster(address, tmp_path))
+        if deployment_mode == "supervisor-workers":
+            worker_addresses = [
+                f"127.0.0.1:{xo.utils.get_next_port()}" for _ in range(2)
+            ]
+            for worker_address in worker_addresses:
+                process = multiprocessing.Process(
+                    target=_run_test_worker,
+                    args=(worker_address, address, logging_config),
+                )
+                process.start()
+                processes.append(process)
+            import requests
+
+            port = xo.utils.get_next_port()
+            api = multiprocessing.Process(
+                target=_run_test_api, args=(address, port, logging_config)
+            )
+            api.start()
+            processes.append(api)
+            endpoint = f"http://127.0.0.1:{port}"
+            deadline = time.monotonic() + 30
+            while True:
+                try:
+                    response = requests.get(f"{endpoint}/status", timeout=1)
+                    if response.status_code == 200:
+                        break
+                except requests.RequestException:
+                    pass
+                assert time.monotonic() < deadline, "REST API did not start"
+                time.sleep(0.1)
+        asyncio.run(_exercise_cluster(address, tmp_path, worker_addresses, endpoint))
     finally:
-        cluster.kill()
-        cluster.join(timeout=15)
+        for process in reversed(processes):
+            if process.is_alive():
+                process.kill()
+            process.join(timeout=15)
 
 
-async def _exercise_cluster(address, tmp_path):
+def _run_test_worker(address, supervisor_address, logging_config):
+    import logging.config
+
+    from xinference.deploy.worker import _start_worker
+
+    logging.config.dictConfig(logging_config)
+    asyncio.run(_start_worker(address, supervisor_address, logging_conf=logging_config))
+
+
+def _run_test_api(supervisor_address, port, logging_config):
+    from xinference.api import restful_api
+
+    restful_api.run(
+        supervisor_address=supervisor_address,
+        host="127.0.0.1",
+        port=port,
+        logging_conf=logging_config,
+        api_role="supervisor",
+    )
+
+
+async def _exercise_cluster(address, tmp_path, worker_addresses=None, endpoint=None):
     import xoscar as xo
 
     from xinference.core.replica_config import DeviceConfig, ReplicaConfig
@@ -53,7 +117,16 @@ async def _exercise_cluster(address, tmp_path):
     from xinference.model.llm.vllm.xavier.transfer import TransferActor
 
     supervisor = await xo.actor_ref(address=address, uid=SupervisorActor.default_uid())
-    worker = await xo.actor_ref(address=address, uid=WorkerActor.default_uid())
+    if worker_addresses is not None:
+        deadline = asyncio.get_running_loop().time() + 30
+        while len(await supervisor.get_workers_info()) != 2:
+            assert asyncio.get_running_loop().time() < deadline, "Workers did not join"
+            await asyncio.sleep(0.1)
+    worker_addresses = worker_addresses or [address, address]
+    workers = [
+        await xo.actor_ref(address=worker_address, uid=WorkerActor.default_uid())
+        for worker_address in worker_addresses
+    ]
     uid = "lmcache-gpu-regression"
     model_path = os.environ["XINFERENCE_TEST_LMCACHE_MODEL_PATH"]
     gpu_indices = [
@@ -64,7 +137,7 @@ async def _exercise_cluster(address, tmp_path):
     ]
     assert len(gpu_indices) == 2
     disk = tmp_path / "kv"
-    await supervisor.launch_builtin_model(
+    launch_config = dict(
         model_uid=uid,
         model_name="qwen2.5-instruct",
         model_engine="vLLM",
@@ -93,20 +166,41 @@ async def _exercise_cluster(address, tmp_path):
         max_num_seqs=4,
         replica_config=[
             ReplicaConfig(
-                devices=[DeviceConfig(worker_ip=address, n_gpu=1, gpu_idx=[gpu_index])]
+                devices=[
+                    DeviceConfig(worker_ip=worker_address, n_gpu=1, gpu_idx=[gpu_index])
+                ]
             )
-            for gpu_index in gpu_indices
+            for worker_address, gpu_index in zip(worker_addresses, gpu_indices)
         ],
     )
+    if endpoint is None:
+        await supervisor.launch_builtin_model(**launch_config)
+    else:
+        import requests
+
+        body = {
+            **launch_config,
+            "replica_config": [
+                config.dict() for config in launch_config["replica_config"]
+            ],
+        }
+        response = await asyncio.to_thread(
+            requests.post, f"{endpoint}/v1/models", json=body, timeout=600
+        )
+        response.raise_for_status()
+        assert response.json()["model_uid"] == uid
     try:
-        producer = await worker.get_model(f"{uid}-rep0")
-        consumer = await worker.get_model(f"{uid}-rep1")
+        producer = await workers[0].get_model(f"{uid}-rep0")
+        consumer = await workers[1].get_model(f"{uid}-rep1")
         transfer = await xo.actor_ref(
             address=producer.address, uid=f"{TransferActor.default_uid()}-1"
         )
+        verification_number = "73814926"
         target = (
-            " ".join(["original"] * 440)
-            + ". Which word was repeated above? Reply with that word only."
+            f"The verification number is {verification_number}.\n"
+            + " ".join(["signal"] * 420)
+            + ". What is the verification number from the first line? "
+            "Reply only with the eight digits."
         )
 
         async def chat(model, prompt, salt):
@@ -134,6 +228,9 @@ async def _exercise_cluster(address, tmp_path):
         content = lambda result: result["choices"][0]["message"]["content"]
         evidence = {
             "gpu_indices": gpu_indices,
+            "supervisor_address": address,
+            "worker_addresses": worker_addresses,
+            "launch_transport": "rest" if endpoint else "actor",
             "producer_before": before,
             "producer_after": after,
             "producer_after_different_salt": after_isolated,
@@ -144,6 +241,7 @@ async def _exercise_cluster(address, tmp_path):
         }
         (tmp_path / "evidence.json").write_text(json.dumps(evidence, indent=2))
         print(json.dumps(evidence, indent=2), flush=True)
+        assert verification_number in content(original)
         assert content(original) == content(restored) == content(isolated)
         assert restored["usage"]["prompt_tokens_details"]["cached_tokens"] > 0
         assert isolated["usage"]["prompt_tokens_details"]["cached_tokens"] == 0

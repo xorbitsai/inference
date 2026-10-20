@@ -232,15 +232,34 @@ async def test_storage_adapter_releases_every_successful_read_lock():
     assert released == [1]
 
 
-@pytest.mark.asyncio
-async def test_lmcache_real_disk_roundtrip(tmp_path):
-    """Run automatically in a Linux CUDA environment with the optional extra."""
+def _require_real_lmcache():
     import sys
-    import time
 
     if sys.platform != "linux" or not torch.cuda.is_available():
         pytest.skip("LMCache disk integration requires Linux CUDA")
     pytest.importorskip("lmcache")
+
+
+async def _wait_for_disk_writes(store, path, count):
+    deadline = asyncio.get_running_loop().time() + 10
+    while True:
+        controllers = store._storage.manager.report_status()[
+            "store_controllers"
+        ].values()
+        if len(list(path.rglob("*.data"))) >= count and all(
+            status["pending_keys_count"] == 0 and status["in_flight_task_count"] == 0
+            for status in controllers
+        ):
+            return
+        assert asyncio.get_running_loop().time() < deadline, "Disk writes did not drain"
+        await asyncio.sleep(0.05)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("read_mode", ["normal", "timeout", "cancel"])
+async def test_lmcache_real_disk_roundtrip(tmp_path, read_mode):
+    """Run automatically in a Linux CUDA environment with the optional extra."""
+    _require_real_lmcache()
     config = dict(
         cpu_bytes=16 << 20,
         disk_bytes=32 << 20,
@@ -257,33 +276,86 @@ async def test_lmcache_real_disk_roundtrip(tmp_path):
     try:
         accepted, k, v = publish(store, [1, 2])
         assert accepted == [1, 2]
-        deadline = time.monotonic() + 10
-        while len(list(tmp_path.rglob("*.data"))) < 2:
-            if time.monotonic() >= deadline:
-                pytest.fail("LMCache did not write both complete pages to disk")
-            await asyncio.sleep(0.05)
-        while True:
-            controllers = store._storage.manager.report_status()[
-                "store_controllers"
-            ].values()
-            if all(
-                status["pending_keys_count"] == 0
-                and status["in_flight_task_count"] == 0
-                for status in controllers
-            ):
-                break
-            if time.monotonic() >= deadline:
-                pytest.fail(
-                    "LMCache store controller did not release its in-flight writes"
-                )
-            await asyncio.sleep(0.05)
+        await _wait_for_disk_writes(store, tmp_path, 2)
         store._storage.manager.clear()
+        if read_mode == "timeout":
+            store._config["read_timeout"] = 1e-9
+            assert not await store.prefetch([1, 2])
+            assert store.get_stats()["timeouts"] == 1
+        elif read_mode == "cancel":
+            reading = asyncio.create_task(store.prefetch([1, 2]))
+            await asyncio.sleep(0)
+            assert store._pending is not None
+            reading.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await reading
+        if read_mode != "normal":
+            pending = store._pending
+            if pending is not None:
+                await asyncio.shield(pending)
+            assert not store.blocks and not store.leases
+            # Drained reads must have released every LMCache lock. Otherwise
+            # clear() retains those objects and the retry silently hits L1.
+            store._storage.manager.clear()
+            store._config["read_timeout"] = 10
         assert await store.prefetch([1, 2])
         assert store.reserve("1:disk", [1, 2])
         assert torch.equal(store.read("K", [1, 2]), k)
         assert torch.equal(store.read("V", [1, 2]).view(torch.bfloat16), v)
         assert store.get_stats()["l2_hits"] == 2
         store.release("1:disk")
+    finally:
+        await store.close()
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.asyncio
+async def test_lmcache_real_l1_pressure_keeps_disk_candidates(tmp_path):
+    _require_real_lmcache()
+    page_bytes = 2 << 20
+    store = create_snapshot_backend(
+        8,
+        "lmcache",
+        dict(
+            cpu_bytes=16 << 20,
+            disk_bytes=64 << 20,
+            disk_path=str(tmp_path),
+            read_timeout=10,
+        ),
+        namespace="disk-admission",
+        schema={"KV": ((page_bytes,), torch.uint8)},
+    )
+    payload = torch.ones(2, page_bytes, dtype=torch.uint8)
+    payload[0].fill_(7)
+    payload[1].fill_(123)
+    try:
+        store.stage("KV", [1, 2], payload)
+        assert store.publish([1, 2], {"KV"}) == [1, 2]
+        await _wait_for_disk_writes(store, tmp_path, 2)
+        manager = store._storage.manager
+        manager.clear()
+        held = {}
+        # Keep the remaining DRAM write-locked, as during slow disk exports.
+        for key in range(10, 30):
+            reserved = manager.reserve_write(
+                [store._storage._key(key)], store._storage._layout
+            )
+            if not reserved:
+                break
+            for obj in reserved.values():
+                obj.tensor.zero_()
+            held.update(reserved)
+        assert held
+        assert not await store.prefetch([1, 2])
+        assert store.ready_keys([1, 2]) == [1, 2]
+        assert store.take_evicted() == []
+        manager.finish_write(list(held))
+        await _wait_for_disk_writes(store, tmp_path, 2 + len(held))
+        manager.clear()
+        assert await store.prefetch([1, 2])
+        assert store.reserve("1:retry", [1, 2])
+        assert torch.equal(store.read("KV", [1, 2]), payload)
+        store.release("1:retry")
     finally:
         await store.close()
     assert not list(tmp_path.iterdir())
