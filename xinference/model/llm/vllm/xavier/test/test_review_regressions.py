@@ -364,13 +364,18 @@ def test_snapshot_logical_dtype_tracks_immutable_blocks_and_eviction():
 @pytest.mark.asyncio
 async def test_transfer_cleanup_continues_after_gpu_close_error():
     close = AsyncMock(side_effect=RuntimeError("sticky CUDA error"))
-    task = Mock()
+    task = asyncio.get_running_loop().create_future()
     context = Mock()
+    backend = SimpleNamespace(close=AsyncMock())
     actor = SimpleNamespace(
-        close_gpu_caches_v1=close, _layer_send_tasks_v1={task}, _context=context
+        close_gpu_caches_v1=close,
+        _layer_send_tasks_v1={task},
+        _context=context,
+        _snapshot_store=backend,
     )
     await TransferActor.__pre_destroy__(actor)
-    task.cancel.assert_called_once_with()
+    assert task.cancelled()
+    backend.close.assert_awaited_once_with()
     context.closeConnections.assert_called_once_with()
 
 

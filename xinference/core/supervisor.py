@@ -3087,6 +3087,8 @@ class SupervisorActor(xo.StatelessActor):
                 )
 
         if n_worker > 1:  # type: ignore
+            if kwargs.get("xavier_cache_backend") not in (None, "native"):
+                raise ValueError("The LMCache backend requires one worker per replica")
             # distributed inference
             return await self._launch_builtin_sharded_model(
                 model_uid,
@@ -3202,7 +3204,28 @@ class SupervisorActor(xo.StatelessActor):
                 else "Cross-engine PD requires Xavier GPU transport"
             )
         # Xavier-related
+        from ..model.llm.xavier.backends.config import normalize_cache_backend
+
+        cache_backend, cache_backend_config = normalize_cache_backend(
+            kwargs.pop("xavier_cache_backend", None),
+            kwargs.pop("xavier_cache_backend_config", None),
+        )
         requested_xavier = bool(kwargs.pop("enable_xavier", False))
+        if cache_backend != "native" and (
+            not requested_xavier
+            or replica <= 1
+            or pd_enabled
+            or (model_engine or "").lower() != "vllm"
+            or model_type not in (None, "LLM")
+            or any(engine != "vllm" for engine in replica_engines)
+            or transport_backend != "xavier"
+            or kwargs.get("xavier_gpu_cache_bytes") is not None
+        ):
+            raise ValueError(
+                "The LMCache backend requires enable_xavier with multiple ordinary "
+                "vLLM V1 replicas, CPU transfer and no P/D roles"
+            )
+        cache_namespace = gen_random_string(32) if cache_backend != "native" else None
         if (
             requested_xavier
             and not pd_enabled
@@ -3417,6 +3440,13 @@ class SupervisorActor(xo.StatelessActor):
                 if enable_xavier
                 else None
             )
+
+            if xavier_config is not None and cache_backend != "native":
+                xavier_config["cache_backend"] = {
+                    "name": cache_backend,
+                    "config": cache_backend_config,
+                    "namespace": f"{cache_namespace}-{rank}",
+                }
 
             if enable_xavier and rank == 0:
                 rank0_address, _port = await worker_ref.launch_rank0_model(

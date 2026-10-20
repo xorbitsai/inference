@@ -111,6 +111,47 @@ class KVSnapshotStore:
         self._block_slabs: Dict[int, int] = {}
         self._reserved_slots = 0
 
+    def ready_keys(self, keys: List[int]) -> List[int]:
+        ready = []
+        for key in dict.fromkeys(keys):
+            if key in self.ready:
+                ready.append(key)
+                self.blocks.move_to_end(key)
+        return ready
+
+    def can_stage(self, keys: Set[int]) -> bool:
+        pinned = set().union(*self.leases.values())
+        return len(keys | pinned) <= self.capacity
+
+    async def prefetch(self, keys: List[int]) -> bool:
+        return set(keys).issubset(self.ready)
+
+    def has_layer(self, layer, keys, logical_dtype=None) -> bool:
+        return all(
+            key in self.ready
+            and layer in self.blocks[key]
+            and (
+                logical_dtype is None
+                or self.logical_dtypes[key][layer] == logical_dtype
+            )
+            for key in keys
+        )
+
+    def take_evicted(self) -> List[int]:
+        evicted = list(self.evicted)
+        self.evicted.clear()
+        return evicted
+
+    async def close(self):
+        return
+
+    def get_stats(self) -> dict:
+        return {
+            "backend": "native",
+            "capacity": self.capacity,
+            "pages": len(self.ready),
+        }
+
     def _used_slots(self) -> int:
         return len(self.blocks) - len(self._block_slabs) + self._reserved_slots
 

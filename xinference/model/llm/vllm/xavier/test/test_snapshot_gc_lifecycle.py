@@ -66,6 +66,8 @@ async def test_actor_starts_gc_guard_and_closes_it_after_cleanup_error():
     guard = SimpleNamespace(start=Mock(), close=Mock())
     actor = SimpleNamespace(
         init_rank=Mock(),
+        _cache_backend={},
+        _snapshot_store=None,
         _snapshot_gc_freeze=guard,
         close_gpu_caches_v1=AsyncMock(),
         _layer_send_tasks_v1=set(),

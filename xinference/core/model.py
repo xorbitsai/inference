@@ -399,6 +399,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             store_address=self._xavier_config.get("store_address"),  # type: ignore
             store_port=self._xavier_config.get("store_port"),  # type: ignore
             world_addresses=rank_addresses,
+            cache_backend=self._xavier_config.get("cache_backend"),
             freeze_initialization_gc=(
                 self._model._is_vllm_v1()
                 and self._xavier_config.get("gpu_cache_bytes") is None

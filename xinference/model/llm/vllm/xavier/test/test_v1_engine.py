@@ -277,3 +277,14 @@ def test_recurrent_rejects_unsupported_settings_before_start(engine, setting):
     ):
         module.XavierEngine.from_engine_args(args)
     factory.assert_not_called()
+
+
+@pytest.mark.parametrize("vllm_version", ["0.7.3", "0.10.2", "0.20.0"])
+def test_lmcache_rejects_legacy_vllm_before_engine_start(engine, vllm_version):
+    module, factory = engine
+    module.VLLM_VERSION = vllm_version
+    with pytest.raises(RuntimeError, match="LMCache backend requires vLLM V1"):
+        module.XavierEngine.from_engine_args(
+            SimpleNamespace(), xavier_config={"cache_backend": {"name": "lmcache"}}
+        )
+    factory.assert_not_called()

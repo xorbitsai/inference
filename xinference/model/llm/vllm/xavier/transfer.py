@@ -25,7 +25,7 @@ import torch
 import xoscar as xo
 
 from ...sglang.gc_lifecycle import InitializationGCFreeze
-from ...xavier.backends.torch.snapshot import KVSnapshotStore
+from ...xavier.backends.torch.backend import SnapshotBackend
 from ...xavier.collective import CollectiveRank
 from ...xavier.constants import DEFAULT_TRANSFER_ACTOR_UID
 from ...xavier.profiling import profile_stage
@@ -165,6 +165,7 @@ class TransferActor(
         store_port: int,
         world_addresses: List[str],
         freeze_initialization_gc: bool = False,
+        cache_backend: Optional[dict] = None,
     ):
         super().__init__()
         CollectiveRank.__init__(
@@ -178,12 +179,15 @@ class TransferActor(
         )
         self._cache_engine: Optional[List[CacheEngine]] = None
         self._scheduler: Optional[List[Scheduler]] = None
-        self._snapshot_store: Optional[KVSnapshotStore] = None
+        self._snapshot_store: Optional[SnapshotBackend] = None
+        self._cache_backend = dict(cache_backend or {})
+        self._snapshot_capacity: Optional[int] = None
         self._kv_schema_v1: Optional[Tuple[int, dict, str]] = None
         self._schema_mismatch_warnings: Set[Tuple[str, str]] = set()
         self._layer_send_tasks_v1: Set[asyncio.Task[Any]] = set()
         self._snapshot_export_jobs_v1: Dict[str, asyncio.Task] = {}
         self._snapshot_export_lock_v1 = asyncio.Lock()
+        self._snapshot_tracker_v1: Optional[Any] = None
         self._snapshot_export_sources_v1: Dict[
             str, List[Tuple[torch.Tensor, torch.cuda.Event]]
         ] = {}
@@ -193,6 +197,10 @@ class TransferActor(
         self._swap_stream = torch.cuda.Stream()
 
     async def __post_create__(self):
+        if self._cache_backend.get("name") == "lmcache":
+            from ...xavier.backends.lmcache import check_lmcache_available
+
+            check_lmcache_available()
         self.init_rank()
         if self._snapshot_gc_freeze is not None:
             # Actor creation follows model loading and precedes serving. Freeze
@@ -239,7 +247,13 @@ class TransferActor(
                 )
             for task in self._layer_send_tasks_v1:
                 task.cancel()
-            self._context.closeConnections()
+            if self._layer_send_tasks_v1:
+                await asyncio.gather(*self._layer_send_tasks_v1, return_exceptions=True)
+            try:
+                if self._snapshot_store is not None:
+                    await self._snapshot_store.close()
+            finally:
+                self._context.closeConnections()
         finally:
             guard = getattr(self, "_snapshot_gc_freeze", None)
             if guard is not None:
@@ -249,12 +263,25 @@ class TransferActor(
         return self._cache_engine[virtual_engine]  # type: ignore
 
     def configure_snapshots_v1(self, capacity: int):
-        from ...xavier.backends.torch.snapshot import KVSnapshotStore
+        from ...xavier.backends.torch.backend import create_snapshot_backend
 
         if capacity <= 0:
             raise ValueError("Xavier snapshot capacity must be positive")
+        self._snapshot_capacity = capacity
+        backend = getattr(self, "_cache_backend", {})
+        if backend.get("name") == "lmcache" and self._kv_schema_v1 is None:
+            return  # Worker registration supplies the physical KV layout.
         if self._snapshot_store is None:
-            self._snapshot_store = KVSnapshotStore(capacity)
+            self._snapshot_store = create_snapshot_backend(
+                capacity,
+                backend.get("name", "native"),
+                backend.get("config"),
+                namespace=backend.get("namespace", ""),
+                schema=self._kv_schema_v1[1] if self._kv_schema_v1 else None,
+            )
+
+    def get_cache_backend_stats_v1(self):
+        return self._snapshot_store.get_stats() if self._snapshot_store else {}
 
     def stage_layer_blocks_v1(self, request_id, layer_name, block_ids, blocks):
         logical_dtype = blocks.dtype
@@ -277,13 +304,7 @@ class TransferActor(
     def ready_blocks_for_export_v1(self, keys: List[int]) -> List[int]:
         if self._snapshot_store is None:
             return []
-        ready = []
-        for key in dict.fromkeys(keys):
-            if key in self._snapshot_store.ready:
-                ready.append(key)
-                # A reused snapshot is still hot even without another write.
-                self._snapshot_store.blocks.move_to_end(key)
-        return ready
+        return self._snapshot_store.ready_keys(keys)
 
     def stage_layer_batches_v1(
         self,
@@ -299,8 +320,7 @@ class TransferActor(
         store = self._snapshot_store
         assert store is not None
         batch_keys = set(key for _, ids, _ in entries for key in ids)
-        pinned = set().union(*store.leases.values())
-        if len(batch_keys | pinned) <= store.capacity:
+        if store.can_stage(batch_keys):
             # All batch keys can stay resident across layers, even if staging
             # first needs to evict older unleased content.
             for name, ids, blocks in entries:
@@ -326,8 +346,7 @@ class TransferActor(
 
     def publish_blocks_v1(self, keys, layers):
         available = self._snapshot_store.publish(keys, set(layers))
-        evicted = list(self._snapshot_store.evicted)
-        self._snapshot_store.evicted.clear()
+        evicted = self._snapshot_store.take_evicted()
         return available, evicted
 
     async def refresh_snapshot_blocks_v1(
@@ -337,6 +356,7 @@ class TransferActor(
         # either path can evict the other's snapshots.
         async with self._snapshot_export_lock_v1:
             tracker = await xo.actor_ref(address=tracker_address, uid=tracker_uid)
+            self._snapshot_tracker_v1 = tracker
             available, evicted = self.publish_blocks_v1(keys, layers)
             removed = set(evicted) | (set(keys) - set(available))
             if removed:
@@ -350,6 +370,9 @@ class TransferActor(
         if previous is not None and previous != schema:
             raise ValueError("Xavier registered KV schema changed")
         self._kv_schema_v1 = schema
+        capacity = getattr(self, "_snapshot_capacity", None)
+        if capacity is not None:
+            self.configure_snapshots_v1(capacity)
 
     def register_snapshot_export_source_v1(self, source, metadata):
         from torch.multiprocessing.reductions import rebuild_cuda_tensor
@@ -403,6 +426,7 @@ class TransferActor(
             available, evicted = set(), set()
             async with self._snapshot_export_lock_v1:
                 tracker = await xo.actor_ref(address=tracker_address, uid=tracker_uid)
+                self._snapshot_tracker_v1 = tracker
                 for keys, value, layers, ready_event in batches:
                     host = await _copy_snapshot_to_cpu(
                         value, self._swap_stream, ready_event
@@ -479,6 +503,22 @@ class TransferActor(
             lease, keys
         )
 
+    async def prefetch_and_reserve_blocks_v1(self, lease, keys, expected_schema):
+        if self._kv_schema_v1 != expected_schema or self._snapshot_store is None:
+            return False
+        prefetched = await self._snapshot_store.prefetch(keys)
+        # Pin immediately after prefetch, before any directory RPC can yield to
+        # another export or reader. Disk candidates that disappeared must also
+        # leave the tracker, even if this replica receives no more writes.
+        reserved = prefetched and self.reserve_blocks_v1(lease, keys, expected_schema)
+        tracker = getattr(self, "_snapshot_tracker_v1", None)
+        if tracker is not None:
+            async with self._snapshot_export_lock_v1:
+                evicted = self._snapshot_store.take_evicted()
+                if evicted:
+                    await tracker.unregister_blocks(0, self._rank, evicted)
+        return reserved
+
     def release_blocks_v1(self, lease):
         if self._snapshot_store is not None:
             self._snapshot_store.release(lease)
@@ -503,7 +543,13 @@ class TransferActor(
                     uid=f"{TransferActor.default_uid()}-{rank}",
                 )
                 refs.append(ref)
-                if not await ref.reserve_blocks_v1(lease, list(mapping), schema):
+                if getattr(self, "_cache_backend", {}).get("name") == "lmcache":
+                    reserved = await ref.prefetch_and_reserve_blocks_v1(
+                        lease, list(mapping), schema
+                    )
+                else:
+                    reserved = await ref.reserve_blocks_v1(lease, list(mapping), schema)
+                if not reserved:
                     return False
             success = True
             return True
@@ -546,11 +592,8 @@ class TransferActor(
         return self._snapshot_store.read(layer_name, remote_block_ids)
 
     def has_layer_blocks_v1(self, layer_name, remote_block_ids, expected_dtype):
-        return self._snapshot_store is not None and all(
-            key in self._snapshot_store.ready
-            and layer_name in self._snapshot_store.blocks[key]
-            and self._snapshot_store.logical_dtypes[key][layer_name] == expected_dtype
-            for key in remote_block_ids
+        return self._snapshot_store is not None and self._snapshot_store.has_layer(
+            layer_name, remote_block_ids, expected_dtype
         )
 
     def do_send_layer_blocks_v1(
