@@ -298,6 +298,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             None if getattr(self._model, "allow_batch", False) else asyncio.locks.Lock()
         )
         self._worker_ref = None
+        self._worker_generation = 0
         self._progress_tracker_ref = None
         self._serve_count = 0
         model_type = self._model_description.get("model_type", "unknown")
@@ -446,13 +447,38 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             )
         await asyncio.gather(*coros)
 
+    def get_worker_binding(self):
+        return {"protocol": 1, "address": self._worker_address}
+
+    def rebind_worker(self, expected_address: str, address: str, generation: int):
+        """Replace the control-plane binding without touching the model runtime."""
+        current = getattr(self, "_worker_generation", 0)
+        if generation >= current and self._worker_address == address:
+            # A process recovered by the new owner is already bound here.
+            if generation != current:
+                self._worker_ref = None
+            self._worker_generation = generation
+            return True
+        if self._worker_address != expected_address or generation <= current:
+            raise RuntimeError("Stale model worker binding")
+        self._worker_address = address
+        self._worker_generation = generation
+        self._worker_ref = None
+        self._metrics_labels["worker_address"] = address
+        return True
+
     async def _get_worker_ref(self) -> xo.ActorRefType["WorkerActor"]:
         from .worker import WorkerActor
 
-        if self._worker_ref is None:
-            self._worker_ref = await xo.actor_ref(
-                address=self._worker_address, uid=WorkerActor.default_uid()
-            )
+        while self._worker_ref is None:
+            address = self._worker_address
+            generation = getattr(self, "_worker_generation", 0)
+            ref = await xo.actor_ref(address=address, uid=WorkerActor.default_uid())
+            if address != self._worker_address or generation != getattr(
+                self, "_worker_generation", 0
+            ):
+                continue
+            self._worker_ref = ref
         return self._worker_ref
 
     async def _get_progress_tracker_ref(

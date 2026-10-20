@@ -278,7 +278,8 @@ def test_cmdline_of_custom_model(setup):
     assert "custom_model" not in result.output
 
 
-def test_worker_command_passes_endpoint_and_internal_address(monkeypatch):
+@pytest.mark.parametrize("replacement", [None, "127.0.0.1:9978"])
+def test_worker_command_passes_endpoint_and_internal_address(monkeypatch, replacement):
     runner = CliRunner()
     calls = {}
 
@@ -305,7 +306,8 @@ def test_worker_command_passes_endpoint_and_internal_address(monkeypatch):
             "127.0.0.1",
             "--worker-port",
             "12345",
-        ],
+        ]
+        + (["--replace-worker", replacement] if replacement else []),
     )
 
     assert result.exit_code == 0
@@ -313,6 +315,8 @@ def test_worker_command_passes_endpoint_and_internal_address(monkeypatch):
     assert calls["resolved"] is True
     assert calls["main_kwargs"]["supervisor_address"] == "test://supervisor-internal"
     assert calls["main_kwargs"]["supervisor_endpoint"] == "http://127.0.0.1:9997"
+
+    assert calls["main_kwargs"].get("replace_worker") == replacement
 
 
 @pytest.mark.platform_slow

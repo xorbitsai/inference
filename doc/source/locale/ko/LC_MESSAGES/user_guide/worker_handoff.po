@@ -1,0 +1,64 @@
+# Korean translations for Xinference.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference 4.0\n"
+"Report-Msgid-Bugs-To: https://github.com/xorbitsai/inference/issues\n"
+"POT-Creation-Date: 2026-10-21 01:27+0800\n"
+"PO-Revision-Date: 2026-10-21 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language: ko\n"
+"Language-Team: ko\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: user_guide/worker_handoff.rst:1
+msgid "Worker hot replacement"
+msgstr "Worker 핫 교체"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"Replace a distributed Worker on Linux or macOS while retaining its model processes. "
+"The Supervisor and API server keep running. Both Workers and the model processes must"
+" support the handoff protocol and use Xoscar 0.12.1 or later, compatible Python "
+"versions, the same Supervisor, GPU visibility and extensions. Local mode, models "
+"spanning Workers and Xavier or P/D deployments are currently unsupported."
+msgstr ""
+"Linux 또는 macOS에서 모델 프로세스를 유지하면서 분산 Worker를 교체합니다. Supervisor와 API 서버는 계속 실행됩니다. 두 "
+"Worker와 모델 프로세스 모두 인계 프로토콜을 지원하고 Xoscar 0.12.1 이상, 호환되는 Python 버전, 동일한 Supervisor, "
+"GPU 가시성 및 확장을 사용해야 합니다. 로컬 모드, 여러 Worker에 걸친 모델, Xavier 또는 P/D 배포는 현재 지원하지 않습니다."
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"For an existing Worker at ``127.0.0.1:9978``, start its replacement with a different "
+"actor port and a free metrics exporter port:"
+msgstr ""
+"기존 Worker 주소가 ``127.0.0.1:9978`` 인 경우 다른 actor 포트와 사용 가능한 메트릭 내보내기 포트로 새 Worker를 "
+"시작합니다."
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"Model management changes pause during handoff; inference calls continue. Failure "
+"before ownership transfer restores the old Worker. After transfer starts, keep both "
+"processes alive while the replacement retries. The old Worker exits automatically "
+"after successful replacement."
+msgstr ""
+"인계 중에는 모델 관리 변경이 일시 중지되지만 추론 호출은 계속됩니다. 소유권 이전 전에 실패하면 기존 Worker가 복원됩니다. 이전이 시작된 후에는 "
+"새 Worker가 재시도하는 동안 두 프로세스를 모두 실행 상태로 유지하세요. 교체가 성공하면 기존 Worker가 자동으로 종료됩니다."
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"The model processes retain their original Xinference and engine code and loaded "
+"weights. This replaces the Worker control process. Deploy both processes on the same "
+"machine, and configure the service manager to let retained processes outlive the old "
+"Worker instead of killing its process group or container."
+msgstr ""
+"모델 프로세스는 기존 Xinference 및 엔진 코드와 로드된 가중치를 유지합니다. 이 작업은 Worker 제어 프로세스를 교체합니다. 두 프로세스를 "
+"동일한 머신에 배치하고, 기존 Worker의 전체 프로세스 그룹이나 컨테이너를 종료하지 않고 유지할 프로세스가 계속 실행되도록 서비스 관리자를 "
+"설정하세요."

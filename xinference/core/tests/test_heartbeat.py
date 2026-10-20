@@ -49,6 +49,7 @@ def _build_worker_status(*, gpu_utils=None):
 
 class DummySupervisorWithHeartbeat:
     receive_heartbeat = SupervisorActor.receive_heartbeat
+    _ownership_registry = SupervisorActor._ownership_registry
 
     def __init__(self, worker_status, registered_workers=None):
         self._worker_status = worker_status

@@ -1,0 +1,61 @@
+# Chinese (Simplified, China) translations for Xinference.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference 4.0\n"
+"Report-Msgid-Bugs-To: https://github.com/xorbitsai/inference/issues\n"
+"POT-Creation-Date: 2026-10-21 01:27+0800\n"
+"PO-Revision-Date: 2026-10-21 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: user_guide/worker_handoff.rst:1
+msgid "Worker hot replacement"
+msgstr "Worker 热替换"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"Replace a distributed Worker on Linux or macOS while retaining its model processes. "
+"The Supervisor and API server keep running. Both Workers and the model processes must"
+" support the handoff protocol and use Xoscar 0.12.1 or later, compatible Python "
+"versions, the same Supervisor, GPU visibility and extensions. Local mode, models "
+"spanning Workers and Xavier or P/D deployments are currently unsupported."
+msgstr ""
+"在 Linux 或 macOS 上替换分布式 Worker，同时保留模型进程。Supervisor 和 API 服务继续运行。两个 Worker "
+"及模型进程均须支持交接协议，使用 Xoscar 0.12.1 或更新版本、兼容的 Python 版本、相同的 Supervisor、GPU "
+"可见性和扩展。目前不支持本地模式、跨 Worker 模型，以及 Xavier 或 P/D 部署。"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"For an existing Worker at ``127.0.0.1:9978``, start its replacement with a different "
+"actor port and a free metrics exporter port:"
+msgstr "现有 Worker 地址为 ``127.0.0.1:9978`` 时，使用不同的 actor 端口和空闲的指标导出端口启动替换 Worker："
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"Model management changes pause during handoff; inference calls continue. Failure "
+"before ownership transfer restores the old Worker. After transfer starts, keep both "
+"processes alive while the replacement retries. The old Worker exits automatically "
+"after successful replacement."
+msgstr ""
+"交接期间暂停模型管理变更，推理调用继续执行。所有权转移前失败会恢复旧 Worker；转移开始后，请保持两个进程运行，由替换 Worker 重试完成交接。替换成功后，旧 "
+"Worker 自动退出。"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"The model processes retain their original Xinference and engine code and loaded "
+"weights. This replaces the Worker control process. Deploy both processes on the same "
+"machine, and configure the service manager to let retained processes outlive the old "
+"Worker instead of killing its process group or container."
+msgstr ""
+"模型进程保留原有的 Xinference、引擎代码和已加载的权重。本操作替换 Worker 控制进程。两个进程须部署在同一台机器上，并配置服务管理器，允许保留的进程在旧 "
+"Worker 退出后继续运行，避免终止其整个进程组或容器。"

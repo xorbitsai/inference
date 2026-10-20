@@ -94,6 +94,12 @@ from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
 from .exceptions import ModelNotReadyError
+from .lifecycle import (
+    WorkerLifecycle,
+    WorkerPhase,
+    management_operation,
+    spawn_management_task,
+)
 from .metrics import (
     launch_metrics_export_server,
     record_metrics,
@@ -134,6 +140,7 @@ from .virtual_env_manager import (
     resolve_virtualenv_python_path,
     validate_virtual_env_find_links,
 )
+from .worker_handoff import WorkerHandoffMixin
 
 try:
     from xoscar.virtualenv import VirtualEnvManager
@@ -877,7 +884,7 @@ class LaunchInfo(DownloadInfo):
     sub_pools: Optional[List[str]] = None
 
 
-class WorkerActor(xo.StatelessActor):
+class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     def __init__(
         self,
         supervisor_address: str,
@@ -886,8 +893,11 @@ class WorkerActor(xo.StatelessActor):
         gpu_devices: List[int],
         metrics_exporter_host: Optional[str] = None,
         metrics_exporter_port: Optional[int] = None,
+        standby: bool = False,
     ):
         super().__init__()
+        self._lifecycle = WorkerLifecycle(active=not standby)
+        self._initialize_handoff(standby)
         # static attrs.
         self._total_gpu_devices = gpu_devices
         self._supervisor_address = supervisor_address
@@ -957,28 +967,9 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_subpool_addresses: Dict[str, Set[str]] = {}
         self._gpu_memory_collection_fail_count = 0
 
-        if is_metrics_disabled():
-            logger.info(
-                "Worker metrics is disabled due to the environment XINFERENCE_DISABLE_METRICS=1"
-            )
-        elif metrics_exporter_host is not None or metrics_exporter_port is not None:
-            # metrics export server.
-            logger.info(
-                f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"  # noqa: E231
-            )
-            q: queue.Queue = queue.Queue()
-            self._metrics_thread = threading.Thread(
-                name="Metrics Export Server",
-                target=launch_metrics_export_server,
-                args=(q, metrics_exporter_host, metrics_exporter_port),
-                daemon=True,
-            )
-            self._metrics_thread.start()
-            logger.info("Checking metrics export server...")
-            host, port = _wait_for_metrics_export_server(self._metrics_thread, q)
-            logger.info(
-                f"Metrics server is started at: http://{host}:{port}"  # noqa: E231
-            )
+        self._metrics_exporter_config = (metrics_exporter_host, metrics_exporter_port)
+        self._metrics_started = False
+        self._services_started = False
 
         # Initialize virtual environment manager
         self._virtual_env_manager = XinferenceVirtualEnvManager(self.address)
@@ -998,6 +989,7 @@ class WorkerActor(xo.StatelessActor):
         self._persist_launch_args_dirty_uids: Set[str] = set()
         self._persist_retry_count: Dict[str, int] = {}
 
+    @management_operation
     async def recover_sub_pool(self, address):
         logger.warning("Process %s is down.", address)
         # Xoscar does not remove the address from sub_processes.
@@ -1399,10 +1391,16 @@ class WorkerActor(xo.StatelessActor):
             logger.debug("Startup VRAM poll failed", exc_info=True)
 
     async def __post_create__(self):
+        await self._initialize_worker()
+        if not self._standby:
+            await self._activate_worker(recover=True)
+
+    async def _initialize_worker(self):
         from ..extensions import get_extensions
 
         get_extensions()
         self._actor_loop = asyncio.get_running_loop()
+        self._start_metrics_service()
         self._supervisor_init_lock = asyncio.Lock()
 
         from ..model.audio import (
@@ -1505,6 +1503,37 @@ class WorkerActor(xo.StatelessActor):
             ),
         }
 
+    def _start_metrics_service(self):
+        if self._metrics_started:
+            return
+        metrics_exporter_host, metrics_exporter_port = self._metrics_exporter_config
+        if is_metrics_disabled():
+            logger.info(
+                "Worker metrics is disabled due to the environment XINFERENCE_DISABLE_METRICS=1"
+            )
+        elif metrics_exporter_host is not None or metrics_exporter_port is not None:
+            # metrics export server.
+            logger.info(
+                f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"  # noqa: E231
+            )
+            q: queue.Queue = queue.Queue()
+            self._metrics_thread = threading.Thread(
+                name="Metrics Export Server",
+                target=launch_metrics_export_server,
+                args=(q, metrics_exporter_host, metrics_exporter_port),
+                daemon=True,
+            )
+            self._metrics_thread.start()
+            logger.info("Checking metrics export server...")
+            host, port = _wait_for_metrics_export_server(self._metrics_thread, q)
+            logger.info(
+                f"Metrics server is started at: http://{host}:{port}"  # noqa: E231
+            )
+
+        self._metrics_started = True
+
+    async def _activate_worker(self, *, recover: bool):
+        self._lifecycle.phase = WorkerPhase.ACTIVE
         logger.info("Purge cache directory: %s", XINFERENCE_CACHE_DIR)
         purge_dir(XINFERENCE_CACHE_DIR)
 
@@ -1515,19 +1544,23 @@ class WorkerActor(xo.StatelessActor):
             logger.error(f"cannot connect to supervisor", exc_info=True)
 
         # §4.3: If connected as fresh worker, try to recover persisted models
-        if self._supervisor_ref is not None and not self._model_uid_to_launch_args:
+        if (
+            recover
+            and self._supervisor_ref is not None
+            and not self._model_uid_to_launch_args
+        ):
             try:
                 await self._try_recover_models()
             except Exception:
                 logger.error("Model recovery failed", exc_info=True)
 
-        if not XINFERENCE_DISABLE_HEALTH_CHECK:
+        if not XINFERENCE_DISABLE_HEALTH_CHECK and not hasattr(self, "_isolation"):
             from ..isolation import Isolation
 
             # Run _periodical_report_status() in a dedicated thread.
             self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
             self._isolation.start()
-            asyncio.run_coroutine_threadsafe(
+            self._report_future = asyncio.run_coroutine_threadsafe(
                 self._periodical_report_status(), loop=self._isolation.loop
             )
         logger.info(f"Xinference worker {self.address} started")
@@ -1539,7 +1572,8 @@ class WorkerActor(xo.StatelessActor):
         # launch's sub-pool then deadlocks in CUDA init. Runs after
         # registration so it never blocks the worker from serving; H2 is the
         # per-launch backstop if an orphan appears later.
-        asyncio.create_task(self._cleanup_gpu_orphans_on_startup())
+        if recover:
+            spawn_management_task(self, self._cleanup_gpu_orphans_on_startup())
 
         # Report build/config info for this worker
         from xinference.constants import XINFERENCE_HOME as _xf_home
@@ -1556,8 +1590,11 @@ class WorkerActor(xo.StatelessActor):
 
             async def signal_handler():
                 try:
-                    supervisor_ref = await self.get_supervisor_ref(add_worker=False)
-                    await supervisor_ref.remove_worker(self.address)
+                    if self._lifecycle.phase != WorkerPhase.TRANSFERRED:
+                        supervisor_ref = await self.get_supervisor_ref(add_worker=False)
+                        await supervisor_ref.remove_worker(
+                            self.address, **self._ownership_metadata("remove_worker")
+                        )
                 except Exception as e:
                     # Ignore the error of rpc, anyway we are exiting
                     logger.exception("remove worker rpc error: %s", e)
@@ -1568,8 +1605,29 @@ class WorkerActor(xo.StatelessActor):
                 signal.SIGINT, lambda: asyncio.create_task(signal_handler())
             )
 
+        self._services_started = True
+
+    def _stop_worker_services(self):
+        if getattr(self, "_services_stopped", False):
+            return
+        lifecycle = getattr(self, "_lifecycle", None)
+        if lifecycle is not None:
+            lifecycle.stop_background()
+        retirement = getattr(self, "_handoff_retirement", None)
+        if retirement is not None:
+            retirement.cancel()
+        future = getattr(self, "_report_future", None)
+        if future is not None:
+            future.cancel()
+        isolation = getattr(self, "_isolation", None)
+        if isolation is not None:
+            isolation.stop()
+        self._services_stopped = True
+
     async def __pre_destroy__(self):
-        self._isolation.stop()
+        self._cancel_handoff_expiry()
+        self._stop_worker_services()
+        self._lifecycle.phase = WorkerPhase.STOPPED
 
     async def trigger_exit(self) -> bool:
         try:
@@ -1655,7 +1713,7 @@ class WorkerActor(xo.StatelessActor):
         try:
             method = getattr(supervisor_ref, method_name)
             return await xo.wait_for(
-                method(*args),
+                method(*args, **self._ownership_metadata(method_name)),
                 XINFERENCE_TCP_REQUEST_TIMEOUT,
             )
         except asyncio.CancelledError:
@@ -1687,6 +1745,9 @@ class WorkerActor(xo.StatelessActor):
     ) -> Tuple[xo.ActorRefType, int]:
         from .supervisor import SupervisorActor
 
+        if getattr(self, "_lifecycle", None) is not None:
+            if self._lifecycle.phase in (WorkerPhase.TRANSFERRED, WorkerPhase.STOPPED):
+                raise RuntimeError("Worker no longer owns its models")
         if self._supervisor_init_lock is None:
             self._supervisor_init_lock = asyncio.Lock()
 
@@ -1720,6 +1781,14 @@ class WorkerActor(xo.StatelessActor):
                             uid=SupervisorActor.default_uid(),
                         )
 
+                    try:
+                        protocol = await supervisor_ref.worker_handoff_protocol()
+                    except AttributeError:
+                        protocol = None
+                    self._supervisor_ownership_supported = (
+                        isinstance(protocol, int) and protocol >= 1
+                    )
+
                     with self._supervisor_ref_lock:
                         if self._supervisor_ref is None:
                             self._supervisor_ref = supervisor_ref
@@ -1745,7 +1814,9 @@ class WorkerActor(xo.StatelessActor):
                 while True:
                     replica_states = self._get_running_replica_states()
                     await supervisor_ref.add_worker(
-                        self.address, replica_states=replica_states
+                        self.address,
+                        replica_states=replica_states,
+                        **self._ownership_metadata("add_worker"),
                     )
                     status_guard_ref = await xo.actor_ref(
                         address=supervisor_address,
@@ -1793,8 +1864,8 @@ class WorkerActor(xo.StatelessActor):
             logger.info("Connected to supervisor as a fresh worker")
 
         if cache_tracker_ref is not None:
-            asyncio.create_task(
-                self._record_model_versions_best_effort(cache_tracker_ref)
+            spawn_management_task(
+                self, self._record_model_versions_best_effort(cache_tracker_ref)
             )
         return supervisor_ref, generation
 
@@ -1842,6 +1913,7 @@ class WorkerActor(xo.StatelessActor):
             if self._registered:
                 return False
             self._supervisor_ref = None
+            self._supervisor_ownership_supported = False
             self._supervisor_ref_address = None
             self._status_guard_ref = None  # type: ignore
             self._event_collector_ref = None  # type: ignore
@@ -1875,6 +1947,7 @@ class WorkerActor(xo.StatelessActor):
             ):
                 return False
             self._supervisor_ref = None
+            self._supervisor_ownership_supported = False
             self._supervisor_ref_address = None
             # Reset registration state so the next
             # get_supervisor_ref(add_worker=True) re-runs add_worker. Keep this
@@ -2084,6 +2157,22 @@ class WorkerActor(xo.StatelessActor):
                     skipped += 1
                     continue
 
+                try:
+                    permitted = await supervisor_ref.can_recover_model(
+                        self.address, model_uid
+                    )
+                except AttributeError:
+                    permitted = (
+                        True  # Registration remains compatible with older supervisors.
+                    )
+                if not permitted:
+                    logger.info(
+                        "Model %s is owned by another worker, skipping recovery",
+                        model_uid,
+                    )
+                    skipped += 1
+                    continue
+
                 logger.info("Recovering model %s ...", model_uid)
                 # Remove non-callable keys that may have been serialized
                 launch_args.pop("launch_ts", None)
@@ -2155,6 +2244,7 @@ class WorkerActor(xo.StatelessActor):
         model_ref = await supervisor_ref.get_model(_model_uid)
         return await model_ref.is_vllm_backend()
 
+    @management_operation
     def allocate_devices(
         self, model_uid: str, n_gpu: int, allowed_devices: Optional[List[int]] = None
     ) -> List[int]:
@@ -2204,6 +2294,7 @@ class WorkerActor(xo.StatelessActor):
 
         return sorted(devices)
 
+    @management_operation
     async def allocate_devices_with_gpu_idx(
         self,
         model_uid: str,
@@ -2286,6 +2377,7 @@ class WorkerActor(xo.StatelessActor):
         """Resolve a launch's hub using this worker's local environment."""
         return resolve_model_download_hub(download_hub, model_path)
 
+    @management_operation
     def release_devices(self, model_uid: str):
         for dev, model_uids in list(self._gpu_to_model_uids.items()):
             if model_uid in model_uids:
@@ -2587,6 +2679,7 @@ class WorkerActor(xo.StatelessActor):
                 raise ValueError(f"{model_name} model can't run on Darwin system.")
 
     @log_sync(logger=logger)
+    @management_operation
     async def register_model(self, model_type: str, model: str, persist: bool):
         # TODO: centralized model registrations
         if model_type in self._custom_register_type_to_cls:
@@ -2635,6 +2728,7 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
+    @management_operation
     async def unregister_model(self, model_type: str, model_name: str):
         # TODO: centralized model registrations
         if model_type in self._custom_register_type_to_cls:
@@ -2644,6 +2738,7 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
+    @management_operation
     async def update_model_type(
         self,
         model_type: str,
@@ -3464,6 +3559,7 @@ class WorkerActor(xo.StatelessActor):
         assert isinstance(model, LLM)
         return model.model_family.model_ability  # type: ignore
 
+    @management_operation
     async def update_cache_status(self, model_name: str, version_info: Any):
         # Defensive: _cache_tracker_ref may be None if get_supervisor_ref's core
         # init failed and cleared all refs. Skip instead of raising AttributeError
@@ -4472,6 +4568,7 @@ class WorkerActor(xo.StatelessActor):
             download_info.downloader.cancel()
 
     @log_async(logger=logger, level=logging.INFO)
+    @management_operation
     async def cache_builtin_model(
         self,
         cache_uid: str,
@@ -4586,6 +4683,7 @@ class WorkerActor(xo.StatelessActor):
             self._cache_uid_to_download_info.pop(cache_uid, None)
 
     @log_async(logger=logger, level=logging.INFO)
+    @management_operation
     async def launch_builtin_model(
         self,
         model_uid: str,
@@ -5270,6 +5368,7 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_model_status.pop(model_uid, None)
 
     @log_async(logger=logger, level=logging.INFO)
+    @management_operation
     async def wait_for_load(self, model_uid: str):
         model_ref = self._model_uid_to_model[model_uid]
         try:
@@ -5281,6 +5380,7 @@ class WorkerActor(xo.StatelessActor):
         await self._update_model_state(model_uid, "ready")
 
     @log_sync(logger=logger, level=logging.INFO)
+    @management_operation
     async def cancel_launch_model(self, model_uid: str):
         try:
             launch_info = self._model_uid_launching_guard[model_uid]
@@ -5323,6 +5423,7 @@ class WorkerActor(xo.StatelessActor):
             )
 
     @log_async(logger=logger, level=logging.INFO)
+    @management_operation
     async def cancel_cache_model(self, cache_uid: str):
         try:
             download_info = self._cache_uid_to_download_info[cache_uid]
@@ -5673,6 +5774,7 @@ class WorkerActor(xo.StatelessActor):
         }
 
     @log_async(logger=logger, level=logging.INFO)
+    @management_operation
     async def delete_cache_model_artifacts(
         self,
         payload: Dict[str, Any],
@@ -5704,6 +5806,7 @@ class WorkerActor(xo.StatelessActor):
             )
 
     @log_async(logger=logger, level=logging.INFO)
+    @management_operation
     async def terminate_model(self, model_uid: str, is_model_die=False):
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:
@@ -6017,6 +6120,7 @@ class WorkerActor(xo.StatelessActor):
     async def validate_model_reload(self, model_uid: str, config: Dict[str, Any]):
         return await self._model_uid_to_model[model_uid].validate_reload(config)
 
+    @management_operation
     async def reload_model(
         self, model_uid: str, config: Dict[str, Any], drain_timeout: float
     ) -> bool:
@@ -6707,6 +6811,7 @@ class WorkerActor(xo.StatelessActor):
 
         return list(paths)
 
+    @management_operation
     async def confirm_and_remove_model(self, model_version: str) -> bool:
         # Defensive: see list_cached_models for rationale.
         if self._cache_tracker_ref is None:
@@ -6815,7 +6920,7 @@ class WorkerActor(xo.StatelessActor):
                 model_name, model_engine
             )
             # Add IP address to each virtual environment, same as cache implementation
-            virtual_envs = []
+            virtual_envs: List[Dict[str, Any]] = []
             for env in result:
                 virtual_env = {
                     "model_name": env.get("model_name"),
@@ -6852,6 +6957,7 @@ class WorkerActor(xo.StatelessActor):
             python_version,
         )
 
+    @management_operation
     async def remove_virtual_env(
         self,
         model_name: str,
@@ -6955,6 +7061,7 @@ class WorkerActor(xo.StatelessActor):
         await model_ref.start_transfer_for_vllm(rank_addresses)
 
     @log_async(logger=logger, level=logging.INFO)
+    @management_operation
     async def launch_rank0_model(
         self, rep_model_uid: str, xavier_config: Dict[str, Any]
     ) -> Tuple[str, int]:
@@ -6989,6 +7096,7 @@ class WorkerActor(xo.StatelessActor):
         return subpool_address, store_port
 
     @no_type_check
+    @management_operation
     async def recover_model(self, launch_args: Dict[str, Any]):
         # `launch_ts` is an internal timestamp stamped onto the launch snapshot at
         # the entry of `launch_builtin_model` (see the `launch_args["launch_ts"]`

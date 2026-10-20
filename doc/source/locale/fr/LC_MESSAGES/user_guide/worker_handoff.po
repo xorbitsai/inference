@@ -1,0 +1,73 @@
+# French translations for Xinference.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference 4.0\n"
+"Report-Msgid-Bugs-To: https://github.com/xorbitsai/inference/issues\n"
+"POT-Creation-Date: 2026-10-21 01:27+0800\n"
+"PO-Revision-Date: 2026-10-21 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language: fr\n"
+"Language-Team: fr\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: user_guide/worker_handoff.rst:1
+msgid "Worker hot replacement"
+msgstr "Remplacement à chaud d’un Worker"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"Replace a distributed Worker on Linux or macOS while retaining its model processes. "
+"The Supervisor and API server keep running. Both Workers and the model processes must"
+" support the handoff protocol and use Xoscar 0.12.1 or later, compatible Python "
+"versions, the same Supervisor, GPU visibility and extensions. Local mode, models "
+"spanning Workers and Xavier or P/D deployments are currently unsupported."
+msgstr ""
+"Remplacez un Worker distribué sous Linux ou macOS tout en conservant ses processus de"
+" modèle. Le Supervisor et le serveur API continuent de fonctionner. Les deux Workers "
+"et les processus de modèle doivent prendre en charge le protocole de transfert et "
+"utiliser Xoscar 0.12.1 ou ultérieur, des versions compatibles de Python, le même "
+"Supervisor, la même visibilité des GPU et les mêmes extensions. Le mode local, les "
+"modèles répartis entre plusieurs Workers et les déploiements Xavier ou P/D ne sont "
+"actuellement pas pris en charge."
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"For an existing Worker at ``127.0.0.1:9978``, start its replacement with a different "
+"actor port and a free metrics exporter port:"
+msgstr ""
+"Pour un Worker existant à l’adresse ``127.0.0.1:9978``, démarrez son remplaçant avec "
+"un autre port d’acteur et un port libre pour l’export des métriques :"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"Model management changes pause during handoff; inference calls continue. Failure "
+"before ownership transfer restores the old Worker. After transfer starts, keep both "
+"processes alive while the replacement retries. The old Worker exits automatically "
+"after successful replacement."
+msgstr ""
+"Les changements de gestion des modèles sont suspendus pendant le transfert ; les "
+"appels d’inférence continuent. Un échec avant le transfert de propriété restaure "
+"l’ancien Worker. Après le début du transfert, laissez les deux processus actifs "
+"pendant les nouvelles tentatives du remplaçant. L’ancien Worker se termine "
+"automatiquement après un remplacement réussi."
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"The model processes retain their original Xinference and engine code and loaded "
+"weights. This replaces the Worker control process. Deploy both processes on the same "
+"machine, and configure the service manager to let retained processes outlive the old "
+"Worker instead of killing its process group or container."
+msgstr ""
+"Les processus de modèle conservent leur code Xinference et moteur d’origine ainsi que"
+" les poids chargés. Cette opération remplace le processus de contrôle du Worker. Les "
+"deux processus doivent être sur la même machine. Configurez le gestionnaire de "
+"services pour que les processus conservés survivent à l’ancien Worker, sans arrêter "
+"tout son groupe de processus ou conteneur."

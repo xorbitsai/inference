@@ -19,6 +19,7 @@ User Guide
    :caption: Deployment
 
    using_docker_swarm
+   worker_handoff
 
 .. toctree::
    :maxdepth: 2
