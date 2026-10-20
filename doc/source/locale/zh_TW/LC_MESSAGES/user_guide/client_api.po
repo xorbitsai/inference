@@ -206,3 +206,23 @@ msgid ""
 "See :ref:`anthropic_api` for Claude Code setup, Python SDK examples, and "
 "supported features and limitations."
 msgstr "Claude Code 設定、Python SDK 範例以及支援的功能和限制，請參見 :ref:`anthropic_api`。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Chat completion errors"
+msgstr "聊天補全錯誤"
+
+#: ../../source/user_guide/client_api.rst
+msgid "For ``/v1/chat/completions``, unexpected worker failures return a generic error message. Server logs and error events retain the original diagnostics."
+msgstr "對於 ``/v1/chat/completions``，工作程序發生非預期錯誤時會傳回通用錯誤訊息。伺服器日誌與錯誤事件會保留原始診斷資訊。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Before streaming starts, system-message ordering errors on strict templates and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
+msgstr "串流回應開始前，嚴格範本的系統訊息順序錯誤及偵測到的 vLLM 單次提示多模態數量超限會傳回 HTTP 400。如果無法查詢目前的限制，則由工作程序執行驗證。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
+msgstr "非串流請求中，已識別的上下文長度超限，以及已知的媒體或 cache-salt 驗證錯誤會傳回 HTTP 400；限流錯誤會傳回 HTTP 429。錯誤訊息會說明原因，同時避免揭露工作程序的內部資訊。無法識別的工作程序錯誤會傳回 HTTP 500。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
+msgstr "串流回應開始後，HTTP 狀態維持為 200。錯誤透過 SSE 的 ``error`` 負載傳送。已識別的上下文長度與限流錯誤保留各自不同的安全提示；非預期錯誤使用通用訊息。"

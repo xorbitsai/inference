@@ -22,6 +22,7 @@ import logging
 import multiprocessing
 import os
 import pprint
+import re
 import struct
 import time
 import uuid
@@ -1059,13 +1060,81 @@ class RESTfulAPI(CancelMixin):
         return response
 
     @staticmethod
-    def handle_request_limit_error(e: Exception):
+    def handle_request_limit_error(e: Exception, *, sanitize: bool = False):
         from ..model.llm.context_length import ContextLengthExceeded
 
-        if isinstance(e, ContextLengthExceeded):
-            raise HTTPException(status_code=400, detail=str(e))
-        if "Rate limit reached" in str(e):
-            raise HTTPException(status_code=429, detail=str(e))
+        message = str(e)
+        context_error = isinstance(e, ContextLengthExceeded)
+        if sanitize and (
+            isinstance(e, ValueError)
+            or (
+                type(e).__module__ == "vllm.exceptions"
+                and type(e).__name__ == "VLLMValidationError"
+            )
+        ):
+            # Recognize vLLM's native validation type without importing the
+            # optional engine. Match known prompt-length forms, but never echo
+            # worker text (which can contain credentials as well as actor IDs).
+            context_error = context_error or bool(
+                re.search(
+                    r"The (?:decoder|encoder) prompt \(length \d+\) "
+                    r"(?:is longer than|plus the number of requested output tokens "
+                    r"\(at least 1\) is longer than) the maximum model length of \d+\.",
+                    message,
+                )
+            )
+        if sanitize and isinstance(e, ValueError):
+            if re.search(
+                r"(?:Invalid|Empty) (?:base64 )?data URI"
+                r"(?: for (?:image_url|video_url))?$",
+                message,
+            ):
+                raise HTTPException(status_code=400, detail="Invalid media data URI.")
+            if message.endswith(
+                (
+                    "This vLLM V1 version does not support cache_salt",
+                    "cache_salt on legacy vLLM requires Xavier",
+                    "cache_salt is not supported by this model engine",
+                )
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="The model backend does not support cache_salt for this request.",
+                )
+        if context_error:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Request exceeds the model's configured context length."
+                    if sanitize
+                    else str(e)
+                ),
+            )
+        if "Rate limit reached" in message or (
+            sanitize and isinstance(e, HTTPException) and e.status_code == 429
+        ):
+            raise HTTPException(
+                status_code=429, detail="Rate limit reached" if sanitize else str(e)
+            )
+
+    @staticmethod
+    def _chat_completion_error_detail() -> str:
+        """Return a client-safe error while preserving the original in logs/events."""
+        return "The chat completion request failed. Check the server logs for details."
+
+    @staticmethod
+    def _count_multimodal_items(messages: List[dict], item_type: str) -> int:
+        count = 0
+        for message in messages:
+            content = message.get("content") if isinstance(message, dict) else None
+            if not isinstance(content, list):
+                continue
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") == f"{item_type}_url" or item_type in item:
+                    count += 1
+        return count
 
     @staticmethod
     def _set_trace_model(model_uid: Optional[str]) -> None:
@@ -4821,6 +4890,31 @@ class RESTfulAPI(CancelMixin):
             except MessageRoleOrderError as ve:
                 raise HTTPException(status_code=400, detail=str(ve))
 
+        limits = None
+        if is_vllm_backend and any(
+            self._count_multimodal_items(messages, item_type)
+            for item_type in ("image", "video", "audio")
+        ):
+            try:
+                limits = await model.get_limit_mm_per_prompt()
+            except Exception:
+                logger.debug(
+                    "Cannot read multimodal limits; defer validation to the worker.",
+                    exc_info=True,
+                )
+        for item_type, limit in (limits if isinstance(limits, dict) else {}).items():
+            if type(limit) is not int or limit < 0:
+                continue
+            count = self._count_multimodal_items(messages, item_type)
+            if count > limit:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"At most {limit} {item_type}(s) may be provided in one prompt; "
+                        f"received {count}."
+                    ),
+                )
+
         if "skip_special_tokens" in raw_kwargs and is_vllm_backend:
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
         if body.stream:
@@ -4834,15 +4928,11 @@ class RESTfulAPI(CancelMixin):
                 observed_iterator = None
                 completed = False
                 try:
-                    try:
-                        iterator = await model.chat(
-                            messages,
-                            kwargs,
-                            **model_call_kwargs,
-                        )
-                    except RuntimeError as re:
-                        await self._report_error_event(model_uid, str(re))
-                        self.handle_request_limit_error(re)
+                    iterator = await model.chat(
+                        messages,
+                        kwargs,
+                        **model_call_kwargs,
+                    )
                     observed_iterator = observe_stream(
                         iterator,
                         get_stream_outcome_reporter(request),
@@ -4870,8 +4960,14 @@ class RESTfulAPI(CancelMixin):
                     ex = await self._get_model_last_error(model.uid, ex)
                     logger.exception("Chat completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
+                    try:
+                        self.handle_request_limit_error(ex, sanitize=True)
+                    except HTTPException as safe_error:
+                        detail = safe_error.detail
+                    else:
+                        detail = self._chat_completion_error_detail()
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
-                    yield dict(data=json.dumps({"error": str(ex)}))
+                    yield dict(data=json.dumps({"error": detail}))
                     return
                 finally:
                     await _cleanup_model_stream(
@@ -4911,8 +5007,10 @@ class RESTfulAPI(CancelMixin):
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
                 await self._report_error_event(model_uid, str(e))
-                self.handle_request_limit_error(e)
-                raise HTTPException(status_code=500, detail=str(e))
+                self.handle_request_limit_error(e, sanitize=True)
+                raise HTTPException(
+                    status_code=500, detail=self._chat_completion_error_detail()
+                )
 
     async def recommend_model(self, request: Request) -> JSONResponse:
         from .._compat import ValidationError

@@ -211,3 +211,23 @@ msgid ""
 "supported features and limitations."
 msgstr ""
 "Claude Code の設定、Python SDK の使用例、対応機能と制限については :ref:`anthropic_api` を参照してください。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Chat completion errors"
+msgstr "チャット補完のエラー"
+
+#: ../../source/user_guide/client_api.rst
+msgid "For ``/v1/chat/completions``, unexpected worker failures return a generic error message. Server logs and error events retain the original diagnostics."
+msgstr "``/v1/chat/completions`` では、予期しないワーカーの障害に対して汎用エラーメッセージを返します。サーバーログとエラーイベントには元の診断情報が保持されます。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Before streaming starts, system-message ordering errors on strict templates and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
+msgstr "ストリーミング開始前に、厳密なテンプレートのシステムメッセージの順序エラーや、検出された vLLM のプロンプトごとのマルチモーダル上限違反があると、HTTP 400 を返します。現在の上限を取得できない場合、検証はワーカーに委ねられます。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
+msgstr "非ストリーミング要求では、認識されたコンテキスト長の超過と、既知のメディアまたは cache-salt の検証エラーは HTTP 400 を返し、レート制限は HTTP 429 を返します。メッセージはワーカーの内部情報を公開せずに原因を説明します。認識できないワーカーの障害は HTTP 500 を返します。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
+msgstr "ストリーミング応答の開始後は、HTTP ステータスは 200 のままです。障害は SSE の ``error`` ペイロードで送信されます。認識されたコンテキスト長とレート制限のエラーには、それぞれ異なる安全なメッセージを返し、予期しない障害には汎用メッセージを使用します。"

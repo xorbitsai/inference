@@ -1,3 +1,4 @@
+# CI: linux
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -67,6 +68,7 @@ async def calls(monkeypatch):
     actor.decrease_serve_count = AsyncMock()
     actor.abort_request = AsyncMock(side_effect=actor.abort_request)
     actor.is_vllm_backend = AsyncMock(return_value=True)
+    actor.get_limit_mm_per_prompt = AsyncMock(return_value=None)
     api = _new_api()
     api._advanced_auth_service, api._running_tasks = None, {}
     api._get_model_last_error = AsyncMock(side_effect=lambda uid, error: error)

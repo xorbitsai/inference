@@ -160,6 +160,7 @@ async def test_context_overflow_is_a_client_error(
         _is_qwen38_description=lambda desc: False,
         _apply_cache_salt=RESTfulAPI._apply_cache_salt,
         handle_request_limit_error=RESTfulAPI.handle_request_limit_error,
+        _chat_completion_error_detail=RESTfulAPI._chat_completion_error_detail,
     )
     app = FastAPI()
     method = RESTfulAPI.create_chat_completion if chat else RESTfulAPI.create_completion
@@ -177,7 +178,21 @@ async def test_context_overflow_is_a_client_error(
         response = await client.post(path, json=body)
     if stream:
         assert response.status_code == 200
-        assert '"error":' in response.text and str(error) in response.text
+        detail = str(error)
+        if chat:
+            detail = (
+                "Request exceeds the model's configured context length."
+                if context_error
+                else RESTfulAPI._chat_completion_error_detail()
+            )
+        assert '"error":' in response.text and detail in response.text
     else:
         assert response.status_code == (400 if context_error else 500)
-        assert response.json()["detail"] == str(error)
+        detail = str(error)
+        if chat:
+            detail = (
+                "Request exceeds the model's configured context length."
+                if context_error
+                else RESTfulAPI._chat_completion_error_detail()
+            )
+        assert response.json()["detail"] == detail

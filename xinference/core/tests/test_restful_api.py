@@ -18,6 +18,7 @@ import json
 import os.path
 import sys
 import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import openai
@@ -32,6 +33,7 @@ from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 class _DummyRequest:
     def __init__(self, payload):
         self._payload = payload
+        self.state = SimpleNamespace()
 
     async def json(self):
         return self._payload
@@ -1505,6 +1507,521 @@ async def test_qwen38_conflicting_reasoning_effort_raises_400(monkeypatch, model
     assert exc.value.status_code == 400
     assert "Conflicting reasoning_effort" in exc.value.detail
     model.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_chat_completion_preflights_strict_system_order(monkeypatch, stream):
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_family": "custom-chat", "strict_system_first": True}
+    )
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {
+                    "model": "test",
+                    "stream": stream,
+                    "messages": [
+                        {"role": "user", "content": "hi"},
+                        {"role": "system", "content": "instructions"},
+                    ],
+                }
+            )
+        )
+    assert exc.value.status_code == 400
+    assert "first message" in exc.value.detail
+    model.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_chat_completion_preserves_custom_template_roles(monkeypatch, stream):
+    from jinja2 import Environment
+
+    from ...model.llm.llm_family import is_strict_system_first_template
+
+    source = (
+        "{% for message in messages %}"
+        "{% if message.role == 'system' and not loop.first %}"
+        "{{ raise_exception('System message must be at the beginning.') }}"
+        "{% endif %}{{ message.role }}:{{ message.content }}{% endfor %}"
+    )
+    strict_system_first = is_strict_system_first_template(source)
+    assert strict_system_first
+    api, model = _build_mock_chat_api(
+        monkeypatch,
+        {"model_family": "custom-chat", "strict_system_first": strict_system_first},
+    )
+    rendered = []
+
+    async def chat(messages, *_args, **_kwargs):
+        rendered.append(Environment().from_string(source).render(messages=messages))
+        if stream:
+
+            async def chunks():
+                yield "{}"
+
+            return chunks()
+        return "{}"
+
+    model.chat.side_effect = chat
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "stream": stream,
+                "messages": [{"role": "developer", "content": "hi"}],
+            }
+        )
+    )
+    assert response.status_code == 200
+    if stream:
+        assert await anext(response.body_iterator) == "{}"
+        await response.body_iterator.aclose()
+    assert rendered == ["developer:hi"]
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_preflights_multimodal_limit(monkeypatch):
+    from fastapi import HTTPException
+
+    from ...api.restful_api import RESTfulAPI
+    from ...core.model import ModelActor
+    from ...model.llm.vllm.core import VLLMModel
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
+    model = AsyncMock()
+    model.uid = "test-model"
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(
+        return_value={"model_family": "qwen3.8", "limit_mm_per_prompt": {"image": 1}}
+    )
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    backend = object.__new__(VLLMModel)
+    backend._model_config = {"limit_mm_per_prompt": {"image": 2}}
+    actor = SimpleNamespace(_model=backend)
+    model.get_limit_mm_per_prompt = AsyncMock(
+        side_effect=lambda: ModelActor.get_limit_mm_per_prompt(actor)
+    )
+    image = {"type": "image_url", "image_url": {"url": "data:image/png;base64,AA=="}}
+    payload = {
+        "model": "test",
+        "stream": True,
+        "messages": [
+            {"role": "user", "content": [image]},
+            {"role": "assistant", "content": "ok"},
+            {"role": "user", "content": [image, image]},
+        ],
+    }
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(_DummyRequest(payload))
+    assert exc.value.status_code == 400
+    assert (
+        exc.value.detail
+        == "At most 2 image(s) may be provided in one prompt; received 3."
+    )
+    model.chat.assert_not_called()
+
+    # A retained-weight reload can change the limit after the description was
+    # cached. Preflight must use the live limit rather than reject this request.
+    backend._model_config["limit_mm_per_prompt"] = {"image": 3}
+    model.chat.return_value = "{}"
+    payload["stream"] = False
+    response = await api.create_chat_completion(_DummyRequest(payload))
+    assert response.status_code == 200
+    model.chat.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_stream_sanitizes_worker_error(monkeypatch):
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
+    model = AsyncMock()
+    model.uid = "test-model"
+
+    async def stream_error():
+        yield "ignored"
+        raise RuntimeError("[address=10.0.0.1:12345, pid=6789] invalid request")
+
+    model.chat = AsyncMock(return_value=stream_error())
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(return_value={"model_family": "qwen3.8"})
+
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "stream": True,
+                "messages": [{"role": "user", "content": "hi"}],
+            }
+        )
+    )
+    result = response.body_iterator
+    assert await anext(result) == "ignored"
+    error = await anext(result)
+    assert error["data"] == json.dumps({"error": api._chat_completion_error_detail()})
+    assert "address" not in error["data"]
+    assert "pid" not in error["data"]
+    await result.aclose()
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_does_not_apply_strict_role_validation_to_other_models(
+    monkeypatch,
+):
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
+    model = AsyncMock()
+    model.uid = "test-model"
+    model.chat = AsyncMock(return_value="{}")
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(return_value={"model_family": "other"})
+
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {"model": "test", "messages": [{"role": "developer", "content": "hi"}]}
+        )
+    )
+    assert response.status_code == 200
+    model.chat.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_sanitizes_worker_error(monkeypatch):
+    from fastapi import HTTPException
+
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
+    model = AsyncMock()
+    model.uid = "test-model"
+    model.chat = AsyncMock(
+        side_effect=RuntimeError("[address=10.0.0.1:12345, pid=6789] invalid request")
+    )
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(return_value={"model_family": "qwen3.8"})
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {"model": "test", "messages": [{"role": "user", "content": "hi"}]}
+            )
+        )
+    assert exc.value.status_code == 500
+    assert exc.value.detail == api._chat_completion_error_detail()
+    assert "address" not in exc.value.detail
+    assert "pid" not in exc.value.detail
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("context_error", [False, True])
+async def test_chat_completion_limit_errors_do_not_expose_worker_metadata(
+    monkeypatch, stream, context_error
+):
+    from ...model.llm.context_length import ContextLengthExceeded
+
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "qwen3"})
+    model.is_vllm_backend = AsyncMock(return_value=False)
+    error_cls = ContextLengthExceeded if context_error else RuntimeError
+    reason = "Context length exceeded" if context_error else "Rate limit reached"
+    model.chat.side_effect = error_cls(f"[address=10.0.0.1:12345, pid=6789] {reason}")
+    api._report_error_event = AsyncMock()
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "stream": stream,
+            "messages": [{"role": "user", "content": "hi"}],
+        }
+    )
+    if stream:
+        response = await api.create_chat_completion(request)
+        body = response.body_iterator
+        error = await anext(body)
+        assert json.loads(error["data"]) == {
+            "error": (
+                "Request exceeds the model's configured context length."
+                if context_error
+                else "Rate limit reached"
+            )
+        }
+        assert "address" not in error["data"]
+        assert "pid" not in error["data"]
+        await body.aclose()
+    else:
+        with pytest.raises(HTTPException) as exc:
+            await api.create_chat_completion(request)
+        assert exc.value.status_code == (400 if context_error else 429)
+        assert exc.value.detail == (
+            "Request exceeds the model's configured context length."
+            if context_error
+            else "Rate limit reached"
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "stream,during_iteration", [(False, False), (True, False), (True, True)]
+)
+@pytest.mark.parametrize(
+    "reason,detail,status",
+    [
+        (
+            "The decoder prompt (length 5000) is longer than the maximum model length of 4096.",
+            "Request exceeds the model's configured context length.",
+            400,
+        ),
+        (
+            "The decoder prompt (length 4096) plus the number of requested output tokens (at least 1) is longer than the maximum model length of 4096.",
+            "Request exceeds the model's configured context length.",
+            400,
+        ),
+        ("Invalid base64 data URI", "Invalid media data URI.", 400),
+        ("Invalid base64 data URI for video_url", "Invalid media data URI.", 400),
+        (
+            "This vLLM V1 version does not support cache_salt",
+            "The model backend does not support cache_salt for this request.",
+            400,
+        ),
+        (
+            "cache_salt on legacy vLLM requires Xavier",
+            "The model backend does not support cache_salt for this request.",
+            400,
+        ),
+        (
+            "cache_salt is not supported by this model engine",
+            "The model backend does not support cache_salt for this request.",
+            400,
+        ),
+        (
+            "Unknown validation failure with secret-token",
+            "The chat completion request failed. Check the server logs for details.",
+            500,
+        ),
+    ],
+)
+async def test_chat_completion_worker_validation_errors(
+    monkeypatch, stream, during_iteration, reason, detail, status
+):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "other"})
+    model.is_vllm_backend = AsyncMock(return_value=False)
+    error = ValueError(f"[address=10.0.0.1:12345, pid=6789] {reason}")
+    api._report_error_event = AsyncMock()
+
+    async def broken_stream():
+        yield "first"
+        raise error
+
+    if during_iteration:
+        model.chat.return_value = broken_stream()
+    else:
+        model.chat.side_effect = error
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "stream": stream,
+            "messages": [{"role": "user", "content": "hi"}],
+        }
+    )
+    if stream:
+        response = await api.create_chat_completion(request)
+        assert response.status_code == 200
+        body = response.body_iterator
+        if during_iteration:
+            assert await anext(body) == "first"
+        assert json.loads((await anext(body))["data"]) == {"error": detail}
+        await body.aclose()
+    else:
+        with pytest.raises(HTTPException) as exc:
+            await api.create_chat_completion(request)
+        assert exc.value.status_code == status
+        assert exc.value.detail == detail
+    api._report_error_event.assert_any_await("test", str(error))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "stream,during_iteration", [(False, False), (True, False), (True, True)]
+)
+@pytest.mark.parametrize("context_error", [False, True])
+async def test_chat_completion_native_vllm_validation_error(
+    monkeypatch, stream, during_iteration, context_error
+):
+    # vLLM >= 0.31 uses its own Exception subclass instead of ValueError.
+    # Keep this API regression independent of the optional GPU engine install.
+    validation_type = type(
+        "VLLMValidationError", (Exception,), {"__module__": "vllm.exceptions"}
+    )
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "other"})
+    reason = (
+        "The decoder prompt (length 5000) is longer than the maximum model length of 4096."
+        if context_error
+        else "Unknown validation failure with secret-token"
+    )
+    error = validation_type(f"[address=10.0.0.1:12345, pid=6789] {reason}")
+    api._report_error_event = AsyncMock()
+    detail = (
+        "Request exceeds the model's configured context length."
+        if context_error
+        else api._chat_completion_error_detail()
+    )
+
+    async def broken_stream():
+        yield "first"
+        raise error
+
+    if during_iteration:
+        model.chat.return_value = broken_stream()
+    else:
+        model.chat.side_effect = error
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "stream": stream,
+            "messages": [{"role": "user", "content": "hi"}],
+        }
+    )
+    if stream:
+        response = await api.create_chat_completion(request)
+        assert response.status_code == 200
+        body = response.body_iterator
+        if during_iteration:
+            assert await anext(body) == "first"
+        assert json.loads((await anext(body))["data"]) == {"error": detail}
+        await body.aclose()
+    else:
+        with pytest.raises(HTTPException) as exc:
+            await api.create_chat_completion(request)
+        assert exc.value.status_code == (400 if context_error else 500)
+        assert exc.value.detail == detail
+    api._report_error_event.assert_any_await("test", str(error))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "vllm_backend,list_content", [(False, True), (True, False), (True, True)]
+)
+async def test_chat_completion_skips_unneeded_multimodal_rpc(
+    monkeypatch, vllm_backend, list_content
+):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "other"})
+    model.is_vllm_backend = AsyncMock(return_value=vllm_backend)
+    content = [{"type": "text", "text": "hi"}] if list_content else "hi"
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {"model": "test", "messages": [{"role": "user", "content": content}]}
+        )
+    )
+    assert response.status_code == 200
+    model.get_limit_mm_per_prompt.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "limits", [None, [], {"image": -1}, {"image": "0"}, {"image": False}]
+)
+async def test_chat_completion_ignores_unavailable_or_invalid_multimodal_limits(
+    monkeypatch, limits
+):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "other"})
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    model.get_limit_mm_per_prompt.return_value = limits
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "messages": [
+                    {"role": "user", "content": [{"type": "image", "image": "unused"}]}
+                ],
+            }
+        )
+    )
+    assert response.status_code == 200
+    model.chat.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_multimodal_rpc_failure_defers_to_worker(monkeypatch):
+    import xoscar as xo
+
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "other"})
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    model.get_limit_mm_per_prompt.side_effect = xo.ServerClosed(
+        "private worker address"
+    )
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": "unused"}}
+                        ],
+                    }
+                ],
+            }
+        )
+    )
+    assert response.status_code == 200
+    model.get_limit_mm_per_prompt.assert_awaited_once()
+    model.chat.assert_awaited_once()
+
+
+@pytest.mark.parametrize("item_type", ["image", "video", "audio"])
+@pytest.mark.parametrize("url_part", [False, True])
+def test_count_multimodal_items_handles_url_and_direct_parts(item_type, url_part):
+    from ...api.restful_api import RESTfulAPI
+
+    key = f"{item_type}_url" if url_part else item_type
+    part = {"type": key, key: "unused"}
+    messages = [
+        {"role": "user", "content": [part, {"type": "text", "text": "hi"}, None]},
+        {"role": "assistant", "content": "text"},
+        {"role": "user", "content": [part]},
+    ]
+    assert RESTfulAPI._count_multimodal_items(messages, item_type) == 2
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        pytest.param(None, id="missing"),
+        pytest.param([], id="invalid-model-config"),
+        pytest.param({}, id="unset-limit"),
+        pytest.param({"limit_mm_per_prompt": None}, id="none-limit"),
+        pytest.param({"limit_mm_per_prompt": []}, id="invalid-limit"),
+    ],
+)
+def test_multimodal_limit_getters_without_config(config):
+    from ...core.model import ModelActor
+    from ...model.llm.vllm.core import VLLMModel
+
+    backend = object.__new__(VLLMModel)
+    backend._model_config = config
+    assert VLLMModel.get_limit_mm_per_prompt(backend) is None
+    assert ModelActor.get_limit_mm_per_prompt(SimpleNamespace(_model=backend)) is None
+    assert ModelActor.get_limit_mm_per_prompt(SimpleNamespace(_model=object())) is None
 
 
 @pytest.mark.platform_slow

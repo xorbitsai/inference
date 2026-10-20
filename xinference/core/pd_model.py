@@ -339,6 +339,11 @@ class PDModelActor(xo.StatelessActor):
     async def is_vllm_backend(self):
         return True
 
+    async def get_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
+        # P/D limits depend on the replicas selected during scheduling.
+        # Let those replicas validate the request against their live limits.
+        return None
+
     @log_async(logger=logger)
     async def prepare_anthropic_request(
         self, messages: List[Dict], generate_config: Dict

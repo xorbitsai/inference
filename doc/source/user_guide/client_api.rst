@@ -494,3 +494,15 @@ Output:
      'document': 'A man is riding a horse.'}, {'index': 2, 'relevance_score': 3.742107219295576e-05,
      'document': 'The girl is carrying a baby.'}, {'index': 4, 'relevance_score': 3.739788007806055e-05,
      'document': 'A woman is playing violin.'}]}
+
+
+Chat completion errors
+======================
+
+For ``/v1/chat/completions``, unexpected worker failures return a generic error message. Server logs and error events retain the original diagnostics.
+
+Before streaming starts, system-message ordering errors on strict templates and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker.
+
+For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500.
+
+After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message.

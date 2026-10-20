@@ -232,3 +232,23 @@ msgstr ""
 "Consultez :ref:`anthropic_api` pour la configuration de Claude Code, les "
 "exemples du SDK Python et les fonctionnalités prises en charge ainsi que "
 "leurs limites."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Chat completion errors"
+msgstr "Erreurs de complétion de chat"
+
+#: ../../source/user_guide/client_api.rst
+msgid "For ``/v1/chat/completions``, unexpected worker failures return a generic error message. Server logs and error events retain the original diagnostics."
+msgstr "Pour ``/v1/chat/completions``, les défaillances inattendues du processus de travail renvoient un message générique. Les journaux du serveur et les événements d’erreur conservent le diagnostic d’origine."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Before streaming starts, system-message ordering errors on strict templates and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker."
+msgstr "Avant le début du streaming, les erreurs d’ordre des messages système dans les modèles de conversation stricts et les dépassements détectés des limites multimodales vLLM par prompt renvoient HTTP 400. Si les limites actuelles ne peuvent pas être consultées, la validation est déléguée au processus de travail."
+
+#: ../../source/user_guide/client_api.rst
+msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
+msgstr "Pour les requêtes sans streaming, les dépassements reconnus de longueur de contexte et les erreurs connues de validation des médias ou du cache-salt renvoient HTTP 400 ; les limites de débit renvoient HTTP 429. Les messages décrivent la défaillance sans exposer les détails du processus de travail. Les défaillances non reconnues renvoient HTTP 500."
+
+#: ../../source/user_guide/client_api.rst
+msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
+msgstr "Après le début d’une réponse en streaming, son statut HTTP reste 200. Les défaillances sont transmises dans une charge utile SSE ``error``. Les erreurs reconnues de longueur de contexte et de limite de débit conservent des messages sûrs distincts ; les défaillances inattendues utilisent le message générique."

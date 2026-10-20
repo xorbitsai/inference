@@ -1,3 +1,4 @@
+# CI: linux
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,7 +44,7 @@ def _new_api():
 
 
 async def _create_streaming_response(
-    monkeypatch, kind, source, extra_body=None, is_vllm=True
+    monkeypatch, kind, source, extra_body=None, is_vllm=True, limit_getter=None
 ):
     method = "generate" if kind == "completion" else "chat"
     decrease_completed = asyncio.Event()
@@ -57,6 +58,7 @@ async def _create_streaming_response(
         abort_request=AsyncMock(return_value="DONE"),
         decrease_serve_count=AsyncMock(side_effect=decrease_serve_count),
         is_vllm_backend=AsyncMock(return_value=is_vllm),
+        get_limit_mm_per_prompt=limit_getter or AsyncMock(return_value=None),
         is_transformers_batching_enabled=AsyncMock(return_value=False),
         **{method: AsyncMock(return_value=source)},
     )
@@ -242,7 +244,7 @@ async def test_pd_sse_disconnect_destroys_router_stream(monkeypatch, kind, engin
         await router.add_prefill_actor("p", prefill)
         await router.add_decode_actor("d", decode)
         response, model, decreased = await _create_streaming_response(
-            monkeypatch, kind, None
+            monkeypatch, kind, None, limit_getter=router.get_limit_mm_per_prompt
         )
         method = "generate" if kind == "completion" else "chat"
         streams = []
@@ -338,6 +340,7 @@ async def test_chat_passes_request_id_outside_generation_config(monkeypatch):
         uid=b"chat-model",
         chat=AsyncMock(return_value=b'{"choices": []}'),
         is_vllm_backend=AsyncMock(return_value=True),
+        get_limit_mm_per_prompt=AsyncMock(return_value=None),
     )
     supervisor = SimpleNamespace(
         describe_model=AsyncMock(return_value={"model_family": "test-family"})
@@ -434,6 +437,7 @@ async def test_vllm_terminal_error_reaches_http_or_sse_error(monkeypatch, stream
         uid=b"chat-model",
         chat=chat,
         is_vllm_backend=AsyncMock(return_value=True),
+        get_limit_mm_per_prompt=AsyncMock(return_value=None),
         abort_request=AsyncMock(),
         decrease_serve_count=AsyncMock(),
     )
@@ -458,10 +462,17 @@ async def test_vllm_terminal_error_reaches_http_or_sse_error(monkeypatch, stream
         response = await api.create_chat_completion(req)
         chunks = [chunk async for chunk in response.body_iterator]
         assert len(chunks) == 1
-        assert "finish_reason=error" in json.loads(chunks[0]["data"])["error"]
+        assert (
+            json.loads(chunks[0]["data"])["error"]
+            == api._chat_completion_error_detail()
+        )
     else:
         with pytest.raises(HTTPException) as exc:
             await api.create_chat_completion(req)
         assert exc.value.status_code == 500
-        assert "finish_reason=error" in exc.value.detail
+        assert exc.value.detail == api._chat_completion_error_detail()
+    assert any(
+        "finish_reason=error" in str(call.args[-1])
+        for call in api._report_error_event.await_args_list
+    )
     assert not engine_model._active_request_ids

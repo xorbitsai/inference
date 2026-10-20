@@ -139,7 +139,11 @@ async def test_api_resolves_salt_after_auth_before_model_dispatch(
         "_get_model_request_logger",
         lambda: SimpleNamespace(info=lambda value: events.append(json.loads(value))),
     )
-    model = SimpleNamespace(uid="m", is_vllm_backend=AsyncMock(return_value=True))
+    model = SimpleNamespace(
+        uid="m",
+        is_vllm_backend=AsyncMock(return_value=True),
+        get_limit_mm_per_prompt=AsyncMock(return_value=None),
+    )
     inference_configs = []
     cached_bodies = []
 
