@@ -1615,8 +1615,11 @@ class VLLMModel(WeightCachedModel, LLM):
 
     def _should_force_fp8(self) -> bool:
         """Keep the FP8 fallback only when checkpoint metadata permits it."""
+        model_path = getattr(self, "model_path", None)
+        if not model_path:
+            return True
         try:
-            with open(os.path.join(self.model_path, "config.json")) as f:
+            with open(os.path.join(model_path, "config.json")) as f:
                 config = json.load(f)
         except FileNotFoundError:
             return True
