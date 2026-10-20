@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import base64
 import io
@@ -203,11 +205,63 @@ def test_remote_code_trust_policy(
     assert MOSSDiffusersImageModel.match(spec)
     options = {} if explicit_trust is None else {"trust_remote_code": explicit_trust}
     model = MOSSImageModel("moss", "/models/moss", model_spec=spec, **options)
-    model.load()
-    expected = (
-        is_builtin or operator_trust if explicit_trust is None else explicit_trust
+    loader = Mock(wraps=pipeline.from_pretrained)
+    monkeypatch.setattr(pipeline, "from_pretrained", loader)
+    expected = (is_builtin or operator_trust) and explicit_trust is not False
+    if expected:
+        model.load()
+        assert model._model.load_kwargs["trust_remote_code"] is True
+        loader.assert_called_once()
+    else:
+        with pytest.raises(
+            ValueError, match="XINFERENCE_TRUST_REMOTE_CODE=1.*trust_remote_code=False"
+        ):
+            model.load()
+        loader.assert_not_called()
+
+
+@pytest.mark.parametrize("operator_trust", [False, True])
+def test_registered_model_default_cannot_bypass_trust_policy(
+    families, pipeline, monkeypatch, tmp_path, operator_trust
+):
+    from xinference import constants
+
+    from ...custom import RegistryManager
+    from .. import engine_family
+    from ..core import create_image_model_instance
+    from ..custom import CustomImageModelFamilyV2, register_image
+
+    monkeypatch.setattr(constants, "XINFERENCE_TRUST_REMOTE_CODE", operator_trust)
+    registry = RegistryManager.get_registry("image")
+    monkeypatch.setattr(registry, "models", [])
+    monkeypatch.setattr(engine_family, "IMAGE_ENGINES", {})
+    metadata = families["huggingface"].dict(exclude={"is_builtin"})
+    metadata.update(
+        model_name="custom-moss-remote-code-policy",
+        model_id="tests/custom-moss",
+        default_model_config={"trust_remote_code": True},
     )
-    assert model._model.load_kwargs["trust_remote_code"] is expected
+    spec = CustomImageModelFamilyV2(**metadata)
+    register_image(spec, persist=False)
+    model = create_image_model_instance(
+        "custom-moss",
+        spec.model_name,
+        model_path=str(tmp_path),
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, MOSSDiffusersImageModel)
+    assert not model.model_family.is_builtin
+    assert model._kwargs["trust_remote_code"] is True
+    loader = Mock(wraps=pipeline.from_pretrained)
+    monkeypatch.setattr(pipeline, "from_pretrained", loader)
+    if operator_trust:
+        model.load()
+        assert model._model.load_kwargs["trust_remote_code"] is True
+        loader.assert_called_once()
+    else:
+        with pytest.raises(ValueError, match="XINFERENCE_TRUST_REMOTE_CODE=1"):
+            model.load()
+        loader.assert_not_called()
 
 
 def test_text_to_image_defaults_and_batch(loaded_model):
