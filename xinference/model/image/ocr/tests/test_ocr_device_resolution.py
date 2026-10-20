@@ -1,3 +1,5 @@
+# CI: linux
+
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 import sys
 from types import ModuleType, SimpleNamespace
 
@@ -21,13 +24,33 @@ from .. import paddleocr_vl, unlimited_ocr
 from ..paddleocr_vl import PaddleOCRVLModel
 from ..unlimited_ocr import UnlimitedOCRModel
 
+device_utils = importlib.import_module("xinference.device_utils")
+
 
 def _spec():
     return SimpleNamespace(model_ability=["ocr"])
 
 
+def _isolate_device(monkeypatch, name):
+    """Make the real device registry report exactly one available backend.
+
+    ``get_available_device`` is deliberately left untouched: the point of these
+    tests is the real registry -> PyTorch device-name mapping, not the answer we
+    hand to the loaders.
+    """
+    target = next(spec for spec in device_utils.DEVICE_REGISTRY if spec.name == name)
+    for spec in device_utils.DEVICE_REGISTRY:
+        monkeypatch.setattr(
+            spec, "is_available", (lambda: True) if spec is target else (lambda: False)
+        )
+
+
 class _RecordingModel:
-    """Minimal stand-in that records the device it is moved to."""
+    """Minimal stand-in that records the device it is moved to.
+
+    ``to`` resolves the recorded name with ``torch.device`` so an invalid device
+    name (the pre-fix ROCm behaviour) fails here instead of silently passing.
+    """
 
     def __init__(self, record):
         self._record = record
@@ -35,6 +58,7 @@ class _RecordingModel:
 
     def to(self, device):
         self._record["device"] = str(device)
+        self._record["device_type"] = torch.device(str(device)).type
         return self
 
     def eval(self):
@@ -84,16 +108,60 @@ def _install_fake_transformers(monkeypatch, record):
     monkeypatch.setitem(sys.modules, "transformers.utils.import_utils", import_utils)
 
 
-def test_paddleocr_vl_defers_to_accelerator_registry(monkeypatch, tmp_path):
-    """No device configured: the accelerator registry decides, not CUDA-or-CPU."""
+def test_registry_reports_a_pytorch_valid_name_for_rocm(monkeypatch):
+    """ROCm hardware must resolve to a device name ``torch.device`` accepts.
+
+    PyTorch exposes ROCm through the CUDA device names, so the registry has to
+    hand callers ``"cuda"``; ``torch.device("rocm")`` raises ``RuntimeError``.
+    """
+    _isolate_device(monkeypatch, "rocm")
+
+    device = device_utils.get_available_device()
+
+    assert device == "cuda"
+    assert torch.device(device).type == "cuda"
+
+
+def test_paddleocr_vl_moves_to_a_valid_device_on_rocm(monkeypatch, tmp_path):
+    """No device configured on ROCm: the load path must reach a valid device."""
     record = {}
     _install_fake_transformers(monkeypatch, record)
-    monkeypatch.setattr(paddleocr_vl, "get_available_device", lambda: "npu")
+    _isolate_device(monkeypatch, "rocm")
 
     model = PaddleOCRVLModel("paddleocr-test", str(tmp_path), model_spec=_spec())
     model.load()
 
-    assert record["device"] == "npu"
+    assert record["device"] == "cuda"
+    assert record["device_type"] == "cuda"
+    assert record["dtypes"] == [torch.bfloat16]
+
+
+def test_unlimited_ocr_moves_to_a_valid_device_on_rocm(monkeypatch, tmp_path):
+    """Same regression for the second OCR loader that had the CUDA-only check."""
+    record = {}
+    _install_fake_transformers(monkeypatch, record)
+    _isolate_device(monkeypatch, "rocm")
+
+    model = UnlimitedOCRModel("unlimited-test", str(tmp_path), model_spec=_spec())
+    model.load()
+
+    assert record["device"] == "cuda"
+    assert record["device_type"] == "cuda"
+    assert record["dtypes"] == [torch.bfloat16]
+
+
+def test_paddleocr_vl_defers_to_accelerator_registry(monkeypatch, tmp_path):
+    """No device configured: the accelerator registry decides, not CUDA-or-CPU."""
+    record = {}
+    _install_fake_transformers(monkeypatch, record)
+    monkeypatch.setattr(paddleocr_vl, "get_available_device", lambda: "mps")
+
+    model = PaddleOCRVLModel("paddleocr-test", str(tmp_path), model_spec=_spec())
+    model.load()
+
+    # ``mps`` cannot be checked with ``torch.device`` on a CPU-only build, so the
+    # registry answer is asserted directly; the ROCm tests above cover validity.
+    assert record["device"] == "mps"
     assert record["dtypes"] == [torch.bfloat16]
 
 
@@ -101,7 +169,7 @@ def test_paddleocr_vl_honours_an_explicit_device(monkeypatch, tmp_path):
     """An explicitly requested device (with an index) must not be dropped."""
     record = {}
     _install_fake_transformers(monkeypatch, record)
-    monkeypatch.setattr(paddleocr_vl, "get_available_device", lambda: "npu")
+    monkeypatch.setattr(paddleocr_vl, "get_available_device", lambda: "cuda")
 
     model = PaddleOCRVLModel(
         "paddleocr-test", str(tmp_path), model_spec=_spec(), device="cuda:1"
@@ -109,13 +177,14 @@ def test_paddleocr_vl_honours_an_explicit_device(monkeypatch, tmp_path):
     model.load()
 
     assert record["device"] == "cuda:1"
+    assert record["device_type"] == "cuda"
     assert record["dtypes"] == [torch.bfloat16]
 
 
 def test_paddleocr_vl_keeps_explicit_cpu_dtype(monkeypatch, tmp_path):
     record = {}
     _install_fake_transformers(monkeypatch, record)
-    monkeypatch.setattr(paddleocr_vl, "get_available_device", lambda: "npu")
+    monkeypatch.setattr(paddleocr_vl, "get_available_device", lambda: "cuda")
 
     model = PaddleOCRVLModel(
         "paddleocr-test", str(tmp_path), model_spec=_spec(), device="cpu"
@@ -130,19 +199,19 @@ def test_unlimited_ocr_defers_to_accelerator_registry(monkeypatch, tmp_path):
     """No device configured: the accelerator registry decides, not CUDA-or-CPU."""
     record = {}
     _install_fake_transformers(monkeypatch, record)
-    monkeypatch.setattr(unlimited_ocr, "get_available_device", lambda: "npu")
+    monkeypatch.setattr(unlimited_ocr, "get_available_device", lambda: "mps")
 
     model = UnlimitedOCRModel("unlimited-test", str(tmp_path), model_spec=_spec())
     model.load()
 
-    assert record["device"] == "npu"
+    assert record["device"] == "mps"
     assert record["dtypes"] == [torch.bfloat16]
 
 
 def test_unlimited_ocr_keeps_cpu_on_explicit_cpu(monkeypatch, tmp_path):
     record = {}
     _install_fake_transformers(monkeypatch, record)
-    monkeypatch.setattr(unlimited_ocr, "get_available_device", lambda: "npu")
+    monkeypatch.setattr(unlimited_ocr, "get_available_device", lambda: "cuda")
 
     model = UnlimitedOCRModel(
         "unlimited-test", str(tmp_path), model_spec=_spec(), device="cpu"

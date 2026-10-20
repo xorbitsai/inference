@@ -482,6 +482,10 @@ DEVICE_REGISTRY: list[DeviceSpec] = [
         empty_cache_fn=lambda: torch.cuda.empty_cache(),
         preferred_dtype=torch.float16,
         gpu_count_fn=_rocm_gpu_count,
+        # PyTorch reuses the CUDA device names on ROCm (``torch.device("cuda:0")``
+        # is valid, ``torch.device("rocm")`` raises), so callers that move a
+        # model with ``get_available_device()`` must receive "cuda".
+        pytorch_device_name="cuda",
     ),
     DeviceSpec(
         name="cuda",
