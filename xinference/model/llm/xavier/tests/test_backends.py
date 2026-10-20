@@ -262,7 +262,22 @@ async def test_lmcache_real_disk_roundtrip(tmp_path):
             if time.monotonic() >= deadline:
                 pytest.fail("LMCache did not write both complete pages to disk")
             await asyncio.sleep(0.05)
-        store._storage.manager.clear(force=True)
+        while True:
+            controllers = store._storage.manager.report_status()[
+                "store_controllers"
+            ].values()
+            if all(
+                status["pending_keys_count"] == 0
+                and status["in_flight_task_count"] == 0
+                for status in controllers
+            ):
+                break
+            if time.monotonic() >= deadline:
+                pytest.fail(
+                    "LMCache store controller did not release its in-flight writes"
+                )
+            await asyncio.sleep(0.05)
+        store._storage.manager.clear()
         assert await store.prefetch([1, 2])
         assert store.reserve("1:disk", [1, 2])
         assert torch.equal(store.read("K", [1, 2]), k)
