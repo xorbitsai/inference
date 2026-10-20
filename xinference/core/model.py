@@ -490,7 +490,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         return isinstance(self._model, SGLANGModel)
 
     def get_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
-        if not self.is_vllm_backend():
+        from ..model.llm.vllm.core import VLLMModel
+
+        if not isinstance(self._model, VLLMModel):
             return None
         return self._model.get_limit_mm_per_prompt()
 

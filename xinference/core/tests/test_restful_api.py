@@ -1552,6 +1552,8 @@ async def test_chat_completion_preflights_multimodal_limit(monkeypatch):
     from fastapi import HTTPException
 
     from ...api.restful_api import RESTfulAPI
+    from ...core.model import ModelActor
+    from ...model.llm.vllm.core import VLLMModel
 
     monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
     api = RESTfulAPI("localhost", "localhost", 9997)
@@ -1565,7 +1567,12 @@ async def test_chat_completion_preflights_multimodal_limit(monkeypatch):
         return_value={"model_family": "qwen3.8", "limit_mm_per_prompt": {"image": 1}}
     )
     model.is_vllm_backend = AsyncMock(return_value=True)
-    model.get_limit_mm_per_prompt = AsyncMock(return_value={"image": 2})
+    backend = object.__new__(VLLMModel)
+    backend._model_config = {"limit_mm_per_prompt": {"image": 2}}
+    actor = SimpleNamespace(_model=backend)
+    model.get_limit_mm_per_prompt = AsyncMock(
+        side_effect=lambda: ModelActor.get_limit_mm_per_prompt(actor)
+    )
     image = {"type": "image_url", "image_url": {"url": "data:image/png;base64,AA=="}}
     payload = {
         "model": "test",
@@ -1588,7 +1595,7 @@ async def test_chat_completion_preflights_multimodal_limit(monkeypatch):
 
     # A retained-weight reload can change the limit after the description was
     # cached. Preflight must use the live limit rather than reject this request.
-    model.get_limit_mm_per_prompt.return_value = {"image": 3}
+    backend._model_config["limit_mm_per_prompt"] = {"image": 3}
     model.chat.return_value = "{}"
     payload["stream"] = False
     response = await api.create_chat_completion(_DummyRequest(payload))
