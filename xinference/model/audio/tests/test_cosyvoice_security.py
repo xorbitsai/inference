@@ -17,6 +17,9 @@ from ..cosyvoice import CosyVoiceModel
 
 @pytest.fixture
 def cosy_spec(monkeypatch):
+    # The loader prepends vendored modules; do not leak them to later spawned
+    # processes, where vendored mlx would shadow the optional system package.
+    monkeypatch.setattr(sys, "path", sys.path.copy())
     monkeypatch.setattr(constants, "XINFERENCE_TRUST_REMOTE_CODE", False)
     spec = BUILTIN_AUDIO_MODELS["CosyVoice-300M"][0].copy(deep=True)
     monkeypatch.setattr(audio_core, "match_audio", Mock(return_value=spec))
