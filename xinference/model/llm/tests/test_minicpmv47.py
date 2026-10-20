@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# CI: linux
 from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -257,12 +259,13 @@ def test_int4_exception_is_scoped(virtualenv_worker):
     assert vllm_core.VLLMMultiModel.match_json(family, spec, "Int4")[0] is False
 
 
-def test_fp8_uses_checkpoint_quantizer(monkeypatch):
+def test_fp8_uses_checkpoint_quantizer(monkeypatch, tmp_path):
     monkeypatch.setattr(
         vllm_core, "VLLM_VERSION", vllm_core.MINICPMV47_MIN_VLLM_VERSION
     )
     family = match_llm("MiniCPM-V-4.7", "fp8", 35, "FP8", "huggingface")
     model = object.__new__(vllm_core.VLLMMultiModel)
+    model.model_path = str(tmp_path)
     model.model_family = family
     model.model_spec = family.model_specs[0]
     model._device_count = 1

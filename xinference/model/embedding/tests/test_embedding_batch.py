@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import Mock
+
 from xoscar.batch import _ExtensibleWrapper
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from .. import core as embedding_core
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, TransformersEmbeddingSpecV1
 
 _STUB_SPEC = EmbeddingModelFamilyV2(
@@ -125,3 +128,72 @@ def test_create_embedding_batch_treats_dict_as_one_multimodal_input():
     assert len(results) == 2
     assert [len(result["data"]) for result in results] == [1, 1]
     assert [result["data"][0]["index"] for result in results] == [0, 0]
+
+
+def test_cache_cleanup_keeps_count_and_token_triggers_while_rate_limiting_gc(
+    monkeypatch,
+):
+    model = _make_stub_model()
+    clock = [100.0]
+    events = []
+    monkeypatch.setattr(embedding_core, "EMBEDDING_EMPTY_CACHE_COUNT", 3)
+    monkeypatch.setattr(embedding_core, "EMBEDDING_EMPTY_CACHE_TOKENS", 10)
+    monkeypatch.setattr(embedding_core, "EMBEDDING_GC_INTERVAL", 60)
+    monkeypatch.setattr(embedding_core.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(embedding_core.gc, "collect", lambda: events.append("gc"))
+    monkeypatch.setattr(embedding_core, "empty_cache", lambda: events.append("cache"))
+
+    model._clean_cache_if_needed(0)
+    assert events == []
+    model._clean_cache_if_needed(10)  # Token trigger, first full collection.
+    model._clean_cache_if_needed(0)  # Count trigger still releases GPU cache.
+    clock[0] = 159.9
+    model._clean_cache_if_needed(10)
+    assert events == ["gc", "cache", "cache", "cache"]
+
+    clock[0] = 160.0
+    model._clean_cache_if_needed(0)  # The GC interval alone is not a cache trigger.
+    assert events == ["gc", "cache", "cache", "cache"]
+    model._clean_cache_if_needed(10)
+    assert events == ["gc", "cache", "cache", "cache", "gc", "cache"]
+
+
+def test_gc_interval_zero_restores_collection_on_every_cleanup(monkeypatch):
+    model = _make_stub_model()
+    collect = Mock()
+    release = Mock()
+    monkeypatch.setattr(embedding_core, "EMBEDDING_GC_INTERVAL", 0)
+    monkeypatch.setattr(embedding_core.gc, "collect", collect)
+    monkeypatch.setattr(embedding_core, "empty_cache", release)
+    for _ in range(5):
+        model._clean_cache_if_needed(embedding_core.EMBEDDING_EMPTY_CACHE_TOKENS)
+    assert collect.call_count == release.call_count == 5
+
+
+def test_gc_cooldown_is_per_model(monkeypatch):
+    collect = Mock()
+    release = Mock()
+    monkeypatch.setattr(embedding_core, "EMBEDDING_GC_INTERVAL", 60)
+    monkeypatch.setattr(embedding_core.gc, "collect", collect)
+    monkeypatch.setattr(embedding_core, "empty_cache", release)
+    first, second = _make_stub_model(), _make_stub_model()
+    for model in (first, first, second):
+        model._clean_cache_if_needed(embedding_core.EMBEDDING_EMPTY_CACHE_TOKENS)
+    assert collect.call_count == 2
+    assert release.call_count == 3
+
+
+def test_consecutive_large_batches_keep_gc_cooldown_and_release_gpu_cache(
+    monkeypatch,
+):
+    model = _make_stub_model()
+    collect = Mock()
+    release = Mock()
+    monkeypatch.setattr(embedding_core, "EMBEDDING_GC_INTERVAL", 60)
+    monkeypatch.setattr(embedding_core.time, "monotonic", lambda: 100.0)
+    monkeypatch.setattr(embedding_core.gc, "collect", collect)
+    monkeypatch.setattr(embedding_core, "empty_cache", release)
+    for _ in range(100):
+        model._clean_cache_if_needed(embedding_core.EMBEDDING_EMPTY_CACHE_TOKENS)
+    assert collect.call_count == 1
+    assert release.call_count == 100

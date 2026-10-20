@@ -476,6 +476,40 @@ msgstr ""
 "連接埠的存取限制於預期的叢集節點。驗證不會加密流量或防止重播；啟用驗證的 GPU 傳輸會將裝置緩衝區暫存至主機記憶體進行雜湊運算，增加 CPU "
 "與主機記憶體的負擔。"
 
+#: ../../source/getting_started/environments.rst:155
+msgid "For text-only ``sentence_transformers`` models, the engine may group similar character lengths to reduce padding while preserving response order. The internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE`` controls input merging by the server."
+msgstr "對於使用 ``sentence_transformers`` 的純文字模型，引擎可將字元長度相近的輸入分組，以減少填補並保持回應順序。內部 ``encode()`` 的 ``batch_size`` 限制這些分組的大小；``XINFERENCE_BATCH_SIZE`` 控制伺服器端的輸入合併。"
+
+#: ../../source/getting_started/environments.rst:164
+msgid "XINFERENCE_EMBEDDING_GC_INTERVAL"
+msgstr "XINFERENCE_EMBEDDING_GC_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:166
+msgid "Minimum interval (seconds) between full Python garbage collections during embedding cache cleanup. Default is 60. The first cleanup collects immediately. Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged."
+msgstr "嵌入快取清理期間執行完整 Python 垃圾回收的最短間隔（秒），預設為 60。首次清理立即執行回收。設為 0 可在每次清理時執行回收。GPU 快取釋放頻率維持不變。"
+
+#: ../../source/getting_started/environments.rst:171
+msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
+msgstr "冷卻間隔也適用於由 token 數量觸發的清理。Python 循環參照保留的張量可能持續占用顯示記憶體，直到自動 GC 或後續完整回收；``empty_cache()`` 無法釋放這些張量。對於每次清理都需要完整回收的模型，請將此間隔設為 0。"
+
+msgid "Text-only CrossEncoder rerankers may also group pairs by combined query and document character length to reduce padding. The native ``predict()`` ``batch_size`` still limits each forward pass; short pairs stay together."
+msgstr "純文字 CrossEncoder 重排序模型也可以按查詢和文件的字元總長度對輸入配對分組，以減少填補。原生 ``predict()`` 的 ``batch_size`` 仍限制每次前向計算的大小；短輸入配對會保留在同一組中。"
+
+msgid "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+msgstr "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+
+msgid "Number of completed inference groups between cache releases in the Sentence Transformers and synchronous vLLM rerank engines. Default is 10. A merged group counts once, regardless of how many requests it contains."
+msgstr "Sentence Transformers 和同步 vLLM 重排序引擎兩次快取釋放之間完成的推理組數，預設為 10。每個合併組計數一次，與其中包含的請求數無關。"
+
+msgid "XINFERENCE_RERANK_GC_INTERVAL"
+msgstr "XINFERENCE_RERANK_GC_INTERVAL"
+
+msgid "Minimum interval (seconds) between full Python garbage collections during rerank cache cleanup. Default is 60. The first cache cleanup collects immediately. Set to 0 to collect on every cache cleanup. GPU cache release still follows ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``."
+msgstr "重排序快取清理期間執行完整 Python 垃圾回收的最短間隔（秒），預設為 60。首次快取清理立即執行回收。設為 0 可在每次快取清理時執行回收。GPU 快取釋放仍遵循 ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``。"
+
+msgid "Python reference cycles may keep tensors allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that need full collection on every cache cleanup."
+msgstr "Python 循環參照可能使張量持續占用顯示記憶體，直到自動 GC 或後續完整回收；``empty_cache()`` 無法釋放這些張量。對於每次快取清理都需要完整回收的模型，請將此間隔設為 0。"
+
 #: ../../source/getting_started/environments.rst
 msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
 msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"

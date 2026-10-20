@@ -175,10 +175,19 @@ class DeepseekV4ToolParser(ToolParser):
 
             # Inside tool-call region: return the invokes whose closing tag
             # arrived in this delta
-            _, invoke_regex, parameter_regex = self._regexes[
-                self._detect_format(current_text)
-            ]
+            dsml = self._detect_format(current_text)
+            _, invoke_regex, parameter_regex = self._regexes[dsml]
             previous_length = len(current_text) - len(delta_text)
+            # Every invoke ends with its closing tag, so none can complete in
+            # this delta unless the tag does. Skip the regex scan until then.
+            invoke_close = f"</{self._DSML[1:]}invoke>" if dsml else "</invoke>"
+            if (
+                current_text.find(
+                    invoke_close, max(previous_length - len(invoke_close) + 1, 0)
+                )
+                == -1
+            ):
+                return None
             results: List[ToolCall] = []
             for invoke in invoke_regex.finditer(current_text):
                 if invoke.end() > previous_length:

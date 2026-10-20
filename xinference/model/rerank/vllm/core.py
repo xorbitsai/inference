@@ -14,12 +14,7 @@ from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ....utils import make_hashable
 from ...batch import BatchMixin
 from ...utils import check_dependency_available
-from ..core import (
-    RERANK_EMPTY_CACHE_COUNT,
-    RerankModel,
-    RerankModelFamilyV2,
-    RerankSpecV1,
-)
+from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 QWEN3_RERANK_TEMPLATE = int(os.getenv("XINFERENCE_QWEN3_RERANK_TEMPLATE", "1"))
 QWEN3_VL_RERANK_TEMPLATE_PATH = os.path.join(
@@ -171,12 +166,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
                 outputs.extend(pair_outputs)
         else:
             outputs = self._model.score(query_list, documents, **score_kwargs)
-        # clear cache if possible
-        self._counter += 1
-        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
-            logger.debug("Empty rerank cache.")
-            gc.collect()
-            empty_cache()
+        self._clean_cache_if_needed()
         return outputs
 
     def _prepare_pairs(

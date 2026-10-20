@@ -173,3 +173,42 @@ msgid ""
 "For LLMs using Xinference's continuous batching, you can abort requests that"
 " are in the process of inference."
 msgstr "Xinference の連続バッチ処理を使用する LLM では、推論中のリクエストをキャンセルできます。"
+
+#: user_guide/continuous_batching.rst:101
+msgid "Audio request batching"
+msgstr "音声リクエストのバッチ処理"
+
+#: user_guide/continuous_batching.rst:101
+msgid ""
+"Whisper with the ``transformers`` engine and Qwen3-TTS with the ``PyTorch`` "
+"or ``MLX`` engine collect concurrent requests into native batches within "
+"each model replica. The audio API remains unchanged."
+msgstr ""
+"``transformers`` エンジンの Whisper と、``PyTorch`` または ``MLX`` エンジンの Qwen3-TTS "
+"は、各モデルレプリカ内で同時リクエストをまとめ、ネイティブのバッチ推論を実行します。音声 API は変更されません。"
+
+#: user_guide/continuous_batching.rst:101
+msgid ""
+"Set ``request_batch_size`` (default ``4``) and ``batch_interval`` (default "
+"``0.01`` seconds) at model launch. Set ``request_batch_size=1`` to disable "
+"request merging and MLX segment batching, or lower it when device memory is "
+"limited. Whisper's existing ``batch_size`` still controls the pipeline's "
+"audio-chunk batch size."
+msgstr ""
+"モデル起動時に ``request_batch_size``（既定値 ``4``）と ``batch_interval``（既定値 ``0.01`` "
+"秒）を設定します。``request_batch_size=1`` にするとリクエストの統合と MLX "
+"のテキスト分割バッチ処理を無効にできます。デバイスのメモリが不足する場合も、この値を下げてください。Whisper の既存の "
+"``batch_size`` は、引き続き pipeline の音声チャンクのバッチサイズを制御します。"
+
+#: user_guide/continuous_batching.rst:101
+msgid ""
+"Only requests with compatible inference settings are merged. Qwen3-TTS "
+"requests with an explicit seed run separately. MLX batching also requires "
+"the same language and reference audio; unsupported batch options use the "
+"existing single-request path. Long MLX Qwen3-TTS inputs can batch text "
+"segments while preserving their order and pauses. Streaming support is "
+"unchanged."
+msgstr ""
+"推論設定に互換性があるリクエストのみ統合されます。seed を明示した Qwen3-TTS リクエストは個別に実行されます。MLX "
+"のバッチ処理には言語と参照音声も同じである必要があります。バッチ処理に対応しないオプションは既存の単一リクエスト経路を使用します。長い MLX "
+"Qwen3-TTS 入力では、順序と間を保持しながらテキスト分割をバッチ処理できます。ストリーミングの対応状況は変わりません。"

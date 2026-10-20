@@ -555,6 +555,40 @@ msgstr ""
 "Hashen im Hostspeicher und verursachen zusätzlichen CPU- und "
 "Hostspeicheraufwand."
 
+#: ../../source/getting_started/environments.rst:155
+msgid "For text-only ``sentence_transformers`` models, the engine may group similar character lengths to reduce padding while preserving response order. The internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE`` controls input merging by the server."
+msgstr "Bei reinen Textmodellen mit ``sentence_transformers`` kann die Engine Eingaben mit ähnlicher Zeichenlänge gruppieren, um Padding zu reduzieren und dabei die Antwortreihenfolge beizubehalten. Der interne Parameter ``batch_size`` von ``encode()`` begrenzt diese Gruppen; ``XINFERENCE_BATCH_SIZE`` steuert das Zusammenführen von Eingaben auf dem Server."
+
+#: ../../source/getting_started/environments.rst:164
+msgid "XINFERENCE_EMBEDDING_GC_INTERVAL"
+msgstr "XINFERENCE_EMBEDDING_GC_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:166
+msgid "Minimum interval (seconds) between full Python garbage collections during embedding cache cleanup. Default is 60. The first cleanup collects immediately. Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged."
+msgstr "Mindestintervall (Sekunden) zwischen vollständigen Python-Garbage-Collections bei der Bereinigung des Embedding-Caches. Der Standardwert ist 60. Bei der ersten Bereinigung erfolgt die Sammlung sofort. Mit 0 wird sie bei jeder Bereinigung ausgeführt. Die Häufigkeit der GPU-Cache-Freigabe bleibt unverändert."
+
+#: ../../source/getting_started/environments.rst:171
+msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
+msgstr "Die Wartezeit gilt auch für eine durch die Tokenanzahl ausgelöste Bereinigung. Durch zyklische Python-Referenzen gehaltene Tensoren können bis zur automatischen Garbage Collection oder einer späteren vollständigen Sammlung Speicher belegen; ``empty_cache()`` kann sie nicht freigeben. Setzen Sie das Intervall für Modelle, die bei jeder Bereinigung eine vollständige Sammlung benötigen, auf 0."
+
+msgid "Text-only CrossEncoder rerankers may also group pairs by combined query and document character length to reduce padding. The native ``predict()`` ``batch_size`` still limits each forward pass; short pairs stay together."
+msgstr "Reine Text-CrossEncoder-Reranker können Eingabepaare auch nach der gesamten Zeichenlänge von Abfrage und Dokument gruppieren, um Padding zu reduzieren. Der native Parameter ``batch_size`` von ``predict()`` begrenzt weiterhin jeden Vorwärtslauf; kurze Paare bleiben zusammen."
+
+msgid "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+msgstr "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+
+msgid "Number of completed inference groups between cache releases in the Sentence Transformers and synchronous vLLM rerank engines. Default is 10. A merged group counts once, regardless of how many requests it contains."
+msgstr "Anzahl abgeschlossener Inferenzgruppen zwischen Cache-Freigaben in den Rerank-Engines Sentence Transformers und synchronem vLLM. Der Standardwert ist 10. Eine zusammengeführte Gruppe zählt einmal, unabhängig von der Anzahl enthaltener Anfragen."
+
+msgid "XINFERENCE_RERANK_GC_INTERVAL"
+msgstr "XINFERENCE_RERANK_GC_INTERVAL"
+
+msgid "Minimum interval (seconds) between full Python garbage collections during rerank cache cleanup. Default is 60. The first cache cleanup collects immediately. Set to 0 to collect on every cache cleanup. GPU cache release still follows ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``."
+msgstr "Mindestintervall (Sekunden) zwischen vollständigen Python-Garbage-Collections bei der Bereinigung des Rerank-Caches. Der Standardwert ist 60. Die erste Cache-Bereinigung sammelt sofort. Mit 0 wird bei jeder Cache-Bereinigung gesammelt. Die GPU-Cache-Freigabe richtet sich weiterhin nach ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``."
+
+msgid "Python reference cycles may keep tensors allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that need full collection on every cache cleanup."
+msgstr "Zyklische Python-Referenzen können Tensoren bis zur automatischen Garbage Collection oder einer späteren vollständigen Sammlung im Speicher halten; ``empty_cache()`` kann sie nicht freigeben. Setzen Sie das Intervall für Modelle, die bei jeder Cache-Bereinigung eine vollständige Sammlung benötigen, auf 0."
+
 #: ../../source/getting_started/environments.rst
 msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
 msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"

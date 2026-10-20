@@ -11,11 +11,19 @@ from .. import reasoning
 @pytest.fixture
 def native(monkeypatch, tmp_path):
     class Base:
-        def __init__(self, **kwargs):
+        def __init__(self, think_excluded_tokens=None, **kwargs):
             self.__dict__.update(kwargs)
+            self.think_excluded_tokens = think_excluded_tokens
 
     builtin = object()
-    parser = SimpleNamespace(DetectorMap={"builtin": builtin})
+
+    class Parser:
+        DetectorMap = {"builtin": builtin}
+
+        def __init__(self, model_type=None, stream_reasoning=True, tokenizer=None):
+            pass
+
+    parser = Parser
     module = SimpleNamespace(
         ReasoningParser=parser,
         BaseReasoningFormatDetector=Base,
@@ -24,6 +32,13 @@ def native(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "sglang.srt.parser.reasoning_parser", module)
     monkeypatch.setitem(
         sys.modules, "sglang.srt.plugins", SimpleNamespace(load_plugins=lambda: None)
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.srt.constrained.reasoner_grammar_backend",
+        SimpleNamespace(
+            ReasonerGrammarBackend=lambda enable_strict_thinking=False: None
+        ),
     )
     monkeypatch.setattr(
         reasoning,
@@ -133,3 +148,185 @@ def test_harmony_not_registered_as_literal_token_parser(native):
         ),
     )
     assert config == {}
+
+
+@pytest.mark.parametrize("eos_alias", [False, True])
+def test_strict_thinking_excludes_stop_tokens_but_preserves_reasoning_end(
+    native, eos_alias
+):
+    parser, _ = native
+    config = {}
+    stop = ["<stop>", "multi-token stop", "<unknown>", "</custom>"]
+    reasoning.configure_structured_reasoning(
+        config,
+        ReasoningParser(reasoning_start_tag="<custom>", reasoning_end_tag="</custom>"),
+        stop,
+    )
+    tokens = {
+        "<custom>": [1],
+        "</custom>": [2],
+        "<eos>": [2 if eos_alias else 3],
+        "<stop>": [4],
+        "multi-token stop": [5, 6],
+        "<unknown>": [0],
+    }
+    tokenizer = SimpleNamespace(
+        eos_token="<eos>",
+        unk_token_id=0,
+        encode=lambda text, **kwargs: tokens[text],
+    )
+    detector = parser.DetectorMap.get(config["reasoning_parser"])(tokenizer=tokenizer)
+    assert config["enable_strict_thinking"] is True
+    assert detector.think_excluded_tokens == (
+        ["<stop>"] if eos_alias else ["<stop>", "<eos>"]
+    )
+    assert detector.get_think_end_token_ids(tokenizer) == [2]
+    assert stop == ["<stop>", "multi-token stop", "<unknown>", "</custom>"]
+
+
+def test_strict_thinking_respects_explicit_disable(native):
+    config = {"enable_strict_thinking": False}
+    reasoning.configure_structured_reasoning(
+        config,
+        ReasoningParser(reasoning_start_tag="<think>", reasoning_end_tag="</think>"),
+    )
+    assert config["enable_strict_thinking"] is False
+
+
+@pytest.mark.parametrize("backend", [None, "xgrammar"])
+def test_default_grammar_backend_enables_strict_thinking(native, backend):
+    config = {"grammar_backend": backend}
+    reasoning.configure_structured_reasoning(
+        config,
+        ReasoningParser(reasoning_start_tag="<think>", reasoning_end_tag="</think>"),
+    )
+    assert config["enable_strict_thinking"] is True
+
+
+@pytest.mark.parametrize("backend", ["none", "outlines", "llguidance"])
+def test_explicit_other_grammar_backend_is_preserved(native, backend):
+    config = {"grammar_backend": backend}
+    reasoning.configure_structured_reasoning(
+        config,
+        ReasoningParser(reasoning_start_tag="<think>", reasoning_end_tag="</think>"),
+    )
+    assert "enable_strict_thinking" not in config
+    assert config["grammar_backend"] == backend
+
+
+def test_older_reasoning_backend_does_not_receive_new_option(native, monkeypatch):
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.srt.constrained.reasoner_grammar_backend",
+        SimpleNamespace(ReasonerGrammarBackend=lambda: None),
+    )
+    config = {}
+    reasoning.configure_structured_reasoning(
+        config,
+        ReasoningParser(reasoning_start_tag="<think>", reasoning_end_tag="</think>"),
+    )
+    assert "reasoning_parser" in config
+    assert "enable_strict_thinking" not in config
+
+
+def test_legacy_parser_without_tokenizer_disables_automatic_strict_thinking(
+    native, monkeypatch, caplog
+):
+    parser, _ = native
+
+    class LegacyParser:
+        DetectorMap = parser.DetectorMap
+
+        def __init__(self, model_type=None, stream_reasoning=True):
+            pass
+
+    monkeypatch.setattr(
+        sys.modules["sglang.srt.parser.reasoning_parser"],
+        "ReasoningParser",
+        LegacyParser,
+    )
+    config = {}
+    reasoning.configure_structured_reasoning(
+        config,
+        ReasoningParser(reasoning_start_tag="<think>", reasoning_end_tag="</think>"),
+    )
+    assert "reasoning_parser" in config
+    assert "enable_strict_thinking" not in config
+    assert "automatic strict thinking is disabled" in caplog.text
+
+
+def test_detector_without_tokenizer_has_no_exclusions(native):
+    parser, _ = native
+    config = {}
+    reasoning.configure_structured_reasoning(
+        config,
+        ReasoningParser(reasoning_start_tag="<think>", reasoning_end_tag="</think>"),
+        ["<stop>"],
+    )
+    detector = parser.DetectorMap.get(config["reasoning_parser"])(tokenizer=None)
+    assert detector.think_excluded_tokens == []
+    assert detector.detect_and_parse("<think>thought</think>42").normal_text == "42"
+
+
+def test_missing_reasoning_backend_preserves_parser_registration(native, monkeypatch):
+    monkeypatch.setitem(
+        sys.modules, "sglang.srt.constrained.reasoner_grammar_backend", None
+    )
+    config = {}
+    reasoning.configure_structured_reasoning(
+        config,
+        ReasoningParser(reasoning_start_tag="<think>", reasoning_end_tag="</think>"),
+    )
+    assert "reasoning_parser" in config
+    assert "enable_strict_thinking" not in config
+
+
+def test_model_load_passes_family_stop_to_reasoning_adapter(native, monkeypatch):
+    from ..core import SGLANGModel
+
+    class StopBeforeRuntime(Exception):
+        pass
+
+    model = object.__new__(SGLANGModel)
+    model._model_config = {"reasoning_content": True}
+    model.model_family = SimpleNamespace(stop=["<stop>"])
+    model.reasoning_parser = ReasoningParser(
+        reasoning_start_tag="<think>", reasoning_end_tag="</think>"
+    )
+    monkeypatch.setitem(sys.modules, "sglang", SimpleNamespace(__version__="0.5.21"))
+    monkeypatch.setattr(model, "_sanitize_model_config", lambda config: config)
+    monkeypatch.setattr(model, "prepare_parse_reasoning_content", lambda *a, **k: None)
+    monkeypatch.setattr(model, "prepare_parse_tool_calls", lambda: None)
+
+    def configure(config, parser, stop=None):
+        assert config is model._model_config
+        assert parser is model.reasoning_parser
+        assert stop is model.model_family.stop
+        raise StopBeforeRuntime
+
+    monkeypatch.setattr(reasoning, "configure_structured_reasoning", configure)
+    with pytest.raises(StopBeforeRuntime):
+        model.load()
+
+
+def test_older_detector_constructor_is_preserved(native, monkeypatch):
+    class LegacyBase:
+        def __init__(
+            self, think_start_token, think_end_token, force_reasoning, stream_reasoning
+        ):
+            self.think_end_token = think_end_token
+
+    monkeypatch.setattr(
+        sys.modules["sglang.srt.parser.reasoning_parser"],
+        "BaseReasoningFormatDetector",
+        LegacyBase,
+    )
+    parser, _ = native
+    config = {}
+    reasoning.configure_structured_reasoning(
+        config,
+        ReasoningParser(reasoning_start_tag="<think>", reasoning_end_tag="</think>"),
+    )
+    detector = parser.DetectorMap.get(config["reasoning_parser"])()
+    assert detector.think_end_token == "</think>"
+    assert detector.detect_and_parse("<think>thought</think>42").normal_text == "42"

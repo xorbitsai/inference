@@ -16,6 +16,7 @@ from .requests import (
     TextToImageRequest,
     TextToVideoRequest,
     UpdateModelRequest,
+    UpdateModelSpecRequest,
     WorldGenerationRequest,
 )
 
@@ -35,5 +36,6 @@ __all__ = [
     "TextToImageRequest",
     "TextToVideoRequest",
     "UpdateModelRequest",
+    "UpdateModelSpecRequest",
     "WorldGenerationRequest",
 ]

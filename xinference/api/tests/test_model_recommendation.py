@@ -1,3 +1,4 @@
+# CI: linux
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -157,6 +158,7 @@ async def test_context_overflow_is_a_client_error(
         _report_error_event=AsyncMock(),
         _get_model_last_error=AsyncMock(side_effect=lambda uid, error: error),
         _is_qwen38_description=lambda desc: False,
+        _apply_cache_salt=RESTfulAPI._apply_cache_salt,
         handle_request_limit_error=RESTfulAPI.handle_request_limit_error,
     )
     app = FastAPI()

@@ -780,3 +780,7 @@ msgstr "Qwen3.8-Flash-Next 是原生视觉语言混合专家模型，主模型�
 #: doc/source/models/builtin/llm/index.rst
 msgid "chat, vision, tools, reasoning, hybrid"
 msgstr "对话、视觉、工具调用、推理、混合思考模式"
+
+#: ../../models/builtin/llm/index.rst
+msgid "We introduce DeepSeek-V4.1-Flash-1017, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively."
+msgstr ""

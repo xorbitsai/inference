@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 import xoscar as xo
 
+from ....cache_isolation import cache_scope, validate_cache_salt
 from ....constants import XINFERENCE_CACHE_DIR
 from ..xavier.constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
 from ..xavier.contract import (
@@ -21,7 +22,11 @@ from ..xavier.contract import (
     fingerprint_files,
     fingerprint_metadata,
 )
-from ..xavier.pd_contract import build_pd_contract, prompt_digest
+from ..xavier.pd_contract import (
+    build_pd_contract,
+    prompt_digest,
+    validate_handoff_scope,
+)
 
 logger = logging.getLogger(__name__)
 _TOKENIZER_FILES = (
@@ -183,14 +188,23 @@ class MLXXavierCache:
 
         return await asyncio.wait_for(invoke(), timeout=timeout)
 
-    def keys(self, tokens):
-        keys = [key.digest for key in build_prefix_keys(self.contract, tokens)]
+    def keys(self, tokens, cache_salt=None):
+        salt = validate_cache_salt(cache_salt)
+        keys = [
+            key.digest
+            for key in build_prefix_keys(self.contract, tokens, cache_salt=salt or "")
+        ]
         remainder = len(tokens) % self.contract.block_size
         if remainder:
             keys.append(
                 fingerprint_metadata(
                     {
                         "format": "xavier-partial-page-v1",
+                        **(
+                            {"cache_scope": cache_scope(salt)}
+                            if salt is not None
+                            else {}
+                        ),
                         "contract": self.contract.fingerprint,
                         "previous": keys[-1] if keys else None,
                         "tokens": tokens[-remainder:],
@@ -277,13 +291,15 @@ class MLXXavierCache:
         self.imported_tokens += length
         return cache
 
-    async def fetch(self, tokens, transfer=None):
+    async def fetch(self, tokens, transfer=None, cache_salt=None):
+        validate_cache_salt(cache_salt)
         if self.config.get("heterogeneous"):
-            return await self._fetch_host(tokens, transfer)
+            return await self._fetch_host(tokens, transfer, cache_salt)
         prefix = tokens[:-1]
-        keys = self.keys(prefix)
+        keys = self.keys(prefix, cache_salt)
         if transfer is not None:
             handoff = transfer.get("mlx_xavier", {})
+            validate_handoff_scope(handoff, cache_salt)
             if (
                 self.role != "decode"
                 or handoff.get("engine") != "mlx"
@@ -317,7 +333,7 @@ class MLXXavierCache:
         except Exception:
             logger.warning("MLX Xavier handoff release failed", exc_info=True)
 
-    def _host_room(self, tokens, transfer, role):
+    def _host_room(self, tokens, transfer, role, cache_salt=None):
         handoff = (transfer or {}).get("sglang_xavier")
         if (
             self.role != role
@@ -331,6 +347,7 @@ class MLXXavierCache:
             or not 0 < handoff["room"] < 2**63
         ):
             raise ValueError(f"Incompatible cross-engine MLX {role} host handoff")
+        validate_handoff_scope(handoff, cache_salt)
         return handoff["room"]
 
     async def _cleanup_host(self, room, source):
@@ -350,17 +367,17 @@ class MLXXavierCache:
 
         await asyncio.shield(cleanup())
 
-    async def _fetch_host(self, tokens, transfer):
+    async def _fetch_host(self, tokens, transfer, cache_salt=None):
         from ..sglang.xavier.settings import transfer_timeout
 
-        room = self._host_room(tokens, transfer, "decode")
+        room = self._host_room(tokens, transfer, "decode", cache_salt)
         sender = None
         try:
             await self._call(
                 "prepare",
                 room,
                 self.contract.fingerprint,
-                prompt_digest(tokens),
+                prompt_digest(tokens, cache_salt),
                 "decode",
                 self.config.get("rank"),
                 transfer_timeout(),
@@ -425,7 +442,8 @@ class MLXXavierCache:
             await self._cleanup_host(room, sender)
             raise
 
-    def publish(self, cache, tokens, cached_tokens=0):
+    def publish(self, cache, tokens, cached_tokens=0, cache_salt=None):
+        validate_cache_salt(cache_salt)
         if self.config.get("heterogeneous"):
             return
 
@@ -439,7 +457,7 @@ class MLXXavierCache:
                 start = (
                     cached_tokens // self.contract.block_size * self.contract.block_size
                 )
-                keys = self.keys(tokens)
+                keys = self.keys(tokens, cache_salt)
                 pages = self.encode(cache, tokens, start)
                 await self._call(
                     "put",
@@ -470,14 +488,15 @@ class MLXXavierCache:
 
         from ..sglang.xavier.settings import transfer_timeout
 
-        room = self._host_room(tokens, transfer, "prefill")
+        cache_salt = validate_cache_salt(config.get("cache_salt"))
+        room = self._host_room(tokens, transfer, "prefill", cache_salt)
         source = None
         try:
             await self._call(
                 "prepare",
                 room,
                 self.contract.fingerprint,
-                prompt_digest(tokens),
+                prompt_digest(tokens, cache_salt),
                 "prefill",
                 self.config["rank"],
                 transfer_timeout(),
@@ -539,6 +558,7 @@ class MLXXavierCache:
         from mlx_lm.generate import PromptProcessingBatch
         from mlx_lm.models.cache import make_prompt_cache
 
+        cache_salt = validate_cache_salt((generate_config or {}).get("cache_salt"))
         if self.config.get("heterogeneous"):
             return await self._prefill_host(
                 model, tokens, prefix_length, transfer, generate_config or {}
@@ -548,7 +568,7 @@ class MLXXavierCache:
                 "MLX remote prefill requires a prefill replica and a nonempty prompt"
             )
         prefix = tokens[:-1]
-        keys = self.keys(prefix)
+        keys = self.keys(prefix, cache_salt)
         ticket = await self._call("prepare_handoff", self.contract.fingerprint, keys)
         try:
             metadata = dict(
@@ -556,6 +576,11 @@ class MLXXavierCache:
                 do_remote_decode=False,
                 mlx_xavier=dict(
                     engine="mlx",
+                    **(
+                        {"cache_scope": cache_scope(cache_salt)}
+                        if cache_salt is not None
+                        else {}
+                    ),
                     address=self.config["address"],
                     uid=self.config["uid"],
                     namespace=self.contract.fingerprint,
@@ -570,7 +595,7 @@ class MLXXavierCache:
                 # Pages are already pinned. Avoid uploading a warm prefix to P's
                 # GPU and copying it back to CPU solely to hand it to D.
                 return metadata
-            cache, cached = await self.fetch(tokens)
+            cache, cached = await self.fetch(tokens, cache_salt=cache_salt)
             cache = cache if cache is not None else make_prompt_cache(model)
             # Use the same batched cache/mask and prompt segment boundaries as
             # ordinary MLX generation. Scalar KVCache prefill uses a different

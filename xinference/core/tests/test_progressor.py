@@ -12,13 +12,92 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import uuid
+from types import SimpleNamespace
 
 import pytest
 import xoscar as xo
 
 from ..progress_tracker import Progressor, ProgressTrackerActor
+
+
+@pytest.fixture
+def timed_tracker(monkeypatch):
+    from .. import progress_tracker
+
+    clock = [100.0]
+    monkeypatch.setattr(
+        progress_tracker,
+        "time",
+        SimpleNamespace(monotonic=lambda: clock[0], time=lambda: clock[0]),
+    )
+    return ProgressTrackerActor(), clock
+
+
+def test_generation_timing_and_output_processing(timed_tracker):
+    tracker, clock = timed_tracker
+    tracker.start("image")
+    assert tracker.get_progress_snapshot("image") == {
+        "progress": 0.0,
+        "elapsed_seconds": 0.0,
+        "eta_seconds": None,
+    }
+    clock[0] += 10
+    tracker.set_progress("image", 0.25)
+    assert tracker.get_progress_snapshot("image")["eta_seconds"] is None
+    clock[0] += 10
+    tracker.set_progress("image", 0.5)
+    assert tracker.get_progress_snapshot("image") == {
+        "progress": 0.5,
+        "elapsed_seconds": 20.0,
+        "eta_seconds": 20.0,
+    }
+    clock[0] += 10
+    tracker.set_progress("image", 1.0)
+    # Finishing the reported steps does not estimate decoding or saving time.
+    assert tracker.get_progress_snapshot("image")["eta_seconds"] is None
+    clock[0] += 5
+    assert tracker.get_progress_snapshot("image")["elapsed_seconds"] == 35
+
+
+def test_generation_eta_smoothing_stalls_and_resets(timed_tracker):
+    tracker, clock = timed_tracker
+    tracker.start("video")
+    clock[0] += 10
+    tracker.set_progress("video", 0.25)
+    clock[0] += 20
+    tracker.set_progress("video", 0.5)
+    assert tracker.get_progress_snapshot("video")["eta_seconds"] == pytest.approx(26)
+    clock[0] += 61
+    assert tracker.get_progress_snapshot("video")["eta_seconds"] is None
+    tracker.set_progress("video", 0.2)
+    assert tracker.get_progress_snapshot("video")["eta_seconds"] is None
+    clock[0] += 10
+    tracker.set_progress("video", 0.3)
+    assert tracker.get_progress_snapshot("video")["eta_seconds"] is None
+    clock[0] += 10
+    tracker.set_progress("video", 0.4)
+    assert tracker.get_progress_snapshot("video")["eta_seconds"] == pytest.approx(60)
+
+
+def test_generation_without_step_updates_has_no_eta_or_added_logs(
+    timed_tracker, caplog
+):
+    tracker, clock = timed_tracker
+    with caplog.at_level("INFO", logger="xinference.core.progress_tracker"):
+        tracker.start("coarse")
+        clock[0] += 10
+        assert tracker.get_progress_snapshot("coarse") == {
+            "progress": 0.0,
+            "elapsed_seconds": 10.0,
+            "eta_seconds": None,
+        }
+        tracker.set_progress("coarse", 0.5)
+        assert tracker.get_progress("coarse") == 0.5
+    assert not caplog.records
 
 
 @pytest.mark.asyncio

@@ -37,6 +37,41 @@ from ..wemm import ensure_wemm_video_reader, is_wemm_model, normalize_wemm_input
 
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
+# Keep short queries together to avoid extra model-forward overhead.
+_SENTENCE_BATCH_MIN_SPLIT_CHARS = 256
+
+
+def _get_sentence_batch_ranges(
+    sentences: List[Any], batch_size: int, *, split_by_length: bool
+) -> List[Tuple[int, int]]:
+    """Split length-sorted text without padding short inputs to long outliers.
+
+    Character length is the same inexpensive estimate used for encode sorting.
+    Short inputs stay together even when their relative lengths differ widely.
+    Structured inputs and non-sentence outputs retain fixed-size batches.
+    """
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than 0")
+    if not split_by_length or not all(isinstance(s, str) for s in sentences):
+        return [
+            (start, min(start + batch_size, len(sentences)))
+            for start in range(0, len(sentences), batch_size)
+        ]
+
+    batches = []
+    start = 0
+    while start < len(sentences):
+        longest = max(1, len(sentences[start]))
+        end = start + 1
+        while end < min(start + batch_size, len(sentences)):
+            if longest > _SENTENCE_BATCH_MIN_SPLIT_CHARS and longest > 2 * max(
+                1, len(sentences[end])
+            ):
+                break
+            end += 1
+        batches.append((start, end))
+        start = end
+    return batches
 
 
 def _resolve_sentence_transformer_device(model: Any, device: Any) -> Any:
@@ -592,7 +627,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             """
             import torch
             from sentence_transformers.util import batch_to_device
-            from tqdm.autonotebook import trange
+            from tqdm.autonotebook import tqdm
 
             model.eval()
             if show_progress_bar is None:
@@ -659,16 +694,20 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             )
             sentences_sorted = [sentences[idx] for idx in length_sorted_idx]
 
-            for start_index in trange(
-                0,
-                len(sentences),
+            batch_ranges = _get_sentence_batch_ranges(
+                sentences_sorted,
                 batch_size,
+                split_by_length=(
+                    output_value == "sentence_embedding"
+                    and not self.model_family.model_ability
+                ),
+            )
+            for start_index, end_index in tqdm(
+                batch_ranges,
                 desc="Batches",
                 disable=not show_progress_bar,
             ):
-                sentences_batch = sentences_sorted[
-                    start_index : start_index + batch_size
-                ]
+                sentences_batch = sentences_sorted[start_index:end_index]
                 features = model.tokenize(sentences_batch)
                 features = batch_to_device(features, device)
                 features.update(extra_features)

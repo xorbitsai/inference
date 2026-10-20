@@ -218,6 +218,9 @@ class DeepSeekVL2ChatModel(PytorchMultiModalModel):
     ) -> Tuple[Iterator, int]:
         _inputs = self.build_inputs_from_messages(messages, generate_config)
         configs = self.build_generate_kwargs(generate_config)
+        configs["max_new_tokens"] = self._cap_context_max_new_tokens(
+            _inputs["inputs_embeds"].shape[-2], configs["max_new_tokens"]
+        )
         streamer = self._model.language.generate(
             **_inputs,
             **configs,

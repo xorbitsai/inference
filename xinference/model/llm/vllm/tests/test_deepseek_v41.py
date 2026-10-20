@@ -1,3 +1,4 @@
+# CI: linux
 from types import SimpleNamespace
 
 import pytest
@@ -8,10 +9,15 @@ from .. import core
 from .test_speculative_config import _model_for_config
 
 
+@pytest.fixture(params=["DeepSeek-V4.1-Flash", "DeepSeek-V4.1-Flash-1017"])
+def model_name(request):
+    return request.param
+
+
 @pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
-def test_model_registration(hub):
+def test_model_registration(hub, model_name):
     family = match_llm(
-        "DeepSeek-V4.1-Flash",
+        model_name,
         model_format="fp8",
         model_size_in_billions=552,
         quantization="fp8",
@@ -22,14 +28,15 @@ def test_model_registration(hub):
     assert "vision" in family.model_ability
     assert family.context_length == 1048576
     assert family.tool_parser == "deepseek-v4.1"
-    assert family.model_specs[0].model_id == "deepseek-ai/DeepSeek-V4.1-Flash"
+    assert family.model_specs[0].model_id == f"deepseek-ai/{model_name}"
+    assert family.model_name == model_name
 
 
 @pytest.mark.parametrize(
     "vllm_version, expected",
     [("0.21.0", False), ("0.30.0.dev1", True), ("0.30.0", True)],
 )
-def test_multimodal_version_gate(monkeypatch, vllm_version, expected):
+def test_multimodal_version_gate(monkeypatch, vllm_version, expected, model_name):
     monkeypatch.setattr(
         core,
         "_get_effective_vllm_version_for_family",
@@ -39,6 +46,7 @@ def test_multimodal_version_gate(monkeypatch, vllm_version, expected):
     monkeypatch.setattr(core.VLLMMultiModel, "_has_cuda_device", lambda: True)
     monkeypatch.setattr(core.VLLMMultiModel, "_is_linux", lambda: True)
     family = _model_for_config("DeepseekV41ForCausalLM").model_family
+    family.model_name = model_name
     family.model_ability = ["chat", "vision"]
     result = core.VLLMMultiModel.match_json(
         family, SimpleNamespace(model_format="fp8"), "fp8"
@@ -46,11 +54,14 @@ def test_multimodal_version_gate(monkeypatch, vllm_version, expected):
     assert (result if isinstance(result, bool) else result[0]) is expected
     if not expected:
         assert "0.30.0" in result[1]
+        assert model_name in result[1]
+        assert vllm_version in result[1]
 
 
-def test_tokenizer_and_cache_defaults(monkeypatch):
+def test_tokenizer_and_cache_defaults(monkeypatch, tmp_path, model_name):
     monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.30.0.dev1"))
-    model = _model_for_config("DeepseekV41ForCausalLM")
+    model = _model_for_config("DeepseekV41ForCausalLM", model_path=tmp_path)
+    model.model_family.model_name = model_name
     config = model._sanitize_model_config({})
     assert config["tokenizer_mode"] == "deepseek_v41"
     assert "block_size" not in config
@@ -62,11 +73,11 @@ def test_tokenizer_and_cache_defaults(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_native_prompt_encoder():
+async def test_native_prompt_encoder(model_name):
     model = object.__new__(core.VLLMMultiModel)
     model.model_uid = "deepseek-v41-test"
     model.model_family = _model_for_config("DeepseekV41ForCausalLM").model_family
-    model.model_family.model_name = "DeepSeek-V4.1-Flash"
+    model.model_family.model_name = model_name
     model.model_family.model_ability = ["chat", "vision", "tools"]
     model.model_family.chat_template = ""
     messages = [
@@ -97,9 +108,7 @@ async def test_native_prompt_encoder():
         return tokenizer
 
     model._get_tokenizer = get_tokenizer
-    template, resolved = await model._get_chat_template_and_tokenizer(
-        "DeepSeek-V4.1-Flash"
-    )
+    template, resolved = await model._get_chat_template_and_tokenizer(model_name)
     assert template is None
     assert (
         model.get_full_context(
@@ -115,14 +124,14 @@ async def test_native_prompt_encoder():
 
 
 @pytest.mark.asyncio
-async def test_image_chat_preserves_openai_parts(monkeypatch):
+async def test_image_chat_preserves_openai_parts(monkeypatch, model_name):
     import sys
     from types import ModuleType
 
     model = object.__new__(core.VLLMMultiModel)
     model.model_uid = "deepseek-v41-image-test"
     model.model_family = _model_for_config("DeepseekV41ForCausalLM").model_family
-    model.model_family.model_name = "DeepSeek-V4.1-Flash"
+    model.model_family.model_name = model_name
     model.model_family.model_ability = ["chat", "vision", "tools"]
     model.model_family.chat_template = ""
     model.reasoning_parser = None
@@ -187,7 +196,7 @@ async def test_image_chat_preserves_openai_parts(monkeypatch):
 @pytest.mark.parametrize("use_tools", [False, True])
 @pytest.mark.parametrize("as_json", [False, True])
 async def test_effort_none_disables_reasoning_in_chat(
-    monkeypatch, stream, use_tools, as_json
+    monkeypatch, stream, use_tools, as_json, model_name
 ):
     import copy
     import json
@@ -199,7 +208,7 @@ async def test_effort_none_disables_reasoning_in_chat(
     model = object.__new__(core.VLLMMultiModel)
     model.model_uid = "v41-effort-none"
     model.model_family = _model_for_config("DeepseekV41ForCausalLM").model_family
-    model.model_family.model_name = "DeepSeek-V4.1-Flash"
+    model.model_family.model_name = model_name
     model.model_family.model_ability = [
         "chat",
         "vision",

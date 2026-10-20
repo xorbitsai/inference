@@ -16,6 +16,7 @@ from typing import Dict, Iterator, List, Optional, Union
 
 from .....types import ChatCompletion, ChatCompletionChunk, PytorchGenerateConfig
 from ....utils import cache_clean
+from ...context_length import ContextLengthExceeded
 from ..core import PytorchChatModel
 from ..direct_chat import PytorchDirectChatMixin
 
@@ -27,6 +28,19 @@ class PytorchMultiModalModel(PytorchDirectChatMixin, PytorchChatModel):
         self._device = None
         self._processor = None
         self._model = None
+
+    def _cap_context_max_new_tokens(
+        self, input_length: int, max_new_tokens: int
+    ) -> int:
+        context_length = self._pytorch_model_config.get("context_length")
+        if context_length is None:
+            return max_new_tokens
+        if input_length >= context_length:
+            raise ContextLengthExceeded(
+                f"Prompt length {input_length} reaches or exceeds context_length "
+                f"{context_length}, leaving no output capacity."
+            )
+        return min(max_new_tokens, context_length - input_length)
 
     @abstractmethod
     def decide_device(self):

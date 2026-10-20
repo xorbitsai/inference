@@ -548,6 +548,40 @@ def test_openai_response_omits_unsigned_thinking_and_maps_text_tools():
     assert [block.type for block in sdk_message.content] == ["text", "tool_use"]
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "finish_reason,expected",
+    [("stop", "stop_sequence"), ("length", "max_tokens"), ("tool_calls", "tool_use")],
+)
+async def test_stop_sequence_preserves_length_and_tool_finish_reasons(
+    stream, finish_reason, expected
+):
+    choice = {
+        "message": {"content": "hello"},
+        "delta": {"content": "hello"},
+        "finish_reason": finish_reason,
+        "stop_sequence": "HALT",
+    }
+    response = {"choices": [choice], "usage": {}}
+    if stream:
+
+        async def chunks():
+            yield response
+
+        events = [
+            json.loads(e["data"])
+            async for e in anthropic_stream_events(
+                chunks(), "test", "req_test", stop_sequences=["HALT"]
+            )
+        ]
+        result = next(e["delta"] for e in events if e["type"] == "message_delta")
+    else:
+        result = openai_to_anthropic(response, "test", stop_sequences=["HALT"])
+    assert result["stop_reason"] == expected
+    assert result["stop_sequence"] == ("HALT" if finish_reason == "stop" else None)
+
+
 @pytest.mark.parametrize(
     "arguments",
     ["{invalid", "[]", '"value"', "1", "null", ["already-decoded"]],
@@ -795,3 +829,126 @@ async def test_stream_closes_inner_iterator_when_consumer_stops_early():
     await events.aclose()
 
     assert closed is True
+
+
+def test_cache_breakpoints_retain_individual_lifetimes():
+    body = _base_request(
+        system=[
+            {
+                "type": "text",
+                "text": "stable system",
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            }
+        ],
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "stable user",
+                        "cache_control": {"type": "ephemeral"},
+                    },
+                    {"type": "text", "text": "uncached tail"},
+                ],
+            }
+        ],
+    )
+    request = parse_anthropic_request(body)
+    checkpoints = request.cache_control["breakpoints"]
+    assert [item["ttl"] for item in checkpoints] == [3600, 300]
+    assert checkpoints[0]["messages"] == [
+        {"role": "system", "content": "stable system"}
+    ]
+    assert checkpoints[0]["tools"] == []
+    assert checkpoints[1]["messages"][-1] == {"role": "user", "content": "stable user"}
+    assert request.messages[-1]["content"] == "stable user\nuncached tail"
+    body["system"][0]["cache_control"]["ttl"] = "5m"
+    body["messages"][0]["content"][0]["cache_control"]["ttl"] = "1h"
+    with pytest.raises(AnthropicProtocolError, match="Longer cache lifetimes"):
+        parse_anthropic_request(body)
+
+
+def test_cache_creation_lifetimes_are_preserved_in_usage():
+    from xinference.api.protocols.anthropic import _anthropic_usage
+
+    creation = {"ephemeral_5m_input_tokens": 20, "ephemeral_1h_input_tokens": 30}
+    usage = _anthropic_usage(
+        {
+            "prompt_tokens": 100,
+            "completion_tokens": 5,
+            "prompt_tokens_details": {"cached_tokens": 40},
+            "cache_creation_input_tokens": 50,
+            "cache_creation": creation,
+        }
+    )
+    assert usage["input_tokens"] == 10
+    assert usage["cache_read_input_tokens"] == 40
+    assert usage["cache_creation_input_tokens"] == 50
+    assert usage["cache_creation"] == creation
+
+
+def test_tool_cache_checkpoint_keeps_system_and_selected_tools():
+    tool = {
+        "name": "lookup",
+        "input_schema": {"type": "object"},
+        "cache_control": {"type": "ephemeral"},
+    }
+    request = parse_anthropic_request(
+        _base_request(
+            system="stable system",
+            tools=[tool, {"name": "finish", "input_schema": {"type": "object"}}],
+        )
+    )
+    assert request.cache_control["messages"] == [
+        {"role": "system", "content": "stable system"}
+    ]
+    assert [tool["function"]["name"] for tool in request.cache_control["tools"]] == [
+        "lookup"
+    ]
+
+
+def test_effort_with_multiple_cache_checkpoints_adds_guidance_once():
+    from types import SimpleNamespace
+
+    from xinference.model.llm.mlx.core import MLXChatModel
+
+    request = parse_anthropic_request(
+        _base_request(
+            system=[
+                {
+                    "type": "text",
+                    "text": "stable",
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                }
+            ],
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "cached",
+                            "cache_control": {"type": "ephemeral"},
+                        }
+                    ],
+                }
+            ],
+            output_config={"effort": "low"},
+        )
+    )
+    model = object.__new__(MLXChatModel)
+    model.model_uid = "effort-checkpoints"
+    model.model_family = SimpleNamespace(model_ability=["chat"])
+    model.reasoning_parser = None
+    model._model_config = {}
+    model.count_tokens = lambda *args: 10
+    config = request.to_openai_body()
+    config["_anthropic_cache_control"] = request.cache_control
+    prepared = model.prepare_anthropic_request(request.messages, config)
+    control = prepared["generate_config"]["_anthropic_cache_control"]
+    for checkpoint in [control, *control["breakpoints"]]:
+        system = checkpoint["messages"][0]["content"]
+        assert system.count("Use brief reasoning") == 1
+        assert system == prepared["messages"][0]["content"]
+    assert request.cache_control["messages"][0]["content"] == "stable"

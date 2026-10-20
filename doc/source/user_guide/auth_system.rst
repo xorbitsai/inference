@@ -174,6 +174,11 @@ For python SDK users:
    client.login('<name>', '<pass>')
 
 
+Direct HTTP clients must send ``POST /token`` a JSON object with string
+``username`` and ``password`` fields. Form-encoded, malformed, or non-object
+bodies and non-string credentials return ``400 Bad Request``; incorrect
+credentials return ``401 Unauthorized``.
+
 For web UI users, when opening the web UI, you will first be directed to the login page. After logging in, you can use the web UI normally.
 
 Api-Key

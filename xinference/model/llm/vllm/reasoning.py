@@ -13,6 +13,26 @@ from .. import reasoning_parser as parsers
 from ..reasoning_parser import ReasoningParser
 
 
+def configure_thinking_budget(
+    model_config: Dict[str, Any], parser: Optional[ReasoningParser]
+) -> None:
+    if (
+        parser is None
+        or "reasoning_config" in model_config
+        or not (parser.reasoning_start_tag or "").startswith("<")
+        or not parser.reasoning_end_tag
+    ):
+        return
+    try:
+        from vllm.config import ReasoningConfig
+    except ImportError:
+        return
+    model_config["reasoning_config"] = ReasoningConfig(
+        reasoning_start_str=parser.reasoning_start_tag,
+        reasoning_end_str=parser.reasoning_end_tag,
+    )
+
+
 def create_reasoning_plugin(
     parser: ReasoningParser, cache_dir: str
 ) -> Optional[Tuple[str, str]]:

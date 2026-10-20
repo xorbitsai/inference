@@ -29,6 +29,7 @@ from packaging.markers import Marker
 from packaging.requirements import Requirement
 
 from .._compat import BaseModel
+from ..cache_isolation import redact_cache_salt
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_LOG_ARG_MAX_LENGTH,
@@ -50,7 +51,7 @@ class AbortRequestMessage(Enum):
 
 
 def truncate_log_arg(arg) -> str:
-    s = str(arg)
+    s = str(redact_cache_salt(arg))
     if len(s) > XINFERENCE_LOG_ARG_MAX_LENGTH:
         s = s[0:XINFERENCE_LOG_ARG_MAX_LENGTH] + "..."
     return s
@@ -122,6 +123,7 @@ def log_async(
     level=logging.DEBUG,
     ignore_kwargs: Optional[List[str]] = None,
     log_exception=True,
+    wrap_result: bool = True,
 ):
     import time
     from functools import wraps
@@ -183,7 +185,8 @@ def log_async(
             start_time = time.perf_counter()
             try:
                 ret = await func(*args, **kwargs)
-                ret = wrap_async_iterator(ret, get_current_rpc_metadata())
+                if wrap_result:
+                    ret = wrap_async_iterator(ret, get_current_rpc_metadata())
                 elapsed = time.perf_counter() - start_time
                 logger.log(
                     level,

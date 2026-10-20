@@ -218,6 +218,7 @@ class CompletionChoice(TypedDict):
     index: int
     logprobs: Optional[CompletionLogprobs]
     finish_reason: Optional[str]
+    stop_sequence: NotRequired[str]
     tool_calls: NotRequired[List[ToolCalls]]
 
 
@@ -231,6 +232,7 @@ class CompletionUsage(TypedDict):
     total_tokens: int
     prompt_tokens_details: NotRequired[PromptTokensDetails]
     cache_creation_input_tokens: NotRequired[int]
+    cache_creation: NotRequired[Dict[str, int]]
 
 
 class CompletionChunk(TypedDict):
@@ -272,6 +274,7 @@ class ChatCompletionChoice(TypedDict):
     message: ChatCompletionMessage
     logprobs: NotRequired[Optional[ChatCompletionLogprobs]]
     finish_reason: Optional[str]
+    stop_sequence: NotRequired[str]
 
 
 class ChatCompletion(TypedDict):
@@ -295,6 +298,7 @@ class ChatCompletionChunkChoice(TypedDict):
     delta: ChatCompletionChunkDelta
     logprobs: NotRequired[Optional[ChatCompletionLogprobs]]
     finish_reason: Optional[str]
+    stop_sequence: NotRequired[str]
 
 
 class ChatCompletionChunk(TypedDict):
@@ -325,6 +329,7 @@ class LogitsProcessorList(List[LogitsProcessor]):
 
 
 class PytorchGenerateConfig(TypedDict, total=False):
+    cache_salt: Optional[str]
     temperature: float
     repetition_penalty: float
     top_p: float
@@ -470,7 +475,7 @@ class CreateCompletion(
     CreateCompletionTorch,
     CreateCompletionOpenAI,
 ):
-    pass
+    cache_salt: Optional[str] = None
 
 
 class CreateChatModel(BaseModel):
@@ -488,6 +493,7 @@ class CreateChatCompletion(  # type: ignore
     CreateChatCompletionTorch,
     CreateChatCompletionOpenAI,
 ):
+    cache_salt: Optional[str] = None
     mm_processor_kwargs: Optional[Dict[str, Any]] = None
 
 

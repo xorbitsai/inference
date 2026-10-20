@@ -6,12 +6,22 @@ import hashlib
 import json
 from pathlib import Path
 
+from ....cache_isolation import cache_scope
 from ....constants import XINFERENCE_CACHE_DIR
 from .contract import KVCacheContract, fingerprint_files, fingerprint_metadata
 
 
-def prompt_digest(tokens: list[int]) -> str:
-    return hashlib.sha256(json.dumps(tokens).encode()).hexdigest()
+def prompt_digest(tokens: list[int], cache_salt: str | None = None) -> str:
+    scope = cache_scope(cache_salt)
+    value = json.dumps(tokens).encode()
+    if scope is not None:
+        value = b"xavier-salted-prompt-v1\0" + bytes.fromhex(scope) + value
+    return hashlib.sha256(value).hexdigest()
+
+
+def validate_handoff_scope(handoff: dict, cache_salt: str | None = None) -> None:
+    if handoff.get("cache_scope") != cache_scope(cache_salt):
+        raise ValueError("Xavier PD cache scope mismatch")
 
 
 def build_pd_contract(
@@ -88,7 +98,7 @@ def build_pd_contract(
 
 
 async def prepare_pd_request(
-    cache_config: dict, tokens: list[int], params: dict
+    cache_config: dict, tokens: list[int], params: dict, cache_salt: str | None = None
 ) -> None:
     """Reject incompatible rooms in the API process before entering EngineCore."""
     import asyncio
@@ -103,7 +113,8 @@ async def prepare_pd_request(
     mode = "host" if cache_config.get("host_handoff") else "gpu"
     if not isinstance(handoff, dict) or handoff.get("mode") != mode:
         raise ValueError("Missing cross-engine Xavier handoff room")
-    digest = prompt_digest(tokens)
+    validate_handoff_scope(handoff, cache_salt)
+    digest = prompt_digest(tokens, cache_salt)
     directory = await xo.actor_ref(
         address=cache_config["address"], uid=cache_config["uid"]
     )

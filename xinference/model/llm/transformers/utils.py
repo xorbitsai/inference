@@ -435,14 +435,16 @@ def _batch_inference_one_step_internal(
                     )
                     if isinstance(stop_str, str):
                         stop_str = [stop_str]
+                    stop_pos = len(output)
                     for stop in stop_str:
-                        pos = output.rfind(stop)
+                        pos = output.find(stop)
                         if pos != -1:
-                            output = output[:pos]
-                            output_mapping[r] = output
-                            stopped = True
-                            finish_reason = "stop"
-                            break
+                            stop_pos = min(stop_pos, pos)
+                    if stop_pos < len(output):
+                        output = output[:stop_pos]
+                        output_mapping[r] = output
+                        stopped = True
+                        finish_reason = "stop"
 
                 r.stopped = stopped
                 r.finish_reason = finish_reason

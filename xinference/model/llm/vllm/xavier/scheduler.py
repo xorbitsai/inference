@@ -15,6 +15,7 @@ import asyncio
 import logging
 import time
 from collections import deque
+from functools import partial
 from typing import Callable, Deque, Dict, List, Optional, Set, Tuple, no_type_check
 
 import xoscar as xo
@@ -31,6 +32,7 @@ from vllm.sequence import (
     SequenceStatus,
 )
 
+from .....cache_isolation import cache_scope
 from ...xavier.utils import hash_block_tokens
 from .block_manager import XavierBlockManager
 from .cache_lifecycle import PDCacheLifecycleMixin
@@ -45,9 +47,31 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _constant_hash(value: int) -> int:
+    return value
+
+
 class XavierScheduler(PDCacheLifecycleMixin, Scheduler):
     # same as vllm.core.block.prefix_caching_block.PrefixCachingBlock._none_hash
     _none_hash: int = -1
+
+    def add_seq_group(self, seq_group: SequenceGroup) -> None:
+        # V0 has no native prompt salt. Bind its local block allocation and
+        # Xavier's remote block hashes through the existing extra_hash input.
+        salt = getattr(seq_group.sampling_params, "cache_salt", None)
+        scope = cache_scope(salt)
+        if scope is not None:
+            import hashlib
+
+            for seq in seq_group.get_seqs():
+                value = int.from_bytes(
+                    hashlib.sha256(
+                        bytes.fromhex(scope) + str(seq.extra_hash()).encode()
+                    ).digest()[:8],
+                    "little",
+                )
+                seq.extra_hash = partial(_constant_hash, value)
+        super().add_seq_group(seq_group)
 
     @staticmethod
     def _get_block_space_manager_class(version: str):

@@ -100,6 +100,7 @@ from .utils import (
 from .virtual_env_manager import VirtualEnvConflictError
 
 if TYPE_CHECKING:
+    from ..extensions import ModelCatalogCredentials
     from ..model.audio import AudioModelFamilyV2
     from ..model.embedding import EmbeddingModelFamilyV2
     from ..model.flexible import FlexibleModelSpec
@@ -2440,40 +2441,56 @@ class SupervisorActor(xo.StatelessActor):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
-    async def update_model_type(self, model_type: str):
+    async def update_model_type(
+        self,
+        model_type: str,
+        *,
+        credentials: Optional["ModelCatalogCredentials"] = None,
+        model_name: Optional[str] = None,
+    ) -> None:
         """
         Update model configurations for a specific model type by forwarding
         the request to all workers.
 
         Args:
             model_type: Type of model (LLM, embedding, image, etc.)
+            model_name: Refresh only this model when provided.
         """
 
-        try:
-            # Forward the update_model_type request to all workers
-            tasks = []
-            for worker_address, worker_ref in self._worker_address_to_worker.items():
-                tasks.append(worker_ref.update_model_type(model_type))
+        from .exceptions import ModelCatalogUnavailableError, ModelCatalogUpdateError
 
-            # Wait for all workers to complete the operation
-            if tasks:
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                for i, result in enumerate(results):
-                    if isinstance(result, Exception):
-                        pass  # Worker failed, continue
-                    else:
-                        pass  # Worker succeeded, continue
-            else:
-                logger.warning(
-                    f"No workers available to forward update_model_type request"
-                )
-
-        except Exception as e:
-            logger.error(
-                f"Error during update_model_type forwarding: {str(e)}",
-                exc_info=True,
+        workers = list(self._worker_address_to_worker.items())
+        if not workers:
+            logger.warning("No workers available to update the model catalog")
+            raise ModelCatalogUnavailableError(
+                "No workers available to update the model catalog"
             )
-            raise ValueError(f"Failed to update model type: {str(e)}")
+
+        async def update_worker(worker_ref: Any) -> None:
+            options: Dict[str, Any] = {}
+            if credentials is not None:
+                options["credentials"] = credentials
+            if model_name is not None:
+                options["model_name"] = model_name
+            await worker_ref.update_model_type(model_type, **options)
+
+        results = await asyncio.gather(
+            *(update_worker(worker_ref) for _, worker_ref in workers),
+            return_exceptions=True,
+        )
+        failed = False
+        for (address, _), result in zip(workers, results):
+            if isinstance(result, BaseException):
+                failed = True
+                logger.error(
+                    "Model catalog update failed on worker %s (%s)",
+                    address,
+                    type(result).__name__,
+                )
+        if failed:
+            raise ModelCatalogUpdateError(
+                "One or more workers failed to update the model catalog"
+            )
 
     def _gen_model_uid(self, model_name: str) -> str:
         if model_name not in self._model_uid_to_replica_info:
@@ -8110,6 +8127,15 @@ class SupervisorActor(xo.StatelessActor):
         return await actor_call(
             self._progress_tracker,
             "get_progress",
+            request_id,
+            _rpc_operation_request_id=request_id,
+        )
+
+    @log_async(logger=logger)
+    async def get_progress_snapshot(self, request_id: str) -> Dict[str, Any]:
+        return await actor_call(
+            self._progress_tracker,
+            "get_progress_snapshot",
             request_id,
             _rpc_operation_request_id=request_id,
         )

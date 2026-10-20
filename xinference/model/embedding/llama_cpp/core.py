@@ -68,11 +68,22 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
         llamacpp_model_config = self._kwargs.get("llamacpp_model_config")
+        if llamacpp_model_config is None:
+            # Launch-time llama.cpp options arrive as flat kwargs from the CLI / REST API.
+            # Keep BatchMixin options out of the llama.cpp config.
+            llamacpp_model_config = {
+                k: v
+                for k, v in self._kwargs.items()
+                if k not in ("llamacpp_model_config", "batch_size", "batch_interval")
+            }
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
 
     def _sanitize_model_config(self, llamacpp_model_config: Optional[dict]) -> dict:
         if llamacpp_model_config is None:
             llamacpp_model_config = {}
+        else:
+            # Copy so defaults are not written back into the caller's config.
+            llamacpp_model_config = dict(llamacpp_model_config)
 
         llamacpp_model_config.setdefault("embedding", True)
         llamacpp_model_config.setdefault("use_mmap", False)

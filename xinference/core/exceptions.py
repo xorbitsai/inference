@@ -28,3 +28,11 @@ class InvalidAudioInputError(ValueError):
         if self.args:
             return str(self.args[0])
         return "Invalid audio input."
+
+
+class ModelCatalogUpdateError(RuntimeError):
+    """A worker could not download or store a model catalog update."""
+
+
+class ModelCatalogUnavailableError(ModelCatalogUpdateError):
+    """No workers are available to refresh the model catalog."""

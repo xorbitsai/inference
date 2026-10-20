@@ -503,3 +503,11 @@ msgid ""
 "To change the image count of a SGLang vision model launched with weight "
 "retention:"
 msgstr "修改启用权重保留的 SGLang 视觉模型的图片数量上限："
+
+#: ../../user_guide/launch.rst
+msgid "Updating the model catalog"
+msgstr "更新模型目录"
+
+#: ../../user_guide/launch.rst
+msgid "On the **Launch Model** page, choose the model type beside **Update**. **Update** refreshes the whole category. Choose **Update one model** and enter the exact Hub model name (or world family name) to update just that model, including a model not yet listed. Other catalog entries are preserved. This updates shared metadata without downloading weights or restarting running models. With authentication enabled, both actions require administrator or ``models:register`` permission."
+msgstr "在 **模型启动** 页面中，选择 **更新** 旁的模型类型。 **更新** 会刷新整个类别。选择 **更新单个模型**，输入 Hub 中准确的模型名称（或 world 模型族名称），即可仅更新该模型，也支持尚未出现在列表中的模型。其他目录条目会保留。此操作仅更新共享元数据，不会下载权重或重启运行中的模型。启用认证时，两种操作都要求管理员或 ``models:register`` 权限。"

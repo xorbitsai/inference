@@ -150,10 +150,12 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     ],
     "diffusers": [
         "diffusers>=0.32.0",
-        "huggingface-hub<1.0",
+        # Keep the parent's huggingface-hub version in the venv.
+        "#system_huggingface-hub#",
     ],
     "mlx": [
-        "mlx-lm>=0.24.0",
+        "mlx-lm>=0.31.3",
+        "llguidance>=1.7.0",
     ],
     "llama.cpp": [
         "xllamacpp>=0.2.6",
