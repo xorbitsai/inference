@@ -730,5 +730,5 @@ msgid "The API service, offline administrator-password recovery and legacy JSON 
 msgstr "API 服務、離線管理員密碼復原與舊 JSON 認證匯入使用相同的選擇機制。設定提供者後，``--db-path`` 傳入其內容，不會覆寫提供者的連線設定。服務與這些工具應使用相同的擴充與後端設定。與請求/Actor hook 不同，此同步初始化 hook 可在啟動時連線儲存。儲存操作維持同步；非同步或不完整實作會被拒絕。提供者不得在日誌或錯誤訊息中輸出連線憑據。未設定提供者時，SQLite 行為與相依性保持不變。"
 
 #: ../../source/development/xinference_internals.rst:310
-msgid "Stores shared by multiple API processes can set ``api_key_cache_enabled = False`` before service initialization. This bypasses the process-local API-key cache and reads the current key, owner status and model grants on each lookup. Omit the attribute or set it to ``True`` to retain caching; non-boolean values are rejected. Storage failures propagate instead of reusing earlier authorization."
-msgstr "多個 API 程序共用的儲存可在服務初始化前設定 ``api_key_cache_enabled = False``。這會略過程序本機的 API Key 快取，在每次查詢時讀取目前金鑰、所屬帳號狀態及模型權限。省略此屬性或設為 ``True`` 可保留快取；非布林值會被拒絕。儲存故障會直接向上傳遞，不會重用先前的授權結果。"
+msgid "Provider stores shared by multiple API processes can set ``api_key_cache_enabled = False`` before service initialization. This bypasses the process-local API-key cache and reads the current key, owner status and model grants on each lookup. Omit the attribute or set it to ``True`` to retain caching; non-boolean values are rejected. Storage failures propagate instead of reusing earlier authorization."
+msgstr "多個 API 程序共用的擴充套件儲存可在服務初始化前設定 ``api_key_cache_enabled = False``。這會略過程序本機的 API Key 快取，在每次查詢時讀取目前金鑰、所屬帳號狀態及模型權限。省略此屬性或設為 ``True`` 可保留快取；非布林值會被拒絕。儲存故障會直接向上傳遞，不會重用先前的授權結果。"

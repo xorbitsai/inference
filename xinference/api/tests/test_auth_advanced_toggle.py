@@ -26,6 +26,9 @@ Covers the two behaviors a user cares about when switching advanced auth:
     pytest xinference/api/tests/test_auth_advanced_toggle.py -v
 """
 
+# CI: linux
+
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -38,8 +41,7 @@ from xinference.api.restful_api import RESTfulAPI
 def _make_request():
     request = MagicMock()
     request.headers = {}
-    request.state = MagicMock()
-    request.state.model_name = ""
+    request.state = SimpleNamespace(model_name="")
     request.client.host = "127.0.0.1"
     request.url.path = "/v1/chat/completions"
     return request

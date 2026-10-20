@@ -15,7 +15,7 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .auth_store import AuthStore
 
@@ -113,15 +113,24 @@ class ApiKeyCache:
 
     def get(self, key_hash: str) -> Optional[ApiKeyCacheEntry]:
         if not self._cache_enabled:
-            key = self._db.get_api_key_by_hash(key_hash)
-            if key is None:
-                return None
-            user = self._db.get_user_by_id(key["user_id"])
-            if user is None:
-                return None
-            return self._build_entry({**key, "user_enabled": user["enabled"]})
+            return self.get_with_user(key_hash)[0]
         with self._lock:
             return self._cache.get(key_hash)
+
+    def get_with_user(
+        self, key_hash: str
+    ) -> Tuple[Optional[ApiKeyCacheEntry], Optional[dict]]:
+        if not self._cache_enabled:
+            key = self._db.get_api_key_by_hash(key_hash)
+            if key is None:
+                return None, None
+            user = self._db.get_user_by_id(key["user_id"])
+            if user is None:
+                return None, None
+            return self._build_entry({**key, "user_enabled": user["enabled"]}), user
+        entry = self.get(key_hash)
+        user = self._db.get_user_by_id(entry.user_id) if entry else None
+        return entry, user
 
     def add(self, key_data: dict):
         if not self._cache_enabled:

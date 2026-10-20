@@ -27,7 +27,13 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Protocol, cast
 
 
 class AuthStore(Protocol):
-    """Synchronous authentication operations consumed by API and recovery tools."""
+    """Synchronous authentication operations consumed by API and recovery tools.
+
+    Provider stores may optionally set ``api_key_cache_enabled = False`` before
+    service initialization to read current API keys, owners and model grants
+    from storage. Omitting it or setting it to True retains process-local
+    caching. The optional attribute must be a bool when provided.
+    """
 
     permission_resolver: Optional[Callable[[int, List[str]], List[str]]]
 

@@ -794,5 +794,5 @@ msgid "The API service, offline administrator-password recovery and legacy JSON 
 msgstr "API 服务、离线管理员密码恢复和旧 JSON 鉴权导入使用同一选择机制。配置提供方后，``--db-path`` 传入其上下文，不会覆盖提供方的连接配置。服务与这些工具应使用相同的扩展和后端配置。与请求/Actor hook 不同，此同步初始化 hook 可以在启动时连接存储。存储操作保持同步；异步或不完整实现会被拒绝。提供方不得在日志或错误消息中输出连接凭据。未配置提供方时，SQLite 行为和依赖保持不变。"
 
 #: ../../source/development/xinference_internals.rst:310
-msgid "Stores shared by multiple API processes can set ``api_key_cache_enabled = False`` before service initialization. This bypasses the process-local API-key cache and reads the current key, owner status and model grants on each lookup. Omit the attribute or set it to ``True`` to retain caching; non-boolean values are rejected. Storage failures propagate instead of reusing earlier authorization."
-msgstr "多个 API 进程共享的存储可在服务初始化前设置 ``api_key_cache_enabled = False``。这会绕过进程本地的 API Key 缓存，在每次查询时读取当前密钥、所属账号状态和模型权限。省略该属性或将其设为 ``True`` 可保留缓存；非布尔值会被拒绝。存储故障会直接向上传递，不会复用先前的授权结果。"
+msgid "Provider stores shared by multiple API processes can set ``api_key_cache_enabled = False`` before service initialization. This bypasses the process-local API-key cache and reads the current key, owner status and model grants on each lookup. Omit the attribute or set it to ``True`` to retain caching; non-boolean values are rejected. Storage failures propagate instead of reusing earlier authorization."
+msgstr "多个 API 进程共享的扩展存储可在服务初始化前设置 ``api_key_cache_enabled = False``。这会绕过进程本地的 API Key 缓存，在每次查询时读取当前密钥、所属账号状态和模型权限。省略该属性或将其设为 ``True`` 可保留缓存；非布尔值会被拒绝。存储故障会直接向上传递，不会复用先前的授权结果。"

@@ -502,9 +502,8 @@ class AdvancedAuthService:
 
         # Look up key in cache (including disabled/expired) for proper (IP, Key) ban handling
         _key_hash = sha256_hex(token)
-        api_key_entry = self._cache.get(_key_hash)
+        api_key_entry, user_obj = self._cache.get_with_user(_key_hash)
         if api_key_entry:
-            user_obj = self._db.get_user_by_id(api_key_entry.user_id)
             _username = user_obj["username"] if user_obj else ""
 
             if not api_key_entry.is_valid():
@@ -624,6 +623,7 @@ class AdvancedAuthService:
                 key_prefix=api_key_entry.key_prefix,
                 auth_type="api_key",
             )
+            request.state.authenticated_api_key = api_key_entry
             return user_obj
 
         # Token not found in API key cache — check prefix
