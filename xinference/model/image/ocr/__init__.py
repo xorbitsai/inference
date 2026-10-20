@@ -35,6 +35,7 @@ from .vllm import (
     VLLMPaddleOCRVLModel,
     VLLMTeleOCRModel,
 )
+from .xiaomi_ocr import XiaomiOCRModel
 
 __all__ = [
     "DeepDocModel",
@@ -50,6 +51,7 @@ __all__ = [
     "TeleOCRModel",
     "LlamaCppTeleOCRModel",
     "UnlimitedOCRModel",
+    "XiaomiOCRModel",
 ]
 
 
@@ -66,6 +68,7 @@ def register_builtin_ocr_engines() -> None:
         PaddleOCRVLModel,
         TeleOCRModel,
         UnlimitedOCRModel,
+        XiaomiOCRModel,
     ]
     SUPPORTED_ENGINES["vllm"] = [
         VLLMDeepSeekOCRModel,
