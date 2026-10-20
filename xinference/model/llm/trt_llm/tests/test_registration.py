@@ -25,7 +25,11 @@ def test_qwen3_virtualenv_selects_trt_without_installed_engine(monkeypatch):
     )
     packages = filter_virtualenv_packages_by_markers(packages, "TRT-LLM", None)
     requirements = {package.split(";", 1)[0].strip() for package in packages}
-    assert {"tensorrt_llm==1.2.1", "pyarrow==20.0.0"} <= requirements
+    assert {
+        "tensorrt_llm==1.2.1",
+        "pyarrow==20.0.0",
+        "xoscar[nixl]>=0.11.1",
+    } <= requirements
     assert not any("sglang" in package or "vllm" in package for package in packages)
 
 

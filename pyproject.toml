@@ -199,6 +199,7 @@ sglang = [
 ]
 trt-llm = [
     "tensorrt-llm==1.2.1 ; sys_platform=='linux'",
+    "xoscar[nixl]>=0.11.1 ; sys_platform=='linux'",
     # TRT-LLM 1.2.1 requires NumPy 1; PyArrow 26 requires NumPy 2 at import.
     "pyarrow==20.0.0 ; sys_platform=='linux'",
 ]

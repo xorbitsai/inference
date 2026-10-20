@@ -11,7 +11,7 @@ import sys
 import pytest
 import xoscar as xo
 
-from ...xavier.backends.torch.storage import XavierCacheActor
+from ...sglang.xavier.directory import XavierPDDirectory
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "linux"
@@ -42,7 +42,7 @@ async def main():
                   max_batch_size=4, max_num_tokens=1024,
                   cuda_graph_config=None, kv_cache_config={'max_tokens':2048})
     if backend == 'xavier':
-        config['_xavier_cache_config'] = dict(address=args['address'], uid='trt-pd-live', role=role)
+        config['_xavier_cache_config'] = dict(address=args['address'], uid='trt-pd-live', role=role, rank=0 if role=='prefill' else 1, host='127.0.0.1')
     else:
         config['_nixl_config'] = dict(role=role)
     model = TRTLLMModel('live', match_llm('qwen3', 'pytorch', '0_6', 'none'), args['model'], config)
@@ -77,7 +77,14 @@ async def main():
             assert text == baseline['choices'][0]['text'], (text, baseline)
             assert usage == baseline['usage'], (usage, baseline)
             assert not model._requests
-            (root/'result.json').write_text(json.dumps(dict(text=text, usage=usage)))
+            transfer_stats = None
+            if backend == 'xavier':
+                from xinference.model.llm.trt_llm.gpu import service
+                import os
+                transfer_stats = service().rpc('get_stats')
+                assert transfer_stats['transfer_pid'] != os.getpid()
+                assert transfer_stats['gpu_batches'] > 0 and transfer_stats['cpu_batches'] == 0
+            (root/'result.json').write_text(json.dumps(dict(text=text, usage=usage, transfer_stats=transfer_stats)))
     finally:
         model.stop()
 
@@ -96,8 +103,7 @@ async def test_live_two_gpu_pd_matches_baseline(tmp_path, backend, stream):
         cache = None
         if backend == "xavier":
             cache = await xo.create_actor(
-                XavierCacheActor,
-                512 * 1024**2,
+                XavierPDDirectory,
                 address=pool.external_address,
                 uid="trt-pd-live",
             )
@@ -155,7 +161,8 @@ async def test_live_two_gpu_pd_matches_baseline(tmp_path, backend, stream):
             assert all(p.returncode == 0 for p in processes)
             if cache is not None:
                 stats = await cache.get_stats()
-                assert stats["imported_pages"] > 0 and stats["active_handoffs"] == 0
+                assert stats["gpu_bytes"] > 0 and stats["host_bytes"] == 0
+                assert stats["imported_tokens"] > 0 and stats["active_handoffs"] == 0
         finally:
             (tmp_path / "release").touch()
             for process in processes:

@@ -33,6 +33,12 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
         "heterogeneous"
     ):
         raise ValueError("TRT-LLM Xavier currently requires same-engine replicas")
+    if cache_config.get("role") is not None:
+        from ..xavier.transport import gpu_pool_options
+
+        if type(cache_config.get("rank")) is not int:
+            raise ValueError("TRT-LLM Xavier P/D requires a replica rank")
+        gpu_pool_options(cache_config.get("host", ""), dict(os.environ))
     for name in (
         "tensor_parallel_size",
         "pipeline_parallel_size",

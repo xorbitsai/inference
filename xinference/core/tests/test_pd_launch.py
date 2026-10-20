@@ -222,23 +222,30 @@ async def test_shared_cpu_xavier_avoids_vllm_collective(launch_runtime, engine):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("backend", ["xavier", "nixl"])
-async def test_trt_pd_launch_uses_selected_transport(launch_runtime, backend):
+@pytest.mark.parametrize("budget", [None, 0])
+async def test_trt_pd_launch_uses_selected_transport(launch_runtime, backend, budget):
     supervisor, workers, actors, destroy = launch_runtime
     kwargs = launch_kwargs()
     kwargs["model_engine"] = "TRT-LLM"
     kwargs["transfer_backend_type"] = backend
+    if backend == "xavier":
+        kwargs["xavier_gpu_cache_bytes"] = budget
     await supervisor.launch_builtin_model(**kwargs)
     assert set(actors) == (
-        {"PDModelActor", "XavierCacheActor"}
+        {"PDModelActor", "XavierPDDirectory"}
         if backend == "xavier"
         else {"PDModelActor"}
     )
-    for role, worker in zip(("prefill", "decode"), workers):
+    for rank, (role, worker) in enumerate(zip(("prefill", "decode"), workers), 1):
         launch = worker.launch_builtin_model.call_args.kwargs
         assert launch["xavier_config"] is None
         if backend == "xavier":
             assert launch["_xavier_cache_config"] == dict(
-                address=supervisor.address, uid="xavier-cache-pd", role=role
+                address=supervisor.address,
+                uid="xavier-cache-pd",
+                role=role,
+                rank=rank,
+                host=f"worker-{rank-1}",
             )
             assert "_nixl_config" not in launch
         else:
@@ -258,6 +265,8 @@ async def test_trt_pd_launch_uses_selected_transport(launch_runtime, backend):
         {"quantization": "4bit"},
         {"model_format": "ggufv2"},
         {"transfer_backend_type": "nixl", "enable_xavier": True},
+        {"xavier_cache_bytes": 1024},
+        {"xavier_gpu_cache_bytes": 1024},
     ],
 )
 async def test_trt_pd_invalid_launch_has_no_side_effects(launch_runtime, options):

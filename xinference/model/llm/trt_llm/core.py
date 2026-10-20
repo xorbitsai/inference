@@ -105,21 +105,25 @@ class TRTLLMModel(LLM, ChatModelMixin):
             raise
 
     def stop(self):
+        if self._pd is not None:
+            try:
+                self._pd.close()
+            except Exception:
+                logger.warning("Could not close TRT-LLM P/D handoffs", exc_info=True)
+        for request in list(self._requests.values()):
+            try:
+                request.abort()
+            except Exception:
+                logger.warning(
+                    "Could not abort TRT-LLM request during shutdown", exc_info=True
+                )
+        if self._cache_enabled:
+            from .gpu import close_service
+
+            # Stop the importer before freeing C++ memory. If stopping fails,
+            # retain the owning engine so live DMA cannot access freed slots.
+            close_service()
         try:
-            if self._pd is not None:
-                try:
-                    self._pd.close()
-                except Exception:
-                    logger.warning(
-                        "Could not close TRT-LLM P/D handoffs", exc_info=True
-                    )
-            for request in list(self._requests.values()):
-                try:
-                    request.abort()
-                except Exception:
-                    logger.warning(
-                        "Could not abort TRT-LLM request during shutdown", exc_info=True
-                    )
             if self._engine is not None:
                 self._engine.shutdown()
         finally:
@@ -296,6 +300,8 @@ class TRTLLMModel(LLM, ChatModelMixin):
                     )
             finally:
                 finish(request)
+                if self._pd is not None:
+                    await self._pd.release(request_id)
 
         if config.get("stream", False):
             return stream()
@@ -331,7 +337,7 @@ class TRTLLMModel(LLM, ChatModelMixin):
         finally:
             if request is not None:
                 finish(request)
-            if prefill and not published:
+            if self._pd is not None and (not prefill or not published):
                 await self._pd.release(request_id)
 
     async def async_chat(self, messages, generate_config=None, request_id=None):

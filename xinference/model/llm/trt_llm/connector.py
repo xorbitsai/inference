@@ -24,7 +24,7 @@ from tensorrt_llm._torch.pyexecutor.kv_cache_connector import (
 )
 
 from ..xavier.actor_loop import acquire_actor_loop, release_actor_loop
-from ..xavier.contract import KVCacheContract, build_prefix_keys
+from ..xavier.contract import KVCacheContract, build_prefix_keys, fingerprint_metadata
 from .pd import request_state
 from .xavier import CONFIG_ENV
 
@@ -36,6 +36,7 @@ class XavierClient:
     def __init__(self):
         self.config = json.loads(os.environ[CONFIG_ENV])
         self.contract = KVCacheContract.from_dict(self.config["contract"])
+        self.pd_gpu = self.config.get("role") in ("prefill", "decode")
         self._ref = None
         self._closed = False
         ready = threading.Event()
@@ -53,32 +54,55 @@ class XavierClient:
         ready.wait()
         _clients.add(self)
         try:
-            self.namespace = self.rpc(
-                "configure",
-                self.contract.to_dict(),
-                {
-                    "engine": "trt-llm",
-                    "version": "1.2.1",
-                    "layout": "layer_first",
-                    "physical_layout": "block-layer-kv-packed",
-                    "hash_format": "xavier-prefix-v1",
-                },
-            )
-            self.capacity_bytes = self.rpc("get_stats")["capacity_bytes"]
+            if self.pd_gpu:
+                self.namespace = fingerprint_metadata(
+                    dict(
+                        contract=self.contract.to_dict(),
+                        engine="trt-llm",
+                        version="1.2.1",
+                        layout="trt-block-layer-kv-packed-gpu-v1",
+                    )
+                )
+                self.rpc("configure", self.namespace)
+                self.capacity_bytes = 0
+            else:
+                self.namespace = self.rpc(
+                    "configure",
+                    self.contract.to_dict(),
+                    {
+                        "engine": "trt-llm",
+                        "version": "1.2.1",
+                        "layout": "layer_first",
+                        "physical_layout": "block-layer-kv-packed",
+                        "hash_format": "xavier-prefix-v1",
+                    },
+                )
+                self.capacity_bytes = self.rpc("get_stats")["capacity_bytes"]
         except BaseException:
             self.close()
             raise
 
-    def rpc(self, method, *args):
+    async def directory(self):
+        if self._ref is None:
+            self._ref = await xo.actor_ref(
+                address=self.config["address"], uid=self.config["uid"]
+            )
+        return self._ref
+
+    def call(self, coroutine):
+        # GPU operations must drain before their caller can return engine slots.
+        # Do not cancel a transfer future when a wall-clock timeout expires.
+        async def invoke():
+            return await coroutine
+
+        return asyncio.run_coroutine_threadsafe(invoke(), self._loop).result()
+
+    def rpc(self, method, *args, **kwargs):
         if self._closed:
             raise RuntimeError("TRT-LLM Xavier client is closed")
 
         async def invoke():
-            if self._ref is None:
-                self._ref = await xo.actor_ref(
-                    address=self.config["address"], uid=self.config["uid"]
-                )
-            return await getattr(self._ref, method)(*args)
+            return await getattr(await self.directory(), method)(*args, **kwargs)
 
         timeout = max(10, self.config.get("read_timeout", 0) + 1)
         future = asyncio.run_coroutine_threadsafe(
@@ -124,6 +148,9 @@ class XavierClient:
 
 
 def close_clients():
+    from .gpu import close_service
+
+    close_service()
     for client in list(_clients):
         client.close()
 
@@ -133,6 +160,7 @@ class XavierMetadata:
     loads: list = field(default_factory=list)
     saves: list = field(default_factory=list)
     pd_loads: list = field(default_factory=list)
+    pd_saves: list = field(default_factory=list)
 
 
 class XavierConnectorScheduler(KvCacheConnectorScheduler):
@@ -143,6 +171,7 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         self._pending = {}
         self._allocations = {}
         self._pd_requests = {}
+        self._pd_sources = {}
 
     def _keys(self, tokens):
         return [key.digest for key in build_prefix_keys(self.contract, tokens)]
@@ -156,10 +185,14 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
                 raise ValueError("TRT-LLM P/D scheduler prompt differs")
             self._pd_requests[request_id] = state
             if state.role == "prefill":
+                self._pd_sources[request_id] = state
+                state.engine_request_id = request_id
                 return 0, False
             if num_computed_tokens:
                 raise ValueError("TRT-LLM P/D requires an isolated destination prefix")
             return max(len(state.tokens) - 1, 0), False
+        if self.client.pd_gpu:
+            return 0, False  # TRT initialization requests do not share history.
         block = self.contract.block_size
         if num_computed_tokens % block:
             return 0, False
@@ -180,11 +213,7 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
     def update_state_after_alloc(self, request, block_ids):
         state = self._pd_requests.get(request.request_id)
         self._allocations[request.request_id] = (
-            (
-                state.keys
-                if state is not None
-                else self._keys(list(request.get_tokens(0)))
-            ),
+            ([] if state is not None else self._keys(list(request.get_tokens(0)))),
             list(block_ids),
         )
 
@@ -198,13 +227,14 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
                 blocks = list(request.new_block_ids)
             state = self._pd_requests.pop(request_id, None)
             if state is not None:
-                if len(blocks) < len(state.keys):
+                if len(blocks) < state.num_pages:
                     raise ValueError("TRT-LLM allocated too few P/D KV blocks")
                 if state.role == "prefill":
-                    metadata.saves.extend(zip(state.keys, blocks))
+                    metadata.pd_saves.append((state, blocks[: state.num_pages]))
                 else:
-                    metadata.loads.extend(zip(blocks, state.pages))
-                    metadata.pd_loads.append(state)
+                    metadata.pd_loads.append((state, blocks[: state.num_pages]))
+                continue
+            if self.client.pd_gpu:
                 continue
             imported = 0
             if pending is not None:
@@ -225,7 +255,10 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         self._pending.pop(request.request_id, None)
         self._allocations.pop(request.request_id, None)
         self._pd_requests.pop(request.request_id, None)
-        return False
+        state = self._pd_sources.pop(request.request_id, None)
+        # TRT pins these blocks until the worker returns this ID from
+        # get_finished. A completed Python output does not end the KV lifetime.
+        return bool(state is not None and state.registered)
 
 
 class XavierConnectorWorker(KvCacheConnectorWorker):
@@ -234,6 +267,8 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         self.client = XavierClient()
         self.contract = self.client.contract
         self.pool = None
+        self._waiting_saves = set()
+        self._finished_saves = set()
 
     def register_kv_caches(self, kv_cache_tensor):
         contract = self.contract
@@ -255,6 +290,10 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         if not kv_cache_tensor.is_contiguous():
             raise ValueError("TRT-LLM Xavier requires a contiguous KV pool")
         self.pool = kv_cache_tensor
+        if self.client.pd_gpu:
+            from .gpu import register_service
+
+            register_service(self.client, kv_cache_tensor)
 
     def _validate_slots(self, slots):
         if self.pool is None or any(
@@ -267,13 +306,19 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         metadata = self.get_connector_meta()
         if metadata is None:
             return
-        self._validate_slots([slot for slot, _ in metadata.loads])
+        self._validate_slots(
+            [slot for slot, _ in metadata.loads]
+            + [slot for _, slots in metadata.pd_loads for slot in slots]
+        )
         for slot, page in metadata.loads:
             self.pool[slot].copy_(
                 page.view(self.pool.dtype).reshape(self.pool.shape[1:]),
                 non_blocking=False,
             )
-        for state in metadata.pd_loads:
+        for state, blocks in metadata.pd_loads:
+            from .gpu import service
+
+            service().rpc("load", state.room, blocks)
             state.imported_tokens = max(len(state.tokens) - 1, 0)
         if metadata.loads:
             # Copy completion, not a lookup, is the evidence for imported KV.
@@ -292,10 +337,15 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
 
     def wait_for_save(self, stream):
         metadata = self.get_connector_meta()
-        if metadata is None or not metadata.saves:
+        if metadata is None or not (metadata.saves or metadata.pd_saves):
             return
         self._validate_slots([slot for _, slot in metadata.saves])
         stream.synchronize()
+        for state, blocks in metadata.pd_saves:
+            from .gpu import service
+
+            service().rpc("publish", state.room, state.engine_request_id, blocks)
+            state.registered = bool(blocks)
         for offset in range(0, len(metadata.saves), 128):
             batch = metadata.saves[offset : offset + 128]
             keys = [key for key, _ in batch]
@@ -316,4 +366,14 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                 logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
 
     def get_finished(self, finished_gen_req_ids, started_loading_req_ids):
-        return [], []
+        if not self.client.pd_gpu:
+            return [], []
+        self._waiting_saves.update(finished_gen_req_ids)
+        if self._waiting_saves:
+            from .gpu import service
+
+            self._finished_saves.update(service().rpc("poll_direct_gpu_v1"))
+        finished = self._finished_saves & self._waiting_saves
+        self._waiting_saves.difference_update(finished)
+        self._finished_saves.difference_update(finished)
+        return list(finished), []

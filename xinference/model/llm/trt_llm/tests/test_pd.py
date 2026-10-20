@@ -11,9 +11,7 @@ from unittest.mock import Mock
 
 import pytest
 import torch
-import xoscar as xo
 
-from ...xavier.backends.torch.storage import XavierCacheActor
 from ...xavier.contract import KVCacheContract
 from ..pd import (
     TRTLLMPD,
@@ -22,7 +20,6 @@ from ..pd import (
     request_state,
     submit_xavier,
 )
-from ..xavier import CONFIG_ENV
 from .test_core import model as model
 from .test_xavier import checkpoint as checkpoint
 from .test_xavier import connector as connector
@@ -160,35 +157,48 @@ async def test_actor_release_accepts_rpc_context(model, monkeypatch):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("cancel_task", [False, True])
-async def test_cancellation_during_xavier_capacity_reservation_recovers_ticket(
-    cancel_task,
+@pytest.mark.parametrize("cancellations", [0, 1, 2])
+async def test_gpu_registration_cancellation_drains_before_release(
+    monkeypatch, cancellations
 ):
+    from .. import gpu
+
     started, finish = threading.Event(), threading.Event()
     released = []
+    abort = Mock()
+    monkeypatch.setattr(gpu, "service", lambda: SimpleNamespace(rpc=abort))
 
-    def rpc(method, *args):
-        if method == "prepare_handoff":
+    def rpc(method, *args, **kwargs):
+        if method == "prepare":
             started.set()
             assert finish.wait(timeout=3)
-            return "reserved-ticket"
-        assert method == "release_handoff"
-        released.append(args[0])
+        else:
+            assert method == "release"
+            released.append(args)
 
     pd = TRTLLMPD("prefill", "nixl")
-    pd.client = SimpleNamespace(rpc=rpc, namespace="namespace")
+    pd.client = SimpleNamespace(rpc=rpc, namespace="namespace", config={"rank": 1})
     task = asyncio.create_task(
         pd.prepare("r", list(range(70)), {"do_remote_decode": True})
     )
     assert await asyncio.to_thread(started.wait, 3)
-    if cancel_task:
-        task.cancel()
+    room = pd.active["r"]["context"].room
+    cleanup = None
+    if cancellations:
+        for _ in range(cancellations):
+            task.cancel()
+            await asyncio.sleep(0)
     else:
-        await pd.release("r")
+        cleanup = asyncio.create_task(pd.release("r"))
+        await asyncio.sleep(0)
+        assert not cleanup.done()
     finish.set()
     with pytest.raises(asyncio.CancelledError):
         await task
-    assert released == ["reserved-ticket"]
+    if cleanup is not None:
+        await cleanup
+    assert released == [(room, None)]
+    abort.assert_called_once_with("abort", room)
     assert not pd.active
 
 
@@ -200,7 +210,7 @@ def test_xavier_enqueue_failure_cleans_callback_state(monkeypatch):
         "tensorrt_llm.inputs",
         SimpleNamespace(get_cache_salt_id=lambda salt: 123),
     )
-    state = XavierRequest("decode", (1, 2), [])
+    state = XavierRequest("decode", (1, 2), 1)
 
     def enqueue(*args, **kwargs):
         assert request_state(SimpleNamespace(cache_salt_id=123)) is state
@@ -212,122 +222,230 @@ def test_xavier_enqueue_failure_cleans_callback_state(monkeypatch):
     assert request_state(SimpleNamespace(cache_salt_id=123)) is None
 
 
-@pytest.mark.asyncio
-async def test_xavier_owned_partial_page_handoff_survives_source_release(
-    monkeypatch, connector
-):
+def test_xavier_callback_uses_native_salt_and_cleans_registration(monkeypatch):
+    from ..pd import XavierRequest
+
     monkeypatch.setitem(
         sys.modules,
         "tensorrt_llm.inputs",
-        SimpleNamespace(get_cache_salt_id=lambda salt: int(salt[:16], 16)),
+        SimpleNamespace(get_cache_salt_id=lambda salt: 456),
     )
-    monkeypatch.setitem(
-        sys.modules, "xinference.model.llm.trt_llm.connector", connector
-    )
+    state = XavierRequest("prefill", (1, 2), 1)
+    handle = SimpleNamespace(request_id=11)
+    engine = SimpleNamespace(generate_async=Mock(return_value=handle))
+    submit_xavier(engine, [1, 2], None, state)
+    callback = SimpleNamespace(request_id=101, cache_salt_id=456)
+    assert request_state(callback) is state
+    forget_request(handle)
+    assert request_state(callback) is None
+
+
+@pytest.mark.parametrize("prompt_tokens", [1, 64, 65, 70])
+def test_gpu_connector_pins_source_until_worker_completion(
+    monkeypatch, connector, prompt_tokens
+):
+    from .. import gpu
+    from ..pd import XavierRequest
+
     contract = KVCacheContract(
         "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 1, 64, "bfloat16"
     )
-    page_bytes = contract.num_layers * contract.layer_nbytes
-    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
-    async with pool:
-        cache = await xo.create_actor(
-            XavierCacheActor,
-            4 * page_bytes,
-            address=pool.external_address,
-            uid="trt-pd-cpu",
-        )
-        monkeypatch.setenv(
-            CONFIG_ENV,
-            json.dumps(
-                dict(
-                    address=cache.address, uid="trt-pd-cpu", contract=contract.to_dict()
+    client = SimpleNamespace(
+        pd_gpu=True,
+        contract=contract,
+        read_prefix=Mock(side_effect=AssertionError("P/D must not read CPU pages")),
+    )
+    monkeypatch.setattr(connector, "XavierClient", lambda: client)
+    finished = set()
+    calls = []
+
+    def rpc(method, *args):
+        calls.append((method, args))
+        if method == "poll_direct_gpu_v1":
+            result = set(finished)
+            finished.clear()
+            return result
+
+    monkeypatch.setattr(gpu, "service", lambda: SimpleNamespace(rpc=rpc))
+    ps, ds = connector.XavierConnectorScheduler(
+        None
+    ), connector.XavierConnectorScheduler(None)
+    pw, dw = connector.XavierConnectorWorker(None), connector.XavierConnectorWorker(
+        None
+    )
+    pw.pool = dw.pool = torch.zeros((3, 1, 2, 64), dtype=torch.bfloat16)
+    tokens = tuple(range(prompt_tokens))
+    source = XavierRequest("prefill", tokens, 1)
+    monkeypatch.setattr(connector, "request_state", lambda request: source)
+    request = SimpleNamespace(request_id=101, get_tokens=lambda beam: tokens)
+    assert ps.get_num_new_matched_tokens(request, 0) == (0, False)
+    ps.update_state_after_alloc(request, [0, 1])
+
+    def output(rid):
+        return SimpleNamespace(
+            new_requests=[
+                SimpleNamespace(
+                    request_id=rid,
+                    new_block_ids=[],
+                    computed_position=0,
+                    num_scheduled_tokens=prompt_tokens,
                 )
-            ),
+            ]
         )
-        p, d = [
-            await asyncio.to_thread(TRTLLMPD, role, "xavier")
-            for role in ("prefill", "decode")
-        ]
-        ps, ds = [
-            await asyncio.to_thread(connector.XavierConnectorScheduler, None)
-            for _ in range(2)
-        ]
-        pw, dw = [
-            await asyncio.to_thread(connector.XavierConnectorWorker, None)
-            for _ in range(2)
-        ]
-        source = torch.arange(384, dtype=torch.bfloat16).reshape(3, 1, 2, 64)
-        target = torch.zeros_like(source)
-        pw.register_kv_caches(source)
-        dw.register_kv_caches(target)
-        tokens = list(range(70))
-        state = await p.prepare("r", tokens, {"do_remote_decode": True})
-        handle = SimpleNamespace(request_id=11, abort=Mock())
-        engine = SimpleNamespace(generate_async=Mock(return_value=handle))
-        p.submit(engine, tokens, None, state)
-        request = SimpleNamespace(
-            request_id=101,
-            cache_salt_id=int(
-                engine.generate_async.call_args.kwargs["cache_salt"][:16], 16
-            ),
-            get_tokens=lambda beam: tokens,
-        )
-        assert request_state(request) is state["context"]
-        assert ps.get_num_new_matched_tokens(request, 0) == (0, False)
-        ps.update_state_after_alloc(request, [0, 1])
 
-        def output(rid, scheduled):
-            return SimpleNamespace(
-                new_requests=[
-                    SimpleNamespace(
-                        request_id=rid,
-                        new_block_ids=[],
-                        computed_position=0,
-                        num_scheduled_tokens=scheduled,
-                    )
-                ]
-            )
+    pw.bind_connector_meta(ps.build_connector_meta(output(101)))
+    pw.wait_for_save(SimpleNamespace(synchronize=lambda: None))
+    assert calls == [("publish", (1, 101, [0, 1][: source.num_pages]))]
+    # The Python result may already be consumed and its callback registration
+    # removed. The scheduler must still retain the C++ request's slots.
+    monkeypatch.setattr(connector, "request_state", lambda request: None)
+    assert ps.request_finished(request, [0, 1]) is bool(source.num_pages)
+    assert pw.get_finished([], []) == ([], [])
+    if source.num_pages:
+        assert pw.get_finished([101], []) == ([], [])
+        finished.update({101, 102})
+        assert pw.get_finished([], []) == ([101], [])
+        # Completion arriving before this ID is admitted stays pending locally.
+        assert pw.get_finished([102], []) == ([102], [])
 
-        pw.bind_connector_meta(ps.build_connector_meta(output(101, 70)))
-        await asyncio.to_thread(
-            pw.wait_for_save, SimpleNamespace(synchronize=lambda: None)
-        )
-        transfer = await p.publish("r", tokens, None)
-        assert (await cache.get_stats())["active_handoffs"] == 1
-        concurrent = await p.prepare("same-prompt", tokens, {"do_remote_decode": True})
-        assert set(concurrent["context"].keys).isdisjoint(state["context"].keys)
-        assert concurrent["ticket"] != state["ticket"]
-        with pytest.raises(RuntimeError, match="full of active"):
-            await p.prepare("excess", tokens, {"do_remote_decode": True})
-        assert "excess" not in p.active
-        decoded = await d.prepare("r", tokens, transfer)
-        expected = source[:2].clone()
-        await p.release("r")
-        assert (await cache.get_stats())["active_handoffs"] == 1
-        await p.release("same-prompt")
-        source.zero_()
-        assert (await cache.get_stats())["active_handoffs"] == 0
-        with pytest.raises(ValueError, match="incomplete"):
-            await d.prepare("again", tokens, transfer)
-        handle_d = SimpleNamespace(request_id=12, abort=Mock())
-        engine.generate_async.return_value = handle_d
-        d.submit(engine, tokens, None, decoded)
-        request.request_id = 102
-        request.cache_salt_id = int(
-            engine.generate_async.call_args.kwargs["cache_salt"][:16], 16
-        )
-        assert ds.get_num_new_matched_tokens(request, 0) == (69, False)
-        ds.update_state_after_alloc(request, [2, 0])
-        dw.bind_connector_meta(ds.build_connector_meta(output(102, 1)))
+    target = XavierRequest("decode", tokens, 1)
+    monkeypatch.setattr(connector, "request_state", lambda request: target)
+    request.request_id = 201
+    assert ds.get_num_new_matched_tokens(request, 0) == (
+        max(prompt_tokens - 1, 0),
+        False,
+    )
+    ds.update_state_after_alloc(request, [2, 0])
+    dw.bind_connector_meta(ds.build_connector_meta(output(201)))
+    pd = TRTLLMPD("decode", "nixl")
+    if prompt_tokens > 1:
         with pytest.raises(RuntimeError, match="did not import"):
-            d.check_import(decoded)
-        await asyncio.to_thread(dw.start_load_kv, None)
-        d.check_import(decoded)
-        assert torch.equal(target[2], expected[0])
-        assert torch.equal(target[0], expected[1])
-        assert not target[1].any()
-        assert (await cache.get_stats())["imported_pages"] == 2
-        forget_request(handle)
-        forget_request(handle_d)
-        assert request_state(request) is None
-        await asyncio.to_thread(connector.close_clients)
+            pd.check_import({"context": target})
+    dw.start_load_kv(None)
+    pd.check_import({"context": target})
+    assert calls[-1] == ("load", (1, [2, 0][: target.num_pages]))
+    client.read_prefix.assert_not_called()
+
+
+def test_failed_gpu_load_does_not_report_an_import(monkeypatch, connector):
+    from .. import gpu
+    from ..pd import XavierRequest
+
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 1, 64, "bfloat16"
+    )
+    monkeypatch.setattr(
+        connector,
+        "XavierClient",
+        lambda: SimpleNamespace(pd_gpu=True, contract=contract),
+    )
+    rpc = Mock(side_effect=RuntimeError("NIXL transfer failed"))
+    monkeypatch.setattr(gpu, "service", lambda: SimpleNamespace(rpc=rpc))
+    worker = connector.XavierConnectorWorker(None)
+    worker.pool = torch.zeros((2, 1, 2, 64), dtype=torch.bfloat16)
+    context = XavierRequest("decode", tuple(range(70)), 1)
+    worker.bind_connector_meta(connector.XavierMetadata(pd_loads=[(context, [0, 1])]))
+    with pytest.raises(RuntimeError, match="NIXL transfer failed"):
+        worker.start_load_kv(None)
+    assert context.imported_tokens == 0
+
+
+@pytest.mark.asyncio
+async def test_source_abort_drains_reads_and_rejects_late_publication():
+    from unittest.mock import AsyncMock
+
+    from ..gpu import TRTGPUActor
+
+    directory = SimpleNamespace(
+        request_info=AsyncMock(return_value={"prompt_tokens": 70})
+    )
+    actor = TRTGPUActor(None, 0, None, directory, 1)
+    state = SimpleNamespace(reading=True, released=False)
+    active = {"1": state}
+
+    def release(ticket):
+        state.released = True
+        if not state.reading:
+            active.pop(ticket, None)
+
+    actor._gpu_transfer = SimpleNamespace(
+        direct_requests=active, release_direct=release
+    )
+    actor.sources[1] = "1"
+    abort = asyncio.create_task(actor.abort(1))
+    await asyncio.sleep(0.01)
+    assert state.released and not abort.done()
+    state.reading = False
+    release("1")
+    await abort
+    assert not actor.sources
+    with pytest.raises(ValueError, match="Invalid TRT Xavier source"):
+        await actor.publish(1, 101, [0, 1])
+
+
+@pytest.mark.asyncio
+async def test_concurrent_gpu_drain_keeps_ownership_after_repeated_cancellation():
+    from unittest.mock import AsyncMock
+
+    from ..gpu import TRTGPUActor
+
+    actor = TRTGPUActor(None, 0, None, None, 1)
+    started, complete = asyncio.Event(), asyncio.Event()
+
+    async def close():
+        started.set()
+        await complete.wait()
+
+    actor._gpu_transfer = SimpleNamespace(
+        direct_requests={},
+        tasks=set(),
+        poll_direct=lambda: set(),
+        close=AsyncMock(side_effect=close),
+    )
+    first = asyncio.create_task(actor.drain())
+    await started.wait()
+    second = asyncio.create_task(actor.drain())
+    for _ in range(2):
+        first.cancel()
+        await asyncio.sleep(0)
+        assert not first.done() and not second.done()
+    complete.set()
+    with pytest.raises(asyncio.CancelledError):
+        await first
+    await second
+    actor._gpu_transfer.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_prefill_cancel_before_decode_drops_directory_room(monkeypatch):
+    from ...sglang.xavier.directory import XavierPDDirectory
+    from .. import gpu
+
+    directory = XavierPDDirectory()
+    directory.configure("namespace")
+    monkeypatch.setattr(gpu, "service", lambda: SimpleNamespace(rpc=Mock()))
+    pd = TRTLLMPD("prefill", "nixl")
+    pd.client = SimpleNamespace(
+        namespace="namespace",
+        config={"rank": 1},
+        rpc=lambda method, *args, **kwargs: getattr(directory, method)(*args, **kwargs),
+    )
+    await pd.prepare("cancelled", [1, 2, 3], {"do_remote_decode": True})
+    assert directory.get_stats()["active_handoffs"] == 1
+    await pd.release("cancelled")
+    assert directory.get_stats()["active_handoffs"] == 0
+
+
+def test_shutdown_retains_cpp_owner_if_importer_cannot_stop(model, monkeypatch):
+    from .. import gpu
+
+    owner = model._engine
+    model._cache_enabled = True
+    with monkeypatch.context() as patch:
+        patch.setattr(gpu, "close_service", Mock(side_effect=RuntimeError("live DMA")))
+        with pytest.raises(RuntimeError, match="live DMA"):
+            model.stop()
+        assert model._engine is owner
+        assert not getattr(owner, "stopped", False)
+    model.stop()
+    assert owner.stopped

@@ -3320,6 +3320,7 @@ class SupervisorActor(xo.StatelessActor):
                 mlx_xavier
                 or mlx_prefill
                 or trt_xavier
+                and not pd_enabled
                 or sglang_xavier
                 and not pd_enabled
             )
@@ -3372,14 +3373,22 @@ class SupervisorActor(xo.StatelessActor):
 
         gpu_cache_bytes = validate_gpu_cache_budget(
             kwargs.pop("xavier_gpu_cache_bytes", None),
-            enable_xavier or sglang_xavier and pd_enabled or heterogeneous_pd,
+            enable_xavier
+            or (sglang_xavier or trt_xavier)
+            and pd_enabled
+            or heterogeneous_pd,
             replica,
         )
-        if (sglang_xavier or heterogeneous_pd) and gpu_cache_bytes not in (None, 0):
+        if (
+            sglang_xavier or trt_xavier or heterogeneous_pd
+        ) and gpu_cache_bytes not in (
+            None,
+            0,
+        ):
             raise ValueError(
                 "Cross-engine Xavier GPU PD does not yet support retained GPU history"
                 if heterogeneous_pd
-                else "SGLang Xavier GPU PD does not yet support retained GPU history"
+                else f"{model_engine} Xavier GPU PD does not yet support retained GPU history"
             )
         if pd_enabled and enable_xavier and gpu_cache_bytes is None:
             gpu_cache_bytes = 256 * 1024 * 1024
@@ -3517,7 +3526,7 @@ class SupervisorActor(xo.StatelessActor):
                     "gpu_cache_bytes": 0,
                     "host_handoff": host_handoff,
                 }
-            if sglang_xavier and pd_enabled:
+            if (sglang_xavier or trt_xavier) and pd_enabled:
                 assert replica_config is not None
                 from ..model.llm.xavier.transport import get_transport_host
 
@@ -3527,7 +3536,7 @@ class SupervisorActor(xo.StatelessActor):
                     "rank": rank,
                     "host": get_transport_host(worker_ref.address),
                 }
-            elif (mlx_xavier or trt_xavier) and pd_enabled:
+            elif mlx_xavier and pd_enabled:
                 assert replica_config is not None
                 replica_kwargs["_xavier_cache_config"] = {
                     **kwargs["_xavier_cache_config"],
@@ -3638,7 +3647,7 @@ class SupervisorActor(xo.StatelessActor):
                             address=self.address,
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
-                    elif pd_enabled and not trt_xavier:
+                    elif pd_enabled:
                         from ..model.llm.sglang.xavier.directory import (
                             XavierPDDirectory,
                         )

@@ -368,6 +368,6 @@ Xavier publishes complete 64-token BF16 KV pages and restores matching prefixes 
 
 Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, and disabled chunked prefill and overlap scheduling. Quantization, hybrid attention, multimodal input, LoRA, speculative decoding, ``cache_salt`` and cross-engine P/D are not supported.
 
-For same-engine P/D, set explicit prefill/decode roles in ``replica_config`` as described in :ref:`user_guide_pd_separation`. The default ``transfer_backend_type="xavier"`` uses bounded, request-owned CPU KV snapshots. Set ``transfer_backend_type="nixl"`` for TRT's native context/generation protocol and NIXL transport; do not also set ``enable_xavier=True``. Both paths support generation, chat, streaming and cancellation through the same Xinference API.
+For same-engine P/D, set explicit prefill/decode roles in ``replica_config`` as described in :ref:`user_guide_pd_separation`. The default ``transfer_backend_type="xavier"`` uses NIXL to transfer KV pages directly between GPUs. Set ``transfer_backend_type="nixl"`` for TRT's native context/generation protocol and NIXL transport; do not also set ``enable_xavier=True``. Both paths support generation, chat, streaming and cancellation through the same Xinference API.
 
 The shared cache actor reports ``imported_pages`` after copies into the destination KV pool complete. Use this counter to verify cross-instance imports. Measure latency and throughput for your workload; transfer costs can exceed the saved prefill computation.

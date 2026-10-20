@@ -4,12 +4,11 @@
 
 import asyncio
 import base64
-import hashlib
 import json
 import logging
 import threading
 import uuid
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ..xavier.pd_contract import build_pd_contract, prompt_digest
@@ -28,9 +27,14 @@ _requests: dict = {}
 class XavierRequest:
     role: str
     tokens: tuple
-    keys: list
-    pages: list = field(default_factory=list)
+    room: int
     imported_tokens: int = 0
+    engine_request_id: int = 0
+    registered: bool = False
+
+    @property
+    def num_pages(self):
+        return (max(len(self.tokens) - 1, 0) + 63) // 64
 
 
 def submit_xavier(engine, tokens, params, state):
@@ -121,51 +125,18 @@ class TRTLLMPD:
 
             self.client = XavierClient()
 
-    def _keys(self, tokens, nonce):
-        count = (max(len(tokens) - 1, 0) + 63) // 64
-        prefix = prompt_digest(tokens) + ":" + nonce
-        return [
-            hashlib.sha256(f"{prefix}:{i}".encode()).hexdigest() for i in range(count)
-        ]
-
     async def prepare(self, request_id, tokens, transfer):
         prefill = self.role == "prefill"
         flag = "do_remote_decode" if prefill else "do_remote_prefill"
         if not isinstance(transfer, dict) or not transfer.get(flag):
             raise ValueError(f"TRT-LLM {self.role} replicas require P/D metadata")
+        if self.client is not None:
+            return await self._prepare_gpu(request_id, tokens, transfer)
         if prefill:
             if request_id in self.active:
                 raise ValueError("A TRT-LLM P/D request with this ID is already active")
             state = dict(request=None, ticket=None, released=False)
             self.active[request_id] = state
-            if self.client is not None:
-                nonce = uuid.uuid4().hex
-                keys = self._keys(tokens, nonce)
-                reservation = asyncio.create_task(
-                    asyncio.to_thread(
-                        self.client.rpc, "prepare_handoff", self.client.namespace, keys
-                    )
-                )
-                try:
-                    try:
-                        state["ticket"] = await asyncio.shield(reservation)
-                    except asyncio.CancelledError:
-                        # The RPC may have committed even though its caller was
-                        # cancelled. Recover the ticket before releasing it.
-                        state["ticket"] = await reservation
-                        raise
-                    if state["released"]:
-                        await asyncio.to_thread(
-                            self.client.rpc, "release_handoff", state["ticket"]
-                        )
-                        raise asyncio.CancelledError(
-                            "TRT-LLM P/D reservation was cancelled"
-                        )
-                    state["context"] = XavierRequest("prefill", tuple(tokens), keys)
-                    state["nonce"] = nonce
-                except BaseException:
-                    await self.release(request_id)
-                    raise
             return state
         handoff = transfer.get("trt_llm")
         if (
@@ -186,22 +157,58 @@ class TRTLLMPD:
             return dict(
                 params=DisaggregatedParams(request_type="generation_only", **context)
             )
-        if handoff.get("namespace") != self.client.namespace:
-            raise ValueError("Incompatible TRT-LLM Xavier namespace")
-        keys = self._keys(tokens, handoff["nonce"])
-        ready = await asyncio.to_thread(
-            self.client.rpc,
-            "validate_handoff",
-            self.client.namespace,
-            keys,
-            handoff["ticket"],
+
+    async def _prepare_gpu(self, request_id, tokens, transfer):
+        from ..xavier.backends.torch.gpu_transfer import finish_before_cancel
+
+        if request_id in self.active:
+            raise ValueError("A TRT-LLM P/D request with this ID is already active")
+        if self.role == "prefill":
+            room = (uuid.uuid4().int & (2**63 - 1)) or 1
+        else:
+            handoff = transfer.get("trt_llm")
+            if (
+                not isinstance(handoff, dict)
+                or handoff.get("backend") != "xavier"
+                or handoff.get("prompt_digest") != prompt_digest(tokens)
+                or handoff.get("namespace") != self.client.namespace
+            ):
+                raise ValueError("Incompatible TRT-LLM Xavier GPU handoff")
+            room = handoff["room"]
+        state = dict(
+            request=None,
+            released=False,
+            prepared=False,
+            context=XavierRequest(self.role, tuple(tokens), room),
         )
-        if not ready:
-            raise ValueError("Missing, expired or incomplete TRT-LLM Xavier handoff")
-        pages = await asyncio.to_thread(self.client.read_prefix, keys)
-        if len(pages) != len(keys):
-            raise RuntimeError("TRT-LLM Xavier P/D pages disappeared before import")
-        return dict(context=XavierRequest("decode", tuple(tokens), keys, pages))
+        self.active[request_id] = state
+
+        async def reserve():
+            await asyncio.to_thread(
+                self.client.rpc,
+                "prepare",
+                room,
+                self.client.namespace,
+                prompt_digest(tokens),
+                self.role,
+                self.client.config["rank"],
+                prompt_tokens=len(tokens),
+            )
+            state["prepared"] = True
+
+        reservation = state["reservation"] = asyncio.create_task(reserve())
+        try:
+            try:
+                await asyncio.shield(reservation)
+            except asyncio.CancelledError:
+                await finish_before_cancel(reservation)
+                raise
+            if state["released"]:
+                raise asyncio.CancelledError("TRT-LLM P/D request was released")
+            return state
+        except BaseException:
+            await self.release(request_id)
+            raise
 
     def submit(self, engine, tokens, params, state):
         if self.client is not None:
@@ -245,21 +252,14 @@ class TRTLLMPD:
                 ),
             )
         else:
-            ready = await asyncio.to_thread(
-                self.client.rpc,
-                "validate_handoff",
-                self.client.namespace,
-                state["context"].keys,
-                state["ticket"],
+            source = await asyncio.to_thread(
+                self.client.rpc, "source", state["context"].room
             )
-            if not ready:
-                raise RuntimeError(
-                    "TRT-LLM prefill did not publish its complete Xavier KV"
-                )
+            if source is None:
+                raise RuntimeError("TRT-LLM prefill did not publish its GPU KV")
             handoff.update(
                 namespace=self.client.namespace,
-                nonce=state["nonce"],
-                ticket=state["ticket"],
+                room=state["context"].room,
             )
         return dict(do_remote_prefill=True, trt_llm=handoff)
 
@@ -267,15 +267,36 @@ class TRTLLMPD:
         state = self.active.pop(request_id, None)
         if state is not None:
             state["released"] = True
-            request = state.get("request")
-            try:
-                if request is not None:
-                    request.abort()
-            finally:
-                if self.client is not None and state.get("ticket"):
-                    await asyncio.to_thread(
-                        self.client.rpc, "release_handoff", state["ticket"]
-                    )
+            if self.client is None:
+                if state.get("request") is not None:
+                    state["request"].abort()
+            else:
+                from ..xavier.backends.torch.gpu_transfer import finish_before_cancel
+
+                await finish_before_cancel(
+                    asyncio.create_task(self._release_gpu(state))
+                )
+
+    async def _release_gpu(self, state):
+        reservation = state.get("reservation")
+        if reservation is not None:
+            await asyncio.gather(reservation, return_exceptions=True)
+        try:
+            if state.get("request") is not None:
+                state["request"].abort()
+        finally:
+            if state["prepared"]:
+                room = state["context"].room
+                if self.role == "prefill":
+                    from .gpu import service
+
+                    await asyncio.to_thread(service().rpc, "abort", room)
+                await asyncio.to_thread(
+                    self.client.rpc,
+                    "release",
+                    room,
+                    None if self.role == "prefill" else self.role,
+                )
 
     def close(self):
         states, self.active = self.active, {}
@@ -287,8 +308,17 @@ class TRTLLMPD:
                         if state.get("request") is not None:
                             state["request"].abort()
                     finally:
-                        if self.client is not None and state.get("ticket"):
-                            self.client.rpc("release_handoff", state["ticket"])
+                        if self.client is not None and state.get("prepared"):
+                            room = state["context"].room
+                            if self.role == "prefill":
+                                from .gpu import service
+
+                                service().rpc("abort", room)
+                            self.client.rpc(
+                                "release",
+                                room,
+                                None if self.role == "prefill" else self.role,
+                            )
                 except Exception:
                     logger.warning(
                         "Could not release TRT-LLM P/D source", exc_info=True
