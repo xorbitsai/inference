@@ -43,6 +43,11 @@ class _ProgressInfo:
     last_updated: float
     info: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
+    started_at: float = dataclasses.field(default_factory=time.monotonic)
+    last_progress_at: float = dataclasses.field(default_factory=time.monotonic)
+    seconds_per_progress: Optional[float] = None
+    progress_samples: int = 0
+    last_progress_interval: float = 0.0
 
 
 class ProgressTrackerActor(xo.StatelessActor):
@@ -102,11 +107,14 @@ class ProgressTrackerActor(xo.StatelessActor):
         info: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
     ):
+        now = time.monotonic()
         self._request_id_to_progress[request_id] = _ProgressInfo(
             progress=0.0,
             last_updated=time.time(),
             info=info,
             details=details,
+            started_at=now,
+            last_progress_at=now,
         )
 
     @rpc_context
@@ -119,6 +127,23 @@ class ProgressTrackerActor(xo.StatelessActor):
     ):
         assert progress <= 1.0
         info_ = self._request_id_to_progress[request_id]
+        now = time.monotonic()
+        change = progress - info_.progress
+        if change < 0:
+            info_.seconds_per_progress = None
+            info_.progress_samples = 0
+            info_.last_progress_at = now
+        elif change > 0:
+            duration = now - info_.last_progress_at
+            if duration > 0:
+                info_.progress_samples += 1
+                info_.last_progress_interval = duration
+                sample = duration / change
+                previous = info_.seconds_per_progress
+                info_.seconds_per_progress = (
+                    sample if previous is None else 0.3 * sample + 0.7 * previous
+                )
+            info_.last_progress_at = now
         info_.progress = progress
         info_.last_updated = time.time()
         if info:
@@ -128,6 +153,26 @@ class ProgressTrackerActor(xo.StatelessActor):
         logger.debug(
             "Setting progress, request id: %s, progress: %s", request_id, progress
         )
+
+    @rpc_context
+    def get_progress_snapshot(self, request_id: str) -> Dict[str, Any]:
+        """Extend the existing UI progress response with elapsed time and ETA."""
+        info = self._request_id_to_progress[request_id]
+        now = time.monotonic()
+        eta = None
+        if (
+            info.seconds_per_progress is not None
+            and info.progress_samples >= 2
+            and 0 < info.progress < 1
+            and now - info.last_progress_at <= max(30, 3 * info.last_progress_interval)
+        ):
+            eta = (1.0 - info.progress) * info.seconds_per_progress
+        # Reported steps can finish before decoding, encoding or saving does.
+        return {
+            "progress": info.progress,
+            "elapsed_seconds": max(0.0, now - info.started_at),
+            "eta_seconds": eta,
+        }
 
     @rpc_context
     def get_progress(self, request_id: str) -> float:

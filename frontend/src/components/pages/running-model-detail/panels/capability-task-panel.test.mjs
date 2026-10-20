@@ -18,7 +18,15 @@ const { outputText } = ts.transpileModule(source, {
   },
 });
 
-async function mountPanel(t, { stream = true, transformValues = () => ({ stream: true }) } = {}) {
+async function mountPanel(
+  t,
+  {
+    stream = true,
+    transformValues = () => ({ stream: true }),
+    showProgress = false,
+    getProgress = async () => ({ progress: 0.5 }),
+  } = {}
+) {
   const dom = new JSDOM('<div id="root"></div>');
   const previous = {};
   for (const [key, value] of Object.entries({
@@ -31,6 +39,7 @@ async function mountPanel(t, { stream = true, transformValues = () => ({ stream:
   }
   const streams = [];
   const errors = [];
+  const sleeps = [];
   let resultProps;
   const mocks = {
     'lucide-react': { Copy: () => null, RotateCcw: () => null, Sparkles: () => null },
@@ -51,14 +60,21 @@ async function mountPanel(t, { stream = true, transformValues = () => ({ stream:
           children
         ),
     },
-    '@/constants': { ModelAbility: { Generate: 'generate' }, ModelType: {}, RequestEvents: {} },
+    '@/constants': {
+      ModelAbility: { Generate: 'generate' },
+      ModelType: { World: 'world' },
+      RequestEvents: {},
+    },
     '@/contexts/i18n-context': {
       useI18n: () => ({
         t: (key) => (key === 'runningModels.detail.latency' ? 'Latency' : key),
       }),
     },
     '@/hooks/use-form': { createForm: () => ({ getFieldsValue: () => ({}), resetFields() {} }) },
-    '@/lib/request': { __esModule: true, default: { post: () => new Promise(() => {}) } },
+    '@/lib/request': {
+      __esModule: true,
+      default: { post: () => new Promise(() => {}), get: getProgress },
+    },
     '@/lib/eventStream': {
       EventStreamController: class {
         signal = new AbortController();
@@ -74,7 +90,11 @@ async function mountPanel(t, { stream = true, transformValues = () => ({ stream:
       },
     },
     '@/lib/event-bus': { eventBus: { emit: (...args) => errors.push(args) } },
-    '@/lib/utils': { cn: () => '', copyToClipboard() {}, sleep() {} },
+    '@/lib/utils': {
+      cn: () => '',
+      copyToClipboard() {},
+      sleep: () => new Promise((resolve) => sleeps.push(resolve)),
+    },
     '@/lib/is': { isNumber: (value) => typeof value === 'number' },
     '../audio-stream': {},
     '../utils': {
@@ -106,6 +126,7 @@ async function mountPanel(t, { stream = true, transformValues = () => ({ stream:
         config: {
           ability: 'generate',
           stream,
+          showProgress,
           transformValues,
           icon: () => null,
           formPanel: ({ actions }) => actions,
@@ -121,6 +142,7 @@ async function mountPanel(t, { stream = true, transformValues = () => ({ stream:
     streams,
     errors,
     result: () => resultProps,
+    poll: () => act(async () => sleeps.shift()()),
     reset: () => document.querySelector('button[type="button"]'),
     submit: () =>
       act(async () => {
@@ -131,6 +153,50 @@ async function mountPanel(t, { stream = true, transformValues = () => ({ stream:
     unmount: () => act(async () => root.unmount()),
   };
 }
+
+test('generation polls pass backend elapsed and ETA to the result panel', async (t) => {
+  let fail = false;
+  const panel = await mountPanel(t, {
+    stream: false,
+    showProgress: true,
+    getProgress: async () => {
+      if (fail) throw new Error('temporarily unavailable');
+      return { progress: 0.5, elapsed_seconds: 12, eta_seconds: 6 };
+    },
+  });
+  await panel.submit();
+  assert.equal(panel.result().progressTiming.eta_seconds, null);
+  await panel.poll();
+  assert.equal(panel.result().progress, 50);
+  assert.deepEqual(panel.result().progressTiming, {
+    elapsed_seconds: 12,
+    eta_seconds: 6,
+  });
+  fail = true;
+  await panel.poll();
+  assert.equal(panel.result().progressTiming.eta_seconds, null);
+  assert.equal(panel.result().progress, 50);
+  await act(async () => panel.reset().click());
+  assert.equal(panel.result().progressTiming, undefined);
+});
+
+test('a late progress response cannot restore timing after reset', async (t) => {
+  let resolve;
+  const response = new Promise((done) => {
+    resolve = done;
+  });
+  const panel = await mountPanel(t, {
+    stream: false,
+    showProgress: true,
+    getProgress: () => response,
+  });
+  await panel.submit();
+  await panel.poll();
+  await act(async () => panel.reset().click());
+  await act(async () => resolve({ progress: 0.8, elapsed_seconds: 12, eta_seconds: 3 }));
+  assert.equal(panel.result().progress, undefined);
+  assert.equal(panel.result().progressTiming, undefined);
+});
 
 test('Reset aborts a completion before its first token and ignores late callbacks', async (t) => {
   const panel = await mountPanel(t);
