@@ -412,6 +412,7 @@ jobs:
             xinference/core/tests/test_worker.py
             xinference/core/tests/test_worker_address_resolution.py
             xinference/deploy/test
+            xinference/model/image/tests/test_moss_image.py
             xinference/model/llm/llama_cpp/tests/test_gguf.py
             xinference/model/llm/tests/test_cache_download_lock.py
             xinference/model/llm/tests/test_media.py
