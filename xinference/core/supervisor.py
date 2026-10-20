@@ -8131,6 +8131,15 @@ class SupervisorActor(xo.StatelessActor):
             _rpc_operation_request_id=request_id,
         )
 
+    @log_async(logger=logger)
+    async def get_progress_snapshot(self, request_id: str) -> Dict[str, Any]:
+        return await actor_call(
+            self._progress_tracker,
+            "get_progress_snapshot",
+            request_id,
+            _rpc_operation_request_id=request_id,
+        )
+
     async def call_collective_manager(
         self, model_uid: str, func_name: str, *args, **kwargs
     ):

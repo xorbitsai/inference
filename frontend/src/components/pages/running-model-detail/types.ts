@@ -6,6 +6,7 @@ import type { FileUploadValue } from '@/types/common';
 import type { ModelAbility } from '@/constants';
 import type { CodeExampleConfig } from '@/constants/running';
 import type { FormInstance, FormValues } from '@/types/form';
+import type { GenerationProgressTiming } from '@/lib/generation-progress';
 import type { RunningModelDetail } from '@/types/services';
 
 type Attachment = Omit<FileUploadValue, 'file'> & {
@@ -25,6 +26,7 @@ export interface CapabilityResultProps {
   values?: FormValues;
   loading?: boolean;
   progress?: number;
+  progressTiming?: GenerationProgressTiming;
   ability: ModelAbility;
 }
 

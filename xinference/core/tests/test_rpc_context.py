@@ -6,6 +6,8 @@
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 
+# CI: linux
+
 import asyncio
 
 import pytest
@@ -404,7 +406,8 @@ async def test_supervisor_pd_abort_propagates_metadata_without_changing_request_
 
 
 @pytest.mark.asyncio
-async def test_progress_query_propagates_metadata_without_changing_request_id():
+@pytest.mark.parametrize("method", ["get_progress", "get_progress_snapshot"])
+async def test_progress_query_propagates_metadata_without_changing_request_id(method):
     from ..supervisor import SupervisorActor
 
     calls = []
@@ -415,10 +418,12 @@ async def test_progress_query_propagates_metadata_without_changing_request_id():
             calls.append((request_id, get_current_rpc_metadata(), kwargs))
             return 0.75
 
+        get_progress_snapshot = get_progress
+
     class Supervisor:
         _progress_tracker = ProgressTracker()
 
-    result = await SupervisorActor.get_progress(
+    result = await getattr(SupervisorActor, method)(
         Supervisor(),
         "operation-id",
         **{
