@@ -14,6 +14,7 @@ import xoscar as xo
 
 from ...xavier.backends.torch.storage import XavierCacheActor
 from ...xavier.contract import KVCacheContract
+from ...xavier.tests.utils import mock_lmcache_backend
 from ..xavier import CONFIG_ENV, configure_xavier
 
 
@@ -47,18 +48,25 @@ def connector(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("logical_dtype", ["float16", "bfloat16"])
+@pytest.mark.parametrize("backend", ["native", "lmcache"])
 async def test_two_instances_restore_owned_prefix_after_eviction(
-    monkeypatch, connector, logical_dtype
+    monkeypatch, connector, logical_dtype, backend
 ):
     contract = KVCacheContract(
         "a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 2, 4, 4, logical_dtype
     )
     page_bytes = contract.num_layers * contract.layer_nbytes
+    options = {}
+    storages = []
+    if backend == "lmcache":
+        config, storages = mock_lmcache_backend(monkeypatch)
+        options["cache_backend"] = config
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
     async with pool:
         actor = await xo.create_actor(
             XavierCacheActor,
             2 * page_bytes,
+            **options,
             address=pool.external_address,
             uid="trt-cache",
         )
@@ -110,12 +118,16 @@ async def test_two_instances_restore_owned_prefix_after_eviction(
         )
         stats = await actor.get_stats()
         assert stats["stored_pages"] == 2
+        assert stats["backend"] == backend
         request.request_id = 2
         request.get_tokens = lambda beam: [*range(10), 100]
         assert await asyncio.to_thread(b.get_num_new_matched_tokens, request, 0) == (
             8,
             False,
         )
+        if storages:
+            assert (await actor.get_stats())["backend_stats"]["l2_hits"] == 2
+            storages[0].pages.clear()
         b.update_state_after_alloc(request, [2, 0, 1])
         # Remove source data and evict the shared pages after the admission query.
         expected = source_pool[:2].clone()
@@ -159,6 +171,8 @@ async def test_two_instances_restore_owned_prefix_after_eviction(
             False,
         )
         await xo.destroy_actor(actor)
+        if storages:
+            assert storages[0].closed and storages[0].stopped
         assert await asyncio.to_thread(b.get_num_new_matched_tokens, request, 0) == (
             0,
             False,

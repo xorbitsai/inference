@@ -36,7 +36,7 @@ def check_lmcache_available() -> None:
         installed = Version(version("lmcache"))
     except PackageNotFoundError as error:
         raise RuntimeError(
-            "Install lmcache>=0.5.6,<0.6 in the Xavier transfer actor environment"
+            "Install lmcache>=0.5.6,<0.6 in the Xavier storage actor environment"
         ) from error
     if not Version("0.5.6") <= installed < Version("0.6"):
         raise RuntimeError("The Xavier LMCache backend requires lmcache>=0.5.6,<0.6")
@@ -159,7 +159,7 @@ class _LMCacheStorage:
 
     def close(self) -> None:
         self.manager.close()
-        # The directory is private to this deployment/replica and cannot be
+        # The directory is private to this deployment/storage instance and cannot be
         # rediscovered after relaunch. Remove only that owned cache directory.
         if self._disk_path.exists():
             shutil.rmtree(self._disk_path)

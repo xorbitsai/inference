@@ -3,6 +3,7 @@
 """Snapshot backend boundary used by Xavier's engine and transport adapters."""
 
 from typing import Dict, List, Optional, Protocol, Set, Tuple
+from uuid import uuid4
 
 import torch
 
@@ -37,6 +38,23 @@ class SnapshotBackend(Protocol):
     async def close(self): ...
 
     def get_stats(self) -> dict: ...
+
+
+async def read_page_snapshots(
+    store: SnapshotBackend, keys: List[int]
+) -> List[Optional[torch.Tensor]]:
+    """Return owned pages, bounding each RPC's copies by the staging capacity."""
+    candidates = store.ready_keys(keys)[: store.capacity]
+    if not candidates or not await store.prefetch(candidates):
+        return [None] * len(keys)
+    lease = uuid4().hex
+    if not store.reserve(lease, candidates):
+        return [None] * len(keys)
+    try:
+        pages = {key: store.read("page", [key])[0] for key in candidates}
+        return [pages.get(key) for key in keys]
+    finally:
+        store.release(lease)
 
 
 def create_snapshot_backend(

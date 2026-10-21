@@ -1,5 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+# CI: linux
 r"""Opt-in real SGLang -> Xavier -> fresh SGLang prefix-cache regression.
 
 Run on a two-GPU Linux host with SGLang >= 0.5.21, xoscar[nixl] >= 0.11.1
@@ -10,6 +11,9 @@ before running::
     XINFERENCE_TEST_PD_MODEL_PATH=/path/to/model \
     SGLANG_PLUGINS=__xinference_test__ \
     pytest -vv xinference/model/llm/sglang/tests/test_xavier_gpu.py
+
+The ``lmcache`` case additionally requires the optional LMCache extra; it is
+skipped when LMCache is not installed.
 """
 
 import asyncio
@@ -78,7 +82,10 @@ def test_salted_sglang_storage_hashes_cannot_reuse_other_salts(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_real_sglang_remote_prefix_restore(tmp_path):
+@pytest.mark.parametrize("backend", ["native", "lmcache"])
+async def test_real_sglang_remote_prefix_restore(tmp_path, backend):
+    if backend == "lmcache":
+        pytest.importorskip("lmcache")
     import requests
     import sglang as sgl
     import torch
@@ -86,6 +93,7 @@ async def test_real_sglang_remote_prefix_restore(tmp_path):
     from transformers import AutoTokenizer
 
     from ...xavier.backends.torch.storage import XavierCacheActor
+    from ...xavier.tests.utils import DiskCacheActor
     from ..xavier.config import configure_xavier
 
     assert torch.cuda.device_count() >= 2
@@ -97,9 +105,23 @@ async def test_real_sglang_remote_prefix_restore(tmp_path):
     ]
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
     async with pool:
+        options = {}
+        actor_class = XavierCacheActor
+        if backend == "lmcache":
+            actor_class = DiskCacheActor
+            options["cache_backend"] = dict(
+                name="lmcache",
+                config=dict(
+                    cpu_bytes=64 << 20,
+                    disk_bytes=128 << 20,
+                    disk_path=str(tmp_path / "kv"),
+                ),
+                namespace="sglang-disk",
+            )
         actor = await xo.create_actor(
-            XavierCacheActor,
+            actor_class,
             64 * 1024 * 1024,
+            **options,
             address=pool.external_address,
             uid="xavier-test",
         )
@@ -116,7 +138,7 @@ async def test_real_sglang_remote_prefix_restore(tmp_path):
         }
         await asyncio.to_thread(configure_xavier, model_path, config, cache)
         engines = []
-        results = {}
+        results = {"backend": backend}
 
         async def generate(engine):
             response = await asyncio.to_thread(
@@ -144,10 +166,12 @@ async def test_real_sglang_remote_prefix_restore(tmp_path):
             results["cold"] = await generate(producer)
             for _ in range(100):
                 stats = await actor.get_stats()
-                if stats["stored_pages"]:
+                if stats["pages"] >= 15:
                     break
                 await asyncio.sleep(0.1)
             assert stats["stored_pages"] > 0, stats
+            if backend == "lmcache":
+                await actor.force_disk_reads()
             results["after_publish"] = stats
             consumer = await asyncio.to_thread(
                 sgl.Runtime, model_path=model_path, base_gpu_id=1, **config
@@ -155,6 +179,8 @@ async def test_real_sglang_remote_prefix_restore(tmp_path):
             engines.append(consumer)
             results["warm"] = await generate(consumer)
             results["after_restore"] = await actor.get_stats()
+            if backend == "lmcache":
+                assert results["after_restore"]["backend_stats"]["l2_hits"] > 0
             assert (
                 results["after_restore"]["read_pages"]
                 > results["after_publish"]["read_pages"]
@@ -180,6 +206,8 @@ async def test_real_sglang_remote_prefix_restore(tmp_path):
             )
             flushed.raise_for_status()
             await xo.destroy_actor(actor)
+            if backend == "lmcache":
+                assert not list((tmp_path / "kv").iterdir())
             results["store_unavailable"] = await generate(consumer)
             assert results["store_unavailable"]["text"] == results["cold"]["text"]
             assert results["store_unavailable"]["meta_info"]["cached_tokens"] == 0

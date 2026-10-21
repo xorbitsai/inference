@@ -79,11 +79,12 @@ class XavierClient:
                 )
             return await getattr(self._ref, method)(*args)
 
+        timeout = max(10, self.config.get("read_timeout", 0) + 1)
         future = asyncio.run_coroutine_threadsafe(
-            asyncio.wait_for(invoke(), timeout=10), self._loop
+            asyncio.wait_for(invoke(), timeout=timeout), self._loop
         )
         try:
-            return future.result(timeout=11)
+            return future.result(timeout=timeout + 1)
         except BaseException:
             future.cancel()
             raise
