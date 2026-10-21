@@ -97,9 +97,10 @@ def configure_xavier(model, model_path, model_config, cache_config, n_worker):
         if cache_config.get("heterogeneous")
         else "float16"
     )
-    if dtype not in ("float16", "bfloat16") or model_config.get(
-        "dtype", "auto"
-    ) not in (None, "auto", dtype):
+    if dtype not in ("float16", "bfloat16") or (
+        cache_config.get("heterogeneous")
+        and model_config.get("dtype", "auto") not in (None, "auto", dtype)
+    ):
         raise ValueError(f"MLX Xavier requires {dtype} weights and KV")
     model.set_dtype(getattr(mx, dtype))
     # Loading/configuration run in a worker thread. Materialize casts there so

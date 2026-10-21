@@ -1172,6 +1172,7 @@ async def test_host_pd_truncated_payload_aborts_without_local_prefill(monkeypatc
 @pytest.mark.asyncio
 async def test_bf16_conversion_in_load_thread_is_eager_before_generation(tmp_path):
     import mlx.core as mx
+    from mlx.utils import tree_flatten
     from mlx_lm.generate import BatchGenerator
 
     (tmp_path / "config.json").write_text(json.dumps({"model_type": "qwen2"}))
@@ -1182,7 +1183,8 @@ async def test_bf16_conversion_in_load_thread_is_eager_before_generation(tmp_pat
         m = model()
         m.set_dtype(mx.bfloat16)
         mx.eval(m.parameters())
-        configure_xavier(m, tmp_path, {}, {}, 1)
+        configure_xavier(m, tmp_path, {"dtype": "bfloat16"}, {}, 1)
+        assert all(p.dtype == mx.float16 for _, p in tree_flatten(m.parameters()))
         return m
 
     m = await asyncio.to_thread(load)
