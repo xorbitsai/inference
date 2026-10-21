@@ -217,33 +217,60 @@ class VLLMRerankModel(RerankModel, BatchMixin):
     def _prepare_native_inputs(
         self, documents: List[Any], query: Any, **kwargs
     ) -> List[Tuple[Any, Any]]:
+        from packaging.version import Version
         from vllm import PoolingParams
-        from vllm.entrypoints.pooling.score.utils import (
-            compress_token_type_ids,
-            get_score_prompt,
-            validate_score_input,
-        )
+        from vllm import __version__ as vllm_version
 
         queries, documents = self._prepare_pairs(documents, query, **kwargs)
         config = self._model.model_config
         if getattr(config.hf_config, "num_labels", 0) != 1:
             raise ValueError("Score API is only enabled for num_labels == 1.")
-        queries, documents = validate_score_input(
-            queries,
-            documents,
-            is_multimodal_model=config.is_multimodal_model,
-            architecture=config.architecture,
-        )
+        if Version(vllm_version) >= Version("0.20.0"):
+            try:
+                from vllm.renderers.chat_utils import ChatTemplateConfig
+            except ImportError:
+                from vllm.entrypoints.chat_utils import ChatTemplateConfig
+            from vllm.entrypoints.pooling.scoring.io_processor import (
+                CrossEncoderIOProcessor,
+            )
+            from vllm.entrypoints.pooling.scoring.utils import compress_token_type_ids
+
+            processor = CrossEncoderIOProcessor(
+                self._model.vllm_config,
+                self._model.renderer,
+                ChatTemplateConfig(),
+            )
+            scoring_data = processor.valid_inputs(queries, documents)
+            queries, documents = scoring_data.data_1, scoring_data.data_2
+        else:
+            from vllm.entrypoints.pooling.score.utils import (
+                compress_token_type_ids,
+                get_score_prompt,
+                validate_score_input,
+            )
+
+            processor = None
+            queries, documents = validate_score_input(
+                queries,
+                documents,
+                is_multimodal_model=config.is_multimodal_model,
+                architecture=config.architecture,
+            )
         tok_kwargs = self._model.renderer.default_cmpl_tok_params.get_encode_kwargs()
         inputs = []
         for query, document in zip(queries, documents):
-            _, prompt = get_score_prompt(
-                model_config=config,
-                tokenizer=self._tokenizer,
-                tokenization_kwargs=tok_kwargs,
-                data_1=query,
-                data_2=document,
-            )
+            if processor is not None:
+                _, prompt = processor.get_score_prompt(
+                    data_1=query, data_2=document, encode_kwargs=tok_kwargs
+                )
+            else:
+                _, prompt = get_score_prompt(
+                    model_config=config,
+                    tokenizer=self._tokenizer,
+                    tokenization_kwargs=tok_kwargs,
+                    data_1=query,
+                    data_2=document,
+                )
             params = PoolingParams(task="classify")
             if token_type_ids := prompt.pop("token_type_ids", None):
                 params.extra_kwargs = {
