@@ -23,10 +23,10 @@ import pytest
 from xinference.model.rerank.vllm.core import VLLMRerankModel
 
 
-@pytest.fixture(params=["0.19.0", "0.19.1", "0.20.0", "0.20.1"])
+@pytest.fixture(params=["0.19.0", "0.19.1", "0.20.0", "0.20.1", "0.32.0"])
 def native_model(request, monkeypatch):
     """Emulate both vLLM APIs without importing optional GPU libraries."""
-    modern = request.param.startswith("0.20")
+    modern = not request.param.startswith("0.19")
     model = object.__new__(VLLMRerankModel)
     model.model_family = SimpleNamespace(model_name="bge-reranker-base")
     config = SimpleNamespace(
@@ -103,7 +103,14 @@ def native_model(request, monkeypatch):
                 assert encode_kwargs is tok_kwargs
                 return prompt(data_1, data_2)
 
-        module("vllm.entrypoints.chat_utils", ChatTemplateConfig=ChatTemplateConfig)
+        old_chat_path = "vllm.entrypoints.chat_utils"
+        new_chat_path = "vllm.renderers.chat_utils"
+        if request.param == "0.32.0":
+            module(new_chat_path, ChatTemplateConfig=ChatTemplateConfig)
+            monkeypatch.setitem(sys.modules, old_chat_path, None)
+        else:
+            module(old_chat_path, ChatTemplateConfig=ChatTemplateConfig)
+            monkeypatch.setitem(sys.modules, new_chat_path, None)
         module(new_path, CrossEncoderIOProcessor=CrossEncoderIOProcessor)
         module(
             "vllm.entrypoints.pooling.scoring.utils",

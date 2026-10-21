@@ -226,7 +226,10 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         if getattr(config.hf_config, "num_labels", 0) != 1:
             raise ValueError("Score API is only enabled for num_labels == 1.")
         if Version(vllm_version) >= Version("0.20.0"):
-            from vllm.entrypoints.chat_utils import ChatTemplateConfig
+            try:
+                from vllm.renderers.chat_utils import ChatTemplateConfig
+            except ImportError:
+                from vllm.entrypoints.chat_utils import ChatTemplateConfig
             from vllm.entrypoints.pooling.scoring.io_processor import (
                 CrossEncoderIOProcessor,
             )
