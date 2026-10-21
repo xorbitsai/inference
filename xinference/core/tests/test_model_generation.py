@@ -403,3 +403,31 @@ def test_capacity_refuses_unknown_driver_pid_namespace(monkeypatch):
     )
     with pytest.raises(ValueError, match="every serving GPU"):
         _check_generation_capacity(model, [], {}, False)
+
+
+@pytest.mark.parametrize("unknown", [None, 2**64 - 1, 0])
+def test_capacity_refuses_unavailable_driver_memory(monkeypatch, unknown):
+    import os
+
+    import psutil
+
+    from ...model.llm import weight_cache
+    from ..model_generation import _check_generation_capacity
+
+    model = SimpleNamespace(
+        _weight_cache=SimpleNamespace(process=SimpleNamespace(pid=12345), config={}),
+        _weight_cache_engine="vllm",
+        _reload_config={},
+    )
+    monkeypatch.setattr(
+        psutil, "Process", lambda pid: SimpleNamespace(children=lambda recursive: [])
+    )
+    monkeypatch.setattr(
+        weight_cache,
+        "_gpu_memory_snapshot",
+        lambda: {
+            0: (24 * 1024**3, 20 * 1024**3, {os.getpid(): 1024**3, 12345: unknown})
+        },
+    )
+    with pytest.raises(ValueError, match="Cannot safely account"):
+        _check_generation_capacity(model, [], {}, True)

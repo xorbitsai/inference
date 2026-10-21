@@ -82,8 +82,13 @@ def _check_generation_capacity(model, caches, config, reused):
         owners = cache_pids | engine_pids
         if not cache_pids.intersection(processes):
             continue
-        if not engine_pids.intersection(processes) or any(
-            processes[pid] is None for pid in owners.intersection(processes)
+        if (
+            not 0 <= free <= total
+            or not engine_pids.intersection(processes)
+            or any(
+                processes[pid] is None or not 0 <= processes[pid] <= total
+                for pid in owners.intersection(processes)
+            )
         ):
             raise ValueError(
                 "Cannot safely account for the serving engine's GPU memory"
@@ -92,6 +97,10 @@ def _check_generation_capacity(model, caches, config, reused):
         current = weights + sum(
             processes[pid] for pid in engine_pids.intersection(processes)
         )
+        if weights <= 0 or current <= weights:
+            raise ValueError(
+                "Cannot safely account for the serving engine's GPU memory"
+            )
 
         def budget(settings):
             fraction = float(settings.get(fraction_field) or default_fraction)
