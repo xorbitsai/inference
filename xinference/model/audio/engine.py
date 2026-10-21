@@ -28,6 +28,7 @@ from .irodori_tts import IrodoriTTSModel
 from .kokoro import KokoroModel
 from .kokoro_mlx import KokoroMLXModel
 from .melotts import MeloTTSModel
+from .ming_tts import MingTTSModel
 from .minimax_music3 import MiniMaxMusic3Model
 from .minimax_music3_mlx import MLXMiniMaxMusic3Model
 from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
@@ -193,6 +194,20 @@ class PyTorchBreezeAudioModel(BreezeTTS2Model, AudioEngineModel):
             model_family.model_name == "Breeze-TTS-2"
             and model_family.model_family == "Breeze-TTS-2"
         )
+
+
+class PyTorchMingTTSAudioModel(MingTTSModel, AudioEngineModel):
+    required_libs = ("torch",)
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return cls.is_model_family_supported(
+            model_family
+        ) and _is_engine_or_unspecified(model_family, "PyTorch")
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return model_family.model_family == "Ming-3.0-tts"
 
 
 class PyTorchIrodoriAudioModel(IrodoriTTSModel, AudioEngineModel):
@@ -462,6 +477,7 @@ def register_builtin_audio_engines() -> None:
         PyTorchKokoroAudioModel,
         PyTorchFishAudioModel,
         PyTorchBreezeAudioModel,
+        PyTorchMingTTSAudioModel,
         PyTorchIrodoriAudioModel,
         PyTorchFunASRAudioModel,
         PyTorchQwen3TTSAudioModel,

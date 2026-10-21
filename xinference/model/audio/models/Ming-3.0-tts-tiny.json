@@ -1,0 +1,60 @@
+[
+  {
+    "version": 2,
+    "model_name": "Ming-3.0-tts-tiny",
+    "model_family": "Ming-3.0-tts",
+    "model_description": "Ming-3.0 TTS supports multilingual voice cloning, voice design, emotion, dialect and instruction control. Use prompt_speech with prompt_text for cloning, voice for a built-in voice (default: 灵小柔), or task with controls/instruction for other modes. Tiny additionally supports podcast generation. Requires NVIDIA CUDA and fla-core.",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning",
+      "text2audio_voice_design",
+      "text2audio_emotion_control"
+    ],
+    "multilingual": true,
+    "model_lang": [
+      "zh",
+      "en",
+      "de",
+      "es",
+      "fr",
+      "ko",
+      "ja"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers==4.46.3",
+        "accelerate>=1.3",
+        "huggingface-hub>=0.36,<1.0",
+        "safetensors>=0.7.0",
+        "soundfile>=0.12.1",
+        "onnxruntime",
+        "einops",
+        "loguru",
+        "inflect",
+        "packaging",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#",
+        "x-transformers==2.7.4",
+        "fla-core==0.4.2",
+        "triton>=3.3.1",
+        "scipy"
+      ],
+      "index_strategy": "unsafe-best-match"
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "inclusionAI/Ming-3.0-tts-tiny",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "inclusionAI/Ming-3.0-tts-tiny",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1792515422,
+    "featured": false,
+    "engine": "PyTorch"
+  }
+]
