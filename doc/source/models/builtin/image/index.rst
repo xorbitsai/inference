@@ -19,6 +19,10 @@ The following is a list of built-in image models in Xinference:
   
    dots.ocr
 
+   fibo-2.0-dev
+
+   fibo-2.0-edit-turbo
+
    firered-image-edit-1.1
   
    flux.1-dev

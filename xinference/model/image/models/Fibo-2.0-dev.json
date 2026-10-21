@@ -1,0 +1,42 @@
+[
+  {
+    "version": 2,
+    "model_name": "Fibo-2.0-dev",
+    "model_family": "fibo2",
+    "model_description": "Fibo 2.0 Dev is an 8B model for text-to-image generation and image editing with structured prompts, multiple references and masks.",
+    "model_ability": [
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "briaai/Fibo-2.0-dev",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "briaai/Fibo-2.0-dev",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "num_inference_steps": 50,
+      "guidance_scale": 5.0
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers @ https://github.com/huggingface/diffusers/archive/1ddaf8f4e7c33afaa7c6c2c3be9e56f2c2a634c8.zip ; #engine# == \"diffusers\"",
+        "transformers>=5.20.1,<6",
+        "accelerate>=1.10.0",
+        "Pillow>=10",
+        "#system_torch#",
+        "#system_torchvision#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
+  }
+]
