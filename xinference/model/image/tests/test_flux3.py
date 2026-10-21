@@ -27,7 +27,7 @@ from PIL import Image
 from .. import load_model_family_from_json
 from ..core import create_image_model_instance
 from ..engine import DiffusersImageModel, Flux3ImageModel
-from ..flux3 import Flux3Model
+from ..flux3 import FLUX3_DIFFUSERS_URL, Flux3Model
 
 
 @pytest.fixture(params=["huggingface", "modelscope"])
@@ -45,6 +45,8 @@ def spec(request):
 
 
 def test_catalog_and_dispatch(spec, tmp_path):
+    from xoscar.virtualenv.uv import UVVirtualEnvManager
+
     from ..engine_family import IMAGE_ENGINES
 
     assert spec.model_id == "black-forest-labs/flux-3-image-klein"
@@ -57,6 +59,14 @@ def test_catalog_and_dispatch(spec, tmp_path):
     assert not DiffusersImageModel.match(spec)
     assert set(IMAGE_ENGINES[spec.model_name]) == {"diffusers"}
     assert "transformers>=5.8.1,<6" in spec.virtualenv.packages
+    archive_requirement = f"diffusers @ {FLUX3_DIFFUSERS_URL}"
+    assert FLUX3_DIFFUSERS_URL.endswith(".zip")
+    assert archive_requirement in UVVirtualEnvManager.process_packages(
+        spec.virtualenv.packages, engine="diffusers"
+    )
+    assert archive_requirement not in UVVirtualEnvManager.process_packages(
+        spec.virtualenv.packages, engine="vLLM"
+    )
     model = create_image_model_instance(
         "custom-flux3-uid",
         spec.model_name,
@@ -290,7 +300,6 @@ def test_invalid_requests(loaded_model, options):
 def test_old_diffusers_has_actionable_error(monkeypatch, spec):
     monkeypatch.setitem(sys.modules, "diffusers", SimpleNamespace())
     model = Flux3Model("flux3", "/unused", spec)
-    with pytest.raises(
-        ImportError, match="git\\+https://github.com/huggingface/diffusers"
-    ):
+    with pytest.raises(ImportError) as exc:
         model.load()
+    assert FLUX3_DIFFUSERS_URL in str(exc.value)
