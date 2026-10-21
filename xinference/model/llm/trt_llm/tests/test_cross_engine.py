@@ -45,8 +45,9 @@ def test_trt_and_sglang_build_the_same_bf16_contract(checkpoint, monkeypatch):
         trt_contract.require_match(build_pd_contract(checkpoint, 512))
     with pytest.raises(ValueError, match="bfloat16"):
         configure_sglang(checkpoint, dict(dtype="float16"), cache)
-    with pytest.raises(ValueError, match="BF16 CUDA"):
-        configure_xavier(checkpoint, {}, {**cache, "host_handoff": True})
+    configure_xavier(checkpoint, {}, {**cache, "host_handoff": True})
+    with pytest.raises(ValueError, match="BF16 replicas"):
+        configure_xavier(checkpoint, {}, {**cache, "logical_dtype": "float16"})
 
 
 def test_trt_views_share_storage_and_preserve_head_token_order(checkpoint):
@@ -116,14 +117,19 @@ async def test_trt_source_is_pinned_before_first_token_and_waits_for_metadata(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("role", ["prefill", "decode"])
-async def test_trt_cross_engine_uses_router_room_and_exact_prompt(checkpoint, role):
+@pytest.mark.parametrize("host_handoff", [False, True])
+async def test_trt_cross_engine_uses_router_room_and_exact_prompt(
+    checkpoint, role, host_handoff
+):
     pd = TRTLLMPD(role, "nixl")
     c = build_pd_contract(checkpoint, logical_dtype="bfloat16")
     pd.client = SimpleNamespace(
-        config=dict(heterogeneous=True, rank=1), namespace=c.fingerprint, rpc=Mock()
+        config=dict(heterogeneous=True, rank=1, host_handoff=host_handoff),
+        namespace=c.fingerprint,
+        rpc=Mock(),
     )
     tokens = list(range(65))
-    handoff = dict(room=123, mode="gpu")
+    handoff = dict(room=123, mode="host" if host_handoff else "gpu")
     flag = "do_remote_decode" if role == "prefill" else "do_remote_prefill"
     state = await pd.prepare("r", tokens, {flag: True, "sglang_xavier": handoff})
     assert state["context"].room == 123
@@ -137,6 +143,16 @@ async def test_trt_cross_engine_uses_router_room_and_exact_prompt(checkpoint, ro
             {flag: True, "sglang_xavier": {**handoff, "cache_scope": "x"}},
         )
     assert "salted" not in pd.active
+    with pytest.raises(ValueError, match="handoff room"):
+        await pd.prepare(
+            "wrong-mode",
+            tokens,
+            {
+                flag: True,
+                "sglang_xavier": dict(handoff, mode="gpu" if host_handoff else "host"),
+            },
+        )
+    assert "wrong-mode" not in pd.active
     assert XavierRequest(role, tuple(tokens), 123).num_pages == 1
 
 

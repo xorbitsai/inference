@@ -288,8 +288,6 @@ class CrossEngineGPUActor(xo.StatelessActor):
 
     def _copy_host_pages(self, pages, offset, prefix_tokens, device):
         c = self.contract
-        if c.logical_dtype != "float16":
-            raise ValueError("Cross-engine host transport requires FP16")
         indices = torch.tensor(pages, dtype=torch.long, device=device)
         data = torch.stack(
             [
@@ -311,7 +309,10 @@ class CrossEngineGPUActor(xo.StatelessActor):
                 0, min(c.block_size, prefix_tokens - (offset + index) * c.block_size)
             )
             data[index, :, :, valid:] = 0
-        return [page.numpy().astype("<f2", copy=False).tobytes() for page in data]
+        return [
+            page.view(torch.uint16).numpy().astype("<u2", copy=False).tobytes()
+            for page in data
+        ]
 
     async def export_host_pages(self, room, index, start=0):
         """Bounded CUDA-to-CPU RPC for a Metal consumer; source slots stay pinned."""
@@ -523,16 +524,24 @@ class CrossEngineGPUActor(xo.StatelessActor):
             torch.cuda.set_device(device)
         try:
             c = self.contract
-            data = torch.from_numpy(
-                np.stack(
-                    [
-                        np.frombuffer(page, dtype="<f2").reshape(
-                            c.num_layers, 2, c.block_size, c.num_kv_heads, c.head_dim
-                        )
-                        for page in pages
-                    ]
+            data = (
+                torch.from_numpy(
+                    np.stack(
+                        [
+                            np.frombuffer(page, dtype="<u2").reshape(
+                                c.num_layers,
+                                2,
+                                c.block_size,
+                                c.num_kv_heads,
+                                c.head_dim,
+                            )
+                            for page in pages
+                        ]
+                    )
                 )
-            ).to(device)
+                .view(getattr(torch, c.logical_dtype))
+                .to(device)
+            )
             indices = torch.tensor(destinations, device=device, dtype=torch.long)
             for layer in range(c.num_layers):
                 for kind in (0, 1):
@@ -546,8 +555,6 @@ class CrossEngineGPUActor(xo.StatelessActor):
     async def _receive_host(self, room, source, destinations):
         from ....sglang.xavier.settings import transfer_timeout
 
-        if self.contract.logical_dtype != "float16":
-            raise ValueError("Cross-engine host transport requires FP16")
         sender = await xo.actor_ref(address=source["address"], uid=source["uid"])
         info = await self.directory.request_info(room)
         prompt_tokens = info["prompt_tokens"]

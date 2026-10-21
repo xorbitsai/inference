@@ -3506,6 +3506,7 @@ class SupervisorActor(xo.StatelessActor):
             replica_engine = model_engine
             replica_path = model_path
             replica_format = model_format
+            replica_quantization = quantization
             if pd_enabled:
                 assert replica_config is not None
                 cfg = replica_config[rank - 1]
@@ -3514,6 +3515,12 @@ class SupervisorActor(xo.StatelessActor):
                 replica_path = replica_kwargs.pop("model_path", model_path)
                 replica_format = replica_kwargs.pop("model_format", model_format)
             if heterogeneous_pd:
+                if (
+                    replica_engine or ""
+                ).lower() == "mlx" and "trt-llm" in replica_engines:
+                    # Select the unquantized MLX registry entry; the checkpoint
+                    # itself remains byte-identical to the CUDA replica.
+                    replica_quantization = "bf16"
                 assert replica_config is not None
                 from ..model.llm.xavier.transport import get_transport_host
 
@@ -3583,7 +3590,7 @@ class SupervisorActor(xo.StatelessActor):
                     model_name=model_name,
                     model_size_in_billions=model_size_in_billions,
                     model_format=replica_format,
-                    quantization=quantization,
+                    quantization=replica_quantization,
                     model_engine=replica_engine,
                     model_type=model_type,
                     n_gpu=n_gpu if replica_n_gpu is None else replica_n_gpu,

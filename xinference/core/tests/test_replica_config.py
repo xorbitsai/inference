@@ -338,7 +338,7 @@ def test_nvidia_mlx_topology_keeps_hardware_on_separate_roles(prefill, decode, v
 
 @pytest.mark.parametrize("other", ["vLLM", "SGLang", "MLX"])
 @pytest.mark.parametrize("reverse", [False, True])
-def test_trt_cross_engine_requires_cuda(other, reverse):
+def test_trt_cross_engine_accepts_supported_engines(other, reverse):
     engines = ["TRT-LLM", other]
     if reverse:
         engines.reverse()
@@ -346,8 +346,4 @@ def test_trt_cross_engine_requires_cuda(other, reverse):
         ReplicaConfig(role=role, model_engine=engine)
         for role, engine in zip(("prefill", "decode"), engines)
     ]
-    if other == "MLX":
-        with pytest.raises(ValueError, match="CUDA replicas"):
-            validate_pd_replica_configs(configs, "vLLM", "LLM")
-    else:
-        assert validate_pd_replica_configs(configs, "vLLM", "LLM")
+    assert validate_pd_replica_configs(configs, "vLLM", "LLM")

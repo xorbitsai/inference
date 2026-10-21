@@ -31,11 +31,11 @@ EXECUTION_OPTIONS = {
 def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
     if cache_config.get("role") not in (None, "prefill", "decode"):
         raise ValueError("TRT-LLM Xavier requires a prefill or decode role")
-    if cache_config.get("heterogeneous") and (
-        cache_config.get("host_handoff")
-        or cache_config.get("logical_dtype") != "bfloat16"
+    if (
+        cache_config.get("heterogeneous")
+        and cache_config.get("logical_dtype") != "bfloat16"
     ):
-        raise ValueError("TRT-LLM cross-engine Xavier requires BF16 CUDA replicas")
+        raise ValueError("TRT-LLM cross-engine Xavier requires BF16 replicas")
     if cache_config.get("role") is not None:
         from ..xavier.transport import gpu_pool_options
 

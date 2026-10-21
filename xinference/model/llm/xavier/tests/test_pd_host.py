@@ -1,5 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+# CI: linux
 import asyncio
 import threading
 from dataclasses import replace
@@ -14,12 +15,13 @@ from ..backends.bytes.pd import XavierHostPDSource
 from ..backends.torch.pd import CrossEngineGPUActor
 
 
-def source(kv_contract):
-    c = replace(kv_contract, num_layers=2)
+def source(kv_contract, logical_dtype="float16"):
+    c = replace(kv_contract, num_layers=2, logical_dtype=logical_dtype)
     actor = CrossEngineGPUActor(None, c, AsyncMock(), c.fingerprint, 1)
     actor.caches = {
         str(i): torch.arange(
-            10 * c.block_size * c.num_kv_heads * c.head_dim, dtype=torch.float16
+            10 * c.block_size * c.num_kv_heads * c.head_dim,
+            dtype=getattr(torch, logical_dtype),
         ).reshape(10, c.block_size, c.num_kv_heads, c.head_dim)
         + i
         for i in range(4)
@@ -27,14 +29,17 @@ def source(kv_contract):
     return actor
 
 
-def test_host_export_preserves_physical_order_and_clears_padding(kv_contract):
-    actor = source(kv_contract)
+@pytest.mark.parametrize("logical_dtype", ["float16", "bfloat16"])
+def test_host_export_preserves_physical_order_and_clears_padding(
+    kv_contract, logical_dtype
+):
+    actor = source(kv_contract, logical_dtype)
     c = actor.contract
     original = {k: v.clone() for k, v in actor.caches.items()}
     pages = actor._export_host_pages([7, 2], 0, c.block_size + 1)
     data = np.stack(
         [
-            np.frombuffer(p, dtype="<f2").reshape(
+            np.frombuffer(p, dtype="<u2").reshape(
                 c.num_layers, 2, c.block_size, c.num_kv_heads, c.head_dim
             )
             for p in pages
@@ -43,7 +48,10 @@ def test_host_export_preserves_physical_order_and_clears_padding(kv_contract):
     for layer in range(c.num_layers):
         for kind in (0, 1):
             expected = (
-                actor.caches[str(layer + kind * c.num_layers)][[7, 2]].numpy().copy()
+                actor.caches[str(layer + kind * c.num_layers)][[7, 2]]
+                .view(torch.uint16)
+                .numpy()
+                .copy()
             )
             expected[1, 1:] = 0
             np.testing.assert_array_equal(data[:, layer, kind], expected)
@@ -229,8 +237,9 @@ async def test_host_export_reads_prompt_once_outside_send_lock(kv_contract):
     actor.directory.request_info.assert_awaited_once_with(1)
 
 
-def test_host_import_preserves_destination_physical_order(kv_contract):
-    actor = source(kv_contract)
+@pytest.mark.parametrize("logical_dtype", ["float16", "bfloat16"])
+def test_host_import_preserves_destination_physical_order(kv_contract, logical_dtype):
+    actor = source(kv_contract, logical_dtype)
     original = {k: v.clone() for k, v in actor.caches.items()}
     pages = actor._export_host_pages([7, 2], 0, actor.contract.block_size + 1)
     actor._import_host_pages(pages, [3, 8])

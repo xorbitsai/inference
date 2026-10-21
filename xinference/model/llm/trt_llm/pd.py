@@ -212,8 +212,9 @@ class TRTLLMPD:
         heterogeneous = self.client.config.get("heterogeneous", False)
         if heterogeneous:
             handoff = transfer.get("sglang_xavier")
-            if not isinstance(handoff, dict) or handoff.get("mode") != "gpu":
-                raise ValueError("Missing cross-engine Xavier GPU handoff room")
+            mode = "host" if self.client.config.get("host_handoff") else "gpu"
+            if not isinstance(handoff, dict) or handoff.get("mode") != mode:
+                raise ValueError("Missing cross-engine Xavier handoff room")
             validate_handoff_scope(handoff)
             room = handoff["room"]
         elif self.role == "prefill":

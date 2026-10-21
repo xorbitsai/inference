@@ -4,6 +4,7 @@ import asyncio
 import importlib
 import json
 import platform
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, Mock
 
@@ -173,12 +174,17 @@ def test_vision_model_rejects_xavier_before_loading(role):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("length", [1, 64, 65, 130])
 @pytest.mark.parametrize("biased", [False, True])
-async def test_host_prefill_full_kv_and_first_token(length, monkeypatch, biased):
+@pytest.mark.parametrize("logical_dtype", ["float16", "bfloat16"])
+async def test_host_prefill_full_kv_and_first_token(
+    length, monkeypatch, biased, logical_dtype
+):
     import mlx.core as mx
     from mlx_lm.generate import PromptProcessingBatch
     from mlx_lm.models.cache import make_prompt_cache
 
     m = model()
+    m.set_dtype(getattr(mx, logical_dtype))
+    mx.eval(m.parameters())
     tokens = [i % 128 for i in range(length)]
     reference = PromptProcessingBatch(m, [0], [make_prompt_cache(m)])
     if length > 1:
@@ -196,7 +202,7 @@ async def test_host_prefill_full_kv_and_first_token(length, monkeypatch, biased)
         source_address="mac",
         source_uid="source",
     )
-    client = MLXXavierCache(contract(), config)
+    client = MLXXavierCache(replace(contract(), logical_dtype=logical_dtype), config)
     client._call = AsyncMock(return_value=True)
     source_ref = AsyncMock()
     monkeypatch.setattr("xoscar.actor_ref", AsyncMock(return_value=source_ref))
@@ -1209,3 +1215,61 @@ def test_host_contract_rejects_effective_geometry_not_in_checkpoint(tmp_path):
             dict(heterogeneous=True, host_handoff=True, role="decode"),
             1,
         )
+
+
+@metal
+@pytest.mark.parametrize("length", [1, 64, 65, 130])
+def test_bf16_pages_preserve_bits_and_clear_padding(length):
+    import mlx.core as mx
+    import numpy as np
+    from mlx_lm.models.cache import KVCache
+
+    c = replace(contract(), logical_dtype="bfloat16")
+    cache = []
+    for layer in range(c.num_layers):
+        entry = KVCache()
+        # Include BF16 bit patterns that would lose data if interpreted as FP16.
+        bits = np.arange(c.num_kv_heads * length * c.head_dim, dtype=np.uint16)
+        bits = (bits % 256 + 16000).reshape(1, c.num_kv_heads, length, c.head_dim)
+        entry.state = tuple(
+            mx.array(bits + layer + kind).view(mx.bfloat16) for kind in (0, 1)
+        )
+        cache.append(entry)
+    client = MLXXavierCache(c, {})
+    pages = client.encode(cache, list(range(length)))
+    restored = client.decode(pages, length)
+    for old, new in zip(cache, restored):
+        for expected, actual in zip(old.state, new.state):
+            assert actual.dtype == mx.bfloat16
+            assert bool(
+                mx.array_equal(expected.view(mx.uint16), actual.view(mx.uint16))
+            )
+    raw = np.frombuffer(pages[-1], dtype="<u2").reshape(
+        c.num_layers, 2, c.block_size, c.num_kv_heads, c.head_dim
+    )
+    assert not raw[:, :, (length - 1) % 64 + 1 :].any()
+
+
+@metal
+def test_bf16_host_contract_and_explicit_fp16_rejection(tmp_path):
+    from dataclasses import asdict
+
+    import mlx.core as mx
+    from mlx.utils import tree_flatten
+
+    from ...xavier.pd_contract import build_pd_contract
+
+    m = model("qwen3")
+    (tmp_path / "config.json").write_text(json.dumps(asdict(m.args)))
+    (tmp_path / "model.safetensors").write_bytes(b"weights")
+    (tmp_path / "tokenizer.json").write_text("{}")
+    cfg = dict(
+        heterogeneous=True, host_handoff=True, role="decode", logical_dtype="bfloat16"
+    )
+    with pytest.raises(ValueError, match="requires bfloat16"):
+        configure_xavier(m, tmp_path, dict(dtype="float16"), cfg, 1)
+    cache = configure_xavier(m, tmp_path, dict(context_length=1024), cfg, 1)
+    assert cache.contract == build_pd_contract(
+        str(tmp_path), 1024, logical_dtype="bfloat16"
+    )
+    assert all(p.dtype == mx.bfloat16 for _, p in tree_flatten(m.parameters()))

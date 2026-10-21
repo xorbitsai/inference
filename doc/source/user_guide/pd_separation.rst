@@ -334,7 +334,7 @@ Cross-engine TRT-LLM P/D
 
 .. versionadded:: v4.1.0
 
-Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse directions. All replicas use identical BF16 dense Qwen3 checkpoints, tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM requires version ``1.2.1``; vLLM and SGLang requirements match the cross-engine section above. MLX combinations are currently unsupported.
+Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse directions. All replicas use identical BF16 dense Qwen3 checkpoints, tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM requires version ``1.2.1``; vLLM and SGLang requirements match the cross-engine section above. For CUDA/Metal deployments, see :ref:`trt-mlx-pd` below.
 
 Set each replica's ``model_engine`` and ``engine_config`` independently. A topology containing TRT-LLM selects BF16 weights and KV for every replica; explicit FP16 options are rejected. Put engine-specific options in ``engine_config`` so they do not reach the other engine.
 
@@ -368,7 +368,7 @@ Set each replica's ``model_engine`` and ``engine_config`` independently. A topol
 
 For SGLang, use ``model_engine="SGLang"`` and ``context_length`` instead of ``max_model_len``. Reverse the replica roles to reverse the transfer direction. Xavier converts TRT's head-major and the other engines' token-major KV layouts on GPU, preserving BF16 values, then transfers through NIXL. SGLang decode imports full prompt KV and the first sampled token; vLLM and TRT decode replay the final prompt token. Source and destination slots remain owned until GPU operations drain, including cancellation.
 
-Cross-engine sampling restrictions above still apply. TRT additionally does not support ``cache_salt`` or tool calling through this adapter. Retained Xavier history, CPU staging and full-prefill fallback are disabled; ``gpu_bytes`` and ``imported_tokens`` measure completed imports and ``host_bytes`` stays zero.
+Cross-engine sampling restrictions above still apply. TRT additionally does not support ``cache_salt`` or tool calling through this adapter. Retained Xavier history and full-prefill fallback are disabled. CUDA-to-CUDA transfers use NIXL without CPU staging; ``gpu_bytes`` and ``imported_tokens`` measure completed imports and ``host_bytes`` stays zero.
 
 NVIDIA and MLX cross-engine P/D
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -415,3 +415,44 @@ MLX-prefill cross-engine requests do not accept ``min_p``, ``presence_penalty``,
 Run the supervisor and all worker/model environments with the same Python version and matching ``cloudpickle`` / ``tblib`` versions; actor RPC also carries exceptions and generators.
 
 Compare end-to-end TTFT with the standalone decode engine on its own hardware, using the same effective FP16 weights and cache policy. Network transfers and CUDA/Metal copies may outweigh faster prefill. ``host_bytes`` measures CPU-staged payloads; ``imported_tokens`` records completed KV imports. Correct output alone does not prove reuse.
+
+.. _trt-mlx-pd:
+
+TRT-LLM and MLX over a LAN
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: v4.1.0
+
+Xavier supports TRT-LLM prefill with MLX decode and MLX prefill with TRT-LLM decode across NVIDIA and Apple silicon workers. Use identical, unconverted BF16 dense Qwen3 checkpoints and tokenizer files on both hosts. Every replica uses BF16 weights and KV; FP16 overrides are rejected. The MLX replica automatically selects the unquantized BF16 registry entry. Both decode engines import the prefix and replay the last prompt token.
+
+.. code-block:: python
+
+   client.launch_model(
+       model_uid="qwen3-trt-mlx-pd",
+       model_name="qwen3",
+       model_size_in_billions="0_6",
+       model_engine="TRT-LLM",
+       model_format="pytorch",
+       quantization="none",
+       download_hub="huggingface",
+       replica=2,
+       transfer_backend_type="xavier",
+       replica_config=[
+           {
+               "role": "prefill", "model_engine": "TRT-LLM",
+               "engine_config": {"model_path": "/models/Qwen3-0.6B",
+                                 "max_seq_len": 4096},
+               "devices": [{"worker_ip": "192.168.50.51:9978", "n_gpu": 1}],
+           },
+           {
+               "role": "decode", "model_engine": "MLX",
+               "engine_config": {"model_path": "/Users/me/models/Qwen3-0.6B",
+                                 "model_format": "mlx", "context_length": 4096},
+               "devices": [{"worker_ip": "192.168.50.120:9978", "n_gpu": "auto"}],
+           },
+       ],
+   )
+
+Swap the two roles for MLX prefill. Start workers with LAN-reachable addresses and ensure both workers and the supervisor can reach each other's actor ports. Specify the same ``download_hub`` explicitly. The Python and RPC dependency requirements and MLX-prefill memory budget above also apply. TRT-LLM requires ``1.2.1`` with one CUDA GPU; MLX requires Apple silicon and ``mlx-lm>=0.31.2``.
+
+CUDA/Metal handoff uses bounded host-memory pages and actor RPC over the network. BF16 values travel as raw bytes without FP16 conversion. ``host_bytes`` and ``imported_tokens`` record completed imports; ``gpu_bytes`` stays zero for this transport. Streaming, cancellation and disconnect cleanup are supported. The TRT and MLX sampling restrictions above still apply. Measure TTFT against standalone decode on its own hardware, because network and device copies add latency.

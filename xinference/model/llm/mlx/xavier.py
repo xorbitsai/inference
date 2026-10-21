@@ -92,7 +92,16 @@ def configure_xavier(model, model_path, model_config, cache_config, n_worker):
     weights = {p.name: p for p in path.glob("*.safetensors")}
     if not weights:
         raise ValueError("MLX Xavier requires local safetensors weights")
-    model.set_dtype(mx.float16)
+    dtype = (
+        cache_config.get("logical_dtype", "float16")
+        if cache_config.get("heterogeneous")
+        else "float16"
+    )
+    if dtype not in ("float16", "bfloat16") or model_config.get(
+        "dtype", "auto"
+    ) not in (None, "auto", dtype):
+        raise ValueError(f"MLX Xavier requires {dtype} weights and KV")
+    model.set_dtype(getattr(mx, dtype))
     # Loading/configuration run in a worker thread. Materialize casts there so
     # generation never inherits unevaluated operations on its Metal stream.
     mx.eval(model.parameters())
@@ -121,7 +130,7 @@ def configure_xavier(model, model_path, model_config, cache_config, n_worker):
         if args.get("rope_traditional") or model_config.get("lora_modules"):
             raise ValueError("Cross-engine MLX requires standard RoPE without LoRA")
         contract = build_pd_contract(
-            str(model_path), model_config.get("context_length")
+            str(model_path), model_config.get("context_length"), logical_dtype=dtype
         )
         if (
             args.get("head_dim") or args["hidden_size"] // args["num_attention_heads"]
@@ -229,14 +238,14 @@ class MLXXavierCache:
         pages = (length - start + c.block_size - 1) // c.block_size
         data = np.zeros(
             (pages, c.num_layers, 2, c.block_size, c.num_kv_heads, c.head_dim),
-            dtype="<f2",
+            dtype="<u2",
         )
         for layer, entry in enumerate(cache):
             if type(entry) is not KVCache or entry.offset < length:
                 raise ValueError("MLX cache type or offset differs from its contract")
             for kv, value in enumerate(entry.state):
                 if (
-                    value.dtype != mx.float16
+                    value.dtype != getattr(mx, c.logical_dtype)
                     or tuple(value.shape[:2]) != (1, c.num_kv_heads)
                     or value.shape[-1] != c.head_dim
                 ):
@@ -247,7 +256,8 @@ class MLXXavierCache:
                     pages * c.block_size, c.num_kv_heads, c.head_dim
                 )
                 flat[: length - start] = np.array(
-                    value[0, :, start:length, :].transpose(1, 0, 2), copy=True
+                    value[0, :, start:length, :].transpose(1, 0, 2).view(mx.uint16),
+                    copy=True,
                 )
                 data[:, layer, kv] = flat.reshape(
                     pages, c.block_size, c.num_kv_heads, c.head_dim
@@ -268,7 +278,7 @@ class MLXXavierCache:
             return [KVCache() for _ in range(c.num_layers)]
         data = np.stack(
             [
-                np.frombuffer(p, dtype="<f2").reshape(
+                np.frombuffer(p, dtype="<u2").reshape(
                     c.num_layers, 2, c.block_size, c.num_kv_heads, c.head_dim
                 )
                 for p in pages
@@ -283,7 +293,7 @@ class MLXXavierCache:
                     .reshape(-1, c.num_kv_heads, c.head_dim)[:length]
                     .transpose(1, 0, 2)[None]
                     .copy()
-                )
+                ).view(getattr(mx, c.logical_dtype))
                 for kv in (0, 1)
             )
             cache.append(entry)

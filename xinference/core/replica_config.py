@@ -240,8 +240,6 @@ def validate_pd_replica_configs(
         raise ValueError(
             "PD separation requires model_type=LLM and model_engine=vLLM, SGLang, MLX or TRT-LLM"
         )
-    if "trt-llm" in engines and "mlx" in engines:
-        raise ValueError("TRT-LLM cross-engine P/D currently requires CUDA replicas")
     if roles != {"prefill", "decode"}:
         raise ValueError(
             "PD separation requires both prefill and decode replicas, without hybrid replicas"
@@ -256,7 +254,8 @@ def validate_pd_replica_configs(
             for role in ("prefill", "decode")
         }
         if not any(
-            role_engines[role] == {"mlx"} and role_engines[other] <= {"vllm", "sglang"}
+            role_engines[role] == {"mlx"}
+            and role_engines[other] <= {"vllm", "sglang", "trt-llm"}
             for role, other in (("prefill", "decode"), ("decode", "prefill"))
         ):
             raise ValueError(

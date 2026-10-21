@@ -952,7 +952,7 @@ async def test_cross_engine_invalid_launch_has_no_side_effects(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang", "TRT-LLM"])
 @pytest.mark.parametrize("default_engine", ["vLLM", "SGLang", "MLX", "TRT-LLM"])
 async def test_nvidia_mlx_launch_uses_worker_local_assets(
     launch_runtime, engine, default_engine
@@ -981,10 +981,13 @@ async def test_nvidia_mlx_launch_uses_worker_local_assets(
         assert options["model_path"] == path and options["model_format"] == fmt
         assert options["_xavier_cache_config"]["host_handoff"] is True
         assert options["xavier_config"] is None
+        if engine == "TRT-LLM":
+            assert options["_xavier_cache_config"]["logical_dtype"] == "bfloat16"
+            assert options["quantization"] == ("bf16" if fmt == "mlx" else None)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang", "TRT-LLM"])
 @pytest.mark.parametrize("capacity", [None, 123456])
 async def test_mlx_prefill_to_nvidia_owns_worker_local_source(
     launch_runtime, engine, capacity
