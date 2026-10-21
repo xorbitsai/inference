@@ -62,12 +62,40 @@ class ServingGeneration(ModelGenerationMixin, xo.StatelessActor):
         return chunks()
 
 
-def test_another_replacement_waits_for_previous_generation_to_finish():
+@pytest.mark.asyncio
+async def test_another_replacement_waits_for_previous_generation_to_finish():
     actor = ServingGeneration("current")
     actor._retiring_generations = [None]
-    with pytest.raises(RuntimeError, match="still draining"):
-        actor.begin_generation_reload("another-upgrade")
+
+    async def retire():
+        await asyncio.sleep(0.02)
+        actor._retiring_generations.clear()
+
+    actor._generation_retirement_tasks = {asyncio.create_task(retire())}
+    preparing = asyncio.create_task(actor.begin_generation_reload("another-upgrade"))
+    await asyncio.sleep(0)
+    assert actor._reload_status["stage"] == "draining" and not preparing.done()
     assert not actor.stopped
+    await preparing
+    assert actor._reload_status["stage"] == "loading"
+
+
+@pytest.mark.asyncio
+async def test_cancelling_next_upgrade_does_not_cancel_previous_retirement():
+    actor = ServingGeneration("current")
+    actor._retiring_generations = [None]
+    release = asyncio.Event()
+    retiring = asyncio.create_task(release.wait())
+    actor._generation_retirement_tasks = {retiring}
+    preparing = asyncio.create_task(actor.begin_generation_reload("cancelled"))
+    await asyncio.sleep(0)
+    preparing.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await preparing
+    assert not retiring.cancelled() and not actor.stopped
+    assert actor._reload_status["restored"]
+    release.set()
+    await retiring
 
 
 def test_prepared_environment_is_isolated_on_upgrade_and_recovery():
@@ -265,6 +293,7 @@ async def test_in_place_parser_reload_queues_new_requests_instead_of_rejecting()
 async def test_private_preparation_never_stops_public_engine(monkeypatch, failure):
     from .. import model_generation as module
 
+    monkeypatch.setenv("INHERITED_TEST_VARIABLE", "inherited" * 1000)
     snapshot = {
         "engine": "vllm",
         "engine_version": "0.31.0",
@@ -340,6 +369,9 @@ async def test_private_preparation_never_stops_public_engine(monkeypatch, failur
         # After a prior upgrade, the active model's interpreter can differ
         # from the Worker's even when this request omits python_executable.
         assert module.probe_environment.call_args.args[2]["PYTHONPATH"] == ""
+        overrides = worker._append_sub_pool_protected.call_args.kwargs["env"]
+        assert "INHERITED_TEST_VARIABLE" not in overrides
+        assert overrides["XINFERENCE_MODEL_UID"] == "model"
     anchor.stop.assert_not_called()
 
 

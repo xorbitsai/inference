@@ -186,17 +186,30 @@ class ModelGenerationMixin:
             return await getattr(target, method)(*args, **kwargs)
         return await super().__on_receive__(message)
 
-    def begin_generation_reload(self, operation_id: str) -> None:
-        if self.__dict__.get("_retiring_generations"):
-            raise RuntimeError(
-                "The previous engine is still draining requests; retry the upgrade after they finish"
-            )
+    async def begin_generation_reload(self, operation_id: str) -> None:
         self._reload_status = {
             "operation_id": operation_id,
             "status": "reloading",
-            "stage": "loading",
+            "stage": (
+                "draining" if self.__dict__.get("_retiring_generations") else "loading"
+            ),
             "weights_reused": False,
         }
+        try:
+            # Serialize replacements, including retirement, without blocking
+            # requests to the healthy serving generation. Cancelling the next
+            # upgrade must not cancel cleanup of the previous one.
+            tasks = tuple(self.__dict__.get("_generation_retirement_tasks", ()))
+            if tasks:
+                await asyncio.shield(asyncio.gather(*tasks, return_exceptions=True))
+            if self.__dict__.get("_retiring_generations"):
+                raise RuntimeError(
+                    "Previous engine cleanup failed; the current engine is still serving"
+                )
+            self._reload_status["stage"] = "loading"
+        except BaseException as error:
+            self.fail_generation_reload(operation_id, str(error))
+            raise
 
     def fail_generation_reload(self, operation_id: str, error: str):
         status = self.__dict__.get("_reload_status", {})
@@ -569,6 +582,7 @@ async def replace_model_generation(
     env = dict(os.environ)
     env.update(worker._model_uid_to_launch_args[model_uid].get("envs") or {})
     env.update(snapshot["env"])
+    env["XINFERENCE_MODEL_UID"] = model_uid
     executable = python_executable or snapshot["python_executable"]
     if python_executable is None:
         env.update(snapshot.get("runtime_env", {}))
@@ -608,7 +622,14 @@ async def replace_model_generation(
         # Device ownership remains with the public model. In particular, this
         # path never invokes orphan reclamation or releases its reservations.
         address = await worker._append_sub_pool_protected(
-            env=env, start_python=executable, model_uid=model_uid
+            # Xoscar already inherits the parent environment. Repeating it in
+            # every retained pool grows its bounded startup configuration and
+            # can prevent another replacement after Worker handoff.
+            env={
+                key: value for key, value in env.items() if os.environ.get(key) != value
+            },
+            start_python=executable,
+            model_uid=model_uid,
         )
         worker._model_uid_to_subpool_addresses.setdefault(model_uid, set()).add(address)
         candidate = await xo.create_actor(
