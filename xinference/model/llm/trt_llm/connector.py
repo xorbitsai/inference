@@ -4,8 +4,9 @@
 
 Reads acquire owned CPU snapshots before reporting a hit. Eviction between
 lookup and GPU load therefore cannot turn an admitted prefix into missing KV.
-The first implementation uses synchronous transfers and disables chunking,
-overlap, and eviction/replay in the engine scheduler.
+P/D loads suspend their request until GPU writes finish, allowing unrelated
+decode work to continue. Shared CPU prefix loads remain synchronous. Chunking,
+overlap scheduling, and eviction/replay are disabled.
 """
 
 import asyncio
@@ -89,13 +90,19 @@ class XavierClient:
             )
         return self._ref
 
-    def call(self, coroutine):
-        # GPU operations must drain before their caller can return engine slots.
-        # Do not cancel a transfer future when a wall-clock timeout expires.
+    def submit(self, coroutine):
+        if self._closed:
+            raise RuntimeError("TRT-LLM Xavier client is closed")
+
         async def invoke():
             return await coroutine
 
-        return asyncio.run_coroutine_threadsafe(invoke(), self._loop).result()
+        return asyncio.run_coroutine_threadsafe(invoke(), self._loop)
+
+    def call(self, coroutine):
+        # GPU operations must drain before their caller can return engine slots.
+        # Do not cancel a transfer future when a wall-clock timeout expires.
+        return self.submit(coroutine).result()
 
     def rpc(self, method, *args, **kwargs):
         if self._closed:
@@ -172,6 +179,7 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         self._allocations = {}
         self._pd_requests = {}
         self._pd_sources = {}
+        self._pd_destinations = {}
 
     def _keys(self, tokens):
         return [key.digest for key in build_prefix_keys(self.contract, tokens)]
@@ -190,7 +198,10 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
                 return 0, False
             if num_computed_tokens:
                 raise ValueError("TRT-LLM P/D requires an isolated destination prefix")
-            return max(len(state.tokens) - 1, 0), False
+            state.engine_request_id = request_id
+            self._pd_destinations[request_id] = state
+            count = max(len(state.tokens) - 1, 0)
+            return count, bool(count)
         if self.client.pd_gpu:
             return 0, False  # TRT initialization requests do not share history.
         block = self.contract.block_size
@@ -219,7 +230,22 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
 
     def build_connector_meta(self, scheduler_output):
         metadata = XavierMetadata()
+        # TRT omits newly suspended async loads from new_requests. Allocated
+        # decode requests must still reach the worker to start their transfer.
+        async_ids = {
+            rid
+            for rid, state in self._pd_requests.items()
+            if state.role == "decode" and state.num_pages and rid in self._allocations
+        }
+        for rid in async_ids:
+            state = self._pd_requests.pop(rid)
+            _, blocks = self._allocations.pop(rid)
+            if len(blocks) < state.num_pages:
+                raise ValueError("TRT-LLM allocated too few P/D KV blocks")
+            metadata.pd_loads.append((state, blocks[: state.num_pages]))
         for request in scheduler_output.new_requests:
+            if request.request_id in async_ids:
+                continue
             request_id = request.request_id
             pending = self._pending.pop(request_id, None)
             keys, blocks = self._allocations.pop(request_id, ([], []))
@@ -255,6 +281,16 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         self._pending.pop(request.request_id, None)
         self._allocations.pop(request.request_id, None)
         self._pd_requests.pop(request.request_id, None)
+        destination = self._pd_destinations.pop(request.request_id, None)
+        if destination is not None:
+            destination.cancelled = True
+            # Cancellation is exceptional: block this callback until all writes
+            # drain. TRT cannot free/reassign these slots before we return.
+            if destination.load_future is not None:
+                try:
+                    destination.load_future.result()
+                except Exception:
+                    pass  # The failed transfer has already drained its writes.
         state = self._pd_sources.pop(request.request_id, None)
         # TRT pins these blocks until the worker returns this ID from
         # get_finished. A completed Python output does not end the KV lifetime.
@@ -269,6 +305,9 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         self.pool = None
         self._waiting_saves = set()
         self._finished_saves = set()
+        self._loading = {}
+        self._waiting_loads = set()
+        self.load_failed = None
 
     def register_kv_caches(self, kv_cache_tensor):
         contract = self.contract
@@ -318,8 +357,11 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         for state, blocks in metadata.pd_loads:
             from .gpu import service
 
-            service().rpc("load", state.room, blocks)
-            state.imported_tokens = max(len(state.tokens) - 1, 0)
+            if state.num_pages:
+                state.load_future = service().submit("load", state.room, blocks)
+                self._loading[state.engine_request_id] = state
+            else:
+                service().rpc("load", state.room, blocks)
         if metadata.loads:
             # Copy completion, not a lookup, is the evidence for imported KV.
             try:
@@ -330,7 +372,7 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                 logger.warning("Could not record TRT-LLM Xavier imports", exc_info=True)
 
     def wait_for_layer_load(self, layer_idx, stream):
-        pass  # start_load_kv completes all copies synchronously.
+        pass  # Async requests resume only after get_finished confirms GPU writes.
 
     def save_kv_layer(self, layer_idx, stream):
         pass  # wait_for_save publishes only after the entire forward pass.
@@ -368,6 +410,27 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
     def get_finished(self, finished_gen_req_ids, started_loading_req_ids):
         if not self.client.pd_gpu:
             return [], []
+        self._waiting_loads.update(started_loading_req_ids)
+        loaded = []
+        for rid, state in list(self._loading.items()):
+            if state.cancelled:
+                if state.load_future.done():
+                    self._loading.pop(rid)
+                    self._waiting_loads.discard(rid)
+                continue
+            if rid not in self._waiting_loads or not state.load_future.done():
+                continue
+            self._loading.pop(rid)
+            self._waiting_loads.discard(rid)
+            try:
+                state.load_future.result()
+            except Exception as error:
+                if self.load_failed is None:
+                    raise  # Never resume a request with missing/partial KV.
+                self.load_failed(rid, error)
+            else:
+                state.imported_tokens = len(state.tokens) - 1
+                loaded.append(rid)
         self._waiting_saves.update(finished_gen_req_ids)
         if self._waiting_saves:
             from .gpu import service
@@ -376,4 +439,4 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         finished = self._finished_saves & self._waiting_saves
         self._waiting_saves.difference_update(finished)
         self._finished_saves.difference_update(finished)
-        return list(finished), []
+        return list(finished), loaded

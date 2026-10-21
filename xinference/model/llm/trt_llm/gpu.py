@@ -93,7 +93,7 @@ class TRTGPUActor(GPUTransferMixin, xo.StatelessActor):
             )
             self._snapshot_store = SimpleNamespace(capacity=len(cache))
             self._gpu_transfer = DirectGPUTransfer(
-                self, {"kv": cache}, 0, slab_bytes=64 * 1024**2
+                self, {"kv": cache}, 0, slab_bytes=self.descriptor["slab_bytes"]
             )
             page_bytes = cache[0].numel() * cache.element_size()
             self._gpu_transfer.add_slab_views(
@@ -228,6 +228,8 @@ class GPUService:
     def __init__(self, client, cache):
         self.client, self.cache = client, cache
         self.pool = self.actor = None
+        self._loads = set()
+        self._closing = False
         try:
             client.call(self._start())
         except BaseException:
@@ -242,6 +244,11 @@ class GPUService:
         options = gpu_pool_options(self.client.config["host"], os.environ)
         torch.cuda.synchronize(self.cache.device)
         descriptor = export_pool(self.cache)
+        page_bytes = self.cache[0].numel() * self.cache.element_size()
+        pages = (max(self.client.config["max_seq_len"] - 1, 0) + 63) // 64
+        descriptor["slab_bytes"] = max(
+            page_bytes, min(512 * 1024**2, pages * page_bytes)
+        )
         self.pool = await xo.create_actor_pool(
             options["external_address"],
             n_process=1,
@@ -264,10 +271,26 @@ class GPUService:
         )
         await (await self.client.directory()).register_peer(rank, self.actor.address)
 
+    def submit(self, method, *args):
+        if self._closing:
+            raise RuntimeError("TRT Xavier GPU transfer is shutting down")
+        future = self.client.submit(getattr(self.actor, method)(*args))
+        self._loads.add(future)
+        future.add_done_callback(self._loads.discard)
+        return future
+
     def rpc(self, method, *args):
         return self.client.call(getattr(self.actor, method)(*args))
 
     def close(self):
+        self._closing = True
+        # Drain submitted loads before destroying the importer or its RPC loop.
+        for future in list(self._loads):
+            try:
+                future.result()
+            except Exception:
+                pass
+
         async def stop():
             try:
                 if self.actor is not None:

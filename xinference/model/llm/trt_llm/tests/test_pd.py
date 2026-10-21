@@ -6,6 +6,7 @@ import copy
 import json
 import sys
 import threading
+from concurrent.futures import Future
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -266,7 +267,12 @@ def test_gpu_connector_pins_source_until_worker_completion(
             finished.clear()
             return result
 
-    monkeypatch.setattr(gpu, "service", lambda: SimpleNamespace(rpc=rpc))
+    def submit(method, *args):
+        future = Future()
+        future.set_result(rpc(method, *args))
+        return future
+
+    monkeypatch.setattr(gpu, "service", lambda: SimpleNamespace(rpc=rpc, submit=submit))
     ps, ds = connector.XavierConnectorScheduler(
         None
     ), connector.XavierConnectorScheduler(None)
@@ -313,7 +319,7 @@ def test_gpu_connector_pins_source_until_worker_completion(
     request.request_id = 201
     assert ds.get_num_new_matched_tokens(request, 0) == (
         max(prompt_tokens - 1, 0),
-        False,
+        prompt_tokens > 1,
     )
     ds.update_state_after_alloc(request, [2, 0])
     dw.bind_connector_meta(ds.build_connector_meta(output(201)))
@@ -322,6 +328,10 @@ def test_gpu_connector_pins_source_until_worker_completion(
         with pytest.raises(RuntimeError, match="did not import"):
             pd.check_import({"context": target})
     dw.start_load_kv(None)
+    if prompt_tokens > 1:
+        assert dw.get_finished([], []) == ([], [])
+        assert target.imported_tokens == 0
+        assert dw.get_finished([], [201]) == ([], [201])
     pd.check_import({"context": target})
     assert calls[-1] == ("load", (1, [2, 0][: target.num_pages]))
     client.read_prefix.assert_not_called()
@@ -339,14 +349,18 @@ def test_failed_gpu_load_does_not_report_an_import(monkeypatch, connector):
         "XavierClient",
         lambda: SimpleNamespace(pd_gpu=True, contract=contract),
     )
-    rpc = Mock(side_effect=RuntimeError("NIXL transfer failed"))
-    monkeypatch.setattr(gpu, "service", lambda: SimpleNamespace(rpc=rpc))
+    future = Future()
+    future.set_exception(RuntimeError("NIXL transfer failed"))
+    monkeypatch.setattr(
+        gpu, "service", lambda: SimpleNamespace(submit=lambda *args: future)
+    )
     worker = connector.XavierConnectorWorker(None)
     worker.pool = torch.zeros((2, 1, 2, 64), dtype=torch.bfloat16)
-    context = XavierRequest("decode", tuple(range(70)), 1)
+    context = XavierRequest("decode", tuple(range(70)), 1, engine_request_id=7)
     worker.bind_connector_meta(connector.XavierMetadata(pd_loads=[(context, [0, 1])]))
+    worker.start_load_kv(None)
     with pytest.raises(RuntimeError, match="NIXL transfer failed"):
-        worker.start_load_kv(None)
+        worker.get_finished([], [7])
     assert context.imported_tokens == 0
 
 
@@ -449,3 +463,140 @@ def test_shutdown_retains_cpp_owner_if_importer_cannot_stop(model, monkeypatch):
         assert not getattr(owner, "stopped", False)
     model.stop()
     assert owner.stopped
+
+
+@pytest.mark.parametrize("fail", [False, True])
+@pytest.mark.asyncio
+async def test_async_decode_cancel_drains_destination_before_return(
+    monkeypatch, connector, fail
+):
+    from .. import gpu
+    from ..pd import XavierRequest
+
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 1, 64, "bfloat16"
+    )
+    monkeypatch.setattr(
+        connector,
+        "XavierClient",
+        lambda: SimpleNamespace(pd_gpu=True, contract=contract),
+    )
+    future = Future()
+    monkeypatch.setattr(
+        gpu, "service", lambda: SimpleNamespace(submit=lambda *args: future)
+    )
+    scheduler = connector.XavierConnectorScheduler(None)
+    worker = connector.XavierConnectorWorker(None)
+    worker.pool = torch.zeros((2, 1, 2, 64), dtype=torch.bfloat16)
+    state = XavierRequest("decode", tuple(range(70)), 1)
+    monkeypatch.setattr(connector, "request_state", lambda request: state)
+    request = SimpleNamespace(request_id=7, get_tokens=lambda beam: state.tokens)
+    assert scheduler.get_num_new_matched_tokens(request, 0) == (69, True)
+    scheduler.update_state_after_alloc(request, [1, 0])
+    # Suspended requests are omitted by TRT's scheduler output.
+    metadata = scheduler.build_connector_meta(SimpleNamespace(new_requests=[]))
+    assert metadata.pd_loads == [(state, [1, 0])]
+    worker.bind_connector_meta(metadata)
+    worker.start_load_kv(None)
+    assert worker.get_finished([], [7]) == ([], [])
+    assert not future.done() and state.imported_tokens == 0
+    cancelled = asyncio.create_task(
+        asyncio.to_thread(scheduler.request_finished, request, [1, 0])
+    )
+    await asyncio.sleep(0.02)
+    assert state.cancelled and not cancelled.done() and not future.cancelled()
+    if fail:
+        future.set_exception(RuntimeError("transfer failed after partial writes"))
+    else:
+        future.set_result(None)
+    assert await cancelled is False
+    # The manager retires the suspended load; late completion never resumes it.
+    assert worker.get_finished([], []) == ([], [])
+    assert state.imported_tokens == 0
+    assert not worker._loading and not worker._waiting_loads
+    assert not scheduler._pd_destinations and not scheduler._pd_requests
+
+
+def test_async_decode_completions_are_admitted_and_can_finish_out_of_order(
+    monkeypatch, connector
+):
+    from .. import gpu
+    from ..pd import XavierRequest
+
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 1, 64, "bfloat16"
+    )
+    monkeypatch.setattr(
+        connector,
+        "XavierClient",
+        lambda: SimpleNamespace(pd_gpu=True, contract=contract),
+    )
+    futures = {rid: Future() for rid in (1, 2, 3)}
+    monkeypatch.setattr(
+        gpu,
+        "service",
+        lambda: SimpleNamespace(submit=lambda method, room, blocks: futures[room]),
+    )
+    worker = connector.XavierConnectorWorker(None)
+    worker.pool = torch.zeros((3, 1, 2, 64), dtype=torch.bfloat16)
+    states = [
+        XavierRequest("decode", (1, 2), rid, engine_request_id=rid) for rid in futures
+    ]
+    worker.bind_connector_meta(
+        connector.XavierMetadata(
+            pd_loads=[(state, [idx]) for idx, state in enumerate(states)]
+        )
+    )
+    worker.start_load_kv(None)
+    futures[2].set_result(None)
+    assert worker.get_finished([], []) == ([], [])
+    assert worker.get_finished([], [1, 2, 3]) == ([], [2])
+    failure = Mock()
+    worker.load_failed = failure
+    error = RuntimeError("source lost")
+    futures[3].set_exception(error)
+    assert worker.get_finished([], []) == ([], [])
+    failure.assert_called_once_with(3, error)
+    assert states[2].imported_tokens == 0
+    futures[1].set_result(None)
+    assert worker.get_finished([], []) == ([], [1])
+    assert not worker._loading and not worker._waiting_loads
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fail", [False, True])
+async def test_gpu_service_shutdown_drains_load_before_closing_ipc(monkeypatch, fail):
+    from unittest.mock import AsyncMock
+
+    from .. import gpu
+
+    future = Future()
+    directory = SimpleNamespace(unregister_peer=AsyncMock())
+    transport = gpu.GPUService.__new__(gpu.GPUService)
+    transport.client = SimpleNamespace(
+        call=asyncio.run,
+        directory=AsyncMock(return_value=directory),
+        config={"rank": 1},
+    )
+    transport.actor = SimpleNamespace(address="nixl://127.0.0.1:1")
+    transport.pool = SimpleNamespace(stop=AsyncMock())
+    transport._loads = {future}
+    transport._closing = False
+    owner = transport.cache = object()
+    destroy = AsyncMock()
+    monkeypatch.setattr(gpu.xo, "destroy_actor", destroy)
+    close = asyncio.create_task(asyncio.to_thread(transport.close))
+    await asyncio.sleep(0.02)
+    assert transport._closing and not close.done()
+    assert transport.cache is owner
+    destroy.assert_not_called()
+    with pytest.raises(RuntimeError, match="shutting down"):
+        transport.submit("load", 1, [0])
+    if fail:
+        future.set_exception(RuntimeError("writes drained after error"))
+    else:
+        future.set_result(None)
+    await close
+    assert transport.cache is None
+    destroy.assert_awaited_once_with(transport.actor)
+    transport.pool.stop.assert_awaited_once()

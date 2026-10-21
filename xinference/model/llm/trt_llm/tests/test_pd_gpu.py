@@ -51,6 +51,11 @@ async def main():
     try:
         model.load()
         if role == 'prefill':
+            if args.get('fault'):
+                fault = await model.async_generate(prompt, {**tokens, '_pd_kv_transfer_params': {'do_remote_decode':True}}, 'fault')
+                (root/'fault.json').write_text(json.dumps(fault['_pd_kv_transfer_params']))
+                await wait(root/'fault-done')
+                await model.release_pd_request('fault')
             result = await model.async_generate(prompt, {**tokens, '_pd_kv_transfer_params': {'do_remote_decode':True}}, 'live-pd')
             (root/'handoff.json').write_text(json.dumps(result['_pd_kv_transfer_params']))
             await wait(root/'release')
@@ -64,6 +69,43 @@ async def main():
             finally:
                 model._pd = pd
             (root/'ready').touch()
+            if args.get('fault'):
+                from xinference.model.llm.trt_llm.gpu import service
+                transport = service()
+                original_submit = transport.submit
+                import threading
+                started, release = threading.Event(), threading.Event()
+                def submit(method, *args):
+                    pending = original_submit(method, *args)
+                    async def delayed():
+                        # Exercise real NIXL writes, then hold completion. The
+                        # destination must remain unschedulable until released.
+                        await asyncio.wrap_future(pending)
+                        started.set()
+                        await asyncio.to_thread(release.wait)
+                        if args_config['fault'] == 'fail':
+                            raise RuntimeError('injected transfer failure')
+                    return transport.client.submit(delayed())
+                args_config = args
+                transport.submit = submit
+                await wait(root/'fault.json')
+                transfer = json.loads((root/'fault.json').read_text())
+                task = asyncio.create_task(model.async_generate(prompt, {**tokens, '_pd_kv_transfer_params': transfer}, 'fault'))
+                assert await asyncio.to_thread(started.wait, 10)
+                assert not task.done()
+                if args['fault'] == 'cancel':
+                    task.cancel()
+                release.set()
+                try:
+                    await task
+                except (RuntimeError, asyncio.CancelledError) as error:
+                    if args['fault'] == 'fail':
+                        assert 'injected transfer failure' in str(error), error
+                else:
+                    raise AssertionError('faulted load must not generate output')
+                transport.submit = original_submit
+                assert not model._requests and not model._pd.active
+                (root/'fault-done').touch()
             await wait(root/'handoff.json')
             transfer = json.loads((root/'handoff.json').read_text())
             config = {**tokens, 'stream':args['stream'], 'stream_options': {'include_usage':True}, '_pd_kv_transfer_params':transfer}
@@ -93,9 +135,18 @@ asyncio.run(main())
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("backend", ["xavier", "nixl"])
-@pytest.mark.parametrize("stream", [False, True])
-async def test_live_two_gpu_pd_matches_baseline(tmp_path, backend, stream):
+@pytest.mark.parametrize(
+    "backend,stream,fault",
+    [
+        ("xavier", False, None),
+        ("xavier", True, None),
+        ("nixl", False, None),
+        ("nixl", True, None),
+        ("xavier", False, "fail"),
+        ("xavier", False, "cancel"),
+    ],
+)
+async def test_live_two_gpu_pd_matches_baseline(tmp_path, backend, stream, fault):
     gpu_ids = os.environ["XINFERENCE_TRTLLM_PD_TEST_GPUS"].split(",")
     assert len(gpu_ids) == 2 and len(set(gpu_ids)) == 2
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
@@ -113,6 +164,7 @@ async def test_live_two_gpu_pd_matches_baseline(tmp_path, backend, stream):
                     address=pool.external_address,
                     model=os.environ["XINFERENCE_TRTLLM_TEST_MODEL"],
                     stream=stream,
+                    fault=fault,
                 )
             )
         )

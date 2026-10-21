@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Configure same-engine TRT-LLM sharing of immutable Xavier CPU pages."""
+"""Configure same-engine TRT-LLM shared caching and Xavier GPU P/D."""
 
 import json
 import os
@@ -95,5 +95,10 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
     # The model process owns its environment and hosts TRT's embedded worker.
     # KvCacheConnectorConfig in 1.2.1 has no user-config field.
     os.environ[CONFIG_ENV] = json.dumps(
-        {**cache_config, "contract": contract.to_dict()}
+        {
+            **cache_config,
+            "contract": contract.to_dict(),
+            "max_seq_len": config.get("max_seq_len")
+            or checkpoint_config["max_position_embeddings"],
+        }
     )

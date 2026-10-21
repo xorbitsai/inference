@@ -210,6 +210,7 @@ def test_prefix_lookup_leaves_last_token_and_respects_local_hits(connector):
         return [torch.zeros(16, dtype=torch.uint8) for _ in keys]
 
     scheduler._pd_sources = {}
+    scheduler._pd_destinations = {}
     scheduler.client = SimpleNamespace(
         pd_gpu=False, capacity_bytes=4096, read_prefix=read
     )

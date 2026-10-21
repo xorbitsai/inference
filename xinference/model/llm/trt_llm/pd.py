@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Same-engine TRT P/D: native NIXL or request-owned Xavier CPU pages."""
+"""Same-engine TRT P/D: native NIXL or request-owned Xavier GPU pages."""
 
 import asyncio
 import base64
@@ -8,6 +8,7 @@ import json
 import logging
 import threading
 import uuid
+from concurrent.futures import Future
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -31,6 +32,8 @@ class XavierRequest:
     imported_tokens: int = 0
     engine_request_id: int = 0
     registered: bool = False
+    load_future: Future | None = None
+    cancelled: bool = False
 
     @property
     def num_pages(self):
