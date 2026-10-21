@@ -2468,6 +2468,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             {} if external_address is None else {"external_address": external_address}
         )
         async with self._subpool_creation_lock:
+            # A failed candidate spawn must never reap pools that were already
+            # serving before this call, even if their bootstrap command matches.
+            protected_pids = {
+                process.pid
+                for process in getattr(self._main_pool, "sub_processes", {}).values()
+            }
             try:
                 return await xo.wait_for(
                     self._main_pool.append_sub_pool(
@@ -2495,7 +2501,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     _my_pid = os.getpid()
                     for _p in psutil.process_iter(["pid", "ppid", "cmdline"]):
                         _info = _p.info
-                        if _info["ppid"] != _my_pid:
+                        if _info["ppid"] != _my_pid or _info["pid"] in protected_pids:
                             continue
                         _cmd = " ".join(_info.get("cmdline") or []).lower()
                         if "start_sub_pool" in _cmd:

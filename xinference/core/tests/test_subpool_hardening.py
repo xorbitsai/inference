@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 
 """Unit tests for sub-pool creation hardening (H1/H2/H3/C/G).
 
@@ -295,6 +296,7 @@ async def test_append_sub_pool_protected_timeout_kills_leftover_and_reraises(
     (PPID == this worker) and re-raises so callers run their own cleanup."""
     self = _make_worker()
     self._main_pool.append_sub_pool = _hang_coro
+    self._main_pool.sub_processes = {"serving": MagicMock(pid=7703)}
 
     my_pid = os.getpid()
     matching = MagicMock()
@@ -305,8 +307,10 @@ async def test_append_sub_pool_protected_timeout_kills_leftover_and_reraises(
     }
     other = MagicMock()
     other.info = {"pid": 7702, "ppid": my_pid + 1, "cmdline": ["unrelated"]}
+    serving = MagicMock()
+    serving.info = {**matching.info, "pid": 7703}
     mock_psutil = MagicMock()
-    mock_psutil.process_iter.return_value = [matching, other]
+    mock_psutil.process_iter.return_value = [matching, other, serving]
     mock_psutil.NoSuchProcess = ProcessLookupError
     mock_psutil.AccessDenied = PermissionError
 
@@ -316,6 +320,7 @@ async def test_append_sub_pool_protected_timeout_kills_leftover_and_reraises(
 
     matching.kill.assert_called_once()
     other.kill.assert_not_called()
+    serving.kill.assert_not_called()
 
 
 async def test_append_sub_pool_protected_does_not_log_env_values(
