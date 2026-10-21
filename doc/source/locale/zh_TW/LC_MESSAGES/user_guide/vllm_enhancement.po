@@ -226,3 +226,7 @@ msgstr "``read_timeout`` 限制快取查找的等待秒數（預設 30）。快�
 #: source/user_guide/vllm_enhancement.rst:61
 msgid "The LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
 msgstr "LMCache 後端要求同一引擎的多個一般副本，並保留該引擎現有的 Xavier 模型、dtype 和平行處理限制。不支援 P/D 角色、舊版 vLLM V0 或 MLX；P/D KV 交接仍由獨立的傳輸路徑負責。請使用後端 ``cpu_bytes``，而非 native 的 ``xavier_cache_bytes`` 或 ``xavier_gpu_cache_bytes`` 預算。後端選擇不會啟用跨引擎快取共用，也不會改變現有 cache-salt 行為。每個部署的每個儲存執行個體擁有獨立命名空間和目錄；重新啟動不會還原舊項目。正常關閉會刪除該目錄；程序當機後，請在確認不再使用時清理遺留的部署目錄。"
+
+#: source/user_guide/vllm_enhancement.rst:34
+msgid "LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas."
+msgstr "適用於一般 vLLM V1、SGLang 和 TRT-LLM 副本的 LMCache 儲存後端。"

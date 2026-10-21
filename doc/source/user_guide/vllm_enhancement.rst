@@ -29,6 +29,10 @@ Limitations
 Storage backends
 ================
 
+.. versionadded:: v4.1.0
+
+   LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas.
+
 ``xavier_cache_backend="native"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13.
 
 Select the backend when launching the model:

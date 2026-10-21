@@ -693,8 +693,8 @@ msgid "For same-engine P/D, choose the engine first, then its Native NIXL or Xav
 msgstr "Para P/D com o mesmo mecanismo, escolha primeiro o mecanismo e depois seu backend NIXL nativo ou Xavier na seção correspondente. vLLM e SGLang oferecem ambos; Xavier é o padrão. MLX oferece apenas Xavier. Implantações entre mecanismos usam Xavier e são descritas separadamente."
 
 #: source/user_guide/pd_separation.rst:16
-msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. See :ref:`user_guide_vllm_enhancement` for storage configuration."
-msgstr "O NIXL nativo usa o conector P/D do próprio mecanismo. O transporte GPU do Xavier também usa NIXL, com o Xavier gerenciando a transferência. A opção ``xavier_cache_backend`` (``native`` ou ``lmcache``) seleciona o armazenamento para o compartilhamento comum de cache de prefixos, separadamente do transporte P/D. Consulte :ref:`user_guide_vllm_enhancement` para configurar o armazenamento."
+msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. LMCache support was added in v4.1.0. See :ref:`user_guide_vllm_enhancement` for storage configuration."
+msgstr "O NIXL nativo usa o conector P/D do próprio mecanismo. O transporte GPU do Xavier também usa NIXL, com o Xavier gerenciando a transferência. A opção ``xavier_cache_backend`` (``native`` ou ``lmcache``) seleciona o armazenamento para o compartilhamento comum de cache de prefixos, separadamente do transporte P/D. O suporte a LMCache foi adicionado na versão v4.1.0. Consulte :ref:`user_guide_vllm_enhancement` para configurar o armazenamento."
 
 #: source/user_guide/pd_separation.rst:22
 msgid "Python client"

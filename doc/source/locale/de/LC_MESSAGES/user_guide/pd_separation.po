@@ -706,8 +706,8 @@ msgid "For same-engine P/D, choose the engine first, then its Native NIXL or Xav
 msgstr "Wählen Sie für P/D mit derselben Engine zuerst die Engine und anschließend deren natives NIXL- oder Xavier-Backend im jeweiligen Abschnitt. vLLM und SGLang unterstützen beide Varianten; Xavier ist der Standard. MLX unterstützt nur Xavier. Engine-übergreifende Bereitstellungen verwenden Xavier und werden separat beschrieben."
 
 #: source/user_guide/pd_separation.rst:16
-msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. See :ref:`user_guide_vllm_enhancement` for storage configuration."
-msgstr "Natives NIXL verwendet den eigenen P/D-Konnektor der Engine. Auch Xaviers GPU-Transport verwendet NIXL, wobei Xavier die Übergabe verwaltet. Die Einstellung ``xavier_cache_backend`` (``native`` oder ``lmcache``) wählt den Speicher für die gemeinsame Nutzung gewöhnlicher Präfix-Caches, unabhängig vom P/D-Transport. Zur Speicherkonfiguration siehe :ref:`user_guide_vllm_enhancement`."
+msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. LMCache support was added in v4.1.0. See :ref:`user_guide_vllm_enhancement` for storage configuration."
+msgstr "Natives NIXL verwendet den eigenen P/D-Konnektor der Engine. Auch Xaviers GPU-Transport verwendet NIXL, wobei Xavier die Übergabe verwaltet. Die Einstellung ``xavier_cache_backend`` (``native`` oder ``lmcache``) wählt den Speicher für die gemeinsame Nutzung gewöhnlicher Präfix-Caches, unabhängig vom P/D-Transport. Die LMCache-Unterstützung wurde in v4.1.0 hinzugefügt. Zur Speicherkonfiguration siehe :ref:`user_guide_vllm_enhancement`."
 
 #: source/user_guide/pd_separation.rst:22
 msgid "Python client"

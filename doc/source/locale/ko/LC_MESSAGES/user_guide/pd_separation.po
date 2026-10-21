@@ -624,8 +624,8 @@ msgid "For same-engine P/D, choose the engine first, then its Native NIXL or Xav
 msgstr "동일 엔진 P/D에서는 먼저 엔진을 선택한 다음 해당 섹션에서 네이티브 NIXL 또는 Xavier 백엔드를 선택하세요. vLLM과 SGLang은 둘 다 지원하며 기본값은 Xavier입니다. MLX는 Xavier만 지원합니다. 이기종 엔진 배포는 Xavier를 사용하며 별도 섹션에서 설명합니다."
 
 #: source/user_guide/pd_separation.rst:16
-msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. See :ref:`user_guide_vllm_enhancement` for storage configuration."
-msgstr "네이티브 NIXL은 엔진 자체의 P/D 커넥터를 사용합니다. Xavier의 GPU 전송도 NIXL을 사용하며 Xavier가 전달을 관리합니다. ``xavier_cache_backend`` 설정(``native`` 또는 ``lmcache``)은 일반 접두사 캐시 공유용 스토리지를 선택하며 P/D 전송과 별도로 구성합니다. 스토리지 구성은 :ref:`user_guide_vllm_enhancement` 를 참조하세요."
+msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. LMCache support was added in v4.1.0. See :ref:`user_guide_vllm_enhancement` for storage configuration."
+msgstr "네이티브 NIXL은 엔진 자체의 P/D 커넥터를 사용합니다. Xavier의 GPU 전송도 NIXL을 사용하며 Xavier가 전달을 관리합니다. ``xavier_cache_backend`` 설정(``native`` 또는 ``lmcache``)은 일반 접두사 캐시 공유용 스토리지를 선택하며 P/D 전송과 별도로 구성합니다. LMCache 지원은 v4.1.0에서 추가되었습니다. 스토리지 구성은 :ref:`user_guide_vllm_enhancement` 를 참조하세요."
 
 #: source/user_guide/pd_separation.rst:22
 msgid "Python client"

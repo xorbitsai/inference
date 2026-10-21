@@ -699,8 +699,8 @@ msgid "For same-engine P/D, choose the engine first, then its Native NIXL or Xav
 msgstr "Para P/D con el mismo motor, elija primero el motor y después su backend NIXL nativo o Xavier en la sección correspondiente. vLLM y SGLang admiten ambos; Xavier es el predeterminado. MLX solo admite Xavier. Los despliegues entre motores usan Xavier y se describen por separado."
 
 #: source/user_guide/pd_separation.rst:16
-msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. See :ref:`user_guide_vllm_enhancement` for storage configuration."
-msgstr "NIXL nativo utiliza el conector P/D del propio motor. El transporte GPU de Xavier también utiliza NIXL, con Xavier gestionando la transferencia. La opción ``xavier_cache_backend`` (``native`` o ``lmcache``) selecciona el almacenamiento para compartir cachés de prefijos ordinarias, por separado del transporte P/D. Consulte :ref:`user_guide_vllm_enhancement` para configurar el almacenamiento."
+msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. LMCache support was added in v4.1.0. See :ref:`user_guide_vllm_enhancement` for storage configuration."
+msgstr "NIXL nativo utiliza el conector P/D del propio motor. El transporte GPU de Xavier también utiliza NIXL, con Xavier gestionando la transferencia. La opción ``xavier_cache_backend`` (``native`` o ``lmcache``) selecciona el almacenamiento para compartir cachés de prefijos ordinarias, por separado del transporte P/D. La compatibilidad con LMCache se añadió en v4.1.0. Consulte :ref:`user_guide_vllm_enhancement` para configurar el almacenamiento."
 
 #: source/user_guide/pd_separation.rst:22
 msgid "Python client"
