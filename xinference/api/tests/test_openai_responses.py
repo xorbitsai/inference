@@ -1,3 +1,4 @@
+# CI: linux
 import json
 from types import MethodType
 from unittest.mock import AsyncMock
@@ -920,3 +921,19 @@ def test_allowed_tools_narrow_the_tool_list():
         with pytest.raises(ResponsesProtocolError) as exc:
             convert(bad)
         assert exc.value.param == "tool_choice"
+
+
+def test_parallel_tool_calls_is_forwarded_with_tools():
+    tools = [{"type": "function", "name": "get_weather", "parameters": {}}]
+
+    def body(**extra):
+        return parse_responses_request({"model": "m", "input": "x", **extra}).chat_body
+
+    assert body(tools=tools, parallel_tool_calls=False)["parallel_tool_calls"] is False
+    assert body(tools=tools, parallel_tool_calls=True)["parallel_tool_calls"] is True
+    assert "parallel_tool_calls" not in body(tools=tools)
+    # Chat completions only accept parallel_tool_calls together with tools.
+    assert "parallel_tool_calls" not in body(parallel_tool_calls=False)
+    assert "parallel_tool_calls" not in body(
+        tools=[{"type": "web_search"}], parallel_tool_calls=False
+    )
