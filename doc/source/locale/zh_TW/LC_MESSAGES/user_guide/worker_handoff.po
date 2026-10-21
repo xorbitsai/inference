@@ -1,0 +1,102 @@
+# Chinese (Traditional, Taiwan) translations for Xinference.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference 4.0\n"
+"Report-Msgid-Bugs-To: https://github.com/xorbitsai/inference/issues\n"
+"POT-Creation-Date: 2026-10-21 01:27+0800\n"
+"PO-Revision-Date: 2026-10-21 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language: zh_TW\n"
+"Language-Team: zh_TW\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: user_guide/worker_handoff.rst:1
+msgid "Worker hot replacement"
+msgstr "Worker 熱替換"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"Replace a distributed Worker on Linux or macOS while retaining its model processes. "
+"The Supervisor and API server keep running. Both Workers and the model processes must"
+" support the handoff protocol and use Xoscar 0.12.1 or later, compatible Python "
+"versions, the same Supervisor, GPU visibility and extensions. Local mode, models "
+"spanning Workers and Xavier or P/D deployments are currently unsupported."
+msgstr ""
+"在 Linux 或 macOS 上替換分散式 Worker，同時保留模型程序。Supervisor 和 API 服務繼續執行。兩個 Worker "
+"及模型程序皆須支援交接協定，使用 Xoscar 0.12.1 或更新版本、相容的 Python 版本、相同的 Supervisor、GPU "
+"可見性和擴充功能。目前不支援本機模式、跨 Worker 模型，以及 Xavier 或 P/D 部署。"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"Model management changes pause during handoff; inference calls continue. Failure "
+"before ownership transfer restores the old Worker. After transfer starts, keep both "
+"processes alive while the replacement retries. The old Worker exits automatically "
+"after successful replacement."
+msgstr ""
+"交接期間暫停模型管理變更，推論呼叫繼續執行。所有權轉移前失敗會恢復舊 Worker；轉移開始後，請保持兩個程序執行，由替換 Worker 重試完成交接。替換成功後，舊 "
+"Worker 自動結束。"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"The model processes retain their original Xinference and engine code and loaded "
+"weights. This replaces the Worker control process. Deploy both processes on the same "
+"machine, and configure the service manager to let retained processes outlive the old "
+"Worker instead of killing its process group or container."
+msgstr ""
+"模型程序保留原有的 Xinference、引擎程式碼和已載入的權重。本操作替換 Worker 控制程序。兩個程序須部署在同一台機器上，並設定服務管理員，允許保留的程序在舊"
+" Worker 結束後繼續執行，避免終止其整個程序群組或容器。"
+
+#: user_guide/worker_handoff.rst:8
+msgid "To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker starts its replacement automatically and inherits its Supervisor, GPU visibility, runtime configuration and configured metrics exporter port; a new actor port is selected automatically."
+msgstr "若要重新啟動現有 Worker，請傳送 ``POST /v1/workers/{worker_address}/relaunch``。Worker 會自動啟動替代處理程序，並繼承其 Supervisor、GPU 可見性、執行階段設定與已設定的指標匯出連接埠；新的 actor 連接埠會自動選取。"
+
+#: user_guide/worker_handoff.rst:15
+msgid ""
+"The response is HTTP 202 with an ``operation_id``. Poll ``GET /v1/worker-"
+"relaunches/{operation_id}`` or list recent operations with ``GET /v1/worker-relaunches``. Status "
+"is one of ``starting``, ``transferring``, ``pending``, ``succeeded`` or ``failed``. These routes "
+"require administrator access when authentication is enabled."
+msgstr ""
+"介面會傳回 HTTP 202 與 ``operation_id``。透過 ``GET /v1/worker-relaunches/{operation_id}`` 輪詢狀態，或透過 ``GET "
+"/v1/worker-relaunches`` 查看近期任務。狀態包括 ``starting``、``transferring``、``pending``、``succeeded`` 及 "
+"``failed``。啟用身分驗證時，這些介面需要管理員權限。"
+
+#: user_guide/worker_handoff.rst:17
+msgid ""
+"The Supervisor stores operation records in ``XINFERENCE_HOME/worker-relaunches.json``, so status "
+"remains available after the old Worker exits and can be reconciled after a Supervisor restart. "
+"Duplicate requests reuse an active operation. Keep the same optional ``request_id`` when retrying"
+" a request; use a new ID for a new operation. ``pending`` means the transfer outcome is "
+"uncertain: keep the processes alive and continue polling instead of starting another replacement."
+msgstr ""
+"Supervisor 將任務記錄儲存在 ``XINFERENCE_HOME/worker-relaunches.json``，因此舊 Worker 結束後仍可查詢狀態，Supervisor "
+"重新啟動後也可核對進度。重複請求會重用進行中的任務。重試請求時保留相同的選用 ``request_id``，開始新任務時使用新的 ID。``pending`` "
+"表示交接結果尚未確認：應保持程序執行並繼續輪詢，不要啟動另一個替代程序。"
+
+#: user_guide/worker_handoff.rst:19
+msgid ""
+"The optional ``python_executable`` request field selects an absolute Python executable path on "
+"the Worker machine, for example a separately installed newer environment. It defaults to the "
+"current interpreter. Packages are not installed by this operation, and retained model processes "
+"keep their original environment and code."
+msgstr ""
+"選用請求欄位 ``python_executable`` 指定 Worker 所在機器上 Python "
+"執行檔的絕對路徑，例如另外安裝的新版環境；預設使用目前的直譯器。此操作不會安裝套件，保留的模型程序會繼續使用原本的環境與程式碼。"
+
+#: user_guide/worker_handoff.rst:29
+msgid ""
+"For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement explicitly with "
+"a different actor port and a free metrics exporter port:"
+msgstr "對於位址為 ``127.0.0.1:9978`` 的現有 Worker，也可以明確啟動替代 Worker，使用不同的 Actor 連接埠及可用的指標匯出連接埠："
+
+#: ../../source/user_guide/worker_handoff.rst
+msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
+msgstr "Supervisor 也會將所有權預留記錄儲存在 ``XINFERENCE_HOME/worker-handoffs.json``，以便在 Supervisor 重新啟動後繼續完成中斷的交接。替代 Worker 會持續更新原 Worker 位址對應的復原檔案，包含重新啟動後新載入的模型。"

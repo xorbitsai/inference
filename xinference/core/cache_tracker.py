@@ -93,6 +93,14 @@ class CacheTrackerActor(xo.Actor):
                         self._update_file_location({address: model_path}, version_info)
                         version_info["cache_status"] = True
 
+    def rebind_worker(self, previous: str, current: str) -> None:
+        """Move cache locations with their owner; paths and files stay in place."""
+        for versions in self._model_name_to_version_info.values():
+            for version in versions:
+                paths = version.get("model_file_location")
+                if paths is not None and previous in paths:
+                    paths[current] = paths.pop(previous)
+
     def unregister_model_version(self, model_name: str):
         self._model_name_to_version_info.pop(model_name, None)
 

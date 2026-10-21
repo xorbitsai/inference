@@ -747,6 +747,7 @@ async def test_worker_heartbeat_failure_clears_cached_supervisor_refs():
     class DummyWorker:
         heartbeat = WorkerActor.heartbeat
         _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _ownership_metadata = WorkerActor._ownership_metadata
         _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
         _call_supervisor = WorkerActor._call_supervisor
         _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
@@ -822,6 +823,7 @@ async def test_worker_heartbeat_rpc_runs_on_actor_loop():
     class DummyWorker:
         heartbeat = WorkerActor.heartbeat
         _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _ownership_metadata = WorkerActor._ownership_metadata
         _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
         _call_supervisor = WorkerActor._call_supervisor
 
@@ -863,6 +865,7 @@ async def test_worker_report_status_upload_runs_on_actor_loop(monkeypatch):
     class DummyWorker:
         report_status = WorkerActor.report_status
         _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _ownership_metadata = WorkerActor._ownership_metadata
         _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
         _call_supervisor = WorkerActor._call_supervisor
 
@@ -902,6 +905,7 @@ async def test_actor_loop_dispatch_cancellation_releases_registration_lock():
 
     class DummyWorker:
         _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _ownership_metadata = WorkerActor._ownership_metadata
         _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
         _call_supervisor = WorkerActor._call_supervisor
 
@@ -3573,6 +3577,7 @@ def test_clear_supervisor_refs_does_not_remove_newer_reference():
 
     class DummyWorker:
         _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _ownership_metadata = WorkerActor._ownership_metadata
         _get_supervisor_ref_on_actor_loop = (
             WorkerActor._get_supervisor_ref_on_actor_loop
         )
@@ -3618,6 +3623,7 @@ def test_clear_supervisor_refs_does_not_remove_newer_same_reference_generation()
 
     class DummyWorker:
         _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _ownership_metadata = WorkerActor._ownership_metadata
         _get_supervisor_ref_on_actor_loop = (
             WorkerActor._get_supervisor_ref_on_actor_loop
         )
@@ -3680,6 +3686,7 @@ async def test_periodical_report_status_reregisters_after_heartbeat_failure(
         )
         _get_supervisor_ref_generation = WorkerActor._get_supervisor_ref_generation
         _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _ownership_metadata = WorkerActor._ownership_metadata
         _get_supervisor_ref_on_actor_loop = (
             WorkerActor._get_supervisor_ref_on_actor_loop
         )
@@ -3784,6 +3791,7 @@ async def test_supervisor_registration_is_single_flight_and_replays_latest_snaps
             WorkerActor._get_supervisor_ref_with_generation
         )
         _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _ownership_metadata = WorkerActor._ownership_metadata
         _get_supervisor_ref_on_actor_loop = (
             WorkerActor._get_supervisor_ref_on_actor_loop
         )

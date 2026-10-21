@@ -1,0 +1,106 @@
+# Japanese translations for Xinference.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference 4.0\n"
+"Report-Msgid-Bugs-To: https://github.com/xorbitsai/inference/issues\n"
+"POT-Creation-Date: 2026-10-21 01:27+0800\n"
+"PO-Revision-Date: 2026-10-21 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language: ja\n"
+"Language-Team: ja\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: user_guide/worker_handoff.rst:1
+msgid "Worker hot replacement"
+msgstr "Worker のホット置換"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"Replace a distributed Worker on Linux or macOS while retaining its model processes. "
+"The Supervisor and API server keep running. Both Workers and the model processes must"
+" support the handoff protocol and use Xoscar 0.12.1 or later, compatible Python "
+"versions, the same Supervisor, GPU visibility and extensions. Local mode, models "
+"spanning Workers and Xavier or P/D deployments are currently unsupported."
+msgstr ""
+"Linux または macOS で、モデルプロセスを維持したまま分散 Worker を置き換えます。Supervisor と API サーバーは動作を継続します。両方の "
+"Worker とモデルプロセスが引き継ぎプロトコルをサポートし、Xoscar 0.12.1 以降、互換性のある Python バージョン、同一の "
+"Supervisor、GPU の可視性および拡張機能を使用する必要があります。ローカルモード、複数 Worker にまたがるモデル、Xavier および P/D "
+"構成には現在対応していません。"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"Model management changes pause during handoff; inference calls continue. Failure "
+"before ownership transfer restores the old Worker. After transfer starts, keep both "
+"processes alive while the replacement retries. The old Worker exits automatically "
+"after successful replacement."
+msgstr ""
+"引き継ぎ中はモデル管理の変更を一時停止しますが、推論呼び出しは継続します。所有権の移転前に失敗した場合は元の Worker "
+"を復元します。移転開始後は両方のプロセスを稼働させたまま、置換先による再試行を待ってください。置換が完了すると元の Worker は自動的に終了します。"
+
+#: user_guide/worker_handoff.rst:1
+msgid ""
+"The model processes retain their original Xinference and engine code and loaded "
+"weights. This replaces the Worker control process. Deploy both processes on the same "
+"machine, and configure the service manager to let retained processes outlive the old "
+"Worker instead of killing its process group or container."
+msgstr ""
+"モデルプロセスは元の Xinference とエンジンのコード、および読み込み済みの重みを維持します。この操作は Worker "
+"の制御プロセスを置き換えます。両方のプロセスを同じマシンに配置し、元の Worker "
+"の終了時にプロセスグループ全体やコンテナを停止せず、維持対象のプロセスが動作を継続できるようサービスマネージャーを設定してください。"
+
+#: user_guide/worker_handoff.rst:8
+msgid "To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker starts its replacement automatically and inherits its Supervisor, GPU visibility, runtime configuration and configured metrics exporter port; a new actor port is selected automatically."
+msgstr "既存の Worker を再起動するには、``POST /v1/workers/{worker_address}/relaunch`` を送信します。Worker は置き換え先を自動的に起動し、Supervisor、GPU の可視性、実行時設定、設定済みのメトリクスエクスポーターポートを引き継ぎます。新しい actor ポートは自動的に選択されます。"
+
+#: user_guide/worker_handoff.rst:15
+msgid ""
+"The response is HTTP 202 with an ``operation_id``. Poll ``GET /v1/worker-"
+"relaunches/{operation_id}`` or list recent operations with ``GET /v1/worker-relaunches``. Status "
+"is one of ``starting``, ``transferring``, ``pending``, ``succeeded`` or ``failed``. These routes "
+"require administrator access when authentication is enabled."
+msgstr ""
+"応答は HTTP 202 で、``operation_id`` を含みます。``GET /v1/worker-relaunches/{operation_id}`` "
+"で状態をポーリングするか、``GET /v1/worker-relaunches`` で最近の操作を一覧表示します。状態は "
+"``starting``、``transferring``、``pending``、``succeeded``、``failed`` のいずれかです。認証が有効な場合、これらの API "
+"には管理者権限が必要です。"
+
+#: user_guide/worker_handoff.rst:17
+msgid ""
+"The Supervisor stores operation records in ``XINFERENCE_HOME/worker-relaunches.json``, so status "
+"remains available after the old Worker exits and can be reconciled after a Supervisor restart. "
+"Duplicate requests reuse an active operation. Keep the same optional ``request_id`` when retrying"
+" a request; use a new ID for a new operation. ``pending`` means the transfer outcome is "
+"uncertain: keep the processes alive and continue polling instead of starting another replacement."
+msgstr ""
+"Supervisor は操作記録を ``XINFERENCE_HOME/worker-relaunches.json`` に保存します。そのため旧 Worker "
+"の終了後も状態を取得でき、Supervisor の再起動後も進行状況を確認できます。重複リクエストは実行中の操作を再利用します。再試行時は任意の ``request_id`` "
+"を同じ値にし、新しい操作には新しい ID を使用します。``pending`` "
+"は引き継ぎ結果が未確定であることを示します。プロセスを動作させたままポーリングを続け、別の置換プロセスを起動しないでください。"
+
+#: user_guide/worker_handoff.rst:19
+msgid ""
+"The optional ``python_executable`` request field selects an absolute Python executable path on "
+"the Worker machine, for example a separately installed newer environment. It defaults to the "
+"current interpreter. Packages are not installed by this operation, and retained model processes "
+"keep their original environment and code."
+msgstr ""
+"任意のリクエストフィールド ``python_executable`` では、Worker マシン上の Python "
+"実行ファイルの絶対パスを指定できます。別途インストールした新しい環境などを選択でき、省略時は現在のインタープリターを使用します。この操作はパッケージをインストールしません。保持されるモデルプロセスは元の環境とコードを使用し続けます。"
+
+#: user_guide/worker_handoff.rst:29
+msgid ""
+"For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement explicitly with "
+"a different actor port and a free metrics exporter port:"
+msgstr "``127.0.0.1:9978`` で稼働中の Worker に対しては、異なる Actor ポートと空いているメトリクス公開ポートを使い、置換 Worker を明示的に起動することもできます。"
+
+#: ../../source/user_guide/worker_handoff.rst
+msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
+msgstr "Supervisor は所有権の予約も ``XINFERENCE_HOME/worker-handoffs.json`` に保存するため、Supervisor の再起動後に中断された引き継ぎを再開できます。置き換え先の Worker は元の Worker アドレスに対応する復旧ファイルを更新し続け、再起動後に起動したモデルも記録します。"

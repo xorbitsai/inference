@@ -331,6 +331,11 @@ def supervisor(
     type=int,
     help="Specify the port number for the Xinference metrics exporter worker.",
 )
+@click.option(
+    "--replace-worker",
+    type=str,
+    help="Take over running model processes from this worker actor address on the same machine.",
+)
 def worker(
     log_level: str,
     endpoint: Optional[str],
@@ -338,6 +343,7 @@ def worker(
     worker_port: Optional[int],
     metrics_exporter_host: Optional[str],
     metrics_exporter_port: Optional[int],
+    replace_worker: Optional[str] = None,
 ):
     from ..core.system_settings_store import initialize_system_settings
 
@@ -369,6 +375,7 @@ def worker(
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
         logging_conf=dict_config,
+        **({"replace_worker": replace_worker} if replace_worker else {}),
     )
 
 

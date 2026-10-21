@@ -2075,6 +2075,45 @@ class Client:
         response_data = response.json()
         return response_data
 
+    def relaunch_worker(
+        self,
+        worker_address: str,
+        python_executable: Optional[str] = None,
+        request_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Relaunch a Worker and return its asynchronous operation status."""
+        response = self.session.post(
+            f"{self.base_url}/v1/workers/{quote(worker_address, safe='')}/relaunch",
+            json={"python_executable": python_executable, "request_id": request_id},
+            headers=self._headers,
+        )
+        if response.status_code != 202:
+            raise RuntimeError(
+                f"Failed to relaunch worker: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def get_worker_relaunch(self, operation_id: str) -> Dict[str, Any]:
+        response = self.session.get(
+            f"{self.base_url}/v1/worker-relaunches/{quote(operation_id, safe='')}",
+            headers=self._headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get worker relaunch: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def list_worker_relaunches(self) -> List[Dict[str, Any]]:
+        response = self.session.get(
+            f"{self.base_url}/v1/worker-relaunches", headers=self._headers
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to list worker relaunches: {_get_error_string(response)}"
+            )
+        return response.json()
+
     def get_supervisor_info(self):
         url = f"{self.base_url}/v1/supervisor"
         response = self.session.get(url, headers=self._headers)

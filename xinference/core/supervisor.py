@@ -46,7 +46,6 @@ from ..constants import (
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_DOWNLOAD_TASK_DB_PATH,
     XINFERENCE_ENABLE_OTEL,
-    XINFERENCE_GET_MODEL_RPC_TIMEOUT,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
@@ -98,6 +97,7 @@ from .utils import (
     parse_replica_model_uid,
 )
 from .virtual_env_manager import VirtualEnvConflictError
+from .worker_registry import SupervisorHandoffMixin, call_worker_route, worker_message
 
 if TYPE_CHECKING:
     from ..extensions import ModelCatalogCredentials
@@ -233,7 +233,7 @@ class ReplicaInfo:
     active_replica_ids: List[int] = field(default_factory=list)
 
 
-class SupervisorActor(xo.StatelessActor):
+class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     def __init__(self):
         self._pd_model_mapping: Dict[str, Any] = {}
         self._xavier_cache_mapping: Dict[str, xo.ActorRefType] = {}
@@ -905,6 +905,8 @@ class SupervisorActor(xo.StatelessActor):
         from ..extensions import get_extensions
 
         get_extensions()
+        self._actor_loop = asyncio.get_running_loop()
+        self._initialize_worker_ownership()
         self._uptime = time.time()
         if XINFERENCE_ENABLE_OTEL:
             try:
@@ -1077,6 +1079,15 @@ class SupervisorActor(xo.StatelessActor):
         ] = {}
         self._schedule_autostart()
 
+        from .worker_state import WorkerJournalError
+
+        try:
+            self._relaunch_manager()
+        except WorkerJournalError:
+            logger.exception(
+                "Worker relaunch journal is unavailable; relaunch API disabled"
+            )
+
     def _schedule_autostart(self, delay: float = 0.0):
         if self._autostart_task is not None and not self._autostart_task.done():
             if delay <= 0:
@@ -1212,6 +1223,13 @@ class SupervisorActor(xo.StatelessActor):
         return None
 
     def _autostart_waiting_for_worker(self, launch: Dict[str, Any]) -> bool:
+        registry = getattr(self, "_worker_ownership", None)
+        if registry is not None and any(
+            (state.get("recovered") or registry.protected(source))
+            and launch["model_uid"] in state.get("models", [])
+            for source, state in registry.pending.items()
+        ):
+            return True
         worker_ip = launch.get("worker_ip")
         if worker_ip is None or self.is_local_deployment():
             return False
@@ -4831,7 +4849,10 @@ class SupervisorActor(xo.StatelessActor):
         while True:
             try:
                 dead_nodes = []
+                dead_worker_refs = {}
                 for address, status in self._worker_status.items():
+                    if self._ownership_registry().protected(address):
+                        continue
                     if (
                         time.time() - status.update_time
                         > XINFERENCE_HEALTH_CHECK_TIMEOUT
@@ -4860,6 +4881,9 @@ class SupervisorActor(xo.StatelessActor):
                         # Defer model/replica cleanup to after this iteration so
                         # we never await while iterating _worker_status.
                         dead_nodes.append(address)
+                        dead_worker_refs[address] = self._worker_address_to_worker.get(
+                            address
+                        )
                     elif (
                         status.failure_remaining_count
                         != XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
@@ -4870,16 +4894,16 @@ class SupervisorActor(xo.StatelessActor):
                             status.failure_remaining_count,
                         )
 
+                removed_nodes = []
                 for address in dead_nodes:
                     # Per-replica unexpected-termination recording + replica-level
                     # mapping cleanup (preserves healthy replicas of multi-replica
                     # models on surviving workers) + TERMINATED for fully-gone models.
-                    await self._handle_dead_worker(address)
-                    self._worker_status.pop(address, None)
-                    self._worker_address_to_worker.pop(address, None)
-                    self._extension_worker_resources.pop(address, None)
-                    self._discard_worker_metadata(address)
-                    self._clear_worker_model_gpu_memory(address)
+                    if await self._remove_dead_worker(
+                        address, dead_worker_refs[address]
+                    ):
+                        removed_nodes.append(address)
+                dead_nodes = removed_nodes
                 if dead_nodes:
                     # Autostart owns relaunching a model TERMINATED above, same
                     # trigger as mark_replica_dead's last-replica-death path.
@@ -4898,6 +4922,11 @@ class SupervisorActor(xo.StatelessActor):
                         # Reset on success
                         self._reverse_ping_failures.pop(address, None)
                     except Exception:
+                        if (
+                            self._ownership_registry().protected(address)
+                            or self._worker_address_to_worker.get(address) != worker_ref
+                        ):
+                            continue
                         # If the worker is launching a model, exempt it from
                         # reverse-channel dead detection. Long-running
                         # downloads can starve the actor event loop for
@@ -4954,15 +4983,10 @@ class SupervisorActor(xo.StatelessActor):
                             # fully-gone models. Iterating a copied list above,
                             # so full worker removal here is safe and keeps
                             # _worker_status consistent with workers_total.
-                            await self._handle_dead_worker(address)
-                            self._worker_status.pop(address, None)
-                            self._worker_address_to_worker.pop(address, None)
-                            self._extension_worker_resources.pop(address, None)
-                            self._discard_worker_metadata(address)
-                            self._clear_worker_model_gpu_memory(address)
-                            self._schedule_autostart()
-                            dead_nodes.append(address)
-                            self._reverse_ping_failures.pop(address, None)
+                            if await self._remove_dead_worker(address, worker_ref):
+                                self._schedule_autostart()
+                                dead_nodes.append(address)
+                                self._reverse_ping_failures.pop(address, None)
                         else:
                             logger.error(
                                 "Worker reverse-channel timeout. address: %s, "
@@ -5891,9 +5915,12 @@ class SupervisorActor(xo.StatelessActor):
             worker_ref, (list, tuple)
         ), "worker_ref must be a single worker"
         try:
-            return await xo.wait_for(
-                actor_call(worker_ref, "get_model", model_uid=replica_model_uid),
-                XINFERENCE_GET_MODEL_RPC_TIMEOUT,
+            return await call_worker_route(
+                self,
+                replica_model_uid,
+                worker_ref,
+                "get_model",
+                model_uid=replica_model_uid,
             )
         except ModelNotReadyError:
             raise ModelNotReadyError(
@@ -6305,6 +6332,9 @@ class SupervisorActor(xo.StatelessActor):
         return res
 
     async def __pre_destroy__(self) -> None:
+        manager = getattr(self, "_worker_relaunch_manager", None)
+        if manager is not None:
+            await manager.close()
         # Finish retained-weight operations before tearing down actor state.
         if self._model_reload_tasks:
             await asyncio.gather(
@@ -6459,6 +6489,7 @@ class SupervisorActor(xo.StatelessActor):
         self._worker_metadata_refresh_tasks[worker_address] = task
 
     @log_async(logger=logger)
+    @worker_message(registration=True)
     async def add_worker(
         self,
         worker_address: str,
@@ -6617,6 +6648,7 @@ class SupervisorActor(xo.StatelessActor):
                 )
 
     @log_async(logger=logger)
+    @worker_message()
     async def remove_worker(self, worker_address: str):
         # Records downed replicas + replica-level mapping cleanup + TERMINATED
         # for fully-gone models (graceful worker shutdown is the third path
@@ -6648,6 +6680,7 @@ class SupervisorActor(xo.StatelessActor):
                 worker_address,
             )
 
+    @worker_message()
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, Union[ResourceStatus, GPUStatus]]
     ):
@@ -6690,6 +6723,7 @@ class SupervisorActor(xo.StatelessActor):
                     worker_address,
                 )
 
+    @worker_message()
     async def receive_heartbeat(self, worker_address: str):
         """
         Receive lightweight heartbeat from worker.
