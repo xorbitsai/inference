@@ -939,16 +939,21 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                 self._engine.generate_url, json=json_data, headers=self._engine_headers()  # type: ignore
             ) as response:
                 response.raise_for_status()
+                buffer = b""
+                stream_done = False
                 async for chunk, _ in response.content.iter_chunks():
-                    chunk = chunk.decode("utf-8")
-                    if chunk and chunk.startswith("data:"):
-                        stop = "data: [DONE]\n\n"
-                        need_stop = False
-                        if chunk.endswith(stop):
-                            chunk = chunk[: -len(stop)]
-                            need_stop = True
+                    buffer += chunk
+                    # HTTP chunks can split UTF-8 characters or contain several events.
+                    while b"\n" in buffer:
+                        chunk, buffer = buffer.split(b"\n", 1)
+                        if not chunk.startswith(b"data:"):
+                            continue
+                        chunk = chunk[5:].strip()
+                        if chunk == b"[DONE]":
+                            stream_done = True
+                            break
                         if chunk:
-                            data = json.loads(chunk[5:].strip("\n"))
+                            data = json.loads(chunk)
                             if pd_decode:
                                 finished = (
                                     self._check_pd_finish(data["meta_info"]) or finished
@@ -969,8 +974,8 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                                 )
                                 yield meta_info, cur
                             pos += len(cur)
-                            if need_stop:
-                                break
+                    if stream_done:
+                        break
         if pd_decode and not finished:
             raise RuntimeError("SGLang PD decode stream ended without a finish reason")
 
