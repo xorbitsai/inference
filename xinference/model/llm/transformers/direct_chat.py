@@ -80,6 +80,39 @@ class PytorchDirectChatMixin(ChatModelMixin):
         except (TypeError, ValueError):
             return fallback
 
+    def _iter_text(
+        self, streamer: Iterator, stop: Optional[Union[str, List[str]]]
+    ) -> Iterator[str]:
+        stops = [stop] if isinstance(stop, str) else stop or []
+        pending = ""
+        for new_text in streamer:
+            new_text, should_stop = self.check_conditions(new_text)
+            if should_stop:
+                break
+            pending += new_text
+            positions = [pending.find(s) for s in stops if s in pending]
+            if positions:
+                yield pending[: min(positions)]
+                # Let background generation finish before releasing the request.
+                for _ in streamer:
+                    pass
+                return
+            # Keep any suffix that could become a stop string in the next chunk.
+            held = max(
+                (
+                    size
+                    for s in stops
+                    for size in range(1, min(len(s), len(pending) + 1))
+                    if pending.endswith(s[:size])
+                ),
+                default=0,
+            )
+            ready = len(pending) - held
+            yield pending[:ready]
+            pending = pending[ready:]
+        if pending:
+            yield pending
+
     def generate_non_streaming(
         self,
         messages: List[Dict],
@@ -90,10 +123,9 @@ class PytorchDirectChatMixin(ChatModelMixin):
         streamer, prompt_tokens = self.build_streaming_iter(messages, config)
         completion_tokens, total_tokens = 0, prompt_tokens
         response = ""
-        for chunk_count, new_text in enumerate(streamer, start=1):
-            new_text, should_stop = self.check_conditions(new_text)
-            if should_stop:
-                break
+        for chunk_count, new_text in enumerate(
+            self._iter_text(streamer, config.get("stop")), start=1
+        ):
             response += new_text
             completion_tokens = self.count_completion_tokens(response, chunk_count)
             total_tokens = prompt_tokens + completion_tokens
@@ -136,10 +168,9 @@ class PytorchDirectChatMixin(ChatModelMixin):
         tool_call_state = {"seen": False}
         is_first_chunk = True
         response = ""
-        for chunk_count, new_text in enumerate(streamer, start=1):
-            new_text, should_stop = self.check_conditions(new_text)
-            if should_stop:
-                break
+        for chunk_count, new_text in enumerate(
+            self._iter_text(streamer, config.get("stop")), start=1
+        ):
             response += new_text
             completion_tokens = self.count_completion_tokens(response, chunk_count)
             total_tokens = prompt_tokens + completion_tokens
