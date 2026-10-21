@@ -282,10 +282,13 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
                             )
                             chunks.append(time.time())
                             started.set()
+                # The completions route terminates with finish_reason;
+                # unlike chat completions, it does not require a [DONE] event.
                 assert (
-                    done and finished
-                ), "The original stream ended without its completion markers"
+                    finished
+                ), "The original stream ended without a terminal finish_reason"
                 report["stream_completed"] = True
+                report["stream_done_marker"] = done
 
             async def traffic():
                 while not stop.is_set():

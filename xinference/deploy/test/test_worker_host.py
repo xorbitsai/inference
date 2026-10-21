@@ -16,6 +16,15 @@ import psutil
 import pytest
 
 
+def _source_environment():
+    return dict(
+        os.environ,
+        PYTHONPATH=str(Path(__file__).resolve().parents[3])
+        + os.pathsep
+        + os.environ.get("PYTHONPATH", ""),
+    )
+
+
 @pytest.mark.skipif(os.name != "posix", reason="POSIX Worker service host")
 @pytest.mark.parametrize("replacement", [False, True])
 def test_worker_failure_reaches_service_manager(tmp_path, replacement):
@@ -46,6 +55,7 @@ else:
             str(tmp_path / "ready"),
             "parent" if replacement else "replacement",
         ],
+        env=_source_environment(),
         timeout=20,
     )
     # Linux adopts grandchildren and preserves their exact exit status. macOS
@@ -75,12 +85,6 @@ else:
     time.sleep(60)
 """
     )
-    env = dict(
-        os.environ,
-        PYTHONPATH=str(Path(__file__).resolve().parents[3])
-        + os.pathsep
-        + os.environ.get("PYTHONPATH", ""),
-    )
     host = subprocess.Popen(
         [
             sys.executable,
@@ -90,7 +94,7 @@ else:
             str(script),
             str(tmp_path),
         ],
-        env=env,
+        env=_source_environment(),
     )
     unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
     identities = {}
