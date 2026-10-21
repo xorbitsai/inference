@@ -172,10 +172,6 @@ msgstr ""
 "キャッシュと同程度のメモリを使用する場合があります。デプロイの容量を計画する際は、転送用のホストメモリも確保してください。"
 
 #: user_guide/pd_separation.rst:57
-msgid "Native NIXL backend"
-msgstr "ネイティブ NIXL バックエンド"
-
-#: user_guide/pd_separation.rst:57
 msgid ""
 "Set ``vllm_transfer_backend_type=\"nixl\"`` in the launch example to use "
 "vLLM's native NixlConnector. Install ``nixl`` in the model environment "
@@ -342,10 +338,6 @@ msgstr ""
 "分間なければ期限切れになります。実行中のコピーは解放前に完了します。期限切れの引き渡しは D がローカルで再計算します。"
 
 #: source/user_guide/pd_separation.rst
-msgid "SGLang with Xavier"
-msgstr "SGLang と Xavier"
-
-#: source/user_guide/pd_separation.rst
 msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``\"SGLang\"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported."
 msgstr "SGLang >= ``0.5.21`` では、Python クライアント、REST API、CLI、Web UI から同じ prefill/decode ``replica_config`` を使用できます。例の ``model_engine`` を ``\"SGLang\"`` に変更してください。明示的なロールは Xavier を自動的に有効にし、複数の prefill および decode レプリカに対応します。"
 
@@ -360,14 +352,6 @@ msgstr "SGLang GPU P/D は ``xavier_cache_bytes`` や CPU HiCache を使用し�
 #: source/user_guide/pd_separation.rst
 msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
 msgstr "vLLM Xavier P/D はデフォルトで GPU 間の直接転送を使用します。Linux、NVIDIA GPU、vLLM >= 0.21.0、およびワーカーとモデルの両環境に ``xoscar[nixl]>=0.11.1`` が必要です。到達可能なホストアドレスを使用してください（``0.0.0.0`` は不可）。NIXL がなければ起動に失敗し、CPU へフォールバックしません。"
-
-#: source/user_guide/pd_separation.rst
-msgid "vLLM Xavier requirements and memory"
-msgstr "vLLM Xavier の要件とメモリ"
-
-#: source/user_guide/pd_separation.rst:64
-msgid "For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type=\"nixl\"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
-msgstr "ネイティブ SGLang と比較するには、同じデプロイを維持し、``transfer_backend_type=\"nixl\"`` を設定します。同じ Xinference API と P/D ルーターを通じて SGLang の NIXL バックエンドを使用します。各モデル環境に ``nixl`` をインストールしてください。初期のネイティブ統合では TP=PP=DP=1、レプリカごとに worker が 1 つ、テキストリクエストのみが必要で、LoRA、投機的デコード、HiCache は使用できません。ブートストラップポートはレプリカごとに割り当てられ、両方のレプリカホストが相互に到達可能である必要があります。"
 
 #: ../../source/user_guide/pd_separation.rst:66
 msgid "For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts."
@@ -394,10 +378,6 @@ msgstr ""
 #: ../../user_guide/pd_separation.rst
 msgid "Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication."
 msgstr "ネイティブ SGLang P/D には単一の tokenizer worker が必要です。内部 HTTP エンドポイントにはレプリカごとの認証が自動的に設定されます。"
-
-#: user_guide/pd_separation.rst
-msgid "MLX with Xavier"
-msgstr "Xavier を使用する MLX"
 
 #: user_guide/pd_separation.rst
 msgid ""
@@ -640,3 +620,55 @@ msgstr ""
 "``min_p``、``presence_penalty``、``frequency_penalty``、``seed`` "
 "を指定できません。router "
 "はいずれのレプリカもスケジュールする前にこれらのパラメーターを拒否するため、最初の出力トークンにも応答の残りと同じ対応済みサンプリング設定を使います。"
+
+#: source/user_guide/pd_separation.rst:12
+msgid "Choose an engine and backend"
+msgstr "エンジンとバックエンドの選択"
+
+#: source/user_guide/pd_separation.rst:14
+msgid "For same-engine P/D, choose the engine first, then its Native NIXL or Xavier backend below. vLLM and SGLang support both; Xavier is the default. MLX supports Xavier only. Cross-engine deployments use Xavier and are described separately."
+msgstr "同一エンジンの P/D では、まずエンジンを選択し、次に該当セクションでネイティブ NIXL または Xavier バックエンドを選択します。vLLM と SGLang は両方に対応し、デフォルトは Xavier です。MLX は Xavier のみに対応します。異種エンジンの構成では Xavier を使用し、別のセクションで説明します。"
+
+#: source/user_guide/pd_separation.rst:16
+msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. See :ref:`user_guide_vllm_enhancement` for storage configuration."
+msgstr "ネイティブ NIXL はエンジン自身の P/D コネクターを使用します。Xavier の GPU 転送も NIXL を使用し、受け渡しは Xavier が管理します。``xavier_cache_backend`` 設定（``native`` または ``lmcache``）は通常のプレフィックスキャッシュ共有用ストレージを選択する設定で、P/D 転送とは別に設定します。ストレージ設定は :ref:`user_guide_vllm_enhancement` を参照してください。"
+
+#: source/user_guide/pd_separation.rst:22
+msgid "Python client"
+msgstr "Python クライアント"
+
+#: source/user_guide/pd_separation.rst:120
+msgid "Same-engine P/D"
+msgstr "同一エンジンの P/D"
+
+#: source/user_guide/pd_separation.rst:123
+msgid "vLLM"
+msgstr "vLLM"
+
+#: source/user_guide/pd_separation.rst:130 source/user_guide/pd_separation.rst:193
+msgid "Native NIXL"
+msgstr "ネイティブ NIXL"
+
+#: source/user_guide/pd_separation.rst:149 source/user_guide/pd_separation.rst:206
+msgid "Xavier (default)"
+msgstr "Xavier（デフォルト）"
+
+#: source/user_guide/pd_separation.rst:188
+msgid "SGLang"
+msgstr "SGLang"
+
+#: source/user_guide/pd_separation.rst:197
+msgid "Set ``model_engine=\"SGLang\"`` and ``transfer_backend_type=\"nixl\"`` with the launch example's P/D roles. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
+msgstr "起動例の P/D ロールとともに ``model_engine=\"SGLang\"`` と ``transfer_backend_type=\"nixl\"`` を設定します。同じ Xinference API と P/D ルーターを通じて SGLang の NIXL バックエンドを使用します。各モデル環境に ``nixl`` をインストールしてください。初期のネイティブ統合は TP=PP=DP=1、レプリカごとに 1 ワーカー、テキストリクエストを必要とし、LoRA、投機的デコード、HiCache は非対応です。ブートストラップポートはレプリカごとに割り当てられ、両方のホストが到達可能である必要があります。"
+
+#: source/user_guide/pd_separation.rst:223
+msgid "MLX"
+msgstr "MLX"
+
+#: source/user_guide/pd_separation.rst:230
+msgid "Xavier"
+msgstr "Xavier"
+
+#: source/user_guide/pd_separation.rst:266
+msgid "Cross-engine P/D"
+msgstr "異種エンジンの P/D"

@@ -172,10 +172,6 @@ msgstr ""
 " 메모리도 확보하세요."
 
 #: user_guide/pd_separation.rst:57
-msgid "Native NIXL backend"
-msgstr "네이티브 NIXL 백엔드"
-
-#: user_guide/pd_separation.rst:57
 msgid ""
 "Set ``vllm_transfer_backend_type=\"nixl\"`` in the launch example to use "
 "vLLM's native NixlConnector. Install ``nixl`` in the model environment "
@@ -341,10 +337,6 @@ msgstr ""
 "복사는 해제 전에 완료됩니다. 만료된 전달은 D가 로컬에서 다시 계산합니다."
 
 #: source/user_guide/pd_separation.rst
-msgid "SGLang with Xavier"
-msgstr "SGLang과 Xavier"
-
-#: source/user_guide/pd_separation.rst
 msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``\"SGLang\"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported."
 msgstr "SGLang >= ``0.5.21`` 은 Python 클라이언트, REST API, CLI 및 Web UI에서 동일한 prefill/decode ``replica_config`` 를 사용할 수 있습니다. 예제의 ``model_engine`` 을 ``\"SGLang\"`` 으로 변경하세요. 명시적 역할은 Xavier를 자동으로 활성화하며 여러 prefill 및 decode 복제본을 지원합니다."
 
@@ -359,14 +351,6 @@ msgstr "SGLang GPU P/D는 ``xavier_cache_bytes`` 나 CPU HiCache를 사용하지
 #: source/user_guide/pd_separation.rst
 msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
 msgstr "vLLM Xavier P/D는 기본적으로 GPU 간 직접 전송을 사용합니다. Linux, NVIDIA GPU, vLLM >= 0.21.0이 필요하며 워커와 모델 환경 모두에 ``xoscar[nixl]>=0.11.1`` 을 설치해야 합니다. 연결 가능한 호스트 주소를 사용하세요(``0.0.0.0`` 제외). NIXL이 없으면 시작에 실패하며 CPU로 대체하지 않습니다."
-
-#: source/user_guide/pd_separation.rst
-msgid "vLLM Xavier requirements and memory"
-msgstr "vLLM Xavier 요구 사항 및 메모리"
-
-#: source/user_guide/pd_separation.rst:64
-msgid "For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type=\"nixl\"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
-msgstr "네이티브 SGLang과 비교하려면 같은 배포를 유지하고 ``transfer_backend_type=\"nixl\"`` 을 설정하세요. 같은 Xinference API와 P/D 라우터를 통해 SGLang의 NIXL 백엔드를 사용합니다. 각 모델 환경에 ``nixl`` 을 설치하세요. 초기 네이티브 통합은 TP=PP=DP=1, 복제본당 worker 하나, 텍스트 요청만 지원하며 LoRA, 추측 디코딩 또는 HiCache를 사용할 수 없습니다. 부트스트랩 포트는 복제본마다 할당되며 두 복제본 호스트가 서로 연결 가능해야 합니다."
 
 #: ../../source/user_guide/pd_separation.rst:66
 msgid "For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts."
@@ -393,10 +377,6 @@ msgstr ""
 #: ../../user_guide/pd_separation.rst
 msgid "Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication."
 msgstr "네이티브 SGLang P/D는 tokenizer worker 하나를 요구하며, 내부 HTTP 엔드포인트에는 복제본별 인증이 자동으로 적용됩니다."
-
-#: user_guide/pd_separation.rst
-msgid "MLX with Xavier"
-msgstr "Xavier를 사용하는 MLX"
 
 #: user_guide/pd_separation.rst
 msgid ""
@@ -634,3 +614,55 @@ msgstr ""
 "MLX prefill을 사용하는 엔진 간 요청은 ``min_p``, ``presence_penalty``, "
 "``frequency_penalty`` 또는 ``seed`` 를 허용하지 않습니다. router는 어느 replica도 예약하기 전에 이"
 " 매개변수를 거부하므로 첫 출력 토큰에도 나머지 응답과 동일한 지원 샘플링 설정을 사용합니다."
+
+#: source/user_guide/pd_separation.rst:12
+msgid "Choose an engine and backend"
+msgstr "엔진 및 백엔드 선택"
+
+#: source/user_guide/pd_separation.rst:14
+msgid "For same-engine P/D, choose the engine first, then its Native NIXL or Xavier backend below. vLLM and SGLang support both; Xavier is the default. MLX supports Xavier only. Cross-engine deployments use Xavier and are described separately."
+msgstr "동일 엔진 P/D에서는 먼저 엔진을 선택한 다음 해당 섹션에서 네이티브 NIXL 또는 Xavier 백엔드를 선택하세요. vLLM과 SGLang은 둘 다 지원하며 기본값은 Xavier입니다. MLX는 Xavier만 지원합니다. 이기종 엔진 배포는 Xavier를 사용하며 별도 섹션에서 설명합니다."
+
+#: source/user_guide/pd_separation.rst:16
+msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. See :ref:`user_guide_vllm_enhancement` for storage configuration."
+msgstr "네이티브 NIXL은 엔진 자체의 P/D 커넥터를 사용합니다. Xavier의 GPU 전송도 NIXL을 사용하며 Xavier가 전달을 관리합니다. ``xavier_cache_backend`` 설정(``native`` 또는 ``lmcache``)은 일반 접두사 캐시 공유용 스토리지를 선택하며 P/D 전송과 별도로 구성합니다. 스토리지 구성은 :ref:`user_guide_vllm_enhancement` 를 참조하세요."
+
+#: source/user_guide/pd_separation.rst:22
+msgid "Python client"
+msgstr "Python 클라이언트"
+
+#: source/user_guide/pd_separation.rst:120
+msgid "Same-engine P/D"
+msgstr "동일 엔진 P/D"
+
+#: source/user_guide/pd_separation.rst:123
+msgid "vLLM"
+msgstr "vLLM"
+
+#: source/user_guide/pd_separation.rst:130 source/user_guide/pd_separation.rst:193
+msgid "Native NIXL"
+msgstr "네이티브 NIXL"
+
+#: source/user_guide/pd_separation.rst:149 source/user_guide/pd_separation.rst:206
+msgid "Xavier (default)"
+msgstr "Xavier (기본값)"
+
+#: source/user_guide/pd_separation.rst:188
+msgid "SGLang"
+msgstr "SGLang"
+
+#: source/user_guide/pd_separation.rst:197
+msgid "Set ``model_engine=\"SGLang\"`` and ``transfer_backend_type=\"nixl\"`` with the launch example's P/D roles. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
+msgstr "시작 예제의 P/D 역할과 함께 ``model_engine=\"SGLang\"`` 및 ``transfer_backend_type=\"nixl\"`` 을 설정하세요. 동일한 Xinference API 및 P/D 라우터를 통해 SGLang의 NIXL 백엔드를 사용합니다. 각 모델 환경에 ``nixl`` 을 설치하세요. 초기 네이티브 통합은 TP=PP=DP=1, 복제본당 워커 하나, 텍스트 요청을 요구하며 LoRA, 추측 디코딩 또는 HiCache는 지원하지 않습니다. 부트스트랩 포트는 복제본별로 할당되며 두 복제본 호스트에 모두 접근할 수 있어야 합니다."
+
+#: source/user_guide/pd_separation.rst:223
+msgid "MLX"
+msgstr "MLX"
+
+#: source/user_guide/pd_separation.rst:230
+msgid "Xavier"
+msgstr "Xavier"
+
+#: source/user_guide/pd_separation.rst:266
+msgid "Cross-engine P/D"
+msgstr "이기종 엔진 P/D"
