@@ -122,7 +122,10 @@ class MingTTSModel:
         from ...thirdparty.ming_tts.ming_tiny.prompt_contract import (
             normalize_target_language,
         )
-        from ...thirdparty.ming_tts.ming_tiny.task_protocol import normalize_task
+        from ...thirdparty.ming_tts.ming_tiny.task_protocol import (
+            TASK_SPECS,
+            normalize_task,
+        )
         from .utils import apply_audio_seed, audio_to_bytes
 
         if stream:
@@ -142,18 +145,31 @@ class MingTTSModel:
         reference = options.pop("prompt_speech", None)
         prompt_text = options.pop("prompt_text", None)
         instruction = options.pop("instruction", options.pop("instruct", None))
+        language = normalize_target_language(
+            options.pop(
+                "language",
+                options.pop("target_language", options.pop("language_id", None)),
+            )
+        )
         default_task = "seed" if reference is not None else "ip"
+        if (
+            self._tiny
+            and reference is not None
+            and language in TASK_SPECS["multilingual"].allowed_languages
+        ):
+            default_task = "multilingual"
         if instruction is not None:
             default_task = "freeform"
         task = normalize_task(options.pop("task", default_task))
-        if task == "podcast" and not self._tiny:
-            raise ValueError("Podcast generation requires Ming-3.0-tts-tiny")
-        language = options.pop(
-            "language", options.pop("target_language", options.pop("language_id", None))
-        )
+        if task == "podcast":
+            raise ValueError(
+                "Podcast generation is not supported through the speech API"
+            )
         if language is None and task in {"seed", "paralinguistic"}:
             language = "Chinese"
-        language = normalize_target_language(language)
+        if self._tiny and not TASK_SPECS[task].include_target_language:
+            # Shared speech clients send language even for control-only tasks.
+            language = None
         controls = options.pop("controls", {})
         if not isinstance(controls, dict) or set(controls) - _CONTROLS:
             raise ValueError(f"controls must contain only {sorted(_CONTROLS)}")
@@ -175,22 +191,13 @@ class MingTTSModel:
         with tempfile.TemporaryDirectory(prefix="ming_tts_") as directory:
             prompt_wav = None
             if reference is not None:
-                references = (
-                    reference if isinstance(reference, (list, tuple)) else [reference]
-                )
-                if not references or any(
-                    not isinstance(item, (bytes, bytearray)) or not item
-                    for item in references
-                ):
+                if not isinstance(reference, (bytes, bytearray)) or not reference:
                     raise InvalidAudioInputError(
                         "prompt_speech must contain non-empty audio bytes"
                     )
-                paths = []
-                for index, audio in enumerate(references):
-                    path = Path(directory) / f"reference_{index}.wav"
-                    path.write_bytes(audio)
-                    paths.append(str(path))
-                prompt_wav = paths if isinstance(reference, (list, tuple)) else paths[0]
+                path = Path(directory) / "reference.wav"
+                path.write_bytes(reference)
+                prompt_wav = str(path)
             if task in {"seed", "multilingual", "paralinguistic"} and (
                 not prompt_wav
                 or not isinstance(prompt_text, str)

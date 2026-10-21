@@ -3,7 +3,7 @@
     "version": 2,
     "model_name": "Ming-3.0-tts-tiny",
     "model_family": "Ming-3.0-tts",
-    "model_description": "Ming-3.0 TTS supports multilingual voice cloning, voice design, emotion, dialect and instruction control. Use prompt_speech with prompt_text for cloning, voice for a built-in voice (default: 灵小柔), or task with controls/instruction for other modes. Tiny additionally supports podcast generation. Requires NVIDIA CUDA and fla-core.",
+    "model_description": "Ming-3.0 TTS supports multilingual voice cloning, voice design, emotion, dialect and instruction control. Use prompt_speech with prompt_text for cloning, voice for a built-in voice (default: 灵小柔), or task with controls/instruction for other modes. Requires NVIDIA CUDA and fla-core.",
     "model_ability": [
       "text2audio",
       "text2audio_zero_shot",
