@@ -906,6 +906,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
         get_extensions()
         self._actor_loop = asyncio.get_running_loop()
+        self._initialize_worker_ownership()
         self._uptime = time.time()
         if XINFERENCE_ENABLE_OTEL:
             try:
@@ -1078,6 +1079,15 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         ] = {}
         self._schedule_autostart()
 
+        from .worker_state import WorkerJournalError
+
+        try:
+            self._relaunch_manager()
+        except WorkerJournalError:
+            logger.exception(
+                "Worker relaunch journal is unavailable; relaunch API disabled"
+            )
+
     def _schedule_autostart(self, delay: float = 0.0):
         if self._autostart_task is not None and not self._autostart_task.done():
             if delay <= 0:
@@ -1213,6 +1223,13 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         return None
 
     def _autostart_waiting_for_worker(self, launch: Dict[str, Any]) -> bool:
+        registry = getattr(self, "_worker_ownership", None)
+        if registry is not None and any(
+            (state.get("recovered") or registry.protected(source))
+            and launch["model_uid"] in state.get("models", [])
+            for source, state in registry.pending.items()
+        ):
+            return True
         worker_ip = launch.get("worker_ip")
         if worker_ip is None or self.is_local_deployment():
             return False

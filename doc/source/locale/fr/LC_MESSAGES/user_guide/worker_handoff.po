@@ -65,15 +65,8 @@ msgstr ""
 "tout son groupe de processus ou conteneur."
 
 #: user_guide/worker_handoff.rst:8
-msgid ""
-"To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker "
-"starts its replacement automatically and inherits its Supervisor, GPU visibility and runtime "
-"configuration; new actor and metrics ports are selected automatically."
-msgstr ""
-"Pour relancer un Worker existant, envoyez ``POST /v1/workers/{worker_address}/relaunch``. Le "
-"Worker lance automatiquement son remplaçant, qui hérite du Supervisor, de la visibilité des GPU "
-"et de la configuration d’exécution ; les nouveaux ports Actor et métriques sont choisis "
-"automatiquement."
+msgid "To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker starts its replacement automatically and inherits its Supervisor, GPU visibility, runtime configuration and configured metrics exporter port; a new actor port is selected automatically."
+msgstr "Pour relancer un Worker existant, envoyez ``POST /v1/workers/{worker_address}/relaunch``. Le Worker démarre automatiquement son remplaçant, qui hérite du Supervisor, de la visibilité des GPU, de la configuration d’exécution et du port configuré de l’exportateur de métriques ; un nouveau port d’acteur est sélectionné automatiquement."
 
 #: user_guide/worker_handoff.rst:15
 msgid ""
@@ -121,3 +114,7 @@ msgid ""
 msgstr ""
 "Pour un Worker existant à l’adresse ``127.0.0.1:9978``, vous pouvez aussi lancer explicitement "
 "son remplaçant avec un port Actor différent et un port libre pour l’export des métriques :"
+
+#: ../../source/user_guide/worker_handoff.rst
+msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
+msgstr "Le Supervisor conserve également les réservations de propriété dans ``XINFERENCE_HOME/worker-handoffs.json`` pour reprendre un transfert interrompu après son redémarrage. Les Workers de remplacement continuent de mettre à jour le fichier de récupération associé à l’adresse initiale du Worker, y compris pour les modèles lancés après la relance."

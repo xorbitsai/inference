@@ -118,8 +118,9 @@ async def _start_worker(
         while True:
             try:
                 if not reported_started:
-                    await report("transferring")
-                    reported_started = True
+                    with contextlib.suppress(Exception):
+                        await report("transferring")
+                        reported_started = True
                 await ref.replace_worker(replace_worker)
                 logger.info("Worker %s has taken over from %s", address, replace_worker)
                 break

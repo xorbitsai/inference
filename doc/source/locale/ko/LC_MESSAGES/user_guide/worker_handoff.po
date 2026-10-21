@@ -56,13 +56,8 @@ msgstr ""
 "설정하세요."
 
 #: user_guide/worker_handoff.rst:8
-msgid ""
-"To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker "
-"starts its replacement automatically and inherits its Supervisor, GPU visibility and runtime "
-"configuration; new actor and metrics ports are selected automatically."
-msgstr ""
-"기존 Worker를 다시 시작하려면 ``POST /v1/workers/{worker_address}/relaunch`` 를 보냅니다. Worker는 대체 프로세스를 자동으로 "
-"시작하고 Supervisor, GPU 가시성 및 실행 설정을 상속합니다. 새 Actor 포트와 메트릭 포트는 자동으로 선택됩니다."
+msgid "To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker starts its replacement automatically and inherits its Supervisor, GPU visibility, runtime configuration and configured metrics exporter port; a new actor port is selected automatically."
+msgstr "기존 Worker를 다시 시작하려면 ``POST /v1/workers/{worker_address}/relaunch`` 를 전송합니다. Worker는 대체 Worker를 자동으로 시작하고 Supervisor, GPU 가시성, 런타임 구성 및 설정된 메트릭 내보내기 포트를 상속합니다. 새 actor 포트는 자동으로 선택됩니다."
 
 #: user_guide/worker_handoff.rst:15
 msgid ""
@@ -105,3 +100,7 @@ msgid ""
 msgstr ""
 "기존 Worker의 주소가 ``127.0.0.1:9978`` 인 경우, 다른 Actor 포트와 사용 가능한 메트릭 내보내기 포트로 대체 Worker를 명시적으로 시작할 수도 "
 "있습니다."
+
+#: ../../source/user_guide/worker_handoff.rst
+msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
+msgstr "Supervisor는 소유권 예약도 ``XINFERENCE_HOME/worker-handoffs.json`` 에 저장하므로 Supervisor 재시작 후 중단된 인계를 재개할 수 있습니다. 대체 Worker는 재실행 후 시작된 모델을 포함하여 원래 Worker 주소의 복구 파일을 계속 업데이트합니다."

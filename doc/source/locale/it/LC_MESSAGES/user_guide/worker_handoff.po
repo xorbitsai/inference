@@ -65,15 +65,8 @@ msgstr ""
 "terminare l’intero gruppo di processi o contenitore."
 
 #: user_guide/worker_handoff.rst:8
-msgid ""
-"To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker "
-"starts its replacement automatically and inherits its Supervisor, GPU visibility and runtime "
-"configuration; new actor and metrics ports are selected automatically."
-msgstr ""
-"Per riavviare un Worker esistente, inviare ``POST /v1/workers/{worker_address}/relaunch``. Il "
-"Worker avvia automaticamente il sostituto, che eredita Supervisor, visibilità GPU e "
-"configurazione di esecuzione; le nuove porte Actor e metriche vengono selezionate "
-"automaticamente."
+msgid "To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker starts its replacement automatically and inherits its Supervisor, GPU visibility, runtime configuration and configured metrics exporter port; a new actor port is selected automatically."
+msgstr "Per riavviare un Worker esistente, inviare ``POST /v1/workers/{worker_address}/relaunch``. Il Worker avvia automaticamente il proprio sostituto, che eredita Supervisor, visibilità delle GPU, configurazione di esecuzione e porta configurata dell’esportatore di metriche; una nuova porta dell’actor viene selezionata automaticamente."
 
 #: user_guide/worker_handoff.rst:15
 msgid ""
@@ -121,3 +114,7 @@ msgid ""
 msgstr ""
 "Per un Worker esistente su ``127.0.0.1:9978``, è anche possibile avviare esplicitamente il "
 "sostituto con una porta Actor diversa e una porta libera per esportare le metriche:"
+
+#: ../../source/user_guide/worker_handoff.rst
+msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
+msgstr "Il Supervisor salva anche le prenotazioni di proprietà in ``XINFERENCE_HOME/worker-handoffs.json`` per riprendere un trasferimento interrotto dopo il proprio riavvio. I Worker sostitutivi continuano ad aggiornare il file di ripristino relativo all’indirizzo originale del Worker, compresi i modelli avviati dopo il rilancio."

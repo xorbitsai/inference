@@ -83,3 +83,50 @@ def test_worker_relaunch_routes_require_admin_scope(authenticated):
         assert (
             [dependency.scopes for dependency in dependencies] if dependencies else []
         ) == ([["admin"]] if authenticated else [])
+
+
+@pytest.mark.asyncio
+async def test_unavailable_journal_returns_service_error_on_every_route():
+    import httpx
+    from fastapi import FastAPI
+
+    from ...core.worker_state import WorkerJournalError
+
+    supervisor = SimpleNamespace(
+        **{
+            method: AsyncMock(
+                side_effect=WorkerJournalError("Invalid Worker relaunch journal")
+            )
+            for method in (
+                "relaunch_worker",
+                "get_worker_relaunch",
+                "list_worker_relaunches",
+            )
+        }
+    )
+    app = FastAPI()
+    app.state.api = SimpleNamespace(
+        _get_supervisor_ref=AsyncMock(return_value=supervisor)
+    )
+    app.add_api_route(
+        "/v1/workers/{worker_address}/relaunch", admin.relaunch_worker, methods=["POST"]
+    )
+    app.add_api_route(
+        "/v1/worker-relaunches/{operation_id}",
+        admin.get_worker_relaunch,
+        methods=["GET"],
+    )
+    app.add_api_route(
+        "/v1/worker-relaunches", admin.list_worker_relaunches, methods=["GET"]
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        for method, path in (
+            ("POST", "/v1/workers/old/relaunch"),
+            ("GET", "/v1/worker-relaunches/one"),
+            ("GET", "/v1/worker-relaunches"),
+        ):
+            response = await client.request(method, path)
+            assert response.status_code == 503
+            assert "journal" in response.json()["detail"]

@@ -120,6 +120,7 @@ class WorkerSnapshot:
     state: Dict[str, Any]
     metrics_port: Optional[int] = None
     custom_models: Dict[str, Dict[str, str]] = field(default_factory=dict)
+    recovery_address: Optional[str] = None
 
     @property
     def transfer_key(self):
@@ -148,12 +149,6 @@ class WorkerSnapshot:
             raise ValueError(
                 "Workers must expose the same GPU devices in the same order"
             )
-        if (
-            not is_metrics_disabled()
-            and self.metrics_port is not None
-            and self.metrics_port == worker._metrics_exporter_config[1]
-        ):
-            raise ValueError("Replacement requires a different metrics exporter port")
         if set(self.state) != set(STATE_FIELDS):
             raise ValueError("Incomplete worker handoff state")
 
@@ -162,19 +157,25 @@ class HandoffPending(RuntimeError):
     """Ownership transfer started; keep both processes alive and retry."""
 
 
-class PoolTransfer:
-    """Keep native-pool protocol details at one application boundary."""
+def pool_transfer_status(pool):
+    # Xoscar 0.12.1 retains the decision for retry. In particular,
+    # rollback_failed is NOT proof that the original owner may resume.
+    if not hasattr(pool, "_handoff"):
+        return "pending"
+    state = pool._handoff
+    if state is None:
+        return "idle"
+    return "committed" if state["phase"] in ("committed", "done") else "pending"
 
-    @staticmethod
-    def status(pool):
-        # Xoscar 0.12.1 retains the transfer decision for retry. In particular,
-        # rollback_failed is NOT proof that the original owner may resume.
-        if not hasattr(pool, "_handoff"):
-            return "pending"  # Unknown state must never authorize rollback.
-        state = pool._handoff
-        if state is None:
-            return "idle"
-        return "committed" if state["phase"] in ("committed", "done") else "pending"
+
+def pool_transfer_received(pool, snapshot):
+    # A prepared target accepts exactly one native transfer. Its completed
+    # receipt survives loss of the source's application-level commit reply.
+    addresses = set(snapshot.state["_model_uid_to_addr"].values())
+    return any(
+        addresses <= set(received)
+        for received in getattr(pool, "_completed_handoffs", {}).values()
+    )
 
 
 class WorkerHandoffMixin:
@@ -220,9 +221,6 @@ class WorkerHandoffMixin:
 
     def worker_handoff_protocol(self):
         return PROTOCOL_VERSION
-
-    def worker_relaunch_protocol(self):
-        return 1
 
     async def _handoff_supervisor(self):
         from .supervisor import SupervisorActor
@@ -349,6 +347,7 @@ class WorkerHandoffMixin:
                         else self._metrics_exporter_config[1]
                     ),
                     custom_models=CustomModelState.capture(self),
+                    recovery_address=self._recovery_address or self.address,
                 )
                 self._outgoing_handoff = snapshot
                 self._handoff_expiry = asyncio.create_task(
@@ -377,8 +376,12 @@ class WorkerHandoffMixin:
 
     async def _expire_worker_handoff(self, ticket, timeout):
         await asyncio.sleep(timeout)
-        with contextlib.suppress(Exception):
-            await self.abort_worker_handoff(ticket)
+        while self._outgoing_handoff is not None:
+            try:
+                await self.abort_worker_handoff(ticket)
+                return
+            except Exception:
+                await asyncio.sleep(1)
 
     async def abort_worker_handoff(self, ticket):
         async with self._handoff_lock:
@@ -391,11 +394,14 @@ class WorkerHandoffMixin:
                 raise HandoffPending(
                     "Pool transfer needs to finish before application ownership changes"
                 )
-            supervisor = await self._handoff_supervisor()
-            await xo.wait_for(supervisor.abort_worker_handoff(state.source, ticket), 5)
+            # The native pool is still idle and this lock prevents commit.
+            # Local admission can resume even if the Supervisor is offline;
+            # its expired reservation is discarded by the next prepare.
             self._outgoing_handoff = None
             self._cancel_handoff_expiry()
             self._lifecycle.phase = WorkerPhase.ACTIVE
+            supervisor = await self._handoff_supervisor()
+            await xo.wait_for(supervisor.abort_worker_handoff(state.source, ticket), 5)
 
     async def commit_worker_handoff(self, ticket, timeout):
         return await finish_before_cancelling(
@@ -410,14 +416,14 @@ class WorkerHandoffMixin:
             try:
                 if (
                     self._main_pool.sub_processes
-                    or PoolTransfer.status(self._main_pool) != "idle"
+                    or pool_transfer_status(self._main_pool) != "idle"
                 ):
                     await self._main_pool.handoff_to(state.target, timeout=timeout)
                 self._handoff_acknowledged = True
             finally:
                 if (
                     self._handoff_acknowledged
-                    or PoolTransfer.status(self._main_pool) == "committed"
+                    or pool_transfer_status(self._main_pool) == "committed"
                 ):
                     self._lifecycle.phase = WorkerPhase.TRANSFERRED
                     self._stop_worker_services()
@@ -435,7 +441,7 @@ class WorkerHandoffMixin:
         return (
             "committed"
             if self._handoff_acknowledged
-            else PoolTransfer.status(self._main_pool)
+            else pool_transfer_status(self._main_pool)
         )
 
     async def finish_worker_handoff(self, ticket):
@@ -447,9 +453,17 @@ class WorkerHandoffMixin:
             0.2, lambda: asyncio.create_task(self._main_pool.stop())
         )
 
-    def worker_handoff_ready(self, ticket):
+    def worker_handoff_ready(self, transfer_key):
         incoming = self._incoming_handoff
-        return bool(incoming and incoming["ticket"] == ticket and incoming["committed"])
+        return bool(
+            incoming
+            and incoming["snapshot"] is not None
+            and incoming["snapshot"].transfer_key == transfer_key
+            and (
+                incoming["committed"]
+                or pool_transfer_received(self._main_pool, incoming["snapshot"])
+            )
+        )
 
     def worker_replacement_safe_to_stop(self):
         return self._incoming_handoff is None
@@ -530,15 +544,20 @@ class WorkerHandoffCoordinator:
         if incoming.get("done"):
             return True
         ticket = incoming["ticket"]
-        try:
-            old = await xo.actor_ref(address=source, uid=WorkerActor.default_uid())
-        except Exception as error:
-            if incoming["snapshot"] is not None:
-                raise HandoffPending(
-                    "Cannot reach source to confirm transfer; keep replacement alive"
-                ) from error
-            target._incoming_handoff = None
-            raise
+        snapshot = incoming["snapshot"]
+        if snapshot is not None and pool_transfer_received(target._main_pool, snapshot):
+            incoming["committed"] = True
+        old = None
+        if not incoming["committed"]:
+            try:
+                old = await xo.actor_ref(address=source, uid=WorkerActor.default_uid())
+            except Exception as error:
+                if snapshot is not None:
+                    raise HandoffPending(
+                        "Cannot reach source to confirm transfer; keep replacement alive"
+                    ) from error
+                target._incoming_handoff = None
+                raise
 
         async def call(method, *args):
             return await xo.wait_for(getattr(old, method)(*args), timeout)
@@ -568,10 +587,12 @@ class WorkerHandoffCoordinator:
                 CustomModelState.restore(target, snapshot.custom_models)
                 for name, value in snapshot.state.items():
                     setattr(target, name, value)
+                target._recovery_address = snapshot.recovery_address or source
                 target._handoff_generation = snapshot.generation
                 incoming["snapshot"] = snapshot
-            await call("commit_worker_handoff", ticket, timeout)
-            incoming["committed"] = True
+            if not incoming["committed"]:
+                await call("commit_worker_handoff", ticket, timeout)
+                incoming["committed"] = True
             supervisor = await target._handoff_supervisor()
             await xo.wait_for(
                 supervisor.confirm_worker_handoff(source, ticket), timeout
@@ -591,6 +612,10 @@ class WorkerHandoffCoordinator:
                 )
             incoming["done"] = True
         except BaseException as error:
+            if incoming["committed"]:
+                raise HandoffPending(
+                    "Finish publishing the transferred Worker"
+                ) from error
             try:
                 status = await call("worker_handoff_status", ticket)
                 if status != "idle" or incoming["committed"]:
@@ -609,16 +634,25 @@ class WorkerHandoffCoordinator:
                 getattr(target, name).clear()
             raise
         try:
+            if old is None:
+                old = await xo.actor_ref(address=source, uid=WorkerActor.default_uid())
             await call("finish_worker_handoff", ticket)
+        except (OSError, xo.ActorNotExist):
+            pass
         except Exception:
             target._handoff_retirement = asyncio.create_task(
-                self._retire_worker(old, ticket)
+                self._retire_worker(source, ticket, snapshot.source_incarnation)
             )
         return True
 
-    async def _retire_worker(self, old, ticket):
+    async def _retire_worker(self, source, ticket, incarnation):
+        from .worker import WorkerActor
+
         while True:
             try:
+                old = await xo.actor_ref(address=source, uid=WorkerActor.default_uid())
+                if await xo.wait_for(old.worker_incarnation(), 5) != incarnation:
+                    return
                 await xo.wait_for(old.finish_worker_handoff(ticket), 5)
                 return
             except (OSError, xo.ActorNotExist):

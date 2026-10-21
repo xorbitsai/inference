@@ -1263,7 +1263,7 @@ def update_security_gauges(auth_service) -> None:
         pass
 
 
-def launch_metrics_export_server(q, host=None, port=None):
+def launch_metrics_export_server(q, host=None, port=None, stop_event=None):
     # Remove Supervisor-only metrics from Worker's Registry to avoid
     # empty HELP/TYPE headers on the Worker /metrics endpoint.
     for collector in list(REGISTRY.get_all()):
@@ -1298,9 +1298,13 @@ def launch_metrics_export_server(q, host=None, port=None):
         while not server.started and not task.done():
             await asyncio.sleep(0.1)
 
-        for server in server.servers:
-            for socket in server.sockets:
+        for listener in server.servers:
+            for socket in listener.sockets:
                 q.put(socket.getsockname())
+        if stop_event is not None:
+            while not task.done() and not stop_event.is_set():
+                await asyncio.sleep(0.1)
+            server.should_exit = True
         await task
 
     asyncio.run(main())

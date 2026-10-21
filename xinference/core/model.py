@@ -452,7 +452,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     def rebind_worker(self, expected_address: str, address: str, generation: int):
         """Replace the control-plane binding without touching the model runtime."""
-        current = getattr(self, "_worker_generation", 0)
+        current = self._worker_generation
         if generation >= current and self._worker_address == address:
             # A process recovered by the new owner is already bound here.
             if generation != current:
@@ -472,11 +472,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
         while self._worker_ref is None:
             address = self._worker_address
-            generation = getattr(self, "_worker_generation", 0)
+            generation = self._worker_generation
             ref = await xo.actor_ref(address=address, uid=WorkerActor.default_uid())
-            if address != self._worker_address or generation != getattr(
-                self, "_worker_generation", 0
-            ):
+            if address != self._worker_address or generation != self._worker_generation:
                 continue
             self._worker_ref = ref
         return self._worker_ref

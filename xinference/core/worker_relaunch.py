@@ -18,6 +18,8 @@ from typing import Dict, Optional
 import xoscar as xo
 from xoscar.utils import get_next_port
 
+from .worker_state import WorkerJournalError, read_worker_journal, write_worker_journal
+
 TERMINAL = {"succeeded", "failed"}
 STATUSES = {"starting", "transferring", "pending", *TERMINAL}
 
@@ -41,29 +43,34 @@ class WorkerRelaunchManager:
 
         self.supervisor = supervisor
         self.path = path or Path(XINFERENCE_HOME) / "worker-relaunches.json"
-        try:
-            payload = json.loads(self.path.read_text())
-        except FileNotFoundError:
-            payload = {"version": 1, "operations": {}}
-        if payload.get("version") != 1 or not isinstance(
-            payload.get("operations"), dict
+        payload = read_worker_journal(self.path, {"version": 1, "operations": {}})
+        if (
+            not isinstance(payload, dict)
+            or payload.get("version") != 1
+            or not isinstance(payload.get("operations"), dict)
         ):
-            raise ValueError("Invalid worker relaunch journal")
+            raise WorkerJournalError("Invalid or unsupported Worker relaunch journal")
         self.records = payload["operations"]
+        required = {
+            "operation_id",
+            "status",
+            "source_worker",
+            "source_incarnation",
+            "target_worker",
+            "created_at",
+            "python_executable",
+        }
+        if any(
+            not isinstance(record, dict)
+            or not required <= record.keys()
+            or record["status"] not in STATUSES
+            for record in self.records.values()
+        ):
+            raise WorkerJournalError("Invalid Worker relaunch journal records")
         self.tasks: Dict[str, asyncio.Task] = {}
 
     def _commit(self, records):
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(dir=self.path.parent, prefix=".relaunch-")
-        try:
-            with os.fdopen(fd, "w") as stream:
-                json.dump({"version": 1, "operations": records}, stream)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, self.path)
-        finally:
-            with contextlib.suppress(FileNotFoundError):
-                os.unlink(temporary)
+        write_worker_journal(self.path, {"version": 1, "operations": records})
         self.records = records
 
     def update(self, operation_id, **fields):
@@ -82,11 +89,9 @@ class WorkerRelaunchManager:
     def get(self, operation_id):
         if operation_id not in self.records:
             raise KeyError("Worker relaunch operation not found")
-        self.resume()
         return copy.deepcopy(self.records[operation_id])
 
     def list(self):
-        self.resume()
         return sorted(
             copy.deepcopy(list(self.records.values())),
             key=lambda r: r["created_at"],
@@ -117,8 +122,23 @@ class WorkerRelaunchManager:
                         return self.get(record["operation_id"])
             worker = self.supervisor._worker_address_to_worker.get(address)
             incarnation = registry.incarnations.get(address)
-            if worker is not None and incarnation is None:
-                incarnation = await xo.wait_for(worker.worker_incarnation(), 5)
+            if worker is not None:
+                from .worker_handoff import PROTOCOL_VERSION
+
+                try:
+                    protocol = await xo.wait_for(worker.worker_handoff_protocol(), 5)
+                    if protocol != PROTOCOL_VERSION:
+                        raise ValueError("Unsupported Worker handoff protocol")
+                    if incarnation is None:
+                        incarnation = await xo.wait_for(worker.worker_incarnation(), 5)
+                except AttributeError as error:
+                    raise ValueError(
+                        "Worker does not support automatic relaunch"
+                    ) from error
+                except asyncio.TimeoutError as error:
+                    raise ValueError(
+                        "Timed out checking Worker relaunch support"
+                    ) from error
             for record in reversed(list(self.records.values())):
                 if record["source_worker"] != address:
                     continue
@@ -135,14 +155,6 @@ class WorkerRelaunchManager:
                     return self.get(record["operation_id"])
             if worker is None:
                 raise ValueError("Worker is not registered")
-            try:
-                protocol = await xo.wait_for(worker.worker_relaunch_protocol(), 5)
-            except AttributeError as error:
-                raise ValueError(
-                    "Worker does not support automatic relaunch"
-                ) from error
-            if protocol != 1:
-                raise ValueError("Unsupported Worker relaunch protocol")
             if registry.protected(address):
                 raise RuntimeError("Worker ownership is already being transferred")
             operation_id = uuid.uuid4().hex
@@ -175,6 +187,8 @@ class WorkerRelaunchManager:
 
     def plan(self, operation_id, source, incarnation, target):
         record = self.records[operation_id]
+        if record["status"] in TERMINAL:
+            raise RuntimeError("Worker relaunch operation has already finished")
         if (record["source_worker"], record["source_incarnation"]) != (
             source,
             incarnation,
@@ -239,6 +253,13 @@ class WorkerRelaunchManager:
                         await xo.wait_for(source.worker_incarnation(), 5)
                         != record["source_incarnation"]
                     ):
+                        if not self.records[operation_id]["target_worker"]:
+                            self.update(
+                                operation_id,
+                                status="failed",
+                                error="Original Worker incarnation changed before launch",
+                            )
+                            continue
                         raise RuntimeError("Original Worker is no longer available")
                     if not record["target_worker"]:
                         state = await xo.wait_for(
@@ -269,7 +290,12 @@ class WorkerRelaunchManager:
                     # Losing a control connection is not proof that transfer failed.
                     self.update(
                         operation_id,
-                        status="pending",
+                        status=(
+                            "failed"
+                            if isinstance(error, xo.ActorNotExist)
+                            and not self.records[operation_id]["target_worker"]
+                            else "pending"
+                        ),
                         error=str(error) or type(error).__name__,
                     )
                 await asyncio.sleep(0.5)
@@ -321,7 +347,7 @@ class WorkerRelaunchLauncher:
                 supervisor_address=worker._supervisor_address,
                 supervisor_endpoint=worker._supervisor_endpoint,
                 metrics_exporter_host=worker._metrics_exporter_config[0],
-                metrics_exporter_port=get_next_port(),
+                metrics_exporter_port=worker._metrics_exporter_config[1],
                 logging_conf=getattr(worker, "_worker_logging_conf", None),
                 replace_worker=worker.address,
                 relaunch_operation_id=operation_id,
@@ -387,6 +413,7 @@ class SupervisorRelaunchMixin:
         manager = getattr(self, "_worker_relaunch_manager", None)
         if manager is None:
             self._worker_relaunch_manager = manager = WorkerRelaunchManager(self)
+            manager.resume()
         return manager
 
     async def relaunch_worker(self, address, python_executable=None, request_id=None):

@@ -22,6 +22,7 @@ from ...constants import XINFERENCE_TOKEN_ROUTER_ENABLED
 from ...core.rpc_context import actor_call
 from ...core.virtual_env_manager import VirtualEnvConflictError
 from ...core.worker_relaunch import validate_relaunch_options
+from ...core.worker_state import WorkerJournalError
 from ...types import PeftModelConfig
 from ..dependencies import get_api
 from ..model_request_logging import get_model_request_id
@@ -155,6 +156,8 @@ async def relaunch_worker(
             worker_address, body.get("python_executable"), body.get("request_id")
         )
         return JSONResponse(content=result, status_code=202)
+    except WorkerJournalError as error:
+        raise HTTPException(status_code=503, detail=str(error))
     except (ValueError, TypeError) as error:
         raise HTTPException(status_code=400, detail=str(error))
     except RuntimeError as error:
@@ -167,13 +170,18 @@ async def get_worker_relaunch(
     try:
         supervisor = await api._get_supervisor_ref()
         return JSONResponse(content=await supervisor.get_worker_relaunch(operation_id))
+    except WorkerJournalError as error:
+        raise HTTPException(status_code=503, detail=str(error))
     except KeyError as error:
         raise HTTPException(status_code=404, detail=str(error))
 
 
 async def list_worker_relaunches(api: "RESTfulAPI" = Depends(get_api)) -> JSONResponse:
-    supervisor = await api._get_supervisor_ref()
-    return JSONResponse(content=await supervisor.list_worker_relaunches())
+    try:
+        supervisor = await api._get_supervisor_ref()
+        return JSONResponse(content=await supervisor.list_worker_relaunches())
+    except WorkerJournalError as error:
+        raise HTTPException(status_code=503, detail=str(error))
 
 
 async def abort_cluster(

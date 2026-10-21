@@ -57,13 +57,8 @@ msgstr ""
 "の終了時にプロセスグループ全体やコンテナを停止せず、維持対象のプロセスが動作を継続できるようサービスマネージャーを設定してください。"
 
 #: user_guide/worker_handoff.rst:8
-msgid ""
-"To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker "
-"starts its replacement automatically and inherits its Supervisor, GPU visibility and runtime "
-"configuration; new actor and metrics ports are selected automatically."
-msgstr ""
-"既存の Worker を再起動するには、``POST /v1/workers/{worker_address}/relaunch`` を送信します。Worker "
-"は置換プロセスを自動起動し、Supervisor、GPU の可視性、実行設定を引き継ぎます。新しい Actor ポートとメトリクスポートは自動選択されます。"
+msgid "To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker starts its replacement automatically and inherits its Supervisor, GPU visibility, runtime configuration and configured metrics exporter port; a new actor port is selected automatically."
+msgstr "既存の Worker を再起動するには、``POST /v1/workers/{worker_address}/relaunch`` を送信します。Worker は置き換え先を自動的に起動し、Supervisor、GPU の可視性、実行時設定、設定済みのメトリクスエクスポーターポートを引き継ぎます。新しい actor ポートは自動的に選択されます。"
 
 #: user_guide/worker_handoff.rst:15
 msgid ""
@@ -105,3 +100,7 @@ msgid ""
 "For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement explicitly with "
 "a different actor port and a free metrics exporter port:"
 msgstr "``127.0.0.1:9978`` で稼働中の Worker に対しては、異なる Actor ポートと空いているメトリクス公開ポートを使い、置換 Worker を明示的に起動することもできます。"
+
+#: ../../source/user_guide/worker_handoff.rst
+msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
+msgstr "Supervisor は所有権の予約も ``XINFERENCE_HOME/worker-handoffs.json`` に保存するため、Supervisor の再起動後に中断された引き継ぎを再開できます。置き換え先の Worker は元の Worker アドレスに対応する復旧ファイルを更新し続け、再起動後に起動したモデルも記録します。"

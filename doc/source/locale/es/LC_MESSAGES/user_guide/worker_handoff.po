@@ -64,15 +64,8 @@ msgstr ""
 " procesos o contenedor."
 
 #: user_guide/worker_handoff.rst:8
-msgid ""
-"To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker "
-"starts its replacement automatically and inherits its Supervisor, GPU visibility and runtime "
-"configuration; new actor and metrics ports are selected automatically."
-msgstr ""
-"Para reiniciar un Worker existente, envíe ``POST /v1/workers/{worker_address}/relaunch``. El "
-"Worker inicia automáticamente su reemplazo y hereda el Supervisor, la visibilidad de GPU y la "
-"configuración de ejecución; los nuevos puertos de Actor y métricas se seleccionan "
-"automáticamente."
+msgid "To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker starts its replacement automatically and inherits its Supervisor, GPU visibility, runtime configuration and configured metrics exporter port; a new actor port is selected automatically."
+msgstr "Para reiniciar un Worker existente, envíe ``POST /v1/workers/{worker_address}/relaunch``. El Worker inicia automáticamente su reemplazo y hereda el Supervisor, la visibilidad de las GPU, la configuración de ejecución y el puerto configurado del exportador de métricas; se selecciona automáticamente un nuevo puerto de actor."
 
 #: user_guide/worker_handoff.rst:15
 msgid ""
@@ -121,3 +114,7 @@ msgid ""
 msgstr ""
 "Para un Worker existente en ``127.0.0.1:9978``, también puede iniciar explícitamente su reemplazo"
 " con otro puerto de Actor y un puerto libre para exportar métricas:"
+
+#: ../../source/user_guide/worker_handoff.rst
+msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
+msgstr "El Supervisor también guarda las reservas de propiedad en ``XINFERENCE_HOME/worker-handoffs.json`` para reanudar una transferencia interrumpida después de reiniciarse. Los Workers de reemplazo siguen actualizando el archivo de recuperación de la dirección original del Worker, incluidos los modelos iniciados después del relanzamiento."

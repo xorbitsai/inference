@@ -132,6 +132,7 @@ class CounterModel(ModelActor):
         self._model = SimpleNamespace()
         self._worker_address = worker
         self._worker_ref = None
+        self._worker_generation = 0
         self._metrics_labels = {"worker_address": worker}
         self.value = 0
 
@@ -160,7 +161,7 @@ class CounterModel(ModelActor):
 class HandoffSupervisor(SupervisorActor):
     """Use production routing/fencing with no model catalog or telemetry services."""
 
-    def __init__(self):
+    def __init__(self, ownership_path=None):
         xo.StatelessActor.__init__(self)
         self._worker_address_to_worker = {}
         self._worker_status = {}
@@ -178,6 +179,7 @@ class HandoffSupervisor(SupervisorActor):
         self._list_models_cache_version = 0
         self._worker_model_gpu_memory = {}
         self._worker_model_gpu_memory_update_time = {}
+        self._worker_ownership = WorkerOwnership(ownership_path)
 
     async def __post_create__(self):
         pass
@@ -280,7 +282,7 @@ class HandoffWorker(WorkerActor):
 
 
 @pytest_asyncio.fixture
-async def runtime():
+async def runtime(tmp_path):
     if sys.platform == "win32":
         pytest.skip("Native ownership transfer requires POSIX")
     pools = [await xo.create_actor_pool("127.0.0.1", n_process=0) for _ in range(3)]
@@ -288,6 +290,7 @@ async def runtime():
         HandoffSupervisor,
         uid=SupervisorActor.default_uid(),
         address=pools[0].external_address,
+        ownership_path=tmp_path / "handoffs.json",
     )
     workers = []
     for pool, standby in zip(pools[1:], (False, True)):
@@ -693,7 +696,7 @@ async def test_abandoned_preparation_restores_old_worker(runtime):
 
 
 @pytest.mark.parametrize(
-    "problem", ["version", "identity", "supervisor", "devices", "fields", "metrics"]
+    "problem", ["version", "identity", "supervisor", "devices", "fields"]
 )
 def test_snapshot_preflight_rejects_incompatible_targets(monkeypatch, problem):
     from .. import worker_handoff
@@ -730,14 +733,14 @@ def test_snapshot_preflight_rejects_incompatible_targets(monkeypatch, problem):
         snapshot.devices = [1]
     elif problem == "fields":
         snapshot.state.pop(STATE_FIELDS[0])
-    else:
-        snapshot.metrics_port = 19002
     with pytest.raises(ValueError):
         snapshot.validate(owner)
 
 
 @pytest.mark.asyncio
-async def test_lost_source_lookup_after_commit_keeps_target_alive(runtime, monkeypatch):
+async def test_lost_commit_reply_and_permanently_dead_source_finish_transfer(
+    runtime, monkeypatch
+):
     pools, _, (old, new) = runtime
     model = await old.install_model()
     commit = HandoffWorker._commit_worker_handoff
@@ -759,11 +762,13 @@ async def test_lost_source_lookup_after_commit_keeps_target_alive(runtime, monke
 
     with monkeypatch.context() as patch:
         patch.setattr(xo, "actor_ref", disconnected)
-        with pytest.raises(HandoffPending):
-            await new.replace_worker(old.address)
+        assert await new.replace_worker(old.address)
     assert pools[2].sub_processes
-    assert (await model.add(1))[0] == 1
-    assert await new.replace_worker(old.address)
+    assert (await model.add(1)) == (
+        1,
+        pools[2].sub_processes[model.address].pid,
+        new.address,
+    )
 
 
 @pytest.mark.asyncio
@@ -1040,7 +1045,7 @@ def test_cache_locations_follow_replacement_without_stale_owner():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("change", ["none", "reserved", "replaced"])
+@pytest.mark.parametrize("change", ["none", "reserved", "replaced", "missing"])
 async def test_health_cleanup_rechecks_ownership_after_waiting(change):
     registry = WorkerOwnership()
     original = object()
@@ -1067,6 +1072,104 @@ async def test_health_cleanup_rechecks_ownership_after_waiting(change):
             registry.pending["worker"] = {"committed": True}
         elif change == "replaced":
             owner._worker_address_to_worker["worker"] = object()
-    assert await removal is (change == "none")
-    assert cleaned == (["worker"] if change == "none" else [])
-    assert ("worker" in owner._worker_address_to_worker) is (change != "none")
+        elif change == "missing":
+            owner._worker_address_to_worker.pop("worker")
+    removed = change in ("none", "missing")
+    assert await removal is removed
+    assert cleaned == (["worker"] if removed else [])
+    assert ("worker" in owner._worker_address_to_worker) is (not removed)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("after_commit", [False, True])
+async def test_supervisor_restart_during_handoff_restores_ownership(
+    runtime, monkeypatch, after_commit
+):
+    pools, supervisor, (old, new) = runtime
+    model = await old.install_model()
+    before = await model.add(5)
+    path = pools[0]._actors[supervisor.uid]._ownership_registry().path
+    original = HandoffWorker._commit_worker_handoff
+    restarted = False
+
+    async def restart():
+        await xo.destroy_actor(supervisor)
+        await xo.create_actor(
+            HandoffSupervisor,
+            uid=SupervisorActor.default_uid(),
+            address=pools[0].external_address,
+            ownership_path=path,
+        )
+
+    async def commit(self, ticket, timeout):
+        nonlocal restarted
+        if not restarted:
+            restarted = True
+            if not after_commit:
+                await restart()
+            result = await original(self, ticket, timeout)
+            if after_commit:
+                await restart()
+            return result
+        return await original(self, ticket, timeout)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(HandoffWorker, "_commit_worker_handoff", commit)
+        assert await new.replace_worker(old.address)
+    assert await supervisor.inspect_workers() == [new.address]
+    after = await model.add(1)
+    assert after == (6, before[1], new.address)
+    assert not pools[0]._actors[supervisor.uid]._ownership_registry().pending
+
+
+@pytest.mark.asyncio
+async def test_abort_rpc_failure_restores_admission_and_allows_new_handoff(
+    runtime, monkeypatch
+):
+    pools, supervisor, (old, new) = runtime
+    await old.install_model()
+
+    async def disconnected(*args):
+        raise ConnectionResetError("Supervisor abort unavailable")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(HandoffSupervisor, "abort_worker_handoff", disconnected)
+        await old.prepare_worker_handoff(
+            new.address, await new.incarnation(), "expired", 0.05
+        )
+        for _ in range(100):
+            if await old.inspect_phase() == "active":
+                break
+            await asyncio.sleep(0.02)
+        assert await old.inspect_phase() == "active"
+        await old.install_model("second-rep0")
+    assert pools[0]._actors[supervisor.uid]._ownership_registry().pending
+    assert await new.replace_worker(old.address)
+
+
+@pytest.mark.asyncio
+async def test_late_commit_cannot_revive_a_worker_removed_by_health_cleanup(runtime):
+    pools, supervisor, (old, new) = runtime
+    snapshot = await old.prepare_worker_handoff(
+        new.address, await new.incarnation(), "late", 30
+    )
+    pools[0]._actors[supervisor.uid]._worker_address_to_worker.pop(old.address)
+    with pytest.raises(RuntimeError, match="no longer registered"):
+        await supervisor.commit_worker_handoff(snapshot)
+
+
+@pytest.mark.asyncio
+async def test_restarted_supervisor_waits_for_retained_models_before_autostart(runtime):
+    pools, supervisor, (old, new) = runtime
+    await old.install_model()
+    await old.prepare_worker_handoff(
+        new.address, await new.incarnation(), "reserved", 30
+    )
+    registry = pools[0]._actors[supervisor.uid]._ownership_registry()
+    restored = WorkerOwnership(registry.path)
+    owner = SimpleNamespace(
+        _worker_ownership=restored, is_local_deployment=lambda: False
+    )
+    assert SupervisorActor._autostart_waiting_for_worker(
+        owner, {"model_uid": "counter"}
+    )

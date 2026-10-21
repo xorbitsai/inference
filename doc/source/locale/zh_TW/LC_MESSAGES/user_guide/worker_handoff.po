@@ -55,13 +55,8 @@ msgstr ""
 " Worker 結束後繼續執行，避免終止其整個程序群組或容器。"
 
 #: user_guide/worker_handoff.rst:8
-msgid ""
-"To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker "
-"starts its replacement automatically and inherits its Supervisor, GPU visibility and runtime "
-"configuration; new actor and metrics ports are selected automatically."
-msgstr ""
-"向現有 Worker 傳送 ``POST /v1/workers/{worker_address}/relaunch`` 即可重新啟動。Worker 會自動啟動替代程序，繼承原 "
-"Supervisor、GPU 可見清單及執行設定，並自動選擇新的 Actor 連接埠與指標連接埠。"
+msgid "To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker starts its replacement automatically and inherits its Supervisor, GPU visibility, runtime configuration and configured metrics exporter port; a new actor port is selected automatically."
+msgstr "若要重新啟動現有 Worker，請傳送 ``POST /v1/workers/{worker_address}/relaunch``。Worker 會自動啟動替代處理程序，並繼承其 Supervisor、GPU 可見性、執行階段設定與已設定的指標匯出連接埠；新的 actor 連接埠會自動選取。"
 
 #: user_guide/worker_handoff.rst:15
 msgid ""
@@ -101,3 +96,7 @@ msgid ""
 "For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement explicitly with "
 "a different actor port and a free metrics exporter port:"
 msgstr "對於位址為 ``127.0.0.1:9978`` 的現有 Worker，也可以明確啟動替代 Worker，使用不同的 Actor 連接埠及可用的指標匯出連接埠："
+
+#: ../../source/user_guide/worker_handoff.rst
+msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
+msgstr "Supervisor 也會將所有權預留記錄儲存在 ``XINFERENCE_HOME/worker-handoffs.json``，以便在 Supervisor 重新啟動後繼續完成中斷的交接。替代 Worker 會持續更新原 Worker 位址對應的復原檔案，包含重新啟動後新載入的模型。"

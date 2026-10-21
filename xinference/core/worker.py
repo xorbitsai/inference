@@ -902,6 +902,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._initialize_handoff(standby)
         self._relaunch_operation_id = relaunch_operation_id
         self._worker_logging_conf = logging_conf
+        self._recovery_address: Optional[str] = None
         # static attrs.
         self._total_gpu_devices = gpu_devices
         self._supervisor_address = supervisor_address
@@ -972,6 +973,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._gpu_memory_collection_fail_count = 0
 
         self._metrics_exporter_config = (metrics_exporter_host, metrics_exporter_port)
+        self._metrics_stop_event = threading.Event()
         self._metrics_started = False
         self._services_started = False
 
@@ -1404,7 +1406,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
         get_extensions()
         self._actor_loop = asyncio.get_running_loop()
-        self._start_metrics_service()
+        if not self._standby:
+            self._start_metrics_service()
         self._supervisor_init_lock = asyncio.Lock()
 
         from ..model.audio import (
@@ -1524,7 +1527,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             self._metrics_thread = threading.Thread(
                 name="Metrics Export Server",
                 target=launch_metrics_export_server,
-                args=(q, metrics_exporter_host, metrics_exporter_port),
+                args=(
+                    q,
+                    metrics_exporter_host,
+                    metrics_exporter_port,
+                    self._metrics_stop_event,
+                ),
                 daemon=True,
             )
             self._metrics_thread.start()
@@ -1537,6 +1545,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._metrics_started = True
 
     async def _activate_worker(self, *, recover: bool):
+        self._start_metrics_service()
         self._lifecycle.phase = WorkerPhase.ACTIVE
         logger.info("Purge cache directory: %s", XINFERENCE_CACHE_DIR)
         purge_dir(XINFERENCE_CACHE_DIR)
@@ -1626,6 +1635,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         isolation = getattr(self, "_isolation", None)
         if isolation is not None:
             isolation.stop()
+        stop_event = getattr(self, "_metrics_stop_event", None)
+        if stop_event is not None:
+            stop_event.set()
+            metrics_thread = getattr(self, "_metrics_thread", None)
+            if metrics_thread is not None:
+                metrics_thread.join(timeout=10)
         self._services_stopped = True
 
     async def __pre_destroy__(self):
@@ -2026,7 +2041,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     # §4.3: Worker-side launch_args persistence for auto-recovery.
     def _get_recovery_file_path(self) -> str:
-        safe_addr = self.address.replace(":", "_").replace("/", "_")
+        address = self._recovery_address or self.address
+        safe_addr = address.replace(":", "_").replace("/", "_")
         recovery_dir = os.path.join(XINFERENCE_HOME, "worker_recovery", safe_addr)
         return os.path.join(recovery_dir, "models.json")
 

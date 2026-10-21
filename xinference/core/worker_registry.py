@@ -17,11 +17,13 @@
 import asyncio
 import functools
 import time
+from pathlib import Path
 from typing import Any, Dict, Set
 
 import xoscar as xo
 
 from .worker_relaunch import SupervisorRelaunchMixin
+from .worker_state import WorkerJournalError, read_worker_journal, write_worker_journal
 
 
 async def call_worker_route(
@@ -47,12 +49,71 @@ async def call_worker_route(
 
 
 class WorkerOwnership:
-    def __init__(self):
+    """Keep transfer identities durable without serializing model objects or credentials."""
+
+    def __init__(self, path=None):
+        self.path = Path(path) if path is not None else None
         self.incarnations: Dict[str, str] = {}
         self.retired: Dict[str, Set[str]] = {}
         self.pending: dict = {}
         self.completed: dict = {}
         self._locks: dict = {}
+        if self.path is not None:
+            data = read_worker_journal(self.path, {"version": 1})
+            if not isinstance(data, dict) or data.get("version") != 1:
+                raise WorkerJournalError("Unsupported Worker ownership journal")
+            self.retired = {
+                key: set(value) for key, value in data.get("retired", {}).items()
+            }
+            self.completed = {
+                key: tuple(value) for key, value in data.get("completed", {}).items()
+            }
+            for source, record in data.get("pending", {}).items():
+                self.pending[source] = dict(
+                    record,
+                    key=tuple(record["key"]),
+                    deadline=time.monotonic()
+                    + max(0, record["expires_at"] - time.time()),
+                    recovered=True,
+                )
+
+    def checkpoint(self, *, pending=None, retired=None, completed=None):
+        pending = self.pending if pending is None else pending
+        retired = self.retired if retired is None else retired
+        completed = self.completed if completed is None else completed
+        if self.path is not None:
+            write_worker_journal(
+                self.path,
+                {
+                    "version": 1,
+                    "pending": {
+                        source: {
+                            "key": record["key"],
+                            "extensions": record["extensions"],
+                            "models": record.get("models", []),
+                            "committed": record["committed"],
+                            "expires_at": time.time()
+                            + record["deadline"]
+                            - time.monotonic(),
+                        }
+                        for source, record in pending.items()
+                    },
+                    "retired": {key: sorted(value) for key, value in retired.items()},
+                    "completed": completed,
+                },
+            )
+        self.pending, self.retired, self.completed = pending, retired, completed
+
+    def discard(self, source):
+        if source in self.pending:
+            pending = dict(self.pending)
+            pending.pop(source)
+            self.checkpoint(pending=pending)
+
+    def set_pending(self, source, record):
+        pending = dict(self.pending)
+        pending[source] = record
+        self.checkpoint(pending=pending)
 
     def lock(self, address):
         return self._locks.setdefault(address, asyncio.Lock())
@@ -111,6 +172,13 @@ def worker_message(*, registration=False):
 class SupervisorHandoffMixin(SupervisorRelaunchMixin):
     _replica_model_uid_to_worker: Dict[str, Any]
 
+    def _initialize_worker_ownership(self):
+        from ..constants import XINFERENCE_HOME
+
+        self._worker_ownership = WorkerOwnership(
+            Path(XINFERENCE_HOME) / "worker-handoffs.json"
+        )
+
     def _ownership_registry(self):
         registry = getattr(self, "_worker_ownership", None)
         if registry is None:
@@ -133,11 +201,11 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
         registry = self._ownership_registry()
         async with registry.lock(address):
             if (
-                expected_ref is None
-                or self._worker_address_to_worker.get(address) != expected_ref
-                or registry.protected(address)
-            ):
+                self._worker_address_to_worker.get(address) is not None
+                and self._worker_address_to_worker[address] != expected_ref
+            ) or registry.protected(address):
                 return False
+            registry.discard(address)
             await self._handle_dead_worker(address)
             self._worker_status.pop(address, None)
             self._worker_address_to_worker.pop(address, None)
@@ -161,14 +229,20 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             if snapshot.source not in self._worker_address_to_worker:
                 raise ValueError("Source worker is not registered")
             existing = registry.pending.get(snapshot.source)
+            if existing and not registry.protected(snapshot.source):
+                registry.discard(snapshot.source)
+                existing = None
             if existing:
-                if existing["snapshot"].transfer_key == snapshot.transfer_key:
+                if existing["key"] == snapshot.transfer_key:
                     if not existing["committed"]:
-                        existing["deadline"] = time.monotonic() + timeout
+                        registry.set_pending(
+                            snapshot.source,
+                            dict(existing, deadline=time.monotonic() + timeout),
+                        )
                     return True
                 raise RuntimeError("Another worker replacement is in progress")
             if snapshot.target in self._worker_address_to_worker or any(
-                state["snapshot"].target == snapshot.target
+                state["key"][3] == snapshot.target
                 for state in registry.pending.values()
             ):
                 raise ValueError("Replacement worker is already registered or reserved")
@@ -183,30 +257,41 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                 (expected or {}).get("extensions", {})
             ):
                 raise ValueError("Worker extensions must match during replacement")
-            registry.pending[snapshot.source] = {
-                "snapshot": snapshot,
-                "deadline": time.monotonic() + timeout,
-                "committed": False,
-            }
+            replicas = [
+                self._get_model_uid_and_replica_index(uid)
+                for uid in snapshot.state["_model_uid_to_model"]
+            ]
+            registry.set_pending(
+                snapshot.source,
+                {
+                    "key": snapshot.transfer_key,
+                    "extensions": sorted(resources.get("extensions", {})),
+                    "models": sorted(
+                        {replica[0] for replica in replicas if replica is not None}
+                    ),
+                    "deadline": time.monotonic() + timeout,
+                    "committed": False,
+                },
+            )
             return True
 
     async def abort_worker_handoff(self, source, ticket):
         registry = self._ownership_registry()
         async with registry.lock(source):
             state = registry.pending.get(source)
-            if state and state["snapshot"].ticket == ticket:
+            if state and state["key"][1] == ticket:
                 if state["committed"]:
                     raise RuntimeError(
                         "Committed worker ownership cannot be rolled back"
                     )
-                registry.pending.pop(source)
+                registry.discard(source)
 
     async def confirm_worker_handoff(self, source, ticket):
         registry = self._ownership_registry()
         async with registry.lock(source):
             state = registry.pending.get(source)
-            if state and state["snapshot"].ticket == ticket:
-                state["committed"] = True
+            if state and state["key"][1] == ticket:
+                registry.set_pending(source, dict(state, committed=True))
 
     async def commit_worker_handoff(self, snapshot):
         from .worker import WorkerActor
@@ -221,19 +306,21 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                     raise RuntimeError("Worker handoff ticket changed")
                 return True
             state = registry.pending.get(snapshot.source)
-            if not state or state["snapshot"].transfer_key != snapshot.transfer_key:
+            if not state or state["key"] != snapshot.transfer_key:
                 raise RuntimeError("No matching worker reservation")
+            if (
+                not state.get("recovered")
+                and snapshot.source not in self._worker_address_to_worker
+            ):
+                raise RuntimeError("Source worker is no longer registered")
             registry.check(snapshot.source, snapshot.source_incarnation)
             worker = await xo.actor_ref(
                 address=snapshot.target, uid=WorkerActor.default_uid()
             )
-            if not await worker.worker_handoff_ready(snapshot.ticket):
+            if not await worker.worker_handoff_ready(snapshot.transfer_key):
                 raise RuntimeError("Replacement worker is not ready")
             resources = await worker.get_extension_resources()
-            expected = self._extension_worker_resources.get(snapshot.source)
-            if set(resources.get("extensions", {})) != set(
-                (expected or {}).get("extensions", {})
-            ):
+            if set(resources.get("extensions", {})) != set(state["extensions"]):
                 raise ValueError("Worker extensions must match during replacement")
 
             cache_tracker = getattr(self, "_cache_tracker_ref", None)
@@ -241,6 +328,18 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                 await xo.wait_for(
                     cache_tracker.rebind_worker(snapshot.source, snapshot.target), 5
                 )
+
+            pending = dict(registry.pending)
+            pending.pop(snapshot.source)
+            retired = dict(registry.retired)
+            retired[snapshot.source] = retired.get(snapshot.source, set()) | {
+                snapshot.source_incarnation
+            }
+            completed = dict(
+                registry.completed,
+                **{snapshot.ticket: (snapshot.source, snapshot.target)},
+            )
+            registry.checkpoint(pending=pending, retired=retired, completed=completed)
 
             # No awaits from validation to publication: route replacement and
             # old-owner fencing become visible together on the actor loop.
@@ -273,11 +372,6 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             self._list_models_cache.pop(snapshot.source, None)
             self._reverse_ping_failures.pop(snapshot.source, None)
             self._invalidate_list_models_debounce_cache()
-            registry.retired.setdefault(snapshot.source, set()).add(
-                snapshot.source_incarnation
-            )
             registry.incarnations.pop(snapshot.source, None)
             registry.incarnations[snapshot.target] = snapshot.target_incarnation
-            registry.completed[snapshot.ticket] = (snapshot.source, snapshot.target)
-            registry.pending.pop(snapshot.source, None)
             return True
