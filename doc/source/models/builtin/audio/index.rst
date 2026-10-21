@@ -76,6 +76,10 @@ The following is a list of built-in audio models in Xinference:
   
    melotts-spanish
   
+   ming-3.0-tts-0.5b
+
+   ming-3.0-tts-tiny
+
    minimax-music3
   
    paraformer-zh

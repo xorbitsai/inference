@@ -36,6 +36,7 @@ from .kokoro_mlx import KokoroMLXModel
 from .kokoro_zh import KokoroZHModel
 from .megatts import MegaTTSModel
 from .melotts import MeloTTSModel
+from .ming_tts import MingTTSModel
 from .minimax_music3 import MiniMaxMusic3Model
 from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .qwen3_asr import Qwen3ASRModel
@@ -267,6 +268,7 @@ def create_audio_model_instance(
     FireRedTTS3Model,
     MeloTTSModel,
     MiniMaxMusic3Model,
+    MingTTSModel,
     YuE2Model,
     KokoroModel,
     KokoroMLXModel,
@@ -381,6 +383,7 @@ def create_audio_model_instance(
         F5TTSMLXModel,
         FireRedTTS3Model,
         MeloTTSModel,
+        MingTTSModel,
         KokoroModel,
         KokoroMLXModel,
         KokoroZHModel,
@@ -414,6 +417,8 @@ def create_audio_model_instance(
         model = CosyVoiceModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Confucius4-TTS":
         model = Confucius4TTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "Ming-3.0-tts":
+        model = MingTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "FishAudio":
         model = FishSpeechModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "F5-TTS":
