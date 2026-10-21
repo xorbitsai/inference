@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 # http://www.apache.org/licenses/LICENSE-2.0
+# CI: linux
 
 import json
 from unittest.mock import AsyncMock, MagicMock
@@ -67,6 +68,30 @@ async def test_reload_accepted_and_duplicate_conflict():
     with pytest.raises(HTTPException) as exc:
         await api.reload_model("test", request)
     assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_environment_upgrade_accepts_empty_parameter_patch():
+    api, supervisor = make_api()
+    request = MagicMock(
+        json=AsyncMock(return_value={"python_executable": "/opt/new/bin/python"})
+    )
+    response = await api.reload_model("test", request)
+    assert response.status_code == 202
+    supervisor.reload_model.assert_awaited_once_with(
+        "test", {}, 300, python_executable="/opt/new/bin/python"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", ["python", True, "/bad\x00python"])
+async def test_invalid_environment_never_schedules_upgrade(value):
+    api, supervisor = make_api()
+    request = MagicMock(json=AsyncMock(return_value={"python_executable": value}))
+    with pytest.raises(HTTPException) as error:
+        await api.reload_model("test", request)
+    assert error.value.status_code == 400
+    supervisor.reload_model.assert_not_called()
 
 
 @pytest.mark.asyncio

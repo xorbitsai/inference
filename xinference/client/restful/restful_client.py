@@ -1447,7 +1447,11 @@ class Client:
         return response.json()
 
     def reload_model(
-        self, model_uid: str, model_config: Dict[str, Any], drain_timeout: float = 300
+        self,
+        model_uid: str,
+        model_config: Dict[str, Any],
+        drain_timeout: float = 300,
+        python_executable: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Start an asynchronous parameter reload with the same model UID.
 
@@ -1456,9 +1460,12 @@ class Client:
         ``get_model_reload_status`` to wait for ready/error after HTTP 202.
         """
         url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"
+        payload = {"model_config": model_config, "drain_timeout": drain_timeout}
+        if python_executable is not None:
+            payload["python_executable"] = python_executable
         response = self.session.post(
             url,
-            json={"model_config": model_config, "drain_timeout": drain_timeout},
+            json=payload,
             headers=self._headers,
         )
         if response.status_code != 202:

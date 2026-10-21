@@ -5053,12 +5053,25 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
         replica_uid, worker = self._get_reload_target(model_uid)
         status = dict(self._model_reload_status.get(model_uid, {"status": "idle"}))
-        if status["status"] == "reloading":
-            status.update(await worker.get_model_reload_status(replica_uid))
+        try:
+            observed = await worker.get_model_reload_status(replica_uid)
+        except Exception:
+            if status["status"] in ("idle", "reloading"):
+                raise
+        else:
+            if observed and (
+                status["status"] == "idle"
+                or observed.get("operation_id") in (None, status.get("operation_id"))
+            ):
+                status.update(observed)
         return status
 
     async def reload_model(
-        self, model_uid: str, config: Dict[str, Any], drain_timeout: float = 300
+        self,
+        model_uid: str,
+        config: Dict[str, Any],
+        drain_timeout: float = 300,
+        python_executable: Optional[str] = None,
     ) -> Dict[str, Any]:
         import uuid
 
@@ -5069,7 +5082,11 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 raise RuntimeError("This model already has a reload in progress")
             replica_uid, worker = self._get_reload_target(model_uid)
             # Preflight runs before scheduling any operation that stops serving.
-            normalized = await worker.validate_model_reload(replica_uid, config)
+            normalized = (
+                await worker.validate_model_reload(replica_uid, config)
+                if config
+                else {}
+            )
             if normalized is not None:
                 config = normalized
             status = {
@@ -5086,15 +5103,35 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 try:
                     if self._get_reload_target(model_uid) != (replica_uid, worker):
                         raise ValueError("Model placement changed before reload")
-                    status["stage"] = "draining"
+                    from ..model.llm.weight_cache import HOT_RELOAD_FIELDS
+
+                    status["stage"] = (
+                        "draining"
+                        if python_executable is None
+                        and set(config) <= HOT_RELOAD_FIELDS.keys()
+                        else "loading"
+                    )
                     status["weights_reused"] = (
-                        await worker.reload_model(replica_uid, config, drain_timeout)
+                        await worker.reload_model(
+                            replica_uid,
+                            config,
+                            drain_timeout,
+                            python_executable=python_executable,
+                            operation_id=status["operation_id"],
+                        )
                     ) is True
                     async with self._autostart_store_lock:
                         await asyncio.to_thread(
                             self._launch_history_store.update_autostart_launch_config,
                             model_uid,
-                            config,
+                            {
+                                **config,
+                                **(
+                                    {"model_python_executable": python_executable}
+                                    if python_executable is not None
+                                    else {}
+                                ),
+                            },
                         )
                 except asyncio.CancelledError:
                     status.update(status="cancelled", stage="cancelled")
@@ -5102,7 +5139,18 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 except Exception as exc:
                     status.update(status="error", stage="error", error=str(exc))
                     try:
-                        status.update(await worker.get_model_reload_status(replica_uid))
+                        observed = await worker.get_model_reload_status(replica_uid)
+                        if observed.get("operation_id") in (
+                            None,
+                            status["operation_id"],
+                        ):
+                            status.update(
+                                {
+                                    key: value
+                                    for key, value in observed.items()
+                                    if key == "restored"
+                                }
+                            )
                     except Exception:
                         pass
                     logger.exception("Reload of %s failed", model_uid)

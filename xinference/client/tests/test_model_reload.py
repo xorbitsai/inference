@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 # http://www.apache.org/licenses/LICENSE-2.0
+# CI: linux
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -33,6 +34,13 @@ def test_reload_client_keeps_auth_and_encodes_uid():
     client.get_model_reload_status("test")
     client.get_model_reload_config("test")
     assert client.session.get.call_args.args[0].endswith("/test/reload/config")
+    response.status_code = 202
+    client.reload_model("test", {}, python_executable="/opt/new/bin/python")
+    assert client.session.post.call_args.kwargs["json"] == {
+        "model_config": {},
+        "drain_timeout": 300,
+        "python_executable": "/opt/new/bin/python",
+    }
 
 
 @pytest.mark.asyncio
@@ -55,6 +63,13 @@ async def test_async_reload_client_releases_responses():
     await client.get_model_reload_status("test")
     await client.get_model_reload_config("test")
     assert client.session.get.call_args.args[0].endswith("/test/reload/config")
+    response.status = 202
+    await client.reload_model("test", {}, python_executable="/opt/new/bin/python")
+    assert client.session.post.call_args.kwargs["json"] == {
+        "model_config": {},
+        "drain_timeout": 300,
+        "python_executable": "/opt/new/bin/python",
+    }
 
 
 def test_reload_cli_preserves_json_types(monkeypatch):
@@ -82,3 +97,29 @@ def test_reload_cli_preserves_json_types(monkeypatch):
         "test", {"max_num_seqs": 32, "enforce_eager": False}, 300.0
     )
     assert "one" in result.output
+
+
+def test_reload_cli_can_select_an_installed_model_environment(monkeypatch):
+    from click.testing import CliRunner
+
+    from ...deploy import cmdline
+
+    client = MagicMock()
+    client.reload_model.return_value = {"operation_id": "one", "status": "reloading"}
+    monkeypatch.setattr(cmdline, "RESTfulClient", lambda **kwargs: client)
+    result = CliRunner().invoke(
+        cmdline.cli,
+        [
+            "reload",
+            "--model-uid",
+            "test",
+            "--api-key",
+            "key",
+            "--python-executable",
+            "/opt/new/bin/python",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    client.reload_model.assert_called_once_with(
+        "test", {}, 300.0, python_executable="/opt/new/bin/python"
+    )

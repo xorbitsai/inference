@@ -783,9 +783,9 @@ const en = {
   },
   runningModels: {
     reload: {
-      title: 'Reload parameters',
+      title: 'Reconfigure / upgrade model',
       description:
-        'Engine parameter changes rebuild the engine using retained GPU weights. Serving pauses while current requests finish and the change is applied; new requests receive HTTP 503. Parallelism, precision and quantization cannot change.',
+        'The current engine keeps serving while the replacement starts. New requests switch only after the replacement is ready; existing requests finish on their original engine. Parallelism, precision and quantization cannot change.',
       disabled: 'Engine parameter changes require GPU weight retention at launch.',
       reasoningHint:
         'Reasoning parsing changes without restarting the engine. Current requests finish before applying the change.',
@@ -797,6 +797,9 @@ const en = {
       loading: 'Rebuilding engine',
       restoring: 'Restoring previous configuration',
       restored: 'Previous configuration restored.',
+      python: 'Python executable (optional)',
+      environmentHint:
+        'Leave blank to use the current model environment. The target environment must already contain Xinference and the model engine. Compatible versions share retained weights; different versions need memory for a separate weight copy. If preparation fails, the current engine keeps serving.',
     },
     searchPlaceholder: 'Search model name or model UID...',
     loadingModels: 'Loading models...',
@@ -1357,6 +1360,22 @@ const en = {
     },
   },
   clusterInfo: {
+    relaunch: {
+      title: 'Restart / upgrade Worker',
+      description:
+        'Replace the Worker while keeping model processes and ongoing inference running. Model engines keep their current versions.',
+      python: 'Python executable (optional)',
+      environmentHint:
+        'Leave blank to restart in the current environment. To upgrade, enter an installed Python executable on this Worker machine. Packages are not installed here.',
+      history: 'Worker restart history',
+      starting: 'Starting replacement Worker',
+      transferring: 'Transferring model ownership',
+      pending: 'Waiting to confirm the transfer',
+      succeeded: 'Worker replaced',
+      failed: 'Replacement failed',
+      pendingHint:
+        'The transfer outcome is uncertain. Keep both processes running; the status will continue to update.',
+    },
     pageDescription:
       'View the current state of your XInference cluster—including Supervisor, Worker, and Router nodes and their hardware resources.',
     supervisor: 'Supervisor Node',

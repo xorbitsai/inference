@@ -26,6 +26,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Optional, Set
@@ -37,6 +38,14 @@ logger = logging.getLogger(__name__)
 
 def _gpu_process_memory() -> Dict[int, tuple[int, Dict[int, Optional[int]]]]:
     """Driver PID records, without creating a CUDA context in the actor."""
+    return {
+        index: (total, processes)
+        for index, (total, _, processes) in _gpu_memory_snapshot().items()
+    }
+
+
+def _gpu_memory_snapshot():
+    """Total/free bytes and process ownership, without allocating GPU memory."""
     import torch
 
     devices = {}
@@ -54,7 +63,10 @@ def _gpu_process_memory() -> Dict[int, tuple[int, Dict[int, Optional[int]]]]:
                 total = amdsmi.amdsmi_get_gpu_memory_total(
                     handle, amdsmi.AmdSmiMemoryType.VRAM
                 )
-                devices[index] = (total, processes)
+                used = amdsmi.amdsmi_get_gpu_memory_usage(
+                    handle, amdsmi.AmdSmiMemoryType.VRAM
+                )
+                devices[index] = (total, total - used, processes)
         finally:
             amdsmi.amdsmi_shut_down()
     else:
@@ -72,7 +84,7 @@ def _gpu_process_memory() -> Dict[int, tuple[int, Dict[int, Optional[int]]]]:
                     memory = pynvml.nvmlDeviceGetMemoryInfo_v2(handle)
                 except (pynvml.NVMLError, AttributeError):
                     memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                devices[index] = (memory.total, processes)
+                devices[index] = (memory.total, memory.free, processes)
         finally:
             pynvml.nvmlShutdown()
     return devices
@@ -199,11 +211,18 @@ def validate_reload_patch(engine: str, patch: Dict[str, Any]) -> None:
             raise ValueError(f"Invalid value for {key}: expected {kind}")
 
 
-def _watcher_command(parent_pid: int, command: list[str]) -> list[str]:
+def _watcher_command(
+    parent_pid: int, command: list[str], python_executable: Optional[str] = None
+) -> list[str]:
     # Running with -m imports xinference.model.llm before the watcher can start.
     # That loads engine registries and heavyweight libraries such as torch even
     # though the watcher only manages processes. This file can run standalone.
-    return [sys.executable, str(Path(__file__).resolve()), str(parent_pid), *command]
+    return [
+        python_executable or sys.executable,
+        str(Path(__file__).resolve()),
+        str(parent_pid),
+        *command,
+    ]
 
 
 class WeightCacheDaemon:
@@ -232,10 +251,30 @@ class WeightCacheDaemon:
         self._ready_paths: list[Path] = []
         self._memory_fraction: Optional[float] = None
 
-    def start(self, timeout: float = 1800) -> None:
+    def start(
+        self,
+        timeout: float = 1800,
+        *,
+        python_executable: Optional[str] = None,
+        environment: Optional[Dict[str, str]] = None,
+    ) -> None:
         config = {k: v for k, v in self.config.items() if v is not None}
         config.pop("launch_timeout", None)
-        env = os.environ.copy()
+        # Parser dataclasses contain engine-initialized, init=False fields.
+        # They do not affect retained weights and cannot be round-tripped
+        # through the upstream preload CLI's strict config parser.
+        for key in (
+            "reasoning_config",
+            "structured_outputs_config",
+            "reasoning_parser",
+            "reasoning_parser_plugin",
+        ):
+            config.pop(key, None)
+        env = dict(os.environ if environment is None else environment)
+        if python_executable:
+            env["PATH"] = os.pathsep.join(
+                [os.path.dirname(python_executable), env.get("PATH", "")]
+            )
         if self.engine == "vllm":
             config["model"] = self.model_path
             config["weight-cache-socket-dir"] = str(self.directory)
@@ -281,7 +320,11 @@ class WeightCacheDaemon:
                     for index, (_, processes) in _gpu_process_memory().items()
                 }
             self.process = subprocess.Popen(
-                _watcher_command(os.getpid(), [*command, "--config", str(config_path)]),
+                _watcher_command(
+                    os.getpid(),
+                    [*command, "--config", str(config_path)],
+                    python_executable,
+                ),
                 env=env,
                 stdout=self._log,
                 stderr=subprocess.STDOUT,
@@ -345,6 +388,15 @@ class WeightCacheDaemon:
         config = copy.deepcopy(config)
         if self.engine != "vllm":
             return config
+        try:
+            native_budget = Version(package_version("vllm")) >= Version("0.32.0")
+        except PackageNotFoundError:
+            native_budget = False
+        if native_budget:
+            # vLLM 0.32 accounts for externally held IPC weights itself, even
+            # with an explicit KV allocation. Subtracting twice (or passing
+            # 0.01) fails its preflight before the engine can load.
+            return config
         assert self.process is not None
         requested = float(config.get("gpu_memory_utilization", 0.9))
         if config.get("kv_cache_memory_bytes"):
@@ -369,6 +421,19 @@ class WeightCacheDaemon:
         )
         return config
 
+    def export(self) -> Dict[str, Any]:
+        self.client_config()
+        assert self.process is not None
+        return {
+            "engine": self.engine,
+            "config": copy.deepcopy(self.config),
+            "directory": str(self.directory),
+            "pid": self.process.pid,
+            "sockets": {str(path): inode for path, inode in self._socket_paths.items()},
+            "ready": [str(path) for path in self._ready_paths],
+            "memory_fraction": self._memory_fraction,
+        }
+
     def stop(self) -> None:
         if self.process is not None:
             _terminate_process_group(self.process.pid, reap=self.process.poll)
@@ -384,6 +449,46 @@ class WeightCacheDaemon:
             self._log.close()
             self._log = None
         self._directory.cleanup()
+
+
+class _CacheProcess:
+    def __init__(self, pid: int):
+        self.pid = pid
+
+    def poll(self):
+        try:
+            os.kill(self.pid, 0)
+        except ProcessLookupError:
+            return 1
+        return None
+
+
+class BorrowedWeightCache(WeightCacheDaemon):
+    """A checked, non-owning lease. Only the stable actor may stop the daemon."""
+
+    def __init__(self, descriptor: Dict[str, Any]):
+        self.engine = descriptor["engine"]
+        self.config = copy.deepcopy(descriptor["config"])
+        self.directory = Path(descriptor["directory"])
+        self.process = _CacheProcess(descriptor["pid"])  # type: ignore
+        self._socket_paths = {
+            Path(path): inode for path, inode in descriptor["sockets"].items()
+        }
+        self._ready_paths = [Path(path) for path in descriptor["ready"]]
+        self._memory_fraction = descriptor["memory_fraction"]
+        if self.engine == "sglang":
+            os.environ["SGLANG_WEIGHT_CACHE_SOCKET_TEMPLATE"] = str(
+                self.directory / "{device_uuid}.sock"
+            )
+            os.environ["SGLANG_WEIGHT_CACHE_READY_TEMPLATE"] = str(
+                self.directory / "{device_uuid}.ready"
+            )
+        self.client_config()
+
+    def stop(self) -> None:
+        # Destroying a failed/retired engine must never revoke another engine's
+        # mappings or the stable actor's cached weights.
+        pass
 
 
 class WeightCachedModel:

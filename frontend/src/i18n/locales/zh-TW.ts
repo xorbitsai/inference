@@ -758,9 +758,9 @@ const zhTW = {
   },
   runningModels: {
     reload: {
-      title: '重載參數',
+      title: '重新設定 / 升級模型',
       description:
-        '引擎參數變更會保留 GPU 權重並重新建立引擎。等待目前請求結束並套用變更期間，服務暫停，新請求傳回 HTTP 503。不能修改平行度、精度和量化方式。',
+        '新引擎啟動期間，原引擎繼續服務。新引擎就緒後才接收新請求，既有請求仍由原引擎完成。平行方式、精度與量化不能修改。',
       disabled: '修改引擎參數需要在啟動時啟用保留 GPU 權重。',
       reasoningHint: '推理內容解析僅更新解析器，不重新啟動引擎；目前請求完成後生效。',
       imageLimit: '每個請求最多圖片數',
@@ -771,6 +771,9 @@ const zhTW = {
       loading: '正在重建引擎',
       restoring: '正在還原原始設定',
       restored: '已還原原始設定。',
+      python: 'Python 執行檔（選填）',
+      environmentHint:
+        '留空使用模型目前的環境。目標環境必須預先安裝 Xinference 與模型引擎。相容版本共用權重；版本不相容時，需要額外顯示記憶體載入另一份權重。準備失敗時，原引擎繼續服務。',
     },
     searchPlaceholder: '搜尋模型名稱或模型 UID...',
     loadingModels: '模型載入中...',
@@ -1148,6 +1151,20 @@ const zhTW = {
     },
   },
   clusterInfo: {
+    relaunch: {
+      title: '重新啟動 / 升級 Worker',
+      description: '替換 Worker，同時保留模型程序與正在執行的推論。模型引擎仍使用原來的版本。',
+      python: 'Python 執行檔（選填）',
+      environmentHint:
+        '留空使用目前環境重新啟動。升級時填寫這台 Worker 機器上已安裝的 Python 路徑，此處不會安裝套件。',
+      history: 'Worker 重新啟動記錄',
+      starting: '正在啟動新 Worker',
+      transferring: '正在接管模型',
+      pending: '等待確認接管結果',
+      succeeded: 'Worker 已替換',
+      failed: '替換失敗',
+      pendingHint: '接管結果尚未確定，請保持新舊程序執行，頁面將持續更新狀態。',
+    },
     pageDescription:
       '檢視您的 XInference 叢集的當前狀態——包括主管節點、工作節點、路由節點及其硬體資源。',
     supervisor: '主管',

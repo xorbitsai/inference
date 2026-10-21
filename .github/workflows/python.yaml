@@ -62,6 +62,9 @@ jobs:
         run: cd frontend && npm run test:catalog-refresh
       - name: Test persistent model favorites
         run: cd frontend && npm run test:model-favorites
+
+- name: Test model and Worker upgrade controls
+        run: cd frontend && npm run test:model-reload && npm run test:worker-relaunch
       - name: Build frontend (static export)
         run: cd frontend && npm run build
       - name: Verify static export output
@@ -76,6 +79,12 @@ jobs:
           pytest --noconftest -vv \
             xinference/api/tests/test_frontend_static.py \
             xinference/api/tests/test_frontend_static_real_export.py
+      - name: Test Worker host as container PID 1
+        env:
+          XINFERENCE_TEST_WORKER_HOST_DOCKER: "1"
+        run: |
+          pip install psutil
+          pytest --noconftest -vv xinference/deploy/test/test_worker_host.py
 
 
   changes:

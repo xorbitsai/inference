@@ -93,14 +93,69 @@ msgstr ""
 "선택적 요청 필드 ``python_executable`` 은 Worker 머신에 있는 Python 실행 파일의 절대 경로를 지정합니다. 별도로 설치한 새 환경을 선택할 수 "
 "있으며 기본값은 현재 인터프리터입니다. 이 작업은 패키지를 설치하지 않으며 유지된 모델 프로세스는 원래 환경과 코드를 계속 사용합니다."
 
-#: user_guide/worker_handoff.rst:29
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:31
 msgid ""
-"For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement explicitly with "
-"a different actor port and a free metrics exporter port:"
+"For an unmanaged Worker started without a service process host, you can "
+"start its replacement explicitly with a different actor port and a free "
+"metrics exporter port. Managed Workers use the relaunch API so retained "
+"processes remain in the same service or container:"
 msgstr ""
-"기존 Worker의 주소가 ``127.0.0.1:9978`` 인 경우, 다른 Actor 포트와 사용 가능한 메트릭 내보내기 포트로 대체 Worker를 명시적으로 시작할 수도 "
-"있습니다."
+"서비스 호스트 프로세스 없이 실행한 비관리 Worker는 다른 actor 포트와 사용 가능한 메트릭 내보내기 포트를 지정해 대체 "
+"프로세스를 직접 시작할 수 있습니다. 관리 Worker는 보존 프로세스가 같은 서비스 또는 컨테이너에 남도록 relaunch API를 "
+"사용합니다."
 
 #: ../../source/user_guide/worker_handoff.rst
 msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
 msgstr "Supervisor는 소유권 예약도 ``XINFERENCE_HOME/worker-handoffs.json`` 에 저장하므로 Supervisor 재시작 후 중단된 인계를 재개할 수 있습니다. 대체 Worker는 재실행 후 시작된 모델을 포함하여 원래 Worker 주소의 복구 파일을 계속 업데이트합니다."
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:43
+msgid "Web UI"
+msgstr "웹 UI"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:45
+msgid ""
+"In **Cluster Information**, administrators can use **Restart / upgrade "
+"Worker** on a distributed Worker. Operation records remain visible when its "
+"address changes or the page is refreshed. This retains the current model "
+"processes; model-engine upgrades use **Reconfigure / upgrade model** in the "
+"running model's detail view."
+msgstr ""
+"**클러스터 정보** 에서 관리자는 분산 Worker의 **Worker 재시작 / 업그레이드** 를 사용할 수 있습니다. 주소가 바뀌거나"
+" 페이지를 새로 고쳐도 작업 기록이 표시됩니다. 현재 모델 프로세스는 유지됩니다. 모델 엔진 업그레이드는 실행 중인 모델 상세 화면의 "
+"**모델 재구성 / 업그레이드** 를 사용합니다."
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:48
+msgid "Service and container ownership"
+msgstr "서비스와 컨테이너의 프로세스 소유권"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:50
+msgid ""
+"On Linux and macOS, ``xinference-worker`` automatically keeps a stable "
+"Worker host as its main process. Replacement Workers register before "
+"handoff, so retirement of the original Worker does not stop its models, "
+"replacement, systemd service or container. Explicitly stopping the host "
+"terminates its owned processes. Custom launch commands can use the host "
+"wrapper below."
+msgstr ""
+"Linux와 macOS에서 ``xinference-worker`` 는 고정된 Worker 호스트를 주 프로세스로 자동 유지합니다. 대체 "
+"Worker는 인계 전에 등록하므로 원래 Worker가 종료되어도 모델, 대체 Worker, systemd 서비스 또는 컨테이너가 "
+"중지되지 않습니다. 호스트를 명시적으로 중지하면 관리 프로세스가 종료됩니다. 사용자 지정 시작 명령에는 아래 호스트 래퍼를 사용할 수 "
+"있습니다."
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:57
+msgid ""
+"A systemd service can keep its normal process-group cleanup, because the "
+"Worker host remains its main process:"
+msgstr ""
+"Worker 호스트가 주 프로세스로 유지되므로 systemd 서비스는 일반적인 프로세스 그룹 정리 방식을 사용할 수 있습니다."
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:68
+msgid ""
+"For Docker, use the same host command as the container command. Install or "
+"mount prepared Python environments inside the running container. Keep that "
+"container running during upgrades: replacing or stopping the container "
+"terminates its model processes and cannot preserve their GPU allocations."
+msgstr ""
+"Docker에서는 같은 호스트 명령을 컨테이너 명령으로 사용합니다. 실행 중인 컨테이너 안에 준비된 Python 환경을 설치하거나 "
+"마운트하세요. 업그레이드 중에는 해당 컨테이너를 계속 실행해야 합니다. 컨테이너를 교체하거나 중지하면 모델 프로세스가 종료되어 GPU "
+"할당을 유지할 수 없습니다."

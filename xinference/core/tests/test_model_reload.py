@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 # http://www.apache.org/licenses/LICENSE-2.0
+# CI: linux
 
 import asyncio
 from types import SimpleNamespace
@@ -44,7 +45,16 @@ def make_pipeline(actor):
             "max_num_seqs": 16,
         }
     }
-    worker._model_uid_to_model_status = {}
+    worker._model_uid_to_model_status = {
+        "test-replica": ModelStatus(model_state="ready")
+    }
+
+    # Isolate supervisor/persistence orchestration from process creation. The
+    # real generation transport and rollback are covered in test_model_generation.
+    async def replace(uid, config, python_executable=None, operation_id=None):
+        return await worker._model_uid_to_model[uid].reload(config, 300)
+
+    worker._replace_model_generation = replace
     worker._status_guard_ref = None
     worker._persist_launch_args = MagicMock()
     supervisor = SupervisorActor.__new__(SupervisorActor)
@@ -272,9 +282,7 @@ async def test_termination_interrupts_reload_without_waiting_for_engine(stage):
         worker._model_uid_to_model["test-replica"].reload = hung_load
 
     async def terminate(uid, suppress_exception):
-        assert (
-            worker._model_uid_to_model_status["test-replica"].model_state == "reloading"
-        )
+        assert "test-replica" in worker._model_reload_active
         await worker._update_model_state("test-replica", "stopping")
         worker._model_uid_to_model.clear()
         worker._model_uid_to_model_status.clear()
@@ -318,7 +326,7 @@ async def test_unknown_reload_failure_never_revives_stale_actor(outcome):
         await worker.reload_model("test-replica", {"max_num_seqs": 32}, 1)
     status = worker._model_uid_to_model_status.get("test-replica")
     assert (status.model_state if status else None) == {
-        "error": "error",
+        "error": "ready",
         "recovered": "loading",
         "terminated": None,
         "stopping": "stopping",
@@ -349,8 +357,9 @@ async def test_abort_request_can_finish_draining_reload(monkeypatch):
     await supervisor.reload_model("test", {"max_num_seqs": 32}, drain_timeout=2)
     task = supervisor._model_reload_tasks["test"]
     await asyncio.sleep(0.05)
-    with pytest.raises(ModelNotReadyError):
-        worker.get_model("test-replica")
+    assert (
+        worker.get_model("test-replica") is worker._model_uid_to_model["test-replica"]
+    )
     assert await supervisor.abort_request("test", "request") == {"msg": "DONE"}
     await task
     assert actor._model_state == "ready"
@@ -377,6 +386,45 @@ async def test_reload_updates_autostart_only_after_commit(tmp_path):
     assert entry["launch"]["max_num_seqs"] == 32
     assert entry["created_by"] == "owner" and entry["priority"] == 42
     worker._persist_launch_args.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_committed_environment_is_persisted_for_recovery_and_autostart():
+    supervisor, worker = make_pipeline(make_actor())
+    worker._replace_model_generation = AsyncMock(return_value=True)
+    await supervisor.reload_model(
+        "test", {"max_num_seqs": 32}, python_executable="/opt/new/bin/python"
+    )
+    await supervisor._model_reload_tasks["test"]
+    assert (
+        worker._model_uid_to_launch_args["test-replica"]["model_python_executable"]
+        == "/opt/new/bin/python"
+    )
+    supervisor._launch_history_store.update_autostart_launch_config.assert_called_once_with(
+        "test", {"max_num_seqs": 32, "model_python_executable": "/opt/new/bin/python"}
+    )
+
+
+@pytest.mark.asyncio
+async def test_reload_status_survives_supervisor_operation_cache_loss():
+    actor = make_actor()
+    actor._reload_status = {
+        "operation_id": "one",
+        "status": "ready",
+        "weights_reused": True,
+    }
+    supervisor, _ = make_pipeline(actor)
+    assert (await supervisor.get_model_reload_status("test"))["operation_id"] == "one"
+
+
+@pytest.mark.asyncio
+async def test_reload_status_reports_runtime_rollback_after_cutover():
+    actor = make_actor()
+    actor._reload_status = {"operation_id": "one", "status": "error", "restored": True}
+    supervisor, _ = make_pipeline(actor)
+    supervisor._model_reload_status["test"] = {"operation_id": "one", "status": "ready"}
+    status = await supervisor.get_model_reload_status("test")
+    assert status["status"] == "error" and status["restored"]
 
 
 def test_description_exposes_sharded_worker_count():

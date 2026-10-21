@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from .worker import _start_worker
+from .worker_host import register_worker_host
 
 
 def main():
@@ -19,7 +20,14 @@ def main():
     multiprocessing.set_start_method("spawn", force=True)
     if config.get("logging_conf"):
         logging.config.dictConfig(config["logging_conf"])
-    asyncio.run(_start_worker(**config))
+
+    async def run():
+        # Register before starting any ownership transfer. Failure leaves the
+        # original Worker serving, rather than allowing PID 1 to lose its child.
+        await register_worker_host()
+        await _start_worker(**config)
+
+    asyncio.run(run())
 
 
 if __name__ == "__main__":

@@ -28,7 +28,7 @@ The optional ``python_executable`` request field selects an absolute Python exec
     operation = client.relaunch_worker("127.0.0.1:9978")
     status = client.get_worker_relaunch(operation["operation_id"])
 
-For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement explicitly with a different actor port and a free metrics exporter port:
+For an unmanaged Worker started without a service process host, you can start its replacement explicitly with a different actor port and a free metrics exporter port. Managed Workers use the relaunch API so retained processes remain in the same service or container:
 
 .. code-block:: bash
 
@@ -38,3 +38,31 @@ For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement
 Model management changes pause during handoff; inference calls continue. Failure before ownership transfer restores the old Worker. After transfer starts, keep both processes alive while the replacement retries. The old Worker exits automatically after successful replacement.
 
 The model processes retain their original Xinference and engine code and loaded weights. This replaces the Worker control process. Deploy both processes on the same machine, and configure the service manager to let retained processes outlive the old Worker instead of killing its process group or container.
+
+Web UI
+------
+
+In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a distributed Worker. Operation records remain visible when its address changes or the page is refreshed. This retains the current model processes; model-engine upgrades use **Reconfigure / upgrade model** in the running model's detail view.
+
+Service and container ownership
+-------------------------------
+
+On Linux and macOS, ``xinference-worker`` automatically keeps a stable Worker host as its main process. Replacement Workers register before handoff, so retirement of the original Worker does not stop its models, replacement, systemd service or container. Explicitly stopping the host terminates its owned processes. Custom launch commands can use the host wrapper below.
+
+.. code-block:: bash
+
+    python -m xinference.deploy.worker_host xinference-worker \
+      --endpoint http://127.0.0.1:9997 --host 0.0.0.0
+
+A systemd service can keep its normal process-group cleanup, because the Worker host remains its main process:
+
+.. code-block:: ini
+
+    [Service]
+    Type=simple
+    ExecStart=/opt/xinference/bin/python -m xinference.deploy.worker_host /opt/xinference/bin/xinference-worker --endpoint http://127.0.0.1:9997 --host 0.0.0.0
+    Restart=on-failure
+    KillMode=control-group
+    TimeoutStopSec=30
+
+For Docker, use the same host command as the container command. Install or mount prepared Python environments inside the running container. Keep that container running during upgrades: replacing or stopping the container terminates its model processes and cannot preserve their GPU allocations.

@@ -154,6 +154,7 @@ def main(
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[dict] = None,
     replace_worker: Optional[str] = None,
+    use_process_host: bool = False,
 ):
     # force to set spawn,
     # cuda may be inited in xoscar virtualenv
@@ -161,6 +162,25 @@ def main(
     multiprocessing.set_start_method("spawn")
 
     try:
+        if use_process_host:
+            from .worker_host import run_worker_configuration
+
+            result = asyncio.run(
+                run_worker_configuration(
+                    {
+                        "address": address,
+                        "supervisor_address": supervisor_address,
+                        "supervisor_endpoint": supervisor_endpoint,
+                        "metrics_exporter_host": metrics_exporter_host,
+                        "metrics_exporter_port": metrics_exporter_port,
+                        "logging_conf": logging_conf,
+                        "replace_worker": replace_worker,
+                    }
+                )
+            )
+            if result:
+                raise SystemExit(result)
+            return
         asyncio.run(
             _start_worker(
                 address,

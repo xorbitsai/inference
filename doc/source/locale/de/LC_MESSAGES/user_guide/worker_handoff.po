@@ -107,14 +107,78 @@ msgstr ""
 "Standard ist der aktuelle Interpreter. Der Vorgang installiert keine Pakete; die beibehaltenen "
 "Modellprozesse verwenden weiterhin ihre ursprüngliche Umgebung und ihren ursprünglichen Code."
 
-#: user_guide/worker_handoff.rst:29
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:31
 msgid ""
-"For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement explicitly with "
-"a different actor port and a free metrics exporter port:"
+"For an unmanaged Worker started without a service process host, you can "
+"start its replacement explicitly with a different actor port and a free "
+"metrics exporter port. Managed Workers use the relaunch API so retained "
+"processes remain in the same service or container:"
 msgstr ""
-"Für einen vorhandenen Worker unter ``127.0.0.1:9978`` können Sie den Ersatz auch explizit mit "
-"einem anderen Actor-Port und einem freien Metrikexport-Port starten:"
+"Für einen nicht verwalteten Worker ohne Dienst-Hostprozess können Sie den "
+"Ersatz explizit mit einem anderen Actor-Port und einem freien "
+"Metrikexporter-Port starten. Verwaltete Worker verwenden die Relaunch-API, "
+"damit die erhaltenen Prozesse im selben Dienst oder Container bleiben:"
 
 #: ../../source/user_guide/worker_handoff.rst
 msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
 msgstr "Der Supervisor speichert außerdem Eigentumsreservierungen in ``XINFERENCE_HOME/worker-handoffs.json``, damit eine unterbrochene Übergabe nach einem Supervisor-Neustart fortgesetzt werden kann. Ersatz-Worker aktualisieren weiterhin die Wiederherstellungsdatei für die ursprüngliche Worker-Adresse, einschließlich der nach dem Neustart gestarteten Modelle."
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:43
+msgid "Web UI"
+msgstr "Weboberfläche"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:45
+msgid ""
+"In **Cluster Information**, administrators can use **Restart / upgrade "
+"Worker** on a distributed Worker. Operation records remain visible when its "
+"address changes or the page is refreshed. This retains the current model "
+"processes; model-engine upgrades use **Reconfigure / upgrade model** in the "
+"running model's detail view."
+msgstr ""
+"Unter **Clusterinformationen** können Administratoren bei verteilten Workern"
+" **Worker neu starten / aktualisieren** verwenden. Vorgangsprotokolle "
+"bleiben nach einer Adressänderung oder einem Neuladen der Seite sichtbar. "
+"Die Modellprozesse bleiben erhalten; zum Aktualisieren der Modell-Engine "
+"verwenden Sie **Modell neu konfigurieren / aktualisieren** in den "
+"Modelldetails."
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:48
+msgid "Service and container ownership"
+msgstr "Prozesszugehörigkeit bei Diensten und Containern"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:50
+msgid ""
+"On Linux and macOS, ``xinference-worker`` automatically keeps a stable "
+"Worker host as its main process. Replacement Workers register before "
+"handoff, so retirement of the original Worker does not stop its models, "
+"replacement, systemd service or container. Explicitly stopping the host "
+"terminates its owned processes. Custom launch commands can use the host "
+"wrapper below."
+msgstr ""
+"Unter Linux und macOS behält ``xinference-worker`` automatisch einen "
+"stabilen Worker-Host als Hauptprozess. Ersatz-Worker registrieren sich vor "
+"der Übergabe. Das Ende des ursprünglichen Workers stoppt deshalb weder "
+"Modelle noch Ersatz-Worker, systemd-Dienst oder Container. Das explizite "
+"Stoppen des Hosts beendet seine verwalteten Prozesse. Eigene Startbefehle "
+"können den folgenden Host-Wrapper verwenden."
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:57
+msgid ""
+"A systemd service can keep its normal process-group cleanup, because the "
+"Worker host remains its main process:"
+msgstr ""
+"Ein systemd-Dienst kann seine normale Bereinigung der Prozessgruppe "
+"beibehalten, da der Worker-Host sein Hauptprozess bleibt:"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:68
+msgid ""
+"For Docker, use the same host command as the container command. Install or "
+"mount prepared Python environments inside the running container. Keep that "
+"container running during upgrades: replacing or stopping the container "
+"terminates its model processes and cannot preserve their GPU allocations."
+msgstr ""
+"Verwenden Sie bei Docker denselben Host-Befehl als Containerbefehl. "
+"Installieren oder mounten Sie vorbereitete Python-Umgebungen im laufenden "
+"Container. Lassen Sie diesen während der Aktualisierung laufen: Das Ersetzen"
+" oder Stoppen des Containers beendet seine Modellprozesse und kann deren "
+"GPU-Zuweisungen nicht erhalten."

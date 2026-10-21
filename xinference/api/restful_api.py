@@ -1918,19 +1918,25 @@ class RESTfulAPI(CancelMixin):
             if not isinstance(payload, dict) or set(payload) - {
                 "model_config",
                 "drain_timeout",
+                "python_executable",
             }:
                 raise ValueError("Expected model_config and optional drain_timeout")
-            config = payload.get("model_config")
+            from ..core.worker_relaunch import validate_relaunch_options
+
+            python_executable = payload.get("python_executable")
+            validate_relaunch_options(python_executable)
+            config = payload.get("model_config", {} if python_executable else None)
             metadata = await (await self._get_supervisor_ref()).get_model_reload_config(
                 model_uid
             )
             # Validate the request's shape and types before crossing the actor boundary.
-            if not isinstance(config, dict) or not config:
+            if not isinstance(config, dict) or (not config and not python_executable):
                 raise ValueError("model_config must be a non-empty object")
             if set(config) - set(metadata["parameters"]):
                 raise ValueError("Unsupported reload parameters")
             engine = metadata["engine"]
-            validate_reload_patch(engine, config)
+            if config:
+                validate_reload_patch(engine, config)
             timeout = payload.get("drain_timeout", 300)
             if (
                 type(timeout) not in (int, float)
@@ -1938,8 +1944,13 @@ class RESTfulAPI(CancelMixin):
                 or not 0 < timeout <= 3600
             ):
                 raise ValueError("drain_timeout must be between 0 and 3600 seconds")
+            options = (
+                {}
+                if python_executable is None
+                else {"python_executable": python_executable}
+            )
             result = await (await self._get_supervisor_ref()).reload_model(
-                model_uid, config, timeout
+                model_uid, config, timeout, **options
             )
         except ModelNotReadyError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc

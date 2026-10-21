@@ -611,6 +611,32 @@ def normalize_sglang_kernel_packages(
     return normalized, True
 
 
+def build_subpool_envs_for_python(
+    envs: Dict[str, str], python_executable: str
+) -> Dict[str, str]:
+    """Prevent an inherited interpreter environment from overriding the target.
+
+    Xoscar merges these overrides with its parent environment, so removal is
+    insufficient: explicitly empty Python/activation variables instead.
+    """
+    result = dict(envs)
+    for name in (
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "VIRTUAL_ENV",
+        "CONDA_PREFIX",
+        "CONDA_DEFAULT_ENV",
+    ):
+        result[name] = ""
+    result["PATH"] = os.pathsep.join(
+        [
+            os.path.dirname(python_executable),
+            result.get("PATH") or os.environ.get("PATH", "") or "",
+        ]
+    )
+    return result
+
+
 def build_subpool_envs_for_virtual_env(
     envs: Optional[Dict[str, str]],
     enable_virtual_env: Optional[bool],

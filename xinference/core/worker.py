@@ -28,7 +28,7 @@ import sys
 import threading
 import time
 from collections import defaultdict
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass, field
 from logging import getLogger
 from typing import (
@@ -1003,8 +1003,25 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             await self._main_pool.remove_sub_pool(address)
         except Exception:
             pass
-        for model_uid, addr in self._model_uid_to_addr.items():
-            if addr == address:
+        failed_generations = set()
+        for model_uid, addresses in self._model_uid_to_subpool_addresses.items():
+            if (
+                address in addresses
+                and self._model_uid_to_addr.get(model_uid) != address
+            ):
+                ref = self._model_uid_to_model.get(model_uid)
+                if ref is not None:
+                    try:
+                        action = await ref.handle_generation_pool_exit(address)
+                    except AttributeError:
+                        # Models retained from an older package do not have
+                        # generation children; keep their existing recovery.
+                        action = "unpublished"
+                    if action == "recover":
+                        failed_generations.add(model_uid)
+                addresses.discard(address)
+        for model_uid, addr in list(self._model_uid_to_addr.items()):
+            if addr == address or model_uid in failed_generations:
                 launch_args = self._model_uid_to_launch_args.get(model_uid)
                 if launch_args is None:
                     logger.warning(
@@ -4913,6 +4930,14 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         )
 
                     # virtualenv
+                    model_python_executable = kwargs.pop(
+                        "model_python_executable", None
+                    )
+                    if model_python_executable is not None:
+                        from .worker_relaunch import validate_relaunch_options
+
+                        validate_relaunch_options(model_python_executable)
+                        enable_virtual_env = False
                     virtual_env_name = kwargs.pop("virtual_env_name", None)
                     # Use v4 structure: .xinference/virtualenv/v4/model_name/model_engine/python_version
                     python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
@@ -4930,8 +4955,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         virtual_env_name,
                         virtual_env_path,
                     )
-                    subpool_python_path = resolve_virtualenv_python_path(
-                        virtual_env_manager
+                    subpool_python_path = (
+                        model_python_executable
+                        or resolve_virtualenv_python_path(virtual_env_manager)
                     )
                     subpool_envs = build_subpool_envs_for_virtual_env(
                         envs,
@@ -4939,6 +4965,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         virtual_env_manager,
                         model_engine,
                     )
+                    if model_python_executable is not None:
+                        from .utils import build_subpool_envs_for_python
+
+                        subpool_envs = build_subpool_envs_for_python(
+                            subpool_envs, model_python_executable
+                        )
                     if kwargs.get("_nixl_config") is not None:
                         from ..model.llm.vllm.pd import configure_nixl_environment
 
@@ -5834,7 +5866,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         model_status = self._model_uid_to_model_status.get(model_uid)
         was_reloading = (
             model_status is not None and model_status.model_state == "reloading"
-        )
+        ) or model_uid in self.__dict__.get("_model_reload_active", ())
         await self._update_model_state(model_uid, "stopping")
         # In special cases, if the suffix is `-rank0`, this is the Xavier's rank 0 model actor.
         if model_uid.endswith("-rank0"):
@@ -6140,55 +6172,75 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     async def validate_model_reload(self, model_uid: str, config: Dict[str, Any]):
         return await self._model_uid_to_model[model_uid].validate_reload(config)
 
+    async def _replace_model_generation(
+        self, model_uid, config, python_executable=None, operation_id=None
+    ):
+        from .model_generation import replace_model_generation
+
+        return await replace_model_generation(
+            self, model_uid, config, python_executable, operation_id
+        )
+
+    @management_operation
+    async def retire_model_generation_pool(self, model_uid: str, address: str):
+        if address == self._model_uid_to_addr.get(model_uid):
+            raise ValueError("Cannot retire the public model actor")
+        addresses = self._model_uid_to_subpool_addresses.get(model_uid, set())
+        if address in addresses:
+            with suppress(KeyError):
+                await self._main_pool.remove_sub_pool(address, force=True)
+            addresses.discard(address)
+
     @management_operation
     async def reload_model(
-        self, model_uid: str, config: Dict[str, Any], drain_timeout: float
+        self,
+        model_uid: str,
+        config: Dict[str, Any],
+        drain_timeout: float,
+        python_executable: Optional[str] = None,
+        operation_id: Optional[str] = None,
     ) -> bool:
-        from ..model.llm.weight_cache import ModelReloadError
+        from ..model.llm.weight_cache import HOT_RELOAD_FIELDS, ModelReloadError
 
         model_ref = self._model_uid_to_model[model_uid]
-        await self._update_model_state(model_uid, "reloading")
-        owned_status = self._model_uid_to_model_status.get(model_uid)
-
-        def still_owns_model() -> bool:
-            return (
-                self._model_uid_to_model.get(model_uid) is model_ref
-                and self._model_uid_to_model_status.get(model_uid) is owned_status
-                and owned_status is not None
-                and owned_status.model_state == "reloading"
-            )
-
+        active = self.__dict__.setdefault("_model_reload_active", set())
+        if model_uid in active:
+            raise RuntimeError("This model already has a reload in progress")
+        active.add(model_uid)
         try:
-            weights_reused = await model_ref.reload(config, drain_timeout)
-        except ModelReloadError as exc:
-            if still_owns_model():
-                await self._update_model_state(
-                    model_uid, "ready" if exc.restored else "error"
+            if (
+                python_executable is not None
+                or not set(config) <= HOT_RELOAD_FIELDS.keys()
+            ):
+                weights_reused = await self._replace_model_generation(
+                    model_uid, config, python_executable, operation_id
                 )
-            raise
-        except (ValueError, ModelNotReadyError):
-            if still_owns_model():
-                await self._update_model_state(model_uid, "ready")
-            raise
-        except asyncio.CancelledError:
-            # Keep the reload marker until terminate_model forcibly removes the
-            # pool. Cancellation cannot stop a load running in a native thread.
-            raise
-        except Exception:
-            if still_owns_model():
-                await self._update_model_state(model_uid, "error")
-            raise
-        else:
-            if not still_owns_model():
+            else:
+                # Parser-only updates do not need another engine. New calls
+                # wait at admission while existing requests drain.
+                weights_reused = await model_ref.reload(config, drain_timeout)
+            if self._model_uid_to_model.get(model_uid) is not model_ref:
                 raise ModelReloadError(
                     "Model was terminated or recovered during reload"
                 )
-            # Persist only committed changes. Recovery must use the new limits,
-            # while the original launch identity and GPU placement stay intact.
             self._model_uid_to_launch_args[model_uid].update(config)
+            if python_executable is not None:
+                self._model_uid_to_launch_args[model_uid][
+                    "model_python_executable"
+                ] = python_executable
             self._persist_launch_args()
-            await self._update_model_state(model_uid, "ready")
             return weights_reused
+        except ModelReloadError as exc:
+            if (
+                not exc.restored
+                and self._model_uid_to_model.get(model_uid) is model_ref
+            ):
+                status = self._model_uid_to_model_status.get(model_uid)
+                if status is not None and status.model_state == "ready":
+                    await self._update_model_state(model_uid, "error")
+            raise
+        finally:
+            active.discard(model_uid)
 
     @log_sync(logger=logger)
     def get_model_for_abort(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
@@ -6202,7 +6254,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         model_status = self._model_uid_to_model_status.get(model_uid)
         if model_status:
-            if model_status.model_state in ("registering", "loading", "reloading"):
+            if model_status.model_state in ("registering", "loading"):
                 raise ModelNotReadyError(
                     f"Model {model_uid} is {model_status.model_state}"
                 )
