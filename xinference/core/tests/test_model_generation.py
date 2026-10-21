@@ -337,6 +337,9 @@ async def test_private_preparation_never_stops_public_engine(monkeypatch, failur
     else:
         assert await replace_model_generation(worker, "model", {}, operation_id="job")
         worker._main_pool.remove_sub_pool.assert_not_called()
+        # After a prior upgrade, the active model's interpreter can differ
+        # from the Worker's even when this request omits python_executable.
+        assert module.probe_environment.call_args.args[2]["PYTHONPATH"] == ""
     anchor.stop.assert_not_called()
 
 

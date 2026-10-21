@@ -387,6 +387,17 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
             assert report["after"]["config"][field] == 8
             await asyncio.wait_for(tasks[0], 600)
             await asyncio.sleep(2)
+            # A later parameter-only replacement must keep the committed
+            # interpreter and cache, even after the original engine has retired
+            # and the Worker has been replaced.
+            again = await http.post(
+                endpoint + f"/v1/models/{uid}/reload", json={"model_config": {field: 4}}
+            )
+            again.raise_for_status()
+            report["second_reconfiguration"] = await until(finished)
+            latest = await model.export_model_generation({})
+            assert latest["python_executable"] == report["after"]["python_executable"]
+            assert latest["cache"]["pid"] == report["after"]["cache"]["pid"]
             stop.set()
             await tasks[1]
             report.update(

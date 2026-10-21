@@ -227,6 +227,11 @@ class ModelGenerationMixin:
             "torch_version": version("torch"),
             "cache": model._weight_cache.export(),
             "python_executable": sys.executable,
+            "runtime_env": {
+                key: os.environ[key]
+                for key in ("PATH", "LD_LIBRARY_PATH", "FLASHINFER_NINJA_PATH")
+                if key in os.environ
+            },
             "request_limits": (
                 None if self._request_limits == float("inf") else self._request_limits
             ),
@@ -556,7 +561,9 @@ async def replace_model_generation(
     env.update(worker._model_uid_to_launch_args[model_uid].get("envs") or {})
     env.update(snapshot["env"])
     executable = python_executable or snapshot["python_executable"]
-    if python_executable is not None:
+    if python_executable is None:
+        env.update(snapshot.get("runtime_env", {}))
+    if python_executable is not None or executable != sys.executable:
         from .utils import build_subpool_envs_for_python
 
         env = build_subpool_envs_for_python(env, executable)
