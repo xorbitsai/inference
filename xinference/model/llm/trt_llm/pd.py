@@ -122,11 +122,40 @@ class TRTLLMPD:
     def __init__(self, role, backend, contract=None):
         self.role, self.backend, self.contract = role, backend, contract
         self.client = None
+        self._native = None
         self.active: dict = {}
         if backend == "xavier":
             from .connector import XavierClient
 
             self.client = XavierClient()
+
+    def bind_engine(self, engine):
+        if self.backend == "nixl" and self.role == "prefill":
+            from .native import NativeSourceReleaser
+
+            self._native = NativeSourceReleaser(engine._executor.engine)
+
+    def engine_stopped(self):
+        if self._native is not None:
+            self._native.engine_stopped()
+            self._native = None
+
+    def _release_native(self, state):
+        request = state.get("request")
+        if request is None:
+            return
+        context = getattr(request, "disaggregated_params", None)
+        ticket = state.get("ticket")
+        if ticket is None:
+            ticket = getattr(context, "ctx_request_id", None)
+        if ticket is None and self._native is not None:
+            ticket = self._native.find_source(request.request_id)
+        if self.role == "prefill" and ticket is not None:
+            if self._native is None:
+                raise RuntimeError("TRT native source release is not initialized")
+            self._native.release(ticket)
+        else:
+            request.abort()
 
     async def prepare(self, request_id, tokens, transfer):
         prefill = self.role == "prefill"
@@ -245,6 +274,7 @@ class TRTLLMPD:
                 raise RuntimeError(
                     "TRT-LLM prefill did not return native context metadata"
                 )
+            state["ticket"] = context.ctx_request_id
             handoff.update(
                 contract=self.contract.fingerprint,
                 context=dict(
@@ -271,8 +301,11 @@ class TRTLLMPD:
         if state is not None:
             state["released"] = True
             if self.client is None:
-                if state.get("request") is not None:
-                    state["request"].abort()
+                from ..xavier.backends.torch.gpu_transfer import finish_before_cancel
+
+                await finish_before_cancel(
+                    asyncio.create_task(asyncio.to_thread(self._release_native, state))
+                )
             else:
                 from ..xavier.backends.torch.gpu_transfer import finish_before_cancel
 
@@ -281,6 +314,7 @@ class TRTLLMPD:
                 )
 
     async def _release_gpu(self, state):
+        state["context"].cancelled = True
         reservation = state.get("reservation")
         if reservation is not None:
             await asyncio.gather(reservation, return_exceptions=True)
@@ -308,8 +342,12 @@ class TRTLLMPD:
                 state["released"] = True
                 try:
                     try:
-                        if state.get("request") is not None:
-                            state["request"].abort()
+                        if self.client is None:
+                            self._release_native(state)
+                        else:
+                            state["context"].cancelled = True
+                            if state.get("request") is not None:
+                                state["request"].abort()
                     finally:
                         if self.client is not None and state.get("prepared"):
                             room = state["context"].room

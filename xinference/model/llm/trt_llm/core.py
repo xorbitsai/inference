@@ -100,6 +100,7 @@ class TRTLLMModel(LLM, ChatModelMixin):
                 self._pd = TRTLLMPD(
                     role, "nixl" if native_pd is not None else "xavier", pd_contract
                 )
+                self._pd.bind_engine(self._engine)
         except BaseException:
             self.stop()
             raise
@@ -126,6 +127,8 @@ class TRTLLMModel(LLM, ChatModelMixin):
         try:
             if self._engine is not None:
                 self._engine.shutdown()
+                if self._pd is not None:
+                    self._pd.engine_stopped()
         finally:
             self._requests.clear()
             self._engine = None

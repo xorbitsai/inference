@@ -386,7 +386,16 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         for state, blocks in metadata.pd_saves:
             from .gpu import service
 
-            service().rpc("publish", state.room, state.engine_request_id, blocks)
+            if state.cancelled:
+                continue
+            try:
+                service().rpc("publish", state.room, state.engine_request_id, blocks)
+            except Exception:
+                if not state.cancelled:
+                    raise
+                # Cleanup can tombstone/drop a room while publish is in flight.
+                # This cancellation must not escape TRT's batch-wide callback.
+                continue
             state.registered = bool(blocks)
         for offset in range(0, len(metadata.saves), 128):
             batch = metadata.saves[offset : offset + 128]

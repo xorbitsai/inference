@@ -222,6 +222,8 @@ SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=false``; e
 TRT-LLM with Xavier or native NIXL
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. versionadded:: v4.1.0
+
 Use the same ``replica_config`` with ``model_engine="TRT-LLM"``, ``model_name="qwen3"``, ``model_size_in_billions="0_6"``, ``model_format="pytorch"`` and ``quantization="none"`` through the Python clients, REST API or CLI. Both roles require Linux/CUDA, TensorRT-LLM ``1.2.1``, BF16 dense Qwen3 weights and KV, one worker and one GPU per replica (TP=PP=CP=1). Chunked prefill and overlap scheduling must remain disabled. Different engines, quantization, multimodal input, LoRA, speculative decoding and ``cache_salt`` are unsupported.
 
 The default Xavier path uses NIXL to transfer live 64-token KV pages, including a partially filled final page, directly between GPUs. A separate transfer process maps the TRT KV pool through CUDA IPC. Source slots stay pinned until GPU reads finish; decode waits for writes and replays the final prompt token. Install ``xoscar[nixl]>=0.11.1`` in each model environment and use reachable worker addresses. Omit ``xavier_cache_bytes`` and retained GPU history settings. Transfer failures raise errors without CPU staging or full-prefill fallback. Relaunch the model after a transfer-worker restart. Directory counters ``gpu_bytes`` and ``imported_tokens`` confirm completed imports; ``host_bytes`` stays zero.

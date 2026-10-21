@@ -67,6 +67,8 @@ async def test_native_context_round_trip_keeps_tokens_and_cleans_source(
     contract = SimpleNamespace(fingerprint="checkpoint")
     p, d = TRTLLMPD("prefill", "nixl", contract), TRTLLMPD("decode", "nixl", contract)
     submitted = []
+    release_native = Mock()
+    p._native = SimpleNamespace(release=release_native)
 
     def generate(tokens, params, streaming, disaggregated_params):
         request = Request()
@@ -108,7 +110,8 @@ async def test_native_context_round_trip_keeps_tokens_and_cleans_source(
     assert submitted[1][2] == 4
     assert not model._requests
     await p.release("public-id")
-    assert submitted[0][0].aborted and not p.active
+    release_native.assert_called_once_with(321)
+    assert not submitted[0][0].aborted and not p.active
 
 
 @pytest.mark.asyncio
@@ -600,3 +603,91 @@ async def test_gpu_service_shutdown_drains_load_before_closing_ipc(monkeypatch, 
     assert transport.cache is None
     destroy.assert_awaited_once_with(transport.actor)
     transport.pool.stop.assert_awaited_once()
+
+
+@pytest.mark.parametrize("cancel_during_rpc", [False, True])
+def test_cancelled_source_publication_does_not_fail_other_sources(
+    monkeypatch, connector, cancel_during_rpc
+):
+    from .. import gpu
+    from ..pd import XavierRequest
+
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 1, 64, "bfloat16"
+    )
+    monkeypatch.setattr(
+        connector,
+        "XavierClient",
+        lambda: SimpleNamespace(pd_gpu=True, contract=contract),
+    )
+    cancelled = XavierRequest("prefill", (1, 2), 1, engine_request_id=11)
+    other = XavierRequest("prefill", (3, 4), 2, engine_request_id=12)
+    cancelled.cancelled = not cancel_during_rpc
+    published = []
+
+    def rpc(method, room, request_id, blocks):
+        assert method == "publish"
+        if room == 1:
+            cancelled.cancelled = True
+            raise ValueError("P/D room already released")
+        published.append(room)
+
+    monkeypatch.setattr(gpu, "service", lambda: SimpleNamespace(rpc=rpc))
+    worker = connector.XavierConnectorWorker(None)
+    worker.pool = torch.zeros((2, 1, 2, 64), dtype=torch.bfloat16)
+    worker.bind_connector_meta(
+        connector.XavierMetadata(pd_saves=[(cancelled, [0]), (other, [1])])
+    )
+    worker.wait_for_save(SimpleNamespace(synchronize=lambda: None))
+    assert published == [2]
+    assert not cancelled.registered and other.registered
+    # A genuine publication failure on a live request must still surface.
+    other.cancelled = False
+    monkeypatch.setattr(
+        gpu,
+        "service",
+        lambda: SimpleNamespace(rpc=Mock(side_effect=RuntimeError("NIXL failed"))),
+    )
+    worker.bind_connector_meta(connector.XavierMetadata(pd_saves=[(other, [1])]))
+    with pytest.raises(RuntimeError, match="NIXL failed"):
+        worker.wait_for_save(SimpleNamespace(synchronize=lambda: None))
+
+
+@pytest.mark.asyncio
+async def test_zero_page_cleanup_expires_tombstones_without_poll(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from .. import gpu
+
+    now = [0.0]
+    monkeypatch.setattr(gpu.time, "monotonic", lambda: now[0])
+    actor = gpu.TRTGPUActor(
+        None,
+        0,
+        None,
+        SimpleNamespace(request_info=AsyncMock(return_value={"prompt_tokens": 1})),
+        1,
+    )
+    for room in range(100):
+        now[0] = room * 301.0
+        await actor.abort(room)
+        assert actor.aborted == {room: now[0] + 300}
+    # The current, unexpired cancellation still rejects a late zero-page publish.
+    with pytest.raises(ValueError, match="Invalid TRT Xavier source"):
+        await actor.publish(99, 1, [])
+
+
+@pytest.mark.asyncio
+async def test_native_completed_source_releases_live_transmission():
+    release = Mock()
+    request = SimpleNamespace(
+        request_id=7,
+        abort=Mock(),
+        disaggregated_params=SimpleNamespace(ctx_request_id=123),
+    )
+    pd = TRTLLMPD("prefill", "nixl")
+    pd._native = SimpleNamespace(release=release)
+    pd.active["r"] = dict(request=request, ticket=123)
+    await pd.release("r")
+    release.assert_called_once_with(123)
+    request.abort.assert_not_called()

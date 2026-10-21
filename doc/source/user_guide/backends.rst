@@ -340,6 +340,8 @@ one on either model.
 TRT-LLM
 ========
 
+.. versionadded:: v4.1.0
+
 The TRT-LLM backend uses the Python LLM API inside the model process. It requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. The initial adapter supports unquantized dense Qwen3 text models, including Qwen3-0.6B.
 
 The example launches two independent replicas with a shared 512 MiB Xavier CPU cache. Each replica uses one GPU. Install TRT-LLM in a compatible CUDA environment and set ``enable_virtual_env=False``, or use a per-model virtual environment with matching dependencies. Each replica currently requires TP=PP=CP=1, with TRT's worker running directly in the Xinference model process. Qwen3 weights and KV pages use BF16.

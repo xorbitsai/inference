@@ -107,7 +107,14 @@ class TRTGPUActor(GPUTransferMixin, xo.StatelessActor):
         await self.drain()
         self.sources.clear()
 
+    def _prune_aborted(self):
+        now = time.monotonic()
+        self.aborted = {
+            room: deadline for room, deadline in self.aborted.items() if deadline > now
+        }
+
     async def publish(self, room, request_id, blocks):
+        self._prune_aborted()
         if self.draining:
             raise RuntimeError("TRT Xavier GPU transfer is shutting down")
         info = await self.directory.request_info(room)
@@ -128,6 +135,7 @@ class TRTGPUActor(GPUTransferMixin, xo.StatelessActor):
         )
 
     async def abort(self, room):
+        self._prune_aborted()
         self.aborted[room] = time.monotonic() + 300
         ticket = self.sources.get(room)
         if ticket is not None:
@@ -142,11 +150,7 @@ class TRTGPUActor(GPUTransferMixin, xo.StatelessActor):
         if self.draining:
             finished, self._drained_finished = self._drained_finished, set()
             return finished
-        self.aborted = {
-            room: deadline
-            for room, deadline in self.aborted.items()
-            if deadline > time.monotonic()
-        }
+        self._prune_aborted()
         finished = self._gpu_transfer.poll_direct()
         for room, ticket in list(self.sources.items()):
             if ticket not in self._gpu_transfer.direct_requests:
