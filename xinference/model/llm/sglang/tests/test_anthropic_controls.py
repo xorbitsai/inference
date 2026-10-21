@@ -1,8 +1,9 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 import copy
+import json
 import sys
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -64,6 +65,81 @@ def completion(text):
         ],
         "usage": {"prompt_tokens": 12, "completion_tokens": 10, "total_tokens": 22},
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "framing", ["events", "coalesced", "fragmented", "utf8", "prefix"]
+)
+async def test_chat_stream_preserves_events_across_http_chunks(monkeypatch, framing):
+    instance = model()
+    instance.reasoning_parser = None
+    instance._engine = SimpleNamespace(generate_url="http://unused/generate")
+    instance.abort_request = AsyncMock(return_value="DONE")
+    config = {"stream": True, "stream_options": {"include_usage": True}}
+    instance._prepare_chat_inputs = AsyncMock(
+        return_value=("prompt", None, None, {}, config)
+    )
+    events = [
+        {
+            "text": text,
+            "meta_info": {
+                "prompt_tokens": 12,
+                "completion_tokens": count,
+                "finish_reason": reason,
+            },
+        }
+        for text, count, reason in [
+            ("你", 1, None),
+            ("你好", 2, None),
+            ("你好", 2, {"type": "stop"}),
+        ]
+    ]
+    frames = [
+        ("data: " + json.dumps(event, ensure_ascii=False) + "\n\n").encode()
+        for event in events
+    ] + [b"data: [DONE]\n\n"]
+    wire = b"".join(frames)
+    if framing == "events":
+        fragments = frames
+    elif framing == "coalesced":
+        fragments = [wire]
+    elif framing == "fragmented":
+        fragments = [wire[:12], wire[12:]]
+    elif framing == "prefix":
+        fragments = [wire[:3], wire[3:]]
+    else:
+        split = wire.index("你".encode()) + 1
+        fragments = [wire[:split], wire[split:]]
+
+    async def iter_chunks():
+        for fragment in fragments:
+            yield fragment, True
+
+    response = MagicMock()
+    response.__aenter__.return_value = response
+    response.content.iter_chunks = iter_chunks
+    session = MagicMock()
+    session.__aenter__.return_value = session
+    session.post.return_value = response
+    monkeypatch.setattr("aiohttp.ClientSession", lambda **kwargs: session)
+
+    stream = await instance.async_chat([{"role": "user", "content": "hello"}], config)
+    chunks = [chunk async for chunk in stream]
+    content = "".join(
+        choice["delta"].get("content", "")
+        for chunk in chunks
+        for choice in chunk["choices"]
+    )
+    assert content == "你好"
+    assert chunks[-2]["choices"][0]["finish_reason"] == "stop"
+    assert chunks[-1]["choices"] == []
+    assert chunks[-1]["usage"] == {
+        "prompt_tokens": 12,
+        "completion_tokens": 2,
+        "total_tokens": 14,
+    }
+    assert not instance._active_request_ids
 
 
 @pytest.mark.parametrize("schema", [{}, {"type": "object"}])
