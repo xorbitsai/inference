@@ -49,11 +49,11 @@ def configure_cross_engine(model_path, model_config, cache_config):
         )
     dtype = cache_config.get("logical_dtype", "float16")
     allowed = ("half", "float16") if dtype == "float16" else ("bfloat16",)
-    if (
-        dtype not in ("float16", "bfloat16")
-        or model_config.get("dtype", "auto") not in (None, "auto", *allowed)
-        or model_config.get("kv_cache_dtype", "auto") not in ("auto", dtype)
-    ):
+    if model_config.get("dtype", "auto") not in (
+        None,
+        "auto",
+        *allowed,
+    ) or model_config.get("kv_cache_dtype", "auto") not in ("auto", dtype):
         raise ValueError(f"Cross-engine Xavier PD requires {dtype} weights and KV")
     if model_config.get("quantization") not in (None, "none"):
         raise ValueError("Cross-engine Xavier PD requires unquantized weights")

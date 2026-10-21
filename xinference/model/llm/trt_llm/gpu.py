@@ -87,7 +87,21 @@ def close_import(pointer):
         raise RuntimeError(f"Cannot close TRT KV import: {result}")
 
 
-class TRTGPUActor(GPUTransferMixin, xo.StatelessActor):
+class _AbortedRooms:
+    aborted: dict
+
+    def _prune_aborted(self):
+        now = time.monotonic()
+        self.aborted = {
+            room: deadline for room, deadline in self.aborted.items() if deadline > now
+        }
+
+    def _mark_aborted(self, room):
+        self._prune_aborted()
+        self.aborted[room] = time.monotonic() + 300
+
+
+class TRTGPUActor(_AbortedRooms, GPUTransferMixin, xo.StatelessActor):
     @classmethod
     def default_uid(cls):
         return "trt-xavier-transfer"
@@ -123,12 +137,6 @@ class TRTGPUActor(GPUTransferMixin, xo.StatelessActor):
         await self.drain()
         self.sources.clear()
 
-    def _prune_aborted(self):
-        now = time.monotonic()
-        self.aborted = {
-            room: deadline for room, deadline in self.aborted.items() if deadline > now
-        }
-
     async def publish(self, room, request_id, blocks):
         self._prune_aborted()
         if self.draining:
@@ -151,8 +159,7 @@ class TRTGPUActor(GPUTransferMixin, xo.StatelessActor):
         )
 
     async def abort(self, room):
-        self._prune_aborted()
-        self.aborted[room] = time.monotonic() + 300
+        self._mark_aborted(room)
         ticket = self.sources.get(room)
         if ticket is not None:
             self._gpu_transfer.release_direct(ticket)

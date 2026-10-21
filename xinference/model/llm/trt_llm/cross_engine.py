@@ -2,13 +2,12 @@
 # Licensed under the Apache License, Version 2.0.
 """TRT HND pages exposed as canonical, bit-preserving BF16 GPU views."""
 
-import time
 from types import SimpleNamespace
 
 import torch
 
 from ..xavier.backends.torch.pd import CrossEngineGPUActor
-from .gpu import close_import, import_pool
+from .gpu import _AbortedRooms, close_import, import_pool
 
 
 def canonical_trt_views(cache, contract):
@@ -42,7 +41,7 @@ def canonical_trt_views(cache, contract):
     }
 
 
-class TRTCrossEngineGPUActor(CrossEngineGPUActor):
+class TRTCrossEngineGPUActor(_AbortedRooms, CrossEngineGPUActor):
     def __init__(self, descriptor, device, contract, directory, rank):
         super().__init__(
             SimpleNamespace(gpu_id=device, aux_item_lens=[]),
@@ -70,18 +69,13 @@ class TRTCrossEngineGPUActor(CrossEngineGPUActor):
             self._ipc_pointer = None
 
     async def __pre_destroy__(self):
-        await super().__pre_destroy__()
-        self._close_import()
-
-    def _prune_aborted(self):
-        now = time.monotonic()
-        self.aborted = {
-            room: deadline for room, deadline in self.aborted.items() if deadline > now
-        }
+        try:
+            await super().__pre_destroy__()
+        finally:
+            self._close_import()
 
     async def abort(self, room):
-        self._prune_aborted()
-        self.aborted[room] = time.monotonic() + 300
+        self._mark_aborted(room)
         await super().abort(room)
 
     async def poll_direct_gpu_v1(self):

@@ -52,8 +52,8 @@ def _buffers(args, contract):
         or any(size != contract.layer_nbytes // 2 for size in args.kv_item_lens)
         or args.page_size != contract.block_size
         # SGLang retains the spelling "auto" in KVArgs after resolving the
-        # actual pool to FP16. The launch contract requires FP16 weights and
-        # auto/FP16 KV; page byte geometry is verified independently here.
+        # actual pool to the launch contract's FP16/BF16 dtype. Page byte
+        # geometry is verified independently here.
         or args.kv_cache_dtype_str
         not in ("auto", contract.logical_dtype, f"torch.{contract.logical_dtype}")
         or args.state_types

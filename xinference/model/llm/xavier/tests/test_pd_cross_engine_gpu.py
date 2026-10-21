@@ -78,8 +78,14 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
         views.append(canonical)
     for layer, cache in enumerate(views[0].values()):
         cache.copy_(
-            (torch.arange(cache.numel(), device="cuda:0") % 257).reshape(cache.shape)
-            + layer * 300
+            (
+                torch.arange(cache.numel(), device="cuda:0", dtype=torch.int32)
+                + 256
+                + layer * cache.numel()
+            )
+            .to(torch.int16)
+            .view(dtype)
+            .reshape(cache.shape)
         )
     for gpu in (0, 1):
         torch.cuda.synchronize(gpu)
@@ -184,8 +190,8 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
         }
         for key, original in views[0].items():
             assert torch.equal(
-                original[source[:target_count]].cpu(),
-                views[1][key][destination[:target_count]].cpu(),
+                original[source[:target_count]].view(torch.int16).cpu(),
+                views[1][key][destination[:target_count]].view(torch.int16).cpu(),
             )
             assert views[1][key][destination[target_count:]].count_nonzero().item() == 0
         stats = await directory.get_stats()
