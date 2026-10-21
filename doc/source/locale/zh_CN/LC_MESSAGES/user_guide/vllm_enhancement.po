@@ -216,3 +216,27 @@ msgid ""
 msgstr ""
 "缓存加盐可限制跨共享边界的前缀缓存计时推断。它不提供独立模型进程、内存配额或完整的计时侧信道隔离。更换 salt "
 "会创建新的缓存作用域；原有条目仍按正常规则淘汰。"
+
+#: source/user_guide/vllm_enhancement.rst:31
+msgid "Storage backends"
+msgstr "存储后端"
+
+#: source/user_guide/vllm_enhancement.rst:34
+msgid "``xavier_cache_backend=\"native\"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1 replicas on Linux NVIDIA workers. Install ``xinference[xavier-lmcache]`` in each model environment; this adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13."
+msgstr "``xavier_cache_backend=\"native\"`` 为默认值，保持现有 CPU 和 GPU 缓存行为。可选的 ``lmcache`` 后端为 Linux NVIDIA worker 上的普通 vLLM V1 副本提供磁盘前缀缓存复用。在每个模型环境安装 ``xinference[xavier-lmcache]``；此适配器支持带原生 FS 扩展的 LMCache >= ``0.5.6`` 且 < ``0.6``，以及 Python 3.10 至 3.13。"
+
+#: source/user_guide/vllm_enhancement.rst:36
+msgid "Select the backend when launching the model:"
+msgstr "启动模型时选择后端："
+
+#: source/user_guide/vllm_enhancement.rst:57
+msgid "``cpu_bytes`` bounds each replica's LMCache DRAM pool (default: 512 MiB). ``disk_path`` must be an absolute worker-local path, and ``disk_bytes`` is the positive disk capacity per replica. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per replica; engine KV pools, serialization and transfer buffers consume additional memory."
+msgstr "``cpu_bytes`` 限制每个副本的 LMCache DRAM 池（默认 512 MiB）。``disk_path`` 必须是 worker 本地的绝对路径，``disk_bytes`` 为每个副本的正数磁盘容量。LMCache 管理各层的异步写入、预取和淘汰。磁盘淘汰使用水位线，因此配置容量不是文件系统配额。Xavier 还使用有界的临时 CPU 暂存和读取副本，每个副本最多额外使用 ``2 * cpu_bytes``；引擎 KV 池、序列化及传输缓冲区另占内存。"
+
+#: source/user_guide/vllm_enhancement.rst:59
+msgid "``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per replica; a timed-out or cancelled job still releases its LMCache read locks. Prefixes exceeding the transient read capacity are recomputed locally. Compare TTFT and read latency against prefill cost for your workload."
+msgstr "``read_timeout`` 限制缓存查找的等待秒数（默认 30）。缓存缺失、不可用或读取超时会回退到本地 prefill。每个副本最多运行一个 LMCache 预取任务；超时或取消后，任务仍会释放 LMCache 读取锁。超过临时读取容量的前缀会在本地重新计算。请根据工作负载比较 TTFT、读取延迟和 prefill 成本。"
+
+#: source/user_guide/vllm_enhancement.rst:61
+msgid "This initial LMCache adapter requires multiple ordinary replicas and the existing Xavier V1 compatibility limits. P/D roles, explicit ``xavier_gpu_cache_bytes``, legacy vLLM V0, SGLang and MLX are unsupported. Cache keys retain request salt isolation. Each launch and replica owns a separate storage namespace and directory; relaunching does not recover old cache entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
+msgstr "此初始 LMCache 适配器要求多个普通副本，并遵循现有 Xavier V1 兼容性限制。不支持 P/D 角色、显式 ``xavier_gpu_cache_bytes``、旧版 vLLM V0、SGLang 或 MLX。缓存 key 保留请求 salt 隔离。每次启动的每个副本拥有独立存储命名空间和目录；重新启动不会恢复旧条目。正常关闭会删除该目录；进程崩溃后，请在确认不再使用时清理遗留的部署目录。"

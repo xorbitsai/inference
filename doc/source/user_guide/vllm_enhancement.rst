@@ -28,6 +28,38 @@ Limitations
 * Due to the underlying communication not recognizing ``0.0.0.0``, the actual IP address needs to be passed when starting Xinference, for example: ``xinference-local -H 192.168.xx.xx``.
 * The vLLM GPU transfer path requires NVIDIA GPUs.
 
+Storage backends
+================
+
+``xavier_cache_backend="native"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1 replicas on Linux NVIDIA workers. Install ``xinference[xavier-lmcache]`` in each model environment; this adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13.
+
+Select the backend when launching the model:
+
+.. code-block:: python
+
+   model_uid = client.launch_model(
+       model_name="qwen3",
+       model_engine="vLLM",
+       model_format="pytorch",
+       model_size_in_billions=8,
+       quantization="none",
+       replica=2,
+       enable_xavier=True,
+       xavier_cache_backend="lmcache",
+       xavier_cache_backend_config={
+           "cpu_bytes": 536870912,
+           "disk_path": "/mnt/nvme/xavier",
+           "disk_bytes": 10737418240,
+           "read_timeout": 30.0,
+       },
+   )
+
+``cpu_bytes`` bounds each replica's LMCache DRAM pool (default: 512 MiB). ``disk_path`` must be an absolute worker-local path, and ``disk_bytes`` is the positive disk capacity per replica. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per replica; engine KV pools, serialization and transfer buffers consume additional memory.
+
+``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per replica; a timed-out or cancelled job still releases its LMCache read locks. Prefixes exceeding the transient read capacity are recomputed locally. Compare TTFT and read latency against prefill cost for your workload.
+
+This initial LMCache adapter requires multiple ordinary replicas and the existing Xavier V1 compatibility limits. P/D roles, explicit ``xavier_gpu_cache_bytes``, legacy vLLM V0, SGLang and MLX are unsupported. Cache keys retain request salt isolation. Each launch and replica owns a separate storage namespace and directory; relaunching does not recover old cache entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use.
+
 SGLang replicas
 ===============
 

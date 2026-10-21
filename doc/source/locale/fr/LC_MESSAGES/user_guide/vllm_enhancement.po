@@ -253,3 +253,27 @@ msgstr ""
 " ni isolation complète des canaux temporels auxiliaires. Changer de salt "
 "crée un nouveau périmètre ; les anciennes entrées restent soumises à "
 "l’éviction normale."
+
+#: source/user_guide/vllm_enhancement.rst:31
+msgid "Storage backends"
+msgstr "Backends de stockage"
+
+#: source/user_guide/vllm_enhancement.rst:34
+msgid "``xavier_cache_backend=\"native\"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1 replicas on Linux NVIDIA workers. Install ``xinference[xavier-lmcache]`` in each model environment; this adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13."
+msgstr "``xavier_cache_backend=\"native\"`` est la valeur par défaut et conserve le comportement existant du cache CPU et GPU. Le backend facultatif ``lmcache`` permet la réutilisation de préfixes sur disque pour les réplicas vLLM V1 ordinaires sur des workers NVIDIA Linux. Installez ``xinference[xavier-lmcache]`` dans chaque environnement de modèle ; cet adaptateur prend en charge LMCache >= ``0.5.6`` et < ``0.6`` avec son extension FS native, et Python 3.10 à 3.13."
+
+#: source/user_guide/vllm_enhancement.rst:36
+msgid "Select the backend when launching the model:"
+msgstr "Sélectionnez le backend au lancement du modèle :"
+
+#: source/user_guide/vllm_enhancement.rst:57
+msgid "``cpu_bytes`` bounds each replica's LMCache DRAM pool (default: 512 MiB). ``disk_path`` must be an absolute worker-local path, and ``disk_bytes`` is the positive disk capacity per replica. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per replica; engine KV pools, serialization and transfer buffers consume additional memory."
+msgstr "``cpu_bytes`` limite le pool DRAM LMCache de chaque réplica (512 MiB par défaut). ``disk_path`` doit être un chemin absolu local au worker et ``disk_bytes`` indique la capacité disque positive par réplica. LMCache gère les écritures asynchrones, le préchargement et les évictions dans ces niveaux. Les évictions disque utilisent des seuils ; la capacité configurée ne constitue donc pas un quota du système de fichiers. Xavier utilise aussi des copies de lecture et des buffers CPU temporaires bornés, jusqu’à ``2 * cpu_bytes`` supplémentaires par réplica ; les pools KV du moteur, la sérialisation et les buffers de transfert consomment davantage de mémoire."
+
+#: source/user_guide/vllm_enhancement.rst:59
+msgid "``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per replica; a timed-out or cancelled job still releases its LMCache read locks. Prefixes exceeding the transient read capacity are recomputed locally. Compare TTFT and read latency against prefill cost for your workload."
+msgstr "``read_timeout`` limite l’attente d’une recherche en cache en secondes (30 par défaut). Les lectures manquantes, indisponibles ou expirées reviennent au prefill local. Un seul préchargement LMCache s’exécute par réplica ; une tâche expirée ou annulée libère toujours ses verrous de lecture LMCache. Les préfixes dépassant la capacité de lecture temporaire sont recalculés localement. Comparez TTFT et latence de lecture au coût du prefill pour votre charge."
+
+#: source/user_guide/vllm_enhancement.rst:61
+msgid "This initial LMCache adapter requires multiple ordinary replicas and the existing Xavier V1 compatibility limits. P/D roles, explicit ``xavier_gpu_cache_bytes``, legacy vLLM V0, SGLang and MLX are unsupported. Cache keys retain request salt isolation. Each launch and replica owns a separate storage namespace and directory; relaunching does not recover old cache entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
+msgstr "Cet adaptateur LMCache initial exige plusieurs réplicas ordinaires et respecte les limites de compatibilité existantes de Xavier V1. Les rôles P/D, ``xavier_gpu_cache_bytes`` explicite, l’ancien vLLM V0, SGLang et MLX ne sont pas pris en charge. Les clés conservent l’isolation par salt de requête. Chaque lancement et réplica possède un espace de noms et un répertoire distincts ; un relancement ne restaure pas les anciennes entrées. Un arrêt normal supprime ce répertoire ; après un plantage, supprimez les répertoires abandonnés lorsqu’ils ne sont plus utilisés."

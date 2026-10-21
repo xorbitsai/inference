@@ -219,3 +219,105 @@ async def test_real_second_peer_mismatch_releases_first_lease(monkeypatch):
         ref.reserve_blocks_v1.assert_awaited_once_with("2:r", [1], schema)
         ref.release_blocks_v1.assert_awaited_once_with("2:r")
         assert not actor._snapshot_store.leases
+
+
+@pytest.mark.asyncio
+async def test_external_backend_prefetches_before_atomic_reservation(monkeypatch):
+    import xoscar as xo
+
+    schema = (16, {"layer": ((2,), torch.float16)}, "auto")
+    store = KVSnapshotStore(1)
+
+    async def prefetch(keys):
+        store.stage("layer", keys, torch.ones(len(keys), 2).half())
+        store.publish(keys, {"layer"})
+        return True
+
+    store.prefetch = AsyncMock(side_effect=prefetch)
+    producer = SimpleNamespace(
+        _snapshot_store=store,
+        _kv_schema_v1=schema,
+        _schema_mismatch_warnings=set(),
+    )
+    producer.reserve_blocks_v1 = lambda *args: TransferActor.reserve_blocks_v1(
+        producer, *args
+    )
+
+    async def remote_prefetch(*args):
+        return await TransferActor.prefetch_and_reserve_blocks_v1(producer, *args)
+
+    remote = SimpleNamespace(
+        prefetch_and_reserve_blocks_v1=AsyncMock(side_effect=remote_prefetch),
+        release_blocks_v1=AsyncMock(side_effect=store.release),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=remote))
+    consumer = SimpleNamespace(
+        _kv_schema_v1=schema,
+        _world_addresses=["a", "b"],
+        _cache_backend={"name": "lmcache"},
+    )
+    assert await TransferActor.reserve_remote_blocks_v1(consumer, "1:r", {1: {7: 0}})
+    assert store.leases == {"1:r": {7}}
+    store.prefetch.assert_awaited_once_with([7])
+    assert not await TransferActor.prefetch_and_reserve_blocks_v1(
+        producer, "1:bad", [8], (32, schema[1], schema[2])
+    )
+    store.prefetch.assert_awaited_once_with([7])
+
+
+def test_external_backend_initialization_waits_for_worker_schema(monkeypatch):
+    from types import MethodType
+
+    from ....xavier.backends.torch import backend as backend_module
+
+    created = []
+    monkeypatch.setattr(
+        backend_module,
+        "create_snapshot_backend",
+        lambda *args, **kwargs: created.append((args, kwargs)) or KVSnapshotStore(1),
+    )
+    actor = SimpleNamespace(
+        _snapshot_store=None,
+        _kv_schema_v1=None,
+        _cache_backend={
+            "name": "lmcache",
+            "config": {"disk_path": "/cache"},
+            "namespace": "deployment-1",
+        },
+    )
+    actor.configure_snapshots_v1 = MethodType(
+        TransferActor.configure_snapshots_v1, actor
+    )
+    actor.configure_snapshots_v1(8)
+    assert not created
+    TransferActor.configure_kv_schema_v1(
+        actor, 16, {"K": ((2,), torch.float16)}, "auto"
+    )
+    assert created == [
+        (
+            (8, "lmcache", {"disk_path": "/cache"}),
+            {"namespace": "deployment-1", "schema": {"K": ((2,), torch.float16)}},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_external_backend_read_miss_removes_stale_tracker_entry():
+    import asyncio
+
+    schema = (16, {"K": ((2,), torch.float16)}, "auto")
+    tracker = SimpleNamespace(unregister_blocks=AsyncMock())
+    store = SimpleNamespace(
+        prefetch=AsyncMock(return_value=False), take_evicted=lambda: [7]
+    )
+    actor = SimpleNamespace(
+        _rank=1,
+        _kv_schema_v1=schema,
+        _snapshot_store=store,
+        _snapshot_tracker_v1=tracker,
+        _snapshot_export_lock_v1=asyncio.Lock(),
+    )
+    assert not await TransferActor.prefetch_and_reserve_blocks_v1(
+        actor, "2:r", [7], schema
+    )
+    tracker.unregister_blocks.assert_awaited_once_with(0, 1, [7])

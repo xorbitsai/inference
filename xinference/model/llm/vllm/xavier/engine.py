@@ -150,6 +150,12 @@ class XavierEngine:
             and version.parse(VLLM_VERSION) < version.parse("0.21.0")
         ):
             raise RuntimeError("Xavier GPU transfer requires vLLM >= 0.21.0")
+        if (
+            xavier_config
+            and xavier_config.get("cache_backend", {}).get("name") == "lmcache"
+            and version.parse(VLLM_VERSION) < version.parse("0.21.0")
+        ):
+            raise RuntimeError("The Xavier LMCache backend requires vLLM V1 >= 0.21.0")
         if version.parse(VLLM_VERSION) < version.parse("0.11.0"):
             from .legacy_engine import XavierEngine as LegacyXavierEngine
 

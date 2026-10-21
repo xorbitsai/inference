@@ -1052,3 +1052,79 @@ async def test_nvidia_mlx_rejects_unsupported_launch_before_allocation(
     assert not actors and not supervisor._model_uid_to_replica_info
     for worker in workers:
         worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_lmcache_backend_launch_config(launch_runtime):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["enable_xavier"] = True
+    for replica in kwargs["replica_config"]:
+        replica.role = "hybrid"
+    config = {"cpu_bytes": 8192, "disk_bytes": 32768, "disk_path": "/cache"}
+    await supervisor.launch_builtin_model(
+        **kwargs, xavier_cache_backend="lmcache", xavier_cache_backend_config=config
+    )
+    namespaces = set()
+    for worker in workers:
+        launch = worker.launch_builtin_model.call_args.kwargs
+        backend = launch["xavier_config"]["cache_backend"]
+        assert backend["name"] == "lmcache"
+        assert backend["config"] == {**config, "read_timeout": 30.0}
+        namespaces.add(backend["namespace"])
+        assert "xavier_cache_backend" not in launch
+        assert "xavier_cache_backend_config" not in launch
+    assert len(namespaces) == 2
+    assert config == {"cpu_bytes": 8192, "disk_bytes": 32768, "disk_path": "/cache"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid", ["disabled", "pd", "gpu", "sglang", "mlx", "single"]
+)
+async def test_lmcache_backend_rejects_unsupported_launch_before_side_effects(
+    launch_runtime, invalid
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["enable_xavier"] = invalid != "disabled"
+    for replica in kwargs["replica_config"]:
+        replica.role = "hybrid"
+    if invalid == "pd":
+        kwargs["replica_config"][0].role = "prefill"
+        kwargs["replica_config"][1].role = "decode"
+    elif invalid == "gpu":
+        kwargs["xavier_gpu_cache_bytes"] = 0
+    elif invalid in ("sglang", "mlx"):
+        kwargs["model_engine"] = invalid
+    elif invalid == "single":
+        kwargs.pop("replica_config")
+        kwargs["replica"] = 1
+    with pytest.raises(ValueError, match="LMCache backend requires"):
+        await supervisor.launch_builtin_model(
+            **kwargs,
+            xavier_cache_backend="lmcache",
+            xavier_cache_backend_config={"disk_path": "/cache", "disk_bytes": 32768},
+        )
+    assert not actors
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+        worker.launch_rank0_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_lmcache_rejects_sharded_launch_before_worker_launch(launch_runtime):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs.pop("replica_config")
+    supervisor.is_local_deployment = lambda: False
+    with pytest.raises(ValueError, match="LMCache backend requires one worker"):
+        await supervisor.launch_builtin_model(
+            **kwargs,
+            n_worker=2,
+            enable_xavier=True,
+            xavier_cache_backend="lmcache",
+        )
+    assert not actors
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()

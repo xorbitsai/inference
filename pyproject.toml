@@ -93,6 +93,9 @@ xinference_xavier = "xinference.model.llm.sglang.xavier.plugin:register"
 xinference_reasoning = "xinference.model.llm.sglang.reasoning:register"
 
 [project.optional-dependencies]
+xavier-lmcache = [
+    "lmcache>=0.5.6,<0.6; sys_platform == 'linux' and python_version < '3.14'",
+]
 dev = [
     "jsonschema>=4.18,<5",  # Built-in model catalog authoring/CI validation
     "xxhash",  # CPU tests for the Xavier connector

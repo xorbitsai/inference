@@ -66,12 +66,9 @@ def batch_reads(reads, max_bytes=None):
 def pack_reads(store, reads):
     buffers = []
     for read in reads:
-        if not set(read.keys).issubset(store.ready):
+        if not store.has_layer(read.layer, read.keys):
             raise KeyError("Requested KV snapshots are not published")
-        if any(
-            store.logical_dtypes[key][read.layer] != (read.logical_dtype or read.dtype)
-            for key in read.keys
-        ):
+        if not store.has_layer(read.layer, read.keys, read.logical_dtype or read.dtype):
             raise ValueError("Xavier logical KV dtype does not match the receiver")
         tensor = store.read(read.layer, read.keys)
         if tensor.dtype != read.dtype or tuple(tensor.shape) != (
