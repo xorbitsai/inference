@@ -165,6 +165,27 @@ def loaded_model(request, families, monkeypatch, tmp_path):
     return model
 
 
+def test_call_model_forwards_positional_pipeline_and_call_count(loaded_model):
+    model = loaded_model
+    pipeline = type(model._model)()
+    pipeline.calls = []
+    result = model._call_model(
+        "url",
+        pipeline,
+        2,
+        prompt="A bakery",
+        num_inference_steps=2,
+        seed=[11, 22],
+        negative_prompt=" ",
+        _return_images=True,
+    )
+    assert len(result) == 2
+    assert model._model.calls == []
+    assert [call["seeds"] for call in pipeline.calls] == [11, 22]
+    assert all(call["fonts"] == model._fonts for call in pipeline.calls)
+    assert all(call["negative_prompt"] == "trained-null" for call in pipeline.calls)
+
+
 def test_text_to_image_and_edit_only_guard(loaded_model):
     model = loaded_model
     prompt = json.dumps(

@@ -59,14 +59,22 @@ class Fibo2ImageModel(DiffusionModel):
         # Keep the checkpoint's image-size-dependent flow-matching schedule.
         return False
 
-    def _call_model(self, response_format: str, **kwargs):
+    def _call_model(
+        self,
+        response_format: str,
+        model: Any = None,
+        _num_pipeline_calls: int = 1,
+        **kwargs,
+    ):
         kwargs.setdefault("fonts", self._fonts)
         # The OpenAI edit endpoint supplies a whitespace negative prompt;
         # leave the pipeline's trained null caption in effect for that default.
         negative_prompt = kwargs.get("negative_prompt")
         if isinstance(negative_prompt, str) and not negative_prompt.strip():
             kwargs.pop("negative_prompt")
-        return super()._call_model(response_format, **kwargs)
+        return super()._call_model(
+            response_format, model, _num_pipeline_calls, **kwargs
+        )
 
     async def text_to_image(
         self,
