@@ -101,6 +101,9 @@ async def main():
                 except (RuntimeError, asyncio.CancelledError) as error:
                     if args['fault'] == 'fail':
                         assert 'injected transfer failure' in str(error), error
+                    else:
+                        assert isinstance(error, asyncio.CancelledError), error
+                    (root/'fault-observed.json').write_text(json.dumps(dict(exception=type(error).__name__)))
                 else:
                     raise AssertionError('faulted load must not generate output')
                 transport.submit = original_submit
