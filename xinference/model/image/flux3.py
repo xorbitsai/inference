@@ -206,12 +206,16 @@ class Flux3Model(SDAPIDiffusionModelMixin):
     def image_to_image(
         self,
         image: Union[Image.Image, List[Image.Image]],
-        prompt: str = "",
+        prompt: Union[str, List[str]] = "",
         n: int = 1,
         size: Optional[str] = None,
         response_format: str = "url",
         **kwargs: Any,
     ):
+        if isinstance(prompt, list) and len(prompt) == 1:
+            prompt = prompt[0]
+        if not isinstance(prompt, str):
+            raise ValueError("FLUX 3 Image Klein requires a string prompt")
         images = list(image) if isinstance(image, (list, tuple)) else [image]
         references = kwargs.pop("reference_images", None)
         if references is not None:
@@ -222,4 +226,11 @@ class Flux3Model(SDAPIDiffusionModelMixin):
             raise ValueError("FLUX 3 Image Klein requires 1 to 10 reference images")
         if not all(isinstance(item, Image.Image) for item in images):
             raise TypeError("FLUX 3 reference images must be PIL images")
-        return self._generate(prompt, n, size, response_format, image=images, **kwargs)
+        return self._generate(
+            prompt,
+            n,
+            None if size == "" else size,
+            response_format,
+            image=images,
+            **kwargs,
+        )

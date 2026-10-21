@@ -15,10 +15,12 @@
 # CI: linux
 
 import base64
+import json
 import sys
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import torch
@@ -219,7 +221,7 @@ def test_text_to_image_parameters_and_output(loaded_model):
     assert progress == [0.0, 1.0]
 
 
-@pytest.mark.parametrize("size", [None, "512*768"])
+@pytest.mark.parametrize("size", [None, "", "512*768"])
 def test_edit_merges_reference_images(loaded_model, size):
     model, calls = loaded_model
     primary = Image.new("RGB", (64, 48))
@@ -246,6 +248,107 @@ def test_edit_merges_reference_images(loaded_model, size):
     else:
         assert "width" not in call and "height" not in call
     assert len(images) == 2
+
+
+@pytest.fixture
+def edit_client(monkeypatch, loaded_model):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from ....api.restful_api import RESTfulAPI
+    from ....client.restful.restful_client import RESTfulImageModelHandle
+
+    model, calls = loaded_model
+    calls.edits = []
+
+    async def image_to_image(**kwargs):
+        calls.edits.append(kwargs)
+        return json.dumps(model.image_to_image(**kwargs))
+
+    model_ref = SimpleNamespace(uid=b"flux3", image_to_image=image_to_image)
+    supervisor = SimpleNamespace(
+        get_model=AsyncMock(return_value=model_ref),
+        describe_model=AsyncMock(
+            return_value={"model_name": model.model_family.model_name}
+        ),
+    )
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    api._report_error_event = AsyncMock()
+    for name in (
+        "_set_trace_model",
+        "_set_trace_model_type",
+        "_check_model_access",
+        "_add_running_task",
+    ):
+        monkeypatch.setattr(api, name, Mock())
+    app = FastAPI()
+    app.post("/v1/images/edits")(api.create_image_edits)
+    app.post("/v1/images/variations")(api.create_variations)
+    with TestClient(app) as http_client:
+        handle = RESTfulImageModelHandle("flux3", "http://testserver", {})
+
+        def send(request, **kwargs):
+            # Keep requests' real multipart encoding and FastAPI's form parsing.
+            return http_client.request(
+                request.method,
+                request.url,
+                content=request.body,
+                headers=request.headers,
+            )
+
+        monkeypatch.setattr(handle.session, "send", send)
+        try:
+            yield handle, calls
+        finally:
+            handle.close()
+
+
+@pytest.mark.parametrize(
+    "method,size",
+    [
+        ("image_edit", None),
+        ("image_edit", "original"),
+        ("image_edit", "1024x768"),
+        ("image_to_image", None),
+        ("image_to_image", "1024x768"),
+    ],
+)
+@pytest.mark.parametrize("image_count", [1, 2])
+def test_public_image_edit_routes(edit_client, method, size, image_count):
+    handle, calls = edit_client
+    buffer = BytesIO()
+    Image.new("RGB", (64, 48)).save(buffer, format="PNG")
+    images = [buffer.getvalue()] * image_count
+    image_input = images[0] if image_count == 1 else images
+    options = {"prompt": "Edit", "n": 2, "response_format": "b64_json"}
+    if size is not None:
+        options["size"] = size
+    if method == "image_edit":
+        result = handle.image_edit(images=image_input, **options)
+        assert calls.edits[0]["prompt"] == "Edit"
+        assert calls.edits[0]["size"] == ("1024*768" if size == "1024x768" else "")
+    else:
+        result = handle.image_to_image(image=image_input, **options)
+        assert calls.edits[0]["prompt"] == ["Edit"]
+    call = calls.generated[0]
+    assert call["prompt"] == "Edit"
+    assert [image.size for image in call["image"]] == [(64, 48)] * image_count
+    if size == "1024x768":
+        assert (call["width"], call["height"]) == (1024, 768)
+    else:
+        assert "width" not in call and "height" not in call
+    assert call["num_images_per_prompt"] == 2
+    assert len(result["data"]) == 2
+    assert all(image["b64_json"] for image in result["data"])
+
+
+@pytest.mark.parametrize("prompt", [[], ["Edit", "Another edit"]])
+def test_edit_rejects_batched_prompts(loaded_model, prompt):
+    model, calls = loaded_model
+    with pytest.raises(ValueError, match="string prompt"):
+        model.image_to_image(Image.new("RGB", (16, 16)), prompt=prompt)
+    assert not calls.generated
 
 
 @pytest.mark.parametrize("count", [0, 11])
