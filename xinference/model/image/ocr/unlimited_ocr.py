@@ -24,6 +24,7 @@ import torch
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from ....device_utils import get_available_device
 from ...utils import allow_trust_remote_code
 from .ocr_family import OCRModel
 
@@ -146,10 +147,11 @@ class UnlimitedOCRModel(OCRModel):
             if getattr(config, "pad_token_id", None) is None:
                 config.pad_token_id = self._tokenizer.eos_token_id
             # Resolve the target device once so the model lands on the GPU
-            # picked by Xinference's scheduler (``self._device``). When no
-            # device is configured, choose CUDA only if it is actually available
-            # so CPU-only launches do not accidentally try to load on CUDA.
-            device = self._device or ("cuda" if torch.cuda.is_available() else "cpu")
+            # picked by Xinference's scheduler (``self._device``). When no device
+            # is configured, ask the accelerator registry - as the other OCR
+            # models do - instead of falling back to CUDA-or-CPU, which silently
+            # downgrades non-CUDA accelerators to CPU.
+            device = self._device or get_available_device()
             if device != "cpu":
                 model = AutoModel.from_pretrained(
                     self._model_path,

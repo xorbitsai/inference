@@ -21,6 +21,7 @@ import torch
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from ....device_utils import get_available_device
 from ...utils import allow_trust_remote_code
 from .ocr_family import OCRModel
 
@@ -67,13 +68,12 @@ class PaddleOCRVLModel(OCRModel):
         logger.info(f"Loading PaddleOCR-VL model from {self._model_path}")
 
         try:
-            # Determine device and dtype
-            if self._device == "cpu":
-                device = "cpu"
-                dtype = torch.float32
-            else:
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-                dtype = torch.bfloat16
+            # Resolve the device the same way the neighbouring OCR models do:
+            # honour an explicitly requested device (e.g. "cuda:1") and defer to
+            # the accelerator registry otherwise, instead of a CUDA-only check
+            # that silently downgrades non-CUDA accelerators to CPU.
+            device = self._device or get_available_device()
+            dtype = torch.float32 if device == "cpu" else torch.bfloat16
 
             # Load processor
             self._processor = AutoProcessor.from_pretrained(
