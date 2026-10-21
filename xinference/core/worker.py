@@ -2196,9 +2196,8 @@ class WorkerActor(xo.StatelessActor):
         devices: List[int] = []
         for _ in range(n_gpu):
             gpu_loads.sort(key=lambda x: (x[0], x[1], x[2]))
-            load, running_models, dev = gpu_loads[0]
+            _, _, dev = gpu_loads.pop(0)
             devices.append(dev)
-            gpu_loads[0] = (load + 1, running_models + 1, dev)
 
         for dev in devices:
             self._gpu_to_model_uids[int(dev)].add(model_uid)
