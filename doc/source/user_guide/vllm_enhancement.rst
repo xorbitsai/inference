@@ -1,19 +1,17 @@
 .. _user_guide_vllm_enhancement:
 
-############################################
-Xavier: Share KV Cache between vllm replicas
-############################################
-For scenarios such as long document queries and multi-round conversations,
-the computation during the inference prefill phase can be particularly heavy,
-which affects overall throughput and the latency of individual inferences.
-Xinference enhances the vllm engine by introducing the ``Xavier`` framework,
-enabling KV cache sharing across multiple vllm instances.
-This allows KV cache computed by other replicas to be directly reused, avoiding redundant computations.
+########################
+Xavier: KV Cache Sharing
+########################
+Xavier enables KV cache sharing between model replicas, with adapters for
+vLLM, SGLang, TRT-LLM and MLX. Replicas of the same engine can reuse compatible
+prefix caches to reduce repeated prefill computation for long prompts and
+multi-turn conversations.
 
 *****
 Usage
 *****
-Simply add the parameter ``enable_xavier=True`` when starting the vllm model.
+Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment.
 
 .. versionchanged:: v4.0.0
 
@@ -31,7 +29,11 @@ Limitations
 Storage backends
 ================
 
-``xavier_cache_backend="native"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1 replicas on Linux NVIDIA workers. Install ``xinference[xavier-lmcache]`` in each model environment; this adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13.
+.. versionadded:: v4.1.0
+
+   LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas.
+
+``xavier_cache_backend="native"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13.
 
 Select the backend when launching the model:
 
@@ -54,11 +56,11 @@ Select the backend when launching the model:
        },
    )
 
-``cpu_bytes`` bounds each replica's LMCache DRAM pool (default: 512 MiB). ``disk_path`` must be an absolute worker-local path, and ``disk_bytes`` is the positive disk capacity per replica. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per replica; engine KV pools, serialization and transfer buffers consume additional memory.
+``cpu_bytes`` bounds each LMCache instance's DRAM pool (default: 512 MiB). vLLM creates one instance per replica; SGLang and TRT-LLM share one supervisor-owned instance per deployment. ``disk_path`` must be absolute and local to that storage host, and ``disk_bytes`` is the positive disk capacity per instance. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per instance; engine KV pools, owned import buffers, serialization and transfer buffers consume additional memory.
 
-``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per replica; a timed-out or cancelled job still releases its LMCache read locks. Prefixes exceeding the transient read capacity are recomputed locally. Compare TTFT and read latency against prefill cost for your workload.
+``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per storage instance; a timed-out or cancelled job still releases its LMCache read locks. Reads exceeding the transient capacity return a bounded prefix or fall back to local prefill. Compare TTFT and read latency against prefill cost for your workload.
 
-This initial LMCache adapter requires multiple ordinary replicas and the existing Xavier V1 compatibility limits. P/D roles, explicit ``xavier_gpu_cache_bytes``, legacy vLLM V0, SGLang and MLX are unsupported. Cache keys retain request salt isolation. Each launch and replica owns a separate storage namespace and directory; relaunching does not recover old cache entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use.
+The LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use.
 
 SGLang replicas
 ===============

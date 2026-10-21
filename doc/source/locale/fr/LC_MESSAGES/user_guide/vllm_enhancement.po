@@ -20,39 +20,20 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/user_guide/vllm_enhancement.rst:5
-msgid "Xavier: Share KV Cache between vllm replicas"
-msgstr "Xavier: Partage du cache KV entre plusieurs répliques VLLM"
+msgid "Xavier: KV Cache Sharing"
+msgstr "Xavier : Partage du cache KV"
 
 #: ../../source/user_guide/vllm_enhancement.rst:6
-msgid ""
-"For scenarios such as long document queries and multi-round conversations, "
-"the computation during the inference prefill phase can be particularly "
-"heavy, which affects overall throughput and the latency of individual "
-"inferences. Xinference enhances the vllm engine by introducing the "
-"``Xavier`` framework, enabling KV cache sharing across multiple vllm "
-"instances. This allows KV cache computed by other replicas to be directly "
-"reused, avoiding redundant computations."
-msgstr ""
-"Pour les scénarios tels que les requêtes sur de longs documents et les "
-"dialogues multi-tours, le calcul pendant la phase de pré-remplissage de "
-"l'inférence peut être particulièrement lourd, ce qui affecte le débit global"
-" et la latence d'une seule inférence. Xinference améliore le moteur vllm en "
-"introduisant le framework ``Xavier``, permettant le partage du cache KV "
-"entre plusieurs instances vllm. Cela permet de réutiliser directement le "
-"cache KV calculé par d'autres répliques, évitant ainsi les calculs "
-"redondants."
+msgid "Xavier enables KV cache sharing between model replicas, with adapters for vLLM, SGLang, TRT-LLM and MLX. Replicas of the same engine can reuse compatible prefix caches to reduce repeated prefill computation for long prompts and multi-turn conversations."
+msgstr "Xavier permet de partager le cache KV entre réplicas de modèles grâce à des adaptateurs pour vLLM, SGLang, TRT-LLM et MLX. Les réplicas du même moteur peuvent réutiliser des caches de préfixes compatibles afin de réduire les calculs de prefill répétés pour les prompts longs et les conversations à plusieurs tours."
 
 #: ../../source/user_guide/vllm_enhancement.rst:15
 msgid "Usage"
 msgstr "Utilisation"
 
 #: ../../source/user_guide/vllm_enhancement.rst:16
-msgid ""
-"Simply add the parameter ``enable_xavier=True`` when starting the vllm "
-"model."
-msgstr ""
-"Lors du démarrage du modèle vllm, définissez l'option "
-"``enable_xavier=True``."
+msgid "Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment."
+msgstr "Lancez plusieurs réplicas avec ``enable_xavier=True`` et choisissez un ``model_engine`` pris en charge. Consultez :ref:`user_guide_backends` pour les exigences du moteur et :ref:`user_guide_pd_separation` pour le déploiement P/D."
 
 #: ../../source/user_guide/vllm_enhancement.rst:20
 msgid "Limitations"
@@ -259,21 +240,25 @@ msgid "Storage backends"
 msgstr "Backends de stockage"
 
 #: source/user_guide/vllm_enhancement.rst:34
-msgid "``xavier_cache_backend=\"native\"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1 replicas on Linux NVIDIA workers. Install ``xinference[xavier-lmcache]`` in each model environment; this adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13."
-msgstr "``xavier_cache_backend=\"native\"`` est la valeur par défaut et conserve le comportement existant du cache CPU et GPU. Le backend facultatif ``lmcache`` permet la réutilisation de préfixes sur disque pour les réplicas vLLM V1 ordinaires sur des workers NVIDIA Linux. Installez ``xinference[xavier-lmcache]`` dans chaque environnement de modèle ; cet adaptateur prend en charge LMCache >= ``0.5.6`` et < ``0.6`` avec son extension FS native, et Python 3.10 à 3.13."
+msgid "``xavier_cache_backend=\"native\"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13."
+msgstr "``xavier_cache_backend=\"native\"`` est la valeur par défaut et conserve le comportement du cache CPU/GPU. Le backend facultatif ``lmcache`` ajoute la réutilisation des préfixes sur disque pour les réplicas ordinaires vLLM V1, SGLang et TRT-LLM. Installez ``xinference[xavier-lmcache]`` dans l'environnement Linux hébergeant le stockage : celui de chaque acteur de transfert vLLM, ou celui du superviseur pour SGLang et TRT-LLM. Les environnements des modèles peuvent rester séparés. L'adaptateur cible LMCache >= ``0.5.6`` et < ``0.6`` avec son extension FS native, et Python 3.10 à 3.13."
 
 #: source/user_guide/vllm_enhancement.rst:36
 msgid "Select the backend when launching the model:"
 msgstr "Sélectionnez le backend au lancement du modèle :"
 
 #: source/user_guide/vllm_enhancement.rst:57
-msgid "``cpu_bytes`` bounds each replica's LMCache DRAM pool (default: 512 MiB). ``disk_path`` must be an absolute worker-local path, and ``disk_bytes`` is the positive disk capacity per replica. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per replica; engine KV pools, serialization and transfer buffers consume additional memory."
-msgstr "``cpu_bytes`` limite le pool DRAM LMCache de chaque réplica (512 MiB par défaut). ``disk_path`` doit être un chemin absolu local au worker et ``disk_bytes`` indique la capacité disque positive par réplica. LMCache gère les écritures asynchrones, le préchargement et les évictions dans ces niveaux. Les évictions disque utilisent des seuils ; la capacité configurée ne constitue donc pas un quota du système de fichiers. Xavier utilise aussi des copies de lecture et des buffers CPU temporaires bornés, jusqu’à ``2 * cpu_bytes`` supplémentaires par réplica ; les pools KV du moteur, la sérialisation et les buffers de transfert consomment davantage de mémoire."
+msgid "``cpu_bytes`` bounds each LMCache instance's DRAM pool (default: 512 MiB). vLLM creates one instance per replica; SGLang and TRT-LLM share one supervisor-owned instance per deployment. ``disk_path`` must be absolute and local to that storage host, and ``disk_bytes`` is the positive disk capacity per instance. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per instance; engine KV pools, owned import buffers, serialization and transfer buffers consume additional memory."
+msgstr "``cpu_bytes`` limite le pool DRAM de chaque instance LMCache (512 MiB par défaut). vLLM crée une instance par réplica ; SGLang et TRT-LLM partagent une instance du superviseur par déploiement. ``disk_path`` doit être un chemin absolu local à l'hôte de stockage, et ``disk_bytes`` est la capacité disque positive par instance. LMCache gère les écritures asynchrones, le préchargement et l'éviction dans ces niveaux. L'éviction disque utilise des seuils : la capacité configurée n'est pas un quota du système de fichiers. Xavier utilise aussi un espace CPU temporaire et des copies de lecture bornés, jusqu'à ``2 * cpu_bytes`` supplémentaires par instance. Les pools KV du moteur, les tampons d'importation détenus, la sérialisation et les transferts consomment davantage de mémoire."
 
 #: source/user_guide/vllm_enhancement.rst:59
-msgid "``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per replica; a timed-out or cancelled job still releases its LMCache read locks. Prefixes exceeding the transient read capacity are recomputed locally. Compare TTFT and read latency against prefill cost for your workload."
-msgstr "``read_timeout`` limite l’attente d’une recherche en cache en secondes (30 par défaut). Les lectures manquantes, indisponibles ou expirées reviennent au prefill local. Un seul préchargement LMCache s’exécute par réplica ; une tâche expirée ou annulée libère toujours ses verrous de lecture LMCache. Les préfixes dépassant la capacité de lecture temporaire sont recalculés localement. Comparez TTFT et latence de lecture au coût du prefill pour votre charge."
+msgid "``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per storage instance; a timed-out or cancelled job still releases its LMCache read locks. Reads exceeding the transient capacity return a bounded prefix or fall back to local prefill. Compare TTFT and read latency against prefill cost for your workload."
+msgstr "``read_timeout`` limite l'attente d'une recherche en cache en secondes (30 par défaut). Une lecture manquante, indisponible ou expirée entraîne un prefill local. Une seule tâche de préchargement LMCache s'exécute par instance de stockage ; même après expiration ou annulation, elle libère ses verrous de lecture. Les lectures dépassant la capacité temporaire renvoient un préfixe borné ou recourent au prefill local. Comparez TTFT et latence de lecture au coût du prefill pour votre charge."
 
 #: source/user_guide/vllm_enhancement.rst:61
-msgid "This initial LMCache adapter requires multiple ordinary replicas and the existing Xavier V1 compatibility limits. P/D roles, explicit ``xavier_gpu_cache_bytes``, legacy vLLM V0, SGLang and MLX are unsupported. Cache keys retain request salt isolation. Each launch and replica owns a separate storage namespace and directory; relaunching does not recover old cache entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
-msgstr "Cet adaptateur LMCache initial exige plusieurs réplicas ordinaires et respecte les limites de compatibilité existantes de Xavier V1. Les rôles P/D, ``xavier_gpu_cache_bytes`` explicite, l’ancien vLLM V0, SGLang et MLX ne sont pas pris en charge. Les clés conservent l’isolation par salt de requête. Chaque lancement et réplica possède un espace de noms et un répertoire distincts ; un relancement ne restaure pas les anciennes entrées. Un arrêt normal supprime ce répertoire ; après un plantage, supprimez les répertoires abandonnés lorsqu’ils ne sont plus utilisés."
+msgid "The LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
+msgstr "Le backend LMCache exige plusieurs réplicas ordinaires du même moteur et conserve ses limites Xavier de modèles, dtype et parallélisme. Les rôles P/D, l'ancien vLLM V0 et MLX ne sont pas pris en charge ; la transmission KV P/D relève toujours d'un transport séparé. Utilisez ``cpu_bytes`` du backend au lieu des budgets natifs ``xavier_cache_bytes`` ou ``xavier_gpu_cache_bytes``. Choisir un backend n'active pas le partage de cache entre moteurs et ne modifie pas le comportement existant de cache-salt. Chaque déploiement et instance de stockage possède un espace de noms et un répertoire distincts ; un redémarrage ne restaure pas les anciennes entrées. Un arrêt normal supprime ce répertoire ; après un crash, supprimez les répertoires abandonnés lorsqu'ils ne sont plus utilisés."
+
+#: source/user_guide/vllm_enhancement.rst:34
+msgid "LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas."
+msgstr "Stockage LMCache pour les réplicas ordinaires de vLLM V1, SGLang et TRT-LLM."

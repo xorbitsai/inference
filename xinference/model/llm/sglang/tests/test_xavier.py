@@ -15,6 +15,7 @@ import xoscar as xo
 
 from ...xavier.backends.torch.storage import XavierCacheActor
 from ...xavier.contract import KVCacheContract
+from ...xavier.tests.utils import mock_lmcache_backend
 from ..xavier.config import configure_xavier
 
 
@@ -81,13 +82,19 @@ class HostPool:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["native", "lmcache"])
 async def test_two_adapters_restore_remote_pages_and_fail_closed(
-    contract, storage_class
+    contract, storage_class, monkeypatch, backend
 ):
+    options = {}
+    storages = []
+    if backend == "lmcache":
+        config, storages = mock_lmcache_backend(monkeypatch)
+        options["cache_backend"] = config
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
     async with pool:
         actor = await xo.create_actor(
-            XavierCacheActor, 768, address=pool.external_address, uid="cache"
+            XavierCacheActor, 768, **options, address=pool.external_address, uid="cache"
         )
         config = SimpleNamespace(
             tp_size=1,
@@ -119,7 +126,11 @@ async def test_two_adapters_restore_remote_pages_and_fail_closed(
         ]
         assert torch.equal(target_pool.data[:, :, :8], expected)
         stats = await actor.get_stats()
-        assert stats["read_pages"] == 2 and stats["used_bytes"] == 768
+        assert stats["read_pages"] == 2
+        assert stats["backend"] == backend
+        assert stats["used_bytes"] == (768 if backend == "native" else 0)
+        if backend == "lmcache":
+            assert stats["backend_stats"]["l2_hits"] == 2
         assert await asyncio.to_thread(
             target.batch_get_v1, ["missing"], torch.arange(4)
         ) == [False]
@@ -127,8 +138,16 @@ async def test_two_adapters_restore_remote_pages_and_fail_closed(
         assert await asyncio.to_thread(
             source.batch_set_v1, ["c"], torch.arange(8, 12)
         ) == [True]
-        assert (await actor.get_stats())["evicted_pages"] == 1
+        if backend == "native":
+            assert (await actor.get_stats())["evicted_pages"] == 1
+        else:
+            storages[0].pages.clear()
+            assert await asyncio.to_thread(
+                target.batch_get_v1, ["b"], torch.arange(4)
+            ) == [False]
         await xo.destroy_actor(actor)
+        if storages:
+            assert storages[0].closed and storages[0].stopped
         assert await asyncio.to_thread(target.batch_get_v1, ["b"], torch.arange(4)) == [
             False
         ]

@@ -181,10 +181,6 @@ msgstr ""
 " host para transferências."
 
 #: user_guide/pd_separation.rst:57
-msgid "Native NIXL backend"
-msgstr "Backend NIXL nativo"
-
-#: user_guide/pd_separation.rst:57
 msgid ""
 "Set ``vllm_transfer_backend_type=\"nixl\"`` in the launch example to use "
 "vLLM's native NixlConnector. Install ``nixl`` in the model environment "
@@ -376,10 +372,6 @@ msgstr ""
 "Transferências expiradas são recalculadas localmente em D."
 
 #: source/user_guide/pd_separation.rst
-msgid "SGLang with Xavier"
-msgstr "SGLang com Xavier"
-
-#: source/user_guide/pd_separation.rst
 msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``\"SGLang\"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported."
 msgstr "SGLang >= ``0.5.21`` aceita o mesmo ``replica_config`` prefill/decode pelos clientes Python, API REST, CLI e Web UI. Altere ``model_engine`` para ``\"SGLang\"`` no exemplo. Os papéis explícitos ativam Xavier automaticamente; várias réplicas prefill e decode são suportadas."
 
@@ -394,14 +386,6 @@ msgstr "SGLang GPU P/D não usa ``xavier_cache_bytes`` nem CPU HiCache. A reten�
 #: source/user_guide/pd_separation.rst
 msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
 msgstr "vLLM Xavier P/D usa transferência direta entre GPUs por padrão. Requer Linux, GPUs NVIDIA, vLLM >= 0.21.0 e ``xoscar[nixl]>=0.11.1`` nos ambientes do worker e do modelo. Use um endereço de host acessível (não ``0.0.0.0``). Sem NIXL, a inicialização falha; não há alternativa por CPU."
-
-#: source/user_guide/pd_separation.rst
-msgid "vLLM Xavier requirements and memory"
-msgstr "vLLM Requisitos e memória do Xavier"
-
-#: source/user_guide/pd_separation.rst:64
-msgid "For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type=\"nixl\"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
-msgstr "Para comparar com o SGLang nativo, mantenha a mesma implantação e defina ``transfer_backend_type=\"nixl\"``. Isso utiliza o backend NIXL do SGLang pela mesma API do Xinference e pelo mesmo roteador P/D. Instale ``nixl`` em cada ambiente de modelo. A integração nativa inicial exige TP=PP=DP=1, um worker por réplica e solicitações de texto, sem LoRA, decodificação especulativa ou HiCache. As portas de bootstrap são alocadas por réplica; os dois hosts devem ser acessíveis entre si."
 
 #: ../../source/user_guide/pd_separation.rst:66
 msgid "For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts."
@@ -431,10 +415,6 @@ msgstr ""
 #: ../../user_guide/pd_separation.rst
 msgid "Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication."
 msgstr "O P/D nativo do SGLang exige um único worker de tokenização; seus endpoints HTTP internos usam automaticamente autenticação por réplica."
-
-#: user_guide/pd_separation.rst
-msgid "MLX with Xavier"
-msgstr "MLX com Xavier"
 
 #: user_guide/pd_separation.rst
 msgid ""
@@ -703,3 +683,55 @@ msgstr ""
 "esses parâmetros antes de agendar qualquer réplica, para que o primeiro "
 "token use as mesmas configurações de amostragem compatíveis que o restante "
 "da resposta."
+
+#: source/user_guide/pd_separation.rst:12
+msgid "Choose an engine and backend"
+msgstr "Escolher mecanismo e backend"
+
+#: source/user_guide/pd_separation.rst:14
+msgid "For same-engine P/D, choose the engine first, then its Native NIXL or Xavier backend below. vLLM and SGLang support both; Xavier is the default. MLX supports Xavier only. Cross-engine deployments use Xavier and are described separately."
+msgstr "Para P/D com o mesmo mecanismo, escolha primeiro o mecanismo e depois seu backend NIXL nativo ou Xavier na seção correspondente. vLLM e SGLang oferecem ambos; Xavier é o padrão. MLX oferece apenas Xavier. Implantações entre mecanismos usam Xavier e são descritas separadamente."
+
+#: source/user_guide/pd_separation.rst:16
+msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. LMCache support was added in v4.1.0. See :ref:`user_guide_vllm_enhancement` for storage configuration."
+msgstr "O NIXL nativo usa o conector P/D do próprio mecanismo. O transporte GPU do Xavier também usa NIXL, com o Xavier gerenciando a transferência. A opção ``xavier_cache_backend`` (``native`` ou ``lmcache``) seleciona o armazenamento para o compartilhamento comum de cache de prefixos, separadamente do transporte P/D. O suporte a LMCache foi adicionado na versão v4.1.0. Consulte :ref:`user_guide_vllm_enhancement` para configurar o armazenamento."
+
+#: source/user_guide/pd_separation.rst:22
+msgid "Python client"
+msgstr "Cliente Python"
+
+#: source/user_guide/pd_separation.rst:120
+msgid "Same-engine P/D"
+msgstr "P/D com o mesmo mecanismo"
+
+#: source/user_guide/pd_separation.rst:123
+msgid "vLLM"
+msgstr "vLLM"
+
+#: source/user_guide/pd_separation.rst:130 source/user_guide/pd_separation.rst:193
+msgid "Native NIXL"
+msgstr "NIXL nativo"
+
+#: source/user_guide/pd_separation.rst:149 source/user_guide/pd_separation.rst:206
+msgid "Xavier (default)"
+msgstr "Xavier (padrão)"
+
+#: source/user_guide/pd_separation.rst:188
+msgid "SGLang"
+msgstr "SGLang"
+
+#: source/user_guide/pd_separation.rst:197
+msgid "Set ``model_engine=\"SGLang\"`` and ``transfer_backend_type=\"nixl\"`` with the launch example's P/D roles. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
+msgstr "Defina ``model_engine=\"SGLang\"`` e ``transfer_backend_type=\"nixl\"`` com os papéis P/D do exemplo de inicialização. Isso usa o backend NIXL do SGLang por meio da mesma API do Xinference e do mesmo roteador P/D. Instale ``nixl`` em cada ambiente de modelo. A integração nativa inicial exige TP=PP=DP=1, um worker por réplica e solicitações de texto; LoRA, decodificação especulativa e HiCache não são compatíveis. As portas de bootstrap são alocadas por réplica; ambos os hosts devem estar acessíveis."
+
+#: source/user_guide/pd_separation.rst:223
+msgid "MLX"
+msgstr "MLX"
+
+#: source/user_guide/pd_separation.rst:230
+msgid "Xavier"
+msgstr "Xavier"
+
+#: source/user_guide/pd_separation.rst:266
+msgid "Cross-engine P/D"
+msgstr "P/D entre mecanismos"

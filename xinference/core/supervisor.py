@@ -3215,17 +3215,28 @@ class SupervisorActor(xo.StatelessActor):
             not requested_xavier
             or replica <= 1
             or pd_enabled
-            or (model_engine or "").lower() != "vllm"
+            or (model_engine or "").lower() not in {"vllm", "sglang", "trt-llm"}
             or model_type not in (None, "LLM")
-            or any(engine != "vllm" for engine in replica_engines)
+            or any(engine != (model_engine or "").lower() for engine in replica_engines)
             or transport_backend != "xavier"
             or kwargs.get("xavier_gpu_cache_bytes") is not None
+            or kwargs.get("xavier_cache_bytes") is not None
         ):
             raise ValueError(
                 "The LMCache backend requires enable_xavier with multiple ordinary "
-                "vLLM V1 replicas, CPU transfer and no P/D roles"
+                "vLLM V1, SGLang or TRT-LLM replicas, no P/D roles, "
+                "and backend cpu_bytes instead of native cache budgets"
             )
         cache_namespace = gen_random_string(32) if cache_backend != "native" else None
+        shared_cache_backend = (
+            {
+                "name": cache_backend,
+                "config": cache_backend_config,
+                "namespace": cache_namespace,
+            }
+            if cache_backend != "native"
+            else None
+        )
         if (
             requested_xavier
             and not pd_enabled
@@ -3337,6 +3348,10 @@ class SupervisorActor(xo.StatelessActor):
                 "address": self.address,
                 "uid": f"xavier-cache-{model_uid}",
             }
+        if shared_cache_backend and (sglang_xavier or trt_xavier):
+            kwargs["_xavier_cache_config"]["read_timeout"] = cache_backend_config[
+                "read_timeout"
+            ]
         enable_xavier: bool = (
             (requested_xavier or pd_enabled)
             and transport_backend == "xavier"
@@ -3631,7 +3646,16 @@ class SupervisorActor(xo.StatelessActor):
 
                         cache_ref = await xo.create_actor(
                             XavierCacheActor,
-                            capacity_bytes=cache_bytes or 512 * 1024 * 1024,
+                            capacity_bytes=(
+                                cache_backend_config["cpu_bytes"]
+                                if shared_cache_backend
+                                else cache_bytes or 512 * 1024 * 1024
+                            ),
+                            **(
+                                {"cache_backend": shared_cache_backend}
+                                if shared_cache_backend
+                                else {}
+                            ),
                             address=self.address,
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )

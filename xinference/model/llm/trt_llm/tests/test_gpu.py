@@ -1,6 +1,11 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Opt-in live Qwen3-0.6B validation in two fresh engine processes."""
+"""Opt-in live Qwen3-0.6B validation in two fresh engine processes.
+
+XINFERENCE_TRTLLM_TEST_PYTHON can select a separate engine interpreter when
+the test host runs LMCache in its own environment. The optional LMCache case
+is skipped when that package is not installed on the test host.
+"""
 
 import asyncio
 import json
@@ -13,6 +18,7 @@ import torch
 import xoscar as xo
 
 from ...xavier.backends.torch.storage import XavierCacheActor
+from ...xavier.tests.utils import DiskCacheActor
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "linux"
@@ -60,12 +66,29 @@ if __name__ == "__main__":
 
 
 @pytest.mark.asyncio
-async def test_fresh_gpu_instances_share_prefix_pages():
+@pytest.mark.parametrize("backend", ["native", "lmcache"])
+async def test_fresh_gpu_instances_share_prefix_pages(tmp_path, backend):
+    if backend == "lmcache":
+        pytest.importorskip("lmcache")
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
     async with pool:
+        actor_class = XavierCacheActor
+        options = {}
+        if backend == "lmcache":
+            actor_class = DiskCacheActor
+            options["cache_backend"] = dict(
+                name="lmcache",
+                config=dict(
+                    cpu_bytes=512 << 20,
+                    disk_bytes=1024 << 20,
+                    disk_path=str(tmp_path / "kv"),
+                ),
+                namespace="trt-disk",
+            )
         actor = await xo.create_actor(
-            XavierCacheActor,
+            actor_class,
             512 * 1024**2,
+            **options,
             address=pool.external_address,
             uid="trt-live",
         )
@@ -74,7 +97,7 @@ async def test_fresh_gpu_instances_share_prefix_pages():
             result = await asyncio.to_thread(
                 subprocess.run,
                 [
-                    sys.executable,
+                    os.environ.get("XINFERENCE_TRTLLM_TEST_PYTHON", sys.executable),
                     "-c",
                     SCRIPT,
                     os.environ["XINFERENCE_TRTLLM_TEST_MODEL"],
@@ -94,6 +117,8 @@ async def test_fresh_gpu_instances_share_prefix_pages():
 
         cold = await run()
         assert (await actor.get_stats())["stored_pages"] > 0
+        if backend == "lmcache":
+            await actor.force_disk_reads()
         warm = await run()
         stats = await actor.get_stats()
         print("TRT_XAVIER_STATS=" + json.dumps(stats, sort_keys=True))
@@ -105,3 +130,13 @@ async def test_fresh_gpu_instances_share_prefix_pages():
             == warm["completion"]["choices"][0]["text"]
         )
         assert warm["completion"]["usage"]["completion_tokens"] == 16
+        if backend == "lmcache":
+            assert stats["backend_stats"]["l2_hits"] > 0
+        (tmp_path / "result.json").write_text(
+            json.dumps(
+                dict(backend=backend, cold=cold, warm=warm, stats=stats), indent=2
+            )
+        )
+        await xo.destroy_actor(actor)
+        if backend == "lmcache":
+            assert not list((tmp_path / "kv").iterdir())

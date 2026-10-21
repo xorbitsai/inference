@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Bounded supervisor-owned CPU snapshots for external engine cache adapters."""
+"""Supervisor-owned shared pages using native CPU or LMCache storage."""
 
 import hashlib
 import time
@@ -11,7 +11,8 @@ import torch
 import xoscar as xo
 
 from ...contract import KVCacheContract, fingerprint_metadata
-from .snapshot import KVSnapshotStore
+from ..config import normalize_cache_backend
+from .backend import SnapshotBackend, create_snapshot_backend, read_page_snapshots
 
 
 class XavierCacheActor(xo.StatelessActor):
@@ -19,14 +20,24 @@ class XavierCacheActor(xo.StatelessActor):
     def default_uid(cls):
         return "xavier-cache"
 
-    def __init__(self, capacity_bytes: int):
+    def __init__(self, capacity_bytes: int, cache_backend: Optional[dict] = None):
         super().__init__()
         if type(capacity_bytes) is not int or capacity_bytes <= 0:
             raise ValueError("Xavier CPU cache capacity must be a positive integer")
         self.capacity_bytes = capacity_bytes
+        backend = cache_backend or {}
+        self._backend_name, self._backend_options = normalize_cache_backend(
+            backend.get("name"), backend.get("config")
+        )
+        self._deployment = backend.get("namespace") or uuid.uuid4().hex
+        if self._backend_name == "lmcache":
+            from ..lmcache import check_lmcache_available
+
+            check_lmcache_available()
+            self.capacity_bytes = self._backend_options["cpu_bytes"]
         self._namespace: Optional[str] = None
         self._page_elements = 0
-        self._store: Optional[KVSnapshotStore] = None
+        self._store: Optional[SnapshotBackend] = None
         self._counts = dict(
             stored_pages=0,
             read_pages=0,
@@ -51,7 +62,13 @@ class XavierCacheActor(xo.StatelessActor):
         if self.capacity_bytes < page_bytes:
             raise ValueError("Xavier CPU cache budget cannot hold one complete page")
         self._page_elements = page_bytes // 2
-        self._store = KVSnapshotStore(self.capacity_bytes // page_bytes)
+        self._store = create_snapshot_backend(
+            self.capacity_bytes // page_bytes,
+            self._backend_name,
+            self._backend_options,
+            namespace=f"{self._deployment}-{namespace[:16]}",
+            schema={"page": ((self._page_elements,), torch.float16)},
+        )
         self._namespace = namespace
         return namespace
 
@@ -76,6 +93,7 @@ class XavierCacheActor(xo.StatelessActor):
 
     def reserve_handoff(self, namespace, keys):
         """Atomically pin a complete prompt prefix before P acknowledges D."""
+        self._require_native_handoff()
         self._expire_handoffs()
         storage_keys = self._keys(namespace, keys, limit=4096)
         if len(storage_keys) > self._store.capacity:
@@ -90,6 +108,7 @@ class XavierCacheActor(xo.StatelessActor):
 
     def prepare_handoff(self, namespace, keys):
         """Reserve capacity before P writes, including pages not yet present."""
+        self._require_native_handoff()
         self._expire_handoffs()
         storage_keys = self._keys(namespace, keys, limit=4096)
         pinned = (
@@ -103,6 +122,10 @@ class XavierCacheActor(xo.StatelessActor):
         self._store.leases[ticket] = set(storage_keys)
         self._handoffs[ticket] = (storage_keys, time.monotonic() + 300, True)
         return ticket
+
+    def _require_native_handoff(self):
+        if self._backend_name != "native":
+            raise ValueError("P/D handoffs require the native Xavier backend")
 
     def validate_handoff(self, namespace, keys, ticket):
         self._expire_handoffs()
@@ -152,17 +175,18 @@ class XavierCacheActor(xo.StatelessActor):
             self._store.stage("page", [key], page.view(torch.float16).unsqueeze(0))
             results.append(bool(self._store.publish([key], {"page"})))
         self._counts["stored_pages"] += sum(results)
-        self._counts["evicted_pages"] += len(self._store.evicted)
-        self._store.evicted.clear()
+        self._counts["evicted_pages"] += len(self._store.take_evicted())
         return results
 
     def get(self, namespace, keys):
         storage_keys = self._keys(namespace, keys)
+        if self._backend_name == "lmcache":
+            return self._get_backend_pages(storage_keys)
+        ready = set(self._store.ready_keys(storage_keys))
         pages = []
         for key in storage_keys:
-            if key in self._store.ready:
+            if key in ready:
                 pages.append(self._store.read("page", [key])[0].view(torch.uint8))
-                self._store.blocks.move_to_end(key)
             else:
                 pages.append(None)
         self._counts["read_pages"] += sum(page is not None for page in pages)
@@ -170,10 +194,19 @@ class XavierCacheActor(xo.StatelessActor):
         # read() owns each response, so eviction cannot invalidate an in-flight RPC.
         return pages
 
+    async def _get_backend_pages(self, storage_keys):
+        pages = await read_page_snapshots(self._store, storage_keys)
+        pages = [page.view(torch.uint8) if page is not None else None for page in pages]
+        self._counts["read_pages"] += sum(page is not None for page in pages)
+        self._counts["missed_pages"] += sum(page is None for page in pages)
+        self._counts["evicted_pages"] += len(self._store.take_evicted())
+        return pages
+
     def exists(self, namespace, keys):
         storage_keys = self._keys(namespace, keys)
+        ready = set(self._store.ready_keys(storage_keys))
         for index, key in enumerate(storage_keys):
-            if key not in self._store.ready:
+            if key not in ready:
                 return index
         return len(storage_keys)
 
@@ -185,13 +218,22 @@ class XavierCacheActor(xo.StatelessActor):
 
     def get_stats(self):
         self._expire_handoffs()
+        backend_stats = self._store.get_stats() if self._store else {}
         return {
             **self._counts,
+            "backend": self._backend_name,
+            "backend_stats": backend_stats,
             "namespace": self._namespace,
-            "pages": len(self._store.ready) if self._store else 0,
+            "pages": backend_stats.get("pages", 0),
             "capacity_bytes": self.capacity_bytes,
             "active_handoffs": len(self._handoffs),
             "used_bytes": (
-                len(self._store.blocks) * self._page_elements * 2 if self._store else 0
+                backend_stats.get("resident_pages", backend_stats.get("pages", 0))
+                * self._page_elements
+                * 2
             ),
         }
+
+    async def __pre_destroy__(self):
+        if self._store is not None:
+            await self._store.close()

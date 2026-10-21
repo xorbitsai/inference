@@ -15,6 +15,7 @@ from ..backends.config import normalize_cache_backend
 from ..backends.torch.backend import create_snapshot_backend
 from ..backends.torch.request_transfer import LayerRead, pack_reads
 from ..backends.torch.snapshot import KVSnapshotStore
+from .utils import DiskCacheActor, MemoryStorage, mock_lmcache_backend
 
 
 def options(**overrides):
@@ -25,27 +26,6 @@ def options(**overrides):
         read_timeout=1,
         **overrides,
     )
-
-
-class MemoryStorage:
-    def __init__(self, config, namespace, page_bytes):
-        self.pages = {}
-        self.namespace = namespace
-        self.stopped = self.closed = False
-
-    def store(self, key, page):
-        self.pages[key] = page.clone()
-        return True
-
-    def load(self, keys):
-        pages = {key: self.pages[key].clone() for key in keys if key in self.pages}
-        return pages, set(keys) - pages.keys(), 0, len(pages)
-
-    def stop(self):
-        self.stopped = True
-
-    def close(self):
-        self.closed = True
 
 
 @pytest.fixture
@@ -380,3 +360,77 @@ async def test_completed_read_job_does_not_retain_payload(backend):
     assert backend.reserve("1:r", [1])
     backend.release("1:r")
     assert not backend.blocks
+
+
+@pytest.mark.asyncio
+async def test_shared_page_actor_bounds_reads_and_releases_copies(monkeypatch):
+    from ..backends.torch.storage import XavierCacheActor
+    from ..contract import KVCacheContract
+
+    config, storages = mock_lmcache_backend(monkeypatch)
+    actor = XavierCacheActor(8192, cache_backend=config)
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 2, 4, 4, "bfloat16"
+    )
+    namespace = actor.configure(contract.to_dict(), {"layout": "layer_first"})
+    nbytes = contract.layer_nbytes * contract.num_layers
+    page = torch.arange(nbytes, dtype=torch.int32).to(torch.uint8)
+    assert actor.put(namespace, ["a", "b", "c"], [page] * 3) == [True] * 3
+    # The disk candidate set can exceed L1; a single owned RPC result is bounded.
+    assert actor.exists(namespace, ["a", "b", "c"]) == 3
+    a, b, c = await actor.get(namespace, ["a", "b", "c"])
+    assert torch.equal(a, page) and torch.equal(b, page) and c is None
+    assert actor.get_stats()["used_bytes"] == 0
+    assert not actor._store.leases
+    a.zero_()
+    assert torch.equal((await actor.get(namespace, ["a"]))[0], page)
+    storages[0].pages.clear()
+    assert await actor.get(namespace, ["a"]) == [None]
+    assert actor.exists(namespace, ["a"]) == 0
+    with pytest.raises(ValueError, match="P/D handoffs"):
+        actor.prepare_handoff(namespace, ["b"])
+    await actor.__pre_destroy__()
+    assert storages[0].stopped and storages[0].closed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "engine,dtype", [("sglang", "float16"), ("trt-llm", "bfloat16")]
+)
+async def test_shared_actor_real_disk_roundtrip(tmp_path, engine, dtype):
+    from ..contract import KVCacheContract
+
+    _require_real_lmcache()
+    config = dict(
+        name="lmcache",
+        config=dict(cpu_bytes=16 << 20, disk_bytes=32 << 20, disk_path=str(tmp_path)),
+        namespace="shared-" + engine,
+    )
+    actor = DiskCacheActor(16 << 20, cache_backend=config)
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 4, 8, 16, dtype
+    )
+    try:
+        namespace = actor.configure(
+            contract.to_dict(), {"engine": engine, "layout": "layer_first"}
+        )
+        size = contract.layer_nbytes * contract.num_layers // 2
+        pages = [
+            (torch.arange(size, dtype=torch.float32) + offset)
+            .to(getattr(torch, dtype))
+            .view(torch.uint8)
+            for offset in (0, 100)
+        ]
+        assert actor.put(namespace, ["first", "second"], pages) == [True, True]
+        await actor.force_disk_reads()
+        result = await actor.get(namespace, ["first", "second"])
+        assert all(
+            torch.equal(actual, expected) for actual, expected in zip(result, pages)
+        )
+        stats = actor.get_stats()
+        assert stats["backend_stats"]["l2_hits"] == 2
+        assert stats["used_bytes"] == 0
+        assert not actor._store.leases
+    finally:
+        await actor.__pre_destroy__()
+    assert not list(tmp_path.iterdir())

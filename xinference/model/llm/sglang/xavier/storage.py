@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""SGLang HiCache read/write adapter backed by Xavier's shared CPU snapshots."""
+"""SGLang HiCache read/write adapter backed by Xavier's shared page storage."""
 
 import asyncio
 import importlib.metadata
@@ -68,11 +68,12 @@ class XavierHiCacheStorage(HiCacheStorage):
         with self._rpc_lock:
             if self._closed:
                 raise RuntimeError("Xavier storage is closed")
+            timeout = max(10, self._config.get("read_timeout", 0) + 1)
             future = asyncio.run_coroutine_threadsafe(
-                asyncio.wait_for(invoke(), timeout=10), loop
+                asyncio.wait_for(invoke(), timeout=timeout), loop
             )
         try:
-            return future.result(timeout=11)
+            return future.result(timeout=timeout + 1)
         except BaseException:
             future.cancel()
             raise

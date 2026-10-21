@@ -1080,7 +1080,7 @@ async def test_lmcache_backend_launch_config(launch_runtime):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "invalid", ["disabled", "pd", "gpu", "sglang", "mlx", "single"]
+    "invalid", ["disabled", "pd", "gpu", "cpu", "unsupported", "mlx", "single"]
 )
 async def test_lmcache_backend_rejects_unsupported_launch_before_side_effects(
     launch_runtime, invalid
@@ -1095,8 +1095,10 @@ async def test_lmcache_backend_rejects_unsupported_launch_before_side_effects(
         kwargs["replica_config"][1].role = "decode"
     elif invalid == "gpu":
         kwargs["xavier_gpu_cache_bytes"] = 0
-    elif invalid in ("sglang", "mlx"):
-        kwargs["model_engine"] = invalid
+    elif invalid == "cpu":
+        kwargs["xavier_cache_bytes"] = 8192
+    elif invalid in ("unsupported", "mlx"):
+        kwargs["model_engine"] = "Transformers" if invalid == "unsupported" else "MLX"
     elif invalid == "single":
         kwargs.pop("replica_config")
         kwargs["replica"] = 1
@@ -1110,6 +1112,42 @@ async def test_lmcache_backend_rejects_unsupported_launch_before_side_effects(
     for worker in workers:
         worker.launch_builtin_model.assert_not_awaited()
         worker.launch_rank0_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["SGLang", "TRT-LLM"])
+async def test_lmcache_shared_actor_launch_and_cleanup(launch_runtime, engine):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine=engine, enable_xavier=True)
+    for replica in kwargs["replica_config"]:
+        replica.role = None
+    options = dict(
+        cpu_bytes=8192, disk_bytes=32768, disk_path="/cache", read_timeout=45
+    )
+    await supervisor.launch_builtin_model(
+        **kwargs, xavier_cache_backend="lmcache", xavier_cache_backend_config=options
+    )
+    assert set(actors) == {"XavierCacheActor"}
+    actor = actors["XavierCacheActor"]
+    assert actor.constructor_kwargs["capacity_bytes"] == options["cpu_bytes"]
+    backend = actor.constructor_kwargs["cache_backend"]
+    assert backend["name"] == "lmcache" and backend["config"] == options
+    assert backend["namespace"]
+    for worker in workers:
+        launch = worker.launch_builtin_model.call_args.kwargs
+        assert launch["xavier_config"] is None
+        assert launch["_xavier_cache_config"] == {
+            "address": supervisor.address,
+            "uid": "xavier-cache-pd",
+            "read_timeout": 45,
+        }
+        assert "xavier_cache_backend" not in launch
+        worker.start_transfer_for_vllm.assert_not_awaited()
+        worker.launch_rank0_model.assert_not_awaited()
+    await supervisor.terminate_model("pd")
+    destroy.assert_awaited_once_with(actor)
+    assert not supervisor._xavier_cache_mapping
 
 
 @pytest.mark.asyncio
