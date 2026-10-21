@@ -19,30 +19,20 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/user_guide/vllm_enhancement.rst:5
-msgid "Xavier: Share KV Cache between vllm replicas"
-msgstr "Xavier: 複数のVLLMレプリカ間でKVキャッシュを共有する"
+msgid "Xavier: KV Cache Sharing"
+msgstr "Xavier: KV キャッシュの共有"
 
 #: ../../source/user_guide/vllm_enhancement.rst:6
-msgid ""
-"For scenarios such as long document queries and multi-round conversations, "
-"the computation during the inference prefill phase can be particularly "
-"heavy, which affects overall throughput and the latency of individual "
-"inferences. Xinference enhances the vllm engine by introducing the "
-"``Xavier`` framework, enabling KV cache sharing across multiple vllm "
-"instances. This allows KV cache computed by other replicas to be directly "
-"reused, avoiding redundant computations."
-msgstr ""
-"長文書クエリやマルチターン対話などのシナリオでは、推論のプリフィル段階での計算が特に重くなり、全体のスループットや単一推論の遅延に影響を与える可能性があります。Xinferenceは``Xavier``フレームワークを導入することでvllmエンジンを強化し、複数のvllmインスタンス間でKVキャッシュを共有できるようにしています。これにより、他のレプリカで計算されたKVキャッシュを直接再利用でき、冗長な計算を回避できます。"
+msgid "Xavier enables KV cache sharing between model replicas, with adapters for vLLM, SGLang, TRT-LLM and MLX. Replicas of the same engine can reuse compatible prefix caches to reduce repeated prefill computation for long prompts and multi-turn conversations."
+msgstr "Xavier は vLLM、SGLang、TRT-LLM、MLX のアダプターを通じてモデルレプリカ間の KV キャッシュ共有を提供します。同じエンジンのレプリカは互換性のあるプレフィックスキャッシュを再利用でき、長いプロンプトや複数ターンの会話で繰り返される prefill 計算を削減できます。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:15
 msgid "Usage"
 msgstr "使用"
 
 #: ../../source/user_guide/vllm_enhancement.rst:16
-msgid ""
-"Simply add the parameter ``enable_xavier=True`` when starting the vllm "
-"model."
-msgstr "vllmモデル起動時にオプション``enable_xavier=True``を設定すればよい。"
+msgid "Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment."
+msgstr "``enable_xavier=True`` を指定して複数のレプリカを起動し、対応する ``model_engine`` を選択してください。エンジン要件は :ref:`user_guide_backends`、P/D デプロイは :ref:`user_guide_pd_separation` を参照してください。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:20
 msgid "Limitations"

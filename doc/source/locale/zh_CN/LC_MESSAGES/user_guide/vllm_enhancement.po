@@ -18,34 +18,20 @@ msgstr ""
 "Generated-By: Babel 2.14.0\n"
 
 #: ../../source/user_guide/vllm_enhancement.rst:5
-msgid "Xavier: Share KV Cache between vllm replicas"
-msgstr "Xavier: 多VLLM副本间共享KV Cache"
+msgid "Xavier: KV Cache Sharing"
+msgstr "Xavier：KV 缓存共享"
 
 #: ../../source/user_guide/vllm_enhancement.rst:6
-msgid ""
-"For scenarios such as long document queries and multi-round "
-"conversations, the computation during the inference prefill phase can be "
-"particularly heavy, which affects overall throughput and the latency of "
-"individual inferences. Xinference enhances the vllm engine by introducing"
-" the ``Xavier`` framework, enabling KV cache sharing across multiple vllm"
-" instances. This allows KV cache computed by other replicas to be "
-"directly reused, avoiding redundant computations."
-msgstr ""
-"对于长文档查询和多轮对话等场景，在推理预填充阶段的计算可能特别繁重，这会"
-"影响整体吞吐量和单次推理的延迟。Xinference 通过引入 ``Xavier`` 框架来增强"
-" vllm 引擎，支持在多个 vllm 实例之间共享 KV 缓存。这使得其他副本计算出的 "
-"KV 缓存可以被直接重用，从而避免了冗余计算。"
+msgid "Xavier enables KV cache sharing between model replicas, with adapters for vLLM, SGLang, TRT-LLM and MLX. Replicas of the same engine can reuse compatible prefix caches to reduce repeated prefill computation for long prompts and multi-turn conversations."
+msgstr "Xavier 通过 vLLM、SGLang、TRT-LLM 和 MLX 适配器在模型副本间共享 KV 缓存。同一引擎的副本可以复用兼容的前缀缓存，减少长提示词和多轮对话中重复的 prefill 计算。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:15
 msgid "Usage"
 msgstr "使用"
 
 #: ../../source/user_guide/vllm_enhancement.rst:16
-msgid ""
-"Simply add the parameter ``enable_xavier=True`` when starting the vllm "
-"model."
-msgstr ""
-"启动 vllm 模型时设置选项 ``enable_xavier=True`` 即可。"
+msgid "Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment."
+msgstr "启动多个副本时设置 ``enable_xavier=True``，并选择支持的 ``model_engine``。引擎要求请参见 :ref:`user_guide_backends`，P/D 部署请参见 :ref:`user_guide_pd_separation`。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:20
 msgid "Limitations"

@@ -20,32 +20,20 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/user_guide/vllm_enhancement.rst:5
-msgid "Xavier: Share KV Cache between vllm replicas"
-msgstr "Xavier: 多VLLM副本間共享KV Cache"
+msgid "Xavier: KV Cache Sharing"
+msgstr "Xavier：KV 快取共用"
 
 #: ../../source/user_guide/vllm_enhancement.rst:6
-msgid ""
-"For scenarios such as long document queries and multi-round conversations, "
-"the computation during the inference prefill phase can be particularly "
-"heavy, which affects overall throughput and the latency of individual "
-"inferences. Xinference enhances the vllm engine by introducing the "
-"``Xavier`` framework, enabling KV cache sharing across multiple vllm "
-"instances. This allows KV cache computed by other replicas to be directly "
-"reused, avoiding redundant computations."
-msgstr ""
-"對於長文件查詢與多輪對話等場景，在推理預填充階段的計算可能特別繁重，這會影響整體吞吐量與單次推理的延遲。Xinference 透過引入 "
-"``Xavier`` 框架來增強 vllm 引擎，支援在多個 vllm 實例之間共享 KV 緩存。這使得其他副本計算出的 KV "
-"緩存可以被直接重用，從而避免冗餘計算。"
+msgid "Xavier enables KV cache sharing between model replicas, with adapters for vLLM, SGLang, TRT-LLM and MLX. Replicas of the same engine can reuse compatible prefix caches to reduce repeated prefill computation for long prompts and multi-turn conversations."
+msgstr "Xavier 透過 vLLM、SGLang、TRT-LLM 和 MLX 介面卡在模型副本間共用 KV 快取。同一引擎的副本可以重用相容的前綴快取，減少長提示詞和多輪對話中重複的 prefill 計算。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:15
 msgid "Usage"
 msgstr "使用"
 
 #: ../../source/user_guide/vllm_enhancement.rst:16
-msgid ""
-"Simply add the parameter ``enable_xavier=True`` when starting the vllm "
-"model."
-msgstr "啟動 vllm 模型時設定選項 ``enable_xavier=True`` 即可。"
+msgid "Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment."
+msgstr "啟動多個副本時設定 ``enable_xavier=True``，並選擇支援的 ``model_engine``。引擎需求請參閱 :ref:`user_guide_backends`，P/D 部署請參閱 :ref:`user_guide_pd_separation`。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:20
 msgid "Limitations"

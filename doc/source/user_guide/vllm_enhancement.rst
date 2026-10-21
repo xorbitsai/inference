@@ -1,19 +1,17 @@
 .. _user_guide_vllm_enhancement:
 
-############################################
-Xavier: Share KV Cache between vllm replicas
-############################################
-For scenarios such as long document queries and multi-round conversations,
-the computation during the inference prefill phase can be particularly heavy,
-which affects overall throughput and the latency of individual inferences.
-Xinference enhances the vllm engine by introducing the ``Xavier`` framework,
-enabling KV cache sharing across multiple vllm instances.
-This allows KV cache computed by other replicas to be directly reused, avoiding redundant computations.
+########################
+Xavier: KV Cache Sharing
+########################
+Xavier enables KV cache sharing between model replicas, with adapters for
+vLLM, SGLang, TRT-LLM and MLX. Replicas of the same engine can reuse compatible
+prefix caches to reduce repeated prefill computation for long prompts and
+multi-turn conversations.
 
 *****
 Usage
 *****
-Simply add the parameter ``enable_xavier=True`` when starting the vllm model.
+Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment.
 
 .. versionchanged:: v4.0.0
 

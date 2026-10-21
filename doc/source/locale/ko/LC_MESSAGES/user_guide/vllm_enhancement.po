@@ -20,33 +20,20 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/user_guide/vllm_enhancement.rst:5
-msgid "Xavier: Share KV Cache between vllm replicas"
-msgstr "Xavier: VLLM 복제본 간 KV Cache 공유"
+msgid "Xavier: KV Cache Sharing"
+msgstr "Xavier: KV 캐시 공유"
 
 #: ../../source/user_guide/vllm_enhancement.rst:6
-msgid ""
-"For scenarios such as long document queries and multi-round conversations, "
-"the computation during the inference prefill phase can be particularly "
-"heavy, which affects overall throughput and the latency of individual "
-"inferences. Xinference enhances the vllm engine by introducing the "
-"``Xavier`` framework, enabling KV cache sharing across multiple vllm "
-"instances. This allows KV cache computed by other replicas to be directly "
-"reused, avoiding redundant computations."
-msgstr ""
-"장문서 쿼리 및 다중 턴 대화와 같은 시나리오에서 추론 사전 채우기 단계의 계산이 특히 과중해질 수 있으며, 이는 전체 처리량과 단일 "
-"추론 지연 시간에 영향을 미칩니다. Xinference는 ``Xavier`` 프레임워크를 도입하여 vllm 엔진을 강화하고, 여러 "
-"vllm 인스턴스 간에 KV 캐시를 공유할 수 있도록 지원합니다. 이를 통해 다른 복제본에서 계산된 KV 캐시를 직접 재사용할 수 있어 "
-"중복 계산을 방지합니다."
+msgid "Xavier enables KV cache sharing between model replicas, with adapters for vLLM, SGLang, TRT-LLM and MLX. Replicas of the same engine can reuse compatible prefix caches to reduce repeated prefill computation for long prompts and multi-turn conversations."
+msgstr "Xavier는 vLLM, SGLang, TRT-LLM, MLX 어댑터를 통해 모델 복제본 간 KV 캐시 공유를 제공합니다. 같은 엔진의 복제본은 호환되는 접두사 캐시를 재사용하여 긴 프롬프트와 여러 차례의 대화에서 반복되는 prefill 계산을 줄일 수 있습니다."
 
 #: ../../source/user_guide/vllm_enhancement.rst:15
 msgid "Usage"
 msgstr "사용"
 
 #: ../../source/user_guide/vllm_enhancement.rst:16
-msgid ""
-"Simply add the parameter ``enable_xavier=True`` when starting the vllm "
-"model."
-msgstr "vllm 모델을 시작할 때 옵션 ``enable_xavier=True`` 를 설정하면 됩니다."
+msgid "Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment."
+msgstr "``enable_xavier=True`` 로 여러 복제본을 시작하고 지원되는 ``model_engine`` 을 선택하세요. 엔진 요구 사항은 :ref:`user_guide_backends`, P/D 배포는 :ref:`user_guide_pd_separation` 을 참조하세요."
 
 #: ../../source/user_guide/vllm_enhancement.rst:20
 msgid "Limitations"
@@ -230,7 +217,7 @@ msgstr "스토리지 백엔드"
 
 #: source/user_guide/vllm_enhancement.rst:34
 msgid "``xavier_cache_backend=\"native\"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13."
-msgstr "``xavier_cache_backend=\"native\"``가 기본값이며 기존 CPU/GPU 캐시 동작을 유지합니다. 선택적인 ``lmcache`` 백엔드는 일반 vLLM V1, SGLang, TRT-LLM 복제본에 디스크 기반 접두사 재사용을 제공합니다. 저장소를 호스팅하는 Linux 환경에 ``xinference[xavier-lmcache]``를 설치하세요. vLLM은 각 전송 actor 환경, SGLang과 TRT-LLM은 supervisor 환경을 사용합니다. 모델 환경은 분리할 수 있습니다. 이 어댑터는 네이티브 FS 확장이 있는 LMCache >= ``0.5.6`` 및 < ``0.6``, Python 3.10~3.13을 대상으로 합니다."
+msgstr "``xavier_cache_backend=\"native\"`` 가 기본값이며 기존 CPU/GPU 캐시 동작을 유지합니다. 선택적인 ``lmcache`` 백엔드는 일반 vLLM V1, SGLang, TRT-LLM 복제본에 디스크 기반 접두사 재사용을 제공합니다. 저장소를 호스팅하는 Linux 환경에 ``xinference[xavier-lmcache]`` 를 설치하세요. vLLM은 각 전송 actor 환경, SGLang과 TRT-LLM은 supervisor 환경을 사용합니다. 모델 환경은 분리할 수 있습니다. 이 어댑터는 네이티브 FS 확장이 있는 LMCache >= ``0.5.6`` 및 < ``0.6``, Python 3.10~3.13을 대상으로 합니다."
 
 #: source/user_guide/vllm_enhancement.rst:36
 msgid "Select the backend when launching the model:"
@@ -238,12 +225,12 @@ msgstr "모델을 시작할 때 백엔드를 선택합니다:"
 
 #: source/user_guide/vllm_enhancement.rst:57
 msgid "``cpu_bytes`` bounds each LMCache instance's DRAM pool (default: 512 MiB). vLLM creates one instance per replica; SGLang and TRT-LLM share one supervisor-owned instance per deployment. ``disk_path`` must be absolute and local to that storage host, and ``disk_bytes`` is the positive disk capacity per instance. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per instance; engine KV pools, owned import buffers, serialization and transfer buffers consume additional memory."
-msgstr "``cpu_bytes``는 각 LMCache 인스턴스의 DRAM 풀을 제한합니다(기본 512 MiB). vLLM은 복제본마다 인스턴스를 만들며, SGLang과 TRT-LLM은 배포마다 supervisor가 소유한 인스턴스 하나를 공유합니다. ``disk_path``는 저장소 호스트의 로컬 절대 경로여야 하고, ``disk_bytes``는 인스턴스별 양의 디스크 용량입니다. LMCache는 계층 간 비동기 쓰기, 미리 가져오기와 제거를 관리합니다. 디스크 제거는 워터마크 방식이므로 설정 용량은 파일 시스템 할당량이 아닙니다. Xavier의 임시 CPU 스테이징과 읽기 사본도 제한되며 인스턴스마다 최대 ``2 * cpu_bytes``를 추가 사용합니다. 엔진 KV 풀, 별도 소유한 가져오기 버퍼, 직렬화와 전송 버퍼는 추가 메모리를 사용합니다."
+msgstr "``cpu_bytes`` 는 각 LMCache 인스턴스의 DRAM 풀을 제한합니다(기본 512 MiB). vLLM은 복제본마다 인스턴스를 만들며, SGLang과 TRT-LLM은 배포마다 supervisor가 소유한 인스턴스 하나를 공유합니다. ``disk_path`` 는 저장소 호스트의 로컬 절대 경로여야 하고, ``disk_bytes`` 는 인스턴스별 양의 디스크 용량입니다. LMCache는 계층 간 비동기 쓰기, 미리 가져오기와 제거를 관리합니다. 디스크 제거는 워터마크 방식이므로 설정 용량은 파일 시스템 할당량이 아닙니다. Xavier의 임시 CPU 스테이징과 읽기 사본도 제한되며 인스턴스마다 최대 ``2 * cpu_bytes`` 를 추가 사용합니다. 엔진 KV 풀, 별도 소유한 가져오기 버퍼, 직렬화와 전송 버퍼는 추가 메모리를 사용합니다."
 
 #: source/user_guide/vllm_enhancement.rst:59
 msgid "``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per storage instance; a timed-out or cancelled job still releases its LMCache read locks. Reads exceeding the transient capacity return a bounded prefix or fall back to local prefill. Compare TTFT and read latency against prefill cost for your workload."
-msgstr "``read_timeout``은 캐시 조회 대기 시간을 초 단위로 제한합니다(기본 30). 누락, 사용 불가 또는 읽기 시간 초과 시 로컬 prefill로 돌아갑니다. 저장소 인스턴스당 LMCache 미리 가져오기 작업은 최대 하나입니다. 시간 초과되거나 취소된 작업도 읽기 잠금을 해제합니다. 임시 용량을 넘는 읽기는 제한된 접두사를 반환하거나 로컬 prefill로 돌아갑니다. 워크로드에 맞게 TTFT, 읽기 지연과 prefill 비용을 비교하세요."
+msgstr "``read_timeout`` 은 캐시 조회 대기 시간을 초 단위로 제한합니다(기본 30). 누락, 사용 불가 또는 읽기 시간 초과 시 로컬 prefill로 돌아갑니다. 저장소 인스턴스당 LMCache 미리 가져오기 작업은 최대 하나입니다. 시간 초과되거나 취소된 작업도 읽기 잠금을 해제합니다. 임시 용량을 넘는 읽기는 제한된 접두사를 반환하거나 로컬 prefill로 돌아갑니다. 워크로드에 맞게 TTFT, 읽기 지연과 prefill 비용을 비교하세요."
 
 #: source/user_guide/vllm_enhancement.rst:61
 msgid "The LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
-msgstr "LMCache 백엔드는 같은 엔진의 일반 복제본 여러 개를 요구하며 기존 Xavier 모델, dtype, 병렬 처리 제한을 유지합니다. P/D 역할, 레거시 vLLM V0, MLX는 지원하지 않으며 P/D KV 전달은 별도 전송 경로가 담당합니다. native의 ``xavier_cache_bytes`` 또는 ``xavier_gpu_cache_bytes`` 대신 백엔드 ``cpu_bytes``를 사용하세요. 백엔드 선택은 엔진 간 캐시 공유를 활성화하거나 기존 cache-salt 동작을 바꾸지 않습니다. 배포와 저장소 인스턴스마다 별도 네임스페이스와 디렉터리를 사용하며 재시작 시 이전 항목을 복원하지 않습니다. 정상 종료 시 디렉터리를 삭제합니다. 프로세스 충돌 후에는 더 이상 사용하지 않는 배포 디렉터리를 정리하세요."
+msgstr "LMCache 백엔드는 같은 엔진의 일반 복제본 여러 개를 요구하며 기존 Xavier 모델, dtype, 병렬 처리 제한을 유지합니다. P/D 역할, 레거시 vLLM V0, MLX는 지원하지 않으며 P/D KV 전달은 별도 전송 경로가 담당합니다. native의 ``xavier_cache_bytes`` 또는 ``xavier_gpu_cache_bytes`` 대신 백엔드 ``cpu_bytes`` 를 사용하세요. 백엔드 선택은 엔진 간 캐시 공유를 활성화하거나 기존 cache-salt 동작을 바꾸지 않습니다. 배포와 저장소 인스턴스마다 별도 네임스페이스와 디렉터리를 사용하며 재시작 시 이전 항목을 복원하지 않습니다. 정상 종료 시 디렉터리를 삭제합니다. 프로세스 충돌 후에는 더 이상 사용하지 않는 배포 디렉터리를 정리하세요."

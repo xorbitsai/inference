@@ -19,38 +19,20 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/user_guide/vllm_enhancement.rst:5
-msgid "Xavier: Share KV Cache between vllm replicas"
-msgstr "Xavier: Teilen des KV-Cache zwischen mehreren VLLM-Replikaten"
+msgid "Xavier: KV Cache Sharing"
+msgstr "Xavier: Gemeinsame Nutzung des KV-Caches"
 
 #: ../../source/user_guide/vllm_enhancement.rst:6
-msgid ""
-"For scenarios such as long document queries and multi-round conversations, "
-"the computation during the inference prefill phase can be particularly "
-"heavy, which affects overall throughput and the latency of individual "
-"inferences. Xinference enhances the vllm engine by introducing the "
-"``Xavier`` framework, enabling KV cache sharing across multiple vllm "
-"instances. This allows KV cache computed by other replicas to be directly "
-"reused, avoiding redundant computations."
-msgstr ""
-"Für Szenarien wie lange Dokumentabfragen und mehrrundige Dialoge kann die "
-"Berechnung in der Prefill-Phase des Inferenzprozesses besonders aufwändig "
-"sein, was den Gesamtdurchsatz und die Latenz einzelner Inferenzen "
-"beeinträchtigt. Xinference verbessert die vLLM-Engine durch die Einführung "
-"des ``Xavier``-Frameworks, das die gemeinsame Nutzung von KV-Caches zwischen"
-" mehreren vLLM-Instanzen unterstützt. Dadurch können die von anderen "
-"Replikaten berechneten KV-Caches direkt wiederverwendet werden, was "
-"redundante Berechnungen vermeidet."
+msgid "Xavier enables KV cache sharing between model replicas, with adapters for vLLM, SGLang, TRT-LLM and MLX. Replicas of the same engine can reuse compatible prefix caches to reduce repeated prefill computation for long prompts and multi-turn conversations."
+msgstr "Xavier ermöglicht die gemeinsame Nutzung von KV-Caches zwischen Modellreplikaten über Adapter für vLLM, SGLang, TRT-LLM und MLX. Replikate derselben Engine können kompatible Präfix-Caches wiederverwenden und damit wiederholte Prefill-Berechnungen bei langen Prompts und mehrstufigen Dialogen reduzieren."
 
 #: ../../source/user_guide/vllm_enhancement.rst:15
 msgid "Usage"
 msgstr "Verwenden"
 
 #: ../../source/user_guide/vllm_enhancement.rst:16
-msgid ""
-"Simply add the parameter ``enable_xavier=True`` when starting the vllm "
-"model."
-msgstr ""
-"Beim Starten des vLLM-Modells setzen Sie die Option ``enable_xavier=True``."
+msgid "Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment."
+msgstr "Starten Sie mehrere Replikate mit ``enable_xavier=True`` und wählen Sie eine unterstützte ``model_engine``. Engine-Anforderungen finden Sie unter :ref:`user_guide_backends`, Informationen zur P/D-Bereitstellung unter :ref:`user_guide_pd_separation`."
 
 #: ../../source/user_guide/vllm_enhancement.rst:20
 msgid "Limitations"
