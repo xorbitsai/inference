@@ -36,12 +36,6 @@ msgstr ""
 
 #: user_guide/worker_handoff.rst:1
 msgid ""
-"For an existing Worker at ``127.0.0.1:9978``, start its replacement with a different "
-"actor port and a free metrics exporter port:"
-msgstr "现有 Worker 地址为 ``127.0.0.1:9978`` 时，使用不同的 actor 端口和空闲的指标导出端口启动替换 Worker："
-
-#: user_guide/worker_handoff.rst:1
-msgid ""
 "Model management changes pause during handoff; inference calls continue. Failure "
 "before ownership transfer restores the old Worker. After transfer starts, keep both "
 "processes alive while the replacement retries. The old Worker exits automatically "
@@ -59,3 +53,51 @@ msgid ""
 msgstr ""
 "模型进程保留原有的 Xinference、引擎代码和已加载的权重。本操作替换 Worker 控制进程。两个进程须部署在同一台机器上，并配置服务管理器，允许保留的进程在旧 "
 "Worker 退出后继续运行，避免终止其整个进程组或容器。"
+
+#: user_guide/worker_handoff.rst:8
+msgid ""
+"To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker "
+"starts its replacement automatically and inherits its Supervisor, GPU visibility and runtime "
+"configuration; new actor and metrics ports are selected automatically."
+msgstr ""
+"向现有 Worker 发送 ``POST /v1/workers/{worker_address}/relaunch`` 即可重新启动。Worker 会自动启动替代进程，继承原 "
+"Supervisor、GPU 可见列表和运行配置，并自动选择新的 Actor 端口和指标端口。"
+
+#: user_guide/worker_handoff.rst:15
+msgid ""
+"The response is HTTP 202 with an ``operation_id``. Poll ``GET /v1/worker-"
+"relaunches/{operation_id}`` or list recent operations with ``GET /v1/worker-relaunches``. Status "
+"is one of ``starting``, ``transferring``, ``pending``, ``succeeded`` or ``failed``. These routes "
+"require administrator access when authentication is enabled."
+msgstr ""
+"接口返回 HTTP 202 和 ``operation_id``。通过 ``GET /v1/worker-relaunches/{operation_id}`` 轮询状态，或通过 ``GET "
+"/v1/worker-relaunches`` 查看近期任务。状态包括 ``starting``、``transferring``、``pending``、``succeeded`` 和 "
+"``failed``。启用身份验证时，这些接口需要管理员权限。"
+
+#: user_guide/worker_handoff.rst:17
+msgid ""
+"The Supervisor stores operation records in ``XINFERENCE_HOME/worker-relaunches.json``, so status "
+"remains available after the old Worker exits and can be reconciled after a Supervisor restart. "
+"Duplicate requests reuse an active operation. Keep the same optional ``request_id`` when retrying"
+" a request; use a new ID for a new operation. ``pending`` means the transfer outcome is "
+"uncertain: keep the processes alive and continue polling instead of starting another replacement."
+msgstr ""
+"Supervisor 将任务记录保存到 ``XINFERENCE_HOME/worker-relaunches.json``，因此旧 Worker 退出后仍可查询状态，Supervisor "
+"重启后也可核对进度。重复请求会复用进行中的任务。重试请求时保持相同的可选 ``request_id``，开始新任务时使用新的 ID。``pending`` "
+"表示交接结果尚未确认：应保持进程运行并继续轮询，不要再启动另一个替代进程。"
+
+#: user_guide/worker_handoff.rst:19
+msgid ""
+"The optional ``python_executable`` request field selects an absolute Python executable path on "
+"the Worker machine, for example a separately installed newer environment. It defaults to the "
+"current interpreter. Packages are not installed by this operation, and retained model processes "
+"keep their original environment and code."
+msgstr ""
+"可选请求字段 ``python_executable`` 指定 Worker 所在机器上 Python "
+"可执行文件的绝对路径，例如单独安装的新版环境；默认使用当前解释器。此操作不安装软件包，保留的模型进程继续使用原环境和代码。"
+
+#: user_guide/worker_handoff.rst:29
+msgid ""
+"For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement explicitly with "
+"a different actor port and a free metrics exporter port:"
+msgstr "对于地址为 ``127.0.0.1:9978`` 的现有 Worker，也可以显式启动替代 Worker，使用不同的 Actor 端口及空闲的指标导出端口："

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import contextlib
 import logging
 import multiprocessing
 import os
@@ -35,6 +36,8 @@ async def start_worker_components(
     metrics_exporter_host: Optional[str],
     metrics_exporter_port: Optional[int],
     standby: bool = False,
+    relaunch_operation_id: Optional[str] = None,
+    logging_conf: Optional[dict] = None,
 ):
     gpu_device_indices = []
     env_name = get_available_device_env_name()
@@ -56,6 +59,8 @@ async def start_worker_components(
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
         standby=standby,
+        relaunch_operation_id=relaunch_operation_id,
+        logging_conf=logging_conf,
     )
 
 
@@ -67,6 +72,7 @@ async def _start_worker(
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Any = None,
     replace_worker: Optional[str] = None,
+    relaunch_operation_id: Optional[str] = None,
 ):
     from .utils import create_worker_actor_pool, update_all_formatter_addresses
 
@@ -84,21 +90,58 @@ async def _start_worker(
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
         standby=replace_worker is not None,
+        relaunch_operation_id=relaunch_operation_id,
+        logging_conf=logging_conf,
     )
     if replace_worker is not None:
         from ..core.worker_handoff import HandoffPending
 
+        async def report(status, error=""):
+            if relaunch_operation_id is not None:
+                from ..core.supervisor import SupervisorActor
+
+                supervisor = await xo.actor_ref(
+                    address=supervisor_address, uid=SupervisorActor.default_uid()
+                )
+                await xo.wait_for(
+                    supervisor.report_worker_relaunch(
+                        relaunch_operation_id,
+                        address,
+                        await ref.worker_incarnation(),
+                        status,
+                        error,
+                    ),
+                    5,
+                )
+
+        reported_started = False
         while True:
             try:
+                if not reported_started:
+                    await report("transferring")
+                    reported_started = True
                 await ref.replace_worker(replace_worker)
                 logger.info("Worker %s has taken over from %s", address, replace_worker)
                 break
-            except HandoffPending:
+            except HandoffPending as error:
                 logger.exception("Worker handoff needs to finish; retrying")
+                with contextlib.suppress(Exception):
+                    await report("pending", str(error) or type(error).__name__)
                 await asyncio.sleep(1)
-            except BaseException:
-                await pool.stop()
-                raise
+            except BaseException as error:
+                if await ref.worker_replacement_safe_to_stop():
+                    with contextlib.suppress(Exception):
+                        await report("failed", str(error) or type(error).__name__)
+                    await pool.stop()
+                    raise
+                logger.exception(
+                    "Transfer outcome needs confirmation; keeping replacement alive"
+                )
+                with contextlib.suppress(Exception):
+                    await report("pending", str(error) or type(error).__name__)
+                await asyncio.sleep(1)
+        with contextlib.suppress(Exception):
+            await report("succeeded")
     await pool.join()
 
 

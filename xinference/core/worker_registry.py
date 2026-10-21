@@ -21,6 +21,8 @@ from typing import Any, Dict, Set
 
 import xoscar as xo
 
+from .worker_relaunch import SupervisorRelaunchMixin
+
 
 async def call_worker_route(
     owner: Any, uid: str, ref: Any, method: str, **kwargs: Any
@@ -106,7 +108,7 @@ def worker_message(*, registration=False):
     return decorate
 
 
-class SupervisorHandoffMixin:
+class SupervisorHandoffMixin(SupervisorRelaunchMixin):
     _replica_model_uid_to_worker: Dict[str, Any]
 
     def _ownership_registry(self):
@@ -122,6 +124,12 @@ class SupervisorHandoffMixin:
 
     async def _remove_dead_worker(self, address, expected_ref):
         """Health checks share the ownership gate with registration and handoff."""
+        loop = getattr(self, "_actor_loop", None)
+        if loop is not None and loop is not asyncio.get_running_loop():
+            future = asyncio.run_coroutine_threadsafe(
+                self._remove_dead_worker(address, expected_ref), loop
+            )
+            return await asyncio.wrap_future(future)
         registry = self._ownership_registry()
         async with registry.lock(address):
             if (

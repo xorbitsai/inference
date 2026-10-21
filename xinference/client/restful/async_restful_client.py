@@ -2248,6 +2248,51 @@ class AsyncClient:
         await _release_response(response)
         return response_data
 
+    async def relaunch_worker(
+        self,
+        worker_address: str,
+        python_executable: Optional[str] = None,
+        request_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Relaunch a Worker and return its asynchronous operation status."""
+        response = await self.session.post(
+            f"{self.base_url}/v1/workers/{quote(worker_address, safe='')}/relaunch",
+            json={"python_executable": python_executable, "request_id": request_id},
+            headers=self._headers,
+        )
+        if response.status != 202:
+            raise RuntimeError(
+                f"Failed to relaunch worker: {await _get_error_string(response)}"
+            )
+        result = await response.json()
+        await _release_response(response)
+        return result
+
+    async def get_worker_relaunch(self, operation_id: str) -> Dict[str, Any]:
+        response = await self.session.get(
+            f"{self.base_url}/v1/worker-relaunches/{quote(operation_id, safe='')}",
+            headers=self._headers,
+        )
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to get worker relaunch: {await _get_error_string(response)}"
+            )
+        result = await response.json()
+        await _release_response(response)
+        return result
+
+    async def list_worker_relaunches(self) -> List[Dict[str, Any]]:
+        response = await self.session.get(
+            f"{self.base_url}/v1/worker-relaunches", headers=self._headers
+        )
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to list worker relaunches: {await _get_error_string(response)}"
+            )
+        result = await response.json()
+        await _release_response(response)
+        return result
+
     async def get_supervisor_info(self):
         url = f"{self.base_url}/v1/supervisor"
         response = await self.session.get(url, headers=self._headers)

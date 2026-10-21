@@ -37,12 +37,6 @@ msgstr ""
 
 #: user_guide/worker_handoff.rst:1
 msgid ""
-"For an existing Worker at ``127.0.0.1:9978``, start its replacement with a different "
-"actor port and a free metrics exporter port:"
-msgstr "既存 Worker のアドレスが ``127.0.0.1:9978`` の場合、異なる actor ポートと空いているメトリクス公開ポートを指定して置換先を起動します。"
-
-#: user_guide/worker_handoff.rst:1
-msgid ""
 "Model management changes pause during handoff; inference calls continue. Failure "
 "before ownership transfer restores the old Worker. After transfer starts, keep both "
 "processes alive while the replacement retries. The old Worker exits automatically "
@@ -61,3 +55,53 @@ msgstr ""
 "モデルプロセスは元の Xinference とエンジンのコード、および読み込み済みの重みを維持します。この操作は Worker "
 "の制御プロセスを置き換えます。両方のプロセスを同じマシンに配置し、元の Worker "
 "の終了時にプロセスグループ全体やコンテナを停止せず、維持対象のプロセスが動作を継続できるようサービスマネージャーを設定してください。"
+
+#: user_guide/worker_handoff.rst:8
+msgid ""
+"To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker "
+"starts its replacement automatically and inherits its Supervisor, GPU visibility and runtime "
+"configuration; new actor and metrics ports are selected automatically."
+msgstr ""
+"既存の Worker を再起動するには、``POST /v1/workers/{worker_address}/relaunch`` を送信します。Worker "
+"は置換プロセスを自動起動し、Supervisor、GPU の可視性、実行設定を引き継ぎます。新しい Actor ポートとメトリクスポートは自動選択されます。"
+
+#: user_guide/worker_handoff.rst:15
+msgid ""
+"The response is HTTP 202 with an ``operation_id``. Poll ``GET /v1/worker-"
+"relaunches/{operation_id}`` or list recent operations with ``GET /v1/worker-relaunches``. Status "
+"is one of ``starting``, ``transferring``, ``pending``, ``succeeded`` or ``failed``. These routes "
+"require administrator access when authentication is enabled."
+msgstr ""
+"応答は HTTP 202 で、``operation_id`` を含みます。``GET /v1/worker-relaunches/{operation_id}`` "
+"で状態をポーリングするか、``GET /v1/worker-relaunches`` で最近の操作を一覧表示します。状態は "
+"``starting``、``transferring``、``pending``、``succeeded``、``failed`` のいずれかです。認証が有効な場合、これらの API "
+"には管理者権限が必要です。"
+
+#: user_guide/worker_handoff.rst:17
+msgid ""
+"The Supervisor stores operation records in ``XINFERENCE_HOME/worker-relaunches.json``, so status "
+"remains available after the old Worker exits and can be reconciled after a Supervisor restart. "
+"Duplicate requests reuse an active operation. Keep the same optional ``request_id`` when retrying"
+" a request; use a new ID for a new operation. ``pending`` means the transfer outcome is "
+"uncertain: keep the processes alive and continue polling instead of starting another replacement."
+msgstr ""
+"Supervisor は操作記録を ``XINFERENCE_HOME/worker-relaunches.json`` に保存します。そのため旧 Worker "
+"の終了後も状態を取得でき、Supervisor の再起動後も進行状況を確認できます。重複リクエストは実行中の操作を再利用します。再試行時は任意の ``request_id`` "
+"を同じ値にし、新しい操作には新しい ID を使用します。``pending`` "
+"は引き継ぎ結果が未確定であることを示します。プロセスを動作させたままポーリングを続け、別の置換プロセスを起動しないでください。"
+
+#: user_guide/worker_handoff.rst:19
+msgid ""
+"The optional ``python_executable`` request field selects an absolute Python executable path on "
+"the Worker machine, for example a separately installed newer environment. It defaults to the "
+"current interpreter. Packages are not installed by this operation, and retained model processes "
+"keep their original environment and code."
+msgstr ""
+"任意のリクエストフィールド ``python_executable`` では、Worker マシン上の Python "
+"実行ファイルの絶対パスを指定できます。別途インストールした新しい環境などを選択でき、省略時は現在のインタープリターを使用します。この操作はパッケージをインストールしません。保持されるモデルプロセスは元の環境とコードを使用し続けます。"
+
+#: user_guide/worker_handoff.rst:29
+msgid ""
+"For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement explicitly with "
+"a different actor port and a free metrics exporter port:"
+msgstr "``127.0.0.1:9978`` で稼働中の Worker に対しては、異なる Actor ポートと空いているメトリクス公開ポートを使い、置換 Worker を明示的に起動することもできます。"

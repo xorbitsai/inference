@@ -21,6 +21,7 @@ from ... import __version__
 from ...constants import XINFERENCE_TOKEN_ROUTER_ENABLED
 from ...core.rpc_context import actor_call
 from ...core.virtual_env_manager import VirtualEnvConflictError
+from ...core.worker_relaunch import validate_relaunch_options
 from ...types import PeftModelConfig
 from ..dependencies import get_api
 from ..model_request_logging import get_model_request_id
@@ -135,6 +136,44 @@ async def get_supervisor_info(
     except Exception as e:
         logger.error(e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def relaunch_worker(
+    worker_address: str, request: Request, api: "RESTfulAPI" = Depends(get_api)
+) -> JSONResponse:
+    try:
+        raw = await request.body()
+        body = json.loads(raw) if raw else {}
+        if not isinstance(body, dict) or set(body) - {
+            "python_executable",
+            "request_id",
+        }:
+            raise ValueError("Expected python_executable and/or request_id")
+        validate_relaunch_options(body.get("python_executable"), body.get("request_id"))
+        supervisor = await api._get_supervisor_ref()
+        result = await supervisor.relaunch_worker(
+            worker_address, body.get("python_executable"), body.get("request_id")
+        )
+        return JSONResponse(content=result, status_code=202)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+
+
+async def get_worker_relaunch(
+    operation_id: str, api: "RESTfulAPI" = Depends(get_api)
+) -> JSONResponse:
+    try:
+        supervisor = await api._get_supervisor_ref()
+        return JSONResponse(content=await supervisor.get_worker_relaunch(operation_id))
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+
+
+async def list_worker_relaunches(api: "RESTfulAPI" = Depends(get_api)) -> JSONResponse:
+    supervisor = await api._get_supervisor_ref()
+    return JSONResponse(content=await supervisor.list_worker_relaunches())
 
 
 async def abort_cluster(
@@ -2167,6 +2206,24 @@ def register_routes(api: "RESTfulAPI") -> None:
     router.add_api_route(
         "/v1/workers",
         get_workers_info,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/workers/{worker_address}/relaunch",
+        relaunch_worker,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/worker-relaunches",
+        list_worker_relaunches,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/worker-relaunches/{operation_id}",
+        get_worker_relaunch,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
     )

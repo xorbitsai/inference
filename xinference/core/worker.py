@@ -894,10 +894,14 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         metrics_exporter_host: Optional[str] = None,
         metrics_exporter_port: Optional[int] = None,
         standby: bool = False,
+        relaunch_operation_id: Optional[str] = None,
+        logging_conf: Optional[dict] = None,
     ):
         super().__init__()
         self._lifecycle = WorkerLifecycle(active=not standby)
         self._initialize_handoff(standby)
+        self._relaunch_operation_id = relaunch_operation_id
+        self._worker_logging_conf = logging_conf
         # static attrs.
         self._total_gpu_devices = gpu_devices
         self._supervisor_address = supervisor_address

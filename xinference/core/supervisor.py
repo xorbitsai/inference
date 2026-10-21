@@ -905,6 +905,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         from ..extensions import get_extensions
 
         get_extensions()
+        self._actor_loop = asyncio.get_running_loop()
         self._uptime = time.time()
         if XINFERENCE_ENABLE_OTEL:
             try:
@@ -6296,6 +6297,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         return res
 
     async def __pre_destroy__(self) -> None:
+        manager = getattr(self, "_worker_relaunch_manager", None)
+        if manager is not None:
+            await manager.close()
         # Finish retained-weight operations before tearing down actor state.
         if self._model_reload_tasks:
             await asyncio.gather(
