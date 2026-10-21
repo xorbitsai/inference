@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -239,6 +240,8 @@ class _StopCheckLoop(Exception):
 
 
 class _DummyDeadWorkerSupervisor:
+    _ownership_registry = SupervisorActor._ownership_registry
+    _remove_dead_worker = SupervisorActor._remove_dead_worker
     _clear_worker_model_gpu_memory = SupervisorActor._clear_worker_model_gpu_memory
     _discard_worker_metadata = SupervisorActor._discard_worker_metadata
     _invalidate_list_models_debounce_cache = (
