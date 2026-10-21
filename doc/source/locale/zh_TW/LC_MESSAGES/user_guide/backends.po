@@ -612,7 +612,7 @@ msgstr ""
 "Xavier 發布完整的 64-token BF16 KV 頁，透過 actor RPC 在另一副本還原相符的前綴。不完整的頁與提示詞的最後一個 "
 "token 在本機計算。共享快取設有容量上限並採用 LRU 淘汰；目前傳輸使用同步 CPU 暫存。"
 
-#: ../../source/user_guide/backends.rst:369
+#: ../../source/user_guide/backends.rst:371
 msgid ""
 "Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, "
 "and disabled chunked prefill and overlap scheduling. Quantization, hybrid "
@@ -633,7 +633,7 @@ msgstr ""
 "``imported_pages``。使用此計數器驗證跨執行個體匯入。請針對實際工作負載測量延遲與吞吐量；傳輸成本可能超過省下的 prefill "
 "計算成本。"
 
-#: ../../source/user_guide/backends.rst:371
+#: ../../source/user_guide/backends.rst:373
 msgid ""
 "For same-engine P/D, set explicit prefill/decode roles in ``replica_config``"
 " as described in :ref:`user_guide_pd_separation`. The default "

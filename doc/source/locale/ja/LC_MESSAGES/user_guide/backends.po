@@ -625,7 +625,7 @@ msgstr ""
 "を介して別のレプリカで一致するプレフィックスを復元します。不完全なページとプロンプトの最後のトークンはローカルで計算します。共有キャッシュには容量制限があり、LRU"
 " で退避します。現在の転送は同期 CPU ステージングを使用します。"
 
-#: ../../source/user_guide/backends.rst:369
+#: ../../source/user_guide/backends.rst:371
 msgid ""
 "Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, "
 "and disabled chunked prefill and overlap scheduling. Quantization, hybrid "
@@ -647,7 +647,7 @@ msgstr ""
 "を報告します。このカウンターでインスタンス間のインポートを確認してください。実際の負荷で遅延とスループットを測定してください。転送コストが "
 "prefill 計算の削減分を上回る場合があります。"
 
-#: ../../source/user_guide/backends.rst:371
+#: ../../source/user_guide/backends.rst:373
 msgid ""
 "For same-engine P/D, set explicit prefill/decode roles in ``replica_config``"
 " as described in :ref:`user_guide_pd_separation`. The default "

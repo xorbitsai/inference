@@ -682,7 +682,7 @@ msgstr ""
 "Der gemeinsame Cache ist größenbegrenzt und verwendet LRU-Verdrängung; "
 "Übertragungen erfolgen derzeit synchron über CPU-Zwischenspeicher."
 
-#: ../../source/user_guide/backends.rst:369
+#: ../../source/user_guide/backends.rst:371
 msgid ""
 "Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, "
 "and disabled chunked prefill and overlap scheduling. Quantization, hybrid "
@@ -707,7 +707,7 @@ msgstr ""
 "Importe. Messen Sie Latenz und Durchsatz für Ihre Last; die Übertragung kann"
 " teurer sein als die eingesparte Prefill-Berechnung."
 
-#: ../../source/user_guide/backends.rst:371
+#: ../../source/user_guide/backends.rst:373
 msgid ""
 "For same-engine P/D, set explicit prefill/decode roles in ``replica_config``"
 " as described in :ref:`user_guide_pd_separation`. The default "

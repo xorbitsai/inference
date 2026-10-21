@@ -678,7 +678,7 @@ msgstr ""
 "capacidade limitada e remoção LRU; as transferências usam atualmente "
 "armazenamento intermediário síncrono na CPU."
 
-#: ../../source/user_guide/backends.rst:369
+#: ../../source/user_guide/backends.rst:371
 msgid ""
 "Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, "
 "and disabled chunked prefill and overlap scheduling. Quantization, hybrid "
@@ -702,7 +702,7 @@ msgstr ""
 "importações entre instâncias. Meça latência e vazão para sua carga; o custo "
 "de transferência pode superar o cálculo de prefill economizado."
 
-#: ../../source/user_guide/backends.rst:371
+#: ../../source/user_guide/backends.rst:373
 msgid ""
 "For same-engine P/D, set explicit prefill/decode roles in ``replica_config``"
 " as described in :ref:`user_guide_pd_separation`. The default "

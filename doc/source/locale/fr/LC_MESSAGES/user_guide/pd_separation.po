@@ -704,9 +704,18 @@ msgstr ""
 msgid "Choose an engine and backend"
 msgstr "Choisir un moteur et un backend"
 
-#: source/user_guide/pd_separation.rst:14
-msgid "For same-engine P/D, choose the engine first, then its Native NIXL or Xavier backend below. vLLM and SGLang support both; Xavier is the default. MLX supports Xavier only. Cross-engine deployments use Xavier and are described separately."
-msgstr "Pour le P/D avec le même moteur, choisissez d’abord le moteur, puis son backend NIXL natif ou Xavier dans la section correspondante. vLLM et SGLang prennent en charge les deux ; Xavier est le choix par défaut. MLX prend uniquement en charge Xavier. Les déploiements entre moteurs utilisent Xavier et sont décrits séparément."
+#: ../../source/user_guide/pd_separation.rst:14
+msgid ""
+"For same-engine P/D, choose the engine first, then its Native NIXL or Xavier"
+" backend below. vLLM, SGLang and TRT-LLM support both; Xavier is the "
+"default. MLX supports Xavier only. Cross-engine deployments use Xavier and "
+"are described separately."
+msgstr ""
+"Pour le P/D avec le même moteur, choisissez d’abord le moteur, puis son "
+"backend NIXL natif ou Xavier dans la section correspondante. vLLM, SGLang et"
+" TRT-LLM prennent en charge les deux ; Xavier est le choix par défaut. MLX "
+"prend uniquement en charge Xavier. Les déploiements entre moteurs utilisent "
+"Xavier et sont décrits séparément."
 
 #: source/user_guide/pd_separation.rst:16
 msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. LMCache support was added in v4.1.0. See :ref:`user_guide_vllm_enhancement` for storage configuration."
@@ -752,11 +761,11 @@ msgstr "Xavier"
 msgid "Cross-engine P/D"
 msgstr "P/D entre moteurs"
 
-#: ../../source/user_guide/pd_separation.rst:79
-msgid "TRT-LLM with Xavier or native NIXL"
-msgstr "TRT-LLM avec Xavier ou NIXL natif"
+#: ../../source/user_guide/pd_separation.rst:223
+msgid "TRT-LLM"
+msgstr "TRT-LLM"
 
-#: ../../source/user_guide/pd_separation.rst:81
+#: ../../source/user_guide/pd_separation.rst:227
 msgid ""
 "Use the same ``replica_config`` with ``model_engine=\"TRT-LLM\"``, "
 "``model_name=\"qwen3\"``, ``model_size_in_billions=\"0_6\"``, "
@@ -777,7 +786,7 @@ msgstr ""
 "entrées multimodales, LoRA, décodage spéculatif et ``cache_salt`` ne sont "
 "pas pris en charge."
 
-#: ../../source/user_guide/pd_separation.rst:83
+#: ../../source/user_guide/pd_separation.rst:243
 msgid ""
 "The default Xavier path uses NIXL to transfer live 64-token KV pages, "
 "including a partially filled final page, directly between GPUs. A separate "
@@ -803,7 +812,7 @@ msgstr ""
 "répertoire ``gpu_bytes`` et ``imported_tokens`` confirment les imports "
 "terminés ; ``host_bytes`` reste nul."
 
-#: ../../source/user_guide/pd_separation.rst:85
+#: ../../source/user_guide/pd_separation.rst:234
 msgid ""
 "For native TRT P/D, set ``transfer_backend_type=\"nixl\"`` and omit "
 "``enable_xavier`` and ``xavier_cache_bytes``. TRT runs a context-only "
@@ -825,7 +834,7 @@ msgstr ""
 " peut être modifié dans les arguments de lancement. Le routeur libère la "
 "requête prefill à la fin, en cas d’échec ou d’annulation."
 
-#: user_guide/pd_separation.rst:85
+#: ../../source/user_guide/pd_separation.rst:245
 msgid ""
 "Xavier loads KV asynchronously while other requests continue decoding. "
 "Cancelled decode requests retain their destination slots until all writes "
@@ -839,3 +848,17 @@ msgstr ""
 "transfert est limité par la taille KV de la requête maximale, avec une cible"
 " de 512 MiB et au moins une page KV. Réservez de la mémoire GPU pour les "
 "deux tampons en plus des poids du modèle et du pool KV de TRT."
+
+#: ../../source/user_guide/pd_separation.rst:236
+msgid ""
+"A ``cache_transceiver_config.kv_transfer_sender_future_timeout_ms`` value of"
+" ``None`` is normalized to 1000 ms so the executor can process cancellation "
+"even without a decode receiver. This does not change "
+"``kv_transfer_timeout_ms=None``, which disables the overall transfer "
+"deadline."
+msgstr ""
+"La valeur ``None`` de "
+"``cache_transceiver_config.kv_transfer_sender_future_timeout_ms`` est "
+"normalisée à 1000 ms afin que l’exécuteur puisse traiter les annulations "
+"même sans récepteur de décodage. Cela ne modifie pas "
+"``kv_transfer_timeout_ms=None``, qui désactive le délai global de transfert."

@@ -627,7 +627,7 @@ msgstr ""
 "불완전한 페이지와 프롬프트의 마지막 토큰은 로컬에서 계산합니다. 공유 캐시는 용량 제한과 LRU 축출을 사용하며, 현재 전송은 동기 "
 "CPU 스테이징을 사용합니다."
 
-#: ../../source/user_guide/backends.rst:369
+#: ../../source/user_guide/backends.rst:371
 msgid ""
 "Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, "
 "and disabled chunked prefill and overlap scheduling. Quantization, hybrid "
@@ -649,7 +649,7 @@ msgstr ""
 "가져오기를 확인하세요. 실제 작업 부하에서 지연 시간과 처리량을 측정하세요. 전송 비용이 절약된 prefill 계산 비용보다 클 수 "
 "있습니다."
 
-#: ../../source/user_guide/backends.rst:371
+#: ../../source/user_guide/backends.rst:373
 msgid ""
 "For same-engine P/D, set explicit prefill/decode roles in ``replica_config``"
 " as described in :ref:`user_guide_pd_separation`. The default "

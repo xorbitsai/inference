@@ -681,7 +681,7 @@ msgstr ""
 "partagé a une capacité limitée et applique une éviction LRU ; les transferts"
 " utilisent actuellement un stockage intermédiaire CPU synchrone."
 
-#: ../../source/user_guide/backends.rst:369
+#: ../../source/user_guide/backends.rst:371
 msgid ""
 "Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, "
 "and disabled chunked prefill and overlap scheduling. Quantization, hybrid "
@@ -706,7 +706,7 @@ msgstr ""
 " instances. Mesurez la latence et le débit pour votre charge ; les "
 "transferts peuvent coûter davantage que le calcul de prefill économisé."
 
-#: ../../source/user_guide/backends.rst:371
+#: ../../source/user_guide/backends.rst:373
 msgid ""
 "For same-engine P/D, set explicit prefill/decode roles in ``replica_config``"
 " as described in :ref:`user_guide_pd_separation`. The default "

@@ -619,9 +619,16 @@ msgstr ""
 msgid "Choose an engine and backend"
 msgstr "엔진 및 백엔드 선택"
 
-#: source/user_guide/pd_separation.rst:14
-msgid "For same-engine P/D, choose the engine first, then its Native NIXL or Xavier backend below. vLLM and SGLang support both; Xavier is the default. MLX supports Xavier only. Cross-engine deployments use Xavier and are described separately."
-msgstr "동일 엔진 P/D에서는 먼저 엔진을 선택한 다음 해당 섹션에서 네이티브 NIXL 또는 Xavier 백엔드를 선택하세요. vLLM과 SGLang은 둘 다 지원하며 기본값은 Xavier입니다. MLX는 Xavier만 지원합니다. 이기종 엔진 배포는 Xavier를 사용하며 별도 섹션에서 설명합니다."
+#: ../../source/user_guide/pd_separation.rst:14
+msgid ""
+"For same-engine P/D, choose the engine first, then its Native NIXL or Xavier"
+" backend below. vLLM, SGLang and TRT-LLM support both; Xavier is the "
+"default. MLX supports Xavier only. Cross-engine deployments use Xavier and "
+"are described separately."
+msgstr ""
+"동일 엔진 P/D에서는 먼저 엔진을 선택한 다음 해당 섹션에서 네이티브 NIXL 또는 Xavier 백엔드를 선택하세요. vLLM, "
+"SGLang, TRT-LLM은 둘 다 지원하며 기본값은 Xavier입니다. MLX는 Xavier만 지원합니다. 이기종 엔진 배포는 "
+"Xavier를 사용하며 별도 섹션에서 설명합니다."
 
 #: source/user_guide/pd_separation.rst:16
 msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. LMCache support was added in v4.1.0. See :ref:`user_guide_vllm_enhancement` for storage configuration."
@@ -667,11 +674,11 @@ msgstr "Xavier"
 msgid "Cross-engine P/D"
 msgstr "이기종 엔진 P/D"
 
-#: ../../source/user_guide/pd_separation.rst:79
-msgid "TRT-LLM with Xavier or native NIXL"
-msgstr "Xavier 또는 네이티브 NIXL을 사용하는 TRT-LLM"
+#: ../../source/user_guide/pd_separation.rst:223
+msgid "TRT-LLM"
+msgstr "TRT-LLM"
 
-#: ../../source/user_guide/pd_separation.rst:81
+#: ../../source/user_guide/pd_separation.rst:227
 msgid ""
 "Use the same ``replica_config`` with ``model_engine=\"TRT-LLM\"``, "
 "``model_name=\"qwen3\"``, ``model_size_in_billions=\"0_6\"``, "
@@ -690,7 +697,7 @@ msgstr ""
 " 청크 prefill과 중첩 스케줄링은 비활성화해야 합니다. 서로 다른 엔진, 양자화, 멀티모달 입력, LoRA, 추측 디코딩, "
 "``cache_salt``\\ 는 지원하지 않습니다."
 
-#: ../../source/user_guide/pd_separation.rst:83
+#: ../../source/user_guide/pd_separation.rst:243
 msgid ""
 "The default Xavier path uses NIXL to transfer live 64-token KV pages, "
 "including a partially filled final page, directly between GPUs. A separate "
@@ -711,7 +718,7 @@ msgstr ""
 "디렉터리 카운터 ``gpu_bytes``\\ 와 ``imported_tokens``\\ 는 완료된 가져오기를 확인하며 "
 "``host_bytes``\\ 는 0으로 유지됩니다."
 
-#: ../../source/user_guide/pd_separation.rst:85
+#: ../../source/user_guide/pd_separation.rst:234
 msgid ""
 "For native TRT P/D, set ``transfer_backend_type=\"nixl\"`` and omit "
 "``enable_xavier`` and ``xavier_cache_bytes``. TRT runs a context-only "
@@ -731,7 +738,7 @@ msgstr ""
 "변경할 수 있습니다. 라우터는 완료, 실패 또는 취소 시 prefill 요청을 해제합니다. 실제 작업 부하에서 두 전송 방식을 일반 "
 "복제본과 비교하세요."
 
-#: user_guide/pd_separation.rst:85
+#: ../../source/user_guide/pd_separation.rst:245
 msgid ""
 "Xavier loads KV asynchronously while other requests continue decoding. "
 "Cancelled decode requests retain their destination slots until all writes "
@@ -742,3 +749,15 @@ msgstr ""
 "Xavier는 KV를 비동기로 로드하며 다른 요청은 계속 decode할 수 있습니다. 취소된 decode 요청은 모든 쓰기가 끝날 때까지"
 " 대상 슬롯을 유지합니다. 각 전송 버퍼는 최대 요청의 KV 크기로 제한되며 목표 크기는 512 MiB, 최소 크기는 KV 페이지 "
 "하나입니다. 모델 가중치와 TRT KV 풀 외에도 두 전송 버퍼를 위한 GPU 메모리를 확보하세요."
+
+#: ../../source/user_guide/pd_separation.rst:236
+msgid ""
+"A ``cache_transceiver_config.kv_transfer_sender_future_timeout_ms`` value of"
+" ``None`` is normalized to 1000 ms so the executor can process cancellation "
+"even without a decode receiver. This does not change "
+"``kv_transfer_timeout_ms=None``, which disables the overall transfer "
+"deadline."
+msgstr ""
+"``cache_transceiver_config.kv_transfer_sender_future_timeout_ms`` 값이 "
+"``None``이면 decode 수신자가 없어도 실행기가 취소를 처리할 수 있도록 1000 ms로 정규화됩니다. 전체 전송 제한 시간을 "
+"비활성화하는 ``kv_transfer_timeout_ms=None`` 설정의 동작은 변경되지 않습니다."
