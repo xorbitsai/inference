@@ -1,5 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+# CI: linux
 """Opt-in bitwise tests: XINFERENCE_TEST_CROSS_ENGINE_GPU=1 pytest this file."""
 
 import os
@@ -24,34 +25,53 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "producer,full_allocation", [("vllm", False), ("sglang", False), ("sglang", True)]
+    "producer,consumer,full_allocation",
+    [
+        ("vllm", "sglang", False),
+        ("sglang", "vllm", False),
+        ("sglang", "vllm", True),
+        ("trt-llm", "vllm", False),
+        ("vllm", "trt-llm", True),
+        ("trt-llm", "sglang", False),
+        ("sglang", "trt-llm", False),
+    ],
 )
 @pytest.mark.parametrize("prompt_tokens", [65, 129, 193])
 async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
-    kv_contract, producer, full_allocation, prompt_tokens
+    kv_contract, producer, consumer, full_allocation, prompt_tokens
 ):
     from torch.multiprocessing.reductions import reduce_tensor
     from xoscar.backends.allocate_strategy import ProcessIndex
 
     assert torch.cuda.device_count() >= 2
-    contract = replace(kv_contract, num_layers=2, block_size=64, head_dim=8)
+    contract = replace(
+        kv_contract,
+        num_layers=2,
+        block_size=64,
+        head_dim=8,
+        logical_dtype="bfloat16" if "trt-llm" in (producer, consumer) else "float16",
+    )
+    dtype = getattr(torch, contract.logical_dtype)
     caches, views = [], []
     for gpu in (0, 1):
-        engine = producer if gpu == 0 else ("sglang" if producer == "vllm" else "vllm")
+        engine = producer if gpu == 0 else consumer
         if engine == "vllm":
             # vLLM 0.28 logical [B,H,T,2D], stored physically in NHD order.
             native = {
                 f"model.layers.{layer}.self_attn.attn": torch.zeros(
-                    7, 64, 2, 16, device=f"cuda:{gpu}", dtype=torch.float16
+                    7, 64, 2, 16, device=f"cuda:{gpu}", dtype=dtype
                 ).transpose(1, 2)
                 for layer in range(2)
             }
             canonical = canonical_vllm_views(native, 7, contract)
+        elif engine == "trt-llm":
+            from ...trt_llm.cross_engine import canonical_trt_views
+
+            native = torch.zeros(7, 2, 2, 2 * 64 * 8, device=f"cuda:{gpu}", dtype=dtype)
+            canonical = canonical_trt_views(native, contract)
         else:
             native = canonical = {
-                str(layer): torch.zeros(
-                    7, 64, 2, 8, device=f"cuda:{gpu}", dtype=torch.float16
-                )
+                str(layer): torch.zeros(7, 64, 2, 8, device=f"cuda:{gpu}", dtype=dtype)
                 for layer in range(4)
             }
         caches.append(native)
@@ -65,7 +85,10 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
         torch.cuda.synchronize(gpu)
     options = gpu_pool_options("127.0.0.1", os.environ)
     pool = await xo.create_actor_pool(
-        options["external_address"], n_process=2, subprocess_start_method="spawn"
+        options["external_address"],
+        n_process=2,
+        subprocess_start_method="spawn",
+        modules=["xinference.core._trt_transfer_worker"],
     )
     actors = []
     try:
@@ -76,12 +99,33 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
         await directory.configure(contract.fingerprint)
         metadata_sizes = [64, 64, 64, 64, 512, 512, 64, 128, 1024, 64]
         for gpu in (0, 1):
+            torch.cuda.set_device(gpu)
+            engine = producer if gpu == 0 else consumer
+            if engine == "trt-llm":
+                from ...trt_llm.cross_engine import TRTCrossEngineGPUActor
+                from ...trt_llm.gpu import export_pool
+
+                descriptor = export_pool(caches[gpu])
+                descriptor["slab_bytes"] = 64 * 1024**2
+                actor = await xo.create_actor(
+                    TRTCrossEngineGPUActor,
+                    descriptor,
+                    gpu,
+                    contract,
+                    directory,
+                    gpu + 1,
+                    address=pool.external_address,
+                    allocate_strategy=ProcessIndex(gpu + 1),
+                    uid=f"{CrossEngineGPUActor.default_uid()}-{gpu + 1}",
+                )
+                actors.append(actor)
+                continue
             actor = await xo.create_actor(
                 CrossEngineGPUActor,
                 SimpleNamespace(
                     gpu_id=gpu,
                     aux_item_lens=(
-                        metadata_sizes if gpu == 1 and producer == "vllm" else []
+                        metadata_sizes if gpu == 1 and consumer == "sglang" else []
                     ),
                 ),
                 contract,
@@ -98,7 +142,7 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
             actors.append(actor)
         source_count = (prompt_tokens + 63) // 64
         target_count = (
-            source_count if producer == "vllm" else (prompt_tokens - 1 + 63) // 64
+            source_count if consumer == "sglang" else (prompt_tokens - 1 + 63) // 64
         )
         allocated_count = source_count if full_allocation else target_count
         room, source, destination = (
@@ -115,7 +159,10 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
                 rank=rank,
                 prompt_tokens=prompt_tokens,
             )
-        if producer == "vllm":
+        if producer == "trt-llm":
+            await actors[0].publish(room, "request", source)
+            await actors[0].finalize(room, 42)
+        elif producer == "vllm":
             await actors[0].register_prefill(room, "request", source, 42, prompt_tokens)
         else:
             await actors[0].open(room)
@@ -123,7 +170,7 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
             await actors[0].add_chunk(room, source[:1])
             await actors[0].add_chunk(room, source[1:], [b"first-token"])
         received = await actors[1].receive(room, destination, 0)
-        if producer == "vllm":
+        if consumer == "sglang":
             nbytes, payload = received
             assert struct.unpack_from("<i", payload[0])[0] == 42
             assert struct.unpack_from("<i", payload[1])[0] == prompt_tokens
@@ -133,7 +180,7 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
         else:
             assert received == set()
         assert await actors[0].poll_direct_gpu_v1() == {
-            "request" if producer == "vllm" else f"{room}:0"
+            "request" if producer in ("vllm", "trt-llm") else f"{room}:0"
         }
         for key, original in views[0].items():
             assert torch.equal(
@@ -144,7 +191,7 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
         stats = await directory.get_stats()
         assert (
             stats["imported_tokens"]
-            == (prompt_tokens if producer == "vllm" else prompt_tokens - 1)
+            == (prompt_tokens if consumer == "sglang" else prompt_tokens - 1)
             and stats["active_handoffs"] == 0
         )
         for actor in actors:

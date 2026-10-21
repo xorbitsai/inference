@@ -64,7 +64,11 @@ class XavierClient:
                         layout="trt-block-layer-kv-packed-gpu-v1",
                     )
                 )
-                self.rpc("configure", self.namespace)
+                if self.config.get("heterogeneous"):
+                    self.namespace = self.contract.fingerprint
+                    self.rpc("configure", self.namespace, self.contract.to_dict())
+                else:
+                    self.rpc("configure", self.namespace)
                 self.capacity_bytes = 0
             else:
                 self.namespace = self.rpc(

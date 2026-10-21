@@ -124,6 +124,7 @@ class PDModelActor(xo.StatelessActor):
         self._prefill_replicas: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._decode_replicas: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._sglang_bootstrap: dict[str, dict] = {}
+        self._trt_prefill_replicas: set[str] = set()
 
         self._prefill_policy: Optional[SchedulingPolicy] = None
         self._decode_policy: Optional[SchedulingPolicy] = None
@@ -164,8 +165,11 @@ class PDModelActor(xo.StatelessActor):
         self,
         replica_uid: str,
         actor: xo.ActorRefType["ModelActor"],
+        model_engine: Optional[str] = None,
     ):
         """添加 Prefill Actor"""
+        if (model_engine or "").lower() == "trt-llm":
+            self._trt_prefill_replicas.add(replica_uid)
         if self._prefill_replicas.get(replica_uid) != actor:
             if self._model_engine == "sglang" and self._transport_backend == "nixl":
                 self._sglang_bootstrap[replica_uid] = await actor_call(
@@ -215,6 +219,7 @@ class PDModelActor(xo.StatelessActor):
         if replica_uid in self._prefill_replicas:
             del self._prefill_replicas[replica_uid]
             self._sglang_bootstrap.pop(replica_uid, None)
+            self._trt_prefill_replicas.discard(replica_uid)
             # 更新调度策略的副本列表
             if self._prefill_replicas and self._prefill_policy:
                 self._prefill_policy.update_replicas(
@@ -615,6 +620,11 @@ class PDModelActor(xo.StatelessActor):
         prefill_kwargs = copy.deepcopy(kwargs)
         if isinstance(prefill_kwargs.get("raw_params"), dict):
             prefill_kwargs["raw_params"].update(max_tokens=1, stream=False)
+        if any(
+            self._prefill_replicas.get(uid) == prefill
+            for uid in self._trt_prefill_replicas
+        ):
+            self._trt_prefill_requests[request_id] = prefill
         p_task = asyncio.create_task(
             actor_call(prefill, method, inputs, *prefill_args, **prefill_kwargs)
         )

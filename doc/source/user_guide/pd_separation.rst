@@ -224,7 +224,7 @@ TRT-LLM
 
 .. versionadded:: v4.1.0
 
-Use the same ``replica_config`` with ``model_engine="TRT-LLM"``, ``model_name="qwen3"``, ``model_size_in_billions="0_6"``, ``model_format="pytorch"`` and ``quantization="none"`` through the Python clients, REST API or CLI. Both roles require Linux/CUDA, TensorRT-LLM ``1.2.1``, BF16 dense Qwen3 weights and KV, one worker and one GPU per replica (TP=PP=CP=1). Chunked prefill and overlap scheduling must remain disabled. Different engines, quantization, multimodal input, LoRA, speculative decoding and ``cache_salt`` are unsupported.
+Use the same ``replica_config`` with ``model_engine="TRT-LLM"``, ``model_name="qwen3"``, ``model_size_in_billions="0_6"``, ``model_format="pytorch"`` and ``quantization="none"`` through the Python clients, REST API or CLI. Both roles require Linux/CUDA, TensorRT-LLM ``1.2.1``, BF16 dense Qwen3 weights and KV, one worker and one GPU per replica (TP=PP=CP=1). Chunked prefill and overlap scheduling must remain disabled. Native NIXL with different engines, quantization, multimodal input, LoRA, speculative decoding and ``cache_salt`` are unsupported.
 
 .. _user_guide_pd_trt_native:
 
@@ -328,6 +328,47 @@ Both workers require identical local weights, tokenizer assets and context limit
 Streaming and non-streaming requests require ``n=1``. SGLang decode uses the first output token sampled by prefill. vLLM decode imports all but the final prompt token, computes that token and samples the output. Engine kernels can produce small numerical differences. vLLM decode requires at least two prompt tokens.
 
 Cross-engine P/D does not support CPU fallback, retained Xavier history, logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native NIXL comparisons use the same engine on both roles.
+
+Cross-engine TRT-LLM P/D
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: v4.1.0
+
+Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse directions. All replicas use identical BF16 dense Qwen3 checkpoints, tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM requires version ``1.2.1``; vLLM and SGLang requirements match the cross-engine section above. MLX combinations are currently unsupported.
+
+Set each replica's ``model_engine`` and ``engine_config`` independently. A topology containing TRT-LLM selects BF16 weights and KV for every replica; explicit FP16 options are rejected. Put engine-specific options in ``engine_config`` so they do not reach the other engine.
+
+.. code-block:: python
+
+   client.launch_model(
+       model_uid="qwen3-trt-vllm-pd",
+       model_name="qwen3",
+       model_size_in_billions="0_6",
+       model_engine="TRT-LLM",
+       model_format="pytorch",
+       quantization="none",
+       model_path="/models/Qwen3-0.6B",
+       replica=2,
+       transfer_backend_type="xavier",
+       replica_config=[
+           {
+               "role": "prefill",
+               "model_engine": "TRT-LLM",
+               "engine_config": {"max_seq_len": 4096},
+               "devices": [{"worker_ip": "worker-a:9978", "gpu_idx": [0]}],
+           },
+           {
+               "role": "decode",
+               "model_engine": "vLLM",
+               "engine_config": {"max_model_len": 4096},
+               "devices": [{"worker_ip": "worker-b:9978", "gpu_idx": [0]}],
+           },
+       ],
+   )
+
+For SGLang, use ``model_engine="SGLang"`` and ``context_length`` instead of ``max_model_len``. Reverse the replica roles to reverse the transfer direction. Xavier converts TRT's head-major and the other engines' token-major KV layouts on GPU, preserving BF16 values, then transfers through NIXL. SGLang decode imports full prompt KV and the first sampled token; vLLM and TRT decode replay the final prompt token. Source and destination slots remain owned until GPU operations drain, including cancellation.
+
+Cross-engine sampling restrictions above still apply. TRT additionally does not support ``cache_salt`` or tool calling through this adapter. Retained Xavier history, CPU staging and full-prefill fallback are disabled; ``gpu_bytes`` and ``imported_tokens`` measure completed imports and ``host_bytes`` stays zero.
 
 NVIDIA and MLX cross-engine P/D
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

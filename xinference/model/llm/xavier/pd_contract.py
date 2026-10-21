@@ -25,7 +25,10 @@ def validate_handoff_scope(handoff: dict, cache_salt: str | None = None) -> None
 
 
 def build_pd_contract(
-    model_path: str, context_length: int | None = None
+    model_path: str,
+    context_length: int | None = None,
+    *,
+    logical_dtype: str = "float16",
 ) -> KVCacheContract:
     path = Path(model_path)
     config = json.loads((path / "config.json").read_text())
@@ -93,7 +96,7 @@ def build_pd_contract(
             else config["head_dim"]
         ),
         block_size=64,
-        logical_dtype="float16",
+        logical_dtype=logical_dtype,
     )
 
 

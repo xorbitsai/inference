@@ -44,6 +44,49 @@ def export_pool(cache):
     )
 
 
+def import_pool(descriptor, device):
+    if "tensorrt_llm" in sys.modules:
+        raise RuntimeError(
+            "TRT GPU transfer workers must not load TRT runtime libraries"
+        )
+    from cuda.bindings import runtime
+
+    torch.cuda.set_device(device)
+    handle = runtime.cudaIpcMemHandle_t()
+    raw = descriptor["handle"]
+    if len(raw) != 64:
+        raise ValueError("Invalid TRT CUDA IPC handle")
+    ctypes.memmove(handle.getPtr(), raw, 64)
+    result, pointer = runtime.cudaIpcOpenMemHandle(handle, 1)
+    if int(result) != 0:
+        raise RuntimeError(f"Cannot import TRT KV allocation: {result}")
+    try:
+        shape = descriptor["shape"]
+        nbytes = 2
+        for size in shape:
+            nbytes *= size
+        cache = (
+            torch.as_tensor(
+                _CUDABytes(int(pointer) + descriptor["offset"], nbytes),
+                device=f"cuda:{device}",
+            )
+            .view(torch.bfloat16)
+            .reshape(shape)
+        )
+        return pointer, cache
+    except BaseException:
+        close_import(pointer)
+        raise
+
+
+def close_import(pointer):
+    from cuda.bindings import runtime
+
+    (result,) = runtime.cudaIpcCloseMemHandle(pointer)
+    if int(result) != 0:
+        raise RuntimeError(f"Cannot close TRT KV import: {result}")
+
+
 class TRTGPUActor(GPUTransferMixin, xo.StatelessActor):
     @classmethod
     def default_uid(cls):
@@ -62,35 +105,8 @@ class TRTGPUActor(GPUTransferMixin, xo.StatelessActor):
         self._drain_task = None
 
     async def __post_create__(self):
-        if "tensorrt_llm" in sys.modules:
-            raise RuntimeError(
-                "TRT GPU transfer workers must not load TRT runtime libraries"
-            )
-        from cuda.bindings import runtime
-
-        torch.cuda.set_device(self.device)
-        handle = runtime.cudaIpcMemHandle_t()
-        raw = self.descriptor["handle"]
-        if len(raw) != 64:
-            raise ValueError("Invalid TRT CUDA IPC handle")
-        ctypes.memmove(handle.getPtr(), raw, 64)
-        result, pointer = runtime.cudaIpcOpenMemHandle(handle, 1)
-        if int(result) != 0:
-            raise RuntimeError(f"Cannot import TRT KV allocation: {result}")
-        self._ipc_pointer = pointer
+        self._ipc_pointer, cache = import_pool(self.descriptor, self.device)
         try:
-            shape = self.descriptor["shape"]
-            nbytes = 2
-            for size in shape:
-                nbytes *= size
-            cache = (
-                torch.as_tensor(
-                    _CUDABytes(int(pointer) + self.descriptor["offset"], nbytes),
-                    device=f"cuda:{self.device}",
-                )
-                .view(torch.bfloat16)
-                .reshape(shape)
-            )
             self._snapshot_store = SimpleNamespace(capacity=len(cache))
             self._gpu_transfer = DirectGPUTransfer(
                 self, {"kv": cache}, 0, slab_bytes=self.descriptor["slab_bytes"]
@@ -211,11 +227,7 @@ class TRTGPUActor(GPUTransferMixin, xo.StatelessActor):
 
     def _close_import(self):
         if self._ipc_pointer is not None:
-            from cuda.bindings import runtime
-
-            (result,) = runtime.cudaIpcCloseMemHandle(self._ipc_pointer)
-            if int(result) != 0:
-                raise RuntimeError(f"Cannot close TRT KV import: {result}")
+            close_import(self._ipc_pointer)
             self._ipc_pointer = None
 
     def get_stats(self):
@@ -262,8 +274,13 @@ class GPUService:
         )
         await self.pool.start()
         rank = self.client.config["rank"]
+        actor_class = TRTGPUActor
+        if self.client.config.get("heterogeneous"):
+            from .cross_engine import TRTCrossEngineGPUActor
+
+            actor_class = TRTCrossEngineGPUActor
         self.actor = await xo.create_actor(
-            TRTGPUActor,
+            actor_class,
             descriptor,
             self.cache.device.index,
             self.client.contract,
@@ -271,7 +288,7 @@ class GPUService:
             rank,
             allocate_strategy=ProcessIndex(1),
             address=self.pool.external_address,
-            uid=f"{TRTGPUActor.default_uid()}-{rank}",
+            uid=f"{actor_class.default_uid()}-{rank}",
         )
         await (await self.client.directory()).register_peer(rank, self.actor.address)
 

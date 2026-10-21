@@ -3286,6 +3286,7 @@ class SupervisorActor(xo.StatelessActor):
             (requested_xavier or pd_enabled)
             and trt_engine
             and transport_backend == "xavier"
+            and not heterogeneous_pd
         )
         trt_nixl = pd_enabled and trt_engine and transport_backend == "nixl"
         if trt_xavier or trt_nixl:
@@ -3523,6 +3524,9 @@ class SupervisorActor(xo.StatelessActor):
                     "rank": rank,
                     "host": get_transport_host(worker_ref.address),
                     "heterogeneous": True,
+                    "logical_dtype": (
+                        "bfloat16" if "trt-llm" in replica_engines else "float16"
+                    ),
                     "gpu_cache_bytes": 0,
                     "host_handoff": host_handoff,
                 }
@@ -3954,7 +3958,12 @@ class SupervisorActor(xo.StatelessActor):
                     for idx, rep_model_uid, worker_ref, _, _ in placements:
                         actor = await worker_ref.get_model(model_uid=rep_model_uid)
                         if replica_config[idx].role == "prefill":
-                            await pd_ref.add_prefill_actor(rep_model_uid, actor)
+                            await pd_ref.add_prefill_actor(
+                                rep_model_uid,
+                                actor,
+                                model_engine=replica_config[idx].model_engine
+                                or model_engine,
+                            )
                         else:
                             await pd_ref.add_decode_actor(rep_model_uid, actor)
                     self._pd_roles[model_uid] = {

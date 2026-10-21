@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 import asyncio
 
 import pytest
@@ -333,3 +334,20 @@ def test_nvidia_mlx_topology_keeps_hardware_on_separate_roles(prefill, decode, v
     else:
         with pytest.raises(ValueError, match="MLX on one role"):
             validate_pd_replica_configs(configs, "vLLM", "LLM")
+
+
+@pytest.mark.parametrize("other", ["vLLM", "SGLang", "MLX"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_trt_cross_engine_requires_cuda(other, reverse):
+    engines = ["TRT-LLM", other]
+    if reverse:
+        engines.reverse()
+    configs = [
+        ReplicaConfig(role=role, model_engine=engine)
+        for role, engine in zip(("prefill", "decode"), engines)
+    ]
+    if other == "MLX":
+        with pytest.raises(ValueError, match="CUDA replicas"):
+            validate_pd_replica_configs(configs, "vLLM", "LLM")
+    else:
+        assert validate_pd_replica_configs(configs, "vLLM", "LLM")

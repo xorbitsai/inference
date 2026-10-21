@@ -60,7 +60,7 @@ def canonical_vllm_views(caches, num_blocks, contract):
         if (
             tuple(cache.shape[1:])
             != (2, contract.block_size, contract.num_kv_heads, contract.head_dim)
-            or cache.dtype != torch.float16
+            or cache.dtype != getattr(torch, contract.logical_dtype)
             or index in layers
         ):
             raise ValueError(
@@ -109,6 +109,9 @@ class CrossEngineGPUActor(xo.StatelessActor):
             name: rebuild_cuda_tensor(*desc)
             for name, desc in self.ipc_descriptors.items()
         }
+        self._initialize_transfer()
+
+    def _initialize_transfer(self):
         self._snapshot_store = SimpleNamespace(
             capacity=len(next(iter(self.caches.values())))
         )
@@ -285,6 +288,8 @@ class CrossEngineGPUActor(xo.StatelessActor):
 
     def _copy_host_pages(self, pages, offset, prefix_tokens, device):
         c = self.contract
+        if c.logical_dtype != "float16":
+            raise ValueError("Cross-engine host transport requires FP16")
         indices = torch.tensor(pages, dtype=torch.long, device=device)
         data = torch.stack(
             [
@@ -541,6 +546,8 @@ class CrossEngineGPUActor(xo.StatelessActor):
     async def _receive_host(self, room, source, destinations):
         from ....sglang.xavier.settings import transfer_timeout
 
+        if self.contract.logical_dtype != "float16":
+            raise ValueError("Cross-engine host transport requires FP16")
         sender = await xo.actor_ref(address=source["address"], uid=source["uid"])
         info = await self.directory.request_info(room)
         prompt_tokens = info["prompt_tokens"]

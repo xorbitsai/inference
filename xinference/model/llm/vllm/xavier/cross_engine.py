@@ -47,20 +47,23 @@ def configure_cross_engine(model_path, model_config, cache_config):
         raise ValueError(
             "Cross-engine Xavier requires local weights without semantic overrides"
         )
-    if model_config.get("dtype", "auto") not in (
-        None,
-        "auto",
-        "half",
-        "float16",
-    ) or model_config.get("kv_cache_dtype", "auto") not in ("auto", "float16"):
-        raise ValueError("Cross-engine Xavier PD requires FP16 KV")
+    dtype = cache_config.get("logical_dtype", "float16")
+    allowed = ("half", "float16") if dtype == "float16" else ("bfloat16",)
+    if (
+        dtype not in ("float16", "bfloat16")
+        or model_config.get("dtype", "auto") not in (None, "auto", *allowed)
+        or model_config.get("kv_cache_dtype", "auto") not in ("auto", dtype)
+    ):
+        raise ValueError(f"Cross-engine Xavier PD requires {dtype} weights and KV")
     if model_config.get("quantization") not in (None, "none"):
         raise ValueError("Cross-engine Xavier PD requires unquantized weights")
     if model_config.get("block_size", 64) != 64:
         raise ValueError("Cross-engine Xavier PD requires 64-token pages")
-    contract = build_pd_contract(model_path, model_config.get("max_model_len"))
+    contract = build_pd_contract(
+        model_path, model_config.get("max_model_len"), logical_dtype=dtype
+    )
     cache_config["contract"] = contract.to_dict()
-    model_config.update(dtype="float16", block_size=64)
+    model_config.update(dtype=dtype, block_size=64)
     # Prefix reuse within P remains native. D owns complete per-request pages.
     if cache_config["role"] == "decode":
         model_config["enable_prefix_caching"] = False
@@ -81,9 +84,10 @@ class CrossEngineConnector(XavierConnector):
         self.contract = KVCacheContract.from_dict(self._xavier_config["contract"])
         if (
             self._block_size != self.contract.block_size
-            or vllm_config.model_config.dtype != torch.float16
+            or vllm_config.model_config.dtype
+            != getattr(torch, self.contract.logical_dtype)
         ):
-            raise ValueError("Cross-engine vLLM KV differs from the FP16 contract")
+            raise ValueError("Cross-engine vLLM KV differs from the dtype contract")
         self._history_enabled = False
         self._pool = None
         self._directory = None

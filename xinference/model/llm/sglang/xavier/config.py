@@ -56,13 +56,14 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
         )
     if model_config.get("quantization") not in (None, "none"):
         raise ValueError("SGLang Xavier requires unquantized weights")
-    if model_config.get("dtype") not in (
-        None,
-        "auto",
-        "float16",
-        "half",
-    ) or model_config.get("kv_cache_dtype", "auto") not in ("auto", "float16"):
-        raise ValueError("SGLang Xavier currently requires FP16 KV")
+    dtype = cache_config.get("logical_dtype", "float16")
+    allowed = ("float16", "half") if dtype == "float16" else ("bfloat16",)
+    if (
+        dtype not in ("float16", "bfloat16")
+        or model_config.get("dtype") not in (None, "auto", *allowed)
+        or model_config.get("kv_cache_dtype", "auto") not in ("auto", dtype)
+    ):
+        raise ValueError(f"SGLang Xavier currently requires {dtype} KV")
     if model_config.get("hicache_storage_backend") or model_config.get(
         "hicache_storage_backend_extra_config"
     ):
@@ -123,7 +124,9 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
             )
         if model_config["page_size"] != 64:
             raise ValueError("Cross-engine Xavier PD requires 64-token pages")
-        contract = build_pd_contract(model_path, model_config.get("context_length"))
+        contract = build_pd_contract(
+            model_path, model_config.get("context_length"), logical_dtype=dtype
+        )
     else:
         num_kv_heads = config.get("num_key_value_heads")
         head_dim = config.get("head_dim")
@@ -151,11 +154,14 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
             block_size=model_config["page_size"],
             logical_dtype="float16",
         )
-    if config.get("torch_dtype", config.get("dtype")) in ("bfloat16", "bf16"):
+    if dtype == "float16" and config.get("torch_dtype", config.get("dtype")) in (
+        "bfloat16",
+        "bf16",
+    ):
         logger.warning(
             "SGLang Xavier casts this BF16 checkpoint to FP16; weights and KV use FP16"
         )
-    model_config["dtype"] = "float16"
+    model_config["dtype"] = dtype
     if cache_config.get("role"):
         if model_config.get("enable_hierarchical_cache") or any(
             name.startswith("hicache_") for name in model_config
