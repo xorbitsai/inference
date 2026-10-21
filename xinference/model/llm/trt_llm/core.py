@@ -257,9 +257,18 @@ class TRTLLMModel(LLM, ChatModelMixin):
 
                     forget_request(request)
 
+        owns_prepared_state = (
+            pd_state is not None
+            and self._pd is not None
+            and self._pd.backend == "xavier"
+        )
+
         async def stream():
-            request = start()
+            request = None
             try:
+                if owns_prepared_state:
+                    yield None  # Enter cleanup before transferring this stream.
+                request = start()
                 async for output in request:
                     if self._pd is not None:
                         self._pd.check_import(pd_state)
@@ -302,12 +311,16 @@ class TRTLLMModel(LLM, ChatModelMixin):
                         usage=self._usage(request),
                     )
             finally:
-                finish(request)
+                if request is not None:
+                    finish(request)
                 if self._pd is not None:
                     await self._pd.release(request_id)
 
         if config.get("stream", False):
-            return stream()
+            result_stream = stream()
+            if owns_prepared_state:
+                await anext(result_stream)
+            return result_stream
         request = None
         published = False
         try:
@@ -378,9 +391,26 @@ class TRTLLMModel(LLM, ChatModelMixin):
         )
         result = await self.async_generate(prompt, config, request_id)
         if config.get("stream"):
-            return self._async_to_chat_completion_chunks(
+            chunks = self._async_to_chat_completion_chunks(
                 result, self.reasoning_parser, context
             )
+            if self._pd is not None and self._pd.backend == "xavier":
+
+                async def owned_chat():
+                    try:
+                        yield None
+                        async for chunk in chunks:
+                            yield chunk
+                    finally:
+                        try:
+                            await chunks.aclose()
+                        finally:
+                            await result.aclose()
+
+                owned = owned_chat()
+                await anext(owned)
+                return owned
+            return chunks
         token = chat_context_var.set(context)
         try:
             response = self._to_chat_completion(result, self.reasoning_parser)

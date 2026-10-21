@@ -105,6 +105,10 @@ def configure_native(model_path, config, replica):
     if transceiver.get("backend", "NIXL") != "NIXL":
         raise ValueError("TRT-LLM native P/D currently requires NIXL")
     transceiver.setdefault("kv_transfer_timeout_ms", 30000)
+    if transceiver.get("kv_transfer_sender_future_timeout_ms", 1000) is None:
+        # An unbounded C++ sender wait blocks the executor thread that must
+        # process source cancellation when no decode receiver arrives.
+        transceiver["kv_transfer_sender_future_timeout_ms"] = 1000
     transceiver["backend"] = "NIXL"
     config.update(
         cache_transceiver_config=transceiver,

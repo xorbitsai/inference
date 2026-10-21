@@ -51,6 +51,117 @@ def test_native_pd_config(checkpoint):
     assert not config["enable_chunked_prefill"]
 
 
+@pytest.mark.parametrize("sender_timeout", [None, 250])
+def test_native_sender_wait_is_bounded(checkpoint, sender_timeout):
+    config = {
+        "cache_transceiver_config": {
+            "kv_transfer_timeout_ms": None,
+            "kv_transfer_sender_future_timeout_ms": sender_timeout,
+        }
+    }
+    configure_native(checkpoint, config, {"role": "prefill"})
+    assert config["cache_transceiver_config"] == {
+        "backend": "NIXL",
+        "kv_transfer_timeout_ms": None,
+        "kv_transfer_sender_future_timeout_ms": (
+            1000 if sender_timeout is None else sender_timeout
+        ),
+    }
+
+
+@pytest.fixture
+def xavier_decode(model, monkeypatch):
+    from ...xavier.pd_contract import prompt_digest
+
+    client = SimpleNamespace(
+        namespace="namespace",
+        config={"rank": 1},
+        rpc=Mock(),
+        close=Mock(),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "xinference.model.llm.trt_llm.connector",
+        SimpleNamespace(XavierClient=lambda: client),
+    )
+    model._pd = TRTLLMPD("decode", "xavier")
+    transfer = {
+        "do_remote_prefill": True,
+        "trt_llm": {
+            "backend": "xavier",
+            "namespace": client.namespace,
+            "prompt_digest": prompt_digest([0, 1]),
+            "room": 123,
+        },
+    }
+    return model, transfer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["async_generate", "async_chat"])
+@pytest.mark.parametrize("close", ["aclose", "destroy_wrapper"])
+async def test_unstarted_xavier_stream_releases_prepared_state(
+    xavier_decode, method, close
+):
+    import gc
+
+    from xinference.core.rpc_context import build_rpc_metadata, wrap_async_iterator
+
+    model, transfer = xavier_decode
+    inputs = "hi" if method == "async_generate" else [{"role": "user", "content": "hi"}]
+    config = {"stream": True, "_pd_kv_transfer_params": transfer}
+    stream = await getattr(model, method)(inputs, config, "unstarted")
+    assert "unstarted" in model._pd.active
+    assert not model._engine.requests
+    if close == "aclose":
+        await stream.aclose()
+    else:
+        wrapped = wrap_async_iterator(
+            stream, build_rpc_metadata(operation_request_id="unstarted")
+        )
+        del stream, wrapped
+        gc.collect()
+        for _ in range(100):
+            if not model._pd.active:
+                break
+            await asyncio.sleep(0.001)
+    assert not model._pd.active and not model._requests
+    assert not model._engine.requests
+    retry = await getattr(model, method)(inputs, config, "unstarted")
+    await retry.aclose()
+    assert not model._pd.active
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["async_generate", "async_chat"])
+async def test_xavier_stream_enqueue_error_releases_prepared_state(
+    xavier_decode, monkeypatch, method
+):
+    from .. import pd
+
+    model, transfer = xavier_decode
+    monkeypatch.setitem(
+        sys.modules,
+        "tensorrt_llm.inputs",
+        SimpleNamespace(get_cache_salt_id=lambda salt: 42),
+    )
+    monkeypatch.setattr(
+        model._engine,
+        "generate_async",
+        Mock(side_effect=RuntimeError("enqueue failed")),
+    )
+    inputs = "hi" if method == "async_generate" else [{"role": "user", "content": "hi"}]
+    stream = await getattr(model, method)(
+        inputs,
+        {"stream": True, "_pd_kv_transfer_params": transfer},
+        "enqueue-error",
+    )
+    with pytest.raises(RuntimeError, match="enqueue failed"):
+        await anext(stream)
+    assert not model._pd.active and not model._requests
+    assert 42 not in pd._requests
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("method", ["async_generate", "async_chat"])
 @pytest.mark.parametrize("stream", [False, True])

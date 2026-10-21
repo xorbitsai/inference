@@ -65,6 +65,60 @@ asyncio.run(main())
 """
 )
 
+NATIVE_EXHAUSTION = (
+    SETUP
+    + r"""
+async def main():
+    reuse=sys.argv[2]=='True'
+    config['kv_cache_config']['enable_block_reuse']=reuse
+    config['cache_transceiver_config']={
+        'kv_transfer_timeout_ms':None,
+        'kv_transfer_sender_future_timeout_ms':None,
+    }
+    config['_nixl_config']={'role':'prefill'}
+    model=TRTLLMModel('native-exhaustion',family,model_path,config)
+    pending=None
+    try:
+        model.load()
+        executor=model._engine._executor.engine
+        assert executor.llm_args.cache_transceiver_config.kv_transfer_sender_future_timeout_ms==1000
+        exhausted=threading.Event()
+        original=executor._check_disagg_ctx_cache_transfer_status
+        def check(count=0):
+            if count and not model._pd._native._pending and not model._pd._native._cancelled:
+                exhausted.set()
+            return original(count)
+        executor._check_disagg_ctx_cache_transfer_status=check
+        async def generate(i):
+            prompt=f'Unique exhaustion request {i}. '+'The capital of France is Paris. '*110
+            return await model.async_generate(prompt,{**tokens,'_pd_kv_transfer_params':{'do_remote_decode':True}},str(i))
+        first=await generate(0)
+        await generate(1)
+        pending=asyncio.create_task(generate(2))
+        assert await asyncio.to_thread(exhausted.wait,10)
+        assert not pending.done()
+        # The no-fitting-request check must already be inside native C++,
+        # before release can populate the adapter's pending cancellation queue.
+        await asyncio.sleep(.1)
+        ticket=first['_pd_kv_transfer_params']['trt_llm']['context']['ctx_request_id']
+        start=time.monotonic()
+        await asyncio.wait_for(model.release_pd_request('0'),5)
+        elapsed=time.monotonic()-start
+        assert ticket not in executor.ctx_in_transmission_requests
+        await asyncio.wait_for(pending,10)
+        await model.release_pd_request('1')
+        await model.release_pd_request('2')
+        assert not model._pd.active and not executor.ctx_in_transmission_requests
+        (root/'result.json').write_text(json.dumps(dict(reuse=reuse,sender_timeout_input=None,sender_timeout_effective=1000,release_s=elapsed)))
+    finally:
+        if pending is not None and not pending.done():
+            pending.cancel()
+            await asyncio.gather(pending,return_exceptions=True)
+        model.stop()
+asyncio.run(main())
+"""
+)
+
 XAVIER = (
     SETUP
     + r"""
@@ -197,6 +251,12 @@ async def run_script(tmp_path, script, *args):
 @pytest.mark.parametrize("reuse", [True, False])
 async def test_live_native_release_without_receiver(tmp_path, reuse):
     await run_script(tmp_path, NATIVE, str(reuse))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reuse", [True, False])
+async def test_live_native_release_after_no_receiver_exhaustion(tmp_path, reuse):
+    await run_script(tmp_path, NATIVE_EXHAUSTION, str(reuse))
 
 
 @pytest.mark.asyncio
