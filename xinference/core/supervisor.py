@@ -3281,17 +3281,26 @@ class SupervisorActor(xo.StatelessActor):
             and model_engine is not None
             and model_engine.lower() == "sglang"
         )
-        trt_xavier = requested_xavier and (model_engine or "").lower() == "trt-llm"
-        if trt_xavier:
+        trt_engine = (model_engine or "").lower() == "trt-llm"
+        trt_xavier = (
+            (requested_xavier or pd_enabled)
+            and trt_engine
+            and transport_backend == "xavier"
+        )
+        trt_nixl = pd_enabled and trt_engine and transport_backend == "nixl"
+        if trt_xavier or trt_nixl:
             if (
-                transport_backend != "xavier"
-                or model_type not in (None, "LLM")
+                model_type not in (None, "LLM")
                 or model_format not in (None, "pytorch")
                 or quantization not in (None, "none")
+                or n_worker != 1
             ):
                 raise ValueError(
-                    "TRT-LLM Xavier requires unquantized PyTorch LLM weights and Xavier transport"
+                    "TRT-LLM P/D and Xavier require unquantized PyTorch LLM weights and one worker per replica"
                 )
+        if trt_nixl and requested_xavier:
+            raise ValueError("TRT-LLM native NIXL cannot also enable Xavier")
+        if trt_xavier:
             kwargs["_xavier_cache_config"] = {
                 "address": self.address,
                 "uid": f"xavier-cache-{model_uid}",
@@ -3311,6 +3320,7 @@ class SupervisorActor(xo.StatelessActor):
                 mlx_xavier
                 or mlx_prefill
                 or trt_xavier
+                and not pd_enabled
                 or sglang_xavier
                 and not pd_enabled
             )
@@ -3363,14 +3373,22 @@ class SupervisorActor(xo.StatelessActor):
 
         gpu_cache_bytes = validate_gpu_cache_budget(
             kwargs.pop("xavier_gpu_cache_bytes", None),
-            enable_xavier or sglang_xavier and pd_enabled or heterogeneous_pd,
+            enable_xavier
+            or (sglang_xavier or trt_xavier)
+            and pd_enabled
+            or heterogeneous_pd,
             replica,
         )
-        if (sglang_xavier or heterogeneous_pd) and gpu_cache_bytes not in (None, 0):
+        if (
+            sglang_xavier or trt_xavier or heterogeneous_pd
+        ) and gpu_cache_bytes not in (
+            None,
+            0,
+        ):
             raise ValueError(
                 "Cross-engine Xavier GPU PD does not yet support retained GPU history"
                 if heterogeneous_pd
-                else "SGLang Xavier GPU PD does not yet support retained GPU history"
+                else f"{model_engine} Xavier GPU PD does not yet support retained GPU history"
             )
         if pd_enabled and enable_xavier and gpu_cache_bytes is None:
             gpu_cache_bytes = 256 * 1024 * 1024
@@ -3508,7 +3526,7 @@ class SupervisorActor(xo.StatelessActor):
                     "gpu_cache_bytes": 0,
                     "host_handoff": host_handoff,
                 }
-            if sglang_xavier and pd_enabled:
+            if (sglang_xavier or trt_xavier) and pd_enabled:
                 assert replica_config is not None
                 from ..model.llm.xavier.transport import get_transport_host
 

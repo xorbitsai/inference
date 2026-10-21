@@ -111,6 +111,7 @@ class PDModelActor(xo.StatelessActor):
         # Prefill request map, used to skip the timeout task for specific request id.
         self._request_set: Set[str] = set()
         self._direct_transfers: dict[str, dict] = {}
+        self._trt_prefill_requests: dict[str, xo.ActorRef] = {}
 
         self._model_uid = model_uid
         self._transport_backend = transport_backend
@@ -289,6 +290,12 @@ class PDModelActor(xo.StatelessActor):
         logger.debug(
             f"[PDModelActor] Free prefill model cache for request {request_id}"
         )
+        trt_prefill = self._trt_prefill_requests.pop(request_id, None)
+        if trt_prefill is not None:
+            try:
+                await actor_call(trt_prefill, "release_trt_pd_request", request_id)
+            except Exception:
+                logger.warning("Failed to release TRT-LLM P/D source", exc_info=True)
         handoff = self._direct_transfers.pop(request_id, None)
         if handoff:
             try:
@@ -468,6 +475,8 @@ class PDModelActor(xo.StatelessActor):
         if isinstance(prefill_kwargs.get("raw_params"), dict):
             prefill_kwargs["raw_params"].update(max_tokens=1, stream=False)
         self._request_set.add(request_id)
+        if self._model_engine == "trt-llm":
+            self._trt_prefill_requests[request_id] = prefill
         prefill_start = time.perf_counter()
         try:
             result = await actor_call(

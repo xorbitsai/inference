@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Configure same-engine TRT-LLM sharing of immutable Xavier CPU pages."""
+"""Configure same-engine TRT-LLM shared caching and Xavier GPU P/D."""
 
 import json
 import os
@@ -10,13 +10,35 @@ from pathlib import Path
 from ..xavier.pd_contract import build_pd_contract
 
 CONFIG_ENV = "XINFERENCE_TRTLLM_XAVIER_CONFIG"
+EXECUTION_OPTIONS = {
+    "backend",
+    "dtype",
+    "max_seq_len",
+    "max_batch_size",
+    "max_num_tokens",
+    "tensor_parallel_size",
+    "pipeline_parallel_size",
+    "context_parallel_size",
+    "kv_cache_config",
+    "cuda_graph_config",
+    "enable_chunked_prefill",
+    "disable_overlap_scheduler",
+    "scheduler_config",
+    "trust_remote_code",
+}
 
 
 def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
-    if cache_config.get("role") or cache_config.get("heterogeneous"):
-        raise ValueError(
-            "TRT-LLM Xavier currently supports shared caching, without P/D"
-        )
+    if cache_config.get("role") not in (None, "prefill", "decode") or cache_config.get(
+        "heterogeneous"
+    ):
+        raise ValueError("TRT-LLM Xavier currently requires same-engine replicas")
+    if cache_config.get("role") is not None:
+        from ..xavier.transport import gpu_pool_options
+
+        if type(cache_config.get("rank")) is not int:
+            raise ValueError("TRT-LLM Xavier P/D requires a replica rank")
+        gpu_pool_options(cache_config.get("host", ""), dict(os.environ))
     for name in (
         "tensor_parallel_size",
         "pipeline_parallel_size",
@@ -24,23 +46,7 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
     ):
         if config.get(name, 1) != 1:
             raise ValueError("TRT-LLM Xavier currently requires TP=PP=CP=1")
-    allowed = {
-        "backend",
-        "dtype",
-        "max_seq_len",
-        "max_batch_size",
-        "max_num_tokens",
-        "tensor_parallel_size",
-        "pipeline_parallel_size",
-        "context_parallel_size",
-        "kv_cache_config",
-        "cuda_graph_config",
-        "enable_chunked_prefill",
-        "disable_overlap_scheduler",
-        "scheduler_config",
-        "trust_remote_code",
-    }
-    if set(config) - allowed or config.get("trust_remote_code"):
+    if set(config) - EXECUTION_OPTIONS or config.get("trust_remote_code"):
         raise ValueError("TRT-LLM Xavier does not allow model or execution overrides")
     if config.get("dtype", "bfloat16") not in ("auto", "bfloat16"):
         raise ValueError("TRT-LLM 1.2.1 Qwen3 currently requires BF16 weights and KV")
@@ -89,5 +95,10 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
     # The model process owns its environment and hosts TRT's embedded worker.
     # KvCacheConnectorConfig in 1.2.1 has no user-config field.
     os.environ[CONFIG_ENV] = json.dumps(
-        {**cache_config, "contract": contract.to_dict()}
+        {
+            **cache_config,
+            "contract": contract.to_dict(),
+            "max_seq_len": config.get("max_seq_len")
+            or checkpoint_config["max_position_embeddings"],
+        }
     )

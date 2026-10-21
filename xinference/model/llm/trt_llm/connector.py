@@ -4,8 +4,9 @@
 
 Reads acquire owned CPU snapshots before reporting a hit. Eviction between
 lookup and GPU load therefore cannot turn an admitted prefix into missing KV.
-The first implementation uses synchronous transfers and disables chunking,
-overlap, and eviction/replay in the engine scheduler.
+P/D loads suspend their request until GPU writes finish, allowing unrelated
+decode work to continue. Shared CPU prefix loads remain synchronous. Chunking,
+overlap scheduling, and eviction/replay are disabled.
 """
 
 import asyncio
@@ -24,7 +25,8 @@ from tensorrt_llm._torch.pyexecutor.kv_cache_connector import (
 )
 
 from ..xavier.actor_loop import acquire_actor_loop, release_actor_loop
-from ..xavier.contract import KVCacheContract, build_prefix_keys
+from ..xavier.contract import KVCacheContract, build_prefix_keys, fingerprint_metadata
+from .pd import request_state
 from .xavier import CONFIG_ENV
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,7 @@ class XavierClient:
     def __init__(self):
         self.config = json.loads(os.environ[CONFIG_ENV])
         self.contract = KVCacheContract.from_dict(self.config["contract"])
+        self.pd_gpu = self.config.get("role") in ("prefill", "decode")
         self._ref = None
         self._closed = False
         ready = threading.Event()
@@ -52,32 +55,61 @@ class XavierClient:
         ready.wait()
         _clients.add(self)
         try:
-            self.namespace = self.rpc(
-                "configure",
-                self.contract.to_dict(),
-                {
-                    "engine": "trt-llm",
-                    "version": "1.2.1",
-                    "layout": "layer_first",
-                    "physical_layout": "block-layer-kv-packed",
-                    "hash_format": "xavier-prefix-v1",
-                },
-            )
-            self.capacity_bytes = self.rpc("get_stats")["capacity_bytes"]
+            if self.pd_gpu:
+                self.namespace = fingerprint_metadata(
+                    dict(
+                        contract=self.contract.to_dict(),
+                        engine="trt-llm",
+                        version="1.2.1",
+                        layout="trt-block-layer-kv-packed-gpu-v1",
+                    )
+                )
+                self.rpc("configure", self.namespace)
+                self.capacity_bytes = 0
+            else:
+                self.namespace = self.rpc(
+                    "configure",
+                    self.contract.to_dict(),
+                    {
+                        "engine": "trt-llm",
+                        "version": "1.2.1",
+                        "layout": "layer_first",
+                        "physical_layout": "block-layer-kv-packed",
+                        "hash_format": "xavier-prefix-v1",
+                    },
+                )
+                self.capacity_bytes = self.rpc("get_stats")["capacity_bytes"]
         except BaseException:
             self.close()
             raise
 
-    def rpc(self, method, *args):
+    async def directory(self):
+        if self._ref is None:
+            self._ref = await xo.actor_ref(
+                address=self.config["address"], uid=self.config["uid"]
+            )
+        return self._ref
+
+    def submit(self, coroutine):
         if self._closed:
             raise RuntimeError("TRT-LLM Xavier client is closed")
 
         async def invoke():
-            if self._ref is None:
-                self._ref = await xo.actor_ref(
-                    address=self.config["address"], uid=self.config["uid"]
-                )
-            return await getattr(self._ref, method)(*args)
+            return await coroutine
+
+        return asyncio.run_coroutine_threadsafe(invoke(), self._loop)
+
+    def call(self, coroutine):
+        # GPU operations must drain before their caller can return engine slots.
+        # Do not cancel a transfer future when a wall-clock timeout expires.
+        return self.submit(coroutine).result()
+
+    def rpc(self, method, *args, **kwargs):
+        if self._closed:
+            raise RuntimeError("TRT-LLM Xavier client is closed")
+
+        async def invoke():
+            return await getattr(await self.directory(), method)(*args, **kwargs)
 
         timeout = max(10, self.config.get("read_timeout", 0) + 1)
         future = asyncio.run_coroutine_threadsafe(
@@ -123,6 +155,9 @@ class XavierClient:
 
 
 def close_clients():
+    from .gpu import close_service
+
+    close_service()
     for client in list(_clients):
         client.close()
 
@@ -131,6 +166,8 @@ def close_clients():
 class XavierMetadata:
     loads: list = field(default_factory=list)
     saves: list = field(default_factory=list)
+    pd_loads: list = field(default_factory=list)
+    pd_saves: list = field(default_factory=list)
 
 
 class XavierConnectorScheduler(KvCacheConnectorScheduler):
@@ -140,6 +177,9 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         self.contract = self.client.contract
         self._pending = {}
         self._allocations = {}
+        self._pd_requests = {}
+        self._pd_sources = {}
+        self._pd_destinations = {}
 
     def _keys(self, tokens):
         return [key.digest for key in build_prefix_keys(self.contract, tokens)]
@@ -147,6 +187,23 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
     def get_num_new_matched_tokens(self, request, num_computed_tokens):
         request_id = request.request_id
         self._pending.pop(request_id, None)
+        state = request_state(request)
+        if state is not None:
+            if tuple(request.get_tokens(0)) != state.tokens:
+                raise ValueError("TRT-LLM P/D scheduler prompt differs")
+            self._pd_requests[request_id] = state
+            if state.role == "prefill":
+                self._pd_sources[request_id] = state
+                state.engine_request_id = request_id
+                return 0, False
+            if num_computed_tokens:
+                raise ValueError("TRT-LLM P/D requires an isolated destination prefix")
+            state.engine_request_id = request_id
+            self._pd_destinations[request_id] = state
+            count = max(len(state.tokens) - 1, 0)
+            return count, bool(count)
+        if self.client.pd_gpu:
+            return 0, False  # TRT initialization requests do not share history.
         block = self.contract.block_size
         if num_computed_tokens % block:
             return 0, False
@@ -165,19 +222,46 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         return len(pages) * block, False
 
     def update_state_after_alloc(self, request, block_ids):
+        state = self._pd_requests.get(request.request_id)
         self._allocations[request.request_id] = (
-            self._keys(list(request.get_tokens(0))),
+            ([] if state is not None else self._keys(list(request.get_tokens(0)))),
             list(block_ids),
         )
 
     def build_connector_meta(self, scheduler_output):
         metadata = XavierMetadata()
+        # TRT omits newly suspended async loads from new_requests. Allocated
+        # decode requests must still reach the worker to start their transfer.
+        async_ids = {
+            rid
+            for rid, state in self._pd_requests.items()
+            if state.role == "decode" and state.num_pages and rid in self._allocations
+        }
+        for rid in async_ids:
+            state = self._pd_requests.pop(rid)
+            _, blocks = self._allocations.pop(rid)
+            if len(blocks) < state.num_pages:
+                raise ValueError("TRT-LLM allocated too few P/D KV blocks")
+            metadata.pd_loads.append((state, blocks[: state.num_pages]))
         for request in scheduler_output.new_requests:
+            if request.request_id in async_ids:
+                continue
             request_id = request.request_id
             pending = self._pending.pop(request_id, None)
             keys, blocks = self._allocations.pop(request_id, ([], []))
             if not blocks:
                 blocks = list(request.new_block_ids)
+            state = self._pd_requests.pop(request_id, None)
+            if state is not None:
+                if len(blocks) < state.num_pages:
+                    raise ValueError("TRT-LLM allocated too few P/D KV blocks")
+                if state.role == "prefill":
+                    metadata.pd_saves.append((state, blocks[: state.num_pages]))
+                else:
+                    metadata.pd_loads.append((state, blocks[: state.num_pages]))
+                continue
+            if self.client.pd_gpu:
+                continue
             imported = 0
             if pending is not None:
                 start, pages = pending
@@ -196,7 +280,21 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
     def request_finished(self, request, cache_block_ids):
         self._pending.pop(request.request_id, None)
         self._allocations.pop(request.request_id, None)
-        return False
+        self._pd_requests.pop(request.request_id, None)
+        destination = self._pd_destinations.pop(request.request_id, None)
+        if destination is not None:
+            destination.cancelled = True
+            # Cancellation is exceptional: block this callback until all writes
+            # drain. TRT cannot free/reassign these slots before we return.
+            if destination.load_future is not None:
+                try:
+                    destination.load_future.result()
+                except Exception:
+                    pass  # The failed transfer has already drained its writes.
+        state = self._pd_sources.pop(request.request_id, None)
+        # TRT pins these blocks until the worker returns this ID from
+        # get_finished. A completed Python output does not end the KV lifetime.
+        return bool(state is not None and state.registered)
 
 
 class XavierConnectorWorker(KvCacheConnectorWorker):
@@ -205,6 +303,11 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         self.client = XavierClient()
         self.contract = self.client.contract
         self.pool = None
+        self._waiting_saves = set()
+        self._finished_saves = set()
+        self._loading = {}
+        self._waiting_loads = set()
+        self.load_failed = None
 
     def register_kv_caches(self, kv_cache_tensor):
         contract = self.contract
@@ -226,6 +329,10 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         if not kv_cache_tensor.is_contiguous():
             raise ValueError("TRT-LLM Xavier requires a contiguous KV pool")
         self.pool = kv_cache_tensor
+        if self.client.pd_gpu:
+            from .gpu import register_service
+
+            register_service(self.client, kv_cache_tensor)
 
     def _validate_slots(self, slots):
         if self.pool is None or any(
@@ -238,12 +345,23 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         metadata = self.get_connector_meta()
         if metadata is None:
             return
-        self._validate_slots([slot for slot, _ in metadata.loads])
+        self._validate_slots(
+            [slot for slot, _ in metadata.loads]
+            + [slot for _, slots in metadata.pd_loads for slot in slots]
+        )
         for slot, page in metadata.loads:
             self.pool[slot].copy_(
                 page.view(self.pool.dtype).reshape(self.pool.shape[1:]),
                 non_blocking=False,
             )
+        for state, blocks in metadata.pd_loads:
+            from .gpu import service
+
+            if state.num_pages:
+                state.load_future = service().submit("load", state.room, blocks)
+                self._loading[state.engine_request_id] = state
+            else:
+                service().rpc("load", state.room, blocks)
         if metadata.loads:
             # Copy completion, not a lookup, is the evidence for imported KV.
             try:
@@ -254,17 +372,31 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                 logger.warning("Could not record TRT-LLM Xavier imports", exc_info=True)
 
     def wait_for_layer_load(self, layer_idx, stream):
-        pass  # start_load_kv completes all copies synchronously.
+        pass  # Async requests resume only after get_finished confirms GPU writes.
 
     def save_kv_layer(self, layer_idx, stream):
         pass  # wait_for_save publishes only after the entire forward pass.
 
     def wait_for_save(self, stream):
         metadata = self.get_connector_meta()
-        if metadata is None or not metadata.saves:
+        if metadata is None or not (metadata.saves or metadata.pd_saves):
             return
         self._validate_slots([slot for _, slot in metadata.saves])
         stream.synchronize()
+        for state, blocks in metadata.pd_saves:
+            from .gpu import service
+
+            if state.cancelled:
+                continue
+            try:
+                service().rpc("publish", state.room, state.engine_request_id, blocks)
+            except Exception:
+                if not state.cancelled:
+                    raise
+                # Cleanup can tombstone/drop a room while publish is in flight.
+                # This cancellation must not escape TRT's batch-wide callback.
+                continue
+            state.registered = bool(blocks)
         for offset in range(0, len(metadata.saves), 128):
             batch = metadata.saves[offset : offset + 128]
             keys = [key for key, _ in batch]
@@ -285,4 +417,35 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                 logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
 
     def get_finished(self, finished_gen_req_ids, started_loading_req_ids):
-        return [], []
+        if not self.client.pd_gpu:
+            return [], []
+        self._waiting_loads.update(started_loading_req_ids)
+        loaded = []
+        for rid, state in list(self._loading.items()):
+            if state.cancelled:
+                if state.load_future.done():
+                    self._loading.pop(rid)
+                    self._waiting_loads.discard(rid)
+                continue
+            if rid not in self._waiting_loads or not state.load_future.done():
+                continue
+            self._loading.pop(rid)
+            self._waiting_loads.discard(rid)
+            try:
+                state.load_future.result()
+            except Exception as error:
+                if self.load_failed is None:
+                    raise  # Never resume a request with missing/partial KV.
+                self.load_failed(rid, error)
+            else:
+                state.imported_tokens = len(state.tokens) - 1
+                loaded.append(rid)
+        self._waiting_saves.update(finished_gen_req_ids)
+        if self._waiting_saves:
+            from .gpu import service
+
+            self._finished_saves.update(service().rpc("poll_direct_gpu_v1"))
+        finished = self._finished_saves & self._waiting_saves
+        self._waiting_saves.difference_update(finished)
+        self._finished_saves.difference_update(finished)
+        return list(finished), loaded

@@ -31,6 +31,7 @@ def test_round_robin_updates():
         (["prefill", "prefill", "decode"], "vLLM", True),
         (["prefill", "decode"], "SGLang", True),
         (["prefill", "decode"], "MLX", True),
+        (["prefill", "decode"], "TRT-LLM", True),
         (["hybrid"], "transformers", False),
         (["prefill"], "vLLM", None),
         (["decode"], "vLLM", None),
@@ -85,6 +86,76 @@ async def test_infer_preserves_decode_config(router, method):
     assert p_call.kwargs["request_id"] == d_call.kwargs["request_id"] == "r"
     assert not actor._request_set
     prefill.free_model_cache.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["xavier", "nixl"])
+@pytest.mark.parametrize(
+    "outcome", ["success", "prefill_failure", "decode_failure", "stream_close"]
+)
+async def test_trt_pd_router_releases_source_on_every_exit(router, backend, outcome):
+    actor, prefill, decode = router
+    actor._model_engine = "trt-llm"
+    actor._transport_backend = backend
+    actor._direct_handoff = backend == "xavier"
+    prefill.release_trt_pd_request = AsyncMock()
+    transfer = {"do_remote_prefill": True, "trt_llm": {"backend": backend}}
+    prefill.chat.return_value = {"_pd_kv_transfer_params": transfer}
+    if outcome == "prefill_failure":
+        prefill.chat.side_effect = RuntimeError("prefill failed")
+    elif outcome == "decode_failure":
+        decode.chat.side_effect = RuntimeError("decode failed")
+    elif outcome == "stream_close":
+
+        async def chunks():
+            yield b"chunk"
+
+        decode.chat.return_value = chunks()
+    config = {"max_tokens": 8, "stream": outcome == "stream_close"}
+    if "failure" in outcome:
+        with pytest.raises(RuntimeError, match="failed"):
+            await actor._infer("chat", [], config, request_id="public-id")
+    else:
+        result = await actor._infer("chat", [], config, request_id="public-id")
+        if outcome == "stream_close":
+            assert not prefill.release_trt_pd_request.await_count
+            assert await anext(result) == b"chunk"
+            await result.aclose()
+            decode.decrease_serve_count.assert_awaited_once()
+        else:
+            assert result == b'{"choices":[]}'
+        assert decode.chat.call_args.args[1]["_pd_kv_transfer_params"] == transfer
+        assert decode.chat.call_args.kwargs["request_id"] == "public-id"
+    prefill.release_trt_pd_request.assert_awaited_once()
+    assert prefill.release_trt_pd_request.await_args.args == ("public-id",)
+    assert not actor._request_set and not actor._trt_prefill_requests
+
+
+@pytest.mark.asyncio
+async def test_trt_pd_router_abort_during_prefill_releases_source(router):
+    actor, prefill, decode = router
+    actor._model_engine = "trt-llm"
+    prefill.release_trt_pd_request = AsyncMock()
+    entered, finish = asyncio.Event(), asyncio.Event()
+
+    async def pending(*args, **kwargs):
+        entered.set()
+        await finish.wait()
+        return {"_pd_kv_transfer_params": {"do_remote_prefill": True}}
+
+    prefill.generate.side_effect = pending
+    task = asyncio.create_task(
+        actor._infer("generate", "prompt", {}, request_id="abort")
+    )
+    await entered.wait()
+    assert await actor.abort_request("abort") == "DONE"
+    finish.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    prefill.release_trt_pd_request.assert_awaited_once()
+    assert prefill.release_trt_pd_request.await_args.args == ("abort",)
+    decode.generate.assert_not_awaited()
+    assert not actor._request_set and not actor._trt_prefill_requests
 
 
 @pytest.mark.asyncio

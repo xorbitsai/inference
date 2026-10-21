@@ -340,6 +340,8 @@ one on either model.
 TRT-LLM
 ========
 
+.. versionadded:: v4.1.0
+
 The TRT-LLM backend uses the Python LLM API inside the model process. It requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. The initial adapter supports unquantized dense Qwen3 text models, including Qwen3-0.6B.
 
 The example launches two independent replicas with a shared 512 MiB Xavier CPU cache. Each replica uses one GPU. Install TRT-LLM in a compatible CUDA environment and set ``enable_virtual_env=False``, or use a per-model virtual environment with matching dependencies. Each replica currently requires TP=PP=CP=1, with TRT's worker running directly in the Xinference model process. Qwen3 weights and KV pages use BF16.
@@ -366,6 +368,8 @@ The example launches two independent replicas with a shared 512 MiB Xavier CPU c
 
 Xavier publishes complete 64-token BF16 KV pages and restores matching prefixes in another replica through actor RPC. Partial pages and the final prompt token are computed locally. The shared cache uses bounded storage and LRU eviction; transfers currently use synchronous CPU staging.
 
-Shared caching requires TP=PP=CP=1, BF16 weights and KV, and disabled chunked prefill and overlap scheduling. P/D separation, quantization, hybrid attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` are not supported by this initial integration.
+Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, and disabled chunked prefill and overlap scheduling. Quantization, hybrid attention, multimodal input, LoRA, speculative decoding, ``cache_salt`` and cross-engine P/D are not supported.
+
+For same-engine P/D, set explicit prefill/decode roles in ``replica_config`` as described in :ref:`user_guide_pd_separation`. The default ``transfer_backend_type="xavier"`` uses NIXL to transfer KV pages directly between GPUs. Set ``transfer_backend_type="nixl"`` for TRT's native context/generation protocol and NIXL transport; do not also set ``enable_xavier=True``. Both paths support generation, chat, streaming and cancellation through the same Xinference API.
 
 The shared cache actor reports ``imported_pages`` after copies into the destination KV pool complete. Use this counter to verify cross-instance imports. Measure latency and throughput for your workload; transfer costs can exceed the saved prefill computation.

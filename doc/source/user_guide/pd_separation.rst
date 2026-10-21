@@ -11,7 +11,7 @@ No enterprise package or License is required.
 Choose an engine and backend
 ----------------------------
 
-For same-engine P/D, choose the engine first, then its Native NIXL or Xavier backend below. vLLM and SGLang support both; Xavier is the default. MLX supports Xavier only. Cross-engine deployments use Xavier and are described separately.
+For same-engine P/D, choose the engine first, then its Native NIXL or Xavier backend below. vLLM, SGLang and TRT-LLM support both; Xavier is the default. MLX supports Xavier only. Cross-engine deployments use Xavier and are described separately.
 
 Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. LMCache support was added in v4.1.0. See :ref:`user_guide_vllm_enhancement` for storage configuration.
 
@@ -218,6 +218,31 @@ SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavi
 Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment or launch ``envs`` to change the Xavier handoff wait limit (default: 600 seconds). Increase it for long prefill queues or large prompts. Unfinished directory rooms expire after this interval; completed directory records expire after this interval unless the active decode request renews its lease. Both roles release them on completion.
 
 SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=false``; each request transfers its full prompt KV. Prefill's local radix cache remains available. Enabling decode radix caching is rejected at launch.
+
+TRT-LLM
+~~~~~~~
+
+.. versionadded:: v4.1.0
+
+Use the same ``replica_config`` with ``model_engine="TRT-LLM"``, ``model_name="qwen3"``, ``model_size_in_billions="0_6"``, ``model_format="pytorch"`` and ``quantization="none"`` through the Python clients, REST API or CLI. Both roles require Linux/CUDA, TensorRT-LLM ``1.2.1``, BF16 dense Qwen3 weights and KV, one worker and one GPU per replica (TP=PP=CP=1). Chunked prefill and overlap scheduling must remain disabled. Different engines, quantization, multimodal input, LoRA, speculative decoding and ``cache_salt`` are unsupported.
+
+.. _user_guide_pd_trt_native:
+
+Native NIXL
+^^^^^^^^^^^
+
+For native TRT P/D, set ``transfer_backend_type="nixl"`` and omit ``enable_xavier`` and ``xavier_cache_bytes``. TRT runs a context-only request on prefill, transfers its native context metadata and first sampled token, and resumes a generation-only request on decode using TRT's NIXL transceiver. NIXL must be available in both model environments. ``cache_transceiver_config.kv_transfer_timeout_ms`` defaults to 30000 and can be overridden in the launch arguments. The router releases the prefill request on completion, failure or cancellation. Measure both transports against ordinary replicas for your workload.
+
+A ``cache_transceiver_config.kv_transfer_sender_future_timeout_ms`` value of ``None`` is normalized to 1000 ms so the executor can process cancellation even without a decode receiver. This does not change ``kv_transfer_timeout_ms=None``, which disables the overall transfer deadline.
+
+.. _user_guide_pd_trt_xavier:
+
+Xavier (default)
+^^^^^^^^^^^^^^^^
+
+The default Xavier path uses NIXL to transfer live 64-token KV pages, including a partially filled final page, directly between GPUs. A separate transfer process maps the TRT KV pool through CUDA IPC. Source slots stay pinned until GPU reads finish; decode waits for writes and replays the final prompt token. Install ``xoscar[nixl]>=0.11.1`` in each model environment and use reachable worker addresses. Omit ``xavier_cache_bytes`` and retained GPU history settings. Transfer failures raise errors without CPU staging or full-prefill fallback. Relaunch the model after a transfer-worker restart. Directory counters ``gpu_bytes`` and ``imported_tokens`` confirm completed imports; ``host_bytes`` stays zero.
+
+Xavier loads KV asynchronously while other requests continue decoding. Cancelled decode requests retain their destination slots until all writes finish. Each transfer buffer is bounded by the maximum request KV size, with a 512 MiB target and a minimum of one KV page. Reserve GPU memory for both transfer buffers in addition to model weights and TRT's KV pool.
 
 MLX
 ~~~

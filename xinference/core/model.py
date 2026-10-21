@@ -504,6 +504,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             raise ValueError("SGLang P/D bootstrap requires a SGLang replica")
         return self._model.get_pd_bootstrap()
 
+    @rpc_context
+    async def release_trt_pd_request(self, request_id: str) -> None:
+        from ..model.llm.trt_llm.core import TRTLLMModel
+
+        if not isinstance(self._model, TRTLLMModel):
+            raise ValueError("TRT-LLM P/D release requires a TRT-LLM replica")
+        await self._model.release_pd_request(request_id)
+
     async def load(self):
         self._model_state = "loading"
         try:

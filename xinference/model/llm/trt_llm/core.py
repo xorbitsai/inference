@@ -7,7 +7,7 @@ import logging
 import sys
 import time
 import uuid
-from typing import Any, AsyncGenerator, Dict, Optional, Union
+from typing import Any, AsyncGenerator, Dict, Optional, Union, cast
 
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import Completion, CompletionChunk, CompletionUsage
@@ -29,6 +29,7 @@ class TRTLLMModel(LLM, ChatModelMixin):
         self._tokenizer = None
         self._requests: Dict[str, Any] = {}
         self._cache_enabled = False
+        self._pd = None
 
     @classmethod
     def check_lib(cls):
@@ -62,6 +63,9 @@ class TRTLLMModel(LLM, ChatModelMixin):
         if config.pop("n_worker", 1) != 1:
             raise ValueError("TRT-LLM currently requires one worker per replica")
         cache_config = config.pop("_xavier_cache_config", None)
+        native_pd = config.pop("_nixl_config", None)
+        if cache_config is not None and native_pd is not None:
+            raise ValueError("Choose either TRT-LLM native or Xavier transport")
         self._enable_thinking = config.pop("enable_thinking", True)
         reasoning = config.pop("reasoning_content", False)
         self.prepare_parse_reasoning_content(reasoning, self._enable_thinking)
@@ -73,6 +77,11 @@ class TRTLLMModel(LLM, ChatModelMixin):
         if "_mpi_session" in config or "mpi_session" in config:
             raise ValueError("The TRT-LLM MPI session is managed by Xinference")
         config["backend"] = "pytorch"
+        pd_contract = None
+        if native_pd is not None:
+            from .pd import configure_native
+
+            pd_contract = configure_native(self.model_path, config, native_pd)
         if cache_config is not None:
             from .xavier import configure_xavier
 
@@ -84,21 +93,42 @@ class TRTLLMModel(LLM, ChatModelMixin):
             prepare_runtime(config)
             self._engine = Engine(model=self.model_path, **config)
             self._tokenizer = self._engine.tokenizer
+            role = (native_pd or cache_config or {}).get("role")
+            if role is not None:
+                from .pd import TRTLLMPD
+
+                self._pd = TRTLLMPD(
+                    role, "nixl" if native_pd is not None else "xavier", pd_contract
+                )
+                self._pd.bind_engine(self._engine)
         except BaseException:
             self.stop()
             raise
 
     def stop(self):
+        if self._pd is not None:
+            try:
+                self._pd.close()
+            except Exception:
+                logger.warning("Could not close TRT-LLM P/D handoffs", exc_info=True)
+        for request in list(self._requests.values()):
+            try:
+                request.abort()
+            except Exception:
+                logger.warning(
+                    "Could not abort TRT-LLM request during shutdown", exc_info=True
+                )
+        if self._cache_enabled:
+            from .gpu import close_service
+
+            # Stop the importer before freeing C++ memory. If stopping fails,
+            # retain the owning engine so live DMA cannot access freed slots.
+            close_service()
         try:
-            for request in list(self._requests.values()):
-                try:
-                    request.abort()
-                except Exception:
-                    logger.warning(
-                        "Could not abort TRT-LLM request during shutdown", exc_info=True
-                    )
             if self._engine is not None:
                 self._engine.shutdown()
+                if self._pd is not None:
+                    self._pd.engine_stopped()
         finally:
             self._requests.clear()
             self._engine = None
@@ -106,6 +136,10 @@ class TRTLLMModel(LLM, ChatModelMixin):
                 connector = sys.modules.get("xinference.model.llm.trt_llm.connector")
                 if connector is not None:
                     connector.close_clients()
+
+    async def release_pd_request(self, request_id: str) -> None:
+        if self._pd is not None:
+            await self._pd.release(request_id)
 
     async def abort_request(self, request_id: str) -> str:
         request = self._requests.get(request_id)
@@ -184,11 +218,27 @@ class TRTLLMModel(LLM, ChatModelMixin):
         tokens, params = self._sampling_params(prompt, config)
         request_id = request_id or str(uuid.uuid4())
         created = int(time.time())
+        pd_state = None
+        prefill = self._pd is not None and self._pd.role == "prefill"
+        if prefill and config.get("stream"):
+            raise ValueError("TRT-LLM prefill requires a non-streaming P/D request")
+        if self._pd is not None:
+            pd_state = await self._pd.prepare(
+                request_id, tokens, config.get("_pd_kv_transfer_params")
+            )
+            if prefill:
+                params.max_tokens = 1
+        elif config.get("_pd_kv_transfer_params") is not None:
+            raise ValueError("TRT-LLM remote prefill requires explicit P/D roles")
 
         def start():
             if request_id in self._requests:
                 raise ValueError("A TRT-LLM request with this ID is already active")
-            request = self._engine.generate_async(tokens, params, streaming=True)
+            request = (
+                self._pd.submit(self._engine, tokens, params, pd_state)
+                if self._pd is not None
+                else self._engine.generate_async(tokens, params, streaming=True)
+            )
             self._requests[request_id] = request
             return request
 
@@ -202,11 +252,26 @@ class TRTLLMModel(LLM, ChatModelMixin):
                 )
             finally:
                 self._requests.pop(request_id, None)
+                if self._pd is not None and self._pd.backend == "xavier":
+                    from .pd import forget_request
+
+                    forget_request(request)
+
+        owns_prepared_state = (
+            pd_state is not None
+            and self._pd is not None
+            and self._pd.backend == "xavier"
+        )
 
         async def stream():
-            request = start()
+            request = None
             try:
+                if owns_prepared_state:
+                    yield None  # Enter cleanup before transferring this stream.
+                request = start()
                 async for output in request:
+                    if self._pd is not None:
+                        self._pd.check_import(pd_state)
                     chunk = CompletionChunk(
                         id=request_id,
                         object="text_completion",
@@ -246,14 +311,24 @@ class TRTLLMModel(LLM, ChatModelMixin):
                         usage=self._usage(request),
                     )
             finally:
-                finish(request)
+                if request is not None:
+                    finish(request)
+                if self._pd is not None:
+                    await self._pd.release(request_id)
 
         if config.get("stream", False):
-            return stream()
-        request = start()
+            result_stream = stream()
+            if owns_prepared_state:
+                await anext(result_stream)
+            return result_stream
+        request = None
+        published = False
         try:
+            request = start()
             output = await request
-            return Completion(
+            if self._pd is not None:
+                self._pd.check_import(pd_state)
+            result = Completion(
                 id=request_id,
                 object="text_completion",
                 created=created,
@@ -269,8 +344,17 @@ class TRTLLMModel(LLM, ChatModelMixin):
                     for choice in output.outputs
                 ],
             )
+            if prefill:
+                cast(Dict[str, Any], result)["_pd_kv_transfer_params"] = (
+                    await self._pd.publish(request_id, tokens, output)
+                )
+                published = True
+            return result
         finally:
-            finish(request)
+            if request is not None:
+                finish(request)
+            if self._pd is not None and (not prefill or not published):
+                await self._pd.release(request_id)
 
     async def async_chat(self, messages, generate_config=None, request_id=None):
         config = dict(generate_config or {})
@@ -307,11 +391,31 @@ class TRTLLMModel(LLM, ChatModelMixin):
         )
         result = await self.async_generate(prompt, config, request_id)
         if config.get("stream"):
-            return self._async_to_chat_completion_chunks(
+            chunks = self._async_to_chat_completion_chunks(
                 result, self.reasoning_parser, context
             )
+            if self._pd is not None and self._pd.backend == "xavier":
+
+                async def owned_chat():
+                    try:
+                        yield None
+                        async for chunk in chunks:
+                            yield chunk
+                    finally:
+                        try:
+                            await chunks.aclose()
+                        finally:
+                            await result.aclose()
+
+                owned = owned_chat()
+                await anext(owned)
+                return owned
+            return chunks
         token = chat_context_var.set(context)
         try:
-            return self._to_chat_completion(result, self.reasoning_parser)
+            response = self._to_chat_completion(result, self.reasoning_parser)
+            if "_pd_kv_transfer_params" in result:
+                response["_pd_kv_transfer_params"] = result["_pd_kv_transfer_params"]
+            return response
         finally:
             chat_context_var.reset(token)

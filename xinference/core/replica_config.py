@@ -234,12 +234,14 @@ def validate_pd_replica_configs(
             raise ValueError("Per-replica engine settings require explicit PD roles")
         return False
     if (
-        not engines <= {"vllm", "sglang", "mlx"}
+        not engines <= {"vllm", "sglang", "mlx", "trt-llm"}
         or (model_type or "LLM").lower() != "llm"
     ):
         raise ValueError(
-            "PD separation requires model_type=LLM and model_engine=vLLM, SGLang or MLX"
+            "PD separation requires model_type=LLM and model_engine=vLLM, SGLang, MLX or TRT-LLM"
         )
+    if "trt-llm" in engines and len(engines) > 1:
+        raise ValueError("TRT-LLM P/D currently requires same-engine replicas")
     if roles != {"prefill", "decode"}:
         raise ValueError(
             "PD separation requires both prefill and decode replicas, without hybrid replicas"

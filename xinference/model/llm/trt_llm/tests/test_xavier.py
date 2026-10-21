@@ -202,13 +202,18 @@ def test_prefix_lookup_leaves_last_token_and_respects_local_hits(connector):
     )
     scheduler._pending = {}
     scheduler._allocations = {}
+    scheduler._pd_requests = {}
     seen = []
 
     def read(keys):
         seen.extend(keys)
         return [torch.zeros(16, dtype=torch.uint8) for _ in keys]
 
-    scheduler.client = SimpleNamespace(capacity_bytes=4096, read_prefix=read)
+    scheduler._pd_sources = {}
+    scheduler._pd_destinations = {}
+    scheduler.client = SimpleNamespace(
+        pd_gpu=False, capacity_bytes=4096, read_prefix=read
+    )
     request = SimpleNamespace(request_id=1, get_tokens=lambda beam: list(range(12)))
     assert scheduler.get_num_new_matched_tokens(request, 0) == (8, False)
     assert len(seen) == 2  # The third complete page includes the final token.
