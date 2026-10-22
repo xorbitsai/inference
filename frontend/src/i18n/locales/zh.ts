@@ -746,9 +746,9 @@ const zh = {
   },
   runningModels: {
     reload: {
-      title: '重载参数',
+      title: '重新配置 / 升级模型',
       description:
-        '引擎参数变更会保留 GPU 权重并重建引擎。等待当前请求结束并应用变更期间，服务暂停，新请求返回 HTTP 503。不能修改并行度、精度和量化方式。',
+        '新引擎启动期间，原引擎继续服务。新引擎就绪后才接收新请求，已有请求仍由原引擎完成。并行方式、精度和量化不能修改。',
       disabled: '修改引擎参数需要在启动时启用保留 GPU 权重。',
       reasoningHint: '推理内容解析仅更新解析器，不重启引擎；当前请求完成后生效。',
       imageLimit: '每个请求最多图片数',
@@ -759,6 +759,9 @@ const zh = {
       loading: '正在重建引擎',
       restoring: '正在恢复原配置',
       restored: '已恢复原配置。',
+      python: 'Python 可执行文件（可选）',
+      environmentHint:
+        '留空使用模型当前环境。目标环境需要预先安装 Xinference 和模型引擎。兼容版本共享显存中的权重；版本不兼容时，需要额外显存加载另一份权重。准备失败时，原引擎继续服务。',
     },
     searchPlaceholder: '搜索模型名称或模型UID...',
     loadingModels: '模型加载中...',
@@ -1300,6 +1303,20 @@ const zh = {
     },
   },
   clusterInfo: {
+    relaunch: {
+      title: '重启 / 升级 Worker',
+      description: '替换 Worker，同时保留模型进程和正在执行的推理。模型引擎仍使用原来的版本。',
+      python: 'Python 可执行文件（可选）',
+      environmentHint:
+        '留空使用当前环境重启。升级时填写这台 Worker 机器上已安装好的 Python 路径，此处不会安装软件包。',
+      history: 'Worker 重启记录',
+      starting: '正在启动新 Worker',
+      transferring: '正在接管模型',
+      pending: '等待确认接管结果',
+      succeeded: 'Worker 已替换',
+      failed: '替换失败',
+      pendingHint: '接管结果尚未确定，请保持新旧进程运行，页面会继续更新状态。',
+    },
     pageDescription:
       '查看您的 XInference 集群的当前状态——包括主管节点、工作节点、路由节点及其硬件资源。',
     supervisor: '主管节点',

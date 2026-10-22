@@ -769,9 +769,9 @@ const ja = {
   },
   runningModels: {
     reload: {
-      title: 'パラメータを再読み込み',
+      title: 'モデルの再設定 / 更新',
       description:
-        'エンジンのパラメーター変更は GPU の重みを保持してエンジンを再構築します。現在のリクエストの完了と変更の適用を待つ間、サービスは一時停止し、新しいリクエストには HTTP 503 を返します。並列度、精度、量子化方式は変更できません。',
+        '新しいエンジンの起動中も現在のエンジンが処理を継続します。準備完了後に新規リクエストを切り替え、処理中のリクエストは元のエンジンで完了します。並列設定、精度、量子化は変更できません。',
       disabled: 'エンジンパラメーターを変更するには、起動時に GPU の重み保持を有効にしてください。',
       reasoningHint:
         '推論内容の解析はエンジンを再起動せずに更新されます。現在のリクエストが完了してから適用されます。',
@@ -783,6 +783,9 @@ const ja = {
       loading: 'エンジンを再構築中',
       restoring: '以前の設定を復元中',
       restored: '以前の設定を復元しました。',
+      python: 'Python 実行ファイル（省略可）',
+      environmentHint:
+        '空欄の場合はモデルの現在の環境を使用します。対象環境には Xinference とエンジンを事前にインストールしてください。互換バージョンは重みを共有し、非互換バージョンは別の重み用メモリが必要です。準備に失敗しても現在のエンジンは処理を継続します。',
     },
     searchPlaceholder: 'モデル名またはモデルUIDを検索...',
     loadingModels: 'モデルを読み込み中...',
@@ -1175,6 +1178,22 @@ const ja = {
     },
   },
   clusterInfo: {
+    relaunch: {
+      title: 'Worker の再起動 / 更新',
+      description:
+        'モデルプロセスと実行中の推論を維持して Worker を置き換えます。モデルエンジンのバージョンは変わりません。',
+      python: 'Python 実行ファイル（省略可）',
+      environmentHint:
+        '空欄の場合は現在の環境で再起動します。更新する場合は、この Worker マシンにインストール済みの Python パスを指定します。パッケージはインストールされません。',
+      history: 'Worker の再起動履歴',
+      starting: '新しい Worker を起動中',
+      transferring: 'モデルの管理を移行中',
+      pending: '移行結果を確認中',
+      succeeded: 'Worker を置換しました',
+      failed: '置換に失敗しました',
+      pendingHint:
+        '移行結果がまだ確定していません。両方のプロセスを動作させたままにしてください。状態は引き続き更新されます。',
+    },
     pageDescription:
       'Supervisor、Worker、Router ノードとそのハードウェアリソースを含む XInference クラスターの現在の状態を確認します。',
     supervisor: 'Supervisor ノード',

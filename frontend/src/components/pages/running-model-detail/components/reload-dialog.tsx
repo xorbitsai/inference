@@ -21,6 +21,10 @@ interface ReloadConfig {
   model_config: Record<string, number | boolean | Record<string, number>>;
   parameters: Record<string, string>;
   hot_parameters?: string[];
+  engine?: string;
+  engine_version?: string;
+  python_executable?: string;
+  can_upgrade_environment?: boolean;
 }
 interface ReloadStatus {
   operation_id?: string;
@@ -52,6 +56,7 @@ export function ReloadDialog({
   const [job, setJob] = useState<ReloadStatus | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [python, setPython] = useState('');
   const url = `/v1/models/${encodeURIComponent(modelUid)}/reload`;
   const busy = submitting || job?.status === 'reloading';
 
@@ -61,6 +66,7 @@ export function ReloadDialog({
     setConfig(null);
     setJob(null);
     setError('');
+    setPython('');
     Promise.all([
       request.get<ReloadConfig>(`${url}/config`, { suppressGlobalError: true }),
       request.get<ReloadStatus>(url, { suppressGlobalError: true }),
@@ -147,7 +153,7 @@ export function ReloadDialog({
       setJob(
         await request.post<ReloadStatus>(
           url,
-          { model_config: patch },
+          { model_config: patch, ...(python.trim() ? { python_executable: python.trim() } : {}) },
           { suppressGlobalError: true }
         )
       );
@@ -165,10 +171,16 @@ export function ReloadDialog({
           <DialogTitle>{t('runningModels.reload.title')}</DialogTitle>
           <DialogDescription>{t('runningModels.reload.description')}</DialogDescription>
         </DialogHeader>
+        {config?.engine_version && (
+          <p className="text-sm text-muted-foreground">
+            {config.engine} {config.engine_version}
+          </p>
+        )}
         {config?.enabled === false && (
           <p className="text-sm">{t('runningModels.reload.disabled')}</p>
         )}
         {config?.hot_parameters?.includes('reasoning_content') &&
+          !python.trim() &&
           Object.keys(patch).every((key) => config.hot_parameters?.includes(key)) && (
             <p className="text-sm text-muted-foreground">
               {t('runningModels.reload.reasoningHint')}
@@ -205,6 +217,19 @@ export function ReloadDialog({
             )}
           </label>
         ))}
+        {config?.enabled && config.can_upgrade_environment !== false && (
+          <label className="space-y-2 text-sm">
+            <span>{t('runningModels.reload.python')}</span>
+            <Input
+              aria-label={t('runningModels.reload.python')}
+              value={python}
+              disabled={busy}
+              onChange={(event) => setPython(event.target.value)}
+              placeholder={config.python_executable || '/opt/xinference/bin/python'}
+            />
+            <p className="text-muted-foreground">{t('runningModels.reload.environmentHint')}</p>
+          </label>
+        )}
         {job?.status === 'reloading' && (
           <p role="status" className="text-sm">
             {t(`runningModels.reload.${job.stage || 'queued'}`)}
@@ -221,7 +246,7 @@ export function ReloadDialog({
             {t('common.cancel')}
           </Button>
           <Button
-            disabled={!parameters.length || busy || !Object.keys(patch).length}
+            disabled={!parameters.length || busy || (!Object.keys(patch).length && !python.trim())}
             onClick={submit}
           >
             {t('runningModels.reload.apply')}

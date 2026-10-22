@@ -49,6 +49,7 @@ let posts: { url: string; body: unknown }[] = [];
 let imageLimits: Record<string, number> | undefined;
 let hotParameters: string[];
 let imageField: string;
+let canUpgradeEnvironment: boolean;
 let initial: { status: string; stage?: string; error?: string; restored?: boolean } = {
   status: 'idle',
   stage: 'queued',
@@ -58,6 +59,7 @@ const originalGet = request.get,
   originalPost = request.post;
 beforeEach(() => {
   enabled = true;
+  canUpgradeEnvironment = true;
   polls = 0;
   closed = 0;
   refreshed = 0;
@@ -71,6 +73,7 @@ beforeEach(() => {
     if (url.endsWith('/config'))
       return {
         enabled,
+        can_upgrade_environment: canUpgradeEnvironment,
         model_config: {
           max_num_seqs: 16,
           enforce_eager: false,
@@ -151,6 +154,28 @@ it('submits typed changed fields and follows the asynchronous reload', async () 
   });
   assert.equal(refreshed, 1);
   assert.equal(closed, 1);
+});
+it('can upgrade the model environment without changing engine parameters', async () => {
+  await render();
+  const input = document.querySelector<HTMLInputElement>(
+    'input[aria-label="runningModels.reload.python"]'
+  )!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(
+      input,
+      '/opt/new/bin/python'
+    );
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  assert.ok(!applyButton().disabled);
+  await act(async () => applyButton().click());
+  assert.deepEqual(posts[0].body, { model_config: {}, python_executable: '/opt/new/bin/python' });
+});
+it('hides environment selection without administrator access', async () => {
+  canUpgradeEnvironment = false;
+  await render();
+  assert.equal(document.querySelector('input[aria-label="runningModels.reload.python"]'), null);
+  assert.ok(document.querySelector('input[aria-label="max_num_seqs"]'));
 });
 it('disables reload when no parameters can be updated', async () => {
   enabled = false;

@@ -186,6 +186,7 @@ def validate_pd_replica_configs(
         (cfg.model_engine or model_engine or "").lower() for cfg in configs or []
     }
     reserved = {
+        "model_python_executable",
         "model_uid",
         "model_name",
         "model_size_in_billions",

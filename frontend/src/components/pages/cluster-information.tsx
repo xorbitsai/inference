@@ -14,6 +14,13 @@ import {
 import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
+import { Button } from '@/components/ui/button';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
+import {
+  useWorkerRelaunches,
+  WorkerRelaunchDialog,
+  WorkerRelaunchHistory,
+} from './worker-relaunch';
 import { formatFileSize } from '@/lib/utils';
 import type { ClusterInfo, ClusterInformationItem, RouterNodeClusterInfo } from '@/types/services';
 
@@ -104,6 +111,9 @@ export default function ClusterInfoPage() {
   const { t } = useI18n();
   const { clusterVersion, clusterUIConfig, globalReady } = useGlobal();
   const tokenRouterEnabled = globalReady && clusterUIConfig?.token_router_enabled !== false;
+  const { isAdmin } = useMenuAuth();
+  const [relaunchAddress, setRelaunchAddress] = useState<string | null>(null);
+  const relaunches = useWorkerRelaunches(globalReady && isAdmin);
 
   const supervisorSummary = useMemo(() => {
     const addresses: string[] = [];
@@ -332,6 +342,7 @@ export default function ClusterInfoPage() {
                   <TableHead>{t('clusterInfo.gpuLoad')}</TableHead>
                   <TableHead>{t('clusterInfo.gpuMemUsage')}</TableHead>
                   <TableHead>{t('clusterInfo.gpuMemTotal')}</TableHead>
+                  {isAdmin && <TableHead>{t('clusterInfo.relaunch.title')}</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -350,11 +361,36 @@ export default function ClusterInfoPage() {
                     <TableCell>{row.gpuLoad}</TableCell>
                     <TableCell>{row.gpuMemoryUsage}</TableCell>
                     <TableCell>{row.gpuMemoryTotal}</TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={
+                            supervisors.some((item) => item.ip_address === row.ip_address) ||
+                            relaunches.busyAddresses.has(row.ip_address)
+                          }
+                          onClick={() => setRelaunchAddress(row.ip_address)}
+                        >
+                          {t('clusterInfo.relaunch.title')}
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+          {isAdmin && (
+            <WorkerRelaunchHistory operations={relaunches.operations} error={relaunches.error} />
+          )}
+          {isAdmin && (
+            <WorkerRelaunchDialog
+              address={relaunchAddress}
+              onClose={() => setRelaunchAddress(null)}
+              onStarted={relaunches.addOperation}
+            />
+          )}
         </section>
 
         {tokenRouterEnabled && (

@@ -56,6 +56,7 @@ logger = logging.getLogger(__name__)
 
 from ..device_utils import empty_cache
 from .exceptions import ModelNotReadyError
+from .model_generation import ModelGenerationMixin
 from .rpc_context import rpc_context
 from .utils import CancelMixin, json_dumps, log_async, parse_replica_model_uid
 
@@ -96,7 +97,11 @@ def request_limit(fn):
 
     async def wrapped_func(self, *args, **kwargs):
         if getattr(self, "_model_state", None) == "reloading":
-            raise ModelNotReadyError("Model is reloading")
+            admission = self.__dict__.get("_reload_admission")
+            if admission is None:
+                raise ModelNotReadyError("Model is reloading")
+            await admission.wait()
+            self._require_ready()
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
@@ -211,10 +216,13 @@ def oom_check(fn):
         return _wrapper
 
 
-class ModelActor(xo.StatelessActor, CancelMixin):
+class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     _replica_model_uid: Optional[str]
 
     async def __pre_destroy__(self):
+        await self.close_model_generations()
+        for cache in self.__dict__.get("_generation_caches", {}).values():
+            await asyncio.to_thread(cache.stop)
         from ..model.embedding.core import EmbeddingModel
         from ..model.llm.sglang.core import SGLANGModel
         from ..model.llm.transformers.core import PytorchModel as LLMPytorchModel
@@ -279,8 +287,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         shard: Optional[int] = 0,
         driver_info: Optional[dict] = None,  # for model across workers
         model_engine: Optional[str] = None,
+        model_python_executable: Optional[str] = None,
     ):
         super().__init__()
+        self._generation_python_executable = model_python_executable
 
         from ..model.llm.vllm.core import VLLMModel
 
@@ -448,7 +458,12 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         await asyncio.gather(*coros)
 
     def get_worker_binding(self):
-        return {"protocol": 1, "address": self._worker_address}
+        binding = {"protocol": 1, "address": self._worker_address}
+        if self.__dict__.get("_serving_generation") is not None or self.__dict__.get(
+            "_retiring_generations"
+        ):
+            binding["generation_routing"] = 1
+        return binding
 
     def rebind_worker(self, expected_address: str, address: str, generation: int):
         """Replace the control-plane binding without touching the model runtime."""
@@ -587,7 +602,16 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         return self._model
 
     def get_reload_config(self) -> Dict[str, Any]:
-        return self._get_weight_cached_model().get_reload_config()
+        import sys
+        from importlib.metadata import PackageNotFoundError, version
+
+        config = self._get_weight_cached_model().get_reload_config()
+        config["python_executable"] = sys.executable
+        try:
+            config["engine_version"] = version(config["engine"])
+        except PackageNotFoundError:
+            config["engine_version"] = None
+        return config
 
     async def validate_reload(self, model_config: Dict[str, Any]) -> Dict[str, Any]:
         self._require_ready()
@@ -606,6 +630,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         await self.validate_reload(model_config)
         model = self._get_weight_cached_model()
         self._model_state = "reloading"
+        self._reload_admission = asyncio.Event()
         self._reload_status = {"stage": "draining"}
         try:
             deadline = time.monotonic() + drain_timeout
@@ -634,6 +659,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             self._model_state = "ready"
             self._reload_status.update(stage="ready")
             return not model._is_hot_patch(model_config)
+        finally:
+            self._reload_admission.set()
 
     def need_create_pools(self):
         return getattr(self._model, "need_create_pools", False)
@@ -687,6 +714,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     async def stop(self):
         self._model_state = "stopping"
+        await self.close_model_generations()
         await ModelActor._close_gpu_caches(self)
         if hasattr(self._model, "stop"):
             await asyncio.to_thread(self._model.stop)
@@ -1111,6 +1139,38 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     ) -> str:
         from ..model.scheduler.core import AbortRequestMessage
 
+        generation_results = []
+        active_error = None
+        active = self.__dict__.get("_serving_generation")
+        for ref in [
+            active,
+            *self.__dict__.get("_retiring_generations", []),
+        ]:
+            if ref is not None:
+                try:
+                    generation_results.append(
+                        await ref.abort_request(request_id, block_duration)
+                    )
+                except Exception as error:
+                    if ref == active:
+                        active_error = error
+                    logger.debug("Generation could not abort request", exc_info=True)
+        generation_result = next(
+            (
+                value
+                for value in generation_results
+                if value != AbortRequestMessage.NO_OP.name
+            ),
+            AbortRequestMessage.NO_OP.name,
+        )
+        if (generation_results or active_error is not None) and not self._serve_count:
+            if (
+                active_error is not None
+                and generation_result == AbortRequestMessage.NO_OP.name
+            ):
+                raise active_error
+            return generation_result
+
         # Always cancel the running task first
         task = self._running_tasks.get(request_id)
         cancelled = (
@@ -1123,8 +1183,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         # If model has abort_request method, delegate to it
         if hasattr(self._model, "abort_request"):
             result = await self._model.abort_request(request_id)
-            if result is not None and (
-                not cancelled or result != AbortRequestMessage.NO_OP.name
+            if (
+                result is not None
+                and (not cancelled or result != AbortRequestMessage.NO_OP.name)
+                and (
+                    result != AbortRequestMessage.NO_OP.name
+                    or generation_result == AbortRequestMessage.NO_OP.name
+                )
+                and (result != AbortRequestMessage.NO_OP.name or active_error is None)
             ):
                 return result
 
@@ -1132,7 +1198,12 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             return AbortRequestMessage.DONE.name
 
         # Otherwise return NO_OP for legacy models or when model doesn't handle abort
-        return AbortRequestMessage.NO_OP.name
+        if (
+            active_error is not None
+            and generation_result == AbortRequestMessage.NO_OP.name
+        ):
+            raise active_error
+        return generation_result
 
     @request_limit
     @log_async(logger=logger)
@@ -1814,4 +1885,21 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for controlnet_model_list."
+        )
+
+
+class ModelGenerationActor(ModelActor):
+    """A fresh interpreter loads the model wrapper from its installed package."""
+
+    def __init__(self, snapshot, supervisor_address, worker_address):
+        from .model_generation import build_generation_model
+
+        super().__init__(
+            supervisor_address,
+            worker_address,
+            build_generation_model(snapshot),
+            replica_model_uid=snapshot["model_uid"],
+            model_engine=snapshot.get("model_engine", snapshot["engine"]),
+            request_limits=snapshot["request_limits"],
+            model_python_executable=snapshot.get("model_python_executable"),
         )

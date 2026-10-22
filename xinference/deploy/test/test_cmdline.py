@@ -279,9 +279,16 @@ def test_cmdline_of_custom_model(setup):
 
 
 @pytest.mark.parametrize("replacement", [None, "127.0.0.1:9978"])
-def test_worker_command_passes_endpoint_and_internal_address(monkeypatch, replacement):
+@pytest.mark.parametrize("hosted", [False, True])
+def test_worker_command_passes_endpoint_and_internal_address(
+    monkeypatch, replacement, hosted
+):
     runner = CliRunner()
     calls = {}
+    if hosted:
+        monkeypatch.setenv("XINFERENCE_WORKER_HOST_SOCKET", "/tmp/host.sock")
+    else:
+        monkeypatch.delenv("XINFERENCE_WORKER_HOST_SOCKET", raising=False)
 
     class DummyRESTfulClient:
         def __init__(self, base_url):
@@ -310,6 +317,11 @@ def test_worker_command_passes_endpoint_and_internal_address(monkeypatch, replac
         + (["--replace-worker", replacement] if replacement else []),
     )
 
+    if replacement and os.name == "posix" and not hosted:
+        assert result.exit_code == 2
+        assert "relaunch" in result.output
+        assert not calls
+        return
     assert result.exit_code == 0
     assert calls["base_url"] == "http://127.0.0.1:9997"
     assert calls["resolved"] is True
@@ -317,6 +329,9 @@ def test_worker_command_passes_endpoint_and_internal_address(monkeypatch, replac
     assert calls["main_kwargs"]["supervisor_endpoint"] == "http://127.0.0.1:9997"
 
     assert calls["main_kwargs"].get("replace_worker") == replacement
+    assert calls["main_kwargs"].get("use_process_host", False) is (
+        os.name == "posix" and not hosted
+    )
 
 
 @pytest.mark.platform_slow

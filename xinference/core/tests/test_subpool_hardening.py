@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 
 """Unit tests for sub-pool creation hardening (H1/H2/H3/C/G).
 
@@ -59,6 +60,10 @@ def _make_worker():
     self = _WorkerStub()
     self._subpool_creation_lock = asyncio.Lock()
     self._main_pool = MagicMock()
+    # Xoscar's in-process test pools have addresses without OS processes.
+    self._main_pool.sub_processes = {"in-process": None}
+    self._model_uid_to_subpool_pids = {}
+    self._retained_subpool_pids = WorkerActor._retained_subpool_pids.__get__(self)
     self._ensure_subpool_monitor = AsyncMock()
     self.release_devices = MagicMock()
     self.address = "test:1"
@@ -295,6 +300,7 @@ async def test_append_sub_pool_protected_timeout_kills_leftover_and_reraises(
     (PPID == this worker) and re-raises so callers run their own cleanup."""
     self = _make_worker()
     self._main_pool.append_sub_pool = _hang_coro
+    self._main_pool.sub_processes["serving"] = MagicMock(pid=7703)
 
     my_pid = os.getpid()
     matching = MagicMock()
@@ -305,8 +311,10 @@ async def test_append_sub_pool_protected_timeout_kills_leftover_and_reraises(
     }
     other = MagicMock()
     other.info = {"pid": 7702, "ppid": my_pid + 1, "cmdline": ["unrelated"]}
+    serving = MagicMock()
+    serving.info = {**matching.info, "pid": 7703}
     mock_psutil = MagicMock()
-    mock_psutil.process_iter.return_value = [matching, other]
+    mock_psutil.process_iter.return_value = [matching, other, serving]
     mock_psutil.NoSuchProcess = ProcessLookupError
     mock_psutil.AccessDenied = PermissionError
 
@@ -316,6 +324,7 @@ async def test_append_sub_pool_protected_timeout_kills_leftover_and_reraises(
 
     matching.kill.assert_called_once()
     other.kill.assert_not_called()
+    serving.kill.assert_not_called()
 
 
 async def test_append_sub_pool_protected_does_not_log_env_values(
@@ -346,7 +355,7 @@ async def test_append_sub_pool_protected_does_not_log_env_values(
 
 
 def _track_kill(sink):
-    async def _coro(devices, model_uid=""):
+    async def _coro(devices, model_uid="", **kwargs):
         sink.append((tuple(devices), model_uid))
         return [4242]
 
@@ -358,8 +367,13 @@ def _track_kill(sink):
 # ---------------------------------------------------------------------------
 
 
-async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(monkeypatch):
+@pytest.mark.parametrize("host_pid", [1, 9999])
+async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(
+    monkeypatch, host_pid
+):
     import xinference.core.worker as w
+
+    monkeypatch.setenv("XINFERENCE_WORKER_HOST_PID", str(host_pid))
 
     procs: dict = {}
 
@@ -373,13 +387,15 @@ async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(monkeypatch)
         procs[pid] = m
         return m
 
-    # 100: orphan vLLM (PPID==1, vllm cmdline) → killed
-    _make(100, 1, ["python", "-m", "vllm"])
-    # 200: live worker child (PPID != 1) → spared
-    _make(200, 9999, ["python", "-m", "vllm"])
+    # 100: unprotected vLLM adopted by the Worker host → killed
+    _make(100, host_pid, ["python", "-m", "vllm"])
+    # 200: protected model owned by the same Worker host → spared
+    _make(200, host_pid, ["python", "-m", "vllm"])
     # 300: orphan but non-vllm cmdline → spared
     _make(300, 1, ["python", "unrelated_app.py"])
 
+    # 400: live vLLM child of another non-init, non-host process → spared
+    _make(400, max(2, host_pid + 1), ["python", "-m", "vllm"])
     mock_psutil = MagicMock()
 
     def _process(pid):
@@ -393,9 +409,9 @@ async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(monkeypatch)
     mock_psutil.STATUS_ZOMBIE = "zombie"
 
     with patch("xinference.core.worker._snapshot_gpu_occupying_pids") as mock_snap:
-        mock_snap.return_value = {100, 200, 300}
+        mock_snap.return_value = {100, 200, 300, 400}
         with patch.dict("sys.modules", {"psutil": mock_psutil}):
-            killed = await w._kill_gpu_orphans_by_ppid([0])
+            killed = await w._kill_gpu_orphans_by_ppid([0], protected_pids={200})
 
     assert killed == [100]
     # pid 100 (orphan vLLM) gets terminate() then kill(); 200 and 300 are spared.
@@ -403,6 +419,7 @@ async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(monkeypatch)
     procs[100].kill.assert_called_once()
     procs[200].kill.assert_not_called()
     procs[300].kill.assert_not_called()
+    procs[400].kill.assert_not_called()
 
 
 async def test_kill_gpu_orphans_by_ppid_no_orphans_returns_empty(monkeypatch):

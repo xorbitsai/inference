@@ -449,7 +449,7 @@ it('connects the catalog star to the current account favorites API', async () =>
     beforeDelete = request.delete;
   const changes: { method: string; body: unknown }[] = [];
   request.get = async <T,>(url: string) =>
-    url === '/v1/model_favorites' ? (['wanted'] as T) : beforeGet<T>(url);
+    (url === '/v1/model_favorites' ? ['wanted'] : await beforeGet<T>(url)) as T;
   request.put = async <T,>(url: string, body: unknown) => {
     assert.equal(url, '/v1/model_favorites');
     changes.push({ method: 'PUT', body });
@@ -487,7 +487,7 @@ it('explains that anonymous browser imports are shared with all visitors', async
   window.localStorage.setItem('collectionArr', JSON.stringify(['wanted']));
   const beforeGet = request.get;
   request.get = async <T,>(url: string) =>
-    url === '/v1/model_favorites' ? ([] as T) : beforeGet<T>(url);
+    (url === '/v1/model_favorites' ? [] : await beforeGet<T>(url)) as T;
   try {
     await act(async () =>
       root.render(<LaunchModel routeType={ModelType.LLM} initialCustomType={ModelType.LLM} />)

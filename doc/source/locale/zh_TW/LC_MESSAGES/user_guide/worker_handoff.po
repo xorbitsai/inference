@@ -91,12 +91,58 @@ msgstr ""
 "選用請求欄位 ``python_executable`` 指定 Worker 所在機器上 Python "
 "執行檔的絕對路徑，例如另外安裝的新版環境；預設使用目前的直譯器。此操作不會安裝套件，保留的模型程序會繼續使用原本的環境與程式碼。"
 
-#: user_guide/worker_handoff.rst:29
-msgid ""
-"For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement explicitly with "
-"a different actor port and a free metrics exporter port:"
-msgstr "對於位址為 ``127.0.0.1:9978`` 的現有 Worker，也可以明確啟動替代 Worker，使用不同的 Actor 連接埠及可用的指標匯出連接埠："
-
 #: ../../source/user_guide/worker_handoff.rst
 msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
 msgstr "Supervisor 也會將所有權預留記錄儲存在 ``XINFERENCE_HOME/worker-handoffs.json``，以便在 Supervisor 重新啟動後繼續完成中斷的交接。替代 Worker 會持續更新原 Worker 位址對應的復原檔案，包含重新啟動後新載入的模型。"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:43
+msgid "Web UI"
+msgstr "Web 介面"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:45
+msgid ""
+"In **Cluster Information**, administrators can use **Restart / upgrade "
+"Worker** on a distributed Worker. Operation records remain visible when its "
+"address changes or the page is refreshed. This retains the current model "
+"processes; model-engine upgrades use **Reconfigure / upgrade model** in the "
+"running model's detail view."
+msgstr ""
+"在 **叢集資訊** 中，管理員可對分散式 Worker 使用 **重新啟動 / 升級 Worker**。Worker "
+"位址變更或頁面重新整理後，作業記錄仍然可見。此作業保留目前的模型程序；升級模型引擎請在執行中模型的詳細資料頁使用 **重新設定 / 升級模型**。"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:48
+msgid "Service and container ownership"
+msgstr "服務與容器中的程序歸屬"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:50
+msgid ""
+"On Linux and macOS, ``xinference-worker`` automatically keeps a stable "
+"Worker host as its main process. Replacement Workers register before "
+"handoff, so retirement of the original Worker does not stop its models, "
+"replacement, systemd service or container. Explicitly stopping the host "
+"terminates its owned processes. Custom launch commands can use the host "
+"wrapper below."
+msgstr ""
+"在 Linux 和 macOS 上，``xinference-worker`` 會自動保留固定的 Worker 託管程序作為主程序。替代 Worker "
+"在接管前向它註冊，因此原 Worker 結束不會停止模型、新 Worker、systemd "
+"服務或容器。明確停止託管程序會終止其管理的程序。自訂啟動命令可使用下列託管入口。"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:57
+msgid ""
+"A systemd service can keep its normal process-group cleanup, because the "
+"Worker host remains its main process:"
+msgstr "systemd 服務可保留正常的程序群組清理方式，因為 Worker 託管程序始終是服務的主程序："
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:68
+msgid ""
+"For Docker, use the same host command as the container command. Install or "
+"mount prepared Python environments inside the running container. Keep that "
+"container running during upgrades: replacing or stopping the container "
+"terminates its model processes and cannot preserve their GPU allocations."
+msgstr ""
+"在 Docker 中，使用相同的託管入口作為容器命令。在執行中的容器內安裝或掛載已準備好的 Python "
+"環境。升級期間保持該容器執行：替換或停止容器會終止模型程序，無法保留其 GPU 記憶體配置。"
+
+#: ../source/user_guide/worker_handoff.rst:31
+msgid "The CLI reports an error with guidance when ``--replace-worker`` would bypass the service host. Use the relaunch API for CLI-managed Workers and for unmanaged Workers started through the Python deployment API."
+msgstr "如果 ``--replace-worker`` 會繞過服務主程序，CLI 會回報錯誤並提供指引。對於 CLI 管理的 Worker，以及透過 Python 部署 API 啟動的非託管 Worker，請使用 relaunch API。"

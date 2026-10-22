@@ -179,6 +179,12 @@ def pool_transfer_received(pool, snapshot):
 
 
 class WorkerHandoffMixin:
+    def worker_process_host(self):
+        return os.environ.get("XINFERENCE_WORKER_HOST_SOCKET")
+
+    def model_generation_protocol(self):
+        return 1
+
     address: str
 
     def _initialize_handoff(self, standby):
@@ -298,6 +304,25 @@ class WorkerHandoffMixin:
             reservation_attempted = False
             try:
                 supervisor = await self._handoff_supervisor()
+                source_host = self.worker_process_host()
+                target_ref = None
+                generation_checked = False
+                if source_host:
+                    target_ref = await xo.actor_ref(
+                        address=target, uid=self.default_uid()
+                    )
+                    try:
+                        target_host = await xo.wait_for(
+                            target_ref.worker_process_host(), timeout
+                        )
+                    except AttributeError as error:
+                        raise ValueError(
+                            "Replacement Worker does not support the service process host"
+                        ) from error
+                    if target_host != source_host:
+                        raise ValueError(
+                            "Managed Workers must be relaunched through the Worker API so retained models remain in the same service or container"
+                        )
                 if self._model_uid_launching_guard or self._cache_uid_to_download_info:
                     raise RuntimeError(
                         "Worker still has model launch or download tasks"
@@ -323,13 +348,36 @@ class WorkerHandoffMixin:
                         )
                 for ref in self._model_uid_to_model.values():
                     binding = await xo.wait_for(ref.get_worker_binding(), timeout)
-                    if binding != {
-                        "protocol": PROTOCOL_VERSION,
-                        "address": self.address,
-                    }:
+                    if (
+                        binding.get("protocol") != PROTOCOL_VERSION
+                        or binding.get("address") != self.address
+                    ):
                         raise ValueError(
                             "Model process does not support this worker handoff protocol"
                         )
+                    if (
+                        binding.get("generation_routing") == 1
+                        and not generation_checked
+                    ):
+                        if target_ref is None:
+                            target_ref = await xo.actor_ref(
+                                address=target, uid=self.default_uid()
+                            )
+                        try:
+                            if (
+                                await xo.wait_for(
+                                    target_ref.model_generation_protocol(), timeout
+                                )
+                                != 1
+                            ):
+                                raise ValueError(
+                                    "Unsupported model generation protocol"
+                                )
+                        except AttributeError as error:
+                            raise ValueError(
+                                "Replacement Worker does not support upgraded model processes"
+                            ) from error
+                        generation_checked = True
                 snapshot = WorkerSnapshot(
                     PROTOCOL_VERSION,
                     ticket,
@@ -610,6 +658,14 @@ class WorkerHandoffCoordinator:
                     ref.rebind_worker(source, target.address, snapshot.generation),
                     timeout,
                 )
+                binding = await xo.wait_for(ref.get_worker_binding(), timeout)
+                if binding.get("generation_routing") == 1:
+                    await xo.wait_for(
+                        ref.rebind_model_generations(
+                            source, target.address, snapshot.generation
+                        ),
+                        timeout,
+                    )
             incoming["done"] = True
         except BaseException as error:
             if incoming["committed"]:

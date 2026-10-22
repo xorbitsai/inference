@@ -765,9 +765,9 @@ const ko = {
   },
   runningModels: {
     reload: {
-      title: '매개변수 재로드',
+      title: '모델 재설정 / 업그레이드',
       description:
-        '엔진 매개변수 변경 시 GPU 가중치를 유지하고 엔진을 재구축합니다. 현재 요청 완료 및 변경 적용을 기다리는 동안 서비스가 일시 중단되며 새 요청에는 HTTP 503을 반환합니다. 병렬도, 정밀도 및 양자화 방식은 변경할 수 없습니다.',
+        '새 엔진이 시작되는 동안 기존 엔진이 계속 요청을 처리합니다. 새 엔진이 준비된 후 새 요청을 전환하며, 진행 중인 요청은 기존 엔진에서 완료됩니다. 병렬 설정, 정밀도 및 양자화는 변경할 수 없습니다.',
       disabled: '엔진 매개변수를 변경하려면 시작 시 GPU 가중치 유지를 활성화하세요.',
       reasoningHint:
         '추론 내용 파싱은 엔진을 다시 시작하지 않고 변경됩니다. 현재 요청이 완료된 후 적용됩니다.',
@@ -779,6 +779,9 @@ const ko = {
       loading: '엔진 재구성 중',
       restoring: '이전 설정 복원 중',
       restored: '이전 설정이 복원되었습니다.',
+      python: 'Python 실행 파일 (선택 사항)',
+      environmentHint:
+        '비워 두면 모델의 현재 환경을 사용합니다. 대상 환경에 Xinference와 모델 엔진이 미리 설치되어 있어야 합니다. 호환 버전은 가중치를 공유하며, 호환되지 않는 버전에는 별도 가중치 메모리가 필요합니다. 준비에 실패해도 기존 엔진은 계속 서비스합니다.',
     },
     searchPlaceholder: '모델 이름 또는 모델 UID 검색...',
     loadingModels: '모델을 불러오는 중...',
@@ -1167,6 +1170,22 @@ const ko = {
     },
   },
   clusterInfo: {
+    relaunch: {
+      title: 'Worker 재시작 / 업그레이드',
+      description:
+        '모델 프로세스와 진행 중인 추론을 유지하면서 Worker를 교체합니다. 모델 엔진 버전은 그대로 유지됩니다.',
+      python: 'Python 실행 파일 (선택 사항)',
+      environmentHint:
+        '비워 두면 현재 환경에서 재시작합니다. 업그레이드하려면 이 Worker 머신에 설치된 Python 경로를 입력하세요. 패키지는 설치되지 않습니다.',
+      history: 'Worker 재시작 기록',
+      starting: '새 Worker 시작 중',
+      transferring: '모델 관리 이전 중',
+      pending: '이전 결과 확인 중',
+      succeeded: 'Worker 교체 완료',
+      failed: '교체 실패',
+      pendingHint:
+        '이전 결과가 아직 확정되지 않았습니다. 두 프로세스를 계속 실행해 주세요. 상태는 계속 갱신됩니다.',
+    },
     pageDescription:
       'Supervisor, Worker, Router 노드와 해당 하드웨어 리소스를 포함한 XInference 클러스터의 현재 상태를 확인합니다.',
     supervisor: '슈퍼바이저 노드',

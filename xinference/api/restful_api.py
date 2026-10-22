@@ -477,13 +477,26 @@ async def _cleanup_model_stream(
                 or isinstance(model_iterator, IteratorWrapper)
             ):
                 try:
-                    await model.decrease_serve_count()
+                    await _release_model_stream(model, model_iterator)
                 except (asyncio.CancelledError, Exception):
                     logger.exception(
                         "Failed to release serve count for %s request %s",
                         kind,
                         request_id,
                     )
+
+
+async def _release_model_stream(model, iterator) -> None:
+    """Release the slot on the actor that actually admitted this iterator."""
+    from xoscar.api import IteratorWrapper
+
+    if isinstance(iterator, IteratorWrapper):
+        model = iterator._actor_ref
+        if model is None:
+            model = await xo.actor_ref(
+                address=iterator._actor_addr, uid=iterator._actor_uid
+            )
+    await model.decrease_serve_count()
 
 
 def _request_credential(request: Request) -> str:
@@ -1776,6 +1789,7 @@ class RESTfulAPI(CancelMixin):
             "model_path",
             "enable_virtual_env",
             "virtual_env_packages",
+            "model_python_executable",
             "virtual_env_find_links",
             "envs",
             "replica_config",
@@ -1894,13 +1908,32 @@ class RESTfulAPI(CancelMixin):
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def get_model_reload_config(self, model_uid: str) -> JSONResponse:
+    async def get_model_reload_config(
+        self, model_uid: str, request: Request
+    ) -> JSONResponse:
         try:
             result = await (await self._get_supervisor_ref()).get_model_reload_config(
                 model_uid
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        auth = self.__dict__.get("_advanced_auth_service")
+        allowed = True
+        if auth is not None:
+            from fastapi.security import SecurityScopes
+
+            user = await auth(
+                request,
+                SecurityScopes(scopes=["models:list"]),
+                _request_credential(request),
+            )
+            allowed = "admin" in user.get("permissions", []) and not getattr(
+                request.state, "authenticated_api_key", None
+            )
+        result = dict(result)
+        result["can_upgrade_environment"] = allowed
+        if not allowed:
+            result.pop("python_executable", None)
         return JSONResponse(content=result)
 
     async def get_model_reload_status(self, model_uid: str) -> JSONResponse:
@@ -1922,19 +1955,36 @@ class RESTfulAPI(CancelMixin):
             if not isinstance(payload, dict) or set(payload) - {
                 "model_config",
                 "drain_timeout",
+                "python_executable",
             }:
-                raise ValueError("Expected model_config and optional drain_timeout")
-            config = payload.get("model_config")
+                raise ValueError(
+                    "Expected model_config and optional drain_timeout or python_executable"
+                )
+            from ..core.worker_relaunch import validate_relaunch_options
+
+            python_executable = payload.get("python_executable")
+            validate_relaunch_options(python_executable)
+            auth = self.__dict__.get("_advanced_auth_service")
+            if python_executable is not None and auth is not None:
+                from fastapi.security import SecurityScopes
+
+                await auth(
+                    request,
+                    SecurityScopes(scopes=["admin"]),
+                    _request_credential(request),
+                )
+            config = payload.get("model_config", {} if python_executable else None)
             metadata = await (await self._get_supervisor_ref()).get_model_reload_config(
                 model_uid
             )
             # Validate the request's shape and types before crossing the actor boundary.
-            if not isinstance(config, dict) or not config:
+            if not isinstance(config, dict) or (not config and not python_executable):
                 raise ValueError("model_config must be a non-empty object")
             if set(config) - set(metadata["parameters"]):
                 raise ValueError("Unsupported reload parameters")
             engine = metadata["engine"]
-            validate_reload_patch(engine, config)
+            if config:
+                validate_reload_patch(engine, config)
             timeout = payload.get("drain_timeout", 300)
             if (
                 type(timeout) not in (int, float)
@@ -1943,7 +1993,7 @@ class RESTfulAPI(CancelMixin):
             ):
                 raise ValueError("drain_timeout must be between 0 and 3600 seconds")
             result = await (await self._get_supervisor_ref()).reload_model(
-                model_uid, config, timeout
+                model_uid, config, timeout, python_executable=python_executable
             )
         except ModelNotReadyError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -3011,7 +3061,7 @@ class RESTfulAPI(CancelMixin):
                             or inspect.isgenerator(iterator)
                             or isinstance(iterator, IteratorWrapper)
                         ):
-                            await model.decrease_serve_count()
+                            await _release_model_stream(model, iterator)
 
             anthropic_events = anthropic_stream_events(
                 physical_chunks(),
@@ -3240,7 +3290,7 @@ class RESTfulAPI(CancelMixin):
                 or inspect.isgenerator(iterator)
                 or isinstance(iterator, IteratorWrapper)
             ):
-                await model.decrease_serve_count()
+                await _release_model_stream(model, iterator)
 
         cleanup_task: asyncio.Task[None] | None = None
 
@@ -3654,7 +3704,7 @@ class RESTfulAPI(CancelMixin):
                         ):
                             yield item
                     finally:
-                        await model.decrease_serve_count()
+                        await _release_model_stream(model, out)
 
                 return EventSourceResponse(
                     media_type="application/octet-stream",

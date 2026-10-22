@@ -19,7 +19,7 @@ import os
 import sys
 import time
 import warnings
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import click
 from click.core import ParameterSource
@@ -345,6 +345,12 @@ def worker(
     metrics_exporter_port: Optional[int],
     replace_worker: Optional[str] = None,
 ):
+    from .worker_host import HOST_SOCKET
+
+    if replace_worker and os.name == "posix" and not os.environ.get(HOST_SOCKET):
+        raise click.UsageError(
+            "Use POST /v1/workers/{worker_address}/relaunch to replace a managed Worker and retain its service and model processes."
+        )
     from ..core.system_settings_store import initialize_system_settings
 
     initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
@@ -368,6 +374,11 @@ def worker(
     supervisor_internal_addr = client._get_supervisor_internal_address()
 
     address = f"{host}:{worker_port or get_next_port()}"
+    worker_options: Dict[str, Any] = {}
+    if replace_worker:
+        worker_options["replace_worker"] = replace_worker
+    if os.name == "posix" and not os.environ.get(HOST_SOCKET):
+        worker_options["use_process_host"] = True
     main(
         address=address,
         supervisor_address=supervisor_internal_addr,
@@ -375,7 +386,7 @@ def worker(
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
         logging_conf=dict_config,
-        **({"replace_worker": replace_worker} if replace_worker else {}),
+        **worker_options,
     )
 
 
@@ -1381,7 +1392,7 @@ def model_terminate(
 @click.option("--model-uid", required=True, type=str)
 @click.option(
     "--model-config",
-    required=True,
+    default="{}",
     type=str,
     help="JSON object of changed engine parameters.",
 )
@@ -1391,16 +1402,23 @@ def model_terminate(
     type=click.FloatRange(min=0, min_open=True, max=3600),
 )
 @click.option("--api-key", "-ak", default=None, type=str)
+@click.option(
+    "--python-executable",
+    default=None,
+    type=str,
+    help="Installed Python executable on the model's Worker machine.",
+)
 def model_reload(
     endpoint: Optional[str],
     model_uid: str,
     model_config: str,
     drain_timeout: float,
     api_key: Optional[str],
+    python_executable: Optional[str] = None,
 ):
     try:
         config = json.loads(model_config)
-        if not isinstance(config, dict) or not config:
+        if not isinstance(config, dict) or (not config and not python_executable):
             raise ValueError("Expected a non-empty JSON object")
     except ValueError as exc:
         raise click.BadParameter(str(exc), param_hint="--model-config") from exc
@@ -1408,7 +1426,9 @@ def model_reload(
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
     if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
-    result = client.reload_model(model_uid, config, drain_timeout)
+    result = client.reload_model(
+        model_uid, config, drain_timeout, python_executable=python_executable
+    )
     click.echo(json.dumps(result))
 
 

@@ -706,3 +706,293 @@ def test_auth_on_delete_handler_scopes_by_username():
     )
     args, _ = api._launch_history_store.delete.call_args
     assert args == ("llama", "", "alice")
+
+
+@pytest.mark.parametrize("target", ["history", "autostart"])
+def test_history_cannot_replace_trusted_interpreter_in_enabled_autostart(store, target):
+    launch = {"model_uid": "uid-1", "model_name": "test"}
+    store.upsert_autostart({"launch": launch}, username="alice")
+    store.update_autostart_launch_config(
+        "uid-1", {"model_python_executable": "/admin-selected/python"}
+    )
+    payload = {**launch, "model_python_executable": "/arbitrary/python"}
+    with pytest.raises(ValueError, match="reserved for internal recovery"):
+        if target == "history":
+            store.upsert("test", "uid-1", payload, username="alice")
+        else:
+            store.upsert_autostart({"launch": payload}, username="alice")
+    assert (
+        store.list_autostart()[0]["launch"]["model_python_executable"]
+        == "/admin-selected/python"
+    )
+
+
+@pytest.mark.asyncio
+async def test_history_route_rejects_internal_interpreter_before_persisting(mock_api):
+    request = MagicMock(
+        json=AsyncMock(
+            return_value={
+                "model_name": "test",
+                "data": {"model_python_executable": "/arbitrary/python"},
+            }
+        )
+    )
+    with pytest.raises(HTTPException) as error:
+        await launch_history.create_launch_history(
+            request, api=mock_api, user={"username": "alice"}
+        )
+    assert error.value.status_code == 400
+    mock_api._launch_history_store.upsert.assert_not_called()
+
+
+def _runtime_api(store):
+    import asyncio
+    from types import SimpleNamespace
+
+    from xinference.core.supervisor import SupervisorActor
+
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._launch_history_store = store
+    supervisor._autostart_store_lock = asyncio.Lock()
+    supervisor._autostart_model_states = {}
+    supervisor._status_guard_ref = SimpleNamespace(
+        get_instance_info=AsyncMock(return_value=[])
+    )
+    supervisor._run_in_executor = AsyncMock(side_effect=lambda func, *args: func(*args))
+    supervisor._schedule_autostart = MagicMock()
+    supervisor._launch_builtin_model = AsyncMock(return_value="uid-1")
+    api = SimpleNamespace(
+        _launch_history_store=store,
+        _get_supervisor_ref=AsyncMock(return_value=supervisor),
+    )
+    return api, supervisor
+
+
+def _save_runtime(store, username="alice"):
+    store.upsert_autostart(
+        {"launch": {"model_name": "test", "model_uid": "uid-1", "max_num_seqs": 16}},
+        username=username,
+    )
+    store.update_autostart_launch_config(
+        "uid-1", {"model_python_executable": "/admin-selected/python"}
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wait_ready", [False, True])
+async def test_fresh_launch_clears_previous_runtime_but_autostart_replay_keeps_it(
+    store, wait_ready
+):
+    _save_runtime(store)
+    _, supervisor = _runtime_api(store)
+    entry = (await supervisor._load_autostart_entries())[0]
+    await supervisor._launch_autostart_model(entry["launch"])
+    assert "model_python_executable" in store.list_autostart()[0]["launch"]
+
+    # Terminate the loaded instance, preserving its enabled autostart policy.
+    supervisor._get_model_replica_lock = lambda _: supervisor._autostart_store_lock
+    supervisor._model_reload_tasks = {}
+    supervisor._terminate_model = AsyncMock()
+    await supervisor.terminate_model("uid-1")
+    await supervisor.launch_builtin_model(
+        model_name="test", model_uid="uid-1", wait_ready=wait_ready
+    )
+    public_entry = store.list_autostart(username="alice")[0]
+    store.upsert_autostart(public_entry, username="alice")
+    supervisor._launch_history_store = LaunchHistoryStore(store._db_path)
+    launch = (await supervisor._load_autostart_entries())[0]["launch"]
+    assert "model_python_executable" not in launch
+    await supervisor._launch_autostart_model(launch)
+    assert (
+        "model_python_executable"
+        not in supervisor._launch_builtin_model.await_args.kwargs
+    )
+
+
+@pytest.mark.asyncio
+async def test_rejected_fresh_launch_keeps_current_runtime(store):
+    _save_runtime(store)
+    _, supervisor = _runtime_api(store)
+    supervisor._launch_builtin_model.side_effect = ValueError("already running")
+    with pytest.raises(ValueError, match="already running"):
+        await supervisor.launch_builtin_model(model_name="test", model_uid="uid-1")
+    assert (
+        store.list_autostart()[0]["launch"]["model_python_executable"]
+        == "/admin-selected/python"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("username", ["alice", ""])
+async def test_owner_history_replay_and_save_preserves_runtime(store, username):
+    from xinference.api.restful_api import RESTfulAPI
+
+    _save_runtime(store, username)
+    api, supervisor = _runtime_api(store)
+    user = {"username": username}
+    history = _json_body(
+        launch_history.list_launch_history(
+            model_name=None, scope="mine", api=api, user=user
+        )
+    )[0]
+    assert history["is_owner"]
+    assert "model_python_executable" not in json.dumps(history)
+    assert "runtime_python_executable" not in json.dumps(history)
+    history["data"]["max_num_seqs"] = 32
+    response = await launch_history.create_launch_history(
+        _request_with_json(history), api=api, user=user
+    )
+    assert response.status_code == 200
+    response = await RESTfulAPI.upsert_autostart_model(
+        api, _request_with_json({"launch": history["data"]}), user=user
+    )
+    assert response.status_code == 200
+    saved = (await supervisor._load_autostart_entries())[0]["launch"]
+    assert saved["max_num_seqs"] == 32
+    assert saved["model_python_executable"] == "/admin-selected/python"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("username", ["alice", "bob"])
+@pytest.mark.parametrize(
+    "field,value", [("priority", 5), ("max_retries", 7), ("retry_interval_seconds", 90)]
+)
+async def test_autostart_get_policy_edit_post_preserves_runtime(
+    store, field, value, username
+):
+    from xinference.api.restful_api import RESTfulAPI
+
+    _save_runtime(store)
+    api, supervisor = _runtime_api(store)
+    user = {"username": username}
+    entry = _json_body(await RESTfulAPI.get_autostart_config(api, user))["models"][0]
+    assert "model_python_executable" not in entry["launch"]
+    entry[field] = value
+    response = await RESTfulAPI.upsert_autostart_model(
+        api, _request_with_json(entry), user
+    )
+    assert response.status_code == 200
+    # Exercise a fresh store instance, as Supervisor restart does.
+    supervisor._launch_history_store = LaunchHistoryStore(store._db_path)
+    restored = (await supervisor._load_autostart_entries())[0]
+    assert restored[field] == value
+    assert restored["launch"]["model_python_executable"] == "/admin-selected/python"
+    await supervisor._launch_autostart_model(restored["launch"])
+    assert (
+        supervisor._launch_builtin_model.await_args.kwargs["model_python_executable"]
+        == "/admin-selected/python"
+    )
+
+
+@pytest.mark.asyncio
+async def test_legacy_autostart_json_cannot_select_interpreter_after_migration(
+    tmp_path,
+):
+    db = tmp_path / "legacy.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            """CREATE TABLE launch_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_name TEXT NOT NULL,
+                model_uid TEXT NOT NULL DEFAULT '',
+                data TEXT NOT NULL,
+                autostart_enabled INTEGER NOT NULL DEFAULT 0,
+                created_by TEXT DEFAULT '', updated_by TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )"""
+        )
+        conn.execute(
+            "INSERT INTO launch_history (model_name, model_uid, data, autostart_enabled, created_by) VALUES (?, ?, ?, 1, ?)",
+            (
+                "test",
+                "uid-1",
+                json.dumps(
+                    {
+                        "model_name": "test",
+                        "model_python_executable": "/untrusted/python",
+                    }
+                ),
+                "alice",
+            ),
+        )
+    store = LaunchHistoryStore(str(db))
+    _, supervisor = _runtime_api(store)
+    entries = await supervisor._load_autostart_entries()
+    assert len(entries) == 1
+    assert "model_python_executable" not in entries[0]["launch"]
+    await supervisor._launch_autostart_model(entries[0]["launch"])
+    assert (
+        "model_python_executable"
+        not in supervisor._launch_builtin_model.await_args.kwargs
+    )
+    for username in (None, "alice", "bob", ""):
+        assert "model_python_executable" not in json.dumps(
+            store.list(username=username)
+        )
+    store.update_autostart_launch_config("uid-1", {"max_num_seqs": 32})
+    assert "model_python_executable" not in store.list_autostart()[0]["launch"]
+    # Only a subsequent authorized commit may select an interpreter.
+    store.update_autostart_launch_config(
+        "uid-1", {"model_python_executable": "/authorized/python"}
+    )
+    restarted = LaunchHistoryStore(str(db))
+    assert (
+        restarted.list_autostart()[0]["launch"]["model_python_executable"]
+        == "/authorized/python"
+    )
+
+
+def test_runtime_config_survives_parameter_updates_and_can_be_cleared(store):
+    _save_runtime(store)
+    patch = {"max_num_seqs": 32}
+    store.update_autostart_launch_config("uid-1", patch)
+    assert patch == {"max_num_seqs": 32}
+    assert (
+        store.list_autostart()[0]["launch"]["model_python_executable"]
+        == "/admin-selected/python"
+    )
+    assert "model_python_executable" not in store.list()[0]["data"]
+    store.update_autostart_launch_config("uid-1", {"model_python_executable": None})
+    restored = LaunchHistoryStore(store._db_path).list_autostart()[0]["launch"]
+    assert restored["max_num_seqs"] == 32
+    assert "model_python_executable" not in restored
+
+
+@pytest.mark.parametrize("username", [None, "alice", "bob", ""])
+def test_every_history_projection_excludes_server_runtime(store, username):
+    _save_runtime(store)
+    entries = store.list(username=username)
+    assert len(entries) == 1
+    assert "model_python_executable" not in json.dumps(entries)
+    assert "/admin-selected/python" not in json.dumps(entries)
+
+
+def test_policy_disable_and_reenable_preserves_runtime_until_history_deleted(store):
+    _save_runtime(store)
+    entry = {"launch": {"model_name": "test", "model_uid": "uid-1"}, "enabled": False}
+    store.upsert_autostart(entry, username="alice")
+    assert store.list_autostart() == []
+    entry["enabled"] = True
+    store.upsert_autostart(entry, username="alice")
+    assert (
+        store.list_autostart()[0]["launch"]["model_python_executable"]
+        == "/admin-selected/python"
+    )
+    assert store.delete("test", "uid-1", username="alice")
+    store.upsert_autostart(entry, username="alice")
+    assert "model_python_executable" not in store.list_autostart()[0]["launch"]
+
+
+@pytest.mark.parametrize("new_name,new_uid", [("other", "uid-1"), ("test", "uid-2")])
+def test_runtime_is_not_shared_with_another_model(store, new_name, new_uid):
+    _save_runtime(store)
+    store.upsert_autostart(
+        {"launch": {"model_name": new_name, "model_uid": new_uid}}, username="alice"
+    )
+    entry = next(
+        e
+        for e in store.list_autostart()
+        if e["launch"]["model_uid"] == new_uid and e["launch"]["model_name"] == new_name
+    )
+    assert "model_python_executable" not in entry["launch"]

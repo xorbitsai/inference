@@ -347,3 +347,16 @@ def test_trt_cross_engine_accepts_supported_engines(other, reverse):
         for role, engine in zip(("prefill", "decode"), engines)
     ]
     assert validate_pd_replica_configs(configs, "vLLM", "LLM")
+
+
+@pytest.mark.parametrize("role", ["hybrid", "prefill", "decode"])
+def test_replica_engine_config_rejects_internal_interpreter(role):
+    configs = [
+        ReplicaConfig(
+            role=role, engine_config={"model_python_executable": "/arbitrary/python"}
+        )
+    ]
+    with pytest.raises(
+        ValueError, match="Reserved replica engine_config keys: model_python_executable"
+    ):
+        validate_pd_replica_configs(configs, "vLLM", "LLM")

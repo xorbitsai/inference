@@ -28,7 +28,7 @@ import sys
 import threading
 import time
 from collections import defaultdict
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass, field
 from logging import getLogger
 from typing import (
@@ -786,17 +786,18 @@ def _nvml_init_with_timeout(timeout: int = _NVML_INIT_TIMEOUT) -> bool:
 async def _kill_gpu_orphans_by_ppid(
     device_indices: list,
     model_uid: str = "",
+    protected_pids: Optional[Set[int]] = None,
 ) -> List[int]:
-    """SIGKILL GPU-occupying processes whose parent is init (PPID == 1).
+    """Reap GPU orphans adopted by init or this Worker's service host.
 
     Used at worker startup (H1) and pre-launch VRAM recheck (H2). Unlike
     _kill_orphan_gpu_pids (which uses post - pre diff and would mis-kill
     other workers' vLLM processes on shared GPUs), this only targets true
-    orphans: processes whose parent has died and been reparented to PID 1.
+    orphans reparented to init or the service host, excluding retained pools.
 
     A process is killed only if ALL hold:
       1. occupies GPU memory on one of device_indices (per NVML)
-      2. PPID == 1 (parent dead, reparented to init)
+      2. parent is init or the host, and PID is not a retained model pool
       3. cmdline contains vllm / enginecore / start_sub_pool
          (prevents PID-reuse misidentification of unrelated processes)
 
@@ -808,14 +809,21 @@ async def _kill_gpu_orphans_by_ppid(
     """
     import psutil
 
+    from ..deploy.worker_host import HOST_PID
+
+    orphan_parents = {1}
+    host_pid = os.environ.get(HOST_PID)
+    if host_pid:
+        orphan_parents.add(int(host_pid))
+
     occupying_pids = _snapshot_gpu_occupying_pids(device_indices)
     orphan_processes: List["psutil.Process"] = []
     for pid in occupying_pids:
-        if pid == os.getpid():
+        if pid == os.getpid() or pid in (protected_pids or ()):
             continue
         try:
             p = psutil.Process(pid)
-            if p.ppid() != 1:
+            if p.ppid() not in orphan_parents:
                 continue
             cmd = " ".join(p.cmdline()).lower()
             if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
@@ -1004,8 +1012,33 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             await self._main_pool.remove_sub_pool(address)
         except Exception:
             pass
-        for model_uid, addr in self._model_uid_to_addr.items():
-            if addr == address:
+        failed_generations = set()
+        for model_uid, addresses in list(self._model_uid_to_subpool_addresses.items()):
+            if (
+                address in addresses
+                and self._model_uid_to_addr.get(model_uid) != address
+            ):
+                try:
+                    ref = self._model_uid_to_model.get(model_uid)
+                    if ref is not None:
+                        try:
+                            action = await xo.wait_for(
+                                ref.handle_generation_pool_exit(address), timeout=5
+                            )
+                        except AttributeError:
+                            # Models retained from an older package have no
+                            # generation children; keep their existing recovery.
+                            action = "unpublished"
+                        if action == "recover":
+                            failed_generations.add(model_uid)
+                        elif action == "restored":
+                            await self._restore_model_generation_config(model_uid, ref)
+                except Exception:
+                    logger.exception("Failed to recover generation for %s", model_uid)
+                finally:
+                    addresses.discard(address)
+        for model_uid, addr in list(self._model_uid_to_addr.items()):
+            if addr == address or model_uid in failed_generations:
                 launch_args = self._model_uid_to_launch_args.get(model_uid)
                 if launch_args is None:
                     logger.warning(
@@ -1371,7 +1404,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             logger.info("Startup GPU orphan cleanup: no GPU-occupying processes found")
             return
 
-        killed = await _kill_gpu_orphans_by_ppid(all_devices)
+        killed = await _kill_gpu_orphans_by_ppid(
+            all_devices, protected_pids=self._retained_subpool_pids()
+        )
         if not killed:
             logger.info(
                 "Startup GPU orphan cleanup: %d GPU-occupying process(es) "
@@ -2429,6 +2464,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # monitor task per worker process.
         await self._main_pool.start_monitor()
 
+    def _retained_subpool_pids(self) -> Set[int]:
+        return {
+            process.pid
+            for process in getattr(self._main_pool, "sub_processes", {}).values()
+            if process is not None and process.pid is not None
+        } | {pid for pids in self._model_uid_to_subpool_pids.values() for pid in pids}
+
     async def _append_sub_pool_protected(
         self,
         env: Optional[Dict[str, str]] = None,
@@ -2452,6 +2494,14 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             {} if external_address is None else {"external_address": external_address}
         )
         async with self._subpool_creation_lock:
+            # A failed candidate spawn must never reap pools that were already
+            # serving before this call, even if their bootstrap command matches.
+            protected_pids = {
+                process.pid
+                for process in getattr(self._main_pool, "sub_processes", {}).values()
+                # In-process xoscar test pools do not have OS process handles.
+                if process is not None
+            }
             try:
                 return await xo.wait_for(
                     self._main_pool.append_sub_pool(
@@ -2479,7 +2529,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     _my_pid = os.getpid()
                     for _p in psutil.process_iter(["pid", "ppid", "cmdline"]):
                         _info = _p.info
-                        if _info["ppid"] != _my_pid:
+                        if _info["ppid"] != _my_pid or _info["pid"] in protected_pids:
                             continue
                         _cmd = " ".join(_info.get("cmdline") or []).lower()
                         if "start_sub_pool" in _cmd:
@@ -2599,7 +2649,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         _VRAM_READY_RATIO,
                     )
                     _killed = await _kill_gpu_orphans_by_ppid(
-                        _target_device_ints, model_uid=model_uid
+                        _target_device_ints,
+                        model_uid=model_uid,
+                        protected_pids=self._retained_subpool_pids(),
                     )
                     if _killed:
                         logger.warning(
@@ -4918,6 +4970,14 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         )
 
                     # virtualenv
+                    model_python_executable = kwargs.pop(
+                        "model_python_executable", None
+                    )
+                    if model_python_executable is not None:
+                        from .worker_relaunch import validate_relaunch_options
+
+                        validate_relaunch_options(model_python_executable)
+                        enable_virtual_env = False
                     virtual_env_name = kwargs.pop("virtual_env_name", None)
                     # Use v4 structure: .xinference/virtualenv/v4/model_name/model_engine/python_version
                     python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
@@ -4935,8 +4995,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         virtual_env_name,
                         virtual_env_path,
                     )
-                    subpool_python_path = resolve_virtualenv_python_path(
-                        virtual_env_manager
+                    subpool_python_path = (
+                        model_python_executable
+                        or resolve_virtualenv_python_path(virtual_env_manager)
                     )
                     subpool_envs = build_subpool_envs_for_virtual_env(
                         envs,
@@ -4944,6 +5005,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         virtual_env_manager,
                         model_engine,
                     )
+                    if model_python_executable is not None:
+                        from .utils import build_subpool_envs_for_python
+
+                        subpool_envs = build_subpool_envs_for_python(
+                            subpool_envs, model_python_executable
+                        )
                     if kwargs.get("_nixl_config") is not None:
                         from ..model.llm.vllm.pd import configure_nixl_environment
 
@@ -5212,6 +5279,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             shard=shard,
                             driver_info=driver_info,
                             model_engine=model_engine,
+                            model_python_executable=model_python_executable,
                         )
                         if await model_ref.need_create_pools() and (
                             len(devices) > 1 or n_worker > 1  # type: ignore
@@ -5839,7 +5907,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         model_status = self._model_uid_to_model_status.get(model_uid)
         was_reloading = (
             model_status is not None and model_status.model_state == "reloading"
-        )
+        ) or model_uid in self.__dict__.get("_model_reload_active", ())
         await self._update_model_state(model_uid, "stopping")
         # In special cases, if the suffix is `-rank0`, this is the Xavier's rank 0 model actor.
         if model_uid.endswith("-rank0"):
@@ -5893,23 +5961,25 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 logger.debug("Fail to get pool addresses, error: %s", e)
 
         reload_children = []
-        reload_parent = None
+        reload_parents = []
         if was_reloading:
             import psutil
 
             # Capture before killing the pool: reparented SGLang/native-MP
             # children cannot reliably be found by model UID in their cmdline.
-            address = self._model_uid_to_addr.get(model_uid)
-            process = self._main_pool.sub_processes.get(address)
-            if process is not None and process.pid is not None:
-                try:
-                    reload_parent = psutil.Process(process.pid)
-                    # Freeze the loading thread before capturing direct
-                    # children, so it cannot fork another engine before kill.
-                    reload_parent.suspend()
-                    reload_children = reload_parent.children(recursive=True)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
+            addresses = {self._model_uid_to_addr.get(model_uid), *pool_addresses}
+            for address in addresses:
+                process = self._main_pool.sub_processes.get(address)
+                if process is not None and process.pid is not None:
+                    try:
+                        parent = psutil.Process(process.pid)
+                        reload_parents.append(parent)
+                        # Freeze each generation before capturing native
+                        # children, so preparation cannot fork another engine.
+                        parent.suspend()
+                        reload_children.extend(parent.children(recursive=True))
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
 
         # Resolve GPU indices for terminate-path orphan cleanup.
         # Prefer launch_args["gpu_idx"] (user-specified), but fall back to
@@ -5972,9 +6042,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 "Remove sub pool failed, model uid: %s, error: %s", model_uid, e
             )
         finally:
-            if reload_parent is not None:
+            for parent in reload_parents:
                 try:
-                    reload_parent.kill()
+                    parent.kill()
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
             if reload_children:
@@ -6139,61 +6209,121 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     async def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
         return await self._model_uid_to_model[model_uid].get_reload_config()
 
+    async def _restore_model_generation_config(self, model_uid, ref):
+        snapshot = await ref.export_model_generation({})
+        status = await ref.get_reload_status()
+        if self._model_uid_to_model.get(model_uid) is not ref or not status.get(
+            "restored"
+        ):
+            return
+        config = {
+            **snapshot["config"],
+            "model_python_executable": snapshot.get("model_python_executable"),
+        }
+        launch_args = self._model_uid_to_launch_args[model_uid]
+        launch_args.update(config)
+        if config["model_python_executable"] is None:
+            launch_args.pop("model_python_executable", None)
+        self._persist_launch_args()
+        supervisor = await self.get_supervisor_ref()
+        await supervisor.restore_model_reload_config(model_uid, config, status)
+
     async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
         return await self._model_uid_to_model[model_uid].get_reload_status()
 
     async def validate_model_reload(self, model_uid: str, config: Dict[str, Any]):
         return await self._model_uid_to_model[model_uid].validate_reload(config)
 
+    async def _replace_model_generation(
+        self,
+        model_uid,
+        config,
+        python_executable=None,
+        operation_id=None,
+        drain_timeout=300,
+    ):
+        from .model_generation import replace_model_generation
+
+        return await replace_model_generation(
+            self, model_uid, config, python_executable, operation_id, drain_timeout
+        )
+
+    @management_operation
+    async def retire_model_generation_pool(self, model_uid: str, address: str):
+        if address == self._model_uid_to_addr.get(model_uid):
+            raise ValueError("Cannot retire the public model actor")
+        addresses = self._model_uid_to_subpool_addresses.get(model_uid, set())
+        if address in addresses:
+            with suppress(KeyError):
+                await self._main_pool.remove_sub_pool(address, force=True)
+            addresses.discard(address)
+
     @management_operation
     async def reload_model(
-        self, model_uid: str, config: Dict[str, Any], drain_timeout: float
+        self,
+        model_uid: str,
+        config: Dict[str, Any],
+        drain_timeout: float,
+        python_executable: Optional[str] = None,
+        operation_id: Optional[str] = None,
     ) -> bool:
-        from ..model.llm.weight_cache import ModelReloadError
+        from ..model.llm.weight_cache import HOT_RELOAD_FIELDS, ModelReloadError
 
         model_ref = self._model_uid_to_model[model_uid]
-        await self._update_model_state(model_uid, "reloading")
-        owned_status = self._model_uid_to_model_status.get(model_uid)
-
-        def still_owns_model() -> bool:
-            return (
-                self._model_uid_to_model.get(model_uid) is model_ref
-                and self._model_uid_to_model_status.get(model_uid) is owned_status
-                and owned_status is not None
-                and owned_status.model_state == "reloading"
-            )
-
+        active = self.__dict__.setdefault("_model_reload_active", set())
+        if model_uid in active:
+            raise RuntimeError("This model already has a reload in progress")
+        active.add(model_uid)
         try:
-            weights_reused = await model_ref.reload(config, drain_timeout)
-        except ModelReloadError as exc:
-            if still_owns_model():
-                await self._update_model_state(
-                    model_uid, "ready" if exc.restored else "error"
+            replacing = (
+                python_executable is not None
+                or not set(config) <= HOT_RELOAD_FIELDS.keys()
+            )
+            if replacing:
+                if operation_id is None:
+                    raise ValueError(
+                        "Seamless replacement requires a supporting Supervisor and REST server; upgrade them first"
+                    )
+                weights_reused = await self._replace_model_generation(
+                    model_uid, config, python_executable, operation_id, drain_timeout
                 )
-            raise
-        except (ValueError, ModelNotReadyError):
-            if still_owns_model():
-                await self._update_model_state(model_uid, "ready")
-            raise
-        except asyncio.CancelledError:
-            # Keep the reload marker until terminate_model forcibly removes the
-            # pool. Cancellation cannot stop a load running in a native thread.
-            raise
-        except Exception:
-            if still_owns_model():
-                await self._update_model_state(model_uid, "error")
-            raise
-        else:
-            if not still_owns_model():
+            else:
+                # Parser-only updates do not need another engine. New calls
+                # wait at admission while existing requests drain.
+                weights_reused = await model_ref.reload(config, drain_timeout)
+            if self._model_uid_to_model.get(model_uid) is not model_ref:
                 raise ModelReloadError(
                     "Model was terminated or recovered during reload"
                 )
-            # Persist only committed changes. Recovery must use the new limits,
-            # while the original launch identity and GPU placement stay intact.
+            if replacing:
+                observed = await model_ref.get_reload_status()
+                if (
+                    observed.get("operation_id") == operation_id
+                    and observed.get("restored")
+                    and observed.get("status") == "error"
+                ):
+                    raise ModelReloadError(
+                        observed.get("error", "Replacement engine exited"),
+                        restored=True,
+                    )
             self._model_uid_to_launch_args[model_uid].update(config)
+            if python_executable is not None:
+                self._model_uid_to_launch_args[model_uid][
+                    "model_python_executable"
+                ] = python_executable
             self._persist_launch_args()
-            await self._update_model_state(model_uid, "ready")
             return weights_reused
+        except ModelReloadError as exc:
+            if (
+                not exc.restored
+                and self._model_uid_to_model.get(model_uid) is model_ref
+            ):
+                status = self._model_uid_to_model_status.get(model_uid)
+                if status is not None and status.model_state == "ready":
+                    await self._update_model_state(model_uid, "error")
+            raise
+        finally:
+            active.discard(model_uid)
 
     @log_sync(logger=logger)
     def get_model_for_abort(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
@@ -6207,7 +6337,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         model_status = self._model_uid_to_model_status.get(model_uid)
         if model_status:
-            if model_status.model_state in ("registering", "loading", "reloading"):
+            if model_status.model_state in ("registering", "loading"):
                 raise ModelNotReadyError(
                     f"Model {model_uid} is {model_status.model_state}"
                 )

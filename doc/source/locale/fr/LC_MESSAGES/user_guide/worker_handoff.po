@@ -107,14 +107,70 @@ msgstr ""
 "l’interpréteur actuel est utilisé. Cette opération n’installe aucun paquet et les processus de "
 "modèle conservés utilisent toujours leur environnement et leur code d’origine."
 
-#: user_guide/worker_handoff.rst:29
-msgid ""
-"For an existing Worker at ``127.0.0.1:9978``, you can also start its replacement explicitly with "
-"a different actor port and a free metrics exporter port:"
-msgstr ""
-"Pour un Worker existant à l’adresse ``127.0.0.1:9978``, vous pouvez aussi lancer explicitement "
-"son remplaçant avec un port Actor différent et un port libre pour l’export des métriques :"
-
 #: ../../source/user_guide/worker_handoff.rst
 msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
 msgstr "Le Supervisor conserve également les réservations de propriété dans ``XINFERENCE_HOME/worker-handoffs.json`` pour reprendre un transfert interrompu après son redémarrage. Les Workers de remplacement continuent de mettre à jour le fichier de récupération associé à l’adresse initiale du Worker, y compris pour les modèles lancés après la relance."
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:43
+msgid "Web UI"
+msgstr "Interface web"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:45
+msgid ""
+"In **Cluster Information**, administrators can use **Restart / upgrade "
+"Worker** on a distributed Worker. Operation records remain visible when its "
+"address changes or the page is refreshed. This retains the current model "
+"processes; model-engine upgrades use **Reconfigure / upgrade model** in the "
+"running model's detail view."
+msgstr ""
+"Dans **Informations du cluster**, les administrateurs peuvent utiliser "
+"**Redémarrer / mettre à niveau le Worker** pour un Worker distribué. Les "
+"opérations restent visibles après un changement d’adresse ou un rechargement"
+" de page. Les processus de modèle sont conservés ; les moteurs sont mis à "
+"niveau via **Reconfigurer / mettre à niveau le modèle** dans les détails du "
+"modèle actif."
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:48
+msgid "Service and container ownership"
+msgstr "Appartenance des processus aux services et conteneurs"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:50
+msgid ""
+"On Linux and macOS, ``xinference-worker`` automatically keeps a stable "
+"Worker host as its main process. Replacement Workers register before "
+"handoff, so retirement of the original Worker does not stop its models, "
+"replacement, systemd service or container. Explicitly stopping the host "
+"terminates its owned processes. Custom launch commands can use the host "
+"wrapper below."
+msgstr ""
+"Sous Linux et macOS, ``xinference-worker`` conserve automatiquement un hôte "
+"Worker stable comme processus principal. Les remplaçants s’inscrivent avant "
+"le transfert : l’arrêt du Worker d’origine ne stoppe ni modèles, ni "
+"remplaçant, ni service systemd, ni conteneur. Arrêter explicitement l’hôte "
+"termine les processus qu’il gère. Les commandes personnalisées peuvent "
+"utiliser le lanceur hôte ci-dessous."
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:57
+msgid ""
+"A systemd service can keep its normal process-group cleanup, because the "
+"Worker host remains its main process:"
+msgstr ""
+"Un service systemd peut conserver son nettoyage normal du groupe de "
+"processus, car l’hôte Worker reste son processus principal :"
+
+#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:68
+msgid ""
+"For Docker, use the same host command as the container command. Install or "
+"mount prepared Python environments inside the running container. Keep that "
+"container running during upgrades: replacing or stopping the container "
+"terminates its model processes and cannot preserve their GPU allocations."
+msgstr ""
+"Avec Docker, utilisez la même commande hôte comme commande du conteneur. "
+"Installez ou montez les environnements Python préparés dans le conteneur "
+"actif. Gardez-le en cours d’exécution pendant la mise à niveau : le "
+"remplacer ou l’arrêter termine les processus de modèle et ne préserve pas "
+"leurs allocations GPU."
+
+#: ../source/user_guide/worker_handoff.rst:31
+msgid "The CLI reports an error with guidance when ``--replace-worker`` would bypass the service host. Use the relaunch API for CLI-managed Workers and for unmanaged Workers started through the Python deployment API."
+msgstr "La CLI signale une erreur avec des indications lorsque ``--replace-worker`` contournerait l’hôte du service. Utilisez l’API de relancement pour les Workers gérés par la CLI et les Workers non gérés lancés par l’API de déploiement Python."

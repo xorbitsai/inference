@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import itertools
 import random
@@ -101,6 +103,8 @@ class DummySupervisor:
         self._unexpected_down_replicas = {}
         self._worker_status = {}
         self._workers_launching = {}
+        self._autostart_store_lock = asyncio.Lock()
+        self._launch_history_store = MagicMock()
         self._collective_manager_mapping = {}
         self._block_tracker_mapping = {}
         self._build_replica_info = SupervisorActor._build_replica_info
@@ -115,6 +119,7 @@ class DummySupervisor:
             SupervisorActor._resolve_download_hub_from_workers
         )
         self.launch_builtin_model = SupervisorActor.launch_builtin_model.__get__(self)
+        self._launch_builtin_model = SupervisorActor._launch_builtin_model.__get__(self)
         self._get_worker_host = SupervisorActor._get_worker_host
         self._get_worker_refs_by_ip = SupervisorActor._get_worker_refs_by_ip.__get__(
             self

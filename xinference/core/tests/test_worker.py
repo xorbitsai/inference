@@ -4020,6 +4020,7 @@ class _RecoverWorkerStub:
         # None -> unbounded branch; int (e.g. 1) -> bounded branch (AUTO_RECOVER_LIMIT)
         self._model_uid_to_recover_count = {"model-x-0": recover_count}
         self._model_uid_to_subpool_pids: dict = {}
+        self._model_uid_to_subpool_addresses = {"model-x-0": {"addr-1"}}
 
     async def get_supervisor_ref(self, add_worker: bool = False):
         return self._supervisor_ref

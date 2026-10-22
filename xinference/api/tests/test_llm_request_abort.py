@@ -226,6 +226,14 @@ async def test_pd_sse_disconnect_destroys_router_stream(monkeypatch, kind, engin
     from ...core.pd_model import PDModelActor
     from ...core.tests.test_pd_model import FakeStage
 
+    released = asyncio.Event()
+    original_release = PDModelActor.decrease_serve_count
+
+    async def release_router(self):
+        await original_release(self)
+        released.set()
+
+    monkeypatch.setattr(PDModelActor, "decrease_serve_count", release_router)
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
     async with pool:
         prefill = await xo.create_actor(
@@ -262,7 +270,9 @@ async def test_pd_sse_disconnect_destroys_router_stream(monkeypatch, kind, engin
         await _run_asgi_disconnect(response, "send", None)
         assert await decode.get_stream_counts() == (0, 1)
         model.abort_request.assert_awaited_once_with(f"{kind}-request")
-        assert decreased.is_set()
+        assert released.is_set()
+        assert not decreased.is_set()
+        model.decrease_serve_count.assert_not_called()
         assert len(streams) == 1
         # API cleanup owns destroy, so GC must not start a blocking retry.
         assert streams[0]._gc_destroy is False

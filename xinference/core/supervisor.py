@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import functools
 import itertools
 import os
 import signal
@@ -1182,7 +1183,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         entries = []
         for raw_entry in raw_entries:
             try:
-                entries.append(normalize_autostart_model_entry(raw_entry))
+                entries.append(
+                    normalize_autostart_model_entry(raw_entry, allow_internal=True)
+                )
             except ValueError:
                 logger.exception("Skip invalid autostart entry: %s", raw_entry)
         return entries
@@ -1253,7 +1256,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         if isinstance(gpu_idx, int):
             gpu_idx = [gpu_idx]
 
-        return await self.launch_builtin_model(
+        return await self._launch_builtin_model(
             model_uid=payload.pop("model_uid", None),
             model_name=payload.pop("model_name"),
             model_engine=payload.pop("model_engine", None),
@@ -3026,7 +3029,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     self._workers_launching[worker_address] = active_count
 
     @log_async(logger=logger)
-    async def launch_builtin_model(
+    async def _launch_builtin_model(
         self,
         model_uid: Optional[str],
         model_name: str,
@@ -4046,6 +4049,21 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             )
         return model_uid
 
+    @functools.wraps(_launch_builtin_model)
+    async def launch_builtin_model(self, *args, **kwargs):
+        if "model_python_executable" in kwargs:
+            raise ValueError(
+                "model_python_executable is reserved for internal recovery"
+            )
+        model_uid = await self._launch_builtin_model(*args, **kwargs)
+        # Public launch admits a new instance, unlike trusted autostart replay
+        # or history/policy edits of the current instance.
+        async with self._autostart_store_lock:
+            await asyncio.to_thread(
+                self._launch_history_store.clear_launch_runtime, model_uid
+            )
+        return model_uid
+
     async def _launch_builtin_sharded_model(
         self,
         model_uid: Optional[str],
@@ -5053,12 +5071,45 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
         replica_uid, worker = self._get_reload_target(model_uid)
         status = dict(self._model_reload_status.get(model_uid, {"status": "idle"}))
-        if status["status"] == "reloading":
-            status.update(await worker.get_model_reload_status(replica_uid))
+        try:
+            observed = await worker.get_model_reload_status(replica_uid)
+        except Exception:
+            if status["status"] == "reloading":
+                raise
+        else:
+            if observed and (
+                status["status"] == "idle"
+                or observed.get("operation_id") in (None, status.get("operation_id"))
+            ):
+                status.update(observed)
         return status
 
+    async def restore_model_reload_config(
+        self, replica_uid: str, config: Dict[str, Any], observed: Dict[str, Any]
+    ) -> None:
+        model_uid, _ = parse_replica_model_uid(replica_uid)
+        status = self._model_reload_status.get(model_uid, {})
+        if status.get("operation_id") not in (None, observed.get("operation_id")):
+            return
+        async with self._autostart_store_lock:
+            if self._model_reload_status.get(model_uid, {}).get("operation_id") not in (
+                None,
+                observed.get("operation_id"),
+            ):
+                return
+            await asyncio.to_thread(
+                self._launch_history_store.update_autostart_launch_config,
+                model_uid,
+                config,
+            )
+            status.update(observed)
+
     async def reload_model(
-        self, model_uid: str, config: Dict[str, Any], drain_timeout: float = 300
+        self,
+        model_uid: str,
+        config: Dict[str, Any],
+        drain_timeout: float = 300,
+        python_executable: Optional[str] = None,
     ) -> Dict[str, Any]:
         import uuid
 
@@ -5069,7 +5120,11 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 raise RuntimeError("This model already has a reload in progress")
             replica_uid, worker = self._get_reload_target(model_uid)
             # Preflight runs before scheduling any operation that stops serving.
-            normalized = await worker.validate_model_reload(replica_uid, config)
+            normalized = (
+                await worker.validate_model_reload(replica_uid, config)
+                if config
+                else {}
+            )
             if normalized is not None:
                 config = normalized
             status = {
@@ -5086,28 +5141,56 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 try:
                     if self._get_reload_target(model_uid) != (replica_uid, worker):
                         raise ValueError("Model placement changed before reload")
-                    status["stage"] = "draining"
+                    from ..model.llm.weight_cache import HOT_RELOAD_FIELDS
+
+                    status["stage"] = (
+                        "draining"
+                        if python_executable is None
+                        and set(config) <= HOT_RELOAD_FIELDS.keys()
+                        else "loading"
+                    )
                     status["weights_reused"] = (
-                        await worker.reload_model(replica_uid, config, drain_timeout)
+                        await worker.reload_model(
+                            replica_uid,
+                            config,
+                            drain_timeout,
+                            python_executable=python_executable,
+                            operation_id=status["operation_id"],
+                        )
                     ) is True
                     async with self._autostart_store_lock:
-                        await asyncio.to_thread(
-                            self._launch_history_store.update_autostart_launch_config,
-                            model_uid,
-                            config,
-                        )
+                        if not status.get("restored"):
+                            await asyncio.to_thread(
+                                self._launch_history_store.update_autostart_launch_config,
+                                model_uid,
+                                {
+                                    **config,
+                                    **(
+                                        {"model_python_executable": python_executable}
+                                        if python_executable is not None
+                                        else {}
+                                    ),
+                                },
+                            )
                 except asyncio.CancelledError:
                     status.update(status="cancelled", stage="cancelled")
                     raise
                 except Exception as exc:
                     status.update(status="error", stage="error", error=str(exc))
                     try:
-                        status.update(await worker.get_model_reload_status(replica_uid))
+                        observed = await worker.get_model_reload_status(replica_uid)
+                        if observed.get("operation_id") in (
+                            None,
+                            status["operation_id"],
+                        ):
+                            if "restored" in observed:
+                                status["restored"] = observed["restored"]
                     except Exception:
                         pass
                     logger.exception("Reload of %s failed", model_uid)
                 else:
-                    status.update(status="ready", stage="ready")
+                    if not status.get("restored"):
+                        status.update(status="ready", stage="ready")
                 finally:
                     status["finished_at"] = time.time()
                     if (

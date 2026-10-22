@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 # http://www.apache.org/licenses/LICENSE-2.0
+# CI: linux
 
 import json
 import os
@@ -69,7 +70,7 @@ def test_cached_memory_counts_only_daemon_tree(monkeypatch):
             SimpleNamespace(pid=11, usedGpuMemory=200 * (index + 1)),
             SimpleNamespace(pid=99, usedGpuMemory=800),
         ],
-        nvmlDeviceGetMemoryInfo_v2=lambda handle: SimpleNamespace(total=1000),
+        nvmlDeviceGetMemoryInfo_v2=lambda handle: SimpleNamespace(total=1000, free=100),
     )
     monkeypatch.setitem(sys.modules, "pynvml", nvml)
     assert _cached_memory_fraction(10) == 0.5
@@ -94,6 +95,7 @@ def test_cached_memory_rocm_records(monkeypatch):
             {"pid": 99, "memory_usage": {"vram_mem": 800}},
         ],
         amdsmi_get_gpu_memory_total=lambda *args: 1000,
+        amdsmi_get_gpu_memory_usage=lambda *args: 900,
         AmdSmiMemoryType=SimpleNamespace(VRAM=0),
     )
     monkeypatch.setitem(sys.modules, "amdsmi", smi)
