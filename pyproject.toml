@@ -265,7 +265,7 @@ audio = [
     "conformer",  # For CosyVoice, matcha
     "diffusers>=0.32.0",  # For CosyVoice, matcha
     "gdown",  # For CosyVoice, matcha
-    "pyarrow",  # For CosyVoice, matcha
+    "pyarrow>=23.0.1",  # For CosyVoice, matcha
     "HyperPyYAML",  # For CosyVoice
     "onnxruntime>=1.16.0",  # For CosyVoice, use onnxruntime-gpu==1.16.0 if possible
     "pyworld>=0.3.4",  # For CosyVoice
