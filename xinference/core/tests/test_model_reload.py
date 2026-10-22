@@ -325,7 +325,9 @@ async def test_unknown_reload_failure_never_revives_stale_actor(outcome):
 
     worker._model_uid_to_model["test-replica"].reload = fail
     with pytest.raises(KeyError):
-        await worker.reload_model("test-replica", {"max_num_seqs": 32}, 1)
+        await worker.reload_model(
+            "test-replica", {"max_num_seqs": 32}, 1, operation_id="one"
+        )
     status = worker._model_uid_to_model_status.get("test-replica")
     assert (status.model_state if status else None) == {
         "error": "ready",
@@ -562,7 +564,8 @@ async def test_idle_reload_status_survives_worker_handoff():
 
 
 @pytest.mark.asyncio
-async def test_restored_generation_updates_worker_and_autostart_environment():
+@pytest.mark.parametrize("override", [None, "/old/python"])
+async def test_restored_generation_updates_worker_and_autostart_environment(override):
     supervisor, worker = make_pipeline(make_actor())
     supervisor._model_reload_status["test"] = {
         "operation_id": "upgrade",
@@ -580,6 +583,7 @@ async def test_restored_generation_updates_worker_and_autostart_environment():
         return_value={
             "config": {"max_num_seqs": 16},
             "python_executable": "/old/python",
+            "model_python_executable": override,
         }
     )
     ref.get_reload_status = AsyncMock(return_value=status)
@@ -589,12 +593,12 @@ async def test_restored_generation_updates_worker_and_autostart_environment():
     )
     await worker._restore_model_generation_config("test-rep0", ref)
     assert worker._model_uid_to_launch_args["test-rep0"]["max_num_seqs"] == 16
-    assert (
-        worker._model_uid_to_launch_args["test-rep0"]["model_python_executable"]
-        == "/old/python"
-    )
+    launch = worker._model_uid_to_launch_args["test-rep0"]
+    assert launch.get("model_python_executable") == override
+    if override is None:
+        assert "model_python_executable" not in launch
     supervisor._launch_history_store.update_autostart_launch_config.assert_called_once_with(
-        "test", {"max_num_seqs": 16, "model_python_executable": "/old/python"}
+        "test", {"max_num_seqs": 16, "model_python_executable": override}
     )
     assert supervisor._model_reload_status["test"]["restored"]
     await supervisor.restore_model_reload_config(
@@ -602,4 +606,128 @@ async def test_restored_generation_updates_worker_and_autostart_environment():
     )
     assert (
         supervisor._launch_history_store.update_autostart_launch_config.call_count == 1
+    )
+
+
+@pytest.mark.asyncio
+async def test_parser_reload_after_failed_upgrade_ignores_old_anchor_status():
+    from ...model.llm.reasoning_parser import ReasoningParser
+
+    anchor_actor, active_actor = make_actor(), make_actor()
+    active_actor._model.reasoning_parser = ReasoningParser(False, "<think>", "</think>")
+    supervisor, worker = make_pipeline(anchor_actor)
+    ref = worker._model_uid_to_model["test-replica"]
+    ref.reload = active_actor.reload
+    ref.validate_reload = active_actor.validate_reload
+
+    async def replace(uid, config, python_executable, operation_id, drain_timeout):
+        anchor_actor._reload_status = {"operation_id": operation_id, "status": "ready"}
+        if config["max_num_seqs"] == 64:
+            anchor_actor._reload_status.update(status="error", restored=True)
+            raise ModelReloadError("rejected replacement", restored=True)
+        return True
+
+    worker._replace_model_generation = replace
+    await supervisor.reload_model("test", {"max_num_seqs": 32})
+    await supervisor._model_reload_tasks["test"]
+    assert (await supervisor.get_model_reload_status("test"))["status"] == "ready"
+    await supervisor.reload_model("test", {"max_num_seqs": 64})
+    await supervisor._model_reload_tasks["test"]
+    assert (await supervisor.get_model_reload_status("test"))["restored"]
+    await supervisor.reload_model("test", {"reasoning_content": True})
+    await supervisor._model_reload_tasks["test"]
+    assert (await supervisor.get_model_reload_status("test"))["status"] == "ready"
+    assert worker._model_uid_to_launch_args["test-replica"]["reasoning_content"] is True
+    assert worker._persist_launch_args.call_count == 2
+    assert (
+        supervisor._launch_history_store.update_autostart_launch_config.call_args.args
+        == ("test", {"reasoning_content": True})
+    )
+
+
+@pytest.mark.asyncio
+async def test_legacy_supervisor_cannot_replace_engine_without_operation_id():
+    from ...model.llm.reasoning_parser import ReasoningParser
+
+    actor = make_actor()
+    actor._model.reasoning_parser = ReasoningParser(False, "<think>", "</think>")
+    _, worker = make_pipeline(actor)
+    worker._replace_model_generation = AsyncMock()
+    with pytest.raises(ValueError, match="upgrade them first"):
+        await worker.reload_model("test-replica", {"max_num_seqs": 32}, 1)
+    worker._replace_model_generation.assert_not_called()
+    worker._persist_launch_args.assert_not_called()
+    assert (
+        await worker.reload_model("test-replica", {"reasoning_content": True}, 1)
+        is False
+    )
+
+
+@pytest.mark.asyncio
+async def test_recovery_survives_concurrent_map_changes_and_model_failures():
+    pool = SimpleNamespace(remove_sub_pool=AsyncMock())
+    worker = WorkerActor("supervisor", None, pool, [])
+    first = {"dead"}
+    second = {"dead"}
+    worker._model_uid_to_subpool_addresses = {"one": first, "two": second}
+
+    async def fail(address):
+        worker._model_uid_to_subpool_addresses["new"] = {"new-pool"}
+        worker._model_uid_to_subpool_addresses.pop("one")
+        raise ConnectionError("anchor unavailable")
+
+    worker._model_uid_to_model = {
+        "one": SimpleNamespace(handle_generation_pool_exit=AsyncMock(side_effect=fail)),
+        "two": SimpleNamespace(
+            handle_generation_pool_exit=AsyncMock(return_value="restored")
+        ),
+    }
+    worker._restore_model_generation_config = AsyncMock(
+        side_effect=RuntimeError("persist failed")
+    )
+    await worker.recover_sub_pool("dead")
+    worker._restore_model_generation_config.assert_awaited_once()
+    assert not first and not second
+    assert worker._model_uid_to_subpool_addresses["new"] == {"new-pool"}
+
+
+@pytest.mark.asyncio
+async def test_terminate_captures_native_children_in_every_generation(monkeypatch):
+    import psutil
+
+    from .. import worker as module
+
+    pool = SimpleNamespace(
+        remove_sub_pool=AsyncMock(),
+        sub_processes={
+            name: SimpleNamespace(pid=pid)
+            for name, pid in (("anchor", 100), ("serving", 200), ("candidate", 300))
+        },
+    )
+    parents = {pid: MagicMock(pid=pid) for pid in (100, 200, 300)}
+    children = [MagicMock(pid=pid) for pid in (101, 201, 301)]
+    for parent, child in zip(parents.values(), children):
+        parent.children.return_value = [child]
+    monkeypatch.setattr(psutil, "Process", lambda pid: parents[pid])
+    stop_children = MagicMock()
+    monkeypatch.setattr(module, "_stop_reload_children", stop_children)
+    worker = WorkerActor("supervisor", None, pool, [])
+    worker.get_supervisor_ref = AsyncMock()
+    worker._status_guard_ref = SimpleNamespace(
+        update_instance_info=AsyncMock(), update_replica_status=AsyncMock()
+    )
+    worker._model_uid_to_model_status["test-rep0"] = ModelStatus(
+        model_state="reloading"
+    )
+    worker._model_uid_to_model["test-rep0"] = SimpleNamespace()
+    worker._model_uid_to_addr["test-rep0"] = "anchor"
+    worker._model_uid_to_subpool_addresses["test-rep0"] = set(pool.sub_processes)
+    worker._remove_persisted_launch_args = MagicMock()
+    await worker.terminate_model("test-rep0")
+    for parent in parents.values():
+        parent.suspend.assert_called_once()
+        parent.kill.assert_called_once()
+    assert {child.pid for child in stop_children.call_args.args[0]} == {101, 201, 301}
+    assert {call.args[0] for call in pool.remove_sub_pool.await_args_list} == set(
+        pool.sub_processes
     )

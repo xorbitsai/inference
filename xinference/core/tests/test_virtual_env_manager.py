@@ -255,6 +255,13 @@ def test_dependency_install_progress_counts_matching_child_distributions(tmp_pat
         (tmp_path / "example-2.0.dist-info" / "METADATA").write_text(
             "Metadata-Version: 2.1\nName: example\nVersion: 2.0\n"
         )
+        # importlib.metadata caches directory discovery by parent mtime.
+        # Windows can create the fixture within the same filesystem clock tick.
+        directory_stat = tmp_path.stat()
+        os.utime(
+            tmp_path,
+            ns=(directory_stat.st_atime_ns, directory_stat.st_mtime_ns + 2_000_000_000),
+        )
         deadline = time.monotonic() + 3
         while (1, 1) not in counts and time.monotonic() < deadline:
             time.sleep(0.05)

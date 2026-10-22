@@ -63,6 +63,11 @@ async def create_launch_history(
         ui_data = body.get("ui_data")
         if not model_name:
             raise HTTPException(status_code=400, detail="model_name is required")
+        if "model_python_executable" in data:
+            raise HTTPException(
+                status_code=400,
+                detail="model_python_executable is reserved for internal recovery",
+            )
         username = user.get("username", "") if user else ""
         api._launch_history_store.upsert(
             model_name=model_name,

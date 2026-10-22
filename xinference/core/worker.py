@@ -1012,24 +1012,28 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         except Exception:
             pass
         failed_generations = set()
-        for model_uid, addresses in self._model_uid_to_subpool_addresses.items():
+        for model_uid, addresses in list(self._model_uid_to_subpool_addresses.items()):
             if (
                 address in addresses
                 and self._model_uid_to_addr.get(model_uid) != address
             ):
-                ref = self._model_uid_to_model.get(model_uid)
-                if ref is not None:
-                    try:
-                        action = await ref.handle_generation_pool_exit(address)
-                    except AttributeError:
-                        # Models retained from an older package do not have
-                        # generation children; keep their existing recovery.
-                        action = "unpublished"
-                    if action == "recover":
-                        failed_generations.add(model_uid)
-                    elif action == "restored":
-                        await self._restore_model_generation_config(model_uid, ref)
-                addresses.discard(address)
+                try:
+                    ref = self._model_uid_to_model.get(model_uid)
+                    if ref is not None:
+                        try:
+                            action = await ref.handle_generation_pool_exit(address)
+                        except AttributeError:
+                            # Models retained from an older package have no
+                            # generation children; keep their existing recovery.
+                            action = "unpublished"
+                        if action == "recover":
+                            failed_generations.add(model_uid)
+                        elif action == "restored":
+                            await self._restore_model_generation_config(model_uid, ref)
+                except Exception:
+                    logger.exception("Failed to recover generation for %s", model_uid)
+                finally:
+                    addresses.discard(address)
         for model_uid, addr in list(self._model_uid_to_addr.items()):
             if addr == address or model_uid in failed_generations:
                 launch_args = self._model_uid_to_launch_args.get(model_uid)
@@ -5268,6 +5272,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             shard=shard,
                             driver_info=driver_info,
                             model_engine=model_engine,
+                            model_python_executable=model_python_executable,
                         )
                         if await model_ref.need_create_pools() and (
                             len(devices) > 1 or n_worker > 1  # type: ignore
@@ -5949,23 +5954,25 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 logger.debug("Fail to get pool addresses, error: %s", e)
 
         reload_children = []
-        reload_parent = None
+        reload_parents = []
         if was_reloading:
             import psutil
 
             # Capture before killing the pool: reparented SGLang/native-MP
             # children cannot reliably be found by model UID in their cmdline.
-            address = self._model_uid_to_addr.get(model_uid)
-            process = self._main_pool.sub_processes.get(address)
-            if process is not None and process.pid is not None:
-                try:
-                    reload_parent = psutil.Process(process.pid)
-                    # Freeze the loading thread before capturing direct
-                    # children, so it cannot fork another engine before kill.
-                    reload_parent.suspend()
-                    reload_children = reload_parent.children(recursive=True)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
+            addresses = {self._model_uid_to_addr.get(model_uid), *pool_addresses}
+            for address in addresses:
+                process = self._main_pool.sub_processes.get(address)
+                if process is not None and process.pid is not None:
+                    try:
+                        parent = psutil.Process(process.pid)
+                        reload_parents.append(parent)
+                        # Freeze each generation before capturing native
+                        # children, so preparation cannot fork another engine.
+                        parent.suspend()
+                        reload_children.extend(parent.children(recursive=True))
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
 
         # Resolve GPU indices for terminate-path orphan cleanup.
         # Prefer launch_args["gpu_idx"] (user-specified), but fall back to
@@ -6028,9 +6035,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 "Remove sub pool failed, model uid: %s, error: %s", model_uid, e
             )
         finally:
-            if reload_parent is not None:
+            for parent in reload_parents:
                 try:
-                    reload_parent.kill()
+                    parent.kill()
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
             if reload_children:
@@ -6204,9 +6211,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             return
         config = {
             **snapshot["config"],
-            "model_python_executable": snapshot["python_executable"],
+            "model_python_executable": snapshot.get("model_python_executable"),
         }
-        self._model_uid_to_launch_args[model_uid].update(config)
+        launch_args = self._model_uid_to_launch_args[model_uid]
+        launch_args.update(config)
+        if config["model_python_executable"] is None:
+            launch_args.pop("model_python_executable", None)
         self._persist_launch_args()
         supervisor = await self.get_supervisor_ref()
         await supervisor.restore_model_reload_config(model_uid, config, status)
@@ -6258,10 +6268,15 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             raise RuntimeError("This model already has a reload in progress")
         active.add(model_uid)
         try:
-            if (
+            replacing = (
                 python_executable is not None
                 or not set(config) <= HOT_RELOAD_FIELDS.keys()
-            ):
+            )
+            if replacing:
+                if operation_id is None:
+                    raise ValueError(
+                        "Seamless replacement requires a supporting Supervisor and REST server; upgrade them first"
+                    )
                 weights_reused = await self._replace_model_generation(
                     model_uid, config, python_executable, operation_id, drain_timeout
                 )
@@ -6273,11 +6288,17 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 raise ModelReloadError(
                     "Model was terminated or recovered during reload"
                 )
-            observed = await model_ref.get_reload_status()
-            if observed.get("restored") and observed.get("status") == "error":
-                raise ModelReloadError(
-                    observed.get("error", "Replacement engine exited"), restored=True
-                )
+            if replacing:
+                observed = await model_ref.get_reload_status()
+                if (
+                    observed.get("operation_id") == operation_id
+                    and observed.get("restored")
+                    and observed.get("status") == "error"
+                ):
+                    raise ModelReloadError(
+                        observed.get("error", "Replacement engine exited"),
+                        restored=True,
+                    )
             self._model_uid_to_launch_args[model_uid].update(config)
             if python_executable is not None:
                 self._model_uid_to_launch_args[model_uid][

@@ -31,6 +31,22 @@ class ServingGeneration(ModelGenerationMixin, xo.StatelessActor):
             _weight_cache=SimpleNamespace(directory="cache", client_config=lambda: {}),
         )
 
+    async def hold_next_chat(self):
+        self.admission_entered = asyncio.Event()
+        self.admission_gate = asyncio.Event()
+
+    async def wait_for_pending_chat(self):
+        await self.admission_entered.wait()
+
+    def release_pending_chat(self):
+        self.admission_gate.set()
+
+    async def __on_receive__(self, message):
+        if message[0] == "chat" and hasattr(self, "admission_gate"):
+            self.admission_entered.set()
+            await self.admission_gate.wait()
+        return await super().__on_receive__(message)
+
     def _require_ready(self):
         if not self.healthy:
             raise ValueError("Candidate failed health check")
@@ -337,6 +353,7 @@ async def test_private_preparation_never_stops_public_engine(
 
     monkeypatch.setenv("INHERITED_TEST_VARIABLE", "inherited" * 1000)
     snapshot = {
+        "generation_uid": b"source",
         "engine": "vllm",
         "engine_version": "0.31.0",
         "torch_version": "2.13.0",
@@ -361,6 +378,7 @@ async def test_private_preparation_never_stops_public_engine(
             )
         ),
         commit_model_generation=AsyncMock(side_effect=commit),
+        fail_generation_reload=AsyncMock(),
         get_reload_status=AsyncMock(side_effect=lambda: status),
         discard_generation_cache=AsyncMock(),
         create_generation_cache=AsyncMock(return_value={"directory": "/new-cache"}),
@@ -401,6 +419,8 @@ async def test_private_preparation_never_stops_public_engine(
         with pytest.raises((RuntimeError, ValueError)):
             await replace_model_generation(worker, "model", {}, operation_id="job")
         anchor.commit_model_generation.assert_not_called()
+        anchor.fail_generation_reload.assert_awaited_once()
+        assert anchor.fail_generation_reload.await_args.args[0] == "job"
         if failure not in {"environment", "capacity"}:
             worker._main_pool.remove_sub_pool.assert_awaited_once_with(
                 "candidate-pool", force=True
@@ -415,6 +435,7 @@ async def test_private_preparation_never_stops_public_engine(
             is reused
         )
         worker._main_pool.remove_sub_pool.assert_not_called()
+        anchor.fail_generation_reload.assert_not_called()
         # After a prior upgrade, the active model's interpreter can differ
         # from the Worker's even when this request omits python_executable.
         assert (
@@ -441,6 +462,7 @@ async def test_failed_candidate_cache_cleanup_survives_pool_and_status_errors(
         model_generation_protocol=AsyncMock(return_value=1),
         export_model_generation=AsyncMock(
             return_value={
+                "generation_uid": b"source",
                 "engine": "vllm",
                 "engine_version": "old",
                 "torch_version": "old",
@@ -683,3 +705,103 @@ def test_capacity_refuses_unavailable_driver_memory(monkeypatch, unknown):
     )
     with pytest.raises(ValueError, match="Cannot safely account"):
         _check_generation_capacity(model, [], {}, True)
+
+
+@pytest.mark.asyncio
+async def test_forwarded_request_before_target_admission_prevents_retirement():
+    async with await xo.create_actor_pool("127.0.0.1", n_process=0) as pool:
+        anchor, old, new = [
+            await xo.create_actor(
+                ServingGeneration, name, uid=name, address=pool.external_address
+            )
+            for name in ("anchor", "old", "new")
+        ]
+        await anchor.commit_model_generation(old, "first", True, "cache")
+        await anchor.begin_generation_reload("second", 1)
+        await old.hold_next_chat()
+        pending = asyncio.create_task(anchor.chat())
+        try:
+            await asyncio.wait_for(old.wait_for_pending_chat(), 1)
+            assert await old.generation_serve_count() == 0
+            await anchor.commit_model_generation(new, "second", True, "cache")
+            await asyncio.sleep(0.1)
+            assert not (await old.get_reload_status())["engine_stopped"]
+            assert await anchor.chat() == "new"
+            await old.release_pending_chat()
+            assert await pending == "old"
+            await anchor.begin_generation_reload("third", 1)
+            assert (await old.get_reload_status())["engine_stopped"]
+        finally:
+            await old.release_pending_chat()
+            await asyncio.gather(pending, return_exceptions=True)
+            await anchor.close_model_generations()
+
+
+@pytest.mark.asyncio
+async def test_commit_refuses_snapshot_from_another_serving_generation():
+    actor = ServingGeneration("anchor")
+    previous = SimpleNamespace(uid=b"restored")
+    actor._serving_generation = previous
+    candidate = SimpleNamespace(generation_ready=AsyncMock())
+    with pytest.raises(RuntimeError, match="Serving generation changed"):
+        await actor.commit_model_generation(
+            candidate, "upgrade", True, "cache", b"failed"
+        )
+    assert actor._serving_generation is previous
+    assert not actor.__dict__.get("_generation_retirement_tasks")
+
+
+@pytest.mark.asyncio
+async def test_snapshot_is_exported_after_waiting_for_previous_retirement():
+    anchor = SimpleNamespace(
+        model_generation_protocol=AsyncMock(return_value=1),
+        get_reload_status=AsyncMock(return_value={}),
+        fail_generation_reload=AsyncMock(),
+    )
+    ready = asyncio.Event()
+    restored = asyncio.Event()
+
+    async def begin(*args):
+        ready.set()
+        await restored.wait()
+
+    async def export(patch):
+        assert restored.is_set()
+        raise ValueError("restored snapshot")
+
+    anchor.begin_generation_reload = begin
+    anchor.export_model_generation = AsyncMock(side_effect=export)
+    worker = SimpleNamespace(_model_uid_to_model={"model": anchor})
+    replacing = asyncio.create_task(
+        replace_model_generation(worker, "model", {}, operation_id="job")
+    )
+    await ready.wait()
+    anchor.export_model_generation.assert_not_called()
+    restored.set()
+    with pytest.raises(ValueError, match="restored snapshot"):
+        await replacing
+    anchor.fail_generation_reload.assert_awaited_once_with("job", "restored snapshot")
+
+
+@pytest.mark.asyncio
+async def test_snapshot_preserves_replica_uid_and_explicit_interpreter(monkeypatch):
+    import importlib.metadata
+
+    from .test_model_reload import make_actor
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "1.0")
+    actor = make_actor()
+    actor._n_worker = 1
+    actor._request_limits = float("inf")
+    actor._model.raw_model_uid = "model-rep3"
+    actor._model.model_uid = "model"
+    actor._model.model_family = SimpleNamespace(dict=lambda: {})
+    actor._model.model_path = "/model"
+    actor._model._weight_cache.export = lambda: {}
+    snapshot = await actor.export_model_generation({})
+    assert snapshot["model_uid"] == "model-rep3"
+    assert snapshot["model_python_executable"] is None
+    actor._generation_python_executable = "/explicit/python"
+    assert (await actor.export_model_generation({}))[
+        "model_python_executable"
+    ] == "/explicit/python"

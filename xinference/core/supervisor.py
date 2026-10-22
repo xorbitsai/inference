@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import functools
 import itertools
 import os
 import signal
@@ -1182,7 +1183,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         entries = []
         for raw_entry in raw_entries:
             try:
-                entries.append(normalize_autostart_model_entry(raw_entry))
+                entries.append(
+                    normalize_autostart_model_entry(raw_entry, allow_internal=True)
+                )
             except ValueError:
                 logger.exception("Skip invalid autostart entry: %s", raw_entry)
         return entries
@@ -1253,7 +1256,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         if isinstance(gpu_idx, int):
             gpu_idx = [gpu_idx]
 
-        return await self.launch_builtin_model(
+        return await self._launch_builtin_model(
             model_uid=payload.pop("model_uid", None),
             model_name=payload.pop("model_name"),
             model_engine=payload.pop("model_engine", None),
@@ -3026,7 +3029,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     self._workers_launching[worker_address] = active_count
 
     @log_async(logger=logger)
-    async def launch_builtin_model(
+    async def _launch_builtin_model(
         self,
         model_uid: Optional[str],
         model_name: str,
@@ -4045,6 +4048,14 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 lambda _: self._invalidate_list_models_debounce_cache()
             )
         return model_uid
+
+    @functools.wraps(_launch_builtin_model)
+    async def launch_builtin_model(self, *args, **kwargs):
+        if "model_python_executable" in kwargs:
+            raise ValueError(
+                "model_python_executable is reserved for internal recovery"
+            )
+        return await self._launch_builtin_model(*args, **kwargs)
 
     async def _launch_builtin_sharded_model(
         self,
@@ -5165,13 +5176,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                             None,
                             status["operation_id"],
                         ):
-                            status.update(
-                                {
-                                    key: value
-                                    for key, value in observed.items()
-                                    if key == "restored"
-                                }
-                            )
+                            if "restored" in observed:
+                                status["restored"] = observed["restored"]
                     except Exception:
                         pass
                     logger.exception("Reload of %s failed", model_uid)

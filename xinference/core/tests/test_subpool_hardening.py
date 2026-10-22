@@ -387,13 +387,15 @@ async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(
         procs[pid] = m
         return m
 
-    # 100: orphan vLLM (PPID==1, vllm cmdline) → killed
+    # 100: unprotected vLLM adopted by the Worker host → killed
     _make(100, host_pid, ["python", "-m", "vllm"])
-    # 200: live worker child (PPID != 1) → spared
+    # 200: protected model owned by the same Worker host → spared
     _make(200, host_pid, ["python", "-m", "vllm"])
     # 300: orphan but non-vllm cmdline → spared
     _make(300, 1, ["python", "unrelated_app.py"])
 
+    # 400: live vLLM child of another non-init, non-host process → spared
+    _make(400, max(2, host_pid + 1), ["python", "-m", "vllm"])
     mock_psutil = MagicMock()
 
     def _process(pid):
@@ -407,7 +409,7 @@ async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(
     mock_psutil.STATUS_ZOMBIE = "zombie"
 
     with patch("xinference.core.worker._snapshot_gpu_occupying_pids") as mock_snap:
-        mock_snap.return_value = {100, 200, 300}
+        mock_snap.return_value = {100, 200, 300, 400}
         with patch.dict("sys.modules", {"psutil": mock_psutil}):
             killed = await w._kill_gpu_orphans_by_ppid([0], protected_pids={200})
 
@@ -417,6 +419,7 @@ async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(
     procs[100].kill.assert_called_once()
     procs[200].kill.assert_not_called()
     procs[300].kill.assert_not_called()
+    procs[400].kill.assert_not_called()
 
 
 async def test_kill_gpu_orphans_by_ppid_no_orphans_returns_empty(monkeypatch):

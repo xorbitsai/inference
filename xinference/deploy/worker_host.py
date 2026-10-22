@@ -47,7 +47,7 @@ def _enable_subreaper() -> None:
             )
 
 
-async def run_worker_host(command, *, stop_timeout=30):
+async def run_worker_host(command):
     if os.name != "posix":
         raise RuntimeError("Worker service hosting requires Linux or macOS")
     if not command:
@@ -159,7 +159,7 @@ async def run_worker_host(command, *, stop_timeout=30):
                 if alive(pid, created):
                     with contextlib.suppress(ProcessLookupError):
                         os.kill(pid, signal.SIGTERM)
-            deadline = loop.time() + stop_timeout
+            deadline = loop.time() + 30
             while loop.time() < deadline and any(
                 alive(pid, created) for pid, created in descendants.items()
             ):

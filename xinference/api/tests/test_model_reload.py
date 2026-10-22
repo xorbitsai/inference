@@ -215,3 +215,71 @@ async def test_launch_cannot_override_persisted_model_interpreter():
         "model_python_executable"
         not in supervisor.launch_builtin_model.await_args.kwargs
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scheme", ["Bearer", "bearer"])
+async def test_admin_owned_api_key_cannot_upgrade_or_see_interpreter(tmp_path, scheme):
+    from starlette.requests import Request
+
+    from ..oauth2.advanced.auth_service import AdvancedAuthService
+    from ..oauth2.advanced.crypto import get_password_hash
+
+    auth = AdvancedAuthService(
+        str(tmp_path / "auth.db"), "test-secret", "test-encryption"
+    )
+    user_id = auth.db.create_user(
+        "admin", get_password_hash("test-password"), permissions=["admin"]
+    )
+    key = auth.create_api_key_for_user(user_id, name="model-key")["key"]
+    api, supervisor = make_api()
+    api._advanced_auth_service = auth
+    supervisor.get_model_reload_config.return_value["python_executable"] = (
+        "/private/python"
+    )
+
+    def request(method):
+        return Request(
+            {
+                "type": "http",
+                "method": method,
+                "path": "/v1/models/test/reload",
+                "headers": [(b"authorization", (scheme + " " + key).encode())],
+            }
+        )
+
+    metadata = json.loads(
+        (await api.get_model_reload_config("test", request("GET"))).body
+    )
+    assert metadata["can_upgrade_environment"] is False
+    assert "python_executable" not in metadata
+    post = request("POST")
+    post._json = {"python_executable": "/new/python"}
+    with pytest.raises(HTTPException) as error:
+        await api.reload_model("test", post)
+    assert error.value.status_code == 403
+    assert "API keys can only access" in error.value.detail
+    supervisor.reload_model.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_autostart_rest_rejects_internal_interpreter():
+    from ...core.supervisor import SupervisorActor
+
+    api, _ = make_api()
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    request = MagicMock(
+        json=AsyncMock(
+            return_value={
+                "launch": {
+                    "model_name": "test",
+                    "model_python_executable": "/arbitrary/python",
+                }
+            }
+        )
+    )
+    with pytest.raises(HTTPException) as error:
+        await api.upsert_autostart_model(request, {"username": "ordinary"})
+    assert error.value.status_code == 400
+    assert "reserved for internal recovery" in error.value.detail

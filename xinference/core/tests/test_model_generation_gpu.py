@@ -256,6 +256,8 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
             )
             model = await supervisor.get_model(uid)
             report["before"] = await model.export_model_generation({})
+            assert report["before"]["model_uid"] == f"{uid}-rep0"
+            assert report["before"]["model_python_executable"] is None
             print("WARM", report["before"]["cache"]["pid"], flush=True)
             started = asyncio.Event()
 
@@ -368,6 +370,8 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
             await new_generation_stream()
             report["post_cutover_stream_completed"] = True
             report["after"] = await model.export_model_generation({})
+            assert report["after"]["model_uid"] == report["before"]["model_uid"]
+            assert report["after"]["model_python_executable"] == target_python
             expected_reuse = all(
                 report["after"][key] == report["before"][key]
                 for key in ("engine_version", "torch_version")

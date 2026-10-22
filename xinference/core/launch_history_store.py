@@ -252,6 +252,10 @@ class LaunchHistoryStore:
     ) -> None:
         # Each user owns a separate row per (model_name, model_uid); a later
         # upsert by the same user updates only their own row.
+        if "model_python_executable" in data:
+            raise ValueError(
+                "model_python_executable is reserved for internal recovery"
+            )
         data_json = json.dumps(data, ensure_ascii=False)
         preserve_ui_data = ui_data is None
         ui_metadata = (

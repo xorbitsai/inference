@@ -34,10 +34,14 @@ SENSITIVE_KEYWORDS = (
 )
 
 
-def normalize_launch_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+def normalize_launch_payload(
+    payload: Dict[str, Any], *, allow_internal: bool = False
+) -> Dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("Autostart launch config must be a JSON object.")
 
+    if not allow_internal and "model_python_executable" in payload:
+        raise ValueError("model_python_executable is reserved for internal recovery")
     launch = {key: value for key, value in payload.items() if value is not None}
     model_name = launch.get("model_name")
     if not isinstance(model_name, str) or not model_name.strip():
@@ -71,7 +75,9 @@ def normalize_launch_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     return launch
 
 
-def normalize_autostart_model_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+def normalize_autostart_model_entry(
+    entry: Dict[str, Any], *, allow_internal: bool = False
+) -> Dict[str, Any]:
     if not isinstance(entry, dict):
         raise ValueError("Autostart model entry must be a JSON object.")
 
@@ -121,7 +127,7 @@ def normalize_autostart_model_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
         "priority": priority,
         "max_retries": max_retries,
         "retry_interval_seconds": retry_interval_seconds,
-        "launch": normalize_launch_payload(raw_launch),
+        "launch": normalize_launch_payload(raw_launch, allow_internal=allow_internal),
     }
 
 
@@ -147,6 +153,7 @@ def _redact_sensitive_values(value: Any) -> Any:
 
 def redact_launch_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     redacted = _redact_sensitive_values(copy.deepcopy(payload))
+    redacted.pop("model_python_executable", None)
     envs = redacted.get("envs")
     if isinstance(envs, dict):
         redacted["envs"] = {key: REDACTED_VALUE for key in envs}

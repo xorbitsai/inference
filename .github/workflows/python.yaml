@@ -62,8 +62,7 @@ jobs:
         run: cd frontend && npm run test:catalog-refresh
       - name: Test persistent model favorites
         run: cd frontend && npm run test:model-favorites
-
-- name: Test model and Worker upgrade controls
+      - name: Test model and Worker upgrade controls
         run: cd frontend && npm run test:model-reload && npm run test:worker-relaunch
       - name: Build frontend (static export)
         run: cd frontend && npm run build

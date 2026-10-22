@@ -287,8 +287,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         shard: Optional[int] = 0,
         driver_info: Optional[dict] = None,  # for model across workers
         model_engine: Optional[str] = None,
+        model_python_executable: Optional[str] = None,
     ):
         super().__init__()
+        self._generation_python_executable = model_python_executable
 
         from ..model.llm.vllm.core import VLLMModel
 
@@ -1889,4 +1891,5 @@ class ModelGenerationActor(ModelActor):
             replica_model_uid=snapshot["model_uid"],
             model_engine=snapshot["engine"],
             request_limits=snapshot["request_limits"],
+            model_python_executable=snapshot.get("model_python_executable"),
         )

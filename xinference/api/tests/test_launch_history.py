@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 """Unit tests for the launch history store and router handlers."""
 
 import inspect
@@ -706,3 +708,40 @@ def test_auth_on_delete_handler_scopes_by_username():
     )
     args, _ = api._launch_history_store.delete.call_args
     assert args == ("llama", "", "alice")
+
+
+def test_history_cannot_replace_trusted_interpreter_in_enabled_autostart(store):
+    launch = {"model_uid": "uid-1", "model_name": "test"}
+    store.upsert_autostart({"launch": launch}, username="alice")
+    store.update_autostart_launch_config(
+        "uid-1", {"model_python_executable": "/admin-selected/python"}
+    )
+    with pytest.raises(ValueError, match="reserved for internal recovery"):
+        store.upsert(
+            "test",
+            "uid-1",
+            {**launch, "model_python_executable": "/arbitrary/python"},
+            username="alice",
+        )
+    assert (
+        store.list_autostart()[0]["launch"]["model_python_executable"]
+        == "/admin-selected/python"
+    )
+
+
+@pytest.mark.asyncio
+async def test_history_route_rejects_internal_interpreter_before_persisting(mock_api):
+    request = MagicMock(
+        json=AsyncMock(
+            return_value={
+                "model_name": "test",
+                "data": {"model_python_executable": "/arbitrary/python"},
+            }
+        )
+    )
+    with pytest.raises(HTTPException) as error:
+        await launch_history.create_launch_history(
+            request, api=mock_api, user={"username": "alice"}
+        )
+    assert error.value.status_code == 400
+    mock_api._launch_history_store.upsert.assert_not_called()

@@ -144,6 +144,7 @@ def _check_generation_capacity(model, caches, config, reused):
 
 class ModelGenerationMixin:
     if TYPE_CHECKING:
+        uid: bytes
         _serve_count: int
         _n_worker: Optional[int]
         _request_limits: float
@@ -185,7 +186,15 @@ class ModelGenerationMixin:
                 raise ValueError(
                     "Batched actor calls are unsupported during model replacement"
                 )
-            return await getattr(target, method)(*args, **kwargs)
+            key = _generation_key(target)
+            pending_calls = self.__dict__.setdefault("_generation_pending_calls", {})
+            pending_calls[key] = pending_calls.get(key, 0) + 1
+            try:
+                return await getattr(target, method)(*args, **kwargs)
+            finally:
+                pending_calls[key] -= 1
+                if not pending_calls[key]:
+                    pending_calls.pop(key)
         return await super().__on_receive__(message)
 
     async def begin_generation_reload(
@@ -258,7 +267,11 @@ class ModelGenerationMixin:
         return {
             "module": type(model).__module__,
             "class": type(model).__name__,
-            "model_uid": model.model_uid,
+            "model_uid": model.raw_model_uid,
+            "generation_uid": self.uid,
+            "model_python_executable": self.__dict__.get(
+                "_generation_python_executable"
+            ),
             "model_family": model.model_family.dict(),
             "model_path": model.model_path,
             "config": config,
@@ -346,7 +359,12 @@ class ModelGenerationMixin:
             await asyncio.to_thread(cache.stop)
 
     async def commit_model_generation(
-        self, target, operation_id, weights_reused, cache_directory
+        self,
+        target,
+        operation_id,
+        weights_reused,
+        cache_directory,
+        expected_generation_uid=None,
     ):
         if (
             self.__dict__.get("_reload_status", {}).get("operation_id") == operation_id
@@ -357,6 +375,14 @@ class ModelGenerationMixin:
         # No await between choosing the old generation and publishing the new
         # one. Requests already admitted retain their original actor/iterator.
         previous = self.__dict__.get("_serving_generation")
+        current_uid = self.uid if previous is None else previous.uid
+        if (
+            expected_generation_uid is not None
+            and current_uid != expected_generation_uid
+        ):
+            raise RuntimeError(
+                "Serving generation changed during replacement; retry the upgrade"
+            )
         leases = self.__dict__.setdefault("_generation_cache_leases", {})
         if previous is None:
             leases["initial"] = str(self._model._weight_cache.directory)
@@ -408,7 +434,10 @@ class ModelGenerationMixin:
                     if previous is None
                     else await previous.generation_serve_count()
                 )
-                if count and key not in started:
+                pending_calls = self.__dict__.get("_generation_pending_calls", {}).get(
+                    key, 0
+                )
+                if (count or pending_calls) and key not in started:
                     if key in tasks:
                         tasks[key].cancel()
                     retiring.remove(previous)
@@ -451,7 +480,13 @@ class ModelGenerationMixin:
                     if previous is None
                     else await previous.generation_serve_count()
                 )
-                if not count:
+                # Forwarding can suspend during serialization before the
+                # target admits a request. Both sides must be idle, with no
+                # await between this final check and marking retirement.
+                pending_calls = self.__dict__.get("_generation_pending_calls", {}).get(
+                    key, 0
+                )
+                if not count and not pending_calls:
                     break
                 await asyncio.sleep(0.05)
             self.__dict__.setdefault("_generation_retirement_started", set()).add(key)
@@ -624,29 +659,34 @@ async def replace_model_generation(
         raise ValueError(
             "The model was started without seamless replacement support; restart it once with a supporting Xinference version"
         ) from error
-    snapshot = await anchor.export_model_generation(patch)
     operation_id = operation_id or uuid.uuid4().hex
     await anchor.begin_generation_reload(operation_id, drain_timeout)
-    env = dict(os.environ)
-    env.update(worker._model_uid_to_launch_args[model_uid].get("envs") or {})
-    env.update(snapshot["env"])
-    env["XINFERENCE_MODEL_UID"] = model_uid
-    executable = python_executable or snapshot["python_executable"]
-    if python_executable is not None or executable != sys.executable:
-        from .utils import build_subpool_envs_for_python
-
-        env = build_subpool_envs_for_python(env, executable)
-    else:
-        env["PATH"] = os.pathsep.join(
-            [os.path.dirname(executable), env.get("PATH", "")]
-        )
-    if python_executable is None:
-        env.update(snapshot.get("runtime_env", {}))
     cache_directory: Optional[str] = None
     address: Optional[str] = None
     committed = False
     commit_started = False
     try:
+        # Retirement may restore another generation while begin waits. Read
+        # its configuration only after that wait, and compare at publication.
+        snapshot = await anchor.export_model_generation(patch)
+        source_generation_uid = snapshot["generation_uid"]
+        if python_executable is not None:
+            snapshot["model_python_executable"] = python_executable
+        env = dict(os.environ)
+        env.update(worker._model_uid_to_launch_args[model_uid].get("envs") or {})
+        env.update(snapshot["env"])
+        env["XINFERENCE_MODEL_UID"] = model_uid
+        executable = python_executable or snapshot["python_executable"]
+        if python_executable is not None or executable != sys.executable:
+            from .utils import build_subpool_envs_for_python
+
+            env = build_subpool_envs_for_python(env, executable)
+        else:
+            env["PATH"] = os.pathsep.join(
+                [os.path.dirname(executable), env.get("PATH", "")]
+            )
+        if python_executable is None:
+            env.update(snapshot.get("runtime_env", {}))
         versions = await probe_environment(executable, snapshot["engine"], env)
         reused = (
             versions[snapshot["engine"]] == snapshot["engine_version"]
@@ -700,7 +740,11 @@ async def replace_model_generation(
         async def publish():
             nonlocal committed
             await anchor.commit_model_generation(
-                candidate, operation_id, reused, cache["directory"]
+                candidate,
+                operation_id,
+                reused,
+                cache["directory"],
+                source_generation_uid,
             )
             committed = True
 
