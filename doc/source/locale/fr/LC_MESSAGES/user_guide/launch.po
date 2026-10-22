@@ -546,8 +546,8 @@ msgid "Model favorites"
 msgstr "Modèles favoris"
 
 #: ../../source/user_guide/launch.rst
-msgid "Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection."
-msgstr "Les étoiles de la page **Launch Model** sont enregistrées pour le compte actuel et conservées après un changement de navigateur ou un redémarrage du serveur. Les favoris sont identifiés par le nom du modèle, toutes catégories confondues. Leur lecture ou modification nécessite la permission ``models:list``. Sans authentification, tous les visiteurs partagent une collection."
+msgid "Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection. With authentication enabled, changes require a user session; API keys can only read."
+msgstr "Les étoiles de la page **Launch Model** sont enregistrées pour le compte actuel et conservées après un changement de navigateur ou un redémarrage du serveur. Les favoris sont identifiés par le nom du modèle, toutes catégories confondues. Leur lecture ou modification nécessite la permission ``models:list``. Sans authentification, tous les visiteurs partagent une collection. Lorsque l’authentification est activée, les modifications nécessitent une session utilisateur ; les clés API peuvent uniquement lire."
 
 #: ../../source/user_guide/launch.rst
 msgid "By default, favorites use SQLite at ``<XINFERENCE_HOME>/model_favorites.db``; set ``XINFERENCE_MODEL_FAVORITES_DB_PATH`` to use another file. API processes sharing favorites must use the same store. Back up the favorites store together with the authentication database."

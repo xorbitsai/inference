@@ -544,3 +544,11 @@ msgstr "XINFERENCE_FLEXIBLE_LAUNCHERS"
 #: ../../source/getting_started/environments.rst
 msgid "The shipped Flexible launchers remain available. Permit additional launchers by listing their exact dotted names in this comma-separated variable before starting workers. Allowlisted launchers execute Python code with worker privileges; add only trusted implementations."
 msgstr "組み込みの Flexible ランチャーは引き続き利用できます。追加ランチャーを許可するには、ワーカー起動前に完全なドット区切り名をこの変数へカンマ区切りで指定します。許可したランチャーはワーカー権限で Python コードを実行するため、信頼できる実装だけを追加してください。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_MODEL_FAVORITES_DB_PATH"
+msgstr "XINFERENCE_MODEL_FAVORITES_DB_PATH"
+
+#: ../../source/getting_started/environments.rst
+msgid "Path to the SQLite model favorites database. Default value is ``<XINFERENCE_HOME>/model_favorites.db``. API processes sharing favorites must use the same store. An optional model favorites storage extension can replace this default."
+msgstr "SQLite のモデルお気に入りデータベースのパスです。既定値は ``<XINFERENCE_HOME>/model_favorites.db`` です。お気に入りを共有する API プロセスは同じストアを使用する必要があります。任意のモデルお気に入りストレージ拡張で既定の実装を置き換えられます。"

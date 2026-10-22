@@ -6,6 +6,7 @@
 
 """Storage contracts and real authenticated HTTP entry points for favorites."""
 
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -19,6 +20,7 @@ from fastapi.testclient import TestClient
 
 from xinference import extensions
 from xinference.api.oauth2.advanced.auth_service import AdvancedAuthService
+from xinference.api.oauth2.advanced.database import SCHEMA_SQL, Database
 from xinference.api.routers import model_favorites
 from xinference.core.model_favorites_store import (
     ModelFavoritesStore,
@@ -33,7 +35,7 @@ def isolate_extensions(monkeypatch):
     monkeypatch.setattr(extensions, "_loaded", None)
 
 
-def client_for(store, auth=None):
+def client_for(store, auth=None, *, raise_server_exceptions=False):
     app = FastAPI()
     api = SimpleNamespace(
         _router=APIRouter(),
@@ -49,7 +51,7 @@ def client_for(store, auth=None):
     async def loop_thread():
         return threading.get_ident()
 
-    return TestClient(app, raise_server_exceptions=False)
+    return TestClient(app, raise_server_exceptions=raise_server_exceptions)
 
 
 def test_sqlite_persists_idempotent_changes_and_isolates_owners(tmp_path):
@@ -232,6 +234,15 @@ def test_http_uses_live_account_id_and_key_owner(authenticated):
     assert client.get(
         url, headers={"Authorization": "Bearer " + key["key"]}
     ).json() == ["org/model"]
+    key_headers = {"Authorization": "Bearer " + key["key"]}
+    for method in ("PUT", "DELETE"):
+        assert (
+            client.request(
+                method, url, json={"model_name": "org/model"}, headers=key_headers
+            ).status_code
+            == 403
+        )
+    assert client.get(url, headers=a).json() == ["org/model"]
     auth.db.update_user(alice, username="renamed")
     assert client.get(url, headers=a).json() == ["org/model"]
     auth.db.set_user_permissions(alice, [])
@@ -240,15 +251,96 @@ def test_http_uses_live_account_id_and_key_owner(authenticated):
     assert client.get(url, headers=b).status_code == 401
 
 
+@pytest.mark.parametrize("source", ["local", "oidc"])
+def test_recreated_account_does_not_inherit_deleted_owner_favorites(
+    authenticated, source
+):
+    auth, alice, bob, store, client = authenticated
+    old_headers = bearer(auth, bob)
+    assert (
+        client.put(
+            "/v1/model_favorites",
+            json={"model_name": "private-old-model"},
+            headers=old_headers,
+        ).status_code
+        == 200
+    )
+    auth.db.delete_user(bob)
+    replacement = auth.db.create_user(
+        "replacement",
+        None,
+        source=source,
+        oidc_sub="replacement-sub" if source == "oidc" else None,
+        permissions=["models:list"],
+    )
+    assert (
+        client.get("/v1/model_favorites", headers=bearer(auth, replacement)).json()
+        == []
+    )
+    assert replacement != bob
+    assert client.get("/v1/model_favorites", headers=old_headers).status_code == 401
+
+
+def test_existing_sqlite_database_keeps_monotonic_ids_after_all_users_are_deleted(
+    tmp_path,
+):
+    path = str(tmp_path / "old-auth.db")
+    # This is the existing non-AUTOINCREMENT schema, with no sequence state.
+    with sqlite3.connect(path) as conn:
+        conn.executescript(SCHEMA_SQL)
+        conn.execute(
+            "INSERT INTO users(id, username, source) VALUES (41, 'original', 'local')"
+        )
+        conn.execute(
+            "INSERT INTO user_permissions(user_id, permission) VALUES(41, 'admin')"
+        )
+    database = Database(path)
+    assert database.get_user_by_id(41)["permissions"] == ["admin"]
+    database.delete_user(41)
+    replacement = Database(path).create_first_user("replacement", None)
+    assert replacement > 41
+    database.delete_user(replacement)
+    assert (
+        Database(path).create_user("oidc", None, source="oidc", oidc_sub="new-sub")
+        > replacement
+    )
+    # Explicit IDs imported after initialization must also raise the watermark.
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "INSERT INTO users(id, username, source) VALUES (99, 'imported', 'local')"
+        )
+    database.delete_user(99)
+    assert Database(path).create_user("after-import", None) > 99
+
+
+def test_independent_auth_instances_allocate_non_reused_ids_atomically(tmp_path):
+    path = str(tmp_path / "auth.db")
+    first, peer = Database(path), Database(path)
+    removed = first.create_user("removed", None)
+    peer.delete_user(removed)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        assigned = list(
+            executor.map(
+                lambda i: (first if i % 2 else peer).create_user(f"new-{i}", None),
+                range(12),
+            )
+        )
+    assert len(set(assigned)) == 12
+    assert min(assigned) > removed
+
+
 @pytest.mark.parametrize(
     "name", ["", " ", " model", "model\n", "x\x00y", "x" * 513, 123, None]
 )
-def test_http_rejects_invalid_names(tmp_path, name):
+@pytest.mark.parametrize("method", ["PUT", "DELETE"])
+def test_http_rejects_invalid_names(tmp_path, name, method):
     with client_for(
         SQLiteModelFavoritesStore(str(tmp_path / "favorites.db"))
     ) as client:
         assert (
-            client.put("/v1/model_favorites", json={"model_name": name}).status_code
+            client.request(
+                method, "/v1/model_favorites", json={"model_name": name}
+            ).status_code
             == 422
         )
 
@@ -281,11 +373,67 @@ def test_anonymous_collection_persists_and_operations_run_outside_event_loop(tmp
             )
 
 
-def test_storage_failure_never_returns_empty_success_or_writes_fallback(tmp_path):
+@pytest.mark.parametrize(
+    "method,operation", [("GET", "list"), ("PUT", "add"), ("DELETE", "remove")]
+)
+def test_storage_failure_never_returns_empty_success_or_writes_fallback(
+    tmp_path, monkeypatch, method, operation
+):
+    from xinference.core import model_favorites_store as stores
+
     store = Mock(spec=ModelFavoritesStore)
-    store.list.side_effect = RuntimeError("offline")
-    with client_for(store) as client:
-        assert client.get("/v1/model_favorites").status_code == 500
+    getattr(store, operation).side_effect = RuntimeError("offline")
+    fallback = Mock(side_effect=AssertionError("No runtime fallback"))
+    monkeypatch.setattr(stores, "SQLiteModelFavoritesStore", fallback)
+    monkeypatch.setattr(
+        extensions,
+        "get_extensions",
+        lambda: (
+            SimpleNamespace(
+                name="provider", create_model_favorites_store=lambda context: store
+            ),
+        ),
+    )
+    path = tmp_path / "unused.db"
+    selected = create_model_favorites_store(str(path), None)
+    with client_for(selected) as client:
+        options = {} if method == "GET" else {"json": {"model_name": "wanted"}}
+        assert (
+            client.request(method, "/v1/model_favorites", **options).status_code == 500
+        )
+    getattr(store, operation).assert_called_once()
+    fallback.assert_not_called()
+    assert not path.exists()
+
+
+@pytest.mark.parametrize("result", ["wrong", {}, [123], ["valid", None]])
+def test_bad_provider_result_is_rejected(result):
+    store = Mock(spec=ModelFavoritesStore)
+    store.list.return_value = result
+    with client_for(store, raise_server_exceptions=True) as client:
+        with pytest.raises(TypeError, match="list of names"):
+            client.get("/v1/model_favorites")
+
+
+@pytest.mark.parametrize(
+    "user", [None, {}, {"id": 0}, {"id": -1}, {"id": True}, {"id": "1"}]
+)
+def test_invalid_authenticated_owner_cannot_access_anonymous_favorites(tmp_path, user):
+    async def invalid_auth():
+        return user
+
+    store = SQLiteModelFavoritesStore(str(tmp_path / "favorites.db"))
+    store.add(None, "anonymous-only")
+    with client_for(store, invalid_auth) as client:
+        for method in ("GET", "PUT", "DELETE"):
+            options = (
+                {} if method == "GET" else {"json": {"model_name": "anonymous-only"}}
+            )
+            assert (
+                client.request(method, "/v1/model_favorites", **options).status_code
+                == 403
+            )
+    assert store.list(None) == ["anonymous-only"]
 
 
 @pytest.mark.parametrize("custom", [False, True])

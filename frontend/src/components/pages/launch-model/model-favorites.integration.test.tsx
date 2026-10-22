@@ -209,7 +209,27 @@ it('waits for authentication and retries a failed initial read on focus', async 
   };
   await act(async () => window.dispatchEvent(new Event('focus')));
   assert.deepEqual(view.favorites, ['restored']);
-  assert.equal(view.ready, false);
+  assert.equal(view.ready, true);
+  await act(async () => {
+    assert.equal(await view.toggle('after-refresh-error'), true);
+  });
+});
+
+it('keeps stars ready during background refresh without overwriting a later write', async () => {
+  read = async () => ['existing'];
+  await render();
+  let finish!: (names: string[]) => void;
+  read = () =>
+    new Promise((resolve) => {
+      finish = resolve;
+    });
+  await act(async () => window.dispatchEvent(new Event('focus')));
+  assert.equal(view.ready, true);
+  await act(async () => {
+    assert.equal(await view.toggle('added'), true);
+  });
+  await act(async () => finish(['existing']));
+  assert.deepEqual(view.favorites, ['existing', 'added']);
 });
 
 it('requires explicit import of unscoped browser favorites and retains them on failure', async () => {
@@ -260,5 +280,6 @@ it('supports the shared anonymous collection without importing old data automati
   read = async () => ['shared'];
   await render();
   assert.deepEqual(view.favorites, ['shared']);
+  assert.equal(view.sharedCollection, true);
   assert.equal(writes.length, 0);
 });

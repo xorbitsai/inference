@@ -36,21 +36,23 @@ export function useModelFavorites() {
     ready: false,
   });
   const [pending, setPending] = useState<string[]>([]);
-  const [legacy, setLegacy] = useState<string[]>([]);
+  const [hasBrowserFavorites, setHasBrowserFavorites] = useState(false);
   const [importing, setImporting] = useState(false);
   const generation = useRef(0);
   const activeScope = useRef<string | null>(null);
   const pendingNames = useRef(new Set<string>());
   const importActive = useRef(false);
+  const mutations = useRef(0);
 
   useEffect(() => {
-    setLegacy(browserFavorites());
+    setHasBrowserFavorites(browserFavorites().length > 0);
     let disposed = false;
     const refresh = async () => {
       const current = scope();
       if (current === activeScope.current && (pendingNames.current.size || importActive.current))
         return;
       const version = ++generation.current;
+      const revision = mutations.current;
       activeScope.current = current;
       pendingNames.current.clear();
       importActive.current = false;
@@ -59,18 +61,23 @@ export function useModelFavorites() {
       setState((previous) => ({
         scope: current,
         names: previous.scope === current ? previous.names : [],
-        ready: false,
+        ready: previous.scope === current && previous.ready,
       }));
       if (!current) return;
       try {
         const names = await request.get<string[]>(endpoint);
         if (!Array.isArray(names) || names.some((name) => typeof name !== 'string')) return;
-        if (!disposed && generation.current === version && scope() === current) {
+        if (
+          !disposed &&
+          generation.current === version &&
+          mutations.current === revision &&
+          scope() === current
+        ) {
           setState({ scope: current, names, ready: true });
         }
       } catch {
-        // The request client reports the error. Retry on focus; never publish
-        // unscoped browser data or accept writes after a failed initial read.
+        // Keep an already loaded same-account list usable. A failed initial
+        // read still blocks writes; auth changes always clear the old scope.
       }
     };
     const refreshAfterAuth = () => {
@@ -94,6 +101,7 @@ export function useModelFavorites() {
     if (!current || state.scope !== current || !state.ready || pendingNames.current.has(name))
       return false;
     pendingNames.current.add(name);
+    mutations.current++;
     setPending([...pendingNames.current]);
     try {
       if (favorite) await request.put(endpoint, { model_name: name });
@@ -136,7 +144,7 @@ export function useModelFavorites() {
         window.localStorage.getItem(COLLECTION_STORAGE_KEY) === raw
       ) {
         window.localStorage.removeItem(COLLECTION_STORAGE_KEY);
-        setLegacy([]);
+        setHasBrowserFavorites(false);
       }
     } catch {
       // Storage can be unavailable even when server writes succeeded. Keep the
@@ -155,7 +163,8 @@ export function useModelFavorites() {
     ready: state.ready && state.scope === current,
     pending,
     importing,
-    hasBrowserFavorites: legacy.length > 0,
+    hasBrowserFavorites,
+    sharedCollection: clusterAuth?.auth === false,
     toggle: (name: string) => save(name, !state.names.includes(name)),
     importBrowserFavorites,
   };

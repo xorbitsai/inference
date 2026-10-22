@@ -553,6 +553,7 @@ const zhTW = {
     favorite: '收藏',
     importFavorites: '匯入瀏覽器收藏',
     importFavoritesHint: '將此瀏覽器儲存的收藏匯入目前帳號。',
+    importFavoritesSharedHint: '將此瀏覽器儲存的收藏匯入所有訪客共用的收藏。',
     unfavorite: '取消收藏',
     search: '搜尋模型名稱和描述',
     searchModelType: '搜尋 {{modelType}} 相關的模型名稱',

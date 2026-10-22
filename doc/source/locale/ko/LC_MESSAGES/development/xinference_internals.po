@@ -766,3 +766,11 @@ msgstr "API 서비스, 오프라인 관리자 비밀번호 복구 및 기존 JSO
 #: ../../source/development/xinference_internals.rst:310
 msgid "Provider stores shared by multiple API processes can set ``api_key_cache_enabled = False`` before service initialization. This bypasses the process-local API-key cache and reads the current key, owner status and model grants on each lookup. Omit the attribute or set it to ``True`` to retain caching; non-boolean values are rejected. Storage failures propagate instead of reusing earlier authorization."
 msgstr "여러 API 프로세스가 공유하는 프로바이더 저장소는 서비스 초기화 전에 ``api_key_cache_enabled = False`` 를 설정할 수 있습니다. 그러면 프로세스 로컬 API 키 캐시를 우회하고 조회할 때마다 현재 키, 소유자 상태와 모델 권한을 읽습니다. 속성을 생략하거나 ``True`` 로 설정하면 캐시를 유지하며, 불리언이 아닌 값은 거부됩니다. 저장소 오류는 이전 권한 결과를 재사용하지 않고 그대로 전파됩니다."
+
+#: ../../source/development/xinference_internals.rst
+msgid "Model favorites storage"
+msgstr "모델 즐겨찾기 저장소"
+
+#: ../../source/development/xinference_internals.rst
+msgid "Extensions may implement ``create_model_favorites_store(context)`` during API initialization, after auth-store selection. ``ModelFavoritesStoreContext`` supplies ``db_path`` and the selected ``auth_store`` (``None`` without authentication). Return a ``xinference.core.model_favorites_store.ModelFavoritesStore`` with synchronous ``list(owner)``, ``add(owner, model_name)`` and ``remove(owner, model_name)`` methods, or ``None`` for SQLite. Owners are positive account IDs, or ``None`` for the shared anonymous collection; account IDs must never be reassigned to another account after deletion. Operations must be persistent, owner-isolated and idempotent, and run in the API thread pool. Multiple providers, invalid stores and initialization failures abort startup without selecting a fallback."
+msgstr "확장 기능은 인증 저장소를 선택한 후 API 초기화 중 ``create_model_favorites_store(context)`` 를 구현할 수 있습니다. ``ModelFavoritesStoreContext`` 는 ``db_path`` 와 선택된 ``auth_store`` (인증이 없으면 ``None``)를 제공합니다. 동기 메서드 ``list(owner)``, ``add(owner, model_name)``, ``remove(owner, model_name)`` 을 구현한 ``xinference.core.model_favorites_store.ModelFavoritesStore`` 를 반환하거나 SQLite를 사용하려면 ``None`` 을 반환합니다. 소유자는 양의 정수 계정 ID이며 공유 익명 목록은 ``None`` 을 사용합니다. 삭제된 계정의 ID를 다른 계정에 다시 할당해서는 안 됩니다. 작업은 영구적이고 소유자별로 격리되며 멱등성을 가져야 하고 API 스레드 풀에서 실행됩니다. 여러 제공자, 잘못된 저장소 또는 초기화 실패가 있으면 대체 저장소 없이 시작을 중단합니다."

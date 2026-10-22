@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from fastapi import Depends, HTTPException, Security
+from fastapi import Depends, HTTPException, Request, Security
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 
 from ..dependencies import get_api
@@ -45,6 +45,13 @@ def _owner(user: Optional[dict], authenticated: bool) -> Optional[int]:
     return user_id
 
 
+def _require_user_session(request: Request) -> None:
+    if getattr(request.state, "authenticated_api_key", None) is not None:
+        raise HTTPException(
+            status_code=403, detail="User session required to change favorites"
+        )
+
+
 def register_routes(api: "RESTfulAPI") -> None:
     # This dependency is also visible to API composition hooks such as role
     # admission, and the existing auth service remains the identity authority.
@@ -68,17 +75,21 @@ def register_routes(api: "RESTfulAPI") -> None:
 
     def add_favorite(
         body: FavoriteModel,
+        request: Request,
         user: Optional[dict] = current_user,
         api_: "RESTfulAPI" = Depends(get_api),
     ) -> JSONResponse:
+        _require_user_session(request)
         api_._model_favorites_store.add(_owner(user, authenticated), body.model_name)
         return JSONResponse(content={"status": "ok"})
 
     def remove_favorite(
         body: FavoriteModel,
+        request: Request,
         user: Optional[dict] = current_user,
         api_: "RESTfulAPI" = Depends(get_api),
     ) -> JSONResponse:
+        _require_user_session(request)
         api_._model_favorites_store.remove(_owner(user, authenticated), body.model_name)
         return JSONResponse(content={"status": "ok"})
 

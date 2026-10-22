@@ -18,7 +18,8 @@ from typing import Any, List, Optional, Protocol
 class ModelFavoritesStore(Protocol):
     """Synchronous operations. Owners are authenticated user IDs, or None without auth.
 
-    Implementations must isolate owners, persist changes across processes, and
+    Account IDs must not be reassigned after account deletion. Implementations
+    must isolate owners, persist changes across processes, and
     make add/remove idempotent without replacing the owner's whole collection.
     Route handlers run these operations in the API's thread pool.
     """
@@ -28,6 +29,10 @@ class ModelFavoritesStore(Protocol):
     def add(self, owner: Optional[int], model_name: str) -> None: ...
 
     def remove(self, owner: Optional[int], model_name: str) -> None: ...
+
+
+def _owner_key(owner: Optional[int]) -> int:
+    return 0 if owner is None else owner
 
 
 class SQLiteModelFavoritesStore:
@@ -50,7 +55,7 @@ class SQLiteModelFavoritesStore:
                 for row in conn.execute(
                     "SELECT model_name FROM model_favorites WHERE owner=? "
                     "ORDER BY model_name",
-                    (0 if owner is None else owner,),
+                    (_owner_key(owner),),
                 )
             ]
 
@@ -59,14 +64,14 @@ class SQLiteModelFavoritesStore:
             conn.execute(
                 "INSERT INTO model_favorites (owner, model_name) VALUES (?, ?) "
                 "ON CONFLICT (owner, model_name) DO NOTHING",
-                (0 if owner is None else owner, model_name),
+                (_owner_key(owner), model_name),
             )
 
     def remove(self, owner: Optional[int], model_name: str) -> None:
         with closing(sqlite3.connect(self._path, timeout=10)) as conn, conn:
             conn.execute(
                 "DELETE FROM model_favorites WHERE owner=? AND model_name=?",
-                (0 if owner is None else owner, model_name),
+                (_owner_key(owner), model_name),
             )
 
 

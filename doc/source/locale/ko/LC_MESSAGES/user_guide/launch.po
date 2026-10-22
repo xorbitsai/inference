@@ -491,8 +491,8 @@ msgid "Model favorites"
 msgstr "모델 즐겨찾기"
 
 #: ../../source/user_guide/launch.rst
-msgid "Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection."
-msgstr "**Launch Model** 페이지의 별표는 현재 계정에 저장되어 브라우저를 바꾸거나 서버를 다시 시작해도 유지됩니다. 즐겨찾기는 모델 유형에 관계없이 모델 이름으로 식별됩니다. 조회와 변경에는 ``models:list`` 권한이 필요합니다. 인증을 사용하지 않으면 모든 방문자가 하나의 목록을 공유합니다."
+msgid "Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection. With authentication enabled, changes require a user session; API keys can only read."
+msgstr "**Launch Model** 페이지의 별표는 현재 계정에 저장되어 브라우저를 바꾸거나 서버를 다시 시작해도 유지됩니다. 즐겨찾기는 모델 유형에 관계없이 모델 이름으로 식별됩니다. 조회와 변경에는 ``models:list`` 권한이 필요합니다. 인증을 사용하지 않으면 모든 방문자가 하나의 목록을 공유합니다. 인증이 활성화되면 변경에 사용자 세션이 필요하며 API 키는 조회만 할 수 있습니다."
 
 #: ../../source/user_guide/launch.rst
 msgid "By default, favorites use SQLite at ``<XINFERENCE_HOME>/model_favorites.db``; set ``XINFERENCE_MODEL_FAVORITES_DB_PATH`` to use another file. API processes sharing favorites must use the same store. Back up the favorites store together with the authentication database."

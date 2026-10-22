@@ -70,6 +70,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
     pending: pendingFavorites,
     importing,
     hasBrowserFavorites,
+    sharedCollection,
     toggle,
     importBrowserFavorites,
   } = useModelFavorites();
@@ -464,7 +465,11 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
                 <Button
                   variant="outline"
                   disabled={!favoritesReady || importing || pendingFavorites.length > 0}
-                  title={t('launchModel.importFavoritesHint')}
+                  title={t(
+                    sharedCollection
+                      ? 'launchModel.importFavoritesSharedHint'
+                      : 'launchModel.importFavoritesHint'
+                  )}
                   onClick={() => {
                     void importBrowserFavorites();
                   }}

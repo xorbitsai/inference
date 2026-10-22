@@ -482,6 +482,26 @@ it('connects the catalog star to the current account favorites API', async () =>
   }
 });
 
+it('explains that anonymous browser imports are shared with all visitors', async () => {
+  authenticated = false;
+  window.localStorage.setItem('collectionArr', JSON.stringify(['wanted']));
+  const beforeGet = request.get;
+  request.get = async <T,>(url: string) =>
+    url === '/v1/model_favorites' ? ([] as T) : beforeGet<T>(url);
+  try {
+    await act(async () =>
+      root.render(<LaunchModel routeType={ModelType.LLM} initialCustomType={ModelType.LLM} />)
+    );
+    const button = [...host.querySelectorAll('button')].find(
+      (b) => b.textContent === 'launchModel.importFavorites'
+    )!;
+    assert.equal(button.getAttribute('title'), 'launchModel.importFavoritesSharedHint');
+    assert.equal(button.disabled, false);
+  } finally {
+    request.get = beforeGet;
+  }
+});
+
 it('uses the shared request client to send the session header and only catalog fields', async () => {
   const observed: { path: string; authorization?: string; body: unknown }[] = [];
   const server = createServer((req, res) => {

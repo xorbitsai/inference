@@ -286,6 +286,10 @@ XINFERENCE_AUTH_DB_PATH
 Path to the SQLite database that stores users, permissions, API keys, and
 refresh tokens. Default value is ``<XINFERENCE_HOME>/auth/auth.db``.
 
+XINFERENCE_MODEL_FAVORITES_DB_PATH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Path to the SQLite model favorites database. Default value is ``<XINFERENCE_HOME>/model_favorites.db``. API processes sharing favorites must use the same store. An optional model favorites storage extension can replace this default.
+
 XINFERENCE_AUTH_JWT_SECRET_KEY
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 JWT signing secret for the authentication system. If unset, a secret is

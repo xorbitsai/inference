@@ -19,7 +19,7 @@ On the **Launch Model** page, choose the model type beside **Update**. **Update*
 Model favorites
 ===============
 
-Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection.
+Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection. With authentication enabled, changes require a user session; API keys can only read.
 
 By default, favorites use SQLite at ``<XINFERENCE_HOME>/model_favorites.db``; set ``XINFERENCE_MODEL_FAVORITES_DB_PATH`` to use another file. API processes sharing favorites must use the same store. Back up the favorites store together with the authentication database.
 
