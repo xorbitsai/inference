@@ -313,10 +313,10 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._autostart_store_lock = asyncio.Lock()
         self._autostart_wakeup_event = asyncio.Event()
         self._autostart_model_states: Dict[str, Dict[str, Any]] = {}
-        from .launch_history_store import LaunchHistoryStore
+        from .launch_history_store import create_launch_history_store
 
-        self._launch_history_store = LaunchHistoryStore(
-            XINFERENCE_LAUNCH_HISTORY_DB_PATH
+        self._launch_history_store = create_launch_history_store(
+            XINFERENCE_LAUNCH_HISTORY_DB_PATH, service="supervisor"
         )
 
         from .router_config_store import RouterConfigStore

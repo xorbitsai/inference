@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
 import os
 import subprocess
 import sys
@@ -326,12 +327,13 @@ async def test_invalid_extension_fails_actor_startup(monkeypatch, actor_kind):
     from xinference.core.worker import WorkerActor
 
     monkeypatch.setenv("XINFERENCE_EXTENSIONS", "missing_runtime_extension:create")
-    actor = (
-        SupervisorActor()
-        if actor_kind == "supervisor"
-        else WorkerActor("supervisor", None, SimpleNamespace(), [])
-    )
     with pytest.raises(RuntimeError, match="missing_runtime_extension:create"):
+        # Storage providers may load extensions during construction.
+        actor = (
+            SupervisorActor()
+            if actor_kind == "supervisor"
+            else WorkerActor("supervisor", None, SimpleNamespace(), [])
+        )
         await actor.__post_create__()
 
 

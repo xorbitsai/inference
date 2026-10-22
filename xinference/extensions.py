@@ -68,6 +68,19 @@ class ModelFavoritesStoreContext:
 
 
 @dataclass(frozen=True)
+class LaunchHistoryStoreContext:
+    """Startup caller, default history path and selected API auth store.
+
+    The supervisor has no auth service, so its auth_store is None. Providers
+    must select the same persistent history backend in both processes.
+    """
+
+    db_path: str
+    service: Literal["api", "supervisor"]
+    auth_store: Any = None
+
+
+@dataclass(frozen=True)
 class ModelCatalogCredentials:
     """An ephemeral catalog token whose repr stays safe in actor call logs."""
 
@@ -183,6 +196,18 @@ def resolve_model_favorites_store(context: ModelFavoritesStoreContext) -> Any:
     if not providers:
         return None
     return _call_hook(providers[0], "create_model_favorites_store", context)
+
+
+def resolve_launch_history_store(context: LaunchHistoryStoreContext) -> Any:
+    """Select one optional startup provider; errors never select a fallback."""
+    providers = [
+        e for e in get_extensions() if hasattr(e, "create_launch_history_store")
+    ]
+    if len(providers) > 1:
+        raise ValueError("Multiple launch history store providers")
+    if not providers:
+        return None
+    return _call_hook(providers[0], "create_launch_history_store", context)
 
 
 def resolve_model_catalog_credentials(
