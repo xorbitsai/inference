@@ -3755,3 +3755,226 @@ def test_raw_template_can_omit_generation_prefix():
         model._build_from_raw_template(messages, template, add_generation_prompt=False)
         == "hello"
     )
+
+
+@pytest.mark.parametrize("tokenizer_template", [False, True])
+@pytest.mark.parametrize("content", [None, "omitted", ""])
+@pytest.mark.parametrize("string_content", [False, True])
+def test_tool_history_template_content_normalization(
+    tokenizer_template, content, string_content
+):
+    from copy import deepcopy
+
+    from tokenizers import Tokenizer, models
+    from transformers import PreTrainedTokenizerFast
+
+    # A positive null-content guard must see null (including omitted content).
+    # String-only templates must receive empty content before rendering.
+    template = (
+        "{% for message in messages %}"
+        + ("{{ message.content + ':' }}" if string_content else "")
+        + "{% if message['role'] == 'assistant' and "
+        + (
+            "message['content'] == ''"
+            if string_content
+            else "message['content'] is none"
+        )
+        + " %}{{ message.tool_calls[0].function.name }}{% endif %}{% endfor %}"
+        "{% if add_generation_prompt %}ASSISTANT{% endif %}"
+    )
+    messages = [
+        {
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [{"function": {"name": "Read", "arguments": "{}"}}],
+        }
+    ]
+    if content == "omitted":
+        del messages[0]["content"]
+    original = deepcopy(messages)
+    model = ChatModelMixin()
+    model.model_family = SimpleNamespace(model_name="test", model_ability=["chat"])
+    tokenizer = None
+    if tokenizer_template:
+        tokenizer = PreTrainedTokenizerFast(
+            tokenizer_object=Tokenizer(
+                models.WordLevel({"[UNK]": 0}, unk_token="[UNK]")
+            ),
+            unk_token="[UNK]",
+            chat_template=template,
+        )
+    prompt = model.get_full_context(
+        model.prefill_messages(messages),
+        None if tokenizer_template else template,
+        tokenizer=tokenizer,
+        add_generation_prompt=False,
+    )
+    assert ("Read" in prompt) == (string_content or content != "")
+    assert "ASSISTANT" not in prompt
+    assert messages == original
+
+
+@pytest.mark.parametrize("tokenizer_template", [False, True])
+@pytest.mark.parametrize("content", [None, "omitted"])
+def test_tool_history_trim_does_not_render_none(tokenizer_template, content):
+    from copy import deepcopy
+
+    from tokenizers import Tokenizer, models
+    from transformers import PreTrainedTokenizerFast
+
+    template = (
+        "{{ messages[0].content | trim }}"
+        "{{ messages[0].tool_calls[0].function.name }}"
+    )
+    messages = [
+        {
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [{"function": {"name": "Read", "arguments": "{}"}}],
+        }
+    ]
+    if content == "omitted":
+        del messages[0]["content"]
+    original = deepcopy(messages)
+    model = ChatModelMixin()
+    model.model_family = SimpleNamespace(model_name="test", model_ability=["chat"])
+    tokenizer = None
+    if tokenizer_template:
+        tokenizer = PreTrainedTokenizerFast(
+            tokenizer_object=Tokenizer(
+                models.WordLevel({"[UNK]": 0}, unk_token="[UNK]")
+            ),
+            unk_token="[UNK]",
+            chat_template=template,
+        )
+    assert (
+        model.get_full_context(
+            model.prefill_messages(messages),
+            None if tokenizer_template else template,
+            tokenizer=tokenizer,
+        )
+        == "Read"
+    )
+    assert messages == original
+
+
+@pytest.mark.parametrize("selection", ["default", "tool_use", "named", "override"])
+@pytest.mark.parametrize("null_content", [False, True])
+@pytest.mark.parametrize("content", [None, "omitted", ""])
+def test_tool_history_uses_selected_tokenizer_template(
+    selection, null_content, content
+):
+    from copy import deepcopy
+
+    from tokenizers import Tokenizer, models
+    from transformers import PreTrainedTokenizerFast
+
+    null_template = (
+        "{% for message in messages %}"
+        "{% if message['role'] == 'assistant' and message['content'] is none %}"
+        "{{ message.tool_calls[0].function.name }}{% endif %}{% endfor %}"
+    )
+    string_template = (
+        "{{ messages[0].content | trim }}"
+        "{{ messages[0].tool_calls[0].function.name }}"
+    )
+    selected = null_template if null_content else string_template
+    other = string_template if null_content else null_template
+    templates = {"default": other, "tool_use": other, "named": other}
+    if selection != "override":
+        templates[selection] = selected
+    tokenizer = PreTrainedTokenizerFast(
+        tokenizer_object=Tokenizer(models.WordLevel({"[UNK]": 0}, unk_token="[UNK]")),
+        unk_token="[UNK]",
+        chat_template=templates,
+    )
+    messages = [
+        {
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [{"function": {"name": "Read", "arguments": "{}"}}],
+        }
+    ]
+    if content == "omitted":
+        del messages[0]["content"]
+    original = deepcopy(messages)
+    model = ChatModelMixin()
+    model.model_family = SimpleNamespace(model_name="test", model_ability=["chat"])
+    chat_template = {"named": "named", "override": selected}.get(selection)
+    prompt = model.get_full_context(
+        model.prefill_messages(messages),
+        chat_template,
+        tokenizer=tokenizer,
+        tools=[] if selection == "tool_use" else None,
+    )
+    assert prompt == ("" if null_content and content == "" else "Read")
+    assert messages == original
+
+
+@pytest.mark.parametrize("role", ["assistant", "user", "tool"])
+@pytest.mark.parametrize("tool_calls", [None, [], [{"function": {"name": "Read"}}]])
+@pytest.mark.parametrize("content", [None, "omitted", "", "text", [{"text": "image"}]])
+def test_prefill_messages_defers_only_assistant_tool_calls(role, tool_calls, content):
+    from copy import deepcopy
+
+    message = {"role": role, "content": content}
+    if content == "omitted":
+        del message["content"]
+    if tool_calls is not None:
+        message["tool_calls"] = tool_calls
+    original = deepcopy(message)
+    expected = content
+    if content is None or content == "omitted":
+        expected = None if role == "assistant" and tool_calls else ""
+    assert ChatModelMixin.prefill_messages([message])[0]["content"] == expected
+    assert message == original
+
+
+@pytest.mark.parametrize("content", [None, ""])
+def test_tool_history_normalization_preserves_template_errors(content):
+    model = ChatModelMixin()
+    messages = [
+        {
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [{"function": {"name": "Read"}}],
+        }
+    ]
+    with pytest.raises(TypeError):
+        model._build_from_raw_template(messages, "{{ 1 + 'invalid' }}")
+
+
+@pytest.mark.parametrize("tokenizer_template", [False, True])
+@pytest.mark.parametrize("error", ["{{ 1 + 'invalid' }}", "{{ missing() }}"])
+def test_null_tool_content_does_not_retry_template_errors(tokenizer_template, error):
+    from jinja2.exceptions import UndefinedError
+    from tokenizers import Tokenizer, models
+    from transformers import PreTrainedTokenizerFast
+
+    template = (
+        "{% for message in messages %}"
+        "{% if message['role'] == 'assistant' and message['content'] is none %}"
+        "{{ message.tool_calls[0].function.name }}" + error + "{% endif %}{% endfor %}"
+    )
+    model = ChatModelMixin()
+    model.model_family = SimpleNamespace(model_name="test", model_ability=["chat"])
+    tokenizer = None
+    if tokenizer_template:
+        tokenizer = PreTrainedTokenizerFast(
+            tokenizer_object=Tokenizer(
+                models.WordLevel({"[UNK]": 0}, unk_token="[UNK]")
+            ),
+            unk_token="[UNK]",
+            chat_template=template,
+        )
+    messages = [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"function": {"name": "Read", "arguments": "{}"}}],
+        }
+    ]
+    with pytest.raises(UndefinedError if "missing" in error else TypeError):
+        model.get_full_context(
+            messages, None if tokenizer_template else template, tokenizer=tokenizer
+        )
