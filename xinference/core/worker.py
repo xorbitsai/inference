@@ -133,6 +133,7 @@ from .virtual_env_manager import (
     expand_engine_dependency_placeholders,
     get_engine_critical_dependency_specs,
     get_engine_model_format_virtualenv_packages,
+    get_engine_virtualenv_packages,
     is_cuda_compatible,
     is_model_find_links_only_requirement,
     merge_virtual_env_find_links,
@@ -3896,6 +3897,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         engine_defaults = get_engine_model_format_virtualenv_packages(
             model_engine, model_format
         )
+        if (model_engine or "").lower() == "trt-llm":
+            engine_defaults = (
+                get_engine_virtualenv_packages(model_engine) + engine_defaults
+            )
         if (
             (not settings or not settings.packages)
             and not virtual_env_packages

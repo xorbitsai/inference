@@ -77,6 +77,17 @@ class Engine:
 
 @pytest.fixture
 def model(monkeypatch):
+    def speculative_config(data):
+        decoding_type = data.pop("decoding_type")
+        return SimpleNamespace(decoding_type=decoding_type, **data)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "tensorrt_llm.llmapi.llm_args",
+        SimpleNamespace(
+            DecodingBaseConfig=SimpleNamespace(from_dict=speculative_config)
+        ),
+    )
     monkeypatch.setattr(
         "xinference.model.llm.trt_llm.compat.prepare_runtime",
         lambda config: None,
@@ -251,12 +262,14 @@ async def test_chat_and_chat_stream_use_shared_conversion(model):
 
 
 def test_platform_format_and_model_guards(monkeypatch, model):
-    family = model.model_family
+    from ...llm_family import match_llm
+
+    family = match_llm("qwen3", "pytorch", "0_6", "none")
     spec = SimpleNamespace(model_format="pytorch")
     monkeypatch.setattr(sys, "platform", "linux")
     assert TRTLLMModel.match_json(family, spec, "none") is True
     assert TRTLLMModel.match_json(family, spec, "fp8")[0] is False
-    family.model_family = "qwen3.5"
+    family.architectures = ["Qwen3_5ForConditionalGeneration"]
     assert TRTLLMModel.match_json(family, spec, "none")[0] is False
 
 
@@ -273,6 +286,169 @@ def test_engine_construction_failure_clears_state(monkeypatch, model):
     with pytest.raises(RuntimeError, match="load failed"):
         failed.load()
     assert failed._engine is None and not failed._requests
+
+
+@pytest.mark.parametrize("depth,expected", [(None, 3), ("2", 2), (5, 5)])
+def test_draft_target_launch_options(model, depth, expected):
+    model._model_config.update(draft_model_path="/draft", num_speculative_tokens=depth)
+    model.stop()
+    model.load()
+    options = model._engine.kwargs
+    assert vars(options["speculative_config"]) == {
+        "decoding_type": "DraftTarget",
+        "speculative_model": "/draft",
+        "max_draft_len": expected,
+    }
+    assert options["disable_overlap_scheduler"] is True
+    assert "draft_model_path" not in options
+    assert "num_speculative_tokens" not in options
+
+
+@pytest.mark.parametrize("depth", [0, -1, "invalid", 1.5])
+def test_invalid_draft_depth_fails_before_engine_start(model, monkeypatch, depth):
+    model.stop()
+    engine = Mock()
+    monkeypatch.setattr(sys.modules["tensorrt_llm"], "LLM", engine)
+    model._model_config.update(draft_model_path="/draft", num_speculative_tokens=depth)
+    with pytest.raises(ValueError, match="positive integer"):
+        model.load()
+    engine.assert_not_called()
+
+
+def test_explicit_speculation_wins_and_engine_cannot_mutate_launch_config(
+    model, monkeypatch, caplog
+):
+    model.stop()
+    native = {
+        "decoding_type": "NGram",
+        "max_draft_len": 3,
+        "max_matching_ngram_size": 4,
+        "is_public_pool": False,
+    }
+    model._model_config.update(
+        speculative_config=native,
+        draft_model_path="/ignored",
+        num_speculative_tokens="ignored",
+        disable_overlap_scheduler=False,
+    )
+
+    def create(**kwargs):
+        assert vars(kwargs["speculative_config"]) == native
+        assert kwargs["disable_overlap_scheduler"] is False
+        assert "draft_model_path" not in kwargs
+        assert "num_speculative_tokens" not in kwargs
+        return Engine(**kwargs)
+
+    monkeypatch.setattr(sys.modules["tensorrt_llm"], "LLM", create)
+    model.load()
+    assert "Ignoring draft_model_path and num_speculative_tokens" in caplog.text
+    assert native["decoding_type"] == "NGram"
+    model.stop()
+    model.load()  # Reusing launch state must still work.
+
+
+@pytest.mark.parametrize("transport", ["_xavier_cache_config", "_nixl_config"])
+@pytest.mark.parametrize(
+    "speculation",
+    [
+        {"draft_model_path": "/draft"},
+        {"speculative_config": {"decoding_type": "NGram", "max_draft_len": 3}},
+    ],
+)
+def test_speculation_cannot_bypass_cache_and_pd_guards(
+    model, monkeypatch, transport, speculation
+):
+    model.stop()
+    engine = Mock()
+    monkeypatch.setattr(sys.modules["tensorrt_llm"], "LLM", engine)
+    model._model_config.update(speculation)
+    model._model_config[transport] = {"role": "decode"}
+    with pytest.raises(ValueError, match="requires ordinary replicas"):
+        model.load()
+    engine.assert_not_called()
+
+
+def test_depth_without_drafter_is_rejected(model):
+    model.stop()
+    model._model_config["num_speculative_tokens"] = 3
+    with pytest.raises(ValueError, match="requires draft_model_path"):
+        model.load()
+
+
+def test_empty_depth_without_drafter_is_unset(model):
+    model.stop()
+    model._model_config["num_speculative_tokens"] = ""
+    model.load()
+    assert "speculative_config" not in model._engine.kwargs
+    assert "num_speculative_tokens" not in model._engine.kwargs
+
+
+def test_speculative_config_json_string(model):
+    import json
+
+    model.stop()
+    value = json.dumps({"decoding_type": "NGram", "max_draft_len": 3})
+    model._model_config["speculative_config"] = value
+    model.load()
+    assert model._engine.kwargs["speculative_config"].decoding_type == "NGram"
+    assert model._model_config["speculative_config"] == value
+
+
+@pytest.mark.parametrize("value", ["invalid", "[]", "null", "3"])
+def test_invalid_speculative_json_fails_before_engine_start(model, monkeypatch, value):
+    model.stop()
+    engine = Mock()
+    monkeypatch.setattr(sys.modules["tensorrt_llm"], "LLM", engine)
+    model._model_config["speculative_config"] = value
+    with pytest.raises(ValueError, match="speculative_config must be a JSON object"):
+        model.load()
+    engine.assert_not_called()
+
+
+@pytest.mark.parametrize("enable_mtp", [False, True])
+def test_factory_accepts_local_or_declared_trt_drafter(model, monkeypatch, enable_mtp):
+    from ... import llm_family
+    from ...core import create_llm_model_instance
+
+    match = llm_family.match_llm
+
+    def declared_family(*args):
+        family = match(*args).copy(deep=True)
+        family.model_specs[0].draft_model_id = "Qwen/Qwen3-0.6B"
+        return family
+
+    monkeypatch.setattr(llm_family, "match_llm", declared_family)
+
+    monkeypatch.setattr(
+        "xinference.model.llm.llm_family.check_engine_by_spec_parameters",
+        lambda *args: TRTLLMModel,
+    )
+    monkeypatch.setattr(
+        "xinference.model.llm.cache_manager.LLMCacheManager.cache",
+        lambda self: "/draft",
+    )
+    launched = create_llm_model_instance(
+        "draft-target",
+        "qwen3",
+        "TRT-LLM",
+        model_size_in_billions="0_6",
+        model_format="pytorch",
+        quantization="none",
+        model_path="/target",
+        enable_virtual_env=False,
+        context_length=1024,
+        **({"enable_mtp": True} if enable_mtp else {"draft_model_path": "/draft"}),
+        num_speculative_tokens="2",
+    )
+    try:
+        launched.load()
+        config = launched._engine.kwargs
+        assert config["speculative_config"].speculative_model == "/draft"
+        assert config["speculative_config"].max_draft_len == 2
+        assert config["max_seq_len"] == 1024
+        assert "enable_mtp" not in config
+    finally:
+        launched.stop()
 
 
 async def collect_chat(model, config):

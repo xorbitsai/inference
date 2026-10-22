@@ -3,6 +3,8 @@
 PD separation
 =============
 
+.. versionadded:: v3.4.0
+
 Prefill/Decode (PD) separation is available in the community edition. Prefill
 replicas compute prompt KV cache; decode replicas reuse it through Xavier or native NIXL and
 produce the response. Requests are scheduled round-robin within each role.
@@ -152,7 +154,7 @@ Xavier (default)
 
    vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback.
 
-Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models without LoRA. Multimodal models, prompt embeddings and salted prompts are not supported.
+Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models without LoRA. Multimodal models and prompt embeddings are not supported. See :ref:`xavier-cache-isolation` for request-scoped cache isolation.
 
 Xavier's CPU cache can consume as much memory as the engine's GPU KV cache. Allow additional host memory for transfers when sizing your deployment.
 
@@ -226,6 +228,8 @@ TRT-LLM
 
 Use the same ``replica_config`` with ``model_engine="TRT-LLM"``, ``model_name="qwen3"``, ``model_size_in_billions="0_6"``, ``model_format="pytorch"`` and ``quantization="none"`` through the Python clients, REST API or CLI. Both roles require Linux/CUDA, TensorRT-LLM ``1.2.1``, BF16 dense Qwen3 weights and KV, one worker and one GPU per replica (TP=PP=CP=1). Chunked prefill and overlap scheduling must remain disabled. Native NIXL with different engines, quantization, multimodal input, LoRA, speculative decoding and ``cache_salt`` are unsupported.
 
+Speculative decoding is supported on ordinary TRT-LLM replicas; it cannot be combined with P/D in this adapter. See :ref:`speculative_decoding` for launch options.
+
 .. _user_guide_pd_trt_native:
 
 Native NIXL
@@ -290,12 +294,16 @@ Use the default ``xavier`` transport for MLX; native NIXL is unsupported. All wo
 Cross-engine P/D
 ----------------
 
-Cross-engine vLLM/SGLang P/D
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _cross-engine-vllm-sglang-p-d:
+
+Cross-engine vLLM/SGLang/TRT-LLM P/D
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry to select vLLM, SGLang or TRT-LLM independently for each role. Cross-engine P/D requires Xavier GPU transport. Engine options inherit launch arguments; ``engine_config`` overrides them per replica.
 
 .. versionadded:: v4.0.0
 
-Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry to select vLLM or SGLang independently for each role. Cross-engine P/D requires Xavier GPU transport. Engine options inherit launch arguments; ``engine_config`` overrides them per replica.
+   vLLM and SGLang in either prefill/decode direction.
 
 .. code-block:: python
 
@@ -323,18 +331,19 @@ Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry to s
        ],
    )
 
-Both workers require identical local weights, tokenizer assets and context limits. Supported models are unquantized FP16 full-attention Qwen2, Qwen3 and Llama text models with TP=PP=DP=1. Requires vLLM >=0.21.0, SGLang >=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks contracts and prompt token IDs, converts 64-token KV pages on GPU and raises errors on incompatibility or transfer failure.
+For vLLM/SGLang pairings, both workers require identical local weights, tokenizer assets and context limits. Supported models are unquantized FP16 full-attention Qwen2, Qwen3 and Llama text models with TP=PP=DP=1. Requires vLLM >=0.21.0, SGLang >=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks contracts and prompt token IDs, converts 64-token KV pages on GPU and raises errors on incompatibility or transfer failure.
 
 Streaming and non-streaming requests require ``n=1``. SGLang decode uses the first output token sampled by prefill. vLLM decode imports all but the final prompt token, computes that token and samples the output. Engine kernels can produce small numerical differences. vLLM decode requires at least two prompt tokens.
 
 Cross-engine P/D does not support CPU fallback, retained Xavier history, logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native NIXL comparisons use the same engine on both roles.
 
-Cross-engine TRT-LLM P/D
-~~~~~~~~~~~~~~~~~~~~~~~~
+.. _cross-engine-trt-llm-p-d:
 
 .. versionadded:: v4.1.0
 
-Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse directions. All replicas use identical BF16 dense Qwen3 checkpoints, tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM requires version ``1.2.1``; vLLM and SGLang requirements match the cross-engine section above. For CUDA/Metal deployments, see :ref:`trt-mlx-pd` below.
+   TRT-LLM with vLLM or SGLang in either prefill/decode direction.
+
+Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse directions. All replicas use identical BF16 dense Qwen3 checkpoints, tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM requires version ``1.2.1``; vLLM and SGLang requirements match the cross-engine section above. For CUDA/Metal deployments, see :ref:`NVIDIA and MLX cross-engine P/D <trt-mlx-pd>` below.
 
 Set each replica's ``model_engine`` and ``engine_config`` independently. A topology containing TRT-LLM selects BF16 weights and KV for every replica; explicit FP16 options are rejected. Put engine-specific options in ``engine_config`` so they do not reach the other engine.
 
@@ -374,6 +383,8 @@ NVIDIA and MLX cross-engine P/D
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. versionadded:: v4.0.0
+
+   vLLM/SGLang with MLX in either prefill/decode direction.
 
 Xavier supports both vLLM/SGLang prefill with MLX decode and MLX prefill with vLLM/SGLang decode, with streaming and non-streaming requests. FP16 64-token pages pass through CPU staging and actor RPC between CUDA and Metal. vLLM and MLX decode compute the last prompt token; SGLang decode imports the full prompt KV and the first output token sampled by P. MLX prefill publishes request-owned pages on its worker with a 512 MiB in-flight budget.
 
@@ -417,11 +428,11 @@ Run the supervisor and all worker/model environments with the same Python versio
 Compare end-to-end TTFT with the standalone decode engine on its own hardware, using the same effective FP16 weights and cache policy. Network transfers and CUDA/Metal copies may outweigh faster prefill. ``host_bytes`` measures CPU-staged payloads; ``imported_tokens`` records completed KV imports. Correct output alone does not prove reuse.
 
 .. _trt-mlx-pd:
-
-TRT-LLM and MLX over a LAN
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _trt-llm-and-mlx-over-a-lan:
 
 .. versionadded:: v4.1.0
+
+   TRT-LLM with MLX in either prefill/decode direction.
 
 Xavier supports TRT-LLM prefill with MLX decode and MLX prefill with TRT-LLM decode across NVIDIA and Apple silicon workers. Use identical, unconverted BF16 dense Qwen3 checkpoints and tokenizer files on both hosts. Every replica uses BF16 weights and KV; FP16 overrides are rejected. The MLX replica automatically selects the unquantized BF16 registry entry. Both decode engines import the prefix and replay the last prompt token.
 

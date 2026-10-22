@@ -153,15 +153,6 @@ msgstr "Xavier 和原生 NIXL 支援 Qwen3.5 純文字請求。兩個副本均�
 msgid "Xavier requirements and memory"
 msgstr "Xavier 需求與記憶體用量"
 
-#: source/user_guide/pd_separation.rst:145
-msgid ""
-"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
-"without LoRA. Multimodal models, prompt embeddings and salted prompts are "
-"not supported."
-msgstr ""
-"Xavier V1 要求每個副本使用一張 GPU（TP=1、PP=1），模型僅支援文字且不使用 LoRA。不支援多模態模型、提示詞嵌入和帶 salt "
-"的提示詞。"
-
 #: source/user_guide/pd_separation.rst:149
 msgid ""
 "Xavier's CPU cache can consume as much memory as the engine's GPU KV cache. "
@@ -452,35 +443,6 @@ msgstr ""
 "``xavier`` 傳輸；不開放 SGLang 自帶的 Mooncake 後端。跨引擎 P/D 使用下方的逐副本引擎設定。"
 
 #: source/user_guide/pd_separation.rst
-msgid "Cross-engine vLLM/SGLang P/D"
-msgstr "跨引擎 vLLM/SGLang P/D"
-
-#: source/user_guide/pd_separation.rst
-msgid ""
-"Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry "
-"to select vLLM or SGLang independently for each role. Cross-engine P/D "
-"requires Xavier GPU transport. Engine options inherit launch arguments; "
-"``engine_config`` overrides them per replica."
-msgstr ""
-"在每個 ``replica_config`` 項目中設定 ``model_engine`` 和 ``engine_config``，分別為各角色選擇 "
-"vLLM 或 SGLang。跨引擎 P/D 需要 Xavier GPU 傳輸。引擎選項繼承啟動參數，``engine_config`` "
-"為各副本覆寫這些選項。"
-
-#: source/user_guide/pd_separation.rst
-msgid ""
-"Both workers require identical local weights, tokenizer assets and context "
-"limits. Supported models are unquantized FP16 full-attention Qwen2, Qwen3 "
-"and Llama text models with TP=PP=DP=1. Requires vLLM >=0.21.0, SGLang "
-">=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks contracts and prompt "
-"token IDs, converts 64-token KV pages on GPU and raises errors on "
-"incompatibility or transfer failure."
-msgstr ""
-"兩個 worker 必須使用相同的本機權重、tokenizer 檔案及上下文限制。支援 TP=PP=DP=1 的未量化 FP16 全注意力 "
-"Qwen2、Qwen3 和 Llama 文字模型。需要 vLLM >=0.21.0、SGLang >=0.5.21 及 "
-"``xoscar[nixl]>=0.11.1``。Xavier 檢查契約與實際 prompt token ID，在 GPU 上轉換 64-token "
-"KV 頁；不相容或傳輸失敗會報錯。"
-
-#: source/user_guide/pd_separation.rst
 msgid ""
 "Streaming and non-streaming requests require ``n=1``. SGLang decode uses the"
 " first output token sampled by prefill. vLLM decode imports all but the "
@@ -737,23 +699,6 @@ msgstr ""
 " 時會設為 1000 ms，確保即使沒有 decode 接收端，執行器也能處理取消。此行為不改變 "
 "``kv_transfer_timeout_ms=None``；該設定仍會停用整體傳輸的逾時限制。"
 
-#: ../../user_guide/pd_separation.rst:332
-msgid "Cross-engine TRT-LLM P/D"
-msgstr "TRT-LLM 跨引擎 P/D"
-
-#: ../../user_guide/pd_separation.rst:337
-msgid ""
-"Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse "
-"directions. All replicas use identical BF16 dense Qwen3 checkpoints, "
-"tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM "
-"requires version ``1.2.1``; vLLM and SGLang requirements match the cross-"
-"engine section above. For CUDA/Metal deployments, see :ref:`trt-mlx-pd` "
-"below."
-msgstr ""
-"Xavier 支援 TRT-LLM prefill 搭配 vLLM 或 SGLang decode，也支援反向組合。所有副本使用相同的 BF16 稠密 "
-"Qwen3 檢查點、分詞器檔案和上下文長度，每個副本使用一張 CUDA GPU。TRT-LLM 要求版本 ``1.2.1``；vLLM 和 SGLang"
-" 的要求與上文跨引擎章節一致。CUDA/Metal 部署請參閱下文 :ref:`trt-mlx-pd`。"
-
 #: ../../user_guide/pd_separation.rst:339
 msgid ""
 "Set each replica's ``model_engine`` and ``engine_config`` independently. A "
@@ -790,10 +735,6 @@ msgstr ""
 "上文的跨引擎取樣限制仍然適用。此外，TRT 介接器不支援 ``cache_salt`` 或工具呼叫。停用 Xavier 歷史快取和完整 prefill "
 "回退。CUDA 到 CUDA 透過 NIXL 傳輸，不經過 CPU 中轉；``gpu_bytes`` 和 ``imported_tokens`` "
 "記錄完成的匯入，``host_bytes`` 保持為零。"
-
-#: ../../user_guide/pd_separation.rst:421
-msgid "TRT-LLM and MLX over a LAN"
-msgstr "TRT-LLM 與 MLX 區域網路 P/D"
 
 #: ../../user_guide/pd_separation.rst:426
 msgid ""
@@ -837,3 +778,78 @@ msgstr ""
 "FP16。``host_bytes`` 和 ``imported_tokens`` 記錄完成的匯入；此傳輸路徑的 ``gpu_bytes`` "
 "保持為零。支援串流輸出、取消和中斷連線後的清理。上文 TRT 和 MLX 的取樣限制仍然適用。請與 decode 所在硬體的獨立執行結果比較 "
 "TTFT，因為網路和裝置複製會增加延遲。"
+
+#: ../../source/user_guide/pd_separation.rst:229
+msgid ""
+"Speculative decoding is supported on ordinary TRT-LLM replicas; it cannot be"
+" combined with P/D in this adapter. See :ref:`speculative_decoding` for "
+"launch options."
+msgstr ""
+"一般 TRT-LLM 副本支援投機解碼，但此適配器尚不能將其與 P/D 結合。啟動選項請參閱 :ref:`speculative_decoding`。"
+
+#: ../../source/user_guide/pd_separation.rst:157
+msgid ""
+"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
+"without LoRA. Multimodal models and prompt embeddings are not supported. See"
+" :ref:`xavier-cache-isolation` for request-scoped cache isolation."
+msgstr ""
+"Xavier V1 要求每副本一張 GPU（TP=1、PP=1），並使用無 LoRA 的文字模型。不支援多模態模型和 prompt "
+"embedding。按請求隔離快取請參閱 :ref:`xavier-cache-isolation`。"
+
+#: ../../source/user_guide/pd_separation.rst:300
+msgid "Cross-engine vLLM/SGLang/TRT-LLM P/D"
+msgstr "跨引擎 vLLM/SGLang/TRT-LLM P/D"
+
+#: ../../source/user_guide/pd_separation.rst:302
+msgid ""
+"Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry "
+"to select vLLM, SGLang or TRT-LLM independently for each role. Cross-engine "
+"P/D requires Xavier GPU transport. Engine options inherit launch arguments; "
+"``engine_config`` overrides them per replica."
+msgstr ""
+"在每個 ``replica_config`` 項目中設定 ``model_engine`` 和 ``engine_config``，分別為各角色選擇 "
+"vLLM、SGLang 或 TRT-LLM。跨引擎 P/D 需要 Xavier GPU 傳輸。引擎選項繼承啟動參數，``engine_config`` "
+"為各副本覆寫這些選項。"
+
+#: ../../source/user_guide/pd_separation.rst:306
+msgid "vLLM and SGLang in either prefill/decode direction."
+msgstr "vLLM 與 SGLang，支援雙向 prefill/decode。"
+
+#: ../../source/user_guide/pd_separation.rst:334
+msgid ""
+"For vLLM/SGLang pairings, both workers require identical local weights, "
+"tokenizer assets and context limits. Supported models are unquantized FP16 "
+"full-attention Qwen2, Qwen3 and Llama text models with TP=PP=DP=1. Requires "
+"vLLM >=0.21.0, SGLang >=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks "
+"contracts and prompt token IDs, converts 64-token KV pages on GPU and raises"
+" errors on incompatibility or transfer failure."
+msgstr ""
+"對於 vLLM/SGLang 組合：兩個 worker 必須使用相同的本機權重、tokenizer 檔案及上下文限制。支援 TP=PP=DP=1 "
+"的未量化 FP16 全注意力 Qwen2、Qwen3 和 Llama 文字模型。需要 vLLM >=0.21.0、SGLang >=0.5.21 及 "
+"``xoscar[nixl]>=0.11.1``。Xavier 檢查契約與實際 prompt token ID，在 GPU 上轉換 64-token "
+"KV 頁；不相容或傳輸失敗會報錯。"
+
+#: ../../source/user_guide/pd_separation.rst:344
+msgid "TRT-LLM with vLLM or SGLang in either prefill/decode direction."
+msgstr "TRT-LLM 與 vLLM 或 SGLang，支援雙向 prefill/decode。"
+
+#: ../../source/user_guide/pd_separation.rst:346
+msgid ""
+"Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse "
+"directions. All replicas use identical BF16 dense Qwen3 checkpoints, "
+"tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM "
+"requires version ``1.2.1``; vLLM and SGLang requirements match the cross-"
+"engine section above. For CUDA/Metal deployments, see :ref:`NVIDIA and MLX "
+"cross-engine P/D <trt-mlx-pd>` below."
+msgstr ""
+"Xavier 支援 TRT-LLM prefill 搭配 vLLM 或 SGLang decode，也支援反向組合。所有副本使用相同的 BF16 稠密 "
+"Qwen3 檢查點、分詞器檔案和上下文長度，每個副本使用一張 CUDA GPU。TRT-LLM 要求版本 ``1.2.1``；vLLM 和 SGLang"
+" 的要求與上文跨引擎章節一致。CUDA/Metal 部署請參閱下文 :ref:`NVIDIA 與 MLX 跨引擎 P/D <trt-mlx-pd>`。"
+
+#: ../../source/user_guide/pd_separation.rst:387
+msgid "vLLM/SGLang with MLX in either prefill/decode direction."
+msgstr "vLLM/SGLang 與 MLX，支援雙向 prefill/decode。"
+
+#: ../../source/user_guide/pd_separation.rst:435
+msgid "TRT-LLM with MLX in either prefill/decode direction."
+msgstr "TRT-LLM 與 MLX，支援雙向 prefill/decode。"

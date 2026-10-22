@@ -35,10 +35,6 @@ msgstr "使用"
 msgid "Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment."
 msgstr "啟動多個副本時設定 ``enable_xavier=True``，並選擇支援的 ``model_engine``。引擎需求請參閱 :ref:`user_guide_backends`，P/D 部署請參閱 :ref:`user_guide_pd_separation`。"
 
-#: ../../source/user_guide/vllm_enhancement.rst:20
-msgid "Limitations"
-msgstr "限制"
-
 #: ../../source/user_guide/vllm_enhancement.rst:21
 msgid ""
 "Xavier requires vllm version >= ``0.7.0``, and currently not supports for "
@@ -57,13 +53,6 @@ msgstr ""
 #: ../../source/user_guide/vllm_enhancement.rst:23
 msgid "The vLLM GPU transfer path requires NVIDIA GPUs."
 msgstr "vLLM GPU 傳輸路徑需要 NVIDIA GPU。"
-
-#: source/user_guide/vllm_enhancement.rst:21
-msgid ""
-"Xavier retains the V0 adapter for vLLM >= ``0.7.0`` and < ``0.11.0``. The V1"
-" connector supports vLLM >= ``0.21.0``. See :ref:`user_guide_pd_separation` "
-"for community Prefill/Decode deployment."
-msgstr ""
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "SGLang replicas"
@@ -88,25 +77,6 @@ msgstr "Xavier 將 BF16 檢查點載入為 FP16 並發出警告。權重和 KV �
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"
 msgstr "MLX 副本"
-
-#: user_guide/vllm_enhancement.rst
-msgid ""
-"MLX replicas can share prefix KV cache with ``model_engine=\"MLX\"`` and "
-"``enable_xavier=True``. The supported models and FP16 requirements are "
-"described in :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` bounds "
-"the shared CPU cache (default: 512 MiB). Each replica also owns its model "
-"and Metal KV cache. Ordinary replicas compute locally on a miss or "
-"unavailable storage; incompatible deployments cannot share pages. Returned "
-"usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. "
-"Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-"
-"engine cache sharing is not yet supported."
-msgstr ""
-"使用 ``model_engine=\"MLX\"`` 和 ``enable_xavier=True`` 可在 MLX 副本間共用前綴 KV "
-"快取。支援的模型和 FP16 要求見 :ref:`user_guide_pd_separation`。``xavier_cache_bytes`` "
-"限制共用 CPU 快取容量，預設 512 MiB。每個副本還擁有各自的模型和 Metal KV "
-"快取。普通副本在未命中或儲存不可用時於本機計算；不相容的部署不能共用快取頁面。回應透過 "
-"``prompt_tokens_details.cached_tokens`` 報告重用 token 數。明確設定 prefill/decode "
-"角色會自動啟用 MLX Xavier P/D。目前不支援跨引擎快取共用。"
 
 #: source/user_guide/vllm_enhancement.rst:18
 msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
@@ -230,3 +200,149 @@ msgstr "LMCache 後端要求同一引擎的多個一般副本，並保留該引�
 #: source/user_guide/vllm_enhancement.rst:34
 msgid "LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas."
 msgstr "適用於一般 vLLM V1、SGLang 和 TRT-LLM 副本的 LMCache 儲存後端。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:13
+msgid "Choose a deployment mode"
+msgstr "選擇部署模式"
+
+#: ../../source/user_guide/vllm_enhancement.rst:15
+msgid ""
+"Use ordinary replicas to share compatible prefixes while each replica "
+"handles complete requests. Shared prefix caching currently stays within the "
+"same engine. For separate prefill and decode roles, including cross-engine "
+"and CUDA/Metal deployments, use :ref:`user_guide_pd_separation`. P/D "
+"transport and ordinary cache storage have separate configuration and "
+"compatibility limits."
+msgstr ""
+"一般副本各自處理完整請求，同時共享相容的前綴。前綴共享快取目前限於同一引擎。若要分別部署 prefill 與 decode 角色，包括跨引擎和 "
+"CUDA/Metal 部署，請參閱 :ref:`user_guide_pd_separation`。P/D "
+"傳輸和一般快取儲存各有獨立的設定及相容性限制。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:26
+msgid ""
+"The example launches two ordinary replicas. Choose the engine installed on "
+"your workers; the model format and quantization must match it. Each CUDA "
+"replica uses one GPU, while MLX runs on Apple silicon."
+msgstr ""
+"範例啟動兩個一般副本。請選擇 worker 上已安裝的引擎，並使用相符的模型格式與量化選項。每個 CUDA 副本使用一張 GPU，MLX 則執行於 "
+"Apple silicon。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:58
+msgid "Engine requirements"
+msgstr "引擎需求"
+
+#: ../../source/user_guide/vllm_enhancement.rst:64
+msgid "vLLM"
+msgstr "vLLM"
+
+#: ../../source/user_guide/vllm_enhancement.rst:69
+msgid "V1 connector"
+msgstr "V1 連接器"
+
+#: ../../source/user_guide/vllm_enhancement.rst:73
+msgid ""
+"The V1 connector requires vLLM >= ``0.21.0``, TP=1 and PP=1, with text-only "
+"models and no LoRA. Multimodal and prompt-embedding inputs are unsupported. "
+"Versions 0.11 through 0.20 are unsupported. Use the P/D guide for recurrent "
+"model requirements and GPU history settings."
+msgstr ""
+"V1 連接器要求 vLLM >= ``0.21.0``、TP=1、PP=1，且僅支援無 LoRA 的文字模型。不支援多模態和 prompt "
+"embedding 輸入，也不支援 0.11 至 0.20 版本。循環模型需求和 GPU 歷史快取設定請參閱 P/D 指南。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:86
+msgid "Retained vLLM GPU history, configured with ``xavier_gpu_cache_bytes``."
+msgstr "保留的 vLLM GPU 歷史快取，透過 ``xavier_gpu_cache_bytes`` 設定。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:89
+msgid "Legacy V0 adapter"
+msgstr "舊版 V0 適配器"
+
+#: ../../source/user_guide/vllm_enhancement.rst:91
+msgid ""
+"The legacy adapter supports vLLM >= ``0.7.0`` and < ``0.11.0`` for ordinary "
+"replica cache sharing. Use the V1 connector for current P/D deployments."
+msgstr ""
+"舊版適配器支援 vLLM >= ``0.7.0`` 且 < ``0.11.0`` 的一般副本快取共享。新的 P/D 部署請使用 V1 連接器。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:110
+msgid "TRT-LLM replicas"
+msgstr "TRT-LLM 副本"
+
+#: ../../source/user_guide/vllm_enhancement.rst:114
+msgid ""
+"TRT-LLM requires Linux/CUDA and ``tensorrt-llm==1.2.1``. Xavier supports "
+"unquantized BF16 dense Qwen3 text models, one worker and one GPU per replica"
+" (TP=PP=CP=1). Chunked prefill and overlap scheduling are disabled. "
+"Quantization, hybrid attention, multimodal input, LoRA and speculative "
+"decoding are unsupported with Xavier. See :ref:`trt_llm_backend` for the "
+"engine environment requirements."
+msgstr ""
+"TRT-LLM 要求 Linux/CUDA 和 ``tensorrt-llm==1.2.1``。Xavier 支援未量化的 BF16 稠密 Qwen3 "
+"文字模型，每個副本使用一個 worker 和一張 GPU（TP=PP=CP=1）。分塊 prefill 和重疊排程會停用。Xavier "
+"不支援量化、混合注意力、多模態輸入、LoRA 和投機解碼。引擎環境需求請參閱 :ref:`trt_llm_backend`。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:120
+msgid ""
+"Ordinary TRT replicas publish complete 64-token KV pages to a shared CPU "
+"cache actor. ``xavier_cache_bytes`` sets the deployment budget (default: 512"
+" MiB). Partial pages and the final prompt token are computed locally; misses"
+" fall back to local prefill. Model weights, engine KV pools and transfer "
+"buffers consume additional memory. Xavier P/D instead transfers live KV "
+"pages through NIXL; see :ref:`user_guide_pd_separation`."
+msgstr ""
+"一般 TRT 副本向共享 CPU 快取 actor 發布完整的 64-token KV 頁。``xavier_cache_bytes`` "
+"設定部署快取預算，預設 512 MiB。部分頁和提示詞最後一個 token 在本機計算；未命中時執行本機 prefill。模型權重、引擎 KV "
+"池和傳輸緩衝區額外佔用記憶體。Xavier P/D 則透過 NIXL 傳輸請求中的 KV 頁，詳見 "
+":ref:`user_guide_pd_separation`。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:132
+msgid ""
+"MLX Xavier requires Apple silicon and ``mlx-lm>=0.31.2``. It supports "
+"unquantized, full-attention Qwen2, Qwen3 and Llama text models with one "
+"worker per replica. Weights and KV cache use FP16. Quantized weights or KV "
+"cache, rotating caches, hybrid attention, multimodal inputs, LoRA and "
+"speculative decoding are unsupported."
+msgstr ""
+"MLX Xavier 需要 Apple 晶片和 ``mlx-lm>=0.31.2``，支援採用全注意力的未量化 Qwen2、Qwen3 和 Llama "
+"文字模型，每個副本使用一個 worker。權重和 KV 快取使用 FP16。不支援量化權重或 KV 快取、旋轉快取、混合注意力、多模態輸入、LoRA "
+"和推測解碼。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:134
+msgid ""
+"``xavier_cache_bytes`` bounds the shared CPU cache (default: 512 MiB). Each "
+"replica also owns its model and Metal KV cache. Ordinary replicas compute "
+"locally on a miss or unavailable storage; incompatible deployments cannot "
+"share pages. Returned usage reports reused tokens in "
+"``prompt_tokens_details.cached_tokens``. Explicit prefill/decode roles "
+"enable MLX Xavier P/D automatically. Cross-engine cache sharing is not yet "
+"supported."
+msgstr ""
+"``xavier_cache_bytes`` 限制共用 CPU 快取容量，預設 512 MiB。每個副本還擁有各自的模型和 Metal KV "
+"快取。普通副本在未命中或儲存不可用時於本機計算；不相容的部署不能共用快取頁面。回應透過 "
+"``prompt_tokens_details.cached_tokens`` 報告重用 token 數。明確設定 prefill/decode "
+"角色會自動啟用 MLX Xavier P/D。目前不支援跨引擎快取共用。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:140
+msgid "Native storage"
+msgstr "原生儲存"
+
+#: ../../source/user_guide/vllm_enhancement.rst:142
+msgid ""
+"The default ``xavier_cache_backend=\"native\"`` uses each engine's Xavier "
+"cache implementation. ``xavier_cache_bytes`` sets the shared CPU budget for "
+"SGLang, TRT-LLM and MLX; it is not a vLLM setting. vLLM's GPU history uses "
+"``xavier_gpu_cache_bytes``. These budgets exclude weights, engine KV pools "
+"and transfer buffers. Choose the engine above before sizing storage."
+msgstr ""
+"預設的 ``xavier_cache_backend=\"native\"`` 使用各引擎自己的 Xavier "
+"快取實作。``xavier_cache_bytes`` 設定 SGLang、TRT-LLM 和 MLX 的共享 CPU 預算，不適用於 "
+"vLLM。vLLM GPU 歷史快取使用 ``xavier_gpu_cache_bytes``。這些預算不含權重、引擎 KV "
+"池和傳輸緩衝區。請先選擇上方引擎，再規劃儲存容量。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:149
+msgid "LMCache"
+msgstr "LMCache"
+
+#: ../../source/user_guide/vllm_enhancement.rst:213
+msgid "TRT-LLM does not support ``cache_salt`` through this adapter."
+msgstr "此適配器的 TRT-LLM 尚不支援 ``cache_salt``。"

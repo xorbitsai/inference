@@ -225,6 +225,19 @@ def _collect_virtualenv_engine_markers(family: Optional[Any]) -> Set[str]:
     return engines
 
 
+def _collect_virtualenv_installable_engines(family: Optional[Any]) -> Set[str]:
+    """Include TRT's architecture support without modifying model settings."""
+    from .llm.trt_llm.core import TRTLLMModel
+
+    engines = _collect_virtualenv_engine_markers(family)
+    if any(
+        TRTLLMModel.match_json(family, spec, spec.quantization) is True
+        for spec in getattr(family, "model_specs", []) or []
+    ):
+        engines.add("trt-llm")
+    return engines
+
+
 def _build_engine_params_from_specs(
     family: Any, specs: List[Any]
 ) -> List[Dict[str, Any]]:
@@ -2064,15 +2077,17 @@ def _get_engine_params_by_name(
                 )
 
     if model_type == "LLM":
-        from .llm.llm_family import BUILTIN_LLM_FAMILIES, LLM_ENGINES, SUPPORTED_ENGINES
+        from .llm.llm_family import (
+            LLM_ENGINES,
+            SUPPORTED_ENGINES,
+            get_llm_family_by_name,
+        )
 
         if model_name not in LLM_ENGINES:
             return None
 
         available_engines = deepcopy(LLM_ENGINES[model_name])
-        llm_family = next(
-            (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
-        )
+        llm_family = get_llm_family_by_name(model_name)
         # Strict path: re-validate virtualenv-marker engines that were baked
         # into the registry under the process-global flag, so an engine only
         # reachable via on-demand install is not offered here.
@@ -2080,7 +2095,7 @@ def _get_engine_params_by_name(
             available_engines,
             llm_family,
             SUPPORTED_ENGINES,
-            _collect_virtualenv_engine_markers(llm_family),
+            _collect_virtualenv_installable_engines(llm_family),
         )
         for engine, params in available_engines.items():
             _append_available_engine(engine, params, "llm_class")
@@ -2607,7 +2622,11 @@ def _get_engine_params_by_name_with_virtual_env(
                 )
 
     if model_type == "LLM":
-        from .llm.llm_family import BUILTIN_LLM_FAMILIES, LLM_ENGINES, SUPPORTED_ENGINES
+        from .llm.llm_family import (
+            LLM_ENGINES,
+            SUPPORTED_ENGINES,
+            get_llm_family_by_name,
+        )
 
         if model_name not in LLM_ENGINES:
             return None
@@ -2616,15 +2635,13 @@ def _get_engine_params_by_name_with_virtual_env(
         for engine, params in available_engines.items():
             _append_available_engine(engine, params, "llm_class")
 
-        llm_family = next(
-            (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
-        )
+        llm_family = get_llm_family_by_name(model_name)
         _collect_supported_engines(llm_family, SUPPORTED_ENGINES, "LLM")
-        engine_markers = _collect_virtualenv_engine_markers(llm_family)
+        installable_engines = _collect_virtualenv_installable_engines(llm_family)
         match_status = _force_virtualenv_engine_params(
             llm_family,
             SUPPORTED_ENGINES,
-            engine_markers,
+            installable_engines,
             engine_params,
             available_params,
             enable_virtual_env,
@@ -2632,13 +2649,14 @@ def _get_engine_params_by_name_with_virtual_env(
         _apply_virtualenv_engine_overrides(
             engine_params,
             SUPPORTED_ENGINES,
-            engine_markers,
+            installable_engines,
             enable_virtual_env,
             match_status,
         )
-        if enable_virtual_env and engine_markers:
+        allowed_engines = _collect_virtualenv_engine_markers(llm_family)
+        if enable_virtual_env and allowed_engines:
             for engine_name in list(engine_params.keys()):
-                if engine_name.lower() in engine_markers:
+                if engine_name.lower() in installable_engines:
                     continue
                 engine_params[engine_name] = (
                     f"Engine {engine_name} is not listed in model virtualenv packages."

@@ -161,16 +161,6 @@ msgstr "Xavier et NIXL natif prennent en charge les requêtes textuelles Qwen3.5
 msgid "Xavier requirements and memory"
 msgstr "Prérequis et mémoire de Xavier"
 
-#: source/user_guide/pd_separation.rst:145
-msgid ""
-"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
-"without LoRA. Multimodal models, prompt embeddings and salted prompts are "
-"not supported."
-msgstr ""
-"Xavier V1 exige un GPU par réplique (TP=1, PP=1) et des modèles textuels "
-"sans LoRA. Les modèles multimodaux, les embeddings de prompts et les prompts"
-" avec salt ne sont pas pris en charge."
-
 #: source/user_guide/pd_separation.rst:149
 msgid ""
 "Xavier's CPU cache can consume as much memory as the engine's GPU KV cache. "
@@ -529,38 +519,6 @@ msgstr ""
 "dessous."
 
 #: source/user_guide/pd_separation.rst
-msgid "Cross-engine vLLM/SGLang P/D"
-msgstr "P/D vLLM/SGLang entre moteurs"
-
-#: source/user_guide/pd_separation.rst
-msgid ""
-"Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry "
-"to select vLLM or SGLang independently for each role. Cross-engine P/D "
-"requires Xavier GPU transport. Engine options inherit launch arguments; "
-"``engine_config`` overrides them per replica."
-msgstr ""
-"Définissez ``model_engine`` et ``engine_config`` dans chaque entrée "
-"``replica_config`` pour choisir vLLM ou SGLang par rôle. Le P/D entre "
-"moteurs exige le transfert GPU Xavier. Les options héritent des arguments de"
-" lancement ; ``engine_config`` les remplace par réplique."
-
-#: source/user_guide/pd_separation.rst
-msgid ""
-"Both workers require identical local weights, tokenizer assets and context "
-"limits. Supported models are unquantized FP16 full-attention Qwen2, Qwen3 "
-"and Llama text models with TP=PP=DP=1. Requires vLLM >=0.21.0, SGLang "
-">=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks contracts and prompt "
-"token IDs, converts 64-token KV pages on GPU and raises errors on "
-"incompatibility or transfer failure."
-msgstr ""
-"Les deux workers exigent les mêmes poids locaux, fichiers de tokenizer et "
-"limites de contexte. Les modèles pris en charge sont Qwen2, Qwen3 et Llama "
-"textuels FP16 non quantifiés à attention complète avec TP=PP=DP=1. vLLM "
-">=0.21.0, SGLang >=0.5.21 et ``xoscar[nixl]>=0.11.1`` sont requis. Xavier "
-"vérifie les contrats et les ID des tokens du prompt, convertit les pages KV "
-"de 64 tokens sur GPU et signale les incompatibilités ou échecs de transfert."
-
-#: source/user_guide/pd_separation.rst
 msgid ""
 "Streaming and non-streaming requests require ``n=1``. SGLang decode uses the"
 " first output token sampled by prefill. vLLM decode imports all but the "
@@ -863,26 +821,6 @@ msgstr ""
 "même sans récepteur de décodage. Cela ne modifie pas "
 "``kv_transfer_timeout_ms=None``, qui désactive le délai global de transfert."
 
-#: ../../user_guide/pd_separation.rst:332
-msgid "Cross-engine TRT-LLM P/D"
-msgstr "P/D TRT-LLM entre moteurs"
-
-#: ../../user_guide/pd_separation.rst:337
-msgid ""
-"Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse "
-"directions. All replicas use identical BF16 dense Qwen3 checkpoints, "
-"tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM "
-"requires version ``1.2.1``; vLLM and SGLang requirements match the cross-"
-"engine section above. For CUDA/Metal deployments, see :ref:`trt-mlx-pd` "
-"below."
-msgstr ""
-"Xavier prend en charge le prefill TRT-LLM avec le decode vLLM ou SGLang, "
-"ainsi que les directions inverses. Toutes les répliques utilisent les mêmes "
-"checkpoints Qwen3 denses en BF16, fichiers de tokenizer et limites de "
-"contexte, avec un GPU CUDA par réplique. TRT-LLM exige la version ``1.2.1`` "
-"; les exigences vLLM et SGLang correspondent à la section précédente. Pour "
-"les déploiements CUDA/Metal, voir :ref:`trt-mlx-pd` ci-dessous."
-
 #: ../../user_guide/pd_separation.rst:339
 msgid ""
 "Set each replica's ``model_engine`` and ``engine_config`` independently. A "
@@ -929,10 +867,6 @@ msgstr ""
 "complet sont désactivés. Les transferts CUDA vers CUDA utilisent NIXL sans "
 "transit CPU ; ``gpu_bytes`` et ``imported_tokens`` mesurent les imports "
 "terminés et ``host_bytes`` reste nul."
-
-#: ../../user_guide/pd_separation.rst:421
-msgid "TRT-LLM and MLX over a LAN"
-msgstr "TRT-LLM et MLX sur un LAN"
 
 #: ../../user_guide/pd_separation.rst:426
 msgid ""
@@ -986,3 +920,90 @@ msgstr ""
 "d’échantillonnage TRT et MLX ci-dessus restent applicables. Comparez le TTFT"
 " avec le decode autonome sur son matériel, car le réseau et les copies entre"
 " appareils ajoutent de la latence."
+
+#: ../../source/user_guide/pd_separation.rst:229
+msgid ""
+"Speculative decoding is supported on ordinary TRT-LLM replicas; it cannot be"
+" combined with P/D in this adapter. See :ref:`speculative_decoding` for "
+"launch options."
+msgstr ""
+"Le décodage spéculatif est pris en charge sur les réplicas ordinaires TRT-"
+"LLM, mais cet adaptateur ne permet pas de le combiner avec P/D. Les options "
+"de lancement figurent dans :ref:`speculative_decoding`."
+
+#: ../../source/user_guide/pd_separation.rst:157
+msgid ""
+"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
+"without LoRA. Multimodal models and prompt embeddings are not supported. See"
+" :ref:`xavier-cache-isolation` for request-scoped cache isolation."
+msgstr ""
+"Xavier V1 exige un GPU par réplica (TP=1, PP=1) et des modèles texte sans "
+"LoRA. Les modèles multimodaux et prompt embeddings ne sont pas pris en "
+"charge. Consultez :ref:`xavier-cache-isolation` pour l’isolation du cache "
+"par requête."
+
+#: ../../source/user_guide/pd_separation.rst:300
+msgid "Cross-engine vLLM/SGLang/TRT-LLM P/D"
+msgstr "P/D vLLM/SGLang/TRT-LLM entre moteurs"
+
+#: ../../source/user_guide/pd_separation.rst:302
+msgid ""
+"Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry "
+"to select vLLM, SGLang or TRT-LLM independently for each role. Cross-engine "
+"P/D requires Xavier GPU transport. Engine options inherit launch arguments; "
+"``engine_config`` overrides them per replica."
+msgstr ""
+"Définissez ``model_engine`` et ``engine_config`` dans chaque entrée "
+"``replica_config`` pour choisir vLLM, SGLang ou TRT-LLM par rôle. Le P/D "
+"entre moteurs exige le transfert GPU Xavier. Les options héritent des "
+"arguments de lancement ; ``engine_config`` les remplace par réplique."
+
+#: ../../source/user_guide/pd_separation.rst:306
+msgid "vLLM and SGLang in either prefill/decode direction."
+msgstr "vLLM et SGLang dans les deux sens prefill/decode."
+
+#: ../../source/user_guide/pd_separation.rst:334
+msgid ""
+"For vLLM/SGLang pairings, both workers require identical local weights, "
+"tokenizer assets and context limits. Supported models are unquantized FP16 "
+"full-attention Qwen2, Qwen3 and Llama text models with TP=PP=DP=1. Requires "
+"vLLM >=0.21.0, SGLang >=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks "
+"contracts and prompt token IDs, converts 64-token KV pages on GPU and raises"
+" errors on incompatibility or transfer failure."
+msgstr ""
+"Pour les combinaisons vLLM/SGLang : Les deux workers exigent les mêmes poids"
+" locaux, fichiers de tokenizer et limites de contexte. Les modèles pris en "
+"charge sont Qwen2, Qwen3 et Llama textuels FP16 non quantifiés à attention "
+"complète avec TP=PP=DP=1. vLLM >=0.21.0, SGLang >=0.5.21 et "
+"``xoscar[nixl]>=0.11.1`` sont requis. Xavier vérifie les contrats et les ID "
+"des tokens du prompt, convertit les pages KV de 64 tokens sur GPU et signale"
+" les incompatibilités ou échecs de transfert."
+
+#: ../../source/user_guide/pd_separation.rst:344
+msgid "TRT-LLM with vLLM or SGLang in either prefill/decode direction."
+msgstr "TRT-LLM avec vLLM ou SGLang dans les deux sens prefill/decode."
+
+#: ../../source/user_guide/pd_separation.rst:346
+msgid ""
+"Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse "
+"directions. All replicas use identical BF16 dense Qwen3 checkpoints, "
+"tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM "
+"requires version ``1.2.1``; vLLM and SGLang requirements match the cross-"
+"engine section above. For CUDA/Metal deployments, see :ref:`NVIDIA and MLX "
+"cross-engine P/D <trt-mlx-pd>` below."
+msgstr ""
+"Xavier prend en charge le prefill TRT-LLM avec le decode vLLM ou SGLang, "
+"ainsi que les directions inverses. Toutes les répliques utilisent les mêmes "
+"checkpoints Qwen3 denses en BF16, fichiers de tokenizer et limites de "
+"contexte, avec un GPU CUDA par réplique. TRT-LLM exige la version ``1.2.1`` "
+"; les exigences vLLM et SGLang correspondent à la section précédente. Pour "
+"les déploiements CUDA/Metal, voir :ref:`P/D entre moteurs NVIDIA et MLX "
+"<trt-mlx-pd>` ci-dessous."
+
+#: ../../source/user_guide/pd_separation.rst:387
+msgid "vLLM/SGLang with MLX in either prefill/decode direction."
+msgstr "vLLM/SGLang avec MLX dans les deux sens prefill/decode."
+
+#: ../../source/user_guide/pd_separation.rst:435
+msgid "TRT-LLM with MLX in either prefill/decode direction."
+msgstr "TRT-LLM avec MLX dans les deux sens prefill/decode."

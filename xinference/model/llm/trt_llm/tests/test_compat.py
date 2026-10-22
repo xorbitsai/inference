@@ -76,14 +76,14 @@ def test_parallel_configs_fail_before_runtime_initialization(monkeypatch, name):
     initialize.assert_not_called()
 
 
-def test_fp16_fails_before_runtime_initialization(monkeypatch):
+@pytest.mark.parametrize("dtype", ["auto", "float16", "bfloat16"])
+def test_ordinary_runtime_leaves_dtype_validation_to_engine(monkeypatch, dtype):
     initialize = Mock()
     monkeypatch.setattr(
         "xinference.model.llm.trt_llm.compat.initialize_worker", initialize
     )
-    with pytest.raises(ValueError, match="requires BF16"):
-        prepare_runtime({"dtype": "float16"})
-    initialize.assert_not_called()
+    prepare_runtime({"dtype": dtype})
+    initialize.assert_called_once()
 
 
 @pytest.mark.parametrize("own_pd", [False, True])

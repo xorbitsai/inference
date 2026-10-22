@@ -1,0 +1,401 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: es <LL@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/user_guide/speculative_decoding.rst:4
+msgid "Speculative decoding"
+msgstr "Decodificación especulativa"
+
+#: ../../source/user_guide/speculative_decoding.rst:5
+msgid ""
+"Speculative decoding proposes several tokens and lets the target model "
+"verify them together. The available methods and launch options depend on the"
+" engine. Use a compatible drafter and measure latency and throughput for "
+"your workload."
+msgstr ""
+"La decodificación especulativa propone varios tokens que el modelo objetivo "
+"verifica juntos. Los métodos y opciones de inicio dependen del motor. Use un"
+" borrador compatible y mida la latencia y el rendimiento con su carga de "
+"trabajo."
+
+#: ../../source/user_guide/speculative_decoding.rst:10
+msgid "Paired MTP drafter (Gemma 4)"
+msgstr "Borrador MTP emparejado (Gemma 4)"
+
+#: ../../source/user_guide/speculative_decoding.rst:12
+msgid ""
+"Some models ship a small paired drafter checkpoint that predicts several "
+"tokens ahead, which the target model then verifies in one pass. Output is "
+"unchanged, decoding gets faster. Gemma 4 calls this multi-token prediction "
+"(MTP) and publishes a ``*-it-assistant`` drafter for every variant."
+msgstr ""
+"Algunos modelos incluyen un pequeño borrador emparejado que predice varios "
+"tokens y el objetivo los verifica en una pasada. La salida no cambia y la "
+"decodificación se acelera. Gemma 4 lo llama predicción de múltiples tokens "
+"(MTP) y publica un borrador ``*-it-assistant`` para cada variante."
+
+#: ../../source/user_guide/speculative_decoding.rst:17
+msgid ""
+"Pass ``--enable_mtp true`` at launch to download the drafter declared by the"
+" model spec and run it alongside the target model:"
+msgstr ""
+"Pase ``--enable_mtp true`` al iniciar para descargar el borrador declarado y"
+" ejecutarlo junto al objetivo:"
+
+#: ../../source/user_guide/speculative_decoding.rst:26
+msgid ""
+"In the Web UI the same options live under *Advanced Configuration → "
+"Speculative Decoding*, which only appears for a format/size that actually "
+"ships a drafter."
+msgstr ""
+"En la interfaz web, estas opciones están en *Configuración avanzada → "
+"Decodificación especulativa*, visible solo para formatos y tamaños con "
+"borrador."
+
+#: ../../source/user_guide/speculative_decoding.rst:29
+msgid "Optional parameters:"
+msgstr "Parámetros opcionales:"
+
+#: ../../source/user_guide/speculative_decoding.rst:31
+msgid ""
+"``--num_speculative_tokens <n>``: how many tokens the drafter proposes per "
+"round, including the bonus token. Left unset, MLX reads it from the drafter,"
+" which runs at the depth it was trained for (``4`` for Gemma 4). Gemma 4 on "
+"llama.cpp, vLLM, and SGLang follows the same model-size recipe: ``2`` for "
+"E2B, ``4`` for E4B and 26B-A4B, and the lower end (``4``) of the recommended"
+" ``4-8`` range for 12B and 31B. Other llama.cpp models keep xllamacpp's own "
+"default."
+msgstr ""
+"``--num_speculative_tokens <n>``: tokens por ronda, incluido el token "
+"adicional. Si se omite, MLX lee la profundidad entrenada del borrador (``4``"
+" para Gemma 4). Gemma 4 en llama.cpp, vLLM y SGLang usa ``2`` para E2B, "
+"``4`` para E4B y 26B-A4B, y ``4``, el extremo inferior del rango ``4-8``, "
+"para 12B y 31B. Otros modelos llama.cpp conservan el valor predeterminado de"
+" xllamacpp."
+
+#: ../../source/user_guide/speculative_decoding.rst:38
+msgid ""
+"``--draft_quantization <quantization>``: which drafter conversion to use, "
+"when the spec declares more than one — the MLX build of Gemma 4 12B "
+"publishes eight. Defaults to the first declared, which is the least "
+"quantized one: a drafter is small and quantizing it costs acceptance rate, "
+"so pairing a quantized target with an unquantized drafter is the recommended"
+" setup."
+msgstr ""
+"``--draft_quantization <quantization>``: conversión del borrador si hay "
+"varias; Gemma 4 12B en MLX publica ocho. Por defecto se elige la primera, la"
+" menos cuantizada. Como el borrador es pequeño y cuantizarlo reduce la "
+"aceptación, se recomienda emparejar un objetivo cuantizado con un borrador "
+"sin cuantizar."
+
+#: ../../source/user_guide/speculative_decoding.rst:43
+msgid ""
+"``--draft_model_path <path>``: use a local drafter instead of the one "
+"declared by the spec. Implies ``--enable_mtp true``."
+msgstr ""
+"``--draft_model_path <path>``: usar un borrador local en lugar del "
+"declarado. Implica ``--enable_mtp true``."
+
+#: ../../source/user_guide/speculative_decoding.rst:46
+msgid ""
+"For these paired Gemma 4 drafters, the family and size must match the target"
+" — the drafter shares the target's KV cache, so a mismatched checkpoint is "
+"rejected rather than silently degrading."
+msgstr ""
+"Estos borradores emparejados de Gemma 4 deben coincidir en familia y tamaño "
+"con el objetivo, pues comparten su caché KV. Un checkpoint incompatible se "
+"rechaza en lugar de degradar los resultados silenciosamente."
+
+#: ../../source/user_guide/speculative_decoding.rst:50
+msgid "Gemma 4 engine support:"
+msgstr "Motores compatibles con Gemma 4:"
+
+#: ../../source/user_guide/speculative_decoding.rst:56
+msgid "Engine"
+msgstr "Motor"
+
+#: ../../source/user_guide/speculative_decoding.rst:57
+msgid "Requirement"
+msgstr "Requisito"
+
+#: ../../source/user_guide/speculative_decoding.rst:58
+msgid "Notes"
+msgstr "Notas"
+
+#: ../../source/user_guide/speculative_decoding.rst:59
+msgid ":ref:`vLLM <vllm_backend>`"
+msgstr ":ref:`vLLM <vllm_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:60
+msgid "``vllm>=0.22.0``, ``transformers>=5.8.0``"
+msgstr "``vllm>=0.22.0``, ``transformers>=5.8.0``"
+
+#: ../../source/user_guide/speculative_decoding.rst:61
+msgid ""
+"Translated into ``speculative_config`` with ``method: mtp``. An explicitly "
+"provided ``speculative_config`` is left untouched. Older vLLM treats the "
+"drafter as a generic draft model, while older Transformers does not "
+"recognize ``gemma4_assistant``; either case is rejected before engine "
+"initialization. Virtual-environment launches also synchronize ``flashinfer-"
+"cubin`` with ``flashinfer-python`` before starting vLLM, repairing stale "
+"environments that contain mismatched FlashInfer packages."
+msgstr ""
+"Se traduce a ``speculative_config`` con ``method: mtp``. Una "
+"``speculative_config`` explícita se conserva. Las versiones antiguas de vLLM"
+" tratan el borrador como modelo genérico y las de Transformers no reconocen "
+"``gemma4_assistant``; ambos casos se rechazan antes de iniciar. Los entornos"
+" virtuales también sincronizan ``flashinfer-cubin`` con ``flashinfer-"
+"python`` antes de iniciar vLLM, reparando paquetes FlashInfer incompatibles."
+
+#: ../../source/user_guide/speculative_decoding.rst:69
+msgid ":ref:`SGLang <sglang_backend>`"
+msgstr ":ref:`SGLang <sglang_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:70
+msgid "``sglang==0.5.13.post1``, ``transformers==5.8.1``"
+msgstr "``sglang==0.5.13.post1``, ``transformers==5.8.1``"
+
+#: ../../source/user_guide/speculative_decoding.rst:71
+msgid ""
+"Translated into ``--speculative-algorithm NEXTN`` with the matching "
+"``speculative_num_steps`` / ``speculative_num_draft_tokens``. An explicitly "
+"provided ``speculative_algorithm`` is left untouched."
+msgstr ""
+"Se traduce a ``--speculative-algorithm NEXTN`` con los valores "
+"correspondientes de ``speculative_num_steps`` / "
+"``speculative_num_draft_tokens``. Un ``speculative_algorithm`` explícito se "
+"conserva."
+
+#: ../../source/user_guide/speculative_decoding.rst:74
+msgid ":ref:`MLX <mlx_backend>`"
+msgstr ":ref:`MLX <mlx_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:75
+msgid "``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)"
+msgstr "``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)"
+
+#: ../../source/user_guide/speculative_decoding.rst:76
+msgid ""
+"Served by the MLX vision engine, the one that runs multimodal models such as"
+" Gemma 4. The drafter is validated against the target when the model loads."
+msgstr ""
+"Lo sirve el motor de visión MLX, que ejecuta modelos multimodales como Gemma"
+" 4. El borrador se valida contra el objetivo al cargar."
+
+#: ../../source/user_guide/speculative_decoding.rst:79
+msgid ":ref:`llama.cpp <llama_cpp_backend>`"
+msgstr ":ref:`llama.cpp <llama_cpp_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:80
+msgid "``xllamacpp>=2026.6.9713``"
+msgstr "``xllamacpp>=2026.6.9713``"
+
+#: ../../source/user_guide/speculative_decoding.rst:81
+msgid ""
+"Translated into the ``draft-mtp`` speculative implementation. The drafter is"
+" a single gguf published inside the target's own repository, so its "
+"quantizations are its own (``BF16``, ``F16``, ``Q8_0`` for Gemma 4) and "
+"independent of the target's. Earlier llama.cpp builds do not know the "
+"``gemma4-assistant`` architecture and cannot load it."
+msgstr ""
+"Se traduce a ``draft-mtp``. El borrador es un solo gguf en el repositorio "
+"del objetivo; sus cuantizaciones (``BF16``, ``F16``, ``Q8_0`` para Gemma 4) "
+"son independientes de las del objetivo. Versiones antiguas de llama.cpp no "
+"reconocen ``gemma4-assistant`` y no pueden cargarlo."
+
+#: ../../source/user_guide/speculative_decoding.rst:87
+msgid ""
+"Not supported by the Transformers engine: it runs its own continuous-"
+"batching loop rather than ``generate()``, so there is nowhere to attach a "
+"drafter."
+msgstr ""
+"El motor Transformers no lo admite: utiliza su propio bucle de batching "
+"continuo en lugar de ``generate()``, sin punto para conectar un borrador."
+
+#: ../../source/user_guide/speculative_decoding.rst:91
+msgid "TRT-LLM"
+msgstr "TRT-LLM"
+
+#: ../../source/user_guide/speculative_decoding.rst:95
+msgid ""
+"Ordinary TRT-LLM replicas support NGram and Draft/Target speculative "
+"decoding with ``tensorrt-llm==1.2.1`` on Linux/CUDA. Model architectures and"
+" checkpoint formats follow :ref:`trt_llm_backend`, with TP=PP=CP=1. Xavier "
+"shared caching, native P/D and Xavier P/D do not support speculation through"
+" this adapter; see :ref:`user_guide_pd_separation` for their supported "
+"configurations."
+msgstr ""
+"Las réplicas normales TRT-LLM admiten NGram y Draft/Target con ``tensorrt-"
+"llm==1.2.1`` en Linux/CUDA. Las arquitecturas y los formatos siguen "
+":ref:`trt_llm_backend`, con TP=PP=CP=1. La caché compartida Xavier, P/D "
+"nativo y P/D Xavier no admiten decodificación especulativa mediante este "
+"adaptador; consulte las configuraciones compatibles en "
+":ref:`user_guide_pd_separation`."
+
+#: ../../source/user_guide/speculative_decoding.rst:101
+msgid ""
+"NGram reuses token patterns from the prompt and generated text without "
+"loading a draft model. For a workload with repeated text, pass the native "
+"``speculative_config`` at launch:"
+msgstr ""
+"NGram reutiliza patrones de tokens del prompt y del texto generado sin "
+"cargar un modelo borrador. Para cargas con texto repetido, pase la "
+"configuración nativa ``speculative_config`` al iniciar:"
+
+#: ../../source/user_guide/speculative_decoding.rst:131
+msgid ""
+"Draft/Target loads a separate draft model. Provide its local checkpoint path"
+" with ``draft_model_path``; ``num_speculative_tokens`` maps to TRT's "
+"``max_draft_len`` and defaults to ``3``. This counts draft tokens and "
+"excludes the target's bonus token. The draft and target must have compatible"
+" tokenizers and vocabularies, and both must be supported by TRT-LLM 1.2.1. "
+"Use a smaller dense Qwen3 checkpoint for the draft when serving a larger "
+"dense Qwen3 target. This mode does not require the Gemma-style paired "
+"assistant or a shared KV cache."
+msgstr ""
+"Draft/Target carga un modelo borrador independiente. Indique su checkpoint "
+"local con ``draft_model_path``; ``num_speculative_tokens`` corresponde a "
+"``max_draft_len`` de TRT y vale ``3`` por defecto. Cuenta tokens borrador "
+"sin incluir el token adicional del objetivo. Ambos modelos deben tener "
+"tokenizadores y vocabularios compatibles y ser admitidos por TRT-LLM 1.2.1. "
+"Use un checkpoint Qwen3 denso más pequeño como borrador de un objetivo Qwen3"
+" denso mayor. Este modo no requiere un assistant emparejado de Gemma ni "
+"compartir la caché KV."
+
+#: ../../source/user_guide/speculative_decoding.rst:148
+msgid ""
+"The examples require a compatible TRT-LLM environment. Change the model "
+"sizes and draft path to checkpoints available on your worker. A draft "
+"consumes additional GPU memory and compute, so it may reduce throughput at "
+"high load."
+msgstr ""
+"Los ejemplos requieren un entorno TRT-LLM compatible. Ajuste los tamaños y "
+"la ruta del borrador a los checkpoints de su worker. El borrador consume "
+"memoria GPU y cómputo adicionales y puede reducir el rendimiento bajo carga "
+"elevada."
+
+#: ../../source/user_guide/speculative_decoding.rst:152
+msgid ""
+"An explicit ``speculative_config`` takes precedence over "
+"``draft_model_path`` and ``num_speculative_tokens``. The adapter defaults "
+"``disable_overlap_scheduler=True`` when speculation is configured. Use "
+"native TRT options only with combinations supported by the pinned runtime. "
+"EAGLE3 and model-specific MTP require the corresponding architecture and "
+"speculative checkpoint configuration. ``enable_mtp=True`` downloads the "
+"compatible drafter declared in the Xinference model spec and configures "
+"Draft/Target unless ``speculative_config`` overrides it."
+msgstr ""
+"Un ``speculative_config`` explícito tiene prioridad sobre "
+"``draft_model_path`` y ``num_speculative_tokens``. El adaptador usa "
+"``disable_overlap_scheduler=True`` de forma predeterminada al configurar "
+"especulación. Use opciones nativas de TRT solo con combinaciones admitidas "
+"por la versión fijada. EAGLE3 y MTP específico del modelo requieren la "
+"arquitectura y la configuración de checkpoint especulativo correspondientes."
+" ``enable_mtp=True`` descarga el borrador compatible declarado en la "
+"especificación Xinference y configura Draft/Target, salvo que "
+"``speculative_config`` lo reemplace."
+
+#: ../../source/user_guide/speculative_decoding.rst:161
+msgid "When it pays off"
+msgstr "Cuándo compensa"
+
+#: ../../source/user_guide/speculative_decoding.rst:162
+msgid ""
+"Speculation is only worth it when a drafting step is cheap *relative to* a "
+"target decoding step. The drafter is a small dense model whose cost does not"
+" change with the target, so the ratio is what decides the outcome — and a "
+"mixture-of-experts target can land on the wrong side of it, because only its"
+" activated slice is read per token:"
+msgstr ""
+"La especulación solo compensa si cada paso de borrador es barato *respecto "
+"a* un paso del objetivo. El borrador es un modelo denso pequeño de coste "
+"fijo, por lo que importa la proporción. Un objetivo de mezcla de expertos "
+"puede resultar desfavorable, pues solo lee su parte activada por token:"
+
+#: ../../source/user_guide/speculative_decoding.rst:172
+msgid "gemma-4 MLX, 4bit, M5 Pro"
+msgstr "gemma-4 MLX, 4bit, M5 Pro"
+
+#: ../../source/user_guide/speculative_decoding.rst:173
+msgid "Without a drafter"
+msgstr "Sin borrador"
+
+#: ../../source/user_guide/speculative_decoding.rst:174
+msgid "With MTP"
+msgstr "Con MTP"
+
+#: ../../source/user_guide/speculative_decoding.rst:175
+msgid "Accepted per round"
+msgstr "Aceptados por ronda"
+
+#: ../../source/user_guide/speculative_decoding.rst:176
+msgid "31B (dense, 18.4 GB read per token)"
+msgstr "31B (denso, 18,4 GB leídos por token)"
+
+#: ../../source/user_guide/speculative_decoding.rst:177
+msgid "14.9 tok/s"
+msgstr "14.9 tok/s"
+
+#: ../../source/user_guide/speculative_decoding.rst:178
+msgid "**31.0 tok/s** (2.1x)"
+msgstr "**31.0 tok/s** (2.1x)"
+
+#: ../../source/user_guide/speculative_decoding.rst:179
+msgid "2.08 of 4"
+msgstr "2,08 de 4"
+
+#: ../../source/user_guide/speculative_decoding.rst:180
+msgid "26B-A4B (MoE, ~2.2 GB read per token)"
+msgstr "26B-A4B (MoE, ~2,2 GB leídos por token)"
+
+#: ../../source/user_guide/speculative_decoding.rst:181
+msgid "73.2 tok/s"
+msgstr "73.2 tok/s"
+
+#: ../../source/user_guide/speculative_decoding.rst:182
+msgid "65.9 tok/s (0.9x)"
+msgstr "65.9 tok/s (0.9x)"
+
+#: ../../source/user_guide/speculative_decoding.rst:183
+msgid "1.40 of 4"
+msgstr "1,40 de 4"
+
+#: ../../source/user_guide/speculative_decoding.rst:185
+msgid ""
+"The 0.83 GB drafter costs about 5% of a 31B decoding step but 39% of a "
+"26B-A4B one, so on the MoE the three drafting steps of a round already "
+"exceed one plain decoding step — and the round has to win that back from a "
+"lower acceptance rate. The MoE is still the faster model here in absolute "
+"terms; it simply has no headroom left for speculation."
+msgstr ""
+"El borrador de 0,83 GB cuesta aproximadamente un 5 % de un paso de 31B, pero"
+" un 39 % de uno de 26B-A4B. En MoE, tres pasos de borrador ya superan un "
+"paso normal y deben recuperarse con una aceptación menor. MoE sigue siendo "
+"más rápido en términos absolutos; simplemente no deja margen para especular."
+
+#: ../../source/user_guide/speculative_decoding.rst:191
+msgid ""
+"So measure before leaving it on, and note that the verification step itself "
+"is not the problem: a four-token forward costs only ~40% more than a single-"
+"token one on either model."
+msgstr ""
+"Mida antes de dejarlo activado. La verificación no es el problema: un "
+"forward de cuatro tokens solo cuesta alrededor de un 40 % más que uno de un "
+"token en ambos modelos."

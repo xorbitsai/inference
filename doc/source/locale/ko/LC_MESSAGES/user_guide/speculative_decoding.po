@@ -1,0 +1,365 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/user_guide/speculative_decoding.rst:4
+msgid "Speculative decoding"
+msgstr "추측 디코딩"
+
+#: ../../source/user_guide/speculative_decoding.rst:5
+msgid ""
+"Speculative decoding proposes several tokens and lets the target model "
+"verify them together. The available methods and launch options depend on the"
+" engine. Use a compatible drafter and measure latency and throughput for "
+"your workload."
+msgstr ""
+"추측 디코딩은 여러 토큰을 제안하고 대상 모델이 한 번에 검증합니다. 사용 가능한 방식과 실행 옵션은 엔진에 따라 다릅니다. 호환되는 "
+"초안 모델을 사용하고 실제 부하에서 지연 시간과 처리량을 측정하세요."
+
+#: ../../source/user_guide/speculative_decoding.rst:10
+msgid "Paired MTP drafter (Gemma 4)"
+msgstr "전용 MTP 초안 모델(Gemma 4)"
+
+#: ../../source/user_guide/speculative_decoding.rst:12
+msgid ""
+"Some models ship a small paired drafter checkpoint that predicts several "
+"tokens ahead, which the target model then verifies in one pass. Output is "
+"unchanged, decoding gets faster. Gemma 4 calls this multi-token prediction "
+"(MTP) and publishes a ``*-it-assistant`` drafter for every variant."
+msgstr ""
+"일부 모델에는 여러 토큰을 예측하는 작은 전용 초안 체크포인트가 있으며 대상 모델이 한 번에 검증합니다. 출력은 같고 디코딩은 "
+"빨라집니다. Gemma 4는 이를 다중 토큰 예측(MTP)이라 부르며 각 변형에 ``*-it-assistant`` 초안을 제공합니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:17
+msgid ""
+"Pass ``--enable_mtp true`` at launch to download the drafter declared by the"
+" model spec and run it alongside the target model:"
+msgstr "실행 시 ``--enable_mtp true`` 를 전달하면 모델 사양에 선언된 초안을 다운로드하여 대상과 함께 실행합니다:"
+
+#: ../../source/user_guide/speculative_decoding.rst:26
+msgid ""
+"In the Web UI the same options live under *Advanced Configuration → "
+"Speculative Decoding*, which only appears for a format/size that actually "
+"ships a drafter."
+msgstr "Web UI에서는 *고급 구성 → 추측 디코딩* 에 같은 옵션이 있습니다. 초안을 제공하는 형식과 크기에서만 표시됩니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:29
+msgid "Optional parameters:"
+msgstr "선택 매개변수:"
+
+#: ../../source/user_guide/speculative_decoding.rst:31
+msgid ""
+"``--num_speculative_tokens <n>``: how many tokens the drafter proposes per "
+"round, including the bonus token. Left unset, MLX reads it from the drafter,"
+" which runs at the depth it was trained for (``4`` for Gemma 4). Gemma 4 on "
+"llama.cpp, vLLM, and SGLang follows the same model-size recipe: ``2`` for "
+"E2B, ``4`` for E4B and 26B-A4B, and the lower end (``4``) of the recommended"
+" ``4-8`` range for 12B and 31B. Other llama.cpp models keep xllamacpp's own "
+"default."
+msgstr ""
+"``--num_speculative_tokens <n>``: 보너스 토큰을 포함한 라운드별 토큰 수입니다. 생략하면 MLX는 초안의 훈련"
+" 깊이(Gemma 4는 ``4``)를 읽습니다. llama.cpp, vLLM, SGLang의 Gemma 4는 E2B에 ``2``, E4B"
+" 및 26B-A4B에 ``4``, 12B 및 31B에 권장 범위 ``4-8`` 의 하한 ``4`` 를 사용합니다. 다른 llama.cpp"
+" 모델은 xllamacpp 기본값을 유지합니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:38
+msgid ""
+"``--draft_quantization <quantization>``: which drafter conversion to use, "
+"when the spec declares more than one — the MLX build of Gemma 4 12B "
+"publishes eight. Defaults to the first declared, which is the least "
+"quantized one: a drafter is small and quantizing it costs acceptance rate, "
+"so pairing a quantized target with an unquantized drafter is the recommended"
+" setup."
+msgstr ""
+"``--draft_quantization <quantization>``: 여러 변환이 있을 때 초안 변환을 선택합니다. MLX Gemma"
+" 4 12B는 8개를 제공합니다. 기본값은 첫 번째인 가장 덜 양자화된 변환입니다. 작은 초안을 양자화하면 수락률이 떨어지므로 양자화된 "
+"대상에도 비양자화 초안을 권장합니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:43
+msgid ""
+"``--draft_model_path <path>``: use a local drafter instead of the one "
+"declared by the spec. Implies ``--enable_mtp true``."
+msgstr ""
+"``--draft_model_path <path>``: 선언된 초안 대신 로컬 초안을 사용합니다. ``--enable_mtp true``"
+" 를 암시합니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:46
+msgid ""
+"For these paired Gemma 4 drafters, the family and size must match the target"
+" — the drafter shares the target's KV cache, so a mismatched checkpoint is "
+"rejected rather than silently degrading."
+msgstr ""
+"이 Gemma 4 전용 초안 모델은 대상의 KV 캐시를 공유하므로 계열과 크기가 대상과 일치해야 합니다. 불일치하는 체크포인트는 조용히 "
+"성능을 저하시키는 대신 거부됩니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:50
+msgid "Gemma 4 engine support:"
+msgstr "Gemma 4 엔진 지원:"
+
+#: ../../source/user_guide/speculative_decoding.rst:56
+msgid "Engine"
+msgstr "엔진"
+
+#: ../../source/user_guide/speculative_decoding.rst:57
+msgid "Requirement"
+msgstr "요구 사항"
+
+#: ../../source/user_guide/speculative_decoding.rst:58
+msgid "Notes"
+msgstr "참고"
+
+#: ../../source/user_guide/speculative_decoding.rst:59
+msgid ":ref:`vLLM <vllm_backend>`"
+msgstr ":ref:`vLLM <vllm_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:60
+msgid "``vllm>=0.22.0``, ``transformers>=5.8.0``"
+msgstr "``vllm>=0.22.0``, ``transformers>=5.8.0``"
+
+#: ../../source/user_guide/speculative_decoding.rst:61
+msgid ""
+"Translated into ``speculative_config`` with ``method: mtp``. An explicitly "
+"provided ``speculative_config`` is left untouched. Older vLLM treats the "
+"drafter as a generic draft model, while older Transformers does not "
+"recognize ``gemma4_assistant``; either case is rejected before engine "
+"initialization. Virtual-environment launches also synchronize ``flashinfer-"
+"cubin`` with ``flashinfer-python`` before starting vLLM, repairing stale "
+"environments that contain mismatched FlashInfer packages."
+msgstr ""
+"``method: mtp`` 인 ``speculative_config`` 로 변환합니다. 명시적인 "
+"``speculative_config`` 는 유지합니다. 구버전 vLLM은 일반 초안으로 취급하고 구버전 Transformers는 "
+"``gemma4_assistant`` 를 인식하지 못하므로 둘 다 초기화 전에 거부됩니다. 가상 환경은 vLLM 시작 전에 "
+"``flashinfer-cubin`` 과 ``flashinfer-python`` 을 동기화하여 불일치하는 FlashInfer 패키지를 "
+"복구합니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:69
+msgid ":ref:`SGLang <sglang_backend>`"
+msgstr ":ref:`SGLang <sglang_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:70
+msgid "``sglang==0.5.13.post1``, ``transformers==5.8.1``"
+msgstr "``sglang==0.5.13.post1``, ``transformers==5.8.1``"
+
+#: ../../source/user_guide/speculative_decoding.rst:71
+msgid ""
+"Translated into ``--speculative-algorithm NEXTN`` with the matching "
+"``speculative_num_steps`` / ``speculative_num_draft_tokens``. An explicitly "
+"provided ``speculative_algorithm`` is left untouched."
+msgstr ""
+"대응하는 ``speculative_num_steps`` / ``speculative_num_draft_tokens`` 와 함께 "
+"``--speculative-algorithm NEXTN`` 으로 변환합니다. 명시적인 ``speculative_algorithm`` 은"
+" 유지합니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:74
+msgid ":ref:`MLX <mlx_backend>`"
+msgstr ":ref:`MLX <mlx_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:75
+msgid "``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)"
+msgstr "``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)"
+
+#: ../../source/user_guide/speculative_decoding.rst:76
+msgid ""
+"Served by the MLX vision engine, the one that runs multimodal models such as"
+" Gemma 4. The drafter is validated against the target when the model loads."
+msgstr "Gemma 4 같은 멀티모달 모델을 실행하는 MLX 비전 엔진에서 제공합니다. 로드할 때 초안을 대상과 비교하여 검증합니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:79
+msgid ":ref:`llama.cpp <llama_cpp_backend>`"
+msgstr ":ref:`llama.cpp <llama_cpp_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:80
+msgid "``xllamacpp>=2026.6.9713``"
+msgstr "``xllamacpp>=2026.6.9713``"
+
+#: ../../source/user_guide/speculative_decoding.rst:81
+msgid ""
+"Translated into the ``draft-mtp`` speculative implementation. The drafter is"
+" a single gguf published inside the target's own repository, so its "
+"quantizations are its own (``BF16``, ``F16``, ``Q8_0`` for Gemma 4) and "
+"independent of the target's. Earlier llama.cpp builds do not know the "
+"``gemma4-assistant`` architecture and cannot load it."
+msgstr ""
+"``draft-mtp`` 로 변환합니다. 초안은 대상 저장소의 단일 gguf이며 양자화(Gemma 4의 ``BF16``, ``F16``,"
+" ``Q8_0``)는 대상과 독립적입니다. 구버전 llama.cpp는 ``gemma4-assistant`` 아키텍처를 몰라 로드할 수 "
+"없습니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:87
+msgid ""
+"Not supported by the Transformers engine: it runs its own continuous-"
+"batching loop rather than ``generate()``, so there is nowhere to attach a "
+"drafter."
+msgstr ""
+"Transformers 엔진은 지원하지 않습니다. ``generate()`` 대신 자체 연속 배칭 루프를 사용하므로 초안을 연결할 지점이"
+" 없습니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:91
+msgid "TRT-LLM"
+msgstr "TRT-LLM"
+
+#: ../../source/user_guide/speculative_decoding.rst:95
+msgid ""
+"Ordinary TRT-LLM replicas support NGram and Draft/Target speculative "
+"decoding with ``tensorrt-llm==1.2.1`` on Linux/CUDA. Model architectures and"
+" checkpoint formats follow :ref:`trt_llm_backend`, with TP=PP=CP=1. Xavier "
+"shared caching, native P/D and Xavier P/D do not support speculation through"
+" this adapter; see :ref:`user_guide_pd_separation` for their supported "
+"configurations."
+msgstr ""
+"일반 TRT-LLM 복제본은 Linux/CUDA의 ``tensorrt-llm==1.2.1`` 에서 NGram 및 Draft/Target "
+"추측 디코딩을 지원합니다. 모델 아키텍처와 체크포인트 형식은 :ref:`trt_llm_backend` 를 따르며 TP=PP=CP=1이 "
+"필요합니다. 이 어댑터는 Xavier 공유 캐시, 네이티브 P/D 및 Xavier P/D와 추측 디코딩을 함께 지원하지 않습니다. 지원 "
+"구성은 :ref:`user_guide_pd_separation` 을 참조하세요."
+
+#: ../../source/user_guide/speculative_decoding.rst:101
+msgid ""
+"NGram reuses token patterns from the prompt and generated text without "
+"loading a draft model. For a workload with repeated text, pass the native "
+"``speculative_config`` at launch:"
+msgstr ""
+"NGram은 초안 모델을 로드하지 않고 프롬프트와 생성 텍스트의 토큰 패턴을 재사용합니다. 반복 텍스트 부하에서는 실행 시 네이티브 "
+"``speculative_config`` 를 전달하세요:"
+
+#: ../../source/user_guide/speculative_decoding.rst:131
+msgid ""
+"Draft/Target loads a separate draft model. Provide its local checkpoint path"
+" with ``draft_model_path``; ``num_speculative_tokens`` maps to TRT's "
+"``max_draft_len`` and defaults to ``3``. This counts draft tokens and "
+"excludes the target's bonus token. The draft and target must have compatible"
+" tokenizers and vocabularies, and both must be supported by TRT-LLM 1.2.1. "
+"Use a smaller dense Qwen3 checkpoint for the draft when serving a larger "
+"dense Qwen3 target. This mode does not require the Gemma-style paired "
+"assistant or a shared KV cache."
+msgstr ""
+"Draft/Target은 별도 초안 모델을 로드합니다. ``draft_model_path`` 로 로컬 체크포인트 경로를 지정하세요. "
+"``num_speculative_tokens`` 는 TRT의 ``max_draft_len`` 에 대응하며 기본값은 ``3`` 입니다. "
+"대상의 보너스 토큰을 제외한 초안 토큰 수입니다. 초안과 대상의 토크나이저와 어휘가 호환되어야 하며 둘 다 TRT-LLM 1.2.1에서 "
+"지원되어야 합니다. 큰 밀집 Qwen3 대상을 제공할 때 더 작은 밀집 Qwen3 체크포인트를 초안으로 사용하세요. 이 방식은 Gemma"
+" 방식의 전용 assistant나 공유 KV 캐시를 요구하지 않습니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:148
+msgid ""
+"The examples require a compatible TRT-LLM environment. Change the model "
+"sizes and draft path to checkpoints available on your worker. A draft "
+"consumes additional GPU memory and compute, so it may reduce throughput at "
+"high load."
+msgstr ""
+"예제에는 호환되는 TRT-LLM 환경이 필요합니다. 모델 크기와 초안 경로를 worker에서 사용할 수 있는 체크포인트로 바꾸세요. "
+"초안은 GPU 메모리와 연산을 추가로 사용하므로 높은 부하에서는 처리량이 감소할 수 있습니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:152
+msgid ""
+"An explicit ``speculative_config`` takes precedence over "
+"``draft_model_path`` and ``num_speculative_tokens``. The adapter defaults "
+"``disable_overlap_scheduler=True`` when speculation is configured. Use "
+"native TRT options only with combinations supported by the pinned runtime. "
+"EAGLE3 and model-specific MTP require the corresponding architecture and "
+"speculative checkpoint configuration. ``enable_mtp=True`` downloads the "
+"compatible drafter declared in the Xinference model spec and configures "
+"Draft/Target unless ``speculative_config`` overrides it."
+msgstr ""
+"명시적인 ``speculative_config`` 는 ``draft_model_path`` 와 "
+"``num_speculative_tokens`` 보다 우선합니다. 추측 디코딩을 설정하면 어댑터는 기본적으로 "
+"``disable_overlap_scheduler=True`` 를 사용합니다. 네이티브 TRT 옵션은 고정된 런타임이 지원하는 조합으로 "
+"사용하세요. EAGLE3와 모델별 MTP에는 해당 아키텍처와 추측 체크포인트 설정이 필요합니다. ``enable_mtp=True`` 는 "
+"Xinference 모델 사양에 선언된 호환 초안 모델을 다운로드하고, ``speculative_config`` 로 재정의하지 않으면 "
+"Draft/Target을 설정합니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:161
+msgid "When it pays off"
+msgstr "효과가 있는 경우"
+
+#: ../../source/user_guide/speculative_decoding.rst:162
+msgid ""
+"Speculation is only worth it when a drafting step is cheap *relative to* a "
+"target decoding step. The drafter is a small dense model whose cost does not"
+" change with the target, so the ratio is what decides the outcome — and a "
+"mixture-of-experts target can land on the wrong side of it, because only its"
+" activated slice is read per token:"
+msgstr ""
+"초안 단계가 대상 디코딩 단계에 *비해* 저렴할 때만 추측이 유리합니다. 작은 밀집 초안의 비용은 대상과 무관하게 일정하므로 비율이 "
+"중요합니다. MoE 대상은 토큰마다 활성화된 부분만 읽어 불리할 수 있습니다:"
+
+#: ../../source/user_guide/speculative_decoding.rst:172
+msgid "gemma-4 MLX, 4bit, M5 Pro"
+msgstr "gemma-4 MLX, 4bit, M5 Pro"
+
+#: ../../source/user_guide/speculative_decoding.rst:173
+msgid "Without a drafter"
+msgstr "초안 없음"
+
+#: ../../source/user_guide/speculative_decoding.rst:174
+msgid "With MTP"
+msgstr "MTP 사용"
+
+#: ../../source/user_guide/speculative_decoding.rst:175
+msgid "Accepted per round"
+msgstr "라운드별 수락 수"
+
+#: ../../source/user_guide/speculative_decoding.rst:176
+msgid "31B (dense, 18.4 GB read per token)"
+msgstr "31B(밀집, 토큰당 18.4 GB 읽기)"
+
+#: ../../source/user_guide/speculative_decoding.rst:177
+msgid "14.9 tok/s"
+msgstr "14.9 tok/s"
+
+#: ../../source/user_guide/speculative_decoding.rst:178
+msgid "**31.0 tok/s** (2.1x)"
+msgstr "**31.0 tok/s** (2.1x)"
+
+#: ../../source/user_guide/speculative_decoding.rst:179
+msgid "2.08 of 4"
+msgstr "4개 중 2.08개"
+
+#: ../../source/user_guide/speculative_decoding.rst:180
+msgid "26B-A4B (MoE, ~2.2 GB read per token)"
+msgstr "26B-A4B(MoE, 토큰당 약 2.2 GB 읽기)"
+
+#: ../../source/user_guide/speculative_decoding.rst:181
+msgid "73.2 tok/s"
+msgstr "73.2 tok/s"
+
+#: ../../source/user_guide/speculative_decoding.rst:182
+msgid "65.9 tok/s (0.9x)"
+msgstr "65.9 tok/s (0.9x)"
+
+#: ../../source/user_guide/speculative_decoding.rst:183
+msgid "1.40 of 4"
+msgstr "4개 중 1.40개"
+
+#: ../../source/user_guide/speculative_decoding.rst:185
+msgid ""
+"The 0.83 GB drafter costs about 5% of a 31B decoding step but 39% of a "
+"26B-A4B one, so on the MoE the three drafting steps of a round already "
+"exceed one plain decoding step — and the round has to win that back from a "
+"lower acceptance rate. The MoE is still the faster model here in absolute "
+"terms; it simply has no headroom left for speculation."
+msgstr ""
+"0.83 GB 초안은 31B 단계 비용의 약 5%지만 26B-A4B에서는 39%입니다. MoE에서는 세 번의 초안 단계가 이미 일반 한 "
+"단계보다 비싸며 낮은 수락률로 이를 만회해야 합니다. MoE는 절대 속도는 더 빠르지만 추측을 위한 여유가 없습니다."
+
+#: ../../source/user_guide/speculative_decoding.rst:191
+msgid ""
+"So measure before leaving it on, and note that the verification step itself "
+"is not the problem: a four-token forward costs only ~40% more than a single-"
+"token one on either model."
+msgstr ""
+"항상 켜기 전에 측정하세요. 검증 자체는 문제가 아닙니다. 두 모델 모두 4토큰 forward는 1토큰보다 약 40%만 더 비쌉니다."
