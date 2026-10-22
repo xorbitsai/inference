@@ -590,3 +590,7 @@ msgstr "연속 업그레이드에서는 ``drain_timeout`` 이 이전 엔진의 �
 #: ../source/user_guide/launch.rst:506
 msgid "When authentication is enabled, selecting ``python_executable`` requires administrator access. The current interpreter path is only included in reload metadata for administrators."
 msgstr "인증이 활성화된 경우 ``python_executable`` 을 선택하려면 관리자 권한이 필요합니다. 현재 인터프리터 경로는 관리자에게 반환하는 재로드 메타데이터에만 포함됩니다."
+
+#: ../../source/user_guide/launch.rst
+msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for each cached model. The engine list matches the cached variant against discovery on the worker that owns its files, including that worker's virtual environment setting. ``null`` means the metadata is unknown or discovery failed; an empty list means no matching engine is currently discoverable. Listing caches does not download weights, prepare environments, or launch models."
+msgstr "``GET /v1/cache/models`` 는 캐시된 각 모델의 ``model_type`` 과 ``model_engine`` 을 반환합니다. 엔진 목록은 파일을 소유한 Worker의 가상 환경 설정을 포함한 검색 결과를 바탕으로 캐시된 변형과 일치시킵니다. ``null`` 은 메타데이터를 알 수 없거나 검색에 실패했음을 의미하며, 빈 목록은 현재 일치하는 엔진을 찾지 못했음을 의미합니다. 캐시 목록 조회는 가중치를 다운로드하거나 환경을 준비하거나 모델을 실행하지 않습니다."

@@ -1050,12 +1050,18 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
         # record model version
         model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
-        model_version_infos.update(get_llm_version_infos())
-        model_version_infos.update(get_embedding_model_descriptions())
-        model_version_infos.update(get_rerank_model_descriptions())
-        model_version_infos.update(get_image_model_descriptions())
-        model_version_infos.update(get_audio_model_descriptions())
-        model_version_infos.update(get_flexible_model_descriptions())
+        for model_type, versions in (
+            ("LLM", get_llm_version_infos()),
+            ("embedding", get_embedding_model_descriptions()),
+            ("rerank", get_rerank_model_descriptions()),
+            ("image", get_image_model_descriptions()),
+            ("audio", get_audio_model_descriptions()),
+            ("flexible", get_flexible_model_descriptions()),
+        ):
+            for model_versions in versions.values():
+                for version in model_versions:
+                    version["model_type"] = model_type
+            model_version_infos.update(versions)
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )
@@ -2399,7 +2405,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             try:
                 if self._cache_tracker_ref is not None:
                     await self._cache_tracker_ref.record_model_version(
-                        generate_fn(model_spec), self.address
+                        generate_fn(model_spec), self.address, model_type
                     )
             except Exception:
                 logger.warning(

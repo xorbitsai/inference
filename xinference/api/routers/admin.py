@@ -208,6 +208,15 @@ async def list_cached_models(
     try:
         supervisor_ref = await api._get_supervisor_ref()
         data = await supervisor_ref.list_cached_models(model_name, worker_ip)
+        # Keep the additive fields stable while older workers reconnect.
+        data = [
+            {
+                **item,
+                "model_type": item.get("model_type"),
+                "model_engine": item.get("model_engine"),
+            }
+            for item in data
+        ]
         resp = {"list": data}
         return JSONResponse(content=resp)
     except ValueError as re:

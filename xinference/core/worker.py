@@ -91,6 +91,7 @@ from ..model.utils import (
 from ..model.utils import resolve_download_hub as resolve_model_download_hub
 from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
+from .cache_metadata import get_cached_model_engines
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
 from .exceptions import ModelNotReadyError
@@ -1937,14 +1938,20 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             from ..model.world import get_world_model_descriptions
 
             model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
-            model_version_infos.update(get_llm_version_infos())
-            model_version_infos.update(get_embedding_model_descriptions())
-            model_version_infos.update(get_rerank_model_descriptions())
-            model_version_infos.update(get_image_model_descriptions())
-            model_version_infos.update(get_audio_model_descriptions())
-            model_version_infos.update(get_video_model_descriptions())
-            model_version_infos.update(get_world_model_descriptions())
-            model_version_infos.update(get_flexible_model_descriptions())
+            for model_type, versions in (
+                ("LLM", get_llm_version_infos()),
+                ("embedding", get_embedding_model_descriptions()),
+                ("rerank", get_rerank_model_descriptions()),
+                ("image", get_image_model_descriptions()),
+                ("audio", get_audio_model_descriptions()),
+                ("video", get_video_model_descriptions()),
+                ("world", get_world_model_descriptions()),
+                ("flexible", get_flexible_model_descriptions()),
+            ):
+                for model_versions in versions.values():
+                    for version in model_versions:
+                        version["model_type"] = model_type
+                model_version_infos.update(versions)
             await xo.wait_for(
                 cache_tracker_ref.record_model_version(
                     model_version_infos, self.address
@@ -2788,7 +2795,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             try:
                 if self._cache_tracker_ref is not None:
                     await self._cache_tracker_ref.record_model_version(
-                        generate_fn(model_spec), self.address
+                        generate_fn(model_spec), self.address, model_type
                     )
             except Exception:
                 logger.warning(
@@ -6636,9 +6643,40 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             self.address, model_name
         )
         cached_models = []
+        engine_metadata: Dict[Tuple[str, str], Optional[Dict[str, Any]]] = {}
         for list in lists:
+            model_name = list.get("model_name")
+            model_type = list.get("model_type")
+            model_engine = list.get("model_engine")
+            if (
+                model_engine is None
+                and model_name
+                and model_type
+                in ("LLM", "embedding", "rerank", "image", "audio", "video", "world")
+            ):
+                key = (model_name, model_type)
+                try:
+                    if key not in engine_metadata:
+                        engine_metadata[key] = await self.query_engines_by_model_name(
+                            model_name, model_type
+                        )
+                    model_engine = get_cached_model_engines(
+                        model_name,
+                        model_type,
+                        list["model_version"],
+                        engine_metadata[key],
+                    )
+                except Exception:
+                    engine_metadata[key] = None
+                    logger.warning(
+                        "Failed to resolve engine metadata for cached model %s",
+                        model_name,
+                        exc_info=True,
+                    )
             cached_model = {
-                "model_name": list.get("model_name"),
+                "model_name": model_name,
+                "model_type": model_type,
+                "model_engine": model_engine,
                 "model_size_in_billions": list.get("model_size_in_billions"),
                 "model_format": list.get("model_format"),
                 "quantization": list.get("quantization"),

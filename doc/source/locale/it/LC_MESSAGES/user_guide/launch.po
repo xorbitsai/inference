@@ -660,3 +660,7 @@ msgstr "Negli aggiornamenti consecutivi, ``drain_timeout`` limita anche l’atte
 #: ../source/user_guide/launch.rst:506
 msgid "When authentication is enabled, selecting ``python_executable`` requires administrator access. The current interpreter path is only included in reload metadata for administrators."
 msgstr "Con l’autenticazione attiva, la selezione di ``python_executable`` richiede privilegi di amministratore. Il percorso dell’interprete attuale è incluso nei metadati di ricaricamento solo per gli amministratori."
+
+#: ../../source/user_guide/launch.rst
+msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for each cached model. The engine list matches the cached variant against discovery on the worker that owns its files, including that worker's virtual environment setting. ``null`` means the metadata is unknown or discovery failed; an empty list means no matching engine is currently discoverable. Listing caches does not download weights, prepare environments, or launch models."
+msgstr "``GET /v1/cache/models`` include ``model_type`` e ``model_engine`` per ogni modello nella cache. L’elenco dei motori confronta la variante memorizzata con i risultati del rilevamento sul Worker proprietario dei file, inclusa la sua impostazione dell’ambiente virtuale. ``null`` indica metadati sconosciuti o un errore di rilevamento; un elenco vuoto indica che attualmente non viene rilevato alcun motore corrispondente. Elencare le cache non scarica pesi, prepara ambienti o avvia modelli."

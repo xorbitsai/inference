@@ -620,3 +620,7 @@ msgstr "连续升级时，``drain_timeout`` 也会限制等待前一个引擎退
 #: ../source/user_guide/launch.rst:506
 msgid "When authentication is enabled, selecting ``python_executable`` requires administrator access. The current interpreter path is only included in reload metadata for administrators."
 msgstr "启用认证时，选择 ``python_executable`` 需要管理员权限。只有管理员获取的重新加载元数据包含当前解释器路径。"
+
+#: ../../source/user_guide/launch.rst
+msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for each cached model. The engine list matches the cached variant against discovery on the worker that owns its files, including that worker's virtual environment setting. ``null`` means the metadata is unknown or discovery failed; an empty list means no matching engine is currently discoverable. Listing caches does not download weights, prepare environments, or launch models."
+msgstr "``GET /v1/cache/models`` 为每个缓存模型返回 ``model_type`` 和 ``model_engine``。引擎列表根据文件所属 Worker 的发现结果匹配缓存变体，并遵循该 Worker 的虚拟环境设置。``null`` 表示元数据未知或引擎发现失败；空列表表示当前未发现匹配的引擎。查询缓存不会下载权重、准备环境或启动模型。"
