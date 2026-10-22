@@ -1367,7 +1367,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         stream_options = sanitized_generate_config.pop("stream_options")
 
         include_usage = (
-            stream_options.pop("include_usage")
+            stream_options.pop("include_usage", False)
             if isinstance(stream_options, dict)
             else False
         )

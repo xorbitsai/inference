@@ -2276,7 +2276,7 @@ class VLLMModel(WeightCachedModel, LLM):
         stream = sanitized_generate_config.pop("stream")
         stream_options = sanitized_generate_config.pop("stream_options", None)
         include_usage = (
-            stream_options["include_usage"]
+            stream_options.get("include_usage", False)
             if isinstance(stream_options, dict)
             else False
         )
