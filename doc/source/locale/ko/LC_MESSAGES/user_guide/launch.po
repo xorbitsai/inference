@@ -495,8 +495,8 @@ msgid "Stars on the **Launch Model** page are saved for the current account and 
 msgstr "**Launch Model** 페이지의 별표는 현재 계정에 저장되어 브라우저를 바꾸거나 서버를 다시 시작해도 유지됩니다. 즐겨찾기는 모델 유형에 관계없이 모델 이름으로 식별됩니다. 조회와 변경에는 ``models:list`` 권한이 필요합니다. 인증을 사용하지 않으면 모든 방문자가 하나의 목록을 공유합니다. 인증이 활성화되면 변경에 사용자 세션이 필요하며 API 키는 조회만 할 수 있습니다."
 
 #: ../../source/user_guide/launch.rst
-msgid "By default, favorites use SQLite at ``<XINFERENCE_HOME>/model_favorites.db``; set ``XINFERENCE_MODEL_FAVORITES_DB_PATH`` to use another file. API processes sharing favorites must use the same store. Back up the favorites store together with the authentication database."
-msgstr "기본적으로 SQLite 파일 ``<XINFERENCE_HOME>/model_favorites.db`` 에 저장됩니다. 다른 파일을 사용하려면 ``XINFERENCE_MODEL_FAVORITES_DB_PATH`` 를 설정하세요. 즐겨찾기를 공유하는 API 프로세스는 같은 저장소를 사용해야 합니다. 즐겨찾기 저장소와 인증 데이터베이스를 함께 백업하세요."
+msgid "Favorites use a ``model_favorites`` table in the selected authentication database. With the default SQLite backend, this is ``<XINFERENCE_HOME>/auth/auth.db`` (configured by ``XINFERENCE_AUTH_DB_PATH``). Without authentication, the same path stores the shared collection and only the favorites table is initialized."
+msgstr "즐겨찾기는 선택된 인증 데이터베이스의 ``model_favorites`` 테이블에 저장됩니다. 기본 SQLite 백엔드는 ``<XINFERENCE_HOME>/auth/auth.db`` 를 사용하며 ``XINFERENCE_AUTH_DB_PATH`` 로 설정합니다. 인증이 없어도 같은 경로에 공유 목록을 저장하고 즐겨찾기 테이블만 초기화합니다."
 
 #: ../../source/user_guide/launch.rst
 msgid "Old browser favorites are not imported automatically because they have no account identity. Choose **Import browser favorites** to add them to the current account. The browser copy is retained if any write fails or the account changes during import; retrying does not create duplicates."
@@ -505,7 +505,3 @@ msgstr "기존 브라우저 즐겨찾기에는 계정 정보가 없어 자동으
 #: ../../source/user_guide/launch.rst
 msgid "``GET /v1/model_favorites`` returns a list of model names for the authenticated account. ``PUT`` and ``DELETE`` on the same path accept ``{\"model_name\": \"org/model\"}`` to add or remove one name. Both operations are idempotent. The server derives the owner from authentication; clients cannot choose another owner."
 msgstr "``GET /v1/model_favorites`` 는 인증된 계정의 모델 이름 목록을 반환합니다. 같은 경로의 ``PUT`` 과 ``DELETE`` 는 ``{\"model_name\": \"org/model\"}`` 을 받아 이름 하나를 추가하거나 삭제합니다. 두 작업 모두 멱등성을 갖습니다. 서버가 인증 정보로 소유자를 결정하므로 클라이언트는 다른 소유자를 지정할 수 없습니다."
-
-#: ../../source/user_guide/launch.rst
-msgid "Extensions may implement ``create_model_favorites_store(context)`` to replace SQLite. The context supplies ``db_path`` and the selected ``auth_store`` (``None`` without authentication); stores implement synchronous ``list(owner)``, ``add(owner, model_name)`` and ``remove(owner, model_name)``. Operations run in the API thread pool. Returning ``None`` selects SQLite; provider failures never select a fallback."
-msgstr "확장 기능에서 ``create_model_favorites_store(context)`` 를 구현해 SQLite를 대체할 수 있습니다. 컨텍스트는 ``db_path`` 와 선택된 ``auth_store`` (인증이 없으면 ``None``)를 제공합니다. 저장소는 동기 메서드 ``list(owner)``, ``add(owner, model_name)``, ``remove(owner, model_name)`` 을 구현합니다. 작업은 API 스레드 풀에서 실행됩니다. ``None`` 을 반환하면 SQLite를 선택하며 제공자 오류가 발생해도 대체 저장소로 전환하지 않습니다."

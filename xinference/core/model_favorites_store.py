@@ -82,7 +82,12 @@ def create_model_favorites_store(db_path: str, auth_store: Any) -> ModelFavorite
         ModelFavoritesStoreContext(db_path, auth_store)
     )
     if store is None:
-        return SQLiteModelFavoritesStore(db_path)
+        path = auth_store.path if auth_store is not None else db_path
+        if path is None:
+            raise RuntimeError(
+                "A model favorites store provider is required for non-SQLite auth storage"
+            )
+        return SQLiteModelFavoritesStore(str(path))
     for name in ("list", "add", "remove"):
         method = getattr(store, name, None)
         if (

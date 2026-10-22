@@ -57,10 +57,10 @@ class AuthStoreContext:
 
 @dataclass(frozen=True)
 class ModelFavoritesStoreContext:
-    """Default SQLite path and selected auth store (None without authentication).
+    """Configured auth database path and selected store (None without authentication).
 
     Available during API initialization, before route composition. A provider
-    can use the selected auth store to share its transaction/backend domain.
+    must reuse the selected database and its transaction/backend domain.
     """
 
     db_path: str

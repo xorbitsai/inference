@@ -136,6 +136,13 @@ def test_provider_can_preserve_default(monkeypatch, tmp_path, kind):
     )
 
 
+def test_remote_auth_store_requires_a_favorites_provider(tmp_path):
+    path = tmp_path / "must-not-create.db"
+    with pytest.raises(RuntimeError, match="non-SQLite auth storage"):
+        create_model_favorites_store(str(path), SimpleNamespace(path=None))
+    assert not path.exists()
+
+
 @pytest.mark.parametrize(
     "kind",
     [
@@ -195,7 +202,7 @@ def authenticated(tmp_path):
         oidc_sub="subject",
         permissions=["models:list"],
     )
-    store = SQLiteModelFavoritesStore(str(tmp_path / "favorites.db"))
+    store = create_model_favorites_store(str(tmp_path / "unused.db"), auth.db)
     with client_for(store, auth) as client:
         yield auth, alice, bob, store, client
 
@@ -440,7 +447,6 @@ def test_invalid_authenticated_owner_cannot_access_anonymous_favorites(tmp_path,
 def test_real_api_constructor_initializes_favorites_provider(
     monkeypatch, tmp_path, custom
 ):
-    from xinference import constants
     from xinference.api import restful_api
     from xinference.core import system_settings_store
 
@@ -471,7 +477,7 @@ def test_real_api_constructor_initializes_favorites_provider(
             ),
         )
     monkeypatch.setattr(
-        constants, "XINFERENCE_MODEL_FAVORITES_DB_PATH", str(tmp_path / "favorites.db")
+        restful_api, "XINFERENCE_AUTH_DB_PATH", str(tmp_path / "auth.db")
     )
     monkeypatch.setattr(
         restful_api, "XINFERENCE_LAUNCH_HISTORY_DB_PATH", str(tmp_path / "history.db")
@@ -487,6 +493,76 @@ def test_real_api_constructor_initializes_favorites_provider(
     if custom:
         assert api._model_favorites_store is provider.return_value
         assert provider.call_args.args[0].auth_store is selected_auth
-        assert not (tmp_path / "favorites.db").exists()
+        assert provider.call_args.args[0].db_path == str(tmp_path / "auth.db")
+        assert not (tmp_path / "auth.db").exists()
     else:
         assert isinstance(api._model_favorites_store, SQLiteModelFavoritesStore)
+        assert api._model_favorites_store._path == str(tmp_path / "auth.db")
+
+
+@pytest.mark.parametrize(
+    "authenticated,custom_path", [(False, False), (True, False), (True, True)]
+)
+def test_api_favorites_reuse_the_selected_database_without_enabling_auth(
+    monkeypatch, tmp_path, authenticated, custom_path
+):
+    from xinference.api import restful_api
+    from xinference.core import system_settings_store
+
+    configured = tmp_path / "configured-auth.db"
+    selected = tmp_path / "selected-auth.db" if custom_path else configured
+    monkeypatch.setattr(restful_api, "is_auth_advanced", lambda: authenticated)
+    secret = Mock(return_value="test-secret")
+    monkeypatch.setattr(restful_api, "get_auth_jwt_secret_key", secret)
+    monkeypatch.setattr(restful_api, "get_auth_encryption_key", secret)
+    for name, path in {
+        "XINFERENCE_AUTH_DB_PATH": configured,
+        "XINFERENCE_LAUNCH_HISTORY_DB_PATH": tmp_path / "history.db",
+        "XINFERENCE_MONITOR_CONFIG_DB_PATH": tmp_path / "monitor.db",
+        "XINFERENCE_SYSTEM_SETTINGS_PATH": tmp_path / "settings.json",
+    }.items():
+        monkeypatch.setattr(restful_api, name, str(path))
+    monkeypatch.setattr(system_settings_store, "_store", None)
+    if custom_path:
+        monkeypatch.setattr(
+            extensions,
+            "get_extensions",
+            lambda: (
+                SimpleNamespace(
+                    name="storage",
+                    create_auth_store=lambda context: Database(str(selected)),
+                ),
+            ),
+        )
+    api = restful_api.RESTfulAPI("127.0.0.1:1", "127.0.0.1", 0)
+    assert api.is_authenticated() == authenticated
+    assert api._model_favorites_store._path == str(selected)
+    api._model_favorites_store.add(None, "shared")
+    with sqlite3.connect(selected) as conn:
+        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master")}
+        assert "model_favorites" in tables
+        assert ("users" in tables) == authenticated
+    if authenticated:
+        auth = api._advanced_auth_service
+        user = auth.db.create_user("reader", None, permissions=["models:list"])
+        with client_for(api._model_favorites_store, auth) as client:
+            headers = bearer(auth, user)
+            assert client.get("/v1/model_favorites", headers=headers).json() == []
+            assert (
+                client.put(
+                    "/v1/model_favorites",
+                    json={"model_name": "private"},
+                    headers=headers,
+                ).status_code
+                == 200
+            )
+        assert auth.db.path == selected
+    else:
+        secret.assert_not_called()
+        assert api._advanced_auth_service is None
+    # A no-auth process sees only the shared collection in that same database.
+    with client_for(SQLiteModelFavoritesStore(str(selected))) as client:
+        assert client.get("/v1/model_favorites").json() == ["shared"]
+    assert not (tmp_path / "model_favorites.db").exists()
+    if custom_path:
+        assert not configured.exists()

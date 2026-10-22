@@ -21,13 +21,11 @@ Model favorites
 
 Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection. With authentication enabled, changes require a user session; API keys can only read.
 
-By default, favorites use SQLite at ``<XINFERENCE_HOME>/model_favorites.db``; set ``XINFERENCE_MODEL_FAVORITES_DB_PATH`` to use another file. API processes sharing favorites must use the same store. Back up the favorites store together with the authentication database.
+Favorites use a ``model_favorites`` table in the selected authentication database. With the default SQLite backend, this is ``<XINFERENCE_HOME>/auth/auth.db`` (configured by ``XINFERENCE_AUTH_DB_PATH``). Without authentication, the same path stores the shared collection and only the favorites table is initialized.
 
 Old browser favorites are not imported automatically because they have no account identity. Choose **Import browser favorites** to add them to the current account. The browser copy is retained if any write fails or the account changes during import; retrying does not create duplicates.
 
 ``GET /v1/model_favorites`` returns a list of model names for the authenticated account. ``PUT`` and ``DELETE`` on the same path accept ``{"model_name": "org/model"}`` to add or remove one name. Both operations are idempotent. The server derives the owner from authentication; clients cannot choose another owner.
-
-Extensions may implement ``create_model_favorites_store(context)`` to replace SQLite. The context supplies ``db_path`` and the selected ``auth_store`` (``None`` without authentication); stores implement synchronous ``list(owner)``, ``add(owner, model_name)`` and ``remove(owner, model_name)``. Operations run in the API thread pool. Returning ``None`` selects SQLite; provider failures never select a fallback.
 
 .. _launch_recommendations:
 
