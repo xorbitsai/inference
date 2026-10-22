@@ -459,35 +459,6 @@ msgstr ""
 " P/D は以下のレプリカごとの設定を使います。"
 
 #: source/user_guide/pd_separation.rst
-msgid "Cross-engine vLLM/SGLang P/D"
-msgstr "エンジン間の vLLM/SGLang P/D"
-
-#: source/user_guide/pd_separation.rst
-msgid ""
-"Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry "
-"to select vLLM or SGLang independently for each role. Cross-engine P/D "
-"requires Xavier GPU transport. Engine options inherit launch arguments; "
-"``engine_config`` overrides them per replica."
-msgstr ""
-"各 ``replica_config`` に ``model_engine`` と ``engine_config`` を設定し、役割ごとに vLLM "
-"または SGLang を選択します。エンジン間 P/D には Xavier GPU "
-"転送が必要です。エンジンの設定は起動引数を継承し、``engine_config`` がレプリカごとに上書きします。"
-
-#: source/user_guide/pd_separation.rst
-msgid ""
-"Both workers require identical local weights, tokenizer assets and context "
-"limits. Supported models are unquantized FP16 full-attention Qwen2, Qwen3 "
-"and Llama text models with TP=PP=DP=1. Requires vLLM >=0.21.0, SGLang "
-">=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks contracts and prompt "
-"token IDs, converts 64-token KV pages on GPU and raises errors on "
-"incompatibility or transfer failure."
-msgstr ""
-"両ワーカーで同一のローカル重み、tokenizer ファイル、コンテキスト上限を使用します。TP=PP=DP=1 の非量子化 FP16 全注意 "
-"Qwen2、Qwen3、Llama テキストモデルをサポートします。vLLM >=0.21.0、SGLang "
-">=0.5.21、``xoscar[nixl]>=0.11.1`` が必要です。Xavier は契約と実際の prompt token ID "
-"を検証し、GPU 上で 64-token KV ページを変換します。非互換や転送失敗はエラーになります。"
-
-#: source/user_guide/pd_separation.rst
 msgid ""
 "Streaming and non-streaming requests require ``n=1``. SGLang decode uses the"
 " first output token sampled by prefill. vLLM decode imports all but the "
@@ -758,24 +729,6 @@ msgstr ""
 "``None`` の場合、decode 側の受信先がなくても executor がキャンセルを処理できるよう、1000 ms "
 "に正規化されます。転送全体の期限を無効にする ``kv_transfer_timeout_ms=None`` の動作は変わりません。"
 
-#: ../../user_guide/pd_separation.rst:332
-msgid "Cross-engine TRT-LLM P/D"
-msgstr "TRT-LLM のエンジン間 P/D"
-
-#: ../../user_guide/pd_separation.rst:337
-msgid ""
-"Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse "
-"directions. All replicas use identical BF16 dense Qwen3 checkpoints, "
-"tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM "
-"requires version ``1.2.1``; vLLM and SGLang requirements match the cross-"
-"engine section above. For CUDA/Metal deployments, see :ref:`trt-mlx-pd` "
-"below."
-msgstr ""
-"Xavier は TRT-LLM prefill と vLLM または SGLang decode、およびその逆方向をサポートします。全レプリカで同一の"
-" BF16 密 Qwen3 チェックポイント、トークナイザーファイル、コンテキスト長を使い、各レプリカに CUDA GPU を 1 "
-"台割り当てます。TRT-LLM は ``1.2.1`` が必要です。vLLM と SGLang "
-"の要件は上記のエンジン間セクションと同じです。CUDA/Metal 構成は下記の :ref:`trt-mlx-pd` を参照してください。"
-
 #: ../../user_guide/pd_separation.rst:339
 msgid ""
 "Set each replica's ``model_engine`` and ``engine_config`` independently. A "
@@ -815,10 +768,6 @@ msgstr ""
 "履歴保持と完全 prefill へのフォールバックは無効です。CUDA 間転送は CPU ステージングなしで NIXL "
 "を使用します。``gpu_bytes`` と ``imported_tokens`` は完了したインポートを計測し、``host_bytes`` "
 "はゼロのままです。"
-
-#: ../../user_guide/pd_separation.rst:421
-msgid "TRT-LLM and MLX over a LAN"
-msgstr "LAN 経由の TRT-LLM と MLX"
 
 #: ../../user_guide/pd_separation.rst:426
 msgid ""
@@ -883,3 +832,63 @@ msgid ""
 msgstr ""
 "Xavier V1 は各レプリカに1枚の GPU（TP=1、PP=1）と LoRA なしのテキストモデルを必要とします。マルチモーダルモデルと "
 "prompt embedding は未対応です。リクエスト単位の分離は :ref:`xavier-cache-isolation` を参照してください。"
+
+#: ../../source/user_guide/pd_separation.rst:300
+msgid "Cross-engine vLLM/SGLang/TRT-LLM P/D"
+msgstr "エンジン間の vLLM/SGLang/TRT-LLM P/D"
+
+#: ../../source/user_guide/pd_separation.rst:302
+msgid ""
+"Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry "
+"to select vLLM, SGLang or TRT-LLM independently for each role. Cross-engine "
+"P/D requires Xavier GPU transport. Engine options inherit launch arguments; "
+"``engine_config`` overrides them per replica."
+msgstr ""
+"各 ``replica_config`` に ``model_engine`` と ``engine_config`` を設定し、役割ごとに "
+"vLLM、SGLang または TRT-LLM を選択します。エンジン間 P/D には Xavier GPU "
+"転送が必要です。エンジンの設定は起動引数を継承し、``engine_config`` がレプリカごとに上書きします。"
+
+#: ../../source/user_guide/pd_separation.rst:306
+msgid "vLLM and SGLang in either prefill/decode direction."
+msgstr "vLLM と SGLang の prefill/decode 双方向。"
+
+#: ../../source/user_guide/pd_separation.rst:334
+msgid ""
+"For vLLM/SGLang pairings, both workers require identical local weights, "
+"tokenizer assets and context limits. Supported models are unquantized FP16 "
+"full-attention Qwen2, Qwen3 and Llama text models with TP=PP=DP=1. Requires "
+"vLLM >=0.21.0, SGLang >=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks "
+"contracts and prompt token IDs, converts 64-token KV pages on GPU and raises"
+" errors on incompatibility or transfer failure."
+msgstr ""
+"vLLM/SGLang の組み合わせ：両ワーカーで同一のローカル重み、tokenizer ファイル、コンテキスト上限を使用します。TP=PP=DP=1 "
+"の非量子化 FP16 全注意 Qwen2、Qwen3、Llama テキストモデルをサポートします。vLLM >=0.21.0、SGLang "
+">=0.5.21、``xoscar[nixl]>=0.11.1`` が必要です。Xavier は契約と実際の prompt token ID "
+"を検証し、GPU 上で 64-token KV ページを変換します。非互換や転送失敗はエラーになります。"
+
+#: ../../source/user_guide/pd_separation.rst:344
+msgid "TRT-LLM with vLLM or SGLang in either prefill/decode direction."
+msgstr "TRT-LLM と vLLM または SGLang の prefill/decode 双方向。"
+
+#: ../../source/user_guide/pd_separation.rst:346
+msgid ""
+"Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse "
+"directions. All replicas use identical BF16 dense Qwen3 checkpoints, "
+"tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM "
+"requires version ``1.2.1``; vLLM and SGLang requirements match the cross-"
+"engine section above. For CUDA/Metal deployments, see :ref:`NVIDIA and MLX "
+"cross-engine P/D <trt-mlx-pd>` below."
+msgstr ""
+"Xavier は TRT-LLM prefill と vLLM または SGLang decode、およびその逆方向をサポートします。全レプリカで同一の"
+" BF16 密 Qwen3 チェックポイント、トークナイザーファイル、コンテキスト長を使い、各レプリカに CUDA GPU を 1 "
+"台割り当てます。TRT-LLM は ``1.2.1`` が必要です。vLLM と SGLang "
+"の要件は上記のエンジン間セクションと同じです。CUDA/Metal 構成は下記の :ref:`NVIDIA と MLX の異なるエンジン間 P/D "
+"<trt-mlx-pd>` を参照してください。"
+
+#: ../../source/user_guide/pd_separation.rst:387
+msgid "vLLM/SGLang with MLX in either prefill/decode direction."
+msgstr "vLLM/SGLang と MLX の prefill/decode 双方向。"
+
+#: ../../source/user_guide/pd_separation.rst:435
+msgid "TRT-LLM with MLX in either prefill/decode direction."
+msgstr "TRT-LLM と MLX の prefill/decode 双方向。"
