@@ -1,12 +1,13 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
 
+import json
 import sys
 
 import pytest
 
 from .....core.utils import filter_virtualenv_packages_by_markers
-from .....core.virtual_env_manager import expand_engine_dependency_placeholders
+from .....core.virtual_env_manager import get_engine_virtualenv_packages
 from ... import generate_engine_config_by_model_family
 from ...llm_family import check_engine_by_spec_parameters_with_virtual_env, match_llm
 from ..core import TRTLLMModel
@@ -21,9 +22,7 @@ def test_qwen3_virtualenv_selects_trt_without_installed_engine(monkeypatch):
         )
         is TRTLLMModel
     )
-    packages = expand_engine_dependency_placeholders(
-        family.virtualenv.packages, "TRT-LLM"
-    )
+    packages = get_engine_virtualenv_packages("TRT-LLM")
     packages = filter_virtualenv_packages_by_markers(packages, "TRT-LLM", None)
     requirements = {package.split(";", 1)[0].strip() for package in packages}
     assert {
@@ -62,9 +61,7 @@ def test_architecture_support_is_available_in_virtualenv_without_engine(
         )
         is TRTLLMModel
     )
-    packages = expand_engine_dependency_placeholders(
-        family.virtualenv.packages, "TRT-LLM"
-    )
+    packages = get_engine_virtualenv_packages("TRT-LLM")
     packages = filter_virtualenv_packages_by_markers(packages, "TRT-LLM", None)
     assert any(package.startswith("tensorrt_llm==1.2.1") for package in packages)
 
@@ -90,15 +87,10 @@ def test_custom_derivatives_use_architecture_and_preserve_shared_settings(monkey
     base = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none")
     family = base.copy(update={"model_name": "custom-derivative"})
     before = list(base.virtualenv.packages)
-    TRTLLMModel.prepare_virtualenv(family)
-    TRTLLMModel.prepare_virtualenv(family)
+    generate_engine_config_by_model_family(family, {})
+    generate_engine_config_by_model_family(family, {})
     assert base.virtualenv.packages == before
-    assert (
-        family.virtualenv.packages.count(
-            '#trt_llm_dependencies# ; #engine# == "TRT-LLM"'
-        )
-        == 1
-    )
+    assert family.virtualenv.packages == before
     assert TRTLLMModel.match_json(family, family.model_specs[0], "none") is True
 
 
@@ -114,16 +106,18 @@ def test_custom_derivatives_use_architecture_and_preserve_shared_settings(monkey
     ],
 )
 def test_custom_registration_preserves_engine_eligibility(
-    monkeypatch, packages, transformers_allowed
+    monkeypatch, tmp_path, packages, transformers_allowed
 ):
+    from ..... import constants
     from ....core import VirtualEnvSettings
     from ....custom import RegistryManager
-    from ....utils import _collect_virtualenv_engine_markers
+    from ....utils import get_engine_params_by_name_with_virtual_env
     from ...custom import register_llm
     from ...llm_family import CustomLLMFamilyV2
     from ...transformers.core import PytorchChatModel
 
     monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
     monkeypatch.setattr(PytorchChatModel, "check_lib", classmethod(lambda cls: True))
     monkeypatch.setattr(TRTLLMModel, "check_lib", classmethod(lambda cls: False))
     base = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none")
@@ -131,6 +125,7 @@ def test_custom_registration_preserves_engine_eligibility(
     data.update(
         model_name="trt-review-unmarked-custom",
         model_family=base.model_name,
+        is_builtin=False,
         architectures=None,
         model_specs=[base.model_specs[0].dict()],
         virtualenv=(
@@ -141,8 +136,12 @@ def test_custom_registration_preserves_engine_eligibility(
     )
     family = CustomLLMFamilyV2.parse_obj(data)
     spec = family.model_specs[0]
-    register_llm(family, persist=False)
+    original = json.loads(family.json())
+    register_llm(family, persist=True)
     try:
+        stored = tmp_path / "v2" / "llm" / f"{family.model_name}.json"
+        assert json.loads(stored.read_text()) == original
+        assert json.loads(family.json()) == original
         args = (
             family.model_name,
             spec.model_format,
@@ -158,53 +157,22 @@ def test_custom_registration_preserves_engine_eligibility(
         else:
             with pytest.raises(ValueError, match="not listed in virtualenv packages"):
                 check_engine_by_spec_parameters_with_virtual_env("Transformers", *args)
-        if packages is None or not any("#engine#" in pkg for pkg in packages):
-            assert not _collect_virtualenv_engine_markers(family)
         assert (
             check_engine_by_spec_parameters_with_virtual_env("TRT-LLM", *args)
             is TRTLLMModel
         )
-        # Dependency-only entries still install TRT only for a TRT launch.
-        for engine in ("Transformers", "TRT-LLM"):
-            expanded = expand_engine_dependency_placeholders(
-                family.virtualenv.packages, engine
-            )
-            active = filter_virtualenv_packages_by_markers(expanded, engine, None)
-            assert any(pkg.startswith("tensorrt_llm==") for pkg in active) == (
-                engine == "TRT-LLM"
-            )
+        # Discover the genuinely registered custom family without substituting
+        # a built-in family or modifying the builtin registry.
+        params = get_engine_params_by_name_with_virtual_env(
+            "LLM", family.model_name, enable_virtual_env=True
+        )
+        assert isinstance(params["Transformers"], list) == transformers_allowed
+        assert isinstance(params["TRT-LLM"], list)
+        assert all(item["virtualenv_required"] for item in params["TRT-LLM"])
     finally:
         RegistryManager.get_registry("llm").unregister(
             family.model_name, remove_file=False
         )
-
-
-@pytest.mark.parametrize("restricted", [False, True])
-def test_dependency_only_trt_entry_preserves_engine_discovery(monkeypatch, restricted):
-    from ....core import VirtualEnvSettings
-    from ....utils import get_engine_params_by_name_with_virtual_env
-    from ... import llm_family
-    from ...transformers.core import PytorchChatModel
-
-    monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setattr(PytorchChatModel, "check_lib", classmethod(lambda cls: True))
-    monkeypatch.setattr(TRTLLMModel, "check_lib", classmethod(lambda cls: False))
-    packages = ['#trt_llm_dependencies# ; #engine# == "TRT-LLM"'] if restricted else []
-    family = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none").copy(
-        deep=True, update={"virtualenv": VirtualEnvSettings(packages=packages)}
-    )
-    registry = {}
-    generate_engine_config_by_model_family(family, registry)
-    monkeypatch.setitem(
-        llm_family.LLM_ENGINES, family.model_name, registry[family.model_name]
-    )
-    monkeypatch.setattr(llm_family, "BUILTIN_LLM_FAMILIES", [family])
-    params = get_engine_params_by_name_with_virtual_env(
-        "LLM", family.model_name, enable_virtual_env=True
-    )
-    assert isinstance(params["Transformers"], list) is not restricted
-    assert isinstance(params["TRT-LLM"], list)
-    assert all(item["virtualenv_required"] for item in params["TRT-LLM"])
 
 
 @pytest.mark.parametrize(
@@ -216,6 +184,10 @@ def test_dependency_only_trt_entry_preserves_engine_discovery(monkeypatch, restr
         ("Qwen3ForCausalLM", ["chat", "vision"], "pytorch", "none", False),
         ("Qwen2ForCausalLM", ["chat", "audio"], "pytorch", "none", False),
         ("LlamaForCausalLM", ["chat"], "bnb", "none", False),
+        ("LlamaForCausalLM", ["chat"], "gptq", "Int4", False),
+        ("LlamaForCausalLM", ["chat"], "awq", "Int4", False),
+        ("LlamaForCausalLM", ["chat"], "mlx", "4bit", False),
+        ("LlamaForCausalLM", ["chat"], "ggufv2", "Q4_K_M", False),
     ],
 )
 def test_architecture_and_quantization_matching(
@@ -231,3 +203,6 @@ def test_architecture_and_quantization_matching(
         family, SimpleNamespace(model_format=model_format), quantization
     )
     assert (result is True) == expected
+    if model_format in {"bnb", "gptq", "awq", "mlx", "ggufv2"}:
+        assert f"{model_format}/{quantization}" in result[1]
+        assert ("use ModelOpt exports for AWQ" in result[1]) == (model_format == "awq")

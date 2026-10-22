@@ -48,8 +48,11 @@ def match_model(llm_family, llm_spec, quantization):
         return False, "Model architecture is not supported by TRT-LLM 1.2.1"
     allowed = SUPPORTED_FORMATS.get(llm_spec.model_format, set())
     if (quantization or "none").lower() not in allowed:
-        return (
-            False,
-            "TRT-LLM supports pytorch/fp8/fp4 checkpoints; use ModelOpt exports for AWQ",
+        reason = (
+            f"TRT-LLM does not support {llm_spec.model_format}/{quantization}; "
+            "supported checkpoint formats: pytorch/fp8/fp4"
         )
+        if llm_spec.model_format == "awq":
+            reason += "; use ModelOpt exports for AWQ"
+        return False, reason
     return True

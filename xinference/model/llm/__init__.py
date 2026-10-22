@@ -78,9 +78,6 @@ def generate_engine_config_by_model_family(
     model_family: "LLMFamilyV2",
     target_engines: Optional[Dict[str, Dict[str, List[Dict[str, Any]]]]] = None,
 ):
-    from .trt_llm.core import TRTLLMModel
-
-    TRTLLMModel.prepare_virtualenv(model_family)
     model_name = model_family.model_name
     specs = model_family.model_specs
     if target_engines is None:

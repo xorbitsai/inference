@@ -1069,6 +1069,30 @@ def test_prepare_virtual_env_injects_engine_vars(tmp_path):
     assert kwargs["model_engine"] == "vllm"
 
 
+@pytest.mark.parametrize("engine", ["TRT-LLM", "vllm", "Transformers"])
+@pytest.mark.parametrize("with_settings", [False, True])
+def test_prepare_virtual_env_trt_defaults_are_selected_at_launch(
+    tmp_path, monkeypatch, engine, with_settings
+):
+    manager = DummyVirtualEnvManager()
+    manager.env_path = str(tmp_path / "venv")
+    settings = (
+        VirtualEnvSettings(packages=[], inherit_pip_config=False)
+        if with_settings
+        else None
+    )
+    monkeypatch.setattr(worker_module, "get_pip_config_args", lambda: {})
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine=engine)
+    if engine == "TRT-LLM":
+        assert len(manager.calls) == 1
+        packages, _ = manager.calls[0]
+        assert any(package.startswith("tensorrt_llm==1.2.1") for package in packages)
+    else:
+        assert not manager.calls
+    if settings is not None:
+        assert settings.packages == []
+
+
 def test_prepare_virtual_env_reports_dependency_plan_per_replica(tmp_path, monkeypatch):
     manager = DummyVirtualEnvManager()
     manager.env_path = str(tmp_path / "venv")

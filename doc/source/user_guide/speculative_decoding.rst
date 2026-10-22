@@ -154,8 +154,9 @@ and ``num_speculative_tokens``. The adapter defaults
 ``disable_overlap_scheduler=True`` when speculation is configured. Use native
 TRT options only with combinations supported by the pinned runtime. EAGLE3
 and model-specific MTP require the corresponding architecture and speculative
-checkpoint configuration. ``enable_mtp=True`` only downloads a drafter declared
-in the Xinference model spec; it does not configure a TRT speculative method.
+checkpoint configuration. ``enable_mtp=True`` downloads the compatible drafter
+declared in the Xinference model spec and configures Draft/Target unless
+``speculative_config`` overrides it.
 
 When it pays off
 ----------------

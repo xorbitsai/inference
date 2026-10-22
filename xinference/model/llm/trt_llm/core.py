@@ -3,6 +3,7 @@
 """TensorRT-LLM's Python LLM API, owned by a Xinference model process."""
 
 import importlib.metadata
+import json
 import logging
 import sys
 import time
@@ -43,32 +44,6 @@ class TRTLLMModel(LLM, ChatModelMixin):
         if sys.platform != "linux":
             return False, "TRT-LLM requires Linux and NVIDIA CUDA GPUs"
         return match_model(llm_family, llm_spec, quantization)
-
-    @classmethod
-    def prepare_virtualenv(cls, llm_family):
-        """Make architecture-based support available to per-model environments."""
-        from ...core import VirtualEnvSettings
-        from ...utils import _collect_virtualenv_engine_markers
-
-        if not any(
-            cls.match_json(llm_family, spec, spec.quantization) is True
-            for spec in llm_family.model_specs
-        ):
-            return
-        settings = llm_family.virtualenv
-        packages = list(settings.packages or []) if settings else []
-        # A guarded entry extends an explicit allowlist. For unrestricted
-        # families, provision dependencies without creating a new allowlist.
-        marker = "#trt_llm_dependencies#"
-        if _collect_virtualenv_engine_markers(llm_family):
-            marker += ' ; #engine# == "TRT-LLM"'
-        if marker not in packages:
-            packages.append(marker)
-            llm_family.virtualenv = (
-                settings.copy(update={"packages": packages})
-                if settings
-                else VirtualEnvSettings(packages=packages)
-            )
 
     def load(self):
         if importlib.metadata.version("tensorrt-llm") != "1.2.1":
@@ -141,7 +116,20 @@ class TRTLLMModel(LLM, ChatModelMixin):
         """Consume common launch options before calling TRT's Python API."""
         draft = config.pop("draft_model_path", None)
         depth = config.pop("num_speculative_tokens", None)
+        if isinstance(config.get("speculative_config"), str):
+            try:
+                parsed = json.loads(config["speculative_config"])
+            except json.JSONDecodeError as exc:
+                raise ValueError("speculative_config must be a JSON object") from exc
+            if not isinstance(parsed, dict):
+                raise ValueError("speculative_config must be a JSON object")
+            config["speculative_config"] = parsed
         if config.get("speculative_config") is not None:
+            if draft is not None or depth is not None:
+                logger.warning(
+                    "Ignoring draft_model_path and num_speculative_tokens: "
+                    "speculative_config was set explicitly"
+                )
             # TRT's config parser pops decoding_type; never mutate launch state.
             if isinstance(config["speculative_config"], dict):
                 config["speculative_config"] = deepcopy(config["speculative_config"])
@@ -151,7 +139,7 @@ class TRTLLMModel(LLM, ChatModelMixin):
                 "speculative_model": draft,
                 "max_draft_len": parse_num_speculative_tokens(depth) or 3,
             }
-        elif depth is not None:
+        elif parse_num_speculative_tokens(depth) is not None:
             raise ValueError(
                 "num_speculative_tokens requires draft_model_path or speculative_config"
             )
