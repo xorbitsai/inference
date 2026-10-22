@@ -456,6 +456,8 @@ def parse_responses_request(raw: Any) -> ResponsesRequest:
         body["tools"] = tools
         if choice is not None:
             body["tool_choice"] = choice
+        if isinstance(raw.get("parallel_tool_calls"), bool):
+            body["parallel_tool_calls"] = raw["parallel_tool_calls"]
     response_format = _response_format(raw.get("text"))
     if response_format:
         body["response_format"] = response_format
