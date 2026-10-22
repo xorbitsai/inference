@@ -247,7 +247,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         cache_config = self._model_config.pop("_xavier_cache_config", None)  # type: ignore[typeddict-item]
         nixl_config = self._model_config.pop("_nixl_config", None)  # type: ignore[typeddict-item]
         if cache_config is not None:
-            self._model_config.setdefault("dtype", "float16")
+            self._model_config.setdefault(
+                "dtype", cache_config.get("logical_dtype", "float16")
+            )
         self._model_config = self._sanitize_model_config(self._model_config)
         if nixl_config is not None:
             from .pd import configure_nixl

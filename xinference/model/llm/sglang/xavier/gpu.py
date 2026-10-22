@@ -52,14 +52,15 @@ def _buffers(args, contract):
         or any(size != contract.layer_nbytes // 2 for size in args.kv_item_lens)
         or args.page_size != contract.block_size
         # SGLang retains the spelling "auto" in KVArgs after resolving the
-        # actual pool to FP16. The launch contract requires FP16 weights and
-        # auto/FP16 KV; page byte geometry is verified independently here.
-        or args.kv_cache_dtype_str not in ("auto", "float16", "torch.float16")
+        # actual pool to the launch contract's FP16/BF16 dtype. Page byte
+        # geometry is verified independently here.
+        or args.kv_cache_dtype_str
+        not in ("auto", contract.logical_dtype, f"torch.{contract.logical_dtype}")
         or args.state_types
         or args.num_draft_entries
     ):
         raise ValueError(
-            "SGLang GPU KV buffers differ from Xavier's FP16 contract: "
+            "SGLang GPU KV buffers differ from Xavier's dtype contract: "
             f"buffers={len(args.kv_data_ptrs)}, item_bytes={args.kv_item_lens}, "
             f"page_size={args.page_size}, dtype={args.kv_cache_dtype_str}, "
             f"state_types={args.state_types}, draft_entries={args.num_draft_entries}, "
@@ -439,7 +440,7 @@ class XavierKVManager(BaseKVManager):
         self._ipc_caches, self.aux = _buffers(args, contract)
         if self.config.get("heterogeneous"):
             self._ipc_caches = {
-                name: cache.view(torch.float16).reshape(
+                name: cache.view(getattr(torch, contract.logical_dtype)).reshape(
                     len(cache),
                     contract.block_size,
                     contract.num_kv_heads,

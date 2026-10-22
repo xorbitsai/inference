@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Same-engine TRT P/D: native NIXL or request-owned Xavier GPU pages."""
+"""TRT P/D: native NIXL or request-owned Xavier GPU pages."""
 
 import asyncio
 import base64
@@ -12,7 +12,11 @@ from concurrent.futures import Future
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from ..xavier.pd_contract import build_pd_contract, prompt_digest
+from ..xavier.pd_contract import (
+    build_pd_contract,
+    prompt_digest,
+    validate_handoff_scope,
+)
 from .xavier import EXECUTION_OPTIONS
 
 logger = logging.getLogger(__name__)
@@ -34,10 +38,16 @@ class XavierRequest:
     registered: bool = False
     load_future: Future | None = None
     cancelled: bool = False
+    heterogeneous: bool = False
 
     @property
     def num_pages(self):
-        return (max(len(self.tokens) - 1, 0) + 63) // 64
+        tokens = (
+            len(self.tokens)
+            if self.heterogeneous and self.role == "prefill"
+            else max(len(self.tokens) - 1, 0)
+        )
+        return (tokens + 63) // 64
 
 
 def submit_xavier(engine, tokens, params, state):
@@ -199,7 +209,15 @@ class TRTLLMPD:
 
         if request_id in self.active:
             raise ValueError("A TRT-LLM P/D request with this ID is already active")
-        if self.role == "prefill":
+        heterogeneous = self.client.config.get("heterogeneous", False)
+        if heterogeneous:
+            handoff = transfer.get("sglang_xavier")
+            mode = "host" if self.client.config.get("host_handoff") else "gpu"
+            if not isinstance(handoff, dict) or handoff.get("mode") != mode:
+                raise ValueError("Missing cross-engine Xavier handoff room")
+            validate_handoff_scope(handoff)
+            room = handoff["room"]
+        elif self.role == "prefill":
             room = (uuid.uuid4().int & (2**63 - 1)) or 1
         else:
             handoff = transfer.get("trt_llm")
@@ -215,7 +233,10 @@ class TRTLLMPD:
             request=None,
             released=False,
             prepared=False,
-            context=XavierRequest(self.role, tuple(tokens), room),
+            context=XavierRequest(
+                self.role, tuple(tokens), room, heterogeneous=heterogeneous
+            ),
+            handoff=handoff if heterogeneous else None,
         )
         self.active[request_id] = state
 
@@ -289,6 +310,18 @@ class TRTLLMPD:
                 ),
             )
         else:
+            if self.client.config.get("heterogeneous"):
+                from .gpu import service
+
+                if not output.outputs or not output.outputs[0].token_ids:
+                    raise RuntimeError("Incomplete TRT-LLM cross-engine prefill")
+                await asyncio.to_thread(
+                    service().rpc,
+                    "finalize",
+                    state["context"].room,
+                    output.outputs[0].token_ids[0],
+                )
+                return dict(do_remote_prefill=True, sglang_xavier=state["handoff"])
             source = await asyncio.to_thread(
                 self.client.rpc, "source", state["context"].room
             )

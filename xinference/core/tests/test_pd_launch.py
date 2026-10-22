@@ -416,7 +416,7 @@ async def test_pd_launch_routes_and_terminates(launch_runtime):
         assert config["store_port"] == 9876
         assert worker.start_transfer_for_vllm.await_count == (2 if i == 0 else 1)
     actors["PDModelActor"].add_prefill_actor.assert_awaited_once_with(
-        "pd-rep0", workers[0].get_model.return_value
+        "pd-rep0", workers[0].get_model.return_value, model_engine="vLLM"
     )
     actors["PDModelActor"].add_decode_actor.assert_awaited_once_with(
         "pd-rep1", workers[1].get_model.return_value
@@ -810,8 +810,18 @@ async def test_failed_cache_actor_cleanup_emits_warning(launch_runtime, caplog):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("engines", [("vLLM", "SGLang"), ("SGLang", "vLLM")])
-@pytest.mark.parametrize("default_engine", ["vLLM", "SGLang", "MLX"])
+@pytest.mark.parametrize(
+    "engines",
+    [
+        ("vLLM", "SGLang"),
+        ("SGLang", "vLLM"),
+        ("TRT-LLM", "vLLM"),
+        ("vLLM", "TRT-LLM"),
+        ("TRT-LLM", "SGLang"),
+        ("SGLang", "TRT-LLM"),
+    ],
+)
+@pytest.mark.parametrize("default_engine", ["vLLM", "SGLang", "MLX", "TRT-LLM"])
 async def test_cross_engine_pd_launches_one_adapter_per_replica(
     launch_runtime, engines, default_engine
 ):
@@ -830,6 +840,9 @@ async def test_cross_engine_pd_launches_one_adapter_per_replica(
         assert launch["engine_option"] == index
         assert launch["xavier_config"] is None
         assert launch["_xavier_cache_config"]["heterogeneous"] is True
+        assert launch["_xavier_cache_config"]["logical_dtype"] == (
+            "bfloat16" if "TRT-LLM" in engines else "float16"
+        )
         assert launch["_xavier_cache_config"]["role"] == ("prefill", "decode")[index]
         worker.launch_rank0_model.assert_not_awaited()
         worker.start_transfer_for_vllm.assert_not_awaited()
@@ -939,8 +952,8 @@ async def test_cross_engine_invalid_launch_has_no_side_effects(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
-@pytest.mark.parametrize("default_engine", ["vLLM", "SGLang", "MLX"])
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang", "TRT-LLM"])
+@pytest.mark.parametrize("default_engine", ["vLLM", "SGLang", "MLX", "TRT-LLM"])
 async def test_nvidia_mlx_launch_uses_worker_local_assets(
     launch_runtime, engine, default_engine
 ):
@@ -968,10 +981,13 @@ async def test_nvidia_mlx_launch_uses_worker_local_assets(
         assert options["model_path"] == path and options["model_format"] == fmt
         assert options["_xavier_cache_config"]["host_handoff"] is True
         assert options["xavier_config"] is None
+        if engine == "TRT-LLM":
+            assert options["_xavier_cache_config"]["logical_dtype"] == "bfloat16"
+            assert options["quantization"] == ("bf16" if fmt == "mlx" else None)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang", "TRT-LLM"])
 @pytest.mark.parametrize("capacity", [None, 123456])
 async def test_mlx_prefill_to_nvidia_owns_worker_local_source(
     launch_runtime, engine, capacity

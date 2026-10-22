@@ -60,7 +60,7 @@ def canonical_vllm_views(caches, num_blocks, contract):
         if (
             tuple(cache.shape[1:])
             != (2, contract.block_size, contract.num_kv_heads, contract.head_dim)
-            or cache.dtype != torch.float16
+            or cache.dtype != getattr(torch, contract.logical_dtype)
             or index in layers
         ):
             raise ValueError(
@@ -109,6 +109,9 @@ class CrossEngineGPUActor(xo.StatelessActor):
             name: rebuild_cuda_tensor(*desc)
             for name, desc in self.ipc_descriptors.items()
         }
+        self._initialize_transfer()
+
+    def _initialize_transfer(self):
         self._snapshot_store = SimpleNamespace(
             capacity=len(next(iter(self.caches.values())))
         )
@@ -306,7 +309,10 @@ class CrossEngineGPUActor(xo.StatelessActor):
                 0, min(c.block_size, prefix_tokens - (offset + index) * c.block_size)
             )
             data[index, :, :, valid:] = 0
-        return [page.numpy().astype("<f2", copy=False).tobytes() for page in data]
+        return [
+            page.view(torch.uint16).numpy().astype("<u2", copy=False).tobytes()
+            for page in data
+        ]
 
     async def export_host_pages(self, room, index, start=0):
         """Bounded CUDA-to-CPU RPC for a Metal consumer; source slots stay pinned."""
@@ -518,16 +524,24 @@ class CrossEngineGPUActor(xo.StatelessActor):
             torch.cuda.set_device(device)
         try:
             c = self.contract
-            data = torch.from_numpy(
-                np.stack(
-                    [
-                        np.frombuffer(page, dtype="<f2").reshape(
-                            c.num_layers, 2, c.block_size, c.num_kv_heads, c.head_dim
-                        )
-                        for page in pages
-                    ]
+            data = (
+                torch.from_numpy(
+                    np.stack(
+                        [
+                            np.frombuffer(page, dtype="<u2").reshape(
+                                c.num_layers,
+                                2,
+                                c.block_size,
+                                c.num_kv_heads,
+                                c.head_dim,
+                            )
+                            for page in pages
+                        ]
+                    )
                 )
-            ).to(device)
+                .view(getattr(torch, c.logical_dtype))
+                .to(device)
+            )
             indices = torch.tensor(destinations, device=device, dtype=torch.long)
             for layer in range(c.num_layers):
                 for kind in (0, 1):

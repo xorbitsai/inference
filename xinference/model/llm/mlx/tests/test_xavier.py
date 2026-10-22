@@ -4,6 +4,7 @@ import asyncio
 import importlib
 import json
 import platform
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, Mock
 
@@ -173,12 +174,17 @@ def test_vision_model_rejects_xavier_before_loading(role):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("length", [1, 64, 65, 130])
 @pytest.mark.parametrize("biased", [False, True])
-async def test_host_prefill_full_kv_and_first_token(length, monkeypatch, biased):
+@pytest.mark.parametrize("logical_dtype", ["float16", "bfloat16"])
+async def test_host_prefill_full_kv_and_first_token(
+    length, monkeypatch, biased, logical_dtype
+):
     import mlx.core as mx
     from mlx_lm.generate import PromptProcessingBatch
     from mlx_lm.models.cache import make_prompt_cache
 
     m = model()
+    m.set_dtype(getattr(mx, logical_dtype))
+    mx.eval(m.parameters())
     tokens = [i % 128 for i in range(length)]
     reference = PromptProcessingBatch(m, [0], [make_prompt_cache(m)])
     if length > 1:
@@ -196,7 +202,7 @@ async def test_host_prefill_full_kv_and_first_token(length, monkeypatch, biased)
         source_address="mac",
         source_uid="source",
     )
-    client = MLXXavierCache(contract(), config)
+    client = MLXXavierCache(replace(contract(), logical_dtype=logical_dtype), config)
     client._call = AsyncMock(return_value=True)
     source_ref = AsyncMock()
     monkeypatch.setattr("xoscar.actor_ref", AsyncMock(return_value=source_ref))
@@ -1166,6 +1172,7 @@ async def test_host_pd_truncated_payload_aborts_without_local_prefill(monkeypatc
 @pytest.mark.asyncio
 async def test_bf16_conversion_in_load_thread_is_eager_before_generation(tmp_path):
     import mlx.core as mx
+    from mlx.utils import tree_flatten
     from mlx_lm.generate import BatchGenerator
 
     (tmp_path / "config.json").write_text(json.dumps({"model_type": "qwen2"}))
@@ -1176,7 +1183,8 @@ async def test_bf16_conversion_in_load_thread_is_eager_before_generation(tmp_pat
         m = model()
         m.set_dtype(mx.bfloat16)
         mx.eval(m.parameters())
-        configure_xavier(m, tmp_path, {}, {}, 1)
+        configure_xavier(m, tmp_path, {"dtype": "bfloat16"}, {}, 1)
+        assert all(p.dtype == mx.float16 for _, p in tree_flatten(m.parameters()))
         return m
 
     m = await asyncio.to_thread(load)
@@ -1209,3 +1217,218 @@ def test_host_contract_rejects_effective_geometry_not_in_checkpoint(tmp_path):
             dict(heterogeneous=True, host_handoff=True, role="decode"),
             1,
         )
+
+
+@metal
+@pytest.mark.parametrize("length", [1, 64, 65, 130])
+def test_bf16_pages_preserve_bits_and_clear_padding(length):
+    import mlx.core as mx
+    import numpy as np
+    from mlx_lm.models.cache import KVCache
+
+    c = replace(contract(), logical_dtype="bfloat16")
+    cache = []
+    for layer in range(c.num_layers):
+        entry = KVCache()
+        # Include BF16 bit patterns that would lose data if interpreted as FP16.
+        bits = np.arange(c.num_kv_heads * length * c.head_dim, dtype=np.uint16)
+        bits = (bits % 256 + 16000).reshape(1, c.num_kv_heads, length, c.head_dim)
+        entry.state = tuple(
+            mx.array(bits + layer + kind).view(mx.bfloat16) for kind in (0, 1)
+        )
+        cache.append(entry)
+    client = MLXXavierCache(c, {})
+    pages = client.encode(cache, list(range(length)))
+    restored = client.decode(pages, length)
+    for old, new in zip(cache, restored):
+        for expected, actual in zip(old.state, new.state):
+            assert actual.dtype == mx.bfloat16
+            assert bool(
+                mx.array_equal(expected.view(mx.uint16), actual.view(mx.uint16))
+            )
+    raw = np.frombuffer(pages[-1], dtype="<u2").reshape(
+        c.num_layers, 2, c.block_size, c.num_kv_heads, c.head_dim
+    )
+    assert not raw[:, :, (length - 1) % 64 + 1 :].any()
+
+
+@metal
+def test_bf16_host_contract_and_explicit_fp16_rejection(tmp_path):
+    from dataclasses import asdict
+
+    import mlx.core as mx
+    from mlx.utils import tree_flatten
+
+    from ...xavier.pd_contract import build_pd_contract
+
+    m = model("qwen3")
+    (tmp_path / "config.json").write_text(json.dumps(asdict(m.args)))
+    (tmp_path / "model.safetensors").write_bytes(b"weights")
+    (tmp_path / "tokenizer.json").write_text("{}")
+    cfg = dict(
+        heterogeneous=True, host_handoff=True, role="decode", logical_dtype="bfloat16"
+    )
+    with pytest.raises(ValueError, match="requires bfloat16"):
+        configure_xavier(m, tmp_path, dict(dtype="float16"), cfg, 1)
+    cache = configure_xavier(m, tmp_path, dict(context_length=1024), cfg, 1)
+    assert cache.contract == build_pd_contract(
+        str(tmp_path), 1024, logical_dtype="bfloat16"
+    )
+    assert all(p.dtype == mx.bfloat16 for _, p in tree_flatten(m.parameters()))
+
+
+@metal
+@pytest.mark.asyncio
+@pytest.mark.parametrize("trt_prefill", [False, True])
+@pytest.mark.parametrize("length", [64, 65, 130])
+async def test_trt_metal_bf16_host_handoff_round_trip(monkeypatch, trt_prefill, length):
+    import inspect
+
+    import mlx.core as mx
+    import torch
+    from mlx_lm.models.cache import make_prompt_cache
+
+    from ...sglang.xavier.directory import XavierPDDirectory
+    from ...trt_llm.cross_engine import TRTCrossEngineGPUActor, canonical_trt_views
+    from ...xavier.backends.bytes.pd import XavierHostPDSource
+    from ...xavier.pd_contract import prompt_digest
+
+    # Mock the RPC boundary and CUDA ownership only. Both adapters, wire
+    # layout conversion, Metal KV and directory lifecycle run unchanged.
+    class Ref:
+        def __init__(self, target):
+            self.target = target
+
+        def __getattr__(self, name):
+            async def invoke(*args, **kwargs):
+                result = getattr(self.target, name)(*args, **kwargs)
+                return await result if inspect.isawaitable(result) else result
+
+            return invoke
+
+    c = replace(contract(), logical_dtype="bfloat16")
+    m = model()
+    m.set_dtype(mx.bfloat16)
+    tokens = [i % 128 for i in range(length)]
+    native = make_prompt_cache(m)
+    mx.eval(m(mx.array(tokens)[None], cache=native))
+    pages = MLXXavierCache(c, {}).encode(native, tokens)
+    directory = XavierPDDirectory()
+    directory.configure(c.fingerprint, c.to_dict())
+    directory_ref = Ref(directory)
+    trt = TRTCrossEngineGPUActor({}, 0, c, directory_ref, 1 if trt_prefill else 2)
+    trt.address = "trt"
+    pool = torch.zeros(
+        4,
+        c.num_layers,
+        2,
+        c.block_size * c.num_kv_heads * c.head_dim,
+        dtype=torch.bfloat16,
+    )
+    trt.caches = canonical_trt_views(pool, c)
+    direct, finished = {}, set()
+
+    def register(ticket, request, slots, **kwargs):
+        direct[ticket] = SimpleNamespace(
+            reading=False,
+            claimed=False,
+            released=False,
+            layer_blocks={k: set(slots) for k in trt.caches},
+        )
+
+    def release(ticket):
+        if direct.pop(ticket, None) is not None:
+            finished.add("request")
+
+    def poll():
+        result = set(finished)
+        finished.clear()
+        return result
+
+    trt.transfer = SimpleNamespace(
+        metrics={},
+        send_lock=asyncio.Lock(),
+        register_direct=register,
+        release_direct=release,
+        _live_direct=direct.get,
+        direct_requests=direct,
+        poll_direct=poll,
+    )
+    source = XavierHostPDSource(directory_ref, 1)
+    source.address, source.uid = "mac", "source"
+    cfg = dict(
+        address="directory",
+        uid="cache",
+        role="decode" if trt_prefill else "prefill",
+        rank=2 if trt_prefill else 1,
+        heterogeneous=True,
+        host_handoff=True,
+        logical_dtype="bfloat16",
+        source_address="mac",
+        source_uid="source",
+    )
+    client = MLXXavierCache(c, cfg)
+    client._call = lambda method, *args, **kwargs: getattr(directory_ref, method)(*args)
+    monkeypatch.setattr(
+        "xoscar.actor_ref", AsyncMock(return_value=Ref(trt if trt_prefill else source))
+    )
+    transfer = dict(
+        sglang_xavier=dict(
+            room=123, mode="host", heterogeneous=True, address="directory", uid="cache"
+        )
+    )
+    if trt_prefill:
+        directory.prepare(
+            123,
+            c.fingerprint,
+            prompt_digest(tokens),
+            "prefill",
+            rank=1,
+            prompt_tokens=length,
+        )
+        trt._import_host_pages(pages, list(range(len(pages))))
+        await trt.publish(123, "request", list(range(len(pages))))
+        trt.finalize(123, 7)
+        restored, imported = await client.fetch(tokens, transfer)
+        assert imported == length - 1
+        await trt.poll_direct_gpu_v1()
+        assert not direct and not trt.rooms
+    else:
+        directory.prepare(
+            123,
+            c.fingerprint,
+            prompt_digest(tokens),
+            "decode",
+            rank=2,
+            prompt_tokens=length,
+        )
+        prefill = asyncio.create_task(
+            client.prefill(
+                m, tokens, transfer=transfer, generate_config=dict(temperature=0)
+            )
+        )
+        destinations = list(range((length - 2 + c.block_size) // c.block_size))
+        receiving = asyncio.create_task(trt.receive(123, destinations, 0))
+        try:
+            _, imported = await asyncio.wait_for(asyncio.gather(prefill, receiving), 5)
+            assert imported == set()
+        finally:
+            for task in (prefill, receiving):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(prefill, receiving, return_exceptions=True)
+        restored = client.decode(
+            trt._export_host_pages(destinations, 0, length - 1), length - 1
+        )
+        assert source.get_stats()["active_bytes"] == 0
+    for old, new in zip(native, restored):
+        for expected, actual in zip(old.state, new.state):
+            assert bool(
+                mx.array_equal(
+                    expected[:, :, : length - 1].view(mx.uint16), actual.view(mx.uint16)
+                )
+            )
+    stats = directory.get_stats()
+    assert stats["imported_tokens"] == length - 1 and stats["completed_requests"] == 1
+    assert stats["host_bytes"] == sum(map(len, pages))
+    assert stats["gpu_bytes"] == stats["active_handoffs"] == 0

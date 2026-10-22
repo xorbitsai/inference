@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Configure same-engine TRT-LLM shared caching and Xavier GPU P/D."""
+"""Configure TRT-LLM shared caching and Xavier GPU P/D."""
 
 import json
 import os
@@ -29,10 +29,13 @@ EXECUTION_OPTIONS = {
 
 
 def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
-    if cache_config.get("role") not in (None, "prefill", "decode") or cache_config.get(
-        "heterogeneous"
+    if cache_config.get("role") not in (None, "prefill", "decode"):
+        raise ValueError("TRT-LLM Xavier requires a prefill or decode role")
+    if (
+        cache_config.get("heterogeneous")
+        and cache_config.get("logical_dtype") != "bfloat16"
     ):
-        raise ValueError("TRT-LLM Xavier currently requires same-engine replicas")
+        raise ValueError("TRT-LLM cross-engine Xavier requires BF16 replicas")
     if cache_config.get("role") is not None:
         from ..xavier.transport import gpu_pool_options
 

@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""TRT-LLM 1.2.1 connector for same-engine, full-page prefix sharing.
+"""TRT-LLM 1.2.1 connector for prefix sharing and Xavier P/D handoffs.
 
 Reads acquire owned CPU snapshots before reporting a hit. Eviction between
 lookup and GPU load therefore cannot turn an admitted prefix into missing KV.
@@ -64,7 +64,11 @@ class XavierClient:
                         layout="trt-block-layer-kv-packed-gpu-v1",
                     )
                 )
-                self.rpc("configure", self.namespace)
+                if self.config.get("heterogeneous"):
+                    self.namespace = self.contract.fingerprint
+                    self.rpc("configure", self.namespace, self.contract.to_dict())
+                else:
+                    self.rpc("configure", self.namespace)
                 self.capacity_bytes = 0
             else:
                 self.namespace = self.rpc(

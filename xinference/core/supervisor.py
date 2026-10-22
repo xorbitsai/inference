@@ -3304,6 +3304,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             (requested_xavier or pd_enabled)
             and trt_engine
             and transport_backend == "xavier"
+            and not heterogeneous_pd
         )
         trt_nixl = pd_enabled and trt_engine and transport_backend == "nixl"
         if trt_xavier or trt_nixl:
@@ -3523,6 +3524,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             replica_engine = model_engine
             replica_path = model_path
             replica_format = model_format
+            replica_quantization = quantization
             if pd_enabled:
                 assert replica_config is not None
                 cfg = replica_config[rank - 1]
@@ -3531,6 +3533,12 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 replica_path = replica_kwargs.pop("model_path", model_path)
                 replica_format = replica_kwargs.pop("model_format", model_format)
             if heterogeneous_pd:
+                if (
+                    replica_engine or ""
+                ).lower() == "mlx" and "trt-llm" in replica_engines:
+                    # Select the unquantized MLX registry entry; the checkpoint
+                    # itself remains byte-identical to the CUDA replica.
+                    replica_quantization = "bf16"
                 assert replica_config is not None
                 from ..model.llm.xavier.transport import get_transport_host
 
@@ -3541,6 +3549,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     "rank": rank,
                     "host": get_transport_host(worker_ref.address),
                     "heterogeneous": True,
+                    "logical_dtype": (
+                        "bfloat16" if "trt-llm" in replica_engines else "float16"
+                    ),
                     "gpu_cache_bytes": 0,
                     "host_handoff": host_handoff,
                 }
@@ -3597,7 +3608,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     model_name=model_name,
                     model_size_in_billions=model_size_in_billions,
                     model_format=replica_format,
-                    quantization=quantization,
+                    quantization=replica_quantization,
                     model_engine=replica_engine,
                     model_type=model_type,
                     n_gpu=n_gpu if replica_n_gpu is None else replica_n_gpu,
@@ -3972,7 +3983,12 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     for idx, rep_model_uid, worker_ref, _, _ in placements:
                         actor = await worker_ref.get_model(model_uid=rep_model_uid)
                         if replica_config[idx].role == "prefill":
-                            await pd_ref.add_prefill_actor(rep_model_uid, actor)
+                            await pd_ref.add_prefill_actor(
+                                rep_model_uid,
+                                actor,
+                                model_engine=replica_config[idx].model_engine
+                                or model_engine,
+                            )
                         else:
                             await pd_ref.add_decode_actor(rep_model_uid, actor)
                     self._pd_roles[model_uid] = {

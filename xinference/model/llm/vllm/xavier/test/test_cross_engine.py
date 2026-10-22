@@ -339,3 +339,22 @@ def test_engine_adapters_share_contract_and_cache_weight_hashes(
     assert vcache["contract"] == scache["contract"]
     assert len(reads) == 1
     duplicate.assert_not_called()
+
+
+def test_trt_topology_selects_bf16_and_rejects_explicit_fp16(cross_module, tmp_path):
+    config = dict(
+        model_type="qwen3",
+        num_hidden_layers=2,
+        num_attention_heads=2,
+        hidden_size=8,
+        max_position_embeddings=512,
+    )
+    (tmp_path / "config.json").write_text(json.dumps(config))
+    (tmp_path / "model.safetensors").write_bytes(b"weights")
+    (tmp_path / "tokenizer.json").write_text("{}")
+    cache = dict(role="decode", logical_dtype="bfloat16")
+    options = dict(max_model_len=512)
+    cross_module.configure_cross_engine(str(tmp_path), options, cache)
+    assert options["dtype"] == cache["contract"]["logical_dtype"] == "bfloat16"
+    with pytest.raises(ValueError, match="bfloat16"):
+        cross_module.configure_cross_engine(str(tmp_path), dict(dtype="float16"), cache)

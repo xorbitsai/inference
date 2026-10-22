@@ -1138,3 +1138,24 @@ async def test_prefill_failure_closes_already_returned_decode_stream(
     prefill.abort_request.assert_awaited_once()
     decode.abort_request.assert_awaited_once()
     assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failed", [False, True])
+async def test_cross_engine_router_releases_trt_source_owner(
+    router, monkeypatch, failed
+):
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=AsyncMock()))
+    actor, prefill, decode = router
+    actor._model_engine = "heterogeneous"
+    await actor.add_prefill_actor("p", prefill, model_engine="TRT-LLM")
+    prefill.release_trt_pd_request = AsyncMock()
+    if failed:
+        decode.generate.side_effect = RuntimeError("transfer failed")
+        with pytest.raises(RuntimeError, match="transfer failed"):
+            await actor._infer("generate", "prompt", {}, request_id="trt")
+    else:
+        await actor._infer("generate", "prompt", {}, request_id="trt")
+    prefill.release_trt_pd_request.assert_awaited_once()
+    assert prefill.release_trt_pd_request.call_args.args == ("trt",)
+    assert not actor._trt_prefill_requests and not actor._request_set
