@@ -225,6 +225,25 @@ def _collect_virtualenv_engine_markers(family: Optional[Any]) -> Set[str]:
     return engines
 
 
+def _collect_virtualenv_installable_engines(family: Optional[Any]) -> Set[str]:
+    """Include dependency-only entries without making them an engine allowlist."""
+    engines = _collect_virtualenv_engine_markers(family)
+    if family is None:
+        return engines
+    settings = [getattr(family, "virtualenv", None)]
+    settings.extend(
+        getattr(spec, "virtualenv", None)
+        for spec in getattr(family, "model_specs", []) or []
+    )
+    if any(
+        package.strip() == "#trt_llm_dependencies#"
+        for setting in settings
+        for package in getattr(setting, "packages", None) or []
+    ):
+        engines.add("trt-llm")
+    return engines
+
+
 def _build_engine_params_from_specs(
     family: Any, specs: List[Any]
 ) -> List[Dict[str, Any]]:
@@ -2080,7 +2099,7 @@ def _get_engine_params_by_name(
             available_engines,
             llm_family,
             SUPPORTED_ENGINES,
-            _collect_virtualenv_engine_markers(llm_family),
+            _collect_virtualenv_installable_engines(llm_family),
         )
         for engine, params in available_engines.items():
             _append_available_engine(engine, params, "llm_class")
@@ -2620,7 +2639,7 @@ def _get_engine_params_by_name_with_virtual_env(
             (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
         )
         _collect_supported_engines(llm_family, SUPPORTED_ENGINES, "LLM")
-        engine_markers = _collect_virtualenv_engine_markers(llm_family)
+        engine_markers = _collect_virtualenv_installable_engines(llm_family)
         match_status = _force_virtualenv_engine_params(
             llm_family,
             SUPPORTED_ENGINES,
@@ -2636,9 +2655,10 @@ def _get_engine_params_by_name_with_virtual_env(
             enable_virtual_env,
             match_status,
         )
-        if enable_virtual_env and engine_markers:
+        allowed_engines = _collect_virtualenv_engine_markers(llm_family)
+        if enable_virtual_env and allowed_engines:
             for engine_name in list(engine_params.keys()):
-                if engine_name.lower() in engine_markers:
+                if engine_name.lower() in allowed_engines:
                     continue
                 engine_params[engine_name] = (
                     f"Engine {engine_name} is not listed in model virtualenv packages."

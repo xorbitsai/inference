@@ -103,6 +103,111 @@ def test_custom_derivatives_use_architecture_and_preserve_shared_settings(monkey
 
 
 @pytest.mark.parametrize(
+    "packages,transformers_allowed",
+    [
+        (None, True),
+        ([], True),
+        (["sentencepiece"], True),
+        (['#transformers_dependencies# ; #engine# == "Transformers"'], True),
+        (['#vllm_dependencies# ; #engine# == "vllm"'], False),
+        (['#trt_llm_dependencies# ; #engine# == "TRT-LLM"'], False),
+    ],
+)
+def test_custom_registration_preserves_engine_eligibility(
+    monkeypatch, packages, transformers_allowed
+):
+    from ....core import VirtualEnvSettings
+    from ....custom import RegistryManager
+    from ....utils import _collect_virtualenv_engine_markers
+    from ...custom import register_llm
+    from ...llm_family import CustomLLMFamilyV2
+    from ...transformers.core import PytorchChatModel
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(PytorchChatModel, "check_lib", classmethod(lambda cls: True))
+    monkeypatch.setattr(TRTLLMModel, "check_lib", classmethod(lambda cls: False))
+    base = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none")
+    data = base.dict()
+    data.update(
+        model_name="trt-review-unmarked-custom",
+        model_family=base.model_name,
+        architectures=None,
+        model_specs=[base.model_specs[0].dict()],
+        virtualenv=(
+            VirtualEnvSettings(packages=packages).dict()
+            if packages is not None
+            else None
+        ),
+    )
+    family = CustomLLMFamilyV2.parse_obj(data)
+    spec = family.model_specs[0]
+    register_llm(family, persist=False)
+    try:
+        args = (
+            family.model_name,
+            spec.model_format,
+            spec.model_size_in_billions,
+            spec.quantization,
+            family,
+        )
+        if transformers_allowed:
+            assert (
+                check_engine_by_spec_parameters_with_virtual_env("Transformers", *args)
+                is PytorchChatModel
+            )
+        else:
+            with pytest.raises(ValueError, match="not listed in virtualenv packages"):
+                check_engine_by_spec_parameters_with_virtual_env("Transformers", *args)
+        if packages is None or not any("#engine#" in pkg for pkg in packages):
+            assert not _collect_virtualenv_engine_markers(family)
+        assert (
+            check_engine_by_spec_parameters_with_virtual_env("TRT-LLM", *args)
+            is TRTLLMModel
+        )
+        # Dependency-only entries still install TRT only for a TRT launch.
+        for engine in ("Transformers", "TRT-LLM"):
+            expanded = expand_engine_dependency_placeholders(
+                family.virtualenv.packages, engine
+            )
+            active = filter_virtualenv_packages_by_markers(expanded, engine, None)
+            assert any(pkg.startswith("tensorrt_llm==") for pkg in active) == (
+                engine == "TRT-LLM"
+            )
+    finally:
+        RegistryManager.get_registry("llm").unregister(
+            family.model_name, remove_file=False
+        )
+
+
+@pytest.mark.parametrize("restricted", [False, True])
+def test_dependency_only_trt_entry_preserves_engine_discovery(monkeypatch, restricted):
+    from ....core import VirtualEnvSettings
+    from ....utils import get_engine_params_by_name_with_virtual_env
+    from ... import llm_family
+    from ...transformers.core import PytorchChatModel
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(PytorchChatModel, "check_lib", classmethod(lambda cls: True))
+    monkeypatch.setattr(TRTLLMModel, "check_lib", classmethod(lambda cls: False))
+    packages = ['#trt_llm_dependencies# ; #engine# == "TRT-LLM"'] if restricted else []
+    family = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none").copy(
+        deep=True, update={"virtualenv": VirtualEnvSettings(packages=packages)}
+    )
+    registry = {}
+    generate_engine_config_by_model_family(family, registry)
+    monkeypatch.setitem(
+        llm_family.LLM_ENGINES, family.model_name, registry[family.model_name]
+    )
+    monkeypatch.setattr(llm_family, "BUILTIN_LLM_FAMILIES", [family])
+    params = get_engine_params_by_name_with_virtual_env(
+        "LLM", family.model_name, enable_virtual_env=True
+    )
+    assert isinstance(params["Transformers"], list) is not restricted
+    assert isinstance(params["TRT-LLM"], list)
+    assert all(item["virtualenv_required"] for item in params["TRT-LLM"])
+
+
+@pytest.mark.parametrize(
     "architecture,abilities,model_format,quantization,expected",
     [
         ("LlamaForCausalLM", ["chat"], "fp4", "FP4", True),

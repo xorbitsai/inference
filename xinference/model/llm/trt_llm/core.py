@@ -48,15 +48,20 @@ class TRTLLMModel(LLM, ChatModelMixin):
     def prepare_virtualenv(cls, llm_family):
         """Make architecture-based support available to per-model environments."""
         from ...core import VirtualEnvSettings
+        from ...utils import _collect_virtualenv_engine_markers
 
         if not any(
             cls.match_json(llm_family, spec, spec.quantization) is True
             for spec in llm_family.model_specs
         ):
             return
-        marker = '#trt_llm_dependencies# ; #engine# == "TRT-LLM"'
         settings = llm_family.virtualenv
         packages = list(settings.packages or []) if settings else []
+        # A guarded entry extends an explicit allowlist. For unrestricted
+        # families, provision dependencies without creating a new allowlist.
+        marker = "#trt_llm_dependencies#"
+        if _collect_virtualenv_engine_markers(llm_family):
+            marker += ' ; #engine# == "TRT-LLM"'
         if marker not in packages:
             packages.append(marker)
             llm_family.virtualenv = (

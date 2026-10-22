@@ -692,7 +692,10 @@ def check_engine_by_spec_parameters_with_virtual_env(
     quantization: str,
     llm_family: Optional["LLMFamilyV2"] = None,
 ) -> Type[LLM]:
-    from ..utils import _collect_virtualenv_engine_markers
+    from ..utils import (
+        _collect_virtualenv_engine_markers,
+        _collect_virtualenv_installable_engines,
+    )
 
     def get_model_engine_from_spell(engine_str: str) -> str:
         for engine in LLM_ENGINES[model_name].keys():
@@ -757,6 +760,7 @@ def check_engine_by_spec_parameters_with_virtual_env(
         raise ValueError(
             f"Engine {model_engine} is not listed in virtualenv packages for model {model_name}."
         )
+    engine_markers = _collect_virtualenv_installable_engines(llm_family)
     model_engine = get_model_engine_from_spell(model_engine)
     if model_engine not in LLM_ENGINES[model_name]:
         if model_engine.lower() in engine_markers:
