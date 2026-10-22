@@ -9,7 +9,10 @@ from .. import core
 
 
 @pytest.mark.asyncio
-async def test_tool_only_history_count_matches_generation_prompt(monkeypatch):
+@pytest.mark.parametrize("model_name", ["deepseek-r1", "deepseek-r1-distill-qwen"])
+async def test_tool_only_history_count_matches_generation_prompt(
+    monkeypatch, model_name
+):
     from tokenizers import Tokenizer, models, pre_tokenizers
     from transformers import PreTrainedTokenizerFast
 
@@ -18,7 +21,7 @@ async def test_tool_only_history_count_matches_generation_prompt(monkeypatch):
 
     model = object.__new__(core.MLXChatModel)
     model.model_family = next(
-        f for f in BUILTIN_LLM_FAMILIES if f.model_name == "deepseek-r1-distill-qwen"
+        f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name
     )
     model.reasoning_parser = model.tool_parser = None
     model.model_uid = "test"
@@ -62,8 +65,7 @@ async def test_tool_only_history_count_matches_generation_prompt(monkeypatch):
     config.pop("model")
     config.pop("messages")
     original = deepcopy((request.messages, config))
-    # MLX generation now prefills null content (#5775); counting must still
-    # receive the original history. This template renders both forms equally.
+    # Counting must receive the original history, including null content.
     rendered_messages = []
     get_full_context = model.get_full_context
 
@@ -90,6 +92,96 @@ async def test_tool_only_history_count_matches_generation_prompt(monkeypatch):
     monkeypatch.setattr(model, "async_generate", capture_prompt)
     with pytest.raises(StopBeforeGeneration):
         await model.async_chat(prepared["messages"], prepared["generate_config"])
+
+
+@pytest.mark.parametrize("engine", ["mlx", "vllm", "sglang", "transformers"])
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "deepseek-r1",
+        "deepseek-r1-distill-llama",
+        "deepseek-v2.5",
+        "qwenLong-l1",
+        "skywork-or1",
+        "skywork-or1-preview",
+        "Baichuan-M2",
+    ],
+)
+@pytest.mark.parametrize("content", [None, "omitted"])
+async def test_tool_only_history_generation(monkeypatch, engine, model_name, content):
+    from tokenizers import Tokenizer, models, pre_tokenizers
+    from transformers import PreTrainedTokenizerFast
+
+    from ... import BUILTIN_LLM_FAMILIES
+    from ...sglang.core import SGLANGChatModel
+    from ...transformers.core import PytorchChatModel
+    from ...vllm.core import VLLMChatModel
+
+    model_class = {
+        "mlx": core.MLXChatModel,
+        "vllm": VLLMChatModel,
+        "sglang": SGLANGChatModel,
+        "transformers": PytorchChatModel,
+    }[engine]
+    model = object.__new__(model_class)
+    model.model_family = next(
+        f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name
+    )
+    model.reasoning_parser = model.tool_parser = None
+    model.model_uid = "test"
+    model._model_config = model._model_generation_config = {}
+    tokenizer = Tokenizer(models.WordLevel({"[UNK]": 0}, unk_token="[UNK]"))
+    tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+    model._tokenizer = PreTrainedTokenizerFast(
+        tokenizer_object=tokenizer, unk_token="[UNK]"
+    )
+    call = {
+        "role": "assistant",
+        "content": content,
+        "tool_calls": [
+            {
+                "id": "call_read",
+                "type": "function",
+                "function": {"name": "Read", "arguments": "{}"},
+            }
+        ],
+    }
+    if content == "omitted":
+        del call["content"]
+    messages = [
+        {"role": "user", "content": "read a"},
+        call,
+        {"role": "tool", "tool_call_id": "call_read", "content": "TOOL_RESULT_42"},
+    ]
+    original = deepcopy(messages)
+    prompts = []
+
+    class StopBeforeGeneration(Exception):
+        pass
+
+    async def capture_prompt(prompt, config):
+        prompts.append(prompt)
+        raise StopBeforeGeneration
+
+    if engine == "mlx":
+        monkeypatch.setattr(model, "async_generate", capture_prompt)
+        with pytest.raises(StopBeforeGeneration):
+            await model.async_chat(messages, {"max_tokens": 16})
+        prompt = prompts[0]
+    elif engine == "transformers":
+        prompt = model._get_full_prompt(messages, None, {})
+    else:
+        if engine == "vllm":
+
+            async def get_tokenizer(lora_request):
+                return model._tokenizer
+
+            monkeypatch.setattr(model, "_get_tokenizer", get_tokenizer)
+        prompt = (await model._prepare_chat_inputs(messages, {}))[0]
+    assert "Read" in prompt
+    assert "TOOL_RESULT_42" in prompt
+    assert model.count_tokens(messages) == len(model._tokenizer.encode(prompt)) > 0
+    assert messages == original
 
 
 @pytest.mark.parametrize(

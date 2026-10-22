@@ -18,6 +18,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import time
 import typing
 import uuid
@@ -344,6 +345,26 @@ class ChatModelMixin:
         )
 
     @staticmethod
+    @functools.lru_cache(maxsize=64)
+    def _chat_template_needs_null_tool_content(chat_template: Optional[str]) -> bool:
+        # Recognize the positive assistant/null guard used by DeepSeek-style
+        # templates, with tool_calls accessed inside that branch. A template
+        # merely rendering None successfully may silently stringify it instead.
+        return (
+            chat_template is not None
+            and re.search(
+                r"\{%\-?\s*(?:if|elif)\s+message\[['\"]role['\"]\]\s*==\s*"
+                r"['\"]assistant['\"]\s+and\s+message\[['\"]content['\"]\]"
+                r"\s+is\s+none\s*\-?%\}"
+                r"(?:(?!\{%\-?\s*(?:elif|else|endif)\b).)*"
+                r"message(?:\[['\"]tool_calls['\"]\]|\.tool_calls)",
+                chat_template,
+                re.DOTALL,
+            )
+            is not None
+        )
+
+    @staticmethod
     def _normalize_tool_call_arguments_to_dict(messages: List[Dict]) -> List[Dict]:
         # OpenAI spec sends tool_calls.function.arguments as a JSON-encoded
         # string, but Coder-style templates (Qwen3-Coder / qwen3.5 / qwen3.6)
@@ -411,9 +432,22 @@ class ChatModelMixin:
     ) -> str:
         compiled_template = self._compile_jinja_template(chat_template)
         rendered = compiled_template.render(
-            messages=messages, **{"add_generation_prompt": True, **kwargs}
+            messages=self._prepare_chat_template_messages(messages, chat_template),
+            **{"add_generation_prompt": True, **kwargs},
         )
         return rendered
+
+    def _prepare_chat_template_messages(
+        self, messages: List[Dict], chat_template: Optional[str]
+    ) -> List[Dict]:
+        if self._chat_template_needs_dict_arguments(chat_template):
+            messages = self._normalize_tool_call_arguments_to_dict(messages)
+        return self.prefill_messages(
+            messages,
+            fill_tool_calls=not self._chat_template_needs_null_tool_content(
+                chat_template
+            ),
+        )
 
     @staticmethod
     def _close_reasoning_prompt(prompt: str, parser: Optional[ReasoningParser]) -> str:
@@ -429,15 +463,18 @@ class ChatModelMixin:
         return prompt
 
     @staticmethod
-    def prefill_messages(messages: List[Dict]) -> List[Dict]:
+    def prefill_messages(
+        messages: List[Dict], *, fill_tool_calls: bool = False
+    ) -> List[Dict]:
         """
-        Preprocess messages to ensure content is not None
+        Fill missing content, deferring assistant tool-call content to the template.
 
         Args:
             messages: Original message list
+            fill_tool_calls: Also replace null tool-call content with a string
 
         Returns:
-            Processed message list, where content is not None
+            Processed message list without changing the original dictionaries
         """
         processed_messages = []
 
@@ -445,7 +482,13 @@ class ChatModelMixin:
             if isinstance(msg, dict):
                 if msg.get("content") is None:
                     msg_copy = msg.copy()
-                    msg_copy["content"] = ""  # Replace None with empty string
+                    msg_copy["content"] = (
+                        None
+                        if msg.get("role") == "assistant"
+                        and msg.get("tool_calls")
+                        and not fill_tool_calls
+                        else ""
+                    )
                     processed_messages.append(msg_copy)
                 else:
                     processed_messages.append(msg)
@@ -490,11 +533,6 @@ class ChatModelMixin:
                 else:
                     glm_messages.append(message)
             messages = glm_messages
-        normalization_template = chat_template
-        if normalization_template is None and tokenizer is not None:
-            normalization_template = getattr(tokenizer, "chat_template", None)
-        if self._chat_template_needs_dict_arguments(normalization_template):
-            messages = self._normalize_tool_call_arguments_to_dict(messages)
         if (
             "vision" not in self.model_family.model_ability
             and "audio" not in self.model_family.model_ability
@@ -537,6 +575,17 @@ class ChatModelMixin:
                 return prompt
             else:
                 try:
+                    get_chat_template = getattr(tokenizer, "get_chat_template", None)
+                    if callable(get_chat_template):
+                        selected_template = get_chat_template(
+                            chat_template, tools=kwargs.get("tools")
+                        )
+                    else:
+                        selected_template = chat_template
+                        if selected_template is None:
+                            selected_template = getattr(
+                                tokenizer, "chat_template", None
+                            )
                     template_kwargs = {
                         "tokenize": tokenize,
                         "add_generation_prompt": True,
@@ -545,7 +594,10 @@ class ChatModelMixin:
                     if chat_template is not None:
                         template_kwargs["chat_template"] = chat_template
                     full_context = tokenizer.apply_chat_template(
-                        messages, **template_kwargs
+                        self._prepare_chat_template_messages(
+                            messages, selected_template
+                        ),
+                        **template_kwargs,
                     )
                     logger.debug("Prompt: %s", full_context)
                     return full_context
