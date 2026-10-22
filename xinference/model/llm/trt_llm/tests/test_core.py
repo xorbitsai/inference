@@ -262,12 +262,14 @@ async def test_chat_and_chat_stream_use_shared_conversion(model):
 
 
 def test_platform_format_and_model_guards(monkeypatch, model):
-    family = model.model_family
+    from ...llm_family import match_llm
+
+    family = match_llm("qwen3", "pytorch", "0_6", "none")
     spec = SimpleNamespace(model_format="pytorch")
     monkeypatch.setattr(sys, "platform", "linux")
     assert TRTLLMModel.match_json(family, spec, "none") is True
     assert TRTLLMModel.match_json(family, spec, "fp8")[0] is False
-    family.model_family = "qwen3.5"
+    family.architectures = ["Qwen3_5ForConditionalGeneration"]
     assert TRTLLMModel.match_json(family, spec, "none")[0] is False
 
 

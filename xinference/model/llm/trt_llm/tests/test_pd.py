@@ -30,6 +30,7 @@ from .test_xavier import connector as connector
     "options",
     [
         {"kv_connector_config": {}},
+        {"dtype": "float16"},
         {"enable_chunked_prefill": True},
         {"disable_overlap_scheduler": False},
         {"cache_transceiver_config": {"backend": "UCX"}},

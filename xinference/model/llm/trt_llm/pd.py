@@ -82,6 +82,8 @@ def configure_native(model_path, config, replica):
         raise ValueError("TRT-LLM native P/D requires a prefill or decode role")
     if config.get("kv_connector_config") is not None:
         raise ValueError("TRT-LLM native P/D cannot use a KV connector")
+    if config.get("dtype", "auto") not in ("auto", "bfloat16"):
+        raise ValueError("TRT-LLM P/D requires BF16 weights and KV")
     if set(config) - (EXECUTION_OPTIONS | {"cache_transceiver_config"}) or config.get(
         "trust_remote_code"
     ):

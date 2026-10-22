@@ -93,8 +93,8 @@ TRT-LLM
 .. versionadded:: v4.1.0
 
 Ordinary TRT-LLM replicas support NGram and Draft/Target speculative decoding
-with ``tensorrt-llm==1.2.1`` on Linux/CUDA. The adapter supports BF16 dense
-Qwen3 text models with TP=PP=CP=1. Xavier shared caching, native P/D and Xavier
+with ``tensorrt-llm==1.2.1`` on Linux/CUDA. Model architectures and checkpoint
+formats follow :ref:`trt_llm_backend`, with TP=PP=CP=1. Xavier shared caching, native P/D and Xavier
 P/D do not support speculation through this adapter; see
 :ref:`user_guide_pd_separation` for their supported configurations.
 
@@ -152,10 +152,10 @@ additional GPU memory and compute, so it may reduce throughput at high load.
 An explicit ``speculative_config`` takes precedence over ``draft_model_path``
 and ``num_speculative_tokens``. The adapter defaults
 ``disable_overlap_scheduler=True`` when speculation is configured. Use native
-TRT options only with combinations supported by the pinned runtime. Other
-upstream methods, such as EAGLE3 and model-specific MTP, are not validated by
-this Qwen3 adapter. ``enable_mtp=True`` only downloads a drafter declared in the
-Xinference model spec; it does not enable MTP for an arbitrary Qwen3 checkpoint.
+TRT options only with combinations supported by the pinned runtime. EAGLE3
+and model-specific MTP require the corresponding architecture and speculative
+checkpoint configuration. ``enable_mtp=True`` only downloads a drafter declared
+in the Xinference model spec; it does not configure a TRT speculative method.
 
 When it pays off
 ----------------

@@ -16,6 +16,7 @@ from ...utils import check_dependency_available
 from ..context_length import ContextLengthExceeded, validate_context_length
 from ..core import LLM, chat_context_var, parse_num_speculative_tokens
 from ..utils import ChatModelMixin
+from .support import match_model
 
 logger = logging.getLogger(__name__)
 
@@ -41,18 +42,28 @@ class TRTLLMModel(LLM, ChatModelMixin):
     def match_json(cls, llm_family, llm_spec, quantization):
         if sys.platform != "linux":
             return False, "TRT-LLM requires Linux and NVIDIA CUDA GPUs"
-        if llm_spec.model_format != "pytorch" or quantization not in (None, "none"):
-            return False, "TRT-LLM currently requires unquantized PyTorch weights"
-        family = llm_family.model_family or llm_family.model_name
-        if family != "qwen3" or "vision" in llm_family.model_ability:
-            return False, "TRT-LLM currently supports dense Qwen3 text models"
-        metadata = getattr(llm_spec, "model_metadata", None)
-        if (
-            getattr(llm_spec, "activated_size_in_billions", None) is not None
-            or getattr(metadata, "architecture_type", None) == "moe"
+        return match_model(llm_family, llm_spec, quantization)
+
+    @classmethod
+    def prepare_virtualenv(cls, llm_family):
+        """Make architecture-based support available to per-model environments."""
+        from ...core import VirtualEnvSettings
+
+        if not any(
+            cls.match_json(llm_family, spec, spec.quantization) is True
+            for spec in llm_family.model_specs
         ):
-            return False, "TRT-LLM currently supports dense Qwen3 text models"
-        return True
+            return
+        marker = '#trt_llm_dependencies# ; #engine# == "TRT-LLM"'
+        settings = llm_family.virtualenv
+        packages = list(settings.packages or []) if settings else []
+        if marker not in packages:
+            packages.append(marker)
+            llm_family.virtualenv = (
+                settings.copy(update={"packages": packages})
+                if settings
+                else VirtualEnvSettings(packages=packages)
+            )
 
     def load(self):
         if importlib.metadata.version("tensorrt-llm") != "1.2.1":

@@ -121,8 +121,6 @@ def prepare_runtime(config: dict) -> None:
     ):
         if type(config.get(name, 1)) is not int or config.get(name, 1) != 1:
             raise ValueError("The TRT-LLM adapter currently requires TP=PP=CP=1")
-    if config.get("dtype", "auto") not in ("auto", "bfloat16"):
-        raise ValueError("TRT-LLM 1.2.1 Qwen3 currently requires BF16 weights and KV")
     # Each Xinference replica already owns a model process. TRT's TP1 worker
     # runs there directly, including the NVML fix, without another MPI pool.
     os.environ["TLLM_WORKER_USE_SINGLE_PROCESS"] = "1"
