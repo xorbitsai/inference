@@ -46,6 +46,13 @@ CREATE TABLE IF NOT EXISTS launch_history (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_launch_history_model
     ON launch_history(model_name, model_uid, created_by);
+
+CREATE TABLE IF NOT EXISTS launch_runtime (
+    model_name TEXT NOT NULL,
+    model_uid TEXT NOT NULL,
+    python_executable TEXT NOT NULL,
+    PRIMARY KEY (model_name, model_uid)
+);
 """
 
 LAUNCH_HISTORY_COLUMNS = {
@@ -62,7 +69,8 @@ LAUNCH_HISTORY_COLUMNS = {
 # Anything not listed here (env vars, arbitrary custom kwargs, filesystem
 # paths, infra hints) is stripped from another user's entries on read so that
 # secrets such as tokens injected via `envs` or custom parameters never leak
-# across users. The owner of an entry always receives the full payload.
+# across users. The owner receives the full client payload; runtime state
+# belongs to the server and is never part of a public history response.
 UI_METADATA_KEYS = frozenset({"n_gpu"})
 
 SHAREABLE_KEYS = frozenset(
@@ -175,11 +183,16 @@ class LaunchHistoryStore:
         self, row: sqlite3.Row, username: Optional[str] = None
     ) -> Dict[str, Any]:
         item = dict(row)
+        item.pop("model_python_executable", None)
         for key in ("data", "ui_data"):
             try:
                 item[key] = json.loads(item[key])
             except (json.JSONDecodeError, TypeError):
                 pass
+        # Old clients could persist arbitrary launch keys. A value in this
+        # JSON has no authorization provenance, even when read by the owner.
+        if isinstance(item.get("data"), dict):
+            item["data"].pop("model_python_executable", None)
         # Redact sensitive fields from entries owned by other users so that
         # secrets (envs, custom kwargs, ...) never leak across users.
         # ``username is None`` means an unscoped/trusted call (no redaction).
@@ -205,8 +218,12 @@ class LaunchHistoryStore:
     def list_autostart(self, username: Optional[str] = None) -> List[Dict[str, Any]]:
         with self._get_conn() as conn:
             rows = conn.execute(
-                "SELECT * FROM launch_history WHERE autostart_enabled = 1 "
-                "ORDER BY autostart_priority ASC, updated_at DESC"
+                "SELECT history.*, runtime.python_executable AS model_python_executable "
+                "FROM launch_history AS history LEFT JOIN launch_runtime AS runtime "
+                "ON history.model_name = runtime.model_name "
+                "AND history.model_uid = runtime.model_uid "
+                "WHERE history.autostart_enabled = 1 "
+                "ORDER BY history.autostart_priority ASC, history.updated_at DESC"
             ).fetchall()
 
         result = []
@@ -220,6 +237,10 @@ class LaunchHistoryStore:
                 )
                 continue
             launch = dict(data)
+            # Only committed reloads write the separate runtime record.
+            # Public projections and policy writes never own its value.
+            if username is None and row["model_python_executable"] is not None:
+                launch["model_python_executable"] = row["model_python_executable"]
             launch["model_name"] = launch.get("model_name") or item["model_name"]
             launch["model_uid"] = (
                 launch.get("model_uid") or item.get("model_uid") or item["model_name"]
@@ -291,6 +312,10 @@ class LaunchHistoryStore:
 
     def upsert_autostart(self, entry: Dict[str, Any], username: str = "") -> None:
         launch = entry["launch"]
+        if "model_python_executable" in launch:
+            raise ValueError(
+                "model_python_executable is reserved for internal recovery"
+            )
         model_name = launch["model_name"]
         model_uid = launch["model_uid"]
         data_json = json.dumps(launch, ensure_ascii=False)
@@ -342,14 +367,32 @@ class LaunchHistoryStore:
         """Persist committed execution limits without replacing owner or policy."""
         with self._lock:
             with self._get_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
                 rows = conn.execute(
-                    "SELECT id, data FROM launch_history "
+                    "SELECT id, model_name, data FROM launch_history "
                     "WHERE model_uid = ? AND autostart_enabled = 1",
                     (model_uid,),
                 ).fetchall()
                 for row in rows:
                     data = json.loads(row["data"])
+                    # Never promote a legacy public key to trusted state.
+                    data.pop("model_python_executable", None)
                     data.update(config)
+                    data.pop("model_python_executable", None)
+                    if "model_python_executable" in config:
+                        executable = config["model_python_executable"]
+                        if executable is None:
+                            conn.execute(
+                                "DELETE FROM launch_runtime WHERE model_name = ? AND model_uid = ?",
+                                (row["model_name"], model_uid),
+                            )
+                        else:
+                            conn.execute(
+                                "INSERT INTO launch_runtime (model_name, model_uid, python_executable) "
+                                "VALUES (?, ?, ?) ON CONFLICT(model_name, model_uid) DO UPDATE SET "
+                                "python_executable = excluded.python_executable",
+                                (row["model_name"], model_uid, executable),
+                            )
                     conn.execute(
                         "UPDATE launch_history SET data = ?, updated_at = CURRENT_TIMESTAMP "
                         "WHERE id = ?",
@@ -376,4 +419,11 @@ class LaunchHistoryStore:
                     "WHERE model_name = ? AND model_uid = ? AND created_by = ?",
                     (model_name, model_uid, username),
                 )
+                if cursor.rowcount:
+                    conn.execute(
+                        "DELETE FROM launch_runtime WHERE model_name = ? AND model_uid = ? "
+                        "AND NOT EXISTS (SELECT 1 FROM launch_history "
+                        "WHERE model_name = ? AND model_uid = ?)",
+                        (model_name, model_uid, model_name, model_uid),
+                    )
                 return cursor.rowcount > 0

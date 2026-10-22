@@ -393,8 +393,13 @@ async def test_reload_updates_autostart_only_after_commit(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_committed_environment_is_persisted_for_recovery_and_autostart():
+async def test_committed_environment_is_persisted_for_recovery_and_autostart(tmp_path):
     supervisor, worker = make_pipeline(make_actor())
+    store = LaunchHistoryStore(str(tmp_path / "history.db"))
+    store.upsert_autostart(
+        {"launch": {"model_uid": "test", "model_name": "qwen"}}, "owner"
+    )
+    supervisor._launch_history_store = store
     worker._replace_model_generation = AsyncMock(return_value=True)
     await supervisor.reload_model(
         "test", {"max_num_seqs": 32}, python_executable="/opt/new/bin/python"
@@ -404,9 +409,10 @@ async def test_committed_environment_is_persisted_for_recovery_and_autostart():
         worker._model_uid_to_launch_args["test-replica"]["model_python_executable"]
         == "/opt/new/bin/python"
     )
-    supervisor._launch_history_store.update_autostart_launch_config.assert_called_once_with(
-        "test", {"max_num_seqs": 32, "model_python_executable": "/opt/new/bin/python"}
-    )
+    launch = LaunchHistoryStore(store._db_path).list_autostart()[0]["launch"]
+    assert launch["max_num_seqs"] == 32
+    assert launch["model_python_executable"] == "/opt/new/bin/python"
+    assert "model_python_executable" not in store.list(username="owner")[0]["data"]
 
 
 @pytest.mark.asyncio
