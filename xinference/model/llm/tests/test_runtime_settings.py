@@ -3,9 +3,10 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 # http://www.apache.org/licenses/LICENSE-2.0
+# CI: linux
 
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -19,7 +20,8 @@ from ..weight_cache import WeightCachedModel, validate_reload_patch
 from .test_weight_cache import FakeCachedModel
 
 
-def test_reasoning_config_dataclass_is_written_to_daemon_config(monkeypatch):
+@pytest.mark.parametrize("key", ["reasoning_config", "structured_outputs_config"])
+def test_reasoning_config_dataclass_is_excluded_from_daemon_config(monkeypatch, key):
     import json
 
     from .. import weight_cache
@@ -28,12 +30,13 @@ def test_reasoning_config_dataclass_is_written_to_daemon_config(monkeypatch):
     class StructuredConfig:
         backend: str = "auto"
         reasoning_parser: str = "/models/reasoning_parser.py"
+        initialized_by_engine: bool = field(default=True, init=False)
 
     config = StructuredConfig()
     daemon = weight_cache.WeightCacheDaemon(
         "vllm",
         "/models/test",
-        {"structured_outputs_config": config, "kv_cache_memory_bytes": 1},
+        {key: config, "kv_cache_memory_bytes": 1},
     )
     process = MagicMock()
     process.poll.return_value = None
@@ -49,11 +52,11 @@ def test_reasoning_config_dataclass_is_written_to_daemon_config(monkeypatch):
     try:
         daemon.start()
         saved = json.loads((daemon.directory / "config.yaml").read_text())
-        assert saved["structured_outputs_config"] == {
-            "backend": "auto",
-            "reasoning_parser": config.reasoning_parser,
-        }
-        assert daemon.config["structured_outputs_config"] == config
+        # Parser settings belong to the serving engine. Passing its dataclass
+        # (including init=False fields) to the preload CLI is invalid.
+        assert key not in saved
+        assert saved["kv_cache_memory_bytes"] == 1
+        assert daemon.config[key] == config
     finally:
         daemon.stop()
 

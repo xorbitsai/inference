@@ -2473,6 +2473,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             protected_pids = {
                 process.pid
                 for process in getattr(self._main_pool, "sub_processes", {}).values()
+                # In-process xoscar test pools do not have OS process handles.
+                if process is not None
             }
             try:
                 return await xo.wait_for(

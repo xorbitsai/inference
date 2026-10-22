@@ -60,6 +60,8 @@ def _make_worker():
     self = _WorkerStub()
     self._subpool_creation_lock = asyncio.Lock()
     self._main_pool = MagicMock()
+    # Xoscar's in-process test pools have addresses without OS processes.
+    self._main_pool.sub_processes = {"in-process": None}
     self._ensure_subpool_monitor = AsyncMock()
     self.release_devices = MagicMock()
     self.address = "test:1"
@@ -296,7 +298,7 @@ async def test_append_sub_pool_protected_timeout_kills_leftover_and_reraises(
     (PPID == this worker) and re-raises so callers run their own cleanup."""
     self = _make_worker()
     self._main_pool.append_sub_pool = _hang_coro
-    self._main_pool.sub_processes = {"serving": MagicMock(pid=7703)}
+    self._main_pool.sub_processes["serving"] = MagicMock(pid=7703)
 
     my_pid = os.getpid()
     matching = MagicMock()

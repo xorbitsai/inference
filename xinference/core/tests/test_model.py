@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 
 import asyncio
 import json
@@ -24,9 +25,14 @@ import xoscar as xo
 from xoscar import create_actor_pool
 
 from ..model import ModelActor
+from ..model_generation import ModelGenerationMixin
 
 TEST_EVENT = None
 TEST_VALUE = None
+
+
+class _ModelCleanupStub(ModelGenerationMixin, types.SimpleNamespace):
+    """Run generation cleanup without requiring an xoscar actor context."""
 
 
 class MockModelFamily:
@@ -283,9 +289,9 @@ async def test_pre_destroy_frees_gpu_memory(
         lambda: calls.append(1),
     )
 
-    # __pre_destroy__ only touches self._model and (vLLM-only) self._transfer_ref,
-    # so exercise it on a lightweight stand-in to avoid the xoscar actor context.
-    stub = types.SimpleNamespace(
+    # Use the real generation cleanup alongside the backend teardown, without
+    # requiring the xoscar actor context.
+    stub = _ModelCleanupStub(
         _model=make_model(model_format),
         _transfer_ref=None,
         address="test:0",
@@ -506,7 +512,7 @@ async def test_gpu_cache_close_failure_does_not_skip_model_cleanup(
         raise RuntimeError("transfer actor unreachable")
 
     ref = types.SimpleNamespace(close_gpu_caches_v1=AsyncMock(side_effect=close))
-    stub = types.SimpleNamespace(
+    stub = _ModelCleanupStub(
         _model=model,
         _transfer_ref=ref,
         _xavier_config={"gpu_cache_bytes": 0},
