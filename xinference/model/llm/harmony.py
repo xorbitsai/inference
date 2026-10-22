@@ -13,26 +13,35 @@
 # limitations under the License.
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, AsyncGenerator, Dict, Union
+from typing import TYPE_CHECKING, AsyncGenerator, Dict, List, Optional, Union, cast
 
 if TYPE_CHECKING:
     from ...types import ChatCompletion, ChatCompletionChunk
 
 
 class HarmonyStreamParser:
+    _RAW_ANALYSIS_MARKER = "\x00analysis"
+    _RAW_FINAL_MARKER = "\x00assistantfinal"
     _MARKERS = (
-        ("<|start|>assistant<|channel|>analysis<|message|>", "analysis"),
-        ("<|start|>assistant<|channel|>final<|message|>", "assistantfinal"),
-        ("<|channel|>analysis<|message|>", "analysis"),
-        ("<|channel|>final<|message|>", "assistantfinal"),
+        (
+            "<|start|>assistant<|channel|>analysis<|message|>",
+            _RAW_ANALYSIS_MARKER,
+        ),
+        ("<|start|>assistant<|channel|>final<|message|>", _RAW_FINAL_MARKER),
+        ("<|channel|>analysis<|message|>", _RAW_ANALYSIS_MARKER),
+        ("<|channel|>final<|message|>", _RAW_FINAL_MARKER),
         ("<|end|>", ""),
         ("<|return|>", ""),
         ("<|endoftext|>", ""),
     )
 
-    def __init__(self, structured_output=False):
+    def __init__(self, structured_output: bool = False):
         # Current channel: either 'analysis', 'final', or None if not started yet
-        self.current_channel = None
+        self.current_channel: Optional[str] = None
+        # Legacy compact streams reuse a parser across messages. Raw Harmony
+        # framing is unambiguous, so only the legacy final marker enables the
+        # bare ``analysis`` reset used by those streams.
+        self._final_channel_is_raw = False
         # Buffer for accumulating text when looking for 'assistantfinal' marker
         self.buffer = ""
         # Raw vLLM control tokens can be split across streaming chunks.
@@ -41,10 +50,10 @@ class HarmonyStreamParser:
         # a bare ``analysis`` prefix before the JSON value.
         self.structured_output = structured_output
 
-    def _normalize_markers(self, text):
+    def _normalize_markers(self, text: str) -> str:
         """Convert raw Harmony control tokens to the compact stream markers."""
         self._marker_buffer += text
-        normalized = []
+        normalized: List[str] = []
         marker_texts = [marker for marker, _ in self._MARKERS]
         while self._marker_buffer:
             matches = [
@@ -72,7 +81,7 @@ class HarmonyStreamParser:
             self._marker_buffer = self._marker_buffer[safe_length:]
         return "".join(normalized)
 
-    def _consume_structured_analysis(self):
+    def _consume_structured_analysis(self) -> List[Dict[str, str]]:
         """Resolve a possible bare analysis prefix in constrained output."""
         stripped = self.buffer.lstrip()
         if not stripped:
@@ -85,114 +94,103 @@ class HarmonyStreamParser:
         self.buffer = ""
         return [{"channel": "analysis", "content": content}]
 
-    def feed(self, text):
-        """
-        Feed a chunk of text into the parser and return parsed segments.
-
-        Each segment is a dict:
-        {
-            "channel": "analysis" | "final",
-            "content": <string>
-        }
-
-        The parser detects 'assistantfinal' markers inside reasoning text,
-        splits the reasoning and final content correctly, and switches the channel.
-        """
-        text = self._normalize_markers(text)
+    def _feed_normalized(self, text: str) -> List[Dict[str, str]]:
+        """Parse text after raw Harmony markers have been normalized."""
         if not text:
             return []
-        segments = []
+        segments: List[Dict[str, str]] = []
 
-        # If we are currently in 'analysis' mode
         if self.current_channel == "analysis":
-            # Add text to buffer and check for 'assistantfinal' marker
             self.buffer += text
-            if "assistantfinal" in self.buffer:
-                # Split reasoning and final content
-                before, after = self.buffer.split("assistantfinal", 1)
+            final_markers = (self._RAW_FINAL_MARKER, "assistantfinal")
+            matches = [
+                (self.buffer.find(marker), marker)
+                for marker in final_markers
+                if self.buffer.find(marker) >= 0
+            ]
+            if matches:
+                position, marker = min(matches, key=lambda item: item[0])
+                before = self.buffer[:position]
+                after = self.buffer[position + len(marker) :]
                 if before:
                     segments.append({"channel": "analysis", "content": before})
-                # Switch to final channel
                 self.current_channel = "final"
+                self._final_channel_is_raw = marker == self._RAW_FINAL_MARKER
                 self.buffer = ""
                 if after:
-                    segments.append({"channel": "final", "content": after})
+                    segments.extend(self._feed_normalized(after))
                 return segments
             if self.structured_output:
                 return self._consume_structured_analysis()
-            else:
-                # Check if buffer ends with partial 'assistantfinal'
-                if any(
-                    self.buffer.endswith("assistantfinal"[:i])
-                    for i in range(1, len("assistantfinal") + 1)
-                ):
-                    # Don't emit anything yet, wait for more text
-                    return segments
-                else:
-                    # Emit what we have so far and keep buffer for next time
-                    if self.buffer:
-                        segments.append({"channel": "analysis", "content": self.buffer})
-                        self.buffer = ""
-                    return segments
+            if self.buffer.endswith(tuple("assistantfinal"[:i] for i in range(1, 14))):
+                return segments
+            if self.buffer:
+                segments.append({"channel": "analysis", "content": self.buffer})
+                self.buffer = ""
+            return segments
 
-        # If we are currently in 'final' mode
         if self.current_channel == "final":
-            if self.structured_output and text.startswith("assistantfinal"):
-                text = text[len("assistantfinal") :]
-                if not text:
-                    return segments
-            # Check if this is actually a new message starting with 'analysis'
-            if not self.structured_output and text.startswith("analysis"):
-                # Reset parser state for new message
+            # Raw channel markers are unambiguous. A literal word such as
+            # ``analysis`` can be a valid final answer and must stay content.
+            if self._RAW_ANALYSIS_MARKER in text:
+                before, after = text.split(self._RAW_ANALYSIS_MARKER, 1)
+                if before:
+                    segments.append({"channel": "final", "content": before})
+                self.current_channel = None
+                self._final_channel_is_raw = False
+                self.buffer = ""
+                segments.extend(self._feed_normalized(after))
+                return segments
+            if not self._final_channel_is_raw and text.startswith("analysis"):
                 self.current_channel = None
                 self.buffer = ""
-                # Re-process this text with the new state
-                return self.feed(text)
-            else:
+                return self._feed_normalized(text)
+            text = text.replace(self._RAW_FINAL_MARKER, "")
+            if text:
                 segments.append({"channel": "final", "content": text})
-                return segments
+            return segments
 
-        # If no channel has been started yet
+        if text.startswith(self._RAW_ANALYSIS_MARKER):
+            self.current_channel = "analysis"
+            return self._feed_normalized(text[len(self._RAW_ANALYSIS_MARKER) :])
+        if text.startswith(self._RAW_FINAL_MARKER):
+            self.current_channel = "final"
+            self._final_channel_is_raw = True
+            return self._feed_normalized(text[len(self._RAW_FINAL_MARKER) :])
         if text.startswith("analysis"):
             self.current_channel = "analysis"
             rest = text[len("analysis") :]
-            if "assistantfinal" in rest:
-                # Split immediately if marker is found in the first chunk
-                before, after = rest.split("assistantfinal", 1)
-                if before:
-                    segments.append({"channel": "analysis", "content": before})
-                self.current_channel = "final"
-                if after:
-                    segments.append({"channel": "final", "content": after})
-            elif self.structured_output:
-                # Keep the prefix buffered until the first generated value
-                # identifies this as constrained JSON or ordinary analysis.
-                self.buffer = rest
-                segments.extend(self._consume_structured_analysis())
-            else:
-                # Start buffering for potential 'assistantfinal' marker
-                self.buffer = rest
-                # Check if buffer ends with partial 'assistantfinal'
-                if any(
-                    self.buffer.endswith("assistantfinal"[:i])
-                    for i in range(1, len("assistantfinal") + 1)
-                ):
-                    # Don't emit anything yet, wait for more text
-                    pass
-                else:
-                    # Emit what we have so far
-                    if self.buffer:
-                        segments.append({"channel": "analysis", "content": self.buffer})
-                        self.buffer = ""
-        elif text.startswith("assistantfinal"):
-            self.current_channel = "final"
-            rest = text[len("assistantfinal") :]
             if rest:
-                segments.append({"channel": "final", "content": rest})
-        elif self.structured_output:
+                return self._feed_normalized(rest)
+            return segments
+        if text.startswith("assistantfinal"):
+            self.current_channel = "final"
+            self._final_channel_is_raw = False
+            return self._feed_normalized(text[len("assistantfinal") :])
+        if self.structured_output:
             self.current_channel = "final"
             segments.append({"channel": "final", "content": text})
+        return segments
 
+    def feed(self, text: str) -> List[Dict[str, str]]:
+        """Feed one stream chunk and return parsed channel segments."""
+        return self._feed_normalized(self._normalize_markers(text))
+
+    def flush(self) -> List[Dict[str, str]]:
+        """Flush text held while checking for a marker split across chunks."""
+        segments: List[Dict[str, str]] = []
+        pending_marker = self._marker_buffer
+        self._marker_buffer = ""
+        if pending_marker:
+            if self.current_channel is None:
+                self.current_channel = "final"
+                segments.append({"channel": "final", "content": pending_marker})
+            else:
+                segments.extend(self._feed_normalized(pending_marker))
+        if self.buffer:
+            channel = self.current_channel or "final"
+            segments.append({"channel": channel, "content": self.buffer})
+            self.buffer = ""
         return segments
 
 
@@ -203,7 +201,7 @@ async def async_stream_harmony_chat_completion(
     ],
     expose_reasoning: bool = True,
     structured_output: bool = False,
-) -> AsyncGenerator["ChatCompletion", None]:
+) -> AsyncGenerator[Union["ChatCompletion", "ChatCompletionChunk"], None]:
     """
     Parse Harmony-formatted content from either a full ChatCompletion (non-streaming)
     or an async stream of ChatCompletionChunk (streaming), using the HarmonyStreamParser defined in this file.
@@ -215,9 +213,9 @@ async def async_stream_harmony_chat_completion(
     if isinstance(chunks, dict) and chunks.get("object") == "chat.completion":
         out_data = deepcopy(chunks)
 
-        for choice in out_data["choices"]:
+        for message_choice in out_data["choices"]:
             parser = HarmonyStreamParser(structured_output=structured_output)
-            msg = choice["message"]
+            msg = message_choice["message"]
 
             # Backup original content & reasoning
             original_content = msg.get("content") or ""
@@ -228,22 +226,18 @@ async def async_stream_harmony_chat_completion(
             msg["reasoning_content"] = ""
             msg.setdefault("tool_calls", [])
 
-            # Feed original content
-            for seg in parser.feed(original_content):
+            # Feed original content and flush a literal partial marker at EOF.
+            segments = parser.feed(original_content)
+            segments.extend(parser.feed(original_reasoning))
+            segments.extend(parser.flush())
+            for seg in segments:
                 ch, c = seg["channel"], seg["content"]
                 if ch == "final":
-                    msg["content"] += c
+                    msg["content"] = (msg.get("content") or "") + c
                 elif ch == "analysis":
                     msg["reasoning_content"] += c
                 elif ch == "tool":
                     msg["tool_calls"].append(c)
-
-            # Feed original reasoning_content
-            for seg in parser.feed(original_reasoning):
-                if seg["channel"] == "analysis":
-                    msg["reasoning_content"] += seg["content"]
-                elif seg["channel"] == "tool":
-                    msg["tool_calls"].append(seg["content"])
 
             # Clean up reasoning_content: set to None if no reasoning content was parsed
             if not msg["reasoning_content"] and not original_reasoning:
@@ -254,81 +248,196 @@ async def async_stream_harmony_chat_completion(
         yield out_data
 
     else:
-        # Streaming: handle async generator
-        parsers_per_choice = {}
+        parsers_per_choice: Dict[int, HarmonyStreamParser] = {}
+        last_chunk = None
+        stream_chunks = cast(AsyncGenerator["ChatCompletionChunk", None], chunks)
 
-        async for chunk in chunks:  # type: ignore
+        async for chunk in stream_chunks:
+            last_chunk = chunk
             if not chunk.get("choices"):
+                if chunk.get("usage") is not None:
+                    flushed_choices: List[Dict[str, object]] = []
+                    for i, parser in parsers_per_choice.items():
+                        segments = parser.flush()
+                        if not segments:
+                            continue
+                        content = "".join(
+                            seg["content"]
+                            for seg in segments
+                            if seg["channel"] == "final"
+                        )
+                        reasoning = "".join(
+                            seg["content"]
+                            for seg in segments
+                            if seg["channel"] == "analysis"
+                        )
+                        metadata_delta: Dict[str, object] = {"content": content}
+                        if expose_reasoning and reasoning:
+                            metadata_delta["reasoning_content"] = reasoning
+                        flushed_choices.append(
+                            {
+                                "index": i,
+                                "delta": metadata_delta,
+                                "finish_reason": None,
+                            }
+                        )
+                    if flushed_choices:
+                        yield cast(
+                            "ChatCompletionChunk",
+                            {
+                                "id": chunk["id"],
+                                "model": chunk["model"],
+                                "object": chunk["object"],
+                                "created": chunk["created"],
+                                "choices": flushed_choices,
+                            },
+                        )
                 # Preserve usage-only and terminal metadata chunks.
                 yield chunk
                 continue
-            out_chunk = {  # type: ignore
+
+            output_choices: List[Dict[str, object]] = []
+            out_chunk: Dict[str, object] = {
                 "id": chunk["id"],
                 "model": chunk["model"],
                 "object": chunk["object"],
                 "created": chunk["created"],
-                "choices": [],
+                "choices": output_choices,
             }
             if chunk.get("usage") is not None:
                 out_chunk["usage"] = chunk["usage"]
 
-            for i, choice in enumerate(chunk["choices"]):
-                delta = choice.get("delta", {})
-                text = delta.get("content") or ""  # type: ignore
+            for i, stream_choice in enumerate(chunk["choices"]):
+                stream_delta = stream_choice.get("delta", {})
+                text = stream_delta.get("content") or ""
+                parser = parsers_per_choice.setdefault(
+                    i, HarmonyStreamParser(structured_output=structured_output)
+                )
+                segments = parser.feed(text)
+                if stream_choice.get("finish_reason") is not None:
+                    segments.extend(parser.flush())
 
-                if i not in parsers_per_choice:
-                    parsers_per_choice[i] = HarmonyStreamParser(
-                        structured_output=structured_output
-                    )
+                content_parts: List[str] = []
+                reasoning_parts: List[str] = []
+                tool_parts: List[str] = []
+                for seg in segments:
+                    if seg["channel"] == "final":
+                        content_parts.append(seg["content"])
+                    elif seg["channel"] == "analysis":
+                        reasoning_parts.append(seg["content"])
+                    elif seg["channel"] == "tool":
+                        tool_parts.append(seg["content"])
 
-                # Feed text to parser and collect current delta only
-                curr_delta: Dict[str, object] = {
-                    "content": "",
-                    "reasoning_content": "",
-                    "tool_calls": [],
-                }
-
-                for seg in parsers_per_choice[i].feed(text):
-                    ch = seg["channel"]
-                    c = seg["content"]
-                    if ch == "final":
-                        curr_delta["content"] += c  # type: ignore
-                    elif ch == "analysis":
-                        curr_delta["reasoning_content"] += c  # type: ignore
-                    elif ch == "tool":
-                        curr_delta["tool_calls"].append(c)  # type: ignore
-
-                reasoning_content = curr_delta.get("reasoning_content") or ""
-                if not expose_reasoning:
-                    curr_delta.pop("reasoning_content", None)
-
-                if reasoning_content:
-                    if not curr_delta["content"]:
+                content = "".join(content_parts)
+                reasoning_content = "".join(reasoning_parts)
+                curr_delta: Dict[str, object] = {"content": content}
+                if tool_parts:
+                    curr_delta["tool_calls"] = tool_parts
+                if expose_reasoning:
+                    curr_delta["reasoning_content"] = reasoning_content
+                role = stream_delta.get("role")
+                if role is not None:
+                    curr_delta["role"] = role
+                    if (
+                        stream_delta.get("content") is None
+                        and not content
+                        and not reasoning_content
+                    ):
                         curr_delta["content"] = None
 
-                elif curr_delta["content"]:
-                    if expose_reasoning:
-                        curr_delta["reasoning_content"] = None
-
-                elif choice.get("finish_reason") is not None and expose_reasoning:
-                    # For the final chunk, if there's no new reasoning content,
-                    # don't include empty reasoning_content to avoid clearing existing state
+                if reasoning_content:
+                    if not content:
+                        curr_delta["content"] = None
+                elif content and expose_reasoning:
+                    curr_delta["reasoning_content"] = None
+                elif (
+                    stream_choice.get("finish_reason") is not None and expose_reasoning
+                ):
                     curr_delta["reasoning_content"] = None
 
-                out_chunk["choices"].append(  # type: ignore
-                    {
-                        "index": i,
-                        "delta": curr_delta,
-                        "finish_reason": choice.get("finish_reason"),
-                    }
+                output_choice: Dict[str, object] = {
+                    "index": i,
+                    "delta": curr_delta,
+                    "finish_reason": stream_choice.get("finish_reason"),
+                }
+                choice_logprobs = stream_choice.get("logprobs")
+                if content and choice_logprobs is not None:
+                    # Reasoning tokens are not visible completion tokens. Keep
+                    # logprobs on the chunk that emits final content.
+                    output_choice["logprobs"] = choice_logprobs
+                if "stop_sequence" in stream_choice:
+                    output_choice["stop_sequence"] = stream_choice["stop_sequence"]
+                output_choices.append(output_choice)
+
+            def has_visible_output(choice: Dict[str, object]) -> bool:
+                choice_delta = choice.get("delta")
+                if not isinstance(choice_delta, dict):
+                    return choice.get("finish_reason") is not None
+                return bool(
+                    choice_delta.get("content")
+                    or choice_delta.get("reasoning_content")
+                    or choice_delta.get("role")
+                    or choice.get("finish_reason") is not None
                 )
 
-            # Only yield if we have either content or reasoning_content
-            has_content = any(
-                choice["delta"].get("content")  # type: ignore
-                or choice["delta"].get("reasoning_content")  # type: ignore
-                or choice.get("finish_reason") is not None  # type: ignore
-                for choice in out_chunk["choices"]  # type: ignore
-            )
+            has_content = any(has_visible_output(choice) for choice in output_choices)
             if has_content:
-                yield out_chunk  # type: ignore
+                yield cast("ChatCompletionChunk", out_chunk)
+
+        # A generator can end without a terminal choice. Preserve a literal
+        # suffix held while checking for a split raw control marker.
+        if last_chunk is not None:
+            for i, parser in parsers_per_choice.items():
+                segments = parser.flush()
+                if not segments:
+                    continue
+                content = "".join(
+                    seg["content"] for seg in segments if seg["channel"] == "final"
+                )
+                reasoning = "".join(
+                    seg["content"] for seg in segments if seg["channel"] == "analysis"
+                )
+                flush_delta: Dict[str, object] = {"content": content}
+                if expose_reasoning and reasoning:
+                    flush_delta["reasoning_content"] = reasoning
+                yield cast(
+                    "ChatCompletionChunk",
+                    {
+                        "id": last_chunk["id"],
+                        "model": last_chunk["model"],
+                        "object": last_chunk["object"],
+                        "created": last_chunk["created"],
+                        "choices": [
+                            {"index": i, "delta": flush_delta, "finish_reason": None}
+                        ],
+                    },
+                )
+
+
+async def async_stream_harmony_chat_completion_chunks(
+    chunks: AsyncGenerator["ChatCompletionChunk", None],
+    expose_reasoning: bool = True,
+    structured_output: bool = False,
+) -> AsyncGenerator["ChatCompletionChunk", None]:
+    """Typed streaming adapter for ``async_stream_harmony_chat_completion``."""
+    async for chunk in async_stream_harmony_chat_completion(
+        chunks,
+        expose_reasoning=expose_reasoning,
+        structured_output=structured_output,
+    ):
+        yield cast("ChatCompletionChunk", chunk)
+
+
+async def parse_harmony_chat_completion(
+    completion: "ChatCompletion",
+    expose_reasoning: bool = True,
+    structured_output: bool = False,
+) -> "ChatCompletion":
+    """Typed non-streaming adapter for ``async_stream_harmony_chat_completion``."""
+    async for parsed in async_stream_harmony_chat_completion(
+        completion,
+        expose_reasoning=expose_reasoning,
+        structured_output=structured_output,
+    ):
+        return cast("ChatCompletion", parsed)
+    raise RuntimeError("Harmony completion parser returned no completion")

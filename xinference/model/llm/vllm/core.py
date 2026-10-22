@@ -3018,12 +3018,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             )
             assert isinstance(agen, AsyncGenerator)
             if parse_harmony:
-                from ..harmony import async_stream_harmony_chat_completion
+                from ..harmony import async_stream_harmony_chat_completion_chunks
 
                 raw_stream = self._async_to_chat_completion_chunks(
                     agen, None, chat_template_kwargs
                 )
-                return async_stream_harmony_chat_completion(
+                return async_stream_harmony_chat_completion_chunks(
                     raw_stream,
                     expose_reasoning=expose_reasoning,
                     structured_output=structured_output,
@@ -3052,18 +3052,14 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                     self.model_family, self.model_uid, c, tools
                 )
             elif parse_harmony:
-                from ..harmony import async_stream_harmony_chat_completion
+                from ..harmony import parse_harmony_chat_completion
 
                 raw_completion = self._to_chat_completion(c, None)
-                result = None
-                async for parsed in async_stream_harmony_chat_completion(
+                result = await parse_harmony_chat_completion(
                     raw_completion,
                     expose_reasoning=expose_reasoning,
                     structured_output=structured_output,
-                ):
-                    result = parsed
-                    break
-                assert result is not None
+                )
             else:
                 result = self._to_chat_completion(c, parser)
             if "_pd_kv_transfer_params" in c:

@@ -2109,6 +2109,21 @@ class TestVLLMChatModel:
                 "<|end|><|start|>assistant<|channel|>final<|message|>39",
                 "1<|end|>",
             ):
+                logprobs = None
+                if text.endswith("39"):
+                    logprobs = {
+                        "text_offset": [0],
+                        "tokens": ["39"],
+                        "token_logprobs": [-0.1],
+                        "top_logprobs": [{"39": -0.1}],
+                    }
+                elif text.startswith("1"):
+                    logprobs = {
+                        "text_offset": [0, 2],
+                        "tokens": ["39", "1"],
+                        "token_logprobs": [-0.1, -0.2],
+                        "top_logprobs": [{"39": -0.1}, {"1": -0.2}],
+                    }
                 yield {
                     "id": "gpt-oss-test",
                     "object": "text_completion",
@@ -2119,7 +2134,7 @@ class TestVLLMChatModel:
                             "index": 0,
                             "text": text,
                             "finish_reason": None,
-                            "logprobs": None,
+                            "logprobs": logprobs,
                         }
                     ],
                 }
@@ -2174,6 +2189,7 @@ class TestVLLMChatModel:
             assert chunks[-1]["usage"]["total_tokens"] == 7
             if not reasoning_content:
                 assert all("reasoning_content" not in c["delta"] for c in choices)
+            assert any(choice.get("logprobs") for choice in choices)
         else:
             message = result["choices"][0]["message"]
             content = message["content"]

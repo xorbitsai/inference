@@ -74,6 +74,107 @@ def test_parser_accepts_raw_harmony_control_tokens_split_across_chunks():
     ]
 
 
+def test_parser_keeps_literal_analysis_after_final_channel():
+    parser = HarmonyStreamParser()
+    segments = []
+    for chunk in (
+        "<|channel|>analysis<|message|>thinking<|end|>"
+        "<|start|>assistant<|channel|>final<|message|>",
+        "analysis",
+        " complete<|end|>",
+    ):
+        segments.extend(parser.feed(chunk))
+    segments.extend(parser.flush())
+
+    assert (
+        "".join(
+            segment["content"]
+            for segment in segments
+            if segment["channel"] == "analysis"
+        )
+        == "thinking"
+    )
+    assert (
+        "".join(
+            segment["content"] for segment in segments if segment["channel"] == "final"
+        )
+        == "analysis complete"
+    )
+
+
+async def test_harmony_flushes_partial_marker_and_preserves_stream_metadata():
+    partial_content = (
+        "<|channel|>analysis<|message|>thinking<|end|>"
+        "<|start|>assistant<|channel|>final<|message|>a <"
+    )
+    completion = {
+        "id": "partial-marker",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "gpt-oss",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": partial_content,
+                    "reasoning_content": "",
+                },
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {},
+    }
+
+    async for parsed in async_stream_harmony_chat_completion(
+        completion, expose_reasoning=False
+    ):
+        assert parsed["choices"][0]["message"]["content"] == "a <"
+
+    async def chunks():
+        yield {
+            "id": "partial-marker-stream",
+            "object": "chat.completion.chunk",
+            "created": 0,
+            "model": "gpt-oss",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": partial_content},
+                    "logprobs": {
+                        "content": [
+                            {
+                                "token": "a",
+                                "bytes": [97],
+                                "logprob": -0.1,
+                                "top_logprobs": [],
+                            }
+                        ]
+                    },
+                    "finish_reason": None,
+                }
+            ],
+        }
+        yield {
+            "id": "partial-marker-stream",
+            "object": "chat.completion.chunk",
+            "created": 0,
+            "model": "gpt-oss",
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "length"}],
+        }
+
+    results = [
+        chunk
+        async for chunk in async_stream_harmony_chat_completion(
+            chunks(), expose_reasoning=False
+        )
+    ]
+    assert results[0]["choices"][0]["delta"]["role"] == "assistant"
+    assert results[0]["choices"][0]["delta"]["content"] == "a "
+    assert results[0]["choices"][0]["logprobs"]["content"][0]["token"] == "a"
+    assert results[1]["choices"][0]["delta"]["content"] == "<"
+
+
 async def test_raw_harmony_completion_can_hide_reasoning_content():
     completion = {
         "id": "raw-harmony",
