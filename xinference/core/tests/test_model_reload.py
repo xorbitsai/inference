@@ -698,6 +698,40 @@ async def test_recovery_survives_concurrent_map_changes_and_model_failures():
 
 
 @pytest.mark.asyncio
+async def test_hung_anchor_does_not_block_other_subpool_recovery(monkeypatch):
+    from .. import worker as module
+
+    wait_for = module.xo.wait_for
+
+    async def bounded_rpc(awaitable, timeout):
+        assert timeout == 5
+        return await wait_for(awaitable, 0.01)
+
+    async def hung_rpc(address):
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(module.xo, "wait_for", bounded_rpc)
+    worker = WorkerActor(
+        "supervisor", None, SimpleNamespace(remove_sub_pool=AsyncMock()), []
+    )
+    worker._model_uid_to_subpool_addresses = {"hung": {"dead"}, "live": {"dead"}}
+    worker._model_uid_to_model = {
+        "hung": SimpleNamespace(
+            handle_generation_pool_exit=AsyncMock(side_effect=hung_rpc)
+        ),
+        "live": SimpleNamespace(
+            handle_generation_pool_exit=AsyncMock(return_value="restored")
+        ),
+    }
+    worker._restore_model_generation_config = AsyncMock()
+    await asyncio.wait_for(worker.recover_sub_pool("dead"), 1)
+    worker._restore_model_generation_config.assert_awaited_once_with(
+        "live", worker._model_uid_to_model["live"]
+    )
+    assert not any(worker._model_uid_to_subpool_addresses.values())
+
+
+@pytest.mark.asyncio
 async def test_terminate_captures_native_children_in_every_generation(monkeypatch):
     import psutil
 

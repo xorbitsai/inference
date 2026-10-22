@@ -148,6 +148,7 @@ class ModelGenerationMixin:
         _serve_count: int
         _n_worker: Optional[int]
         _request_limits: float
+        _metrics_labels: Dict[str, str]
 
         def _get_weight_cached_model(self) -> Any: ...
 
@@ -276,6 +277,7 @@ class ModelGenerationMixin:
             "model_path": model.model_path,
             "config": config,
             "engine": model._weight_cache_engine,
+            "model_engine": self._metrics_labels["engine"],
             "engine_version": version(model._weight_cache_engine),
             "torch_version": version("torch"),
             "cache": model._weight_cache.export(),

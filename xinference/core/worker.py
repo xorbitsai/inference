@@ -1021,7 +1021,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     ref = self._model_uid_to_model.get(model_uid)
                     if ref is not None:
                         try:
-                            action = await ref.handle_generation_pool_exit(address)
+                            action = await xo.wait_for(
+                                ref.handle_generation_pool_exit(address), timeout=5
+                            )
                         except AttributeError:
                             # Models retained from an older package have no
                             # generation children; keep their existing recovery.

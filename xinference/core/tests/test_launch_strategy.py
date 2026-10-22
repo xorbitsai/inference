@@ -103,6 +103,8 @@ class DummySupervisor:
         self._unexpected_down_replicas = {}
         self._worker_status = {}
         self._workers_launching = {}
+        self._autostart_store_lock = asyncio.Lock()
+        self._launch_history_store = MagicMock()
         self._collective_manager_mapping = {}
         self._block_tracker_mapping = {}
         self._build_replica_info = SupervisorActor._build_replica_info

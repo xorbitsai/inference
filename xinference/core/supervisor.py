@@ -4055,7 +4055,14 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             raise ValueError(
                 "model_python_executable is reserved for internal recovery"
             )
-        return await self._launch_builtin_model(*args, **kwargs)
+        model_uid = await self._launch_builtin_model(*args, **kwargs)
+        # Public launch admits a new instance, unlike trusted autostart replay
+        # or history/policy edits of the current instance.
+        async with self._autostart_store_lock:
+            await asyncio.to_thread(
+                self._launch_history_store.clear_launch_runtime, model_uid
+            )
+        return model_uid
 
     async def _launch_builtin_sharded_model(
         self,

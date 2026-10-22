@@ -577,6 +577,29 @@ async def test_retiring_abort_failure_does_not_hide_active_result():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("local_result", ["DONE", "NO_OP"])
+async def test_active_abort_failure_does_not_hide_anchor_request(local_result):
+    from .test_model_reload import make_actor
+
+    actor = make_actor()
+    actor._replica_model_uid = "test-rep0"
+    actor._serve_count = 1
+    actor._running_tasks = {}
+    actor._cancel_running_task = MagicMock()
+    actor._model.abort_request = AsyncMock(return_value=local_result)
+    error = ConnectionError("active engine unavailable")
+    actor._serving_generation = SimpleNamespace(
+        abort_request=AsyncMock(side_effect=error)
+    )
+    if local_result == "DONE":
+        assert await ModelActor.abort_request(actor, "old-request") == "DONE"
+    else:
+        with pytest.raises(ConnectionError, match="active engine unavailable"):
+            await ModelActor.abort_request(actor, "unknown-request")
+    actor._model.abort_request.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "xoscar_version,protocol", [("0.12.1", 1), ("0.12.0", 1), ("0.12.1", 0)]
 )
@@ -798,10 +821,19 @@ async def test_snapshot_preserves_replica_uid_and_explicit_interpreter(monkeypat
     actor._model.model_family = SimpleNamespace(dict=lambda: {})
     actor._model.model_path = "/model"
     actor._model._weight_cache.export = lambda: {}
+    actor._metrics_labels = {"engine": "vLLM"}
     snapshot = await actor.export_model_generation({})
     assert snapshot["model_uid"] == "model-rep3"
     assert snapshot["model_python_executable"] is None
+    assert snapshot["model_engine"] == "vLLM"
     actor._generation_python_executable = "/explicit/python"
     assert (await actor.export_model_generation({}))[
         "model_python_executable"
     ] == "/explicit/python"
+    from .. import model_generation
+    from ..model import ModelGenerationActor
+
+    model = SimpleNamespace(model_family=SimpleNamespace(to_description=lambda: {}))
+    monkeypatch.setattr(model_generation, "build_generation_model", lambda _: model)
+    generation = ModelGenerationActor(snapshot, "supervisor", "worker")
+    assert generation._metrics_labels["engine"] == "vLLM"

@@ -779,6 +779,50 @@ def _save_runtime(store, username="alice"):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("wait_ready", [False, True])
+async def test_fresh_launch_clears_previous_runtime_but_autostart_replay_keeps_it(
+    store, wait_ready
+):
+    _save_runtime(store)
+    _, supervisor = _runtime_api(store)
+    entry = (await supervisor._load_autostart_entries())[0]
+    await supervisor._launch_autostart_model(entry["launch"])
+    assert "model_python_executable" in store.list_autostart()[0]["launch"]
+
+    # Terminate the loaded instance, preserving its enabled autostart policy.
+    supervisor._get_model_replica_lock = lambda _: supervisor._autostart_store_lock
+    supervisor._model_reload_tasks = {}
+    supervisor._terminate_model = AsyncMock()
+    await supervisor.terminate_model("uid-1")
+    await supervisor.launch_builtin_model(
+        model_name="test", model_uid="uid-1", wait_ready=wait_ready
+    )
+    public_entry = store.list_autostart(username="alice")[0]
+    store.upsert_autostart(public_entry, username="alice")
+    supervisor._launch_history_store = LaunchHistoryStore(store._db_path)
+    launch = (await supervisor._load_autostart_entries())[0]["launch"]
+    assert "model_python_executable" not in launch
+    await supervisor._launch_autostart_model(launch)
+    assert (
+        "model_python_executable"
+        not in supervisor._launch_builtin_model.await_args.kwargs
+    )
+
+
+@pytest.mark.asyncio
+async def test_rejected_fresh_launch_keeps_current_runtime(store):
+    _save_runtime(store)
+    _, supervisor = _runtime_api(store)
+    supervisor._launch_builtin_model.side_effect = ValueError("already running")
+    with pytest.raises(ValueError, match="already running"):
+        await supervisor.launch_builtin_model(model_name="test", model_uid="uid-1")
+    assert (
+        store.list_autostart()[0]["launch"]["model_python_executable"]
+        == "/admin-selected/python"
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("username", ["alice", ""])
 async def test_owner_history_replay_and_save_preserves_runtime(store, username):
     from xinference.api.restful_api import RESTfulAPI

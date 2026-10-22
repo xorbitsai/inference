@@ -1140,6 +1140,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         from ..model.scheduler.core import AbortRequestMessage
 
         generation_results = []
+        active_error = None
         active = self.__dict__.get("_serving_generation")
         for ref in [
             active,
@@ -1150,12 +1151,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     generation_results.append(
                         await ref.abort_request(request_id, block_duration)
                     )
-                except Exception:
+                except Exception as error:
                     if ref == active:
-                        raise
-                    logger.debug(
-                        "Retired generation could not abort request", exc_info=True
-                    )
+                        active_error = error
+                    logger.debug("Generation could not abort request", exc_info=True)
         generation_result = next(
             (
                 value
@@ -1164,7 +1163,12 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             ),
             AbortRequestMessage.NO_OP.name,
         )
-        if generation_results and not self._serve_count:
+        if (generation_results or active_error is not None) and not self._serve_count:
+            if (
+                active_error is not None
+                and generation_result == AbortRequestMessage.NO_OP.name
+            ):
+                raise active_error
             return generation_result
 
         # Always cancel the running task first
@@ -1186,6 +1190,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     result != AbortRequestMessage.NO_OP.name
                     or generation_result == AbortRequestMessage.NO_OP.name
                 )
+                and (result != AbortRequestMessage.NO_OP.name or active_error is None)
             ):
                 return result
 
@@ -1193,6 +1198,11 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             return AbortRequestMessage.DONE.name
 
         # Otherwise return NO_OP for legacy models or when model doesn't handle abort
+        if (
+            active_error is not None
+            and generation_result == AbortRequestMessage.NO_OP.name
+        ):
+            raise active_error
         return generation_result
 
     @request_limit
@@ -1889,7 +1899,7 @@ class ModelGenerationActor(ModelActor):
             worker_address,
             build_generation_model(snapshot),
             replica_model_uid=snapshot["model_uid"],
-            model_engine=snapshot["engine"],
+            model_engine=snapshot.get("model_engine", snapshot["engine"]),
             request_limits=snapshot["request_limits"],
             model_python_executable=snapshot.get("model_python_executable"),
         )

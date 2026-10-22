@@ -399,6 +399,14 @@ class LaunchHistoryStore:
                         (json.dumps(data, ensure_ascii=False), row["id"]),
                     )
 
+    def clear_launch_runtime(self, model_uid: str) -> None:
+        """A fresh public launch starts a new runtime lifetime for this UID."""
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute(
+                    "DELETE FROM launch_runtime WHERE model_uid = ?", (model_uid,)
+                )
+
     def remove_autostart(self, model_uid: str) -> bool:
         with self._lock:
             with self._get_conn() as conn:
