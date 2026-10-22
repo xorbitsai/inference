@@ -14,6 +14,7 @@
 import json
 import logging
 import os
+from copy import deepcopy
 from functools import lru_cache
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
@@ -1037,6 +1038,12 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             pytorch_model_config,
             peft_model,
         )
+
+    def count_tokens(
+        self, messages: List[Dict], generate_config: Optional[Dict] = None
+    ) -> int:
+        messages = self.prefill_messages(deepcopy(messages))
+        return super().count_tokens(messages, generate_config)
 
     def _sanitize_generate_config(
         self,
