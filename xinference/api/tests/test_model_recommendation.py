@@ -112,9 +112,9 @@ async def test_launch_api_forwards_unified_context_and_rejects_invalid_values():
         assert (
             supervisor.launch_builtin_model.call_args.kwargs["context_length"] == 32768
         )
-        supervisor.launch_builtin_model = SupervisorActor.launch_builtin_model.__get__(
-            SimpleNamespace()
-        )
+        supervisor.launch_builtin_model = SupervisorActor.__new__(
+            SupervisorActor
+        ).launch_builtin_model
         for value in [0, -1, True, 32768.5, "32768"]:
             response = await client.post(
                 "/v1/models", json={**body, "context_length": value}

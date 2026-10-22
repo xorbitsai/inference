@@ -1068,7 +1068,7 @@ async def test_supervisor_rejects_invalid_launch_context_before_placement(value)
 
     with pytest.raises(ValueError, match="context_length"):
         await SupervisorActor.launch_builtin_model(
-            SimpleNamespace(),
+            SupervisorActor.__new__(SupervisorActor),
             "test",
             "test",
             4,

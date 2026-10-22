@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import itertools
 import random
@@ -115,6 +117,7 @@ class DummySupervisor:
             SupervisorActor._resolve_download_hub_from_workers
         )
         self.launch_builtin_model = SupervisorActor.launch_builtin_model.__get__(self)
+        self._launch_builtin_model = SupervisorActor._launch_builtin_model.__get__(self)
         self._get_worker_host = SupervisorActor._get_worker_host
         self._get_worker_refs_by_ip = SupervisorActor._get_worker_refs_by_ip.__get__(
             self
