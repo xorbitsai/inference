@@ -139,6 +139,52 @@ async def get_supervisor_info(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def relaunch_api(
+    request: Request, api: "RESTfulAPI" = Depends(get_api)
+) -> JSONResponse:
+    from ...deploy.api_host import host_request
+
+    try:
+        raw = await request.body()
+        body = json.loads(raw) if raw else {}
+        if not isinstance(body, dict) or set(body) - {
+            "python_executable",
+            "request_id",
+        }:
+            raise ValueError("Expected python_executable and/or request_id")
+        validate_relaunch_options(body.get("python_executable"), body.get("request_id"))
+        result = await host_request("relaunch", **body)
+        return JSONResponse(content=result, status_code=202)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+
+
+async def get_api_relaunch(
+    operation_id: str, api: "RESTfulAPI" = Depends(get_api)
+) -> JSONResponse:
+    from ...deploy.api_host import host_request
+
+    try:
+        return JSONResponse(
+            content=await host_request("get", operation_id=operation_id)
+        )
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+
+
+async def list_api_relaunches(api: "RESTfulAPI" = Depends(get_api)) -> JSONResponse:
+    from ...deploy.api_host import host_request
+
+    try:
+        return JSONResponse(content=await host_request("list"))
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+
+
 async def relaunch_worker(
     worker_address: str, request: Request, api: "RESTfulAPI" = Depends(get_api)
 ) -> JSONResponse:
@@ -2221,6 +2267,24 @@ def register_routes(api: "RESTfulAPI") -> None:
         "/v1/workers/{worker_address}/relaunch",
         relaunch_worker,
         methods=["POST"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/api/relaunch",
+        relaunch_api,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/api-relaunches",
+        list_api_relaunches,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/api-relaunches/{operation_id}",
+        get_api_relaunch,
+        methods=["GET"],
         dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
     )
     router.add_api_route(

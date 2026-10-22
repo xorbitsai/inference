@@ -23,6 +23,7 @@ import multiprocessing
 import os
 import pprint
 import re
+import socket
 import struct
 import time
 import uuid
@@ -1372,7 +1373,13 @@ class RESTfulAPI(CancelMixin):
             headers=response_headers,
         )
 
-    def serve(self, logging_conf: Optional[dict] = None):
+    def serve(
+        self,
+        logging_conf: Optional[dict] = None,
+        *,
+        server_factory: Optional[Callable[[Config], Server]] = None,
+        sockets: Optional[List[socket.socket]] = None,
+    ):
         # Optional fastapi-guard security middleware (no-op when disabled).
         # Attached FIRST so it nests INSIDE both CORS and the audited IP
         # middleware (Starlette runs the last-added middleware outermost):
@@ -1566,8 +1573,11 @@ class RESTfulAPI(CancelMixin):
             timeout_keep_alive=XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE,
             limit_concurrency=XINFERENCE_HTTP_LIMIT_CONCURRENCY,
         )
-        server = Server(config)
-        server.run()
+        server = (server_factory or Server)(config)
+        if sockets is None:
+            server.run()
+        else:
+            server.run(sockets=sockets)
 
     async def _cluster_metrics_update_loop(self):
         """Periodically refresh Supervisor-side Prometheus Gauges (every 15s)."""

@@ -1,0 +1,349 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+# Licensed under the Apache License, Version 2.0.
+"""Own the distributed API listener independently of each API interpreter."""
+
+import asyncio
+import contextlib
+import copy
+import json
+import os
+import secrets
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import uuid
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+from ..core.worker_relaunch import validate_relaunch_options
+
+API_HOST_ENV = "XINFERENCE_API_HOST"
+STARTUP_TIMEOUT = 120
+
+
+async def host_request(command: str, **options: Any) -> Any:
+    address = os.environ.get(API_HOST_ENV)
+    if not address:
+        raise RuntimeError(
+            "API relaunch requires a POSIX xinference-supervisor service"
+        )
+    connection = json.loads(address)
+    reader, writer = await asyncio.wait_for(
+        asyncio.open_connection("127.0.0.1", connection["port"], limit=1024 * 1024), 5
+    )
+    try:
+        writer.write(
+            json.dumps(
+                {"token": connection["token"], "command": command, **options}
+            ).encode()
+            + b"\n"
+        )
+        await writer.drain()
+        result = json.loads(await asyncio.wait_for(reader.readline(), 5))
+        if "error" in result:
+            error_type = {"ValueError": ValueError, "KeyError": KeyError}.get(
+                result.get("type"), RuntimeError
+            )
+            raise error_type(result["error"])
+        return result["result"]
+    finally:
+        writer.close()
+        await writer.wait_closed()
+
+
+@dataclass
+class APIProcess:
+    identity: str
+    process: subprocess.Popen
+    executable: str
+    environment: Dict[str, str]
+    log: Path
+    exited: asyncio.Task
+    ready: asyncio.Event = field(default_factory=asyncio.Event)
+    serving: asyncio.Event = field(default_factory=asyncio.Event)
+    draining: asyncio.Event = field(default_factory=asyncio.Event)
+    writer: Optional[asyncio.StreamWriter] = None
+    version: Optional[str] = None
+
+    async def send(self, command: str) -> None:
+        if self.writer is None or self.writer.is_closing():
+            raise RuntimeError("API process control connection is unavailable")
+        self.writer.write(json.dumps({"command": command}).encode() + b"\n")
+        await self.writer.drain()
+
+    async def wait(self, event: asyncio.Event) -> None:
+        pending = asyncio.create_task(event.wait())
+        try:
+            done, _ = await asyncio.wait(
+                {pending, self.exited},
+                timeout=STARTUP_TIMEOUT,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if pending in done and self.process.poll() is None:
+                return
+            details = self.log.read_text(errors="replace")[-2000:]
+            raise RuntimeError("API process failed to become ready: " + details)
+        finally:
+            pending.cancel()
+            await asyncio.gather(pending, return_exceptions=True)
+
+
+class APIHost:
+    def __init__(self, listener: socket.socket, configuration: Dict[str, Any]):
+        self.listener = listener
+        self.configuration = configuration
+        self.children: Dict[str, APIProcess] = {}
+        self.operations: Dict[str, Dict[str, Any]] = {}
+        self.active: Optional[APIProcess] = None
+        self.operation_task: Optional[asyncio.Task] = None
+        self.token = secrets.token_urlsafe(32)
+        self.connection: Dict[str, Any] = {}
+        self.directory = Path()
+
+    async def _connection(self, reader, writer):
+        child = None
+        try:
+            request = json.loads(await asyncio.wait_for(reader.readline(), 10))
+            if not secrets.compare_digest(str(request.get("token", "")), self.token):
+                raise ValueError("Invalid API host capability")
+            if request.get("command") == "register":
+                child = self.children[request["identity"]]
+                if request.get("pid") != child.process.pid or child.writer is not None:
+                    raise ValueError("Unexpected API process registration")
+                child.writer = writer
+                while line := await reader.readline():
+                    event = json.loads(line)
+                    if event.get("state") == "ready" and event.get("protocol") == 1:
+                        child.version = event["version"]
+                        child.ready.set()
+                    elif event.get("state") == "serving":
+                        child.serving.set()
+                    elif event.get("state") == "draining":
+                        child.draining.set()
+                return
+            command = request.get("command")
+            if command == "relaunch":
+                result = self.create(
+                    request.get("python_executable"), request.get("request_id")
+                )
+            elif command == "get":
+                result = copy.deepcopy(self.operations[request["operation_id"]])
+            elif command == "list":
+                result = copy.deepcopy(list(self.operations.values()))
+            else:
+                raise ValueError("Unknown API host command")
+            writer.write(json.dumps({"result": result}).encode() + b"\n")
+            await writer.drain()
+        except (ValueError, KeyError, RuntimeError) as error:
+            writer.write(
+                json.dumps({"error": str(error), "type": type(error).__name__}).encode()
+                + b"\n"
+            )
+            with contextlib.suppress(ConnectionError):
+                await writer.drain()
+        finally:
+            if child is not None and child.writer is writer:
+                child.writer = None
+            writer.close()
+            with contextlib.suppress(ConnectionError):
+                await writer.wait_closed()
+
+    def spawn(self, executable: str, environment: Dict[str, str]) -> APIProcess:
+        identity = uuid.uuid4().hex
+        path = self.directory / (identity + ".json")
+        path.write_text(
+            json.dumps(
+                {
+                    **self.configuration,
+                    "identity": identity,
+                    "listener_fd": self.listener.fileno(),
+                    "control": self.connection,
+                }
+            )
+        )
+        path.chmod(0o600)
+        log = self.directory / (identity + ".log")
+        with log.open("ab") as output:
+            process = subprocess.Popen(
+                [executable, "-m", "xinference.deploy.api_worker", str(path)],
+                pass_fds=(self.listener.fileno(),),
+                env={**environment, API_HOST_ENV: json.dumps(self.connection)},
+                cwd=self.directory,
+                stdout=output if self.active is not None else None,
+                stderr=subprocess.STDOUT if self.active is not None else None,
+                start_new_session=True,
+            )
+        child = APIProcess(
+            identity,
+            process,
+            executable,
+            environment,
+            log,
+            asyncio.create_task(asyncio.to_thread(process.wait)),
+        )
+        self.children[identity] = child
+        return child
+
+    def create(self, executable=None, request_id=None) -> Dict[str, Any]:
+        validate_relaunch_options(executable, request_id)
+        if request_id is not None:
+            for operation in self.operations.values():
+                if operation["request_id"] == request_id:
+                    if operation["requested_executable"] != executable:
+                        raise RuntimeError(
+                            "request_id already names a different API relaunch"
+                        )
+                    return copy.deepcopy(operation)
+        if self.active is None:
+            raise RuntimeError("API is not ready")
+        if self.operation_task is not None and not self.operation_task.done():
+            raise RuntimeError("An API relaunch is already in progress")
+        if any(
+            child is not self.active and child.process.poll() is None
+            for child in self.children.values()
+        ):
+            raise RuntimeError("A previous API process is still draining")
+        identity = uuid.uuid4().hex
+        operation = self.operations[identity] = {
+            "operation_id": identity,
+            "request_id": request_id,
+            "requested_executable": executable,
+            "python_executable": executable or self.active.executable,
+            "source_pid": self.active.process.pid,
+            "source_version": self.active.version,
+            "status": "starting",
+            "created_at": time.time(),
+        }
+        self.operation_task = asyncio.create_task(self.replace(operation))
+        return copy.deepcopy(operation)
+
+    async def replace(self, operation: Dict[str, Any]) -> None:
+        source = self.active
+        assert source is not None
+        target = None
+        activated = False
+        try:
+            environment = source.environment
+            if operation["requested_executable"] is not None:
+                from ..core.utils import build_subpool_envs_for_python
+
+                environment = build_subpool_envs_for_python(
+                    environment, operation["python_executable"]
+                )
+            target = self.spawn(operation["python_executable"], environment)
+            operation["target_pid"] = target.process.pid
+            await target.wait(target.ready)
+            operation.update(status="switching", target_version=target.version)
+            activated = True
+            await target.send("activate")
+            await target.wait(target.serving)
+            self.active = target
+            operation["status"] = "draining"
+            try:
+                await source.send("drain")
+                await source.wait(source.draining)
+            except (ConnectionError, RuntimeError):
+                if source.process.poll() is None:
+                    source.process.terminate()  # Uvicorn drains on SIGTERM too.
+            await asyncio.shield(source.exited)
+            operation.update(status="succeeded", finished_at=time.time())
+        except Exception as error:
+            operation.update(status="failed", error=str(error), finished_at=time.time())
+            if target is not None and self.active is not target:
+                if target.process.poll() is None:
+                    target.process.terminate()
+                if target.writer is not None:
+                    target.writer.close()
+                if not activated:
+                    try:
+                        await asyncio.wait_for(asyncio.shield(target.exited), 5)
+                    except asyncio.TimeoutError:
+                        target.process.kill()
+                        await target.exited
+                # Once activation was sent, preserve any admitted requests.
+                # SIGTERM drains them; a failed preparation has admitted none.
+
+    async def run(self, stopping: asyncio.Event) -> None:
+        with tempfile.TemporaryDirectory(prefix="xinf-api-") as directory:
+            self.directory = Path(directory)
+            server = await asyncio.start_server(self._connection, "127.0.0.1", 0)
+            self.connection = {
+                "port": server.sockets[0].getsockname()[1],
+                "token": self.token,
+            }
+            try:
+                environment = dict(os.environ)
+                source_root = str(Path(__file__).resolve().parents[2])
+                python_paths = [
+                    os.path.abspath(path)
+                    for path in environment.get("PYTHONPATH", "").split(os.pathsep)
+                    if path
+                ]
+                environment["PYTHONPATH"] = os.pathsep.join(
+                    [source_root, *python_paths]
+                )
+                self.active = self.spawn(sys.executable, environment)
+                await self.active.wait(self.active.ready)
+                await self.active.send("activate")
+                await self.active.wait(self.active.serving)
+                while not stopping.is_set():
+                    if self.active.process.poll() is not None:
+                        raise RuntimeError("Serving API process exited unexpectedly")
+                    try:
+                        await asyncio.wait_for(stopping.wait(), 0.1)
+                    except asyncio.TimeoutError:
+                        pass
+            finally:
+                if self.operation_task is not None:
+                    self.operation_task.cancel()
+                    await asyncio.gather(self.operation_task, return_exceptions=True)
+                server.close()
+                for child in self.children.values():
+                    if child.process.poll() is None:
+                        child.process.terminate()
+                for child in self.children.values():
+                    try:
+                        await asyncio.wait_for(asyncio.shield(child.exited), 30)
+                    except asyncio.TimeoutError:
+                        child.process.kill()
+                        await child.exited
+                await server.wait_closed()
+                self.listener.close()
+
+
+def run(configuration: Dict[str, Any]) -> None:
+    from uvicorn import Config
+    from xoscar.utils import get_next_port
+
+    from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
+
+    try:
+        listener = Config(
+            None, host=configuration["host"], port=configuration["port"]
+        ).bind_socket()
+    except SystemExit:
+        if configuration["port"] is not XINFERENCE_DEFAULT_ENDPOINT_PORT:
+            raise
+        configuration = {**configuration, "port": get_next_port()}
+        listener = Config(
+            None, host=configuration["host"], port=configuration["port"]
+        ).bind_socket()
+    configuration = {**configuration, "port": listener.getsockname()[1]}
+    listener.listen(2048)
+
+    async def serve():
+        stopping = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(sig, stopping.set)
+        try:
+            await APIHost(listener, configuration).run(stopping)
+        finally:
+            for sig in (signal.SIGTERM, signal.SIGINT):
+                loop.remove_signal_handler(sig)
+
+    asyncio.run(serve())

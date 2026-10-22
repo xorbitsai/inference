@@ -15,6 +15,7 @@
 import asyncio
 import logging
 import multiprocessing
+import os
 import signal
 import sys
 from typing import Dict, Optional
@@ -87,6 +88,18 @@ def main(
         raise RuntimeError("Supervisor is not available after multiple attempts")
 
     try:
+        if os.name == "posix":
+            from .api_host import run as run_api_host
+
+            run_api_host(
+                {
+                    "supervisor_address": supervisor_address,
+                    "host": host,
+                    "port": port,
+                    "logging_conf": logging_conf,
+                }
+            )
+            return
         from ..api import restful_api
 
         restful_api.run(
