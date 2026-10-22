@@ -1,0 +1,351 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/user_guide/speculative_decoding.rst:4
+msgid "Speculative decoding"
+msgstr "投機解碼"
+
+#: ../../source/user_guide/speculative_decoding.rst:5
+msgid ""
+"Speculative decoding proposes several tokens and lets the target model "
+"verify them together. The available methods and launch options depend on the"
+" engine. Use a compatible drafter and measure latency and throughput for "
+"your workload."
+msgstr "投機解碼先提出多個 token，再由目標模型一併驗證。可用方法和啟動選項取決於引擎。請使用相容的草稿模型，並針對實際負載測量延遲和吞吐量。"
+
+#: ../../source/user_guide/speculative_decoding.rst:10
+msgid "Paired MTP drafter (Gemma 4)"
+msgstr "配套 MTP 草稿模型（Gemma 4）"
+
+#: ../../source/user_guide/speculative_decoding.rst:12
+msgid ""
+"Some models ship a small paired drafter checkpoint that predicts several "
+"tokens ahead, which the target model then verifies in one pass. Output is "
+"unchanged, decoding gets faster. Gemma 4 calls this multi-token prediction "
+"(MTP) and publishes a ``*-it-assistant`` drafter for every variant."
+msgstr ""
+"部分模型提供小型配套草稿檢查點，提前預測多個 token，再由目標模型一次驗證。輸出保持不變，解碼則會加快。Gemma 4 稱之為多 token "
+"預測（MTP），並為每種規格發布 ``*-it-assistant`` 草稿模型。"
+
+#: ../../source/user_guide/speculative_decoding.rst:17
+msgid ""
+"Pass ``--enable_mtp true`` at launch to download the drafter declared by the"
+" model spec and run it alongside the target model:"
+msgstr "啟動時傳入 ``--enable_mtp true``，即可下載模型規格宣告的草稿模型並與目標一起執行："
+
+#: ../../source/user_guide/speculative_decoding.rst:26
+msgid ""
+"In the Web UI the same options live under *Advanced Configuration → "
+"Speculative Decoding*, which only appears for a format/size that actually "
+"ships a drafter."
+msgstr "Web UI 的同樣選項位於 *進階設定 → 投機解碼*，僅在提供草稿模型的格式和大小下顯示。"
+
+#: ../../source/user_guide/speculative_decoding.rst:29
+msgid "Optional parameters:"
+msgstr "選用參數："
+
+#: ../../source/user_guide/speculative_decoding.rst:31
+msgid ""
+"``--num_speculative_tokens <n>``: how many tokens the drafter proposes per "
+"round, including the bonus token. Left unset, MLX reads it from the drafter,"
+" which runs at the depth it was trained for (``4`` for Gemma 4). Gemma 4 on "
+"llama.cpp, vLLM, and SGLang follows the same model-size recipe: ``2`` for "
+"E2B, ``4`` for E4B and 26B-A4B, and the lower end (``4``) of the recommended"
+" ``4-8`` range for 12B and 31B. Other llama.cpp models keep xllamacpp's own "
+"default."
+msgstr ""
+"``--num_speculative_tokens <n>``：每輪包含獎勵 token 的 token 數。未設定時，MLX "
+"從草稿讀取訓練深度（Gemma 4 為 ``4``）。llama.cpp、vLLM 和 SGLang 的 Gemma 4 依大小設定：E2B 為 "
+"``2``，E4B 和 26B-A4B 為 ``4``，12B 和 31B 取建議範圍 ``4-8`` 的下限 ``4``。其他 llama.cpp "
+"模型保留 xllamacpp 預設值。"
+
+#: ../../source/user_guide/speculative_decoding.rst:38
+msgid ""
+"``--draft_quantization <quantization>``: which drafter conversion to use, "
+"when the spec declares more than one — the MLX build of Gemma 4 12B "
+"publishes eight. Defaults to the first declared, which is the least "
+"quantized one: a drafter is small and quantizing it costs acceptance rate, "
+"so pairing a quantized target with an unquantized drafter is the recommended"
+" setup."
+msgstr ""
+"``--draft_quantization <quantization>``：規格提供多種轉換時選擇草稿版本，MLX Gemma 4 12B "
+"提供八種。預設選第一個、量化程度最低的版本。草稿很小，量化會降低接受率，因此建議量化目標也搭配未量化草稿。"
+
+#: ../../source/user_guide/speculative_decoding.rst:43
+msgid ""
+"``--draft_model_path <path>``: use a local drafter instead of the one "
+"declared by the spec. Implies ``--enable_mtp true``."
+msgstr ""
+"``--draft_model_path <path>``：使用本機草稿取代規格宣告的版本，隱含 ``--enable_mtp true``。"
+
+#: ../../source/user_guide/speculative_decoding.rst:46
+msgid ""
+"For these paired Gemma 4 drafters, the family and size must match the target"
+" — the drafter shares the target's KV cache, so a mismatched checkpoint is "
+"rejected rather than silently degrading."
+msgstr "這些 Gemma 4 配套草稿模型必須與目標的系列和大小相符，因為它們共享目標的 KV 快取；不相符的檢查點會被拒絕，避免靜默降低效果。"
+
+#: ../../source/user_guide/speculative_decoding.rst:50
+msgid "Gemma 4 engine support:"
+msgstr "Gemma 4 引擎支援："
+
+#: ../../source/user_guide/speculative_decoding.rst:56
+msgid "Engine"
+msgstr "引擎"
+
+#: ../../source/user_guide/speculative_decoding.rst:57
+msgid "Requirement"
+msgstr "需求"
+
+#: ../../source/user_guide/speculative_decoding.rst:58
+msgid "Notes"
+msgstr "說明"
+
+#: ../../source/user_guide/speculative_decoding.rst:59
+msgid ":ref:`vLLM <vllm_backend>`"
+msgstr ":ref:`vLLM <vllm_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:60
+msgid "``vllm>=0.22.0``, ``transformers>=5.8.0``"
+msgstr "``vllm>=0.22.0``, ``transformers>=5.8.0``"
+
+#: ../../source/user_guide/speculative_decoding.rst:61
+msgid ""
+"Translated into ``speculative_config`` with ``method: mtp``. An explicitly "
+"provided ``speculative_config`` is left untouched. Older vLLM treats the "
+"drafter as a generic draft model, while older Transformers does not "
+"recognize ``gemma4_assistant``; either case is rejected before engine "
+"initialization. Virtual-environment launches also synchronize ``flashinfer-"
+"cubin`` with ``flashinfer-python`` before starting vLLM, repairing stale "
+"environments that contain mismatched FlashInfer packages."
+msgstr ""
+"轉換為 ``method: mtp`` 的 ``speculative_config``。明確設定的 ``speculative_config`` "
+"保持不變。舊版 vLLM 將草稿當作一般模型，舊版 Transformers 不認得 "
+"``gemma4_assistant``，兩者皆在引擎初始化前拒絕。虛擬環境啟動還會在 vLLM 啟動前同步 ``flashinfer-cubin`` "
+"和 ``flashinfer-python``，修復 FlashInfer 套件不相符的舊環境。"
+
+#: ../../source/user_guide/speculative_decoding.rst:69
+msgid ":ref:`SGLang <sglang_backend>`"
+msgstr ":ref:`SGLang <sglang_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:70
+msgid "``sglang==0.5.13.post1``, ``transformers==5.8.1``"
+msgstr "``sglang==0.5.13.post1``, ``transformers==5.8.1``"
+
+#: ../../source/user_guide/speculative_decoding.rst:71
+msgid ""
+"Translated into ``--speculative-algorithm NEXTN`` with the matching "
+"``speculative_num_steps`` / ``speculative_num_draft_tokens``. An explicitly "
+"provided ``speculative_algorithm`` is left untouched."
+msgstr ""
+"轉換為 ``--speculative-algorithm NEXTN`` 及對應的 ``speculative_num_steps`` / "
+"``speculative_num_draft_tokens``。明確設定的 ``speculative_algorithm`` 保持不變。"
+
+#: ../../source/user_guide/speculative_decoding.rst:74
+msgid ":ref:`MLX <mlx_backend>`"
+msgstr ":ref:`MLX <mlx_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:75
+msgid "``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)"
+msgstr "``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)"
+
+#: ../../source/user_guide/speculative_decoding.rst:76
+msgid ""
+"Served by the MLX vision engine, the one that runs multimodal models such as"
+" Gemma 4. The drafter is validated against the target when the model loads."
+msgstr "由執行 Gemma 4 等多模態模型的 MLX 視覺引擎提供服務。載入時會驗證草稿與目標的相容性。"
+
+#: ../../source/user_guide/speculative_decoding.rst:79
+msgid ":ref:`llama.cpp <llama_cpp_backend>`"
+msgstr ":ref:`llama.cpp <llama_cpp_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:80
+msgid "``xllamacpp>=2026.6.9713``"
+msgstr "``xllamacpp>=2026.6.9713``"
+
+#: ../../source/user_guide/speculative_decoding.rst:81
+msgid ""
+"Translated into the ``draft-mtp`` speculative implementation. The drafter is"
+" a single gguf published inside the target's own repository, so its "
+"quantizations are its own (``BF16``, ``F16``, ``Q8_0`` for Gemma 4) and "
+"independent of the target's. Earlier llama.cpp builds do not know the "
+"``gemma4-assistant`` architecture and cannot load it."
+msgstr ""
+"轉換為 ``draft-mtp``。草稿是目標儲存庫中的單一 gguf，其量化（Gemma 4 為 "
+"``BF16``、``F16``、``Q8_0``）與目標獨立。舊版 llama.cpp 不認得 ``gemma4-assistant`` "
+"架構，無法載入。"
+
+#: ../../source/user_guide/speculative_decoding.rst:87
+msgid ""
+"Not supported by the Transformers engine: it runs its own continuous-"
+"batching loop rather than ``generate()``, so there is nowhere to attach a "
+"drafter."
+msgstr "Transformers 引擎不支援：它使用自有連續批次迴圈而非 ``generate()``，沒有連接草稿模型的位置。"
+
+#: ../../source/user_guide/speculative_decoding.rst:91
+msgid "TRT-LLM"
+msgstr "TRT-LLM"
+
+#: ../../source/user_guide/speculative_decoding.rst:95
+msgid ""
+"Ordinary TRT-LLM replicas support NGram and Draft/Target speculative "
+"decoding with ``tensorrt-llm==1.2.1`` on Linux/CUDA. The adapter supports "
+"BF16 dense Qwen3 text models with TP=PP=CP=1. Xavier shared caching, native "
+"P/D and Xavier P/D do not support speculation through this adapter; see "
+":ref:`user_guide_pd_separation` for their supported configurations."
+msgstr ""
+"在 Linux/CUDA 上使用 ``tensorrt-llm==1.2.1`` 時，一般 TRT-LLM 副本支援 NGram 和 "
+"Draft/Target 投機解碼。適配器支援 TP=PP=CP=1 的 BF16 稠密 Qwen3 文字模型。Xavier 共享快取、原生 P/D 和"
+" Xavier P/D 尚不支援透過此適配器使用投機解碼；相關設定請參閱 :ref:`user_guide_pd_separation`。"
+
+#: ../../source/user_guide/speculative_decoding.rst:101
+msgid ""
+"NGram reuses token patterns from the prompt and generated text without "
+"loading a draft model. For a workload with repeated text, pass the native "
+"``speculative_config`` at launch:"
+msgstr ""
+"NGram 重用提示詞和生成文字中的 token 模式，無需載入草稿模型。對於重複文字負載，可在啟動時傳入原生 "
+"``speculative_config``："
+
+#: ../../source/user_guide/speculative_decoding.rst:131
+msgid ""
+"Draft/Target loads a separate draft model. Provide its local checkpoint path"
+" with ``draft_model_path``; ``num_speculative_tokens`` maps to TRT's "
+"``max_draft_len`` and defaults to ``3``. This counts draft tokens and "
+"excludes the target's bonus token. The draft and target must have compatible"
+" tokenizers and vocabularies, and both must be supported by TRT-LLM 1.2.1. "
+"Use a smaller dense Qwen3 checkpoint for the draft when serving a larger "
+"dense Qwen3 target. This mode does not require the Gemma-style paired "
+"assistant or a shared KV cache."
+msgstr ""
+"Draft/Target 會載入獨立的草稿模型。透過 ``draft_model_path`` "
+"指定本機檢查點路徑；``num_speculative_tokens`` 對應 TRT 的 ``max_draft_len``，預設為 "
+"``3``，僅計算草稿 token，不含目標模型的獎勵 token。草稿與目標的斷詞器和詞彙表必須相容，且都須受 TRT-LLM 1.2.1 "
+"支援。為較大的稠密 Qwen3 目標提供服務時，可使用較小的稠密 Qwen3 檢查點作為草稿。此模式不要求 Gemma 風格的配套 assistant "
+"或共享 KV 快取。"
+
+#: ../../source/user_guide/speculative_decoding.rst:148
+msgid ""
+"The examples require a compatible TRT-LLM environment. Change the model "
+"sizes and draft path to checkpoints available on your worker. A draft "
+"consumes additional GPU memory and compute, so it may reduce throughput at "
+"high load."
+msgstr ""
+"範例需要相容的 TRT-LLM 環境。請將模型大小和草稿路徑改為 worker 上可用的檢查點。草稿模型額外消耗 GPU "
+"記憶體和運算，因此高負載下可能降低吞吐量。"
+
+#: ../../source/user_guide/speculative_decoding.rst:152
+msgid ""
+"An explicit ``speculative_config`` takes precedence over "
+"``draft_model_path`` and ``num_speculative_tokens``. The adapter defaults "
+"``disable_overlap_scheduler=True`` when speculation is configured. Use "
+"native TRT options only with combinations supported by the pinned runtime. "
+"Other upstream methods, such as EAGLE3 and model-specific MTP, are not "
+"validated by this Qwen3 adapter. ``enable_mtp=True`` only downloads a "
+"drafter declared in the Xinference model spec; it does not enable MTP for an"
+" arbitrary Qwen3 checkpoint."
+msgstr ""
+"明確指定的 ``speculative_config`` 優先於 ``draft_model_path`` 和 "
+"``num_speculative_tokens``。設定投機解碼時，適配器預設設定 "
+"``disable_overlap_scheduler=True``。原生 TRT 選項應限於固定版本執行環境支援的組合。EAGLE3 和特定模型的 "
+"MTP 等上游方法尚未經過此 Qwen3 適配器驗證。``enable_mtp=True`` 僅下載 Xinference "
+"模型規格宣告的草稿模型，不能為任意 Qwen3 檢查點啟用 MTP。"
+
+#: ../../source/user_guide/speculative_decoding.rst:161
+msgid "When it pays off"
+msgstr "何時值得使用"
+
+#: ../../source/user_guide/speculative_decoding.rst:162
+msgid ""
+"Speculation is only worth it when a drafting step is cheap *relative to* a "
+"target decoding step. The drafter is a small dense model whose cost does not"
+" change with the target, so the ratio is what decides the outcome — and a "
+"mixture-of-experts target can land on the wrong side of it, because only its"
+" activated slice is read per token:"
+msgstr ""
+"草稿步驟 *相對於* 目標解碼步驟足夠便宜時，投機解碼才有價值。小型稠密草稿的成本不隨目標改變，因此關鍵在比例。MoE 目標每個 token "
+"僅讀取啟用部分，可能反而不划算："
+
+#: ../../source/user_guide/speculative_decoding.rst:172
+msgid "gemma-4 MLX, 4bit, M5 Pro"
+msgstr "gemma-4 MLX, 4bit, M5 Pro"
+
+#: ../../source/user_guide/speculative_decoding.rst:173
+msgid "Without a drafter"
+msgstr "無草稿"
+
+#: ../../source/user_guide/speculative_decoding.rst:174
+msgid "With MTP"
+msgstr "使用 MTP"
+
+#: ../../source/user_guide/speculative_decoding.rst:175
+msgid "Accepted per round"
+msgstr "每輪接受數"
+
+#: ../../source/user_guide/speculative_decoding.rst:176
+msgid "31B (dense, 18.4 GB read per token)"
+msgstr "31B（稠密，每 token 讀取 18.4 GB）"
+
+#: ../../source/user_guide/speculative_decoding.rst:177
+msgid "14.9 tok/s"
+msgstr "14.9 tok/s"
+
+#: ../../source/user_guide/speculative_decoding.rst:178
+msgid "**31.0 tok/s** (2.1x)"
+msgstr "**31.0 tok/s** (2.1x)"
+
+#: ../../source/user_guide/speculative_decoding.rst:179
+msgid "2.08 of 4"
+msgstr "4 個中 2.08 個"
+
+#: ../../source/user_guide/speculative_decoding.rst:180
+msgid "26B-A4B (MoE, ~2.2 GB read per token)"
+msgstr "26B-A4B（MoE，每 token 約讀取 2.2 GB）"
+
+#: ../../source/user_guide/speculative_decoding.rst:181
+msgid "73.2 tok/s"
+msgstr "73.2 tok/s"
+
+#: ../../source/user_guide/speculative_decoding.rst:182
+msgid "65.9 tok/s (0.9x)"
+msgstr "65.9 tok/s (0.9x)"
+
+#: ../../source/user_guide/speculative_decoding.rst:183
+msgid "1.40 of 4"
+msgstr "4 個中 1.40 個"
+
+#: ../../source/user_guide/speculative_decoding.rst:185
+msgid ""
+"The 0.83 GB drafter costs about 5% of a 31B decoding step but 39% of a "
+"26B-A4B one, so on the MoE the three drafting steps of a round already "
+"exceed one plain decoding step — and the round has to win that back from a "
+"lower acceptance rate. The MoE is still the faster model here in absolute "
+"terms; it simply has no headroom left for speculation."
+msgstr ""
+"0.83 GB 草稿的成本約為 31B 解碼步驟的 5%，卻是 26B-A4B 的 39%。因此 MoE "
+"每輪三次草稿步驟已超過普通解碼一步，還要靠較低的接受率彌補。MoE 絕對速度仍更快，但已無投機加速的餘裕。"
+
+#: ../../source/user_guide/speculative_decoding.rst:191
+msgid ""
+"So measure before leaving it on, and note that the verification step itself "
+"is not the problem: a four-token forward costs only ~40% more than a single-"
+"token one on either model."
+msgstr "持續啟用前請先量測。驗證步驟本身不是問題：兩種模型的四 token forward 都僅比單 token 多約 40% 成本。"

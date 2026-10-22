@@ -7,6 +7,12 @@ Backends
 Xinference supports multiple backends for different models. After the user specifies the model,
 xinference will automatically select the appropriate backend.
 
+.. raw:: html
+
+   <span id="speculative-decoding"></span>
+
+For speculative decoding methods and launch options, see :ref:`speculative_decoding`.
+
 .. _llama_cpp_backend:
 
 llama.cpp
@@ -220,122 +226,8 @@ MLX can also serve supported audio models on Apple silicon. Whisper models,
 :ref:`Audio engines <audio>`.
 
 
-.. _speculative_decoding:
 
-Speculative decoding
-====================
-Some models ship a small paired drafter checkpoint that predicts several tokens
-ahead, which the target model then verifies in one pass. Output is unchanged,
-decoding gets faster. Gemma 4 calls this multi-token prediction (MTP) and
-publishes a ``*-it-assistant`` drafter for every variant.
-
-Pass ``--enable_mtp true`` at launch to download the drafter declared by the
-model spec and run it alongside the target model:
-
-.. code-block:: bash
-
-   xinference launch --model-name gemma-4 --model-engine vllm \
-     --model-format pytorch --size-in-billions 12 --quantization none \
-     --enable_mtp true
-
-In the Web UI the same options live under *Advanced Configuration → Speculative
-Decoding*, which only appears for a format/size that actually ships a drafter.
-
-Optional parameters:
-
-* ``--num_speculative_tokens <n>``: how many tokens the drafter proposes per
-  round, including the bonus token. Left unset, MLX reads it from the drafter,
-  which runs at the depth it was trained for (``4`` for Gemma 4). Gemma 4 on
-  llama.cpp, vLLM, and SGLang follows the same model-size recipe: ``2`` for
-  E2B, ``4`` for E4B and 26B-A4B, and the lower end (``4``) of the recommended
-  ``4-8`` range for 12B and 31B. Other llama.cpp models keep xllamacpp's own
-  default.
-* ``--draft_quantization <quantization>``: which drafter conversion to use, when
-  the spec declares more than one — the MLX build of Gemma 4 12B publishes
-  eight. Defaults to the first declared, which is the least quantized one: a
-  drafter is small and quantizing it costs acceptance rate, so pairing a
-  quantized target with an unquantized drafter is the recommended setup.
-* ``--draft_model_path <path>``: use a local drafter instead of the one declared
-  by the spec. Implies ``--enable_mtp true``.
-
-The drafter must match the target model family and size — it shares the target's
-KV cache, so a mismatched checkpoint is rejected rather than silently degrading.
-
-Engine support:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 18 32 50
-
-   * - Engine
-     - Requirement
-     - Notes
-   * - :ref:`vLLM <vllm_backend>`
-     - ``vllm>=0.22.0``, ``transformers>=5.8.0``
-     - Translated into ``speculative_config`` with ``method: mtp``. An
-       explicitly provided ``speculative_config`` is left untouched. Older
-       vLLM treats the drafter as a generic draft model, while older
-       Transformers does not recognize ``gemma4_assistant``; either case is
-       rejected before engine initialization. Virtual-environment launches
-       also synchronize ``flashinfer-cubin`` with ``flashinfer-python`` before
-       starting vLLM, repairing stale environments that contain mismatched
-       FlashInfer packages.
-   * - :ref:`SGLang <sglang_backend>`
-     - ``sglang==0.5.13.post1``, ``transformers==5.8.1``
-     - Translated into ``--speculative-algorithm NEXTN`` with the matching
-       ``speculative_num_steps`` / ``speculative_num_draft_tokens``. An
-       explicitly provided ``speculative_algorithm`` is left untouched.
-   * - :ref:`MLX <mlx_backend>`
-     - ``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)
-     - Served by the MLX vision engine, the one that runs multimodal models
-       such as Gemma 4. The drafter is validated against the target when the
-       model loads.
-   * - :ref:`llama.cpp <llama_cpp_backend>`
-     - ``xllamacpp>=2026.6.9713``
-     - Translated into the ``draft-mtp`` speculative implementation. The
-       drafter is a single gguf published inside the target's own repository,
-       so its quantizations are its own (``BF16``, ``F16``, ``Q8_0`` for Gemma
-       4) and independent of the target's. Earlier llama.cpp builds do not
-       know the ``gemma4-assistant`` architecture and cannot load it.
-
-Not supported by the Transformers engine: it runs its own continuous-batching
-loop rather than ``generate()``, so there is nowhere to attach a drafter.
-
-When it pays off
-----------------
-Speculation is only worth it when a drafting step is cheap *relative to* a
-target decoding step. The drafter is a small dense model whose cost does not
-change with the target, so the ratio is what decides the outcome — and a
-mixture-of-experts target can land on the wrong side of it, because only its
-activated slice is read per token:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 34 22 22 22
-
-   * - gemma-4 MLX, 4bit, M5 Pro
-     - Without a drafter
-     - With MTP
-     - Accepted per round
-   * - 31B (dense, 18.4 GB read per token)
-     - 14.9 tok/s
-     - **31.0 tok/s** (2.1x)
-     - 2.08 of 4
-   * - 26B-A4B (MoE, ~2.2 GB read per token)
-     - 73.2 tok/s
-     - 65.9 tok/s (0.9x)
-     - 1.40 of 4
-
-The 0.83 GB drafter costs about 5% of a 31B decoding step but 39% of a
-26B-A4B one, so on the MoE the three drafting steps of a round already exceed
-one plain decoding step — and the round has to win that back from a lower
-acceptance rate. The MoE is still the faster model here in absolute terms; it
-simply has no headroom left for speculation.
-
-So measure before leaving it on, and note that the verification step itself is
-not the problem: a four-token forward costs only ~40% more than a single-token
-one on either model.
-
+.. _trt_llm_backend:
 
 TRT-LLM
 ========
@@ -368,7 +260,7 @@ The example launches two independent replicas with a shared 512 MiB Xavier CPU c
 
 Xavier publishes complete 64-token BF16 KV pages and restores matching prefixes in another replica through actor RPC. Partial pages and the final prompt token are computed locally. The shared cache uses bounded storage and LRU eviction; transfers currently use synchronous CPU staging.
 
-Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, and disabled chunked prefill and overlap scheduling. Quantization, hybrid attention, multimodal input, LoRA, speculative decoding, ``cache_salt`` and cross-engine P/D are not supported.
+Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, and disabled chunked prefill and overlap scheduling. Quantization, hybrid attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` are not supported in these configurations. Ordinary replicas support :ref:`speculative_decoding` with NGram or Draft/Target. For supported cross-engine P/D combinations, see :ref:`user_guide_pd_separation`.
 
 For same-engine P/D, set explicit prefill/decode roles in ``replica_config`` as described in :ref:`user_guide_pd_separation`. The default ``transfer_backend_type="xavier"`` uses NIXL to transfer KV pages directly between GPUs. Set ``transfer_backend_type="nixl"`` for TRT's native context/generation protocol and NIXL transport; do not also set ``enable_xavier=True``. Both paths support generation, chat, streaming and cancellation through the same Xinference API.
 

@@ -140,3 +140,149 @@ async def test_fresh_gpu_instances_share_prefix_pages(tmp_path, backend):
         await xo.destroy_actor(actor)
         if backend == "lmcache":
             assert not list((tmp_path / "kv").iterdir())
+
+
+SPECULATIVE_SCRIPT = r"""
+import asyncio
+import json
+import sys
+from xinference.model.llm.llm_family import match_llm
+from xinference.model.llm.trt_llm.core import TRTLLMModel
+
+
+async def main():
+    mode = sys.argv[2]
+    path = sys.argv[1]
+    config = dict(
+        max_seq_len=1024,
+        max_batch_size=4,
+        max_num_tokens=1024,
+        dtype="bfloat16",
+        enable_thinking=False,
+        cuda_graph_config=None,
+        kv_cache_config={"max_tokens": 2048},
+        iter_stats_max_iterations=1024,
+        disable_overlap_scheduler=True,
+        enable_iter_perf_stats=True,
+    )
+    if mode == "ngram":
+        config["speculative_config"] = dict(
+            decoding_type="NGram",
+            max_draft_len=3,
+            max_matching_ngram_size=4,
+            is_public_pool=False,
+        )
+    elif mode == "draft":
+        config.update(draft_model_path=path, num_speculative_tokens=3)
+    # Record real runtime acceptance without relying on polling/RPC stats.
+    observed = []
+    from tensorrt_llm._torch.pyexecutor.py_executor import PyExecutor
+
+    original = PyExecutor._update_iter_stats
+
+    def collect(executor, *args, **kwargs):
+        stats = original(executor, *args, **kwargs)
+        if stats.specdec_stats is not None:
+            spec = stats.specdec_stats
+            observed.append(
+                dict(draft=spec.num_draft_tokens, accepted=spec.num_accepted_tokens)
+            )
+        return stats
+
+    PyExecutor._update_iter_stats = collect
+    model = TRTLLMModel(
+        "spec-live", match_llm("qwen3", "pytorch", "0_6", "none"), path, config
+    )
+    try:
+        model.load()
+        observed.clear()
+        prompt = "red green blue yellow " * 12
+        sampling = dict(
+            max_tokens=32, temperature=0, ignore_eos=True, stop=[], stop_token_ids=[]
+        )
+        completion = await model.async_generate(prompt, sampling)
+        chunks = [
+            c
+            async for c in await model.async_generate(
+                prompt,
+                dict(sampling, stream=True, stream_options={"include_usage": True}),
+            )
+        ]
+        assert (
+            "".join(c["choices"][0]["text"] for c in chunks if c["choices"])
+            == completion["choices"][0]["text"]
+        )
+        assert chunks[-1]["usage"] == completion["usage"]
+        messages = [
+            {"role": "user", "content": "Repeat red green blue yellow twelve times."}
+        ]
+        chat = await model.async_chat(messages, sampling)
+        stream = await model.async_chat(
+            messages,
+            dict(sampling, stream=True, stream_options={"include_usage": True}),
+        )
+        chat_chunks = [c async for c in stream]
+        assert (
+            "".join(
+                c["choices"][0]["delta"].get("content", "")
+                for c in chat_chunks
+                if c["choices"]
+            )
+            == chat["choices"][0]["message"]["content"]
+        )
+        assert chat_chunks[-1]["usage"] == chat["usage"]
+        cancel = await model.async_generate(
+            prompt, dict(sampling, max_tokens=128, stream=True), "cancel"
+        )
+        await anext(cancel)
+        assert await model.abort_request("cancel") == "DONE"
+        await cancel.aclose()
+        assert not model._requests
+        recovery = await model.async_generate(prompt, sampling)
+        assert recovery["choices"][0]["text"] == completion["choices"][0]["text"]
+        stats = observed
+        if mode != "baseline":
+            assert sum(s["draft"] for s in stats) > 0, stats
+            assert sum(s["accepted"] for s in stats) > 0, stats
+        report = dict(mode=mode, completion=completion, chat=chat, stats=stats)
+        print("SPEC_RESULT=" + json.dumps(report))
+    finally:
+        model.stop()
+
+
+asyncio.run(main())
+
+"""
+
+
+def test_ordinary_speculation_preserves_outputs(tmp_path):
+    reports = {}
+    for mode in ("baseline", "ngram", "draft"):
+        result = subprocess.run(
+            [
+                os.environ.get("XINFERENCE_TRTLLM_TEST_PYTHON", sys.executable),
+                "-c",
+                SPECULATIVE_SCRIPT,
+                os.environ["XINFERENCE_TRTLLM_TEST_MODEL"],
+                mode,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        line = next(
+            line
+            for line in result.stdout.splitlines()
+            if line.startswith("SPEC_RESULT=")
+        )
+        reports[mode] = json.loads(line.split("=", 1)[1])
+    baseline = reports["baseline"]
+    for mode in ("ngram", "draft"):
+        assert (
+            reports[mode]["completion"]["choices"] == baseline["completion"]["choices"]
+        )
+        assert reports[mode]["completion"]["usage"] == baseline["completion"]["usage"]
+        assert reports[mode]["chat"]["choices"] == baseline["chat"]["choices"]
+        assert reports[mode]["chat"]["usage"] == baseline["chat"]["usage"]
+    (tmp_path / "speculation.json").write_text(json.dumps(reports, indent=2))

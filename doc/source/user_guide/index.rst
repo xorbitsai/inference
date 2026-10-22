@@ -35,6 +35,7 @@ User Guide
    :caption: Advanced performance
 
    continuous_batching
+   speculative_decoding
    distributed_inference
    vllm_enhancement
    PD separation <pd_separation>

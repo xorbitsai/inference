@@ -7,13 +7,14 @@ import logging
 import sys
 import time
 import uuid
+from copy import deepcopy
 from typing import Any, AsyncGenerator, Dict, Optional, Union, cast
 
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import Completion, CompletionChunk, CompletionUsage
 from ...utils import check_dependency_available
 from ..context_length import ContextLengthExceeded, validate_context_length
-from ..core import LLM, chat_context_var
+from ..core import LLM, chat_context_var, parse_num_speculative_tokens
 from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class TRTLLMModel(LLM, ChatModelMixin):
     allow_batch = True
+    support_draft_model = True
 
     def __init__(self, model_uid, model_family, model_path, model_config=None):
         super().__init__(model_uid, model_family, model_path)
@@ -58,6 +60,7 @@ class TRTLLMModel(LLM, ChatModelMixin):
         from tensorrt_llm import LLM as Engine
 
         config = dict(self._model_config)
+        self._apply_draft_model(config)
         for name in ("address", "shard", "driver_info"):
             config.pop(name, None)
         if config.pop("n_worker", 1) != 1:
@@ -66,6 +69,13 @@ class TRTLLMModel(LLM, ChatModelMixin):
         native_pd = config.pop("_nixl_config", None)
         if cache_config is not None and native_pd is not None:
             raise ValueError("Choose either TRT-LLM native or Xavier transport")
+        if config.get("speculative_config") is not None and (
+            cache_config is not None or native_pd is not None
+        ):
+            raise ValueError(
+                "TRT-LLM speculative decoding requires ordinary replicas "
+                "without Xavier or P/D"
+            )
         self._enable_thinking = config.pop("enable_thinking", True)
         reasoning = config.pop("reasoning_content", False)
         self.prepare_parse_reasoning_content(reasoning, self._enable_thinking)
@@ -91,6 +101,12 @@ class TRTLLMModel(LLM, ChatModelMixin):
             from .compat import prepare_runtime
 
             prepare_runtime(config)
+            if isinstance(config.get("speculative_config"), dict):
+                from tensorrt_llm.llmapi.llm_args import DecodingBaseConfig
+
+                config["speculative_config"] = DecodingBaseConfig.from_dict(
+                    config["speculative_config"]
+                )
             self._engine = Engine(model=self.model_path, **config)
             self._tokenizer = self._engine.tokenizer
             role = (native_pd or cache_config or {}).get("role")
@@ -104,6 +120,27 @@ class TRTLLMModel(LLM, ChatModelMixin):
         except BaseException:
             self.stop()
             raise
+
+    def _apply_draft_model(self, config: dict) -> None:
+        """Consume common launch options before calling TRT's Python API."""
+        draft = config.pop("draft_model_path", None)
+        depth = config.pop("num_speculative_tokens", None)
+        if config.get("speculative_config") is not None:
+            # TRT's config parser pops decoding_type; never mutate launch state.
+            if isinstance(config["speculative_config"], dict):
+                config["speculative_config"] = deepcopy(config["speculative_config"])
+        elif draft:
+            config["speculative_config"] = {
+                "decoding_type": "DraftTarget",
+                "speculative_model": draft,
+                "max_draft_len": parse_num_speculative_tokens(depth) or 3,
+            }
+        elif depth is not None:
+            raise ValueError(
+                "num_speculative_tokens requires draft_model_path or speculative_config"
+            )
+        if config.get("speculative_config") is not None:
+            config.setdefault("disable_overlap_scheduler", True)
 
     def stop(self):
         if self._pd is not None:

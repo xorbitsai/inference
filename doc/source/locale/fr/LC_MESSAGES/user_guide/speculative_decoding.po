@@ -1,0 +1,401 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: fr <LL@li.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/user_guide/speculative_decoding.rst:4
+msgid "Speculative decoding"
+msgstr "Décodage spéculatif"
+
+#: ../../source/user_guide/speculative_decoding.rst:5
+msgid ""
+"Speculative decoding proposes several tokens and lets the target model "
+"verify them together. The available methods and launch options depend on the"
+" engine. Use a compatible drafter and measure latency and throughput for "
+"your workload."
+msgstr ""
+"Le décodage spéculatif propose plusieurs tokens que le modèle cible vérifie "
+"ensemble. Les méthodes et options de lancement dépendent du moteur. Utilisez"
+" un brouillon compatible et mesurez la latence et le débit avec votre charge"
+" de travail."
+
+#: ../../source/user_guide/speculative_decoding.rst:10
+msgid "Paired MTP drafter (Gemma 4)"
+msgstr "Modèle brouillon MTP associé (Gemma 4)"
+
+#: ../../source/user_guide/speculative_decoding.rst:12
+msgid ""
+"Some models ship a small paired drafter checkpoint that predicts several "
+"tokens ahead, which the target model then verifies in one pass. Output is "
+"unchanged, decoding gets faster. Gemma 4 calls this multi-token prediction "
+"(MTP) and publishes a ``*-it-assistant`` drafter for every variant."
+msgstr ""
+"Certains modèles fournissent un petit brouillon associé qui prédit plusieurs"
+" tokens, vérifiés en une passe par la cible. La sortie reste inchangée et le"
+" décodage accélère. Gemma 4 appelle cela prédiction multi-token (MTP) et "
+"publie un brouillon ``*-it-assistant`` pour chaque variante."
+
+#: ../../source/user_guide/speculative_decoding.rst:17
+msgid ""
+"Pass ``--enable_mtp true`` at launch to download the drafter declared by the"
+" model spec and run it alongside the target model:"
+msgstr ""
+"Passez ``--enable_mtp true`` au lancement pour télécharger le brouillon "
+"déclaré et l’exécuter avec la cible :"
+
+#: ../../source/user_guide/speculative_decoding.rst:26
+msgid ""
+"In the Web UI the same options live under *Advanced Configuration → "
+"Speculative Decoding*, which only appears for a format/size that actually "
+"ships a drafter."
+msgstr ""
+"Dans l’interface web, ces options se trouvent sous *Configuration avancée → "
+"Décodage spéculatif*, affiché uniquement pour les formats et tailles avec "
+"brouillon."
+
+#: ../../source/user_guide/speculative_decoding.rst:29
+msgid "Optional parameters:"
+msgstr "Paramètres facultatifs :"
+
+#: ../../source/user_guide/speculative_decoding.rst:31
+msgid ""
+"``--num_speculative_tokens <n>``: how many tokens the drafter proposes per "
+"round, including the bonus token. Left unset, MLX reads it from the drafter,"
+" which runs at the depth it was trained for (``4`` for Gemma 4). Gemma 4 on "
+"llama.cpp, vLLM, and SGLang follows the same model-size recipe: ``2`` for "
+"E2B, ``4`` for E4B and 26B-A4B, and the lower end (``4``) of the recommended"
+" ``4-8`` range for 12B and 31B. Other llama.cpp models keep xllamacpp's own "
+"default."
+msgstr ""
+"``--num_speculative_tokens <n>`` : tokens par tour, token bonus inclus. Sans"
+" valeur, MLX lit la profondeur entraînée du brouillon (``4`` pour Gemma 4). "
+"Gemma 4 sur llama.cpp, vLLM et SGLang utilise ``2`` pour E2B, ``4`` pour E4B"
+" et 26B-A4B, et ``4``, borne basse de ``4-8``, pour 12B et 31B. Les autres "
+"modèles llama.cpp gardent la valeur par défaut de xllamacpp."
+
+#: ../../source/user_guide/speculative_decoding.rst:38
+msgid ""
+"``--draft_quantization <quantization>``: which drafter conversion to use, "
+"when the spec declares more than one — the MLX build of Gemma 4 12B "
+"publishes eight. Defaults to the first declared, which is the least "
+"quantized one: a drafter is small and quantizing it costs acceptance rate, "
+"so pairing a quantized target with an unquantized drafter is the recommended"
+" setup."
+msgstr ""
+"``--draft_quantization <quantization>`` : conversion du brouillon si "
+"plusieurs existent ; Gemma 4 12B pour MLX en publie huit. La première, la "
+"moins quantifiée, est choisie par défaut. Le brouillon est petit et sa "
+"quantification réduit l’acceptation ; il est donc recommandé de garder un "
+"brouillon non quantifié même avec une cible quantifiée."
+
+#: ../../source/user_guide/speculative_decoding.rst:43
+msgid ""
+"``--draft_model_path <path>``: use a local drafter instead of the one "
+"declared by the spec. Implies ``--enable_mtp true``."
+msgstr ""
+"``--draft_model_path <path>`` : utiliser un brouillon local plutôt que celui"
+" déclaré. Implique ``--enable_mtp true``."
+
+#: ../../source/user_guide/speculative_decoding.rst:46
+msgid ""
+"For these paired Gemma 4 drafters, the family and size must match the target"
+" — the drafter shares the target's KV cache, so a mismatched checkpoint is "
+"rejected rather than silently degrading."
+msgstr ""
+"Ces brouillons associés à Gemma 4 doivent correspondre à la famille et à la "
+"taille de la cible, car ils partagent son cache KV. Un checkpoint "
+"incompatible est rejeté plutôt que de dégrader silencieusement les "
+"résultats."
+
+#: ../../source/user_guide/speculative_decoding.rst:50
+msgid "Gemma 4 engine support:"
+msgstr "Prise en charge de Gemma 4 par moteur :"
+
+#: ../../source/user_guide/speculative_decoding.rst:56
+msgid "Engine"
+msgstr "Moteur"
+
+#: ../../source/user_guide/speculative_decoding.rst:57
+msgid "Requirement"
+msgstr "Prérequis"
+
+#: ../../source/user_guide/speculative_decoding.rst:58
+msgid "Notes"
+msgstr "Notes"
+
+#: ../../source/user_guide/speculative_decoding.rst:59
+msgid ":ref:`vLLM <vllm_backend>`"
+msgstr ":ref:`vLLM <vllm_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:60
+msgid "``vllm>=0.22.0``, ``transformers>=5.8.0``"
+msgstr "``vllm>=0.22.0``, ``transformers>=5.8.0``"
+
+#: ../../source/user_guide/speculative_decoding.rst:61
+msgid ""
+"Translated into ``speculative_config`` with ``method: mtp``. An explicitly "
+"provided ``speculative_config`` is left untouched. Older vLLM treats the "
+"drafter as a generic draft model, while older Transformers does not "
+"recognize ``gemma4_assistant``; either case is rejected before engine "
+"initialization. Virtual-environment launches also synchronize ``flashinfer-"
+"cubin`` with ``flashinfer-python`` before starting vLLM, repairing stale "
+"environments that contain mismatched FlashInfer packages."
+msgstr ""
+"Traduit en ``speculative_config`` avec ``method: mtp``. Une "
+"``speculative_config`` explicite reste intacte. Les anciennes versions de "
+"vLLM traitent le brouillon comme un modèle générique et celles de "
+"Transformers ne reconnaissent pas ``gemma4_assistant`` ; ces deux cas sont "
+"rejetés avant l’initialisation. Les environnements virtuels synchronisent "
+"aussi ``flashinfer-cubin`` avec ``flashinfer-python`` avant de lancer vLLM, "
+"réparant les paquets FlashInfer incompatibles."
+
+#: ../../source/user_guide/speculative_decoding.rst:69
+msgid ":ref:`SGLang <sglang_backend>`"
+msgstr ":ref:`SGLang <sglang_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:70
+msgid "``sglang==0.5.13.post1``, ``transformers==5.8.1``"
+msgstr "``sglang==0.5.13.post1``, ``transformers==5.8.1``"
+
+#: ../../source/user_guide/speculative_decoding.rst:71
+msgid ""
+"Translated into ``--speculative-algorithm NEXTN`` with the matching "
+"``speculative_num_steps`` / ``speculative_num_draft_tokens``. An explicitly "
+"provided ``speculative_algorithm`` is left untouched."
+msgstr ""
+"Traduit en ``--speculative-algorithm NEXTN`` avec les valeurs "
+"correspondantes de ``speculative_num_steps`` / "
+"``speculative_num_draft_tokens``. Un ``speculative_algorithm`` explicite "
+"reste intact."
+
+#: ../../source/user_guide/speculative_decoding.rst:74
+msgid ":ref:`MLX <mlx_backend>`"
+msgstr ":ref:`MLX <mlx_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:75
+msgid "``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)"
+msgstr "``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)"
+
+#: ../../source/user_guide/speculative_decoding.rst:76
+msgid ""
+"Served by the MLX vision engine, the one that runs multimodal models such as"
+" Gemma 4. The drafter is validated against the target when the model loads."
+msgstr ""
+"Exécuté par le moteur de vision MLX pour les modèles multimodaux comme Gemma"
+" 4. Le brouillon est validé par rapport à la cible au chargement."
+
+#: ../../source/user_guide/speculative_decoding.rst:79
+msgid ":ref:`llama.cpp <llama_cpp_backend>`"
+msgstr ":ref:`llama.cpp <llama_cpp_backend>`"
+
+#: ../../source/user_guide/speculative_decoding.rst:80
+msgid "``xllamacpp>=2026.6.9713``"
+msgstr "``xllamacpp>=2026.6.9713``"
+
+#: ../../source/user_guide/speculative_decoding.rst:81
+msgid ""
+"Translated into the ``draft-mtp`` speculative implementation. The drafter is"
+" a single gguf published inside the target's own repository, so its "
+"quantizations are its own (``BF16``, ``F16``, ``Q8_0`` for Gemma 4) and "
+"independent of the target's. Earlier llama.cpp builds do not know the "
+"``gemma4-assistant`` architecture and cannot load it."
+msgstr ""
+"Traduit en ``draft-mtp``. Le brouillon est un unique gguf du dépôt cible ; "
+"ses quantifications (``BF16``, ``F16``, ``Q8_0`` pour Gemma 4) sont "
+"indépendantes de celles de la cible. Les anciennes versions de llama.cpp ne "
+"reconnaissent pas ``gemma4-assistant`` et ne peuvent pas le charger."
+
+#: ../../source/user_guide/speculative_decoding.rst:87
+msgid ""
+"Not supported by the Transformers engine: it runs its own continuous-"
+"batching loop rather than ``generate()``, so there is nowhere to attach a "
+"drafter."
+msgstr ""
+"Le moteur Transformers ne le prend pas en charge : sa propre boucle de "
+"batching continu remplace ``generate()``, sans point de raccordement pour un"
+" brouillon."
+
+#: ../../source/user_guide/speculative_decoding.rst:91
+msgid "TRT-LLM"
+msgstr "TRT-LLM"
+
+#: ../../source/user_guide/speculative_decoding.rst:95
+msgid ""
+"Ordinary TRT-LLM replicas support NGram and Draft/Target speculative "
+"decoding with ``tensorrt-llm==1.2.1`` on Linux/CUDA. The adapter supports "
+"BF16 dense Qwen3 text models with TP=PP=CP=1. Xavier shared caching, native "
+"P/D and Xavier P/D do not support speculation through this adapter; see "
+":ref:`user_guide_pd_separation` for their supported configurations."
+msgstr ""
+"Les réplicas ordinaires TRT-LLM prennent en charge NGram et Draft/Target "
+"avec ``tensorrt-llm==1.2.1`` sous Linux/CUDA. L’adaptateur prend en charge "
+"les modèles de texte Qwen3 denses en BF16 avec TP=PP=CP=1. Le cache partagé "
+"Xavier, P/D natif et P/D Xavier ne prennent pas en charge la spéculation via"
+" cet adaptateur ; consultez :ref:`user_guide_pd_separation` pour leurs "
+"configurations."
+
+#: ../../source/user_guide/speculative_decoding.rst:101
+msgid ""
+"NGram reuses token patterns from the prompt and generated text without "
+"loading a draft model. For a workload with repeated text, pass the native "
+"``speculative_config`` at launch:"
+msgstr ""
+"NGram réutilise les motifs de tokens du prompt et du texte généré sans "
+"charger de modèle brouillon. Pour du texte répétitif, transmettez la "
+"configuration native ``speculative_config`` au lancement :"
+
+#: ../../source/user_guide/speculative_decoding.rst:131
+msgid ""
+"Draft/Target loads a separate draft model. Provide its local checkpoint path"
+" with ``draft_model_path``; ``num_speculative_tokens`` maps to TRT's "
+"``max_draft_len`` and defaults to ``3``. This counts draft tokens and "
+"excludes the target's bonus token. The draft and target must have compatible"
+" tokenizers and vocabularies, and both must be supported by TRT-LLM 1.2.1. "
+"Use a smaller dense Qwen3 checkpoint for the draft when serving a larger "
+"dense Qwen3 target. This mode does not require the Gemma-style paired "
+"assistant or a shared KV cache."
+msgstr ""
+"Draft/Target charge un modèle brouillon distinct. Indiquez son checkpoint "
+"local avec ``draft_model_path`` ; ``num_speculative_tokens`` correspond au "
+"``max_draft_len`` de TRT et vaut ``3`` par défaut. Ce nombre exclut le token"
+" bonus de la cible. Les deux modèles doivent avoir des tokenizers et "
+"vocabulaires compatibles et être pris en charge par TRT-LLM 1.2.1. Utilisez "
+"un checkpoint Qwen3 dense plus petit comme brouillon d’une cible Qwen3 dense"
+" plus grande. Ce mode ne nécessite ni assistant associé de type Gemma ni "
+"cache KV partagé."
+
+#: ../../source/user_guide/speculative_decoding.rst:148
+msgid ""
+"The examples require a compatible TRT-LLM environment. Change the model "
+"sizes and draft path to checkpoints available on your worker. A draft "
+"consumes additional GPU memory and compute, so it may reduce throughput at "
+"high load."
+msgstr ""
+"Les exemples nécessitent un environnement TRT-LLM compatible. Adaptez les "
+"tailles et le chemin du brouillon aux checkpoints de votre worker. Le "
+"brouillon consomme davantage de mémoire GPU et de calcul et peut réduire le "
+"débit sous forte charge."
+
+#: ../../source/user_guide/speculative_decoding.rst:152
+msgid ""
+"An explicit ``speculative_config`` takes precedence over "
+"``draft_model_path`` and ``num_speculative_tokens``. The adapter defaults "
+"``disable_overlap_scheduler=True`` when speculation is configured. Use "
+"native TRT options only with combinations supported by the pinned runtime. "
+"Other upstream methods, such as EAGLE3 and model-specific MTP, are not "
+"validated by this Qwen3 adapter. ``enable_mtp=True`` only downloads a "
+"drafter declared in the Xinference model spec; it does not enable MTP for an"
+" arbitrary Qwen3 checkpoint."
+msgstr ""
+"Une ``speculative_config`` explicite prévaut sur ``draft_model_path`` et "
+"``num_speculative_tokens``. En mode spéculatif, l’adaptateur définit par "
+"défaut ``disable_overlap_scheduler=True``. Utilisez les options natives TRT "
+"uniquement avec les combinaisons prises en charge par la version fixée. Cet "
+"adaptateur Qwen3 n’a pas validé les autres méthodes upstream telles "
+"qu’EAGLE3 et le MTP propre à certains modèles. ``enable_mtp=True`` "
+"télécharge seulement le brouillon déclaré dans la spécification Xinference "
+"et n’active pas le MTP pour un checkpoint Qwen3 quelconque."
+
+#: ../../source/user_guide/speculative_decoding.rst:161
+msgid "When it pays off"
+msgstr "Quand est-ce rentable ?"
+
+#: ../../source/user_guide/speculative_decoding.rst:162
+msgid ""
+"Speculation is only worth it when a drafting step is cheap *relative to* a "
+"target decoding step. The drafter is a small dense model whose cost does not"
+" change with the target, so the ratio is what decides the outcome — and a "
+"mixture-of-experts target can land on the wrong side of it, because only its"
+" activated slice is read per token:"
+msgstr ""
+"La spéculation est utile seulement si un pas du brouillon est peu coûteux "
+"*par rapport à* un pas de la cible. Le petit modèle dense brouillon a un "
+"coût fixe, donc le rapport décide du résultat. Une cible à mélange d’experts"
+" peut être défavorable, car seule sa partie activée est lue par token :"
+
+#: ../../source/user_guide/speculative_decoding.rst:172
+msgid "gemma-4 MLX, 4bit, M5 Pro"
+msgstr "gemma-4 MLX, 4bit, M5 Pro"
+
+#: ../../source/user_guide/speculative_decoding.rst:173
+msgid "Without a drafter"
+msgstr "Sans brouillon"
+
+#: ../../source/user_guide/speculative_decoding.rst:174
+msgid "With MTP"
+msgstr "Avec MTP"
+
+#: ../../source/user_guide/speculative_decoding.rst:175
+msgid "Accepted per round"
+msgstr "Acceptés par tour"
+
+#: ../../source/user_guide/speculative_decoding.rst:176
+msgid "31B (dense, 18.4 GB read per token)"
+msgstr "31B (dense, 18,4 Go lus par token)"
+
+#: ../../source/user_guide/speculative_decoding.rst:177
+msgid "14.9 tok/s"
+msgstr "14.9 tok/s"
+
+#: ../../source/user_guide/speculative_decoding.rst:178
+msgid "**31.0 tok/s** (2.1x)"
+msgstr "**31.0 tok/s** (2.1x)"
+
+#: ../../source/user_guide/speculative_decoding.rst:179
+msgid "2.08 of 4"
+msgstr "2,08 sur 4"
+
+#: ../../source/user_guide/speculative_decoding.rst:180
+msgid "26B-A4B (MoE, ~2.2 GB read per token)"
+msgstr "26B-A4B (MoE, ~2,2 Go lus par token)"
+
+#: ../../source/user_guide/speculative_decoding.rst:181
+msgid "73.2 tok/s"
+msgstr "73.2 tok/s"
+
+#: ../../source/user_guide/speculative_decoding.rst:182
+msgid "65.9 tok/s (0.9x)"
+msgstr "65.9 tok/s (0.9x)"
+
+#: ../../source/user_guide/speculative_decoding.rst:183
+msgid "1.40 of 4"
+msgstr "1,40 sur 4"
+
+#: ../../source/user_guide/speculative_decoding.rst:185
+msgid ""
+"The 0.83 GB drafter costs about 5% of a 31B decoding step but 39% of a "
+"26B-A4B one, so on the MoE the three drafting steps of a round already "
+"exceed one plain decoding step — and the round has to win that back from a "
+"lower acceptance rate. The MoE is still the faster model here in absolute "
+"terms; it simply has no headroom left for speculation."
+msgstr ""
+"Le brouillon de 0,83 Go coûte environ 5 % d’un pas de 31B, mais 39 % de "
+"celui de 26B-A4B. Sur MoE, trois pas du brouillon dépassent déjà un pas "
+"normal, à amortir avec une acceptation plus faible. MoE reste plus rapide en"
+" valeur absolue, mais n’a plus de marge pour la spéculation."
+
+#: ../../source/user_guide/speculative_decoding.rst:191
+msgid ""
+"So measure before leaving it on, and note that the verification step itself "
+"is not the problem: a four-token forward costs only ~40% more than a single-"
+"token one on either model."
+msgstr ""
+"Mesurez avant de l’activer durablement. La vérification n’est pas le "
+"problème : un forward de quatre tokens coûte seulement environ 40 % de plus "
+"qu’un forward d’un token sur les deux modèles."

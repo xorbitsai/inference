@@ -874,3 +874,12 @@ msgstr ""
 "はゼロのままです。ストリーミング、キャンセル、切断後のクリーンアップに対応します。上記の TRT と MLX "
 "のサンプリング制限が適用されます。ネットワークとデバイス間コピーが遅延を加えるため、decode 側ハードウェアでの単独実行と TTFT "
 "を比較してください。"
+
+#: ../../source/user_guide/pd_separation.rst:229
+msgid ""
+"Speculative decoding is supported on ordinary TRT-LLM replicas; it cannot be"
+" combined with P/D in this adapter. See :ref:`speculative_decoding` for "
+"launch options."
+msgstr ""
+"投機的デコードは通常の TRT-LLM レプリカで対応しますが、このアダプターでは P/D と併用できません。起動オプションは "
+":ref:`speculative_decoding` を参照してください。"

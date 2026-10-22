@@ -837,3 +837,11 @@ msgstr ""
 "FP16。``host_bytes`` 和 ``imported_tokens`` 記錄完成的匯入；此傳輸路徑的 ``gpu_bytes`` "
 "保持為零。支援串流輸出、取消和中斷連線後的清理。上文 TRT 和 MLX 的取樣限制仍然適用。請與 decode 所在硬體的獨立執行結果比較 "
 "TTFT，因為網路和裝置複製會增加延遲。"
+
+#: ../../source/user_guide/pd_separation.rst:229
+msgid ""
+"Speculative decoding is supported on ordinary TRT-LLM replicas; it cannot be"
+" combined with P/D in this adapter. See :ref:`speculative_decoding` for "
+"launch options."
+msgstr ""
+"一般 TRT-LLM 副本支援投機解碼，但此適配器尚不能將其與 P/D 結合。啟動選項請參閱 :ref:`speculative_decoding`。"

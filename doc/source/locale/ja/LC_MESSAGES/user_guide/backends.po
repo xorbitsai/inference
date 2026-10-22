@@ -625,17 +625,6 @@ msgstr ""
 "を介して別のレプリカで一致するプレフィックスを復元します。不完全なページとプロンプトの最後のトークンはローカルで計算します。共有キャッシュには容量制限があり、LRU"
 " で退避します。現在の転送は同期 CPU ステージングを使用します。"
 
-#: ../../source/user_guide/backends.rst:371
-msgid ""
-"Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, "
-"and disabled chunked prefill and overlap scheduling. Quantization, hybrid "
-"attention, multimodal input, LoRA, speculative decoding, ``cache_salt`` and "
-"cross-engine P/D are not supported."
-msgstr ""
-"共有キャッシュと同一エンジンの P/D には TP=PP=CP=1、BF16 の重みと KV、およびチャンク化 prefill "
-"とオーバーラップスケジューリングの無効化が必要です。量子化、ハイブリッド注意機構、マルチモーダル入力、LoRA、投機的デコード、``cache_salt``、エンジン間"
-" P/D は未対応です。"
-
 #: ../../source/user_guide/backends.rst:370
 msgid ""
 "The shared cache actor reports ``imported_pages`` after copies into the "
@@ -662,3 +651,23 @@ msgstr ""
 "GPU 間の KV ページを直接転送します。TRT ネイティブの context/generation プロトコルと NIXL 転送には "
 "``transfer_backend_type=\"nixl\"`` を設定し、``enable_xavier=True`` "
 "は併用しないでください。両経路とも同じ Xinference API で生成、チャット、ストリーミング、キャンセルをサポートします。"
+
+#: ../../source/user_guide/backends.rst:14
+msgid ""
+"For speculative decoding methods and launch options, see "
+":ref:`speculative_decoding`."
+msgstr "投機的デコードの方式と起動オプションは :ref:`speculative_decoding` を参照してください。"
+
+#: ../../source/user_guide/backends.rst:263
+msgid ""
+"Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, "
+"and disabled chunked prefill and overlap scheduling. Quantization, hybrid "
+"attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` "
+"are not supported in these configurations. Ordinary replicas support "
+":ref:`speculative_decoding` with NGram or Draft/Target. For supported cross-"
+"engine P/D combinations, see :ref:`user_guide_pd_separation`."
+msgstr ""
+"共有キャッシュと同一エンジン P/D には TP=PP=CP=1、BF16 の重みと "
+"KV、およびチャンク化プリフィルとオーバーラップスケジューリングの無効化が必要です。これらの構成では量子化、ハイブリッド注意、マルチモーダル入力、LoRA、投機的デコード、``cache_salt``"
+" は未対応です。通常のレプリカは NGram または Draft/Target による :ref:`speculative_decoding` "
+"に対応します。対応する異種エンジン P/D は :ref:`user_guide_pd_separation` を参照してください。"

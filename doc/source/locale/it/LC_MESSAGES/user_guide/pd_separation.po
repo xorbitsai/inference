@@ -981,3 +981,13 @@ msgstr ""
 "valide le restrizioni di campionamento TRT e MLX sopra indicate. Confrontare"
 " TTFT con decode autonomo sul proprio hardware, perché rete e copie tra "
 "dispositivi aggiungono latenza."
+
+#: ../../source/user_guide/pd_separation.rst:229
+msgid ""
+"Speculative decoding is supported on ordinary TRT-LLM replicas; it cannot be"
+" combined with P/D in this adapter. See :ref:`speculative_decoding` for "
+"launch options."
+msgstr ""
+"La decodifica speculativa è supportata sulle repliche ordinarie TRT-LLM, ma "
+"questo adattatore non consente di combinarla con P/D. Per le opzioni di "
+"avvio vedere :ref:`speculative_decoding`."

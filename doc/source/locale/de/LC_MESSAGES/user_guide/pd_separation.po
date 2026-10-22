@@ -983,3 +983,13 @@ msgstr ""
 "unterstützt. Die obigen TRT- und MLX-Sampling-Einschränkungen gelten "
 "weiterhin. Vergleichen Sie TTFT mit eigenständigem Decode auf dessen "
 "Hardware, da Netzwerk und Gerätekopien Latenz hinzufügen."
+
+#: ../../source/user_guide/pd_separation.rst:229
+msgid ""
+"Speculative decoding is supported on ordinary TRT-LLM replicas; it cannot be"
+" combined with P/D in this adapter. See :ref:`speculative_decoding` for "
+"launch options."
+msgstr ""
+"Spekulatives Dekodieren wird auf normalen TRT-LLM-Replikaten unterstützt, "
+"lässt sich in diesem Adapter jedoch nicht mit P/D kombinieren. Startoptionen"
+" stehen unter :ref:`speculative_decoding`."

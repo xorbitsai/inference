@@ -866,3 +866,12 @@ msgstr ""
 "없이 원시 바이트로 전송됩니다. ``host_bytes`` 와 ``imported_tokens`` 는 완료된 가져오기를 기록하고 이 "
 "전송의 ``gpu_bytes`` 는 0을 유지합니다. 스트리밍, 취소 및 연결 종료 후 정리를 지원합니다. 위의 TRT 및 MLX 샘플링"
 " 제한이 적용됩니다. 네트워크와 장치 복사가 지연을 추가하므로 decode 하드웨어에서 단독 실행한 TTFT와 비교하세요."
+
+#: ../../source/user_guide/pd_separation.rst:229
+msgid ""
+"Speculative decoding is supported on ordinary TRT-LLM replicas; it cannot be"
+" combined with P/D in this adapter. See :ref:`speculative_decoding` for "
+"launch options."
+msgstr ""
+"추측 디코딩은 일반 TRT-LLM 복제본에서 지원하지만 이 어댑터에서는 P/D와 함께 사용할 수 없습니다. 실행 옵션은 "
+":ref:`speculative_decoding` 을 참조하세요."

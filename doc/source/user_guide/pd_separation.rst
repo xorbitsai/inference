@@ -226,6 +226,8 @@ TRT-LLM
 
 Use the same ``replica_config`` with ``model_engine="TRT-LLM"``, ``model_name="qwen3"``, ``model_size_in_billions="0_6"``, ``model_format="pytorch"`` and ``quantization="none"`` through the Python clients, REST API or CLI. Both roles require Linux/CUDA, TensorRT-LLM ``1.2.1``, BF16 dense Qwen3 weights and KV, one worker and one GPU per replica (TP=PP=CP=1). Chunked prefill and overlap scheduling must remain disabled. Native NIXL with different engines, quantization, multimodal input, LoRA, speculative decoding and ``cache_salt`` are unsupported.
 
+Speculative decoding is supported on ordinary TRT-LLM replicas; it cannot be combined with P/D in this adapter. See :ref:`speculative_decoding` for launch options.
+
 .. _user_guide_pd_trt_native:
 
 Native NIXL

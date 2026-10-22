@@ -77,6 +77,17 @@ class Engine:
 
 @pytest.fixture
 def model(monkeypatch):
+    def speculative_config(data):
+        decoding_type = data.pop("decoding_type")
+        return SimpleNamespace(decoding_type=decoding_type, **data)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "tensorrt_llm.llmapi.llm_args",
+        SimpleNamespace(
+            DecodingBaseConfig=SimpleNamespace(from_dict=speculative_config)
+        ),
+    )
     monkeypatch.setattr(
         "xinference.model.llm.trt_llm.compat.prepare_runtime",
         lambda config: None,
@@ -273,6 +284,123 @@ def test_engine_construction_failure_clears_state(monkeypatch, model):
     with pytest.raises(RuntimeError, match="load failed"):
         failed.load()
     assert failed._engine is None and not failed._requests
+
+
+@pytest.mark.parametrize("depth,expected", [(None, 3), ("2", 2), (5, 5)])
+def test_draft_target_launch_options(model, depth, expected):
+    model._model_config.update(draft_model_path="/draft", num_speculative_tokens=depth)
+    model.stop()
+    model.load()
+    options = model._engine.kwargs
+    assert vars(options["speculative_config"]) == {
+        "decoding_type": "DraftTarget",
+        "speculative_model": "/draft",
+        "max_draft_len": expected,
+    }
+    assert options["disable_overlap_scheduler"] is True
+    assert "draft_model_path" not in options
+    assert "num_speculative_tokens" not in options
+
+
+@pytest.mark.parametrize("depth", [0, -1, "invalid", 1.5])
+def test_invalid_draft_depth_fails_before_engine_start(model, monkeypatch, depth):
+    model.stop()
+    engine = Mock()
+    monkeypatch.setattr(sys.modules["tensorrt_llm"], "LLM", engine)
+    model._model_config.update(draft_model_path="/draft", num_speculative_tokens=depth)
+    with pytest.raises(ValueError, match="positive integer"):
+        model.load()
+    engine.assert_not_called()
+
+
+def test_explicit_speculation_wins_and_engine_cannot_mutate_launch_config(
+    model, monkeypatch
+):
+    model.stop()
+    native = {
+        "decoding_type": "NGram",
+        "max_draft_len": 3,
+        "max_matching_ngram_size": 4,
+        "is_public_pool": False,
+    }
+    model._model_config.update(
+        speculative_config=native,
+        draft_model_path="/ignored",
+        num_speculative_tokens="ignored",
+        disable_overlap_scheduler=False,
+    )
+
+    def create(**kwargs):
+        assert vars(kwargs["speculative_config"]) == native
+        assert kwargs["disable_overlap_scheduler"] is False
+        assert "draft_model_path" not in kwargs
+        assert "num_speculative_tokens" not in kwargs
+        return Engine(**kwargs)
+
+    monkeypatch.setattr(sys.modules["tensorrt_llm"], "LLM", create)
+    model.load()
+    assert native["decoding_type"] == "NGram"
+    model.stop()
+    model.load()  # Reusing launch state must still work.
+
+
+@pytest.mark.parametrize("transport", ["_xavier_cache_config", "_nixl_config"])
+@pytest.mark.parametrize(
+    "speculation",
+    [
+        {"draft_model_path": "/draft"},
+        {"speculative_config": {"decoding_type": "NGram", "max_draft_len": 3}},
+    ],
+)
+def test_speculation_cannot_bypass_cache_and_pd_guards(
+    model, monkeypatch, transport, speculation
+):
+    model.stop()
+    engine = Mock()
+    monkeypatch.setattr(sys.modules["tensorrt_llm"], "LLM", engine)
+    model._model_config.update(speculation)
+    model._model_config[transport] = {"role": "decode"}
+    with pytest.raises(ValueError, match="requires ordinary replicas"):
+        model.load()
+    engine.assert_not_called()
+
+
+def test_depth_without_drafter_is_rejected(model):
+    model.stop()
+    model._model_config["num_speculative_tokens"] = 3
+    with pytest.raises(ValueError, match="requires draft_model_path"):
+        model.load()
+
+
+def test_factory_accepts_local_trt_drafter(model, monkeypatch):
+    from ...core import create_llm_model_instance
+
+    monkeypatch.setattr(
+        "xinference.model.llm.llm_family.check_engine_by_spec_parameters",
+        lambda *args: TRTLLMModel,
+    )
+    launched = create_llm_model_instance(
+        "draft-target",
+        "qwen3",
+        "TRT-LLM",
+        model_size_in_billions="0_6",
+        model_format="pytorch",
+        quantization="none",
+        model_path="/target",
+        enable_virtual_env=False,
+        context_length=1024,
+        draft_model_path="/draft",
+        num_speculative_tokens="2",
+    )
+    try:
+        launched.load()
+        config = launched._engine.kwargs
+        assert config["speculative_config"].speculative_model == "/draft"
+        assert config["speculative_config"].max_draft_len == 2
+        assert config["max_seq_len"] == 1024
+        assert "enable_mtp" not in config
+    finally:
+        launched.stop()
 
 
 async def collect_chat(model, config):

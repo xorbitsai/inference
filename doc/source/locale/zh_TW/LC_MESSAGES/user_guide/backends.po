@@ -612,16 +612,6 @@ msgstr ""
 "Xavier 發布完整的 64-token BF16 KV 頁，透過 actor RPC 在另一副本還原相符的前綴。不完整的頁與提示詞的最後一個 "
 "token 在本機計算。共享快取設有容量上限並採用 LRU 淘汰；目前傳輸使用同步 CPU 暫存。"
 
-#: ../../source/user_guide/backends.rst:371
-msgid ""
-"Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, "
-"and disabled chunked prefill and overlap scheduling. Quantization, hybrid "
-"attention, multimodal input, LoRA, speculative decoding, ``cache_salt`` and "
-"cross-engine P/D are not supported."
-msgstr ""
-"共享快取和同引擎 P/D 要求 TP=PP=CP=1、BF16 權重與 KV，並停用分塊 prefill "
-"和重疊排程。不支援量化、混合注意力、多模態輸入、LoRA、推測解碼、``cache_salt`` 和跨引擎 P/D。"
-
 #: ../../source/user_guide/backends.rst:370
 msgid ""
 "The shared cache actor reports ``imported_pages`` after copies into the "
@@ -648,3 +638,23 @@ msgstr ""
 "NIXL 在 GPU 之間直接傳輸 KV 頁。設定 ``transfer_backend_type=\"nixl\"`` 可使用 TRT 原生 "
 "context/generation 協定和 NIXL 傳輸；不要同時設定 ``enable_xavier=True``。兩條路徑皆透過相同的 "
 "Xinference API 支援生成、聊天、串流回應和取消。"
+
+#: ../../source/user_guide/backends.rst:14
+msgid ""
+"For speculative decoding methods and launch options, see "
+":ref:`speculative_decoding`."
+msgstr "投機解碼的方法和啟動選項請參閱 :ref:`speculative_decoding`。"
+
+#: ../../source/user_guide/backends.rst:263
+msgid ""
+"Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, "
+"and disabled chunked prefill and overlap scheduling. Quantization, hybrid "
+"attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` "
+"are not supported in these configurations. Ordinary replicas support "
+":ref:`speculative_decoding` with NGram or Draft/Target. For supported cross-"
+"engine P/D combinations, see :ref:`user_guide_pd_separation`."
+msgstr ""
+"共享快取和同引擎 P/D 要求 TP=PP=CP=1、BF16 權重與 "
+"KV，並停用分塊預填充和重疊排程。這些設定不支援量化、混合注意力、多模態輸入、LoRA、投機解碼和 ``cache_salt``。一般副本支援 "
+"NGram 或 Draft/Target :ref:`speculative_decoding`。支援的跨引擎 P/D 組合請參閱 "
+":ref:`user_guide_pd_separation`。"
