@@ -106,18 +106,6 @@ msgstr ""
 "interpretador atual. Essa operação não instala pacotes e os processos de modelo preservados "
 "continuam usando o ambiente e o código originais."
 
-#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:31
-msgid ""
-"For an unmanaged Worker started without a service process host, you can "
-"start its replacement explicitly with a different actor port and a free "
-"metrics exporter port. Managed Workers use the relaunch API so retained "
-"processes remain in the same service or container:"
-msgstr ""
-"Para um Worker não gerenciado iniciado sem processo hospedeiro de serviço, é"
-" possível iniciar explicitamente o substituto com outra porta de ator e uma "
-"porta livre para métricas. Workers gerenciados usam a API de reinicialização"
-" para manter os processos retidos no mesmo serviço ou contêiner:"
-
 #: ../../source/user_guide/worker_handoff.rst
 msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
 msgstr "O Supervisor também salva as reservas de propriedade em ``XINFERENCE_HOME/worker-handoffs.json`` para retomar uma transferência interrompida após sua reinicialização. Os Workers substitutos continuam atualizando o arquivo de recuperação do endereço original do Worker, incluindo os modelos iniciados após o relançamento."
@@ -179,3 +167,7 @@ msgstr ""
 " ou monte ambientes Python preparados dentro do contêiner em execução. "
 "Mantenha-o ativo durante as atualizações: substituir ou parar o contêiner "
 "encerra os processos do modelo e não preserva suas alocações GPU."
+
+#: ../source/user_guide/worker_handoff.rst:31
+msgid "The CLI reports an error with guidance when ``--replace-worker`` would bypass the service host. Use the relaunch API for CLI-managed Workers and for unmanaged Workers started through the Python deployment API."
+msgstr "A CLI apresenta um erro com orientações quando ``--replace-worker`` contornaria o processo host do serviço. Use a API de reinicialização para Workers gerenciados pela CLI e para Workers não gerenciados iniciados pela API de implantação Python."

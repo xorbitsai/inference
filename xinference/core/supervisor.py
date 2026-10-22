@@ -5056,7 +5056,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         try:
             observed = await worker.get_model_reload_status(replica_uid)
         except Exception:
-            if status["status"] in ("idle", "reloading"):
+            if status["status"] == "reloading":
                 raise
         else:
             if observed and (
@@ -5065,6 +5065,26 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             ):
                 status.update(observed)
         return status
+
+    async def restore_model_reload_config(
+        self, replica_uid: str, config: Dict[str, Any], observed: Dict[str, Any]
+    ) -> None:
+        model_uid, _ = parse_replica_model_uid(replica_uid)
+        status = self._model_reload_status.get(model_uid, {})
+        if status.get("operation_id") not in (None, observed.get("operation_id")):
+            return
+        async with self._autostart_store_lock:
+            if self._model_reload_status.get(model_uid, {}).get("operation_id") not in (
+                None,
+                observed.get("operation_id"),
+            ):
+                return
+            await asyncio.to_thread(
+                self._launch_history_store.update_autostart_launch_config,
+                model_uid,
+                config,
+            )
+            status.update(observed)
 
     async def reload_model(
         self,
@@ -5121,18 +5141,19 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         )
                     ) is True
                     async with self._autostart_store_lock:
-                        await asyncio.to_thread(
-                            self._launch_history_store.update_autostart_launch_config,
-                            model_uid,
-                            {
-                                **config,
-                                **(
-                                    {"model_python_executable": python_executable}
-                                    if python_executable is not None
-                                    else {}
-                                ),
-                            },
-                        )
+                        if not status.get("restored"):
+                            await asyncio.to_thread(
+                                self._launch_history_store.update_autostart_launch_config,
+                                model_uid,
+                                {
+                                    **config,
+                                    **(
+                                        {"model_python_executable": python_executable}
+                                        if python_executable is not None
+                                        else {}
+                                    ),
+                                },
+                            )
                 except asyncio.CancelledError:
                     status.update(status="cancelled", stage="cancelled")
                     raise
@@ -5155,7 +5176,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         pass
                     logger.exception("Reload of %s failed", model_uid)
                 else:
-                    status.update(status="ready", stage="ready")
+                    if not status.get("restored"):
+                        status.update(status="ready", stage="ready")
                 finally:
                     status["finished_at"] = time.time()
                     if (

@@ -305,6 +305,8 @@ class WorkerHandoffMixin:
             try:
                 supervisor = await self._handoff_supervisor()
                 source_host = self.worker_process_host()
+                target_ref = None
+                generation_checked = False
                 if source_host:
                     target_ref = await xo.actor_ref(
                         address=target, uid=self.default_uid()
@@ -353,10 +355,14 @@ class WorkerHandoffMixin:
                         raise ValueError(
                             "Model process does not support this worker handoff protocol"
                         )
-                    if binding.get("generation_routing") == 1:
-                        target_ref = await xo.actor_ref(
-                            address=target, uid=self.default_uid()
-                        )
+                    if (
+                        binding.get("generation_routing") == 1
+                        and not generation_checked
+                    ):
+                        if target_ref is None:
+                            target_ref = await xo.actor_ref(
+                                address=target, uid=self.default_uid()
+                            )
                         try:
                             if (
                                 await xo.wait_for(
@@ -371,6 +377,7 @@ class WorkerHandoffMixin:
                             raise ValueError(
                                 "Replacement Worker does not support upgraded model processes"
                             ) from error
+                        generation_checked = True
                 snapshot = WorkerSnapshot(
                     PROTOCOL_VERSION,
                     ticket,

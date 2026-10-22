@@ -95,17 +95,6 @@ msgstr ""
 "任意のリクエストフィールド ``python_executable`` では、Worker マシン上の Python "
 "実行ファイルの絶対パスを指定できます。別途インストールした新しい環境などを選択でき、省略時は現在のインタープリターを使用します。この操作はパッケージをインストールしません。保持されるモデルプロセスは元の環境とコードを使用し続けます。"
 
-#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:31
-msgid ""
-"For an unmanaged Worker started without a service process host, you can "
-"start its replacement explicitly with a different actor port and a free "
-"metrics exporter port. Managed Workers use the relaunch API so retained "
-"processes remain in the same service or container:"
-msgstr ""
-"サービスホストを使用せず起動した非管理 Worker は、別の actor "
-"ポートと空きメトリクス公開ポートを指定して置換先を明示的に起動できます。管理対象 Worker は、保持プロセスを同じサービスまたはコンテナ内に残すため"
-" relaunch API を使用します。"
-
 #: ../../source/user_guide/worker_handoff.rst
 msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
 msgstr "Supervisor は所有権の予約も ``XINFERENCE_HOME/worker-handoffs.json`` に保存するため、Supervisor の再起動後に中断された引き継ぎを再開できます。置き換え先の Worker は元の Worker アドレスに対応する復旧ファイルを更新し続け、再起動後に起動したモデルも記録します。"
@@ -160,3 +149,7 @@ msgstr ""
 "Docker では同じホストコマンドをコンテナの起動コマンドに使用します。実行中コンテナ内に準備済み Python "
 "環境をインストールまたはマウントしてください。更新中はコンテナを動作させたままにします。コンテナを置換または停止するとモデルプロセスが終了し、その "
 "GPU 割り当てを維持できません。"
+
+#: ../source/user_guide/worker_handoff.rst:31
+msgid "The CLI reports an error with guidance when ``--replace-worker`` would bypass the service host. Use the relaunch API for CLI-managed Workers and for unmanaged Workers started through the Python deployment API."
+msgstr "``--replace-worker`` がサービスホストを迂回する場合、CLI は案内付きのエラーを返します。CLI 管理の Worker、および Python デプロイ API で起動した非管理 Worker には relaunch API を使用してください。"

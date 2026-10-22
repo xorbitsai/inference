@@ -346,6 +346,27 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
             report["result"] = await until(finished)
             report["cutover_at"] = time.time()
             print("CUTOVER", report["result"], flush=True)
+
+            async def new_generation_stream():
+                terminal = False
+                async with http.stream(
+                    "POST", endpoint + "/v1/completions", json=body(64, True)
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if line.startswith("data: ") and line != "data: [DONE]":
+                            item = json.loads(line[6:])
+                            assert "error" not in item, item
+                            terminal |= any(
+                                choice.get("finish_reason") is not None
+                                for choice in item.get("choices", [])
+                            )
+                assert terminal, "Post-cutover stream did not finish"
+
+            # Release a real new-generation stream through the public REST
+            # route while the original generation still owns its long stream.
+            await new_generation_stream()
+            report["post_cutover_stream_completed"] = True
             report["after"] = await model.export_model_generation({})
             expected_reuse = all(
                 report["after"][key] == report["before"][key]
@@ -398,6 +419,8 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
             )
             again.raise_for_status()
             report["second_reconfiguration"] = await until(finished)
+            await new_generation_stream()
+            report["second_generation_stream_completed"] = True
             latest = await model.export_model_generation({})
             assert latest["python_executable"] == report["after"]["python_executable"]
             assert latest["cache"]["pid"] == report["after"]["cache"]["pid"]

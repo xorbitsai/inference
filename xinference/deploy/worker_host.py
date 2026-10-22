@@ -19,6 +19,7 @@ from pathlib import Path
 import psutil
 
 HOST_SOCKET = "XINFERENCE_WORKER_HOST_SOCKET"
+HOST_PID = "XINFERENCE_WORKER_HOST_PID"
 
 
 async def register_worker_host() -> None:
@@ -108,7 +109,8 @@ async def run_worker_host(command, *, stop_timeout=30):
         process = None
         try:
             process = await asyncio.create_subprocess_exec(
-                *command, env={**os.environ, HOST_SOCKET: address}
+                *command,
+                env={**os.environ, HOST_SOCKET: address, HOST_PID: str(own.pid)},
             )
             workers[process.pid] = psutil.Process(process.pid).create_time()
             while not stopping.is_set():
@@ -118,16 +120,21 @@ async def run_worker_host(command, *, stop_timeout=30):
                         if pid == process.pid:
                             exits[pid] = await process.wait()
                         else:
+                            if sys.platform == "linux":
+                                # A replacement can exit before its parent
+                                # retires. Wait until the subreaper adopts it.
+                                with contextlib.suppress(psutil.NoSuchProcess):
+                                    if psutil.Process(pid).ppid() != own.pid:
+                                        continue
                             try:
                                 waited, status = os.waitpid(pid, os.WNOHANG)
-                                exits[pid] = (
-                                    os.waitstatus_to_exitcode(status) if waited else 1
-                                )
+                                if waited:
+                                    exits[pid] = os.waitstatus_to_exitcode(status)
                             except ChildProcessError:
                                 # macOS reparents grandchildren to launchd.
                                 # Unknown termination is a service failure.
                                 exits[pid] = 1
-                if not any(alive(pid, created) for pid, created in workers.items()):
+                if all(pid in exits for pid in workers):
                     break
                 # Reap adopted grandchildren without racing asyncio's watcher
                 # for the initial command.
@@ -135,6 +142,8 @@ async def run_worker_host(command, *, stop_timeout=30):
                     if pid not in workers and not alive(pid, created):
                         with contextlib.suppress(ChildProcessError, ProcessLookupError):
                             os.waitpid(pid, os.WNOHANG)
+                    if not alive(pid, created):
+                        descendants.pop(pid, None)
                 try:
                     await asyncio.wait_for(stopping.wait(), 0.1)
                 except asyncio.TimeoutError:

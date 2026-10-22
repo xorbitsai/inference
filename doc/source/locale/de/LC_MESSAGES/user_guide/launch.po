@@ -650,3 +650,15 @@ msgstr ""
 "Kompatibilitätsprüfungen der Engine bleiben aktiv. Verwenden Sie in der "
 "Weboberfläche **Modell neu konfigurieren / aktualisieren** in den "
 "Modelldetails."
+
+#: ../source/user_guide/launch.rst:502
+msgid "Insufficient memory never triggers an in-place rebuild. Even models launched with the default 0.9 memory fraction need enough spare memory for replacement; otherwise reload fails while inference continues on the current engine."
+msgstr "Unzureichender Speicher führt niemals automatisch zu einem Neuaufbau der laufenden Engine. Auch mit dem Standard-Speicheranteil 0.9 gestartete Modelle benötigen freien Speicher für den Wechsel; andernfalls schlägt das Neuladen fehl, während die aktuelle Engine weiter Inferenzanfragen bedient."
+
+#: ../source/user_guide/launch.rst:504
+msgid "For consecutive upgrades, ``drain_timeout`` also bounds waiting for previous engine retirement. A timeout leaves current requests running; a later upgrade retries failed retirement."
+msgstr "Bei aufeinanderfolgenden Aktualisierungen begrenzt ``drain_timeout`` auch die Wartezeit auf das Ende der vorherigen Engine. Ein Timeout lässt laufende Anfragen weiterlaufen; eine spätere Aktualisierung wiederholt fehlgeschlagene Aufräumschritte."
+
+#: ../source/user_guide/launch.rst:506
+msgid "When authentication is enabled, selecting ``python_executable`` requires administrator access. The current interpreter path is only included in reload metadata for administrators."
+msgstr "Bei aktivierter Authentifizierung erfordert die Auswahl von ``python_executable`` Administratorrechte. Der aktuelle Interpreterpfad ist nur für Administratoren in den Metadaten zum Neuladen enthalten."

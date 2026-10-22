@@ -24,6 +24,7 @@ interface ReloadConfig {
   engine?: string;
   engine_version?: string;
   python_executable?: string;
+  can_upgrade_environment?: boolean;
 }
 interface ReloadStatus {
   operation_id?: string;
@@ -216,7 +217,7 @@ export function ReloadDialog({
             )}
           </label>
         ))}
-        {config?.enabled && (
+        {config?.enabled && config.can_upgrade_environment !== false && (
           <label className="space-y-2 text-sm">
             <span>{t('runningModels.reload.python')}</span>
             <Input

@@ -569,3 +569,15 @@ msgstr ""
 "に指定します。対象環境には Xinference とエンジンが必要で、再読み込みでパッケージはインストールされません。互換性のあるエンジンと "
 "PyTorch バージョンは保持した重みを再利用します。異なるバージョンは個別の重みキャッシュを使用するため、追加 GPU "
 "メモリが必要です。上流の互換性確認は有効なままです。Web UI では実行中モデルの詳細画面で **モデルの再設定 / 更新** を使用します。"
+
+#: ../source/user_guide/launch.rst:502
+msgid "Insufficient memory never triggers an in-place rebuild. Even models launched with the default 0.9 memory fraction need enough spare memory for replacement; otherwise reload fails while inference continues on the current engine."
+msgstr "メモリ不足時にその場での再構築へ自動的に切り替わることはありません。既定のメモリ比率 0.9 で起動したモデルでも、置換用の空き容量が必要です。不足すると再読み込みは失敗し、現在のエンジンが推論を続行します。"
+
+#: ../source/user_guide/launch.rst:504
+msgid "For consecutive upgrades, ``drain_timeout`` also bounds waiting for previous engine retirement. A timeout leaves current requests running; a later upgrade retries failed retirement."
+msgstr "連続更新では、``drain_timeout`` が前のエンジンの終了を待つ時間も制限します。タイムアウトしても実行中のリクエストは継続し、次の更新で失敗したクリーンアップを再試行します。"
+
+#: ../source/user_guide/launch.rst:506
+msgid "When authentication is enabled, selecting ``python_executable`` requires administrator access. The current interpreter path is only included in reload metadata for administrators."
+msgstr "認証が有効な場合、``python_executable`` の指定には管理者権限が必要です。現在のインタープリターパスは管理者向けの再読み込みメタデータにのみ含まれます。"

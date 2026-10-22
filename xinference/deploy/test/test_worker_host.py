@@ -27,7 +27,8 @@ def _source_environment():
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX Worker service host")
 @pytest.mark.parametrize("replacement", [False, True])
-def test_worker_failure_reaches_service_manager(tmp_path, replacement):
+@pytest.mark.parametrize("parent_delay", [0, 0.6])
+def test_worker_failure_reaches_service_manager(tmp_path, replacement, parent_delay):
     script = tmp_path / "failed_worker.py"
     script.write_text(
         """
@@ -38,6 +39,7 @@ ready = Path(sys.argv[1])
 if sys.argv[2] == "parent":
     subprocess.Popen([sys.executable, __file__, str(ready), "replacement"])
     while not ready.exists(): time.sleep(.02)
+    time.sleep(float(sys.argv[3]))
 else:
     asyncio.run(register_worker_host())
     ready.write_text("ready")
@@ -54,6 +56,7 @@ else:
             str(script),
             str(tmp_path / "ready"),
             "parent" if replacement else "replacement",
+            str(parent_delay),
         ],
         env=_source_environment(),
         timeout=20,

@@ -93,17 +93,6 @@ msgstr ""
 "선택적 요청 필드 ``python_executable`` 은 Worker 머신에 있는 Python 실행 파일의 절대 경로를 지정합니다. 별도로 설치한 새 환경을 선택할 수 "
 "있으며 기본값은 현재 인터프리터입니다. 이 작업은 패키지를 설치하지 않으며 유지된 모델 프로세스는 원래 환경과 코드를 계속 사용합니다."
 
-#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:31
-msgid ""
-"For an unmanaged Worker started without a service process host, you can "
-"start its replacement explicitly with a different actor port and a free "
-"metrics exporter port. Managed Workers use the relaunch API so retained "
-"processes remain in the same service or container:"
-msgstr ""
-"서비스 호스트 프로세스 없이 실행한 비관리 Worker는 다른 actor 포트와 사용 가능한 메트릭 내보내기 포트를 지정해 대체 "
-"프로세스를 직접 시작할 수 있습니다. 관리 Worker는 보존 프로세스가 같은 서비스 또는 컨테이너에 남도록 relaunch API를 "
-"사용합니다."
-
 #: ../../source/user_guide/worker_handoff.rst
 msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
 msgstr "Supervisor는 소유권 예약도 ``XINFERENCE_HOME/worker-handoffs.json`` 에 저장하므로 Supervisor 재시작 후 중단된 인계를 재개할 수 있습니다. 대체 Worker는 재실행 후 시작된 모델을 포함하여 원래 Worker 주소의 복구 파일을 계속 업데이트합니다."
@@ -159,3 +148,7 @@ msgstr ""
 "Docker에서는 같은 호스트 명령을 컨테이너 명령으로 사용합니다. 실행 중인 컨테이너 안에 준비된 Python 환경을 설치하거나 "
 "마운트하세요. 업그레이드 중에는 해당 컨테이너를 계속 실행해야 합니다. 컨테이너를 교체하거나 중지하면 모델 프로세스가 종료되어 GPU "
 "할당을 유지할 수 없습니다."
+
+#: ../source/user_guide/worker_handoff.rst:31
+msgid "The CLI reports an error with guidance when ``--replace-worker`` would bypass the service host. Use the relaunch API for CLI-managed Workers and for unmanaged Workers started through the Python deployment API."
+msgstr "``--replace-worker`` 가 서비스 호스트를 우회하게 되면 CLI는 안내와 함께 오류를 반환합니다. CLI가 관리하는 Worker와 Python 배포 API로 시작한 비관리 Worker에는 relaunch API를 사용하세요."

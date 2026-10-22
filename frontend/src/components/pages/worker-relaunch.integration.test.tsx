@@ -81,6 +81,13 @@ function Probe({ enabled = true }: { enabled?: boolean }) {
   return (
     <>
       <output>{JSON.stringify([...state.busyAddresses])}</output>
+      <button
+        onClick={() =>
+          state.addOperation({ operation_id: 'new', source_worker: 'old:1', status: 'starting' })
+        }
+      >
+        Start
+      </button>
       <WorkerRelaunchHistory operations={state.operations} error={state.error} />
     </>
   );
@@ -106,6 +113,19 @@ it('restores a pending transfer from the server after remounting', async () => {
 it('does not fetch administrative operations when disabled', async () => {
   await act(async () => root.render(<Probe enabled={false} />));
   assert.equal(calls, 0);
+});
+it('stops polling when idle and resumes for a newly started operation', async () => {
+  await act(async () => root.render(<Probe />));
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 2100)));
+  assert.equal(calls, 1);
+  jobs = [{ operation_id: 'new', source_worker: 'old:1', status: 'starting' }];
+  await act(async () => document.querySelector<HTMLButtonElement>('button')!.click());
+  assert.equal(calls, 2);
+  jobs = [{ operation_id: 'new', source_worker: 'old:1', status: 'succeeded' }];
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 2100)));
+  assert.equal(calls, 3);
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 2100)));
+  assert.equal(calls, 3);
 });
 it('retries an uncertain submission with the same request ID and typed environment path', async () => {
   failOnce = true;

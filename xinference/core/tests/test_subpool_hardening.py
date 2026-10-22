@@ -62,6 +62,8 @@ def _make_worker():
     self._main_pool = MagicMock()
     # Xoscar's in-process test pools have addresses without OS processes.
     self._main_pool.sub_processes = {"in-process": None}
+    self._model_uid_to_subpool_pids = {}
+    self._retained_subpool_pids = WorkerActor._retained_subpool_pids.__get__(self)
     self._ensure_subpool_monitor = AsyncMock()
     self.release_devices = MagicMock()
     self.address = "test:1"
@@ -353,7 +355,7 @@ async def test_append_sub_pool_protected_does_not_log_env_values(
 
 
 def _track_kill(sink):
-    async def _coro(devices, model_uid=""):
+    async def _coro(devices, model_uid="", **kwargs):
         sink.append((tuple(devices), model_uid))
         return [4242]
 
@@ -365,8 +367,13 @@ def _track_kill(sink):
 # ---------------------------------------------------------------------------
 
 
-async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(monkeypatch):
+@pytest.mark.parametrize("host_pid", [1, 9999])
+async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(
+    monkeypatch, host_pid
+):
     import xinference.core.worker as w
+
+    monkeypatch.setenv("XINFERENCE_WORKER_HOST_PID", str(host_pid))
 
     procs: dict = {}
 
@@ -381,9 +388,9 @@ async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(monkeypatch)
         return m
 
     # 100: orphan vLLM (PPID==1, vllm cmdline) → killed
-    _make(100, 1, ["python", "-m", "vllm"])
+    _make(100, host_pid, ["python", "-m", "vllm"])
     # 200: live worker child (PPID != 1) → spared
-    _make(200, 9999, ["python", "-m", "vllm"])
+    _make(200, host_pid, ["python", "-m", "vllm"])
     # 300: orphan but non-vllm cmdline → spared
     _make(300, 1, ["python", "unrelated_app.py"])
 
@@ -402,7 +409,7 @@ async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(monkeypatch)
     with patch("xinference.core.worker._snapshot_gpu_occupying_pids") as mock_snap:
         mock_snap.return_value = {100, 200, 300}
         with patch.dict("sys.modules", {"psutil": mock_psutil}):
-            killed = await w._kill_gpu_orphans_by_ppid([0])
+            killed = await w._kill_gpu_orphans_by_ppid([0], protected_pids={200})
 
     assert killed == [100]
     # pid 100 (orphan vLLM) gets terminate() then kill(); 200 and 300 are spared.

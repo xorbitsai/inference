@@ -785,17 +785,18 @@ def _nvml_init_with_timeout(timeout: int = _NVML_INIT_TIMEOUT) -> bool:
 async def _kill_gpu_orphans_by_ppid(
     device_indices: list,
     model_uid: str = "",
+    protected_pids: Optional[Set[int]] = None,
 ) -> List[int]:
-    """SIGKILL GPU-occupying processes whose parent is init (PPID == 1).
+    """Reap GPU orphans adopted by init or this Worker's service host.
 
     Used at worker startup (H1) and pre-launch VRAM recheck (H2). Unlike
     _kill_orphan_gpu_pids (which uses post - pre diff and would mis-kill
     other workers' vLLM processes on shared GPUs), this only targets true
-    orphans: processes whose parent has died and been reparented to PID 1.
+    orphans reparented to init or the service host, excluding retained pools.
 
     A process is killed only if ALL hold:
       1. occupies GPU memory on one of device_indices (per NVML)
-      2. PPID == 1 (parent dead, reparented to init)
+      2. parent is init or the host, and PID is not a retained model pool
       3. cmdline contains vllm / enginecore / start_sub_pool
          (prevents PID-reuse misidentification of unrelated processes)
 
@@ -807,14 +808,21 @@ async def _kill_gpu_orphans_by_ppid(
     """
     import psutil
 
+    from ..deploy.worker_host import HOST_PID
+
+    orphan_parents = {1}
+    host_pid = os.environ.get(HOST_PID)
+    if host_pid:
+        orphan_parents.add(int(host_pid))
+
     occupying_pids = _snapshot_gpu_occupying_pids(device_indices)
     orphan_processes: List["psutil.Process"] = []
     for pid in occupying_pids:
-        if pid == os.getpid():
+        if pid == os.getpid() or pid in (protected_pids or ()):
             continue
         try:
             p = psutil.Process(pid)
-            if p.ppid() != 1:
+            if p.ppid() not in orphan_parents:
                 continue
             cmd = " ".join(p.cmdline()).lower()
             if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
@@ -1019,6 +1027,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         action = "unpublished"
                     if action == "recover":
                         failed_generations.add(model_uid)
+                    elif action == "restored":
+                        await self._restore_model_generation_config(model_uid, ref)
                 addresses.discard(address)
         for model_uid, addr in list(self._model_uid_to_addr.items()):
             if addr == address or model_uid in failed_generations:
@@ -1387,7 +1397,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             logger.info("Startup GPU orphan cleanup: no GPU-occupying processes found")
             return
 
-        killed = await _kill_gpu_orphans_by_ppid(all_devices)
+        killed = await _kill_gpu_orphans_by_ppid(
+            all_devices, protected_pids=self._retained_subpool_pids()
+        )
         if not killed:
             logger.info(
                 "Startup GPU orphan cleanup: %d GPU-occupying process(es) "
@@ -2445,6 +2457,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # monitor task per worker process.
         await self._main_pool.start_monitor()
 
+    def _retained_subpool_pids(self) -> Set[int]:
+        return {
+            process.pid
+            for process in getattr(self._main_pool, "sub_processes", {}).values()
+            if process is not None and process.pid is not None
+        } | {pid for pids in self._model_uid_to_subpool_pids.values() for pid in pids}
+
     async def _append_sub_pool_protected(
         self,
         env: Optional[Dict[str, str]] = None,
@@ -2623,7 +2642,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         _VRAM_READY_RATIO,
                     )
                     _killed = await _kill_gpu_orphans_by_ppid(
-                        _target_device_ints, model_uid=model_uid
+                        _target_device_ints,
+                        model_uid=model_uid,
+                        protected_pids=self._retained_subpool_pids(),
                     )
                     if _killed:
                         logger.warning(
@@ -6174,6 +6195,22 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     async def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
         return await self._model_uid_to_model[model_uid].get_reload_config()
 
+    async def _restore_model_generation_config(self, model_uid, ref):
+        snapshot = await ref.export_model_generation({})
+        status = await ref.get_reload_status()
+        if self._model_uid_to_model.get(model_uid) is not ref or not status.get(
+            "restored"
+        ):
+            return
+        config = {
+            **snapshot["config"],
+            "model_python_executable": snapshot["python_executable"],
+        }
+        self._model_uid_to_launch_args[model_uid].update(config)
+        self._persist_launch_args()
+        supervisor = await self.get_supervisor_ref()
+        await supervisor.restore_model_reload_config(model_uid, config, status)
+
     async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
         return await self._model_uid_to_model[model_uid].get_reload_status()
 
@@ -6181,12 +6218,17 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         return await self._model_uid_to_model[model_uid].validate_reload(config)
 
     async def _replace_model_generation(
-        self, model_uid, config, python_executable=None, operation_id=None
+        self,
+        model_uid,
+        config,
+        python_executable=None,
+        operation_id=None,
+        drain_timeout=300,
     ):
         from .model_generation import replace_model_generation
 
         return await replace_model_generation(
-            self, model_uid, config, python_executable, operation_id
+            self, model_uid, config, python_executable, operation_id, drain_timeout
         )
 
     @management_operation
@@ -6221,7 +6263,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 or not set(config) <= HOT_RELOAD_FIELDS.keys()
             ):
                 weights_reused = await self._replace_model_generation(
-                    model_uid, config, python_executable, operation_id
+                    model_uid, config, python_executable, operation_id, drain_timeout
                 )
             else:
                 # Parser-only updates do not need another engine. New calls
@@ -6230,6 +6272,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             if self._model_uid_to_model.get(model_uid) is not model_ref:
                 raise ModelReloadError(
                     "Model was terminated or recovered during reload"
+                )
+            observed = await model_ref.get_reload_status()
+            if observed.get("restored") and observed.get("status") == "error":
+                raise ModelReloadError(
+                    observed.get("error", "Replacement engine exited"), restored=True
                 )
             self._model_uid_to_launch_args[model_uid].update(config)
             if python_executable is not None:

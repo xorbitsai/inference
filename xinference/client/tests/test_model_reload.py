@@ -94,7 +94,10 @@ def test_reload_cli_preserves_json_types(monkeypatch):
     )
     assert result.exit_code == 0, result.output
     client.reload_model.assert_called_once_with(
-        "test", {"max_num_seqs": 32, "enforce_eager": False}, 300.0
+        "test",
+        {"max_num_seqs": 32, "enforce_eager": False},
+        300.0,
+        python_executable=None,
     )
     assert "one" in result.output
 

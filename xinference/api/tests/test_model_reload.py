@@ -63,7 +63,9 @@ async def test_reload_accepted_and_duplicate_conflict():
     response = await api.reload_model("test", request)
     assert response.status_code == 202
     assert json.loads(response.body)["operation_id"] == "one"
-    supervisor.reload_model.assert_awaited_once_with("test", {"max_num_seqs": 8}, 300)
+    supervisor.reload_model.assert_awaited_once_with(
+        "test", {"max_num_seqs": 8}, 300, python_executable=None
+    )
     supervisor.reload_model.side_effect = RuntimeError("already reloading")
     with pytest.raises(HTTPException) as exc:
         await api.reload_model("test", request)
@@ -109,7 +111,9 @@ async def test_runtime_settings_are_forwarded_without_coercion(engine, patch):
     request = MagicMock(json=AsyncMock(return_value={"model_config": patch}))
     response = await api.reload_model("test", request)
     assert response.status_code == 202
-    supervisor.reload_model.assert_awaited_once_with("test", patch, 300)
+    supervisor.reload_model.assert_awaited_once_with(
+        "test", patch, 300, python_executable=None
+    )
 
 
 @pytest.mark.asyncio
@@ -140,3 +144,74 @@ async def test_loading_model_returns_retryable_status():
     with pytest.raises(HTTPException) as exc:
         await api.reload_model("test", request)
     assert exc.value.status_code == 503
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("admin", [False, True])
+async def test_environment_upgrade_requires_admin(admin):
+    from starlette.requests import Request
+
+    api, supervisor = make_api()
+    api._advanced_auth_service = AsyncMock(
+        side_effect=None if admin else HTTPException(403, "Not enough permissions")
+    )
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/reload",
+            "headers": [(b"authorization", b"Bearer token")],
+        }
+    )
+    request._json = {"python_executable": "/new/python"}
+    if admin:
+        assert (await api.reload_model("test", request)).status_code == 202
+    else:
+        with pytest.raises(HTTPException) as error:
+            await api.reload_model("test", request)
+        assert error.value.status_code == 403
+        supervisor.reload_model.assert_not_called()
+    assert api._advanced_auth_service.await_args.args[1].scopes == ["admin"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("admin", [False, True])
+async def test_reload_metadata_only_discloses_interpreter_to_admin(admin):
+    from starlette.requests import Request
+
+    api, supervisor = make_api()
+    supervisor.get_model_reload_config.return_value["python_executable"] = (
+        "/private/python"
+    )
+    api._advanced_auth_service = AsyncMock(
+        return_value={"permissions": ["admin"] if admin else ["models:list"]}
+    )
+    request = Request(
+        {"type": "http", "method": "GET", "path": "/config", "headers": []}
+    )
+    response = await api.get_model_reload_config("test", request)
+    metadata = json.loads(response.body)
+    assert ("python_executable" in metadata) is admin
+    assert metadata["can_upgrade_environment"] is admin
+
+
+@pytest.mark.asyncio
+async def test_launch_cannot_override_persisted_model_interpreter():
+    api, supervisor = make_api()
+    api._uid_to_model_name = {}
+    supervisor.launch_builtin_model = AsyncMock(return_value="test")
+    request = MagicMock(
+        json=AsyncMock(
+            return_value={
+                "model_uid": "test",
+                "model_name": "test",
+                "model_engine": "vllm",
+                "model_python_executable": "/arbitrary/executable",
+            }
+        )
+    )
+    assert (await api.launch_model(request, wait_ready=True)).status_code == 200
+    assert (
+        "model_python_executable"
+        not in supervisor.launch_builtin_model.await_args.kwargs
+    )

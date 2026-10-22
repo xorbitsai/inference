@@ -23,7 +23,7 @@ export interface WorkerRelaunchOperation {
   error?: string;
 }
 
-export function relaunchError(error: unknown): string {
+function relaunchError(error: unknown): string {
   if (isAxiosError(error)) return error.response?.data?.detail || error.message;
   return error instanceof Error ? error.message : String(error);
 }
@@ -31,11 +31,13 @@ export function relaunchError(error: unknown): string {
 export function useWorkerRelaunches(enabled: boolean) {
   const [operations, setOperations] = useState<WorkerRelaunchOperation[]>([]);
   const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
   useEffect(() => {
     if (!enabled) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
+      let pending = false;
       try {
         const data = await request.get<WorkerRelaunchOperation[]>('/v1/worker-relaunches', {
           suppressGlobalError: true,
@@ -43,11 +45,13 @@ export function useWorkerRelaunches(enabled: boolean) {
         if (active) {
           setOperations(data);
           setError('');
+          pending = data.some((job) => !['succeeded', 'failed'].includes(job.status));
         }
       } catch (err) {
         if (active) setError(relaunchError(err));
+        pending = true;
       } finally {
-        if (active) timer = setTimeout(poll, 2000);
+        if (active && pending) timer = setTimeout(poll, 2000);
       }
     };
     void poll();
@@ -55,7 +59,7 @@ export function useWorkerRelaunches(enabled: boolean) {
       active = false;
       clearTimeout(timer);
     };
-  }, [enabled]);
+  }, [enabled, revision]);
   const busyAddresses = new Set(
     operations
       .filter((job) => !['succeeded', 'failed'].includes(job.status))
@@ -65,11 +69,13 @@ export function useWorkerRelaunches(enabled: boolean) {
     operations,
     error,
     busyAddresses,
-    addOperation: (job: WorkerRelaunchOperation) =>
+    addOperation: (job: WorkerRelaunchOperation) => {
       setOperations((current) => [
         job,
         ...current.filter((item) => item.operation_id !== job.operation_id),
-      ]),
+      ]);
+      setRevision((current) => current + 1);
+    },
   };
 }
 

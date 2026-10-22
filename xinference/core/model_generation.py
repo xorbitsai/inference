@@ -11,12 +11,15 @@ import copy
 import importlib
 import inspect
 import json
+import logging
 import os
 import sys
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import xoscar as xo
+
+logger = logging.getLogger(__name__)
 
 # These messages operate on the stable address, rather than on the serving
 # generation. In particular, iterator messages and serving-slot releases from
@@ -33,7 +36,6 @@ LOCAL_METHODS = {
     "create_generation_cache",
     "discard_generation_cache",
     "generation_serve_count",
-    "retire_model_generation",
     "decrease_serve_count",
     "get_pid",
     "get_pool_addresses",
@@ -186,7 +188,9 @@ class ModelGenerationMixin:
             return await getattr(target, method)(*args, **kwargs)
         return await super().__on_receive__(message)
 
-    async def begin_generation_reload(self, operation_id: str) -> None:
+    async def begin_generation_reload(
+        self, operation_id: str, drain_timeout: float = 300
+    ) -> None:
         self._reload_status = {
             "operation_id": operation_id,
             "status": "reloading",
@@ -196,19 +200,33 @@ class ModelGenerationMixin:
             "weights_reused": False,
         }
         try:
+            failed = self.__dict__.get("_generation_retirement_failures", set())
+            for previous in self.__dict__.get("_retiring_generations", ()):
+                if _generation_key(previous) in failed:
+                    self._start_generation_retirement(previous)
             # Serialize replacements, including retirement, without blocking
             # requests to the healthy serving generation. Cancelling the next
             # upgrade must not cancel cleanup of the previous one.
             tasks = tuple(self.__dict__.get("_generation_retirement_tasks", ()))
             if tasks:
-                await asyncio.shield(asyncio.gather(*tasks, return_exceptions=True))
+                await asyncio.wait_for(
+                    asyncio.shield(asyncio.gather(*tasks, return_exceptions=True)),
+                    drain_timeout,
+                )
             if self.__dict__.get("_retiring_generations"):
                 raise RuntimeError(
                     "Previous engine cleanup failed; the current engine is still serving"
                 )
             self._reload_status["stage"] = "loading"
         except BaseException as error:
-            self.fail_generation_reload(operation_id, str(error))
+            self.fail_generation_reload(
+                operation_id,
+                (
+                    "Timed out waiting for previous engine retirement"
+                    if isinstance(error, asyncio.TimeoutError)
+                    else str(error)
+                ),
+            )
             raise
 
     def fail_generation_reload(self, operation_id: str, error: str):
@@ -251,7 +269,16 @@ class ModelGenerationMixin:
             "python_executable": sys.executable,
             "runtime_env": {
                 key: os.environ[key]
-                for key in ("PATH", "LD_LIBRARY_PATH", "FLASHINFER_NINJA_PATH")
+                for key in (
+                    "PATH",
+                    "LD_LIBRARY_PATH",
+                    "FLASHINFER_NINJA_PATH",
+                    "VIRTUAL_ENV",
+                    "CONDA_PREFIX",
+                    "CONDA_DEFAULT_ENV",
+                    "PYTHONPATH",
+                    "PYTHONHOME",
+                )
                 if key in os.environ
             },
             "request_limits": (
@@ -433,21 +460,25 @@ class ModelGenerationMixin:
                     await asyncio.to_thread(self._model._stop_engine)
                 else:
                     await previous.retire_generation_engine()
-            directory = self.__dict__.get("_generation_cache_leases", {}).pop(key, None)
-            if (
-                directory
-                and directory
-                not in self.__dict__.get("_generation_cache_leases", {}).values()
-            ):
-                cache = self.__dict__.get("_generation_caches", {}).pop(directory, None)
+            leases = self.__dict__.get("_generation_cache_leases", {})
+            directory = leases.get(key)
+            if directory and directory not in [
+                value for owner, value in leases.items() if owner != key
+            ]:
+                caches = self.__dict__.get("_generation_caches", {})
+                cache = caches.get(directory)
                 if (
                     cache is None
                     and self._model._weight_cache is not None
                     and str(self._model._weight_cache.directory) == directory
                 ):
-                    cache, self._model._weight_cache = self._model._weight_cache, None
+                    cache = self._model._weight_cache
                 if cache is not None:
                     await asyncio.to_thread(cache.stop)
+                    caches.pop(directory, None)
+                    if cache is self._model._weight_cache:
+                        self._model._weight_cache = None
+            leases.pop(key, None)
             if previous is not None:
                 while True:
                     try:
@@ -464,14 +495,14 @@ class ModelGenerationMixin:
             self.__dict__.get("_generation_retirement_started", set()).discard(key)
             self.__dict__.get("_failed_generation_addresses", set()).discard(key)
             self.__dict__.get("_generation_operation_ids", {}).pop(key, None)
+            self.__dict__.get("_generation_retirement_failures", set()).discard(key)
         except asyncio.CancelledError:
             raise
         except Exception:
             # Cleanup failure cannot revoke a serving generation. The owner
             # retains the pool for explicit termination and later retry.
-            import logging
-
-            logging.getLogger(__name__).exception("Failed to retire model generation")
+            self.__dict__.setdefault("_generation_retirement_failures", set()).add(key)
+            logger.exception("Failed to retire model generation")
 
     async def generation_ready(self):
         self._require_ready()
@@ -528,7 +559,9 @@ def build_generation_model(snapshot):
 async def probe_environment(executable: str, engine: str, env: Dict[str, str]):
     script = (
         "import importlib.metadata as m, json; "
-        f"print(json.dumps({{p:m.version(p) for p in ['xinference','xoscar','torch',{engine!r}]}}))"
+        "from xinference.core.model_generation import ModelGenerationMixin as g; "
+        f"v={{p:m.version(p) for p in ['xinference','xoscar','torch',{engine!r}]}}; "
+        "v['generation_protocol']=g.model_generation_protocol(None); print(json.dumps(v))"
     )
     process = await asyncio.create_subprocess_exec(
         executable,
@@ -550,11 +583,26 @@ async def probe_environment(executable: str, engine: str, env: Dict[str, str]):
             "Replacement environment is unavailable: "
             + stderr.decode(errors="replace")[-2000:]
         )
-    return json.loads(stdout)
+    from packaging.version import Version
+
+    versions = json.loads(stdout.decode().strip().splitlines()[-1])
+    if (
+        Version(versions["xoscar"]) < Version("0.12.1")
+        or versions["generation_protocol"] != 1
+    ):
+        raise ValueError(
+            "Replacement environment requires Xoscar >= 0.12.1 and a compatible Xinference generation protocol"
+        )
+    return versions
 
 
 async def replace_model_generation(
-    worker, model_uid, patch, python_executable=None, operation_id=None
+    worker,
+    model_uid,
+    patch,
+    python_executable=None,
+    operation_id=None,
+    drain_timeout=300,
 ):
     """Prepare privately, publish once, and never stop a serving engine first."""
     from .model import ModelGenerationActor
@@ -578,14 +626,12 @@ async def replace_model_generation(
         ) from error
     snapshot = await anchor.export_model_generation(patch)
     operation_id = operation_id or uuid.uuid4().hex
-    await anchor.begin_generation_reload(operation_id)
+    await anchor.begin_generation_reload(operation_id, drain_timeout)
     env = dict(os.environ)
     env.update(worker._model_uid_to_launch_args[model_uid].get("envs") or {})
     env.update(snapshot["env"])
     env["XINFERENCE_MODEL_UID"] = model_uid
     executable = python_executable or snapshot["python_executable"]
-    if python_executable is None:
-        env.update(snapshot.get("runtime_env", {}))
     if python_executable is not None or executable != sys.executable:
         from .utils import build_subpool_envs_for_python
 
@@ -594,9 +640,12 @@ async def replace_model_generation(
         env["PATH"] = os.pathsep.join(
             [os.path.dirname(executable), env.get("PATH", "")]
         )
+    if python_executable is None:
+        env.update(snapshot.get("runtime_env", {}))
     cache_directory: Optional[str] = None
     address: Optional[str] = None
     committed = False
+    commit_started = False
     try:
         versions = await probe_environment(executable, snapshot["engine"], env)
         reused = (
@@ -648,12 +697,15 @@ async def replace_model_generation(
         # must not tear down an engine whose route has already been published.
         from .lifecycle import finish_before_cancelling
 
-        await finish_before_cancelling(
-            anchor.commit_model_generation(
+        async def publish():
+            nonlocal committed
+            await anchor.commit_model_generation(
                 candidate, operation_id, reused, cache["directory"]
             )
-        )
-        committed = True
+            committed = True
+
+        commit_started = True
+        await finish_before_cancelling(publish())
         await worker._ensure_subpool_monitor()
         return reused
     except BaseException as exc:
@@ -663,17 +715,36 @@ async def replace_model_generation(
             pass
         raise
     finally:
-        if not committed:
-            status = await anchor.get_reload_status()
-            committed = (
-                status.get("operation_id") == operation_id
-                and status.get("status") == "ready"
-            )
+        if not committed and commit_started:
+            try:
+                status = await anchor.get_reload_status()
+                committed = (
+                    status.get("operation_id") == operation_id
+                    and status.get("status") == "ready"
+                )
+            except Exception:
+                # A lost commit response must never tear down a possibly
+                # published engine. Ownership stays with the public actor.
+                committed = True
+                logger.exception(
+                    "Cannot confirm generation commit; retaining candidate"
+                )
         if not committed:
             if address is not None:
-                await worker._main_pool.remove_sub_pool(address, force=True)
-                worker._model_uid_to_subpool_addresses.get(model_uid, set()).discard(
-                    address
-                )
+                try:
+                    await worker._main_pool.remove_sub_pool(address, force=True)
+                except KeyError:
+                    worker._model_uid_to_subpool_addresses.get(
+                        model_uid, set()
+                    ).discard(address)
+                except Exception:
+                    logger.exception("Failed to remove unpublished generation pool")
+                else:
+                    worker._model_uid_to_subpool_addresses.get(
+                        model_uid, set()
+                    ).discard(address)
             if cache_directory is not None:
-                await anchor.discard_generation_cache(cache_directory)
+                try:
+                    await anchor.discard_generation_cache(cache_directory)
+                except Exception:
+                    logger.exception("Failed to discard unpublished generation cache")

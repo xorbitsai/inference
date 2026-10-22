@@ -317,6 +317,11 @@ def test_worker_command_passes_endpoint_and_internal_address(
         + (["--replace-worker", replacement] if replacement else []),
     )
 
+    if replacement and os.name == "posix" and not hosted:
+        assert result.exit_code == 2
+        assert "relaunch" in result.output
+        assert not calls
+        return
     assert result.exit_code == 0
     assert calls["base_url"] == "http://127.0.0.1:9997"
     assert calls["resolved"] is True

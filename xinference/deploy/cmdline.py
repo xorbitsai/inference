@@ -345,6 +345,12 @@ def worker(
     metrics_exporter_port: Optional[int],
     replace_worker: Optional[str] = None,
 ):
+    from .worker_host import HOST_SOCKET
+
+    if replace_worker and os.name == "posix" and not os.environ.get(HOST_SOCKET):
+        raise click.UsageError(
+            "Use POST /v1/workers/{worker_address}/relaunch to replace a managed Worker and retain its service and model processes."
+        )
     from ..core.system_settings_store import initialize_system_settings
 
     initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
@@ -368,8 +374,6 @@ def worker(
     supervisor_internal_addr = client._get_supervisor_internal_address()
 
     address = f"{host}:{worker_port or get_next_port()}"
-    from .worker_host import HOST_SOCKET
-
     worker_options: Dict[str, Any] = {}
     if replace_worker:
         worker_options["replace_worker"] = replace_worker
@@ -1422,10 +1426,9 @@ def model_reload(
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
     if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
-    options = (
-        {} if python_executable is None else {"python_executable": python_executable}
+    result = client.reload_model(
+        model_uid, config, drain_timeout, python_executable=python_executable
     )
-    result = client.reload_model(model_uid, config, drain_timeout, **options)
     click.echo(json.dumps(result))
 
 

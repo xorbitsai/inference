@@ -645,3 +645,15 @@ msgstr ""
 "usam um cache de pesos separado e exigem memória GPU adicional; as "
 "verificações de compatibilidade do mecanismo permanecem ativas. Na interface"
 " web, use **Reconfigurar / atualizar modelo** nos detalhes do modelo ativo."
+
+#: ../source/user_guide/launch.rst:502
+msgid "Insufficient memory never triggers an in-place rebuild. Even models launched with the default 0.9 memory fraction need enough spare memory for replacement; otherwise reload fails while inference continues on the current engine."
+msgstr "A falta de memória nunca provoca uma reconstrução automática do mecanismo atual. Mesmo os modelos iniciados com a fração de memória padrão 0.9 precisam de espaço livre para a substituição; caso contrário, a recarga falha e o mecanismo atual continua atendendo às inferências."
+
+#: ../source/user_guide/launch.rst:504
+msgid "For consecutive upgrades, ``drain_timeout`` also bounds waiting for previous engine retirement. A timeout leaves current requests running; a later upgrade retries failed retirement."
+msgstr "Em atualizações consecutivas, ``drain_timeout`` também limita a espera pelo encerramento do mecanismo anterior. Um timeout mantém as solicitações atuais em execução; uma atualização posterior tenta novamente a limpeza que falhou."
+
+#: ../source/user_guide/launch.rst:506
+msgid "When authentication is enabled, selecting ``python_executable`` requires administrator access. The current interpreter path is only included in reload metadata for administrators."
+msgstr "Com a autenticação ativada, selecionar ``python_executable`` exige acesso de administrador. O caminho do interpretador atual só é incluído nos metadados de recarga para administradores."

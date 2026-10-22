@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import xoscar as xo
 
+from ...api.restful_api import _release_model_stream
+from ..model import ModelActor, request_limit
 from ..model_generation import ModelGenerationMixin, replace_model_generation
 
 
@@ -19,6 +21,8 @@ class ServingGeneration(ModelGenerationMixin, xo.StatelessActor):
         self.name = name
         self.healthy = healthy
         self._serve_count = 0
+        self._request_limits = 2
+        self._metrics_labels = {}
         self._replica_model_uid = "model-rep0"
         self.stopped = False
         self._reload_status = {}
@@ -37,27 +41,34 @@ class ServingGeneration(ModelGenerationMixin, xo.StatelessActor):
     def stop_engine(self):
         self.stopped = True
 
+    def model_uid(self):
+        return self.name
+
+    async def record_metrics(self, *args):
+        pass
+
+    decrease_serve_count = ModelActor.decrease_serve_count
+
     def get_reload_status(self):
-        return self._reload_status
+        return {**self._reload_status, "engine_stopped": self.stopped}
 
     async def _get_worker_ref(self):
         return SimpleNamespace(retire_model_generation_pool=AsyncMock())
 
+    @request_limit
     @xo.generator
     async def chat(self, stream=False):
         if self.stopped:
             raise RuntimeError("Engine is stopped")
         if not stream:
             return self.name
-        self._serve_count += 1
 
         async def chunks():
-            try:
-                for index in range(10):
-                    await asyncio.sleep(0.01)
-                    yield f"{self.name}:{index}"
-            finally:
-                self._serve_count -= 1
+            for index in range(10):
+                if self.stopped:
+                    raise RuntimeError("Engine is stopped")
+                await asyncio.sleep(0.01)
+                yield f"{self.name}:{index}"
 
         return chunks()
 
@@ -174,11 +185,38 @@ async def test_cutover_keeps_stream_on_old_generation_and_new_calls_on_ready_gen
                 await source.commit_model_generation(target, "upgrade", True, "cache")
                 assert await source.chat() == "new"
                 assert await source.generation_serve_count() == 1
+                new_stream = await source.chat(stream=True)
+                assert len([chunk async for chunk in new_stream]) == 10
+                await _release_model_stream(source, new_stream)
+                await new_stream.destroy()
+                new_stream._gc_destroy = False
+                assert await target.generation_serve_count() == 0
+                assert await source.generation_serve_count() == 1
+                assert not (await source.get_reload_status())["engine_stopped"]
+                with pytest.raises(asyncio.TimeoutError):
+                    await source.begin_generation_reload("waiting", 0.01)
                 assert [chunk async for chunk in stream] == [
                     f"old:{i}" for i in range(1, 10)
                 ]
+                await _release_model_stream(source, stream)
+                await stream.destroy()
+                stream._gc_destroy = False
                 await asyncio.sleep(0.1)
+                assert (await source.get_reload_status())["engine_stopped"]
                 assert await source.chat() == "new"
+                await source.begin_generation_reload("second-upgrade", 1)
+                third = await xo.create_actor(
+                    ServingGeneration,
+                    "third",
+                    uid="third",
+                    address=target_pool.external_address,
+                )
+                await source.commit_model_generation(
+                    third, "second-upgrade", True, "cache"
+                )
+                await asyncio.sleep(0.1)
+                assert (await target.get_reload_status())["engine_stopped"]
+                assert await source.chat() == "third"
                 assert (await source.get_reload_status())["status"] == "ready"
 
 
@@ -221,6 +259,7 @@ async def test_candidate_exit_preserves_old_stream_and_cancels_its_retirement():
             )
             assert await source.chat() == "old"
             assert len([chunk async for chunk in stream]) == 9
+            await _release_model_stream(source, stream)
             await asyncio.sleep(0.1)
             # Finishing the old stream must not run the cancelled retirement
             # and stop the engine that now serves all requests again.
@@ -290,7 +329,10 @@ async def test_in_place_parser_reload_queues_new_requests_instead_of_rejecting()
 @pytest.mark.parametrize(
     "failure", ["environment", "capacity", "load", "ownership", None]
 )
-async def test_private_preparation_never_stops_public_engine(monkeypatch, failure):
+@pytest.mark.parametrize("reused", [False, True])
+async def test_private_preparation_never_stops_public_engine(
+    monkeypatch, failure, reused
+):
     from .. import model_generation as module
 
     monkeypatch.setenv("INHERITED_TEST_VARIABLE", "inherited" * 1000)
@@ -299,6 +341,7 @@ async def test_private_preparation_never_stops_public_engine(monkeypatch, failur
         "engine_version": "0.31.0",
         "torch_version": "2.13.0",
         "python_executable": "/python",
+        "runtime_env": {"VIRTUAL_ENV": "/model-env", "PYTHONPATH": "/model-env/site"},
         "env": {"CUDA_VISIBLE_DEVICES": "0"},
         "config": {},
         "cache": {"directory": "/cache"},
@@ -320,6 +363,7 @@ async def test_private_preparation_never_stops_public_engine(monkeypatch, failur
         commit_model_generation=AsyncMock(side_effect=commit),
         get_reload_status=AsyncMock(side_effect=lambda: status),
         discard_generation_cache=AsyncMock(),
+        create_generation_cache=AsyncMock(return_value={"directory": "/new-cache"}),
         stop=AsyncMock(),
     )
     worker = SimpleNamespace(
@@ -349,7 +393,7 @@ async def test_private_preparation_never_stops_public_engine(monkeypatch, failur
             side_effect=(
                 ValueError("Missing environment") if failure == "environment" else None
             ),
-            return_value={"vllm": "0.31.0", "torch": "2.13.0"},
+            return_value={"vllm": "0.31.0" if reused else "0.32.0", "torch": "2.13.0"},
         ),
     )
     monkeypatch.setattr(xo, "create_actor", AsyncMock(return_value=candidate))
@@ -361,18 +405,190 @@ async def test_private_preparation_never_stops_public_engine(monkeypatch, failur
             worker._main_pool.remove_sub_pool.assert_awaited_once_with(
                 "candidate-pool", force=True
             )
+            if not reused:
+                anchor.discard_generation_cache.assert_awaited_once_with("/new-cache")
         else:
             worker._append_sub_pool_protected.assert_not_called()
     else:
-        assert await replace_model_generation(worker, "model", {}, operation_id="job")
+        assert (
+            await replace_model_generation(worker, "model", {}, operation_id="job")
+            is reused
+        )
         worker._main_pool.remove_sub_pool.assert_not_called()
         # After a prior upgrade, the active model's interpreter can differ
         # from the Worker's even when this request omits python_executable.
-        assert module.probe_environment.call_args.args[2]["PYTHONPATH"] == ""
+        assert (
+            module.probe_environment.call_args.args[2]["PYTHONPATH"]
+            == "/model-env/site"
+        )
+        assert module.probe_environment.call_args.args[2]["VIRTUAL_ENV"] == "/model-env"
         overrides = worker._append_sub_pool_protected.call_args.kwargs["env"]
         assert "INHERITED_TEST_VARIABLE" not in overrides
         assert overrides["XINFERENCE_MODEL_UID"] == "model"
     anchor.stop.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "pool_error", [KeyError("already removed"), RuntimeError("remove failed")]
+)
+async def test_failed_candidate_cache_cleanup_survives_pool_and_status_errors(
+    monkeypatch, pool_error
+):
+    from .. import model_generation as module
+
+    anchor = SimpleNamespace(
+        model_generation_protocol=AsyncMock(return_value=1),
+        export_model_generation=AsyncMock(
+            return_value={
+                "engine": "vllm",
+                "engine_version": "old",
+                "torch_version": "old",
+                "python_executable": "/python",
+                "env": {},
+                "config": {},
+                "cache": {},
+            }
+        ),
+        begin_generation_reload=AsyncMock(),
+        check_generation_capacity=AsyncMock(),
+        create_generation_cache=AsyncMock(return_value={"directory": "/new-cache"}),
+        get_reload_status=AsyncMock(return_value={}),
+        fail_generation_reload=AsyncMock(),
+        discard_generation_cache=AsyncMock(),
+    )
+    worker = SimpleNamespace(
+        address="worker",
+        _supervisor_address="supervisor",
+        _model_uid_to_model={"model": anchor},
+        _model_uid_to_launch_args={"model": {}},
+        _model_uid_to_subpool_addresses={},
+        _append_sub_pool_protected=AsyncMock(return_value="candidate"),
+        _main_pool=SimpleNamespace(remove_sub_pool=AsyncMock(side_effect=pool_error)),
+    )
+
+    async def load():
+        anchor.get_reload_status.side_effect = ConnectionError("anchor unreachable")
+        raise RuntimeError("original load error")
+
+    monkeypatch.setattr(
+        module,
+        "probe_environment",
+        AsyncMock(return_value={"vllm": "new", "torch": "new"}),
+    )
+    monkeypatch.setattr(
+        xo, "create_actor", AsyncMock(return_value=SimpleNamespace(load=load))
+    )
+    with pytest.raises(RuntimeError, match="original load error"):
+        await replace_model_generation(worker, "model", {}, operation_id="job")
+    anchor.discard_generation_cache.assert_awaited_once_with("/new-cache")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["engine", "cache"])
+async def test_failed_retirement_retries_and_releases_only_unused_cache(failure):
+    actor = ServingGeneration("current")
+    old = SimpleNamespace(
+        uid=b"old",
+        address="old-pool",
+        generation_serve_count=AsyncMock(return_value=0),
+        retire_generation_engine=AsyncMock(
+            side_effect=(
+                [RuntimeError("stop failed"), None] if failure == "engine" else None
+            )
+        ),
+    )
+    cache = SimpleNamespace(
+        stop=MagicMock(
+            side_effect=(
+                [RuntimeError("cache stop failed"), None]
+                if failure == "cache"
+                else None
+            )
+        )
+    )
+    actor._retiring_generations = [old]
+    actor._generation_caches = {"old-cache": cache}
+    actor._generation_cache_leases = {b"old": "old-cache", b"new": "new-cache"}
+    await actor.retire_model_generation(old)
+    assert old in actor._retiring_generations
+    if failure == "engine":
+        cache.stop.assert_not_called()
+    assert actor._generation_cache_leases[b"old"] == "old-cache"
+    await actor.begin_generation_reload("retry", 1)
+    assert not actor._retiring_generations
+    assert actor._generation_cache_leases == {b"new": "new-cache"}
+    assert cache.stop.call_count == (2 if failure == "cache" else 1)
+
+
+@pytest.mark.asyncio
+async def test_generation_exit_recovery_retirement_and_worker_rebinding():
+    actor = ServingGeneration("current")
+    active = SimpleNamespace(uid=b"active", address="active", rebind_worker=AsyncMock())
+    old = SimpleNamespace(uid=b"old", address="old", rebind_worker=AsyncMock())
+    actor._serving_generation = active
+    actor._retiring_generations = [old]
+    actor._start_generation_retirement = MagicMock()
+    await actor.rebind_model_generations("source", "target", 2)
+    active.rebind_worker.assert_awaited_once_with("source", "target", 2)
+    old.rebind_worker.assert_awaited_once_with("source", "target", 2)
+    assert await actor.handle_generation_pool_exit("old") == "retiring"
+    actor._start_generation_retirement.assert_called_once_with(old)
+    assert await actor.handle_generation_pool_exit("active") == "recover"
+
+
+@pytest.mark.asyncio
+async def test_retiring_abort_failure_does_not_hide_active_result():
+    from .test_model_reload import make_actor
+
+    actor = make_actor()
+    actor._replica_model_uid = "test-rep0"
+    actor._serving_generation = SimpleNamespace(
+        abort_request=AsyncMock(return_value="DONE")
+    )
+    actor._retiring_generations = [
+        SimpleNamespace(
+            abort_request=AsyncMock(side_effect=ValueError("retired engine"))
+        )
+    ]
+    assert await ModelActor.abort_request(actor, "active-request") == "DONE"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "xoscar_version,protocol", [("0.12.1", 1), ("0.12.0", 1), ("0.12.1", 0)]
+)
+async def test_environment_probe_accepts_startup_output_and_validates_protocol(
+    monkeypatch, xoscar_version, protocol
+):
+    import json
+
+    from ..model_generation import probe_environment
+
+    versions = {
+        "xinference": "4.99.0",
+        "xoscar": xoscar_version,
+        "torch": "2.13.0",
+        "vllm": "0.32.0",
+        "generation_protocol": protocol,
+    }
+    process = SimpleNamespace(
+        returncode=0,
+        communicate=AsyncMock(
+            return_value=(
+                b"sitecustomize output\n" + json.dumps(versions).encode() + b"\n",
+                b"",
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        asyncio, "create_subprocess_exec", AsyncMock(return_value=process)
+    )
+    if xoscar_version == "0.12.1" and protocol == 1:
+        assert await probe_environment("/python", "vllm", {}) == versions
+    else:
+        with pytest.raises(ValueError, match="compatible Xinference"):
+            await probe_environment("/python", "vllm", {})
 
 
 @pytest.mark.parametrize(
@@ -458,7 +674,11 @@ def test_capacity_refuses_unavailable_driver_memory(monkeypatch, unknown):
         weight_cache,
         "_gpu_memory_snapshot",
         lambda: {
-            0: (24 * 1024**3, 20 * 1024**3, {os.getpid(): 1024**3, 12345: unknown})
+            0: (
+                24 * 1024**3,
+                20 * 1024**3,
+                {os.getpid(): 1024**3, 12345: unknown},
+            )
         },
     )
     with pytest.raises(ValueError, match="Cannot safely account"):

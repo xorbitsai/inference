@@ -510,6 +510,12 @@ With retained weights enabled, Xinference prepares a replacement model process w
 
 Both engines need runtime memory during the switch: shared weights do not share KV cache or CUDA graphs. Reserve enough GPU memory for both engines. Before starting a replacement, Xinference checks free memory while preserving the current engine's configured budget, and rejects insufficient memory or unavailable driver process accounting. Both Xinference environments, and the version that originally launched the model, must support seamless model replacement.
 
+Insufficient memory never triggers an in-place rebuild. Even models launched with the default 0.9 memory fraction need enough spare memory for replacement; otherwise reload fails while inference continues on the current engine.
+
+For consecutive upgrades, ``drain_timeout`` also bounds waiting for previous engine retirement. A timeout leaves current requests running; a later upgrade retries failed retirement.
+
+When authentication is enabled, selecting ``python_executable`` requires administrator access. The current interpreter path is only included in reload metadata for administrators.
+
 To change the model environment, set ``python_executable`` to an installed absolute Python path on the Worker machine. The target must already contain Xinference and the model engine; packages are not installed by reload. Compatible engine and PyTorch versions reuse the retained weights. Different versions use a separate weight cache and need additional GPU memory; upstream compatibility checks remain enabled. In the Web UI, use **Reconfigure / upgrade model** in the running model's detail view.
 
 .. code-block:: python

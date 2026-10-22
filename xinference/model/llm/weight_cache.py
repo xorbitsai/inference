@@ -456,11 +456,9 @@ class _CacheProcess:
         self.pid = pid
 
     def poll(self):
-        try:
-            os.kill(self.pid, 0)
-        except ProcessLookupError:
-            return 1
-        return None
+        import psutil
+
+        return None if psutil.pid_exists(self.pid) else 1
 
 
 class BorrowedWeightCache(WeightCacheDaemon):

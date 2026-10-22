@@ -28,12 +28,7 @@ The optional ``python_executable`` request field selects an absolute Python exec
     operation = client.relaunch_worker("127.0.0.1:9978")
     status = client.get_worker_relaunch(operation["operation_id"])
 
-For an unmanaged Worker started without a service process host, you can start its replacement explicitly with a different actor port and a free metrics exporter port. Managed Workers use the relaunch API so retained processes remain in the same service or container:
-
-.. code-block:: bash
-
-    xinference-worker -e http://127.0.0.1:9997 --worker-port 9998 \
-      --replace-worker 127.0.0.1:9978 --metrics-exporter-port 19002
+The CLI reports an error with guidance when ``--replace-worker`` would bypass the service host. Use the relaunch API for CLI-managed Workers and for unmanaged Workers started through the Python deployment API.
 
 Model management changes pause during handoff; inference calls continue. Failure before ownership transfer restores the old Worker. After transfer starts, keep both processes alive while the replacement retries. The old Worker exits automatically after successful replacement.
 

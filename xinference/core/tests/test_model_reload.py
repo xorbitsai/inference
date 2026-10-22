@@ -51,7 +51,9 @@ def make_pipeline(actor):
 
     # Isolate supervisor/persistence orchestration from process creation. The
     # real generation transport and rollback are covered in test_model_generation.
-    async def replace(uid, config, python_executable=None, operation_id=None):
+    async def replace(
+        uid, config, python_executable=None, operation_id=None, drain_timeout=300
+    ):
         return await worker._model_uid_to_model[uid].reload(config, 300)
 
     worker._replace_model_generation = replace
@@ -550,3 +552,54 @@ async def test_force_termination_reaps_native_children_after_parent_dies(tmp_pat
         parent.wait(timeout=5)
         if child is not None and child.is_running():
             child.kill()
+
+
+@pytest.mark.asyncio
+async def test_idle_reload_status_survives_worker_handoff():
+    supervisor, worker = make_pipeline(make_actor())
+    worker.get_model_reload_status = AsyncMock(side_effect=ConnectionError("handoff"))
+    assert await supervisor.get_model_reload_status("test") == {"status": "idle"}
+
+
+@pytest.mark.asyncio
+async def test_restored_generation_updates_worker_and_autostart_environment():
+    supervisor, worker = make_pipeline(make_actor())
+    supervisor._model_reload_status["test"] = {
+        "operation_id": "upgrade",
+        "status": "ready",
+    }
+    status = {"operation_id": "upgrade", "status": "error", "restored": True}
+    ref = worker._model_uid_to_model["test-replica"]
+    worker._model_uid_to_model["test-rep0"] = worker._model_uid_to_model.pop(
+        "test-replica"
+    )
+    worker._model_uid_to_launch_args["test-rep0"] = (
+        worker._model_uid_to_launch_args.pop("test-replica")
+    )
+    ref.export_model_generation = AsyncMock(
+        return_value={
+            "config": {"max_num_seqs": 16},
+            "python_executable": "/old/python",
+        }
+    )
+    ref.get_reload_status = AsyncMock(return_value=status)
+    worker.get_supervisor_ref = AsyncMock(return_value=supervisor)
+    worker._model_uid_to_launch_args["test-rep0"].update(
+        max_num_seqs=32, model_python_executable="/failed/python"
+    )
+    await worker._restore_model_generation_config("test-rep0", ref)
+    assert worker._model_uid_to_launch_args["test-rep0"]["max_num_seqs"] == 16
+    assert (
+        worker._model_uid_to_launch_args["test-rep0"]["model_python_executable"]
+        == "/old/python"
+    )
+    supervisor._launch_history_store.update_autostart_launch_config.assert_called_once_with(
+        "test", {"max_num_seqs": 16, "model_python_executable": "/old/python"}
+    )
+    assert supervisor._model_reload_status["test"]["restored"]
+    await supervisor.restore_model_reload_config(
+        "test-rep0", {}, {"operation_id": "stale"}
+    )
+    assert (
+        supervisor._launch_history_store.update_autostart_launch_config.call_count == 1
+    )

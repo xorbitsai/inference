@@ -91,16 +91,6 @@ msgstr ""
 "可选请求字段 ``python_executable`` 指定 Worker 所在机器上 Python "
 "可执行文件的绝对路径，例如单独安装的新版环境；默认使用当前解释器。此操作不安装软件包，保留的模型进程继续使用原环境和代码。"
 
-#: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/worker_handoff.rst:31
-msgid ""
-"For an unmanaged Worker started without a service process host, you can "
-"start its replacement explicitly with a different actor port and a free "
-"metrics exporter port. Managed Workers use the relaunch API so retained "
-"processes remain in the same service or container:"
-msgstr ""
-"对于未通过服务托管进程启动的非托管 Worker，可以指定不同的 actor 端口和空闲的指标导出端口，显式启动替代进程。托管 Worker 应使用 "
-"relaunch API，使保留的进程继续归属同一服务或容器："
-
 #: ../../source/user_guide/worker_handoff.rst
 msgid "The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch."
 msgstr "Supervisor 还会将所有权预留记录保存在 ``XINFERENCE_HOME/worker-handoffs.json``，以便在 Supervisor 重启后继续完成中断的交接。替代 Worker 会持续更新原 Worker 地址对应的恢复文件，包括重新启动后新加载的模型。"
@@ -152,3 +142,7 @@ msgid ""
 msgstr ""
 "在 Docker 中，使用相同的托管入口作为容器命令。在运行中的容器内安装或挂载已准备好的 Python "
 "环境。升级期间保持该容器运行：替换或停止容器会终止模型进程，无法保留其 GPU 显存分配。"
+
+#: ../source/user_guide/worker_handoff.rst:31
+msgid "The CLI reports an error with guidance when ``--replace-worker`` would bypass the service host. Use the relaunch API for CLI-managed Workers and for unmanaged Workers started through the Python deployment API."
+msgstr "如果 ``--replace-worker`` 会绕过服务主进程，CLI 会报错并提供指引。对于 CLI 管理的 Worker 和通过 Python 部署 API 启动的非托管 Worker，请使用 relaunch API。"

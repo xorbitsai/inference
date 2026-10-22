@@ -608,3 +608,15 @@ msgstr ""
 "要更换模型环境，将 ``python_executable`` 设置为 Worker 机器上已安装的 Python 绝对路径。目标环境必须预先安装 "
 "Xinference 和模型引擎；重新加载不会安装软件包。兼容的引擎和 PyTorch 版本会复用保留的权重。不同版本使用独立的权重缓存，需要额外的 "
 "GPU 显存；上游兼容性检查仍然启用。在 Web 界面中，进入运行中模型的详情页，使用 **重新配置 / 升级模型**。"
+
+#: ../source/user_guide/launch.rst:502
+msgid "Insufficient memory never triggers an in-place rebuild. Even models launched with the default 0.9 memory fraction need enough spare memory for replacement; otherwise reload fails while inference continues on the current engine."
+msgstr "显存不足时不会自动退回原地重建。即使模型以默认的 0.9 显存比例启动，也需要为替换预留足够空间；否则重新加载失败，当前引擎继续处理推理。"
+
+#: ../source/user_guide/launch.rst:504
+msgid "For consecutive upgrades, ``drain_timeout`` also bounds waiting for previous engine retirement. A timeout leaves current requests running; a later upgrade retries failed retirement."
+msgstr "连续升级时，``drain_timeout`` 也会限制等待前一个引擎退出的时间。超时不会停止当前请求；后续升级会重试失败的清理操作。"
+
+#: ../source/user_guide/launch.rst:506
+msgid "When authentication is enabled, selecting ``python_executable`` requires administrator access. The current interpreter path is only included in reload metadata for administrators."
+msgstr "启用认证时，选择 ``python_executable`` 需要管理员权限。只有管理员获取的重新加载元数据包含当前解释器路径。"

@@ -1135,8 +1135,6 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         request_id: str,
         block_duration: int = XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     ) -> str:
-        from xoscar.errors import ActorNotExist, ServerClosed
-
         from ..model.scheduler.core import AbortRequestMessage
 
         generation_results = []
@@ -1150,18 +1148,22 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     generation_results.append(
                         await ref.abort_request(request_id, block_duration)
                     )
-                except (ActorNotExist, ServerClosed, ConnectionError):
+                except Exception:
                     if ref == active:
                         raise
+                    logger.debug(
+                        "Retired generation could not abort request", exc_info=True
+                    )
+        generation_result = next(
+            (
+                value
+                for value in generation_results
+                if value != AbortRequestMessage.NO_OP.name
+            ),
+            AbortRequestMessage.NO_OP.name,
+        )
         if generation_results and not self._serve_count:
-            return next(
-                (
-                    result
-                    for result in generation_results
-                    if result != AbortRequestMessage.NO_OP.name
-                ),
-                AbortRequestMessage.NO_OP.name,
-            )
+            return generation_result
 
         # Always cancel the running task first
         task = self._running_tasks.get(request_id)
@@ -1180,10 +1182,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 and (not cancelled or result != AbortRequestMessage.NO_OP.name)
                 and (
                     result != AbortRequestMessage.NO_OP.name
-                    or not any(
-                        value != AbortRequestMessage.NO_OP.name
-                        for value in generation_results
-                    )
+                    or generation_result == AbortRequestMessage.NO_OP.name
                 )
             ):
                 return result
@@ -1192,14 +1191,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             return AbortRequestMessage.DONE.name
 
         # Otherwise return NO_OP for legacy models or when model doesn't handle abort
-        return next(
-            (
-                result
-                for result in generation_results
-                if result != AbortRequestMessage.NO_OP.name
-            ),
-            AbortRequestMessage.NO_OP.name,
-        )
+        return generation_result
 
     @request_limit
     @log_async(logger=logger)
