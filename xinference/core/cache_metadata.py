@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional, cast
 
 
 def get_cached_model_engines(
@@ -68,7 +68,12 @@ def get_cached_model_engines(
                         continue
                     family = match_audio(
                         model_name,
-                        download_hub=candidate.model_hub,
+                        download_hub=cast(
+                            Literal[
+                                "huggingface", "modelscope", "openmind_hub", "csghub"
+                            ],
+                            candidate.model_hub,
+                        ),
                         model_engine=engine,
                         quantization=candidate.quantization,
                     )
