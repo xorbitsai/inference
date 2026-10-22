@@ -206,6 +206,12 @@ DEFAULT_VLLM_VERSION = version.parse("0.21.0")
 MINICPMV47_MIN_VLLM_VERSION = version.parse("0.31.1rc1.dev281+gc85616efc")
 
 
+def _is_gpt_oss_model(model_family: "LLMFamilyV2") -> bool:
+    return model_family.has_architecture("GptOssForCausalLM") or (
+        (model_family.model_family or model_family.model_name) == "gpt-oss"
+    )
+
+
 def _get_effective_vllm_version() -> version.Version:
     try:
         from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
@@ -2239,6 +2245,10 @@ class VLLMModel(WeightCachedModel, LLM):
 
         if (enable_thinking or tools) and generate_config:
             generate_config["skip_special_tokens"] = False
+        if _is_gpt_oss_model(self.model_family) and not tools and generate_config:
+            # Preserve Harmony control tokens so the channel parser can strip
+            # framing without confusing analysis and final output.
+            generate_config["skip_special_tokens"] = False
 
         anthropic = bool((generate_config or {}).get("_anthropic_request"))
         if anthropic and generate_config is not None:
@@ -2990,12 +3000,34 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             full_prompt, generate_config, chat_template_kwargs
         )
         stream = generate_config.get("stream", False)
+        parse_harmony = _is_gpt_oss_model(self.model_family) and not tools
+        structured_output = plain_json or (
+            (generate_config.get("response_format") or {}).get("type")
+            in {"json_schema", "json_object"}
+            or generate_config.get("guided_json") is not None
+            or bool(generate_config.get("guided_json_object"))
+        )
+        expose_reasoning = chat_template_kwargs.get(
+            "reasoning_content",
+            getattr(self.reasoning_parser, "reasoning_content", False),
+        )
 
         if stream:
             agen = await self.async_generate(
                 full_prompt, generate_config, tools, request_id=request_id
             )
             assert isinstance(agen, AsyncGenerator)
+            if parse_harmony:
+                from ..harmony import async_stream_harmony_chat_completion
+
+                raw_stream = self._async_to_chat_completion_chunks(
+                    agen, None, chat_template_kwargs
+                )
+                return async_stream_harmony_chat_completion(
+                    raw_stream,
+                    expose_reasoning=expose_reasoning,
+                    structured_output=structured_output,
+                )
             if tools:
                 result_stream = self._async_to_tool_completion_chunks(
                     agen, chat_template_kwargs, tools
@@ -3019,6 +3051,19 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 result = self._post_process_completion(
                     self.model_family, self.model_uid, c, tools
                 )
+            elif parse_harmony:
+                from ..harmony import async_stream_harmony_chat_completion
+
+                raw_completion = self._to_chat_completion(c, None)
+                result = None
+                async for parsed in async_stream_harmony_chat_completion(
+                    raw_completion,
+                    expose_reasoning=expose_reasoning,
+                    structured_output=structured_output,
+                ):
+                    result = parsed
+                    break
+                assert result is not None
             else:
                 result = self._to_chat_completion(c, parser)
             if "_pd_kv_transfer_params" in c:

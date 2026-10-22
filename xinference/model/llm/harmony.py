@@ -20,11 +20,70 @@ if TYPE_CHECKING:
 
 
 class HarmonyStreamParser:
-    def __init__(self):
+    _MARKERS = (
+        ("<|start|>assistant<|channel|>analysis<|message|>", "analysis"),
+        ("<|start|>assistant<|channel|>final<|message|>", "assistantfinal"),
+        ("<|channel|>analysis<|message|>", "analysis"),
+        ("<|channel|>final<|message|>", "assistantfinal"),
+        ("<|end|>", ""),
+        ("<|return|>", ""),
+        ("<|endoftext|>", ""),
+    )
+
+    def __init__(self, structured_output=False):
         # Current channel: either 'analysis', 'final', or None if not started yet
         self.current_channel = None
         # Buffer for accumulating text when looking for 'assistantfinal' marker
         self.buffer = ""
+        # Raw vLLM control tokens can be split across streaming chunks.
+        self._marker_buffer = ""
+        # Constrained decoding can suppress the final-channel marker and leave
+        # a bare ``analysis`` prefix before the JSON value.
+        self.structured_output = structured_output
+
+    def _normalize_markers(self, text):
+        """Convert raw Harmony control tokens to the compact stream markers."""
+        self._marker_buffer += text
+        normalized = []
+        marker_texts = [marker for marker, _ in self._MARKERS]
+        while self._marker_buffer:
+            matches = [
+                (self._marker_buffer.find(marker), marker, replacement)
+                for marker, replacement in self._MARKERS
+                if self._marker_buffer.find(marker) >= 0
+            ]
+            if matches:
+                position, marker, replacement = min(
+                    matches, key=lambda item: (item[0], -len(item[1]))
+                )
+                normalized.append(self._marker_buffer[:position])
+                normalized.append(replacement)
+                self._marker_buffer = self._marker_buffer[position + len(marker) :]
+                continue
+
+            safe_length = len(self._marker_buffer)
+            for marker in marker_texts:
+                for width in range(1, min(len(marker), len(self._marker_buffer)) + 1):
+                    if self._marker_buffer.endswith(marker[:width]):
+                        safe_length = min(safe_length, len(self._marker_buffer) - width)
+            if safe_length == 0:
+                break
+            normalized.append(self._marker_buffer[:safe_length])
+            self._marker_buffer = self._marker_buffer[safe_length:]
+        return "".join(normalized)
+
+    def _consume_structured_analysis(self):
+        """Resolve a possible bare analysis prefix in constrained output."""
+        stripped = self.buffer.lstrip()
+        if not stripped:
+            return []
+        if stripped[0] in "[{":
+            self.current_channel = "final"
+            self.buffer = ""
+            return [{"channel": "final", "content": stripped}]
+        content = self.buffer
+        self.buffer = ""
+        return [{"channel": "analysis", "content": content}]
 
     def feed(self, text):
         """
@@ -39,6 +98,9 @@ class HarmonyStreamParser:
         The parser detects 'assistantfinal' markers inside reasoning text,
         splits the reasoning and final content correctly, and switches the channel.
         """
+        text = self._normalize_markers(text)
+        if not text:
+            return []
         segments = []
 
         # If we are currently in 'analysis' mode
@@ -56,6 +118,8 @@ class HarmonyStreamParser:
                 if after:
                     segments.append({"channel": "final", "content": after})
                 return segments
+            if self.structured_output:
+                return self._consume_structured_analysis()
             else:
                 # Check if buffer ends with partial 'assistantfinal'
                 if any(
@@ -73,8 +137,12 @@ class HarmonyStreamParser:
 
         # If we are currently in 'final' mode
         if self.current_channel == "final":
+            if self.structured_output and text.startswith("assistantfinal"):
+                text = text[len("assistantfinal") :]
+                if not text:
+                    return segments
             # Check if this is actually a new message starting with 'analysis'
-            if text.startswith("analysis"):
+            if not self.structured_output and text.startswith("analysis"):
                 # Reset parser state for new message
                 self.current_channel = None
                 self.buffer = ""
@@ -96,6 +164,11 @@ class HarmonyStreamParser:
                 self.current_channel = "final"
                 if after:
                     segments.append({"channel": "final", "content": after})
+            elif self.structured_output:
+                # Keep the prefix buffered until the first generated value
+                # identifies this as constrained JSON or ordinary analysis.
+                self.buffer = rest
+                segments.extend(self._consume_structured_analysis())
             else:
                 # Start buffering for potential 'assistantfinal' marker
                 self.buffer = rest
@@ -116,6 +189,9 @@ class HarmonyStreamParser:
             rest = text[len("assistantfinal") :]
             if rest:
                 segments.append({"channel": "final", "content": rest})
+        elif self.structured_output:
+            self.current_channel = "final"
+            segments.append({"channel": "final", "content": text})
 
         return segments
 
@@ -125,6 +201,8 @@ async def async_stream_harmony_chat_completion(
         "ChatCompletion",
         AsyncGenerator["ChatCompletionChunk", None],
     ],
+    expose_reasoning: bool = True,
+    structured_output: bool = False,
 ) -> AsyncGenerator["ChatCompletion", None]:
     """
     Parse Harmony-formatted content from either a full ChatCompletion (non-streaming)
@@ -138,7 +216,7 @@ async def async_stream_harmony_chat_completion(
         out_data = deepcopy(chunks)
 
         for choice in out_data["choices"]:
-            parser = HarmonyStreamParser()
+            parser = HarmonyStreamParser(structured_output=structured_output)
             msg = choice["message"]
 
             # Backup original content & reasoning
@@ -170,6 +248,8 @@ async def async_stream_harmony_chat_completion(
             # Clean up reasoning_content: set to None if no reasoning content was parsed
             if not msg["reasoning_content"] and not original_reasoning:
                 msg["reasoning_content"] = None  # type: ignore
+            if not expose_reasoning:
+                msg.pop("reasoning_content", None)
 
         yield out_data
 
@@ -178,6 +258,10 @@ async def async_stream_harmony_chat_completion(
         parsers_per_choice = {}
 
         async for chunk in chunks:  # type: ignore
+            if not chunk.get("choices"):
+                # Preserve usage-only and terminal metadata chunks.
+                yield chunk
+                continue
             out_chunk = {  # type: ignore
                 "id": chunk["id"],
                 "model": chunk["model"],
@@ -185,13 +269,17 @@ async def async_stream_harmony_chat_completion(
                 "created": chunk["created"],
                 "choices": [],
             }
+            if chunk.get("usage") is not None:
+                out_chunk["usage"] = chunk["usage"]
 
             for i, choice in enumerate(chunk["choices"]):
                 delta = choice.get("delta", {})
                 text = delta.get("content") or ""  # type: ignore
 
                 if i not in parsers_per_choice:
-                    parsers_per_choice[i] = HarmonyStreamParser()
+                    parsers_per_choice[i] = HarmonyStreamParser(
+                        structured_output=structured_output
+                    )
 
                 # Feed text to parser and collect current delta only
                 curr_delta: Dict[str, object] = {
@@ -210,18 +298,19 @@ async def async_stream_harmony_chat_completion(
                     elif ch == "tool":
                         curr_delta["tool_calls"].append(c)  # type: ignore
 
-                if curr_delta["reasoning_content"]:
+                reasoning_content = curr_delta.get("reasoning_content") or ""
+                if not expose_reasoning:
+                    curr_delta.pop("reasoning_content", None)
+
+                if reasoning_content:
                     if not curr_delta["content"]:
                         curr_delta["content"] = None
 
                 elif curr_delta["content"]:
-                    if not curr_delta["reasoning_content"]:
+                    if expose_reasoning:
                         curr_delta["reasoning_content"] = None
 
-                elif (
-                    choice.get("finish_reason") is not None
-                    and not curr_delta["reasoning_content"]
-                ):
+                elif choice.get("finish_reason") is not None and expose_reasoning:
                     # For the final chunk, if there's no new reasoning content,
                     # don't include empty reasoning_content to avoid clearing existing state
                     curr_delta["reasoning_content"] = None

@@ -572,6 +572,16 @@ class TestVLLMChatModel:
         for chunk in chunks_data:
             yield chunk
 
+    @pytest.fixture
+    def gpt_oss_chat_model(self, real_vllm_chat_model):
+        model = real_vllm_chat_model
+        model.model_family = types.SimpleNamespace(
+            model_family=None,
+            model_name="gpt-oss",
+            has_architecture=lambda _: False,
+        )
+        return model
+
     @pytest.mark.asyncio
     async def test_async_to_tool_completion_chunks_without_thinking(
         self, real_vllm_chat_model
@@ -2053,6 +2063,215 @@ class TestVLLMChatModel:
             expected_result = filter_ids_and_created(expected_chunks[i])
             assert result == expected_result
             i = i + 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("stream", [False, True])
+    @pytest.mark.parametrize("reasoning_content", [False, True])
+    async def test_gpt_oss_async_chat_parses_final_channel(
+        self, gpt_oss_chat_model, stream, reasoning_content
+    ):
+        model = gpt_oss_chat_model
+        generated_text = (
+            "<|channel|>analysis<|message|>The user asks: calculate 17*23."
+            "<|end|><|start|>assistant<|channel|>final<|message|>391<|end|>"
+        )
+        request_config = {
+            "stream": stream,
+            "chat_template_kwargs": {"reasoning_content": reasoning_content},
+        }
+
+        async def prepare_chat_inputs(messages, config):
+            chat_template_kwargs = config.pop("chat_template_kwargs", {})
+            tools = config.pop("tools", None)
+            return "prompt", tools, chat_template_kwargs, config
+
+        model._prepare_chat_inputs = AsyncMock(side_effect=prepare_chat_inputs)
+
+        completion = {
+            "id": "gpt-oss-test",
+            "object": "text_completion",
+            "created": 1,
+            "model": "gpt-oss",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": generated_text,
+                    "finish_reason": "stop",
+                    "logprobs": None,
+                }
+            ],
+            "usage": {"prompt_tokens": 2, "completion_tokens": 5, "total_tokens": 7},
+        }
+
+        async def generated_chunks():
+            for text in (
+                "<|channel|>analysis<|message|>The user asks: calculate 17*23.",
+                "<|end|><|start|>assistant<|channel|>final<|message|>39",
+                "1<|end|>",
+            ):
+                yield {
+                    "id": "gpt-oss-test",
+                    "object": "text_completion",
+                    "created": 1,
+                    "model": "gpt-oss",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "text": text,
+                            "finish_reason": None,
+                            "logprobs": None,
+                        }
+                    ],
+                }
+            yield {
+                "id": "gpt-oss-test",
+                "object": "text_completion",
+                "created": 1,
+                "model": "gpt-oss",
+                "choices": [
+                    {
+                        "index": 0,
+                        "text": "",
+                        "finish_reason": "stop",
+                        "logprobs": None,
+                    }
+                ],
+            }
+            yield {
+                "id": "gpt-oss-test",
+                "object": "text_completion",
+                "created": 1,
+                "model": "gpt-oss",
+                "choices": [],
+                "usage": {
+                    "prompt_tokens": 2,
+                    "completion_tokens": 5,
+                    "total_tokens": 7,
+                },
+            }
+
+        async def async_generate(prompt, config, tools, request_id=None):
+            assert prompt == "prompt"
+            assert not tools
+            return generated_chunks() if stream else completion
+
+        model.async_generate = async_generate
+        result = await model.async_chat(
+            [{"role": "user", "content": "What is 17*23?"}], request_config
+        )
+
+        if stream:
+            chunks = [chunk async for chunk in result]
+            choices = [chunk["choices"][0] for chunk in chunks if chunk["choices"]]
+            content = "".join(
+                choice["delta"].get("content") or "" for choice in choices
+            )
+            reasoning = "".join(
+                choice["delta"].get("reasoning_content") or "" for choice in choices
+            )
+            assert choices[-1]["finish_reason"] == "stop"
+            assert chunks[-1]["choices"] == []
+            assert chunks[-1]["usage"]["total_tokens"] == 7
+            if not reasoning_content:
+                assert all("reasoning_content" not in c["delta"] for c in choices)
+        else:
+            message = result["choices"][0]["message"]
+            content = message["content"]
+            reasoning = message.get("reasoning_content") or ""
+            assert result["choices"][0]["finish_reason"] == "stop"
+            if not reasoning_content:
+                assert "reasoning_content" not in message
+
+        assert content == "391"
+        assert ("calculate 17*23" in reasoning) is reasoning_content
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("stream", [False, True])
+    async def test_gpt_oss_async_chat_keeps_constrained_json_in_content(
+        self, gpt_oss_chat_model, stream
+    ):
+        model = gpt_oss_chat_model
+        generated_text = 'analysis\n{"answer":391}'
+        request_config = {"stream": stream, "guided_json_object": True}
+
+        async def prepare_chat_inputs(messages, config):
+            chat_template_kwargs = config.pop("chat_template_kwargs", {})
+            tools = config.pop("tools", None)
+            return "prompt", tools, chat_template_kwargs, config
+
+        model._prepare_chat_inputs = AsyncMock(side_effect=prepare_chat_inputs)
+
+        completion = {
+            "id": "gpt-oss-json-test",
+            "object": "text_completion",
+            "created": 1,
+            "model": "gpt-oss",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": generated_text,
+                    "finish_reason": "stop",
+                    "logprobs": None,
+                }
+            ],
+            "usage": {},
+        }
+
+        async def generated_chunks():
+            for text in ("analysis", "\n", '{"answer":', "391}"):
+                yield {
+                    "id": "gpt-oss-json-test",
+                    "object": "text_completion",
+                    "created": 1,
+                    "model": "gpt-oss",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "text": text,
+                            "finish_reason": None,
+                            "logprobs": None,
+                        }
+                    ],
+                }
+            yield {
+                "id": "gpt-oss-json-test",
+                "object": "text_completion",
+                "created": 1,
+                "model": "gpt-oss",
+                "choices": [
+                    {
+                        "index": 0,
+                        "text": "",
+                        "finish_reason": "stop",
+                        "logprobs": None,
+                    }
+                ],
+            }
+
+        async def async_generate(prompt, config, tools, request_id=None):
+            assert prompt == "prompt"
+            assert config["guided_json_object"] is True
+            assert not tools
+            return generated_chunks() if stream else completion
+
+        model.async_generate = async_generate
+        result = await model.async_chat(
+            [{"role": "user", "content": "Return the answer as JSON."}],
+            request_config,
+        )
+
+        if stream:
+            chunks = [chunk async for chunk in result]
+            content = "".join(
+                chunk["choices"][0]["delta"].get("content") or ""
+                for chunk in chunks
+                if chunk["choices"]
+            )
+            assert chunks[-1]["choices"][0]["finish_reason"] == "stop"
+        else:
+            content = result["choices"][0]["message"]["content"]
+
+        assert json.loads(content) == {"answer": 391}
 
 
 @pytest.mark.asyncio
