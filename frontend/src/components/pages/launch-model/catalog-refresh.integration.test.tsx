@@ -439,6 +439,69 @@ it('moves from custom registrations to the refreshed built-in category', async (
   assert.deepEqual(navigated, ['/launch-model/llm']);
 });
 
+it('connects the catalog star to the current account favorites API', async () => {
+  window.sessionStorage.setItem(
+    'token',
+    'header.' + Buffer.from(JSON.stringify({ user_id: 1 })).toString('base64url') + '.signature'
+  );
+  const beforeGet = request.get,
+    beforePut = request.put,
+    beforeDelete = request.delete;
+  const changes: { method: string; body: unknown }[] = [];
+  request.get = async <T,>(url: string) =>
+    url === '/v1/model_favorites' ? (['wanted'] as T) : beforeGet<T>(url);
+  request.put = async <T,>(url: string, body: unknown) => {
+    assert.equal(url, '/v1/model_favorites');
+    changes.push({ method: 'PUT', body });
+    return {} as T;
+  };
+  request.delete = async <T,>(url: string, config?: { data?: unknown }) => {
+    assert.equal(url, '/v1/model_favorites');
+    changes.push({ method: 'DELETE', body: config?.data });
+    return {} as T;
+  };
+  try {
+    await act(async () =>
+      root.render(<LaunchModel routeType={ModelType.LLM} initialCustomType={ModelType.LLM} />)
+    );
+    const star = host.querySelector<HTMLButtonElement>('button[aria-label="Favorite model"]')!;
+    assert.equal(star.getAttribute('aria-pressed'), 'true');
+    assert.equal(star.disabled, false);
+    await act(async () => star.click());
+    assert.equal(star.getAttribute('aria-pressed'), 'false');
+    await act(async () => star.click());
+    assert.equal(star.getAttribute('aria-pressed'), 'true');
+    assert.deepEqual(changes, [
+      { method: 'DELETE', body: { model_name: 'wanted' } },
+      { method: 'PUT', body: { model_name: 'wanted' } },
+    ]);
+  } finally {
+    request.get = beforeGet;
+    request.put = beforePut;
+    request.delete = beforeDelete;
+  }
+});
+
+it('explains that anonymous browser imports are shared with all visitors', async () => {
+  authenticated = false;
+  window.localStorage.setItem('collectionArr', JSON.stringify(['wanted']));
+  const beforeGet = request.get;
+  request.get = async <T,>(url: string) =>
+    url === '/v1/model_favorites' ? ([] as T) : beforeGet<T>(url);
+  try {
+    await act(async () =>
+      root.render(<LaunchModel routeType={ModelType.LLM} initialCustomType={ModelType.LLM} />)
+    );
+    const button = [...host.querySelectorAll('button')].find(
+      (b) => b.textContent === 'launchModel.importFavorites'
+    )!;
+    assert.equal(button.getAttribute('title'), 'launchModel.importFavoritesSharedHint');
+    assert.equal(button.disabled, false);
+  } finally {
+    request.get = beforeGet;
+  }
+});
+
 it('uses the shared request client to send the session header and only catalog fields', async () => {
   const observed: { path: string; authorization?: string; body: unknown }[] = [];
   const server = createServer((req, res) => {

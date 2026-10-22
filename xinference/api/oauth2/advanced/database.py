@@ -54,6 +54,8 @@ def _api_key_name_identity(name: str) -> str:
     )
 
 
+_USER_ID_SEQUENCE_KEY = "_user_id_sequence"
+
 SCHEMA_SQL = f"""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
@@ -171,6 +173,24 @@ class Database:
                 "ON users(oidc_sub) WHERE oidc_sub IS NOT NULL"
             )
             self._migrate_api_key_names(conn)
+            self._sync_user_id_sequence(conn)
+
+    @staticmethod
+    def _sync_user_id_sequence(conn: sqlite3.Connection) -> None:
+        # Persist the high-water mark before any existing owner can be deleted.
+        # An INSERT starts the write transaction even when the key exists;
+        # allocation and user insertion then share its cross-process lock.
+        conn.execute(
+            "INSERT OR IGNORE INTO system_config(key, value) "
+            "SELECT ?, COALESCE(MAX(id), 0) FROM users",
+            (_USER_ID_SEQUENCE_KEY,),
+        )
+        # Also account for explicit IDs written by an offline importer.
+        conn.execute(
+            "UPDATE system_config SET value=MAX(CAST(value AS INTEGER), "
+            "(SELECT COALESCE(MAX(id), 0) FROM users)) WHERE key=?",
+            (_USER_ID_SEQUENCE_KEY,),
+        )
 
     @staticmethod
     def _migrate_api_key_names(conn: sqlite3.Connection) -> None:
@@ -381,9 +401,24 @@ class Database:
         must_change_password: int,
         permissions: Optional[List[str]],
     ) -> int:
-        cursor = conn.execute(
-            "INSERT INTO users (username, password_hash, source, oidc_sub, enabled, must_change_password) VALUES (?, ?, ?, ?, ?, ?)",
+        Database._sync_user_id_sequence(conn)
+        user_id = (
+            int(
+                conn.execute(
+                    "SELECT value FROM system_config WHERE key=?",
+                    (_USER_ID_SEQUENCE_KEY,),
+                ).fetchone()[0]
+            )
+            + 1
+        )
+        conn.execute(
+            "UPDATE system_config SET value=? WHERE key=?",
+            (str(user_id), _USER_ID_SEQUENCE_KEY),
+        )
+        conn.execute(
+            "INSERT INTO users (id, username, password_hash, source, oidc_sub, enabled, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
+                user_id,
                 username,
                 password_hash,
                 source,
@@ -392,7 +427,6 @@ class Database:
                 must_change_password,
             ),
         )
-        user_id = cursor.lastrowid
         if permissions:
             for perm in permissions:
                 conn.execute(
@@ -507,6 +541,7 @@ class Database:
         with self._lock:
             with self._get_conn() as conn:
                 conn.execute("BEGIN IMMEDIATE")
+                self._sync_user_id_sequence(conn)
                 deleted = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
                 if (
                     deleted.rowcount

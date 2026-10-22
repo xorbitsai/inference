@@ -60,6 +60,8 @@ jobs:
         run: cd frontend && npm run test:permissions
       - name: Test catalog refresh controls
         run: cd frontend && npm run test:catalog-refresh
+      - name: Test persistent model favorites
+        run: cd frontend && npm run test:model-favorites
       - name: Build frontend (static export)
         run: cd frontend && npm run build
       - name: Verify static export output
@@ -443,6 +445,7 @@ jobs:
           # CLI/services, and one small llama.cpp inference smoke test.
           PLATFORM_TEST_PATHS: >-
             xinference/api/tests/test_auth_store_provider.py
+            xinference/api/tests/test_model_favorites.py
             xinference/api/tests/test_frontend_static.py
             xinference/api/tests/test_runtime_logs.py
             xinference/client/tests

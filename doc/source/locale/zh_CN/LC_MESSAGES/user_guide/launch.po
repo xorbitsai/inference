@@ -520,3 +520,23 @@ msgid ""
 msgstr ""
 "LMDeploy 后端已移除，因为其 Xinference 集成已无人维护。使用 InternVL 模型时，请选择 vLLM 或 "
 "Transformers。"
+
+#: ../../source/user_guide/launch.rst
+msgid "Model favorites"
+msgstr "模型收藏"
+
+#: ../../source/user_guide/launch.rst
+msgid "Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection. With authentication enabled, changes require a user session; API keys can only read."
+msgstr "**启动模型** 页面的星标会保存到当前账号，切换浏览器或重启服务器后仍然保留。不同模型类别按模型名称识别收藏。读取或修改收藏需要 ``models:list`` 权限。未启用认证时，所有访问者共用一份收藏。 启用认证时，修改收藏需要用户会话；API key 只能读取。"
+
+#: ../../source/user_guide/launch.rst
+msgid "Favorites use a ``model_favorites`` table in the selected authentication database. With the default SQLite backend, this is ``<XINFERENCE_HOME>/auth/auth.db`` (configured by ``XINFERENCE_AUTH_DB_PATH``). Without authentication, the same path stores the shared collection and only the favorites table is initialized."
+msgstr "收藏保存在所选认证数据库的 ``model_favorites`` 表中。默认 SQLite 后端使用 ``<XINFERENCE_HOME>/auth/auth.db`` (通过 ``XINFERENCE_AUTH_DB_PATH`` 配置)。未启用认证时，同一路径保存共享收藏，且只初始化收藏表。"
+
+#: ../../source/user_guide/launch.rst
+msgid "Old browser favorites are not imported automatically because they have no account identity. Choose **Import browser favorites** to add them to the current account. The browser copy is retained if any write fails or the account changes during import; retrying does not create duplicates."
+msgstr "旧浏览器收藏没有账号身份，因此不会自动导入。选择 **导入浏览器收藏**，可将其添加到当前账号。如果任意写入失败，或导入期间切换了账号，浏览器中的副本会保留；重试不会产生重复记录。"
+
+#: ../../source/user_guide/launch.rst
+msgid "``GET /v1/model_favorites`` returns a list of model names for the authenticated account. ``PUT`` and ``DELETE`` on the same path accept ``{\"model_name\": \"org/model\"}`` to add or remove one name. Both operations are idempotent. The server derives the owner from authentication; clients cannot choose another owner."
+msgstr "``GET /v1/model_favorites`` 返回当前认证账号收藏的模型名称列表。在同一路径使用 ``PUT`` 或 ``DELETE``，请求体为 ``{\"model_name\": \"org/model\"}``，可添加或移除单个名称。两种操作均为幂等操作。服务端根据认证确定所有者，客户端不能指定其他所有者。"

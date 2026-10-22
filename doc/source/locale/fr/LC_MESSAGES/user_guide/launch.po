@@ -540,3 +540,23 @@ msgstr ""
 "Le moteur LMDeploy a été supprimé, car son intégration à Xinference n’est "
 "plus maintenue. Pour les modèles InternVL, sélectionnez vLLM ou "
 "Transformers."
+
+#: ../../source/user_guide/launch.rst
+msgid "Model favorites"
+msgstr "Modèles favoris"
+
+#: ../../source/user_guide/launch.rst
+msgid "Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection. With authentication enabled, changes require a user session; API keys can only read."
+msgstr "Les étoiles de la page **Launch Model** sont enregistrées pour le compte actuel et conservées après un changement de navigateur ou un redémarrage du serveur. Les favoris sont identifiés par le nom du modèle, toutes catégories confondues. Leur lecture ou modification nécessite la permission ``models:list``. Sans authentification, tous les visiteurs partagent une collection. Lorsque l’authentification est activée, les modifications nécessitent une session utilisateur ; les clés API peuvent uniquement lire."
+
+#: ../../source/user_guide/launch.rst
+msgid "Favorites use a ``model_favorites`` table in the selected authentication database. With the default SQLite backend, this is ``<XINFERENCE_HOME>/auth/auth.db`` (configured by ``XINFERENCE_AUTH_DB_PATH``). Without authentication, the same path stores the shared collection and only the favorites table is initialized."
+msgstr "Les favoris sont enregistrés dans une table ``model_favorites`` de la base d’authentification sélectionnée. Avec le backend SQLite par défaut, il s’agit de ``<XINFERENCE_HOME>/auth/auth.db`` (configuré par ``XINFERENCE_AUTH_DB_PATH``). Sans authentification, le même chemin conserve la collection partagée et seule la table des favoris est initialisée."
+
+#: ../../source/user_guide/launch.rst
+msgid "Old browser favorites are not imported automatically because they have no account identity. Choose **Import browser favorites** to add them to the current account. The browser copy is retained if any write fails or the account changes during import; retrying does not create duplicates."
+msgstr "Les anciens favoris du navigateur ne sont pas importés automatiquement, car ils ne sont associés à aucun compte. Choisissez **Import browser favorites** pour les ajouter au compte actuel. La copie du navigateur est conservée si une écriture échoue ou si le compte change pendant l’importation ; une nouvelle tentative ne crée pas de doublons."
+
+#: ../../source/user_guide/launch.rst
+msgid "``GET /v1/model_favorites`` returns a list of model names for the authenticated account. ``PUT`` and ``DELETE`` on the same path accept ``{\"model_name\": \"org/model\"}`` to add or remove one name. Both operations are idempotent. The server derives the owner from authentication; clients cannot choose another owner."
+msgstr "``GET /v1/model_favorites`` renvoie les noms de modèles du compte authentifié. ``PUT`` et ``DELETE`` sur le même chemin acceptent ``{\"model_name\": \"org/model\"}`` pour ajouter ou supprimer un nom. Les deux opérations sont idempotentes. Le serveur détermine le propriétaire à partir de l’authentification ; le client ne peut pas en choisir un autre."

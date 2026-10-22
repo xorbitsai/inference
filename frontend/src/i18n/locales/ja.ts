@@ -552,6 +552,10 @@ const ja = {
     manageCachedModels: 'キャッシュモデル管理',
     manageVirtualEnvironments: '仮想環境を管理',
     favorite: 'お気に入り',
+    importFavorites: 'ブラウザーのお気に入りをインポート',
+    importFavoritesHint: 'このブラウザーに保存したお気に入りを現在のアカウントにインポートします。',
+    importFavoritesSharedHint:
+      'このブラウザーに保存したお気に入りをすべての訪問者が共有する一覧にインポートします。',
     unfavorite: 'お気に入り解除',
     search: 'モデル名と説明を検索',
     searchModelType: '{{modelType}}モデル名を検索',

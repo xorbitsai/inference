@@ -565,6 +565,10 @@ const en = {
     manageCachedModels: 'Manage Cached Models',
     manageVirtualEnvironments: 'Manage Virtual Environments',
     favorite: 'Favorite',
+    importFavorites: 'Import browser favorites',
+    importFavoritesHint: 'Import favorites saved in this browser into the current account.',
+    importFavoritesSharedHint:
+      'Import favorites saved in this browser into the shared collection for all visitors.',
     unfavorite: 'Unfavorite',
     search: 'Search for model name and description',
     searchModelType: 'Search for {{modelType}} model name',

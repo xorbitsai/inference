@@ -16,6 +16,17 @@ Updating the model catalog
 
 On the **Launch Model** page, choose the model type beside **Update**. **Update** refreshes the whole category. Choose **Update one model** and enter the exact Hub model name (or world family name) to update just that model, including a model not yet listed. Other catalog entries are preserved. This updates shared metadata without downloading weights or restarting running models. With authentication enabled, both actions require administrator or ``models:register`` permission.
 
+Model favorites
+===============
+
+Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection. With authentication enabled, changes require a user session; API keys can only read.
+
+Favorites use a ``model_favorites`` table in the selected authentication database. With the default SQLite backend, this is ``<XINFERENCE_HOME>/auth/auth.db`` (configured by ``XINFERENCE_AUTH_DB_PATH``). Without authentication, the same path stores the shared collection and only the favorites table is initialized.
+
+Old browser favorites are not imported automatically because they have no account identity. Choose **Import browser favorites** to add them to the current account. The browser copy is retained if any write fails or the account changes during import; retrying does not create duplicates.
+
+``GET /v1/model_favorites`` returns a list of model names for the authenticated account. ``PUT`` and ``DELETE`` on the same path accept ``{"model_name": "org/model"}`` to add or remove one name. Both operations are idempotent. The server derives the owner from authentication; clients cannot choose another owner.
+
 .. _launch_recommendations:
 
 LLM launch recommendations

@@ -478,3 +478,23 @@ msgid ""
 msgstr ""
 "Xinference との統合が保守されなくなったため、LMDeploy バックエンドを削除しました。InternVL モデルには vLLM または "
 "Transformers を選択してください。"
+
+#: ../../source/user_guide/launch.rst
+msgid "Model favorites"
+msgstr "モデルのお気に入り"
+
+#: ../../source/user_guide/launch.rst
+msgid "Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection. With authentication enabled, changes require a user session; API keys can only read."
+msgstr "**Launch Model** ページのスターは現在のアカウントに保存され、ブラウザーの変更やサーバーの再起動後も保持されます。お気に入りはモデルのカテゴリーをまたいでモデル名で識別されます。参照と変更には ``models:list`` 権限が必要です。認証を無効にすると、すべての訪問者が同じ一覧を共有します。 認証が有効な場合、変更にはユーザーセッションが必要で、API キーは参照のみ可能です。"
+
+#: ../../source/user_guide/launch.rst
+msgid "Favorites use a ``model_favorites`` table in the selected authentication database. With the default SQLite backend, this is ``<XINFERENCE_HOME>/auth/auth.db`` (configured by ``XINFERENCE_AUTH_DB_PATH``). Without authentication, the same path stores the shared collection and only the favorites table is initialized."
+msgstr "お気に入りは選択した認証データベースの ``model_favorites`` テーブルに保存されます。既定の SQLite バックエンドでは ``<XINFERENCE_HOME>/auth/auth.db`` を使用し、``XINFERENCE_AUTH_DB_PATH`` で設定できます。認証なしの場合も同じパスに共有コレクションを保存し、お気に入りテーブルだけを初期化します。"
+
+#: ../../source/user_guide/launch.rst
+msgid "Old browser favorites are not imported automatically because they have no account identity. Choose **Import browser favorites** to add them to the current account. The browser copy is retained if any write fails or the account changes during import; retrying does not create duplicates."
+msgstr "以前のブラウザーのお気に入りにはアカウント情報がないため、自動ではインポートされません。**ブラウザーのお気に入りをインポート** を選ぶと、現在のアカウントに追加できます。書き込みが失敗した場合や途中でアカウントを変更した場合は、ブラウザーのコピーが保持されます。再試行しても重複は作成されません。"
+
+#: ../../source/user_guide/launch.rst
+msgid "``GET /v1/model_favorites`` returns a list of model names for the authenticated account. ``PUT`` and ``DELETE`` on the same path accept ``{\"model_name\": \"org/model\"}`` to add or remove one name. Both operations are idempotent. The server derives the owner from authentication; clients cannot choose another owner."
+msgstr "``GET /v1/model_favorites`` は認証済みアカウントのモデル名の一覧を返します。同じパスへの ``PUT`` と ``DELETE`` は ``{\"model_name\": \"org/model\"}`` を受け取り、名前を一つ追加または削除します。両操作はべき等です。所有者はサーバーが認証から決定し、クライアントが別の所有者を指定することはできません。"
