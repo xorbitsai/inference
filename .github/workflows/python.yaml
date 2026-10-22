@@ -445,6 +445,8 @@ jobs:
           # CLI/services, and one small llama.cpp inference smoke test.
           PLATFORM_TEST_PATHS: >-
             xinference/api/tests/test_auth_store_provider.py
+            xinference/api/tests/test_launch_history.py
+            xinference/api/tests/test_launch_history_provider.py
             xinference/api/tests/test_model_favorites.py
             xinference/api/tests/test_frontend_static.py
             xinference/api/tests/test_runtime_logs.py

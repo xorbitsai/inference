@@ -11,13 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import inspect
 import json
 import logging
 import sqlite3
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional, Protocol
 
 from .autostart import (
     DEFAULT_MAX_RETRIES,
@@ -91,6 +92,84 @@ SHAREABLE_KEYS = frozenset(
         "virtual_env_packages",
     }
 )
+
+
+class LaunchHistoryStorage(Protocol):
+    """Synchronous history and autostart storage shared by API and supervisor.
+
+    Match LaunchHistoryStore's row dictionaries, owner filtering, redaction and
+    UI metadata rules. Writes and the unique enabled autostart model UID must
+    remain atomic across processes. username=None is a trusted, unredacted read;
+    an empty username is the anonymous owner. upsert must preserve autostart
+    policy and preserve UI metadata when ui_data is omitted. Removing autostart
+    must retain the history row; deletion must affect only the supplied owner.
+    """
+
+    def list(
+        self,
+        model_name: Optional[str] = None,
+        username: Optional[str] = None,
+        owner_only: bool = False,
+    ) -> List[Dict[str, Any]]: ...
+
+    def list_autostart(
+        self, username: Optional[str] = None
+    ) -> List[Dict[str, Any]]: ...
+
+    def upsert(
+        self,
+        model_name: str,
+        model_uid: str,
+        data: Dict[str, Any],
+        username: str = "",
+        ui_data: Optional[Dict[str, Any]] = None,
+    ) -> None: ...
+
+    def upsert_autostart(self, entry: Dict[str, Any], username: str = "") -> None: ...
+
+    def update_autostart_launch_config(
+        self, model_uid: str, config: Dict[str, Any]
+    ) -> None: ...
+
+    def remove_autostart(self, model_uid: str) -> bool: ...
+
+    def delete(self, model_name: str, model_uid: str, username: str = "") -> bool: ...
+
+
+def create_launch_history_store(
+    db_path: str,
+    *,
+    service: Literal["api", "supervisor"],
+    auth_store: Any = None,
+) -> LaunchHistoryStorage:
+    from ..extensions import LaunchHistoryStoreContext, resolve_launch_history_store
+
+    store = resolve_launch_history_store(
+        LaunchHistoryStoreContext(db_path, service, auth_store)
+    )
+    if store is None:
+        return LaunchHistoryStore(db_path)
+    for name in (
+        "list",
+        "list_autostart",
+        "upsert",
+        "upsert_autostart",
+        "update_autostart_launch_config",
+        "remove_autostart",
+        "delete",
+    ):
+        method = getattr(store, name, None)
+        if (
+            not callable(method)
+            or getattr(method, "__func__", method)
+            is getattr(LaunchHistoryStorage, name)
+            or inspect.iscoroutinefunction(method)
+            or inspect.iscoroutinefunction(getattr(method, "__call__", None))
+            or inspect.isasyncgenfunction(method)
+            or inspect.isasyncgenfunction(getattr(method, "__call__", None))
+        ):
+            raise TypeError(f"Launch history store must implement synchronous {name}")
+    return store
 
 
 class LaunchHistoryStore:

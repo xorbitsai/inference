@@ -785,7 +785,7 @@ class RESTfulAPI(CancelMixin):
             if setup_token is not None:
                 _log_setup_required_notice(setup_token)
 
-        from ..core.launch_history_store import LaunchHistoryStore
+        from ..core.launch_history_store import create_launch_history_store
         from ..core.model_favorites_store import create_model_favorites_store
 
         self._model_favorites_store = create_model_favorites_store(
@@ -793,8 +793,12 @@ class RESTfulAPI(CancelMixin):
             self._advanced_auth_service.db if self._advanced_auth_service else None,
         )
 
-        self._launch_history_store = LaunchHistoryStore(
-            XINFERENCE_LAUNCH_HISTORY_DB_PATH
+        self._launch_history_store = create_launch_history_store(
+            XINFERENCE_LAUNCH_HISTORY_DB_PATH,
+            service="api",
+            auth_store=(
+                self._advanced_auth_service.db if self._advanced_auth_service else None
+            ),
         )
 
         from ..core.monitor_config_store import MonitorConfigStore
