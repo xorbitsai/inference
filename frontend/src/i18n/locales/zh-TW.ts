@@ -551,6 +551,8 @@ const zhTW = {
     manageCachedModels: '管理快取模型',
     manageVirtualEnvironments: '管理虛擬環境',
     favorite: '收藏',
+    importFavorites: '匯入瀏覽器收藏',
+    importFavoritesHint: '將此瀏覽器儲存的收藏匯入目前帳號。',
     unfavorite: '取消收藏',
     search: '搜尋模型名稱和描述',
     searchModelType: '搜尋 {{modelType}} 相關的模型名稱',

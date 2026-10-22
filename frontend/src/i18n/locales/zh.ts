@@ -539,6 +539,8 @@ const zh = {
     manageCachedModels: '管理缓存模型',
     manageVirtualEnvironments: '管理虚拟环境',
     favorite: '收藏',
+    importFavorites: '导入浏览器收藏',
+    importFavoritesHint: '将此浏览器保存的收藏导入当前账号。',
     unfavorite: '取消收藏',
     search: '搜索模型名称和描述',
     searchModelType: '搜索 {{modelType}} 相关的模型名称',

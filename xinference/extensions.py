@@ -56,6 +56,18 @@ class AuthStoreContext:
 
 
 @dataclass(frozen=True)
+class ModelFavoritesStoreContext:
+    """Default SQLite path and selected auth store (None without authentication).
+
+    Available during API initialization, before route composition. A provider
+    can use the selected auth store to share its transaction/backend domain.
+    """
+
+    db_path: str
+    auth_store: Any
+
+
+@dataclass(frozen=True)
 class ModelCatalogCredentials:
     """An ephemeral catalog token whose repr stays safe in actor call logs."""
 
@@ -159,6 +171,18 @@ def resolve_auth_store(context: AuthStoreContext) -> Any:
     if not providers:
         return None
     return _call_hook(providers[0], "create_auth_store", context)
+
+
+def resolve_model_favorites_store(context: ModelFavoritesStoreContext) -> Any:
+    """Select at most one optional startup provider; errors never fall back."""
+    providers = [
+        e for e in get_extensions() if hasattr(e, "create_model_favorites_store")
+    ]
+    if len(providers) > 1:
+        raise ValueError("Multiple model favorites store providers")
+    if not providers:
+        return None
+    return _call_hook(providers[0], "create_model_favorites_store", context)
 
 
 def resolve_model_catalog_credentials(

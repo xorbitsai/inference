@@ -281,6 +281,10 @@ XINFERENCE_AUTH_DB_PATH = os.environ.get(
     "XINFERENCE_AUTH_DB_PATH", os.path.join(XINFERENCE_HOME, "auth", "auth.db")
 )
 
+XINFERENCE_MODEL_FAVORITES_DB_PATH = os.environ.get(
+    "XINFERENCE_MODEL_FAVORITES_DB_PATH",
+    os.path.join(XINFERENCE_HOME, "model_favorites.db"),
+)
 XINFERENCE_LAUNCH_HISTORY_DB_PATH = os.environ.get(
     "XINFERENCE_LAUNCH_HISTORY_DB_PATH",
     os.path.join(XINFERENCE_HOME, "launch_history.db"),

@@ -535,3 +535,27 @@ msgstr ""
 "Il backend LMDeploy è stato rimosso perché la sua integrazione con "
 "Xinference non è più mantenuta. Per i modelli InternVL, selezionare vLLM o "
 "Transformers."
+
+#: ../../source/user_guide/launch.rst
+msgid "Model favorites"
+msgstr "Modelli preferiti"
+
+#: ../../source/user_guide/launch.rst
+msgid "Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection."
+msgstr "Le stelle nella pagina **Launch Model** vengono salvate per l’account corrente e restano disponibili cambiando browser o riavviando il server. I preferiti sono identificati dal nome del modello tra tutte le categorie. Lettura e modifica richiedono il permesso ``models:list``. Senza autenticazione tutti i visitatori condividono una raccolta."
+
+#: ../../source/user_guide/launch.rst
+msgid "By default, favorites use SQLite at ``<XINFERENCE_HOME>/model_favorites.db``; set ``XINFERENCE_MODEL_FAVORITES_DB_PATH`` to use another file. API processes sharing favorites must use the same store. Back up the favorites store together with the authentication database."
+msgstr "Per impostazione predefinita i preferiti usano SQLite in ``<XINFERENCE_HOME>/model_favorites.db``; impostare ``XINFERENCE_MODEL_FAVORITES_DB_PATH`` per usare un altro file. I processi API che condividono i preferiti devono usare lo stesso archivio. Eseguire il backup dell’archivio insieme al database di autenticazione."
+
+#: ../../source/user_guide/launch.rst
+msgid "Old browser favorites are not imported automatically because they have no account identity. Choose **Import browser favorites** to add them to the current account. The browser copy is retained if any write fails or the account changes during import; retrying does not create duplicates."
+msgstr "I vecchi preferiti del browser non vengono importati automaticamente perché non sono associati a un account. Scegliere **Import browser favorites** per aggiungerli all’account corrente. La copia del browser viene conservata se una scrittura fallisce o se l’account cambia durante l’importazione; un nuovo tentativo non crea duplicati."
+
+#: ../../source/user_guide/launch.rst
+msgid "``GET /v1/model_favorites`` returns a list of model names for the authenticated account. ``PUT`` and ``DELETE`` on the same path accept ``{\"model_name\": \"org/model\"}`` to add or remove one name. Both operations are idempotent. The server derives the owner from authentication; clients cannot choose another owner."
+msgstr "``GET /v1/model_favorites`` restituisce i nomi dei modelli dell’account autenticato. ``PUT`` e ``DELETE`` sullo stesso percorso accettano ``{\"model_name\": \"org/model\"}`` per aggiungere o rimuovere un nome. Entrambe le operazioni sono idempotenti. Il server determina il proprietario tramite l’autenticazione; i client non possono sceglierne un altro."
+
+#: ../../source/user_guide/launch.rst
+msgid "Extensions may implement ``create_model_favorites_store(context)`` to replace SQLite. The context supplies ``db_path`` and the selected ``auth_store`` (``None`` without authentication); stores implement synchronous ``list(owner)``, ``add(owner, model_name)`` and ``remove(owner, model_name)``. Operations run in the API thread pool. Returning ``None`` selects SQLite; provider failures never select a fallback."
+msgstr "Le estensioni possono implementare ``create_model_favorites_store(context)`` per sostituire SQLite. Il contesto fornisce ``db_path`` e l’``auth_store`` selezionato (``None`` senza autenticazione); gli archivi implementano i metodi sincroni ``list(owner)``, ``add(owner, model_name)`` e ``remove(owner, model_name)``. Le operazioni vengono eseguite nel pool di thread dell’API. Restituire ``None`` seleziona SQLite; gli errori del provider non attivano mai un archivio di ripiego."

@@ -785,7 +785,14 @@ class RESTfulAPI(CancelMixin):
             if setup_token is not None:
                 _log_setup_required_notice(setup_token)
 
+        from ..constants import XINFERENCE_MODEL_FAVORITES_DB_PATH
         from ..core.launch_history_store import LaunchHistoryStore
+        from ..core.model_favorites_store import create_model_favorites_store
+
+        self._model_favorites_store = create_model_favorites_store(
+            XINFERENCE_MODEL_FAVORITES_DB_PATH,
+            self._advanced_auth_service.db if self._advanced_auth_service else None,
+        )
 
         self._launch_history_store = LaunchHistoryStore(
             XINFERENCE_LAUNCH_HISTORY_DB_PATH

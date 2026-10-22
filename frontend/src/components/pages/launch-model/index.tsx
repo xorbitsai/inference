@@ -15,7 +15,8 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { cn } from '@/lib/utils';
 import { ModelType, CUSTOM_MODEL_OPTIONS } from '@/constants';
-import { LAUNCH_MODEL_ROUTE_TABS, COLLECTION_STORAGE_KEY } from '@/constants/launch';
+import { LAUNCH_MODEL_ROUTE_TABS } from '@/constants/launch';
+import { useModelFavorites } from './use-model-favorites';
 import LaunchDialog from './launch-dialog/launch-dialog';
 import CacheManagementDialog from './cache-management.dialog';
 import EnvManagementDialog from './env-management-dialog';
@@ -63,7 +64,15 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
   const [query, setQuery] = useState('');
   const [ability, setAbility] = useState('');
   const [status, setStatus] = useState('');
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const {
+    favorites,
+    ready: favoritesReady,
+    pending: pendingFavorites,
+    importing,
+    hasBrowserFavorites,
+    toggle,
+    importBrowserFavorites,
+  } = useModelFavorites();
   const [selectedModel, setSelectedModel] = useState<CatalogModel>();
   const [deleteModel, setDeleteModel] = useState<CatalogModel>();
   const handledLaunchTargetRef = useRef('');
@@ -212,22 +221,6 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
     setSelectedModel(targetModel);
   }, [loading, models, requestType, targetModelName]);
 
-  useEffect(() => {
-    const rawValue = window.localStorage.getItem(COLLECTION_STORAGE_KEY);
-
-    if (!rawValue) return;
-
-    try {
-      const value = JSON.parse(rawValue);
-
-      if (Array.isArray(value)) {
-        setFavorites(value.map(String));
-      }
-    } catch {
-      setFavorites([]);
-    }
-  }, []);
-
   const abilityOptions = useMemo(() => {
     const seen = new Set<string>();
     const options: Array<{ label: string; value: string }> = [];
@@ -291,15 +284,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
   const handleFavorite = (event: MouseEvent<HTMLButtonElement>, model: CatalogModel) => {
     event.stopPropagation();
 
-    setFavorites((prev) => {
-      const next = prev.includes(model.model_name)
-        ? prev.filter((item) => item !== model.model_name)
-        : [...prev, model.model_name];
-
-      window.localStorage.setItem(COLLECTION_STORAGE_KEY, JSON.stringify(next));
-
-      return next;
-    });
+    void toggle(model.model_name);
   };
   const handleDelete = (event: MouseEvent<HTMLButtonElement>, model: CatalogModel) => {
     event.stopPropagation();
@@ -356,6 +341,8 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
             <button
               type="button"
               aria-label="Favorite model"
+              aria-pressed={isFavorite}
+              disabled={!favoritesReady || importing || pendingFavorites.includes(model.model_name)}
               onClick={(event) => handleFavorite(event, model)}
               className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:text-primary"
             >
@@ -473,6 +460,18 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
               />
             </div>
             <div className="flex gap-3">
+              {hasBrowserFavorites && (
+                <Button
+                  variant="outline"
+                  disabled={!favoritesReady || importing || pendingFavorites.length > 0}
+                  title={t('launchModel.importFavoritesHint')}
+                  onClick={() => {
+                    void importBrowserFavorites();
+                  }}
+                >
+                  {t('launchModel.importFavorites')}
+                </Button>
+              )}
               {showAbilityFilter && (
                 <Select
                   value={ability}

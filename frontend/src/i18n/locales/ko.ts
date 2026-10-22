@@ -551,6 +551,8 @@ const ko = {
     manageCachedModels: '캐시 모델 관리',
     manageVirtualEnvironments: '가상 환경 관리',
     favorite: '즐겨찾기',
+    importFavorites: '브라우저 즐겨찾기 가져오기',
+    importFavoritesHint: '이 브라우저에 저장된 즐겨찾기를 현재 계정으로 가져옵니다.',
     unfavorite: '즐겨찾기 해제',
     search: '모델 이름 및 설명 검색',
     searchModelType: '{{modelType}} 모델 이름 검색',

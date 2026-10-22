@@ -474,3 +474,27 @@ msgid ""
 msgstr ""
 "LMDeploy 後端已移除，因為其 Xinference 整合已無人維護。使用 InternVL 模型時，請選擇 vLLM 或 "
 "Transformers。"
+
+#: ../../source/user_guide/launch.rst
+msgid "Model favorites"
+msgstr "模型收藏"
+
+#: ../../source/user_guide/launch.rst
+msgid "Stars on the **Launch Model** page are saved for the current account and survive browser changes and server restarts. Favorites are identified by model name across model categories. Reading or changing favorites requires ``models:list`` permission. Without authentication, all visitors share one collection."
+msgstr "**啟動模型** 頁面的星號會儲存至目前帳號，切換瀏覽器或重新啟動伺服器後仍會保留。不同模型類別依模型名稱識別收藏。讀取或修改收藏需要 ``models:list`` 權限。未啟用驗證時，所有訪客共用一份收藏。"
+
+#: ../../source/user_guide/launch.rst
+msgid "By default, favorites use SQLite at ``<XINFERENCE_HOME>/model_favorites.db``; set ``XINFERENCE_MODEL_FAVORITES_DB_PATH`` to use another file. API processes sharing favorites must use the same store. Back up the favorites store together with the authentication database."
+msgstr "收藏預設儲存在 SQLite 檔案 ``<XINFERENCE_HOME>/model_favorites.db``，可透過 ``XINFERENCE_MODEL_FAVORITES_DB_PATH`` 指定其他檔案。共用收藏的 API 程序必須使用相同儲存體。請將收藏儲存體與驗證資料庫一併備份。"
+
+#: ../../source/user_guide/launch.rst
+msgid "Old browser favorites are not imported automatically because they have no account identity. Choose **Import browser favorites** to add them to the current account. The browser copy is retained if any write fails or the account changes during import; retrying does not create duplicates."
+msgstr "舊瀏覽器收藏沒有帳號身分，因此不會自動匯入。選擇 **匯入瀏覽器收藏**，可將其新增至目前帳號。如果任何寫入失敗，或匯入期間切換了帳號，瀏覽器中的副本會保留；重試不會產生重複記錄。"
+
+#: ../../source/user_guide/launch.rst
+msgid "``GET /v1/model_favorites`` returns a list of model names for the authenticated account. ``PUT`` and ``DELETE`` on the same path accept ``{\"model_name\": \"org/model\"}`` to add or remove one name. Both operations are idempotent. The server derives the owner from authentication; clients cannot choose another owner."
+msgstr "``GET /v1/model_favorites`` 傳回目前驗證帳號收藏的模型名稱清單。在相同路徑使用 ``PUT`` 或 ``DELETE``，要求本文為 ``{\"model_name\": \"org/model\"}``，即可新增或移除單一名稱。兩種操作皆具冪等性。伺服器依驗證決定擁有者，用戶端不能指定其他擁有者。"
+
+#: ../../source/user_guide/launch.rst
+msgid "Extensions may implement ``create_model_favorites_store(context)`` to replace SQLite. The context supplies ``db_path`` and the selected ``auth_store`` (``None`` without authentication); stores implement synchronous ``list(owner)``, ``add(owner, model_name)`` and ``remove(owner, model_name)``. Operations run in the API thread pool. Returning ``None`` selects SQLite; provider failures never select a fallback."
+msgstr "擴充功能可實作 ``create_model_favorites_store(context)`` 來取代 SQLite。內容提供 ``db_path`` 與選定的 ``auth_store`` （未啟用驗證時為 ``None`` ）；儲存體實作同步方法 ``list(owner)``、``add(owner, model_name)`` 與 ``remove(owner, model_name)``。操作在 API 執行緒集區執行。傳回 ``None`` 時選用 SQLite；提供者失敗時不會回退。"
