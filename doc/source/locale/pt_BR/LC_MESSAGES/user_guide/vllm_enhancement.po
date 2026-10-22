@@ -35,10 +35,6 @@ msgstr "Usar"
 msgid "Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment."
 msgstr "Inicie várias réplicas com ``enable_xavier=True`` e selecione um ``model_engine`` compatível. Consulte :ref:`user_guide_backends` para os requisitos do motor e :ref:`user_guide_pd_separation` para a implantação P/D."
 
-#: ../../source/user_guide/vllm_enhancement.rst:20
-msgid "Limitations"
-msgstr "Limitações"
-
 #: ../../source/user_guide/vllm_enhancement.rst:21
 msgid ""
 "Xavier requires vllm version >= ``0.7.0``, and currently not supports for "
@@ -60,13 +56,6 @@ msgstr ""
 #: ../../source/user_guide/vllm_enhancement.rst:23
 msgid "The vLLM GPU transfer path requires NVIDIA GPUs."
 msgstr "O transporte GPU do vLLM requer GPUs NVIDIA."
-
-#: source/user_guide/vllm_enhancement.rst:21
-msgid ""
-"Xavier retains the V0 adapter for vLLM >= ``0.7.0`` and < ``0.11.0``. The V1"
-" connector supports vLLM >= ``0.21.0``. See :ref:`user_guide_pd_separation` "
-"for community Prefill/Decode deployment."
-msgstr ""
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "SGLang replicas"
@@ -91,29 +80,6 @@ msgstr "O Xavier carrega checkpoints BF16 como FP16 e emite um aviso. Os pesos e
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"
 msgstr "Réplicas MLX"
-
-#: user_guide/vllm_enhancement.rst
-msgid ""
-"MLX replicas can share prefix KV cache with ``model_engine=\"MLX\"`` and "
-"``enable_xavier=True``. The supported models and FP16 requirements are "
-"described in :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` bounds "
-"the shared CPU cache (default: 512 MiB). Each replica also owns its model "
-"and Metal KV cache. Ordinary replicas compute locally on a miss or "
-"unavailable storage; incompatible deployments cannot share pages. Returned "
-"usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. "
-"Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-"
-"engine cache sharing is not yet supported."
-msgstr ""
-"Réplicas MLX podem compartilhar o cache KV de prefixos com "
-"``model_engine=\"MLX\"`` e ``enable_xavier=True``. Os modelos e requisitos "
-"FP16 estão descritos em :ref:`user_guide_pd_separation`. "
-"``xavier_cache_bytes`` limita o cache CPU compartilhado (padrão: 512 MiB). "
-"Cada réplica também possui seu modelo e cache KV Metal. Réplicas comuns "
-"calculam localmente em caso de cache miss ou armazenamento indisponível; "
-"deployments incompatíveis não podem compartilhar páginas. O uso informa os "
-"tokens reutilizados em ``prompt_tokens_details.cached_tokens``. Papéis "
-"prefill/decode explícitos ativam MLX Xavier P/D automaticamente. "
-"Compartilhamento de cache entre engines ainda não é suportado."
 
 #: source/user_guide/vllm_enhancement.rst:18
 msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
@@ -255,3 +221,170 @@ msgstr "O backend LMCache exige várias réplicas comuns do mesmo motor e manté
 #: source/user_guide/vllm_enhancement.rst:34
 msgid "LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas."
 msgstr "Armazenamento LMCache para réplicas comuns de vLLM V1, SGLang e TRT-LLM."
+
+#: ../../source/user_guide/vllm_enhancement.rst:13
+msgid "Choose a deployment mode"
+msgstr "Escolher o modo de implantação"
+
+#: ../../source/user_guide/vllm_enhancement.rst:15
+msgid ""
+"Use ordinary replicas to share compatible prefixes while each replica "
+"handles complete requests. Shared prefix caching currently stays within the "
+"same engine. For separate prefill and decode roles, including cross-engine "
+"and CUDA/Metal deployments, use :ref:`user_guide_pd_separation`. P/D "
+"transport and ordinary cache storage have separate configuration and "
+"compatibility limits."
+msgstr ""
+"Réplicas comuns processam solicitações completas e compartilham prefixos "
+"compatíveis. O cache compartilhado de prefixos fica atualmente restrito ao "
+"mesmo mecanismo. Para separar prefill e decode, inclusive entre mecanismos e"
+" CUDA/Metal, consulte :ref:`user_guide_pd_separation`. Transporte P/D e "
+"armazenamento de cache comum têm configurações e limites de compatibilidade "
+"separados."
+
+#: ../../source/user_guide/vllm_enhancement.rst:26
+msgid ""
+"The example launches two ordinary replicas. Choose the engine installed on "
+"your workers; the model format and quantization must match it. Each CUDA "
+"replica uses one GPU, while MLX runs on Apple silicon."
+msgstr ""
+"O exemplo inicia duas réplicas comuns. Escolha o mecanismo instalado nos "
+"workers e formato e quantização compatíveis. Cada réplica CUDA usa uma GPU; "
+"MLX executa em Apple silicon."
+
+#: ../../source/user_guide/vllm_enhancement.rst:58
+msgid "Engine requirements"
+msgstr "Requisitos por mecanismo"
+
+#: ../../source/user_guide/vllm_enhancement.rst:64
+msgid "vLLM"
+msgstr "vLLM"
+
+#: ../../source/user_guide/vllm_enhancement.rst:69
+msgid "V1 connector"
+msgstr "Conector V1"
+
+#: ../../source/user_guide/vllm_enhancement.rst:73
+msgid ""
+"The V1 connector requires vLLM >= ``0.21.0``, TP=1 and PP=1, with text-only "
+"models and no LoRA. Multimodal and prompt-embedding inputs are unsupported. "
+"Versions 0.11 through 0.20 are unsupported. Use the P/D guide for recurrent "
+"model requirements and GPU history settings."
+msgstr ""
+"O conector V1 exige vLLM >= ``0.21.0``, TP=1, PP=1 e modelos apenas de texto"
+" sem LoRA. Entradas multimodais e prompt embeddings não são suportados, nem "
+"as versões 0.11 a 0.20. Consulte o guia P/D para modelos recorrentes e "
+"configurações do histórico GPU."
+
+#: ../../source/user_guide/vllm_enhancement.rst:86
+msgid "Retained vLLM GPU history, configured with ``xavier_gpu_cache_bytes``."
+msgstr ""
+"Histórico GPU vLLM retido, configurado com ``xavier_gpu_cache_bytes``."
+
+#: ../../source/user_guide/vllm_enhancement.rst:89
+msgid "Legacy V0 adapter"
+msgstr "Adaptador V0 legado"
+
+#: ../../source/user_guide/vllm_enhancement.rst:91
+msgid ""
+"The legacy adapter supports vLLM >= ``0.7.0`` and < ``0.11.0`` for ordinary "
+"replica cache sharing. Use the V1 connector for current P/D deployments."
+msgstr ""
+"O adaptador legado suporta vLLM >= ``0.7.0`` e < ``0.11.0`` para "
+"compartilhar cache entre réplicas comuns. Use o conector V1 nas implantações"
+" P/D atuais."
+
+#: ../../source/user_guide/vllm_enhancement.rst:110
+msgid "TRT-LLM replicas"
+msgstr "Réplicas TRT-LLM"
+
+#: ../../source/user_guide/vllm_enhancement.rst:114
+msgid ""
+"TRT-LLM requires Linux/CUDA and ``tensorrt-llm==1.2.1``. Xavier supports "
+"unquantized BF16 dense Qwen3 text models, one worker and one GPU per replica"
+" (TP=PP=CP=1). Chunked prefill and overlap scheduling are disabled. "
+"Quantization, hybrid attention, multimodal input, LoRA and speculative "
+"decoding are unsupported with Xavier. See :ref:`trt_llm_backend` for the "
+"engine environment requirements."
+msgstr ""
+"TRT-LLM exige Linux/CUDA e ``tensorrt-llm==1.2.1``. Xavier suporta modelos "
+"de texto Qwen3 densos BF16 não quantizados, com um worker e uma GPU por "
+"réplica (TP=PP=CP=1). Prefill em blocos e escalonamento sobreposto são "
+"desativados. Xavier não suporta quantização, atenção híbrida, entradas "
+"multimodais, LoRA nem decodificação especulativa. Consulte "
+":ref:`trt_llm_backend` para os requisitos do ambiente."
+
+#: ../../source/user_guide/vllm_enhancement.rst:120
+msgid ""
+"Ordinary TRT replicas publish complete 64-token KV pages to a shared CPU "
+"cache actor. ``xavier_cache_bytes`` sets the deployment budget (default: 512"
+" MiB). Partial pages and the final prompt token are computed locally; misses"
+" fall back to local prefill. Model weights, engine KV pools and transfer "
+"buffers consume additional memory. Xavier P/D instead transfers live KV "
+"pages through NIXL; see :ref:`user_guide_pd_separation`."
+msgstr ""
+"Réplicas TRT comuns publicam páginas KV completas de 64 tokens em um actor "
+"de cache CPU compartilhado. ``xavier_cache_bytes`` define o orçamento da "
+"implantação (padrão: 512 MiB). Páginas parciais e o último token do prompt "
+"são calculados localmente; um miss executa prefill local. Pesos, pools KV e "
+"buffers de transferência consomem memória adicional. Xavier P/D transfere "
+"páginas KV ativas via NIXL; consulte :ref:`user_guide_pd_separation`."
+
+#: ../../source/user_guide/vllm_enhancement.rst:132
+msgid ""
+"MLX Xavier requires Apple silicon and ``mlx-lm>=0.31.2``. It supports "
+"unquantized, full-attention Qwen2, Qwen3 and Llama text models with one "
+"worker per replica. Weights and KV cache use FP16. Quantized weights or KV "
+"cache, rotating caches, hybrid attention, multimodal inputs, LoRA and "
+"speculative decoding are unsupported."
+msgstr ""
+"MLX Xavier requer Apple silicon e ``mlx-lm>=0.31.2``. Suporta modelos de "
+"texto Qwen2, Qwen3 e Llama sem quantização, com atenção completa e um worker"
+" por réplica. Os pesos e o cache KV usam FP16. Não suporta pesos ou caches "
+"KV quantizados, caches rotativos, atenção híbrida, entradas multimodais, "
+"LoRA ou decodificação especulativa."
+
+#: ../../source/user_guide/vllm_enhancement.rst:134
+msgid ""
+"``xavier_cache_bytes`` bounds the shared CPU cache (default: 512 MiB). Each "
+"replica also owns its model and Metal KV cache. Ordinary replicas compute "
+"locally on a miss or unavailable storage; incompatible deployments cannot "
+"share pages. Returned usage reports reused tokens in "
+"``prompt_tokens_details.cached_tokens``. Explicit prefill/decode roles "
+"enable MLX Xavier P/D automatically. Cross-engine cache sharing is not yet "
+"supported."
+msgstr ""
+"``xavier_cache_bytes`` limita o cache CPU compartilhado (padrão: 512 MiB). "
+"Cada réplica também possui seu modelo e cache KV Metal. Réplicas comuns "
+"calculam localmente em caso de cache miss ou armazenamento indisponível; "
+"deployments incompatíveis não podem compartilhar páginas. O uso informa os "
+"tokens reutilizados em ``prompt_tokens_details.cached_tokens``. Papéis "
+"prefill/decode explícitos ativam MLX Xavier P/D automaticamente. "
+"Compartilhamento de cache entre engines ainda não é suportado."
+
+#: ../../source/user_guide/vllm_enhancement.rst:140
+msgid "Native storage"
+msgstr "Armazenamento nativo"
+
+#: ../../source/user_guide/vllm_enhancement.rst:142
+msgid ""
+"The default ``xavier_cache_backend=\"native\"`` uses each engine's Xavier "
+"cache implementation. ``xavier_cache_bytes`` sets the shared CPU budget for "
+"SGLang, TRT-LLM and MLX; it is not a vLLM setting. vLLM's GPU history uses "
+"``xavier_gpu_cache_bytes``. These budgets exclude weights, engine KV pools "
+"and transfer buffers. Choose the engine above before sizing storage."
+msgstr ""
+"O padrão ``xavier_cache_backend=\"native\"`` usa a implementação de cache "
+"Xavier de cada mecanismo. ``xavier_cache_bytes`` define o orçamento CPU "
+"compartilhado de SGLang, TRT-LLM e MLX; não é uma opção vLLM. O histórico "
+"GPU vLLM usa ``xavier_gpu_cache_bytes``. Esses orçamentos excluem pesos, "
+"pools KV e buffers de transferência. Escolha primeiro o mecanismo para "
+"dimensionar o armazenamento."
+
+#: ../../source/user_guide/vllm_enhancement.rst:149
+msgid "LMCache"
+msgstr "LMCache"
+
+#: ../../source/user_guide/vllm_enhancement.rst:213
+msgid "TRT-LLM does not support ``cache_salt`` through this adapter."
+msgstr "TRT-LLM não suporta ``cache_salt`` por este adaptador."

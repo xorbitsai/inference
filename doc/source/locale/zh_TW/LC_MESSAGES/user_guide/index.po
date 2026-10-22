@@ -50,3 +50,7 @@ msgstr "監控指標"
 #: ../../source/user_guide/index.rst
 msgid "PD separation"
 msgstr "PD 分離"
+
+#: ../../source/user_guide/index.rst:33
+msgid "Xavier"
+msgstr "Xavier"

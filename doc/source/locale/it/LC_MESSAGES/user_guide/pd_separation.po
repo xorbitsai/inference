@@ -162,16 +162,6 @@ msgstr "Xavier e NIXL nativo supportano le richieste di testo Qwen3.5. Imposta `
 msgid "Xavier requirements and memory"
 msgstr "Requisiti e memoria di Xavier"
 
-#: source/user_guide/pd_separation.rst:145
-msgid ""
-"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
-"without LoRA. Multimodal models, prompt embeddings and salted prompts are "
-"not supported."
-msgstr ""
-"Xavier V1 richiede una GPU per replica (TP=1, PP=1) e modelli solo testo "
-"senza LoRA. Modelli multimodali, embedding dei prompt e prompt con salt non "
-"sono supportati."
-
 #: source/user_guide/pd_separation.rst:149
 msgid ""
 "Xavier's CPU cache can consume as much memory as the engine's GPU KV cache. "
@@ -991,3 +981,13 @@ msgstr ""
 "La decodifica speculativa è supportata sulle repliche ordinarie TRT-LLM, ma "
 "questo adattatore non consente di combinarla con P/D. Per le opzioni di "
 "avvio vedere :ref:`speculative_decoding`."
+
+#: ../../source/user_guide/pd_separation.rst:157
+msgid ""
+"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
+"without LoRA. Multimodal models and prompt embeddings are not supported. See"
+" :ref:`xavier-cache-isolation` for request-scoped cache isolation."
+msgstr ""
+"Xavier V1 richiede una GPU per replica (TP=1, PP=1) e modelli di solo testo "
+"senza LoRA. Modelli multimodali e prompt embedding non sono supportati. Per "
+"l’isolamento della cache per richiesta vedere :ref:`xavier-cache-isolation`."

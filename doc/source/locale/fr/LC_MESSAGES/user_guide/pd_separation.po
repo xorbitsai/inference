@@ -161,16 +161,6 @@ msgstr "Xavier et NIXL natif prennent en charge les requêtes textuelles Qwen3.5
 msgid "Xavier requirements and memory"
 msgstr "Prérequis et mémoire de Xavier"
 
-#: source/user_guide/pd_separation.rst:145
-msgid ""
-"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
-"without LoRA. Multimodal models, prompt embeddings and salted prompts are "
-"not supported."
-msgstr ""
-"Xavier V1 exige un GPU par réplique (TP=1, PP=1) et des modèles textuels "
-"sans LoRA. Les modèles multimodaux, les embeddings de prompts et les prompts"
-" avec salt ne sont pas pris en charge."
-
 #: source/user_guide/pd_separation.rst:149
 msgid ""
 "Xavier's CPU cache can consume as much memory as the engine's GPU KV cache. "
@@ -996,3 +986,14 @@ msgstr ""
 "Le décodage spéculatif est pris en charge sur les réplicas ordinaires TRT-"
 "LLM, mais cet adaptateur ne permet pas de le combiner avec P/D. Les options "
 "de lancement figurent dans :ref:`speculative_decoding`."
+
+#: ../../source/user_guide/pd_separation.rst:157
+msgid ""
+"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
+"without LoRA. Multimodal models and prompt embeddings are not supported. See"
+" :ref:`xavier-cache-isolation` for request-scoped cache isolation."
+msgstr ""
+"Xavier V1 exige un GPU par réplica (TP=1, PP=1) et des modèles texte sans "
+"LoRA. Les modèles multimodaux et prompt embeddings ne sont pas pris en "
+"charge. Consultez :ref:`xavier-cache-isolation` pour l’isolation du cache "
+"par requête."

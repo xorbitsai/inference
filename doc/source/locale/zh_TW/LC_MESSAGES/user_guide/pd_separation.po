@@ -153,15 +153,6 @@ msgstr "Xavier 和原生 NIXL 支援 Qwen3.5 純文字請求。兩個副本均�
 msgid "Xavier requirements and memory"
 msgstr "Xavier 需求與記憶體用量"
 
-#: source/user_guide/pd_separation.rst:145
-msgid ""
-"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
-"without LoRA. Multimodal models, prompt embeddings and salted prompts are "
-"not supported."
-msgstr ""
-"Xavier V1 要求每個副本使用一張 GPU（TP=1、PP=1），模型僅支援文字且不使用 LoRA。不支援多模態模型、提示詞嵌入和帶 salt "
-"的提示詞。"
-
 #: source/user_guide/pd_separation.rst:149
 msgid ""
 "Xavier's CPU cache can consume as much memory as the engine's GPU KV cache. "
@@ -845,3 +836,12 @@ msgid ""
 "launch options."
 msgstr ""
 "一般 TRT-LLM 副本支援投機解碼，但此適配器尚不能將其與 P/D 結合。啟動選項請參閱 :ref:`speculative_decoding`。"
+
+#: ../../source/user_guide/pd_separation.rst:157
+msgid ""
+"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
+"without LoRA. Multimodal models and prompt embeddings are not supported. See"
+" :ref:`xavier-cache-isolation` for request-scoped cache isolation."
+msgstr ""
+"Xavier V1 要求每副本一張 GPU（TP=1、PP=1），並使用無 LoRA 的文字模型。不支援多模態模型和 prompt "
+"embedding。按請求隔離快取請參閱 :ref:`xavier-cache-isolation`。"

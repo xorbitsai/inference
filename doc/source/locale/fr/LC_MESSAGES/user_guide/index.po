@@ -50,3 +50,7 @@ msgstr "Métriques"
 #: ../../source/user_guide/index.rst
 msgid "PD separation"
 msgstr "Séparation PD"
+
+#: ../../source/user_guide/index.rst:33
+msgid "Xavier"
+msgstr "Xavier"
