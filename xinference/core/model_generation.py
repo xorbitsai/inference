@@ -431,11 +431,19 @@ class ModelGenerationMixin:
                 key = _generation_key(previous)
                 if key in started or key in failed:
                     continue
-                count = (
-                    self._serve_count
-                    if previous is None
-                    else await previous.generation_serve_count()
-                )
+                try:
+                    count = (
+                        self._serve_count
+                        if previous is None
+                        else await xo.wait_for(
+                            previous.generation_serve_count(), timeout=1
+                        )
+                    )
+                except Exception:
+                    # The active engine is already dead. An unreachable old
+                    # engine cannot prevent normal recovery of this model.
+                    logger.warning("Cannot restore previous generation", exc_info=True)
+                    continue
                 pending_calls = self.__dict__.get("_generation_pending_calls", {}).get(
                     key, 0
                 )
@@ -633,6 +641,50 @@ async def probe_environment(executable: str, engine: str, env: Dict[str, str]):
     return versions
 
 
+async def _remove_unpublished_generation_pool(
+    worker: Any, model_uid: str, address: str
+) -> None:
+    import psutil
+
+    from .worker import _stop_reload_children
+
+    parent = None
+    children: list[Any] = []
+    process = worker._main_pool.sub_processes.get(address)
+    if process is not None and process.pid is not None:
+        try:
+            parent = psutil.Process(process.pid)
+            # Cleanup can run before concurrent Worker termination snapshots
+            # its pools. Preserve identities before removing their only parent.
+            parent.suspend()
+            children = parent.children(recursive=True)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    try:
+        # Keep the parent registered while its native children stop. A
+        # concurrent termination can then capture the same owned identities.
+        if children:
+            await asyncio.to_thread(_stop_reload_children, children)
+        try:
+            await worker._main_pool.remove_sub_pool(address, force=True)
+        except KeyError:
+            worker._model_uid_to_subpool_addresses.get(model_uid, set()).discard(
+                address
+            )
+        except Exception:
+            logger.exception("Failed to remove unpublished generation pool")
+        else:
+            worker._model_uid_to_subpool_addresses.get(model_uid, set()).discard(
+                address
+            )
+    finally:
+        if parent is not None:
+            try:
+                parent.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
+
 async def replace_model_generation(
     worker,
     model_uid,
@@ -777,18 +829,7 @@ async def replace_model_generation(
                 )
         if not committed:
             if address is not None:
-                try:
-                    await worker._main_pool.remove_sub_pool(address, force=True)
-                except KeyError:
-                    worker._model_uid_to_subpool_addresses.get(
-                        model_uid, set()
-                    ).discard(address)
-                except Exception:
-                    logger.exception("Failed to remove unpublished generation pool")
-                else:
-                    worker._model_uid_to_subpool_addresses.get(
-                        model_uid, set()
-                    ).discard(address)
+                await _remove_unpublished_generation_pool(worker, model_uid, address)
             if cache_directory is not None:
                 try:
                     await anchor.discard_generation_cache(cache_directory)

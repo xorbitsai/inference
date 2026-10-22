@@ -4,6 +4,8 @@
 """Real actor transport verifies that iterators remain on their admitting engine."""
 
 import asyncio
+import subprocess
+import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -343,7 +345,7 @@ async def test_in_place_parser_reload_queues_new_requests_instead_of_rejecting()
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "failure", ["environment", "capacity", "load", "ownership", None]
+    "failure", ["environment", "capacity", "load", "cancel", "ownership", None]
 )
 @pytest.mark.parametrize("reused", [False, True])
 async def test_private_preparation_never_stops_public_engine(
@@ -391,13 +393,15 @@ async def test_private_preparation_never_stops_public_engine(
         _model_uid_to_launch_args={"model": {}},
         _model_uid_to_subpool_addresses={},
         _append_sub_pool_protected=AsyncMock(return_value="candidate-pool"),
-        _main_pool=SimpleNamespace(remove_sub_pool=AsyncMock()),
+        _main_pool=SimpleNamespace(remove_sub_pool=AsyncMock(), sub_processes={}),
         _ensure_subpool_monitor=AsyncMock(),
     )
 
     async def load():
         if failure == "load":
             raise RuntimeError("Candidate OOM")
+        if failure == "cancel":
+            raise asyncio.CancelledError
         if failure == "ownership":
             worker._model_uid_to_model.clear()
 
@@ -416,7 +420,12 @@ async def test_private_preparation_never_stops_public_engine(
     )
     monkeypatch.setattr(xo, "create_actor", AsyncMock(return_value=candidate))
     if failure:
-        with pytest.raises((RuntimeError, ValueError)):
+        expected = (
+            asyncio.CancelledError
+            if failure == "cancel"
+            else (RuntimeError, ValueError)
+        )
+        with pytest.raises(expected):
             await replace_model_generation(worker, "model", {}, operation_id="job")
         anchor.commit_model_generation.assert_not_called()
         anchor.fail_generation_reload.assert_awaited_once()
@@ -447,6 +456,64 @@ async def test_private_preparation_never_stops_public_engine(
         assert "INHERITED_TEST_VARIABLE" not in overrides
         assert overrides["XINFERENCE_MODEL_UID"] == "model"
     anchor.stop.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_unpublished_pool_cleanup_reaps_native_child_before_later_termination():
+    import psutil
+
+    from ..model_generation import _remove_unpublished_generation_pool
+
+    command = [sys.executable, "-c", "import time; time.sleep(60)"]
+    parent = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import subprocess, sys, time; "
+            "child = subprocess.Popen(sys.argv[1:]); "
+            "print(child.pid, flush=True); time.sleep(60)",
+            *command,
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    unrelated = subprocess.Popen(command)
+    child = None
+    try:
+        child = psutil.Process(int(parent.stdout.readline()))
+        pool = SimpleNamespace(sub_processes={"candidate": parent})
+
+        async def remove(address, force):
+            assert address == "candidate" and force
+            assert not child.is_running() or child.status() == psutil.STATUS_ZOMBIE
+            parent.kill()
+            parent.wait(timeout=5)
+            pool.sub_processes.pop(address)
+
+        pool.remove_sub_pool = remove
+        worker = SimpleNamespace(
+            _main_pool=pool,
+            _model_uid_to_subpool_addresses={"model": {"candidate"}},
+        )
+        # Candidate cleanup wins the race: later Worker termination can no
+        # longer find this parent in either pool-address registry.
+        await _remove_unpublished_generation_pool(worker, "model", "candidate")
+        assert not pool.sub_processes
+        assert not worker._model_uid_to_subpool_addresses["model"]
+        assert not child.is_running() or child.status() == psutil.STATUS_ZOMBIE
+        assert unrelated.poll() is None
+    finally:
+        if child is not None and child.is_running():
+            try:
+                child.kill()
+            except psutil.NoSuchProcess:
+                pass
+        if parent.poll() is None:
+            parent.kill()
+        parent.wait(timeout=5)
+        parent.stdout.close()
+        unrelated.terminate()
+        unrelated.wait(timeout=5)
 
 
 @pytest.mark.asyncio
@@ -486,7 +553,9 @@ async def test_failed_candidate_cache_cleanup_survives_pool_and_status_errors(
         _model_uid_to_launch_args={"model": {}},
         _model_uid_to_subpool_addresses={},
         _append_sub_pool_protected=AsyncMock(return_value="candidate"),
-        _main_pool=SimpleNamespace(remove_sub_pool=AsyncMock(side_effect=pool_error)),
+        _main_pool=SimpleNamespace(
+            remove_sub_pool=AsyncMock(side_effect=pool_error), sub_processes={}
+        ),
     )
 
     async def load():

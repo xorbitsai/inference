@@ -6,6 +6,7 @@
 # CI: linux
 
 import asyncio
+import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -729,6 +730,60 @@ async def test_hung_anchor_does_not_block_other_subpool_recovery(monkeypatch):
         "live", worker._model_uid_to_model["live"]
     )
     assert not any(worker._model_uid_to_subpool_addresses.values())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("previous_failure", ["unreachable", "timeout"])
+@pytest.mark.parametrize("dead_address", ["active", "candidate"])
+async def test_dead_active_generation_recovers_when_previous_probe_fails(
+    monkeypatch, previous_failure, dead_address
+):
+    from .. import worker as module
+    from .test_model_generation import ServingGeneration
+
+    wait_for = module.xo.wait_for
+
+    async def bounded_rpc(awaitable, timeout):
+        return await wait_for(awaitable, 1 if timeout == 5 else 0.01)
+
+    async def probe_previous():
+        if previous_failure == "unreachable":
+            raise ConnectionError("previous generation unavailable")
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(module.xo, "wait_for", bounded_rpc)
+    monkeypatch.setattr(module, "_parse_gpu_indices", lambda _: [])
+    # Keep this CPU-only regression independent of installed NVML/drivers.
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    anchor = ServingGeneration("anchor")
+    anchor._serving_generation = SimpleNamespace(uid=b"active", address="active")
+    anchor._retiring_generations = [
+        SimpleNamespace(
+            uid=b"previous",
+            address="previous",
+            generation_serve_count=AsyncMock(side_effect=probe_previous),
+        )
+    ]
+    worker = WorkerActor(
+        "supervisor", None, SimpleNamespace(remove_sub_pool=AsyncMock()), []
+    )
+    worker._model_uid_to_model = {"test-rep0": anchor}
+    worker._model_uid_to_addr = {"test-rep0": "anchor"}
+    worker._model_uid_to_subpool_addresses = {
+        "test-rep0": {"active", "previous", "candidate"}
+    }
+    launch = {"model_uid": "test-rep0"}
+    worker._model_uid_to_launch_args = {"test-rep0": launch}
+    worker.terminate_model = AsyncMock()
+    worker.recover_model = AsyncMock()
+    await worker.recover_sub_pool(dead_address)
+    if dead_address == "active":
+        worker.terminate_model.assert_awaited_once_with("test-rep0", is_model_die=True)
+        worker.recover_model.assert_awaited_once_with(launch)
+    else:
+        worker.terminate_model.assert_not_awaited()
+        worker.recover_model.assert_not_awaited()
+        anchor._retiring_generations[0].generation_serve_count.assert_not_awaited()
 
 
 @pytest.mark.asyncio
