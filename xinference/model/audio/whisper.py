@@ -167,6 +167,7 @@ class WhisperModel:
         generate_kwargs = pipeline_kwargs["generate_kwargs"]
         return_timestamps = pipeline_kwargs["return_timestamps"]
         language = generate_kwargs.get("language", "english")
+        task = generate_kwargs.get("task", "transcribe")
 
         if return_timestamps is True:
             segments: List[dict] = []
@@ -195,7 +196,7 @@ class WhisperModel:
                 segments.append(_get_chunk_segment_json(idx, text, start, end))
 
             return {
-                "task": "transcribe",
+                "task": task,
                 "language": language,
                 "duration": segments[-1]["end"] if segments else 0,
                 "text": results["text"],
@@ -211,7 +212,7 @@ class WhisperModel:
                 words.append({"word": text, "start": start, "end": end})
 
             return {
-                "task": "transcribe",
+                "task": task,
                 "language": language,
                 "duration": words[-1]["end"] if words else 0,
                 "text": results["text"],

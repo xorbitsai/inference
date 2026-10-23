@@ -207,6 +207,21 @@ async def test_whisper_groups_tasks_languages_and_timestamps():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("granularity", ["segment", "word"])
+async def test_whisper_verbose_json_reports_translate_task(granularity):
+    model = _whisper()
+    try:
+        result = await model.async_translations(
+            b"hola",
+            response_format="verbose_json",
+            timestamp_granularities=[granularity],
+        )
+        assert result["task"] == "translate"
+    finally:
+        await _shutdown(model)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("method", ["async_transcriptions", "async_translations"])
 @pytest.mark.parametrize("layout", ["mixed", "one_valid", "all_invalid"])
 async def test_whisper_decode_failures_are_local_to_each_upload(
