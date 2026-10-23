@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -78,6 +79,27 @@ def test_independent_connections_do_not_lose_concurrent_additions(tmp_path):
     with ThreadPoolExecutor(max_workers=8) as executor:
         list(executor.map(lambda i: peer.add(1, f"model-{i}"), range(30)))
     assert set(first.list(1)) == {f"model-{i}" for i in range(30)}
+
+
+def test_sqlite_writes_do_not_wait_for_active_readers(tmp_path):
+    path = str(tmp_path / "favorites.db")
+    SQLiteModelFavoritesStore(path).add(1, "old")
+    # Reopen an existing database created with the original journal mode.
+    with closing(sqlite3.connect(path)) as conn:
+        conn.execute("PRAGMA journal_mode=DELETE")
+    store = SQLiteModelFavoritesStore(path)
+
+    with closing(sqlite3.connect(path)) as reader:
+        reader.execute("BEGIN")
+        query = "SELECT model_name FROM model_favorites WHERE owner=1"
+        assert reader.execute(query).fetchall() == [("old",)]
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(store.add, 1, "new").result(timeout=15)
+            executor.submit(store.remove, 1, "old").result(timeout=15)
+        assert store.list(1) == ["new"]
+        assert reader.execute(query).fetchall() == [("old",)]
+        reader.rollback()
+        assert reader.execute(query).fetchall() == [("new",)]
 
 
 def test_committed_changes_are_visible_to_another_process(tmp_path):

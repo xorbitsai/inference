@@ -42,6 +42,7 @@ class SQLiteModelFavoritesStore:
         self._path = db_path
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         with closing(sqlite3.connect(db_path, timeout=10)) as conn, conn:
+            conn.execute("PRAGMA journal_mode=WAL")
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS model_favorites ("
                 "owner INTEGER NOT NULL, model_name TEXT NOT NULL, "
