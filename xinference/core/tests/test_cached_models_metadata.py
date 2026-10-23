@@ -305,7 +305,16 @@ async def test_audio_quantized_cached_variants_use_registered_cache_names(monkey
 async def test_audio_engine_quantization_mismatch_keeps_other_matches(
     monkeypatch, reverse_engines
 ):
+    from ...model import audio
+
+    # Include MLX variants even when the host catalog filters them out.
+    models = {}
+    with monkeypatch.context() as catalog_patch:
+        catalog_patch.setattr(audio, "_need_filter", lambda spec: False)
+        audio.load_model_family_from_json("models", models)
+
     name = "Irodori-TTS-v4.1-Small"
+    monkeypatch.setitem(audio.BUILTIN_AUDIO_MODELS, name, models[name])
     versions = [name + "-INT8-Weight-Only", name + "-MLX", name]
     entries = [{**entry("audio", version), "model_name": name} for version in versions]
     engines = {
