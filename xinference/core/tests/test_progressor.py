@@ -101,6 +101,21 @@ def test_generation_without_step_updates_has_no_eta_or_added_logs(
 
 
 @pytest.mark.asyncio
+async def test_finished_progress_is_cleared_after_every_check():
+    tracker = ProgressTrackerActor(to_remove_interval=0, check_interval=0.01)
+    task = asyncio.create_task(tracker._clear_finished())
+    try:
+        for request_id in ("first", "second"):
+            tracker.start(request_id)
+            tracker.set_progress(request_id, 1.0)
+            await asyncio.sleep(0.1)
+            assert request_id not in tracker._request_id_to_progress
+        assert not task.done()
+    finally:
+        task.cancel()
+
+
+@pytest.mark.asyncio
 async def test_progressor():
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
     async with pool:

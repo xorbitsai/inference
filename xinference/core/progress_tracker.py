@@ -77,8 +77,8 @@ class ProgressTrackerActor(xo.StatelessActor):
             self._clear_finished_task.cancel()
 
     async def _clear_finished(self):
-        to_remove_request_ids = []
         while True:
+            to_remove_request_ids = []
             now = time.time()
             for request_id, progress in self._request_id_to_progress.items():
                 if abs(progress.progress - 1.0) > 1e-5:
