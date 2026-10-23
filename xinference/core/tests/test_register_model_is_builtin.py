@@ -52,6 +52,7 @@ def _custom_llm_json() -> bytes:
 
 
 class _DummySupervisor:
+    control_address = SupervisorActor.control_address
     register_model = SupervisorActor.register_model
 
     def __init__(self):
@@ -112,10 +113,20 @@ async def test_worker_register_model_resets_client_is_builtin():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("actor_cls", [_DummySupervisor, _DummyWorker])
-async def test_custom_registration_tags_versions_for_legacy_tracker(actor_cls):
+@pytest.mark.parametrize(
+    "actor_cls, service_address",
+    [
+        (_DummySupervisor, None),
+        (_DummySupervisor, "public-supervisor"),
+        (_DummyWorker, None),
+    ],
+)
+async def test_custom_registration_tags_versions_for_legacy_tracker(
+    actor_cls, service_address
+):
     actor = actor_cls()
     actor.address = "node"
+    actor._service_address = service_address
     recorded = []
 
     # Match the tracker RPC signature from before cache metadata was added.
@@ -143,5 +154,5 @@ async def test_custom_registration_tags_versions_for_legacy_tracker(actor_cls):
     await actor.register_model("LLM", _custom_llm_json(), persist=False)
     assert len(recorded) == 1
     versions, address = recorded[0]
-    assert address == "node"
+    assert address == (service_address or "node")
     assert versions["test_is_builtin_llm"][0]["model_type"] == "LLM"

@@ -1,3 +1,5 @@
+# CI: linux
+
 from typing import Dict, Union
 
 import pytest
@@ -9,6 +11,7 @@ from xinference.core.supervisor import SupervisorActor, WorkerStatus
 
 
 class DummySupervisor:
+    control_address = SupervisorActor.control_address
     get_cluster_device_info = SupervisorActor.get_cluster_device_info
     _list_token_router_cluster_info = SupervisorActor._list_token_router_cluster_info
     _with_token_router_status = SupervisorActor._with_token_router_status
@@ -315,14 +318,17 @@ def _router_node(*, node_id="router-node-1", connectivity_status="online"):
 
 
 @pytest.mark.asyncio
-async def test_cluster_device_info_keeps_default_response_compatible():
+@pytest.mark.parametrize("service_address", [None, "public-supervisor:9999"])
+async def test_cluster_device_info_keeps_default_response_compatible(service_address):
     supervisor = DummySupervisor(
         "127.0.0.1:9999", {}, router_configs=[_router_config()]
     )
+    supervisor._service_address = service_address
 
     result = await supervisor.get_cluster_device_info(detailed=True)
 
     assert {item["node_type"] for item in result} == {"Supervisor"}
+    assert result[0]["ip_address"] == (service_address or supervisor.address)
 
 
 @pytest.mark.asyncio
