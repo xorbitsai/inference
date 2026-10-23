@@ -1558,7 +1558,7 @@ class AsyncClient:
             response = await self.session.post(url, json=payload, headers=self._headers)
         else:
             response = await self.session.post(
-                url, json=payload, headers=self._headers, params={"wait_ready": False}
+                url, json=payload, headers=self._headers, params={"wait_ready": "false"}
             )
         if response.status != 200:
             raise RuntimeError(
