@@ -54,10 +54,11 @@ async def _get_error_string(response: aiohttp.ClientResponse) -> str:
             result = json_data["detail"]
     except Exception:
         pass
-    try:
-        response.raise_for_status()
-    except aiohttp.ClientError as e:
-        result = str(e)
+    if result is None:
+        try:
+            response.raise_for_status()
+        except aiohttp.ClientError as e:
+            result = str(e)
     if result is None:
         result = "Unknown error"
     await _release_response(response)
