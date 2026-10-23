@@ -16,7 +16,7 @@
 
 from copy import deepcopy
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -30,7 +30,19 @@ async def cached_models(monkeypatch, entries, engines):
         _cache_tracker_ref=SimpleNamespace(
             list_cached_models=AsyncMock(return_value=deepcopy(entries))
         ),
-        query_engines_by_model_name=AsyncMock(return_value=engines),
+        discover_engines=(
+            MagicMock(side_effect=engines)
+            if callable(engines)
+            else MagicMock(return_value=engines)
+        ),
+    )
+    monkeypatch.setattr(
+        worker_module, "get_engine_params_by_name", worker.discover_engines
+    )
+    monkeypatch.setattr(
+        worker_module,
+        "get_engine_params_by_name_with_virtual_env",
+        worker.discover_engines,
     )
     monkeypatch.setattr(worker_module, "get_real_path", lambda path: None)
     monkeypatch.setattr(worker_module, "get_path_size", lambda *args, **kwargs: 42)
@@ -74,12 +86,18 @@ async def test_llm_engines_match_cached_spec_on_each_worker(monkeypatch):
     assert [item["model_engine"] for item in first] == [["Transformers"], []]
     assert [item["model_engine"] for item in second] == [["vLLM"], ["llama.cpp"]]
     for worker in (first_worker, second_worker):
-        worker.query_engines_by_model_name.assert_awaited_once_with("demo", "LLM")
+        worker.discover_engines.assert_called_once_with(
+            "LLM",
+            "demo",
+            enable_virtual_env=worker_module.XINFERENCE_ENABLE_VIRTUAL_ENV,
+        )
     assert first[0]["model_type"] == "LLM"
     assert first[0]["path"] == "/models/demo"
     assert first[0]["actor_ip_address"] == "worker:9978"
     assert first[0]["size_bytes"] == 42
-    assert "model_engine" not in entries[0]
+    for worker in (first_worker, second_worker):
+        returned = worker._cache_tracker_ref.list_cached_models.return_value
+        assert all("model_engine" not in item for item in returned)
 
 
 @pytest.mark.asyncio
@@ -155,18 +173,18 @@ async def test_unknown_metadata_and_discovery_failure_keep_cache_visible(monkeyp
     result, worker = await cached_models(monkeypatch, entries, None)
     assert [item["model_engine"] for item in result] == [None, None, None]
     assert [item["model_type"] for item in result] == ["LLM", None, "flexible"]
-    worker.query_engines_by_model_name.side_effect = RuntimeError("Cannot discover")
+    worker.discover_engines.side_effect = RuntimeError("Cannot discover")
     result = await WorkerActor.list_cached_models(worker)
     assert len(result) == 3
     assert result[0]["model_engine"] is None
 
 
 @pytest.mark.asyncio
-async def test_existing_engine_metadata_is_preserved(monkeypatch):
+async def test_tracker_engine_metadata_does_not_override_worker_discovery(monkeypatch):
     entries = [{**entry(), "model_engine": ["known"]}]
     result, worker = await cached_models(monkeypatch, entries, {})
-    assert result[0]["model_engine"] == ["known"]
-    worker.query_engines_by_model_name.assert_not_awaited()
+    assert result[0]["model_engine"] == []
+    worker.discover_engines.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -188,8 +206,8 @@ async def test_cache_api_adds_unknown_fields_for_older_workers():
     }
 
 
-@pytest.mark.asyncio
-async def test_worker_discovery_records_types_for_every_model_category(monkeypatch):
+@pytest.fixture
+def model_version_catalog(monkeypatch):
     categories = {
         "llm": "get_llm_version_infos",
         "embedding": "get_embedding_model_descriptions",
@@ -215,16 +233,58 @@ async def test_worker_discovery_records_types_for_every_model_category(monkeypat
                 ]
             },
         )
+    return {
+        category: "LLM" if category == "llm" else category for category in categories
+    }
+
+
+@pytest.mark.asyncio
+async def test_worker_discovery_records_types_for_every_model_category(
+    model_version_catalog,
+):
     tracker = SimpleNamespace(record_model_version=AsyncMock())
     await WorkerActor._record_model_versions_best_effort(
         SimpleNamespace(address="worker"), tracker
     )
-    tracker.record_model_version.assert_awaited_once()
     versions, address = tracker.record_model_version.call_args.args
     assert address == "worker"
-    assert {key: value[0]["model_type"] for key, value in versions.items()} == {
-        category: "LLM" if category == "llm" else category for category in categories
-    }
+    assert {
+        key: value[0]["model_type"] for key, value in versions.items()
+    } == model_version_catalog
+
+
+@pytest.mark.asyncio
+async def test_supervisor_initial_discovery_records_every_category(
+    monkeypatch, model_version_catalog
+):
+    import asyncio
+
+    from ... import extensions
+    from .. import supervisor as supervisor_module
+    from ..cache_tracker import CacheTrackerActor
+
+    tracker = SimpleNamespace(record_model_version=AsyncMock())
+
+    async def create_actor(cls, *args, **kwargs):
+        return tracker if cls is CacheTrackerActor else SimpleNamespace()
+
+    monkeypatch.setattr(extensions, "get_extensions", lambda: ())
+    monkeypatch.setattr(supervisor_module, "XINFERENCE_DISABLE_HEALTH_CHECK", True)
+    monkeypatch.setattr(supervisor_module, "XINFERENCE_ENABLE_OTEL", False)
+    monkeypatch.setattr(supervisor_module.xo, "create_actor", create_actor)
+    monkeypatch.setattr(asyncio.get_running_loop(), "add_signal_handler", MagicMock())
+    supervisor = SimpleNamespace(
+        address="supervisor",
+        _initialize_worker_ownership=MagicMock(),
+        _schedule_autostart=MagicMock(),
+        _relaunch_manager=MagicMock(),
+    )
+    await supervisor_module.SupervisorActor.__post_create__(supervisor)
+    versions, address = tracker.record_model_version.call_args.args
+    assert address == "supervisor"
+    assert {
+        key: value[0]["model_type"] for key, value in versions.items()
+    } == model_version_catalog
 
 
 @pytest.mark.asyncio
@@ -238,3 +298,81 @@ async def test_audio_quantized_cached_variants_use_registered_cache_names(monkey
         monkeypatch, entries, {"PyTorch": [{"model_name": model_name}]}
     )
     assert [item["model_engine"] for item in result] == [["PyTorch"], ["PyTorch"]]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reverse_engines", [False, True])
+async def test_audio_engine_quantization_mismatch_keeps_other_matches(
+    monkeypatch, reverse_engines
+):
+    name = "Irodori-TTS-v4.1-Small"
+    versions = [name + "-INT8-Weight-Only", name + "-MLX", name]
+    entries = [{**entry("audio", version), "model_name": name} for version in versions]
+    engines = {
+        engine: [{"model_name": name}]
+        for engine in (["MLX", "PyTorch"] if reverse_engines else ["PyTorch", "MLX"])
+    }
+    result, worker = await cached_models(monkeypatch, entries, engines)
+    assert [item["model_engine"] for item in result] == [
+        ["PyTorch"],
+        ["MLX"],
+        ["PyTorch"],
+    ]
+    worker.discover_engines.assert_called_once_with(
+        "audio", name, enable_virtual_env=worker_module.XINFERENCE_ENABLE_VIRTUAL_ENV
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_type", ["rerank", "world", "image"])
+async def test_unknown_cached_version_does_not_get_an_engine(monkeypatch, model_type):
+    result, _ = await cached_models(
+        monkeypatch,
+        [entry(model_type, "different-model")],
+        {"available": [{"model_name": "demo"}]},
+    )
+    assert result[0]["model_engine"] == []
+
+
+@pytest.mark.asyncio
+async def test_matching_failure_does_not_poison_later_cached_variants(monkeypatch):
+    original = worker_module.get_cached_model_engines
+
+    def match(name, model_type, version, params):
+        if version == "bad":
+            raise RuntimeError("Invalid cached version metadata")
+        return original(name, model_type, version, params)
+
+    monkeypatch.setattr(worker_module, "get_cached_model_engines", match)
+    result, worker = await cached_models(
+        monkeypatch,
+        [entry(version="bad"), entry()],
+        {
+            "Transformers": [
+                {
+                    "model_name": "demo",
+                    "model_format": "pytorch",
+                    "model_size_in_billions": 7,
+                    "quantizations": ["none"],
+                }
+            ]
+        },
+    )
+    assert [item["model_engine"] for item in result] == [None, ["Transformers"]]
+    worker.discover_engines.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_cache_engine_discovery_runs_off_the_actor_loop(monkeypatch):
+    import threading
+
+    loop_thread = threading.get_ident()
+    threads = []
+
+    def discover(*args, **kwargs):
+        threads.append(threading.get_ident())
+        return {}
+
+    await cached_models(monkeypatch, [entry()], discover)
+    assert len(threads) == 1
+    assert threads[0] != loop_thread

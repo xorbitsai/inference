@@ -14,6 +14,40 @@
 from typing import Any, Dict, List, Literal, Optional, cast
 
 
+def tag_model_type(
+    version_info: Dict[str, List[Dict]], model_type: str
+) -> Dict[str, List[Dict]]:
+    for versions in version_info.values():
+        for version in versions:
+            version["model_type"] = model_type
+    return version_info
+
+
+def get_model_version_infos() -> Dict[str, List[Dict]]:
+    from ..model.audio import get_audio_model_descriptions
+    from ..model.embedding import get_embedding_model_descriptions
+    from ..model.flexible import get_flexible_model_descriptions
+    from ..model.image import get_image_model_descriptions
+    from ..model.llm import get_llm_version_infos
+    from ..model.rerank import get_rerank_model_descriptions
+    from ..model.video import get_video_model_descriptions
+    from ..model.world import get_world_model_descriptions
+
+    result: Dict[str, List[Dict]] = {}
+    for model_type, get_versions in (
+        ("LLM", get_llm_version_infos),
+        ("embedding", get_embedding_model_descriptions),
+        ("rerank", get_rerank_model_descriptions),
+        ("image", get_image_model_descriptions),
+        ("audio", get_audio_model_descriptions),
+        ("video", get_video_model_descriptions),
+        ("world", get_world_model_descriptions),
+        ("flexible", get_flexible_model_descriptions),
+    ):
+        result.update(tag_model_type(get_versions(), model_type))
+    return result
+
+
 def get_cached_model_engines(
     model_name: str,
     model_type: str,
@@ -66,17 +100,24 @@ def get_cached_model_engines(
                 for candidate in families:
                     if model_version != (candidate.cache_name or candidate.model_name):
                         continue
-                    family = match_audio(
-                        model_name,
-                        download_hub=cast(
-                            Literal[
-                                "huggingface", "modelscope", "openmind_hub", "csghub"
-                            ],
-                            candidate.model_hub,
-                        ),
-                        model_engine=engine,
-                        quantization=candidate.quantization,
-                    )
+                    try:
+                        family = match_audio(
+                            model_name,
+                            download_hub=cast(
+                                Literal[
+                                    "huggingface",
+                                    "modelscope",
+                                    "openmind_hub",
+                                    "csghub",
+                                ],
+                                candidate.model_hub,
+                            ),
+                            model_engine=engine,
+                            quantization=candidate.quantization,
+                        )
+                    except ValueError:
+                        # Discovery can offer an engine without this quantization.
+                        continue
                     if model_version == (family.cache_name or family.model_name):
                         matches = True
                         break

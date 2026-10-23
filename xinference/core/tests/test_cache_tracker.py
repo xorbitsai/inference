@@ -92,11 +92,11 @@ def test_cache_tracker_backfills_model_type_without_losing_locations(new_worker_
                     "model_version": "demo-v1",
                     "cache_status": new_worker_cached,
                     "model_file_location": "/new/demo",
+                    "model_type": "embedding",
                 }
             ]
         },
         "new-worker",
-        model_type="embedding",
     )
     tracker.record_model_version(
         {

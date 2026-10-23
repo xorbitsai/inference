@@ -688,7 +688,8 @@ def list_cached_models(
     table_data = []
     for model in cached_models:
         row_data = [
-            str(value) if value is not None else "-" for value in model.values()
+            str(model[header]) if model.get(header) is not None else "-"
+            for header in headers
         ]
         table_data.append(row_data)
     print(tabulate(table_data, headers=headers, tablefmt="pretty"))

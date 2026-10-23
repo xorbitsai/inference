@@ -48,16 +48,7 @@ class CacheTrackerActor(xo.Actor):
             assert isinstance(origin_version_info["model_file_location"], dict)
             origin_version_info["model_file_location"].update(data)
 
-    def record_model_version(
-        self,
-        version_info: Dict[str, List[Dict]],
-        address: str,
-        model_type: Optional[str] = None,
-    ):
-        if model_type is not None:
-            for versions in version_info.values():
-                for version in versions:
-                    version["model_type"] = model_type
+    def record_model_version(self, version_info: Dict[str, List[Dict]], address: str):
         self._map_address_to_file_location(version_info, address)
         for model_name, model_versions in version_info.items():
             if model_name not in self._model_name_to_version_info:
