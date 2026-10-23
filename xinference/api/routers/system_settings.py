@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, Literal
 
 from fastapi import Body, HTTPException, Request, Security
@@ -29,8 +30,7 @@ class SystemSettingsPayload(BaseModel):
 
 
 async def get_system_settings(request: Request) -> JSONResponse:
-    store = request.app.state.system_settings_store
-    return JSONResponse(content=store.get_public())
+    return JSONResponse(content=await _settings_operation(request, "get"))
 
 
 async def _apply_system_settings_to_cluster(request: Request) -> None:
@@ -40,23 +40,34 @@ async def _apply_system_settings_to_cluster(request: Request) -> None:
     await supervisor_ref.update_system_settings(store.get().to_dict())
 
 
+async def _settings_operation(request: Request, operation: str, data=None):
+    from ...deploy.api_host import API_HOST_ENV, host_request
+
+    if os.environ.get(API_HOST_ENV):
+        # The stable host owns both the startup baseline and mutable settings,
+        # including updates that finish on an old generation during drain.
+        return await host_request("settings", operation=operation, data=data)
+    store = request.app.state.system_settings_store
+    if operation == "get":
+        return store.get_public()
+    settings = store.save_public(data) if operation == "save" else store.reset()
+    await _apply_system_settings_to_cluster(request)
+    return settings
+
+
 async def update_system_settings(
     request: Request,
     body: SystemSettingsPayload = Body(...),
 ) -> JSONResponse:
-    store = request.app.state.system_settings_store
     try:
-        settings = store.save_public(body.dict())
+        settings = await _settings_operation(request, "save", body.dict())
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    await _apply_system_settings_to_cluster(request)
     return JSONResponse(content=settings)
 
 
 async def reset_system_settings(request: Request) -> JSONResponse:
-    store = request.app.state.system_settings_store
-    settings = store.reset()
-    await _apply_system_settings_to_cluster(request)
+    settings = await _settings_operation(request, "reset")
     return JSONResponse(content=settings)
 
 

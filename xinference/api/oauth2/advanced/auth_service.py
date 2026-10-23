@@ -132,11 +132,18 @@ except (TypeError, ValueError):
 
 
 class AdvancedAuthService:
-    def __init__(self, db_path: str, jwt_secret_key: str, encryption_key: str):
+    def __init__(
+        self,
+        db_path: str,
+        jwt_secret_key: str,
+        encryption_key: str,
+        *,
+        api_key_cache_enabled: bool = True,
+    ):
         self._db = create_auth_store(db_path)
         self._jwt_secret_key = jwt_secret_key
         self._encryption_key = derive_encryption_key(encryption_key)
-        self._cache = ApiKeyCache(self._db)
+        self._cache = ApiKeyCache(self._db, enabled=api_key_cache_enabled)
         self._db.get_or_create_setup_token()
 
         try:

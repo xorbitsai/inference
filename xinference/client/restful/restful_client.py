@@ -2082,6 +2082,42 @@ class Client:
         response_data = response.json()
         return response_data
 
+    def relaunch_api(
+        self,
+        python_executable: Optional[str] = None,
+        request_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Replace the distributed API process while existing requests drain."""
+        response = self.session.post(
+            f"{self.base_url}/v1/api/relaunch",
+            json={"python_executable": python_executable, "request_id": request_id},
+            headers=self._headers,
+        )
+        if response.status_code != 202:
+            raise RuntimeError(f"Failed to relaunch API: {_get_error_string(response)}")
+        return response.json()
+
+    def get_api_relaunch(self, operation_id: str) -> Dict[str, Any]:
+        response = self.session.get(
+            f"{self.base_url}/v1/api-relaunches/{quote(operation_id, safe='')}",
+            headers=self._headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get API relaunch: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def list_api_relaunches(self) -> List[Dict[str, Any]]:
+        response = self.session.get(
+            f"{self.base_url}/v1/api-relaunches", headers=self._headers
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to list API relaunches: {_get_error_string(response)}"
+            )
+        return response.json()
+
     def relaunch_worker(
         self,
         worker_address: str,
