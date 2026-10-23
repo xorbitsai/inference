@@ -563,6 +563,10 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 ]
                 # Tokenize the input texts
                 inputs = self.process_inputs(pairs)
+                if return_len:
+                    per_sample_tokens = inputs["attention_mask"].sum(dim=1).tolist()
+                    self._token_tracking_data.input_tokens.extend(per_sample_tokens)
+                    self._token_tracking_data.n_tokens += sum(per_sample_tokens)
                 similarity_scores.extend(self.compute_logits(inputs))
         else:
             # Related issue: https://github.com/xorbitsai/inference/issues/1775
