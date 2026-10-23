@@ -19,6 +19,7 @@ import os
 import shutil
 import sys
 import tempfile
+from types import SimpleNamespace
 
 import pytest
 
@@ -67,6 +68,29 @@ def test_causal_lm_rerank_forward_kwargs_handles_uninspectable_forward():
         forward = UninspectableForward()
 
     assert _get_causal_lm_rerank_forward_kwargs(WrappedModel()) == {}
+
+
+async def test_qwen3_reranker_return_len_counts_input_tokens():
+    import torch
+
+    from ..sentence_transformers.core import SentenceTransformerRerankModel
+
+    family = SimpleNamespace(
+        model_name="Qwen3-Reranker-0.6B",
+        type="normal",
+        model_ability=[],
+        model_specs=[SimpleNamespace(quantization="none")],
+    )
+    model = SentenceTransformerRerankModel("uid", "/model", family, "none")
+    model._model = object()
+    # Left-padded batch as returned by tokenizer.pad(): 3 and 5 real tokens.
+    mask = torch.tensor([[0, 0, 1, 1, 1], [1, 1, 1, 1, 1]])
+    model.process_inputs = lambda pairs: {"attention_mask": mask[: len(pairs)]}
+    model.compute_logits = lambda inputs: [0.2, 0.9]
+
+    result = await model.rerank(["doc a", "doc b"], "query", None, None, True, True)
+
+    assert result["meta"]["tokens"] == {"input_tokens": 8, "output_tokens": 8}
 
 
 @pytest.mark.parametrize("model_name", ["bge-reranker-v2-m3", "bge-reranker-base"])
