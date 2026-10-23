@@ -371,9 +371,9 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             "kwargs": json.dumps(kwargs),
         }
         params = _filter_params(params)
-        files: List[Any] = []
+        data = aiohttp.FormData()
         for key, value in params.items():
-            files.append((key, (None, value)))
+            data.add_field(key, str(value))
 
         # Handle both single image and list of images
         if isinstance(image, list):
@@ -381,18 +381,31 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
                 raise ValueError("Image list cannot be empty")
             elif len(image) == 1:
                 # Single image in list, use it directly
-                files.append(("image", ("image", image[0], "application/octet-stream")))
+                data.add_field(
+                    "image",
+                    image[0],
+                    filename="image",
+                    content_type="application/octet-stream",
+                )
             else:
                 # Multiple images - send all images with same field name
                 # FastAPI will collect them into a list
                 for img_data in image:
-                    files.append(
-                        ("image", ("image", img_data, "application/octet-stream"))
+                    data.add_field(
+                        "image",
+                        img_data,
+                        filename="image",
+                        content_type="application/octet-stream",
                     )
         else:
             # Single image
-            files.append(("image", ("image", image, "application/octet-stream")))
-        response = await self.session.post(url, data=files, headers=self.auth_headers)
+            data.add_field(
+                "image",
+                image,
+                filename="image",
+                content_type="application/octet-stream",
+            )
+        response = await self.session.post(url, data=data, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to variants the images, detail: {await _get_error_string(response)}"
@@ -613,17 +626,19 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             "kwargs": json.dumps(kwargs),
         }
         params = _filter_params(params)
-        files: List[Any] = []
+        data = aiohttp.FormData()
         for key, value in params.items():
-            files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
-        files.append(
-            (
-                "mask_image",
-                ("mask_image", mask_image, "application/octet-stream"),
-            )
+            data.add_field(key, str(value))
+        data.add_field(
+            "image", image, filename="image", content_type="application/octet-stream"
         )
-        response = await self.session.post(url, data=files, headers=self.auth_headers)
+        data.add_field(
+            "mask_image",
+            mask_image,
+            filename="mask_image",
+            content_type="application/octet-stream",
+        )
+        response = await self.session.post(url, data=data, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to inpaint the images, detail: {await _get_error_string(response)}"
