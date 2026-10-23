@@ -99,3 +99,26 @@ def test_builtin_cosyvoice_uses_registered_cache_without_opt_in(cosy_spec, monke
     model = audio_core.create_audio_model_instance("test", cosy_spec.model_name)
     model.load()
     constructor.assert_called_once_with("/mnt/cache/cosyvoice", load_jit=False)
+
+
+@pytest.mark.parametrize("stream, expected_speed", [(False, 1.5), (True, 1.0)])
+def test_cosyvoice_speech_passes_speed(monkeypatch, stream, expected_speed):
+    import torch
+
+    from .. import utils as audio_utils
+
+    monkeypatch.setattr(audio_utils, "audio_to_bytes", Mock(return_value=b"audio"))
+    monkeypatch.setattr(
+        audio_utils, "audio_stream_generator", Mock(return_value=iter([b"audio"]))
+    )
+    spec = BUILTIN_AUDIO_MODELS["CosyVoice-300M-SFT"][0]
+    model = CosyVoiceModel("test", "/model", spec)
+    model._model = Mock(sample_rate=22050)
+    model._model.list_available_spks.return_value = ["speaker"]
+    model._model.inference_sft.return_value = [{"tts_speech": torch.zeros(1, 4)}]
+
+    model.speech("hello", "speaker", speed=1.5, stream=stream)
+
+    model._model.inference_sft.assert_called_once_with(
+        "hello", "speaker", stream=stream, speed=expected_speed
+    )

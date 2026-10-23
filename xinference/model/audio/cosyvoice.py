@@ -98,6 +98,7 @@ class CosyVoiceModel:
         prompt_text,
         voice,
         response_format,
+        speed,
     ):
         if prompt_speech:
             from cosyvoice.utils.file_utils import load_wav
@@ -108,7 +109,7 @@ class CosyVoiceModel:
             if prompt_text:
                 logger.info("CosyVoice inference_zero_shot")
                 output = self._model.inference_zero_shot(
-                    input, prompt_text, prompt_speech_16k, stream=stream
+                    input, prompt_text, prompt_speech_16k, stream=stream, speed=speed
                 )
             elif instruct_text:
                 assert self._is_cosyvoice2
@@ -118,11 +119,12 @@ class CosyVoiceModel:
                     instruct_text=instruct_text,
                     prompt_speech_16k=prompt_speech_16k,
                     stream=stream,
+                    speed=speed,
                 )
             else:
                 logger.info("CosyVoice inference_cross_lingual")
                 output = self._model.inference_cross_lingual(
-                    input, prompt_speech_16k, stream=stream
+                    input, prompt_speech_16k, stream=stream, speed=speed
                 )
         else:
             available_speakers = self._model.list_available_spks()
@@ -136,11 +138,17 @@ class CosyVoiceModel:
             if instruct_text:
                 logger.info("CosyVoice inference_instruct")
                 output = self._model.inference_instruct(
-                    input, voice, instruct_text=instruct_text, stream=stream
+                    input,
+                    voice,
+                    instruct_text=instruct_text,
+                    stream=stream,
+                    speed=speed,
                 )
             else:
                 logger.info("CosyVoice inference_sft")
-                output = self._model.inference_sft(input, voice, stream=stream)
+                output = self._model.inference_sft(
+                    input, voice, stream=stream, speed=speed
+                )
 
         import torch
 
@@ -208,6 +216,15 @@ class CosyVoiceModel:
 
         assert self._model is not None
 
+        if stream and speed != 1.0:
+            # The vendored CosyVoice asserts that speed only changes in
+            # non-stream mode (see CosyVoiceModel.token2wav).
+            logger.warning(
+                "CosyVoice only supports speed in non-stream mode, ignoring: %s",
+                speed,
+            )
+            speed = 1.0
+
         set_all_random_seed(seed)
 
         return self._speech_handle(
@@ -218,4 +235,5 @@ class CosyVoiceModel:
             prompt_text,
             voice,
             response_format,
+            speed,
         )
