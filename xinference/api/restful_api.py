@@ -755,6 +755,8 @@ class RESTfulAPI(CancelMixin):
         supervisor_address: str,
         host: str,
         port: int,
+        *,
+        api_key_cache_enabled: bool = True,
     ):
         super().__init__()
         self._supervisor_address = supervisor_address
@@ -793,6 +795,7 @@ class RESTfulAPI(CancelMixin):
                 db_path=XINFERENCE_AUTH_DB_PATH,
                 jwt_secret_key=jwt_secret_key,
                 encryption_key=encryption_key,
+                api_key_cache_enabled=api_key_cache_enabled,
             )
             self._auth_service = self._advanced_auth_service
             setup_token = self._advanced_auth_service.setup_token

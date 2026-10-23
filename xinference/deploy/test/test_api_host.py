@@ -3,9 +3,12 @@
 # CI: linux
 
 import asyncio
+import io
+import json
 import os
 import shlex
 import socket
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,7 +18,8 @@ import httpx
 import pytest
 import xoscar as xo
 
-from ..api_host import APIHost
+from ...core.system_settings_store import SystemSettingsStore
+from ..api_host import DIAGNOSTIC_LIMIT, APIDiagnostics, APIHost, _forward_output
 
 
 class Backend(xo.StatelessActor):
@@ -37,6 +41,12 @@ class Supervisor(xo.StatelessActor):
     def list_models(self):
         return {}
 
+    def update_system_settings(self, settings):
+        self.settings = settings
+
+    def get_system_settings(self):
+        return self.settings
+
 
 EXTENSION = """
 import asyncio, os, sys
@@ -45,16 +55,35 @@ from contextlib import asynccontextmanager
 from starlette.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
+class Gate:
+    def __init__(self, app):
+        self.app = app
+    async def __call__(self, scope, receive, send):
+        gate = dict(scope.get("headers", [])).get(b"x-acceptance-gate")
+        if gate:
+            root = Path(os.environ["API_GATE_ROOT"])
+            name = gate.decode()
+            (root / (name + ".entered")).touch()
+            while not (root / (name + ".release")).exists():
+                await asyncio.sleep(.01)
+        await self.app(scope, receive, send)
+
 class Extension:
     name = "api-host-acceptance"
     api_version = 1
     def configure_api(self, context):
+        context.app.add_middleware(Gate)
         original = context.app.router.lifespan_context
         @asynccontextmanager
         async def lifespan(app):
             async with original(app) as state:
                 if os.getenv("FAIL_API_STARTUP"):
                     raise RuntimeError("deliberate ASGI startup failure")
+                root = Path(os.environ["API_GATE_ROOT"])
+                if (root / "prepare").exists():
+                    (root / "prepared").touch()
+                    while (root / "prepare").exists():
+                        await asyncio.sleep(.01)
                 yield state
         context.app.router.lifespan_context = lifespan
         async def info() -> JSONResponse:
@@ -130,6 +159,18 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
     monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_ENABLED", "0")
     monkeypatch.setenv("XINFERENCE_EXTENSIONS", "acceptance_extension:create")
     monkeypatch.setenv("API_STREAM_RELEASE", str(release))
+    monkeypatch.setenv("API_GATE_ROOT", str(tmp_path))
+    monkeypatch.setenv("XINFERENCE_SYSTEM_SETTINGS_PATH", "home/system-settings.json")
+    settings_store = SystemSettingsStore(
+        str(service_directory / "home/system-settings.json"),
+        environ={"XINFERENCE_MODEL_SRC": "huggingface", "HF_TOKEN": "hf_startup_token"},
+    )
+    saved = settings_store.get_public()
+    saved.update(download_source="modelscope", hf_token="hf_saved_token")
+    settings_store.save_public(saved)
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+    monkeypatch.setenv("HF_TOKEN", "hf_saved_token")
+    monkeypatch.setenv("HUGGING_FACE_HUB_TOKEN", "hf_saved_token")
     auth = AdvancedAuthService(
         str(service_directory / "identities/auth.db"),
         "api-host-test-secret",
@@ -141,6 +182,10 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
         permissions=["admin", "models:list"],
     )
     api_key = auth.create_api_key_for_user(user_id, name="existing-key")["key"]
+    keys = {
+        name: auth.create_api_key_for_user(user_id, name=name)
+        for name in ("deleted", "disabled", "restricted", "drained")
+    }
     credentials = {"username": "existing-admin", "password": "password"}
     token = auth.login(**credentials)["access_token"]
     listener = socket.create_server(("127.0.0.1", 0))
@@ -172,12 +217,14 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
                 "host": "127.0.0.1",
                 "port": port,
             },
+            settings_store,
         )
         stopping = asyncio.Event()
         task = asyncio.create_task(host.run(stopping))
         errors = []
         requests = []
         load = None
+        pending_requests = []
         try:
 
             async def ready():
@@ -239,6 +286,7 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
                 async with client.stream("GET", "/acceptance/stream") as response:
                     chunks = (line async for line in response.aiter_lines() if line)
                     assert await chunks.__anext__() == "data: start"
+                    (tmp_path / "prepare").touch()
                     response = await client.post(
                         "/v1/api/relaunch",
                         json={
@@ -248,6 +296,68 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
                     )
                     assert response.status_code == 202, response.text
                     operation = response.json()["operation_id"]
+
+                    async def prepared():
+                        return (tmp_path / "prepared").exists()
+
+                    await until(prepared)
+                    # These commits happen after the target has constructed
+                    # its auth service and settings store, before activation.
+                    for name, method, body in [
+                        ("deleted", "DELETE", None),
+                        ("disabled", "PUT", {"enabled": False}),
+                        (
+                            "restricted",
+                            "PUT",
+                            {
+                                "model_permissions": [
+                                    {
+                                        "permission_type": "model_id",
+                                        "permission_value": "allowed",
+                                    }
+                                ]
+                            },
+                        ),
+                    ]:
+                        result = await client.request(
+                            method, f'/v1/admin/keys/{keys[name]["id"]}', json=body
+                        )
+                        assert result.status_code == 200, result.text
+                    settings_url = "/v1/cluster/system_settings"
+                    updated = (await client.get(settings_url)).json()
+                    updated.update(
+                        download_source="openmind_hub", hf_token="hf_prepare_token"
+                    )
+                    assert (
+                        await client.put(settings_url, json=updated)
+                    ).status_code == 200
+                    late = dict(
+                        updated, download_source="csghub", hf_token="hf_drain_token"
+                    )
+                    pending_requests = [
+                        asyncio.create_task(
+                            client.delete(
+                                f'/v1/admin/keys/{keys["drained"]["id"]}',
+                                headers={"x-acceptance-gate": "late-key"},
+                            )
+                        ),
+                        asyncio.create_task(
+                            client.put(
+                                settings_url,
+                                json=late,
+                                headers={"x-acceptance-gate": "late-settings"},
+                            )
+                        ),
+                    ]
+
+                    async def admitted():
+                        return all(
+                            (tmp_path / (name + ".entered")).exists()
+                            for name in ("late-key", "late-settings")
+                        )
+
+                    await until(admitted)
+                    (tmp_path / "prepare").unlink()
 
                     async def switched():
                         result = (
@@ -274,6 +384,52 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
                         "api_pid"
                     ] == current["target_pid"]
                     await check_identity_paths_and_console(current["target_pid"])
+                    for name in ("deleted", "disabled"):
+                        result = await client.get(
+                            "/v1/models",
+                            headers={"Authorization": "Bearer " + keys[name]["key"]},
+                        )
+                        assert result.status_code == 401, result.text
+                    result = await client.post(
+                        "/v1/completions",
+                        json={"model": "forbidden", "prompt": "test"},
+                        headers={
+                            "Authorization": "Bearer " + keys["restricted"]["key"]
+                        },
+                    )
+                    assert result.status_code == 403, result.text
+                    assert (await client.get(settings_url)).json()[
+                        "download_source"
+                    ] == "openmind_hub"
+                    # Both old requests were admitted before the switch and
+                    # commit only while the source is draining.
+                    for name in ("late-key", "late-settings"):
+                        (tmp_path / (name + ".release")).touch()
+                    for result in await asyncio.gather(*pending_requests):
+                        assert result.status_code == 200, result.text
+                    result = await client.get(
+                        "/v1/models",
+                        headers={"Authorization": "Bearer " + keys["drained"]["key"]},
+                    )
+                    assert result.status_code == 401, result.text
+                    public = (await client.get(settings_url)).json()
+                    assert public["download_source"] == "csghub"
+                    public["download_max_attempts"] += 1
+                    assert (
+                        await client.put(settings_url, json=public)
+                    ).status_code == 200
+                    assert settings_store.get().hf_token == "hf_drain_token"
+                    assert (
+                        await supervisor.get_system_settings()
+                        == settings_store.get().to_dict()
+                    )
+                    result = await client.post(settings_url + "/reset")
+                    assert result.json() == settings_store.public_dict(
+                        settings_store.get_startup()
+                    )
+                    assert settings_store.get().download_source == "huggingface"
+                    assert not Path(settings_store.path).exists()
+                    assert not list(host.directory.glob("*.log"))
                     release.touch()
                     assert [line async for line in chunks] == ["data: finish"]
 
@@ -345,7 +501,12 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
                     assert [line async for line in chunks] == ["data: finish"]
                 assert requests and not errors, errors
         finally:
+            (tmp_path / "prepare").unlink(missing_ok=True)
+            for name in ("late-key", "late-settings"):
+                (tmp_path / (name + ".release")).touch()
+            release.touch()
             stopping.set()
+            await asyncio.gather(*pending_requests, return_exceptions=True)
             if load is not None:
                 await load
             await asyncio.wait_for(task, 40)
@@ -356,7 +517,7 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
 
 def test_operation_replay_conflict_and_one_inflight_upgrade(tmp_path):
     executable = str(tmp_path / "python")
-    host = APIHost(MagicMock(), {})
+    host = APIHost(MagicMock(), {}, MagicMock())
     host.active = SimpleNamespace(
         executable=executable, version="version", process=MagicMock(pid=1)
     )
@@ -370,3 +531,86 @@ def test_operation_replay_conflict_and_one_inflight_upgrade(tmp_path):
     host.operation_task = MagicMock(done=lambda: False)
     with pytest.raises(RuntimeError, match="already in progress"):
         host.create()
+
+
+def test_diagnostics_are_bounded_without_truncating_service_output():
+    diagnostics = APIDiagnostics()
+    data = b"old output\n" * DIAGNOSTIC_LIMIT + b"latest failure\n"
+    destination = io.StringIO()
+    _forward_output(io.BytesIO(data), destination, diagnostics)
+    assert destination.getvalue() == data.decode()
+    assert diagnostics.read() == data[-DIAGNOSTIC_LIMIT:].decode()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Hosted supervisor requires POSIX")
+def test_supervisor_cli_preserves_startup_baseline(tmp_path):
+    path = tmp_path / "settings.json"
+    startup = (
+        SystemSettingsStore(
+            str(path),
+            environ={
+                "XINFERENCE_MODEL_SRC": "huggingface",
+                "HF_TOKEN": "hf_startup_token",
+            },
+        )
+        .get_startup()
+        .to_dict()
+    )
+    saved = dict(startup, download_source="modelscope", hf_token="hf_saved_token")
+    path.write_text(json.dumps({"version": 1, "settings": saved}))
+    source_root = str(Path(__file__).resolve().parents[3])
+    environment = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join([source_root, os.environ.get("PYTHONPATH", "")]),
+        "XINFERENCE_HOME": str(tmp_path / "home"),
+        "XINFERENCE_SYSTEM_SETTINGS_PATH": str(path),
+        "XINFERENCE_MODEL_SRC": "huggingface",
+        "HF_TOKEN": "hf_startup_token",
+        "HUGGING_FACE_HUB_TOKEN": "hf_startup_token",
+        "XINFERENCE_EXTENSIONS": "",
+        "XINFERENCE_AUTH_ADVANCED": "false",
+    }
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+import os
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+import xoscar as xo
+from xinference.deploy import api_host, cmdline, supervisor
+
+updates = []
+async def update(settings):
+    updates.append(settings)
+async def actor_ref(**kwargs):
+    return SimpleNamespace(update_system_settings=update)
+xo.actor_ref = actor_ref
+supervisor.run_in_subprocess = lambda *args, **kwargs: MagicMock()
+supervisor.health_check = lambda **kwargs: True
+
+async def check_host(self, stopping):
+    try:
+        assert os.environ["XINFERENCE_MODEL_SRC"] == "modelscope"
+        assert self.settings_store.get_startup().download_source == "huggingface"
+        assert self.settings_store.get().download_source == "modelscope"
+        result = await self.settings("reset")
+        assert result["download_source"] == "huggingface"
+        assert updates[-1]["hf_token"] == "hf_startup_token"
+        print("baseline reset verified", flush=True)
+    finally:
+        self.listener.close()
+api_host.APIHost.run = check_host
+cmdline.supervisor.main(args=["--host", "127.0.0.1", "--port", "0"], standalone_mode=False)
+""",
+        ],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "baseline reset verified" in result.stdout
+    assert not path.exists()

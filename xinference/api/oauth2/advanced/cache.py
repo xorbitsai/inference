@@ -67,9 +67,11 @@ class ApiKeyCacheEntry:
 
 
 class ApiKeyCache:
-    def __init__(self, db: AuthStore):
+    def __init__(self, db: AuthStore, *, enabled: bool = True):
         self._db = db
-        self._cache_enabled: bool = getattr(db, "api_key_cache_enabled", True)
+        self._cache_enabled: bool = enabled and getattr(
+            db, "api_key_cache_enabled", True
+        )
         self._cache: Dict[str, ApiKeyCacheEntry] = {}
         self._lock = threading.RLock()
         self._load_all()

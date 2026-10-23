@@ -13,22 +13,39 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from ..core.system_settings_store import SystemSettingsStore
 from ..core.worker_relaunch import validate_relaunch_options
 
 API_HOST_ENV = "XINFERENCE_API_HOST"
 STARTUP_TIMEOUT = 120
+DIAGNOSTIC_LIMIT = 8192
 
 
-def _forward_output(source, destination, log: Path) -> None:
-    with source, log.open("ab", buffering=0) as output:
+class APIDiagnostics:
+    def __init__(self):
+        self._tail = b""
+        self._lock = threading.Lock()
+
+    def append(self, data: bytes) -> None:
+        with self._lock:
+            self._tail = (self._tail + data)[-DIAGNOSTIC_LIMIT:]
+
+    def read(self) -> str:
+        with self._lock:
+            return self._tail.decode(errors="replace")
+
+
+def _forward_output(source, destination, diagnostics: APIDiagnostics) -> None:
+    with source:
         while data := source.read1(65536):
-            output.write(data)
+            diagnostics.append(data)
             try:
                 stream = getattr(destination, "buffer", None)
                 if stream is not None:
@@ -41,11 +58,11 @@ def _forward_output(source, destination, log: Path) -> None:
                 pass
 
 
-async def _wait_process(process: subprocess.Popen, log: Path) -> int:
+async def _wait_process(process: subprocess.Popen, diagnostics: APIDiagnostics) -> int:
     exit_code, _, _ = await asyncio.gather(
         asyncio.to_thread(process.wait),
-        asyncio.to_thread(_forward_output, process.stdout, sys.stdout, log),
-        asyncio.to_thread(_forward_output, process.stderr, sys.stderr, log),
+        asyncio.to_thread(_forward_output, process.stdout, sys.stdout, diagnostics),
+        asyncio.to_thread(_forward_output, process.stderr, sys.stderr, diagnostics),
     )
     return exit_code
 
@@ -68,7 +85,11 @@ async def host_request(command: str, **options: Any) -> Any:
             + b"\n"
         )
         await writer.drain()
-        result = json.loads(await asyncio.wait_for(reader.readline(), 5))
+        result = json.loads(
+            await asyncio.wait_for(
+                reader.readline(), None if command == "settings" else 5
+            )
+        )
         if "error" in result:
             error_type = {"ValueError": ValueError, "KeyError": KeyError}.get(
                 result.get("type"), RuntimeError
@@ -86,7 +107,7 @@ class APIProcess:
     process: subprocess.Popen
     executable: str
     environment: Dict[str, str]
-    log: Path
+    diagnostics: APIDiagnostics
     exited: asyncio.Task
     ready: asyncio.Event = field(default_factory=asyncio.Event)
     serving: asyncio.Event = field(default_factory=asyncio.Event)
@@ -110,7 +131,7 @@ class APIProcess:
             )
             if pending in done and self.process.poll() is None:
                 return
-            details = self.log.read_text(errors="replace")[-2000:]
+            details = self.diagnostics.read()[-2000:]
             raise RuntimeError("API process failed to become ready: " + details)
         finally:
             pending.cancel()
@@ -118,7 +139,12 @@ class APIProcess:
 
 
 class APIHost:
-    def __init__(self, listener: socket.socket, configuration: Dict[str, Any]):
+    def __init__(
+        self,
+        listener: socket.socket,
+        configuration: Dict[str, Any],
+        settings_store: SystemSettingsStore,
+    ):
         self.listener = listener
         self.configuration = configuration
         self.children: Dict[str, APIProcess] = {}
@@ -129,6 +155,31 @@ class APIHost:
         self.connection: Dict[str, Any] = {}
         self.directory = Path()
         self.working_directory = Path.cwd()
+        self.settings_store = settings_store
+        self.settings_lock = asyncio.Lock()
+
+    async def settings(self, operation: str, data=None) -> Dict[str, Any]:
+        if operation == "baseline":
+            return self.settings_store.get_startup().to_dict()
+        async with self.settings_lock:
+            if operation == "get":
+                return self.settings_store.get_public()
+            if operation == "save":
+                result = self.settings_store.save_public(data)
+            elif operation == "reset":
+                result = self.settings_store.reset()
+            else:
+                raise ValueError("Unknown system settings operation")
+            import xoscar as xo
+
+            from ..core.supervisor import SupervisorActor
+
+            supervisor = await xo.actor_ref(
+                address=self.configuration["supervisor_address"],
+                uid=SupervisorActor.default_uid(),
+            )
+            await supervisor.update_system_settings(self.settings_store.get().to_dict())
+            return result
 
     async def _connection(self, reader, writer):
         child = None
@@ -160,6 +211,15 @@ class APIHost:
                 result = copy.deepcopy(self.operations[request["operation_id"]])
             elif command == "list":
                 result = copy.deepcopy(list(self.operations.values()))
+            elif command == "settings":
+                try:
+                    result = await self.settings(
+                        request["operation"], request.get("data")
+                    )
+                except (ValueError, KeyError):
+                    raise
+                except Exception as error:
+                    raise RuntimeError(str(error)) from error
             else:
                 raise ValueError("Unknown API host command")
             writer.write(json.dumps({"result": result}).encode() + b"\n")
@@ -192,8 +252,7 @@ class APIHost:
             )
         )
         path.chmod(0o600)
-        log = self.directory / (identity + ".log")
-        log.touch()
+        diagnostics = APIDiagnostics()
         process = subprocess.Popen(
             [executable, "-u", str(self.directory / "start_api.py"), str(path)],
             pass_fds=(self.listener.fileno(),),
@@ -208,8 +267,8 @@ class APIHost:
             process,
             executable,
             environment,
-            log,
-            asyncio.create_task(_wait_process(process, log)),
+            diagnostics,
+            asyncio.create_task(_wait_process(process, diagnostics)),
         )
         self.children[identity] = child
         return child
@@ -351,7 +410,11 @@ def run(configuration: Dict[str, Any]) -> None:
     from uvicorn import Config
     from xoscar.utils import get_next_port
 
-    from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
+    from ..constants import (
+        XINFERENCE_DEFAULT_ENDPOINT_PORT,
+        XINFERENCE_SYSTEM_SETTINGS_PATH,
+    )
+    from ..core.system_settings_store import get_system_settings_store
 
     try:
         listener = Config(
@@ -373,7 +436,11 @@ def run(configuration: Dict[str, Any]) -> None:
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, stopping.set)
         try:
-            await APIHost(listener, configuration).run(stopping)
+            await APIHost(
+                listener,
+                configuration,
+                get_system_settings_store(XINFERENCE_SYSTEM_SETTINGS_PATH),
+            ).run(stopping)
         finally:
             for sig in (signal.SIGTERM, signal.SIGINT):
                 loop.remove_signal_handler(sig)

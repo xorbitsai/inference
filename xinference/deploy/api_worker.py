@@ -167,10 +167,18 @@ def main():
         configuration["host"],
         configuration["port"],
     )
+    from ..core.system_settings_store import SystemSettings, apply_system_settings
+    from .api_host import host_request
+
+    baseline = asyncio.run(host_request("settings", operation="baseline"))
+    apply_system_settings(SystemSettings.from_dict(baseline))
     api = RESTfulAPI(
         configuration["supervisor_address"],
         configuration["host"],
         configuration["port"],
+        # Multiple generations may authorize requests and commit revocations
+        # concurrently. Use the auth store's existing authoritative read path.
+        api_key_cache_enabled=False,
     )
     listener = socket.socket(fileno=configuration["listener_fd"])
     api.serve(
