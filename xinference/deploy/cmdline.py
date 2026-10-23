@@ -1272,7 +1272,7 @@ def model_list(endpoint: Optional[str], api_key: Optional[str]):
                     str(model_spec["controlnet"]),
                 ]
             )
-        elif model_spec["model_type"] == "audio":
+        elif model_spec["model_type"] in ("audio", "flexible"):
             audio_table.append(
                 [model_uid, model_spec["model_type"], model_spec["model_name"]]
             )

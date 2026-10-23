@@ -750,3 +750,26 @@ def test_cached_columns_align_for_mixed_worker_metadata(monkeypatch, legacy_firs
     assert by_name["legacy"]["path"] == "/legacy"
     assert by_name["legacy"]["model_type"] == "-"
     assert by_name["legacy"]["model_engine"] == "-"
+
+
+def test_list_shows_running_flexible_models(monkeypatch):
+    class DummyRESTfulClient:
+        def __init__(self, base_url, api_key=None):
+            pass
+
+        def list_models(self):
+            return {
+                "my-flexible": {
+                    "model_type": "flexible",
+                    "model_name": "my-flexible-model",
+                }
+            }
+
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", DummyRESTfulClient)
+    result = CliRunner().invoke(
+        model_list, ["--endpoint", "http://127.0.0.1:9997", "--api-key", "k"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "my-flexible" in result.output
+    assert "my-flexible-model" in result.output
