@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import json
 import sys
 from types import ModuleType, SimpleNamespace
@@ -211,6 +213,19 @@ async def test_stream_cached_tokens_reach_final_and_usage_chunks(
     assert events[-1]["response"]["usage"]["input_tokens_details"] == {
         "cached_tokens": cached_tokens
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream_options", [{}, {"include_obfuscation": False}])
+async def test_stream_options_without_include_usage(model_factory, stream_options):
+    # OpenAI's stream_options may omit include_usage; it defaults to false.
+    stream = await model_factory(0).async_generate(
+        "prompt",
+        {"max_tokens": 2, "stream": True, "stream_options": stream_options},
+    )
+    chunks = [chunk async for chunk in stream]
+    assert chunks
+    assert all(chunk["choices"] for chunk in chunks)
 
 
 @pytest.mark.asyncio

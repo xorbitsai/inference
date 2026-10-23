@@ -222,7 +222,7 @@ class InferenceRequest:
     def include_usage(self) -> bool:
         stream_options = self.sanitized_generate_config.get("stream_options", None)
         include_usage = (
-            stream_options["include_usage"]
+            stream_options.get("include_usage", False)
             if isinstance(stream_options, dict)
             else False
         )

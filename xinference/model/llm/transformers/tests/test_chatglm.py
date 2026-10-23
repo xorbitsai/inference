@@ -12,6 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
+from types import SimpleNamespace
+
+import pytest
+import torch
+from transformers import BatchEncoding
+
 from ....scheduler.request import InferenceRequest
 from ..chatglm import ChatglmPytorchChatModel
 
@@ -68,3 +76,29 @@ def test_chatglm_stream_include_usage_ends_with_usage_only_chunk():
     assert request.completion[-2]["choices"][0]["finish_reason"] == "length"
     assert request.completion[-1]["choices"] == []
     assert request.completion[-1]["usage"] == usage
+
+
+@pytest.mark.parametrize("stream_options", [{}, {"include_obfuscation": False}])
+def test_chatglm_chat_stream_options_without_include_usage(stream_options):
+    model = object.__new__(ChatglmPytorchChatModel)
+    model.model_uid = "chatglm-test"
+    model.model_family = SimpleNamespace(model_name="glm4-chat", chat_template=None)
+    model._model = SimpleNamespace(device="cpu")
+    model._tokenizer = SimpleNamespace(
+        apply_chat_template=lambda *args, **kwargs: BatchEncoding(
+            {"input_ids": torch.tensor([[1, 2, 3]])}
+        )
+    )
+    model.reasoning_parser = model.tool_parser = None
+    model._stream_chat = lambda *args, **kwargs: iter(["hello"])
+
+    chunks = list(
+        model.chat(
+            [{"role": "user", "content": "hi"}],
+            {"stream": True, "stream_options": stream_options},
+        )
+    )
+
+    assert all(chunk["choices"] for chunk in chunks)
+    text = "".join(c["choices"][0]["delta"].get("content") or "" for c in chunks)
+    assert text == "hello"

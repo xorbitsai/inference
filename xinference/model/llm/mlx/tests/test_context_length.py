@@ -177,3 +177,15 @@ def test_text_rejects_before_mutating_prompt_cache():
     with pytest.raises(ValueError, match="context_length is 4096"):
         model._prepare_inputs("a" * 5000, {"max_tokens": None})
     model._get_prompt_cache.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream_options", [{}, {"include_obfuscation": False}])
+async def test_text_stream_options_without_include_usage(stream_options):
+    model = make_model()
+    result = await model.async_generate(
+        "prompt", {"stream": True, "stream_options": stream_options}
+    )
+    chunks = [chunk async for chunk in result]
+    assert chunks
+    assert all(chunk["choices"] for chunk in chunks)

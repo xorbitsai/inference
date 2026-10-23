@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 
 import pytest
 
 from ..batch import BatchScheduler
 from ..core import XINFERENCE_STREAMING_ERROR_FLAG
+from ..request import InferenceRequest
 
 
 @pytest.fixture
@@ -145,3 +148,10 @@ async def test_cache_reduction_failure_fails_active_requests(no_empty_cache):
         await active_future
     assert not scheduler._running_queue
     assert not scheduler._id_to_req
+
+
+@pytest.mark.parametrize("stream_options", [None, {}, {"include_obfuscation": False}])
+def test_request_include_usage_defaults_to_false(stream_options):
+    request = InferenceRequest("prompt", None, True, "generate", {"stream": True})
+    request.sanitized_generate_config = {"stream_options": stream_options}
+    assert request.include_usage is False
