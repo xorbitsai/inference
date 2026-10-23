@@ -118,6 +118,8 @@ logger = getLogger(__name__)
 
 ASYNC_LAUNCH_TASKS = {}  # type: ignore
 
+RESERVED_MODEL_UIDS = ["prompts", "families", "vllm-supported", "instances"]
+
 
 _WORKER_METADATA_RPC_TIMEOUT = 3
 _WORKER_METADATA_RETRY_DELAYS = (5, 15, 30)
@@ -3161,6 +3163,11 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
+        else:
+            if model_uid in RESERVED_MODEL_UIDS:
+                raise ValueError(
+                    f"Model uid cannot be the reserved name: '{model_uid}'."
+                )
 
         # Resolve per-replica placement (replica_config) BEFORE any side effects
         # below (xavier actor creation, replica_info, instance_info) so that a
