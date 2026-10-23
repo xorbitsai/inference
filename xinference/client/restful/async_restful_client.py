@@ -814,25 +814,21 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             "kwargs": json.dumps(kwargs),
         }
         params = _filter_params(params)
-        files: List[Any] = []
-        for key, value in params.items():
-            files.append((key, (None, value)))
-        files.append(
-            ("first_frame", ("image", first_frame, "application/octet-stream"))
-        )
-        files.append(("last_frame", ("image", last_frame, "application/octet-stream")))
-        # Convert files list to FormData for proper multipart encoding
         data = aiohttp.FormData()
-        for item in files:
-            if len(item) == 3 and isinstance(item[1], tuple):
-                # Format: (field_name, (filename, content, content_type))
-                field_name, (filename, content, content_type) = item
-                data.add_field(
-                    field_name, content, filename=filename, content_type=content_type
-                )
-            else:
-                # Format: (field_name, content)
-                data.add_field(item[0], item[1])
+        for key, value in params.items():
+            data.add_field(key, str(value))
+        data.add_field(
+            "first_frame",
+            first_frame,
+            filename="image",
+            content_type="application/octet-stream",
+        )
+        data.add_field(
+            "last_frame",
+            last_frame,
+            filename="image",
+            content_type="application/octet-stream",
+        )
         response = await self.session.post(url, data=data, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
