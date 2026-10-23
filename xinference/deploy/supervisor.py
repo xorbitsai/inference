@@ -78,6 +78,19 @@ def main(
     logging_conf: Optional[Dict] = None,
 ):
     supervisor_address = f"{host}:{supervisor_port or get_next_port()}"
+    if os.name == "posix":
+        from .api_host import run as run_api_host
+
+        run_api_host(
+            {
+                "supervisor_address": supervisor_address,
+                "host": host,
+                "port": port,
+                "logging_conf": logging_conf,
+                "host_supervisor": True,
+            }
+        )
+        return
     local_cluster = run_in_subprocess(supervisor_address, logging_conf)
 
     if not health_check(
@@ -88,18 +101,6 @@ def main(
         raise RuntimeError("Supervisor is not available after multiple attempts")
 
     try:
-        if os.name == "posix":
-            from .api_host import run as run_api_host
-
-            run_api_host(
-                {
-                    "supervisor_address": supervisor_address,
-                    "host": host,
-                    "port": port,
-                    "logging_conf": logging_conf,
-                }
-            )
-            return
         from ..api import restful_api
 
         restful_api.run(

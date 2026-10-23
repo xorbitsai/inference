@@ -236,7 +236,15 @@ class ReplicaInfo:
 
 
 class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
-    def __init__(self):
+    def __init__(self, service_address=None, standby=False):
+        from .supervisor_upgrade import SupervisorUpgradeState
+
+        self._service_address = service_address
+        self._standby = standby
+        self._supervisor_prepared = False
+        self._supervisor_restored = False
+        self._supervisor_activation_prepared = False
+        self._upgrade_state = SupervisorUpgradeState(self)
         self._pd_model_mapping: Dict[str, Any] = {}
         self._xavier_cache_mapping: Dict[str, xo.ActorRefType] = {}
         self._xavier_source_mapping: Dict[str, List[xo.ActorRefType]] = {}
@@ -293,7 +301,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._cache_pause_requested: Set[str] = set()
         self._cache_cancel_requested: Set[str] = set()
         self._download_task_store = DownloadTaskStore(XINFERENCE_DOWNLOAD_TASK_DB_PATH)
-        interrupted_count = self._download_task_store.mark_active_interrupted()
+        interrupted_count = (
+            0 if standby else self._download_task_store.mark_active_interrupted()
+        )
         if interrupted_count:
             logger.warning(
                 "Marked %d unfinished model download(s) as interrupted",
@@ -919,53 +929,25 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 logger.exception(
                     "Failed to initialise supervisor OpenTelemetry worker metrics. Continuing without supervisor OTEL metrics."
                 )
-        if not XINFERENCE_DISABLE_HEALTH_CHECK:
-            # Run _check_dead_nodes() in a dedicated thread.
-            from ..isolation import Isolation
-
-            self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-            self._isolation.start()
-            asyncio.run_coroutine_threadsafe(
-                self._check_dead_nodes(), loop=self._isolation.loop
-            )
-            if XINFERENCE_TOKEN_ROUTER_ENABLED:
-                asyncio.run_coroutine_threadsafe(
-                    self._monitor_token_router_nodes(), loop=self._isolation.loop
-                )
-        logger.info(f"Xinference supervisor {self.address} started")
+        logger.info(f"Xinference supervisor {self.control_address} started")
         from .cache_tracker import CacheTrackerActor
+        from .event import EventCollectorActor
         from .progress_tracker import ProgressTrackerActor
         from .status_guard import StatusGuardActor
 
-        self._status_guard_ref: xo.ActorRefType["StatusGuardActor"] = (  # type: ignore
-            await xo.create_actor(
-                StatusGuardActor,
-                address=self.address,
-                uid=StatusGuardActor.default_uid(),
+        async def support_actor(actor_class):
+            if self._service_address is not None:
+                return await xo.actor_ref(
+                    address=self.control_address, uid=actor_class.default_uid()
+                )
+            return await xo.create_actor(
+                actor_class, address=self.control_address, uid=actor_class.default_uid()
             )
-        )
-        self._cache_tracker_ref: xo.ActorRefType[  # type: ignore
-            "CacheTrackerActor"
-        ] = await xo.create_actor(
-            CacheTrackerActor, address=self.address, uid=CacheTrackerActor.default_uid()
-        )
-        self._progress_tracker: xo.ActorRefType[  # type: ignore
-            "ProgressTrackerActor"
-        ] = await xo.create_actor(
-            ProgressTrackerActor,
-            address=self.address,
-            uid=ProgressTrackerActor.default_uid(),
-        )
 
-        from .event import EventCollectorActor
-
-        self._event_collector_ref: xo.ActorRefType[  # type: ignore
-            EventCollectorActor
-        ] = await xo.create_actor(
-            EventCollectorActor,
-            address=self.address,
-            uid=EventCollectorActor.default_uid(),
-        )
+        self._status_guard_ref = await support_actor(StatusGuardActor)
+        self._cache_tracker_ref = await support_actor(CacheTrackerActor)
+        self._progress_tracker = await support_actor(ProgressTrackerActor)
+        self._event_collector_ref = await support_actor(EventCollectorActor)
 
         from ..model.audio import (
             CustomAudioModelFamilyV2,
@@ -1043,12 +1025,6 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             ),
         }
 
-        # record model version
-        model_version_infos = get_model_version_infos()
-        await self._cache_tracker_ref.record_model_version(
-            model_version_infos, self.address
-        )
-
         # Windows does not have signal handler
         if os.name != "nt":
 
@@ -1067,8 +1043,73 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._collective_manager_mapping: Dict[  # type: ignore
             str, xo.ActorRefType[CollectiveManager]
         ] = {}
-        self._schedule_autostart()
+        if not self._standby:
+            await self.activate_supervisor()
+        self._supervisor_prepared = True
 
+    @property
+    def control_address(self) -> str:
+        return getattr(self, "_service_address", None) or self.address
+
+    def supervisor_upgrade_info(self):
+        from .. import __version__
+        from .supervisor_upgrade import PROTOCOL_VERSION
+
+        return {
+            "protocol": PROTOCOL_VERSION,
+            "pid": os.getpid(),
+            "version": __version__,
+            "ready": self._supervisor_prepared,
+        }
+
+    async def pause_supervisor(self):
+        return await self._upgrade_state.pause()
+
+    def get_supervisor_snapshot(self):
+        return self._upgrade_state.snapshot()
+
+    async def restore_supervisor(self, snapshot):
+        if not self._standby:
+            raise RuntimeError("Only a standby Supervisor can restore state")
+        await self._upgrade_state.restore(snapshot)
+
+    def resume_supervisor(self):
+        self._upgrade_state.resume()
+
+    async def prepare_supervisor_activation(self):
+        if self._supervisor_activation_prepared:
+            return
+        # record model version
+        model_version_infos = get_model_version_infos()
+        await self._cache_tracker_ref.record_model_version(
+            model_version_infos, self.control_address
+        )
+
+        self._supervisor_activation_prepared = True
+
+    async def activate_supervisor(self):
+        if getattr(self, "_supervisor_tasks_started", False):
+            return
+        await self.prepare_supervisor_activation()
+        if self._standby and not self._supervisor_restored:
+            self._download_task_store.mark_active_interrupted()
+        self._standby = False
+        self._upgrade_state.maintenance.resume()
+        self._supervisor_tasks_started = True
+        if not XINFERENCE_DISABLE_HEALTH_CHECK:
+            # Run _check_dead_nodes() in a dedicated thread.
+            from ..isolation import Isolation
+
+            self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+            self._isolation.start()
+            asyncio.run_coroutine_threadsafe(
+                self._check_dead_nodes(), loop=self._isolation.loop
+            )
+            if XINFERENCE_TOKEN_ROUTER_ENABLED:
+                asyncio.run_coroutine_threadsafe(
+                    self._monitor_token_router_nodes(), loop=self._isolation.loop
+                )
+        self._schedule_autostart()
         from .worker_state import WorkerJournalError
 
         try:
@@ -1079,6 +1120,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             )
 
     def _schedule_autostart(self, delay: float = 0.0):
+        state = getattr(self, "_upgrade_state", None)
+        if getattr(self, "_standby", False) or (state and state.maintenance.paused):
+            return
         if self._autostart_task is not None and not self._autostart_task.done():
             if delay <= 0:
                 self._autostart_requested = True
@@ -1458,7 +1502,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             return sum(gpu.gpu_util for gpu in gpu_statuses) / len(gpu_statuses)
 
         supervisor_device_info = {
-            "ip_address": self.address,
+            "ip_address": self.control_address,
             "gpu_count": 0,
             "gpu_vram_total": 0,
         }
@@ -1720,7 +1764,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             from .status_guard import StatusGuardActor
 
             status_guard_ref = await xo.actor_ref(
-                address=self.address, uid=StatusGuardActor.default_uid()
+                address=self.control_address, uid=StatusGuardActor.default_uid()
             )
             infos = await status_guard_ref.get_instance_info()
             instance_infos = [
@@ -2389,7 +2433,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 if self._cache_tracker_ref is not None:
                     await self._cache_tracker_ref.record_model_version(
                         tag_model_type(generate_fn(model_spec), model_type),
-                        self.address,
+                        self.control_address,
                     )
             except Exception:
                 logger.warning(
@@ -2421,7 +2465,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             # Sync model to all workers.
             for name, worker in self._worker_address_to_worker.items():
                 logger.info(f"sync model: {model_name} to {name}")
-                if name == self.address:
+                if name == self.control_address:
                     # Ignore: when worker and supervisor at the same node.
                     logger.info(
                         f"ignore sync model: {model_name} to {name} for same node"
@@ -3276,7 +3320,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             ):
                 raise ValueError("MLX Xavier requires unquantized MLX text weights")
             kwargs["_xavier_cache_config"] = {
-                "address": self.address,
+                "address": self.control_address,
                 "uid": f"xavier-cache-{model_uid}",
             }
         sglang_xavier = (
@@ -3314,7 +3358,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             raise ValueError("TRT-LLM native NIXL cannot also enable Xavier")
         if trt_xavier:
             kwargs["_xavier_cache_config"] = {
-                "address": self.address,
+                "address": self.control_address,
                 "uid": f"xavier-cache-{model_uid}",
             }
         if sglang_nixl and (requested_xavier or n_worker != 1):
@@ -3367,7 +3411,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         )
         if sglang_xavier:
             kwargs["_xavier_cache_config"] = {
-                "address": self.address,
+                "address": self.control_address,
                 "uid": f"xavier-cache-{model_uid}",
             }
         if shared_cache_backend and (sglang_xavier or trt_xavier):
@@ -3536,7 +3580,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 from ..model.llm.xavier.transport import get_transport_host
 
                 replica_kwargs["_xavier_cache_config"] = {
-                    "address": self.address,
+                    "address": self.control_address,
                     "uid": f"xavier-cache-{model_uid}",
                     "role": replica_config[rank - 1].role,
                     "rank": rank,
@@ -3651,7 +3695,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
                     cache_ref = await xo.create_actor(
                         XavierPDDirectory,
-                        address=self.address,
+                        address=self.control_address,
                         uid=f"xavier-cache-{model_uid}",
                     )
                     if not hasattr(self, "_xavier_cache_mapping"):
@@ -3666,7 +3710,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         cache_ref = await xo.create_actor(
                             XavierBytesCacheActor,
                             capacity_bytes=cache_bytes or 512 * 1024 * 1024,
-                            address=self.address,
+                            address=self.control_address,
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
                     elif pd_enabled:
@@ -3676,7 +3720,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
                         cache_ref = await xo.create_actor(
                             XavierPDDirectory,
-                            address=self.address,
+                            address=self.control_address,
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
                     else:
@@ -3696,7 +3740,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                                 if shared_cache_backend
                                 else {}
                             ),
-                            address=self.address,
+                            address=self.control_address,
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
                     self._xavier_cache_mapping[model_uid] = cache_ref
@@ -3706,12 +3750,12 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
                     self._block_tracker_mapping[model_uid] = await xo.create_actor(
                         BlockTracker,
-                        address=self.address,
+                        address=self.control_address,
                         uid=f"{BlockTracker.default_uid()}-{model_uid}",
                     )
                     self._collective_manager_mapping[model_uid] = await xo.create_actor(
                         CollectiveManager,
-                        address=self.address,
+                        address=self.control_address,
                         model_uid=model_uid,
                         uid=f"{CollectiveManager.default_uid()}-{model_uid}",
                     )
@@ -3968,7 +4012,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         ),
                         handoff_mode="host" if host_handoff else "gpu",
                         mlx_prefill=mlx_prefill,
-                        address=self.address,
+                        address=self.control_address,
                         uid=f"{model_uid}-{PDModelActor.default_uid()}",
                     )
                     # Track the actor before registration so rollback can destroy it.
@@ -4870,7 +4914,12 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         return await self._status_guard_ref.get_instance_count(model_name)
 
     async def _check_dead_nodes(self):
+        state = getattr(self, "_upgrade_state", None)
+        maintenance = state.maintenance if state is not None else None
         while True:
+            if maintenance is not None and not maintenance.begin():
+                await asyncio.sleep(0.1)
+                continue
             try:
                 dead_nodes = []
                 dead_worker_refs = {}
@@ -5019,10 +5068,17 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                                 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD - count,
                             )
             finally:
+                if maintenance is not None:
+                    maintenance.end()
                 await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
 
     async def _monitor_token_router_nodes(self) -> None:
+        state = getattr(self, "_upgrade_state", None)
+        maintenance = state.maintenance if state is not None else None
         while True:
+            if maintenance is not None and not maintenance.begin():
+                await asyncio.sleep(0.1)
+                continue
             try:
                 transitions = await asyncio.to_thread(
                     self._token_router_orchestration.sweep_nodes
@@ -5038,6 +5094,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     )
             except Exception:
                 logger.exception("Failed to monitor Router Agent lifecycle")
+            finally:
+                if maintenance is not None:
+                    maintenance.end()
             await asyncio.sleep(XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS)
 
     def _get_reload_target(self, model_uid: str):
@@ -6332,7 +6391,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         # TODO: temporary.
         return (
             len(self._worker_address_to_worker) == 1
-            and list(self._worker_address_to_worker)[0] == self.address
+            and list(self._worker_address_to_worker)[0] == self.control_address
         )
 
     @log_async(logger=logger)
@@ -8316,7 +8375,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
     async def get_supervisor_info(self) -> Dict[str, Any]:
         ret = {
-            "supervisor_ip": self.address,
+            "supervisor_ip": self.control_address,
         }
         return ret
 

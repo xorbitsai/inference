@@ -139,9 +139,7 @@ async def get_supervisor_info(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def relaunch_api(
-    request: Request, api: "RESTfulAPI" = Depends(get_api)
-) -> JSONResponse:
+async def _relaunch_service(request: Request, command: str) -> JSONResponse:
     from ...deploy.api_host import host_request
 
     try:
@@ -153,7 +151,7 @@ async def relaunch_api(
         }:
             raise ValueError("Expected python_executable and/or request_id")
         validate_relaunch_options(body.get("python_executable"), body.get("request_id"))
-        result = await host_request("relaunch", **body)
+        result = await host_request(command, **body)
         return JSONResponse(content=result, status_code=202)
     except (ValueError, TypeError) as error:
         raise HTTPException(status_code=400, detail=str(error))
@@ -161,14 +159,12 @@ async def relaunch_api(
         raise HTTPException(status_code=409, detail=str(error))
 
 
-async def get_api_relaunch(
-    operation_id: str, api: "RESTfulAPI" = Depends(get_api)
-) -> JSONResponse:
+async def _get_service_relaunch(operation_id: str, command: str) -> JSONResponse:
     from ...deploy.api_host import host_request
 
     try:
         return JSONResponse(
-            content=await host_request("get", operation_id=operation_id)
+            content=await host_request(command, operation_id=operation_id)
         )
     except KeyError as error:
         raise HTTPException(status_code=404, detail=str(error))
@@ -176,13 +172,47 @@ async def get_api_relaunch(
         raise HTTPException(status_code=409, detail=str(error))
 
 
-async def list_api_relaunches(api: "RESTfulAPI" = Depends(get_api)) -> JSONResponse:
+async def _list_service_relaunches(command: str) -> JSONResponse:
     from ...deploy.api_host import host_request
 
     try:
-        return JSONResponse(content=await host_request("list"))
+        return JSONResponse(content=await host_request(command))
     except RuntimeError as error:
         raise HTTPException(status_code=409, detail=str(error))
+
+
+async def relaunch_api(
+    request: Request, api: "RESTfulAPI" = Depends(get_api)
+) -> JSONResponse:
+    return await _relaunch_service(request, "relaunch")
+
+
+async def get_api_relaunch(
+    operation_id: str, api: "RESTfulAPI" = Depends(get_api)
+) -> JSONResponse:
+    return await _get_service_relaunch(operation_id, "get")
+
+
+async def list_api_relaunches(api: "RESTfulAPI" = Depends(get_api)) -> JSONResponse:
+    return await _list_service_relaunches("list")
+
+
+async def relaunch_supervisor(
+    request: Request, api: "RESTfulAPI" = Depends(get_api)
+) -> JSONResponse:
+    return await _relaunch_service(request, "supervisor-relaunch")
+
+
+async def get_supervisor_relaunch(
+    operation_id: str, api: "RESTfulAPI" = Depends(get_api)
+) -> JSONResponse:
+    return await _get_service_relaunch(operation_id, "supervisor-get")
+
+
+async def list_supervisor_relaunches(
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    return await _list_service_relaunches("supervisor-list")
 
 
 async def relaunch_worker(
@@ -2293,6 +2323,24 @@ def register_routes(api: "RESTfulAPI") -> None:
     router.add_api_route(
         "/v1/api-relaunches/{operation_id}",
         get_api_relaunch,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/supervisor/relaunch",
+        relaunch_supervisor,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/supervisor-relaunches",
+        list_supervisor_relaunches,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/supervisor-relaunches/{operation_id}",
+        get_supervisor_relaunch,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
     )

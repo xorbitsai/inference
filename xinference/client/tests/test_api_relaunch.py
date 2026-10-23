@@ -5,13 +5,15 @@
 import json
 from unittest.mock import MagicMock
 
+import pytest
 from click.testing import CliRunner
 
 from ...deploy import cmdline
 from ..restful.restful_client import Client
 
 
-def test_client_keeps_credentials_and_encodes_operation():
+@pytest.mark.parametrize("component", ["api", "supervisor"])
+def test_client_keeps_credentials_and_encodes_operation(component):
     client = Client.__new__(Client)
     client.base_url = "http://localhost:9997"
     client._headers = {"Authorization": "Bearer token"}
@@ -19,31 +21,34 @@ def test_client_keeps_credentials_and_encodes_operation():
     response = MagicMock(status_code=202)
     response.json.return_value = {"operation_id": "one"}
     client.session.post.return_value = response
-    assert client.relaunch_api("/new/python", "request") == {"operation_id": "one"}
+    assert getattr(client, f"relaunch_{component}")("/new/python", "request") == {
+        "operation_id": "one"
+    }
     client.session.post.assert_called_once_with(
-        "http://localhost:9997/v1/api/relaunch",
+        f"http://localhost:9997/v1/{component}/relaunch",
         json={"python_executable": "/new/python", "request_id": "request"},
         headers=client._headers,
     )
     response.status_code = 200
     client.session.get.return_value = response
-    client.get_api_relaunch("operation/id")
+    getattr(client, f"get_{component}_relaunch")("operation/id")
     assert client.session.get.call_args.args[0].endswith(
-        "/v1/api-relaunches/operation%2Fid"
+        f"/v1/{component}-relaunches/operation%2Fid"
     )
-    client.list_api_relaunches()
-    assert client.session.get.call_args.args[0].endswith("/v1/api-relaunches")
+    getattr(client, f"list_{component}_relaunches")()
+    assert client.session.get.call_args.args[0].endswith(f"/v1/{component}-relaunches")
 
 
-def test_cli_uses_the_existing_login_session(monkeypatch):
+@pytest.mark.parametrize("component", ["api", "supervisor"])
+def test_cli_uses_the_existing_login_session(monkeypatch, component):
     client = MagicMock()
-    client.relaunch_api.return_value = {"operation_id": "one"}
+    getattr(client, f"relaunch_{component}").return_value = {"operation_id": "one"}
     monkeypatch.setattr(cmdline, "RESTfulClient", lambda **kwargs: client)
     monkeypatch.setattr(cmdline, "get_stored_token", lambda *args: "session-token")
     result = CliRunner().invoke(
         cmdline.cli,
         [
-            "relaunch-api",
+            f"relaunch-{component}",
             "--endpoint",
             "http://localhost:9997",
             "--python-executable",
@@ -54,5 +59,7 @@ def test_cli_uses_the_existing_login_session(monkeypatch):
     )
     assert result.exit_code == 0, result.output
     client._set_token.assert_called_once_with("session-token")
-    client.relaunch_api.assert_called_once_with("/new/python", "request")
+    getattr(client, f"relaunch_{component}").assert_called_once_with(
+        "/new/python", "request"
+    )
     assert json.loads(result.output) == {"operation_id": "one"}

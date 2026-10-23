@@ -21,6 +21,7 @@ User Guide
    using_docker_swarm
    worker_handoff
    api_relaunch
+   supervisor_relaunch
 
 .. toctree::
    :maxdepth: 2
