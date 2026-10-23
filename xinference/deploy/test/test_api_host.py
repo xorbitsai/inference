@@ -95,6 +95,8 @@ class Extension:
                 yield "start"
                 while not Path(os.environ["API_STREAM_RELEASE"]).exists():
                     await asyncio.sleep(.01)
+                # Exercise heartbeat comments without waiting for the ping timer.
+                yield {"comment": "ping"}
                 yield "finish"
             return EventSourceResponse(chunks())
         async def console() -> JSONResponse:
@@ -284,7 +286,11 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
 
                 load = asyncio.create_task(traffic())
                 async with client.stream("GET", "/acceptance/stream") as response:
-                    chunks = (line async for line in response.aiter_lines() if line)
+                    chunks = (
+                        line
+                        async for line in response.aiter_lines()
+                        if line and not line.startswith(":")
+                    )
                     assert await chunks.__anext__() == "data: start"
                     (tmp_path / "prepare").touch()
                     response = await client.post(
@@ -479,7 +485,11 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
                 }
                 release.unlink()
                 async with client.stream("GET", "/acceptance/stream") as response:
-                    chunks = (line async for line in response.aiter_lines() if line)
+                    chunks = (
+                        line
+                        async for line in response.aiter_lines()
+                        if line and not line.startswith(":")
+                    )
                     assert await chunks.__anext__() == "data: start"
                     second = (await client.post("/v1/api/relaunch", json={})).json()
                     assert second["python_executable"] == str(target_python)
