@@ -25,6 +25,31 @@ API_HOST_ENV = "XINFERENCE_API_HOST"
 STARTUP_TIMEOUT = 120
 
 
+def _forward_output(source, destination, log: Path) -> None:
+    with source, log.open("ab", buffering=0) as output:
+        while data := source.read1(65536):
+            output.write(data)
+            try:
+                stream = getattr(destination, "buffer", None)
+                if stream is not None:
+                    stream.write(data)
+                else:
+                    destination.write(data.decode(errors="replace"))
+                destination.flush()
+            except (OSError, ValueError):
+                # Retain diagnostics even if the service collector is closed.
+                pass
+
+
+async def _wait_process(process: subprocess.Popen, log: Path) -> int:
+    exit_code, _, _ = await asyncio.gather(
+        asyncio.to_thread(process.wait),
+        asyncio.to_thread(_forward_output, process.stdout, sys.stdout, log),
+        asyncio.to_thread(_forward_output, process.stderr, sys.stderr, log),
+    )
+    return exit_code
+
+
 async def host_request(command: str, **options: Any) -> Any:
     address = os.environ.get(API_HOST_ENV)
     if not address:
@@ -103,6 +128,7 @@ class APIHost:
         self.token = secrets.token_urlsafe(32)
         self.connection: Dict[str, Any] = {}
         self.directory = Path()
+        self.working_directory = Path.cwd()
 
     async def _connection(self, reader, writer):
         child = None
@@ -167,23 +193,23 @@ class APIHost:
         )
         path.chmod(0o600)
         log = self.directory / (identity + ".log")
-        with log.open("ab") as output:
-            process = subprocess.Popen(
-                [executable, "-m", "xinference.deploy.api_worker", str(path)],
-                pass_fds=(self.listener.fileno(),),
-                env={**environment, API_HOST_ENV: json.dumps(self.connection)},
-                cwd=self.directory,
-                stdout=output if self.active is not None else None,
-                stderr=subprocess.STDOUT if self.active is not None else None,
-                start_new_session=True,
-            )
+        log.touch()
+        process = subprocess.Popen(
+            [executable, "-u", str(self.directory / "start_api.py"), str(path)],
+            pass_fds=(self.listener.fileno(),),
+            env={**environment, API_HOST_ENV: json.dumps(self.connection)},
+            cwd=self.working_directory,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
         child = APIProcess(
             identity,
             process,
             executable,
             environment,
             log,
-            asyncio.create_task(asyncio.to_thread(process.wait)),
+            asyncio.create_task(_wait_process(process, log)),
         )
         self.children[identity] = child
         return child
@@ -270,6 +296,12 @@ class APIHost:
     async def run(self, stopping: asyncio.Event) -> None:
         with tempfile.TemporaryDirectory(prefix="xinf-api-") as directory:
             self.directory = Path(directory)
+            # A private script keeps the service cwd available to relative
+            # configuration paths without putting that cwd ahead of the
+            # selected interpreter's installed Xinference package on sys.path.
+            (self.directory / "start_api.py").write_text(
+                "from xinference.deploy.api_worker import main\nmain()\n"
+            )
             server = await asyncio.start_server(self._connection, "127.0.0.1", 0)
             self.connection = {
                 "port": server.sockets[0].getsockname()[1],

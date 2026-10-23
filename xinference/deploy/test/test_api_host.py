@@ -34,9 +34,12 @@ class Supervisor(xo.StatelessActor):
     def get_backend(self):
         return self.backend
 
+    def list_models(self):
+        return {}
+
 
 EXTENSION = """
-import asyncio, os
+import asyncio, os, sys
 from pathlib import Path
 from contextlib import asynccontextmanager
 from starlette.responses import JSONResponse
@@ -65,8 +68,14 @@ class Extension:
                     await asyncio.sleep(.01)
                 yield "finish"
             return EventSourceResponse(chunks())
+        async def console() -> JSONResponse:
+            from xinference.constants import XINFERENCE_HOME
+            print(f"api-stdout-{os.getpid()}", flush=True)
+            print(f"api-stderr-{os.getpid()}", file=sys.stderr, flush=True)
+            return JSONResponse({"cwd": os.getcwd(), "home": str(Path(XINFERENCE_HOME).resolve())})
         context.router.add_api_route("/acceptance/info", info)
         context.router.add_api_route("/acceptance/stream", stream)
+        context.router.add_api_route("/acceptance/console", console)
 
 def create(): return Extension()
 """
@@ -86,11 +95,14 @@ async def until(function, timeout=30):
 @pytest.mark.asyncio
 @pytest.mark.skipif(os.name != "posix", reason="Inherited API listener requires POSIX")
 async def test_api_cutover_preserves_stream_backend_and_failed_startup(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, capfd
 ):
+    from ...api.oauth2.advanced.auth_service import AdvancedAuthService
+    from ...api.oauth2.advanced.crypto import get_password_hash
     from ...core.supervisor import SupervisorActor
 
     (tmp_path / "acceptance_extension.py").write_text(EXTENSION)
+    monkeypatch.syspath_prepend(str(tmp_path))
     release = tmp_path / "release"
     source_root = str(Path(__file__).resolve().parents[3])
     pythonpath = os.pathsep.join(
@@ -106,12 +118,31 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
     )
     target_python.chmod(0o700)
     monkeypatch.setenv("PYTHONPATH", pythonpath)
-    monkeypatch.setenv("XINFERENCE_HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    service_directory = tmp_path / "service"
+    service_directory.mkdir()
+    monkeypatch.chdir(service_directory)
+    monkeypatch.setenv("XINFERENCE_HOME", "home")
+    monkeypatch.setenv("XINFERENCE_AUTH_DB_PATH", "identities/auth.db")
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "true")
+    monkeypatch.setenv("XINFERENCE_AUTH_JWT_SECRET_KEY", "api-host-test-secret")
+    monkeypatch.setenv("XINFERENCE_AUTH_ENCRYPTION_KEY", "api-host-test-encryption")
     monkeypatch.setenv("XINFERENCE_DISABLE_METRICS", "1")
     monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_ENABLED", "0")
     monkeypatch.setenv("XINFERENCE_EXTENSIONS", "acceptance_extension:create")
     monkeypatch.setenv("API_STREAM_RELEASE", str(release))
+    auth = AdvancedAuthService(
+        str(service_directory / "identities/auth.db"),
+        "api-host-test-secret",
+        "api-host-test-encryption",
+    )
+    user_id = auth.db.create_user(
+        "existing-admin",
+        get_password_hash("password"),
+        permissions=["admin", "models:list"],
+    )
+    api_key = auth.create_api_key_for_user(user_id, name="existing-key")["key"]
+    credentials = {"username": "existing-admin", "password": "password"}
+    token = auth.login(**credentials)["access_token"]
     listener = socket.create_server(("127.0.0.1", 0))
     port = listener.getsockname()[1]
     async with await xo.create_actor_pool("127.0.0.1", n_process=1) as pool:
@@ -126,6 +157,13 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
             backend,
             address=pool.external_address,
             uid=SupervisorActor.default_uid(),
+        )
+        # The service cwd must remain the relative-path base without shadowing
+        # the package selected by a replacement interpreter.
+        shadow = service_directory / "xinference"
+        shadow.mkdir()
+        (shadow / "__init__.py").write_text(
+            "raise RuntimeError('cwd package shadow')\n"
         )
         host = APIHost(
             listener,
@@ -150,10 +188,40 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
             await until(ready)
             first_pid = host.active.process.pid
             async with httpx.AsyncClient(
-                base_url=f"http://127.0.0.1:{port}", timeout=10
+                base_url=f"http://127.0.0.1:{port}",
+                timeout=10,
+                headers={"Authorization": "Bearer " + token},
             ) as client:
+
+                async def check_identity_paths_and_console(pid):
+                    login = await client.post("/token", json=credentials)
+                    assert login.status_code == 200, login.text
+                    models = await client.get(
+                        "/v1/models", headers={"Authorization": "Bearer " + api_key}
+                    )
+                    assert models.status_code == 200, models.text
+                    paths = (await client.get("/acceptance/console")).json()
+                    assert paths == {
+                        "cwd": str(service_directory),
+                        "home": str(service_directory / "home"),
+                    }
+                    stdout, stderr = "", ""
+
+                    async def visible():
+                        nonlocal stdout, stderr
+                        captured = capfd.readouterr()
+                        stdout += captured.out
+                        stderr += captured.err
+                        return (
+                            f"api-stdout-{pid}" in stdout
+                            and f"api-stderr-{pid}" in stderr
+                        )
+
+                    await until(visible)
+
                 first = (await client.get("/acceptance/info")).json()
                 assert first == {"api_pid": first_pid, "backend_pid": backend_pid}
+                await check_identity_paths_and_console(first_pid)
 
                 async def traffic():
                     while not stopping.is_set():
@@ -205,6 +273,7 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
                     assert (await client.get("/acceptance/info")).json()[
                         "api_pid"
                     ] == current["target_pid"]
+                    await check_identity_paths_and_console(current["target_pid"])
                     release.touch()
                     assert [line async for line in chunks] == ["data: finish"]
 
@@ -285,18 +354,19 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
             )
 
 
-def test_operation_replay_conflict_and_one_inflight_upgrade():
+def test_operation_replay_conflict_and_one_inflight_upgrade(tmp_path):
+    executable = str(tmp_path / "python")
     host = APIHost(MagicMock(), {})
     host.active = SimpleNamespace(
-        executable="/python", version="version", process=MagicMock(pid=1)
+        executable=executable, version="version", process=MagicMock(pid=1)
     )
     host.operations["one"] = {
         "request_id": "request",
-        "requested_executable": "/python",
+        "requested_executable": executable,
     }
-    assert host.create("/python", "request") == host.operations["one"]
+    assert host.create(executable, "request") == host.operations["one"]
     with pytest.raises(RuntimeError, match="different API relaunch"):
-        host.create("/other", "request")
+        host.create(str(tmp_path / "other-python"), "request")
     host.operation_task = MagicMock(done=lambda: False)
     with pytest.raises(RuntimeError, match="already in progress"):
         host.create()
