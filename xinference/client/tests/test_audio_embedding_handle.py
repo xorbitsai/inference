@@ -44,6 +44,35 @@ def test_sync_audio_handle_create_embedding():
 
 
 @pytest.mark.asyncio
+async def test_async_audio_handle_speech_stream_reads_before_release():
+    handle = AsyncRESTfulAudioModelHandle.__new__(AsyncRESTfulAudioModelHandle)
+    handle._model_uid = "tts"
+    handle._base_url = "http://127.0.0.1:9997"
+    handle.auth_headers = {}
+    released = []
+
+    async def iter_chunked(size):
+        for chunk in (b"a" * size, b"b"):
+            # aiohttp fails reads once the response is released.
+            assert not released, "response released before the stream was read"
+            yield chunk
+
+    response = MagicMock(status=200)
+    response.content.iter_chunked = iter_chunked
+    response.release.side_effect = lambda: released.append(True)
+    response.wait_for_close = AsyncMock()
+    handle.session = MagicMock()
+    handle.session.post = AsyncMock(return_value=response)
+
+    stream = await handle.speech("hello", stream=True)
+    chunks = [chunk async for chunk in stream]
+
+    assert chunks == [b"a" * 1024, b"b"]
+    response.release.assert_called_once()
+    response.wait_for_close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_async_audio_handle_create_embedding():
     handle = AsyncRESTfulAudioModelHandle.__new__(AsyncRESTfulAudioModelHandle)
     handle._model_uid = "speaker-model"
