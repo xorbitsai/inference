@@ -1280,6 +1280,7 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
 class AsyncRESTfulFlexibleModelHandle(AsyncRESTfulModelHandle):
     async def infer(
         self,
+        *args,
         **kwargs,
     ):
         """
@@ -1300,6 +1301,7 @@ class AsyncRESTfulFlexibleModelHandle(AsyncRESTfulModelHandle):
         url = f"{self._base_url}/v1/flexible/infers"
         params: Dict = {  # type: ignore
             "model": self._model_uid,
+            "args": args,
         }
         params.update(kwargs)
 
@@ -1308,8 +1310,9 @@ class AsyncRESTfulFlexibleModelHandle(AsyncRESTfulModelHandle):
             raise RuntimeError(
                 f"Failed to predict, detail: {await _get_error_string(response)}"
             )
+        response_data = await response.json()
         await _release_response(response)
-        return response.content
+        return response_data
 
 
 class AsyncClient:
