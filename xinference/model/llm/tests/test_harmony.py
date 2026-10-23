@@ -16,7 +16,151 @@
 import json
 import re
 
+import pytest
+
 from ..harmony import HarmonyStreamParser, async_stream_harmony_chat_completion
+
+
+def _logprobs(tokens):
+    return {
+        "content": [
+            {
+                "token": token,
+                "bytes": list(token.encode("utf-8")),
+                "logprob": -0.1 * (i + 1),
+                "top_logprobs": [],
+            }
+            for i, token in enumerate(tokens)
+        ]
+    }
+
+
+@pytest.mark.parametrize("prefix", ["", "analysis\n"])
+def test_structured_json_keeps_analysis_at_every_chunk_boundary(prefix):
+    value = '{"answer":"analysis complete"}'
+    text = prefix + value
+    for cut in range(len(prefix) + 1, len(text)):
+        parser = HarmonyStreamParser(structured_output=True)
+        segments = parser.feed(text[:cut]) + parser.feed(text[cut:]) + parser.flush()
+        content = "".join(s["content"] for s in segments if s["channel"] == "final")
+        assert content == value
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("expose_reasoning", [False, True])
+@pytest.mark.parametrize("group_size", [1, 3, 100])
+@pytest.mark.parametrize("ending", ["stop", "usage", "eof"])
+@pytest.mark.parametrize(
+    "final_tokens,closing",
+    [
+        (["39", "1", " ", "<"], []),
+        (["你好", " <"], []),
+        (["39", "1"], ["<|return|>"]),
+    ],
+)
+async def test_harmony_logprobs_only_include_final_tokens(
+    stream, expose_reasoning, group_size, ending, final_tokens, closing
+):
+    tokens = (
+        [
+            "<|chan",
+            "nel|>",
+            "analysis",
+            "<|message|>",
+            "391",
+            "<|end|>",
+            "<|start|>",
+            "assistant",
+            "<|channel|>",
+            "fi",
+            "nal",
+            "<|message|>",
+        ]
+        + final_tokens
+        + closing
+    )
+    logprobs = _logprobs(tokens)
+    original = {
+        "id": "logprobs",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "gpt-oss",
+        "choices": [
+            {
+                "index": 2,
+                "message": {"role": "assistant", "content": "".join(tokens)},
+                "finish_reason": "length",
+                "logprobs": logprobs,
+            }
+        ],
+        "usage": {},
+    }
+
+    async def chunks():
+        for start in range(0, len(tokens), group_size):
+            yield {
+                "id": "logprobs",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": "gpt-oss",
+                "choices": [
+                    {
+                        "index": 2,
+                        "delta": {
+                            "role": "assistant",
+                            "content": "".join(tokens[start : start + group_size]),
+                        },
+                        "finish_reason": None,
+                        "logprobs": {
+                            "content": logprobs["content"][start : start + group_size]
+                        },
+                    }
+                ],
+            }
+        if ending == "stop":
+            yield {
+                **original,
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {
+                        "index": 2,
+                        "delta": {},
+                        "finish_reason": "length",
+                    }
+                ],
+            }
+        elif ending == "usage":
+            yield {
+                **original,
+                "object": "chat.completion.chunk",
+                "choices": [],
+                "usage": {"total_tokens": len(tokens)},
+            }
+
+    results = [
+        item
+        async for item in async_stream_harmony_chat_completion(
+            chunks() if stream else original,
+            expose_reasoning=expose_reasoning,
+        )
+    ]
+    if stream:
+        choices = [c for item in results for c in item["choices"]]
+        assert all(c["index"] == 2 for c in choices)
+        content = "".join(c["delta"].get("content") or "" for c in choices)
+        entries = [
+            entry
+            for c in choices
+            for entry in (c.get("logprobs") or {}).get("content", [])
+        ]
+        assert choices[0]["delta"]["role"] == "assistant"
+    else:
+        choice = results[0]["choices"][0]
+        content = choice["message"]["content"]
+        entries = choice["logprobs"]["content"]
+        assert original["choices"][0]["logprobs"] == logprobs
+    assert content == "".join(final_tokens)
+    assert entries == logprobs["content"][12 : 12 + len(final_tokens)]
 
 
 def test_streaming_parser_multiple_texts():
@@ -141,16 +285,14 @@ async def test_harmony_flushes_partial_marker_and_preserves_stream_metadata():
                 {
                     "index": 0,
                     "delta": {"role": "assistant", "content": partial_content},
-                    "logprobs": {
-                        "content": [
-                            {
-                                "token": "a",
-                                "bytes": [97],
-                                "logprob": -0.1,
-                                "top_logprobs": [],
-                            }
+                    "logprobs": _logprobs(
+                        [
+                            partial_content[:-3],
+                            "a",
+                            " ",
+                            "<",
                         ]
-                    },
+                    ),
                     "finish_reason": None,
                 }
             ],
@@ -173,6 +315,7 @@ async def test_harmony_flushes_partial_marker_and_preserves_stream_metadata():
     assert results[0]["choices"][0]["delta"]["content"] == "a "
     assert results[0]["choices"][0]["logprobs"]["content"][0]["token"] == "a"
     assert results[1]["choices"][0]["delta"]["content"] == "<"
+    assert results[1]["choices"][0]["logprobs"]["content"][0]["token"] == "<"
 
 
 async def test_raw_harmony_completion_can_hide_reasoning_content():

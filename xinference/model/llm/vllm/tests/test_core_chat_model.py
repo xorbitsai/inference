@@ -2071,12 +2071,37 @@ class TestVLLMChatModel:
         self, gpt_oss_chat_model, stream, reasoning_content
     ):
         model = gpt_oss_chat_model
-        generated_text = (
-            "<|channel|>analysis<|message|>The user asks: calculate 17*23."
-            "<|end|><|start|>assistant<|channel|>final<|message|>391<|end|>"
-        )
+        token_groups = [
+            [
+                "<|channel|>",
+                "analysis",
+                "<|message|>",
+                "The user asks: calculate 17*23.",
+            ],
+            [
+                "<|end|>",
+                "<|start|>",
+                "assistant",
+                "<|channel|>",
+                "final",
+                "<|message|>",
+                "39",
+            ],
+            ["1", "<|end|>"],
+        ]
+        generated_text = "".join(token for group in token_groups for token in group)
+
+        def logprobs_for(tokens):
+            return {
+                "text_offset": [0] * len(tokens),
+                "tokens": tokens,
+                "token_logprobs": [-0.1] * len(tokens),
+                "top_logprobs": [{token: -0.1} for token in tokens],
+            }
+
         request_config = {
             "stream": stream,
+            "logprobs": True,
             "chat_template_kwargs": {"reasoning_content": reasoning_content},
         }
 
@@ -2097,33 +2122,18 @@ class TestVLLMChatModel:
                     "index": 0,
                     "text": generated_text,
                     "finish_reason": "stop",
-                    "logprobs": None,
+                    "logprobs": logprobs_for(
+                        [token for group in token_groups for token in group]
+                    ),
                 }
             ],
             "usage": {"prompt_tokens": 2, "completion_tokens": 5, "total_tokens": 7},
         }
 
         async def generated_chunks():
-            for text in (
-                "<|channel|>analysis<|message|>The user asks: calculate 17*23.",
-                "<|end|><|start|>assistant<|channel|>final<|message|>39",
-                "1<|end|>",
-            ):
-                logprobs = None
-                if text.endswith("39"):
-                    logprobs = {
-                        "text_offset": [0],
-                        "tokens": ["39"],
-                        "token_logprobs": [-0.1],
-                        "top_logprobs": [{"39": -0.1}],
-                    }
-                elif text.startswith("1"):
-                    logprobs = {
-                        "text_offset": [0, 2],
-                        "tokens": ["39", "1"],
-                        "token_logprobs": [-0.1, -0.2],
-                        "top_logprobs": [{"39": -0.1}, {"1": -0.2}],
-                    }
+            for tokens in token_groups:
+                text = "".join(tokens)
+                logprobs = logprobs_for(tokens)
                 yield {
                     "id": "gpt-oss-test",
                     "object": "text_completion",
@@ -2189,7 +2199,11 @@ class TestVLLMChatModel:
             assert chunks[-1]["usage"]["total_tokens"] == 7
             if not reasoning_content:
                 assert all("reasoning_content" not in c["delta"] for c in choices)
-            assert any(choice.get("logprobs") for choice in choices)
+            entries = [
+                entry
+                for choice in choices
+                for entry in (choice.get("logprobs") or {}).get("content", [])
+            ]
         else:
             message = result["choices"][0]["message"]
             content = message["content"]
@@ -2197,17 +2211,30 @@ class TestVLLMChatModel:
             assert result["choices"][0]["finish_reason"] == "stop"
             if not reasoning_content:
                 assert "reasoning_content" not in message
+            entries = result["choices"][0]["logprobs"]["content"]
 
         assert content == "391"
+        assert [entry["token"] for entry in entries] == ["39", "1"]
+        assert all(entry["logprob"] == -0.1 for entry in entries)
         assert ("calculate 17*23" in reasoning) is reasoning_content
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("stream", [False, True])
+    @pytest.mark.parametrize(
+        "parts,expected",
+        [
+            (("analysis", "\n", '{"answer":', "391}"), {"answer": 391}),
+            (
+                ('{"answer":"', "analysis", ' complete"}'),
+                {"answer": "analysis complete"},
+            ),
+        ],
+    )
     async def test_gpt_oss_async_chat_keeps_constrained_json_in_content(
-        self, gpt_oss_chat_model, stream
+        self, gpt_oss_chat_model, stream, parts, expected
     ):
         model = gpt_oss_chat_model
-        generated_text = 'analysis\n{"answer":391}'
+        generated_text = "".join(parts)
         request_config = {"stream": stream, "guided_json_object": True}
 
         async def prepare_chat_inputs(messages, config):
@@ -2234,7 +2261,7 @@ class TestVLLMChatModel:
         }
 
         async def generated_chunks():
-            for text in ("analysis", "\n", '{"answer":', "391}"):
+            for text in parts:
                 yield {
                     "id": "gpt-oss-json-test",
                     "object": "text_completion",
@@ -2287,7 +2314,7 @@ class TestVLLMChatModel:
         else:
             content = result["choices"][0]["message"]["content"]
 
-        assert json.loads(content) == {"answer": 391}
+        assert json.loads(content) == expected
 
 
 @pytest.mark.asyncio

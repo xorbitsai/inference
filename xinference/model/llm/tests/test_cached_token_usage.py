@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import json
 import sys
 from types import ModuleType, SimpleNamespace
@@ -58,6 +60,11 @@ def model_factory(engine, monkeypatch):
             monkeypatch.setattr(core, "VLLM_INSTALLED", False)
             monkeypatch.setattr(core, "VLLM_VERSION", Version("0.5.0"))
             model = object.__new__(core.VLLMModel)
+            model.model_family = SimpleNamespace(
+                model_name="test-model",
+                model_family="test-model",
+                has_architecture=lambda _: False,
+            )
             model._nixl_config = model._xavier_config = None
             model.reasoning_parser = None
 

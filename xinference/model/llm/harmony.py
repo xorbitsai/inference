@@ -13,10 +13,24 @@
 # limitations under the License.
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, AsyncGenerator, Dict, List, Optional, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    AsyncGenerator,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 if TYPE_CHECKING:
-    from ...types import ChatCompletion, ChatCompletionChunk
+    from ...types import (
+        ChatCompletion,
+        ChatCompletionChunk,
+        ChatCompletionLogprob,
+        ChatCompletionLogprobs,
+    )
 
 
 class HarmonyStreamParser:
@@ -35,7 +49,7 @@ class HarmonyStreamParser:
         ("<|endoftext|>", ""),
     )
 
-    def __init__(self, structured_output: bool = False):
+    def __init__(self, structured_output: bool = False, track_positions: bool = False):
         # Current channel: either 'analysis', 'final', or None if not started yet
         self.current_channel: Optional[str] = None
         # Legacy compact streams reuse a parser across messages. Raw Harmony
@@ -49,11 +63,39 @@ class HarmonyStreamParser:
         # Constrained decoding can suppress the final-channel marker and leave
         # a bare ``analysis`` prefix before the JSON value.
         self.structured_output = structured_output
+        self._track_positions = track_positions
+        self._input_offset = 0
+        self._marker_offset = 0
+        self._buffer_positions: List[int] = []
+        self.final_spans: List[Tuple[int, int]] = []
 
-    def _normalize_markers(self, text: str) -> str:
+    @property
+    def consumed_offset(self) -> int:
+        """Raw text before this offset can no longer be held by the parser."""
+        return min(
+            [self._marker_offset] + [p for p in self._buffer_positions if p >= 0]
+        )
+
+    def _segment(
+        self, channel: str, content: str, positions: List[int]
+    ) -> Dict[str, str]:
+        if channel == "final":
+            for position in positions:
+                if position < 0:
+                    continue
+                if self.final_spans and self.final_spans[-1][1] == position:
+                    start, _ = self.final_spans[-1]
+                    self.final_spans[-1] = (start, position + 1)
+                else:
+                    self.final_spans.append((position, position + 1))
+        return {"channel": channel, "content": content}
+
+    def _normalize_markers(self, text: str) -> Tuple[str, List[int]]:
         """Convert raw Harmony control tokens to the compact stream markers."""
         self._marker_buffer += text
+        self._input_offset += len(text)
         normalized: List[str] = []
+        positions: List[int] = []
         marker_texts = [marker for marker, _ in self._MARKERS]
         while self._marker_buffer:
             matches = [
@@ -67,6 +109,13 @@ class HarmonyStreamParser:
                 )
                 normalized.append(self._marker_buffer[:position])
                 normalized.append(replacement)
+                if self._track_positions:
+                    positions.extend(
+                        range(self._marker_offset, self._marker_offset + position)
+                    )
+                    # Synthetic sentinels are framing, never visible token text.
+                    positions.extend([-1] * len(replacement))
+                self._marker_offset += position + len(marker)
                 self._marker_buffer = self._marker_buffer[position + len(marker) :]
                 continue
 
@@ -78,8 +127,13 @@ class HarmonyStreamParser:
             if safe_length == 0:
                 break
             normalized.append(self._marker_buffer[:safe_length])
+            if self._track_positions:
+                positions.extend(
+                    range(self._marker_offset, self._marker_offset + safe_length)
+                )
+            self._marker_offset += safe_length
             self._marker_buffer = self._marker_buffer[safe_length:]
-        return "".join(normalized)
+        return "".join(normalized), positions
 
     def _consume_structured_analysis(self) -> List[Dict[str, str]]:
         """Resolve a possible bare analysis prefix in constrained output."""
@@ -87,14 +141,17 @@ class HarmonyStreamParser:
         if not stripped:
             return []
         if stripped[0] in "[{":
+            positions = self._buffer_positions[len(self.buffer) - len(stripped) :]
             self.current_channel = "final"
             self.buffer = ""
-            return [{"channel": "final", "content": stripped}]
+            self._buffer_positions = []
+            return [self._segment("final", stripped, positions)]
         content = self.buffer
         self.buffer = ""
+        self._buffer_positions = []
         return [{"channel": "analysis", "content": content}]
 
-    def _feed_normalized(self, text: str) -> List[Dict[str, str]]:
+    def _feed_normalized(self, text: str, positions: List[int]) -> List[Dict[str, str]]:
         """Parse text after raw Harmony markers have been normalized."""
         if not text:
             return []
@@ -102,6 +159,7 @@ class HarmonyStreamParser:
 
         if self.current_channel == "analysis":
             self.buffer += text
+            self._buffer_positions.extend(positions)
             final_markers = (self._RAW_FINAL_MARKER, "assistantfinal")
             matches = [
                 (self.buffer.find(marker), marker)
@@ -112,13 +170,15 @@ class HarmonyStreamParser:
                 position, marker = min(matches, key=lambda item: item[0])
                 before = self.buffer[:position]
                 after = self.buffer[position + len(marker) :]
+                after_positions = self._buffer_positions[position + len(marker) :]
                 if before:
                     segments.append({"channel": "analysis", "content": before})
                 self.current_channel = "final"
                 self._final_channel_is_raw = marker == self._RAW_FINAL_MARKER
                 self.buffer = ""
+                self._buffer_positions = []
                 if after:
-                    segments.extend(self._feed_normalized(after))
+                    segments.extend(self._feed_normalized(after, after_positions))
                 return segments
             if self.structured_output:
                 return self._consume_structured_analysis()
@@ -127,71 +187,158 @@ class HarmonyStreamParser:
             if self.buffer:
                 segments.append({"channel": "analysis", "content": self.buffer})
                 self.buffer = ""
+                self._buffer_positions = []
             return segments
 
         if self.current_channel == "final":
             # Raw channel markers are unambiguous. A literal word such as
             # ``analysis`` can be a valid final answer and must stay content.
             if self._RAW_ANALYSIS_MARKER in text:
-                before, after = text.split(self._RAW_ANALYSIS_MARKER, 1)
+                position = text.index(self._RAW_ANALYSIS_MARKER)
+                before = text[:position]
+                after = text[position + len(self._RAW_ANALYSIS_MARKER) :]
                 if before:
-                    segments.append({"channel": "final", "content": before})
+                    segments.append(
+                        self._segment("final", before, positions[:position])
+                    )
                 self.current_channel = None
                 self._final_channel_is_raw = False
                 self.buffer = ""
-                segments.extend(self._feed_normalized(after))
+                self._buffer_positions = []
+                segments.extend(
+                    self._feed_normalized(
+                        self._RAW_ANALYSIS_MARKER + after, positions[position:]
+                    )
+                )
                 return segments
-            if not self._final_channel_is_raw and text.startswith("analysis"):
+            if (
+                not self.structured_output
+                and not self._final_channel_is_raw
+                and text.startswith("analysis")
+            ):
                 self.current_channel = None
                 self.buffer = ""
-                return self._feed_normalized(text)
-            text = text.replace(self._RAW_FINAL_MARKER, "")
+                return self._feed_normalized(text, positions)
+            # Remove synthetic framing without losing the raw character map.
+            while self._RAW_FINAL_MARKER in text:
+                position = text.index(self._RAW_FINAL_MARKER)
+                width = len(self._RAW_FINAL_MARKER)
+                text = text[:position] + text[position + width :]
+                positions = positions[:position] + positions[position + width :]
             if text:
-                segments.append({"channel": "final", "content": text})
+                segments.append(self._segment("final", text, positions))
             return segments
 
         if text.startswith(self._RAW_ANALYSIS_MARKER):
             self.current_channel = "analysis"
-            return self._feed_normalized(text[len(self._RAW_ANALYSIS_MARKER) :])
+            width = len(self._RAW_ANALYSIS_MARKER)
+            return self._feed_normalized(text[width:], positions[width:])
         if text.startswith(self._RAW_FINAL_MARKER):
             self.current_channel = "final"
             self._final_channel_is_raw = True
-            return self._feed_normalized(text[len(self._RAW_FINAL_MARKER) :])
+            width = len(self._RAW_FINAL_MARKER)
+            return self._feed_normalized(text[width:], positions[width:])
         if text.startswith("analysis"):
             self.current_channel = "analysis"
             rest = text[len("analysis") :]
             if rest:
-                return self._feed_normalized(rest)
+                return self._feed_normalized(rest, positions[len("analysis") :])
             return segments
         if text.startswith("assistantfinal"):
             self.current_channel = "final"
             self._final_channel_is_raw = False
-            return self._feed_normalized(text[len("assistantfinal") :])
+            return self._feed_normalized(
+                text[len("assistantfinal") :], positions[len("assistantfinal") :]
+            )
         if self.structured_output:
             self.current_channel = "final"
-            segments.append({"channel": "final", "content": text})
+            segments.append(self._segment("final", text, positions))
         return segments
 
     def feed(self, text: str) -> List[Dict[str, str]]:
         """Feed one stream chunk and return parsed channel segments."""
-        return self._feed_normalized(self._normalize_markers(text))
+        normalized, positions = self._normalize_markers(text)
+        return self._feed_normalized(normalized, positions)
 
     def flush(self) -> List[Dict[str, str]]:
         """Flush text held while checking for a marker split across chunks."""
         segments: List[Dict[str, str]] = []
         pending_marker = self._marker_buffer
+        positions = (
+            list(range(self._marker_offset, self._input_offset))
+            if self._track_positions
+            else []
+        )
+        self._marker_offset = self._input_offset
         self._marker_buffer = ""
         if pending_marker:
             if self.current_channel is None:
                 self.current_channel = "final"
-                segments.append({"channel": "final", "content": pending_marker})
+                segments.append(self._segment("final", pending_marker, positions))
             else:
-                segments.extend(self._feed_normalized(pending_marker))
+                segments.extend(self._feed_normalized(pending_marker, positions))
         if self.buffer:
             channel = self.current_channel or "final"
-            segments.append({"channel": channel, "content": self.buffer})
+            segments.append(self._segment(channel, self.buffer, self._buffer_positions))
             self.buffer = ""
+            self._buffer_positions = []
         return segments
+
+
+class _HarmonyLogprobs:
+    """Keep token metadata until its raw text has been classified by the parser."""
+
+    def __init__(self) -> None:
+        self._offset = 0
+        self._requested = False
+        self._pending: List[Tuple[int, int, "ChatCompletionLogprob", int]] = []
+
+    def add(self, text: str, logprobs: Optional["ChatCompletionLogprobs"]) -> None:
+        self._requested |= logprobs is not None
+        entries = (logprobs.get("content") or []) if logprobs is not None else []
+        # Unknown-probability tokens can be omitted by the chat converter.
+        # Only use unambiguous matches; never guess which repeated token has
+        # a probability or attach hidden reasoning to visible content.
+        starts = []
+        cursor = 0
+        for entry in entries:
+            token = entry["token"]
+            start = text.find(token, cursor) if token else -1
+            starts.append(start)
+            if start >= 0:
+                cursor = start + len(token)
+        cursor = len(text)
+        for entry, start in reversed(list(zip(entries, starts))):
+            token = entry["token"]
+            end_start = text.rfind(token, 0, cursor) if token else -1
+            if end_start >= 0:
+                cursor = end_start
+            if start >= 0 and start == end_start:
+                self._pending.append(
+                    (self._offset + start, self._offset + start + len(token), entry, 0)
+                )
+        self._pending.sort(key=lambda item: item[0])
+        self._offset += len(text)
+
+    def take(self, parser: HarmonyStreamParser) -> Optional["ChatCompletionLogprobs"]:
+        visible = []
+        pending = []
+        consumed_offset = parser.consumed_offset
+        for start, end, entry, covered in self._pending:
+            covered += sum(
+                max(0, min(end, right) - max(start, left))
+                for left, right in parser.final_spans
+            )
+            if end <= consumed_offset:
+                # A token straddling framing/analysis is not a final token.
+                # Do not fabricate a probability for a sliced token string.
+                if covered == end - start:
+                    visible.append(entry)
+            else:
+                pending.append((start, end, entry, covered))
+        self._pending = pending
+        parser.final_spans.clear()
+        return {"content": visible} if self._requested else None
 
 
 async def async_stream_harmony_chat_completion(
@@ -214,12 +361,18 @@ async def async_stream_harmony_chat_completion(
         out_data = deepcopy(chunks)
 
         for message_choice in out_data["choices"]:
-            parser = HarmonyStreamParser(structured_output=structured_output)
+            parser = HarmonyStreamParser(
+                structured_output=structured_output,
+                track_positions=message_choice.get("logprobs") is not None,
+            )
+            logprobs = _HarmonyLogprobs()
             msg = message_choice["message"]
 
             # Backup original content & reasoning
             original_content = msg.get("content") or ""
             original_reasoning = msg.get("reasoning_content") or ""
+            logprobs.add(original_content, message_choice.get("logprobs"))
+            logprobs.add(original_reasoning, None)
 
             # Reset fields before parsing
             msg["content"] = ""
@@ -244,11 +397,14 @@ async def async_stream_harmony_chat_completion(
                 msg["reasoning_content"] = None  # type: ignore
             if not expose_reasoning:
                 msg.pop("reasoning_content", None)
+            if message_choice.get("logprobs") is not None:
+                message_choice["logprobs"] = logprobs.take(parser)
 
         yield out_data
 
     else:
         parsers_per_choice: Dict[int, HarmonyStreamParser] = {}
+        logprobs_per_choice: Dict[int, _HarmonyLogprobs] = {}
         last_chunk = None
         stream_chunks = cast(AsyncGenerator["ChatCompletionChunk", None], chunks)
 
@@ -274,13 +430,15 @@ async def async_stream_harmony_chat_completion(
                         metadata_delta: Dict[str, object] = {"content": content}
                         if expose_reasoning and reasoning:
                             metadata_delta["reasoning_content"] = reasoning
-                        flushed_choices.append(
-                            {
-                                "index": i,
-                                "delta": metadata_delta,
-                                "finish_reason": None,
-                            }
-                        )
+                        flushed_choice: Dict[str, object] = {
+                            "index": i,
+                            "delta": metadata_delta,
+                            "finish_reason": None,
+                        }
+                        filtered_logprobs = logprobs_per_choice[i].take(parser)
+                        if filtered_logprobs is not None:
+                            flushed_choice["logprobs"] = filtered_logprobs
+                        flushed_choices.append(flushed_choice)
                     if flushed_choices:
                         yield cast(
                             "ChatCompletionChunk",
@@ -307,12 +465,18 @@ async def async_stream_harmony_chat_completion(
             if chunk.get("usage") is not None:
                 out_chunk["usage"] = chunk["usage"]
 
-            for i, stream_choice in enumerate(chunk["choices"]):
+            for stream_choice in chunk["choices"]:
+                i = stream_choice["index"]
                 stream_delta = stream_choice.get("delta", {})
                 text = stream_delta.get("content") or ""
                 parser = parsers_per_choice.setdefault(
-                    i, HarmonyStreamParser(structured_output=structured_output)
+                    i,
+                    HarmonyStreamParser(
+                        structured_output=structured_output, track_positions=True
+                    ),
                 )
+                logprobs = logprobs_per_choice.setdefault(i, _HarmonyLogprobs())
+                logprobs.add(text, stream_choice.get("logprobs"))
                 segments = parser.feed(text)
                 if stream_choice.get("finish_reason") is not None:
                     segments.extend(parser.flush())
@@ -360,10 +524,8 @@ async def async_stream_harmony_chat_completion(
                     "delta": curr_delta,
                     "finish_reason": stream_choice.get("finish_reason"),
                 }
-                choice_logprobs = stream_choice.get("logprobs")
-                if content and choice_logprobs is not None:
-                    # Reasoning tokens are not visible completion tokens. Keep
-                    # logprobs on the chunk that emits final content.
+                choice_logprobs = logprobs.take(parser)
+                if choice_logprobs is not None:
                     output_choice["logprobs"] = choice_logprobs
                 if "stop_sequence" in stream_choice:
                     output_choice["stop_sequence"] = stream_choice["stop_sequence"]
@@ -400,6 +562,14 @@ async def async_stream_harmony_chat_completion(
                 flush_delta: Dict[str, object] = {"content": content}
                 if expose_reasoning and reasoning:
                     flush_delta["reasoning_content"] = reasoning
+                flush_choice: Dict[str, object] = {
+                    "index": i,
+                    "delta": flush_delta,
+                    "finish_reason": None,
+                }
+                filtered_logprobs = logprobs_per_choice[i].take(parser)
+                if filtered_logprobs is not None:
+                    flush_choice["logprobs"] = filtered_logprobs
                 yield cast(
                     "ChatCompletionChunk",
                     {
@@ -407,9 +577,7 @@ async def async_stream_harmony_chat_completion(
                         "model": last_chunk["model"],
                         "object": last_chunk["object"],
                         "created": last_chunk["created"],
-                        "choices": [
-                            {"index": i, "delta": flush_delta, "finish_reason": None}
-                        ],
+                        "choices": [flush_choice],
                     },
                 )
 
