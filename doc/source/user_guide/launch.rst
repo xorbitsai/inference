@@ -233,6 +233,8 @@ launch would also need to preserve its runtime allocation state.
 In a distributed deployment, ``worker_ip`` can select the worker whose local
 cache receives the files. If it is omitted, the supervisor selects one worker.
 
+``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for each cached model. The engine list reports candidates discovered on the worker that owns its files, including that worker's virtual environment setting. Rerank and world cache versions identify only the model name, so their candidates are not checked against a cached format. ``null`` means the metadata is unknown or discovery failed; an empty list means no matching engine is currently discoverable. Listing caches does not download weights, prepare environments, or launch models.
+
 Replica
 =======
 

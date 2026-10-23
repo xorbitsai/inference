@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import pytest
 
 from ..cache_tracker import CacheTrackerActor
@@ -65,3 +67,53 @@ def test_cache_tracker_merges_platform_specific_model_versions(apple_first):
     assert merged["whisper-tiny-mlx"]["model_file_location"] == {
         "apple-worker": "/apple/whisper-tiny-mlx"
     }
+
+
+@pytest.mark.parametrize("new_worker_cached", [False, True])
+def test_cache_tracker_backfills_model_type_without_losing_locations(new_worker_cached):
+    tracker = CacheTrackerActor.__new__(CacheTrackerActor)
+    tracker._model_name_to_version_info = {}
+    tracker.record_model_version(
+        {
+            "demo": [
+                {
+                    "model_version": "demo-v1",
+                    "cache_status": True,
+                    "model_file_location": "/old/demo",
+                }
+            ]
+        },
+        "old-worker",
+    )
+    tracker.record_model_version(
+        {
+            "demo": [
+                {
+                    "model_version": "demo-v1",
+                    "cache_status": new_worker_cached,
+                    "model_file_location": "/new/demo",
+                    "model_type": "embedding",
+                }
+            ]
+        },
+        "new-worker",
+    )
+    tracker.record_model_version(
+        {
+            "demo": [
+                {
+                    "model_version": "demo-v1",
+                    "cache_status": False,
+                    "model_file_location": None,
+                }
+            ]
+        },
+        "legacy-worker",
+    )
+    [version] = tracker.get_model_versions("demo")
+    assert version["model_type"] == "embedding"
+    expected = {"old-worker": "/old/demo"}
+    if new_worker_cached:
+        expected["new-worker"] = "/new/demo"
+    assert version["model_file_location"] == expected
+    assert tracker.list_cached_models("old-worker")[0]["model_type"] == "embedding"

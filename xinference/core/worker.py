@@ -91,6 +91,11 @@ from ..model.utils import (
 from ..model.utils import resolve_download_hub as resolve_model_download_hub
 from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
+from .cache_metadata import (
+    get_cached_model_engines,
+    get_model_version_infos,
+    tag_model_type,
+)
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
 from .exceptions import ModelNotReadyError
@@ -1927,24 +1932,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     async def _record_model_versions_best_effort(self, cache_tracker_ref):
         try:
             # cache_tracker is on supervisor
-            from ..model.audio import get_audio_model_descriptions
-            from ..model.embedding import get_embedding_model_descriptions
-            from ..model.flexible import get_flexible_model_descriptions
-            from ..model.image import get_image_model_descriptions
-            from ..model.llm import get_llm_version_infos
-            from ..model.rerank import get_rerank_model_descriptions
-            from ..model.video import get_video_model_descriptions
-            from ..model.world import get_world_model_descriptions
-
-            model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
-            model_version_infos.update(get_llm_version_infos())
-            model_version_infos.update(get_embedding_model_descriptions())
-            model_version_infos.update(get_rerank_model_descriptions())
-            model_version_infos.update(get_image_model_descriptions())
-            model_version_infos.update(get_audio_model_descriptions())
-            model_version_infos.update(get_video_model_descriptions())
-            model_version_infos.update(get_world_model_descriptions())
-            model_version_infos.update(get_flexible_model_descriptions())
+            model_version_infos = get_model_version_infos()
             await xo.wait_for(
                 cache_tracker_ref.record_model_version(
                     model_version_infos, self.address
@@ -2788,7 +2776,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             try:
                 if self._cache_tracker_ref is not None:
                     await self._cache_tracker_ref.record_model_version(
-                        generate_fn(model_spec), self.address
+                        tag_model_type(generate_fn(model_spec), model_type),
+                        self.address,
                     )
             except Exception:
                 logger.warning(
@@ -6636,15 +6625,64 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             self.address, model_name
         )
         cached_models = []
-        for list in lists:
+        engine_metadata: Dict[Tuple[str, str], Optional[Dict[str, Any]]] = {}
+        discover_engines = (
+            get_engine_params_by_name_with_virtual_env
+            if XINFERENCE_ENABLE_VIRTUAL_ENV
+            else get_engine_params_by_name
+        )
+        for item in lists:
+            model_name = item.get("model_name")
+            model_type = item.get("model_type")
+            model_engine = None
+            if model_name and model_type in (
+                "LLM",
+                "embedding",
+                "rerank",
+                "image",
+                "audio",
+                "video",
+                "world",
+            ):
+                key = (model_name, model_type)
+                if key not in engine_metadata:
+                    try:
+                        engine_metadata[key] = await asyncio.to_thread(
+                            discover_engines,
+                            model_type,
+                            model_name,
+                            enable_virtual_env=XINFERENCE_ENABLE_VIRTUAL_ENV,
+                        )
+                    except Exception:
+                        engine_metadata[key] = None
+                        logger.warning(
+                            "Failed to discover engines for cached model %s",
+                            model_name,
+                            exc_info=True,
+                        )
+                try:
+                    model_engine = get_cached_model_engines(
+                        model_name,
+                        model_type,
+                        item["model_version"],
+                        engine_metadata[key],
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to match engine metadata for cached model %s",
+                        model_name,
+                        exc_info=True,
+                    )
             cached_model = {
-                "model_name": list.get("model_name"),
-                "model_size_in_billions": list.get("model_size_in_billions"),
-                "model_format": list.get("model_format"),
-                "quantization": list.get("quantization"),
-                "model_version": list.get("model_version"),
+                "model_name": model_name,
+                "model_type": model_type,
+                "model_engine": model_engine,
+                "model_size_in_billions": item.get("model_size_in_billions"),
+                "model_format": item.get("model_format"),
+                "quantization": item.get("quantization"),
+                "model_version": item.get("model_version"),
             }
-            path = list.get("model_file_location")
+            path = item.get("model_file_location")
             cached_model["path"] = path
             real_path = get_real_path(path)
             if real_path:

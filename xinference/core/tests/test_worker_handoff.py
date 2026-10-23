@@ -677,13 +677,28 @@ async def test_adopted_process_failure_is_recovered_by_new_worker(runtime):
 
 
 @pytest.mark.asyncio
-async def test_abandoned_preparation_restores_old_worker(runtime):
+async def test_abandoned_preparation_restores_old_worker(runtime, monkeypatch):
     pools, supervisor, (old, new) = runtime
     model = await old.install_model()
+    prepared = asyncio.Event()
+    expire = HandoffWorker._expire_worker_handoff
+
+    async def expire_after_preparation(worker, ticket, timeout):
+        if ticket == "abandoned":
+            await prepared.wait()
+            timeout = 0.15
+        await expire(worker, ticket, timeout)
+
+    # Test lease expiry after successful preparation without imposing a 150ms
+    # budget on the reservation RPC and its durable filesystem writes.
+    monkeypatch.setattr(
+        HandoffWorker, "_expire_worker_handoff", expire_after_preparation
+    )
     await old.prepare_worker_handoff(
-        new.address, await new.incarnation(), "abandoned", 0.15
+        new.address, await new.incarnation(), "abandoned", 5
     )
     assert await old.inspect_phase() == "draining"
+    prepared.set()
 
     async def resumed():
         while await old.inspect_phase() != "active":

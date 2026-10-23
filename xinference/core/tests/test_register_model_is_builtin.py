@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
+
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -106,3 +109,39 @@ async def test_worker_register_model_resets_client_is_builtin():
     await worker.register_model("LLM", _custom_llm_json(), persist=False)
     assert worker.registered_spec is not None
     assert worker.registered_spec.is_builtin is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("actor_cls", [_DummySupervisor, _DummyWorker])
+async def test_custom_registration_tags_versions_for_legacy_tracker(actor_cls):
+    actor = actor_cls()
+    actor.address = "node"
+    recorded = []
+
+    # Match the tracker RPC signature from before cache metadata was added.
+    async def record_model_version(versions, address):
+        recorded.append((versions, address))
+
+    actor._cache_tracker_ref = SimpleNamespace(
+        record_model_version=record_model_version
+    )
+    schema, register, unregister, _ = actor._custom_register_type_to_cls["LLM"]
+    actor._custom_register_type_to_cls["LLM"] = (
+        schema,
+        register,
+        unregister,
+        lambda spec: {
+            spec.model_name: [
+                {
+                    "model_version": "custom",
+                    "cache_status": False,
+                    "model_file_location": None,
+                }
+            ]
+        },
+    )
+    await actor.register_model("LLM", _custom_llm_json(), persist=False)
+    assert len(recorded) == 1
+    versions, address = recorded[0]
+    assert address == "node"
+    assert versions["test_is_builtin_llm"][0]["model_type"] == "LLM"

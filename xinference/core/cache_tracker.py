@@ -65,6 +65,8 @@ class CacheTrackerActor(xo.Actor):
                         existing.append(version)
                         existing_by_version[model_version] = version
                         continue
+                    if version.get("model_type") is not None:
+                        origin_version["model_type"] = version["model_type"]
                     if (
                         version["cache_status"]
                         and version["model_file_location"] is not None

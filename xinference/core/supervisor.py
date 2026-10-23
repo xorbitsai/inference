@@ -70,6 +70,7 @@ from ..model.utils import (
     get_engine_params_by_name_with_virtual_env,
 )
 from ..types import PeftModelConfig
+from .cache_metadata import get_model_version_infos, tag_model_type
 from .download_task_store import (
     ACTIVE_DOWNLOAD_STATUSES,
     RESUMABLE_DOWNLOAD_STATUSES,
@@ -969,42 +970,36 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         from ..model.audio import (
             CustomAudioModelFamilyV2,
             generate_audio_description,
-            get_audio_model_descriptions,
             register_audio,
             unregister_audio,
         )
         from ..model.embedding import (
             CustomEmbeddingModelFamilyV2,
             generate_embedding_description,
-            get_embedding_model_descriptions,
             register_embedding,
             unregister_embedding,
         )
         from ..model.flexible import (
             FlexibleModelSpec,
             generate_flexible_model_description,
-            get_flexible_model_descriptions,
             register_flexible_model,
             unregister_flexible_model,
         )
         from ..model.image import (
             CustomImageModelFamilyV2,
             generate_image_description,
-            get_image_model_descriptions,
             register_image,
             unregister_image,
         )
         from ..model.llm import (
             CustomLLMFamilyV2,
             generate_llm_version_info,
-            get_llm_version_infos,
             register_llm,
             unregister_llm,
         )
         from ..model.rerank import (
             CustomRerankModelFamilyV2,
             generate_rerank_description,
-            get_rerank_model_descriptions,
             register_rerank,
             unregister_rerank,
         )
@@ -1049,13 +1044,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         }
 
         # record model version
-        model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
-        model_version_infos.update(get_llm_version_infos())
-        model_version_infos.update(get_embedding_model_descriptions())
-        model_version_infos.update(get_rerank_model_descriptions())
-        model_version_infos.update(get_image_model_descriptions())
-        model_version_infos.update(get_audio_model_descriptions())
-        model_version_infos.update(get_flexible_model_descriptions())
+        model_version_infos = get_model_version_infos()
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )
@@ -2399,7 +2388,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             try:
                 if self._cache_tracker_ref is not None:
                     await self._cache_tracker_ref.record_model_version(
-                        generate_fn(model_spec), self.address
+                        tag_model_type(generate_fn(model_spec), model_type),
+                        self.address,
                     )
             except Exception:
                 logger.warning(

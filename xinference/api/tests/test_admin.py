@@ -253,12 +253,23 @@ async def test_abort_cluster_returns_result_and_does_not_kill_in_test(
 
 @pytest.mark.asyncio
 async def test_list_cached_models_returns_list(mock_api, mock_supervisor):
-    mock_supervisor.list_cached_models.return_value = ["model1", "model2"]
+    known = {
+        "model_name": "qwen",
+        "model_type": "LLM",
+        "model_engine": ["vLLM"],
+        "path": "/models/qwen-pytorch",
+    }
+    legacy = {"model_name": "qwen", "path": "/models/qwen-gguf"}
+    mock_supervisor.list_cached_models.return_value = [known, legacy]
     response = await admin.list_cached_models(
         api=mock_api, model_name="qwen", worker_ip=None
     )
     assert response.status_code == 200
-    assert _json_body(response) == {"list": ["model1", "model2"]}
+    assert _json_body(response) == {
+        "list": [known, {**legacy, "model_type": None, "model_engine": None}]
+    }
+    assert "model_type" not in legacy
+    assert "model_engine" not in legacy
     mock_supervisor.list_cached_models.assert_called_once_with("qwen", None)
 
 

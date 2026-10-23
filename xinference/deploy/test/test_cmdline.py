@@ -708,3 +708,45 @@ def test_launch_fails_when_model_is_terminated(monkeypatch):
     assert result.exit_code == 1
     assert "test-model-uid was terminated before it became ready" in result.output
     assert "Model uid: test-model-uid" not in result.output
+
+
+@pytest.mark.parametrize("legacy_first", [False, True])
+def test_cached_columns_align_for_mixed_worker_metadata(monkeypatch, legacy_first):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    known = {
+        "model_name": "current",
+        "model_type": "LLM",
+        "model_engine": ["vLLM"],
+        "path": "/current",
+    }
+    legacy = {
+        "model_name": "legacy",
+        "path": "/legacy",
+        "model_type": None,
+        "model_engine": None,
+    }
+    records = [legacy, known] if legacy_first else [known, legacy]
+    client = SimpleNamespace(list_cached_models=MagicMock(return_value=records))
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", lambda **kwargs: client)
+    result = CliRunner().invoke(
+        list_cached_models,
+        ["--endpoint", "http://127.0.0.1:9997", "--api-key", "test-key"],
+    )
+    assert result.exit_code == 0, result.output
+    rows = [
+        [cell.strip() for cell in line.split("|")[1:-1]]
+        for line in result.output.splitlines()
+        if line.startswith("|")
+    ]
+    by_name = {
+        row["model_name"]: row
+        for row in [dict(zip(rows[0], values)) for values in rows[1:]]
+    }
+    assert by_name["current"]["path"] == "/current"
+    assert by_name["current"]["model_type"] == "LLM"
+    assert by_name["current"]["model_engine"] == "['vLLM']"
+    assert by_name["legacy"]["path"] == "/legacy"
+    assert by_name["legacy"]["model_type"] == "-"
+    assert by_name["legacy"]["model_engine"] == "-"
