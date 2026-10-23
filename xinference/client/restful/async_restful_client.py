@@ -1100,7 +1100,9 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
         params = _filter_params(params)
         data = aiohttp.FormData()
         for key, value in params.items():
-            data.add_field(key, str(value) if value is not None else "")
+            # One field per list item, as requests sends it in the sync client.
+            for item in value if isinstance(value, list) else (value,):
+                data.add_field(key, str(item))
         data.add_field(
             "file", audio, filename="file", content_type="application/octet-stream"
         )
@@ -1167,7 +1169,9 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
         params = _filter_params(params)
         data = aiohttp.FormData()
         for key, value in params.items():
-            data.add_field(key, str(value) if value is not None else "")
+            # One field per list item, as requests sends it in the sync client.
+            for item in value if isinstance(value, list) else (value,):
+                data.add_field(key, str(item))
         data.add_field(
             "file", audio, filename="file", content_type="application/octet-stream"
         )
