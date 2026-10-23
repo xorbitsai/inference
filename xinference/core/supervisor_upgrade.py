@@ -5,30 +5,38 @@
 import asyncio
 import copy
 import threading
-from typing import Any
+import time
+from typing import Any, Optional
 
 import xoscar as xo
 from xoscar.context import get_context
 
 PROTOCOL_VERSION = 1
 
-# These calls only resolve an existing model route. They must remain available
-# while control operations drain and the replacement rebuilds its registry.
+# These reads resolve routes or poll the current Router configuration. They
+# remain available while management drains and the target rebuilds its registry.
 INFERENCE_READS = {
     "get_model",
     "describe_model",
     "describe_running_model",
     "get_model_status",
     "resolve_token_router_runtime",
+    "get_token_router_config_after",
 }
 
-# A management RPC may call a Worker which calls back into the Supervisor.
-# Admit those callbacks until the outstanding management RPCs have completed.
-WORKER_CALLBACKS = {
+# These reports update volatile liveness/observations, not model ownership or
+# desired configuration. Queuing them would trigger reconnects or expire routes.
+LIVENESS_CALLS = {
+    "receive_heartbeat",
+    "report_worker_status",
+    "heartbeat_token_router_instance",
+}
+
+# Let callbacks and pending configuration ACKs finish before the final snapshot.
+# ACKs arriving after that snapshot must instead reach the selected target.
+DRAIN_CALLBACKS = {
     "add_worker",
     "remove_worker",
-    "report_worker_status",
-    "receive_heartbeat",
     "get_worker_resource_policy",
     "worker_handoff_protocol",
     "can_recover_model",
@@ -43,6 +51,7 @@ WORKER_CALLBACKS = {
     "commit_worker_handoff",
     "confirm_worker_handoff",
     "abort_worker_handoff",
+    "ack_token_router_config",
 }
 
 
@@ -75,14 +84,14 @@ class SupervisorGateway(xo.StatelessActor):
             "drain_supervisor_reads",
         }:
             return await super().__on_receive__(message)
-        reading = method in INFERENCE_READS
+        reading = method in INFERENCE_READS or method in LIVENESS_CALLS
         async with self.changed:
             await self.changed.wait_for(
                 lambda: self.target is not None
                 and (
                     reading
                     or self.phase == "open"
-                    or (self.phase == "closing" and method in WORKER_CALLBACKS)
+                    or (self.phase == "closing" and method in DRAIN_CALLBACKS)
                 )
             )
             target = self.target
@@ -179,6 +188,7 @@ class SupervisorUpgradeState:
     def __init__(self, supervisor: Any):
         self.supervisor = supervisor
         self.maintenance = SupervisorMaintenance()
+        self._router_snapshot_time: Optional[float] = None
 
     def _require_idle(self):
         owner = self.supervisor
@@ -226,6 +236,7 @@ class SupervisorUpgradeState:
 
         return {
             "protocol": PROTOCOL_VERSION,
+            "captured_at": time.time(),
             "workers": list(owner._worker_address_to_worker),
             "incarnations": dict(owner._ownership_registry().incarnations),
             "replicas": {
@@ -234,6 +245,12 @@ class SupervisorUpgradeState:
                     for ref in (refs if isinstance(refs, (tuple, list)) else [refs])
                 ]
                 for uid, refs in owner._replica_model_uid_to_worker.items()
+                if not uid.endswith("-rank0")
+            },
+            "coordinators": {
+                uid: ref.address
+                for uid, ref in owner._replica_model_uid_to_worker.items()
+                if uid.endswith("-rank0")
             },
             "shards": {
                 uid: {shard: ref.address for shard, ref in shards.items()}
@@ -249,8 +266,25 @@ class SupervisorUpgradeState:
         }
 
     def resume(self):
+        self.refresh_liveness()
         self.maintenance.resume()
         self.supervisor._schedule_autostart()
+
+    def refresh_liveness(self):
+        from ..constants import XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
+
+        now = time.time()
+        for status in self.supervisor._worker_status.values():
+            status.update_time = now
+            status.failure_remaining_count = XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
+        if self._router_snapshot_time is not None:
+            # Preserve each runtime's age at capture, including offline ones.
+            # Only the target's frozen preparation time is excluded; reports
+            # keep reaching the source throughout the drain and rollback.
+            elapsed = max(0, now - self._router_snapshot_time)
+            for instance in self.supervisor._token_router_registry._instances.values():
+                instance["last_heartbeat"] += elapsed
+            self._router_snapshot_time = None
 
     async def restore(self, snapshot):
         if snapshot.get("protocol") != PROTOCOL_VERSION:
@@ -287,6 +321,16 @@ class SupervisorUpgradeState:
                 raise RuntimeError(
                     "Worker model inventory changed while preparing Supervisor"
                 )
+            coordinators = [
+                uid
+                for uid, endpoint in snapshot["coordinators"].items()
+                if endpoint == address
+            ]
+            # Rank-zero actors have no model spec and are intentionally absent
+            # from list_models(). Validate their retained actor handles instead.
+            await asyncio.gather(
+                *(xo.wait_for(worker.get_model(uid), 10) for uid in coordinators)
+            )
             replicas = []
             for uid in models:
                 addresses = snapshot["replicas"][uid]
@@ -309,6 +353,7 @@ class SupervisorUpgradeState:
                     "incarnation": incarnation,
                     "resources": resources,
                     "replicas": replicas,
+                    "coordinators": coordinators,
                 },
             )
 
@@ -317,6 +362,7 @@ class SupervisorUpgradeState:
         )
         owner._initialize_worker_ownership()
         observed: dict = {}
+        observed_coordinators = {}
         for address, worker, state in workers:
             owner._worker_address_to_worker[address] = worker
             owner._ownership_registry().incarnations[address] = state["incarnation"]
@@ -325,17 +371,23 @@ class SupervisorUpgradeState:
             for replica in state["replicas"]:
                 uid = replica["replica_model_uid"]
                 observed.setdefault(uid, []).append(address)
-                if uid.endswith("-rank0"):
-                    owner._replica_model_uid_to_worker[uid] = worker
+            for uid in state["coordinators"]:
+                owner._replica_model_uid_to_worker[uid] = worker
+                observed_coordinators[uid] = address
         if {uid: sorted(addresses) for uid, addresses in observed.items()} != {
             uid: sorted(addresses) for uid, addresses in snapshot["replicas"].items()
         }:
             raise RuntimeError(
                 "Worker model inventory changed while preparing Supervisor"
             )
+        if observed_coordinators != snapshot["coordinators"]:
+            raise RuntimeError(
+                "Worker coordinator inventory changed while preparing Supervisor"
+            )
         for name in ROUTING_FIELDS:
             setattr(owner, name, snapshot["routes"][name])
         owner._token_router_registry._instances = snapshot["router_instances"]
+        self._router_snapshot_time = snapshot["captured_at"]
         owner._system_settings = snapshot["system_settings"]
         from .system_settings_store import SystemSettings, apply_system_settings
 

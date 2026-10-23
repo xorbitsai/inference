@@ -5,13 +5,17 @@
 import asyncio
 import os
 import uuid
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import xoscar as xo
 from xoscar.utils import get_next_port
 
+from ...core.router_registry import RouterRuntimeRegistry
 from ...core.supervisor_upgrade import SupervisorGateway
 from ...core.system_settings_store import SystemSettingsStore
+from ...core.worker import WorkerActor
 from ..supervisor_host import SupervisorHost
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX process hosting")
@@ -75,8 +79,10 @@ class Control(xo.StatelessActor):
     describe_running_model = get_model
     resolve_token_router_runtime = get_model
 
-    def report_worker_status(self):
+    def report_worker_status(self, *args, **kwargs):
         self.callbacks += 1
+
+    receive_heartbeat = report_worker_status
 
     async def wait_entered(self):
         await self.entered.wait()
@@ -86,6 +92,32 @@ class Control(xo.StatelessActor):
 
     def count(self):
         return self.callbacks
+
+
+class RouterControl(Control):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.acks = 0
+        self.registry = RouterRuntimeRegistry()
+        self.registry.register(
+            "router", "runtime", {"endpoint": "http://runtime", "acked_revision": 2}
+        )
+
+    def get_token_router_config_after(self, router_uid, after_revision):
+        return {"revision": 2} if after_revision < 2 else None
+
+    def heartbeat_token_router_instance(self, instance_id, data):
+        return self.registry.heartbeat(instance_id, data)
+
+    def ack_token_router_config(self, instance_id, router_uid, revision):
+        self.acks += 1
+        return self.registry.ack(instance_id, revision)
+
+    def count_acks(self):
+        return self.acks
+
+    def resolve_token_router_runtime(self, model_uid):
+        return self.registry.get("runtime")["online"]
 
 
 @pytest.mark.asyncio
@@ -130,6 +162,109 @@ async def test_gateway_drains_callbacks_and_queues_new_management(route):
         assert await asyncio.wait_for(queued, 2) == "target"
         assert await source.count() == 2
         assert await target.count() == 1
+    finally:
+        await pool.stop()
+
+
+@pytest.mark.asyncio
+async def test_worker_liveness_never_triggers_reconnect_during_freeze(monkeypatch):
+    monkeypatch.setattr("xinference.core.worker.XINFERENCE_TCP_REQUEST_TIMEOUT", 0.1)
+    pool = await xo.create_actor_pool(
+        address=f"127.0.0.1:{get_next_port()}", n_process=0
+    )
+    try:
+        gateway = await xo.create_actor(
+            SupervisorGateway, address=pool.external_address
+        )
+        source = await xo.create_actor(
+            Control, "source", gateway, address=pool.external_address
+        )
+        await gateway.select_supervisor(source)
+        await gateway.release_supervisor()
+        worker = SimpleNamespace(
+            _get_supervisor_ref_with_generation=AsyncMock(return_value=(gateway, 1)),
+            _ownership_metadata=lambda method: {},
+            _clear_supervisor_refs=MagicMock(),
+        )
+        for final in (False, True):
+            await gateway.prepare_supervisor_switch(final=final)
+            for method in ("receive_heartbeat", "report_worker_status"):
+                await WorkerActor._call_supervisor_on_actor_loop(
+                    worker,
+                    method,
+                    "worker",
+                    add_worker=method == "report_worker_status",
+                )
+        worker._clear_supervisor_refs.assert_not_called()
+        assert await source.count() == 4
+    finally:
+        await pool.stop()
+
+
+@pytest.mark.asyncio
+async def test_router_heartbeats_remain_live_through_long_drain_and_freeze(monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr("xinference.core.router_registry.time.time", lambda: now[0])
+    pool = await xo.create_actor_pool(
+        address=f"127.0.0.1:{get_next_port()}", n_process=0
+    )
+    try:
+        gateway = await xo.create_actor(
+            SupervisorGateway, address=pool.external_address
+        )
+        source = await xo.create_actor(
+            RouterControl, "source", gateway, address=pool.external_address
+        )
+        await gateway.select_supervisor(source)
+        await gateway.release_supervisor()
+        admitted = asyncio.create_task(gateway.management())
+        await source.wait_entered()
+        closing = asyncio.create_task(gateway.prepare_supervisor_switch(final=False))
+        await asyncio.sleep(0.01)
+        revision = 1
+
+        async def runtime_cycle():
+            nonlocal revision
+            now[0] += 10
+            config = await asyncio.wait_for(
+                gateway.get_token_router_config_after("router", revision), 1
+            )
+            if config:
+                await asyncio.wait_for(
+                    gateway.ack_token_router_config(
+                        "runtime", "router", config["revision"]
+                    ),
+                    1,
+                )
+                revision = config["revision"]
+            await asyncio.wait_for(
+                gateway.heartbeat_token_router_instance("runtime", {"status": "ready"}),
+                1,
+            )
+            assert await gateway.resolve_token_router_runtime("virtual") is True
+
+        # A 100-second sweep exceeds the default 90-second runtime deadline.
+        for _ in range(10):
+            await runtime_cycle()
+        await source.unblock()
+        await admitted
+        await closing
+        await gateway.prepare_supervisor_switch()
+        for _ in range(10):
+            await runtime_cycle()
+        late_ack = asyncio.create_task(
+            gateway.ack_token_router_config("runtime", "router", 2)
+        )
+        await asyncio.sleep(0.01)
+        assert not late_ack.done()
+        target = await xo.create_actor(
+            RouterControl, "target", gateway, address=pool.external_address
+        )
+        await gateway.select_supervisor(target)
+        await gateway.release_supervisor()
+        await asyncio.wait_for(late_ack, 1)
+        assert await source.count_acks() == 1
+        assert await target.count_acks() == 1
     finally:
         await pool.stop()
 

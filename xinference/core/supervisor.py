@@ -1084,6 +1084,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.control_address
         )
+        if getattr(self, "_supervisor_restored", False):
+            self._upgrade_state.refresh_liveness()
 
         self._supervisor_activation_prepared = True
 
@@ -1094,17 +1096,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         if self._standby and not self._supervisor_restored:
             self._download_task_store.mark_active_interrupted()
         if self._supervisor_restored:
-            # Restored Workers passed live identity/inventory inspection. Give
-            # them a fresh heartbeat window after the frozen handoff interval,
-            # before starting dead-node detection on the isolation loop.
-            now = time.time()
             for address, worker in self._worker_address_to_worker.items():
-                status = self._worker_status.get(address)
-                if status is not None:
-                    status.update_time = now
-                    status.failure_remaining_count = (
-                        XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
-                    )
                 if not self._worker_metadata.get(address):
                     generation = self._start_worker_metadata_generation(address)
                     self._schedule_worker_metadata_retry(address, worker, generation)
