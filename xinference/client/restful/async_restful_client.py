@@ -103,7 +103,7 @@ class AsyncRESTfulModelHandle:
         self.timeout = aiohttp.ClientTimeout(total=1800)
         self._session_loop = asyncio.get_running_loop()
         self.session = aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(force_close=True)
+            connector=aiohttp.TCPConnector(force_close=True), timeout=self.timeout
         )
 
     async def close(self):

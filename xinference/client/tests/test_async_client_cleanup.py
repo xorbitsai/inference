@@ -124,3 +124,22 @@ def test_real_session_cleanup_on_paused_owner_loop(
     finally:
         loop.run_until_complete(original_close())
         loop.close()
+
+
+@pytest.mark.parametrize(
+    "client_class",
+    [client_module.AsyncRESTfulModelHandle, client_module.AsyncClient],
+)
+async def test_session_uses_client_timeout(client_class, monkeypatch):
+    monkeypatch.setattr(
+        client_module.AsyncClient, "_check_cluster_authenticated", lambda self: None
+    )
+    if client_class is client_module.AsyncClient:
+        client = client_class("http://localhost:9997")
+    else:
+        client = client_class("model", "http://localhost:9997", {})
+    try:
+        # Not aiohttp's 5-minute default, which cuts off long generations.
+        assert client.session.timeout.total == 1800
+    finally:
+        await client.close()
