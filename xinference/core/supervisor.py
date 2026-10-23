@@ -116,9 +116,6 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-ASYNC_LAUNCH_TASKS = {}  # type: ignore
-
-
 _WORKER_METADATA_RPC_TIMEOUT = 3
 _WORKER_METADATA_RETRY_DELAYS = (5, 15, 30)
 
@@ -201,8 +198,10 @@ def _merge_worker_engine_params(
     return merged or None
 
 
-def callback_for_async_launch(model_uid: str):
-    ASYNC_LAUNCH_TASKS.pop(model_uid, None)
+def callback_for_async_launch(
+    tasks: Set[asyncio.Task], model_uid: str, task: asyncio.Task
+):
+    tasks.discard(task)
     logger.debug(f"Model uid: {model_uid} async launch completes.")
 
 
@@ -294,6 +293,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         # launches, reverse-channel dead detection is exempted because
         # long-running model downloads can starve the actor event loop.
         self._workers_launching: Dict[str, int] = {}  # address -> active launch count
+        self._async_launch_tasks: Set[asyncio.Task] = set()
         # Active download-only operations, used only for dispatch cancellation.
         # Progress itself is retained by ProgressTrackerActor after completion.
         self._cache_uid_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
@@ -1093,6 +1093,21 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         await self.prepare_supervisor_activation()
         if self._standby and not self._supervisor_restored:
             self._download_task_store.mark_active_interrupted()
+        if self._supervisor_restored:
+            # Restored Workers passed live identity/inventory inspection. Give
+            # them a fresh heartbeat window after the frozen handoff interval,
+            # before starting dead-node detection on the isolation loop.
+            now = time.time()
+            for address, worker in self._worker_address_to_worker.items():
+                status = self._worker_status.get(address)
+                if status is not None:
+                    status.update_time = now
+                    status.failure_remaining_count = (
+                        XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
+                    )
+                if not self._worker_metadata.get(address):
+                    generation = self._start_worker_metadata_generation(address)
+                    self._schedule_worker_metadata_retry(address, worker, generation)
         self._standby = False
         self._upgrade_state.maintenance.resume()
         self._supervisor_tasks_started = True
@@ -4074,8 +4089,12 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             self._invalidate_list_models_debounce_cache()
         else:
             task = asyncio.create_task(_launch_model())
-            ASYNC_LAUNCH_TASKS[model_uid] = task
-            task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
+            self._async_launch_tasks.add(task)
+            task.add_done_callback(
+                functools.partial(
+                    callback_for_async_launch, self._async_launch_tasks, model_uid
+                )
+            )
             # Invalidate the debounce cache once the background launch
             # completes so the newly-ready model appears immediately.
             task.add_done_callback(
@@ -4301,8 +4320,12 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             self._invalidate_list_models_debounce_cache()
         else:
             task = asyncio.create_task(_launch_model())
-            ASYNC_LAUNCH_TASKS[model_uid] = task
-            task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
+            self._async_launch_tasks.add(task)
+            task.add_done_callback(
+                functools.partial(
+                    callback_for_async_launch, self._async_launch_tasks, model_uid
+                )
+            )
             task.add_done_callback(
                 lambda _: self._invalidate_list_models_debounce_cache()
             )
