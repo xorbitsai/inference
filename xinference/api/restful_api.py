@@ -1719,6 +1719,10 @@ class RESTfulAPI(CancelMixin):
         try:
             models = await (await self._get_supervisor_ref()).list_models()
 
+            if model_id not in models:
+                raise HTTPException(
+                    status_code=404, detail=f"Model not found: {model_id}"
+                )
             model_info = models[model_id]
 
             # Convert to Anthropic format

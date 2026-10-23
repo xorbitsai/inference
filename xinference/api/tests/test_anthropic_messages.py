@@ -1,3 +1,5 @@
+# CI: linux
+
 import json
 from types import MethodType
 
@@ -408,3 +410,24 @@ async def test_model_access_is_checked_before_media_normalization(
         )
     assert response.status_code == 403
     assert response.json()["error"]["message"] == "Model access denied"
+
+
+@pytest.mark.asyncio
+async def test_anthropic_get_model_returns_404_for_unknown_model():
+    api = RESTfulAPI.__new__(RESTfulAPI)
+
+    class FakeSupervisor:
+        async def list_models(self):
+            return {"qwen": {"model_name": "qwen3", "model_type": "LLM"}}
+
+    async def get_supervisor_ref(_self):
+        return FakeSupervisor()
+
+    api._get_supervisor_ref = MethodType(get_supervisor_ref, api)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await api.anthropic_get_model("missing")
+    assert exc_info.value.status_code == 404
+
+    response = await api.anthropic_get_model("qwen")
+    assert json.loads(response.body)["display_name"] == "qwen3"
