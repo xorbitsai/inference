@@ -1,3 +1,5 @@
+# CI: linux
+
 import json
 
 import pytest
@@ -229,3 +231,22 @@ def test_is_string_parameter(schema, expected):
     finally:
         request_tools_var.reset(token)
     assert ToolParser._is_string_parameter("save", "value") is False
+
+
+def test_qwen_string_parameters_keep_whitespace():
+    # The Qwen3-Coder / Qwen3.5 template writes "<parameter=k>\n{value}\n</parameter>",
+    # so only those two newlines are markup.
+    content = "    def foo():\n        return 1\n"
+    model = _model(QwenToolParser)
+    tools = _tools("save")
+    text = _qwen([("content", content), ("count", "3")])
+
+    result = model._post_process_completion(
+        None, "test-model", _completion(text), tools
+    )
+    tool_calls = result["choices"][0]["message"]["tool_calls"]
+    expected = {"content": content, "count": 3}
+    assert json.loads(tool_calls[0]["function"]["arguments"]) == expected
+
+    chunks = model._to_tool_completion_chunks(_chunks(text), tools=tools)
+    assert _streamed_arguments(chunks) == [expected]
