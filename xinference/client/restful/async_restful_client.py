@@ -1260,8 +1260,16 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
             )
 
         if stream:
-            await _release_response(response)
-            return response.content.iter_chunked(1024)
+            # Release only after the body is read; a released response
+            # fails every later read with "Connection closed".
+            async def stream_content():
+                try:
+                    async for chunk in response.content.iter_chunked(1024):
+                        yield chunk
+                finally:
+                    await _release_response(response)
+
+            return stream_content()
 
         # Read content before releasing connection
         content = await response.read()
