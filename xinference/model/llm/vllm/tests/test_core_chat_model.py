@@ -150,6 +150,27 @@ def filter_ids_and_created(data):
     return data
 
 
+@pytest.mark.parametrize(
+    "family_name,model_name,architecture,expected",
+    [
+        (None, "test-model", False, False),
+        (None, "gpt-oss", False, True),
+        ("gpt-oss", "custom", False, True),
+        ("custom", "custom", True, True),
+    ],
+)
+def test_gpt_oss_detection_is_optional(family_name, model_name, architecture, expected):
+    from ..core import _is_gpt_oss_model
+
+    assert _is_gpt_oss_model(None) is False
+    family = types.SimpleNamespace(
+        model_family=family_name,
+        model_name=model_name,
+        has_architecture=lambda _: architecture,
+    )
+    assert _is_gpt_oss_model(family) is expected
+
+
 class TestVLLMMultiModelChatTemplate:
     @pytest.mark.asyncio
     async def test_kimi_k3_uses_tokenizer_native_renderer_without_jinja(self):

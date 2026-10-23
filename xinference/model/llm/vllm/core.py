@@ -206,7 +206,9 @@ DEFAULT_VLLM_VERSION = version.parse("0.21.0")
 MINICPMV47_MIN_VLLM_VERSION = version.parse("0.31.1rc1.dev281+gc85616efc")
 
 
-def _is_gpt_oss_model(model_family: "LLMFamilyV2") -> bool:
+def _is_gpt_oss_model(model_family: Optional["LLMFamilyV2"]) -> bool:
+    if model_family is None:
+        return False
     return model_family.has_architecture("GptOssForCausalLM") or (
         (model_family.model_family or model_family.model_name) == "gpt-oss"
     )
@@ -2245,7 +2247,11 @@ class VLLMModel(WeightCachedModel, LLM):
 
         if (enable_thinking or tools) and generate_config:
             generate_config["skip_special_tokens"] = False
-        if _is_gpt_oss_model(self.model_family) and not tools and generate_config:
+        if (
+            _is_gpt_oss_model(getattr(self, "model_family", None))
+            and not tools
+            and generate_config
+        ):
             # Preserve Harmony control tokens so the channel parser can strip
             # framing without confusing analysis and final output.
             generate_config["skip_special_tokens"] = False
@@ -3000,7 +3006,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             full_prompt, generate_config, chat_template_kwargs
         )
         stream = generate_config.get("stream", False)
-        parse_harmony = _is_gpt_oss_model(self.model_family) and not tools
+        parse_harmony = (
+            _is_gpt_oss_model(getattr(self, "model_family", None)) and not tools
+        )
         structured_output = plain_json or (
             (generate_config.get("response_format") or {}).get("type")
             in {"json_schema", "json_object"}
