@@ -2,16 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { isAxiosError } from 'axios';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { Server } from 'lucide-react';
+import { ComponentRestartDialog } from '@/components/pages/component-restart-dialog';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 
@@ -121,44 +113,22 @@ export function WorkerRelaunchDialog({
     }
   };
   return (
-    <Dialog
+    <ComponentRestartDialog
       open={address !== null}
       onOpenChange={(open) => {
         if (!open && !busy) onClose();
       }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('clusterInfo.relaunch.title')}</DialogTitle>
-          <DialogDescription>{t('clusterInfo.relaunch.description')}</DialogDescription>
-        </DialogHeader>
-        <p className="break-all text-sm">{address}</p>
-        <label className="space-y-2 text-sm">
-          <span>{t('clusterInfo.relaunch.python')}</span>
-          <Input
-            aria-label={t('clusterInfo.relaunch.python')}
-            value={python}
-            disabled={busy}
-            onChange={(event) => setPython(event.target.value)}
-            placeholder="/opt/xinference/bin/python"
-          />
-        </label>
-        <p className="text-sm text-muted-foreground">{t('clusterInfo.relaunch.environmentHint')}</p>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button variant="outline" disabled={busy} onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button disabled={busy} onClick={submit}>
-            {t('clusterInfo.relaunch.title')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      title={t('clusterInfo.relaunch.title')}
+      description={t('clusterInfo.relaunch.description')}
+      icon={<Server />}
+      target={address}
+      python={python}
+      onPythonChange={setPython}
+      environmentHint={t('clusterInfo.relaunch.environmentHint')}
+      busy={busy}
+      error={error}
+      onSubmit={submit}
+    />
   );
 }
 

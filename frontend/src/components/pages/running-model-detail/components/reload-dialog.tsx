@@ -1,7 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { isAxiosError } from 'axios';
+import {
+  AlertCircle,
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  Loader2,
+  SlidersHorizontal,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -39,6 +48,23 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+const PARAMETER_LABELS: Record<string, string> = {
+  max_num_seqs: 'concurrency',
+  max_running_requests: 'concurrency',
+  max_num_batched_tokens: 'batchTokens',
+  max_model_len: 'contextLength',
+  context_length: 'contextLength',
+  gpu_memory_utilization: 'gpuMemory',
+  mem_fraction_static: 'gpuMemory',
+  max_prefill_tokens: 'prefillTokens',
+  chunked_prefill_size: 'prefillChunkSize',
+  enforce_eager: 'eagerExecution',
+  disable_cuda_graph: 'disableCudaGraph',
+  cuda_graph_max_bs_decode: 'decodeGraphBatch',
+  cuda_graph_max_bs_prefill: 'prefillGraphBatch',
+  schedule_conservativeness: 'schedulingConservativeness',
+};
+
 export function ReloadDialog({
   open,
   onOpenChange,
@@ -51,6 +77,7 @@ export function ReloadDialog({
   onReady: () => void;
 }) {
   const { t } = useI18n();
+  const fieldId = useId();
   const [config, setConfig] = useState<ReloadConfig | null>(null);
   const [values, setValues] = useState<Record<string, string | boolean>>({});
   const [job, setJob] = useState<ReloadStatus | null>(null);
@@ -164,93 +191,209 @@ export function ReloadDialog({
     }
   };
 
+  const liveParameters = parameters.filter(([key]) => config?.hot_parameters?.includes(key));
+  const engineParameters = parameters.filter(([key]) => !config?.hot_parameters?.includes(key));
+  const changeCount = Object.keys(patch).length + Number(Boolean(python.trim()));
+
+  const renderParameter = ([key, kind]: [string, string]) => {
+    const label =
+      kind === 'image_limits'
+        ? t('runningModels.reload.imageLimit')
+        : key === 'reasoning_content'
+          ? t('launchModel.parsingReasoningContent')
+          : PARAMETER_LABELS[key]
+            ? t(`runningModels.reload.fields.${PARAMETER_LABELS[key]}`)
+            : key;
+    const id = `${fieldId}-${key}`;
+    return (
+      <div
+        key={key}
+        className={
+          kind === 'bool'
+            ? 'flex items-center justify-between gap-4 rounded-xl border bg-background px-4 py-3.5'
+            : 'space-y-3 rounded-xl border bg-background p-4'
+        }
+      >
+        <label htmlFor={id} className="block min-w-0 cursor-pointer space-y-1">
+          <span className="block text-sm font-medium">{label}</span>
+          <span className="block break-all font-mono text-[11px] text-muted-foreground">{key}</span>
+        </label>
+        {kind === 'bool' ? (
+          <Switch
+            id={id}
+            aria-label={key}
+            checked={values[key] === true}
+            disabled={busy}
+            onChange={(value) => setValues((prev) => ({ ...prev, [key]: value }))}
+          />
+        ) : (
+          <Input
+            id={id}
+            aria-label={key}
+            className="h-10 bg-muted/20 tabular-nums"
+            type="number"
+            min={kind === 'image_limits' ? 1 : undefined}
+            step={kind === 'fraction' || kind === 'positive_number' ? 'any' : 1}
+            value={String(values[key] ?? '')}
+            placeholder={t('runningModels.reload.default')}
+            disabled={busy}
+            onChange={(event) => setValues((prev) => ({ ...prev, [key]: event.target.value }))}
+          />
+        )}
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{t('runningModels.reload.title')}</DialogTitle>
-          <DialogDescription>{t('runningModels.reload.description')}</DialogDescription>
+      <DialogContent className="max-h-[90vh] max-w-[calc(100%-2rem)] gap-5 sm:max-w-2xl">
+        <DialogHeader className="gap-3 pr-7 text-left">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <SlidersHorizontal className="size-5" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <DialogTitle className="text-lg">{t('runningModels.reload.title')}</DialogTitle>
+              <p className="truncate font-mono text-xs text-muted-foreground" title={modelUid}>
+                {modelUid}
+              </p>
+            </div>
+          </div>
+          <DialogDescription className="text-sm leading-6">
+            {t('runningModels.reload.description')}
+          </DialogDescription>
+          {config && (
+            <div className="flex flex-wrap items-center gap-2">
+              {config.engine_version && (
+                <Badge variant="secondary" className="font-normal">
+                  {config.engine} {config.engine_version}
+                </Badge>
+              )}
+              {config.enabled && (
+                <Badge variant="outline" className="gap-1.5 border-primary/20 text-primary">
+                  <Check />
+                  {t('runningModels.reload.weightsRetained')}
+                </Badge>
+              )}
+            </div>
+          )}
         </DialogHeader>
-        {config?.engine_version && (
-          <p className="text-sm text-muted-foreground">
-            {config.engine} {config.engine_version}
-          </p>
-        )}
-        {config?.enabled === false && (
-          <p className="text-sm">{t('runningModels.reload.disabled')}</p>
-        )}
-        {config?.hot_parameters?.includes('reasoning_content') &&
-          !python.trim() &&
-          Object.keys(patch).every((key) => config.hot_parameters?.includes(key)) && (
-            <p className="text-sm text-muted-foreground">
-              {t('runningModels.reload.reasoningHint')}
+        <div className="space-y-5">
+          {!config && !error && (
+            <div
+              role="status"
+              className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground"
+            >
+              <Loader2 className="size-4 animate-spin" />
+              {t('common.loading')}
+            </div>
+          )}
+          {config?.enabled === false && (
+            <p className="rounded-xl border bg-muted/40 px-4 py-3 text-sm leading-6 text-muted-foreground">
+              {t('runningModels.reload.disabled')}
             </p>
           )}
-        {parameters.map(([key, kind]) => (
-          <label key={key} className="flex items-center justify-between gap-4 text-sm">
-            <span>
-              {kind === 'image_limits'
-                ? t('runningModels.reload.imageLimit')
-                : key === 'reasoning_content'
-                  ? t('launchModel.parsingReasoningContent')
-                  : key}
-            </span>
-            {kind === 'bool' ? (
-              <Switch
-                aria-label={key}
-                checked={values[key] === true}
-                disabled={busy}
-                onChange={(value) => setValues((prev) => ({ ...prev, [key]: value }))}
-              />
-            ) : (
-              <Input
-                aria-label={key}
-                className="w-40"
-                type="number"
-                min={kind === 'image_limits' ? 1 : undefined}
-                step={kind === 'fraction' || kind === 'positive_number' ? 'any' : 1}
-                value={String(values[key] ?? '')}
-                placeholder={t('runningModels.reload.default')}
-                disabled={busy}
-                onChange={(event) => setValues((prev) => ({ ...prev, [key]: event.target.value }))}
-              />
-            )}
-          </label>
-        ))}
-        {config?.enabled && config.can_upgrade_environment !== false && (
-          <label className="space-y-2 text-sm">
-            <span>{t('runningModels.reload.python')}</span>
-            <Input
-              aria-label={t('runningModels.reload.python')}
-              value={python}
-              disabled={busy}
-              onChange={(event) => setPython(event.target.value)}
-              placeholder={config.python_executable || '/opt/xinference/bin/python'}
-            />
-            <p className="text-muted-foreground">{t('runningModels.reload.environmentHint')}</p>
-          </label>
-        )}
-        {job?.status === 'reloading' && (
-          <p role="status" className="text-sm">
-            {t(`runningModels.reload.${job.stage || 'queued'}`)}
+          {engineParameters.length > 0 && (
+            <section className="space-y-3" aria-label={t('runningModels.reload.engineSettings')}>
+              <h3 className="text-sm font-semibold">{t('runningModels.reload.engineSettings')}</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {engineParameters.map(renderParameter)}
+              </div>
+            </section>
+          )}
+          {liveParameters.length > 0 && (
+            <section className="space-y-3" aria-label={t('runningModels.reload.responseSettings')}>
+              <h3 className="text-sm font-semibold">
+                {t('runningModels.reload.responseSettings')}
+              </h3>
+              {liveParameters.map(renderParameter)}
+              {config?.hot_parameters?.includes('reasoning_content') &&
+                !python.trim() &&
+                Object.keys(patch).every((key) => config.hot_parameters?.includes(key)) && (
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {t('runningModels.reload.reasoningHint')}
+                  </p>
+                )}
+            </section>
+          )}
+          {config?.enabled && config.can_upgrade_environment !== false && (
+            <details className="group rounded-xl border">
+              <summary className="flex cursor-pointer list-none items-center gap-3 rounded-xl p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">
+                    {t('runningModels.reload.environmentTitle')}
+                  </span>
+                  <span
+                    className="mt-1 block truncate text-xs text-muted-foreground"
+                    title={python.trim() || undefined}
+                  >
+                    {python.trim() || t('runningModels.reload.environmentSummary')}
+                  </span>
+                </span>
+                <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="space-y-3 border-t px-4 py-4">
+                <label htmlFor={`${fieldId}-python`} className="block text-sm font-medium">
+                  {t('runningModels.reload.python')}
+                </label>
+                <Input
+                  id={`${fieldId}-python`}
+                  aria-label={t('runningModels.reload.python')}
+                  className="font-mono text-xs"
+                  value={python}
+                  disabled={busy}
+                  onChange={(event) => setPython(event.target.value)}
+                  placeholder={config.python_executable || '/opt/xinference/bin/python'}
+                />
+                <p className="text-xs leading-5 text-muted-foreground">
+                  {t('runningModels.reload.environmentHint')}
+                </p>
+              </div>
+            </details>
+          )}
+          {job?.status === 'reloading' && (
+            <div
+              role="status"
+              className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary"
+            >
+              <Loader2 className="size-4 shrink-0 animate-spin" />
+              {t(`runningModels.reload.${job.stage || 'queued'}`)}
+            </div>
+          )}
+          {(error || job?.error) && (
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"
+            >
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              <p className="min-w-0 break-words leading-6 [overflow-wrap:anywhere]">
+                {error || job?.error}
+                {job?.restored && ` ${t('runningModels.reload.restored')}`}
+              </p>
+            </div>
+          )}
+        </div>
+        <DialogFooter className="items-center border-t pt-4 sm:justify-between">
+          <p className="text-xs text-muted-foreground" aria-live="polite">
+            {t(changeCount ? 'runningModels.reload.changes' : 'runningModels.reload.noChanges', {
+              count: changeCount,
+            })}
           </p>
-        )}
-        {(error || job?.error) && (
-          <p role="alert" className="text-sm text-destructive">
-            {error || job?.error}
-            {job?.restored && ` ${t('runningModels.reload.restored')}`}
-          </p>
-        )}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            disabled={!parameters.length || busy || (!Object.keys(patch).length && !python.trim())}
-            onClick={submit}
-          >
-            {t('runningModels.reload.apply')}
-          </Button>
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              disabled={
+                !parameters.length || busy || (!Object.keys(patch).length && !python.trim())
+              }
+              onClick={submit}
+            >
+              {busy && <Loader2 className="size-4 animate-spin" />}
+              {t('runningModels.reload.apply')}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -193,6 +193,10 @@ it('disables an unsupported deployment without retrying forever and offers an ex
 it('uses the existing endpoints and trims the optional prepared environment path', async () => {
   await act(async () => root.render(<ServiceRelaunchPanel />));
   await act(async () => trigger('api').click());
+  const environment = document.querySelector('details')!;
+  assert.equal(environment.open, false);
+  await act(async () => environment.querySelector('summary')!.click());
+  assert.equal(environment.open, true);
   const input = document.querySelector<HTMLInputElement>('input')!;
   await act(async () => {
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(

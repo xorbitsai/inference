@@ -197,6 +197,7 @@ export interface RunningModelDeploymentSummary {
 }
 
 export interface RunningModelItem {
+  n_worker?: number;
   id: string;
   object: string;
   created: number;
