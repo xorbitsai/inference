@@ -1151,6 +1151,34 @@ const zhTW = {
     },
   },
   clusterInfo: {
+    serviceRelaunch: {
+      api: {
+        name: 'API 服務',
+        title: '重新啟動 / 升級 API',
+        description: '替換 API，Worker 和模型繼續執行，既有請求和串流由舊 API 執行完成。',
+        history: 'API 重新啟動記錄',
+        drainingHint: '新 API 已提供服務，舊 API 正在完成既有請求和串流。',
+      },
+      supervisor: {
+        name: 'Supervisor 控制程序',
+        title: '重新啟動 / 升級 Supervisor',
+        description:
+          '替換 Supervisor 控制邏輯，保留 API、Worker、模型及正在執行的推論。模型引擎仍使用原版本。',
+        history: 'Supervisor 重新啟動記錄',
+        drainingHint: '新 Supervisor 已提供服務，舊程序將在既有路由查詢完成後結束。',
+      },
+      environmentHint:
+        '留空使用目前環境重新啟動。升級時請填寫 Supervisor 機器上已準備好的 Xinference 環境中的 Python 絕對路徑，此處不會安裝套件。',
+      starting: '正在啟動新服務',
+      preparing: '正在檢查 Worker 並還原路由',
+      switching: '正在切換服務',
+      draining: '正在結束舊服務',
+      succeeded: '替換完成',
+      failed: '替換失敗',
+      reconnecting: '狀態查詢暫時中斷，正在重試；操作結果以伺服器記錄為準。',
+      unavailable: '目前部署暫時無法執行此操作。',
+      retry: '重試查詢狀態',
+    },
     relaunch: {
       title: '重新啟動 / 升級 Worker',
       description: '替換 Worker，同時保留模型程序與正在執行的推論。模型引擎仍使用原來的版本。',

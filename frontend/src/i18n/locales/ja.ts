@@ -1178,6 +1178,38 @@ const ja = {
     },
   },
   clusterInfo: {
+    serviceRelaunch: {
+      api: {
+        name: 'API サービス',
+        title: 'API の再起動 / アップグレード',
+        description:
+          'Worker とモデルを稼働させたまま API を置き換えます。既存のリクエストとストリームは旧 API で完了します。',
+        history: 'API の再起動履歴',
+        drainingHint:
+          '新しい API がサービスを提供中です。旧 API は既存のリクエストとストリームを処理しています。',
+      },
+      supervisor: {
+        name: 'Supervisor 制御プロセス',
+        title: 'Supervisor の再起動 / アップグレード',
+        description:
+          'API、Worker、モデル、実行中の推論を維持して Supervisor の制御ロジックを置き換えます。モデルエンジンのバージョンは変わりません。',
+        history: 'Supervisor の再起動履歴',
+        drainingHint:
+          '新しい Supervisor がサービスを提供中です。旧プロセスは既存のルート検索が完了すると終了します。',
+      },
+      environmentHint:
+        '空欄の場合は現在の環境で再起動します。アップグレードする場合は、Supervisor マシンに準備済みの Xinference 環境にある Python 実行ファイルの絶対パスを入力してください。ここではパッケージをインストールしません。',
+      starting: '新しいサービスを起動中',
+      preparing: 'Worker の確認とルートの復元中',
+      switching: 'サービスを切り替え中',
+      draining: '旧サービスの終了を待機中',
+      succeeded: '置き換え完了',
+      failed: '置き換えに失敗',
+      reconnecting:
+        '状態の取得が中断されました。再試行しています。操作結果はサーバーの記録に従います。',
+      unavailable: '現在のデプロイではこの操作を利用できません。',
+      retry: '状態の取得を再試行',
+    },
     relaunch: {
       title: 'Worker の再起動 / 更新',
       description:
