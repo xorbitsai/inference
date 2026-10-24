@@ -432,3 +432,29 @@ msgstr ""
 
 msgid "For vLLM:"
 msgstr "Für vLLM:"
+
+#: ../../user_guide/zero_downtime_upgrade.rst:28
+#: ../../user_guide/zero_downtime_upgrade.rst:33
+msgid "Restart or upgrade the API and Supervisor from Cluster Information."
+msgstr ""
+"Starten oder aktualisieren Sie API und Supervisor unter „Cluster-"
+"Informationen“."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:71
+#: ../../user_guide/zero_downtime_upgrade.rst:76
+msgid "Restart or upgrade a Worker from its row in Cluster Information."
+msgstr ""
+"Starten oder aktualisieren Sie einen Worker über seine Zeile unter „Cluster-"
+"Informationen“."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:117
+#: ../../user_guide/zero_downtime_upgrade.rst:122
+msgid "Open model reconfiguration from Running Models."
+msgstr "Öffnen Sie die Modellkonfiguration unter „Laufende Modelle“."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:124
+#: ../../user_guide/zero_downtime_upgrade.rst:129
+msgid "Open Reconfigure / upgrade model from the model's detail view."
+msgstr ""
+"Öffnen Sie „Modell neu konfigurieren / aktualisieren“ in der Detailansicht "
+"des Modells."

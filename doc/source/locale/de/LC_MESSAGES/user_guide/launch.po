@@ -666,3 +666,19 @@ msgstr "Bei aktivierter Authentifizierung erfordert die Auswahl von ``python_exe
 #: ../../source/user_guide/launch.rst
 msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for each cached model. The engine list reports candidates discovered on the worker that owns its files, including that worker's virtual environment setting. Rerank and world cache versions identify only the model name, so their candidates are not checked against a cached format. ``null`` means the metadata is unknown or discovery failed; an empty list means no matching engine is currently discoverable. Listing caches does not download weights, prepare environments, or launch models."
 msgstr "``GET /v1/cache/models`` enthält ``model_type`` und ``model_engine`` für jedes zwischengespeicherte Modell. Die Engine-Liste zeigt die auf dem Worker erkannten Kandidaten an, dem die Dateien gehören, einschließlich seiner Einstellung für virtuelle Umgebungen. Cache-Versionen für rerank und world identifizieren nur den Modellnamen; ihre Kandidaten werden daher nicht gegen ein Cache-Format geprüft. ``null`` bedeutet, dass die Metadaten unbekannt sind oder die Erkennung fehlgeschlagen ist; eine leere Liste bedeutet, dass derzeit keine passende Engine erkannt wird. Das Auflisten lädt keine Gewichte herunter, bereitet keine Umgebungen vor und startet keine Modelle."
+
+#: ../../user_guide/launch.rst:509 ../../user_guide/launch.rst:514
+msgid "Enable Keep GPU weights for reload before deploying the model."
+msgstr ""
+"Aktivieren Sie vor der Modellbereitstellung „GPU-Gewichte für das Neuladen "
+"beibehalten“."
+
+#: ../../user_guide/launch.rst:516 ../../user_guide/launch.rst:521
+msgid "Open model reconfiguration from Running Models."
+msgstr "Öffnen Sie die Modellkonfiguration unter „Laufende Modelle“."
+
+#: ../../user_guide/launch.rst:523 ../../user_guide/launch.rst:528
+msgid "Open Reconfigure / upgrade model from the model's detail view."
+msgstr ""
+"Öffnen Sie „Modell neu konfigurieren / aktualisieren“ in der Detailansicht "
+"des Modells."

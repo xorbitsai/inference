@@ -25,6 +25,13 @@ In **Cluster Information**, choose **Restart / upgrade API**, or run:
 
     xinference relaunch-api --endpoint http://127.0.0.1:9997
 
+.. figure:: /_static/supervisor_restart.png
+   :alt: Restart or upgrade the API and Supervisor from Cluster Information.
+   :width: 100%
+   :align: center
+
+   Restart or upgrade the API and Supervisor from Cluster Information.
+
 The public HTTP address stays the same. New connections use the replacement API; existing requests and streams finish on the previous API. The Supervisor, Workers and models keep running. Refresh the browser to load the upgraded Web UI.
 
 REST API: ``POST /v1/api/relaunch``.
@@ -60,6 +67,13 @@ Worker
 Replace a Worker on Linux or macOS while retaining its model processes. The Supervisor and API server keep running. Both Workers and the model processes must support the handoff protocol and use Xoscar 0.12.1 or later, compatible Python versions, the same Supervisor, GPU visibility and extensions. Models spanning Workers and Xavier or P/D deployments are currently unsupported.
 
 In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a Worker. Operation records remain visible when its address changes or the page is refreshed. This retains the current model processes; model-engine upgrades use **Reconfigure / upgrade model** in the running model's detail view.
+
+.. figure:: /_static/worker_restart.png
+   :alt: Restart or upgrade a Worker from its row in Cluster Information.
+   :width: 100%
+   :align: center
+
+   Restart or upgrade a Worker from its row in Cluster Information.
 
 .. code-block:: python
 
@@ -99,6 +113,20 @@ Model and engine
 ----------------
 
 Open a running model's detail view and choose **Reconfigure / upgrade model**. Engine replacement requires **Keep GPU weights for reload** (``enable_weight_cache=true``) at launch, vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one Worker, one replica and fixed tensor parallelism.
+
+.. figure:: /_static/reconfigure_in_running.png
+   :alt: Open model reconfiguration from Running Models.
+   :width: 100%
+   :align: center
+
+   Open model reconfiguration from Running Models.
+
+.. figure:: /_static/reconfigure_in_detail.png
+   :alt: Open Reconfigure / upgrade model from the model's detail view.
+   :width: 100%
+   :align: center
+
+   Open Reconfigure / upgrade model from the model's detail view.
 
 For vLLM:
 

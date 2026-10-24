@@ -367,3 +367,23 @@ msgstr ""
 
 msgid "For vLLM:"
 msgstr "vLLM의 경우:"
+
+#: ../../user_guide/zero_downtime_upgrade.rst:28
+#: ../../user_guide/zero_downtime_upgrade.rst:33
+msgid "Restart or upgrade the API and Supervisor from Cluster Information."
+msgstr "«클러스터 정보»에서 API와 Supervisor를 재시작하거나 업그레이드하세요."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:71
+#: ../../user_guide/zero_downtime_upgrade.rst:76
+msgid "Restart or upgrade a Worker from its row in Cluster Information."
+msgstr "«클러스터 정보»의 Worker 행에서 해당 Worker를 재시작하거나 업그레이드하세요."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:117
+#: ../../user_guide/zero_downtime_upgrade.rst:122
+msgid "Open model reconfiguration from Running Models."
+msgstr "«실행 중인 모델»에서 모델 재설정을 여세요."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:124
+#: ../../user_guide/zero_downtime_upgrade.rst:129
+msgid "Open Reconfigure / upgrade model from the model's detail view."
+msgstr "모델 상세 화면에서 «모델 재설정 / 업그레이드»를 여세요."
