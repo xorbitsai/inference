@@ -689,6 +689,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
             all_embeddings = []
             all_token_nums = 0
+            token_counts = []
             length_sorted_idx = np.argsort(
                 [-self._text_length(sen) for sen in sentences]
             )
@@ -711,8 +712,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 features = model.tokenize(sentences_batch)
                 features = batch_to_device(features, device)
                 features.update(extra_features)
-                # when batching, the attention mask 1 means there is a token
-                # thus we just sum up it to get the total number of tokens
+                # Retain counts from this encoding pass, before padding and
+                # length sorting can obscure which request owns each token.
                 if (
                     "clip" in self.model_family.model_name.lower()
                     or "jina-embeddings-v4" in self.model_family.model_name.lower()
@@ -725,8 +726,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                         features["pixel_values"], "numel"
                     ):
                         all_token_nums += features["pixel_values"].numel()
+                    token_counts.extend([-1] * len(sentences_batch))
                 else:
                     all_token_nums += features["attention_mask"].sum().item()
+                    token_counts.extend(features["attention_mask"].sum(1).tolist())
 
                 with torch.no_grad():
                     out_features = model.forward(features, **kwargs)
@@ -774,6 +777,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             all_embeddings = [
                 all_embeddings[idx] for idx in np.argsort(length_sorted_idx)
             ]
+            token_counts = [token_counts[idx] for idx in np.argsort(length_sorted_idx)]
 
             if convert_to_tensor:
                 if len(all_embeddings):
@@ -786,14 +790,14 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             if input_was_string:
                 all_embeddings = all_embeddings[0]
 
-            return all_embeddings, all_token_nums
+            return all_embeddings, all_token_nums, token_counts
 
         # seems already support prompt in embedding model
         if (
             "gte" in self.model_family.model_name.lower()
             and "qwen2" in self.model_family.model_name.lower()
         ):
-            all_embeddings, all_token_nums = encode(
+            all_embeddings, all_token_nums, token_counts = encode(
                 self._model,
                 sentences,
                 prompt_name="query",
@@ -840,7 +844,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                         raise ValueError("Please check the input data.")
 
             encode_kwargs = _build_encode_kwargs(kwargs, jina_prompt_name)
-            all_embeddings, all_token_nums = encode(
+            all_embeddings, all_token_nums, token_counts = encode(
                 self._model,
                 objs,
                 **encode_kwargs,
@@ -884,6 +888,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             else:
                 all_embeddings = list(wemm_out)
             all_token_nums = len(wemm_inputs)
+            token_counts = [1] * len(wemm_inputs)
         elif "jina-embeddings-v5-omni" in self.model_family.model_name.lower():
             # jina-embeddings-v5-omni accepts text, image, video and audio.
             # Per the model card, the SentenceTransformer wrapper auto-detects
@@ -986,9 +991,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             # token accounting for multimodal inputs is not meaningful; report
             # the input item count so usage stays non-zero.
             all_token_nums = len(objs)
+            token_counts = [1] * len(objs)
         else:
             encode_kwargs = _build_encode_kwargs(kwargs, jina_prompt_name)
-            all_embeddings, all_token_nums = encode(
+            all_embeddings, all_token_nums, token_counts = encode(
                 self._model,
                 sentences,
                 **encode_kwargs,
@@ -1014,7 +1020,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         # clean cache if possible
         self._clean_cache_if_needed(all_token_nums)
 
-        return result
+        return self._with_token_counts(result, token_counts)
 
     def _normalize_vl_inputs(
         self, inputs: Union[str, Dict[str, Any], List[str], List[Dict[str, Any]]]
