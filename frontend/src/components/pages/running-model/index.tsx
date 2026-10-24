@@ -271,6 +271,9 @@ const RunningModel = () => {
   const [addReplicaLoading, setAddReplicaLoading] = useState(false);
   const [tryApiOpen, setTryApiOpen] = useState(false);
   const [reloadModelUid, setReloadModelUid] = useState<string | null>(null);
+  const handleReloadOpenChange = useCallback((open: boolean) => {
+    if (!open) setReloadModelUid(null);
+  }, []);
   const tryApiAbility = useMemo(
     () => getTryApiAbility(activeModel?.model_ability || []),
     [activeModel?.model_ability]
@@ -1195,9 +1198,7 @@ const RunningModel = () => {
         <ReloadDialog
           open
           modelUid={reloadModelUid}
-          onOpenChange={(open) => {
-            if (!open) setReloadModelUid(null);
-          }}
+          onOpenChange={handleReloadOpenChange}
           onReady={fetchModels}
         />
       )}

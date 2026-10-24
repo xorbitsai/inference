@@ -141,7 +141,7 @@ export function ComponentRestartDialog({
           <Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" form={formId} aria-label={title} disabled={busy || !canSubmit}>
+          <Button type="submit" form={formId} disabled={busy || !canSubmit}>
             {busy && <Loader2 className="size-4 animate-spin" />}
             {t(`${prefix}.${busy ? 'submitting' : changingEnvironment ? 'upgrade' : 'restart'}`)}
           </Button>

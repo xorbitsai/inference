@@ -92,9 +92,9 @@ function Probe({ enabled = true }: { enabled?: boolean }) {
     </>
   );
 }
-function submit() {
+function submit(action = 'restart') {
   return [...document.querySelectorAll<HTMLButtonElement>('button')].find(
-    (button) => button.getAttribute('aria-label') === 'clusterInfo.relaunch.title'
+    (button) => button.textContent === `clusterInfo.relaunch.${action}`
   )!;
 }
 it('restores a pending transfer from the server after remounting', async () => {
@@ -146,10 +146,10 @@ it('retries an uncertain submission with the same request ID and typed environme
     );
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  await act(async () => submit().click());
+  await act(async () => submit('upgrade').click());
   assert.equal(closed, 0);
   assert.match(document.body.textContent!, /transport timeout/);
-  await act(async () => submit().click());
+  await act(async () => submit('upgrade').click());
   assert.equal(posts.length, 2);
   assert.equal(posts[0].url, '/v1/workers/%5B%3A%3A1%5D%3A9999/relaunch');
   assert.deepEqual(posts[0].body, posts[1].body);
@@ -165,6 +165,7 @@ it('restarts in the current environment without sending a Python override', asyn
     )
   );
   assert.equal(document.querySelector('details')!.open, false);
+  assert.equal(submit().hasAttribute('aria-label'), false);
   await act(async () => submit().click());
   assert.equal(posts.length, 1);
   assert.ok(posts[0].body.request_id);

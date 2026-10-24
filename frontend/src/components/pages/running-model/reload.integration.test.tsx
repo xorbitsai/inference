@@ -157,3 +157,26 @@ for (const overrides of [{ model_engine: 'Transformers' }, { replica: 2 }, { n_w
     assert.equal(reconfigureButton(), undefined);
   });
 }
+
+it('keeps reload polling scheduled when the list rerenders', async (context) => {
+  const get = request.get;
+  let statusReads = 0;
+  request.get = async <T,>(url: string) => {
+    if (url.endsWith('/reload')) {
+      statusReads++;
+      return { status: statusReads === 1 ? 'reloading' : 'ready' } as T;
+    }
+    return get<T>(url);
+  };
+  await act(async () => root.render(<RunningModel />));
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  await act(async () => reconfigureButton()!.click());
+  for (let index = 0; index < 4; index++) {
+    await act(async () => context.mock.timers.tick(200));
+    await act(async () => root.render(<RunningModel />));
+  }
+  assert.equal(statusReads, 1);
+  await act(async () => context.mock.timers.tick(200));
+  assert.equal(statusReads, 2);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+});

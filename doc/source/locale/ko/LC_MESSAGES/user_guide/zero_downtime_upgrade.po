@@ -187,14 +187,15 @@ msgstr ""
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:80
 msgid ""
-"In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a "
-"Worker. Operation records remain visible when its address changes or the page is "
-"refreshed. This retains the current model processes; model-engine upgrades use "
-"**Reconfigure / upgrade model** in the running model's detail view."
+"In **Cluster Information**, administrators can use **Restart / upgrade "
+"Worker** on a Worker. Operation records remain visible when its address "
+"changes or the page is refreshed. This retains the current model processes; "
+"model-engine upgrades use **Reconfigure / upgrade model** from **Running "
+"Models** or the model's detail view."
 msgstr ""
-"**클러스터 정보** 에서 관리자는 Worker의 **Worker 재시작 / 업그레이드** 를 사용할 수 있습니다. 주소가 바뀌거나 페이지를 새로 고쳐도 "
-"작업 기록이 표시됩니다. 현재 모델 프로세스는 유지됩니다. 모델 엔진 업그레이드는 실행 중인 모델 상세 화면의 **모델 재구성 / 업그레이드** 를 "
-"사용합니다."
+"**클러스터 정보** 에서 관리자는 Worker의 **Worker 재시작 / 업그레이드** 를 사용할 수 있습니다. 주소가 바뀌거나 "
+"페이지를 새로 고쳐도 작업 기록이 표시됩니다. 현재 모델 프로세스는 유지됩니다. 모델 엔진 업그레이드는 **실행 중인 모델** 또는 모델"
+" 상세 화면의 **모델 재구성 / 업그레이드** 를 사용합니다."
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:94
 msgid ""

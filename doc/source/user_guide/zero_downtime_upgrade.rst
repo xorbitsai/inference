@@ -66,7 +66,7 @@ Worker
 
 Replace a Worker on Linux or macOS while retaining its model processes. The Supervisor and API server keep running. Both Workers and the model processes must support the handoff protocol and use Xoscar 0.12.1 or later, compatible Python versions, the same Supervisor, GPU visibility and extensions. Models spanning Workers and Xavier or P/D deployments are currently unsupported.
 
-In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a Worker. Operation records remain visible when its address changes or the page is refreshed. This retains the current model processes; model-engine upgrades use **Reconfigure / upgrade model** in the running model's detail view.
+In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a Worker. Operation records remain visible when its address changes or the page is refreshed. This retains the current model processes; model-engine upgrades use **Reconfigure / upgrade model** from **Running Models** or the model's detail view.
 
 .. figure:: /_static/worker_restart.png
    :alt: Restart or upgrade a Worker from its row in Cluster Information.
