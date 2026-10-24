@@ -154,7 +154,6 @@ def run_in_subprocess(
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[Dict] = None,
     environment: Optional[Dict[str, str]] = None,
-    worker_address: Optional[str] = None,
 ) -> multiprocessing.Process:
     parent_conn, child_conn = multiprocessing.Pipe()
     p = multiprocessing.Process(
@@ -166,7 +165,6 @@ def run_in_subprocess(
             logging_conf,
             child_conn,
             environment,
-            worker_address,
         ),
     )
     # Since Xoscar 0.7, we do not uses multiprocessing to create subpool any more,
@@ -194,7 +192,6 @@ def _run_with_environment(
     logging_conf: Optional[Dict],
     conn: Connection,
     environment: Optional[Dict[str, str]],
-    worker_address: Optional[str],
 ):
     if environment:
         os.environ.update(environment)
@@ -204,7 +201,6 @@ def _run_with_environment(
         metrics_exporter_port,
         logging_conf,
         conn,
-        worker_address,
     )
 
 
