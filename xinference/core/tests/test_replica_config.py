@@ -296,6 +296,7 @@ def test_resolve_local_mode_ignores_worker_ip(roles_separated):
     if roles_separated:
         sup.address = "supervisor-new:9999"
         sup._local_deployment = True
+        sup._local_worker_address = local_addr
     assert sup.is_local_deployment() is True
     # worker_ip does not match, but local mode pins to the local worker anyway.
     targets, _ = asyncio.run(

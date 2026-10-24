@@ -268,6 +268,7 @@ class SupervisorUpgradeState:
         return {
             "protocol": PROTOCOL_VERSION,
             "local_deployment": getattr(owner, "_local_deployment", None),
+            "local_worker_address": getattr(owner, "_local_worker_address", None),
             "captured_at": time.time(),
             "workers": list(owner._worker_address_to_worker),
             "incarnations": dict(owner._ownership_registry().incarnations),
@@ -327,6 +328,7 @@ class SupervisorUpgradeState:
         from .worker_handoff import CustomModelState
 
         owner._local_deployment = snapshot.get("local_deployment")
+        owner._local_worker_address = snapshot.get("local_worker_address")
 
         CustomModelState.restore(owner, snapshot["custom_models"])
 

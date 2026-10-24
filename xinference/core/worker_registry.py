@@ -340,6 +340,8 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                 **{snapshot.ticket: (snapshot.source, snapshot.target)},
             )
             registry.checkpoint(pending=pending, retired=retired, completed=completed)
+            if getattr(self, "_local_worker_address", None) == snapshot.source:
+                self._local_worker_address = snapshot.target
             if getattr(self, "_shared_worker_address", None) == snapshot.source:
                 self._shared_worker_address = None
 

@@ -247,6 +247,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._service_address = service_address
         self._local_deployment = local_deployment
         self._shared_worker_address = shared_worker_address
+        self._local_worker_address = shared_worker_address if local_deployment else None
         self._standby = standby
         self._supervisor_prepared = False
         self._supervisor_restored = False
@@ -6426,7 +6427,11 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     def is_local_deployment(self) -> bool:
         local_deployment = getattr(self, "_local_deployment", None)
         if local_deployment is not None:
-            return local_deployment and len(self._worker_address_to_worker) == 1
+            return (
+                local_deployment
+                and len(self._worker_address_to_worker) == 1
+                and self._local_worker_address in self._worker_address_to_worker
+            )
         # TODO: temporary.
         return (
             len(self._worker_address_to_worker) == 1
