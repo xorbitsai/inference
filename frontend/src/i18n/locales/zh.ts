@@ -1303,6 +1303,34 @@ const zh = {
     },
   },
   clusterInfo: {
+    serviceRelaunch: {
+      api: {
+        name: 'API 服务',
+        title: '重启 / 升级 API',
+        description: '替换 API，Worker 和模型继续运行，已有请求和流由旧 API 执行完成。',
+        history: 'API 重启记录',
+        drainingHint: '新 API 已提供服务，旧 API 正在完成已有请求和流。',
+      },
+      supervisor: {
+        name: 'Supervisor 控制进程',
+        title: '重启 / 升级 Supervisor',
+        description:
+          '替换 Supervisor 控制逻辑，保留 API、Worker、模型及正在执行的推理。模型引擎仍使用原版本。',
+        history: 'Supervisor 重启记录',
+        drainingHint: '新 Supervisor 已提供服务，旧进程将在已有路由查询完成后退出。',
+      },
+      environmentHint:
+        '留空使用当前环境重启。升级时填写 Supervisor 机器上已准备好的 Xinference 环境中的 Python 绝对路径，此处不会安装软件包。',
+      starting: '正在启动新服务',
+      preparing: '正在检查 Worker 并恢复路由',
+      switching: '正在切换服务',
+      draining: '正在结束旧服务',
+      succeeded: '替换完成',
+      failed: '替换失败',
+      reconnecting: '状态查询暂时中断，正在重试；操作结果以服务端记录为准。',
+      unavailable: '当前部署暂时无法执行此操作。',
+      retry: '重试查询状态',
+    },
     relaunch: {
       title: '重启 / 升级 Worker',
       description: '替换 Worker，同时保留模型进程和正在执行的推理。模型引擎仍使用原来的版本。',

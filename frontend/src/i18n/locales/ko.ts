@@ -1170,6 +1170,37 @@ const ko = {
     },
   },
   clusterInfo: {
+    serviceRelaunch: {
+      api: {
+        name: 'API 서비스',
+        title: 'API 재시작 / 업그레이드',
+        description:
+          'Worker와 모델을 계속 실행하면서 API를 교체합니다. 기존 요청과 스트림은 이전 API에서 완료됩니다.',
+        history: 'API 재시작 기록',
+        drainingHint:
+          '새 API가 서비스를 제공 중입니다. 이전 API에서 기존 요청과 스트림을 완료하고 있습니다.',
+      },
+      supervisor: {
+        name: 'Supervisor 제어 프로세스',
+        title: 'Supervisor 재시작 / 업그레이드',
+        description:
+          'API, Worker, 모델 및 진행 중인 추론을 유지하면서 Supervisor 제어 로직을 교체합니다. 모델 엔진은 기존 버전을 유지합니다.',
+        history: 'Supervisor 재시작 기록',
+        drainingHint:
+          '새 Supervisor가 서비스를 제공 중입니다. 이전 프로세스는 기존 경로 조회가 완료된 후 종료됩니다.',
+      },
+      environmentHint:
+        '비워 두면 현재 환경에서 재시작합니다. 업그레이드하려면 Supervisor 머신에 준비된 Xinference 환경의 Python 실행 파일 절대 경로를 입력하세요. 여기서는 패키지를 설치하지 않습니다.',
+      starting: '새 서비스 시작 중',
+      preparing: 'Worker 확인 및 경로 복원 중',
+      switching: '서비스 전환 중',
+      draining: '이전 서비스 종료 대기 중',
+      succeeded: '교체 완료',
+      failed: '교체 실패',
+      reconnecting: '상태 조회가 중단되어 재시도 중입니다. 작업 결과는 서버 기록을 따릅니다.',
+      unavailable: '현재 배포에서는 이 작업을 사용할 수 없습니다.',
+      retry: '상태 조회 재시도',
+    },
     relaunch: {
       title: 'Worker 재시작 / 업그레이드',
       description:

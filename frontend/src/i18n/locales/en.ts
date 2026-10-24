@@ -1360,6 +1360,38 @@ const en = {
     },
   },
   clusterInfo: {
+    serviceRelaunch: {
+      api: {
+        name: 'API service',
+        title: 'Restart / upgrade API',
+        description:
+          'Replace the API while Workers and models keep running. Existing requests and streams finish on the previous API.',
+        history: 'API restart history',
+        drainingHint:
+          'The new API is serving. Existing requests and streams are finishing on the previous API.',
+      },
+      supervisor: {
+        name: 'Supervisor control process',
+        title: 'Restart / upgrade Supervisor',
+        description:
+          'Replace Supervisor control logic while keeping the API, Workers, models and ongoing inference running. Model engines keep their current versions.',
+        history: 'Supervisor restart history',
+        drainingHint:
+          'The new Supervisor is serving. Previous route lookups are finishing before the old process exits.',
+      },
+      environmentHint:
+        'Leave blank to restart in the current environment. To upgrade, enter an absolute Python executable path from an already prepared Xinference environment on the Supervisor machine. Packages are not installed here.',
+      starting: 'Starting replacement service',
+      preparing: 'Checking Workers and restoring routes',
+      switching: 'Switching service',
+      draining: 'Finishing the previous service',
+      succeeded: 'Replacement completed',
+      failed: 'Replacement failed',
+      reconnecting:
+        'Status queries were interrupted and are being retried. The operation result comes from the server record.',
+      unavailable: 'This operation is currently unavailable in this deployment.',
+      retry: 'Retry status query',
+    },
     relaunch: {
       title: 'Restart / upgrade Worker',
       description:

@@ -16,6 +16,7 @@ import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 import { Button } from '@/components/ui/button';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
+import { ServiceRelaunchPanel } from './service-relaunch';
 import {
   useWorkerRelaunches,
   WorkerRelaunchDialog,
@@ -311,6 +312,7 @@ export default function ClusterInfoPage() {
         <section>
           <h2 className="mb-3 text-lg font-bold text-primary">{t('clusterInfo.supervisor')}</h2>
           {renderSummary(supervisorSummary)}
+          <ServiceRelaunchPanel />
         </section>
 
         <section>
