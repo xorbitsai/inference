@@ -270,11 +270,9 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(
             address = (await http.get(endpoint + "/v1/address")).json()
             options = dict(
                 gpu_memory_utilization=0.3,
-                kv_cache_memory_bytes=(
-                    4096 if graph else (2048 if target_python else 1536)
-                )
+                kv_cache_memory_bytes=(4096 if graph or target_python else 1536)
                 * 1024**2,
-                max_model_len=32768 if graph else (16384 if target_python else 8192),
+                max_model_len=32768 if graph or target_python else 8192,
                 max_num_batched_tokens=2048,
                 max_num_seqs=4,
                 enforce_eager=not graph,
@@ -283,10 +281,8 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(
             if engine == "sglang":
                 options = dict(
                     mem_fraction_static=0.3,
-                    max_total_tokens=32768 if graph else 16384,
-                    context_length=(
-                        32768 if graph else (16384 if target_python else 8192)
-                    ),
+                    max_total_tokens=32768 if graph or target_python else 16384,
+                    context_length=32768 if graph or target_python else 8192,
                     max_running_requests=4,
                     disable_cuda_graph=not graph,
                     tp_size=tp,
@@ -338,9 +334,7 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(
                 async with http.stream(
                     "POST",
                     endpoint + "/v1/completions",
-                    json=body(
-                        30000 if graph else (12000 if target_python else 4096), True
-                    ),
+                    json=body(30000 if graph or target_python else 4096, True),
                 ) as response:
                     response.raise_for_status()
                     async for line in response.aiter_lines():
