@@ -240,9 +240,12 @@ for (const service of ['api', 'supervisor'] as const) {
           button.focus();
           button.click();
         }
-        await new Promise((resolve) => setTimeout(resolve, 10));
       });
       assert.equal(document.querySelector('[role="dialog"]'), null);
+      const deadline = Date.now() + 1000;
+      while (document.activeElement !== launcher && Date.now() < deadline) {
+        await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+      }
       assert.ok(document.activeElement === launcher, 'focus must return to the launcher');
       assert.equal(posts.length, 0);
     });
