@@ -29,11 +29,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-FLUX3_DIFFUSERS_URL = (
-    "https://github.com/huggingface/diffusers/archive/"
-    "1ddaf8f4e7c33afaa7c6c2c3be9e56f2c2a634c8.zip"
-)
-
 
 class Flux3Model(SDAPIDiffusionModelMixin):
     def __init__(
@@ -66,9 +61,7 @@ class Flux3Model(SDAPIDiffusionModelMixin):
         try:
             from diffusers import ComponentsManager, Flux3DistilledModularPipeline
         except ImportError as exc:
-            raise ImportError(
-                f"FLUX 3 Image Klein requires Diffusers from {FLUX3_DIFFUSERS_URL}"
-            ) from exc
+            raise ImportError("FLUX 3 Image Klein requires diffusers>=0.42.0") from exc
 
         for option in ("lora_model", "gguf_model_path", "lightning_model_path"):
             if self._kwargs.get(option):
