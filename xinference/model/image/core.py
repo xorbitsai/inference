@@ -354,7 +354,7 @@ def create_image_model_instance(
             controlnet = [controlnet]
         elif not isinstance(controlnet, collections.abc.Sequence):
             raise ValueError("controlnet should be a str or a list of str.")
-        elif set(controlnet) != len(controlnet):
+        elif len(set(controlnet)) != len(controlnet):
             raise ValueError("controlnet should be a list of unique str.")
         elif not model_spec.controlnet:
             raise ValueError(f"Model {model_name} has empty controlnet list.")
