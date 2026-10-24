@@ -20,6 +20,7 @@ import asyncio
 import contextlib
 import json
 import os
+import shlex
 import socket
 import subprocess
 import sys
@@ -43,16 +44,51 @@ if role in {"supervisor", "local"}:
     from xinference.deploy.cmdline import local
     (local if role == "local" else supervisor)()
 else:
-    from xinference.core import worker as module
-    from xinference.core.worker import WorkerActor
     from xinference.deploy.cmdline import worker
-    async def no_reap(*args, **kwargs):
-        return []
-    # A GPU acceptance test must not reclaim another service's processes.
-    module._kill_gpu_orphans_by_ppid = no_reap
-    WorkerActor._cleanup_gpu_orphans_on_startup = no_reap
     worker()
 """
+
+GPU_TEST_POLICY = """
+try:
+    from xinference.core import worker
+
+    async def no_reap(*args, **kwargs):
+        return []
+
+    worker._kill_gpu_orphans_by_ppid = no_reap
+    worker._kill_orphan_gpu_pids = no_reap
+    worker.WorkerActor._cleanup_gpu_orphans_on_startup = no_reap
+except BaseException:
+    # sitecustomize normally suppresses import failures. Never continue into
+    # a real Worker when the shared-GPU test's cleanup protection failed.
+    import os
+    import traceback
+    traceback.print_exc()
+    os._exit(90)
+"""
+
+
+def protected_gpu_environment(root, environment, target_python):
+    policy = root / "gpu-test-policy"
+    policy.mkdir()
+    (policy / "sitecustomize.py").write_text(GPU_TEST_POLICY)
+    environment = dict(environment)
+    environment["PYTHONPATH"] = str(policy) + (
+        os.pathsep + environment["PYTHONPATH"] if environment.get("PYTHONPATH") else ""
+    )
+    if target_python:
+        # Explicit interpreter upgrades intentionally discard PYTHONPATH. A
+        # private launcher restores only this test policy, without modifying
+        # the selected environment or restoring the source package search path.
+        launcher = root / "protected-python"
+        launcher.write_text(
+            "#!/bin/sh\n"
+            f'export PYTHONPATH={shlex.quote(str(policy))}"${{PYTHONPATH:+:$PYTHONPATH}}"\n'
+            f'exec {shlex.quote(target_python)} "$@"\n'
+        )
+        launcher.chmod(0o700)
+        target_python = str(launcher)
+    return environment, target_python
 
 
 def port():
@@ -94,6 +130,7 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(
         TMPDIR="/tmp",
         PATH=os.path.dirname(sys.executable) + os.pathsep + os.environ["PATH"],
     )
+    env, target_python = protected_gpu_environment(root, env, target_python)
     api_port, sup_port, worker_port = port(), port(), port()
     endpoint = f"http://127.0.0.1:{api_port}"
     processes, logs, owned = [], [], {}
@@ -111,7 +148,19 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(
         f"xinference=xinference.__version__, engine=version({engine!r}))))"
     )
     report["installations"] = {
-        name: json.loads(subprocess.check_output([python, "-c", probe], text=True))
+        name: json.loads(
+            subprocess.check_output(
+                [python, "-c", probe],
+                env={
+                    key: value
+                    for key, value in os.environ.items()
+                    if name == "source"
+                    or target_python is None
+                    or key not in {"PYTHONPATH", "PYTHONHOME"}
+                },
+                text=True,
+            )
+        )
         for name, python in (
             ("source", sys.executable),
             ("target", target_python or sys.executable),
@@ -477,7 +526,10 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(
                 report["after"]["cache"]["pid"] == report["before"]["cache"]["pid"]
             ) is expected_reuse
             if target_python:
-                assert report["after"]["python_executable"] == target_python
+                assert (
+                    report["after"]["python_executable"]
+                    == report["installations"]["target"]["python"]
+                )
                 print(
                     "VERSIONS",
                     report["before"]["engine_version"],

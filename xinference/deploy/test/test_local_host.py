@@ -3,6 +3,7 @@
 
 import concurrent.futures
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -17,6 +18,8 @@ from xoscar.utils import get_next_port
 
 EXTENSION = """
 import os
+import logging
+import xoscar as xo
 from pathlib import Path
 from starlette.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
@@ -25,15 +28,28 @@ import asyncio
 class Extension:
     name = "local-host-test"
     api_version = 1
-    def worker_metadata(self): return {}
+    def worker_metadata(self):
+        logger = logging.getLogger("xinference.core.worker")
+        return {
+            "pid": os.getpid(),
+            "level": logger.getEffectiveLevel(),
+            "formats": [h.formatter._fmt for h in logger.handlers if h.formatter],
+        }
     def configure_api(self, context):
         async def info() -> JSONResponse:
             supervisor = await context.get_supervisor_ref()
+            workers = await supervisor.get_workers_info()
+            metadata = []
+            for item in workers:
+                worker = await xo.actor_ref(address=item["work-ip"], uid="worker")
+                resources = await worker.get_extension_resources()
+                metadata.append(resources["extensions"]["local-host-test"])
             return JSONResponse({
                 "api_pid": os.getpid(),
                 "supervisor": await supervisor.supervisor_upgrade_info(),
                 "local": await supervisor.is_local_deployment(),
-                "workers": await supervisor.get_workers_info(),
+                "workers": workers,
+                "worker_metadata": metadata,
             })
         async def stream() -> EventSourceResponse:
             async def chunks():
@@ -79,6 +95,27 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
         "worker_address": f"127.0.0.1:{ports[2]}",
         "local_deployment": True,
         "api_role": "local",
+        "logging_conf": {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "test": {"format": "LOCAL-UPGRADE %(levelname)s %(message)s"}
+            },
+            "handlers": {
+                "test": {
+                    "class": "logging.StreamHandler",
+                    "formatter": "test",
+                    "stream": "ext://sys.stdout",
+                }
+            },
+            "loggers": {
+                "xinference.core.worker": {
+                    "handlers": ["test"],
+                    "level": "DEBUG",
+                    "propagate": False,
+                }
+            },
+        },
     }
     (tmp_path / "local_extension.py").write_text(EXTENSION)
     script = tmp_path / "start.py"
@@ -114,6 +151,11 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
         response = session.get(endpoint + "/local-test/info", timeout=5)
         response.raise_for_status()
         return response.json()
+
+    def check_worker_logging(info):
+        metadata = info["worker_metadata"][0]
+        assert metadata["level"] == logging.DEBUG
+        assert metadata["formats"] == ["LOCAL-UPGRADE %(levelname)s %(message)s"]
 
     def poll():
         client = requests.Session()
@@ -198,6 +240,7 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
             seen.add(initial_pid)
             assert info["api_pid"] == process.pid
             assert info["local"] is True
+            check_worker_logging(info)
             children = psutil.Process(process.pid).children(recursive=True)
             control_pids = {
                 child.pid
@@ -261,6 +304,7 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
                 operation = finish(component, submit(component, "first-" + component))
                 operations[component] = operation
                 assert get_info()["local"] is True
+                check_worker_logging(get_info())
                 assert alive(initial_pid)
                 assert not stream_future.done()
                 registration_cycle()
@@ -277,6 +321,7 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
                 finish(component, submit(component, "second-" + component))
                 assert get_info()["local"] is True
             registration_cycle()
+            check_worker_logging(get_info())
             assert alive(initial_pid)
             assert process.poll() is None
             until(
