@@ -19,12 +19,17 @@ import shutil
 import sys
 import threading
 import time
+from contextlib import closing
 from unittest import mock
 
 import pytest
 
 from .. import utils as deploy_utils
-from ..utils import SafeTimedAndSizeRotatingFileHandler, get_config_dict
+from ..utils import (
+    SafeTimedAndSizeRotatingFileHandler,
+    SafeTimedRotatingFileHandler,
+    get_config_dict,
+)
 
 _skip_on_windows = pytest.mark.skipif(
     sys.platform == "win32",
@@ -67,6 +72,77 @@ def _make_record(msg="hello", name="test"):
         args=None,
         exc_info=None,
     )
+
+
+class TestTimedHandlerInitialization:
+    @pytest.mark.parametrize(
+        "handler_type",
+        [SafeTimedRotatingFileHandler, SafeTimedAndSizeRotatingFileHandler],
+    )
+    @pytest.mark.parametrize("delay", [False, True])
+    @_skip_on_windows
+    def test_initialization_blocks_foreign_rotation(
+        self, tmp_path, handler_type, delay
+    ):
+        import fcntl
+
+        log_path = tmp_path / "test.log"
+        archive_path = tmp_path / "test.log.rotated"
+        log_path.write_text("before initialization\n", encoding="utf8")
+        with closing(handler_type(log_path, when="midnight")):
+            pass
+        exists = os.path.exists
+        checked = False
+
+        def exists_then_rotate(filename):
+            nonlocal checked
+            result = exists(filename)
+            if filename == str(log_path) and result and not checked:
+                checked = True
+                # A separate open file description models a competing rotator.
+                with open(str(log_path) + ".rotate.lock", "r+b") as lock_fd:
+                    try:
+                        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except BlockingIOError:
+                        pass
+                    else:
+                        try:
+                            os.rename(log_path, archive_path)
+                        finally:
+                            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            return result
+
+        with mock.patch(
+            "logging.handlers.os.path.exists", side_effect=exists_then_rotate
+        ):
+            with closing(
+                handler_type(log_path, when="midnight", delay=delay, encoding="utf8")
+            ) as handler:
+                handler.emit(_make_record("after initialization"))
+
+        assert checked
+        assert not archive_path.exists()
+        assert log_path.read_text(encoding="utf8") == (
+            "before initialization\nafter initialization\n"
+        )
+
+    @pytest.mark.parametrize(
+        "handler_type",
+        [SafeTimedRotatingFileHandler, SafeTimedAndSizeRotatingFileHandler],
+    )
+    @_skip_on_windows
+    def test_failed_initialization_releases_rotation_lock(self, tmp_path, handler_type):
+        import fcntl
+
+        log_path = tmp_path / "test.log"
+        with closing(handler_type(log_path, when="midnight")):
+            pass
+        with pytest.raises(ValueError, match="Invalid rollover interval"):
+            handler_type(log_path, when="invalid")
+
+        with open(str(log_path) + ".rotate.lock", "r+b") as lock_fd:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
 
 
 class TestShouldRollover:

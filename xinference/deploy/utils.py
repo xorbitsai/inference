@@ -298,8 +298,14 @@ class SafeTimedRotatingFileHandler(
         parent_dir = os.path.dirname(filename)
         if parent_dir:
             os.makedirs(parent_dir, exist_ok=True)
-        super().__init__(filename, *args, **kwargs)
-        self._init_rotation_coordination(self.baseFilename)
+        self._init_rotation_coordination(os.path.abspath(filename))
+        lock_fd = self._acquire_rotation_lock()
+        try:
+            # The stdlib checks existence and then stats the file. A concurrent
+            # rollover must not rename it between those initialization steps.
+            super().__init__(filename, *args, **kwargs)
+        finally:
+            self._release_rotation_lock(lock_fd)
 
     def _check_inode_and_reopen(self):
         if self.stream is None:
