@@ -4,6 +4,7 @@
 
 import asyncio
 import time
+from concurrent.futures import Future
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -11,6 +12,7 @@ import pytest
 import xoscar as xo
 from xoscar.utils import get_next_port
 
+from ...isolation import Isolation
 from .. import supervisor as supervisor_module
 from ..router_config_store import RouterConfigStore
 from ..router_orchestration import RouterOrchestrationController
@@ -81,6 +83,86 @@ def supervisor_snapshot(tmp_path, monkeypatch):
     source._schedule_autostart = MagicMock()
     source._upgrade_state.maintenance.pause()
     return source, worker
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("isolated", [False, True])
+async def test_autostart_retry_stays_on_actor_loop_during_pause(
+    supervisor_snapshot, isolated
+):
+    source, worker = supervisor_snapshot
+    source._actor_loop = asyncio.get_running_loop()
+    source._schedule_autostart = SupervisorActor._schedule_autostart.__get__(source)
+    source._load_autostart_entries = AsyncMock(
+        return_value=[
+            {
+                "max_retries": 3,
+                "retry_interval_seconds": 30,
+                "launch": {"model_name": "test", "model_uid": "retry-model"},
+            }
+        ]
+    )
+    source._get_autostart_model_status = AsyncMock(return_value=None)
+    source._launch_autostart_model = AsyncMock(side_effect=RuntimeError("retry"))
+    retry_entered: Future = Future()
+    wait_for_wakeup = source._wait_for_autostart_wakeup
+
+    async def wait_for_retry(delay):
+        assert delay == 30
+        retry_entered.set_result(asyncio.current_task())
+        await wait_for_wakeup(delay)
+
+    source._wait_for_autostart_wakeup = wait_for_retry
+    source._upgrade_state.maintenance.resume()
+    isolation = Isolation(asyncio.new_event_loop()) if isolated else None
+    if isolation is not None:
+        isolation.start()
+
+    async def start_retry():
+        # The health-check loop schedules this after removing a dead Worker.
+        source._schedule_autostart()
+
+    async def cancel_retry():
+        task = source._autostart_task
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    try:
+        if isolation is None:
+            await start_retry()
+        else:
+            await asyncio.wait_for(
+                asyncio.wrap_future(
+                    asyncio.run_coroutine_threadsafe(start_retry(), isolation.loop)
+                ),
+                2,
+            )
+        task = await asyncio.wait_for(asyncio.wrap_future(retry_entered), 2)
+        assert task.get_loop() is source._actor_loop
+        assert not task.done()
+        assert not source._autostart_lock.locked()
+        await asyncio.wait_for(source.pause_supervisor(), 2)
+        assert task.cancelled()
+        assert source._autostart_task is None
+        source._launch_autostart_model.assert_awaited_once()
+        snapshot = source.get_supervisor_snapshot()
+        assert (
+            snapshot["routes"]["_autostart_model_states"]["retry-model"]["attempts"]
+            == 1
+        )
+        assert snapshot["replicas"] == {"model-rep0": [worker.address]}
+    finally:
+        task = source._autostart_task
+        if task is None or task.get_loop() is asyncio.get_running_loop():
+            await cancel_retry()
+        else:
+            await asyncio.wrap_future(
+                asyncio.run_coroutine_threadsafe(cancel_retry(), task.get_loop())
+            )
+        if isolation is not None:
+            isolation.stop()
+            isolation.loop.close()
 
 
 class AgentControl(xo.StatelessActor):

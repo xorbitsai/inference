@@ -1127,6 +1127,10 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             )
 
     def _schedule_autostart(self, delay: float = 0.0):
+        actor_loop = getattr(self, "_actor_loop", None)
+        if actor_loop is not None and actor_loop is not asyncio.get_running_loop():
+            actor_loop.call_soon_threadsafe(self._schedule_autostart, delay)
+            return
         state = getattr(self, "_upgrade_state", None)
         if getattr(self, "_standby", False) or (state and state.maintenance.paused):
             return
