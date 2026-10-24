@@ -340,6 +340,8 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                 **{snapshot.ticket: (snapshot.source, snapshot.target)},
             )
             registry.checkpoint(pending=pending, retired=retired, completed=completed)
+            if getattr(self, "_shared_worker_address", None) == snapshot.source:
+                self._shared_worker_address = None
 
             # No awaits from validation to publication: route replacement and
             # old-owner fencing become visible together on the actor loop.

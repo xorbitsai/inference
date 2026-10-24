@@ -10,9 +10,11 @@ Upgrade one component at a time while inference continues. Choose the component 
 Prepare an upgrade
 ------------------
 
-The running deployment must already support the relevant replacement protocol and service host. API, Supervisor and Worker replacement support distributed deployments on Linux and macOS, not local mode or Windows. Model-engine replacement has the Linux GPU requirements described below.
+The running deployment must already support the relevant replacement protocol and service host. API, Supervisor and Worker replacement support local and distributed deployments on Linux and macOS. Windows is unsupported. Model-engine replacement has the Linux GPU requirements described below.
 
 Install a compatible Xinference version and its dependencies in a separate environment first. ``python_executable`` is an absolute Python path on the Supervisor machine for API/Supervisor upgrades, or on the Worker machine for Worker/model upgrades. Packages are not installed by these operations. Omit the path to reuse the current environment. Use an administrator session when authentication is enabled.
+
+In local mode, startup still uses an API parent and one shared Supervisor/Worker process. A component moves into a separate process only on its first upgrade; use the same commands and Web UI actions below. The original parent and shared process stay alive as service hosts, so stopping the original local service stops its replacement processes too.
 
 API and Web UI
 --------------
@@ -40,7 +42,7 @@ The HTTP 202 response contains an ``operation_id``. Poll ``GET /v1/api-relaunche
     )
     status = client.get_api_relaunch(operation["operation_id"])
 
-A failed startup leaves the previous API serving. Reuse ``request_id`` when retrying the same request. Only one replacement may run at a time. Operation history belongs to the stable service host and lasts until it stops. Local mode, Windows, Supervisor upgrades and database migrations are outside this operation.
+A failed startup leaves the previous API serving. Reuse ``request_id`` when retrying the same request. Only one replacement may run at a time. Operation history belongs to the stable service host and lasts until it stops. Windows, Supervisor upgrades and database migrations are outside this operation.
 
 Supervisor
 ----------
@@ -52,7 +54,7 @@ In **Cluster Information**, choose **Restart / upgrade Supervisor**, or run:
     xinference relaunch-supervisor --endpoint http://127.0.0.1:9997 \
       --python-executable /opt/xinference-new/bin/python --request-id supervisor-upgrade-1
 
-On Linux and macOS, ``xinference-supervisor`` can replace its Supervisor control process while retaining the API, Workers and model processes. The HTTP address and Supervisor actor address stay the same. New inference requests continue using the serving routes while the replacement prepares; existing streams stay on their model processes.
+On Linux and macOS, ``xinference-supervisor`` and ``xinference-local`` can replace its Supervisor control process while retaining the API, Workers and model processes. The HTTP address and Supervisor actor address stay the same. New inference requests continue using the serving routes while the replacement prepares; existing streams stay on their model processes.
 
 The replacement loads persisted configuration and checks the registered Workers' live model inventories and ownership. Management operations briefly wait during state transfer; model route lookups remain available. An active model launch, download, model reload or Worker handoff prevents replacement until that operation finishes. Failed preparation leaves the previous Supervisor serving.
 
@@ -68,16 +70,16 @@ The HTTP 202 response includes an ``operation_id``. Poll ``GET /v1/supervisor-re
     operation = client.relaunch_supervisor(request_id="supervisor-upgrade-1")
     status = client.get_supervisor_relaunch(operation["operation_id"])
 
-The service must have been started with Supervisor hosting support. The stable host and its state, cache, event, progress and model-routing actors retain their original environments. This operation upgrades Supervisor control logic; upgrading retained actors or changing database schemas requires a planned restart. Local mode and Windows are unsupported.
+The service must have been started with Supervisor hosting support. The stable host and its state, cache, event, progress and model-routing actors retain their original environments. This operation upgrades Supervisor control logic; upgrading retained actors or changing database schemas requires a planned restart. Windows is unsupported.
 
 .. _worker_hot_replacement:
 
 Worker
 ------
 
-Replace a distributed Worker on Linux or macOS while retaining its model processes. The Supervisor and API server keep running. Both Workers and the model processes must support the handoff protocol and use Xoscar 0.12.1 or later, compatible Python versions, the same Supervisor, GPU visibility and extensions. Local mode, models spanning Workers and Xavier or P/D deployments are currently unsupported.
+Replace a Worker on Linux or macOS while retaining its model processes. The Supervisor and API server keep running. Both Workers and the model processes must support the handoff protocol and use Xoscar 0.12.1 or later, compatible Python versions, the same Supervisor, GPU visibility and extensions. Models spanning Workers and Xavier or P/D deployments are currently unsupported.
 
-In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a distributed Worker. Operation records remain visible when its address changes or the page is refreshed. This retains the current model processes; model-engine upgrades use **Reconfigure / upgrade model** in the running model's detail view.
+In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a Worker. Operation records remain visible when its address changes or the page is refreshed. This retains the current model processes; model-engine upgrades use **Reconfigure / upgrade model** in the running model's detail view.
 
 .. code-block:: python
 
@@ -104,7 +106,7 @@ The Supervisor stores operation records in ``XINFERENCE_HOME/worker-relaunches.j
 
 The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. Replacement Workers keep updating the recovery file for the original Worker address, including models launched after relaunch.
 
-Model management changes pause during handoff; inference calls continue. Failure before ownership transfer restores the old Worker. After transfer starts, keep both processes alive while the replacement retries. The old Worker exits automatically after successful replacement.
+Model management changes pause during handoff; inference calls continue. Failure before ownership transfer restores the old Worker. After transfer starts, keep both processes alive while the replacement retries. The old Worker stops automatically after successful replacement.
 
 The model processes retain their original Xinference and engine code and loaded weights. This replaces the Worker control process. Deploy both processes on the same machine, and configure the service manager to let retained processes outlive the old Worker instead of killing its process group or container.
 

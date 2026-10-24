@@ -41,6 +41,7 @@ def main():
                 SupervisorActor,
                 service_address=configuration["service_address"],
                 standby=True,
+                local_deployment=configuration.get("local_deployment"),
                 address=configuration["address"],
                 uid=SupervisorActor.default_uid(),
             )

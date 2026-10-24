@@ -47,20 +47,15 @@ def _enable_subreaper() -> None:
             )
 
 
-async def run_worker_host(command):
-    if os.name != "posix":
-        raise RuntimeError("Worker service hosting requires Linux or macOS")
-    if not command:
-        raise ValueError("Expected a Worker command")
-    _enable_subreaper()
-    own = psutil.Process()
-    workers, descendants = {}, {}
-    exits = {}
-    stopping = asyncio.Event()
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, stopping.set)
+class ProcessOwner:
+    """Track and stop only descendants belonging to this service."""
 
+    def __init__(self):
+        self.process = psutil.Process()
+        self.workers = {}
+        self.descendants = {}
+
+    @staticmethod
     def alive(pid, created):
         try:
             proc = psutil.Process(pid)
@@ -70,29 +65,38 @@ async def run_worker_host(command):
         except psutil.NoSuchProcess:
             return False
 
-    def remember():
-        roots = [own]
-        for pid, created in workers.items():
-            if alive(pid, created):
+    def remember(self):
+        roots = [self.process]
+        for pid, created in self.workers.items():
+            if self.alive(pid, created):
                 with contextlib.suppress(psutil.NoSuchProcess):
                     roots.append(psutil.Process(pid))
         for root in roots:
             with contextlib.suppress(psutil.NoSuchProcess):
                 for proc in root.children(recursive=True):
                     if proc.uids().real == os.getuid():
-                        descendants[proc.pid] = proc.create_time()
+                        self.descendants[proc.pid] = proc.create_time()
 
-    async def register(reader, writer):
+    def reap(self, watched=()):
+        """Reap adopted children without racing their explicit process watchers."""
+        for pid, created in tuple(self.descendants.items()):
+            if pid not in watched and not self.alive(pid, created):
+                with contextlib.suppress(ChildProcessError, ProcessLookupError):
+                    os.waitpid(pid, os.WNOHANG)
+                self.descendants.pop(pid, None)
+
+    async def register(self, reader, writer):
         try:
             payload = json.loads(await asyncio.wait_for(reader.readline(), 5))
             proc = psutil.Process(payload["pid"])
             if (
                 payload.get("version") != 1
                 or proc.uids().real != os.getuid()
-                or own.pid not in {parent.pid for parent in proc.parents()}
+                or self.process.pid not in {parent.pid for parent in proc.parents()}
             ):
                 raise ValueError("Worker is outside this service")
-            workers[proc.pid] = proc.create_time()
+            self.workers[proc.pid] = proc.create_time()
+            self.descendants[proc.pid] = self.workers[proc.pid]
             writer.write(b"ok\n")
             await writer.drain()
         except (ValueError, KeyError, asyncio.TimeoutError, psutil.Error):
@@ -101,6 +105,42 @@ async def run_worker_host(command):
         finally:
             writer.close()
             await writer.wait_closed()
+
+    async def stop(self):
+        self.remember()
+        # Identities come only from this host's children/registered Workers;
+        # neither shutdown nor a failed upgrade scans other GPU services.
+        for pid, created in self.descendants.items():
+            if self.alive(pid, created):
+                with contextlib.suppress(ProcessLookupError):
+                    os.kill(pid, signal.SIGTERM)
+        deadline = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < deadline and any(
+            self.alive(pid, created) for pid, created in self.descendants.items()
+        ):
+            await asyncio.sleep(0.1)
+        for pid, created in self.descendants.items():
+            if self.alive(pid, created):
+                with contextlib.suppress(ProcessLookupError):
+                    os.kill(pid, signal.SIGKILL)
+
+
+async def run_worker_host(command):
+    if os.name != "posix":
+        raise RuntimeError("Worker service hosting requires Linux or macOS")
+    if not command:
+        raise ValueError("Expected a Worker command")
+    _enable_subreaper()
+    owner = ProcessOwner()
+    own = owner.process
+    workers, descendants = owner.workers, owner.descendants
+    exits = {}
+    stopping = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, stopping.set)
+
+    alive, remember, register = owner.alive, owner.remember, owner.register
 
     # A private short namespace also works when this process is Docker PID 1.
     with tempfile.TemporaryDirectory(prefix="xinf-host-", dir="/tmp") as directory:
@@ -152,22 +192,7 @@ async def run_worker_host(command):
         finally:
             server.close()
             await server.wait_closed()
-            remember()
-            # Identities come only from this host's children/registered Workers;
-            # neither shutdown nor a failed upgrade scans other GPU services.
-            for pid, created in descendants.items():
-                if alive(pid, created):
-                    with contextlib.suppress(ProcessLookupError):
-                        os.kill(pid, signal.SIGTERM)
-            deadline = loop.time() + 30
-            while loop.time() < deadline and any(
-                alive(pid, created) for pid, created in descendants.items()
-            ):
-                await asyncio.sleep(0.1)
-            for pid, created in descendants.items():
-                if alive(pid, created):
-                    with contextlib.suppress(ProcessLookupError):
-                        os.kill(pid, signal.SIGKILL)
+            await owner.stop()
             if process is not None:
                 await process.wait()
             for sig in (signal.SIGTERM, signal.SIGINT):

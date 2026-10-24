@@ -7,6 +7,8 @@ Set XINFERENCE_TEST_GENERATION_MODEL_PATH to a local Qwen3-0.6B directory.
 Optionally select prepared target environments with
 XINFERENCE_TEST_GENERATION_VLLM_PYTHON / XINFERENCE_TEST_GENERATION_SGLANG_PYTHON.
 Both environments must contain this Xinference feature and a supported engine.
+Every scenario upgrades API, Supervisor, Worker and model twice, including
+local mode's first migration out of the shared startup processes.
 Set XINFERENCE_TEST_GENERATION_TP=2 and XINFERENCE_TEST_GENERATION_GPU=0,1 for
 fixed two-GPU tensor parallelism, or XINFERENCE_TEST_GENERATION_CUDA_GRAPH=1
 for CUDA Graph capture. Leave enough free memory for two serving engines.
@@ -36,9 +38,10 @@ pytestmark = pytest.mark.skipif(
 BOOTSTRAP = """
 import sys
 role = sys.argv.pop(1)
-if role == "supervisor":
+if role in {"supervisor", "local"}:
     from xinference.deploy.cmdline import supervisor
-    supervisor()
+    from xinference.deploy.cmdline import local
+    (local if role == "local" else supervisor)()
 else:
     from xinference.core import worker as module
     from xinference.core.worker import WorkerActor
@@ -60,16 +63,18 @@ def port():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("engine", ["vllm", "sglang"])
-async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
+@pytest.mark.parametrize("deployment", ["local", "distributed"])
+async def test_gpu_upgrade_keeps_streams_and_requests_serving(
+    engine, deployment, tmp_path
+):
     pytest.importorskip(engine)
     root = tmp_path
     model_path = os.environ["XINFERENCE_TEST_GENERATION_MODEL_PATH"]
     (root / "bootstrap.py").write_text(BOOTSTRAP)
     target_python = os.getenv(f"XINFERENCE_TEST_GENERATION_{engine.upper()}_PYTHON")
-    hosted = True
     graph = os.getenv("XINFERENCE_TEST_GENERATION_CUDA_GRAPH") == "1"
     tp = int(os.getenv("XINFERENCE_TEST_GENERATION_TP", "1"))
-    folder = root / (engine + "-" + time.strftime("%Y%m%d-%H%M%S"))
+    folder = root / (deployment + "-" + engine + "-" + time.strftime("%Y%m%d-%H%M%S"))
     folder.mkdir()
     (root / (engine + "-latest")).write_text(str(folder))
     env = dict(
@@ -94,10 +99,23 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
     processes, logs, owned = [], [], {}
     report = {
         "engine": engine,
+        "deployment": deployment,
         "cuda_graph": graph,
         "tp": tp,
         "endpoint": endpoint,
         "folder": str(folder),
+    }
+    probe = (
+        "import json, sys, xinference; from importlib.metadata import version; "
+        "print(json.dumps(dict(python=sys.executable, package=xinference.__file__, "
+        f"xinference=xinference.__version__, engine=version({engine!r}))))"
+    )
+    report["installations"] = {
+        name: json.loads(subprocess.check_output([python, "-c", probe], text=True))
+        for name, python in (
+            ("source", sys.executable),
+            ("target", target_python or sys.executable),
+        )
     }
     uid = "seamless-" + engine
 
@@ -113,7 +131,7 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
         output = (folder / (name + ".log")).open("w")
         logs.append(output)
         command = [sys.executable, str(root / "bootstrap.py"), name, *args]
-        if name == "worker" and hosted:
+        if name == "worker":
             command = [sys.executable, "-m", "xinference.deploy.worker_host", *command]
         proc = subprocess.Popen(
             command,
@@ -157,15 +175,18 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
     tasks = []
     try:
         start(
-            "supervisor",
+            "local" if deployment == "local" else "supervisor",
             [
                 "--host",
                 "127.0.0.1",
                 "--port",
                 str(api_port),
-                "--supervisor-port",
-                str(sup_port),
-            ],
+            ]
+            + (
+                ["--supervisor-port", str(sup_port)]
+                if deployment == "distributed"
+                else []
+            ),
         )
         async with httpx.AsyncClient(
             timeout=600, limits=httpx.Limits(max_connections=20)
@@ -178,25 +199,26 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
                     return False
 
             await until(ready)
-            start(
-                "worker",
-                [
-                    "--host",
-                    "127.0.0.1",
-                    "--endpoint",
-                    endpoint,
-                    "--worker-port",
-                    str(worker_port),
-                ],
-            )
-
-            async def registered():
-                return (
-                    f"127.0.0.1:{worker_port}"
-                    in (await http.get(endpoint + "/v1/workers")).text
+            if deployment == "distributed":
+                start(
+                    "worker",
+                    [
+                        "--host",
+                        "127.0.0.1",
+                        "--endpoint",
+                        endpoint,
+                        "--worker-port",
+                        str(worker_port),
+                    ],
                 )
 
+            async def registered():
+                response = await http.get(endpoint + "/v1/workers")
+                response.raise_for_status()
+                return bool(response.json())
+
             await until(registered)
+            address = (await http.get(endpoint + "/v1/address")).json()
             options = dict(
                 gpu_memory_utilization=0.3,
                 kv_cache_memory_bytes=(
@@ -252,9 +274,10 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
             from xinference.core.supervisor import SupervisorActor
 
             supervisor = await xo.actor_ref(
-                address=f"127.0.0.1:{sup_port}", uid=SupervisorActor.default_uid()
+                address=address, uid=SupervisorActor.default_uid()
             )
             model = await supervisor.get_model(uid)
+            model_pid = await model.get_pid()
             report["before"] = await model.export_model_generation({})
             assert report["before"]["model_uid"] == f"{uid}-rep0"
             assert report["before"]["model_python_executable"] is None
@@ -306,6 +329,80 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
 
             tasks = [asyncio.create_task(stream()), asyncio.create_task(traffic())]
             await asyncio.wait_for(started.wait(), 60)
+
+            async def replace(component, round_number, executable, failed=False):
+                path = f"/v1/{component}/relaunch"
+                if component == "worker":
+                    workers = (await http.get(endpoint + "/v1/workers")).json()
+                    path = f"/v1/workers/{workers[0]['work-ip']}/relaunch"
+                response = await http.post(
+                    endpoint + path,
+                    json={
+                        "request_id": f"{component}-{round_number}",
+                        "python_executable": executable,
+                    },
+                )
+                response.raise_for_status()
+                operation = response.json()
+
+                async def settled():
+                    response = await http.get(
+                        endpoint
+                        + f"/v1/{component}-relaunches/"
+                        + operation["operation_id"]
+                    )
+                    response.raise_for_status()
+                    value = response.json()
+                    if failed:
+                        assert value["status"] != "succeeded", value
+                        return value if value["status"] == "failed" else None
+                    if value["status"] == "failed":
+                        raise RuntimeError(value)
+                    # An API stream still belongs to the original API.
+                    return (
+                        value
+                        if value["status"]
+                        in (
+                            {"draining", "succeeded"}
+                            if component == "api" and round_number == 1
+                            else {"succeeded"}
+                        )
+                        else None
+                    )
+
+                value = await until(settled)
+                if not failed:
+                    expected = report["installations"]["target"]["xinference"]
+                    if component in {"api", "supervisor"}:
+                        assert value["target_version"] == expected, value
+                    else:
+                        from xinference.core.worker import WorkerActor
+
+                        worker = await xo.actor_ref(
+                            address=value["target_worker"],
+                            uid=WorkerActor.default_uid(),
+                        )
+                        assert (await worker.get_node_metadata())[
+                            "software_version"
+                        ] == expected
+                report.setdefault("component_upgrades", []).append(
+                    {"component": component, **value}
+                )
+                return value
+
+            for component in ("api", "supervisor", "worker"):
+                await replace(component, "invalid", "/does/not/exist", failed=True)
+            first_api = await replace("api", 1, target_python)
+            for component in ("supervisor", "worker"):
+                await replace(component, 1, target_python)
+            assert not tasks[
+                0
+            ].done(), "Long stream finished before component migration"
+            assert await supervisor.is_local_deployment() is (deployment == "local")
+            assert await model.get_pid() == model_pid
+            assert (await model.export_model_generation({}))["cache"] == report[
+                "before"
+            ]["cache"]
             capacity_field = (
                 "gpu_memory_utilization" if engine == "vllm" else "mem_fraction_static"
             )
@@ -387,34 +484,26 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
                     report["after"]["engine_version"],
                     flush=True,
                 )
-            if hosted:
-                host = processes[1]
-                before_pid = host.pid
-                handoff = await http.post(
-                    endpoint + f"/v1/workers/127.0.0.1:{worker_port}/relaunch",
-                    json={"request_id": "seamless-upgrade"},
-                )
-                handoff.raise_for_status()
-                operation = handoff.json()
-
-                async def handoff_done():
-                    value = (
-                        await http.get(
-                            endpoint
-                            + "/v1/worker-relaunches/"
-                            + operation["operation_id"]
-                        )
-                    ).json()
-                    if value["status"] == "failed":
-                        raise RuntimeError(value)
-                    return value if value["status"] == "succeeded" else None
-
-                report["worker_relaunch"] = await until(handoff_done)
-                assert host.poll() is None and host.pid == before_pid
-                print("WORKER_RELAUNCH", report["worker_relaunch"], flush=True)
             assert report["after"]["config"][field] == 8
+            # Transfer both the serving generation and the old generation whose
+            # admitted long stream is still running.
+            await replace("worker", 2, target_python)
+            assert not tasks[0].done(), "Long stream finished before generation handoff"
+            assert processes[-1].poll() is None
             await asyncio.wait_for(tasks[0], 600)
+
+            async def api_drained():
+                value = (
+                    await http.get(
+                        endpoint + "/v1/api-relaunches/" + first_api["operation_id"]
+                    )
+                ).json()
+                return value if value["status"] == "succeeded" else None
+
+            report["first_api_drained"] = await until(api_drained)
             await asyncio.sleep(2)
+            for component in ("supervisor", "api"):
+                await replace(component, 2, target_python)
             # A later parameter-only replacement must keep the committed
             # interpreter and cache, even after the original engine has retired
             # and the Worker has been replaced.
@@ -469,12 +558,25 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
         for proc in processes:
             if proc.poll() is None:
                 proc.terminate()
-        await asyncio.sleep(2)
+        deadline = time.monotonic() + 45
+        while time.monotonic() < deadline and any(
+            proc.poll() is None for proc in processes
+        ):
+            await asyncio.sleep(0.1)
+        survivors = []
         for pid, created in owned.items():
             with contextlib.suppress(psutil.NoSuchProcess):
                 proc = psutil.Process(pid)
-                if proc.uids().real == os.getuid() and proc.create_time() == created:
+                if (
+                    proc.uids().real == os.getuid()
+                    and proc.create_time() == created
+                    and proc.status() != psutil.STATUS_ZOMBIE
+                ):
+                    survivors.append(pid)
                     proc.kill()
+        for process in processes:
+            process.wait(timeout=10)
+        report["cleanup_survivors"] = survivors
         for log in logs:
             log.close()
         (folder / "result.json").write_text(json.dumps(report, indent=2, default=str))
@@ -485,3 +587,5 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(engine, tmp_path):
             ),
             flush=True,
         )
+        if report.get("passed"):
+            assert not survivors, "Service shutdown left owned processes running"

@@ -334,6 +334,22 @@ async def restored_supervisor(supervisor_snapshot):
 
 
 @pytest.mark.asyncio
+async def test_local_mode_survives_role_separation(supervisor_snapshot):
+    source, worker = supervisor_snapshot
+    source._local_deployment = True
+    source._shared_worker_address = worker.address
+    assert source._has_inprocess_worker()
+    target = SupervisorActor(service_address="public:9999", standby=True)
+    try:
+        await target.restore_supervisor(source.get_supervisor_snapshot())
+        assert target.is_local_deployment()
+        assert not target._has_inprocess_worker()
+        assert not target._shares_model_registry(worker.address)
+    finally:
+        await target.__pre_destroy__()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["activate", "rollback"])
 async def test_first_health_sweep_retains_live_worker(
     restored_supervisor, supervisor_snapshot, outcome

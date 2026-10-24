@@ -3,6 +3,7 @@
 """Retain the Supervisor actor endpoint while replacing its control process."""
 
 import asyncio
+import contextlib
 import copy
 import json
 import subprocess
@@ -30,6 +31,7 @@ class SupervisorProcess:
     diagnostics: APIDiagnostics
     exited: asyncio.Task
     version: Optional[str] = None
+    shared: bool = False
 
 
 class SupervisorHost:
@@ -83,6 +85,7 @@ class SupervisorHost:
                     "service_address": self.address,
                     "settings": self.settings_store.get().to_dict(),
                     "logging_conf": self.configuration.get("logging_conf"),
+                    "local_deployment": self.configuration.get("local_deployment"),
                 }
             )
         )
@@ -156,6 +159,10 @@ class SupervisorHost:
         return copy.deepcopy(operation)
 
     async def stop_child(self, child):
+        if child.shared:
+            with contextlib.suppress(xo.ActorNotExist):
+                await xo.destroy_actor(child.ref)
+            return
         if child.process.poll() is None:
             child.process.terminate()
         try:

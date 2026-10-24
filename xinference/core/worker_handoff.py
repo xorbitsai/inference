@@ -263,7 +263,7 @@ class WorkerHandoffMixin:
             pass
         else:
             raise ValueError(
-                "Replace a distributed worker; local-mode handoff is not supported"
+                "Worker replacement requires a separate actor pool from the Supervisor"
             )
         supervisor = await self._handoff_supervisor()
         try:
