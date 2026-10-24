@@ -1,3 +1,5 @@
+# CI: linux
+
 import pytest
 
 from ..glm5_tool_parser import Glm5ToolParser
@@ -227,4 +229,30 @@ def test_tool_parser_streaming_long_call_in_small_deltas():
         ("Sure.", None, None),
         (None, "write_file", {"content": content}),
         (" Done.", None, None),
+    ]
+
+
+@pytest.mark.parametrize(
+    "name", ["glm-4.5", "GLM-4.6", "GLM-4.7", "GLM-4.7-Flash", "glm-4.5v"]
+)
+@pytest.mark.parametrize(
+    "output",
+    [
+        "<tool_call>get_weather\n<arg_key>location</arg_key>\n"
+        "<arg_value>Beijing</arg_value>\n</tool_call>",
+        "<tool_call>get_weather<arg_key>location</arg_key>"
+        "<arg_value>Beijing</arg_value></tool_call>",
+    ],
+)
+def test_glm4x_families_parse_their_xml_tool_calls(name, output):
+    # These templates ask for the same XML format as GLM-5, not the
+    # GLM-4-9B one, so their catalog entries must use this parser.
+    from ...llm_family import BUILTIN_LLM_FAMILIES
+    from .. import TOOL_PARSERS
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == name)
+    parser = TOOL_PARSERS[family.tool_parser]()
+
+    assert parser.extract_tool_calls(output) == [
+        (None, "get_weather", {"location": "Beijing"})
     ]
