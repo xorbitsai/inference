@@ -12,8 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import json
 import os
+from typing import List, Union
+from unittest.mock import Mock
+
+import pytest
 
 from xinference._model_catalog import load_model_catalog
 
@@ -104,3 +110,81 @@ def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
     assert "PaddleOCR-VL-catalog-removal-test" not in BUILTIN_IMAGE_MODELS
     assert "PaddleOCR-VL-catalog-removal-test" not in OCR_ENGINES
     assert "PaddleOCR-VL-catalog-removal-test" not in IMAGE_MODEL_DESCRIPTIONS
+
+
+@pytest.mark.parametrize(
+    "controlnet,expected_names",
+    [
+        pytest.param("canny", ["canny"], id="scalar"),
+        pytest.param(["canny"], ["canny"], id="singleton-list"),
+        pytest.param(["canny", "mlsd"], ["canny", "mlsd"], id="multiple-list"),
+    ],
+)
+def test_create_image_model_instance_accepts_controlnet(
+    monkeypatch: pytest.MonkeyPatch,
+    controlnet: Union[str, List[str]],
+    expected_names: List[str],
+) -> None:
+    from ..cache_manager import ImageCacheManager
+    from ..core import create_image_model_instance
+
+    model_name = "stable-diffusion-v1.5"
+    cached_names: List[str] = []
+
+    class CacheReached(Exception):
+        pass
+
+    def fake_cache(cache_manager: ImageCacheManager) -> str:
+        name = cache_manager._model_family.model_name
+        cached_names.append(name)
+        if name == model_name:
+            raise CacheReached
+        return f"/cache/{name}"
+
+    monkeypatch.setattr(ImageCacheManager, "cache", fake_cache)
+    with pytest.raises(CacheReached):
+        create_image_model_instance(
+            "test", model_name, controlnet=controlnet, enable_virtual_env=False
+        )
+    assert cached_names == expected_names + [model_name]
+
+
+@pytest.mark.parametrize(
+    "controlnet,message",
+    [
+        pytest.param(
+            ["canny", "canny"],
+            "controlnet should be a list of unique str.",
+            id="duplicates",
+        ),
+        pytest.param(
+            ["unknown"],
+            "controlnet `unknown` is not supported for model `stable-diffusion-v1.5`.",
+            id="unknown-list",
+        ),
+        pytest.param(
+            "unknown",
+            "controlnet `unknown` is not supported for model `stable-diffusion-v1.5`.",
+            id="unknown-scalar",
+        ),
+    ],
+)
+def test_create_image_model_instance_rejects_invalid_controlnet(
+    monkeypatch: pytest.MonkeyPatch,
+    controlnet: Union[str, List[str]],
+    message: str,
+) -> None:
+    from ..cache_manager import ImageCacheManager
+    from ..core import create_image_model_instance
+
+    cache = Mock(side_effect=AssertionError("Invalid controlnet reached caching"))
+    monkeypatch.setattr(ImageCacheManager, "cache", cache)
+    with pytest.raises(ValueError) as exc_info:
+        create_image_model_instance(
+            "test",
+            "stable-diffusion-v1.5",
+            controlnet=controlnet,
+            enable_virtual_env=False,
+        )
+    assert str(exc_info.value) == message
+    cache.assert_not_called()
