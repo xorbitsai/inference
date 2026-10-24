@@ -51,8 +51,9 @@ class Glm5ToolParser(ToolParser):
         arguments: Dict[str, Any] = {}
         for key, value in self.tool_arg_regex.findall(function_call_str):
             key = key.strip()
-            value = value.strip()
+            # A string value sits inline between the tags, so its whitespace is data.
             if not self._is_string_parameter(function_name, key):
+                value = value.strip()
                 try:
                     value = json.loads(value)
                 except Exception:

@@ -250,3 +250,24 @@ def test_qwen_string_parameters_keep_whitespace():
 
     chunks = model._to_tool_completion_chunks(_chunks(text), tools=tools)
     assert _streamed_arguments(chunks) == [expected]
+
+
+@pytest.mark.parametrize("parser_name", ["glm5", "minimax", "minimax-m3"])
+def test_inline_string_parameters_keep_whitespace(parser_name):
+    # These formats write a value inline, as "<arg_value>{value}</arg_value>" or
+    # '<parameter name="k">{value}</parameter>', so no whitespace is markup.
+    content = "    def foo():\n        return 1\n"
+    parser_cls, render = PARSERS[parser_name]
+    model = _model(parser_cls)
+    tools = _tools("save")
+    text = render([("content", content), ("count", "3")])
+
+    result = model._post_process_completion(
+        None, "test-model", _completion(text), tools
+    )
+    tool_calls = result["choices"][0]["message"]["tool_calls"]
+    expected = {"content": content, "count": 3}
+    assert json.loads(tool_calls[0]["function"]["arguments"]) == expected
+
+    chunks = model._to_tool_completion_chunks(_chunks(text), tools=tools)
+    assert _streamed_arguments(chunks) == [expected]
