@@ -118,6 +118,87 @@ def _ensure_mlx_vlm_thread_local_stream() -> Any:
     return mlx_vlm_generate
 
 
+class _StopStringBuffer:
+    """Withhold decoded suffixes that may become a request's stop string."""
+
+    def __init__(self, stop: Optional[Union[str, List[str]]]) -> None:
+        self._stops = [stop] if isinstance(stop, str) else stop or []
+        self._pending = ""
+        self.stopped = False
+
+    def append(self, text: str) -> str:
+        pending = self._pending + text
+        positions = [pending.find(stop) for stop in self._stops if stop in pending]
+        if positions:
+            self._pending = ""
+            self.stopped = True
+            return pending[: min(positions)]
+        held = max(
+            (
+                size
+                for stop in self._stops
+                for size in range(1, min(len(stop), len(pending) + 1))
+                if pending.endswith(stop[:size])
+            ),
+            default=0,
+        )
+        ready = len(pending) - held
+        self._pending = pending[ready:]
+        return pending[:ready]
+
+    def flush(self) -> str:
+        pending, self._pending = self._pending, ""
+        return pending
+
+
+class _BatchDetokenizer:
+    """Decode one request without emitting incomplete byte sequences."""
+
+    def __init__(self, tokenizer: Any, skip_special_tokens: bool) -> None:
+        from tokenizers import Tokenizer
+
+        self._stream: Optional[Any] = None
+        backend = getattr(tokenizer, "backend_tokenizer", tokenizer)
+        if isinstance(backend, Tokenizer):
+            try:
+                from tokenizers.decoders import DecodeStream
+            except ImportError:
+                # Older tokenizers versions and slow tokenizers use joint decode.
+                pass
+            else:
+                self._stream = DecodeStream(skip_special_tokens=skip_special_tokens)
+                tokenizer = backend
+        self._tokenizer = tokenizer
+        self._decode_kwargs = {"skip_special_tokens": skip_special_tokens}
+        if self._stream is None and not isinstance(tokenizer, Tokenizer):
+            # Cleanup must not rewrite text that has already been emitted.
+            self._decode_kwargs["clean_up_tokenization_spaces"] = False
+        self._tokens: List[int] = []
+        self._offset = 0
+
+    def _decode(self) -> str:
+        return self._tokenizer.decode(self._tokens, **self._decode_kwargs)
+
+    def append(self, token: int) -> str:
+        self._tokens.append(token)
+        if self._stream is not None:
+            text = self._stream.step(self._tokenizer, token) or ""
+        else:
+            text = self._decode()
+            if text.endswith("�"):
+                return ""
+            text = text[self._offset :]
+        self._offset += len(text)
+        return text
+
+    def finalize(self) -> str:
+        # DecodeStream has no finalizer. Recover its buffered suffix, including
+        # literal replacement characters or an incomplete final byte sequence.
+        text = self._decode()[self._offset :]
+        self._offset += len(text)
+        return text
+
+
 class MLXBatchModel:
     """Wrapper around MLX-LM BatchGenerator for continuous batching."""
 
@@ -472,6 +553,7 @@ class MLXBatchModel:
         prepared_cache=None,
         prompt_token_ids: Optional[List[int]] = None,
         cache_salt: Optional[str] = None,
+        stop: Optional[Union[str, List[str]]] = None,
     ) -> AsyncGenerator[CompletionChunk, None]:
         """Async stream generate method using BatchGenerator."""
         # Get or create generator for this sampling configuration
@@ -483,10 +565,11 @@ class MLXBatchModel:
 
         # Prepare request
         assert MLXBatchModel._tokenizer_ref is not None
+        tokenizer = MLXBatchModel._tokenizer_ref
         prompt_tokens = (
             prompt_token_ids
             if prompt_token_ids is not None
-            else MLXBatchModel._tokenizer_ref.encode(prompt)
+            else tokenizer.encode(prompt)
         )
         input_echo_len = len(prompt_tokens)
 
@@ -551,27 +634,34 @@ class MLXBatchModel:
                 del gen_dict["pending"][inserted_uid]
 
         try:
-            # Track generated text
-            generated_tokens = []
             chunk_id = str(uuid.uuid4())
             token_count = 0
+            stop_buffer = _StopStringBuffer(stop)
+            finished = False
+            removed = False
+            detokenizer = _BatchDetokenizer(tokenizer, skip_special_tokens)
 
             # Wait for results from background worker
             while True:
                 try:
                     # Wait for result with short timeout (so we can check if request is still active)
                     result = await asyncio.wait_for(queue.get(), timeout=0.5)
+                    finished = result.finish_reason is not None
 
+                    token_text = ""
                     if result.token is not None:
-                        generated_tokens.append(result.token)
                         token_count += 1
+                        token_text = detokenizer.append(result.token)
+                    if finished:
+                        token_text += detokenizer.finalize()
 
-                        # Decode current token
-                        assert MLXBatchModel._tokenizer_ref is not None
-                        token_text = MLXBatchModel._tokenizer_ref.decode(
-                            [result.token], skip_special_tokens=skip_special_tokens
-                        )
-                        token_text = token_text.strip("�")
+                    if result.token is not None or token_text:
+                        token_text = stop_buffer.append(token_text)
+                        if stop_buffer.stopped and not finished:
+                            async with MLXBatchModel._get_lock():
+                                batch_generator.remove([inserted_uid])
+                                gen_dict["active"].discard(inserted_uid)
+                            removed = True
 
                         # Generate completion chunk
                         completion_chunk = generate_completion_chunk(
@@ -589,24 +679,35 @@ class MLXBatchModel:
                         yield completion_chunk
 
                     # Check if generation is finished
-                    if result.finish_reason is not None:
+                    if finished or stop_buffer.stopped:
                         # Generate final chunk with finish reason
                         finish_reason = (
-                            "length" if result.finish_reason == "length" else "stop"
+                            "length"
+                            if not stop_buffer.stopped
+                            and result.finish_reason == "length"
+                            else "stop"
                         )
-                        completion_chunk = generate_completion_chunk(
-                            chunk_text="",
-                            finish_reason=finish_reason,
-                            chunk_id=chunk_id,
-                            model_uid=None,
-                            prompt_tokens=input_echo_len,
-                            completion_tokens=token_count,
-                            total_tokens=input_echo_len + token_count,
-                        )
-                        completion_chunk["usage"]["prompt_tokens_details"] = {
-                            "cached_tokens": cached_prompt_tokens
-                        }
-                        yield completion_chunk
+                        # Flush content through chat/reasoning parsing before
+                        # emitting the empty terminal chunk, without new tokens.
+                        for text, reason in (
+                            (stop_buffer.flush(), None),
+                            ("", finish_reason),
+                        ):
+                            if not text and reason is None:
+                                continue
+                            completion_chunk = generate_completion_chunk(
+                                chunk_text=text,
+                                finish_reason=reason,
+                                chunk_id=chunk_id,
+                                model_uid=None,
+                                prompt_tokens=input_echo_len,
+                                completion_tokens=token_count,
+                                total_tokens=input_echo_len + token_count,
+                            )
+                            completion_chunk["usage"]["prompt_tokens_details"] = {
+                                "cached_tokens": cached_prompt_tokens
+                            }
+                            yield completion_chunk
                         logger.debug(
                             f"Request {inserted_uid} finished with {finish_reason}"
                         )
@@ -644,6 +745,10 @@ class MLXBatchModel:
         finally:
             # Clean up queue using the correct uid
             async with MLXBatchModel._get_lock():
+                if not removed and (
+                    not finished or getattr(self, "_xavier", None) is not None
+                ):
+                    batch_generator.remove([inserted_uid])
                 if inserted_uid in gen_dict["queues"]:
                     del gen_dict["queues"][inserted_uid]
                     logger.debug(f"Cleaned up queue for uid {inserted_uid}")
@@ -657,7 +762,6 @@ class MLXBatchModel:
                 gen_dict.get("cache_salts", {}).pop(inserted_uid, None)
                 if getattr(self, "_xavier", None) is not None:
                     gen_dict["xavier_prompts"].pop(inserted_uid, None)
-                    batch_generator.remove([inserted_uid])
             if getattr(self, "_xavier", None) is not None:
                 write = gen_dict["xavier_writes"].pop(inserted_uid, None)
                 await self._xavier.flush([write] if write is not None else [])
@@ -675,6 +779,7 @@ class MLXBatchModel:
         prepared_cache=None,
         prompt_token_ids: Optional[List[int]] = None,
         cache_salt: Optional[str] = None,
+        stop: Optional[Union[str, List[str]]] = None,
     ) -> Tuple[str, CompletionUsage]:
         """Async generate method using BatchGenerator."""
         # Non-streaming: collect all tokens
@@ -696,6 +801,7 @@ class MLXBatchModel:
             prompt_cache_prefix_len=prompt_cache_prefix_len,
             prepared_cache=prepared_cache,
             prompt_token_ids=prompt_token_ids,
+            stop=stop,
             **({"cache_salt": cache_salt} if cache_salt is not None else {}),
         ):
             if chunk.get("usage") is not None:
@@ -1741,6 +1847,7 @@ class MLXModel(LLM, ChatModelMixin):
 
         output_tokens = 0
         stopped = False
+        stop_buffer = _StopStringBuffer(kwargs.get("stop"))
         start = time.perf_counter()
         tokens = []
         # For VLM models, let generate_step handle cache creation internally
@@ -1762,50 +1869,57 @@ class MLXModel(LLM, ChatModelMixin):
         if kwargs.get("_mlx_prompt_cache") is not None:
             stream_kwargs["prompt_cache"] = kwargs["_mlx_prompt_cache"]
 
-        for chunk_resp in self._generate_stream_inner(**stream_kwargs):
-            previous_output_tokens = output_tokens
-            output_tokens = getattr(chunk_resp, "generation_tokens", output_tokens + 1)
-            token = chunk_resp.token
-            if output_tokens > previous_output_tokens:
-                tokens.append(token)
+        iterator = self._generate_stream_inner(**stream_kwargs)
+        try:
+            for chunk_resp in iterator:
+                previous_output_tokens = output_tokens
+                output_tokens = getattr(
+                    chunk_resp, "generation_tokens", output_tokens + 1
+                )
+                token = chunk_resp.token
+                if output_tokens > previous_output_tokens:
+                    tokens.append(token)
 
-            is_eos = token in eos_token_ids
-            stopped = is_eos or token in stop_token_ids
-            # Native terminal responses carry buffered detokenizer text.
-            # Suppress a nonterminal stop token's own text instead.
-            native_stop = getattr(chunk_resp, "finish_reason", None) == "stop"
-            out = "" if stopped and not (is_eos or native_stop) else chunk_resp.text
-            if stream:
-                # this special character is mainly for qwen
-                out = out.strip("")
+                is_eos = token in eos_token_ids
+                stopped = is_eos or token in stop_token_ids
+                # Native terminal responses carry buffered detokenizer text.
+                # Suppress a nonterminal stop token's own text instead.
+                native_stop = getattr(chunk_resp, "finish_reason", None) == "stop"
+                out = "" if stopped and not (is_eos or native_stop) else chunk_resp.text
+                if stream:
+                    # this special character is mainly for qwen
+                    out = out.strip("")
+                out = stop_buffer.append(out)
+                stopped = stopped or stop_buffer.stopped
 
-            # MINIMAL FIX: Always yield the delta (out) rather than an accumulated output.
-            # This prevents the calling generate() method from double-accumulating text.
+                completion_usage = CompletionUsage(
+                    prompt_tokens=input_echo_len,
+                    completion_tokens=output_tokens,
+                    total_tokens=(input_echo_len + output_tokens),
+                    prompt_tokens_details={"cached_tokens": cached_prompt_tokens},
+                    cache_creation_input_tokens=cache_created_tokens,
+                )
+                if cache_creation is not None:
+                    completion_usage["cache_creation"] = cache_creation
 
-            completion_usage = CompletionUsage(
-                prompt_tokens=input_echo_len,
-                completion_tokens=output_tokens,
-                total_tokens=(input_echo_len + output_tokens),
-                prompt_tokens_details={"cached_tokens": cached_prompt_tokens},
-                cache_creation_input_tokens=cache_created_tokens,
-            )
-            if cache_creation is not None:
-                completion_usage["cache_creation"] = cache_creation
+                completion_chunk = generate_completion_chunk(
+                    chunk_text=out,
+                    finish_reason=None,
+                    chunk_id=chunk_id,
+                    model_uid=model_uid,
+                    prompt_tokens=input_echo_len,
+                    completion_tokens=output_tokens,
+                    total_tokens=(input_echo_len + output_tokens),
+                )
+                completion_chunk["usage"] = completion_usage
+                yield completion_chunk, completion_usage
 
-            completion_chunk = generate_completion_chunk(
-                chunk_text=out,
-                finish_reason=None,
-                chunk_id=chunk_id,
-                model_uid=model_uid,
-                prompt_tokens=input_echo_len,
-                completion_tokens=output_tokens,
-                total_tokens=(input_echo_len + output_tokens),
-            )
-            completion_chunk["usage"] = completion_usage
-            yield completion_chunk, completion_usage
-
-            if stopped:
-                break
+                if stopped:
+                    break
+        finally:
+            close = getattr(iterator, "close", None)
+            if close is not None:
+                close()
 
         elapsed = time.perf_counter() - start
         generation_speed = output_tokens / elapsed if elapsed > 0 else 0.0
@@ -1833,17 +1947,20 @@ class MLXModel(LLM, ChatModelMixin):
         )
         if cache_creation is not None:
             completion_usage["cache_creation"] = cache_creation
-        completion_chunk = generate_completion_chunk(
-            "",
-            finish_reason=finish_reason,
-            chunk_id=chunk_id,
-            model_uid=model_uid,
-            prompt_tokens=input_echo_len,
-            completion_tokens=output_tokens,
-            total_tokens=(input_echo_len + output_tokens),
-        )
-        completion_chunk["usage"] = completion_usage
-        yield completion_chunk, completion_usage
+        for text, reason in ((stop_buffer.flush(), None), ("", finish_reason)):
+            if not text and reason is None:
+                continue
+            completion_chunk = generate_completion_chunk(
+                text,
+                finish_reason=reason,
+                chunk_id=chunk_id,
+                model_uid=model_uid,
+                prompt_tokens=input_echo_len,
+                completion_tokens=output_tokens,
+                total_tokens=(input_echo_len + output_tokens),
+            )
+            completion_chunk["usage"] = completion_usage
+            yield completion_chunk, completion_usage
 
         if include_usage:
             completion_chunk = CompletionChunk(
@@ -2084,28 +2201,32 @@ class MLXModel(LLM, ChatModelMixin):
                 # Return async generator for streaming
                 async def stream_generator():
                     last_chunk = None
-                    async for chunk in self._batch_model.generate_stream(
-                        prompt=prompt_text,
-                        max_tokens=max_tokens,
-                        temperature=generate_config.get("temperature", 1.0),
-                        top_p=generate_config.get("top_p", 1.0),
-                        top_k=generate_config.get("top_k", 0),
-                        request_id=request_id or str(uuid.uuid4()),
-                        skip_special_tokens=generate_config.get(
-                            "skip_special_tokens", True
-                        ),
-                        prompt_cache_prefix_len=generate_config.get(
-                            "prompt_cache_prefix_len"
-                        ),
-                        **xavier_inputs,
-                    ):
-                        # Set model_uid for each chunk
-                        if hasattr(chunk, "get"):
-                            chunk["model"] = self.model_uid
-                            if chunk.get("choices") and len(chunk["choices"]) > 0:
-                                chunk["choices"][0]["index"] = 0
-                        last_chunk = chunk
-                        yield chunk
+                    async with aclosing(
+                        self._batch_model.generate_stream(
+                            prompt=prompt_text,
+                            max_tokens=max_tokens,
+                            temperature=generate_config.get("temperature", 1.0),
+                            top_p=generate_config.get("top_p", 1.0),
+                            top_k=generate_config.get("top_k", 0),
+                            request_id=request_id or str(uuid.uuid4()),
+                            skip_special_tokens=generate_config.get(
+                                "skip_special_tokens", True
+                            ),
+                            prompt_cache_prefix_len=generate_config.get(
+                                "prompt_cache_prefix_len"
+                            ),
+                            stop=generate_config.get("stop"),
+                            **xavier_inputs,
+                        )
+                    ) as chunks:
+                        async for chunk in chunks:
+                            # Set model_uid for each chunk
+                            if hasattr(chunk, "get"):
+                                chunk["model"] = self.model_uid
+                                if chunk.get("choices") and len(chunk["choices"]) > 0:
+                                    chunk["choices"][0]["index"] = 0
+                            last_chunk = chunk
+                            yield chunk
 
                     stream_options = generate_config.get("stream_options")
                     if (
@@ -2134,6 +2255,7 @@ class MLXModel(LLM, ChatModelMixin):
                     prompt_cache_prefix_len=generate_config.get(
                         "prompt_cache_prefix_len"
                     ),
+                    stop=generate_config.get("stop"),
                     **xavier_inputs,
                 )
 
