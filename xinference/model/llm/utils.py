@@ -1175,7 +1175,12 @@ class ChatModelMixin:
             return c
         if self.tool_parser is None:
             return c
-        _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
+        # ChatGLM's override is an engine ID; c may already be a chat chunk.
+        _id = (
+            "chat" + chunk_id
+            if chunk_id is not None
+            else self._get_chat_completion_chunk_id(c)
+        )
         tool_result = None
         finish_reason = None
         token = request_tools_var.set(tools)
@@ -1301,7 +1306,7 @@ class ChatModelMixin:
         else:
             usage = self._sanitize_usage(c.get("usage"))
         return {
-            "id": "chat" + f"cmpl-{_id}",
+            "id": _id,
             "model": model_uid,
             "object": "chat.completion.chunk",
             "created": int(time.time()),

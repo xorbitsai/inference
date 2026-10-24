@@ -22,6 +22,7 @@ import pytest
 from ..core import chat_context_var
 from ..reasoning_parser import ReasoningParser
 from ..tool_parsers.deepseek_v4_tool_parser import DeepseekV4ToolParser
+from ..tool_parsers.glm4_tool_parser import Glm4ToolParser
 from ..tool_parsers.llama3_tool_parser import Llama3ToolParser
 from ..tool_parsers.qwen_tool_parser import QwenToolParser
 from ..utils import ChatModelMixin
@@ -291,6 +292,140 @@ def test_to_chat_completion_chunks_usage_only_chunk_without_metadata():
             "total_tokens": 5,
         },
     }
+
+
+@pytest.mark.parametrize("stream_mode", ["sync", "async"])
+@pytest.mark.parametrize("chunk_format", ["text_completion", "chat.completion.chunk"])
+@pytest.mark.parametrize(
+    "scenario", ["plain-content", "tool", "content-then-tool", "reasoning-then-tool"]
+)
+async def test_stream_chunks_keep_completion_id(stream_mode, chunk_format, scenario):
+    mixin = ChatModelMixin()
+    mixin.model_uid = "test-model"
+    mixin.model_family = None
+    mixin.tool_parser = QwenToolParser() if scenario != "plain-content" else None
+    mixin.reasoning_parser = (
+        ReasoningParser(True, "<think>", "</think>", auto_insert_start_tag=False)
+        if scenario == "reasoning-then-tool"
+        else None
+    )
+    if scenario == "plain-content":
+        texts = ["Hello", " world"]
+    else:
+        texts = [
+            '<tool_call>\n{"name": "get_weather", "arguments":',
+            '{"city": "Beijing"}}\n</tool_call>',
+            '<tool_call>\n{"name": "get_weather", "arguments":',
+            '{"city": "Shanghai"}}\n</tool_call>',
+        ]
+        if scenario == "content-then-tool":
+            texts.insert(0, "Let me check. ")
+        elif scenario == "reasoning-then-tool":
+            texts[:0] = ["<think>", "need the tool", "</think>Let me check. "]
+    base = {
+        "id": (
+            "cmpl-engine-stream-1"
+            if chunk_format == "text_completion"
+            else "chatcmpl-engine-stream-1"
+        ),
+        "object": chunk_format,
+        "model": "test-model",
+        "created": 123,
+    }
+    chunks = []
+    for text in texts + [""]:
+        choice = {
+            "index": 0,
+            "finish_reason": "stop" if len(chunks) == len(texts) else None,
+        }
+        if chunk_format == "text_completion":
+            choice["text"] = text
+        else:
+            choice["delta"] = {"content": text}
+        chunks.append({**base, "choices": [choice]})
+    usage = {"prompt_tokens": 3, "completion_tokens": len(texts)}
+    usage["total_tokens"] = sum(usage.values())
+    # Exercise the fallback identity for a usage chunk without engine metadata.
+    chunks.append({"choices": [], "usage": usage})
+
+    if stream_mode == "sync":
+        if mixin.tool_parser:
+            results = list(mixin._to_tool_completion_chunks(iter(chunks)))
+        else:
+            results = list(mixin._to_chat_completion_chunks(iter(chunks)))
+    else:
+
+        async def source():
+            for chunk in chunks:
+                yield chunk
+
+        if mixin.tool_parser:
+            stream = mixin._async_to_tool_completion_chunks(source())
+        else:
+            stream = mixin._async_to_chat_completion_chunks(source())
+        results = [chunk async for chunk in stream]
+
+    assert results[-1]["choices"] == []
+    assert results[-1]["usage"] == usage
+    assert results[-2]["choices"][0]["finish_reason"] == (
+        "tool_calls" if mixin.tool_parser else "stop"
+    )
+    deltas = [choice["delta"] for chunk in results for choice in chunk["choices"]]
+    if mixin.tool_parser:
+        call_ids = [
+            call["id"]
+            for delta in deltas
+            for call in delta.get("tool_calls", [])
+            if "id" in call
+        ]
+        assert len(call_ids) == len(set(call_ids)) == 2
+        assert "chatcmpl-engine-stream-1" not in call_ids
+    else:
+        assert "".join(delta.get("content") or "" for delta in deltas) == "Hello world"
+    if mixin.reasoning_parser:
+        assert (
+            "".join(delta.get("reasoning_content") or "" for delta in deltas)
+            == "need the tool"
+        )
+    assert {chunk["id"] for chunk in results} == {"chatcmpl-engine-stream-1"}
+
+
+@pytest.mark.parametrize("chunk_id", ["engine-stream-1", "cmpl-engine-stream-1"])
+def test_post_process_completion_chunk_keeps_chatglm_explicit_id(chunk_id):
+    mixin = ChatModelMixin()
+    mixin.tool_parser = Glm4ToolParser()
+    base = {"id": chunk_id, "model": "test-model", "created": 123}
+    results = mixin._get_first_chat_completion_chunk(
+        {**base, "choices": [{"text": "", "index": 0, "finish_reason": None}]}
+    )
+    tool_chunk = mixin._post_process_completion_chunk(
+        None,
+        "test-model",
+        {
+            "id": "chatcmpl-ignored",
+            "object": "chat.completion.chunk",
+            "name": "get_weather",
+            "arguments": '{"city": "Beijing"}',
+            "choices": [{}],
+        },
+        chunk_id=chunk_id,
+    )
+    assert tool_chunk is not None
+    assert tool_chunk["choices"][0]["delta"]["tool_calls"][0]["id"] != tool_chunk["id"]
+    results.append(tool_chunk)
+    results.append(
+        mixin._get_usage_chat_completion_chunk(
+            {
+                **base,
+                "usage": {
+                    "prompt_tokens": 3,
+                    "completion_tokens": 2,
+                    "total_tokens": 5,
+                },
+            }
+        )
+    )
+    assert {chunk["id"] for chunk in results} == {"chat" + chunk_id}
 
 
 def test_to_chat_completion_propagates_logprobs():
