@@ -4,12 +4,15 @@
 
 import asyncio
 import copy
+import logging
 import threading
 import time
 from typing import Any, Optional
 
 import xoscar as xo
 from xoscar.context import get_context
+
+logger = logging.getLogger(__name__)
 
 PROTOCOL_VERSION = 1
 
@@ -67,6 +70,7 @@ class SupervisorGateway(xo.StatelessActor):
         self.changed = asyncio.Condition()
         self.controls = 0
         self.readers: dict = {}
+        self._terminal_callbacks: set[asyncio.Task] = set()
 
     def __getattr__(self, name):
         if name.startswith("_"):
@@ -86,6 +90,31 @@ class SupervisorGateway(xo.StatelessActor):
             "drain_supervisor_reads",
         }:
             return await super().__on_receive__(message)
+        if method == "mark_replica_dead" and self.phase == "frozen":
+            # This is a one-shot fact, not a cancellable management request.
+            # Keep it until the selected owner can apply it, even if the
+            # Worker's bounded RPC times out while snapshot/restore is running.
+            task = asyncio.create_task(self._forward(message))
+            self._terminal_callbacks.add(task)
+            task.add_done_callback(self._terminal_callback_done)
+            return await asyncio.shield(task)
+        return await self._forward(message)
+
+    def _terminal_callback_done(self, task):
+        self._terminal_callbacks.discard(task)
+        if not task.cancelled() and task.exception() is not None:
+            logger.error(
+                "Failed to deliver dead-replica notification", exc_info=task.exception()
+            )
+
+    async def __pre_destroy__(self):
+        tasks = tuple(self._terminal_callbacks)
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _forward(self, message):
+        method = message[0]
         reading = method in INFERENCE_READS or method in LIVENESS_CALLS
         async with self.changed:
             await self.changed.wait_for(

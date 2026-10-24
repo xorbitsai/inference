@@ -27,9 +27,10 @@ class Model(xo.StatelessActor):
 
 
 class Worker(xo.StatelessActor):
-    def __init__(self, model):
+    def __init__(self, model, replica_model_uid="model-rep0"):
         super().__init__()
         self.model = model
+        self.replica_model_uid = replica_model_uid
         self.incarnation = uuid.uuid4().hex
         self.inventory_available = True
 
@@ -48,14 +49,51 @@ class Worker(xo.StatelessActor):
     def list_models(self):
         if not self.inventory_available:
             raise RuntimeError("Worker inventory unavailable")
-        return {"model-rep0": {}}
+        return {self.replica_model_uid: {}}
 
     def get_model(self, model_uid):
-        assert model_uid == "model-rep0"
+        assert model_uid == self.replica_model_uid
         return self.model
 
     def set_inventory_available(self, available):
         self.inventory_available = available
+
+
+class RestoreWorker(Worker):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.inspected = asyncio.Event()
+        self.release_inventory = asyncio.Event()
+        self.hold_inventory = False
+        self.model_alive = True
+
+    async def list_models(self):
+        inventory = super().list_models()
+        self.inspected.set()
+        if self.hold_inventory:
+            await self.release_inventory.wait()
+            if not self.inventory_available:
+                raise RuntimeError("Worker inventory unavailable")
+        return inventory
+
+    async def wait_inspected(self):
+        await self.inspected.wait()
+
+    def block_inventory(self):
+        self.inspected.clear()
+        self.hold_inventory = True
+
+    def finish_inventory(self, available):
+        self.inventory_available = available
+        self.release_inventory.set()
+
+    def stop_model(self):
+        self.model_alive = False
+
+    def get_model(self, model_uid):
+        if not self.model_alive:
+            raise RuntimeError("Model stopped")
+        return super().get_model(model_uid)
 
 
 class Control(xo.StatelessActor):
@@ -272,6 +310,96 @@ async def test_router_heartbeats_remain_live_through_long_drain_and_freeze(monke
 async def completed(host, operation):
     await asyncio.wait_for(asyncio.shield(host.operation_task), 60)
     return host.operations[operation["operation_id"]]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("rollback", [False, True])
+async def test_terminal_replica_death_survives_frozen_callback_timeout(
+    tmp_path, monkeypatch, rollback
+):
+    monkeypatch.setenv("XINFERENCE_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("XINFERENCE_EXTENSIONS", "")
+    monkeypatch.setenv("XINFERENCE_DISABLE_HEALTH_CHECK", "1")
+    address = f"127.0.0.1:{get_next_port()}"
+    host = SupervisorHost(
+        {"supervisor_address": address},
+        tmp_path,
+        SystemSettingsStore(str(tmp_path / "settings.json")),
+    )
+    pools = []
+    try:
+        workers, models = [], []
+        for index in range(2):
+            pool = await xo.create_actor_pool(
+                address=f"127.0.0.1:{get_next_port()}", n_process=0
+            )
+            pools.append(pool)
+            model = await xo.create_actor(Model, address=pool.external_address)
+            models.append(model)
+            workers.append(
+                await xo.create_actor(
+                    RestoreWorker,
+                    model,
+                    f"model-rep{index}",
+                    address=pool.external_address,
+                    uid="worker",
+                )
+            )
+        await host.start(dict(os.environ))
+        # Use the RPC envelope/cancellation path rather than LocalActorRef.
+        supervisor = xo.ActorRef(address, "supervisor")
+        for index, worker in enumerate(workers):
+            await supervisor.add_worker(
+                worker.address,
+                replica_states=[
+                    {
+                        "replica_model_uid": f"model-rep{index}",
+                        "n_worker": 1,
+                        "shard": 0,
+                    }
+                ],
+                incarnation=await worker.worker_incarnation(),
+            )
+        source = host.active
+        await workers[1].block_inventory()
+        operation = host.create()
+        await asyncio.wait_for(
+            asyncio.gather(*(worker.wait_inspected() for worker in workers)), 15
+        )
+        # A has already been inspected; B holds restoration in the frozen phase.
+        await workers[0].stop_model()
+        await xo.destroy_actor(models[0])
+        notifier = SimpleNamespace(
+            get_supervisor_ref=AsyncMock(return_value=supervisor)
+        )
+        await asyncio.wait_for(
+            WorkerActor._evict_replica_from_supervisor(notifier, "model-rep0"), 7
+        )
+        assert not host.operation_task.done()
+        # A post-snapshot notification must not mutate only the old owner.
+        info = await source.ref.get_instance_info(model_name=None, model_uid="model")
+        assert info[0]["replica"] == 2
+        await workers[1].finish_inventory(not rollback)
+        result = await completed(host, operation)
+        assert result["status"] == ("failed" if rollback else "succeeded"), result
+        assert (host.active is source) is rollback
+
+        async def wait_evicted():
+            while True:
+                info = await supervisor.get_instance_info(
+                    model_name=None, model_uid="model"
+                )
+                if info[0]["replica"] == 1:
+                    return
+                await asyncio.sleep(0.01)
+
+        await asyncio.wait_for(wait_evicted(), 2)
+        for _ in range(4):
+            assert await supervisor.get_model("model") == models[1]
+    finally:
+        await host.stop()
+        for pool in pools:
+            await pool.stop()
 
 
 @pytest.mark.asyncio
