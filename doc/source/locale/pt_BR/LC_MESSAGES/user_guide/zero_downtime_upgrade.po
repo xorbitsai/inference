@@ -210,15 +210,17 @@ msgstr ""
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:80
 msgid ""
-"In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a "
-"Worker. Operation records remain visible when its address changes or the page is "
-"refreshed. This retains the current model processes; model-engine upgrades use "
-"**Reconfigure / upgrade model** in the running model's detail view."
+"In **Cluster Information**, administrators can use **Restart / upgrade "
+"Worker** on a Worker. Operation records remain visible when its address "
+"changes or the page is refreshed. This retains the current model processes; "
+"model-engine upgrades use **Reconfigure / upgrade model** from **Running "
+"Models** or the model's detail view."
 msgstr ""
-"Em **Informações do cluster**, administradores podem usar **Reiniciar / atualizar "
-"Worker** em um Worker. Os registros continuam visíveis após mudar o endereço ou "
-"recarregar a página. Isso mantém os processos atuais do modelo; para atualizar o "
-"mecanismo, use **Reconfigurar / atualizar modelo** nos detalhes do modelo ativo."
+"Em **Informações do cluster**, administradores podem usar **Reiniciar / "
+"atualizar Worker** em um Worker. Os registros continuam visíveis após mudar "
+"o endereço ou recarregar a página. Isso mantém os processos atuais do "
+"modelo; para atualizar o mecanismo, use **Reconfigurar / atualizar modelo** "
+"em **Modelos em execução** ou nos detalhes do modelo."
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:94
 msgid ""
@@ -422,3 +424,27 @@ msgstr ""
 
 msgid "For vLLM:"
 msgstr "Para vLLM:"
+
+#: ../../user_guide/zero_downtime_upgrade.rst:28
+#: ../../user_guide/zero_downtime_upgrade.rst:33
+msgid "Restart or upgrade the API and Supervisor from Cluster Information."
+msgstr ""
+"Reinicie ou atualize a API e o Supervisor em «Informações do cluster»."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:71
+#: ../../user_guide/zero_downtime_upgrade.rst:76
+msgid "Restart or upgrade a Worker from its row in Cluster Information."
+msgstr ""
+"Reinicie ou atualize um Worker pela sua linha em «Informações do cluster»."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:117
+#: ../../user_guide/zero_downtime_upgrade.rst:122
+msgid "Open model reconfiguration from Running Models."
+msgstr "Abra a reconfiguração do modelo em «Modelos em execução»."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:124
+#: ../../user_guide/zero_downtime_upgrade.rst:129
+msgid "Open Reconfigure / upgrade model from the model's detail view."
+msgstr ""
+"Abra «Reconfigurar / atualizar modelo» na visualização de detalhes do "
+"modelo."

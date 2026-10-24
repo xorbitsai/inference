@@ -578,3 +578,15 @@ msgstr "啟用驗證時，選擇 ``python_executable`` 需要管理員權限。�
 #: ../../source/user_guide/launch.rst
 msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for each cached model. The engine list reports candidates discovered on the worker that owns its files, including that worker's virtual environment setting. Rerank and world cache versions identify only the model name, so their candidates are not checked against a cached format. ``null`` means the metadata is unknown or discovery failed; an empty list means no matching engine is currently discoverable. Listing caches does not download weights, prepare environments, or launch models."
 msgstr "``GET /v1/cache/models`` 為每個快取模型傳回 ``model_type`` 和 ``model_engine``。引擎清單回報檔案所屬 Worker 探索到的候選引擎，並遵循該 Worker 的虛擬環境設定。rerank 和 world 的快取版本僅識別模型名稱，因此這些類型的候選引擎不依快取格式驗證。``null`` 表示中繼資料未知或引擎探索失敗；空清單表示目前未探索到相符的引擎。查詢快取不會下載權重、準備環境或啟動模型。"
+
+#: ../../user_guide/launch.rst:509 ../../user_guide/launch.rst:514
+msgid "Enable Keep GPU weights for reload before deploying the model."
+msgstr "部署模型前啟用「保留 GPU 權重以支援重新載入」。"
+
+#: ../../user_guide/launch.rst:516 ../../user_guide/launch.rst:521
+msgid "Open model reconfiguration from Running Models."
+msgstr "在「執行中的模型」頁面開啟重新設定。"
+
+#: ../../user_guide/launch.rst:523 ../../user_guide/launch.rst:528
+msgid "Open Reconfigure / upgrade model from the model's detail view."
+msgstr "在模型詳細資訊頁選擇「重新設定 / 升級模型」。"

@@ -177,13 +177,15 @@ msgstr ""
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:80
 msgid ""
-"In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a "
-"Worker. Operation records remain visible when its address changes or the page is "
-"refreshed. This retains the current model processes; model-engine upgrades use "
-"**Reconfigure / upgrade model** in the running model's detail view."
+"In **Cluster Information**, administrators can use **Restart / upgrade "
+"Worker** on a Worker. Operation records remain visible when its address "
+"changes or the page is refreshed. This retains the current model processes; "
+"model-engine upgrades use **Reconfigure / upgrade model** from **Running "
+"Models** or the model's detail view."
 msgstr ""
 "在 **叢集資訊** 中，管理員可對Worker 使用 **重新啟動 / 升級 Worker**。Worker "
-"位址變更或頁面重新整理後，作業記錄仍然可見。此作業保留目前的模型程序；升級模型引擎請在執行中模型的詳細資料頁使用 **重新設定 / 升級模型**。"
+"位址變更或頁面重新整理後，作業記錄仍然可見。此作業保留目前的模型程序；升級模型引擎請在 **執行中的模型** 頁面或模型詳細資料頁使用 **重新設定 /"
+" 升級模型**。"
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:94
 msgid ""
@@ -351,3 +353,23 @@ msgstr ""
 
 msgid "For vLLM:"
 msgstr "以 vLLM 為例："
+
+#: ../../user_guide/zero_downtime_upgrade.rst:28
+#: ../../user_guide/zero_downtime_upgrade.rst:33
+msgid "Restart or upgrade the API and Supervisor from Cluster Information."
+msgstr "在「叢集資訊」中重新啟動或升級 API 和 Supervisor。"
+
+#: ../../user_guide/zero_downtime_upgrade.rst:71
+#: ../../user_guide/zero_downtime_upgrade.rst:76
+msgid "Restart or upgrade a Worker from its row in Cluster Information."
+msgstr "在「叢集資訊」的 Worker 資料列中重新啟動或升級該節點。"
+
+#: ../../user_guide/zero_downtime_upgrade.rst:117
+#: ../../user_guide/zero_downtime_upgrade.rst:122
+msgid "Open model reconfiguration from Running Models."
+msgstr "在「執行中的模型」頁面開啟重新設定。"
+
+#: ../../user_guide/zero_downtime_upgrade.rst:124
+#: ../../user_guide/zero_downtime_upgrade.rst:129
+msgid "Open Reconfigure / upgrade model from the model's detail view."
+msgstr "在模型詳細資訊頁選擇「重新設定 / 升級模型」。"

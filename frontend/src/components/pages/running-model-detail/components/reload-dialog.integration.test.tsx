@@ -157,6 +157,10 @@ it('submits typed changed fields and follows the asynchronous reload', async () 
 });
 it('can upgrade the model environment without changing engine parameters', async () => {
   await render();
+  const environment = document.querySelector('details')!;
+  assert.equal(environment.open, false);
+  await act(async () => environment.querySelector('summary')!.click());
+  assert.equal(environment.open, true);
   const input = document.querySelector<HTMLInputElement>(
     'input[aria-label="runningModels.reload.python"]'
   )!;
@@ -170,6 +174,20 @@ it('can upgrade the model environment without changing engine parameters', async
   assert.ok(!applyButton().disabled);
   await act(async () => applyButton().click());
   assert.deepEqual(posts[0].body, { model_config: {}, python_executable: '/opt/new/bin/python' });
+});
+it('groups engine and response settings with readable labels and parameter names', async () => {
+  await render();
+  const engine = document.querySelector(
+    'section[aria-label="runningModels.reload.engineSettings"]'
+  )!;
+  const response = document.querySelector(
+    'section[aria-label="runningModels.reload.responseSettings"]'
+  )!;
+  assert.match(engine.textContent || '', /runningModels.reload.fields.concurrency/);
+  assert.ok(engine.querySelector('input[aria-label="max_num_seqs"]'));
+  assert.ok(response.querySelector('button[aria-label="reasoning_content"]'));
+  assert.equal(engine.querySelector('button[aria-label="reasoning_content"]'), null);
+  assert.match(engine.textContent || '', /max_num_seqs/);
 });
 it('hides environment selection without administrator access', async () => {
   canUpgradeEnvironment = false;

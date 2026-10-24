@@ -784,11 +784,9 @@ const en = {
   runningModels: {
     reload: {
       title: 'Reconfigure / upgrade model',
-      description:
-        'The current engine keeps serving while the replacement starts. New requests switch only after the replacement is ready; existing requests finish on their original engine. Parallelism, precision and quantization cannot change.',
+      description: 'Your model keeps serving while the new configuration is prepared.',
       disabled: 'Engine parameter changes require GPU weight retention at launch.',
-      reasoningHint:
-        'Reasoning parsing changes without restarting the engine. Current requests finish before applying the change.',
+      reasoningHint: 'Applies after current requests finish, without restarting the engine.',
       imageLimit: 'Maximum images per request',
       default: 'Engine default',
       apply: 'Apply',
@@ -799,7 +797,27 @@ const en = {
       restored: 'Previous configuration restored.',
       python: 'Python executable (optional)',
       environmentHint:
-        'Leave blank to use the current model environment. The target environment must already contain Xinference and the model engine. Compatible versions share retained weights; different versions need memory for a separate weight copy. If preparation fails, the current engine keeps serving.',
+        'Use a prepared environment with Xinference and the engine installed. Different engine versions may need extra GPU memory.',
+      weightsRetained: 'GPU weights retained',
+      engineSettings: 'Engine settings',
+      responseSettings: 'Response options',
+      environmentTitle: 'Upgrade environment',
+      environmentSummary: 'Optional · Keep the current environment by default',
+      changes: '{{count}} pending changes',
+      noChanges: 'No changes yet',
+      fields: {
+        concurrency: 'Concurrent requests',
+        batchTokens: 'Batch token budget',
+        contextLength: 'Context length',
+        gpuMemory: 'GPU memory fraction',
+        eagerExecution: 'Eager execution',
+        disableCudaGraph: 'Disable CUDA Graph',
+        prefillTokens: 'Prefill token budget',
+        prefillChunkSize: 'Prefill chunk size',
+        decodeGraphBatch: 'CUDA Graph decode batch limit',
+        prefillGraphBatch: 'CUDA Graph prefill batch limit',
+        schedulingConservativeness: 'Scheduling conservativeness',
+      },
     },
     searchPlaceholder: 'Search model name or model UID...',
     loadingModels: 'Loading models...',
@@ -1364,8 +1382,7 @@ const en = {
       api: {
         name: 'API service',
         title: 'Restart / upgrade API',
-        description:
-          'Replace the API while Workers and models keep running. Existing requests and streams finish on the previous API.',
+        description: 'Existing requests finish normally while the new API takes over.',
         history: 'API restart history',
         drainingHint:
           'The new API is serving. Existing requests and streams are finishing on the previous API.',
@@ -1373,14 +1390,13 @@ const en = {
       supervisor: {
         name: 'Supervisor control process',
         title: 'Restart / upgrade Supervisor',
-        description:
-          'Replace Supervisor control logic while keeping the API, Workers, models and ongoing inference running. Model engines keep their current versions.',
+        description: 'Workers, models and ongoing inference keep running during the restart.',
         history: 'Supervisor restart history',
         drainingHint:
           'The new Supervisor is serving. Previous route lookups are finishing before the old process exits.',
       },
       environmentHint:
-        'Leave blank to restart in the current environment. To upgrade, enter an absolute Python executable path from an already prepared Xinference environment on the Supervisor machine. Packages are not installed here.',
+        'Choose Python from an already prepared Xinference environment on the Supervisor machine.',
       starting: 'Starting replacement service',
       preparing: 'Checking Workers and restoring routes',
       switching: 'Switching service',
@@ -1394,11 +1410,17 @@ const en = {
     },
     relaunch: {
       title: 'Restart / upgrade Worker',
-      description:
-        'Replace the Worker while keeping model processes and ongoing inference running. Model engines keep their current versions.',
+      description: 'Model processes and ongoing inference keep running during the restart.',
       python: 'Python executable (optional)',
       environmentHint:
-        'Leave blank to restart in the current environment. To upgrade, enter an installed Python executable on this Worker machine. Packages are not installed here.',
+        'Choose Python from an already prepared Xinference environment on this Worker. Model engines keep their current versions.',
+      currentEnvironment: 'Current environment',
+      preparedEnvironment: 'Prepared environment',
+      currentEnvironmentHint: 'Restart without changing the Python environment.',
+      changeEnvironment: 'Change environment (optional)',
+      restart: 'Restart',
+      upgrade: 'Upgrade',
+      submitting: 'Starting…',
       history: 'Worker restart history',
       starting: 'Starting replacement Worker',
       transferring: 'Transferring model ownership',
