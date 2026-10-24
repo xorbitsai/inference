@@ -263,7 +263,7 @@ class WorkerHandoffMixin:
             pass
         else:
             raise ValueError(
-                "Replace a distributed worker; local-mode handoff is not supported"
+                "Worker replacement requires a separate actor pool from the Supervisor"
             )
         supervisor = await self._handoff_supervisor()
         try:
@@ -405,6 +405,9 @@ class WorkerHandoffMixin:
                 await xo.wait_for(
                     supervisor.prepare_worker_handoff(snapshot, timeout * 2), timeout
                 )
+                # A co-located Supervisor may have finished a catalog write
+                # while reservation waited for its registry lock.
+                snapshot.custom_models = CustomModelState.capture(self)
                 return snapshot
             except BaseException:
                 if reservation_attempted:

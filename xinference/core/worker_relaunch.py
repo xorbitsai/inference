@@ -315,6 +315,7 @@ class WorkerRelaunchLauncher:
         self.lock = asyncio.Lock()
         self.operation_id = None
         self.process = None
+        self._reaper = None
         self.target = None
         self.errors = {}
 
@@ -385,11 +386,19 @@ class WorkerRelaunchLauncher:
                         stderr=subprocess.STDOUT,
                         start_new_session=True,
                     )
+                self._reaper = asyncio.create_task(self._reap(self.process))
             except BaseException:
                 with contextlib.suppress(FileNotFoundError):
                     os.unlink(path)
                 raise
             return self.state(operation_id)
+
+    @staticmethod
+    async def _reap(process):
+        # Local mode retains the original shared process after Worker handoff.
+        # Keep reaping its child even after this Worker's pool has retired.
+        while process.poll() is None:
+            await asyncio.sleep(0.1)
 
     def state(self, operation_id):
         if operation_id in self.errors:

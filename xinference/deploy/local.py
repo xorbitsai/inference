@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 READY = "ok"
+LOCAL_SUPERVISOR_UID = "local-supervisor"
 
 
 async def _start_local_cluster(
@@ -46,6 +47,7 @@ async def _start_local_cluster(
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[Dict] = None,
     conn: Optional[Connection] = None,
+    worker_address: Optional[str] = None,
 ):
     from .utils import create_worker_actor_pool, update_all_formatter_addresses
 
@@ -58,21 +60,43 @@ async def _start_local_cluster(
             formatter["address"] = address
 
     pool = None
+    supervisor_pool = None
     try:
         pool = await create_worker_actor_pool(
-            address=address, logging_conf=logging_conf
+            address=worker_address or address, logging_conf=logging_conf
         )
-        await xo.create_actor(
-            SupervisorActor, address=address, uid=SupervisorActor.default_uid()
-        )
+        if worker_address is None:
+            await xo.create_actor(
+                SupervisorActor, address=address, uid=SupervisorActor.default_uid()
+            )
+        else:
+            from ..core.supervisor_upgrade import SupervisorGateway
+            from .worker_host import register_worker_host
+
+            supervisor_pool = await xo.create_actor_pool(address=address, n_process=0)
+            gateway = await xo.create_actor(
+                SupervisorGateway, address=address, uid=SupervisorActor.default_uid()
+            )
+            supervisor = await xo.create_actor(
+                SupervisorActor,
+                local_deployment=True,
+                shared_worker_address=pool.external_address,
+                address=address,
+                uid=LOCAL_SUPERVISOR_UID,
+            )
+            await gateway.select_supervisor(supervisor)
+            await gateway.release_supervisor()
         await start_worker_components(
-            address=address,
+            address=worker_address or address,
             supervisor_address=address,
             supervisor_endpoint=None,
             main_pool=pool,
             metrics_exporter_host=metrics_exporter_host,
             metrics_exporter_port=metrics_exporter_port,
+            logging_conf=logging_conf,
         )
+        if worker_address is not None:
+            await register_worker_host()
         if conn:
             try:
                 conn.send(READY)
@@ -80,10 +104,12 @@ async def _start_local_cluster(
                 # connection may be gc collected,
                 # just ignore this error
                 pass
-        await pool.join()
+        await (supervisor_pool or pool).join()
     except asyncio.CancelledError:
         if pool is not None:
             await pool.stop()
+        if supervisor_pool is not None:
+            await supervisor_pool.stop()
 
 
 def run(
@@ -92,6 +118,7 @@ def run(
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[Dict] = None,
     conn: Optional[Connection] = None,
+    worker_address: Optional[str] = None,
 ):
     def sigterm_handler(signum, frame):
         sys.exit(0)
@@ -106,6 +133,7 @@ def run(
                 metrics_exporter_port=metrics_exporter_port,
                 logging_conf=logging_conf,
                 conn=conn,
+                worker_address=worker_address,
             )
         )
     except Exception:
@@ -190,6 +218,25 @@ def main(
     multiprocessing.set_start_method("spawn")
 
     supervisor_address = f"{host}:{get_next_port()}"  # noqa: E231
+    if os.name == "posix":
+        from .api_host import run as run_api_host
+        from .local_host import LocalHost
+
+        run_api_host(
+            {
+                "supervisor_address": supervisor_address,
+                "worker_address": f"{host}:{get_next_port()}",
+                "host": host,
+                "port": port,
+                "metrics_exporter_host": metrics_exporter_host,
+                "metrics_exporter_port": metrics_exporter_port,
+                "logging_conf": logging_conf,
+                "api_role": "local",
+                "local_deployment": True,
+            },
+            host_class=LocalHost,
+        )
+        return
     local_cluster = run_in_subprocess(
         supervisor_address, metrics_exporter_host, metrics_exporter_port, logging_conf
     )
@@ -213,3 +260,14 @@ def main(
         )
     finally:
         local_cluster.kill()
+
+
+if __name__ == "__main__":
+    import json
+    from pathlib import Path
+
+    configuration_path = Path(sys.argv[1])
+    configuration = json.loads(configuration_path.read_text())
+    configuration_path.unlink()
+    multiprocessing.set_start_method("spawn", force=True)
+    run(**configuration)

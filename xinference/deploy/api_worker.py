@@ -156,9 +156,10 @@ def main():
     from .utils import update_all_formatter_addresses, update_logging_config_addresses
 
     logging_conf = configuration.get("logging_conf")
-    update_all_formatter_addresses("supervisor", configuration["supervisor_address"])
+    role = configuration.get("api_role", "supervisor")
+    update_all_formatter_addresses(role, configuration["supervisor_address"])
     update_logging_config_addresses(
-        logging_conf, "supervisor", configuration["supervisor_address"]
+        logging_conf, role, configuration["supervisor_address"]
     )
     if logging_conf:
         logging.config.dictConfig(logging_conf)

@@ -138,6 +138,25 @@ class WorkerOwnership:
         )
 
 
+def shared_registry_operation(method):
+    """Serialize shared catalog writes with the Worker's handoff reservation."""
+
+    @functools.wraps(method)
+    async def checked(self, *args, **kwargs):
+        address = getattr(self, "_shared_worker_address", None)
+        if address is None:
+            return await method(self, *args, **kwargs)
+        registry = self._ownership_registry()
+        async with registry.lock(address):
+            if address in registry.pending:
+                raise RuntimeError(
+                    "Worker handoff is in progress; retry after it finishes"
+                )
+            return await method(self, *args, **kwargs)
+
+    return checked
+
+
 def worker_message(*, registration=False):
     def decorate(method):
         @functools.wraps(method)
@@ -340,6 +359,10 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                 **{snapshot.ticket: (snapshot.source, snapshot.target)},
             )
             registry.checkpoint(pending=pending, retired=retired, completed=completed)
+            if getattr(self, "_local_worker_address", None) == snapshot.source:
+                self._local_worker_address = snapshot.target
+            if getattr(self, "_shared_worker_address", None) == snapshot.source:
+                self._shared_worker_address = None
 
             # No awaits from validation to publication: route replacement and
             # old-owner fencing become visible together on the actor loop.

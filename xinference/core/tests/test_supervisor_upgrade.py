@@ -6,6 +6,7 @@ import asyncio
 import time
 from concurrent.futures import Future
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,10 +15,115 @@ from xoscar.utils import get_next_port
 
 from ...isolation import Isolation
 from .. import supervisor as supervisor_module
+from ..replica_config import DeviceConfig, ReplicaConfig
 from ..router_config_store import RouterConfigStore
 from ..router_orchestration import RouterOrchestrationController
 from ..supervisor import SupervisorActor, WorkerStatus
 from ..supervisor_upgrade import SupervisorGateway
+from ..worker_handoff import PROTOCOL_VERSION, STATE_FIELDS, WorkerSnapshot
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["register", "unregister"])
+@pytest.mark.parametrize("expired", [False, True])
+async def test_shared_catalog_is_frozen_until_handoff_reservation_is_removed(
+    supervisor_snapshot, operation, expired
+):
+    source, worker = supervisor_snapshot
+    source._shared_worker_address = worker.address
+    register, unregister = MagicMock(), MagicMock()
+    schema = MagicMock()
+    schema.parse_raw.return_value = SimpleNamespace(model_name="catalog-test")
+    source._custom_register_type_to_cls = {
+        "catalog-test": (
+            schema,
+            register,
+            unregister,
+            MagicMock(),
+        )
+    }
+    source.get_model_registration = AsyncMock(side_effect=ValueError("not found"))
+    source._sync_register_model = AsyncMock()
+    source._cache_tracker_ref = None if operation == "register" else AsyncMock()
+    registry = source._ownership_registry()
+    registry.pending[worker.address] = {
+        "key": (1, "catalog-ticket"),
+        "deadline": time.monotonic() + (-1 if expired else 60),
+        "committed": False,
+    }
+
+    async def change():
+        if operation == "register":
+            await source.register_model("catalog-test", "{}", False)
+        else:
+            await source.unregister_model("catalog-test", "catalog-test")
+
+    with pytest.raises(RuntimeError, match="handoff is in progress"):
+        await change()
+    register.assert_not_called()
+    unregister.assert_not_called()
+    await source.abort_worker_handoff(worker.address, "catalog-ticket")
+    await change()
+    (register if operation == "register" else unregister).assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_shared_handoff_waits_for_inflight_catalog_change(supervisor_snapshot):
+    source, worker = supervisor_snapshot
+    source._shared_worker_address = worker.address
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def lookup(*args):
+        entered.set()
+        await release.wait()
+        raise ValueError("not found")
+
+    register = MagicMock()
+    schema = MagicMock()
+    schema.parse_raw.return_value = SimpleNamespace(model_name="catalog-test")
+    source._custom_register_type_to_cls = {
+        "catalog-test": (
+            schema,
+            register,
+            MagicMock(),
+            MagicMock(),
+        )
+    }
+    source.get_model_registration = lookup
+    source._sync_register_model = AsyncMock()
+    source._cache_tracker_ref = None
+    change = asyncio.create_task(source.register_model("catalog-test", "{}", False))
+    preparing = None
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        snapshot = WorkerSnapshot(
+            PROTOCOL_VERSION,
+            "catalog-ticket",
+            worker.address,
+            "next:1234",
+            "public:9999",
+            "worker-incarnation",
+            "next-incarnation",
+            1,
+            [],
+            {name: {} for name in STATE_FIELDS},
+        )
+        preparing = asyncio.create_task(source.prepare_worker_handoff(snapshot, 10))
+        await asyncio.sleep(0.01)
+        assert not preparing.done()
+        release.set()
+        await asyncio.wait_for(change, 1)
+        await asyncio.wait_for(preparing, 1)
+        register.assert_called_once()
+        assert worker.address in source._ownership_registry().pending
+    finally:
+        release.set()
+        await asyncio.gather(
+            change,
+            *([preparing] if preparing is not None else []),
+            return_exceptions=True,
+        )
+        await source.abort_worker_handoff(worker.address, "catalog-ticket")
 
 
 @pytest.fixture
@@ -331,6 +437,168 @@ async def restored_supervisor(supervisor_snapshot):
         yield target, worker
     finally:
         await target.__pre_destroy__()
+
+
+@pytest.mark.asyncio
+async def test_local_mode_survives_role_separation(supervisor_snapshot):
+    source, worker = supervisor_snapshot
+    source._local_deployment = True
+    source._shared_worker_address = worker.address
+    source._local_worker_address = worker.address
+    assert source._has_inprocess_worker()
+    target = SupervisorActor(service_address="public:9999", standby=True)
+    try:
+        await target.restore_supervisor(source.get_supervisor_snapshot())
+        assert target.is_local_deployment()
+        assert not target._has_inprocess_worker()
+        assert not target._shares_model_registry(worker.address)
+    finally:
+        await target.__pre_destroy__()
+
+
+def test_local_mode_honours_attached_workers(supervisor_snapshot):
+    source, worker = supervisor_snapshot
+    source._local_deployment = True
+    source._local_worker_address = worker.address
+    assert source.is_local_deployment()
+    remote = MagicMock(address="remote:1234")
+    source._worker_address_to_worker[remote.address] = remote
+    assert not source.is_local_deployment()
+    assert source._get_worker_ref_by_ip("remote") is remote
+    del source._worker_address_to_worker[remote.address]
+    assert source.is_local_deployment()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("removal", ["graceful", "health"])
+@pytest.mark.parametrize("placement", ["worker_ip", "replica_config"])
+async def test_lost_local_worker_does_not_redirect_pinned_launches(
+    supervisor_snapshot, monkeypatch, removal, placement
+):
+    source, initial = supervisor_snapshot
+    source._local_deployment = True
+    source._local_worker_address = initial.address
+    workers = {initial.address: initial}
+    restored = []
+
+    def worker(address, models):
+        ref = MagicMock(address=address)
+        ref.worker_incarnation = AsyncMock(return_value=address + "-incarnation")
+        ref.worker_handoff_ready = AsyncMock(return_value=True)
+        ref.list_models = AsyncMock(return_value=models)
+        ref.get_extension_resources = AsyncMock(return_value={"extensions": {}})
+        ref.get_node_metadata = AsyncMock(return_value={})
+        ref.get_gpu_allocation_status = AsyncMock(
+            return_value={
+                "total": [0],
+                "allow_multi_replica_per_gpu": False,
+                "models": {},
+            }
+        )
+        workers[address] = ref
+        return ref
+
+    async def lookup(address, **kwargs):
+        return workers[address]
+
+    monkeypatch.setattr(supervisor_module.xo, "actor_ref", lookup)
+
+    async def transfer(owner, old, new, abort=False):
+        state = {name: {} for name in STATE_FIELDS}
+        state["_model_uid_to_model"] = await old.list_models()
+        snapshot = WorkerSnapshot(
+            PROTOCOL_VERSION,
+            old.address + "->" + new.address,
+            old.address,
+            new.address,
+            "public:9999",
+            await old.worker_incarnation(),
+            await new.worker_incarnation(),
+            1,
+            [],
+            state,
+        )
+        await owner.prepare_worker_handoff(snapshot, 10)
+        if abort:
+            await owner.abort_worker_handoff(snapshot.source, snapshot.ticket)
+            return
+        await owner.confirm_worker_handoff(snapshot.source, snapshot.ticket)
+        await owner.commit_worker_handoff(snapshot)
+        await owner.commit_worker_handoff(snapshot)  # A lost reply may be retried.
+
+    async def restore(owner):
+        target = SupervisorActor(service_address="public:9999", standby=True)
+        target._status_guard_ref = None
+        restored.append(target)
+        await target.restore_supervisor(owner.get_supervisor_snapshot())
+        target._upgrade_state.maintenance.pause()
+        return target
+
+    async def reject_missing_pin(owner, address):
+        owner._choose_worker = AsyncMock(
+            side_effect=AssertionError("Absent Worker pin was redirected")
+        )
+        owner._status_guard_ref = AsyncMock()
+        with pytest.raises(ValueError, match="not in the cluster"):
+            if placement == "worker_ip":
+                await owner._launch_builtin_model(
+                    "missing-worker-pin",
+                    "qwen2.5-instruct",
+                    None,
+                    None,
+                    None,
+                    None,
+                    "LLM",
+                    worker_ip=address,
+                )
+            else:
+                await owner._resolve_replica_config(
+                    "missing-worker-pin",
+                    1,
+                    [ReplicaConfig(devices=[DeviceConfig(worker_ip=address)])],
+                )
+        owner._choose_worker.assert_not_awaited()
+        owner._status_guard_ref.set_instance_info.assert_not_awaited()
+
+    try:
+        owner, local = source, initial
+        missing = [initial.address]
+        for address in ("local-first:1234", "local-second:1234"):
+            successor = worker(address, {"model-rep0": {}})
+            await transfer(owner, local, successor, abort=True)
+            assert owner.is_local_deployment()
+            await transfer(owner, local, successor)
+            assert owner.is_local_deployment()
+            owner = await restore(owner)
+            assert owner.is_local_deployment()
+            local = successor
+            missing.append(local.address)
+
+        remote = worker("remote:1234", {})
+        owner._worker_address_to_worker[remote.address] = remote
+        owner._ownership_registry().incarnations[
+            remote.address
+        ] = await remote.worker_incarnation()
+        attached_successor = worker("remote-next:1234", {})
+        await transfer(owner, remote, attached_successor)
+        assert not owner.is_local_deployment()
+        if removal == "graceful":
+            await owner.remove_worker(
+                local.address, incarnation=await local.worker_incarnation()
+            )
+        else:
+            assert await owner._remove_dead_worker(local.address, local)
+        for current in (owner, await restore(owner)):
+            assert list(current._worker_address_to_worker) == [
+                attached_successor.address
+            ]
+            for address in missing:
+                await reject_missing_pin(current, address)
+            assert not current.is_local_deployment()
+        attached_successor.get_gpu_allocation_status.assert_not_awaited()
+    finally:
+        for target in reversed(restored):
+            await target.__pre_destroy__()
 
 
 @pytest.mark.asyncio

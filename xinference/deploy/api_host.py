@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Own the distributed API listener independently of each API interpreter."""
+"""Own the API listener independently of each serving interpreter."""
 
 import asyncio
 import contextlib
@@ -8,6 +8,7 @@ import copy
 import json
 import os
 import secrets
+import selectors
 import signal
 import socket
 import subprocess
@@ -18,7 +19,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
 from ..core.system_settings_store import SystemSettingsStore
 from ..core.worker_relaunch import validate_relaunch_options
@@ -45,9 +46,29 @@ class APIDiagnostics:
             return self._tail.decode(errors="replace")
 
 
-def _forward_output(source, destination, diagnostics: APIDiagnostics) -> None:
-    with source:
-        while data := source.read1(65536):
+def _forward_output(
+    source,
+    destination,
+    diagnostics: APIDiagnostics,
+    stopping: Optional[threading.Event] = None,
+) -> None:
+    with source, contextlib.ExitStack() as stack:
+        reader = (
+            stack.enter_context(selectors.DefaultSelector())
+            if stopping is not None
+            else None
+        )
+        if reader is not None:
+            reader.register(source, selectors.EVENT_READ)
+        while stopping is None or not stopping.is_set():
+            if reader is not None:
+                if not reader.select(0.1):
+                    continue
+                data = os.read(source.fileno(), 65536)
+            else:
+                data = source.read1(65536)
+            if not data:
+                break
             diagnostics.append(data)
             try:
                 stream = getattr(destination, "buffer", None)
@@ -62,12 +83,30 @@ def _forward_output(source, destination, diagnostics: APIDiagnostics) -> None:
 
 
 async def _wait_process(process: subprocess.Popen, diagnostics: APIDiagnostics) -> int:
-    exit_code, _, _ = await asyncio.gather(
-        asyncio.to_thread(process.wait),
-        asyncio.to_thread(_forward_output, process.stdout, sys.stdout, diagnostics),
-        asyncio.to_thread(_forward_output, process.stderr, sys.stderr, diagnostics),
+    stopping = threading.Event() if os.name == "posix" else None
+    waiting = asyncio.create_task(asyncio.to_thread(process.wait))
+    forwarding = asyncio.gather(
+        asyncio.to_thread(
+            _forward_output, process.stdout, sys.stdout, diagnostics, stopping
+        ),
+        asyncio.to_thread(
+            _forward_output, process.stderr, sys.stderr, diagnostics, stopping
+        ),
     )
-    return exit_code
+    try:
+        exit_code = await waiting
+        if stopping is None:
+            await forwarding
+        else:
+            try:
+                await asyncio.wait_for(asyncio.shield(forwarding), 1)
+            except asyncio.TimeoutError:
+                stopping.set()
+                await forwarding
+        return exit_code
+    finally:
+        if stopping is not None:
+            stopping.set()
 
 
 async def host_request(command: str, **options: Any) -> Any:
@@ -75,7 +114,8 @@ async def host_request(command: str, **options: Any) -> Any:
     if not address:
         component = "Supervisor" if command.startswith("supervisor-") else "API"
         raise RuntimeError(
-            f"{component} relaunch requires a POSIX xinference-supervisor service"
+            f"{component} relaunch requires a POSIX xinference-local or "
+            "xinference-supervisor service"
         )
     connection = json.loads(address)
     reader, writer = await asyncio.wait_for(
@@ -105,10 +145,20 @@ async def host_request(command: str, **options: Any) -> Any:
         await writer.wait_closed()
 
 
+class ProcessHandle(Protocol):
+    pid: int
+
+    def poll(self) -> Optional[int]: ...
+
+    def terminate(self) -> None: ...
+
+    def kill(self) -> None: ...
+
+
 @dataclass
 class APIProcess:
     identity: str
-    process: subprocess.Popen
+    process: ProcessHandle
     executable: str
     environment: Dict[str, str]
     diagnostics: APIDiagnostics
@@ -363,6 +413,34 @@ class APIHost:
                 # Once activation was sent, preserve any admitted requests.
                 # SIGTERM drains them; a failed preparation has admitted none.
 
+    async def start_components(self, environment: Dict[str, str]) -> None:
+        if self.configuration.get("host_supervisor"):
+            from .supervisor_host import SupervisorHost
+
+            self.supervisor_host = SupervisorHost(
+                self.configuration, self.directory, self.settings_store
+            )
+            await self.supervisor_host.start(environment)
+        self.active = self.spawn(sys.executable, environment)
+        await self.active.wait(self.active.ready)
+        await self.active.send("activate")
+        await self.active.wait(self.active.serving)
+
+    def check(self) -> None:
+        if self.supervisor_host is not None:
+            self.supervisor_host.check()
+        if self.active is not None and self.active.process.poll() is not None:
+            raise RuntimeError("Serving API process exited unexpectedly")
+
+    def force_exit(self) -> None:
+        processes = [child.process for child in self.children.values()]
+        if self.supervisor_host is not None:
+            processes.extend(child.process for child in self.supervisor_host.children)
+        for process in processes:
+            if process.poll() is None:
+                with contextlib.suppress(ProcessLookupError):
+                    process.kill()
+
     async def run(self, stopping: asyncio.Event) -> None:
         with tempfile.TemporaryDirectory(prefix="xinf-api-") as directory:
             self.directory = Path(directory)
@@ -388,22 +466,9 @@ class APIHost:
                 environment["PYTHONPATH"] = os.pathsep.join(
                     [source_root, *python_paths]
                 )
-                if self.configuration.get("host_supervisor"):
-                    from .supervisor_host import SupervisorHost
-
-                    self.supervisor_host = SupervisorHost(
-                        self.configuration, self.directory, self.settings_store
-                    )
-                    await self.supervisor_host.start(environment)
-                self.active = self.spawn(sys.executable, environment)
-                await self.active.wait(self.active.ready)
-                await self.active.send("activate")
-                await self.active.wait(self.active.serving)
+                await self.start_components(environment)
                 while not stopping.is_set():
-                    if self.supervisor_host is not None:
-                        self.supervisor_host.check()
-                    if self.active.process.poll() is not None:
-                        raise RuntimeError("Serving API process exited unexpectedly")
+                    self.check()
                     try:
                         await asyncio.wait_for(stopping.wait(), 0.1)
                     except asyncio.TimeoutError:
@@ -428,7 +493,7 @@ class APIHost:
                 self.listener.close()
 
 
-def run(configuration: Dict[str, Any]) -> None:
+def run(configuration: Dict[str, Any], host_class=APIHost) -> None:
     from uvicorn import Config
     from xoscar.utils import get_next_port
 
@@ -455,14 +520,21 @@ def run(configuration: Dict[str, Any]) -> None:
     async def serve():
         stopping = asyncio.Event()
         loop = asyncio.get_running_loop()
+        host = host_class(
+            listener,
+            configuration,
+            get_system_settings_store(XINFERENCE_SYSTEM_SETTINGS_PATH),
+        )
+
+        def stop():
+            if stopping.is_set():
+                host.force_exit()
+            stopping.set()
+
         for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(sig, stopping.set)
+            loop.add_signal_handler(sig, stop)
         try:
-            await APIHost(
-                listener,
-                configuration,
-                get_system_settings_store(XINFERENCE_SYSTEM_SETTINGS_PATH),
-            ).run(stopping)
+            await host.run(stopping)
         finally:
             for sig in (signal.SIGTERM, signal.SIGINT):
                 loop.remove_signal_handler(sig)

@@ -99,7 +99,12 @@ from .utils import (
     parse_replica_model_uid,
 )
 from .virtual_env_manager import VirtualEnvConflictError
-from .worker_registry import SupervisorHandoffMixin, call_worker_route, worker_message
+from .worker_registry import (
+    SupervisorHandoffMixin,
+    call_worker_route,
+    shared_registry_operation,
+    worker_message,
+)
 
 if TYPE_CHECKING:
     from ..extensions import ModelCatalogCredentials
@@ -235,10 +240,19 @@ class ReplicaInfo:
 
 
 class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
-    def __init__(self, service_address=None, standby=False):
+    def __init__(
+        self,
+        service_address=None,
+        standby=False,
+        local_deployment=None,
+        shared_worker_address=None,
+    ):
         from .supervisor_upgrade import SupervisorUpgradeState
 
         self._service_address = service_address
+        self._local_deployment = local_deployment
+        self._shared_worker_address = shared_worker_address
+        self._local_worker_address = shared_worker_address if local_deployment else None
         self._standby = standby
         self._supervisor_prepared = False
         self._supervisor_restored = False
@@ -1690,7 +1704,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     async def get_devices_count(self) -> int:
         from ..device_utils import gpu_count
 
-        if self.is_local_deployment():
+        if self._has_inprocess_worker():
             return gpu_count()
         # Distributed deployment: aggregate GPU count from all workers
         # Use worker status information instead of choosing a single worker
@@ -1999,7 +2013,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         instance_cnt = await self.get_instance_count(llm_family.model_name)
         version_cnt = await self.get_model_version_count(llm_family.model_name)
 
-        if self.is_local_deployment():
+        if self._has_inprocess_worker():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             _llm_family = llm_family.copy()
             specs, download_hubs = self._get_spec_dicts(_llm_family, LLMCacheManager)
@@ -2023,7 +2037,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
 
-        if self.is_local_deployment():
+        if self._has_inprocess_worker():
             _family = model_family.copy()
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             specs, download_hubs = self._get_spec_dicts(_family, EmbeddingCacheManager)
@@ -2050,7 +2064,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
 
-        if self.is_local_deployment():
+        if self._has_inprocess_worker():
             _family = model_family.copy()
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             specs, download_hubs = self._get_spec_dicts(_family, RerankCacheManager)
@@ -2077,7 +2091,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
 
-        if self.is_local_deployment():
+        if self._has_inprocess_worker():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             cache_manager = ImageCacheManager(model_family)
             # Create model_specs with cache_status for frontend compatibility
@@ -2112,7 +2126,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
 
-        if self.is_local_deployment():
+        if self._has_inprocess_worker():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             cache_manager = CacheManager(model_family)
             # Create model_specs with cache_status for frontend compatibility
@@ -2147,7 +2161,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
 
-        if self.is_local_deployment():
+        if self._has_inprocess_worker():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             cache_manager = CacheManager(model_family)
             # Create model_specs with cache_status for frontend compatibility
@@ -2180,7 +2194,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         instance_cnt = await self.get_instance_count(model_spec.model_name)
         version_cnt = await self.get_model_version_count(model_spec.model_name)
 
-        if self.is_local_deployment():
+        if self._has_inprocess_worker():
             res = {
                 **model_spec.dict(),
                 "cache_status": True,
@@ -2370,6 +2384,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         )
 
     @log_async(logger=logger)
+    @shared_registry_operation
     async def register_model(
         self,
         model_type: str,
@@ -2468,6 +2483,16 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
+    def _shares_model_registry(self, address):
+        return address == (self._shared_worker_address or self.address)
+
+    def _has_inprocess_worker(self):
+        return (
+            self.is_local_deployment()
+            and len(self._worker_address_to_worker) == 1
+            and self._shares_model_registry(next(iter(self._worker_address_to_worker)))
+        )
+
     async def _sync_register_model(
         self, model_type: str, model: str, persist: bool, model_name: str
     ):
@@ -2476,7 +2501,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             # Sync model to all workers.
             for name, worker in self._worker_address_to_worker.items():
                 logger.info(f"sync model: {model_name} to {name}")
-                if name == self.control_address:
+                if self._shares_model_registry(name):
                     # Ignore: when worker and supervisor at the same node.
                     logger.info(
                         f"ignore sync model: {model_name} to {name} for same node"
@@ -2493,14 +2518,14 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             raise e
 
     @log_async(logger=logger)
+    @shared_registry_operation
     async def unregister_model(self, model_type: str, model_name: str):
         if model_type in self._custom_register_type_to_cls:
             _, _, unregister_fn, _ = self._custom_register_type_to_cls[model_type]
             unregister_fn(model_name, False)
 
-            if not self.is_local_deployment():
-                workers = list(self._worker_address_to_worker.values())
-                for worker in workers:
+            for address, worker in self._worker_address_to_worker.items():
+                if not self._shares_model_registry(address):
                     await worker.unregister_model(model_type, model_name)
 
             await self._cache_tracker_ref.unregister_model_version(model_name)
@@ -6407,6 +6432,13 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._list_models_cache_version += 1
 
     def is_local_deployment(self) -> bool:
+        local_deployment = getattr(self, "_local_deployment", None)
+        if local_deployment is not None:
+            return (
+                local_deployment
+                and len(self._worker_address_to_worker) == 1
+                and self._local_worker_address in self._worker_address_to_worker
+            )
         # TODO: temporary.
         return (
             len(self._worker_address_to_worker) == 1
@@ -6499,6 +6531,11 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         return res
 
     async def __pre_destroy__(self) -> None:
+        isolation = getattr(self, "_isolation", None)
+        if isolation is not None:
+            self._isolation = None
+            await asyncio.to_thread(isolation.stop)
+            isolation.loop.close()
         manager = getattr(self, "_worker_relaunch_manager", None)
         if manager is not None:
             await manager.close()
