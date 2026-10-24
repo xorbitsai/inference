@@ -287,11 +287,15 @@ def test_resolve_allow_share_no_conflict():
     assert targets[0][1] == [0] and targets[1][1] == [0]
 
 
-def test_resolve_local_mode_ignores_worker_ip():
+@pytest.mark.parametrize("roles_separated", [False, True])
+def test_resolve_local_mode_ignores_worker_ip(roles_separated):
     # Local deployment: a single worker whose address == supervisor address.
     local_addr = "127.0.0.1:9978"
     w = _FakeWorker(local_addr, total=[0, 1])
     sup = _make_supervisor([w], address=local_addr)
+    if roles_separated:
+        sup.address = "supervisor-new:9999"
+        sup._local_deployment = True
     assert sup.is_local_deployment() is True
     # worker_ip does not match, but local mode pins to the local worker anyway.
     targets, _ = asyncio.run(
