@@ -582,13 +582,17 @@ class QwenToolParser(ToolParser):
         func_name = func_match.group(1)
 
         param_pattern = re.compile(
-            r"<parameter\s*=\s*([a-zA-Z0-9_\-\.]+)\s*>\s*(.*?)\s*</parameter>",
+            r"<parameter\s*=\s*([a-zA-Z0-9_\-\.]+)\s*>(.*?)</parameter>",
             re.DOTALL,
         )
 
         args = {}
         for key, value in param_pattern.findall(text):
-            cleaned = value.strip()
+            # The chat template wraps each value in one newline on each side.
+            # Any other whitespace (code indentation, a final newline) belongs
+            # to the value.
+            cleaned = value[1:] if value.startswith("\n") else value
+            cleaned = cleaned[:-1] if cleaned.endswith("\n") else cleaned
             if not ToolParser._is_string_parameter(func_name, key):
                 try:
                     cleaned = json.loads(cleaned)
