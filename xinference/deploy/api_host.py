@@ -8,6 +8,7 @@ import copy
 import json
 import os
 import secrets
+import selectors
 import signal
 import socket
 import subprocess
@@ -45,9 +46,29 @@ class APIDiagnostics:
             return self._tail.decode(errors="replace")
 
 
-def _forward_output(source, destination, diagnostics: APIDiagnostics) -> None:
-    with source:
-        while data := source.read1(65536):
+def _forward_output(
+    source,
+    destination,
+    diagnostics: APIDiagnostics,
+    stopping: Optional[threading.Event] = None,
+) -> None:
+    with source, contextlib.ExitStack() as stack:
+        reader = (
+            stack.enter_context(selectors.DefaultSelector())
+            if stopping is not None
+            else None
+        )
+        if reader is not None:
+            reader.register(source, selectors.EVENT_READ)
+        while stopping is None or not stopping.is_set():
+            if reader is not None:
+                if not reader.select(0.1):
+                    continue
+                data = os.read(source.fileno(), 65536)
+            else:
+                data = source.read1(65536)
+            if not data:
+                break
             diagnostics.append(data)
             try:
                 stream = getattr(destination, "buffer", None)
@@ -62,12 +83,30 @@ def _forward_output(source, destination, diagnostics: APIDiagnostics) -> None:
 
 
 async def _wait_process(process: subprocess.Popen, diagnostics: APIDiagnostics) -> int:
-    exit_code, _, _ = await asyncio.gather(
-        asyncio.to_thread(process.wait),
-        asyncio.to_thread(_forward_output, process.stdout, sys.stdout, diagnostics),
-        asyncio.to_thread(_forward_output, process.stderr, sys.stderr, diagnostics),
+    stopping = threading.Event() if os.name == "posix" else None
+    waiting = asyncio.create_task(asyncio.to_thread(process.wait))
+    forwarding = asyncio.gather(
+        asyncio.to_thread(
+            _forward_output, process.stdout, sys.stdout, diagnostics, stopping
+        ),
+        asyncio.to_thread(
+            _forward_output, process.stderr, sys.stderr, diagnostics, stopping
+        ),
     )
-    return exit_code
+    try:
+        exit_code = await waiting
+        if stopping is None:
+            await forwarding
+        else:
+            try:
+                await asyncio.wait_for(asyncio.shield(forwarding), 1)
+            except asyncio.TimeoutError:
+                stopping.set()
+                await forwarding
+        return exit_code
+    finally:
+        if stopping is not None:
+            stopping.set()
 
 
 async def host_request(command: str, **options: Any) -> Any:

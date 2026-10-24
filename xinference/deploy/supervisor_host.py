@@ -3,9 +3,9 @@
 """Retain the Supervisor actor endpoint while replacing its control process."""
 
 import asyncio
-import contextlib
 import copy
 import json
+import logging
 import subprocess
 import sys
 import time
@@ -19,7 +19,10 @@ from xoscar.utils import get_next_port
 
 from ..core.supervisor_upgrade import PROTOCOL_VERSION, SupervisorGateway
 from ..core.worker_relaunch import validate_relaunch_options
-from .api_host import STARTUP_TIMEOUT, APIDiagnostics, _wait_process
+from .api_host import API_HOST_ENV, STARTUP_TIMEOUT, APIDiagnostics, _wait_process
+
+logger = logging.getLogger(__name__)
+START_SUPERVISOR = "from xinference.deploy.supervisor_worker import main\nmain()\n"
 
 
 @dataclass
@@ -64,9 +67,7 @@ class SupervisorHost:
             StatusGuardActor,
         ):
             await xo.create_actor(cls, address=self.address, uid=cls.default_uid())
-        (self.directory / "start_supervisor.py").write_text(
-            "from xinference.deploy.supervisor_worker import main\nmain()\n"
-        )
+        (self.directory / "start_supervisor.py").write_text(START_SUPERVISOR)
         source = self.spawn(sys.executable, environment)
         await self.ready(source)
         await source.ref.activate_supervisor()
@@ -75,6 +76,9 @@ class SupervisorHost:
         self.active = source
 
     def spawn(self, executable, environment):
+        environment = {
+            key: value for key, value in environment.items() if key != API_HOST_ENV
+        }
         identity = uuid.uuid4().hex
         address = f"127.0.0.1:{get_next_port()}"
         path = self.directory / ("supervisor-" + identity + ".json")
@@ -162,10 +166,14 @@ class SupervisorHost:
         if child.shared:
             if child.process.poll() is not None:
                 return
-            with contextlib.suppress(
-                xo.ActorNotExist, xo.ServerClosed, OSError, asyncio.TimeoutError
-            ):
+            try:
                 await xo.wait_for(xo.destroy_actor(child.ref), 10)
+            except (xo.ActorNotExist, xo.ServerClosed, OSError, asyncio.TimeoutError):
+                pass
+            except Exception:
+                logger.warning(
+                    "Failed to stop retired shared Supervisor", exc_info=True
+                )
             return
         if child.process.poll() is None:
             child.process.terminate()

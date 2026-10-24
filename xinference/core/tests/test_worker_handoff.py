@@ -335,6 +335,43 @@ async def test_handoff_preserves_model_and_fences_old_owner(runtime):
 
 
 @pytest.mark.asyncio
+async def test_custom_catalog_snapshot_includes_writes_finished_during_reservation(
+    runtime, monkeypatch
+):
+    from ...model.custom import RegistryManager
+    from ...model.embedding.custom import (
+        CustomEmbeddingModelFamilyV2,
+        register_embedding,
+    )
+    from ...model.embedding.embed_family import BUILTIN_EMBEDDING_MODELS
+
+    _, supervisor, (old, new) = runtime
+    definition = next(iter(BUILTIN_EMBEDDING_MODELS.values()))[0].dict()
+    definition["model_name"] = "handoff-reservation-catalog"
+    definition["is_builtin"] = False
+    original = HandoffSupervisor.prepare_worker_handoff
+
+    async def reserve(self, snapshot, timeout):
+        result = await original(self, snapshot, timeout)
+        register_embedding(
+            CustomEmbeddingModelFamilyV2.parse_obj(definition), persist=False
+        )
+        return result
+
+    monkeypatch.setattr(HandoffSupervisor, "prepare_worker_handoff", reserve)
+    try:
+        snapshot = await old.prepare_worker_handoff(
+            new.address, await new.worker_incarnation(), "catalog-ticket", 5
+        )
+        assert definition["model_name"] in snapshot.custom_models["embedding"]
+    finally:
+        await old.abort_worker_handoff("catalog-ticket")
+        registry = RegistryManager.get_registry("embedding")
+        if registry.find_model(definition["model_name"]):
+            registry.unregister(definition["model_name"], remove_file=False)
+
+
+@pytest.mark.asyncio
 async def test_incompatible_snapshot_rolls_back(runtime, monkeypatch):
     pools, supervisor, (old, new) = runtime
     model = await old.install_model()

@@ -7,6 +7,7 @@ import contextlib
 import json
 import logging
 import os
+import site
 import subprocess
 import sys
 import tempfile
@@ -25,10 +26,30 @@ from .api_host import (
     APIProcess,
     _wait_process,
 )
-from .supervisor_host import SupervisorHost, SupervisorProcess
+from .supervisor_host import START_SUPERVISOR, SupervisorHost, SupervisorProcess
 from .worker_host import HOST_PID, HOST_SOCKET, ProcessOwner, _enable_subreaper
 
 logger = logging.getLogger(__name__)
+
+
+def _runtime_environment() -> Dict[str, str]:
+    environment = {
+        key: value for key, value in os.environ.items() if key != API_HOST_ENV
+    }
+    root = Path(__file__).resolve().parents[2]
+    site_directories = [*site.getsitepackages(), site.getusersitepackages()]
+    if not any(root.is_relative_to(Path(path).resolve()) for path in site_directories):
+        environment["PYTHONPATH"] = os.pathsep.join(
+            [str(root), *filter(None, [environment.get("PYTHONPATH")])]
+        )
+    return environment
+
+
+def _socket_directory():
+    try:
+        return tempfile.TemporaryDirectory(prefix="xinf-local-", dir="/tmp")
+    except OSError:
+        return tempfile.TemporaryDirectory(prefix="xl-")
 
 
 def _log_api_failure(task: asyncio.Task) -> None:
@@ -87,13 +108,9 @@ class LocalHost(APIHost):
         from .utils import health_check
 
         environment = {
-            # APIHost adds its package root for API subprocess imports. A
-            # pip-installed runtime must not export its site-packages into
-            # model virtualenvs; retain the launcher's original environment.
-            **os.environ,
+            **_runtime_environment(),
             HOST_SOCKET: self.worker_socket,
             HOST_PID: str(os.getpid()),
-            API_HOST_ENV: json.dumps(self.connection),
         }
         path = self.directory / "local.json"
         path.write_text(
@@ -143,9 +160,7 @@ class LocalHost(APIHost):
         host = self.supervisor_host = SupervisorHost(
             self.configuration, self.directory, self.settings_store
         )
-        (self.directory / "start_supervisor.py").write_text(
-            "from xinference.deploy.supervisor_worker import main\nmain()\n"
-        )
+        (self.directory / "start_supervisor.py").write_text(START_SUPERVISOR)
         host.gateway = await xo.actor_ref(
             address=self.configuration["supervisor_address"],
             uid=SupervisorActor.default_uid(),
@@ -251,7 +266,7 @@ class LocalHost(APIHost):
     async def run(self, stopping: asyncio.Event) -> None:
         _enable_subreaper()
         previous = os.environ.get(API_HOST_ENV)
-        with tempfile.TemporaryDirectory(prefix="xinf-local-", dir="/tmp") as directory:
+        with _socket_directory() as directory:
             self.worker_socket = str(Path(directory) / "workers.sock")
             server = await asyncio.start_unix_server(
                 self.owner.register, self.worker_socket, limit=4096

@@ -38,6 +38,7 @@ class Extension:
         logger = logging.getLogger("xinference.core.worker")
         return {
             "pid": os.getpid(),
+            "has_api_host": "XINFERENCE_API_HOST" in os.environ,
             "level": logger.getEffectiveLevel(),
             "formats": [h.formatter._fmt for h in logger.handlers if h.formatter],
         }
@@ -110,6 +111,13 @@ async def test_local_runtime_preserves_original_environment(tmp_path, monkeypatc
     (main_site / "engine_version.py").write_text("VERSION = 'main'\n")
     (engine_site / "engine_version.py").write_text("VERSION = 'engine-pinned'\n")
     monkeypatch.setenv("XINFERENCE_API_HOST", "original-host")
+    monkeypatch.setattr(
+        "xinference.deploy.local_host.__file__",
+        str(main_site / "xinference/deploy/local_host.py"),
+    )
+    monkeypatch.setattr(
+        "xinference.deploy.local_host.site.getsitepackages", lambda: [str(main_site)]
+    )
     captured = {}
     popen = subprocess.Popen
 
@@ -135,6 +143,7 @@ async def test_local_runtime_preserves_original_environment(tmp_path, monkeypatc
         lambda manager: engine_python,
     )
     environment = build_subpool_envs_for_virtual_env(captured, True, MagicMock())
+    assert "XINFERENCE_API_HOST" not in captured
     result = subprocess.check_output(
         [engine_python, "-c", "import engine_version; print(engine_version.VERSION)"],
         env=environment,
@@ -143,8 +152,134 @@ async def test_local_runtime_preserves_original_environment(tmp_path, monkeypatc
     assert result.strip() == "engine-pinned"
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX runtime startup")
+def test_source_checkout_starts_temp_script_without_inherited_pythonpath(
+    tmp_path, monkeypatch
+):
+    from ..local_host import _runtime_environment
+
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    script = tmp_path / "probe.py"
+    script.write_text(
+        "import xinference.deploy.local_host as module\nprint(module.__file__)\n"
+    )
+    result = subprocess.check_output(
+        [sys.executable, str(script)],
+        env=_runtime_environment(),
+        cwd=tmp_path,
+        text=True,
+        timeout=15,
+    )
+    assert (
+        Path(result.strip()).resolve()
+        == Path(__file__).resolve().parents[1] / "local_host.py"
+    )
+
+
+def test_socket_directory_falls_back_to_writable_tempdir(tmp_path, monkeypatch):
+    import tempfile
+
+    from ..local_host import _socket_directory
+
+    original = tempfile.TemporaryDirectory
+
+    def create(*args, **kwargs):
+        if kwargs.get("dir") == "/tmp":
+            raise PermissionError("read-only /tmp")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(
+        "xinference.deploy.local_host.tempfile.TemporaryDirectory", create
+    )
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    with _socket_directory() as directory:
+        assert Path(directory).parent == tmp_path
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX local startup")
+@pytest.mark.parametrize("failure", ["exit", "hang"])
+def test_local_startup_failure_stops_unregistered_cluster_and_children(
+    tmp_path, failure
+):
+    ports = [get_next_port() for _ in range(3)]
+    config = {
+        "host": "127.0.0.1",
+        "port": ports[0],
+        "supervisor_address": f"127.0.0.1:{ports[1]}",
+        "worker_address": f"127.0.0.1:{ports[2]}",
+        "local_deployment": True,
+    }
+    if failure == "exit":
+        cluster = "print('injected startup failure',flush=True); raise SystemExit(17)"
+    else:
+        cluster = (
+            "import subprocess,sys,time\nfrom pathlib import Path\n"
+            "p=subprocess.Popen([sys.executable,'-S','-c','import time; time.sleep(60)'])\n"
+            f"Path({str(tmp_path / 'grandchild')!r}).write_text(str(p.pid))\n"
+            "time.sleep(60)\n"
+        )
+    script = tmp_path / "start.py"
+    script.write_text(
+        "import subprocess,sys\nfrom pathlib import Path\n"
+        "from xinference.deploy.api_host import run\n"
+        "from xinference.deploy import local_host\n"
+        "local_host.STARTUP_TIMEOUT=1\noriginal=subprocess.Popen\n"
+        "def spawn(args,**kwargs):\n"
+        "    if len(args)<3 or Path(args[2]).name!='start_local.py':\n"
+        "        return original(args,**kwargs)\n"
+        f"    p=original([sys.executable,'-S','-c',{cluster!r}],**kwargs)\n"
+        f"    Path({str(tmp_path / 'cluster')!r}).write_text(str(p.pid))\n"
+        "    return p\n"
+        "local_host.subprocess.Popen=spawn\n"
+        "try:\n"
+        f"    run({config!r}, host_class=local_host.LocalHost)\n"
+        "except RuntimeError as error:\n"
+        "    assert 'Local cluster failed to start' in str(error), str(error)\n"
+        "    print('startup failure cleaned up',flush=True)\n"
+        "else: raise AssertionError('startup unexpectedly succeeded')\n"
+    )
+    environment = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join(
+            [str(Path(__file__).resolve().parents[3]), os.environ.get("PYTHONPATH", "")]
+        ),
+        "XINFERENCE_HOME": str(tmp_path / "home"),
+        "XINFERENCE_AUTH_ADVANCED": "0",
+    }
+    with (tmp_path / "service.log").open("w") as log:
+        process = subprocess.Popen(
+            [sys.executable, str(script)],
+            env=environment,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        try:
+            process.wait(timeout=25)
+            output = (tmp_path / "service.log").read_text()
+            assert process.returncode == 0, output[-4000:]
+            assert "startup failure cleaned up" in output
+            for name in ("cluster", "grandchild"):
+                if (tmp_path / name).exists():
+                    until(
+                        lambda: not alive(int((tmp_path / name).read_text())), timeout=5
+                    )
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait(timeout=5)
+            for name in ("cluster", "grandchild"):
+                if (tmp_path / name).exists():
+                    try:
+                        psutil.Process(int((tmp_path / name).read_text())).kill()
+                    except psutil.NoSuchProcess:
+                        pass
+
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure", ["exited", "closed", "connection", "hung"])
+@pytest.mark.parametrize(
+    "failure", ["exited", "closed", "connection", "hung", "destructor"]
+)
 async def test_shared_supervisor_stop_tolerates_dead_or_hung_runtime(
     tmp_path, monkeypatch, failure
 ):
@@ -159,7 +294,15 @@ async def test_shared_supervisor_stop_tolerates_dead_or_hung_runtime(
         side_effect=(
             xo.ServerClosed()
             if failure == "closed"
-            else ConnectionError() if failure == "connection" else None
+            else (
+                ConnectionError()
+                if failure == "connection"
+                else (
+                    RuntimeError("destructor failed")
+                    if failure == "destructor"
+                    else None
+                )
+            )
         )
     )
     monkeypatch.setattr(xo, "destroy_actor", destroy)
@@ -301,6 +444,8 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
 @pytest.mark.skipif(os.name != "posix", reason="Local service hosting requires POSIX")
 @pytest.mark.parametrize("first", ["worker", "supervisor"])
 def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, first):
+    from xinference.client import Client
+
     ports = [get_next_port() for _ in range(3)]
     configuration = {
         "host": "127.0.0.1",
@@ -355,6 +500,7 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
     endpoint = f"http://127.0.0.1:{ports[0]}"
     session = requests.Session()
     session.trust_env = False
+    client = None
     seen = set()
     operations = {}
     failures = []
@@ -368,6 +514,7 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
 
     def check_worker_logging(info):
         metadata = info["worker_metadata"][0]
+        assert metadata["has_api_host"] is False
         assert metadata["level"] == logging.DEBUG
         assert metadata["formats"] == ["LOCAL-UPGRADE %(levelname)s %(message)s"]
 
@@ -450,6 +597,9 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
         try:
             info = until(get_info)
+            client = Client(endpoint)
+            client.session.trust_env = False
+            assert client.list_models() == {}
             initial_pid = info["supervisor"]["pid"]
             seen.add(initial_pid)
             assert info["api_pid"] == process.pid
@@ -490,27 +640,17 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
             custom["model_name"] = "local-upgrade-regression"
 
             def registration_cycle():
-                path = "/v1/model_registrations/LLM"
-                response = session.post(
-                    endpoint + path,
-                    json={"model": json.dumps(custom), "persist": False},
-                    timeout=10,
-                )
-                assert response.status_code == 200, response.text
-                response = session.get(
-                    endpoint + path + "/" + custom["model_name"], timeout=10
-                )
-                assert response.status_code == 200, response.text
-                response = session.delete(
-                    endpoint + path + "/" + custom["model_name"], timeout=10
-                )
-                assert response.status_code == 200, response.text
+                client.register_model("LLM", json.dumps(custom), False)
                 assert (
-                    session.get(
-                        endpoint + path + "/" + custom["model_name"], timeout=10
-                    ).status_code
-                    == 400
+                    client.get_model_registration("LLM", custom["model_name"])[
+                        "model_name"
+                    ]
+                    == custom["model_name"]
                 )
+                client.unregister_model("LLM", custom["model_name"])
+                with pytest.raises(RuntimeError, match="not found"):
+                    client.get_model_registration("LLM", custom["model_name"])
+                assert client.list_models() == {}
 
             registration_cycle()
             second = "supervisor" if first == "worker" else "worker"
@@ -548,6 +688,8 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
             stop_polling.set()
             (tmp_path / "release").touch()
             session.close()
+            if client is not None:
+                client.session.close()
             process.terminate()
             try:
                 process.wait(timeout=40)

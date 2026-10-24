@@ -99,7 +99,12 @@ from .utils import (
     parse_replica_model_uid,
 )
 from .virtual_env_manager import VirtualEnvConflictError
-from .worker_registry import SupervisorHandoffMixin, call_worker_route, worker_message
+from .worker_registry import (
+    SupervisorHandoffMixin,
+    call_worker_route,
+    shared_registry_operation,
+    worker_message,
+)
 
 if TYPE_CHECKING:
     from ..extensions import ModelCatalogCredentials
@@ -2379,6 +2384,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         )
 
     @log_async(logger=logger)
+    @shared_registry_operation
     async def register_model(
         self,
         model_type: str,
@@ -2512,6 +2518,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             raise e
 
     @log_async(logger=logger)
+    @shared_registry_operation
     async def unregister_model(self, model_type: str, model_name: str):
         if model_type in self._custom_register_type_to_cls:
             _, _, unregister_fn, _ = self._custom_register_type_to_cls[model_type]

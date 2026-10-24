@@ -267,8 +267,8 @@ class SupervisorUpgradeState:
 
         return {
             "protocol": PROTOCOL_VERSION,
-            "local_deployment": getattr(owner, "_local_deployment", None),
-            "local_worker_address": getattr(owner, "_local_worker_address", None),
+            "local_deployment": owner._local_deployment,
+            "local_worker_address": owner._local_worker_address,
             "captured_at": time.time(),
             "workers": list(owner._worker_address_to_worker),
             "incarnations": dict(owner._ownership_registry().incarnations),

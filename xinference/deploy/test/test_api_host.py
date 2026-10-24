@@ -19,7 +19,45 @@ import pytest
 import xoscar as xo
 
 from ...core.system_settings_store import SystemSettingsStore
-from ..api_host import DIAGNOSTIC_LIMIT, APIDiagnostics, APIHost, _forward_output
+from ..api_host import (
+    DIAGNOSTIC_LIMIT,
+    APIDiagnostics,
+    APIHost,
+    _forward_output,
+    _wait_process,
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(os.name != "posix", reason="POSIX pipe forwarding")
+async def test_exited_process_does_not_wait_for_descendant_pipe_holder(tmp_path):
+    import psutil
+
+    script = (
+        "import subprocess,sys\nfrom pathlib import Path\n"
+        "p=subprocess.Popen([sys.executable,'-S','-c','import time; time.sleep(60)'])\n"
+        f"Path({str(tmp_path / 'holder')!r}).write_text(str(p.pid))\n"
+        "print('last parent output',flush=True)\n"
+    )
+    process = subprocess.Popen(
+        [sys.executable, "-S", "-c", script],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    diagnostics = APIDiagnostics()
+    try:
+        assert await asyncio.wait_for(_wait_process(process, diagnostics), 5) == 0
+        assert "last parent output" in diagnostics.read()
+        assert process.stdout.closed and process.stderr.closed
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.wait(timeout=5)
+        if (tmp_path / "holder").exists():
+            try:
+                psutil.Process(int((tmp_path / "holder").read_text())).kill()
+            except psutil.NoSuchProcess:
+                pass
 
 
 class Backend(xo.StatelessActor):
