@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
@@ -120,7 +120,12 @@ class DeepseekV3_1ToolParser(ToolParser):
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
-    ) -> Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
+    ) -> Optional[
+        Union[
+            Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
+            List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]],
+        ]
+    ]:
         """
         Extract tool calls from streaming output.
 
@@ -137,8 +142,8 @@ class DeepseekV3_1ToolParser(ToolParser):
             delta_text (str): New text delta in this chunk.
 
         Returns:
-            Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-            A tuple containing:
+            A tuple for one event, or a list of tuples when multiple calls
+            complete in one engine text delta. Each tuple contains:
             - content (str or None): Text content or None for tool calls
             - function_name (str or None): Name of the function to call
             - arguments (dict or None): Function arguments
@@ -167,18 +172,24 @@ class DeepseekV3_1ToolParser(ToolParser):
                 )
                 current_tool_calls = self.new_tool_calls_regex.findall(current_text)
 
-                if len(current_tool_calls) > len(previous_tool_calls):
-                    # A new tool call has been completed
-                    last_tool_call = current_tool_calls[-1]
-                    name = last_tool_call[0]
-                    args_json = last_tool_call[1]
+                new_tool_calls: List[
+                    Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
+                ] = []
+                for name, args_json in current_tool_calls[len(previous_tool_calls) :]:
                     try:
                         arguments = json.loads(args_json)
-                        return None, name, arguments
                     except json.JSONDecodeError:
-                        # If JSON is invalid, we ignore it for now (it might be fixed in next chunks?
-                        # No, if regex matched, it means we have end token, so it's final invalid JSON)
-                        pass
+                        # A matched call is complete; skip invalid JSON without
+                        # losing other calls completed in this delta.
+                        continue
+                    new_tool_calls.append((None, name, arguments))
+
+                if new_tool_calls:
+                    return (
+                        new_tool_calls[0]
+                        if len(new_tool_calls) == 1
+                        else new_tool_calls
+                    )
 
                 # In tool call mode, we suppress output until we find a complete tool call
                 return None

@@ -1,3 +1,5 @@
+# CI: linux
+
 import json
 
 import pytest
@@ -103,6 +105,147 @@ def test_extract_tool_calls_no_tool_call():
     result = parser.extract_tool_calls(test_case)
 
     assert result == expected_results, f"Expected {expected_results}, but got {result}"
+
+
+def _weather_call(city: str) -> str:
+    return (
+        "<｜tool▁call▁begin｜>weather<｜tool▁sep｜>"
+        + json.dumps({"city": city}, ensure_ascii=False)
+        + "<｜tool▁call▁end｜>"
+    )
+
+
+def _stream_tool_calls(deltas):
+    parser = DeepseekV3_1ToolParser()
+    previous_texts = [""]
+    calls = []
+    for delta in deltas:
+        current_text = previous_texts[-1] + delta
+        result = parser.extract_tool_calls_streaming(
+            previous_texts, current_text, delta
+        )
+        previous_texts[-1] = current_text
+        if result is not None:
+            events = result if isinstance(result, list) else [result]
+            calls.extend(event for event in events if event[1] is not None)
+    return calls
+
+
+@pytest.mark.parametrize("call_count", [2, 3])
+@pytest.mark.parametrize("previous_count", [0, 1])
+def test_streaming_calls_completed_in_one_engine_text_delta(call_count, previous_count):
+    cities = ("北京", "上海", "广州")[:call_count]
+    calls = [_weather_call(city) for city in cities]
+    previous = "<｜tool▁calls▁begin｜>" + "".join(calls[:previous_count])
+    delta = "".join(calls[previous_count:]) + "<｜tool▁calls▁end｜>"
+
+    assert _stream_tool_calls([previous, delta, ""]) == [
+        (None, "weather", {"city": city}) for city in cities
+    ]
+
+
+@pytest.mark.parametrize("call_count", [2, 3])
+def test_streaming_calls_completed_in_separate_deltas(call_count):
+    cities = ("北京", "上海", "广州")[:call_count]
+    deltas = ["<｜tool▁calls▁begin｜>"]
+    deltas += [_weather_call(city) for city in cities]
+    deltas += ["<｜tool▁calls▁end｜>", ""]
+
+    assert _stream_tool_calls(deltas) == [
+        (None, "weather", {"city": city}) for city in cities
+    ]
+
+
+@pytest.mark.parametrize("batched", [False, True])
+def test_streaming_preserves_exact_duplicate_occurrences(batched):
+    deltas = ["<｜tool▁calls▁begin｜>", _weather_call("上海"), _weather_call("上海")]
+    deltas += ["<｜tool▁calls▁end｜>"]
+    text = "".join(deltas)
+    expected = (None, "weather", {"city": "上海"})
+
+    # #5602 deduplicates non-streaming output; streaming emits each occurrence.
+    assert DeepseekV3_1ToolParser().extract_tool_calls(text) == [expected]
+    assert _stream_tool_calls([text] if batched else deltas) == [expected, expected]
+
+
+@pytest.mark.parametrize("invalid_index", [0, 1, 2])
+def test_streaming_batch_keeps_valid_calls_around_invalid_json(invalid_index):
+    calls = [_weather_call("北京"), _weather_call("上海")]
+    calls.insert(invalid_index, _weather_call("广州").replace('{"city": "广州"}', "{"))
+    text = "<｜tool▁calls▁begin｜>" + "".join(calls) + "<｜tool▁calls▁end｜>"
+
+    assert _stream_tool_calls([text]) == [
+        (None, "weather", {"city": "北京"}),
+        (None, "weather", {"city": "上海"}),
+    ]
+
+
+@pytest.mark.parametrize("call_count", [2, 3])
+def test_streaming_converter_keeps_all_completed_calls(call_count):
+    from ...utils import ChatModelMixin
+
+    mixin = ChatModelMixin()
+    mixin.tool_parser = DeepseekV3_1ToolParser()
+    cities = ("北京", "上海", "广州")[:call_count]
+    text = "<｜tool▁calls▁begin｜>" + "".join(_weather_call(city) for city in cities)
+    text += "<｜tool▁calls▁end｜>"
+    chunk = mixin._post_process_completion_chunk(
+        None,
+        "test-model",
+        {"choices": [{"delta": {"content": text}, "finish_reason": None}]},
+        previous_texts=[""],
+        tool_call_state={},
+    )
+
+    calls = chunk["choices"][0]["delta"]["tool_calls"]
+    assert [
+        (
+            call["index"],
+            call["function"]["name"],
+            json.loads(call["function"]["arguments"]),
+        )
+        for call in calls
+    ] == [(index, "weather", {"city": city}) for index, city in enumerate(cities)]
+
+
+@pytest.mark.parametrize("call_count", [2, 3])
+@pytest.mark.parametrize("chunk_size", [1, 7, 64, None])
+def test_streaming_tool_calls_match_nonstreaming_for_rendered_template(
+    call_count, chunk_size
+):
+    from ...llm_family import BUILTIN_LLM_FAMILIES
+    from ...utils import ChatModelMixin
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "Deepseek-V3.1")
+    cities = ("北京", "上海", "广州")[:call_count]
+    text = ChatModelMixin._compile_jinja_template(family.chat_template).render(
+        messages=[
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {"function": {"name": "weather", "arguments": {"city": city}}}
+                    for city in cities
+                ],
+            }
+        ],
+        bos_token="",
+        thinking=False,
+        add_generation_prompt=False,
+    )
+    # The engine omits this configured stop string from generated text.
+    text = text.removesuffix("<｜end▁of▁sentence｜>")
+    chunk_size = chunk_size or len(text)
+    deltas = [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
+    expected = [(None, "weather", {"city": city}) for city in cities]
+
+    nonstreaming_calls = [
+        event
+        for event in DeepseekV3_1ToolParser().extract_tool_calls(text)
+        if event[1] is not None
+    ]
+    assert nonstreaming_calls == expected
+    assert _stream_tool_calls(deltas) == nonstreaming_calls
 
 
 STREAMING_TEST_CASES = [
