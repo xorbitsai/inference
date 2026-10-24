@@ -168,6 +168,7 @@
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
         "#sglang_dependencies# ; #engine# == \"sglang\""
       ]
-    }
+    },
+    "tool_parser": "minicpm5"
   }
 ]
