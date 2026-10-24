@@ -107,6 +107,8 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
     "version": 2,
     "virtualenv": {
       "packages": [
