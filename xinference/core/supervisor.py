@@ -2477,18 +2477,13 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     def _shares_model_registry(self, address):
-        return address == (
-            getattr(self, "_shared_worker_address", None) or self.address
-        )
+        return address == (self._shared_worker_address or self.address)
 
     def _has_inprocess_worker(self):
         return (
             self.is_local_deployment()
             and len(self._worker_address_to_worker) == 1
-            and all(
-                self._shares_model_registry(address)
-                for address in self._worker_address_to_worker
-            )
+            and self._shares_model_registry(next(iter(self._worker_address_to_worker)))
         )
 
     async def _sync_register_model(
@@ -6431,7 +6426,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     def is_local_deployment(self) -> bool:
         local_deployment = getattr(self, "_local_deployment", None)
         if local_deployment is not None:
-            return local_deployment
+            return local_deployment and len(self._worker_address_to_worker) == 1
         # TODO: temporary.
         return (
             len(self._worker_address_to_worker) == 1

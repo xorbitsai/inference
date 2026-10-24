@@ -393,6 +393,15 @@ class APIHost:
         if self.active is not None and self.active.process.poll() is not None:
             raise RuntimeError("Serving API process exited unexpectedly")
 
+    def force_exit(self) -> None:
+        processes = [child.process for child in self.children.values()]
+        if self.supervisor_host is not None:
+            processes.extend(child.process for child in self.supervisor_host.children)
+        for process in processes:
+            if process.poll() is None:
+                with contextlib.suppress(ProcessLookupError):
+                    process.kill()
+
     async def run(self, stopping: asyncio.Event) -> None:
         with tempfile.TemporaryDirectory(prefix="xinf-api-") as directory:
             self.directory = Path(directory)
@@ -472,14 +481,21 @@ def run(configuration: Dict[str, Any], host_class=APIHost) -> None:
     async def serve():
         stopping = asyncio.Event()
         loop = asyncio.get_running_loop()
+        host = host_class(
+            listener,
+            configuration,
+            get_system_settings_store(XINFERENCE_SYSTEM_SETTINGS_PATH),
+        )
+
+        def stop():
+            if stopping.is_set():
+                host.force_exit()
+            stopping.set()
+
         for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(sig, stopping.set)
+            loop.add_signal_handler(sig, stop)
         try:
-            await host_class(
-                listener,
-                configuration,
-                get_system_settings_store(XINFERENCE_SYSTEM_SETTINGS_PATH),
-            ).run(stopping)
+            await host.run(stopping)
         finally:
             for sig in (signal.SIGTERM, signal.SIGINT):
                 loop.remove_signal_handler(sig)

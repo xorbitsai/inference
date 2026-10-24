@@ -54,7 +54,7 @@ In **Cluster Information**, choose **Restart / upgrade Supervisor**, or run:
     xinference relaunch-supervisor --endpoint http://127.0.0.1:9997 \
       --python-executable /opt/xinference-new/bin/python --request-id supervisor-upgrade-1
 
-On Linux and macOS, ``xinference-supervisor`` and ``xinference-local`` can replace its Supervisor control process while retaining the API, Workers and model processes. The HTTP address and Supervisor actor address stay the same. New inference requests continue using the serving routes while the replacement prepares; existing streams stay on their model processes.
+On Linux and macOS, ``xinference-supervisor`` and ``xinference-local`` can replace their Supervisor control process while retaining the API, Workers and model processes. The HTTP address and Supervisor actor address stay the same. New inference requests continue using the serving routes while the replacement prepares; existing streams stay on their model processes.
 
 The replacement loads persisted configuration and checks the registered Workers' live model inventories and ownership. Management operations briefly wait during state transfer; model route lookups remain available. An active model launch, download, model reload or Worker handoff prevents replacement until that operation finishes. Failed preparation leaves the previous Supervisor serving.
 

@@ -137,7 +137,7 @@ msgstr ""
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:55
 msgid ""
-"On Linux and macOS, ``xinference-supervisor`` and ``xinference-local`` can replace its"
+"On Linux and macOS, ``xinference-supervisor`` and ``xinference-local`` can replace their"
 " Supervisor control process while retaining the API, Workers and model processes. The "
 "HTTP address and Supervisor actor address stay the same. New inference requests "
 "continue using the serving routes while the replacement prepares; existing streams "

@@ -160,8 +160,12 @@ class SupervisorHost:
 
     async def stop_child(self, child):
         if child.shared:
-            with contextlib.suppress(xo.ActorNotExist):
-                await xo.destroy_actor(child.ref)
+            if child.process.poll() is not None:
+                return
+            with contextlib.suppress(
+                xo.ActorNotExist, xo.ServerClosed, OSError, asyncio.TimeoutError
+            ):
+                await xo.wait_for(xo.destroy_actor(child.ref), 10)
             return
         if child.process.poll() is None:
             child.process.terminate()

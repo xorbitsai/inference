@@ -349,6 +349,18 @@ async def test_local_mode_survives_role_separation(supervisor_snapshot):
         await target.__pre_destroy__()
 
 
+def test_local_mode_honours_attached_workers(supervisor_snapshot):
+    source, worker = supervisor_snapshot
+    source._local_deployment = True
+    assert source.is_local_deployment()
+    remote = MagicMock(address="remote:1234")
+    source._worker_address_to_worker[remote.address] = remote
+    assert not source.is_local_deployment()
+    assert source._get_worker_ref_by_ip("remote") is remote
+    del source._worker_address_to_worker[remote.address]
+    assert source.is_local_deployment()
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["activate", "rollback"])
 async def test_first_health_sweep_retains_live_worker(

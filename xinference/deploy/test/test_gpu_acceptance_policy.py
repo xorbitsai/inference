@@ -5,9 +5,12 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
+from ...core.tests import test_model_generation_gpu as gpu_tests
 from ...core.tests.test_model_generation_gpu import protected_gpu_environment
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX GPU acceptance")
@@ -94,3 +97,33 @@ def test_gpu_policy_failure_stops_interpreter_before_startup(tmp_path):
     assert result.returncode == 90
     assert "broken test environment" in result.stderr
     assert not marker.exists()
+
+
+@pytest.mark.asyncio
+async def test_gpu_cleanup_timeout_preserves_failure_and_report(tmp_path, monkeypatch):
+    # No GPU or real service is started. Force the harness to fail just after
+    # opening its service log, then make waiting for that fake service time out.
+    process = MagicMock(pid=2**30)
+    process.poll.return_value = 0
+    process.wait.side_effect = subprocess.TimeoutExpired("test service", 10)
+    spawn = MagicMock(return_value=process)
+    monkeypatch.setenv("XINFERENCE_TEST_GENERATION_MODEL_PATH", "unused")
+    monkeypatch.setattr(gpu_tests.pytest, "importorskip", lambda engine: None)
+    monkeypatch.setattr(gpu_tests.subprocess, "Popen", spawn)
+    monkeypatch.setattr(
+        gpu_tests.subprocess, "check_output", lambda *args, **kwargs: "{}"
+    )
+
+    def fail_http(**kwargs):
+        raise RuntimeError("original acceptance failure")
+
+    monkeypatch.setattr(gpu_tests.httpx, "AsyncClient", fail_http)
+    with pytest.raises(RuntimeError, match="original acceptance failure"):
+        await gpu_tests.test_gpu_upgrade_keeps_streams_and_requests_serving(
+            "vllm", "local", tmp_path
+        )
+    folder = (tmp_path / "vllm-latest").read_text()
+    report = json.loads((Path(folder) / "result.json").read_text())
+    assert report["cleanup_survivors"] == [process.pid]
+    assert "original acceptance failure" in report["error"]
+    assert spawn.call_args.kwargs["stdout"].closed

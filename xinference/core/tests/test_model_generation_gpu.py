@@ -621,7 +621,11 @@ async def test_gpu_upgrade_keeps_streams_and_requests_serving(
                     survivors.append(pid)
                     proc.kill()
         for process in processes:
-            process.wait(timeout=10)
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                if process.pid not in survivors:
+                    survivors.append(process.pid)
         report["cleanup_survivors"] = survivors
         for log in logs:
             log.close()

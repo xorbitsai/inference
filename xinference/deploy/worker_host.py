@@ -80,9 +80,10 @@ class ProcessOwner:
     def reap(self, watched=()):
         """Reap adopted children without racing their explicit process watchers."""
         for pid, created in tuple(self.descendants.items()):
-            if pid not in watched and not self.alive(pid, created):
-                with contextlib.suppress(ChildProcessError, ProcessLookupError):
-                    os.waitpid(pid, os.WNOHANG)
+            if not self.alive(pid, created):
+                if pid not in watched:
+                    with contextlib.suppress(ChildProcessError, ProcessLookupError):
+                        os.waitpid(pid, os.WNOHANG)
                 self.descendants.pop(pid, None)
 
     async def register(self, reader, writer):
@@ -119,6 +120,10 @@ class ProcessOwner:
             self.alive(pid, created) for pid, created in self.descendants.items()
         ):
             await asyncio.sleep(0.1)
+        self.kill()
+
+    def kill(self):
+        self.remember()
         for pid, created in self.descendants.items():
             if self.alive(pid, created):
                 with contextlib.suppress(ProcessLookupError):
@@ -132,31 +137,31 @@ async def run_worker_host(command):
         raise ValueError("Expected a Worker command")
     _enable_subreaper()
     owner = ProcessOwner()
-    own = owner.process
-    workers, descendants = owner.workers, owner.descendants
     exits = {}
     stopping = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stopping.set)
 
-    alive, remember, register = owner.alive, owner.remember, owner.register
-
     # A private short namespace also works when this process is Docker PID 1.
     with tempfile.TemporaryDirectory(prefix="xinf-host-", dir="/tmp") as directory:
         address = str(Path(directory) / "worker.sock")
-        server = await asyncio.start_unix_server(register, address, limit=4096)
+        server = await asyncio.start_unix_server(owner.register, address, limit=4096)
         process = None
         try:
             process = await asyncio.create_subprocess_exec(
                 *command,
-                env={**os.environ, HOST_SOCKET: address, HOST_PID: str(own.pid)},
+                env={
+                    **os.environ,
+                    HOST_SOCKET: address,
+                    HOST_PID: str(owner.process.pid),
+                },
             )
-            workers[process.pid] = psutil.Process(process.pid).create_time()
+            owner.workers[process.pid] = psutil.Process(process.pid).create_time()
             while not stopping.is_set():
-                remember()
-                for pid, created in tuple(workers.items()):
-                    if pid not in exits and not alive(pid, created):
+                owner.remember()
+                for pid, created in tuple(owner.workers.items()):
+                    if pid not in exits and not owner.alive(pid, created):
                         if pid == process.pid:
                             exits[pid] = await process.wait()
                         else:
@@ -164,7 +169,7 @@ async def run_worker_host(command):
                                 # A replacement can exit before its parent
                                 # retires. Wait until the subreaper adopts it.
                                 with contextlib.suppress(psutil.NoSuchProcess):
-                                    if psutil.Process(pid).ppid() != own.pid:
+                                    if psutil.Process(pid).ppid() != owner.process.pid:
                                         continue
                             try:
                                 waited, status = os.waitpid(pid, os.WNOHANG)
@@ -174,21 +179,18 @@ async def run_worker_host(command):
                                 # macOS reparents grandchildren to launchd.
                                 # Unknown termination is a service failure.
                                 exits[pid] = 1
-                if all(pid in exits for pid in workers):
+                if all(pid in exits for pid in owner.workers):
                     break
                 # Reap adopted grandchildren without racing asyncio's watcher
                 # for the initial command.
-                for pid, created in tuple(descendants.items()):
-                    if pid not in workers and not alive(pid, created):
-                        with contextlib.suppress(ChildProcessError, ProcessLookupError):
-                            os.waitpid(pid, os.WNOHANG)
-                    if not alive(pid, created):
-                        descendants.pop(pid, None)
+                owner.reap(owner.workers)
                 try:
                     await asyncio.wait_for(stopping.wait(), 0.1)
                 except asyncio.TimeoutError:
                     pass
-            return 0 if stopping.is_set() else exits.get(next(reversed(workers)), 1)
+            return (
+                0 if stopping.is_set() else exits.get(next(reversed(owner.workers)), 1)
+            )
         finally:
             server.close()
             await server.wait_closed()

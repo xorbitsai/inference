@@ -5,6 +5,7 @@
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -27,6 +28,15 @@ from .api_host import (
 from .supervisor_host import SupervisorHost, SupervisorProcess
 from .worker_host import HOST_PID, HOST_SOCKET, ProcessOwner, _enable_subreaper
 
+logger = logging.getLogger(__name__)
+
+
+def _log_api_failure(task: asyncio.Task) -> None:
+    if not task.cancelled() and (error := task.exception()) is not None:
+        logger.error(
+            "Local API failed", exc_info=(type(error), error, error.__traceback__)
+        )
+
 
 class InlineAPIProcess:
     def __init__(self):
@@ -47,6 +57,12 @@ class InlineAPIProcess:
         if self.server is not None:
             self.server.force_exit = True
             self.server.should_exit = True
+            # Python 3.12+ waits for active transports in Server.wait_closed().
+            # A second interrupt must release those transports and ASGI tasks.
+            for connection in list(self.server.server_state.connections):
+                connection.transport.close()
+            for task in list(self.server.server_state.tasks):
+                task.cancel()
 
 
 class LocalHost(APIHost):
@@ -58,6 +74,7 @@ class LocalHost(APIHost):
         self.cluster: Optional[subprocess.Popen] = None
         self.cluster_exit: Optional[asyncio.Task] = None
         self.worker_socket = ""
+        self.last_process_scan = 0.0
 
     async def start_components(self, environment: Dict[str, str]) -> None:
         os.environ[API_HOST_ENV] = json.dumps(self.connection)
@@ -70,7 +87,10 @@ class LocalHost(APIHost):
         from .utils import health_check
 
         environment = {
-            **environment,
+            # APIHost adds its package root for API subprocess imports. A
+            # pip-installed runtime must not export its site-packages into
+            # model virtualenvs; retain the launcher's original environment.
+            **os.environ,
             HOST_SOCKET: self.worker_socket,
             HOST_PID: str(os.getpid()),
             API_HOST_ENV: json.dumps(self.connection),
@@ -160,6 +180,7 @@ class LocalHost(APIHost):
             def run(self, sockets=None):
                 process.server = self
                 process.task = asyncio.create_task(self.serve(sockets=sockets))
+                process.task.add_done_callback(_log_api_failure)
 
             @contextlib.contextmanager
             def capture_signals(self):
@@ -210,7 +231,10 @@ class LocalHost(APIHost):
 
     def check(self) -> None:
         super().check()
-        self.owner.remember()
+        now = time.monotonic()
+        if now - self.last_process_scan >= 1:
+            self.owner.remember()
+            self.last_process_scan = now
         watched = {child.process.pid for child in self.children.values()}
         if self.supervisor_host is not None:
             watched.update(child.process.pid for child in self.supervisor_host.children)
@@ -219,6 +243,10 @@ class LocalHost(APIHost):
         self.owner.reap(watched)
         if self.cluster is not None and self.cluster.poll() is not None:
             raise RuntimeError("Local service gateway exited unexpectedly")
+
+    def force_exit(self) -> None:
+        self.owner.kill()
+        super().force_exit()
 
     async def run(self, stopping: asyncio.Event) -> None:
         _enable_subreaper()

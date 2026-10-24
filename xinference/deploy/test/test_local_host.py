@@ -1,20 +1,26 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
 
+import asyncio
 import concurrent.futures
 import json
 import logging
 import os
+import signal
 import subprocess
 import sys
 import threading
 import time
+import venv
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import psutil
 import pytest
 import requests
 from xoscar.utils import get_next_port
+
+from ..local_host import LocalHost
 
 EXTENSION = """
 import os
@@ -82,6 +88,214 @@ def alive(pid):
     return (
         psutil.pid_exists(pid) and psutil.Process(pid).status() != psutil.STATUS_ZOMBIE
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(os.name != "posix", reason="Local service hosting requires POSIX")
+async def test_local_runtime_preserves_original_environment(tmp_path, monkeypatch):
+    from ...core.utils import build_subpool_envs_for_virtual_env
+
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    engine_env = tmp_path / "engine-env"
+    venv.EnvBuilder(with_pip=False).create(engine_env)
+    engine_python = str(engine_env / "bin" / "python")
+    engine_site = Path(
+        subprocess.check_output(
+            [engine_python, "-c", "import site; print(site.getsitepackages()[0])"],
+            text=True,
+        ).strip()
+    )
+    main_site = tmp_path / "main-site-packages"
+    main_site.mkdir()
+    (main_site / "engine_version.py").write_text("VERSION = 'main'\n")
+    (engine_site / "engine_version.py").write_text("VERSION = 'engine-pinned'\n")
+    monkeypatch.setenv("XINFERENCE_API_HOST", "original-host")
+    captured = {}
+    popen = subprocess.Popen
+
+    def spawn(*args, **kwargs):
+        if "env" not in kwargs:
+            return popen(*args, **kwargs)
+        captured.update(kwargs["env"])
+        raise RuntimeError("captured runtime environment")
+
+    host = LocalHost(
+        MagicMock(),
+        {"supervisor_address": "127.0.0.1:1", "worker_address": "127.0.0.1:2"},
+        MagicMock(),
+    )
+    host.directory = tmp_path
+    host.connection = {"port": 1234, "token": "test"}
+    with monkeypatch.context() as context:
+        context.setattr("xinference.deploy.local_host.subprocess.Popen", spawn)
+        with pytest.raises(RuntimeError, match="captured runtime environment"):
+            await host.start_components({**os.environ, "PYTHONPATH": str(main_site)})
+    monkeypatch.setattr(
+        "xinference.core.virtual_env_manager.resolve_virtualenv_python_path",
+        lambda manager: engine_python,
+    )
+    environment = build_subpool_envs_for_virtual_env(captured, True, MagicMock())
+    result = subprocess.check_output(
+        [engine_python, "-c", "import engine_version; print(engine_version.VERSION)"],
+        env=environment,
+        text=True,
+    )
+    assert result.strip() == "engine-pinned"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["exited", "closed", "connection", "hung"])
+async def test_shared_supervisor_stop_tolerates_dead_or_hung_runtime(
+    tmp_path, monkeypatch, failure
+):
+    import xoscar as xo
+
+    from ..supervisor_host import SupervisorHost
+
+    host = SupervisorHost({"supervisor_address": "unused:1"}, tmp_path, MagicMock())
+    child = MagicMock(shared=True)
+    child.process.poll.return_value = 0 if failure == "exited" else None
+    destroy = AsyncMock(
+        side_effect=(
+            xo.ServerClosed()
+            if failure == "closed"
+            else ConnectionError() if failure == "connection" else None
+        )
+    )
+    monkeypatch.setattr(xo, "destroy_actor", destroy)
+    if failure == "hung":
+
+        async def hang(*args):
+            await asyncio.Event().wait()
+
+        destroy.side_effect = hang
+
+        async def timed_out(awaitable, timeout):
+            assert timeout == 10
+            return await asyncio.wait_for(awaitable, 0.01)
+
+        monkeypatch.setattr(xo, "wait_for", timed_out)
+    await asyncio.wait_for(host.stop_child(child), 0.5)
+    assert destroy.call_count == (0 if failure == "exited" else 1)
+
+
+@pytest.mark.asyncio
+async def test_inline_api_failure_keeps_traceback(caplog):
+    from ..local_host import InlineAPIProcess, _log_api_failure
+
+    async def fail():
+        raise RuntimeError("inline API failure outside startup")
+
+    process = InlineAPIProcess()
+    process.task = asyncio.create_task(fail())
+    process.task.add_done_callback(_log_api_failure)
+    await asyncio.gather(process.task, return_exceptions=True)
+    assert process.poll() == 1
+    assert "inline API failure outside startup" in caplog.text
+    assert caplog.records[-1].exc_info[2] is not None
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Local service hosting requires POSIX")
+@pytest.mark.parametrize("stop_mode", ["group-term", "group-int", "double-int"])
+def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, stop_mode):
+    ports = [get_next_port() for _ in range(3)]
+    configuration = {
+        "host": "127.0.0.1",
+        "port": ports[0],
+        "supervisor_address": f"127.0.0.1:{ports[1]}",
+        "worker_address": f"127.0.0.1:{ports[2]}",
+        "local_deployment": True,
+        "api_role": "local",
+    }
+    script = tmp_path / "start.py"
+    script.write_text(
+        "from pathlib import Path\n"
+        "from xinference.deploy.api_host import run\n"
+        "from xinference.deploy.local_host import LocalHost, InlineAPIProcess\n"
+        "original_drain = InlineAPIProcess.terminate\n"
+        "def drain(process):\n"
+        "    original_drain(process)\n"
+        f"    Path({str(tmp_path / 'draining')!r}).touch()\n"
+        "InlineAPIProcess.terminate = drain\n"
+        "if __name__ == '__main__':\n"
+        f"    run({configuration!r}, host_class=LocalHost)\n"
+    )
+    (tmp_path / "local_extension.py").write_text(EXTENSION)
+    environment = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join(
+            [
+                str(tmp_path),
+                str(Path(__file__).resolve().parents[3]),
+                os.environ.get("PYTHONPATH", ""),
+            ]
+        ),
+        "XINFERENCE_HOME": str(tmp_path / "home"),
+        "XINFERENCE_AUTH_ADVANCED": "0",
+        "XINFERENCE_DISABLE_METRICS": "1",
+        "XINFERENCE_EXTENSIONS": "local_extension:create",
+        "LOCAL_TEST_RELEASE": str(tmp_path / "release"),
+        "CUDA_VISIBLE_DEVICES": "-1",
+    }
+    session = requests.Session()
+    session.trust_env = False
+    stream = None
+    owned = {}
+    with (tmp_path / "service.log").open("w") as log:
+        process = subprocess.Popen(
+            [sys.executable, str(script)],
+            env=environment,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        try:
+            endpoint = f"http://127.0.0.1:{ports[0]}"
+            until(lambda: session.get(endpoint + "/local-test/info", timeout=2).ok)
+            owned = {
+                p.pid: p.create_time()
+                for p in psutil.Process(process.pid).children(recursive=True)
+            }
+            if stop_mode == "double-int":
+                stream = session.get(
+                    endpoint + "/local-test/stream", stream=True, timeout=10
+                )
+                stream.raise_for_status()
+                lines = stream.iter_lines(chunk_size=1)
+                assert (
+                    next(line for line in lines if line.startswith(b"data:"))
+                    == b"data: start"
+                )
+                process.send_signal(signal.SIGINT)
+                until(lambda: (tmp_path / "draining").exists(), timeout=5)
+                assert (
+                    process.poll() is None
+                ), "First interrupt should drain the active stream"
+                process.send_signal(signal.SIGINT)
+            else:
+                os.killpg(
+                    process.pid,
+                    signal.SIGTERM if stop_mode == "group-term" else signal.SIGINT,
+                )
+            process.wait(timeout=10)
+            assert process.returncode == 0, (tmp_path / "service.log").read_text()[
+                -5000:
+            ]
+            until(lambda: not any(alive(pid) for pid in owned), timeout=5)
+        finally:
+            if stream is not None:
+                stream.close()
+            session.close()
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait(timeout=5)
+            for pid, created in owned.items():
+                try:
+                    child = psutil.Process(pid)
+                    if child.create_time() == created:
+                        child.kill()
+                except psutil.NoSuchProcess:
+                    pass
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Local service hosting requires POSIX")
