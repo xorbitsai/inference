@@ -44,6 +44,8 @@ def families(request):
 
 
 def test_metadata_and_engine(families):
+    from xoscar.virtualenv.uv import UVVirtualEnvManager
+
     assert set(families) == {"huggingface", "modelscope"}
     for hub, revision in (("huggingface", "main"), ("modelscope", "master")):
         spec = families[hub]
@@ -62,10 +64,12 @@ def test_metadata_and_engine(families):
             "num_inference_steps": 4 if turbo else 50,
             "guidance_scale": 1.0 if turbo else 5.0,
         }
-        assert (
-            "diffusers @ https://github.com/huggingface/diffusers/archive/"
-            '1ddaf8f4e7c33afaa7c6c2c3be9e56f2c2a634c8.zip ; #engine# == "diffusers"'
-            in spec.virtualenv.packages
+        assert 'diffusers>=0.42.0 ; #engine# == "diffusers"' in spec.virtualenv.packages
+        assert "diffusers>=0.42.0" in UVVirtualEnvManager.process_packages(
+            spec.virtualenv.packages, engine="diffusers"
+        )
+        assert "diffusers>=0.42.0" not in UVVirtualEnvManager.process_packages(
+            spec.virtualenv.packages, engine="vLLM"
         )
         assert "transformers>=5.20.1,<6" in spec.virtualenv.packages
         assert all(

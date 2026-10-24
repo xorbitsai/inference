@@ -37,7 +37,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers @ https://github.com/huggingface/diffusers/archive/1ddaf8f4e7c33afaa7c6c2c3be9e56f2c2a634c8.zip ; #engine# == \"diffusers\"",
+        "diffusers>=0.42.0 ; #engine# == \"diffusers\"",
         "transformers>=5.8.1,<6",
         "accelerate>=1.13.0",
         "#system_torch#",

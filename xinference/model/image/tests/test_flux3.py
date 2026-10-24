@@ -29,7 +29,7 @@ from PIL import Image
 from .. import load_model_family_from_json
 from ..core import create_image_model_instance
 from ..engine import DiffusersImageModel, Flux3ImageModel
-from ..flux3 import FLUX3_DIFFUSERS_URL, Flux3Model
+from ..flux3 import Flux3Model
 
 
 @pytest.fixture(params=["huggingface", "modelscope"])
@@ -61,12 +61,10 @@ def test_catalog_and_dispatch(spec, tmp_path):
     assert not DiffusersImageModel.match(spec)
     assert set(IMAGE_ENGINES[spec.model_name]) == {"diffusers"}
     assert "transformers>=5.8.1,<6" in spec.virtualenv.packages
-    archive_requirement = f"diffusers @ {FLUX3_DIFFUSERS_URL}"
-    assert FLUX3_DIFFUSERS_URL.endswith(".zip")
-    assert archive_requirement in UVVirtualEnvManager.process_packages(
+    assert "diffusers>=0.42.0" in UVVirtualEnvManager.process_packages(
         spec.virtualenv.packages, engine="diffusers"
     )
-    assert archive_requirement not in UVVirtualEnvManager.process_packages(
+    assert "diffusers>=0.42.0" not in UVVirtualEnvManager.process_packages(
         spec.virtualenv.packages, engine="vLLM"
     )
     model = create_image_model_instance(
@@ -405,4 +403,4 @@ def test_old_diffusers_has_actionable_error(monkeypatch, spec):
     model = Flux3Model("flux3", "/unused", spec)
     with pytest.raises(ImportError) as exc:
         model.load()
-    assert FLUX3_DIFFUSERS_URL in str(exc.value)
+    assert "diffusers>=0.42.0" in str(exc.value)
