@@ -1,3 +1,4 @@
+# CI: linux
 import pytest
 
 from ..llama3_tool_parser import Llama3ToolParser
@@ -169,3 +170,20 @@ class TestLlama3ToolParserStreaming:
         parser = Llama3ToolParser()
         with pytest.raises(NotImplementedError):
             parser.extract_tool_calls_streaming(["prev"], "current", "delta")
+
+
+def test_llama_3_3_instruct_parses_tool_calls_with_llama3_parser():
+    from ...llm_family import BUILTIN_LLM_FAMILIES
+    from ...utils import LLAMA3_TOOL_CALL_FAMILY
+    from .. import TOOL_PARSERS
+
+    family = next(
+        f for f in BUILTIN_LLM_FAMILIES if f.model_name == "llama-3.3-instruct"
+    )
+    assert "tools" in family.model_ability
+    assert family.model_name in LLAMA3_TOOL_CALL_FAMILY
+    parser = TOOL_PARSERS[family.tool_parser]()
+    model_output = '{"name": "get_weather", "parameters": {"location": "Paris"}}'
+    assert parser.extract_tool_calls(model_output) == [
+        (None, "get_weather", {"location": "Paris"})
+    ]
