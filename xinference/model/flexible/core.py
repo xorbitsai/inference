@@ -35,6 +35,8 @@ class FlexibleModelSpec(CacheableModelSpec, ModelInstanceInfoMixin):
     virtualenv: Optional[VirtualEnvSettings]
 
     def parser_args(self):
+        if self.launcher_args is None:
+            return {}
         return json.loads(self.launcher_args)
 
     class Config:
