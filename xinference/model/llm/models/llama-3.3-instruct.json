@@ -249,6 +249,7 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
+    "tool_parser": "llama3",
     "updated_at": 1769418538,
     "featured": false,
     "architectures": [
