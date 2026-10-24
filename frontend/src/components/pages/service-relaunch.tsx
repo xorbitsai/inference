@@ -116,6 +116,7 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
   const [python, setPython] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const launcherRef = useRef<HTMLButtonElement>(null);
   const requestId = useRef('');
   const prefix = 'clusterInfo.serviceRelaunch';
   useEffect(() => {
@@ -163,7 +164,12 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
         <CardDescription>{t(`${prefix}.${service}.description`)}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <Button variant="outline" disabled={!state.canStart} onClick={() => setOpen(true)}>
+        <Button
+          ref={launcherRef}
+          variant="outline"
+          disabled={!state.canStart}
+          onClick={() => setOpen(true)}
+        >
           {t(`${prefix}.${service}.title`)}
         </Button>
         {state.error && (
@@ -216,7 +222,12 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
           if (!submitting) setOpen(value);
         }}
       >
-        <DialogContent>
+        <DialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            launcherRef.current?.focus();
+          }}
+        >
           <form
             onSubmit={(event) => {
               event.preventDefault();

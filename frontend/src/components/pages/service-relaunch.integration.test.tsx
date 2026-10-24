@@ -214,6 +214,41 @@ it('uses the existing endpoints and trims the optional prepared environment path
   assert.equal(trigger('supervisor').disabled, true);
 });
 
+for (const service of ['api', 'supervisor'] as const) {
+  for (const dismissal of ['cancel', 'Escape', 'close'] as const) {
+    it(`returns focus to the ${service} launcher after keyboard ${dismissal} dismissal`, async () => {
+      await act(async () => root.render(<ServiceRelaunchPanel />));
+      const launcher = trigger(service);
+      await act(async () => {
+        launcher.focus();
+        launcher.click();
+      });
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
+      assert.ok(dialog.contains(document.activeElement));
+      await act(async () => {
+        if (dismissal === 'Escape') {
+          dialog.dispatchEvent(
+            new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+          );
+        } else {
+          const button =
+            dismissal === 'cancel'
+              ? [...dialog.querySelectorAll<HTMLButtonElement>('button')].find(
+                  (item) => item.textContent === 'common.cancel'
+                )!
+              : dialog.querySelector<HTMLButtonElement>('[data-slot="dialog-close"]')!;
+          button.focus();
+          button.click();
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+      assert.equal(document.querySelector('[role="dialog"]'), null);
+      assert.ok(document.activeElement === launcher, 'focus must return to the launcher');
+      assert.equal(posts.length, 0);
+    });
+  }
+}
+
 it('keeps the same idempotency key when retrying an uncertain submission', async () => {
   rejectOnce = true;
   await act(async () => root.render(<ServiceRelaunchPanel />));
