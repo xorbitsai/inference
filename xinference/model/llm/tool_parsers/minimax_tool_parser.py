@@ -46,8 +46,11 @@ class MiniMaxToolParser(ToolParser):
         )
 
     def _parse_param_value(self, value: str, is_string: bool = False) -> Any:
+        # A string value sits inline between the tags, so its whitespace is data.
+        if is_string:
+            return value
         value = value.strip()
-        if not value or is_string:
+        if not value:
             return value
         try:
             return json.loads(value)
