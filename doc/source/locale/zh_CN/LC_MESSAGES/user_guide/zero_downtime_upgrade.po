@@ -1,0 +1,192 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference 4.0\n"
+"Report-Msgid-Bugs-To: https://github.com/xorbitsai/inference/issues\n"
+"POT-Creation-Date: 2026-10-24 00:00+0800\n"
+"PO-Revision-Date: 2026-10-24 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: zh_CN\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:4
+msgid "Zero-downtime upgrades (Experimental)"
+msgstr "不停机升级（Experimental）"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:8
+msgid ""
+"Upgrade one component at a time while inference continues. Choose the "
+"component whose code or environment needs changing; replacing a control "
+"process keeps existing model processes and their loaded weights running."
+msgstr "在推理持续运行的同时，每次升级一个组件。根据需要修改的代码或环境选择组件；替换控制进程时，现有模型进程及其已加载的权重会继续运行。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:11
+msgid "Prepare an upgrade"
+msgstr "升级准备"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:13
+msgid ""
+"The running deployment must already support the relevant replacement "
+"protocol and service host. API, Supervisor and Worker replacement support "
+"distributed deployments on Linux and macOS, not local mode or Windows. "
+"Model-engine replacement has the Linux GPU requirements described below."
+msgstr ""
+"当前运行的部署必须已经支持相应的替换协议和服务宿主进程。API、Supervisor 和 Worker 替换支持 Linux 和 macOS "
+"上的分布式部署，不支持本地模式或 Windows。模型引擎替换还需满足下文的 Linux GPU 要求。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:15
+msgid ""
+"Install a compatible Xinference version and its dependencies in a separate "
+"environment first. ``python_executable`` is an absolute Python path on the "
+"Supervisor machine for API/Supervisor upgrades, or on the Worker machine for"
+" Worker/model upgrades. Packages are not installed by these operations. Omit"
+" the path to reuse the current environment. Use an administrator session "
+"when authentication is enabled."
+msgstr ""
+"先在独立环境中安装兼容的 Xinference 版本及其依赖。 ``python_executable`` 是 Python "
+"的绝对路径：API/Supervisor 升级使用 Supervisor 所在机器上的路径，Worker/模型升级使用 Worker "
+"所在机器上的路径。这些操作不会安装软件包。省略路径会复用当前环境。启用身份验证时，请使用管理员会话。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:18
+msgid "API and Web UI"
+msgstr "API 和 Web UI"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:20
+msgid "In **Cluster Information**, choose **Restart / upgrade API**, or run:"
+msgstr "在 **集群信息** 中选择 **重启 / 升级 API** ，或运行："
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:27
+msgid ""
+"The public HTTP address stays the same. New connections use the replacement "
+"API; existing requests and streams finish on the previous API. The "
+"Supervisor, Workers and models keep running. Refresh the browser to load the"
+" upgraded Web UI. See :doc:`api_relaunch`."
+msgstr ""
+"对外 HTTP 地址保持不变。新连接使用替换后的 API，已有请求和流式请求由原 API 执行完成。Supervisor、Worker "
+"和模型继续运行。刷新浏览器以加载升级后的 Web UI。参见 :doc:`api_relaunch` 。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:30
+msgid "Supervisor"
+msgstr "Supervisor"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:32
+msgid ""
+"In **Cluster Information**, choose **Restart / upgrade Supervisor**, or run:"
+msgstr "在 **集群信息** 中选择 **重启 / 升级 Supervisor** ，或运行："
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:39
+msgid ""
+"The API, Workers and models keep running, and public addresses stay the "
+"same. Inference routes remain available while management operations briefly "
+"wait during state transfer. Finish active model launches, downloads, reloads"
+" and Worker handoffs before upgrading. See :doc:`supervisor_relaunch`."
+msgstr ""
+"API、Worker "
+"和模型继续运行，对外地址保持不变。状态迁移期间，推理路由仍然可用，管理操作会短暂等待。升级前，请先完成正在进行的模型启动、下载、重载和 Worker "
+"交接。参见 :doc:`supervisor_relaunch` 。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:42
+msgid "Worker"
+msgstr "Worker"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:44
+msgid ""
+"In **Cluster Information**, choose **Restart / upgrade Worker** on the "
+"Worker to upgrade, or use its current actor address:"
+msgstr "在 **集群信息** 中，对需要升级的 Worker 选择 **重启 / 升级 Worker** ，或使用其当前 Actor 地址："
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:58
+msgid ""
+"The Worker starts its replacement and transfers model ownership "
+"automatically. Model processes, their code and GPU weights stay in place; "
+"this does not upgrade the model engine. Both environments need Xoscar 0.12.1"
+" or later and compatible handoff support. Multi-Worker models and Xavier/P/D"
+" deployments are unsupported. See :doc:`worker_handoff`."
+msgstr ""
+"Worker 会自动启动替换进程并移交模型管理权。模型进程、其代码和 GPU 权重保持原样，因此该操作不会升级模型引擎。两个环境都需要 Xoscar "
+"0.12.1 或更高版本及兼容的交接支持。不支持跨 Worker 的模型以及 Xavier/P/D 部署。参见 "
+":doc:`worker_handoff` 。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:61
+msgid "Model and engine"
+msgstr "模型和引擎"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:63
+msgid ""
+"Open a running model's detail view and choose **Reconfigure / upgrade "
+"model**. Engine replacement requires **Keep GPU weights for reload** "
+"(``enable_weight_cache=true``) at launch, vLLM 0.31.0+ or SGLang 0.5.21+, "
+"Linux with CUDA or ROCm, one Worker, one replica and fixed tensor "
+"parallelism. To select a prepared model environment:"
+msgstr ""
+"打开运行中模型的详情，选择 **重新配置 / 升级模型** 。替换引擎需要在启动时开启 **保留 GPU 权重以支持重载** （ "
+"``enable_weight_cache=true`` ），使用 vLLM 0.31.0+ 或 SGLang 0.5.21+、配备 CUDA 或 "
+"ROCm 的 Linux、单个 Worker、单副本和固定的张量并行度。要选择已准备好的模型环境："
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:75
+msgid ""
+"The current engine serves until its replacement is healthy, then existing "
+"requests finish on the old engine. Compatible engine and PyTorch versions "
+"can share retained weights, but each engine needs its own KV cache and CUDA "
+"graphs. Reserve extra GPU memory; incompatible versions also need a separate"
+" weight cache. Insufficient memory rejects the upgrade while the current "
+"engine keeps serving. See :ref:`launch_weight_cache_reload` for supported "
+"changes and limitations."
+msgstr ""
+"新引擎通过健康检查前，当前引擎继续服务；切换后，已有请求由旧引擎执行完成。兼容的引擎和 PyTorch 版本可以共享保留的权重，但每个引擎仍需独立的 "
+"KV cache 和 CUDA "
+"graphs。请预留额外显存；不兼容的版本还需要独立的权重缓存。显存不足时会拒绝升级，当前引擎继续服务。支持的修改和限制参见 "
+":ref:`launch_weight_cache_reload` 。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:78
+msgid "Progress and recovery"
+msgstr "进度与恢复"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:80
+msgid ""
+"Submission returns HTTP 202 and an ``operation_id``; acceptance does not "
+"mean completion. Follow progress in the Web UI or the component's status "
+"API. API, Supervisor and Worker operations finish with ``succeeded`` or "
+"``failed``; model reload finishes with ``ready`` or ``error``. API "
+"``draining`` means the replacement is serving while previous requests "
+"finish."
+msgstr ""
+"提交后会返回 HTTP 202 和 ``operation_id`` ；请求被接受不代表升级完成。可在 Web UI 或对应组件的状态 API "
+"中查看进度。API、Supervisor 和 Worker 操作以 ``succeeded`` 或 ``failed`` 结束；模型重载以 "
+"``ready`` 或 ``error`` 结束。API 的 ``draining`` 表示新 API 已开始服务，旧 API 正在完成已有请求。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:82
+msgid ""
+"Reuse the same ``request_id`` when retrying an API, Supervisor or Worker "
+"submission. If a Worker operation is ``pending``, keep both processes alive "
+"and continue polling: ownership transfer is uncertain. Failed preparation "
+"keeps the previous component serving; for model errors, ``restored=true`` "
+"confirms the previous engine is serving."
+msgstr ""
+"重试 API、Supervisor 或 Worker 提交请求时，复用同一个 ``request_id`` 。如果 Worker 操作处于 "
+"``pending`` ，请保持两个进程运行并继续轮询，此时模型管理权是否已移交尚不确定。准备失败时，原组件继续服务；模型出错时， "
+"``restored=true`` 表示原引擎正在服务。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:85
+msgid "Upgrade boundaries"
+msgstr "升级范围"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:87
+msgid ""
+"Keep service hosts and containers running throughout an upgrade. Stopping "
+"them also stops retained processes and releases GPU allocations. Supervisor "
+"support actors retain their original environments. Updating these hosts, "
+"retained support actors or database schemas requires a planned restart; "
+"these operations do not upgrade an entire installation at once."
+msgstr ""
+"升级期间必须保持服务宿主进程和容器运行。停止它们也会终止保留的进程并释放 GPU 资源。Supervisor 的辅助 Actor "
+"保留原来的环境。更新这些宿主进程、保留的辅助 Actor 或数据库结构需要安排停机重启；这些操作不会一次升级整个安装。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:90
+msgid "Component reference"
+msgstr "组件参考"

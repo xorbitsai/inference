@@ -1,0 +1,217 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference 4.0\n"
+"Report-Msgid-Bugs-To: https://github.com/xorbitsai/inference/issues\n"
+"POT-Creation-Date: 2026-10-24 00:00+0800\n"
+"PO-Revision-Date: 2026-10-24 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: es\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:4
+msgid "Zero-downtime upgrades (Experimental)"
+msgstr "Actualizaciones sin interrupciones (Experimental)"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:8
+msgid ""
+"Upgrade one component at a time while inference continues. Choose the component whose "
+"code or environment needs changing; replacing a control process keeps existing model "
+"processes and their loaded weights running."
+msgstr ""
+"Actualice un componente a la vez mientras la inferencia continúa. Elija el componente "
+"cuyo código o entorno deba cambiar; al sustituir un proceso de control, los procesos "
+"de modelo existentes y sus pesos cargados siguen funcionando."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:11
+msgid "Prepare an upgrade"
+msgstr "Preparar una actualización"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:13
+msgid ""
+"The running deployment must already support the relevant replacement protocol and "
+"service host. API, Supervisor and Worker replacement support distributed deployments "
+"on Linux and macOS, not local mode or Windows. Model-engine replacement has the Linux "
+"GPU requirements described below."
+msgstr ""
+"El despliegue en ejecución ya debe admitir el protocolo de sustitución y el proceso "
+"anfitrión del servicio correspondientes. La sustitución de API, Supervisor y Worker "
+"admite despliegues distribuidos en Linux y macOS, pero no el modo local ni Windows. La"
+" sustitución del motor del modelo tiene los requisitos de GPU Linux indicados más "
+"adelante."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:15
+msgid ""
+"Install a compatible Xinference version and its dependencies in a separate environment"
+" first. ``python_executable`` is an absolute Python path on the Supervisor machine for"
+" API/Supervisor upgrades, or on the Worker machine for Worker/model upgrades. Packages"
+" are not installed by these operations. Omit the path to reuse the current "
+"environment. Use an administrator session when authentication is enabled."
+msgstr ""
+"Instale primero una versión compatible de Xinference y sus dependencias en un entorno "
+"separado. ``python_executable`` es una ruta absoluta de Python en la máquina del "
+"Supervisor para actualizar API/Supervisor, o en la máquina del Worker para actualizar "
+"Worker/modelos. Estas operaciones no instalan paquetes. Omita la ruta para reutilizar "
+"el entorno actual. Utilice una sesión de administrador si la autenticación está "
+"activada."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:18
+msgid "API and Web UI"
+msgstr "API y Web UI"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:20
+msgid "In **Cluster Information**, choose **Restart / upgrade API**, or run:"
+msgstr "En **Cluster Information**, elija **Restart / upgrade API** o ejecute:"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:27
+msgid ""
+"The public HTTP address stays the same. New connections use the replacement API; "
+"existing requests and streams finish on the previous API. The Supervisor, Workers and "
+"models keep running. Refresh the browser to load the upgraded Web UI. See "
+":doc:`api_relaunch`."
+msgstr ""
+"La dirección HTTP pública se mantiene. Las nuevas conexiones utilizan la API de "
+"reemplazo; las solicitudes y los flujos existentes terminan en la API anterior. El "
+"Supervisor, los Workers y los modelos siguen funcionando. Recargue el navegador para "
+"cargar la Web UI actualizada. Consulte :doc:`api_relaunch`."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:30
+msgid "Supervisor"
+msgstr "Supervisor"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:32
+msgid "In **Cluster Information**, choose **Restart / upgrade Supervisor**, or run:"
+msgstr "En **Cluster Information**, elija **Restart / upgrade Supervisor** o ejecute:"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:39
+msgid ""
+"The API, Workers and models keep running, and public addresses stay the same. "
+"Inference routes remain available while management operations briefly wait during "
+"state transfer. Finish active model launches, downloads, reloads and Worker handoffs "
+"before upgrading. See :doc:`supervisor_relaunch`."
+msgstr ""
+"La API, los Workers y los modelos siguen funcionando, y las direcciones públicas se "
+"mantienen. Las rutas de inferencia siguen disponibles mientras las operaciones de "
+"gestión esperan brevemente durante la transferencia de estado. Antes de actualizar, "
+"termine los inicios, las descargas y las recargas de modelos y los traspasos de Worker"
+" en curso. Consulte :doc:`supervisor_relaunch`."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:42
+msgid "Worker"
+msgstr "Worker"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:44
+msgid ""
+"In **Cluster Information**, choose **Restart / upgrade Worker** on the Worker to "
+"upgrade, or use its current actor address:"
+msgstr ""
+"En **Cluster Information**, elija **Restart / upgrade Worker** en el Worker que desea "
+"actualizar, o utilice su dirección actual de actor:"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:58
+msgid ""
+"The Worker starts its replacement and transfers model ownership automatically. Model "
+"processes, their code and GPU weights stay in place; this does not upgrade the model "
+"engine. Both environments need Xoscar 0.12.1 or later and compatible handoff support. "
+"Multi-Worker models and Xavier/P/D deployments are unsupported. See "
+":doc:`worker_handoff`."
+msgstr ""
+"El Worker inicia automáticamente su reemplazo y transfiere la responsabilidad de los "
+"modelos. Los procesos de modelo, su código y los pesos de GPU permanecen intactos; "
+"esto no actualiza el motor del modelo. Ambos entornos necesitan Xoscar 0.12.1 o "
+"posterior y soporte de traspaso compatible. No se admiten modelos repartidos entre "
+"Workers ni despliegues Xavier/P/D. Consulte :doc:`worker_handoff`."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:61
+msgid "Model and engine"
+msgstr "Modelo y motor"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:63
+msgid ""
+"Open a running model's detail view and choose **Reconfigure / upgrade model**. Engine "
+"replacement requires **Keep GPU weights for reload** (``enable_weight_cache=true``) at"
+" launch, vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one Worker, one "
+"replica and fixed tensor parallelism. To select a prepared model environment:"
+msgstr ""
+"Abra los detalles de un modelo en ejecución y elija **Reconfigure / upgrade model**. "
+"Para sustituir el motor se requiere activar **Keep GPU weights for reload** "
+"(``enable_weight_cache=true``) al iniciar, vLLM 0.31.0+ o SGLang 0.5.21+, Linux con "
+"CUDA o ROCm, un Worker, una réplica y paralelismo tensorial fijo. Para seleccionar un "
+"entorno de modelo preparado:"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:75
+msgid ""
+"The current engine serves until its replacement is healthy, then existing requests "
+"finish on the old engine. Compatible engine and PyTorch versions can share retained "
+"weights, but each engine needs its own KV cache and CUDA graphs. Reserve extra GPU "
+"memory; incompatible versions also need a separate weight cache. Insufficient memory "
+"rejects the upgrade while the current engine keeps serving. See "
+":ref:`launch_weight_cache_reload` for supported changes and limitations."
+msgstr ""
+"El motor actual atiende solicitudes hasta que su reemplazo supera la comprobación de "
+"estado; después, las solicitudes existentes terminan en el motor anterior. Las "
+"versiones compatibles del motor y de PyTorch pueden compartir los pesos conservados, "
+"pero cada motor necesita su propia caché KV y sus propios grafos CUDA. Reserve memoria"
+" GPU adicional; las versiones incompatibles también necesitan una caché de pesos "
+"separada. Si no hay memoria suficiente, se rechaza la actualización y el motor actual "
+"continúa atendiendo solicitudes. Consulte los cambios admitidos y las limitaciones en "
+":ref:`launch_weight_cache_reload`."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:78
+msgid "Progress and recovery"
+msgstr "Progreso y recuperación"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:80
+msgid ""
+"Submission returns HTTP 202 and an ``operation_id``; acceptance does not mean "
+"completion. Follow progress in the Web UI or the component's status API. API, "
+"Supervisor and Worker operations finish with ``succeeded`` or ``failed``; model reload"
+" finishes with ``ready`` or ``error``. API ``draining`` means the replacement is "
+"serving while previous requests finish."
+msgstr ""
+"El envío devuelve HTTP 202 y un ``operation_id``; la aceptación no significa que haya "
+"terminado. Siga el progreso en la Web UI o en la API de estado del componente. Las "
+"operaciones de API, Supervisor y Worker terminan con ``succeeded`` o ``failed``; la "
+"recarga del modelo termina con ``ready`` o ``error``. El estado ``draining`` de la API"
+" indica que el reemplazo está atendiendo solicitudes mientras terminan las anteriores."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:82
+msgid ""
+"Reuse the same ``request_id`` when retrying an API, Supervisor or Worker submission. "
+"If a Worker operation is ``pending``, keep both processes alive and continue polling: "
+"ownership transfer is uncertain. Failed preparation keeps the previous component "
+"serving; for model errors, ``restored=true`` confirms the previous engine is serving."
+msgstr ""
+"Reutilice el mismo ``request_id`` al reintentar un envío de API, Supervisor o Worker. "
+"Si una operación de Worker está en ``pending``, mantenga ambos procesos activos y siga"
+" consultando: el resultado del traspaso de responsabilidad es incierto. Si falla la "
+"preparación, el componente anterior sigue atendiendo solicitudes; en errores del "
+"modelo, ``restored=true`` confirma que el motor anterior está atendiendo solicitudes."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:85
+msgid "Upgrade boundaries"
+msgstr "Alcance de la actualización"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:87
+msgid ""
+"Keep service hosts and containers running throughout an upgrade. Stopping them also "
+"stops retained processes and releases GPU allocations. Supervisor support actors "
+"retain their original environments. Updating these hosts, retained support actors or "
+"database schemas requires a planned restart; these operations do not upgrade an entire"
+" installation at once."
+msgstr ""
+"Mantenga en ejecución los procesos anfitriones del servicio y los contenedores durante"
+" toda la actualización. Detenerlos también termina los procesos conservados y libera "
+"las asignaciones de GPU. Los actores auxiliares del Supervisor mantienen sus entornos "
+"originales. Actualizar estos anfitriones, los actores auxiliares conservados o los "
+"esquemas de base de datos requiere un reinicio planificado; estas operaciones no "
+"actualizan toda la instalación a la vez."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:90
+msgid "Component reference"
+msgstr "Referencia de componentes"

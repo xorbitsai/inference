@@ -19,9 +19,7 @@ User Guide
    :caption: Deployment
 
    using_docker_swarm
-   worker_handoff
-   api_relaunch
-   supervisor_relaunch
+   zero_downtime_upgrade
 
 .. toctree::
    :maxdepth: 2
