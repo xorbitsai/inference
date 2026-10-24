@@ -1,15 +1,21 @@
 """Test SDAPI routing, validated payloads and actor dispatch without a GPU."""
 
+# CI: linux
+
+import asyncio
 import json
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+import xoscar as xo
 from fastapi import APIRouter
 from starlette.requests import Request
+from xoscar.utils import get_next_port
 
 from ...core.rpc_context import RPC_METADATA_KEY
+from ...core.supervisor_upgrade import SupervisorGateway
 from ..restful_api import RESTfulAPI
 from ..routers.images import register_routes
 from ..schemas import SDAPIControlNetDetect, SDAPIImg2imgRequst, SDAPITxt2imgRequst
@@ -175,6 +181,55 @@ async def test_controlnet_detect_alias(api):
         "encoded"
     ]
     assert "controlnet_images" not in actor.controlnet_detect.call_args.kwargs
+
+
+class RetainedControlNetModel(xo.StatelessActor):
+    def controlnet_detect(self, **kwargs):
+        return json.dumps({"images": kwargs["controlnet_input_images"]})
+
+
+class ControlNetSupervisor(xo.StatelessActor):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def list_models(self):
+        return {"sd": {"model_type": "image", "controlnet": True}}
+
+    def get_model(self, model_uid, **kwargs):
+        assert model_uid == "sd"
+        return self.model
+
+
+@pytest.mark.asyncio
+async def test_controlnet_detect_reaches_retained_model_through_closed_gateway(api):
+    pool = await xo.create_actor_pool(
+        address=f"127.0.0.1:{get_next_port()}", n_process=0
+    )
+    try:
+        model = await xo.create_actor(
+            RetainedControlNetModel, address=pool.external_address
+        )
+        supervisor = await xo.create_actor(
+            ControlNetSupervisor, model, address=pool.external_address
+        )
+        gateway = await xo.create_actor(
+            SupervisorGateway, address=pool.external_address
+        )
+        await gateway.select_supervisor(supervisor)
+        await gateway.release_supervisor()
+        api._get_supervisor_ref.return_value = gateway
+        for final in (False, True):
+            await gateway.prepare_supervisor_switch(final=final)
+            response = await asyncio.wait_for(
+                api.sdapi_controlnet_detect(
+                    request({"controlnet_images": ["encoded"]})
+                ),
+                1,
+            )
+            assert json.loads(response.body) == {"images": ["encoded"]}
+    finally:
+        await pool.stop()
 
 
 @pytest.mark.asyncio

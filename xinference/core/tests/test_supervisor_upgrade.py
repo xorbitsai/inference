@@ -4,17 +4,30 @@
 
 import asyncio
 import time
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import xoscar as xo
+from xoscar.utils import get_next_port
 
 from .. import supervisor as supervisor_module
+from ..router_config_store import RouterConfigStore
+from ..router_orchestration import RouterOrchestrationController
 from ..supervisor import SupervisorActor, WorkerStatus
+from ..supervisor_upgrade import SupervisorGateway
 
 
 @pytest.fixture
 def supervisor_snapshot(tmp_path, monkeypatch):
     monkeypatch.setattr("xinference.constants.XINFERENCE_HOME", str(tmp_path))
+    database_paths = {
+        "XINFERENCE_DOWNLOAD_TASK_DB_PATH": str(tmp_path / "downloads.db"),
+        "XINFERENCE_LAUNCH_HISTORY_DB_PATH": str(tmp_path / "history.db"),
+        "XINFERENCE_TOKEN_ROUTER_DB_PATH": str(tmp_path / "routers.db"),
+    }
+    for name, path in database_paths.items():
+        monkeypatch.setattr(supervisor_module, name, path)
     monkeypatch.setattr(supervisor_module, "XINFERENCE_DISABLE_HEALTH_CHECK", True)
     monkeypatch.setattr(
         supervisor_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 1
@@ -35,6 +48,26 @@ def supervisor_snapshot(tmp_path, monkeypatch):
     monkeypatch.setattr("xinference.extensions.get_extensions", lambda: ())
 
     source = SupervisorActor()
+    assert (
+        source._download_task_store._db_path
+        == database_paths["XINFERENCE_DOWNLOAD_TASK_DB_PATH"]
+    )
+    assert (
+        source._launch_history_store._db_path
+        == database_paths["XINFERENCE_LAUNCH_HISTORY_DB_PATH"]
+    )
+    assert (
+        source._token_router_store._db_path
+        == database_paths["XINFERENCE_TOKEN_ROUTER_DB_PATH"]
+    )
+    controller = source._token_router_orchestration
+    for store in (
+        controller.nodes,
+        controller.assignments,
+        controller.tokenizer_assets,
+        controller.deployments,
+    ):
+        assert store._db_path == database_paths["XINFERENCE_TOKEN_ROUTER_DB_PATH"]
     source._worker_address_to_worker[worker.address] = worker
     source._ownership_registry().incarnations[worker.address] = "worker-incarnation"
     source._rebuild_worker_replica_state(
@@ -48,6 +81,159 @@ def supervisor_snapshot(tmp_path, monkeypatch):
     source._schedule_autostart = MagicMock()
     source._upgrade_state.maintenance.pause()
     return source, worker
+
+
+class AgentControl(xo.StatelessActor):
+    def __init__(self, database_path):
+        super().__init__()
+        self._token_router_orchestration = RouterOrchestrationController(
+            database_path, RouterConfigStore(database_path)
+        )
+        self.entered = asyncio.Event()
+
+    heartbeat_token_router_node = SupervisorActor.heartbeat_token_router_node
+
+    async def watch_token_router_assignments(
+        self, node_id, after_cursor="", wait_seconds=30
+    ):
+        if wait_seconds:
+            self.entered.set()
+        return await SupervisorActor.watch_token_router_assignments(
+            self, node_id, after_cursor, wait_seconds
+        )
+
+    async def wait_entered(self):
+        await self.entered.wait()
+
+    def finish_watch(self):
+        self._token_router_orchestration._watch_epoch += "-changed"
+
+
+@pytest.mark.asyncio
+async def test_agent_heartbeat_preserves_ready_assets_during_long_poll_drain(
+    supervisor_snapshot,
+):
+    source, _ = supervisor_snapshot
+    store = source._token_router_store
+    controller = source._token_router_orchestration
+    fingerprint = "sha256:" + "a" * 64
+    store.create(
+        "router-a",
+        {
+            "logical_model": "logical",
+            "tokenizer_asset_id": "asset-a",
+            "tokenizer_asset_revision": "v1",
+            "tokenizer_asset_fingerprint": fingerprint,
+        },
+    )
+    controller.create_tokenizer_asset(
+        {
+            "asset_id": "asset-a",
+            "origin": "shared_fs",
+            "revision": "v1",
+            "fingerprint": fingerprint,
+            "source": {"type": "shared_fs", "path": "/assets/asset-a"},
+        }
+    )
+    controller.register_node(
+        {
+            "node_id": "node-a",
+            "advertise_host": "127.0.0.1",
+            "port_range_start": 12080,
+            "port_range_end": 12090,
+            "max_instances": 5,
+            "capabilities": {},
+            "software_version": "test",
+        }
+    )
+    controller.update_deployment(
+        "router-a",
+        {
+            "management_mode": "managed",
+            "desired_replicas": 1,
+            "rollout": {"auto_failover": True},
+        },
+    )
+    store.set_enabled("router-a", True)
+    controller.router_enabled("router-a", True)
+    binding = controller.list_tokenizer_asset_bindings(
+        asset_id="asset-a", node_id="node-a"
+    )[0]
+    controller.report_tokenizer_asset_binding_status(
+        "asset-a",
+        "node-a",
+        {
+            "generation": binding["generation"],
+            "observed_state": "ready",
+            "observed_revision": "v1",
+            "observed_fingerprint": fingerprint,
+            "local_path": "/assets/asset-a",
+        },
+    )
+    assignment = controller.list_assignments(router_uid="router-a")[0]
+
+    pool = await xo.create_actor_pool(
+        address=f"127.0.0.1:{get_next_port()}", n_process=0
+    )
+    watch = closing = heartbeat = None
+    try:
+        gateway = await xo.create_actor(
+            SupervisorGateway, address=pool.external_address
+        )
+        agent = await xo.create_actor(
+            AgentControl, store._db_path, address=pool.external_address
+        )
+        await gateway.select_supervisor(agent)
+        await gateway.release_supervisor()
+        initial = await gateway.watch_token_router_assignments("node-a", wait_seconds=0)
+        watch = asyncio.create_task(
+            gateway.watch_token_router_assignments("node-a", initial["cursor"], 60)
+        )
+        await asyncio.wait_for(agent.wait_entered(), 1)
+        closing = asyncio.create_task(gateway.prepare_supervisor_switch(final=False))
+        await asyncio.sleep(0.01)
+        # Simulate a drain longer than the default 45-second offline window.
+        with controller.nodes._connect() as connection:
+            connection.execute(
+                "UPDATE token_router_nodes SET last_seen_at = ? WHERE node_id = ?",
+                (
+                    (datetime.now(timezone.utc) - timedelta(seconds=60)).isoformat(),
+                    "node-a",
+                ),
+            )
+        heartbeat = asyncio.create_task(
+            gateway.heartbeat_token_router_node("node-a", {})
+        )
+        try:
+            await asyncio.wait_for(asyncio.shield(heartbeat), 1)
+        except asyncio.TimeoutError:
+            pass
+        assert not controller.sweep_nodes()
+        await asyncio.wait_for(heartbeat, 1)
+        assert controller.get_node("node-a")["connectivity_status"] == "online"
+        assert (
+            controller.list_tokenizer_asset_bindings(
+                asset_id="asset-a", node_id="node-a"
+            )[0]["observed_state"]
+            == "ready"
+        )
+        assert (
+            controller.list_assignments(router_uid="router-a")[0][
+                "assignment_generation"
+            ]
+            == assignment["assignment_generation"]
+        )
+        assert not closing.done()
+    finally:
+        if watch is not None:
+            await agent.finish_watch()
+            await asyncio.wait_for(watch, 2)
+        if closing is not None:
+            await asyncio.wait_for(closing, 2)
+        if heartbeat is not None:
+            await gateway.release_supervisor()
+            await asyncio.wait_for(heartbeat, 1)
+        await pool.stop()
 
 
 @pytest.fixture

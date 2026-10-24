@@ -20,6 +20,7 @@ INFERENCE_READS = {
     "describe_model",
     "describe_running_model",
     "get_model_status",
+    "list_models",
     "resolve_token_router_runtime",
     "get_token_router_config_after",
 }
@@ -30,6 +31,7 @@ LIVENESS_CALLS = {
     "receive_heartbeat",
     "report_worker_status",
     "heartbeat_token_router_instance",
+    "heartbeat_token_router_node",
 }
 
 # Let callbacks and pending configuration ACKs finish before the final snapshot.
