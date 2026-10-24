@@ -473,6 +473,62 @@ async def test_pd_route_waits_for_transfers(launch_runtime):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "stage", ["pre-worker-launch", "pd-finalization", "sharded-load"]
+)
+async def test_supervisor_switch_waits_for_complete_async_launch(launch_runtime, stage):
+    supervisor, workers, _, _ = launch_runtime
+    entered, proceed = asyncio.Event(), asyncio.Event()
+    completed = asyncio.Event()
+    supervisor._schedule_autostart = MagicMock()
+    supervisor._invalidate_list_models_debounce_cache = completed.set
+
+    async def wait(*args, **kwargs):
+        entered.set()
+        await proceed.wait()
+
+    kwargs = launch_kwargs()
+    kwargs["wait_ready"] = False
+    if stage == "pre-worker-launch":
+        resolve = supervisor._resolve_download_hub_from_workers
+
+        async def placement(*args, **kwargs):
+            await wait()
+            return await resolve(*args, **kwargs)
+
+        supervisor._resolve_download_hub_from_workers = placement
+    elif stage == "pd-finalization":
+        workers[1].start_transfer_for_vllm.side_effect = wait
+    else:
+        kwargs.pop("replica_config")
+        kwargs.update(n_worker=2, replica=1)
+        supervisor.is_local_deployment = lambda: False
+        supervisor._choose_worker = AsyncMock(side_effect=workers)
+        for worker in workers:
+            worker.get_model_registration = AsyncMock(return_value={})
+            worker.launch_builtin_model.return_value = ("model:1234", {})
+        workers[0].wait_for_load.side_effect = wait
+
+    await supervisor.launch_builtin_model(**kwargs)
+    await asyncio.wait_for(entered.wait(), 2)
+    try:
+        assert not supervisor._workers_launching
+        with pytest.raises(RuntimeError, match="active launch"):
+            await supervisor.pause_supervisor()
+        assert not supervisor._upgrade_state.maintenance.paused
+        # An unfinished launch owned by this process must not block another
+        # Supervisor that has no launch of its own.
+        other = SupervisorActor()
+        await other.pause_supervisor()
+    finally:
+        proceed.set()
+        # Finish the accepted launch, including its final callbacks.
+        await asyncio.wait_for(completed.wait(), 2)
+    await supervisor.pause_supervisor()
+    assert not supervisor._async_launch_tasks
+
+
+@pytest.mark.asyncio
 async def test_invalid_pd_launch_has_no_side_effects(launch_runtime):
     supervisor, workers, actors, destroy = launch_runtime
     kwargs = launch_kwargs()

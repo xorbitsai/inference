@@ -1459,6 +1459,32 @@ def api_relaunch(
     click.echo(json.dumps(client.relaunch_api(python_executable, request_id)))
 
 
+@cli.command(
+    "relaunch-supervisor",
+    help="Restart or upgrade the distributed Supervisor without restarting models.",
+)
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+@click.option(
+    "--python-executable",
+    default=None,
+    type=str,
+    help="Prepared Python executable on the Supervisor machine.",
+)
+@click.option("--request-id", default=None, type=str)
+@click.option("--api-key", "-ak", default=None, type=str)
+def supervisor_relaunch(
+    endpoint: Optional[str],
+    python_executable: Optional[str],
+    request_id: Optional[str],
+    api_key: Optional[str],
+):
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
+    click.echo(json.dumps(client.relaunch_supervisor(python_executable, request_id)))
+
+
 @cli.command("generate", help="Generate text using a running LLM.")
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(

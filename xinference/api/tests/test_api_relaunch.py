@@ -15,8 +15,8 @@ from ..oauth2.advanced.crypto import get_password_hash
 from ..routers import admin
 
 
-@pytest.fixture
-def endpoint(monkeypatch):
+@pytest.fixture(params=["api", "supervisor"])
+def endpoint(monkeypatch, request):
     call = AsyncMock(return_value={"operation_id": "one", "status": "starting"})
     monkeypatch.setattr(api_host, "host_request", call)
     app = FastAPI()
@@ -26,7 +26,7 @@ def endpoint(monkeypatch):
     app.state.api = api
     admin.register_routes(api)
     app.include_router(api._router)
-    return TestClient(app), call
+    return TestClient(app), call, request.param
 
 
 @pytest.mark.parametrize(
@@ -34,29 +34,35 @@ def endpoint(monkeypatch):
     [[], {"unexpected": 1}, {"python_executable": "python"}, {"request_id": True}],
 )
 def test_invalid_api_relaunch_does_not_execute_host_command(endpoint, body):
-    client, call = endpoint
-    assert client.post("/v1/api/relaunch", json=body).status_code == 400
+    client, call, component = endpoint
+    assert client.post(f"/v1/{component}/relaunch", json=body).status_code == 400
     call.assert_not_called()
 
 
 def test_operation_routes_and_errors(endpoint):
-    client, call = endpoint
+    client, call, component = endpoint
     assert (
-        client.post("/v1/api/relaunch", json={"request_id": "one"}).status_code == 202
+        client.post(f"/v1/{component}/relaunch", json={"request_id": "one"}).status_code
+        == 202
     )
-    call.assert_called_once_with("relaunch", request_id="one")
-    assert client.get("/v1/api-relaunches/one").json()["operation_id"] == "one"
-    assert client.get("/v1/api-relaunches").status_code == 200
+    call.assert_called_once_with(
+        "relaunch" if component == "api" else "supervisor-relaunch", request_id="one"
+    )
+    assert client.get(f"/v1/{component}-relaunches/one").json()["operation_id"] == "one"
+    assert client.get(f"/v1/{component}-relaunches").status_code == 200
     call.side_effect = KeyError("missing")
-    assert client.get("/v1/api-relaunches/missing").status_code == 404
+    assert client.get(f"/v1/{component}-relaunches/missing").status_code == 404
     call.side_effect = RuntimeError(
         "API relaunch requires a POSIX xinference-supervisor service"
     )
-    assert client.post("/v1/api/relaunch").status_code == 409
+    assert client.post(f"/v1/{component}/relaunch").status_code == 409
 
 
+@pytest.mark.parametrize("component", ["api", "supervisor"])
 @pytest.mark.parametrize("identity", ["administrator", "user", "admin-api-key"])
-def test_every_route_requires_an_administrator_session(tmp_path, monkeypatch, identity):
+def test_every_route_requires_an_administrator_session(
+    tmp_path, monkeypatch, identity, component
+):
     auth = AdvancedAuthService(str(tmp_path / "auth.db"), "secret", "encryption")
     permissions = ["admin"] if identity != "user" else ["models:write"]
     uid = auth.db.create_user(
@@ -77,9 +83,9 @@ def test_every_route_requires_an_administrator_session(tmp_path, monkeypatch, id
     app.include_router(api._router)
     client = TestClient(app, headers={"Authorization": "Bearer " + token})
     for method, path in [
-        ("POST", "/v1/api/relaunch"),
-        ("GET", "/v1/api-relaunches"),
-        ("GET", "/v1/api-relaunches/one"),
+        ("POST", f"/v1/{component}/relaunch"),
+        ("GET", f"/v1/{component}-relaunches"),
+        ("GET", f"/v1/{component}-relaunches/one"),
     ]:
         response = client.request(method, path)
         expected = (

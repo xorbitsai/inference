@@ -18,10 +18,13 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from ..core.system_settings_store import SystemSettingsStore
 from ..core.worker_relaunch import validate_relaunch_options
+
+if TYPE_CHECKING:
+    from .supervisor_host import SupervisorHost
 
 API_HOST_ENV = "XINFERENCE_API_HOST"
 STARTUP_TIMEOUT = 120
@@ -70,8 +73,9 @@ async def _wait_process(process: subprocess.Popen, diagnostics: APIDiagnostics) 
 async def host_request(command: str, **options: Any) -> Any:
     address = os.environ.get(API_HOST_ENV)
     if not address:
+        component = "Supervisor" if command.startswith("supervisor-") else "API"
         raise RuntimeError(
-            "API relaunch requires a POSIX xinference-supervisor service"
+            f"{component} relaunch requires a POSIX xinference-supervisor service"
         )
     connection = json.loads(address)
     reader, writer = await asyncio.wait_for(
@@ -157,6 +161,7 @@ class APIHost:
         self.working_directory = Path.cwd()
         self.settings_store = settings_store
         self.settings_lock = asyncio.Lock()
+        self.supervisor_host: Optional["SupervisorHost"] = None
 
     async def settings(self, operation: str, data=None) -> Dict[str, Any]:
         if operation == "baseline":
@@ -203,7 +208,13 @@ class APIHost:
                         child.draining.set()
                 return
             command = request.get("command")
-            if command == "relaunch":
+            if command in {"supervisor-relaunch", "supervisor-get", "supervisor-list"}:
+                if self.supervisor_host is None:
+                    raise RuntimeError(
+                        "Supervisor relaunch requires a hosted Supervisor"
+                    )
+                result = self.supervisor_host.handle(command, request)
+            elif command == "relaunch":
                 result = self.create(
                     request.get("python_executable"), request.get("request_id")
                 )
@@ -377,11 +388,20 @@ class APIHost:
                 environment["PYTHONPATH"] = os.pathsep.join(
                     [source_root, *python_paths]
                 )
+                if self.configuration.get("host_supervisor"):
+                    from .supervisor_host import SupervisorHost
+
+                    self.supervisor_host = SupervisorHost(
+                        self.configuration, self.directory, self.settings_store
+                    )
+                    await self.supervisor_host.start(environment)
                 self.active = self.spawn(sys.executable, environment)
                 await self.active.wait(self.active.ready)
                 await self.active.send("activate")
                 await self.active.wait(self.active.serving)
                 while not stopping.is_set():
+                    if self.supervisor_host is not None:
+                        self.supervisor_host.check()
                     if self.active.process.poll() is not None:
                         raise RuntimeError("Serving API process exited unexpectedly")
                     try:
@@ -403,6 +423,8 @@ class APIHost:
                         child.process.kill()
                         await child.exited
                 await server.wait_closed()
+                if self.supervisor_host is not None:
+                    await self.supervisor_host.stop()
                 self.listener.close()
 
 

@@ -254,34 +254,26 @@ async def test_worker_discovery_records_types_for_every_model_category(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("service_address", [None, "public-supervisor"])
 async def test_supervisor_initial_discovery_records_every_category(
-    monkeypatch, model_version_catalog
+    model_version_catalog, service_address
 ):
-    import asyncio
-
-    from ... import extensions
-    from .. import supervisor as supervisor_module
-    from ..cache_tracker import CacheTrackerActor
+    from ..supervisor import SupervisorActor
 
     tracker = SimpleNamespace(record_model_version=AsyncMock())
 
-    async def create_actor(cls, *args, **kwargs):
-        return tracker if cls is CacheTrackerActor else SimpleNamespace()
+    class Supervisor(SimpleNamespace):
+        control_address = SupervisorActor.control_address
 
-    monkeypatch.setattr(extensions, "get_extensions", lambda: ())
-    monkeypatch.setattr(supervisor_module, "XINFERENCE_DISABLE_HEALTH_CHECK", True)
-    monkeypatch.setattr(supervisor_module, "XINFERENCE_ENABLE_OTEL", False)
-    monkeypatch.setattr(supervisor_module.xo, "create_actor", create_actor)
-    monkeypatch.setattr(asyncio.get_running_loop(), "add_signal_handler", MagicMock())
-    supervisor = SimpleNamespace(
+    supervisor = Supervisor(
         address="supervisor",
-        _initialize_worker_ownership=MagicMock(),
-        _schedule_autostart=MagicMock(),
-        _relaunch_manager=MagicMock(),
+        _service_address=service_address,
+        _cache_tracker_ref=tracker,
+        _supervisor_activation_prepared=False,
     )
-    await supervisor_module.SupervisorActor.__post_create__(supervisor)
+    await SupervisorActor.prepare_supervisor_activation(supervisor)
     versions, address = tracker.record_model_version.call_args.args
-    assert address == "supervisor"
+    assert address == (service_address or "supervisor")
     assert {
         key: value[0]["model_type"] for key, value in versions.items()
     } == model_version_catalog

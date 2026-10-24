@@ -2118,6 +2118,44 @@ class Client:
             )
         return response.json()
 
+    def relaunch_supervisor(
+        self,
+        python_executable: Optional[str] = None,
+        request_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Replace the distributed Supervisor process while models remain running."""
+        response = self.session.post(
+            f"{self.base_url}/v1/supervisor/relaunch",
+            json={"python_executable": python_executable, "request_id": request_id},
+            headers=self._headers,
+        )
+        if response.status_code != 202:
+            raise RuntimeError(
+                f"Failed to relaunch Supervisor: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def get_supervisor_relaunch(self, operation_id: str) -> Dict[str, Any]:
+        response = self.session.get(
+            f"{self.base_url}/v1/supervisor-relaunches/{quote(operation_id, safe='')}",
+            headers=self._headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get Supervisor relaunch: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def list_supervisor_relaunches(self) -> List[Dict[str, Any]]:
+        response = self.session.get(
+            f"{self.base_url}/v1/supervisor-relaunches", headers=self._headers
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to list Supervisor relaunches: {_get_error_string(response)}"
+            )
+        return response.json()
+
     def relaunch_worker(
         self,
         worker_address: str,
