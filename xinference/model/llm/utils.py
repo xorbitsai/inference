@@ -697,18 +697,8 @@ class ChatModelMixin:
         _messages.append({"role": "assistant", "content": ""})
 
         if "internvl" in model_family.lower():
-            system_prompt = (
-                messages[0]["content"] if messages[0]["role"] == "system" else ""
-            )
             intra_message_sep = "<|im_end|>"
-            ret = (
-                "<s>"
-                if system_prompt == ""
-                else "<s><|im_start|>system\n"  # type: ignore
-                + system_prompt
-                + intra_message_sep
-                + "\n"
-            )
+            ret = "<s>"
             images = []  # type: ignore
             for message in _messages:
                 role = "<|im_start|>" + message["role"]
@@ -719,14 +709,15 @@ class ChatModelMixin:
                     else:
                         ret += role + "\n"
                 elif isinstance(content, list):
-                    text = ""
+                    texts = []
                     image_urls = []
                     for c in content:
                         c_type = c.get("type")
                         if c_type == "text":
-                            text = c["text"]
+                            texts.append(c["text"])
                         elif c_type == "image_url":
                             image_urls.append(c["image_url"]["url"])
+                    text = " ".join(texts)
                     image_futures = []
                     from concurrent.futures import ThreadPoolExecutor
 
