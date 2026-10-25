@@ -55,7 +55,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from ..device_utils import empty_cache
-from .exceptions import ModelNotReadyError
+from .exceptions import InvalidModelRequestError, ModelNotReadyError
 from .model_generation import ModelGenerationMixin
 from .rpc_context import rpc_context
 from .utils import CancelMixin, json_dumps, log_async, parse_replica_model_uid
@@ -1401,7 +1401,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             from ..model.utils import resolve_media_seed
 
             if "seed" in kwargs:
-                seed = resolve_media_seed(kwargs["seed"])
+                try:
+                    seed = resolve_media_seed(kwargs["seed"])
+                except ValueError as e:
+                    raise InvalidModelRequestError(str(e)) from e
                 if seed is None:
                     kwargs.pop("seed")
                 else:

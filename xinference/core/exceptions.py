@@ -19,6 +19,17 @@ class ModelNotReadyError(Exception):
     pass
 
 
+class InvalidModelRequestError(ValueError):
+    """Raised by explicit model validators for invalid request parameters."""
+
+    @property
+    def client_message(self) -> str:
+        """Return the validation message without xoscar's actor prefix."""
+        if self.args:
+            return str(self.args[0])
+        return "Invalid model request."
+
+
 class InvalidAudioInputError(ValueError):
     """Raised when client-provided audio cannot be used by a model."""
 
