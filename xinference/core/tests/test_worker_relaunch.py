@@ -1,6 +1,5 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-# CI: linux
 
 import asyncio
 import json
@@ -369,7 +368,7 @@ async def driver():
         bad=await asyncio.to_thread(client.relaunch_worker,initial['worker'],str(Path(os.environ['XINFERENCE_HOME'])/'missing-python'),'bad')
         async def done(operation):
             nonlocal target_pid
-            for _ in range(300):
+            for _ in range(1200):
                 state=await async_client.get_worker_relaunch(operation['operation_id'])
                 if state.get('target_pid'):
                     target_pid=state['target_pid']

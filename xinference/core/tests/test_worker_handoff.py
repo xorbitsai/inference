@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# CI: linux
 import asyncio
 import contextlib
 import json
@@ -428,7 +427,7 @@ async def test_old_process_exits_while_direct_call_and_stream_survive(
                     raise RuntimeError("Source worker exited before readiness")
                 await asyncio.sleep(0.05)
 
-        await asyncio.wait_for(wait_ready(), 45)
+        await asyncio.wait_for(wait_ready(), 120)
         data = json.loads(ready.read_text())
         model = await xo.actor_ref(address=data["model"], uid="counter-rep0")
         release = tmp_path / "release"
@@ -705,7 +704,8 @@ async def test_adopted_process_failure_is_recovered_by_new_worker(runtime):
                 return await ref.add(1)
             await asyncio.sleep(0.05)
 
-    value, new_pid, owner = await asyncio.wait_for(recovered(), 15)
+    # A replacement imports the runtime in a fresh Windows process too.
+    value, new_pid, owner = await asyncio.wait_for(recovered(), 60)
     assert value == 1 and new_pid != pid and owner == new.address
 
 
@@ -846,7 +846,7 @@ async def test_model_failure_between_pool_commit_and_binding_repair_recovers(
 
     with monkeypatch.context() as patch:
         patch.setattr(HandoffWorker, "_commit_worker_handoff", lose_process)
-        assert await asyncio.wait_for(complete(), 20)
+        assert await asyncio.wait_for(complete(), 60)
     recovered = await new.get_model("counter-rep0")
     _, recovered_pid, owner = await recovered.add(1)
     assert recovered_pid != original_pid and owner == new.address
