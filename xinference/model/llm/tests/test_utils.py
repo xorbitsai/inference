@@ -1270,6 +1270,89 @@ def test_transform_messages_preserves_tool_call_fields():
     }
 
 
+@pytest.mark.parametrize("model_name", ["MiniCPM-V-2.6", "MiniCPM-V-4.5"])
+@pytest.mark.parametrize("with_system", [False, True])
+@pytest.mark.parametrize("add_generation_prompt", [False, True])
+@pytest.mark.parametrize(
+    "content, expected_content",
+    [
+        ("Before middle after", "Before middle after"),
+        (
+            [
+                {"type": "text", "text": "Before "},
+                {"type": "text", "text": "middle"},
+                {"type": "text", "text": " after"},
+            ],
+            "Before middle after",
+        ),
+        (
+            [
+                {"type": "text", "text": "Before "},
+                {"type": "image_url", "image_url": {"url": "image-one.png"}},
+                {"type": "text", "text": " between "},
+                {"type": "image_url", "image_url": {"url": "image-two.png"}},
+                {"type": "text", "text": " after"},
+            ],
+            "Before (<image>./</image>) between (<image>./</image>) after",
+        ),
+    ],
+    ids=["string", "text-parts", "image-parts"],
+)
+def test_minicpmv_chat_template_content(
+    model_name, with_system, add_generation_prompt, content, expected_content
+):
+    from copy import deepcopy
+
+    from .. import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name)
+    mixin = ChatModelMixin()
+    mixin.model_family = family
+    string_messages = [
+        {"role": "user", "content": expected_content},
+        {"role": "assistant", "content": " Earlier reply.\n"},
+        {"role": "user", "content": "Next question."},
+    ]
+    if with_system:
+        string_messages.insert(0, {"role": "system", "content": "Keep text in order."})
+    messages = deepcopy(string_messages)
+    messages[1 if with_system else 0]["content"] = content
+    if isinstance(content, list):
+        # vLLM/SGLang normalize content before rendering the catalog template.
+        messages = mixin._transform_messages(messages)
+
+    # Snapshot of the original catalog template, shared by both model families.
+    original_template = (
+        "{% for message in messages %}"
+        "{% if loop.first and messages[0]['role'] != 'system' %}"
+        "{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}"
+        "{% endif %}"
+        "{{'<|im_start|>' + message['role'] + '\n' + message['content'] "
+        "+ '<|im_end|>' + '\n'}}"
+        "{% endfor %}{% if add_generation_prompt %}"
+        "{{ '<|im_start|>assistant\n' }}{% endif %}"
+    )
+    expected = mixin.get_full_context(
+        string_messages,
+        original_template,
+        add_generation_prompt=add_generation_prompt,
+    )
+    assert (
+        mixin.get_full_context(
+            string_messages,
+            family.chat_template,
+            add_generation_prompt=add_generation_prompt,
+        )
+        == expected
+    )
+    assert (
+        mixin.get_full_context(
+            messages, family.chat_template, add_generation_prompt=add_generation_prompt
+        )
+        == expected
+    )
+
+
 @pytest.mark.parametrize("model_name", ["Qwen3-VL-Instruct", "Qwen3-VL-Thinking"])
 @pytest.mark.parametrize("protocol", ["openai", "anthropic"])
 def test_qwen3_vl_renders_tool_only_history(model_name, protocol):
