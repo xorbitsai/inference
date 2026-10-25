@@ -71,7 +71,7 @@ def streaming_response_iterator(
         if line.startswith(b"data:"):
             json_str = line[len(b"data:") :].strip()
             if json_str == b"[DONE]":
-                continue
+                break
             data = json.loads(json_str.decode("utf-8"))
             error = data.get("error", None)
             if error is not None:
@@ -115,7 +115,7 @@ async def async_streaming_response_iterator(
             if line.startswith(b"data:"):
                 json_str = line[len(b"data:") :].strip()
                 if json_str == b"[DONE]":
-                    continue
+                    break
                 data = json.loads(json_str.decode("utf-8"))
                 error = data.get("error", None)
                 if error is not None:
