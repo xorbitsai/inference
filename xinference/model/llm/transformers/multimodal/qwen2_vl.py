@@ -191,8 +191,17 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
 
         messages = self._transform_messages(messages)
         # Preparation for inference
+        chat_template_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
+        )
         text = self._processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            **chat_template_kwargs,
         )
         image_inputs, video_inputs = process_vision_info(messages)
         inputs = self._processor(
