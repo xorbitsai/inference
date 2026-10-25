@@ -851,7 +851,7 @@ def test_download_packages_main_orchestration_skips_git(
     assert len(compile_calls) == 4
     expected_machine = "x86_64" if platform == "amd64" else "aarch64"
     assert all(
-        call[2]["python_platform"] == expected_machine + "-manylinux_2_34"
+        call[2]["python_platform"] == expected_machine + "-manylinux_2_35"
         for call in compile_calls
     )
     assert compile_calls[0][0] == runtime_constraints
@@ -917,7 +917,8 @@ def test_download_packages_main_orchestration_skips_git(
     assert report["sdist_left"] == []
 
 
-def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
+@pytest.mark.parametrize("platform", ["amd64", "arm64"])
+def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys, platform):
     selfcheck = _load_script("selfcheck")
     manifest = tmp_path / "manifest"
     engines = manifest / "engines"
@@ -953,13 +954,16 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
             "--manifest-dir",
             str(manifest),
             "--platform",
-            "amd64",
+            platform,
             "--runtime-constraints",
             str(runtime_constraints),
         ],
     )
 
     selfcheck.main()
+
+    machine = "x86_64" if platform == "amd64" else "aarch64"
+    assert all(call[3] == f"{machine}-manylinux_2_35" for call in compile_calls)
 
     assert [call[0] for call in compile_calls] == [
         runtime_constraints.read_text().splitlines(),

@@ -347,9 +347,9 @@ def main() -> None:
     package_build_env["TORCH_VERSION"] = torch_specifier.version
 
     machine = {"amd64": "x86_64", "arm64": "aarch64"}[args.platform]
-    # The runtime image's glibc supports manylinux_2_34 wheels; the default
-    # (manylinux_2_17) would hide e.g. recent sglang releases.
-    python_platform = f"{machine}-manylinux_2_34"
+    # Match the Ubuntu 22.04 runtime image's glibc 2.35. TensorRT's ARM64
+    # bindings require manylinux_2_35 and disappear with a lower target.
+    python_platform = f"{machine}-manylinux_2_35"
     unconstrained_fallbacks: List[str] = []
     raw_sdist_fallbacks: List[str] = []
     sdist_left: List[str] = []
