@@ -770,11 +770,9 @@ const ja = {
   runningModels: {
     reload: {
       title: 'モデルの再設定 / 更新',
-      description:
-        '新しいエンジンの起動中も現在のエンジンが処理を継続します。準備完了後に新規リクエストを切り替え、処理中のリクエストは元のエンジンで完了します。並列設定、精度、量子化は変更できません。',
+      description: '新しい設定の準備中も現在のエンジンがリクエストを処理します。',
       disabled: 'エンジンパラメーターを変更するには、起動時に GPU の重み保持を有効にしてください。',
-      reasoningHint:
-        '推論内容の解析はエンジンを再起動せずに更新されます。現在のリクエストが完了してから適用されます。',
+      reasoningHint: '現在のリクエスト完了後に適用され、エンジンは再起動しません。',
       imageLimit: 'リクエストあたりの最大画像数',
       default: 'エンジンの既定値',
       apply: '適用',
@@ -785,7 +783,27 @@ const ja = {
       restored: '以前の設定を復元しました。',
       python: 'Python 実行ファイル（省略可）',
       environmentHint:
-        '空欄の場合はモデルの現在の環境を使用します。対象環境には Xinference とエンジンを事前にインストールしてください。互換バージョンは重みを共有し、非互換バージョンは別の重み用メモリが必要です。準備に失敗しても現在のエンジンは処理を継続します。',
+        '対象環境に Xinference とモデルエンジンを事前にインストールしてください。エンジンのバージョン変更には追加の GPU メモリが必要な場合があります。',
+      weightsRetained: 'GPU の重みを保持',
+      engineSettings: 'エンジン設定',
+      responseSettings: '応答オプション',
+      environmentTitle: '実行環境の更新',
+      environmentSummary: '省略可・既定では現在の環境を使用',
+      changes: '{{count}} 項目を変更',
+      noChanges: '変更はありません',
+      fields: {
+        concurrency: '同時リクエスト数',
+        batchTokens: 'バッチのトークン上限',
+        contextLength: 'コンテキスト長',
+        gpuMemory: 'GPU メモリ使用率',
+        eagerExecution: 'Eager 実行',
+        disableCudaGraph: 'CUDA Graph を無効化',
+        prefillTokens: 'プリフィルのトークン上限',
+        prefillChunkSize: 'プリフィルのチャンクサイズ',
+        decodeGraphBatch: 'CUDA Graph のデコードバッチ上限',
+        prefillGraphBatch: 'CUDA Graph のプリフィルバッチ上限',
+        schedulingConservativeness: 'スケジューリングの保守性',
+      },
     },
     searchPlaceholder: 'モデル名またはモデルUIDを検索...',
     loadingModels: 'モデルを読み込み中...',
@@ -1182,8 +1200,7 @@ const ja = {
       api: {
         name: 'API サービス',
         title: 'API の再起動 / アップグレード',
-        description:
-          'Worker とモデルを稼働させたまま API を置き換えます。既存のリクエストとストリームは旧 API で完了します。',
+        description: '新しい API が引き継ぎ、既存のリクエストは完了まで処理されます。',
         history: 'API の再起動履歴',
         drainingHint:
           '新しい API がサービスを提供中です。旧 API は既存のリクエストとストリームを処理しています。',
@@ -1191,14 +1208,13 @@ const ja = {
       supervisor: {
         name: 'Supervisor 制御プロセス',
         title: 'Supervisor の再起動 / アップグレード',
-        description:
-          'API、Worker、モデル、実行中の推論を維持して Supervisor の制御ロジックを置き換えます。モデルエンジンのバージョンは変わりません。',
+        description: '再起動中も Worker、モデル、実行中の推論は稼働を続けます。',
         history: 'Supervisor の再起動履歴',
         drainingHint:
           '新しい Supervisor がサービスを提供中です。旧プロセスは既存のルート検索が完了すると終了します。',
       },
       environmentHint:
-        '空欄の場合は現在の環境で再起動します。アップグレードする場合は、Supervisor マシンに準備済みの Xinference 環境にある Python 実行ファイルの絶対パスを入力してください。ここではパッケージをインストールしません。',
+        'Supervisor マシンに準備済みの Xinference 環境の Python を指定してください。',
       starting: '新しいサービスを起動中',
       preparing: 'Worker の確認とルートの復元中',
       switching: 'サービスを切り替え中',
@@ -1212,11 +1228,17 @@ const ja = {
     },
     relaunch: {
       title: 'Worker の再起動 / 更新',
-      description:
-        'モデルプロセスと実行中の推論を維持して Worker を置き換えます。モデルエンジンのバージョンは変わりません。',
+      description: '再起動中もモデルプロセスと実行中の推論は稼働を続けます。',
       python: 'Python 実行ファイル（省略可）',
       environmentHint:
-        '空欄の場合は現在の環境で再起動します。更新する場合は、この Worker マシンにインストール済みの Python パスを指定します。パッケージはインストールされません。',
+        'この Worker マシンに準備済みの Xinference 環境の Python を指定してください。モデルエンジンのバージョンは変わりません。',
+      currentEnvironment: '現在の環境',
+      preparedEnvironment: '指定した環境',
+      currentEnvironmentHint: '現在の Python 環境で再起動します。',
+      changeEnvironment: '実行環境の変更（省略可）',
+      restart: '再起動',
+      upgrade: 'アップグレード',
+      submitting: '起動中…',
       history: 'Worker の再起動履歴',
       starting: '新しい Worker を起動中',
       transferring: 'モデルの管理を移行中',

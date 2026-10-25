@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Route,
   ExternalLink,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
@@ -39,6 +40,7 @@ import {
   getTryApiAbility,
   TryApiDrawer,
 } from '@/components/pages/running-model-detail/components/try-api-drawer';
+import { ReloadDialog } from '@/components/pages/running-model-detail/components/reload-dialog';
 import {
   isTokenRouterModel,
   transformRunningModelDetail,
@@ -268,6 +270,10 @@ const RunningModel = () => {
   const [addReplicaOpen, setAddReplicaOpen] = useState(false);
   const [addReplicaLoading, setAddReplicaLoading] = useState(false);
   const [tryApiOpen, setTryApiOpen] = useState(false);
+  const [reloadModelUid, setReloadModelUid] = useState<string | null>(null);
+  const handleReloadOpenChange = useCallback((open: boolean) => {
+    if (!open) setReloadModelUid(null);
+  }, []);
   const tryApiAbility = useMemo(
     () => getTryApiAbility(activeModel?.model_ability || []),
     [activeModel?.model_ability]
@@ -666,15 +672,34 @@ const RunningModel = () => {
     const isAutostartBusy = autostartBusyIds.includes(activeModel.id);
     const routerInstances = routerRuntimeLogs[activeModel.id] || [];
     const routerInstancesLoading = routerRuntimeLoadingIds.includes(activeModel.id);
+    const canReconfigure =
+      !tokenRouterModel &&
+      ['vllm', 'sglang'].includes((activeModel.model_engine || '').toLowerCase()) &&
+      activeModel.replica === 1 &&
+      (activeModel.n_worker || 1) === 1;
 
     return (
       <>
-        <div className="p-6 flex items-start justify-between border-b">
+        <div className="p-6 flex flex-wrap items-start justify-between gap-4 border-b">
           <div className="flex-1 min-w-0">
             <h4 className="mb-1 font-semibold truncate">{activeModel?.id}</h4>
             <div className="text-muted-foreground text-xs truncate">{activeModel?.model_name}</div>
           </div>
-          <div className="shrink-0 flex item-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {canReconfigure && (
+              <InfoTooltip content={t('runningModels.reload.title')}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setReloadModelUid(activeModel.id)}
+                  className="h-8 text-muted-foreground"
+                  aria-label={t('runningModels.reload.title')}
+                >
+                  <SlidersHorizontal />
+                </Button>
+              </InfoTooltip>
+            )}
             <InfoTooltip content={t('runningModels.tryApi')}>
               <Button
                 type="button"
@@ -1169,6 +1194,14 @@ const RunningModel = () => {
         modelUid={activeModel?.id}
         ability={tryApiAbility}
       />
+      {reloadModelUid && (
+        <ReloadDialog
+          open
+          modelUid={reloadModelUid}
+          onOpenChange={handleReloadOpenChange}
+          onReady={fetchModels}
+        />
+      )}
     </PageContainer>
   );
 };

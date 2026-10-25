@@ -594,3 +594,15 @@ msgstr "인증이 활성화된 경우 ``python_executable`` 을 선택하려면 
 #: ../../source/user_guide/launch.rst
 msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for each cached model. The engine list reports candidates discovered on the worker that owns its files, including that worker's virtual environment setting. Rerank and world cache versions identify only the model name, so their candidates are not checked against a cached format. ``null`` means the metadata is unknown or discovery failed; an empty list means no matching engine is currently discoverable. Listing caches does not download weights, prepare environments, or launch models."
 msgstr "``GET /v1/cache/models`` 는 캐시된 각 모델의 ``model_type`` 과 ``model_engine`` 을 반환합니다. 엔진 목록은 파일을 소유한 Worker의 가상 환경 설정을 포함한 검색 결과에 따른 후보를 표시합니다. rerank와 world의 캐시 버전은 모델 이름만 식별하므로 이러한 후보는 캐시 형식과 대조하지 않습니다. ``null`` 은 메타데이터를 알 수 없거나 검색에 실패했음을 의미하며, 빈 목록은 현재 일치하는 엔진을 찾지 못했음을 의미합니다. 캐시 목록 조회는 가중치를 다운로드하거나 환경을 준비하거나 모델을 실행하지 않습니다."
+
+#: ../../user_guide/launch.rst:509 ../../user_guide/launch.rst:514
+msgid "Enable Keep GPU weights for reload before deploying the model."
+msgstr "모델을 배포하기 전에 «재로드를 위한 GPU 가중치 유지»를 활성화하세요."
+
+#: ../../user_guide/launch.rst:516 ../../user_guide/launch.rst:521
+msgid "Open model reconfiguration from Running Models."
+msgstr "«실행 중인 모델»에서 모델 재설정을 여세요."
+
+#: ../../user_guide/launch.rst:523 ../../user_guide/launch.rst:528
+msgid "Open Reconfigure / upgrade model from the model's detail view."
+msgstr "모델 상세 화면에서 «모델 재설정 / 업그레이드»를 여세요."

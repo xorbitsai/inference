@@ -506,6 +506,27 @@ Reconfigure and upgrade running models
 
 Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions.
 
+.. figure:: /_static/keep_weight_for_reload.png
+   :alt: Enable Keep GPU weights for reload before deploying the model.
+   :width: 560px
+   :align: center
+
+   Enable Keep GPU weights for reload before deploying the model.
+
+.. figure:: /_static/reconfigure_in_running.png
+   :alt: Open model reconfiguration from Running Models.
+   :width: 100%
+   :align: center
+
+   Open model reconfiguration from Running Models.
+
+.. figure:: /_static/reconfigure_in_detail.png
+   :alt: Open Reconfigure / upgrade model from the model's detail view.
+   :width: 100%
+   :align: center
+
+   Open Reconfigure / upgrade model from the model's detail view.
+
 With retained weights enabled, Xinference prepares a replacement model process while the current engine keeps serving. The replacement shares compatible cached weights and builds its own KV cache and CUDA graphs. New requests switch only after loading and a health check succeed; existing requests, including streams, finish on their original engine. Failed preparation leaves the current engine serving. The model UID and GPU reservation stay the same. Terminating the model releases its processes and cached weights.
 
 ``POST /v1/models/{model_uid}/reload`` accepts a partial ``model_config`` object and optional ``python_executable`` and ``drain_timeout`` fields. It returns HTTP 202 with an ``operation_id``. Poll ``GET /v1/models/{model_uid}/reload`` until ``status`` is ``ready`` or ``error``. On error, ``restored=true`` means the previous engine is serving. Query ``GET /v1/models/{model_uid}/reload/config`` for supported parameters, current values, engine version and Python executable. Invalid patches return HTTP 400; a reload already in progress returns HTTP 409. ``drain_timeout`` controls the wait for parser-only updates (default 300 seconds, maximum 3600); engine replacements never force existing requests to stop.

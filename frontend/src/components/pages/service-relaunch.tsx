@@ -2,18 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { isAxiosError } from 'axios';
+import { Globe, Network } from 'lucide-react';
+import { ComponentRestartDialog } from '@/components/pages/component-restart-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
@@ -216,60 +209,26 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
           </div>
         )}
       </CardContent>
-      <Dialog
+      <ComponentRestartDialog
         open={open}
         onOpenChange={(value) => {
           if (!submitting) setOpen(value);
         }}
-      >
-        <DialogContent
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            launcherRef.current?.focus();
-          }}
-        >
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit();
-            }}
-            className="space-y-4"
-          >
-            <DialogHeader>
-              <DialogTitle>{t(`${prefix}.${service}.title`)}</DialogTitle>
-              <DialogDescription>{t(`${prefix}.${service}.description`)}</DialogDescription>
-            </DialogHeader>
-            <label className="block space-y-2 text-sm">
-              <span>{t('clusterInfo.relaunch.python')}</span>
-              <Input
-                value={python}
-                disabled={submitting}
-                onChange={(event) => setPython(event.target.value)}
-                placeholder="/opt/xinference/bin/python"
-              />
-            </label>
-            <p className="text-sm text-muted-foreground">{t(`${prefix}.environmentHint`)}</p>
-            {submitError && (
-              <p role="alert" className="break-words text-sm text-destructive">
-                {submitError}
-              </p>
-            )}
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={submitting}
-                onClick={() => setOpen(false)}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button type="submit" disabled={submitting || !state.canStart}>
-                {t(`${prefix}.${service}.title`)}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+        title={t(`${prefix}.${service}.title`)}
+        description={t(`${prefix}.${service}.description`)}
+        icon={service === 'api' ? <Globe /> : <Network />}
+        python={python}
+        onPythonChange={setPython}
+        environmentHint={t(`${prefix}.environmentHint`)}
+        busy={submitting}
+        canSubmit={state.canStart}
+        error={submitError}
+        onSubmit={submit}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          launcherRef.current?.focus();
+        }}
+      />
     </Card>
   );
 }

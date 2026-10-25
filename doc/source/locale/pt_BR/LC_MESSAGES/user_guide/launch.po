@@ -661,3 +661,18 @@ msgstr "Com a autenticação ativada, selecionar ``python_executable`` exige ace
 #: ../../source/user_guide/launch.rst
 msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for each cached model. The engine list reports candidates discovered on the worker that owns its files, including that worker's virtual environment setting. Rerank and world cache versions identify only the model name, so their candidates are not checked against a cached format. ``null`` means the metadata is unknown or discovery failed; an empty list means no matching engine is currently discoverable. Listing caches does not download weights, prepare environments, or launch models."
 msgstr "``GET /v1/cache/models`` inclui ``model_type`` e ``model_engine`` para cada modelo em cache. A lista de motores mostra os candidatos descobertos no Worker que possui os arquivos, incluindo sua configuração de ambiente virtual. As versões de cache de rerank e world identificam apenas o nome do modelo, portanto seus candidatos não são verificados em relação ao formato do cache. ``null`` indica metadados desconhecidos ou falha na descoberta; uma lista vazia significa que nenhum motor correspondente pode ser descoberto no momento. Listar os caches não baixa pesos, prepara ambientes nem inicia modelos."
+
+#: ../../user_guide/launch.rst:509 ../../user_guide/launch.rst:514
+msgid "Enable Keep GPU weights for reload before deploying the model."
+msgstr ""
+"Ative «Manter pesos da GPU para recarregamento» antes de implantar o modelo."
+
+#: ../../user_guide/launch.rst:516 ../../user_guide/launch.rst:521
+msgid "Open model reconfiguration from Running Models."
+msgstr "Abra a reconfiguração do modelo em «Modelos em execução»."
+
+#: ../../user_guide/launch.rst:523 ../../user_guide/launch.rst:528
+msgid "Open Reconfigure / upgrade model from the model's detail view."
+msgstr ""
+"Abra «Reconfigurar / atualizar modelo» na visualização de detalhes do "
+"modelo."

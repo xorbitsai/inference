@@ -187,14 +187,15 @@ msgstr ""
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:80
 msgid ""
-"In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a "
-"Worker. Operation records remain visible when its address changes or the page is "
-"refreshed. This retains the current model processes; model-engine upgrades use "
-"**Reconfigure / upgrade model** in the running model's detail view."
+"In **Cluster Information**, administrators can use **Restart / upgrade "
+"Worker** on a Worker. Operation records remain visible when its address "
+"changes or the page is refreshed. This retains the current model processes; "
+"model-engine upgrades use **Reconfigure / upgrade model** from **Running "
+"Models** or the model's detail view."
 msgstr ""
 "**クラスター情報** では、管理者がWorker に対して **Worker の再起動 / 更新** "
-"を実行できます。アドレスが変わった場合やページ再読み込み後も操作記録を確認できます。この操作は現在のモデルプロセスを維持します。モデルエンジンの更新は、実行中モデルの詳細画面の"
-" **モデルの再設定 / 更新** で行います。"
+"を実行できます。アドレスが変わった場合やページ再読み込み後も操作記録を確認できます。この操作は現在のモデルプロセスを維持します。モデルエンジンの更新は、**実行中のモデル**"
+" またはモデルの詳細画面の **モデルの再設定 / 更新** で行います。"
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:94
 msgid ""
@@ -369,3 +370,23 @@ msgstr ""
 
 msgid "For vLLM:"
 msgstr "vLLM の例："
+
+#: ../../user_guide/zero_downtime_upgrade.rst:28
+#: ../../user_guide/zero_downtime_upgrade.rst:33
+msgid "Restart or upgrade the API and Supervisor from Cluster Information."
+msgstr "「クラスター情報」から API と Supervisor を再起動またはアップグレードします。"
+
+#: ../../user_guide/zero_downtime_upgrade.rst:71
+#: ../../user_guide/zero_downtime_upgrade.rst:76
+msgid "Restart or upgrade a Worker from its row in Cluster Information."
+msgstr "「クラスター情報」の Worker の行から、その Worker を再起動またはアップグレードします。"
+
+#: ../../user_guide/zero_downtime_upgrade.rst:117
+#: ../../user_guide/zero_downtime_upgrade.rst:122
+msgid "Open model reconfiguration from Running Models."
+msgstr "「実行中のモデル」からモデルの再設定を開きます。"
+
+#: ../../user_guide/zero_downtime_upgrade.rst:124
+#: ../../user_guide/zero_downtime_upgrade.rst:129
+msgid "Open Reconfigure / upgrade model from the model's detail view."
+msgstr "モデルの詳細画面で「モデルの再設定 / アップグレード」を開きます。"

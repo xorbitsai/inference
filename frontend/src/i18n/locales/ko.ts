@@ -766,11 +766,9 @@ const ko = {
   runningModels: {
     reload: {
       title: '모델 재설정 / 업그레이드',
-      description:
-        '새 엔진이 시작되는 동안 기존 엔진이 계속 요청을 처리합니다. 새 엔진이 준비된 후 새 요청을 전환하며, 진행 중인 요청은 기존 엔진에서 완료됩니다. 병렬 설정, 정밀도 및 양자화는 변경할 수 없습니다.',
+      description: '새 구성을 준비하는 동안 현재 엔진이 요청을 계속 처리합니다.',
       disabled: '엔진 매개변수를 변경하려면 시작 시 GPU 가중치 유지를 활성화하세요.',
-      reasoningHint:
-        '추론 내용 파싱은 엔진을 다시 시작하지 않고 변경됩니다. 현재 요청이 완료된 후 적용됩니다.',
+      reasoningHint: '현재 요청이 완료된 후 적용되며 엔진을 다시 시작하지 않습니다.',
       imageLimit: '요청당 최대 이미지 수',
       default: '엔진 기본값',
       apply: '적용',
@@ -781,7 +779,27 @@ const ko = {
       restored: '이전 설정이 복원되었습니다.',
       python: 'Python 실행 파일 (선택 사항)',
       environmentHint:
-        '비워 두면 모델의 현재 환경을 사용합니다. 대상 환경에 Xinference와 모델 엔진이 미리 설치되어 있어야 합니다. 호환 버전은 가중치를 공유하며, 호환되지 않는 버전에는 별도 가중치 메모리가 필요합니다. 준비에 실패해도 기존 엔진은 계속 서비스합니다.',
+        '대상 환경에 Xinference와 모델 엔진이 미리 설치되어 있어야 합니다. 엔진 버전을 변경하면 추가 GPU 메모리가 필요할 수 있습니다.',
+      weightsRetained: 'GPU 가중치 유지',
+      engineSettings: '엔진 설정',
+      responseSettings: '응답 옵션',
+      environmentTitle: '실행 환경 업그레이드',
+      environmentSummary: '선택 사항 · 기본적으로 현재 환경 사용',
+      changes: '{{count}}개 항목 변경',
+      noChanges: '변경 사항 없음',
+      fields: {
+        concurrency: '동시 요청 수',
+        batchTokens: '배치 토큰 한도',
+        contextLength: '컨텍스트 길이',
+        gpuMemory: 'GPU 메모리 사용 비율',
+        eagerExecution: 'Eager 실행',
+        disableCudaGraph: 'CUDA Graph 비활성화',
+        prefillTokens: '프리필 토큰 한도',
+        prefillChunkSize: '프리필 청크 크기',
+        decodeGraphBatch: 'CUDA Graph 디코딩 배치 한도',
+        prefillGraphBatch: 'CUDA Graph 프리필 배치 한도',
+        schedulingConservativeness: '스케줄링 보수성',
+      },
     },
     searchPlaceholder: '모델 이름 또는 모델 UID 검색...',
     loadingModels: '모델을 불러오는 중...',
@@ -1174,8 +1192,7 @@ const ko = {
       api: {
         name: 'API 서비스',
         title: 'API 재시작 / 업그레이드',
-        description:
-          'Worker와 모델을 계속 실행하면서 API를 교체합니다. 기존 요청과 스트림은 이전 API에서 완료됩니다.',
+        description: '새 API가 서비스를 이어받으며 기존 요청은 완료될 때까지 처리됩니다.',
         history: 'API 재시작 기록',
         drainingHint:
           '새 API가 서비스를 제공 중입니다. 이전 API에서 기존 요청과 스트림을 완료하고 있습니다.',
@@ -1183,14 +1200,12 @@ const ko = {
       supervisor: {
         name: 'Supervisor 제어 프로세스',
         title: 'Supervisor 재시작 / 업그레이드',
-        description:
-          'API, Worker, 모델 및 진행 중인 추론을 유지하면서 Supervisor 제어 로직을 교체합니다. 모델 엔진은 기존 버전을 유지합니다.',
+        description: '재시작 중에도 Worker, 모델 및 진행 중인 추론은 계속 실행됩니다.',
         history: 'Supervisor 재시작 기록',
         drainingHint:
           '새 Supervisor가 서비스를 제공 중입니다. 이전 프로세스는 기존 경로 조회가 완료된 후 종료됩니다.',
       },
-      environmentHint:
-        '비워 두면 현재 환경에서 재시작합니다. 업그레이드하려면 Supervisor 머신에 준비된 Xinference 환경의 Python 실행 파일 절대 경로를 입력하세요. 여기서는 패키지를 설치하지 않습니다.',
+      environmentHint: 'Supervisor 머신에 준비된 Xinference 환경의 Python을 선택하세요.',
       starting: '새 서비스 시작 중',
       preparing: 'Worker 확인 및 경로 복원 중',
       switching: '서비스 전환 중',
@@ -1203,11 +1218,17 @@ const ko = {
     },
     relaunch: {
       title: 'Worker 재시작 / 업그레이드',
-      description:
-        '모델 프로세스와 진행 중인 추론을 유지하면서 Worker를 교체합니다. 모델 엔진 버전은 그대로 유지됩니다.',
+      description: '재시작 중에도 모델 프로세스와 진행 중인 추론은 계속 실행됩니다.',
       python: 'Python 실행 파일 (선택 사항)',
       environmentHint:
-        '비워 두면 현재 환경에서 재시작합니다. 업그레이드하려면 이 Worker 머신에 설치된 Python 경로를 입력하세요. 패키지는 설치되지 않습니다.',
+        '이 Worker 머신에 준비된 Xinference 환경의 Python을 선택하세요. 모델 엔진 버전은 유지됩니다.',
+      currentEnvironment: '현재 환경',
+      preparedEnvironment: '지정한 환경',
+      currentEnvironmentHint: '현재 Python 환경에서 재시작합니다.',
+      changeEnvironment: '실행 환경 변경 (선택 사항)',
+      restart: '재시작',
+      upgrade: '업그레이드',
+      submitting: '시작 중…',
       history: 'Worker 재시작 기록',
       starting: '새 Worker 시작 중',
       transferring: '모델 관리 이전 중',

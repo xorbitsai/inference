@@ -92,9 +92,9 @@ function Probe({ enabled = true }: { enabled?: boolean }) {
     </>
   );
 }
-function submit() {
+function submit(action = 'restart') {
   return [...document.querySelectorAll<HTMLButtonElement>('button')].find(
-    (button) => button.textContent === 'clusterInfo.relaunch.title'
+    (button) => button.textContent === `clusterInfo.relaunch.${action}`
   )!;
 }
 it('restores a pending transfer from the server after remounting', async () => {
@@ -134,6 +134,10 @@ it('retries an uncertain submission with the same request ID and typed environme
       <WorkerRelaunchDialog address="[::1]:9999" onClose={() => closed++} onStarted={() => {}} />
     )
   );
+  const environment = document.querySelector('details')!;
+  assert.equal(environment.open, false);
+  await act(async () => environment.querySelector('summary')!.click());
+  assert.equal(environment.open, true);
   const input = document.querySelector<HTMLInputElement>('input')!;
   await act(async () => {
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(
@@ -142,14 +146,29 @@ it('retries an uncertain submission with the same request ID and typed environme
     );
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  await act(async () => submit().click());
+  await act(async () => submit('upgrade').click());
   assert.equal(closed, 0);
   assert.match(document.body.textContent!, /transport timeout/);
-  await act(async () => submit().click());
+  await act(async () => submit('upgrade').click());
   assert.equal(posts.length, 2);
   assert.equal(posts[0].url, '/v1/workers/%5B%3A%3A1%5D%3A9999/relaunch');
   assert.deepEqual(posts[0].body, posts[1].body);
   assert.equal(posts[0].body.python_executable, '/opt/new/bin/python');
   assert.ok(posts[0].body.request_id);
+  assert.equal(closed, 1);
+});
+
+it('restarts in the current environment without sending a Python override', async () => {
+  await act(async () =>
+    root.render(
+      <WorkerRelaunchDialog address="[::1]:9999" onClose={() => closed++} onStarted={() => {}} />
+    )
+  );
+  assert.equal(document.querySelector('details')!.open, false);
+  assert.equal(submit().hasAttribute('aria-label'), false);
+  await act(async () => submit().click());
+  assert.equal(posts.length, 1);
+  assert.ok(posts[0].body.request_id);
+  assert.equal('python_executable' in posts[0].body, false);
   assert.equal(closed, 1);
 });
