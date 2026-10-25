@@ -218,7 +218,7 @@ def main(
     multiprocessing.set_start_method("spawn")
 
     supervisor_address = f"{host}:{get_next_port()}"  # noqa: E231
-    if os.name == "posix":
+    if os.name in {"posix", "nt"}:
         from .api_host import run as run_api_host
         from .local_host import LocalHost
 

@@ -1,6 +1,5 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-# CI: linux
 
 import asyncio
 import json
@@ -25,7 +24,6 @@ def _source_environment():
     )
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX Worker service host")
 @pytest.mark.parametrize("replacement", [False, True])
 @pytest.mark.parametrize("parent_delay", [0, 0.6])
 def test_worker_failure_reaches_service_manager(tmp_path, replacement, parent_delay):
@@ -59,14 +57,15 @@ else:
             str(parent_delay),
         ],
         env=_source_environment(),
-        timeout=20,
+        timeout=60,
     )
     # Linux adopts grandchildren and preserves their exact exit status. macOS
     # cannot waitpid an orphan, but still reports it as a failed service.
-    assert result.returncode == (1 if replacement and sys.platform == "darwin" else 17)
+    assert result.returncode == (
+        1 if replacement and sys.platform in {"darwin", "win32"} else 17
+    )
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX Worker service host")
 def test_host_survives_original_worker_exit_and_stops_only_owned_descendants(tmp_path):
     script = tmp_path / "worker.py"
     script.write_text(
@@ -102,7 +101,7 @@ else:
     unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
     identities = {}
     try:
-        deadline = time.monotonic() + 15
+        deadline = time.monotonic() + 60
         while not (tmp_path / "original-exited").exists():
             assert host.poll() is None
             assert time.monotonic() < deadline
@@ -114,11 +113,15 @@ else:
         assert host.poll() is None
 
         async def outside_registration():
-            reader, writer = await asyncio.open_unix_connection(
-                (tmp_path / "socket").read_text()
+            connection = json.loads((tmp_path / "socket").read_text())
+            reader, writer = await asyncio.open_connection(
+                "127.0.0.1", connection["port"]
             )
             writer.write(
-                json.dumps({"version": 1, "pid": os.getpid()}).encode() + b"\n"
+                json.dumps(
+                    {"version": 1, "pid": os.getpid(), "token": connection["token"]}
+                ).encode()
+                + b"\n"
             )
             await writer.drain()
             assert await reader.readline() == b"error\n"

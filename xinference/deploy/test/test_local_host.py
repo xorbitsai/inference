@@ -176,26 +176,6 @@ def test_source_checkout_starts_temp_script_without_inherited_pythonpath(
     )
 
 
-def test_socket_directory_falls_back_to_writable_tempdir(tmp_path, monkeypatch):
-    import tempfile
-
-    from ..local_host import _socket_directory
-
-    original = tempfile.TemporaryDirectory
-
-    def create(*args, **kwargs):
-        if kwargs.get("dir") == "/tmp":
-            raise PermissionError("read-only /tmp")
-        return original(*args, **kwargs)
-
-    monkeypatch.setattr(
-        "xinference.deploy.local_host.tempfile.TemporaryDirectory", create
-    )
-    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
-    with _socket_directory() as directory:
-        assert Path(directory).parent == tmp_path
-
-
 @pytest.mark.skipif(os.name != "posix", reason="POSIX local startup")
 @pytest.mark.parametrize("failure", ["exit", "hang"])
 def test_local_startup_failure_stops_unregistered_cluster_and_children(
@@ -441,7 +421,6 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
                     pass
 
 
-@pytest.mark.skipif(os.name != "posix", reason="Local service hosting requires POSIX")
 @pytest.mark.parametrize("first", ["worker", "supervisor"])
 def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, first):
     from xinference.client import Client
@@ -617,7 +596,9 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
             assert stream_started.wait(10)
 
             for component in ["api", "supervisor", "worker"]:
-                bad = submit(component, "bad-" + component, "/does/not/exist/python")
+                bad = submit(
+                    component, "bad-" + component, str(tmp_path / "missing-python")
+                )
                 failed = until(
                     lambda: (
                         value
@@ -697,6 +678,10 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
                 process.kill()
                 process.wait(timeout=10)
             executor.shutdown(wait=True)
-        assert process.returncode == 0, (tmp_path / "service.log").read_text()[-5000:]
+        # Windows terminate() stops the host immediately; its Job Object still
+        # closes every retained child. POSIX SIGTERM exits through cleanup.
+        assert process.returncode == (1 if os.name == "nt" else 0), (
+            tmp_path / "service.log"
+        ).read_text()[-5000:]
         assert not failures
         until(lambda: not any(alive(pid) for pid in seen), timeout=10)

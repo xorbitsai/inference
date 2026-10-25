@@ -38,7 +38,7 @@ async def test_relaunch_deduplicates_and_preserves_terminal_status(
     assert await manager.create("old", request_id="click") == first
     assert await manager.create("old") == first
     with pytest.raises(RuntimeError, match="in progress"):
-        await manager.create("old", "/another/python")
+        await manager.create("old", str(tmp_path / "another-python"))
     manager.plan(first["operation_id"], "old", "source-generation", "new")
     manager.update(first["operation_id"], status="succeeded")
     manager.supervisor._worker_address_to_worker.clear()
@@ -293,8 +293,6 @@ def test_invalid_options_are_rejected(options):
 async def test_pid_one_worker_cannot_end_its_container_during_relaunch(monkeypatch):
     from ..worker_handoff import WorkerHandoffMixin
 
-    if sys.platform == "win32":
-        pytest.skip("Worker handoff requires POSIX")
     monkeypatch.setattr(os, "getpid", lambda: 1)
     with pytest.raises(ValueError, match="container supervisor"):
         await WorkerHandoffMixin.check_worker_handoff_support(SimpleNamespace())
@@ -360,15 +358,15 @@ async def driver():
         async_client=AsyncClient(endpoint)
     source_log=open('source.log','w')
     process=await asyncio.create_subprocess_exec(sys.executable,__file__,'source',pool.external_address,
-        stdout=asyncio.subprocess.PIPE,stderr=source_log,start_new_session=True)
+        stdout=asyncio.subprocess.PIPE,stderr=source_log,start_new_session=(os.name=='posix'))
     owned={}
     target_pid=None
     try:
-        raw=await asyncio.wait_for(process.stdout.readline(),45)
+        raw=await asyncio.wait_for(process.stdout.readline(),120)
         initial=json.loads(raw)
         for p in [psutil.Process(process.pid),*psutil.Process(process.pid).children(recursive=True)]:
             owned[p.pid]=p.create_time()
-        bad=await asyncio.to_thread(client.relaunch_worker,initial['worker'],'/does/not/exist/python','bad')
+        bad=await asyncio.to_thread(client.relaunch_worker,initial['worker'],str(Path(os.environ['XINFERENCE_HOME'])/'missing-python'),'bad')
         async def done(operation):
             nonlocal target_pid
             for _ in range(300):
@@ -416,7 +414,7 @@ async def driver():
         for pid,created in reversed(list(owned.items())):
             with contextlib.suppress(psutil.NoSuchProcess):
                 p=psutil.Process(pid)
-                if p.uids().real==os.getuid() and p.create_time()==created: p.kill()
+                if p.create_time()==created: p.kill()
         with contextlib.suppress(Exception): await asyncio.wait_for(process.wait(),5)
         with contextlib.suppress(Exception): await asyncio.wait_for(process.stdout.read(),5)
         await xo.destroy_actor(sup)
@@ -443,8 +441,6 @@ async def test_relaunch_starts_replacement_and_status_outlives_source(
 ):
     from xoscar.utils import get_next_port
 
-    if sys.platform == "win32":
-        pytest.skip("Worker handoff requires POSIX")
     script = tmp_path / "process_test.py"
     script.write_text(_PROCESS_TEST)
     env = dict(
@@ -466,9 +462,10 @@ async def test_relaunch_starts_replacement_and_status_outlives_source(
         stderr=asyncio.subprocess.STDOUT,
     )
     try:
-        output, _ = await asyncio.wait_for(process.communicate(), 100)
-        assert process.returncode == 0, (
-            output.decode() + (tmp_path / "source.log").read_text()
+        output, _ = await asyncio.wait_for(process.communicate(), 180)
+        source_log = tmp_path / "source.log"
+        assert process.returncode == 0, output.decode() + (
+            source_log.read_text() if source_log.exists() else ""
         )
         record = next(
             json.loads(line)

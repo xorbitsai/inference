@@ -8,7 +8,6 @@ import json
 import logging.config
 import os
 import signal
-import socket
 import sys
 from pathlib import Path
 
@@ -181,7 +180,9 @@ def main():
         # concurrently. Use the auth store's existing authoritative read path.
         api_key_cache_enabled=False,
     )
-    listener = socket.socket(fileno=configuration["listener_fd"])
+    from .process_host import inherited_listener
+
+    listener = inherited_listener(configuration["listener_fd"])
     api.serve(
         logging_conf=configuration.get("logging_conf"),
         server_factory=lambda config: HostedServer(config, api, configuration),

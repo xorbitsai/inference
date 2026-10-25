@@ -9,7 +9,6 @@ import json
 import os
 import secrets
 import selectors
-import signal
 import socket
 import subprocess
 import sys
@@ -23,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
 from ..core.system_settings_store import SystemSettingsStore
 from ..core.worker_relaunch import validate_relaunch_options
+from .process_host import pipe_bytes_available, shutdown_signals, start_process
 
 if TYPE_CHECKING:
     from .supervisor_host import SupervisorHost
@@ -55,7 +55,7 @@ def _forward_output(
     with source, contextlib.ExitStack() as stack:
         reader = (
             stack.enter_context(selectors.DefaultSelector())
-            if stopping is not None
+            if stopping is not None and os.name != "nt"
             else None
         )
         if reader is not None:
@@ -65,6 +65,14 @@ def _forward_output(
                 if not reader.select(0.1):
                     continue
                 data = os.read(source.fileno(), 65536)
+            elif stopping is not None:
+                available = pipe_bytes_available(source)
+                if available < 0:
+                    break
+                if not available:
+                    stopping.wait(0.1)
+                    continue
+                data = os.read(source.fileno(), min(available, 65536))
             else:
                 data = source.read1(65536)
             if not data:
@@ -83,7 +91,7 @@ def _forward_output(
 
 
 async def _wait_process(process: subprocess.Popen, diagnostics: APIDiagnostics) -> int:
-    stopping = threading.Event() if os.name == "posix" else None
+    stopping = threading.Event()
     waiting = asyncio.create_task(asyncio.to_thread(process.wait))
     forwarding = asyncio.gather(
         asyncio.to_thread(
@@ -95,18 +103,14 @@ async def _wait_process(process: subprocess.Popen, diagnostics: APIDiagnostics) 
     )
     try:
         exit_code = await waiting
-        if stopping is None:
+        try:
+            await asyncio.wait_for(asyncio.shield(forwarding), 1)
+        except asyncio.TimeoutError:
+            stopping.set()
             await forwarding
-        else:
-            try:
-                await asyncio.wait_for(asyncio.shield(forwarding), 1)
-            except asyncio.TimeoutError:
-                stopping.set()
-                await forwarding
         return exit_code
     finally:
-        if stopping is not None:
-            stopping.set()
+        stopping.set()
 
 
 async def host_request(command: str, **options: Any) -> Any:
@@ -114,7 +118,7 @@ async def host_request(command: str, **options: Any) -> Any:
     if not address:
         component = "Supervisor" if command.startswith("supervisor-") else "API"
         raise RuntimeError(
-            f"{component} relaunch requires a POSIX xinference-local or "
+            f"{component} relaunch requires a hosted xinference-local or "
             "xinference-supervisor service"
         )
     connection = json.loads(address)
@@ -314,9 +318,9 @@ class APIHost:
         )
         path.chmod(0o600)
         diagnostics = APIDiagnostics()
-        process = subprocess.Popen(
+        process = start_process(
             [executable, "-u", str(self.directory / "start_api.py"), str(path)],
-            pass_fds=(self.listener.fileno(),),
+            listener=self.listener,
             env={**environment, API_HOST_ENV: json.dumps(self.connection)},
             cwd=self.working_directory,
             stdout=subprocess.PIPE,
@@ -393,14 +397,16 @@ class APIHost:
                 await source.send("drain")
                 await source.wait(source.draining)
             except (ConnectionError, RuntimeError):
-                if source.process.poll() is None:
-                    source.process.terminate()  # Uvicorn drains on SIGTERM too.
+                # Control EOF also starts draining, including on Windows where
+                # Popen.terminate() would immediately cancel active requests.
+                if source.writer is not None:
+                    source.writer.close()
             await asyncio.shield(source.exited)
             operation.update(status="succeeded", finished_at=time.time())
         except Exception as error:
             operation.update(status="failed", error=str(error), finished_at=time.time())
             if target is not None and self.active is not target:
-                if target.process.poll() is None:
+                if not activated and target.process.poll() is None:
                     target.process.terminate()
                 if target.writer is not None:
                     target.writer.close()
@@ -410,8 +416,8 @@ class APIHost:
                     except asyncio.TimeoutError:
                         target.process.kill()
                         await target.exited
-                # Once activation was sent, preserve any admitted requests.
-                # SIGTERM drains them; a failed preparation has admitted none.
+                # Once activation was sent, control EOF drains any admitted
+                # requests. A failed preparation has admitted none.
 
     async def start_components(self, environment: Dict[str, str]) -> None:
         if self.configuration.get("host_supervisor"):
@@ -519,7 +525,6 @@ def run(configuration: Dict[str, Any], host_class=APIHost) -> None:
 
     async def serve():
         stopping = asyncio.Event()
-        loop = asyncio.get_running_loop()
         host = host_class(
             listener,
             configuration,
@@ -531,12 +536,7 @@ def run(configuration: Dict[str, Any], host_class=APIHost) -> None:
                 host.force_exit()
             stopping.set()
 
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(sig, stop)
-        try:
+        with shutdown_signals(stop):
             await host.run(stopping)
-        finally:
-            for sig in (signal.SIGTERM, signal.SIGINT):
-                loop.remove_signal_handler(sig)
 
     asyncio.run(serve())

@@ -78,7 +78,7 @@ def main(
     logging_conf: Optional[Dict] = None,
 ):
     supervisor_address = f"{host}:{supervisor_port or get_next_port()}"
-    if os.name == "posix":
+    if os.name in {"posix", "nt"}:
         from .api_host import run as run_api_host
 
         run_api_host(

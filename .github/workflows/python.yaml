@@ -473,6 +473,8 @@ jobs:
             xinference/core/tests/test_virtual_env_manager.py
             xinference/core/tests/test_virtualenv_package_rewrite.py
             xinference/core/tests/test_worker.py
+            xinference/core/tests/test_worker_handoff.py
+            xinference/core/tests/test_worker_relaunch.py
             xinference/core/tests/test_worker_address_resolution.py
             xinference/deploy/test
             xinference/model/llm/llama_cpp/tests/test_gguf.py

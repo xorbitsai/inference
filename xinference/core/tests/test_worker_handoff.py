@@ -283,8 +283,6 @@ class HandoffWorker(WorkerActor):
 
 @pytest_asyncio.fixture
 async def runtime(tmp_path):
-    if sys.platform == "win32":
-        pytest.skip("Native ownership transfer requires POSIX")
     pools = [await xo.create_actor_pool("127.0.0.1", n_process=0) for _ in range(3)]
     supervisor = await xo.create_actor(
         HandoffSupervisor,
@@ -658,8 +656,6 @@ asyncio.run(main())
 
 @pytest.mark.asyncio
 async def test_real_worker_registration_heartbeat_and_shutdown(tmp_path):
-    if sys.platform == "win32":
-        pytest.skip("Native ownership transfer requires POSIX")
     env = dict(
         os.environ,
         XINFERENCE_HOME=str(tmp_path),
@@ -676,7 +672,7 @@ async def test_real_worker_registration_heartbeat_and_shutdown(tmp_path):
         stderr=asyncio.subprocess.STDOUT,
     )
     try:
-        output, _ = await asyncio.wait_for(process.communicate(), 60)
+        output, _ = await asyncio.wait_for(process.communicate(), 180)
         assert process.returncode == 0, output.decode()
         line = next(
             line

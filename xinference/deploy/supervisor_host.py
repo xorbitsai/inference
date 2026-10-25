@@ -20,6 +20,7 @@ from xoscar.utils import get_next_port
 from ..core.supervisor_upgrade import PROTOCOL_VERSION, SupervisorGateway
 from ..core.worker_relaunch import validate_relaunch_options
 from .api_host import API_HOST_ENV, STARTUP_TIMEOUT, APIDiagnostics, _wait_process
+from .process_host import start_process
 
 logger = logging.getLogger(__name__)
 START_SUPERVISOR = "from xinference.deploy.supervisor_worker import main\nmain()\n"
@@ -95,7 +96,7 @@ class SupervisorHost:
         )
         path.chmod(0o600)
         diagnostics = APIDiagnostics()
-        process = subprocess.Popen(
+        process = start_process(
             [executable, "-u", str(self.directory / "start_supervisor.py"), str(path)],
             env=environment,
             cwd=Path.cwd(),

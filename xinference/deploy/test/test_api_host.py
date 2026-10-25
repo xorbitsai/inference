@@ -1,6 +1,5 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-# CI: linux
 
 import asyncio
 import io
@@ -29,7 +28,6 @@ from ..api_host import (
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(os.name != "posix", reason="POSIX pipe forwarding")
 async def test_exited_process_does_not_wait_for_descendant_pipe_holder(tmp_path):
     import psutil
 
@@ -590,7 +588,6 @@ def test_diagnostics_are_bounded_without_truncating_service_output():
     assert diagnostics.read() == data[-DIAGNOSTIC_LIMIT:].decode()
 
 
-@pytest.mark.skipif(os.name != "posix", reason="Hosted supervisor requires POSIX")
 def test_supervisor_cli_preserves_startup_baseline(tmp_path):
     path = tmp_path / "settings.json"
     startup = (

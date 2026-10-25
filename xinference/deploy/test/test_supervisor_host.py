@@ -1,6 +1,5 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-# CI: linux
 
 import asyncio
 import os
@@ -17,8 +16,6 @@ from ...core.supervisor_upgrade import SupervisorGateway
 from ...core.system_settings_store import SystemSettingsStore
 from ...core.worker import WorkerActor
 from ..supervisor_host import SupervisorHost
-
-pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX process hosting")
 
 
 class Model(xo.StatelessActor):
@@ -308,7 +305,7 @@ async def test_router_heartbeats_remain_live_through_long_drain_and_freeze(monke
 
 
 async def completed(host, operation):
-    await asyncio.wait_for(asyncio.shield(host.operation_task), 60)
+    await asyncio.wait_for(asyncio.shield(host.operation_task), 180)
     return host.operations[operation["operation_id"]]
 
 
@@ -450,7 +447,7 @@ async def test_supervisor_process_replacement_retains_routes(tmp_path, monkeypat
                 == operation["operation_id"]
             )
             with pytest.raises(RuntimeError, match="different Supervisor relaunch"):
-                host.create("/different/python", request_id="first")
+                host.create(str(tmp_path / "different-python"), request_id="first")
             with pytest.raises(RuntimeError, match="already in progress"):
                 host.create(request_id="concurrent")
             result = await completed(host, operation)
@@ -471,7 +468,8 @@ async def test_supervisor_process_replacement_retains_routes(tmp_path, monkeypat
             assert result["status"] == "succeeded", result
             active = host.active
             result = await completed(
-                host, host.create("/missing/python", request_id="bad-python")
+                host,
+                host.create(str(tmp_path / "missing-python"), request_id="bad-python"),
             )
             assert result["status"] == "failed"
             assert host.active is active

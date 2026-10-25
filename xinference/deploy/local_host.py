@@ -10,7 +10,6 @@ import os
 import site
 import subprocess
 import sys
-import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -26,6 +25,7 @@ from .api_host import (
     APIProcess,
     _wait_process,
 )
+from .process_host import start_process
 from .supervisor_host import START_SUPERVISOR, SupervisorHost, SupervisorProcess
 from .worker_host import HOST_PID, HOST_SOCKET, ProcessOwner, _enable_subreaper
 
@@ -43,13 +43,6 @@ def _runtime_environment() -> Dict[str, str]:
             [str(root), *filter(None, [environment.get("PYTHONPATH")])]
         )
     return environment
-
-
-def _socket_directory():
-    try:
-        return tempfile.TemporaryDirectory(prefix="xinf-local-", dir="/tmp")
-    except OSError:
-        return tempfile.TemporaryDirectory(prefix="xl-")
 
 
 def _log_api_failure(task: asyncio.Task) -> None:
@@ -134,7 +127,7 @@ class LocalHost(APIHost):
             "if __name__ == '__main__':\n    import runpy\n    runpy.run_module('xinference.deploy.local', run_name='__main__')\n"
         )
         diagnostics = APIDiagnostics()
-        self.cluster = subprocess.Popen(
+        self.cluster = start_process(
             [sys.executable, "-u", str(script), str(path)],
             env=environment,
             stdout=subprocess.PIPE,
@@ -266,20 +259,16 @@ class LocalHost(APIHost):
     async def run(self, stopping: asyncio.Event) -> None:
         _enable_subreaper()
         previous = os.environ.get(API_HOST_ENV)
-        with _socket_directory() as directory:
-            self.worker_socket = str(Path(directory) / "workers.sock")
-            server = await asyncio.start_unix_server(
-                self.owner.register, self.worker_socket, limit=4096
-            )
-            try:
-                await super().run(stopping)
-            finally:
-                server.close()
-                await server.wait_closed()
-                await self.owner.stop()
-                if self.cluster_exit is not None:
-                    await self.cluster_exit
-                if previous is None:
-                    os.environ.pop(API_HOST_ENV, None)
-                else:
-                    os.environ[API_HOST_ENV] = previous
+        server, self.worker_socket = await self.owner.serve()
+        try:
+            await super().run(stopping)
+        finally:
+            server.close()
+            await server.wait_closed()
+            await self.owner.stop()
+            if self.cluster_exit is not None:
+                await self.cluster_exit
+            if previous is None:
+                os.environ.pop(API_HOST_ENV, None)
+            else:
+                os.environ[API_HOST_ENV] = previous
