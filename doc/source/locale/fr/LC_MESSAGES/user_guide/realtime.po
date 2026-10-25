@@ -71,6 +71,9 @@ msgstr ""
 "native en cours ; le déchargement sûr peut dépasser le délai de drainage. "
 "Latence, précision et capacité GPU restent à valider en déploiement."
 
+msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
+msgstr "La liste d’adresses IP autorisées configurée dans ``XINFERENCE_ALLOWED_IPS`` s’applique également avant la mise à niveau WebSocket."
+
 msgid ""
 "A model must provide a realtime adapter; instances without one reject "
 "realtime connections. Task-specific input and output schemas are defined by "

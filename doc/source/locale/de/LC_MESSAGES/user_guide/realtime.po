@@ -72,6 +72,9 @@ msgstr ""
 "kann daher das Drain-Zeitlimit überschreiten. GPU-Latenz, Genauigkeit und "
 "Kapazität müssen im Einsatz validiert werden."
 
+msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
+msgstr "Die konfigurierte Freigabeliste ``XINFERENCE_ALLOWED_IPS`` gilt auch vor dem WebSocket-Upgrade."
+
 msgid ""
 "A model must provide a realtime adapter; instances without one reject "
 "realtime connections. Task-specific input and output schemas are defined by "

@@ -70,6 +70,9 @@ msgstr ""
 "scaricamento sicuro può superare il timeout di drenaggio. Latenza, "
 "accuratezza e capacità GPU richiedono ancora verifica nel deployment."
 
+msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
+msgstr "La lista degli IP consentiti configurata in ``XINFERENCE_ALLOWED_IPS`` si applica anche prima dell’upgrade WebSocket."
+
 msgid ""
 "A model must provide a realtime adapter; instances without one reject "
 "realtime connections. Task-specific input and output schemas are defined by "

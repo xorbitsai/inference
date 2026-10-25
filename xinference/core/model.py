@@ -18,6 +18,7 @@ import inspect
 import json
 import os
 import queue
+import threading
 import time
 import types
 import uuid
@@ -30,6 +31,7 @@ from typing import (
     Generator,
     List,
     Optional,
+    Set,
     Union,
     no_type_check,
 )
@@ -77,6 +79,33 @@ XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = []
 XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
     os.getenv("XINFERENCE_TEST_OUT_OF_MEMORY_ERROR", False)
 )
+
+
+async def _await_owned_task(task: asyncio.Future):
+    """Cancellation cannot abandon native work that still owns model resources."""
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                continue
+            except BaseException:
+                break
+        try:
+            task.result()
+        except BaseException:
+            pass  # Consume native errors without replacing client cancellation.
+        raise
+
+
+class _RealtimeFileStream:
+    def __init__(self, raw, request_id: Optional[str]):
+        self.raw = raw
+        self.request_id = request_id
+        self.cancelled = threading.Event()
+        self.done = asyncio.get_running_loop().create_future()
 
 
 def register_batching_multimodal_models(*model_names: str):
@@ -225,16 +254,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     _model_state: str
 
     async def __pre_destroy__(self):
-        runtime = getattr(self, "_realtime_runtime", None)
-        if runtime is not None:
-            self._model_state = "draining"
-            await runtime.stop()
-            # File inference uses the same lock and may still own native work
-            # after its client disconnects. Drain it before unloading weights.
-            assert self._lock is not None
-            async with self._lock:
-                pass
-            self._realtime_runtime = None
+        await ModelActor._drain_realtime(self)
         await self.close_model_generations()
         for cache in self.__dict__.get("_generation_caches", {}).values():
             await asyncio.to_thread(cache.stop)
@@ -290,6 +310,23 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             gc.collect()
             empty_cache()
 
+    async def _drain_realtime(self):
+        runtime = getattr(self, "_realtime_runtime", None)
+        if runtime is not None:
+            self._model_state = "draining"
+            streams = list(self._realtime_file_streams)
+            for stream in streams:
+                stream.cancelled.set()
+            await runtime.stop()
+            if streams:
+                await _await_owned_task(asyncio.gather(*(s.done for s in streams)))
+            # File inference uses the same lock and may still own native work
+            # after its client disconnects. Drain it before unloading weights.
+            assert self._lock is not None
+            async with self._lock:
+                pass
+            self._realtime_runtime = None
+
     def __init__(
         self,
         supervisor_address: str,
@@ -327,6 +364,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self._progress_tracker_ref = None
         self._serve_count = 0
         self._realtime_runtime = None
+        self._realtime_file_streams: Set[_RealtimeFileStream] = set()
         self._realtime_start_lock = asyncio.Lock()
         model_type = self._model_description.get("model_type", "unknown")
         if model_type == "video":
@@ -403,6 +441,12 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     @rpc_context
     async def decrease_serve_count(self):
+        # API stream cleanup can arrive while a cancelled next() is still
+        # executing. Do not release its request-limit slot before native drain.
+        # This legacy RPC has no request ID, so conservatively join live leases.
+        streams = list(self.__dict__.get("_realtime_file_streams", ()))
+        if streams:
+            await _await_owned_task(asyncio.gather(*(s.done for s in streams)))
         self._serve_count = max(0, self._serve_count - 1)
         await self.record_metrics(
             "model_serve_count",
@@ -803,6 +847,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     async def stop(self):
         self._model_state = "stopping"
+        # WorkerActor calls stop() before destroy_actor(), so teardown alone is
+        # too late to protect resources released by the model's stop()/close().
+        await ModelActor._drain_realtime(self)
+        self._model_state = "stopping"
         await self.close_model_generations()
         await ModelActor._close_gpu_caches(self)
         if hasattr(self._model, "stop"):
@@ -962,7 +1010,8 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def _handle_pending_requests(self):
         logger.info("Start requests handler.")
         while True:
-            gen, stream_out, stop = await self._pending_requests.get()
+            pending = await self._pending_requests.get()
+            gen, stream_out, stop = pending[:3]
 
             async def _async_wrapper(_gen):
                 try:
@@ -982,6 +1031,53 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 except Exception as e:
                     return e
 
+            if len(pending) == 4:
+                # For realtime-enabled adapters, lock ownership was transferred
+                # from generator creation to this pending stream, not released.
+                lease = pending[3]
+                try:
+                    while not lease.cancelled.is_set():
+                        if inspect.isgenerator(gen):
+                            r = await _await_owned_task(
+                                asyncio.create_task(asyncio.to_thread(_wrapper, gen))
+                            )
+                        else:
+                            r = await _await_owned_task(
+                                asyncio.create_task(_async_wrapper(gen))
+                            )
+                        if lease.cancelled.is_set():
+                            break
+                        if r is stop:
+                            break
+                        stream_out.put_nowait(r)
+                        if isinstance(r, Exception):
+                            break
+                finally:
+
+                    async def close_stream():
+                        try:
+                            # Close both the metrics/SSE wrapper and the raw
+                            # generator under the lease, including native cleanup.
+                            if inspect.isgenerator(gen):
+                                try:
+                                    await asyncio.to_thread(gen.close)
+                                finally:
+                                    await asyncio.to_thread(lease.raw.close)
+                            else:
+                                try:
+                                    await gen.aclose()
+                                finally:
+                                    await lease.raw.aclose()
+                        finally:
+                            stream_out.put_nowait(stop)
+                            assert self._lock is not None
+                            self._lock.release()
+                            self._realtime_file_streams.discard(lease)
+                            lease.done.set_result(None)
+
+                    await _await_owned_task(asyncio.create_task(close_stream()))
+                continue
+
             while True:
                 try:
                     if inspect.isgenerator(gen):
@@ -999,6 +1095,48 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 except Exception:
                     logger.exception("stream encountered an error.")
                 break
+
+    def _queue_realtime_file_stream(self, output_type: str, raw, request_id):
+        lease = _RealtimeFileStream(raw, request_id)
+        stop = object()
+        stream_out: Union[queue.Queue, asyncio.Queue]
+        if inspect.isgenerator(raw):
+            gen = self._to_generator(output_type, raw)
+            stream_out = queue.Queue()
+
+            def outputs():
+                try:
+                    while True:
+                        item = stream_out.get()
+                        if item is stop:
+                            return
+                        if isinstance(item, Exception):
+                            raise item
+                        yield item
+                finally:
+                    lease.cancelled.set()
+
+            result = outputs()
+        else:
+            gen = self._to_async_gen(output_type, raw)
+            stream_out = asyncio.Queue()
+
+            async def async_outputs():
+                try:
+                    while True:
+                        item = await stream_out.get()
+                        if item is stop:
+                            return
+                        if isinstance(item, Exception):
+                            raise item
+                        yield item
+                finally:
+                    lease.cancelled.set()
+
+            result = async_outputs()
+        self._realtime_file_streams.add(lease)
+        self._pending_requests.put_nowait((gen, stream_out, stop, lease))
+        return result
 
     async def _call_wrapper_json(self, fn: Callable, *args, **kwargs):
         return await self._call_wrapper("json", fn, *args, **kwargs)
@@ -1022,26 +1160,26 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             # actor task (and therefore its request-limit slot) alive until the
             # worker thread has observed cancellation and reaped that process.
             thread_task = asyncio.create_task(asyncio.to_thread(fn, *args, **kwargs))
-            try:
-                return await asyncio.shield(thread_task)
-            except asyncio.CancelledError:
-                # Repeated cancellation must not release the model lock or
-                # serving slot while the non-interruptible operation is alive.
-                while not thread_task.done():
-                    try:
-                        await asyncio.shield(thread_task)
-                    except asyncio.CancelledError:
-                        continue
-                    except BaseException:
-                        break
-                try:
-                    thread_task.result()
-                except BaseException:
-                    pass  # Preserve cancellation, but consume native errors.
-                raise
+            return await _await_owned_task(thread_task)
 
         self._add_running_task(kwargs.get("request_id"))
-        if self._lock is None:
+        if getattr(self, "_realtime_runtime", None) is not None:
+            assert self._lock is not None
+            await self._lock.acquire()
+            transferred = False
+            try:
+                self._require_ready()
+                ret = await _invoke()
+                if inspect.isgenerator(ret) or inspect.isasyncgen(ret):
+                    result = self._queue_realtime_file_stream(
+                        output_type, ret, kwargs.get("request_id")
+                    )
+                    transferred = True
+                    return result
+            finally:
+                if not transferred:
+                    self._lock.release()
+        elif self._lock is None:
             ret = await _invoke()
 
             if inspect.isgenerator(ret):
@@ -1239,6 +1377,12 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     ) -> str:
         from ..model.scheduler.core import AbortRequestMessage
 
+        stream_cancelled = False
+        for stream in self.__dict__.get("_realtime_file_streams", ()):
+            if stream.request_id == request_id:
+                stream.cancelled.set()
+                stream_cancelled = True
+
         generation_results = []
         active_error = None
         active = self.__dict__.get("_serving_generation")
@@ -1273,7 +1417,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
         # Always cancel the running task first
         task = self._running_tasks.get(request_id)
-        cancelled = (
+        cancelled = stream_cancelled or (
             task is not None
             and not task.done()
             and task.get_name() != self._CANCEL_TASK_NAME
@@ -1294,7 +1438,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             ):
                 return result
 
-        if cancelled:
+        if cancelled or stream_cancelled:
             return AbortRequestMessage.DONE.name
 
         # Otherwise return NO_OP for legacy models or when model doesn't handle abort

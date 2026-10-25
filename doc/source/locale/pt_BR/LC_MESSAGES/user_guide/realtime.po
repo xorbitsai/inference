@@ -70,6 +70,9 @@ msgstr ""
 "seguro pode exceder o tempo de drenagem. Latência, precisão e capacidade GPU"
 " ainda exigem validação na implantação."
 
+msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
+msgstr "A lista de IPs permitidos configurada em ``XINFERENCE_ALLOWED_IPS`` também se aplica antes da atualização para WebSocket."
+
 msgid ""
 "A model must provide a realtime adapter; instances without one reject "
 "realtime connections. Task-specific input and output schemas are defined by "

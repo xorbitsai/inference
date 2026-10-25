@@ -61,6 +61,9 @@ msgstr ""
 "分鐘。檔案請求與即時工作階段共用請求限制計數及推論鎖。取消後仍保留容量，直到執行中的原生操作完成，因此安全卸載可能超過排空逾時。實際 GPU "
 "延遲、準確率與容量仍須部署驗證。"
 
+msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
+msgstr "設定的 ``XINFERENCE_ALLOWED_IPS`` IP 允許清單也會在 WebSocket 升級前執行檢查。"
+
 msgid ""
 "A model must provide a realtime adapter; instances without one reject "
 "realtime connections. Task-specific input and output schemas are defined by "

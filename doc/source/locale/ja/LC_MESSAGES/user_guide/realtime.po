@@ -63,6 +63,9 @@ msgstr ""
 "分です。ファイル要求とリアルタイムセッションは要求数制限と推論ロックを共有します。中止後も実行中のネイティブ処理が完了するまで容量を保持するため、安全なアンロードはドレイン期限を超える場合があります。実"
 " GPU の遅延、精度、容量は配備時の検証が必要です。"
 
+msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
+msgstr "設定された ``XINFERENCE_ALLOWED_IPS`` の許可リストは、WebSocket へのアップグレード前にも適用されます。"
+
 msgid ""
 "A model must provide a realtime adapter; instances without one reject "
 "realtime connections. Task-specific input and output schemas are defined by "

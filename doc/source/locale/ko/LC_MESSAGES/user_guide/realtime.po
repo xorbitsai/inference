@@ -64,6 +64,9 @@ msgstr ""
 "작업이 끝날 때까지 용량을 유지하므로 안전한 언로드가 드레인 제한 시간을 넘을 수 있습니다. 실제 GPU 지연, 정확도, 용량은 배포 "
 "검증이 필요합니다."
 
+msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
+msgstr "설정된 ``XINFERENCE_ALLOWED_IPS`` 허용 목록은 WebSocket 업그레이드 전에도 적용됩니다."
+
 msgid ""
 "A model must provide a realtime adapter; instances without one reject "
 "realtime connections. Task-specific input and output schemas are defined by "

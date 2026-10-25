@@ -432,6 +432,7 @@ async def test_native_cancel_ack_fences_output_and_retains_capacity_on_stop(runt
 
     runtime.model.create_realtime_session = lambda config, owner: NativeSession(owner)
     runtime.limits = replace(runtime.limits, drain_timeout=0.01)
+    reconnect = runtime.issue_ticket("u", "binary.echo")
     stopper = None
     try:
         async with aiohttp.ClientSession() as client:
@@ -444,8 +445,16 @@ async def test_native_cancel_ack_fences_output_and_retains_capacity_on_stop(runt
                 "reason"
             ] == "cancelled"
             assert runtime._inference_lock.locked() and runtime.active_count == 1
+
+            # Deliberately let quarantine win: ticket issuance must not be part
+            # of the handshake assertion, regardless of scheduler speed.
+            async def wait_quarantine():
+                while not runtime.draining:
+                    await asyncio.sleep(0)
+
+            await asyncio.wait_for(wait_quarantine(), 2)
             with pytest.raises(aiohttp.WSServerHandshakeError):
-                await connect(client, runtime)
+                await connect(client, runtime, descriptor=reconnect)
             stopper = asyncio.create_task(runtime.stop())
             # Let the drain timeout cancel a handler already draining a cancelled
             # processor. It must not abandon the native lease on repeated cancel.

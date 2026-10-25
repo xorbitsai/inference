@@ -33,7 +33,7 @@ from ..routers.realtime import register_routes
 
 
 @asynccontextmanager
-async def serve_gateway(authenticated=False, backend_model=None):
+async def serve_gateway(authenticated=False, backend_model=None, api_instance=None):
     import socket
 
     import uvicorn
@@ -55,11 +55,18 @@ async def serve_gateway(authenticated=False, backend_model=None):
         _get_supervisor_ref=AsyncMock(return_value=supervisor),
         is_authenticated=lambda: authenticated,
         _check_model_access=lambda *args: None,
+        _is_ip_allowed=lambda ip: True,
         _auth_service=AsyncMock(return_value={"id": 7}),
     )
-    register_routes(api)
-    app = FastAPI()
-    app.include_router(api._router)
+    if api_instance is None:
+        register_routes(api)
+        app = FastAPI()
+        app.include_router(api._router)
+    else:
+        api = api_instance
+        api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+        api.serve(server_factory=lambda config: SimpleNamespace(run=lambda: None))
+        app = api._app
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
     server = uvicorn.Server(uvicorn.Config(app, log_level="critical", ws="websockets"))
@@ -146,3 +153,48 @@ async def test_gateway_disconnect_releases_runtime():
             await ws.receive_json()
             await ws.close()
         await wait_empty(service.runtime)
+
+
+@pytest.mark.parametrize("allowed", [False, True])
+async def test_ip_allowlist_through_real_api_stack(monkeypatch, tmp_path, allowed):
+    from ...core import system_settings_store
+    from .. import restful_api
+
+    monkeypatch.setattr(restful_api, "is_auth_advanced", lambda: False)
+    monkeypatch.setattr(restful_api, "is_metrics_disabled", lambda: True)
+    monkeypatch.setenv("XINFERENCE_GUARD_ENABLED", "false")
+    for name, filename in (
+        ("XINFERENCE_AUTH_DB_PATH", "auth.db"),
+        ("XINFERENCE_LAUNCH_HISTORY_DB_PATH", "history.db"),
+        ("XINFERENCE_MONITOR_CONFIG_DB_PATH", "monitor.db"),
+        ("XINFERENCE_SYSTEM_SETTINGS_PATH", "settings.json"),
+    ):
+        monkeypatch.setattr(restful_api, name, str(tmp_path / filename))
+    monkeypatch.setattr(restful_api.RESTfulAPI, "_allowed_ip_list", None)
+    monkeypatch.setattr(system_settings_store, "_store", None)
+    monkeypatch.setattr(
+        restful_api,
+        "XINFERENCE_ALLOWED_IPS",
+        "127.0.0.0/8" if allowed else "192.0.2.0/24",
+    )
+    api = restful_api.RESTfulAPI("127.0.0.1:1", "127.0.0.1", 0)
+    async with serve_gateway(api_instance=api) as service:
+        async with aiohttp.ClientSession() as client:
+            # Use the HTTP middleware as a control, not a simplified route-only app.
+            http_url = service.url.replace("ws://", "http://").split("/v1/")[0]
+            async with client.get(http_url + "/docs") as response:
+                assert response.status == (200 if allowed else 403)
+            if allowed:
+                ws = await client.ws_connect(service.url)
+                await ws.send_json(CONFIG)
+                assert (await ws.receive_json())["event"] == "session.started"
+                await ws.close()
+                await wait_empty(service.runtime)
+            else:
+                with pytest.raises(aiohttp.WSServerHandshakeError) as error:
+                    await client.ws_connect(service.url)
+                assert error.value.status == 403
+                service.api._get_supervisor_ref.assert_not_awaited()
+                service.supervisor.describe_model.assert_not_awaited()
+                service.supervisor.get_model.assert_not_awaited()
+                assert service.runtime.active_count == 0

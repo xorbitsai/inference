@@ -38,6 +38,10 @@ async def realtime_session(api, websocket: WebSocket, model_uid: str) -> None:
     tasks = []
     accepted = False
     try:
+        # HTTP middleware does not run for WebSocket scopes. Uvicorn has
+        # already resolved any trusted proxy address into websocket.client.
+        if websocket.client is None or not api._is_ip_allowed(websocket.client.host):
+            raise HTTPException(403, "Realtime client IP is not allowed")
         origin = websocket.headers.get("origin")
         allowed = {
             x.strip()
