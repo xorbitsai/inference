@@ -1520,15 +1520,17 @@ def test_enable_thinking_preserves_qwen3_template(enable_thinking: bool) -> None
     from .. import BUILTIN_LLM_FAMILIES
 
     family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen3")
+    chat_template = family.chat_template
+    assert chat_template is not None
     mixin = ChatModelMixin()
     mixin.model_family = family
     messages = [{"role": "user", "content": "What is 2 + 2?"}]
     prompt = mixin.get_full_context(
-        messages, family.chat_template, enable_thinking=enable_thinking
+        messages, chat_template, enable_thinking=enable_thinking
     )
 
     assert prompt == mixin._build_from_raw_template(
-        messages, family.chat_template, enable_thinking=enable_thinking
+        messages, chat_template, enable_thinking=enable_thinking
     )
     suffix = "<|im_start|>assistant\n"
     if not enable_thinking:
