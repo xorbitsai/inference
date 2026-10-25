@@ -47,6 +47,7 @@ gruut[de,es,fr]
 # Kokoro
 kokoro>=0.7.15
 misaki[en,ja,zh]>=0.7.15
+preshed!=3.0.14
 en_core_web_trf@https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl
 en_core_web_sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 

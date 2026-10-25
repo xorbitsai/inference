@@ -29,31 +29,42 @@ from ..kokoro import KokoroModel
 
 
 @pytest.mark.parametrize(
-    "model_name,engine",
+    "dependency_source,engine",
     [
-        (None, None),
+        ("audio-extra", None),
+        ("cpu-image", None),
         ("Kokoro-82M", "PyTorch"),
         ("Kokoro-82M", "MLX"),
         ("Kokoro-82M-v1.1-zh", "PyTorch"),
     ],
 )
-def test_kokoro_dependencies_exclude_broken_preshed(model_name, engine):
-    if model_name is None:
+def test_kokoro_dependencies_exclude_broken_preshed(dependency_source, engine):
+    root = Path(__file__).resolve().parents[4]
+    if dependency_source == "audio-extra":
         try:
             import tomllib
         except ImportError:
             import tomli as tomllib
 
-        root = Path(__file__).resolve().parents[4]
         with (root / "pyproject.toml").open("rb") as source:
             packages = tomllib.load(source)["project"]["optional-dependencies"]["audio"]
+    elif dependency_source == "cpu-image":
+        requirements_path = (
+            root
+            / "xinference/deploy/docker/requirements_cpu/requirements_cpu-models.txt"
+        )
+        packages = [
+            line.split("#", 1)[0].strip()
+            for line in requirements_path.read_text().splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
     else:
         spec = next(
             spec
             for spec in load_model_catalog(
                 Path(__file__).resolve().parents[1] / "models"
             )
-            if spec["model_name"] == model_name
+            if spec["model_name"] == dependency_source
             and (spec.get("engine") or "PyTorch") == engine
         )
         packages = filter_virtualenv_packages_by_markers(
@@ -64,8 +75,8 @@ def test_kokoro_dependencies_exclude_broken_preshed(model_name, engine):
     ]
     preshed = [req for req in requirements if req.name == "preshed"]
     assert preshed
-    for version, allowed in (("3.0.13", True), ("3.0.14", False), ("3.0.15", True)):
-        assert all(version in req.specifier for req in preshed) is allowed
+    assert all("3.0.13" in req.specifier for req in preshed)
+    assert all("3.0.14" not in req.specifier for req in preshed)
 
 
 def test_kokoro_resolves_bundled_voice(tmp_path):
