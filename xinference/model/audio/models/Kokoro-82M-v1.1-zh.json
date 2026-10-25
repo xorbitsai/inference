@@ -23,6 +23,7 @@
       "packages": [
         "kokoro>=0.7.15",
         "misaki[en,zh]>=0.7.15",
+        "preshed!=3.0.14",
         "soundfile",
         "#system_torch#",
         "#system_numpy#"

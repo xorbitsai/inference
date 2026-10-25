@@ -12,11 +12,60 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import os
 import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+from packaging.requirements import Requirement
+
+from xinference._model_catalog import load_model_catalog
+
+from ....core.utils import filter_virtualenv_packages_by_markers
 from ..kokoro import KokoroModel
+
+
+@pytest.mark.parametrize(
+    "model_name,engine",
+    [
+        (None, None),
+        ("Kokoro-82M", "PyTorch"),
+        ("Kokoro-82M", "MLX"),
+        ("Kokoro-82M-v1.1-zh", "PyTorch"),
+    ],
+)
+def test_kokoro_dependencies_exclude_broken_preshed(model_name, engine):
+    if model_name is None:
+        try:
+            import tomllib
+        except ImportError:
+            import tomli as tomllib
+
+        root = Path(__file__).resolve().parents[4]
+        with (root / "pyproject.toml").open("rb") as source:
+            packages = tomllib.load(source)["project"]["optional-dependencies"]["audio"]
+    else:
+        spec = next(
+            spec
+            for spec in load_model_catalog(
+                Path(__file__).resolve().parents[1] / "models"
+            )
+            if spec["model_name"] == model_name
+            and (spec.get("engine") or "PyTorch") == engine
+        )
+        packages = filter_virtualenv_packages_by_markers(
+            spec["virtualenv"]["packages"], model_engine=engine, cuda_version=None
+        )
+    requirements = [
+        Requirement(package) for package in packages if not package.startswith("#")
+    ]
+    preshed = [req for req in requirements if req.name == "preshed"]
+    assert preshed
+    for version, allowed in (("3.0.13", True), ("3.0.14", False), ("3.0.15", True)):
+        assert all(version in req.specifier for req in preshed) is allowed
 
 
 def test_kokoro_resolves_bundled_voice(tmp_path):
