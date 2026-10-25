@@ -191,7 +191,13 @@ class TransformersEmbeddingGemma2Model(EmbeddingModel, BatchMixin):
         )
         self._prompts = load_prompts(self._model_path)
 
-    def _encode(self, messages: List[List[Dict[str, Any]]], **kwargs: Any):
+    def _encode(
+        self,
+        messages: List[List[Dict[str, Any]]],
+        *,
+        token_counts: Optional[List[int]] = None,
+        **kwargs: Any,
+    ):
         embeddings: List[torch.Tensor] = []
         tokens = 0
         assert self._model is not None
@@ -214,7 +220,10 @@ class TransformersEmbeddingGemma2Model(EmbeddingModel, BatchMixin):
                 mask = features["attention_mask"].unsqueeze(-1)
                 pooled = (hidden * mask).sum(1) / mask.sum(1).clamp(min=1)
             embeddings.append(pooled[0])
-            tokens += int(features["attention_mask"].sum().item())
+            count = int(features["attention_mask"].sum().item())
+            tokens += count
+            if token_counts is not None:
+                token_counts.append(count)
         return embeddings, tokens
 
     def _create_embedding(self, sentences: Any, **kwargs: Any) -> Embedding:
@@ -224,7 +233,12 @@ class TransformersEmbeddingGemma2Model(EmbeddingModel, BatchMixin):
         if kwargs.pop("return_sparse", False):
             raise ValueError("EmbeddingGemma 2 does not support sparse embeddings.")
         messages = normalize_inputs(sentences, self._prompts, **kwargs)
-        embeddings, tokens = self._encode(messages, **kwargs) if messages else ([], 0)
+        token_counts: List[int] = []
+        embeddings, tokens = (
+            self._encode(messages, token_counts=token_counts, **kwargs)
+            if messages
+            else ([], 0)
+        )
         normalize = kwargs.get(
             "normalize_embeddings", kwargs.get("normalize_embedding", True)
         )
@@ -239,13 +253,18 @@ class TransformersEmbeddingGemma2Model(EmbeddingModel, BatchMixin):
                 )
             )
         self._clean_cache_if_needed(tokens)
-        return Embedding(
+        result = Embedding(
             object="list",
             model=kwargs.get("model_uid"),
             model_replica=self._model_uid,
             data=data,
             usage=EmbeddingUsage(prompt_tokens=tokens, total_tokens=tokens),
         )
+        if len(token_counts) == len(data):
+            return self._with_token_counts(result, token_counts)
+        # Native SentenceTransformer.encode restores embedding order internally,
+        # but its token hook supplies no corresponding input-row mapping.
+        return result
 
 
 class SentenceTransformerEmbeddingGemma2Model(TransformersEmbeddingGemma2Model):

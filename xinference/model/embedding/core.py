@@ -20,7 +20,7 @@ import os
 import time
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union, cast
 
 from xoscar import extensible
 
@@ -33,7 +33,7 @@ from ..._compat import (
     validator,
 )
 from ...device_utils import empty_cache
-from ...types import Embedding
+from ...types import Embedding, EmbeddingUsage
 from ...utils import make_hashable
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
@@ -174,6 +174,14 @@ def generate_embedding_description(
     return res
 
 
+class _EmbeddingResult(dict):
+    """Carry input-order token counts without adding fields to the wire response."""
+
+    def __init__(self, result: Embedding, token_counts: List[int]) -> None:
+        super().__init__(result)
+        self.token_counts = token_counts
+
+
 class EmbeddingModel(abc.ABC):
     def __init__(
         self,
@@ -312,8 +320,14 @@ class EmbeddingModel(abc.ABC):
     ):
         truncate_prompt_tokens = kwargs.pop("truncate_prompt_tokens", None)
         if truncate_prompt_tokens is not None:
-            sentences = self._truncate_sentences(sentences, truncate_prompt_tokens)
+            return self._create_embedding(
+                self._truncate_sentences(sentences, truncate_prompt_tokens), **kwargs
+            )
         return self._create_embedding(sentences, **kwargs)
+
+    @staticmethod
+    def _with_token_counts(result: Embedding, token_counts: List[int]) -> Embedding:
+        return cast(Embedding, _EmbeddingResult(result, token_counts))
 
     @create_embedding.batch  # type: ignore
     def create_embedding(self, args_list, kwargs_list):
@@ -355,11 +369,30 @@ class EmbeddingModel(abc.ABC):
 
             embedding_list = self._create_embedding(sentences, **kwargs)
             usage = embedding_list.get("usage", {})
+            token_counts = (
+                embedding_list.token_counts
+                if isinstance(embedding_list, _EmbeddingResult)
+                else None
+            )
+            if token_counts is None and len(offsets) > 1:
+                # Opaque backends such as llama.cpp expose only an aggregate.
+                # Preserve unknown sentinels; never present that aggregate as
+                # the count for a request slice.
+                usage = {key: min(value, -1) for key, value in usage.items()}
             model_uid = kwargs.get("model_uid", "unknown")
 
             # 3. Split and attach original index
             for (offset, n), idx in zip(offsets, indices):
                 data = embedding_list["data"][offset : offset + n]
+                request_usage = usage
+                if token_counts is not None and len(offsets) > 1:
+                    counts = token_counts[offset : offset + n]
+                    tokens = min(counts, default=0)
+                    if tokens >= 0:
+                        tokens = sum(counts)
+                    request_usage = EmbeddingUsage(
+                        prompt_tokens=tokens, total_tokens=tokens
+                    )
                 # Re-normalize the per-item index to [0, n) for this caller.
                 # Engines number ``index`` over the whole concatenated batch
                 # (global enumerate); without this, a call whose inputs land at a
@@ -374,7 +407,7 @@ class EmbeddingModel(abc.ABC):
                     model=model_uid,
                     model_replica=self._model_uid,
                     data=data,
-                    usage=usage,
+                    usage=request_usage,
                 )
                 results_with_index.append((idx, result))
 

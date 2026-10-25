@@ -252,7 +252,17 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             )
         result = self._format_embedding_outputs(outputs, model_uid)
         self._clean_cache_if_needed(result["usage"]["total_tokens"])
-        return result
+        return self._with_token_counts(
+            result,
+            [
+                (
+                    len(output.prompt_token_ids)
+                    if hasattr(output, "prompt_token_ids")
+                    else 0
+                )
+                for output in outputs
+            ],
+        )
 
     @staticmethod
     def _check_embeddinggemma2_support() -> Union[bool, Tuple[bool, str]]:
