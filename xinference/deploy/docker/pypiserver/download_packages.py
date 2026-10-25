@@ -59,8 +59,8 @@ from packaging.version import InvalidVersion, Version
 
 TORCH_FAMILY = ("torch", "torchvision", "torchaudio", "torchcodec")
 
-# Engines whose releases hard-pin their own torch stack.
-SELF_PINNING_ENGINES = ("vllm", "sglang")
+# Engine manifest names whose releases pin their own dependency stack.
+SELF_PINNING_ENGINES = ("vllm", "sglang", "trt_llm")
 
 
 def load_runtime_constraints(path: Path) -> Dict[str, str]:
@@ -402,8 +402,8 @@ def main() -> None:
         engine = in_file.stem
         meta = json.loads(in_file.with_suffix(".meta.json").read_text())
         lock = work / f"{engine}.lock"
-        # vllm/sglang releases hard-pin their own torch stack; forcing the
-        # runtime image's torch on them is unsolvable. Their venvs install
+        # These engines pin their own torch/transformers stack; forcing the
+        # runtime image's versions on them is unsolvable. Their venvs install
         # a self-consistent stack anyway.
         self_pinning = engine in SELF_PINNING_ENGINES
         proc = uv_compile(
