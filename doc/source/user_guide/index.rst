@@ -11,6 +11,7 @@ User Guide
    launch
    backends
    client_api
+   realtime
    anthropic
    SD WebUI API compatibility <sd_webui>
 

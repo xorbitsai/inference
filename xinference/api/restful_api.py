@@ -1508,6 +1508,10 @@ class RESTfulAPI(CancelMixin):
         invalid_routes = []
         try:
             for router in self._router.routes:
+                from starlette.routing import WebSocketRoute
+
+                if isinstance(router, WebSocketRoute):
+                    continue
                 return_annotation = router.endpoint.__annotations__.get("return")
                 # Resolve string annotations (e.g. under __future__ annotations)
                 if isinstance(return_annotation, str):

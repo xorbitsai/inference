@@ -45,6 +45,7 @@ from ..constants import (
 
 if TYPE_CHECKING:
     from .progress_tracker import ProgressTrackerActor
+    from .realtime.runtime import RealtimeRuntime
     from .worker import WorkerActor
     from ..model.llm.core import LLM
     from ..model.llm.weight_cache import WeightCachedModel
@@ -105,7 +106,9 @@ def request_limit(fn):
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
-        if 1 + self._serve_count <= self._request_limits:
+        realtime = getattr(self, "_realtime_runtime", None)
+        realtime_count = realtime.active_count if realtime is not None else 0
+        if 1 + self._serve_count + realtime_count <= self._request_limits:
             self._serve_count += 1
         else:
             await self.record_metrics(
@@ -218,8 +221,20 @@ def oom_check(fn):
 
 class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     _replica_model_uid: Optional[str]
+    _realtime_runtime: Optional["RealtimeRuntime"]
+    _model_state: str
 
     async def __pre_destroy__(self):
+        runtime = getattr(self, "_realtime_runtime", None)
+        if runtime is not None:
+            self._model_state = "draining"
+            await runtime.stop()
+            # File inference uses the same lock and may still own native work
+            # after its client disconnects. Drain it before unloading weights.
+            assert self._lock is not None
+            async with self._lock:
+                pass
+            self._realtime_runtime = None
         await self.close_model_generations()
         for cache in self.__dict__.get("_generation_caches", {}).values():
             await asyncio.to_thread(cache.stop)
@@ -311,6 +326,8 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self._worker_generation = 0
         self._progress_tracker_ref = None
         self._serve_count = 0
+        self._realtime_runtime = None
+        self._realtime_start_lock = asyncio.Lock()
         model_type = self._model_description.get("model_type", "unknown")
         if model_type == "video":
             engine_label = model_engine or ""
@@ -336,7 +353,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             ),
         }
         self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._model_state: str = "registering"
+        self._model_state = "registering"
         # model across workers
         self._n_worker = n_worker
         self._shard = shard
@@ -592,7 +609,79 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def wait_for_load(self):
         if hasattr(self._model, "wait_for_load"):
             await asyncio.to_thread(self._model.wait_for_load)
+        await self._start_realtime_runtime()
         self._model_state = "ready"
+
+    async def _start_realtime_runtime(self):
+        async with self._realtime_start_lock:
+            await self._start_realtime_runtime_unlocked()
+
+    async def _start_realtime_runtime_unlocked(self):
+        if self._realtime_runtime is not None:
+            return
+        capabilities = getattr(self._model, "get_realtime_capabilities", None)
+        if capabilities is None or not capabilities().get("tasks"):
+            return
+        if self._lock is None:
+            raise ValueError("Realtime adapters require serialized inference")
+        from urllib.parse import urlsplit
+
+        from .realtime.protocol import RealtimeLimits
+        from .realtime.runtime import RealtimeRuntime
+
+        base_uid, _ = parse_replica_model_uid(self._replica_model_uid or "")
+        max_sessions = int(os.environ.get("XINFERENCE_REALTIME_MAX_SESSIONS", "1"))
+        if not 1 <= max_sessions <= 128:
+            raise ValueError("XINFERENCE_REALTIME_MAX_SESSIONS must be in [1, 128]")
+        runtime = RealtimeRuntime(
+            self._model,
+            base_uid,
+            self._replica_model_uid or "",
+            limits=RealtimeLimits(max_sessions=max_sessions),
+            inference_lock=self._lock,
+            admission=lambda: self._model_state == "ready"
+            and self._serve_count + runtime.active_count < self._request_limits,
+        )
+        worker_host = urlsplit(
+            self._worker_address
+            if "://" in self._worker_address
+            else "tcp://" + self._worker_address
+        ).hostname
+        host = os.environ.get(
+            "XINFERENCE_REALTIME_BIND_HOST", worker_host or "127.0.0.1"
+        )
+        advertised = os.environ.get(
+            "XINFERENCE_REALTIME_ADVERTISE_HOST", worker_host or host
+        )
+        if advertised in ("0.0.0.0", "::"):
+            raise ValueError("Configure a routable XINFERENCE_REALTIME_ADVERTISE_HOST")
+        await runtime.start(host, advertised)
+        self._realtime_runtime = runtime
+
+    def get_realtime_endpoint(self, subject: str, task: str) -> Dict[str, Any]:
+        """Connect-time discovery only; never append/poll media over Actor RPC."""
+        self._require_ready()
+        from .realtime.protocol import RealtimeError
+
+        if self._realtime_runtime is None:
+            raise RealtimeError(
+                "unsupported_task", "Model has no realtime input adapter"
+            )
+        return self._realtime_runtime.issue_ticket(subject, task)
+
+    def get_realtime_status(self) -> Dict[str, Any]:
+        """Low-frequency control-plane observation, not result polling."""
+        runtime = self._realtime_runtime
+        if runtime is None:
+            return {"readiness": False, "active_sessions": 0}
+        return {
+            "readiness": bool(runtime.endpoint) and not runtime.draining,
+            "runtime_generation": runtime.generation,
+            "active_sessions": runtime.active_count,
+            "completed_sessions": runtime.completed_count,
+            "failed_sessions": runtime.failed_count,
+            "input_queue_peak": runtime.input_queue_peak,
+        }
 
     def _get_weight_cached_model(self) -> "WeightCachedModel":
         from ..model.llm.weight_cache import WeightCachedModel
@@ -919,7 +1008,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     @oom_check
     async def _call_wrapper(self, output_type: str, fn: Callable, *args, **kwargs):
-        wait_for_sync_on_cancel = kwargs.pop("_wait_for_sync_on_cancel", False)
+        wait_for_sync_on_cancel = kwargs.pop("_wait_for_sync_on_cancel", False) or (
+            getattr(self, "_realtime_runtime", None) is not None
+        )
 
         async def _invoke():
             if inspect.iscoroutinefunction(fn):
@@ -934,10 +1025,19 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             try:
                 return await asyncio.shield(thread_task)
             except asyncio.CancelledError:
+                # Repeated cancellation must not release the model lock or
+                # serving slot while the non-interruptible operation is alive.
+                while not thread_task.done():
+                    try:
+                        await asyncio.shield(thread_task)
+                    except asyncio.CancelledError:
+                        continue
+                    except BaseException:
+                        break
                 try:
-                    await asyncio.shield(thread_task)
+                    thread_task.result()
                 except BaseException:
-                    pass
+                    pass  # Preserve cancellation, but consume native errors.
                 raise
 
         self._add_running_task(kwargs.get("request_id"))
