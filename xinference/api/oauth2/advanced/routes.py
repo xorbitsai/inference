@@ -1,0 +1,850 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Admin routes for the advanced authentication system."""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Optional
+
+from fastapi import Depends, HTTPException, Query, Request, Security
+
+from ...responses import JSONResponse
+from ..advanced.auth_service import (
+    INITIAL_ADMIN_PERMISSIONS,
+    PASSWORD_MIN_LENGTH,
+    AdvancedAuthService,
+)
+from ..advanced.crypto import get_password_hash, verify_password
+from ..advanced.database import ApiKeyNameConflictError, ApiKeyNameRequiredError
+from ..scope_aliases import _normalize_scopes
+
+if TYPE_CHECKING:
+    from ...restful_api import RESTfulAPI
+
+logger = logging.getLogger(__name__)
+
+
+def _refresh_key_gauges(auth: AdvancedAuthService) -> None:
+    """Update Prometheus gauges for active/expired key counts."""
+    try:
+        from datetime import datetime
+
+        from ....core import metrics as _metrics
+
+        _active_gauge = getattr(_metrics, "api_keys_active_total", None)
+        _expired_gauge = getattr(_metrics, "api_keys_expired_total", None)
+        if _active_gauge is None or _expired_gauge is None:
+            return
+
+        keys = auth.db.list_api_keys()
+        active = 0
+        expired = 0
+        now = datetime.utcnow()
+        for k in keys:
+            if not k.get("enabled", 1):
+                continue
+            expires_at = k.get("expires_at")
+            if expires_at:
+                try:
+                    if datetime.fromisoformat(expires_at) < now:
+                        expired += 1
+                        continue
+                except ValueError:
+                    pass
+            active += 1
+        _active_gauge.set({}, active)
+        _expired_gauge.set({}, expired)
+    except Exception:
+        pass
+
+
+def get_advanced_auth(request: Request) -> AdvancedAuthService:
+    return request.app.state.advanced_auth
+
+
+def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
+    """Extract current user info from the Authorization header."""
+    token = request.headers.get("Authorization", "").partition(" ")[2]
+    if not token:
+        return None, None, []
+    payload = auth.verify_access_token(token)
+    if not payload:
+        return None, None, []
+    return payload.get("user_id"), payload.get("sub"), payload.get("scopes", [])
+
+
+def _get_current_user_live_scopes(request: Request, auth: AdvancedAuthService):
+    """Return the account's current permissions, including administrator grants."""
+    current_user_id, username, _ = _get_current_user_from_token(request, auth)
+    user = None
+    if current_user_id:
+        user = auth.db.get_user_by_id(current_user_id)
+    elif username:
+        user = auth.db.get_user_by_username(username)
+
+    if user and user.get("enabled"):
+        return (
+            user["id"],
+            user["username"],
+            _normalize_scopes(user.get("permissions", [])),
+        )
+
+    return None, None, []
+
+
+def _reject_permission_escalation(
+    request: Request, auth: "AdvancedAuthService", requested_permissions
+) -> None:
+    """Prevent privilege escalation when granting user permissions.
+
+    A caller may only grant permissions they themselves hold; the ``admin``
+    scope may grant anything. Without this, a delegated ``users:manage``
+    operator could mint the ``admin`` superuser scope for themselves or others
+    (see security report, Finding 2).
+    """
+    if not isinstance(requested_permissions, list) or not all(
+        isinstance(p, str) for p in requested_permissions
+    ):
+        raise HTTPException(
+            status_code=400, detail="Permissions must be a list of strings"
+        )
+    _, _, caller_scopes = _get_current_user_live_scopes(request, auth)
+    caller_scopes = caller_scopes or []
+    if "admin" in caller_scopes:
+        return
+    escalated = [p for p in requested_permissions if p not in caller_scopes]
+    if escalated:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Cannot grant permissions you do not hold: {escalated}",
+        )
+
+
+def _reject_admin_target_takeover(
+    request: Request, auth: "AdvancedAuthService", target_user_id: int
+) -> None:
+    """Prevent non-admin callers from performing sensitive write operations
+    (delete / change password / disable / change permissions) on admin users.
+
+    Without this guard, a delegated ``users:manage`` operator could delete
+    an admin account, change an admin's password and log in as them, or
+    disable the only admin and lock the deployment out. Admin callers
+    bypass this check entirely.
+    """
+    _, _, caller_scopes = _get_current_user_live_scopes(request, auth)
+    caller_scopes = caller_scopes or []
+    if "admin" in caller_scopes:
+        return
+    target = auth.db.get_user_by_id(target_user_id)
+    if target is None:
+        # Caller already validated existence upstream; this is a defensive
+        # double-check. Treat missing user as not-admin to avoid leaking
+        # existence via 403-vs-404 distinction.
+        return
+    target_perms = target.get("permissions") or []
+    if "admin" in target_perms:
+        raise HTTPException(
+            status_code=403,
+            detail="Non-admin cannot perform this action on an admin user",
+        )
+
+
+# --- Auth endpoints ---
+
+
+async def advanced_login(request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    try:
+        body = await request.json()
+    except (ValueError, RecursionError):
+        body = None
+    if not isinstance(body, dict):
+        raise HTTPException(
+            status_code=400, detail="Request body must be a JSON object"
+        )
+    username = body.get("username", "")
+    password = body.get("password", "")
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise HTTPException(
+            status_code=400, detail="username and password must be strings"
+        )
+    request.state.audit_identity = {
+        "user": username,
+        "api_key_name": "",
+        "api_key_prefix": "",
+        "auth_type": "none",
+    }
+    try:
+        result = auth.login(username, password)
+    except Exception:
+        request.state.audit_status = "login_failed"
+        raise
+    return JSONResponse(content=result)
+
+
+async def advanced_refresh(request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    body = await request.json()
+    refresh_token = body.get("refresh_token", "")
+    if not refresh_token:
+        raise HTTPException(status_code=400, detail="refresh_token required")
+    result = auth.refresh_access_token(refresh_token)
+    if not result:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    return JSONResponse(content=result)
+
+
+async def advanced_logout(request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    body = await request.json()
+    refresh_token = body.get("refresh_token", "")
+    auth.logout(refresh_token)
+    return JSONResponse(content={"ok": True})
+
+
+# --- Initial setup ---
+#
+# Xinference requires authentication out of the box, but a fresh
+# deployment has no accounts to log in with. These two endpoints, which
+# require no existing login, let the web UI or an operator create the very
+# first admin account using the setup token printed in the server log.
+# setup_admin is only usable while the user table is empty; the moment one
+# account exists, it permanently refuses further
+# calls, so it cannot be used to create additional admins after setup.
+#
+# Possession of the operator-only setup token is required even on loopback;
+# request headers and a reverse proxy's source address do not establish that
+# the caller owns the deployment.
+
+
+async def setup_status(request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    needs_setup = auth.needs_setup()
+    return JSONResponse(
+        content={
+            "needs_setup": needs_setup,
+            "initialized": not needs_setup,
+            "password_min_length": PASSWORD_MIN_LENGTH,
+        }
+    )
+
+
+async def setup_admin(request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    # Reject before doing any password validation or hashing: once setup is
+    # complete this stays a public, unauthenticated endpoint, so a completed
+    # deployment must not keep paying for CPU-expensive bcrypt hashing (or
+    # be probed for password policy details) on every call.
+    if not auth.needs_setup():
+        raise HTTPException(
+            status_code=403,
+            detail="Setup already completed; an account already exists.",
+        )
+
+    body = await request.json()
+    setup_token = body.get("setup_token") if isinstance(body, dict) else None
+    if not isinstance(setup_token, str) or not auth.verify_setup_token(setup_token):
+        raise HTTPException(status_code=403, detail="Invalid setup token.")
+    username = body.get("username")
+    password = body.get("password")
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise HTTPException(
+            status_code=400, detail="username and password must be strings"
+        )
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="username and password required")
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
+        )
+
+    password_hash = get_password_hash(password)
+    # create_first_user checks-and-inserts atomically (BEGIN IMMEDIATE), so
+    # concurrent callers can't both create an admin even across processes.
+    user_id = auth.db.create_first_user(
+        username=username,
+        password_hash=password_hash,
+        permissions=INITIAL_ADMIN_PERMISSIONS,
+        setup_token=setup_token.strip(),
+    )
+    if user_id is None:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Setup already completed; an account already exists."
+                if not auth.needs_setup()
+                else "Invalid setup token."
+            ),
+        )
+
+    return JSONResponse(content={"id": user_id, "username": username}, status_code=201)
+
+
+# --- User management ---
+
+
+async def create_user(request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    body = await request.json()
+    username = body.get("username")
+    password = body.get("password")
+    permissions = body.get("permissions", [])
+
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise HTTPException(
+            status_code=400, detail="username and password must be strings"
+        )
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="username and password required")
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
+        )
+
+    _reject_permission_escalation(request, auth, permissions)
+
+    existing = auth.db.get_user_by_username(username, "local")
+    if existing:
+        raise HTTPException(status_code=409, detail="User already exists")
+
+    password_hash = get_password_hash(password)
+    user_id = auth.db.create_user(
+        username=username,
+        password_hash=password_hash,
+        source="local",
+        permissions=permissions,
+    )
+    return JSONResponse(content={"id": user_id, "username": username}, status_code=201)
+
+
+async def list_users(
+    request: Request, source: Optional[str] = Query(None)
+) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    users = auth.db.list_users(source=source)
+    result = []
+    for u in users:
+        result.append(
+            {
+                "id": u["id"],
+                "username": u["username"],
+                "source": u["source"],
+                "enabled": bool(u["enabled"]),
+                "must_change_password": bool(u["must_change_password"]),
+                "permissions": u["permissions"],
+                "created_at": u.get("created_at"),
+            }
+        )
+    return JSONResponse(content=result)
+
+
+async def get_user(user_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    user = auth.db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return JSONResponse(
+        content={
+            "id": user["id"],
+            "username": user["username"],
+            "source": user["source"],
+            "enabled": bool(user["enabled"]),
+            "must_change_password": bool(user["must_change_password"]),
+            "permissions": user["permissions"],
+            "created_at": user.get("created_at"),
+        }
+    )
+
+
+async def update_user(user_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    user = auth.db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    body = await request.json()
+
+    if "enabled" in body:
+        # Layer A: non-admin cannot disable/enable an admin user.
+        _reject_admin_target_takeover(request, auth, user_id)
+        enabled = int(body["enabled"])
+        if enabled:
+            auth.enable_user(user_id)
+        else:
+            auth.disable_user(user_id)
+
+    if "permissions" in body:
+        # Layer A: non-admin cannot change permissions of an admin user.
+        _reject_admin_target_takeover(request, auth, user_id)
+        # Layer B: cannot grant scopes the caller doesn't hold.
+        _reject_permission_escalation(request, auth, body["permissions"])
+        auth.db.set_user_permissions(user_id, body["permissions"])
+
+    return JSONResponse(content={"ok": True})
+
+
+async def delete_user(user_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    user = auth.db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    _reject_admin_target_takeover(request, auth, user_id)
+    auth.db.delete_user(user_id)
+    auth.cache.reload()
+    return JSONResponse(content={"ok": True})
+
+
+async def change_password(user_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    caller_id, _, caller_scopes = _get_current_user_live_scopes(request, auth)
+    manages_users = "admin" in caller_scopes or "users:manage" in caller_scopes
+    if not caller_id or (caller_id != user_id and not manages_users):
+        raise HTTPException(
+            status_code=403, detail="Cannot change another user's password"
+        )
+    user = auth.db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user["source"] != "local":
+        raise HTTPException(
+            status_code=400, detail="Only local users can change password"
+        )
+    _reject_admin_target_takeover(request, auth, user_id)
+    body = await request.json()
+    if not user["must_change_password"] and (
+        not manages_users or (caller_id == user_id and "current_password" in body)
+    ):
+        current_password = body.get("current_password")
+        if not isinstance(current_password, str) or not verify_password(
+            current_password, user["password_hash"]
+        ):
+            raise HTTPException(status_code=403, detail="Current password is incorrect")
+    new_password = body.get("new_password")
+    if not isinstance(new_password, str):
+        raise HTTPException(status_code=400, detail="new_password must be a string")
+    if not new_password:
+        raise HTTPException(status_code=400, detail="new_password required")
+    if len(new_password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
+        )
+    password_hash = get_password_hash(new_password)
+    # Update the password and revoke the user's refresh tokens atomically.
+    # refresh_access_token only re-checks that the user is still enabled, not
+    # whether the password changed, so a leaked refresh token must be revoked
+    # here. Doing the update and revocation in one BEGIN IMMEDIATE transaction
+    # serializes it against a concurrent token rotation, closing the race where
+    # a refresh in flight could otherwise mint a token that outlives the reset
+    # (see security report, Finding 4).
+    auth.db.update_password_and_revoke_tokens(user_id, password_hash)
+    return JSONResponse(content={"ok": True})
+
+
+# --- API Key management ---
+
+
+async def create_api_key(request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    body = await request.json()
+
+    current_user_id, _, scopes = _get_current_user_live_scopes(request, auth)
+    is_admin = "admin" in scopes or "keys:manage" in scopes
+
+    owner_id = body.get("owner")
+    if owner_id and not is_admin:
+        owner_id = current_user_id
+    elif not owner_id:
+        owner_id = current_user_id
+    if not owner_id:
+        raise HTTPException(status_code=400, detail="owner required")
+
+    try:
+        result = auth.create_api_key_for_user(
+            user_id=owner_id,
+            name=body.get("name"),
+            description=body.get("description"),
+            expires_at=body.get("expires_at"),
+            model_permissions=body.get("model_permissions"),
+            rate_limit_max_failures=body.get("rate_limit_max_failures"),
+            rate_limit_window_seconds=body.get("rate_limit_window_seconds"),
+            rate_limit_ban_seconds=body.get("rate_limit_ban_seconds"),
+        )
+    except ApiKeyNameRequiredError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ApiKeyNameConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    _refresh_key_gauges(auth)
+    return JSONResponse(content=result, status_code=201)
+
+
+async def list_api_keys(
+    request: Request, owner: Optional[int] = Query(None)
+) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    current_user_id, _, scopes = _get_current_user_live_scopes(request, auth)
+    is_admin = "admin" in scopes or "keys:manage" in scopes
+
+    if not is_admin:
+        owner = current_user_id
+
+    keys = auth.db.list_api_keys(user_id=owner)
+    # Batch-resolve owner usernames so non-admin callers (who can't
+    # GET /v1/admin/users) can render the owner column without falling
+    # back to "#<id>". /v1/admin/users stays admin-only because it
+    # exposes permissions/enabled/must_change_password fields.
+    # For admin callers (who can see all keys), fetch all users in one
+    # query to avoid N+1; for non-admin callers (only their own keys),
+    # the user_ids set is typically a single entry so N+1 is fine.
+    user_ids = {k["user_id"] for k in keys if k.get("user_id") is not None}
+    username_map: dict = {}
+    if is_admin and user_ids:
+        for u in auth.db.list_users():
+            if u["id"] in user_ids:
+                username_map[u["id"]] = u["username"]
+    else:
+        for uid in user_ids:
+            owner_user = auth.db.get_user_by_id(uid)
+            if owner_user:
+                username_map[uid] = owner_user["username"]
+
+    result = []
+    for k in keys:
+        result.append(
+            {
+                "id": k["id"],
+                "user_id": k["user_id"],
+                "owner_username": username_map.get(k["user_id"]),
+                "key_prefix": k["key_prefix"],
+                "name": k.get("name"),
+                "description": k.get("description"),
+                "enabled": bool(k.get("enabled", 1)),
+                "expires_at": k.get("expires_at"),
+                "model_permissions": k.get("model_permissions", []),
+                "created_at": k.get("created_at"),
+            }
+        )
+    return JSONResponse(content=result)
+
+
+async def get_api_key(key_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    current_user_id, _, scopes = _get_current_user_live_scopes(request, auth)
+    is_admin = "admin" in scopes or "keys:manage" in scopes
+
+    key = auth.db.get_api_key_by_id(key_id)
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    if not is_admin and key["user_id"] != current_user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return JSONResponse(
+        content={
+            "id": key["id"],
+            "user_id": key["user_id"],
+            "key_prefix": key["key_prefix"],
+            "name": key.get("name"),
+            "description": key.get("description"),
+            "enabled": bool(key.get("enabled", 1)),
+            "expires_at": key.get("expires_at"),
+            "model_permissions": key.get("model_permissions", []),
+            "created_at": key.get("created_at"),
+        }
+    )
+
+
+async def update_api_key(key_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    key = auth.db.get_api_key_by_id(key_id)
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    body = await request.json()
+    update_fields = {}
+    for field in (
+        "name",
+        "description",
+        "enabled",
+        "expires_at",
+        "rate_limit_max_failures",
+        "rate_limit_window_seconds",
+        "rate_limit_ban_seconds",
+    ):
+        if field in body:
+            update_fields[field] = body[field]
+    if update_fields:
+        try:
+            auth.db.update_api_key(key_id, **update_fields)
+        except ApiKeyNameRequiredError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except ApiKeyNameConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    if "model_permissions" in body:
+        auth.db.set_api_key_model_permissions(key_id, body["model_permissions"])
+
+    auth.cache.reload()
+    _refresh_key_gauges(auth)
+    return JSONResponse(content={"ok": True})
+
+
+async def delete_api_key(key_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    key = auth.db.get_api_key_by_id(key_id)
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    auth.db.delete_api_key(key_id)
+    auth.cache.remove(key["key_hash"])
+    _refresh_key_gauges(auth)
+    return JSONResponse(content={"ok": True})
+
+
+async def reveal_api_key(key_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    plaintext = auth.reveal_api_key(key_id)
+    if not plaintext:
+        raise HTTPException(status_code=404, detail="API key not found")
+    return JSONResponse(content={"key": plaintext})
+
+
+# --- Permissions ---
+
+
+async def get_key_permissions(key_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    key = auth.db.get_api_key_by_id(key_id)
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    return JSONResponse(content={"model_permissions": key.get("model_permissions", [])})
+
+
+async def update_key_permissions(key_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    key = auth.db.get_api_key_by_id(key_id)
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    body = await request.json()
+    permissions = body.get("model_permissions", [])
+    auth.db.set_api_key_model_permissions(key_id, permissions)
+    auth.cache.reload()
+    return JSONResponse(content={"ok": True})
+
+
+async def get_user_permissions(user_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    user = auth.db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return JSONResponse(content={"permissions": user["permissions"]})
+
+
+async def update_user_permissions(user_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    user = auth.db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    body = await request.json()
+    permissions = body.get("permissions", [])
+    # Layer A: non-admin cannot change permissions of an admin user.
+    _reject_admin_target_takeover(request, auth, user_id)
+    # Layer B: cannot grant scopes the caller doesn't hold.
+    _reject_permission_escalation(request, auth, permissions)
+    auth.db.set_user_permissions(user_id, permissions)
+    return JSONResponse(content={"ok": True})
+
+
+# --- Route registration ---
+
+
+def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
+    router = api._router
+    auth_service: AdvancedAuthService = api._app.state.advanced_auth
+
+    # Store rate_limiter on app state for security routes
+    _rl = getattr(auth_service, "_rate_limiter", None)
+    if _rl is not None:
+        api._app.state.rate_limiter = _rl
+
+    async def require_keys_read(
+        request: Request,
+        _user=Security(auth_service),  # validates JWT + user exists + enabled + audit
+    ):
+        """Dependency for API key read routes (list / get).
+
+        Accepts ``keys:create`` OR ``keys:manage`` (or ``admin``
+        wildcard). FastAPI's ``Security(scopes=[...])`` is
+        AND-semantics, so a custom dependency is needed for OR. This
+        reuses the standard ``auth_service`` dependency with no required
+        scopes, then performs the OR check against DB-current user
+        permissions so permission updates take effect consistently with
+        ``AdvancedAuthService.__call__`` scoped checks.
+        """
+        token = request.headers.get("Authorization", "").partition(" ")[2]
+        payload = auth_service.verify_access_token(token) if token else None
+        if not payload:
+            raise HTTPException(
+                status_code=403,
+                detail="Not enough permissions: requires keys:create or keys:manage",
+            )
+
+        db_scopes = _normalize_scopes(_user.get("permissions", []))
+        if {"admin", "keys:create", "keys:manage"} & db_scopes:
+            return True
+        raise HTTPException(
+            status_code=403,
+            detail="Not enough permissions: requires keys:create or keys:manage",
+        )
+
+    async def current_account(
+        request: Request, user=Security(auth_service)
+    ) -> JSONResponse:
+        # Security already resolved the current user, enabled state and grants.
+        # Reject API-key sessions using the populated key cache, without loading
+        # the account/permission resolver two additional times per UI poll.
+        token = request.headers.get("Authorization", "").partition(" ")[2]
+        if auth_service.validate_api_key(token):
+            raise HTTPException(status_code=401, detail="User session required")
+        return JSONResponse(
+            content={
+                "id": user["id"],
+                "username": user["username"],
+                "source": user["source"],
+                "permissions": user["permissions"],
+            }
+        )
+
+    router.add_api_route("/token", advanced_login, methods=["POST"])
+    router.add_api_route("/v1/auth/refresh", advanced_refresh, methods=["POST"])
+    router.add_api_route("/v1/auth/logout", advanced_logout, methods=["POST"])
+    router.add_api_route(
+        "/v1/auth/me",
+        current_account,
+        methods=["GET"],
+    )
+
+    # Initial setup (no login; setup_admin requires the operator setup token)
+    router.add_api_route("/v1/admin/setup/status", setup_status, methods=["GET"])
+    router.add_api_route("/v1/admin/setup", setup_admin, methods=["POST"])
+
+    # User management
+    router.add_api_route(
+        "/v1/admin/users",
+        create_user,
+        methods=["POST"],
+        dependencies=[Security(auth_service, scopes=["users:manage"])],
+    )
+    router.add_api_route(
+        "/v1/admin/users",
+        list_users,
+        methods=["GET"],
+        dependencies=[Security(auth_service, scopes=["users:manage"])],
+    )
+    router.add_api_route(
+        "/v1/admin/users/{user_id}",
+        get_user,
+        methods=["GET"],
+        dependencies=[Security(auth_service, scopes=["users:manage"])],
+    )
+    router.add_api_route(
+        "/v1/admin/users/{user_id}",
+        update_user,
+        methods=["PUT"],
+        dependencies=[Security(auth_service, scopes=["users:manage"])],
+    )
+    router.add_api_route(
+        "/v1/admin/users/{user_id}",
+        delete_user,
+        methods=["DELETE"],
+        dependencies=[Security(auth_service, scopes=["users:manage"])],
+    )
+    router.add_api_route(
+        "/v1/admin/users/{user_id}/password",
+        change_password,
+        methods=["PUT"],
+        dependencies=[Security(auth_service, scopes=[])],
+    )
+
+    # API Key management
+    router.add_api_route(
+        "/v1/admin/keys",
+        create_api_key,
+        methods=["POST"],
+        dependencies=[Security(auth_service, scopes=["keys:create"])],
+    )
+    router.add_api_route(
+        "/v1/admin/keys",
+        list_api_keys,
+        methods=["GET"],
+        dependencies=[Depends(require_keys_read)],
+    )
+    router.add_api_route(
+        "/v1/admin/keys/{key_id}",
+        get_api_key,
+        methods=["GET"],
+        dependencies=[Depends(require_keys_read)],
+    )
+    router.add_api_route(
+        "/v1/admin/keys/{key_id}",
+        update_api_key,
+        methods=["PUT"],
+        dependencies=[Security(auth_service, scopes=["keys:manage"])],
+    )
+    router.add_api_route(
+        "/v1/admin/keys/{key_id}",
+        delete_api_key,
+        methods=["DELETE"],
+        dependencies=[Security(auth_service, scopes=["keys:manage"])],
+    )
+    router.add_api_route(
+        "/v1/admin/keys/{key_id}/reveal",
+        reveal_api_key,
+        methods=["GET"],
+        dependencies=[Security(auth_service, scopes=["keys:manage"])],
+    )
+
+    # Permissions
+    router.add_api_route(
+        "/v1/admin/keys/{key_id}/permissions",
+        get_key_permissions,
+        methods=["GET"],
+        dependencies=[Security(auth_service, scopes=["keys:create"])],
+    )
+    router.add_api_route(
+        "/v1/admin/keys/{key_id}/permissions",
+        update_key_permissions,
+        methods=["PUT"],
+        dependencies=[Security(auth_service, scopes=["keys:manage"])],
+    )
+    router.add_api_route(
+        "/v1/admin/users/{user_id}/permissions",
+        get_user_permissions,
+        methods=["GET"],
+        dependencies=[Security(auth_service, scopes=["users:manage"])],
+    )
+    router.add_api_route(
+        "/v1/admin/users/{user_id}/permissions",
+        update_user_permissions,
+        methods=["PUT"],
+        dependencies=[Security(auth_service, scopes=["users:manage"])],
+    )
+
+    # Register security/rate-limit admin routes
+    try:
+        from .security_routes import register_security_routes
+
+        register_security_routes(api)
+    except ImportError:
+        pass

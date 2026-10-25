@@ -1,0 +1,203 @@
+groups:
+  - name: xinference-alert-rule
+    rules:
+      - alert: GPUMemoryHigh
+        expr: xinference:worker_gpu_memory_used_bytes / xinference:worker_gpu_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "GPU 显存使用率超过 90%"
+          description: "Worker {{ $labels.worker_address }} GPU {{ $labels.gpu_index }} 显存使用率 {{ $value | humanizePercentage }}，持续 5 分钟。"
+
+      - alert: ModelRequestErrorRateHigh
+        expr: sum without (stream) (rate(xinference:model_request_errors_total[5m])) / sum without (stream) (rate(xinference:model_request_total[5m])) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "模型请求错误率超过 5%"
+          description: "模型 {{ $labels.model_name }} 错误率 {{ $value | humanizePercentage }}，持续 3 分钟。"
+
+      - alert: TTFTHigh
+        expr: rate(xinference:time_to_first_token_seconds_sum[5m]) / rate(xinference:time_to_first_token_seconds_count[5m]) > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "首 Token 延迟超过 10 秒"
+          description: "模型 {{ $labels.model_name }} TTFT {{ $value }}s，持续 3 分钟。"
+
+      - alert: WorkerOffline
+        expr: xinference:workers_total < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker 节点离线"
+          description: "当前在线 Worker 数量 {{ $value }}，低于预期。"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "磁盘空间不足 10%"
+          description: "节点 {{ $labels.instance }} 挂载点 {{ $labels.mountpoint }} 剩余空间 {{ $value | humanizePercentage }}。"
+
+      - alert: RequestQueueBacklog
+        expr: xinference:model_serve_count / (xinference:model_request_limit > 0) > 0.9
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "模型请求并发接近上限"
+          description: "模型 {{ $labels.model_name }} 并发比率 {{ $value | humanizePercentage }}，持续 3 分钟。"
+
+      - alert: ModelLoadSlow
+        expr: xinference:model_last_load_duration_seconds > 300
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "模型加载耗时超过 5 分钟"
+          description: "模型 {{ $labels.model_name }} 最近加载耗时 {{ $value | humanizeDuration }}。"
+
+      - alert: ReplicaUnexpectedTerminated
+        expr: xinference:model_unexpected_termination == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "模型副本异常终止"
+          description: "模型 {{ $labels.model_name }} 副本 {{ $labels.replica_index }} 因 Worker 故障而下线。"
+
+      - alert: WorkerMemoryHigh
+        expr: xinference:worker_memory_used_bytes / xinference:worker_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker 内存使用率超过 90%"
+          description: "Worker {{ $labels.worker_address }} 内存使用率 {{ $value | humanizePercentage }}，持续 5 分钟。"
+
+      - alert: RequestLatencyHigh
+        expr: histogram_quantile(0.95, rate(xinference:model_request_duration_seconds_bucket[5m])) > 60
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 请求延迟超过 60 秒"
+          description: "模型 {{ $labels.model_name }} P95 延迟 {{ $value }}s，持续 3 分钟。"
+
+      - alert: BannedIPsSpike
+        expr: xinference:banned_ips_total > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "封禁 IP 数量异常偏高"
+          description: "当前封禁 IP 数 {{ $value }}，可能存在暴力攻击或滥用行为。"
+
+  - name: xinference-token-router-monitoring-v2
+    rules:
+      - alert: TokenRouterAgentSuspected
+        expr: xinference:token_router_agent_connectivity_status{status="suspected"} == 1
+        for: 30s
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterAgentSuspected"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterAgentOffline
+        expr: xinference:token_router_agent_connectivity_status{status="offline"} == 1
+        for: 0m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterAgentOffline"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterRuntimeUncontrollable
+        expr: xinference:token_router_runtime_effective_ready == 1 and on (router_uid, assignment_id, instance_id) xinference:token_router_runtime_controllable == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterRuntimeUncontrollable"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterRuntimeDown
+        expr: xinference:token_router_runtime_up == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterRuntimeDown"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterRuntimeConfigOutOfSync
+        expr: xinference:token_router_runtime_up == 1 and on (router_uid, assignment_id, instance_id) xinference:token_router_runtime_config_synced == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterRuntimeConfigOutOfSync"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterAssignmentNotReady
+        expr: xinference:token_router_assignment_desired_state{state="running"} == 1 and on (router_uid, assignment_id, replica_index, node_id) xinference:token_router_assignment_runtime_ready == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterAssignmentNotReady"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterTokenizerBindingFailed
+        expr: xinference:token_router_tokenizer_binding_state{observed_state="failed"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterTokenizerBindingFailed"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterTokenizerBindingStale
+        expr: xinference:token_router_tokenizer_binding_state{observed_state="stale"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterTokenizerBindingStale"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterDegraded
+        expr: xinference:token_router_status{status="degraded"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterDegraded"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterUnavailable
+        expr: xinference:token_router_desired_replicas > 0 and on (router_uid) xinference:token_router_effective_ready_replicas == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterUnavailable"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"

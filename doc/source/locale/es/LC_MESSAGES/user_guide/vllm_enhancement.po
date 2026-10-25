@@ -1,0 +1,393 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-15 13:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: es <LL@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/vllm_enhancement.rst:5
+msgid "Xavier: KV Cache Sharing"
+msgstr "Xavier: Caché KV compartida"
+
+#: ../../source/user_guide/vllm_enhancement.rst:6
+msgid "Xavier enables KV cache sharing between model replicas, with adapters for vLLM, SGLang, TRT-LLM and MLX. Replicas of the same engine can reuse compatible prefix caches to reduce repeated prefill computation for long prompts and multi-turn conversations."
+msgstr "Xavier permite compartir caché KV entre réplicas de modelos mediante adaptadores para vLLM, SGLang, TRT-LLM y MLX. Las réplicas del mismo motor pueden reutilizar cachés de prefijos compatibles para reducir el cálculo repetido de prefill en prompts largos y conversaciones de varios turnos."
+
+#: ../../source/user_guide/vllm_enhancement.rst:15
+msgid "Usage"
+msgstr "Usar"
+
+#: ../../source/user_guide/vllm_enhancement.rst:16
+msgid "Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment."
+msgstr "Inicie varias réplicas con ``enable_xavier=True`` y seleccione un ``model_engine`` compatible. Consulte :ref:`user_guide_backends` para los requisitos del motor y :ref:`user_guide_pd_separation` para el despliegue P/D."
+
+#: ../../source/user_guide/vllm_enhancement.rst:21
+msgid ""
+"Xavier requires vllm version >= ``0.7.0``, and currently not supports for "
+"vllm version >= ``0.11.0`` due to vllm reconstruction."
+msgstr ""
+"Xavier requiere que la versión de vllm no sea inferior a ``0.7.0``. "
+"Actualmente no se admite una versión de vllm superior a ``0.11.0``."
+
+#: ../../source/user_guide/vllm_enhancement.rst:22
+msgid ""
+"Due to the underlying communication not recognizing ``0.0.0.0``, the actual "
+"IP address needs to be passed when starting Xinference, for example: "
+"``xinference-local -H 192.168.xx.xx``."
+msgstr ""
+"Debido a que la comunicación subyacente no reconoce la dirección "
+"``0.0.0.0``, al iniciar xinference es necesario configurar una dirección IP "
+"real, por ejemplo: ``xinference-local -H 192.168.xx.xx``."
+
+#: ../../source/user_guide/vllm_enhancement.rst:23
+msgid "The vLLM GPU transfer path requires NVIDIA GPUs."
+msgstr "La transferencia GPU de vLLM requiere GPU NVIDIA."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang replicas"
+msgstr "Réplicas SGLang"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
+msgstr "SGLang >= ``0.5.21`` puede compartir la caché KV de prefijos mediante el backend de almacenamiento HiCache de Xavier. Inicie varias réplicas con ``model_engine=\"SGLang\"`` y ``enable_xavier=True``. El adaptador inicial admite modelos de texto Qwen2, Qwen3 y Llama FP16 sin cuantizar, con atención completa y TP=PP=DP=1; no admite LoRA, decodificación especulativa, atención híbrida ni entradas multimodales."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang."
+msgstr "``xavier_cache_bytes`` establece el presupuesto de caché CPU compartida del despliegue (predeterminado: ``536870912``, 512 MiB). Cada réplica SGLang también asigna sus propios pools GPU y de memoria del host HiCache. Para las réplicas normales, la expulsión o la indisponibilidad del almacenamiento se trata como un fallo de caché. Los espacios de nombres incluyen los pesos reales, el tokenizador, la configuración del modelo, la geometría KV y el formato del motor; aún no se pueden intercambiar cachés entre vLLM y SGLang."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead. For same-engine or cross-engine P/D and per-replica engine settings, see :ref:`user_guide_pd_separation`."
+msgstr "Las réplicas SGLang ordinarias comparten páginas de HiCache en CPU. Los roles explícitos de prefill/decode usan en su lugar la transferencia de GPU a GPU de Xavier. Para P/D con el mismo motor o entre motores y la configuración del motor por réplica, consulte :ref:`user_guide_pd_separation`."
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
+msgstr "Xavier carga los puntos de control BF16 como FP16 y emite una advertencia. Tanto los pesos como las cachés KV usan FP16."
+
+#: user_guide/vllm_enhancement.rst
+msgid "MLX replicas"
+msgstr "Réplicas MLX"
+
+#: source/user_guide/vllm_enhancement.rst:18
+msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
+msgstr "Para los modelos que solo usan atención en vLLM V1, Xavier conserva la configuración ``enforce_eager`` del modelo, lo que permite la ejecución con CUDA Graph. Establezca ``enforce_eager=True`` al iniciar el modelo para usar la ejecución eager. Los modelos recurrentes siguen usando la ejecución eager de forma predeterminada."
+
+#: ../../source/user_guide/vllm_enhancement.rst:52
+msgid "Request-scoped cache isolation"
+msgstr "Aislamiento de caché por solicitud"
+
+#: ../../source/user_guide/vllm_enhancement.rst:54
+msgid ""
+"Pass ``cache_salt`` with each inference request to isolate prefix-cache "
+"reuse. Requests with the same salt can reuse compatible caches across "
+"replicas; different salts cannot reuse each other's cached prefixes. This "
+"covers the local engine cache, Xavier shared caches and retained history, "
+"and same-engine or cross-engine P/D for vLLM, SGLang and MLX. Both P/D roles"
+" receive the same salt; incompatible cache scopes are rejected before "
+"importing KV."
+msgstr ""
+"Pase ``cache_salt`` con cada solicitud de inferencia para aislar la "
+"reutilización de prefijos. Un mismo salt permite reutilizar cachés "
+"compatibles entre réplicas; salts distintos no comparten prefijos. Esto "
+"abarca las cachés locales de vLLM, SGLang y MLX, las compartidas y el "
+"historial de Xavier, y P/D con motores iguales o distintos. Ambos roles "
+"reciben el mismo salt; los ámbitos incompatibles se rechazan antes de "
+"importar KV."
+
+#: ../../source/user_guide/vllm_enhancement.rst:56
+msgid ""
+"With the Xinference Python client, include ``cache_salt`` in "
+"``generate_config``. With the OpenAI client, use ``extra_body``:"
+msgstr ""
+"Con el cliente Python de Xinference, incluya ``cache_salt`` en "
+"``generate_config``. Con el cliente OpenAI, use ``extra_body``:"
+
+#: ../../source/user_guide/vllm_enhancement.rst:66
+msgid ""
+"The same top-level field is accepted by the Completions, Chat Completions, "
+"Responses and Anthropic Messages endpoints, for streaming and non-streaming "
+"inference. A salt must be a nonempty string of at most 256 characters "
+"without control characters. Unsupported model engines reject salted requests"
+" rather than ignoring the field. Legacy vLLM V0 requires Xavier to use "
+"salts."
+msgstr ""
+"Completions, Chat Completions, Responses y Anthropic Messages aceptan este "
+"campo de nivel superior con y sin streaming. El salt debe ser una cadena no "
+"vacía de hasta 256 caracteres sin caracteres de control. Los motores no "
+"compatibles rechazan las solicitudes con salt en vez de ignorar el campo. "
+"vLLM V0 requiere Xavier para utilizar salts."
+
+#: ../../source/user_guide/vllm_enhancement.rst:68
+msgid ""
+"Choose a stable, unguessable salt for each intended sharing boundary. A "
+"trusted application or gateway should authenticate callers, derive the salt "
+"from its own customer identity, and overwrite any client-supplied salt. "
+"Xinference does not map salts to users or create a tenant database. Salt "
+"knowledge permits cache sharing within that scope; client-selected salts "
+"alone do not enforce customer identity."
+msgstr ""
+"Elija un salt estable e imposible de adivinar para cada límite de uso "
+"compartido. Una aplicación o puerta de enlace de confianza debe autenticar a"
+" los llamantes, derivar el salt de su propia identidad de cliente y "
+"sustituir cualquier salt enviado por el cliente. Xinference no asigna salts "
+"a usuarios ni crea una base de inquilinos. Conocer el salt permite compartir"
+" caché en ese ámbito; elegirlo desde el cliente no garantiza su identidad."
+
+#: ../../source/user_guide/vllm_enhancement.rst:70
+msgid ""
+"Without a salt, requests keep the existing shared-cache behavior. Set "
+"``XINFERENCE_REQUIRE_CACHE_SALT=1`` in the API server environment to reject "
+"inference requests without a salt; the default is ``0``. Enable this policy "
+"after all callers or an API extension supply salts. The policy applies to "
+"the four inference endpoints above and does not disable prefix caching."
+msgstr ""
+"Sin salt se mantiene el comportamiento compartido actual. Configure "
+"``XINFERENCE_REQUIRE_CACHE_SALT=1`` en el servidor API para rechazar "
+"solicitudes sin salt; el valor predeterminado es ``0``. Active la política "
+"cuando todos los llamantes o una extensión API proporcionen salts. Se aplica"
+" a los cuatro endpoints anteriores sin desactivar la caché de prefijos."
+
+#: ../../source/user_guide/vllm_enhancement.rst:72
+msgid ""
+"Distribution wrappers can supply an authoritative salt through the optional "
+"synchronous ``cache_salt(request)`` extension hook, returning "
+"``xinference.extensions.CacheSalt(value)``. The hook runs after model-access"
+" checks and may read identity prepared by authenticated API dependencies "
+"from ``request.state``. Its result overrides the request field. Configure "
+"the extension through ``XINFERENCE_EXTENSIONS``; provider failures, missing "
+"return values and multiple providers reject the request without falling back"
+" to the client salt. When no provider is configured, the request field is "
+"used. Extension hooks must remain non-blocking."
+msgstr ""
+"Los distribuidores pueden proporcionar un salt autoritativo mediante el hook"
+" síncrono opcional ``cache_salt(request)``, devolviendo "
+"``xinference.extensions.CacheSalt(value)``. Se ejecuta después de comprobar "
+"el acceso al modelo y puede leer en ``request.state`` la identidad preparada"
+" por dependencias API autenticadas. Su resultado sustituye el campo de la "
+"solicitud. Configure la extensión con ``XINFERENCE_EXTENSIONS``. Los fallos,"
+" valores ausentes o varios proveedores rechazan la solicitud sin recurrir al"
+" salt del cliente. Sin proveedor configurado, se usa el campo de la "
+"solicitud. Los hooks deben ser no bloqueantes."
+
+#: ../../source/user_guide/vllm_enhancement.rst:74
+msgid ""
+"Cache salting limits prefix-cache timing inference across sharing "
+"boundaries. It does not provide separate model processes, memory quotas or "
+"complete timing-side-channel isolation. Changing a salt starts a new cache "
+"scope; existing entries remain subject to normal eviction."
+msgstr ""
+"El uso de salt limita las inferencias temporales sobre prefijos entre "
+"ámbitos compartidos. No proporciona procesos de modelo separados, cuotas de "
+"memoria ni aislamiento completo de canales laterales temporales. Cambiar el "
+"salt crea un ámbito nuevo; las entradas anteriores siguen sujetas a la "
+"expulsión normal."
+
+#: source/user_guide/vllm_enhancement.rst:31
+msgid "Storage backends"
+msgstr "Backends de almacenamiento"
+
+#: source/user_guide/vllm_enhancement.rst:34
+msgid "``xavier_cache_backend=\"native\"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13."
+msgstr "``xavier_cache_backend=\"native\"`` es el valor predeterminado y conserva el comportamiento de caché CPU/GPU. El backend opcional ``lmcache`` añade reutilización de prefijos en disco para réplicas ordinarias de vLLM V1, SGLang y TRT-LLM. Instale ``xinference[xavier-lmcache]`` en el entorno Linux que aloja el almacenamiento: el entorno de cada actor de transferencia para vLLM, o el del supervisor para SGLang y TRT-LLM. Los entornos de modelos pueden mantenerse separados. Se admiten LMCache >= ``0.5.6`` y < ``0.6`` con su extensión FS nativa, y Python 3.10 a 3.13."
+
+#: source/user_guide/vllm_enhancement.rst:36
+msgid "Select the backend when launching the model:"
+msgstr "Seleccione el backend al iniciar el modelo:"
+
+#: source/user_guide/vllm_enhancement.rst:57
+msgid "``cpu_bytes`` bounds each LMCache instance's DRAM pool (default: 512 MiB). vLLM creates one instance per replica; SGLang and TRT-LLM share one supervisor-owned instance per deployment. ``disk_path`` must be absolute and local to that storage host, and ``disk_bytes`` is the positive disk capacity per instance. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per instance; engine KV pools, owned import buffers, serialization and transfer buffers consume additional memory."
+msgstr "``cpu_bytes`` limita el grupo DRAM de cada instancia LMCache (predeterminado: 512 MiB). vLLM crea una instancia por réplica; SGLang y TRT-LLM comparten una instancia del supervisor por despliegue. ``disk_path`` debe ser una ruta absoluta local al host de almacenamiento, y ``disk_bytes`` es la capacidad positiva de disco por instancia. LMCache administra escrituras asíncronas, precarga y expulsión en estas capas. La expulsión del disco usa umbrales, por lo que la capacidad configurada no es una cuota del sistema de archivos. Xavier también utiliza almacenamiento temporal de CPU y copias de lectura acotados, hasta otros ``2 * cpu_bytes`` por instancia. Los grupos KV del motor, los búferes propios de importación, serialización y transferencia consumen memoria adicional."
+
+#: source/user_guide/vllm_enhancement.rst:59
+msgid "``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per storage instance; a timed-out or cancelled job still releases its LMCache read locks. Reads exceeding the transient capacity return a bounded prefix or fall back to local prefill. Compare TTFT and read latency against prefill cost for your workload."
+msgstr "``read_timeout`` limita la espera de una consulta de caché en segundos (predeterminado: 30). Los datos ausentes, inaccesibles o que exceden el plazo provocan prefill local. Se ejecuta como máximo una precarga LMCache por instancia de almacenamiento; aun tras cancelarse o agotarse el plazo, se liberan los bloqueos de lectura. Las lecturas que superan la capacidad temporal devuelven un prefijo acotado o recurren al prefill local. Compare TTFT y latencia de lectura con el coste de prefill de su carga."
+
+#: source/user_guide/vllm_enhancement.rst:61
+msgid "The LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
+msgstr "El backend LMCache requiere varias réplicas ordinarias del mismo motor y conserva sus límites Xavier de modelos, dtype y paralelismo. No admite roles P/D, vLLM V0 antiguo ni MLX; la entrega KV P/D sigue siendo responsabilidad de un transporte separado. Use ``cpu_bytes`` del backend en lugar de los presupuestos nativos ``xavier_cache_bytes`` o ``xavier_gpu_cache_bytes``. La selección del backend no habilita compartir caché entre motores ni cambia el comportamiento existente de cache-salt. Cada despliegue e instancia de almacenamiento tiene un espacio de nombres y directorio independientes; reiniciar no recupera entradas antiguas. El cierre ordenado elimina ese directorio; tras un fallo de proceso, elimine los directorios abandonados cuando ya no se utilicen."
+
+#: source/user_guide/vllm_enhancement.rst:34
+msgid "LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas."
+msgstr "Almacenamiento LMCache para réplicas ordinarias de vLLM V1, SGLang y TRT-LLM."
+
+#: ../../source/user_guide/vllm_enhancement.rst:13
+msgid "Choose a deployment mode"
+msgstr "Elegir el modo de despliegue"
+
+#: ../../source/user_guide/vllm_enhancement.rst:15
+msgid ""
+"Use ordinary replicas to share compatible prefixes while each replica "
+"handles complete requests. Shared prefix caching currently stays within the "
+"same engine. For separate prefill and decode roles, including cross-engine "
+"and CUDA/Metal deployments, use :ref:`user_guide_pd_separation`. P/D "
+"transport and ordinary cache storage have separate configuration and "
+"compatibility limits."
+msgstr ""
+"Las réplicas normales procesan solicitudes completas y comparten prefijos "
+"compatibles. La caché compartida de prefijos se limita actualmente al mismo "
+"motor. Para separar prefill y decode, incluso entre motores y CUDA/Metal, "
+"consulte :ref:`user_guide_pd_separation`. El transporte P/D y el "
+"almacenamiento de caché normal tienen configuraciones y límites de "
+"compatibilidad distintos."
+
+#: ../../source/user_guide/vllm_enhancement.rst:26
+msgid ""
+"The example launches two ordinary replicas. Choose the engine installed on "
+"your workers; the model format and quantization must match it. Each CUDA "
+"replica uses one GPU, while MLX runs on Apple silicon."
+msgstr ""
+"El ejemplo inicia dos réplicas normales. Elija el motor instalado en sus "
+"workers y un formato y cuantización compatibles. Cada réplica CUDA utiliza "
+"una GPU; MLX se ejecuta en Apple silicon."
+
+#: ../../source/user_guide/vllm_enhancement.rst:58
+msgid "Engine requirements"
+msgstr "Requisitos por motor"
+
+#: ../../source/user_guide/vllm_enhancement.rst:64
+msgid "vLLM"
+msgstr "vLLM"
+
+#: ../../source/user_guide/vllm_enhancement.rst:69
+msgid "V1 connector"
+msgstr "Conector V1"
+
+#: ../../source/user_guide/vllm_enhancement.rst:73
+msgid ""
+"The V1 connector requires vLLM >= ``0.21.0``, TP=1 and PP=1, with text-only "
+"models and no LoRA. Multimodal and prompt-embedding inputs are unsupported. "
+"Versions 0.11 through 0.20 are unsupported. Use the P/D guide for recurrent "
+"model requirements and GPU history settings."
+msgstr ""
+"El conector V1 requiere vLLM >= ``0.21.0``, TP=1, PP=1 y modelos solo de "
+"texto sin LoRA. No admite entradas multimodales ni prompt embeddings. "
+"Tampoco admite las versiones 0.11 a 0.20. Consulte la guía P/D para modelos "
+"recurrentes y ajustes del historial GPU."
+
+#: ../../source/user_guide/vllm_enhancement.rst:86
+msgid "Retained vLLM GPU history, configured with ``xavier_gpu_cache_bytes``."
+msgstr ""
+"Historial GPU de vLLM retenido, configurado con ``xavier_gpu_cache_bytes``."
+
+#: ../../source/user_guide/vllm_enhancement.rst:89
+msgid "Legacy V0 adapter"
+msgstr "Adaptador V0 heredado"
+
+#: ../../source/user_guide/vllm_enhancement.rst:91
+msgid ""
+"The legacy adapter supports vLLM >= ``0.7.0`` and < ``0.11.0`` for ordinary "
+"replica cache sharing. Use the V1 connector for current P/D deployments."
+msgstr ""
+"El adaptador heredado admite vLLM >= ``0.7.0`` y < ``0.11.0`` para compartir"
+" caché entre réplicas normales. Use el conector V1 en los despliegues P/D "
+"actuales."
+
+#: ../../source/user_guide/vllm_enhancement.rst:110
+msgid "TRT-LLM replicas"
+msgstr "Réplicas TRT-LLM"
+
+#: ../../source/user_guide/vllm_enhancement.rst:114
+msgid ""
+"TRT-LLM requires Linux/CUDA and ``tensorrt-llm==1.2.1``. Xavier supports "
+"unquantized BF16 dense Qwen3 text models, one worker and one GPU per replica"
+" (TP=PP=CP=1). Chunked prefill and overlap scheduling are disabled. "
+"Quantization, hybrid attention, multimodal input, LoRA and speculative "
+"decoding are unsupported with Xavier. See :ref:`trt_llm_backend` for the "
+"engine environment requirements."
+msgstr ""
+"TRT-LLM requiere Linux/CUDA y ``tensorrt-llm==1.2.1``. Xavier admite modelos"
+" de texto Qwen3 densos BF16 sin cuantizar, con un worker y una GPU por "
+"réplica (TP=PP=CP=1). Se desactivan el prefill por bloques y la "
+"planificación solapada. Xavier no admite cuantización, atención híbrida, "
+"entradas multimodales, LoRA ni decodificación especulativa. Consulte los "
+"requisitos del entorno en :ref:`trt_llm_backend`."
+
+#: ../../source/user_guide/vllm_enhancement.rst:120
+msgid ""
+"Ordinary TRT replicas publish complete 64-token KV pages to a shared CPU "
+"cache actor. ``xavier_cache_bytes`` sets the deployment budget (default: 512"
+" MiB). Partial pages and the final prompt token are computed locally; misses"
+" fall back to local prefill. Model weights, engine KV pools and transfer "
+"buffers consume additional memory. Xavier P/D instead transfers live KV "
+"pages through NIXL; see :ref:`user_guide_pd_separation`."
+msgstr ""
+"Las réplicas TRT normales publican páginas KV completas de 64 tokens en un "
+"actor de caché CPU compartida. ``xavier_cache_bytes`` fija el presupuesto "
+"del despliegue (por defecto: 512 MiB). Las páginas parciales y el último "
+"token del prompt se calculan localmente; los fallos de caché ejecutan "
+"prefill local. Los pesos, pools KV del motor y búferes de transferencia "
+"consumen memoria adicional. Xavier P/D transfiere páginas KV activas "
+"mediante NIXL; consulte :ref:`user_guide_pd_separation`."
+
+#: ../../source/user_guide/vllm_enhancement.rst:132
+msgid ""
+"MLX Xavier requires Apple silicon and ``mlx-lm>=0.31.2``. It supports "
+"unquantized, full-attention Qwen2, Qwen3 and Llama text models with one "
+"worker per replica. Weights and KV cache use FP16. Quantized weights or KV "
+"cache, rotating caches, hybrid attention, multimodal inputs, LoRA and "
+"speculative decoding are unsupported."
+msgstr ""
+"MLX Xavier requiere Apple silicon y ``mlx-lm>=0.31.2``. Admite modelos de "
+"texto Qwen2, Qwen3 y Llama sin cuantizar, con atención completa y un worker "
+"por réplica. Los pesos y la caché KV usan FP16. No admite pesos o cachés KV "
+"cuantizados, cachés rotativas, atención híbrida, entradas multimodales, LoRA"
+" ni decodificación especulativa."
+
+#: ../../source/user_guide/vllm_enhancement.rst:134
+msgid ""
+"``xavier_cache_bytes`` bounds the shared CPU cache (default: 512 MiB). Each "
+"replica also owns its model and Metal KV cache. Ordinary replicas compute "
+"locally on a miss or unavailable storage; incompatible deployments cannot "
+"share pages. Returned usage reports reused tokens in "
+"``prompt_tokens_details.cached_tokens``. Explicit prefill/decode roles "
+"enable MLX Xavier P/D automatically. Cross-engine cache sharing is not yet "
+"supported."
+msgstr ""
+"``xavier_cache_bytes`` limita la caché CPU compartida (512 MiB por defecto)."
+" Cada réplica también tiene su modelo y caché KV Metal. Las réplicas "
+"ordinarias calculan localmente si no hay acierto o el almacenamiento no está"
+" disponible; los despliegues incompatibles no pueden compartir páginas. El "
+"uso informa los tokens reutilizados en "
+"``prompt_tokens_details.cached_tokens``. Los roles prefill/decode explícitos"
+" activan MLX Xavier P/D automáticamente. Aún no se admite compartir caché "
+"entre motores."
+
+#: ../../source/user_guide/vllm_enhancement.rst:140
+msgid "Native storage"
+msgstr "Almacenamiento nativo"
+
+#: ../../source/user_guide/vllm_enhancement.rst:142
+msgid ""
+"The default ``xavier_cache_backend=\"native\"`` uses each engine's Xavier "
+"cache implementation. ``xavier_cache_bytes`` sets the shared CPU budget for "
+"SGLang, TRT-LLM and MLX; it is not a vLLM setting. vLLM's GPU history uses "
+"``xavier_gpu_cache_bytes``. These budgets exclude weights, engine KV pools "
+"and transfer buffers. Choose the engine above before sizing storage."
+msgstr ""
+"El valor predeterminado ``xavier_cache_backend=\"native\"`` usa la "
+"implementación de caché Xavier de cada motor. ``xavier_cache_bytes`` fija el"
+" presupuesto CPU compartido para SGLang, TRT-LLM y MLX; no es una opción de "
+"vLLM. El historial GPU de vLLM usa ``xavier_gpu_cache_bytes``. Estos "
+"presupuestos excluyen pesos, pools KV del motor y búferes de transferencia. "
+"Elija primero el motor para dimensionar el almacenamiento."
+
+#: ../../source/user_guide/vllm_enhancement.rst:149
+msgid "LMCache"
+msgstr "LMCache"
+
+#: ../../source/user_guide/vllm_enhancement.rst:213
+msgid "TRT-LLM does not support ``cache_salt`` through this adapter."
+msgstr "TRT-LLM no admite ``cache_salt`` mediante este adaptador."

@@ -1,0 +1,535 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version:  Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_TW\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/environments.rst:5
+msgid "Environments Variables"
+msgstr "環境變數"
+
+#: ../../source/getting_started/environments.rst:8
+msgid "XINFERENCE_ENDPOINT"
+msgstr "XINFERENCE_ENDPOINT"
+
+#: ../../source/getting_started/environments.rst:9
+msgid ""
+"Endpoint of Xinference, used to connect to Xinference service. Default "
+"value is http://127.0.0.1:9997 , you can get it through logs."
+msgstr ""
+"Xinference 的服務地址，用來與 Xinference 連接。預設地址是 "
+"http://127.0.0.1:9997，可以在日誌中獲得這個地址。"
+
+#: ../../source/getting_started/environments.rst:13
+msgid "XINFERENCE_MODEL_SRC"
+msgstr "XINFERENCE_MODEL_SRC"
+
+#: ../../source/getting_started/environments.rst:14
+msgid ""
+"Modelhub used for downloading models. Default is \"huggingface\", or you "
+"can set \"modelscope\" as downloading source."
+msgstr "配置模型下載倉庫。預設下載源是 \"huggingface\"，也可以設定為 \"modelscope\" 作為下載源。"
+
+#: ../../source/getting_started/environments.rst:20
+msgid "XINFERENCE_HOME"
+msgstr "XINFERENCE_HOME"
+
+#: ../../source/getting_started/environments.rst:21
+msgid ""
+"By default, Xinference uses ``<HOME>/.xinference`` as home path to store "
+"necessary files such as logs and models, where ``<HOME>`` is the home "
+"path of current user. You can change this directory by configuring this "
+"environment variable."
+msgstr ""
+"Xinference 預設使用 ``<HOME>/.xinference`` 作為預設目錄來儲存模型以及日誌等必要的檔案。其中 "
+"``<HOME>`` 是當前用戶的主目錄。可以透過配置這個環境變數來修改預設目錄。"
+
+#: ../../source/getting_started/environments.rst:27
+msgid "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
+msgstr "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
+
+#: ../../source/getting_started/environments.rst:28
+msgid ""
+"The maximum number of failed health checks tolerated at Xinference "
+"startup. Default value is 5."
+msgstr "Xinference啟動時允許的最大健康檢查失敗次數。預設值為5。"
+
+#: ../../source/getting_started/environments.rst:32
+msgid "XINFERENCE_HEALTH_CHECK_INTERVAL"
+msgstr "XINFERENCE_HEALTH_CHECK_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:33
+msgid "Health check interval (seconds) at Xinference startup. Default value is 5."
+msgstr "Xinference啟動時的健康檢查間隔（秒）。預設值為5。"
+
+#: ../../source/getting_started/environments.rst:37
+msgid "XINFERENCE_HEALTH_CHECK_TIMEOUT"
+msgstr "XINFERENCE_HEALTH_CHECK_TIMEOUT"
+
+#: ../../source/getting_started/environments.rst:38
+msgid "Health check timeout (seconds) at Xinference startup. Default value is 10."
+msgstr "Xinference啟動時的健康檢查超時時間（秒）。預設值為10。"
+
+#: ../../source/getting_started/environments.rst:42
+msgid "XINFERENCE_DISABLE_HEALTH_CHECK"
+msgstr "XINFERENCE_DISABLE_HEALTH_CHECK"
+
+#: ../../source/getting_started/environments.rst:43
+msgid ""
+"Xinference will automatically report health check at Xinference startup. "
+"Setting this environment to 1 can disable health check."
+msgstr "在滿足條件時，Xinference 會自動回報 worker 健康狀況，設定該環境變數為 1 可以停用健康檢查。"
+
+#: ../../source/getting_started/environments.rst:47
+msgid "XINFERENCE_DISABLE_METRICS"
+msgstr "XINFERENCE_DISABLE_METRICS"
+
+#: ../../source/getting_started/environments.rst:48
+msgid ""
+"Xinference will by default enable the metrics exporter on the supervisor "
+"and worker. Setting this environment to 1 will disable the /metrics "
+"endpoint on the supervisor and the HTTP service (only provide the "
+"/metrics endpoint) on the worker."
+msgstr ""
+"Xinference 會預設在 supervisor 和 worker 上啟用 metrics exporter。設定環境變數為 1 可以在 "
+"supervisor 上停用 /metrics 端點，並在 worker 上停用 HTTP 服務（僅提供 /metrics 端點）。"
+
+#: ../../source/getting_started/environments.rst:53
+msgid "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+msgstr "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+
+#: ../../source/getting_started/environments.rst:54
+msgid "Maximum download retry attempts for model files. Default value is 3."
+msgstr "模型檔案的最大下載重試次數。預設值為3。"
+
+#: ../../source/getting_started/environments.rst:73
+msgid "XINFERENCE_LLMMAN_BIN"
+msgstr "XINFERENCE_LLMMAN_BIN"
+
+#: ../../source/getting_started/environments.rst:74
+msgid "Path to the ``llmman`` executable used to resolve ``oci://`` model URIs. Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an ``llmman serve`` daemon that is not on ``127.0.0.1:17434``."
+msgstr "用於解析 ``oci://`` 模型 URI 的 ``llmman`` 執行檔路徑。預設使用 ``PATH`` 中的 ``llmman``。若 ``llmman serve`` 常駐程式不在 ``127.0.0.1:17434`` 上，可設定 ``LLMMAN_HOST``。"
+
+#: ../../source/getting_started/environments.rst:63
+msgid "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
+msgstr "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
+
+#: ../../source/getting_started/environments.rst:64
+msgid ""
+"Server-Sent Events keepalive ping interval (seconds). Default value is "
+"600."
+msgstr "伺服器發送事件保持活動狀態的 ping 間隔（秒）。預設值為 600。"
+
+#: ../../source/getting_started/environments.rst:68
+msgid "XINFERENCE_MAX_TOKENS"
+msgstr "XINFERENCE_MAX_TOKENS"
+
+#: ../../source/getting_started/environments.rst:69
+msgid "Global max tokens limit override for requests. Default is unset."
+msgstr "請求的全域最大 Token 限制覆蓋。預設值為未設定。"
+
+#: ../../source/getting_started/environments.rst:72
+msgid "XINFERENCE_ALLOWED_IPS"
+msgstr "XINFERENCE_ALLOWED_IPS"
+
+#: ../../source/getting_started/environments.rst:73
+msgid ""
+"Restrict access to specified IPs or CIDR blocks. Default is unset (no "
+"restriction)."
+msgstr "限制存取特定IP地址或CIDR地址區塊。預設未設定（無限制）。"
+
+#: ../../source/getting_started/environments.rst:76
+msgid "XINFERENCE_BATCH_SIZE"
+msgstr "XINFERENCE_BATCH_SIZE"
+
+#: ../../source/getting_started/environments.rst:77
+msgid ""
+"Default batch size used by the server when batching is enabled. Default "
+"value is 32."
+msgstr "啟用批次處理時伺服器使用的預設批次大小。預設值為32。"
+
+#: ../../source/getting_started/environments.rst:81
+msgid "XINFERENCE_BATCH_INTERVAL"
+msgstr "XINFERENCE_BATCH_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:82
+msgid "Default batching interval (seconds). Default value is 0.003."
+msgstr "預設批次處理間隔（秒）。預設值為0.003。"
+
+#: ../../source/getting_started/environments.rst:86
+msgid "XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU"
+msgstr "XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU"
+
+#: ../../source/getting_started/environments.rst:87
+msgid ""
+"Whether to allow multiple replicas on a single GPU. Default value is 1 "
+"(enabled)."
+msgstr "是否允許在單個 GPU 上建立多個副本。預設值為 1 (啟用)。"
+
+#: ../../source/getting_started/environments.rst:91
+msgid "XINFERENCE_LAUNCH_STRATEGY"
+msgstr "XINFERENCE_LAUNCH_STRATEGY"
+
+#: ../../source/getting_started/environments.rst:92
+msgid ""
+"GPU allocation strategy for replicas. Default is "
+"``IDLE_FIRST_LAUNCH_STRATEGY``."
+msgstr "副本的GPU分配策略。預設值為 ``IDLE_FIRST_LAUNCH_STRATEGY`` 。"
+
+#: ../../source/getting_started/environments.rst:95
+msgid "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
+msgstr "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
+
+#: ../../source/getting_started/environments.rst:96
+msgid ""
+"Maximum number of model launches that can proceed concurrently on a "
+"single worker node. When more replicas are launched than this limit, "
+"excess launches queue and proceed as slots free up. This prevents "
+"resource exhaustion (fork storms, disk IO saturation, GPU memory "
+"contention) that can cause heartbeat timeouts. Default value is 5."
+msgstr ""
+"單一 worker "
+"節點上可同時進行的模型啟動數量上限。當啟動的副本數超過此限制時，多出的啟動請求會排入佇列，並在有空位時依序執行。這可以避免資源耗盡（fork "
+"風暴、磁碟 IO 飽和、GPU 記憶體爭用）導致心跳逾時。預設值為 5。"
+
+#: ../../source/getting_started/environments.rst:103
+msgid "XINFERENCE_ENABLE_VIRTUAL_ENV"
+msgstr "XINFERENCE_ENABLE_VIRTUAL_ENV"
+
+#: ../../source/getting_started/environments.rst:104
+msgid ""
+"Enable model virtual environments globally. Default value is 1 (enabled, "
+"starting from v2.0)."
+msgstr "全域啟用模型虛擬環境。預設值為1（啟用，自v2.0版本生效）"
+
+#: ../../source/getting_started/environments.rst:108
+msgid "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
+msgstr "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
+
+#: ../../source/getting_started/environments.rst:109
+msgid ""
+"Skip packages already present in system site-packages when creating "
+"virtual environments. Default value is 1."
+msgstr "建立虛擬環境時跳過系統 site-packages 中已存在的套件。預設值為 1。"
+
+#: ../../source/getting_started/environments.rst:113
+msgid "XINFERENCE_CSG_TOKEN"
+msgstr "XINFERENCE_CSG_TOKEN"
+
+#: ../../source/getting_started/environments.rst:114
+msgid "Authentication token for CSGHub model source. Default is unset."
+msgstr "CSGHub模型源的認證令牌。預設值為未設定。"
+
+#: ../../source/getting_started/environments.rst:118
+msgid "XINFERENCE_CSG_ENDPOINT"
+msgstr "XINFERENCE_CSG_ENDPOINT"
+
+#: ../../source/getting_started/environments.rst:119
+msgid ""
+"CSGHub endpoint for model source. Default value is ``https://hub-"
+"stg.opencsg.com/``."
+msgstr "CSGHub 模型源端點。預設值為 ``https://hub-stg.opencsg.com/`` 。"
+
+#: ../../source/getting_started/environments.rst:123
+msgid "XINFERENCE_QWEN3_RERANK_TEMPLATE"
+msgstr "XINFERENCE_QWEN3_RERANK_TEMPLATE"
+
+#: ../../source/getting_started/environments.rst:124
+msgid ""
+"Enable template for Qwen3 rerank model family (0.6B, 4B, 8B,etc) "
+"globally. Default value is 1."
+msgstr "全域啟用 Qwen3 rerank 模型家族（0.6B、4B、8B 等）的模板。預設值為 1。"
+
+#: ../../source/getting_started/environments.rst:128
+msgid "XINFERENCE_LAUNCH_HISTORY_DB_PATH"
+msgstr "XINFERENCE_LAUNCH_HISTORY_DB_PATH"
+
+#: ../../source/getting_started/environments.rst:129
+msgid ""
+"Path to the SQLite database that stores the model launch configuration "
+"history shown in the \"Launch Model\" drawer of the Web UI. This store is"
+" shared across all clients so the history is available from any browser "
+"or machine, and it is independent of the authentication database. When "
+"authentication is enabled, each record keeps the creator's username "
+"(``created_by``). Default value is "
+"``<XINFERENCE_HOME>/launch_history.db``."
+msgstr ""
+"儲存模型啟動設定歷史的 SQLite 資料庫路徑，該歷史會顯示在 Web UI "
+"的「啟動模型」抽屜中。此儲存空間由所有用戶端共用，因此可以從任何瀏覽器或機器取得歷史紀錄，且它與身分驗證資料庫相互獨立。啟用身分驗證時，每筆紀錄會保留建立者的使用者名稱（``created_by``）。預設值為"
+" ``<XINFERENCE_HOME>/launch_history.db``。"
+
+#: ../../source/getting_started/environments.rst:137
+msgid "XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"
+msgstr "XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"
+
+#: ../../source/getting_started/environments.rst:138
+msgid ""
+"Maximum number of times a crashed model actor is automatically recovered."
+" Default is unset (no limit)."
+msgstr "已崩潰的模型 actor 自動恢復的最大次數。預設未設定（不限制）。"
+
+#: ../../source/getting_started/environments.rst:142
+msgid "XINFERENCE_FRONTEND_DIST_DIR"
+msgstr "XINFERENCE_FRONTEND_DIST_DIR"
+
+#: ../../source/getting_started/environments.rst:143
+msgid ""
+"Path to a static export of the web UI to serve instead of the one bundled"
+" with the package. Default is unset (serve the bundled Next.js export)."
+msgstr "用來取代套件內建 Web UI 的靜態匯出檔案路徑。預設未設定（提供內建的 Next.js 匯出檔案）。"
+
+#: ../../source/getting_started/environments.rst:146
+msgid ""
+"Replaces the removed ``XINFERENCE_FRONTEND_ENDPOINT`` variable; the web "
+"UI is now served by the Xinference server itself."
+msgstr "取代已移除的 ``XINFERENCE_FRONTEND_ENDPOINT`` 變數；Web UI 現在由 Xinference 伺服器本身提供。"
+
+#: ../../source/getting_started/environments.rst:151
+msgid "XINFERENCE_AUTH_ADVANCED"
+msgstr "XINFERENCE_AUTH_ADVANCED"
+
+#: ../../source/getting_started/environments.rst:152
+msgid ""
+"Enable the database-backed authentication system. Default value is 1 "
+"(enabled, starting from v3.0). Set to ``0`` / ``false`` / ``no`` to run "
+"Xinference without any authentication. See :ref:`user_guide_auth_system`."
+msgstr ""
+"啟用以資料庫為後端的身分驗證系統。預設值為 1（自 v3.0 起預設啟用）。設定為 ``0`` / ``false`` / ``no`` 可讓 "
+"Xinference 在不啟用任何身分驗證的情況下執行。參見 :ref:`user_guide_auth_system`。"
+
+#: ../../source/getting_started/environments.rst:158
+msgid "XINFERENCE_AUTH_DB_PATH"
+msgstr "XINFERENCE_AUTH_DB_PATH"
+
+#: ../../source/getting_started/environments.rst:159
+msgid ""
+"Path to the SQLite database that stores users, permissions, API keys, and"
+" refresh tokens. Default value is ``<XINFERENCE_HOME>/auth/auth.db``."
+msgstr ""
+"儲存使用者、權限、API 金鑰與重新整理權杖的 SQLite 資料庫路徑。預設值為 "
+"``<XINFERENCE_HOME>/auth/auth.db``。"
+
+#: ../../source/getting_started/environments.rst:163
+msgid "XINFERENCE_AUTH_JWT_SECRET_KEY"
+msgstr "XINFERENCE_AUTH_JWT_SECRET_KEY"
+
+#: ../../source/getting_started/environments.rst:164
+msgid ""
+"JWT signing secret for the authentication system. If unset, a secret is "
+"auto-generated and persisted at ``<XINFERENCE_HOME>/auth/jwt_secret_key``"
+" on first run."
+msgstr ""
+"身分驗證系統使用的 JWT 簽章密鑰。若未設定，首次執行時會自動產生密鑰並持久化儲存於 "
+"``<XINFERENCE_HOME>/auth/jwt_secret_key``。"
+
+#: ../../source/getting_started/environments.rst:169
+msgid "XINFERENCE_AUTH_ENCRYPTION_KEY"
+msgstr "XINFERENCE_AUTH_ENCRYPTION_KEY"
+
+#: ../../source/getting_started/environments.rst:170
+msgid ""
+"Key used to encrypt stored API keys at rest. If unset, a key is auto-"
+"generated and persisted at ``<XINFERENCE_HOME>/auth/encryption_key`` on "
+"first run."
+msgstr ""
+"用於加密靜態儲存 API 金鑰的金鑰。若未設定，首次執行時會自動產生金鑰並持久化儲存於 "
+"``<XINFERENCE_HOME>/auth/encryption_key``。"
+
+#: ../../source/getting_started/environments.rst:175
+msgid "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"
+msgstr "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"
+
+#: ../../source/getting_started/environments.rst:176
+msgid ""
+"Lifetime (minutes) of access tokens issued by the authentication system. "
+"Default value is 30."
+msgstr "身分驗證系統簽發的存取權杖有效期限（分鐘）。預設值為 30。"
+
+#: ../../source/getting_started/environments.rst:180
+msgid "XINFERENCE_OIDC_ENABLED"
+msgstr "XINFERENCE_OIDC_ENABLED"
+
+#: ../../source/getting_started/environments.rst:181
+msgid ""
+"Enable OIDC single sign-on (e.g. Keycloak). Default value is 0 "
+"(disabled). When enabled, ``XINFERENCE_OIDC_ISSUER``, "
+"``XINFERENCE_OIDC_CLIENT_ID``, ``XINFERENCE_OIDC_CLIENT_SECRET``, and "
+"``XINFERENCE_OIDC_REDIRECT_URI`` are required. See "
+":ref:`user_guide_oidc`."
+msgstr ""
+"啟用 OIDC 單一登入（例如 Keycloak）。預設值為 0（停用）。啟用時，必須設定 ``XINFERENCE_OIDC_ISSUER``、"
+" ``XINFERENCE_OIDC_CLIENT_ID``、 ``XINFERENCE_OIDC_CLIENT_SECRET`` 與 "
+"``XINFERENCE_OIDC_REDIRECT_URI``。參見 :ref:`user_guide_oidc`。"
+
+#: ../../source/getting_started/environments.rst:187
+msgid "XINFERENCE_AUDIT_LOG_RETENTION_DAYS"
+msgstr "XINFERENCE_AUDIT_LOG_RETENTION_DAYS"
+
+#: ../../source/getting_started/environments.rst:188
+msgid ""
+"Number of days audit log files are retained. Default value is 90. See "
+":ref:`user_guide_audit_security`."
+msgstr "稽核日誌檔案的保留天數。預設值為 90。參見 :ref:`user_guide_audit_security`。"
+
+#: ../../source/getting_started/environments.rst:56
+msgid "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+
+#: ../../source/getting_started/environments.rst:58
+msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
+msgstr "當 Worker 因收集失敗或略過收集而省略該欄位時，Supervisor 保留最近一次有效的單模型 GPU 記憶體快照的最大秒數。明確的空快照仍會立即清除快取。預設值為 90。"
+
+#: ../../source/getting_started/environments.rst:233
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+
+#: ../../source/getting_started/environments.rst:234
+msgid "Initial delay in seconds between Router Agent bootstrap retries. The delay uses exponential backoff with jitter. Default value is 1."
+msgstr "Router Agent 啟動重試之間的初始延遲（秒）。延遲採用帶抖動的指數退避。預設值為 1。"
+
+#: ../../source/getting_started/environments.rst:238
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+
+#: ../../source/getting_started/environments.rst:239
+msgid "Maximum delay in seconds between Router Agent bootstrap retries. Default value is 15 and must not be lower than the initial delay."
+msgstr "Router Agent 啟動重試之間的最大延遲（秒）。預設值為 15，且不能小於初始延遲。"
+
+#: ../../source/getting_started/environments.rst:243
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+
+#: ../../source/getting_started/environments.rst:244
+msgid "Total deadline in seconds for Router Agent startup registration and initial synchronization retries. Default value is 120."
+msgstr "Router Agent 啟動註冊和初始同步重試的總截止時間（秒）。預設值為 120。"
+
+#: ../../source/getting_started/environments.rst:15
+msgid "XOSCAR_AUTH_KEY"
+msgstr "XOSCAR_AUTH_KEY"
+
+#: ../../source/getting_started/environments.rst:16
+msgid ""
+"Shared secret for Xoscar actor transport authentication, supported by Xoscar"
+" 0.12.0 and later. Unset or empty keeps the legacy unauthenticated "
+"transport; upgrading alone does not enable protection. HTTP API "
+"authentication does not protect actor ports. See the `security advisory "
+"<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_."
+msgstr ""
+"Xoscar actor 傳輸驗證的共用密鑰，需使用 Xoscar 0.12.0 "
+"或更新版本。未設定或為空時，仍使用原有的未驗證傳輸；僅升級不會啟用保護。HTTP API 驗證不會保護 actor 連接埠。請參閱 `安全公告 "
+"<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_。"
+
+#: ../../source/getting_started/environments.rst:22
+msgid ""
+"Generate one random secret per deployment with the following command. "
+"Distribute the same value through your secret-management system before "
+"starting ``xinference-local``, ``xinference-supervisor``, every "
+"``xinference-worker``, and any direct Xoscar actor clients. Child processes,"
+" including model virtual environments, inherit the variable. HTTP clients do"
+" not need this secret."
+msgstr ""
+"使用下列命令為每個部署產生一個隨機密鑰。在啟動 ``xinference-local``、``xinference-supervisor``、所有 "
+"``xinference-worker`` 及直接連線至 Xoscar actor "
+"的用戶端之前，透過密鑰管理系統分發相同的值。子處理程序（包括模型虛擬環境）會繼承此變數。HTTP 用戶端不需要這個密鑰。"
+
+#: ../../source/getting_started/environments.rst:33
+msgid ""
+"Upgrade all actor peers to Xoscar 0.12.0 or later before enabling the key, "
+"then coordinate a restart with the same key on every peer. Keyed and unkeyed"
+" peers cannot communicate; there is no automatic downgrade or mixed-mode "
+"rolling upgrade. Key rotation also requires a coordinated restart. For "
+"``docker run``, pass the exported variable with ``-e XOSCAR_AUTH_KEY``; for "
+"Kubernetes, inject the same Secret into each server container's environment."
+msgstr ""
+"啟用密鑰前，將所有 actor 通訊節點升級至 Xoscar 0.12.0 "
+"或更新版本，再協調重新啟動，確保每個節點使用相同的密鑰。已設定與未設定密鑰的節點無法通訊；不支援自動降級或混合模式滾動升級。輪替密鑰也需要協調重新啟動。使用"
+" ``docker run`` 時，以 ``-e XOSCAR_AUTH_KEY`` 傳入已匯出的變數；使用 Kubernetes 時，將同一個 "
+"Secret 注入各伺服器容器的環境。"
+
+#: ../../source/getting_started/environments.rst:40
+msgid ""
+"Socket and UCX messages are authenticated before deserialization. Anyone "
+"holding the key is a trusted peer with Python execution privileges. "
+"Deployment administrators must restrict actor ports to intended cluster "
+"peers. Authentication does not encrypt traffic or prevent replay; "
+"authenticated GPU transfers stage device buffers in host memory for hashing "
+"and add CPU and host-memory overhead."
+msgstr ""
+"Socket 與 UCX 訊息皆在反序列化前完成驗證。持有密鑰的節點視為可信節點，具有執行 Python 程式碼的權限。部署管理員必須將 actor "
+"連接埠的存取限制於預期的叢集節點。驗證不會加密流量或防止重播；啟用驗證的 GPU 傳輸會將裝置緩衝區暫存至主機記憶體進行雜湊運算，增加 CPU "
+"與主機記憶體的負擔。"
+
+#: ../../source/getting_started/environments.rst:155
+msgid "For text-only ``sentence_transformers`` models, the engine may group similar character lengths to reduce padding while preserving response order. The internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE`` controls input merging by the server."
+msgstr "對於使用 ``sentence_transformers`` 的純文字模型，引擎可將字元長度相近的輸入分組，以減少填補並保持回應順序。內部 ``encode()`` 的 ``batch_size`` 限制這些分組的大小；``XINFERENCE_BATCH_SIZE`` 控制伺服器端的輸入合併。"
+
+#: ../../source/getting_started/environments.rst:164
+msgid "XINFERENCE_EMBEDDING_GC_INTERVAL"
+msgstr "XINFERENCE_EMBEDDING_GC_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:166
+msgid "Minimum interval (seconds) between full Python garbage collections during embedding cache cleanup. Default is 60. The first cleanup collects immediately. Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged."
+msgstr "嵌入快取清理期間執行完整 Python 垃圾回收的最短間隔（秒），預設為 60。首次清理立即執行回收。設為 0 可在每次清理時執行回收。GPU 快取釋放頻率維持不變。"
+
+#: ../../source/getting_started/environments.rst:171
+msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
+msgstr "冷卻間隔也適用於由 token 數量觸發的清理。Python 循環參照保留的張量可能持續占用顯示記憶體，直到自動 GC 或後續完整回收；``empty_cache()`` 無法釋放這些張量。對於每次清理都需要完整回收的模型，請將此間隔設為 0。"
+
+msgid "Text-only CrossEncoder rerankers may also group pairs by combined query and document character length to reduce padding. The native ``predict()`` ``batch_size`` still limits each forward pass; short pairs stay together."
+msgstr "純文字 CrossEncoder 重排序模型也可以按查詢和文件的字元總長度對輸入配對分組，以減少填補。原生 ``predict()`` 的 ``batch_size`` 仍限制每次前向計算的大小；短輸入配對會保留在同一組中。"
+
+msgid "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+msgstr "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+
+msgid "Number of completed inference groups between cache releases in the Sentence Transformers and synchronous vLLM rerank engines. Default is 10. A merged group counts once, regardless of how many requests it contains."
+msgstr "Sentence Transformers 和同步 vLLM 重排序引擎兩次快取釋放之間完成的推理組數，預設為 10。每個合併組計數一次，與其中包含的請求數無關。"
+
+msgid "XINFERENCE_RERANK_GC_INTERVAL"
+msgstr "XINFERENCE_RERANK_GC_INTERVAL"
+
+msgid "Minimum interval (seconds) between full Python garbage collections during rerank cache cleanup. Default is 60. The first cache cleanup collects immediately. Set to 0 to collect on every cache cleanup. GPU cache release still follows ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``."
+msgstr "重排序快取清理期間執行完整 Python 垃圾回收的最短間隔（秒），預設為 60。首次快取清理立即執行回收。設為 0 可在每次快取清理時執行回收。GPU 快取釋放仍遵循 ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``。"
+
+msgid "Python reference cycles may keep tensors allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that need full collection on every cache cleanup."
+msgstr "Python 循環參照可能使張量持續占用顯示記憶體，直到自動 GC 或後續完整回收；``empty_cache()`` 無法釋放這些張量。對於每次快取清理都需要完整回收的模型，請將此間隔設為 0。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_TRUST_REMOTE_CODE"
+msgstr "XINFERENCE_TRUST_REMOTE_CODE"
+
+#: ../../source/getting_started/environments.rst
+msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
+msgstr "CosyVoice 設定可在載入時執行 Python 程式碼。從已註冊模型儲存庫下載的內建模型仍可正常使用。載入自訂 CosyVoice 模型或覆寫其本機模型路徑時，需在啟動 worker 前設定 ``XINFERENCE_TRUST_REMOTE_CODE=1``。僅對可信模型來源啟用此選項。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
+msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"
+
+#: ../../source/getting_started/environments.rst
+msgid "LLM auto-registration reads files only under ``XINFERENCE_MODEL_DIR`` and ``XINFERENCE_CACHE_DIR`` by default. Configure additional directories in the server environment with this variable, separated by ``:`` on Unix or ``;`` on Windows. Referenced files and symbolic-link targets must also lie under an allowed directory. For Hugging Face caches, allow the repository root containing both snapshots and blobs."
+msgstr "LLM 自動註冊預設僅可讀取 ``XINFERENCE_MODEL_DIR`` 和 ``XINFERENCE_CACHE_DIR`` 中的檔案。在伺服器環境中透過此變數允許其他目錄，Unix 使用 ``:`` 分隔，Windows 使用 ``;`` 分隔。引用的檔案和符號連結目標也必須位於允許的目錄中。對於 Hugging Face 快取，請允許同時包含 snapshots 和 blobs 的儲存庫根目錄。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_FLEXIBLE_LAUNCHERS"
+msgstr "XINFERENCE_FLEXIBLE_LAUNCHERS"
+
+#: ../../source/getting_started/environments.rst
+msgid "The shipped Flexible launchers remain available. Permit additional launchers by listing their exact dotted names in this comma-separated variable before starting workers. Allowlisted launchers execute Python code with worker privileges; add only trusted implementations."
+msgstr "內建 Flexible 啟動器仍可使用。啟動 worker 前，可在此變數中填入其他啟動器的完整點分名稱，以逗號分隔。允許的啟動器以 worker 權限執行 Python 程式碼，因此僅應新增可信實作。"

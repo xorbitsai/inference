@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
 import json
 import logging
 import os
+from copy import deepcopy
 from functools import lru_cache
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
 import torch
 
-from ....constants import XINFERENCE_MAX_TOKENS
+from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import (
     get_device_preferred_dtype,
     gpu_count,
@@ -41,7 +42,10 @@ from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
+    GEMMA_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
+    MINICPM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     ChatModelMixin,
 )
@@ -49,8 +53,12 @@ from .utils import (
     _get_pad_param,
     convert_to_cache_cls,
     get_context_length,
+    get_first_populated_kv_cache_layer,
+    get_kv_cache_layer,
+    get_kv_cache_seq_length,
     get_max_src_len,
     pad_prefill_tokens,
+    set_kv_cache_layer,
 )
 
 logger = logging.getLogger(__name__)
@@ -119,7 +127,15 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
         pytorch_model_config.setdefault("device", "auto")
-        pytorch_model_config.setdefault("trust_remote_code", True)
+        # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
+        pytorch_model_config["trust_remote_code"] = (
+            bool(
+                pytorch_model_config.get(
+                    "trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE
+                )
+            )
+            and XINFERENCE_TRUST_REMOTE_CODE
+        )
         pytorch_model_config.setdefault("max_num_seqs", 16)
         pytorch_model_config.setdefault("enable_tensorizer", False)
         pytorch_model_config.setdefault("reasoning_content", False)
@@ -192,7 +208,14 @@ class PytorchModel(LLM):
                 AutoTokenizer,
                 {
                     "use_fast": self._use_fast_tokenizer,
-                    "trust_remote_code": kwargs.get("trust_remote_code", True),
+                    "trust_remote_code": (
+                        bool(
+                            kwargs.get(
+                                "trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE
+                            )
+                        )
+                        and XINFERENCE_TRUST_REMOTE_CODE
+                    ),
                     "revision": kwargs.get("revision"),
                     "code_revision": kwargs.get("code_revision", None),
                 },
@@ -571,22 +594,13 @@ class PytorchModel(LLM):
             real_len = seq_length - r.padding_len
             r.extra_kwargs["attention_mask_seq_len"] = real_len
 
-            if self._tokenizer.padding_side == "left":
-                # [PAD][PAD]...[TOKEN]
-                x = torch.cat(
-                    [
-                        torch.full((r.padding_len,), 0, dtype=torch.long),
-                        torch.ones((real_len,), dtype=torch.long),
-                    ]
-                )
-            else:  # right padding
-                # [TOKEN]...[PAD][PAD]
-                x = torch.cat(
-                    [
-                        torch.ones((real_len,), dtype=torch.long),
-                        torch.full((r.padding_len,), 0, dtype=torch.long),
-                    ]
-                )
+            # Batch tokens are left-padded regardless of tokenizer.padding_side.
+            x = torch.cat(
+                [
+                    torch.full((r.padding_len,), 0, dtype=torch.long),
+                    torch.ones((real_len,), dtype=torch.long),
+                ]
+            )
             data.append(x)
 
         return torch.stack(data).to(self._device)
@@ -600,30 +614,20 @@ class PytorchModel(LLM):
         So we need pad `0` on the left again.
         """
         data = []
-        max_len = max(r.extra_kwargs["attention_mask_seq_len"] for r in reqs) + 1
+        # Cache reduction removes batch rows, but keeps sequence padding from
+        # earlier merges even after the longest request has finished.
+        max_len = seq_length + 1
         for r in reqs:
             r.extra_kwargs["attention_mask_seq_len"] += 1
             real_len = r.extra_kwargs["attention_mask_seq_len"]
             pad_len = max_len - real_len
 
-            if self._tokenizer.padding_side == "left":
-                x = torch.cat(
-                    [
-                        (
-                            torch.full((pad_len,), 0, dtype=torch.long)
-                            if pad_len > 0
-                            else torch.tensor([], dtype=torch.long)
-                        ),
-                        torch.ones((real_len,), dtype=torch.long),
-                    ]
-                )
-            else:
-                x = torch.cat(
-                    [
-                        torch.ones((real_len,), dtype=torch.long),
-                        torch.full((pad_len,), 0, dtype=torch.long),
-                    ]
-                )
+            x = torch.cat(
+                [
+                    torch.full((pad_len,), 0, dtype=torch.long),
+                    torch.ones((real_len,), dtype=torch.long),
+                ]
+            )
             data.append(x)
 
         return torch.stack(data).to(self._device)
@@ -776,7 +780,7 @@ class PytorchModel(LLM):
         if not isinstance(new_cache, DynamicCache):
             new_cache = convert_to_cache_cls(new_cache)
 
-        _, seq_len_idx = self.get_batch_size_and_seq_len_indexes_from_kv()
+        bs_idx, seq_len_idx = self.get_batch_size_and_seq_len_indexes_from_kv()
 
         # Handle empty caches
         if len(past_cache) == 0:
@@ -784,86 +788,91 @@ class PytorchModel(LLM):
         if len(new_cache) == 0:
             return past_cache
 
-        # Get first layer seq_len safely
-        past_first = past_cache[0] if len(past_cache) > 0 else (None, None)
-        new_first = new_cache[0] if len(new_cache) > 0 else (None, None)
+        def _merge_layer_tensors(layer_idx, past_k, past_v, new_k, new_v):
+            if past_k is None and past_v is None and new_k is None and new_v is None:
+                return None, None
+            if any(x is None for x in (past_k, past_v, new_k, new_v)):
+                raise ValueError(
+                    f"Incomplete KV cache data at layer {layer_idx}; refusing to "
+                    "drop requests while merging batches"
+                )
+            if past_k.dim() != new_k.dim() or past_v.dim() != new_v.dim():
+                raise ValueError(
+                    f"KV cache tensor dimension mismatch at layer {layer_idx}: "
+                    f"past={past_k.shape}/{past_v.shape}, "
+                    f"new={new_k.shape}/{new_v.shape}"
+                )
 
-        if past_first[0] is None or past_first[1] is None:
-            return new_cache
-        if new_first[0] is None or new_first[1] is None:
-            return past_cache
+            target_seq_len = max(past_k.shape[seq_len_idx], new_k.shape[seq_len_idx])
 
-        past_seq_len = past_first[0].shape[seq_len_idx]
-        new_seq_len = new_first[0].shape[seq_len_idx]
+            def _pad_to_target(tensor):
+                padding_len = target_seq_len - tensor.shape[seq_len_idx]
+                return (
+                    pad(tensor, _get_pad_param(seq_len_idx, padding_len))
+                    if padding_len
+                    else tensor
+                )
 
-        # Pad the shorter cache
-        if past_seq_len != new_seq_len:
-            if past_seq_len > new_seq_len:
-                padding_target = new_cache
-                padding_len = past_seq_len - new_seq_len
-            else:
-                padding_target = past_cache
-                padding_len = new_seq_len - past_seq_len
+            past_k, past_v = _pad_to_target(past_k), _pad_to_target(past_v)
+            new_k, new_v = _pad_to_target(new_k), _pad_to_target(new_v)
 
-            pad_param = _get_pad_param(seq_len_idx, padding_len)
-            for idx in range(len(padding_target)):
-                k = padding_target.key_cache[idx]
-                v = padding_target.value_cache[idx]
-                if k is not None and v is not None:
-                    padding_target.key_cache[idx] = pad(k, pad_param)
-                    padding_target.value_cache[idx] = pad(v, pad_param)
+            def _shape_without_batch(tensor):
+                return tuple(
+                    size for idx, size in enumerate(tensor.shape) if idx != bs_idx
+                )
 
-        # Merge caches
-        ret_kv = DynamicCache()
+            if _shape_without_batch(past_k) != _shape_without_batch(new_k) or (
+                _shape_without_batch(past_v) != _shape_without_batch(new_v)
+            ):
+                raise ValueError(
+                    f"KV cache shape mismatch at layer {layer_idx}: "
+                    f"past={past_k.shape}/{past_v.shape}, "
+                    f"new={new_k.shape}/{new_v.shape}"
+                )
+
+            return (
+                torch.cat((new_k, past_k), bs_idx).contiguous(),
+                torch.cat((new_v, past_v), bs_idx).contiguous(),
+            )
+
+        model_config = getattr(getattr(self, "_model", None), "config", None)
+        try:
+            ret_kv = DynamicCache(config=model_config)
+        except TypeError:
+            # Transformers before the layer-based cache API did not accept config.
+            ret_kv = DynamicCache()
         max_layers = max(len(past_cache), len(new_cache))
 
         for idx in range(max_layers):
-            past_k = past_cache.key_cache[idx] if idx < len(past_cache) else None
-            past_v = past_cache.value_cache[idx] if idx < len(past_cache) else None
-            new_k = new_cache.key_cache[idx] if idx < len(new_cache) else None
-            new_v = new_cache.value_cache[idx] if idx < len(new_cache) else None
+            past_k, past_v = get_kv_cache_layer(past_cache, idx)
+            new_k, new_v = get_kv_cache_layer(new_cache, idx)
+            merged_k, merged_v = _merge_layer_tensors(idx, past_k, past_v, new_k, new_v)
+            if merged_k is None:
+                continue
+            ret_kv.update(merged_k, merged_v, idx)
 
-            if past_k is not None and new_k is not None:
-                # Both layers exist - validate tensor dimensions before concatenation
-                if past_k.dim() != new_k.dim():
-                    logger.error(
-                        f"KV cache tensor dimension mismatch at layer {idx}: "
-                        f"past_k.dim()={past_k.dim()}, new_k.dim()={new_k.dim()}"
-                    )
-                    # Use the cache with higher batch size
-                    if past_k.shape[0] >= new_k.shape[0]:
-                        ret_kv.update(past_k, past_v, idx)
-                    else:
-                        ret_kv.update(new_k, new_v, idx)
-                    continue
-
-                if past_k.shape[1:] == new_k.shape[1:]:
-                    # Shapes are compatible, concatenate along batch dimension
-                    ret_kv.update(
-                        torch.cat((new_k, past_k), 0).contiguous(),
-                        torch.cat((new_v, past_v), 0).contiguous(),
-                        idx,
-                    )
-                else:
-                    # Detailed logging for shape mismatch
-                    logger.warning(
-                        f"KV cache shape mismatch at layer {idx}: "
-                        f"past_k.shape={past_k.shape}, new_k.shape={new_k.shape}. "
-                        f"This may be due to inconsistent batch sizes in continuous batching."
+            layers = getattr(ret_kv, "layers", None)
+            if layers is not None and idx < len(layers):
+                layer = layers[idx]
+                if hasattr(layer, "cumulative_length"):
+                    layer.cumulative_length = max(
+                        get_kv_cache_seq_length(past_cache, idx),
+                        get_kv_cache_seq_length(new_cache, idx),
                     )
 
-                    # Choose the cache with larger batch size to preserve more data
-                    if past_k.shape[0] >= new_k.shape[0]:
-                        ret_kv.update(past_k, past_v, idx)
-                    else:
-                        ret_kv.update(new_k, new_v, idx)
-            elif past_k is not None:
-                ret_kv.update(past_k, past_v, idx)
-            elif new_k is not None:
-                ret_kv.update(new_k, new_v, idx)
-            else:
-                # both None, fill with None
-                ret_kv.update(None, None, idx)
+        past_shared = getattr(past_cache, "shared_layers", {})
+        new_shared = getattr(new_cache, "shared_layers", {})
+        shared_layers = {}
+        for idx in set(past_shared) | set(new_shared):
+            past_k, past_v = past_shared.get(idx, (None, None))
+            new_k, new_v = new_shared.get(idx, (None, None))
+            merged_k, merged_v = _merge_layer_tensors(
+                f"shared: {idx}", past_k, past_v, new_k, new_v
+            )
+            if merged_k is not None:
+                shared_layers[idx] = merged_k, merged_v
+        if shared_layers:
+            ret_kv.shared_layers = shared_layers
 
         return ret_kv
 
@@ -963,13 +972,53 @@ class PytorchModel(LLM):
         self.handle_batch_inference_results(req_list)
 
     def build_reduced_kv_cache(self, cache, skipped_indexes: Set[int]):
-        batch_size = cache.key_cache[0].shape[0]
+        bs_idx, _ = self.get_batch_size_and_seq_len_indexes_from_kv()
+        _, first_key, _ = get_first_populated_kv_cache_layer(cache)
+        if first_key is None:
+            return cache
+        batch_size = first_key.shape[bs_idx]
         batch_slices = [num for num in range(batch_size) if num not in skipped_indexes]
-        for idx in range(len(cache)):
-            cache.key_cache[idx] = cache.key_cache[idx][batch_slices, ::].contiguous()
-            cache.value_cache[idx] = cache.value_cache[idx][
-                batch_slices, ::
-            ].contiguous()
+
+        batch_select_indices = getattr(cache, "batch_select_indices", None)
+        if batch_select_indices is not None:
+            # A DynamicCache can contain layers on different devices when the
+            # model is loaded with ``device_map="auto"``.  CPU indices are
+            # accepted by PyTorch for tensors on any device and avoid tying
+            # the selection to the device of the first cache layer.
+            batch_select_indices(
+                torch.as_tensor(batch_slices, dtype=torch.long, device="cpu")
+            )
+        else:
+            for idx in range(len(cache)):
+                key, value = get_kv_cache_layer(cache, idx)
+                if key is None:
+                    continue
+                set_kv_cache_layer(
+                    cache,
+                    idx,
+                    key.index_select(
+                        bs_idx,
+                        torch.tensor(batch_slices, device=key.device),
+                    ).contiguous(),
+                    value.index_select(
+                        bs_idx,
+                        torch.tensor(batch_slices, device=value.device),
+                    ).contiguous(),
+                )
+
+        shared_layers = getattr(cache, "shared_layers", None)
+        if shared_layers:
+            for idx, (key, value) in shared_layers.items():
+                shared_layers[idx] = (
+                    key.index_select(
+                        bs_idx,
+                        torch.tensor(batch_slices, device=key.device),
+                    ).contiguous(),
+                    value.index_select(
+                        bs_idx,
+                        torch.tensor(batch_slices, device=value.device),
+                    ).contiguous(),
+                )
         return cache
 
 
@@ -989,6 +1038,12 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             pytorch_model_config,
             peft_model,
         )
+
+    def count_tokens(
+        self, messages: List[Dict], generate_config: Optional[Dict] = None
+    ) -> int:
+        messages = self.prefill_messages(deepcopy(messages))
+        return super().count_tokens(messages, generate_config)
 
     def _sanitize_generate_config(
         self,
@@ -1013,6 +1068,16 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             return (
                 False,
                 "Transformers chat engine supports pytorch/gptq/awq/bnb/fp4 formats only",
+            )
+        if llm_family.has_architecture("Qwen4ExpForConditionalGeneration"):
+            return (
+                False,
+                "Qwen3.8-Flash-Next requires a dedicated multimodal Transformers adapter; use vLLM",
+            )
+        if llm_family.has_architecture("KimiK3ForConditionalGeneration"):
+            return (
+                False,
+                "Kimi-K3 requires a dedicated multimodal Transformers adapter",
             )
         if llm_family.matches_supported_architectures(NON_DEFAULT_MODEL_LIST):
             return (
@@ -1070,6 +1135,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         super().load()
 
     def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
+        messages = self.prefill_messages(messages)
         model_family = self.model_family.model_family or self.model_family.model_name
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
@@ -1079,11 +1145,13 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         )
         chat_context_var.set(chat_template_kwargs)
         full_context_kwargs = chat_template_kwargs.copy()
-        if (
-            tools
-            and model_family in QWEN_TOOL_CALL_FAMILY
+        if tools and (
+            model_family in QWEN_TOOL_CALL_FAMILY
+            or model_family in GEMMA_TOOL_CALL_FAMILY
             or model_family in LLAMA3_TOOL_CALL_FAMILY
             or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+            or model_family in GLM5_TOOL_CALL_FAMILY
+            or model_family in MINICPM5_TOOL_CALL_FAMILY
         ):
             full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None
@@ -1117,6 +1185,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                 self.model_family,
                 self.model_uid,
                 req.completion[0],
+                req.tools,
             )
         else:
             req.completion[0] = self._to_chat_completion(

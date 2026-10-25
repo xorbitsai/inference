@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,38 +13,1263 @@
 # limitations under the License.
 
 import asyncio
+import logging
+import platform
+from collections import defaultdict
+from typing import Any, Dict, Iterable, Set, Tuple
 
 import uvicorn
-from aioprometheus import Counter, Gauge
+from aioprometheus import REGISTRY, Counter, Gauge, Histogram
 from aioprometheus.asgi.starlette import metrics
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
+from ..constants import (
+    XINFERENCE_HTTP_REQUEST_TIMEOUT,
+    XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE,
+)
+from .http_protocol import create_hardened_http_protocol
+
+logger = logging.getLogger(__name__)
+
 DEFAULT_METRICS_SERVER_LOG_LEVEL = "warning"
 
-
-generate_throughput = Gauge(
-    "xinference:generate_tokens_per_s", "Generate throughput in tokens/s."
+# ===========================================================================
+# Worker-side inference metrics (LLM only)
+# ===========================================================================
+generate_tokens_total = Counter(
+    "xinference:generate_tokens_total",
+    "Total number of generated tokens (LLM only).",
 )
-# Latency
-time_to_first_token = Gauge(
-    "xinference:time_to_first_token_ms", "First token latency in ms."
+time_to_first_token_seconds = Histogram(
+    "xinference:time_to_first_token_seconds",
+    "Time to first token in seconds (LLM only).",
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, float("inf")),
 )
-# Tokens counter
 input_tokens_total_counter = Counter(
-    "xinference:input_tokens_total_counter", "Total number of input tokens."
+    "xinference:input_tokens_total_counter",
+    "Total number of input tokens (LLM only).",
 )
 output_tokens_total_counter = Counter(
-    "xinference:output_tokens_total_counter", "Total number of output tokens."
+    "xinference:output_tokens_total_counter",
+    "Total number of output tokens (LLM only).",
 )
+
+# ===========================================================================
+# Worker-side model service quality metrics (all model types)
+# ===========================================================================
+model_request_total = Counter(
+    "xinference:model_request_total",
+    "Total number of model requests.",
+)
+model_request_errors_total = Counter(
+    "xinference:model_request_errors_total",
+    "Total number of failed model requests.",
+)
+model_request_duration_seconds = Histogram(
+    "xinference:model_request_duration_seconds",
+    "Model request duration in seconds.",
+    buckets=(
+        0.01,
+        0.025,
+        0.05,
+        0.1,
+        0.25,
+        0.5,
+        1.0,
+        2.5,
+        5.0,
+        10.0,
+        30.0,
+        60.0,
+        120.0,
+        float("inf"),
+    ),
+)
+model_serve_count = Gauge(
+    "xinference:model_serve_count",
+    "Number of requests currently being served.",
+)
+model_request_limit_gauge = Gauge(
+    "xinference:model_request_limit",
+    "Maximum concurrent request limit for the model.",
+)
+model_last_load_duration_seconds = Gauge(
+    "xinference:model_last_load_duration_seconds",
+    "Duration of the last model load in seconds.",
+)
+
+# ===========================================================================
+# Supervisor-side cluster / worker / model info metrics
+# ===========================================================================
+supervisor_uptime = Gauge(
+    "xinference:supervisor_uptime_seconds",
+    "Supervisor uptime in seconds.",
+)
+workers_total = Gauge(
+    "xinference:workers_total",
+    "Number of online workers.",
+)
+models_loaded_total = Gauge(
+    "xinference:models_loaded_total",
+    "Number of loaded models by type.",
+)
+worker_cpu_utilization = Gauge(
+    "xinference:worker_cpu_utilization",
+    "Worker CPU utilization (0-1).",
+)
+worker_memory_used_bytes = Gauge(
+    "xinference:worker_memory_used_bytes",
+    "Worker memory used in bytes.",
+)
+worker_memory_total_bytes = Gauge(
+    "xinference:worker_memory_total_bytes",
+    "Worker total memory in bytes.",
+)
+worker_gpu_utilization_percent = Gauge(
+    "xinference:worker_gpu_utilization_percent",
+    "Worker GPU utilization (0-100).",
+)
+worker_gpu_memory_used_bytes = Gauge(
+    "xinference:worker_gpu_memory_used_bytes",
+    "Worker GPU memory used in bytes.",
+)
+worker_gpu_memory_total_bytes = Gauge(
+    "xinference:worker_gpu_memory_total_bytes",
+    "Worker GPU total memory in bytes.",
+)
+model_info_gauge = Gauge(
+    "xinference:model_info",
+    "Running model info (value=1).",
+)
+model_status_gauge = Gauge(
+    "xinference:model_status",
+    "Model lifecycle status (value=1).",
+)
+model_gpu_binding_gauge = Gauge(
+    "xinference:model_gpu_binding",
+    "Per-replica GPU binding (one series per GPU per replica, value=1).",
+)
+model_gpu_memory_used_bytes = Gauge(
+    "xinference:model_gpu_memory_used_bytes",
+    "Per-model GPU memory used in bytes (real-time, per process).",
+)
+model_unexpected_termination = Gauge(
+    "xinference:model_unexpected_termination",
+    "Replica currently down due to worker failure (value=1). Cleared on redeploy.",
+)
+
+# Token Router Monitoring V2.1 control-plane metrics.  These are snapshots
+# owned by the Supervisor metrics process; Runtime request counters remain on
+# each Runtime's own /metrics endpoint.
+token_router_agent_info = Gauge(
+    "xinference:token_router_agent_info", "Token Router Agent identity (value=1)."
+)
+token_router_agent_connectivity_status = Gauge(
+    "xinference:token_router_agent_connectivity_status",
+    "Token Router Agent connectivity state (one-hot).",
+)
+token_router_agent_management_state = Gauge(
+    "xinference:token_router_agent_management_state",
+    "Token Router Agent management state (one-hot).",
+)
+token_router_agent_schedulable = Gauge(
+    "xinference:token_router_agent_schedulable",
+    "Whether the Token Router Agent is eligible for new assignments.",
+)
+token_router_agent_heartbeat_age_seconds = Gauge(
+    "xinference:token_router_agent_heartbeat_age_seconds",
+    "Seconds since the Token Router Agent heartbeat.",
+)
+token_router_agent_max_instances = Gauge(
+    "xinference:token_router_agent_max_instances", "Token Router Agent capacity."
+)
+token_router_agent_reported_running_instances = Gauge(
+    "xinference:token_router_agent_reported_running_instances",
+    "Runtime instances reported by the Token Router Agent.",
+)
+token_router_agent_reported_available_slots = Gauge(
+    "xinference:token_router_agent_reported_available_slots",
+    "Available Runtime slots reported by the Token Router Agent.",
+)
+token_router_agent_assignment_count = Gauge(
+    "xinference:token_router_agent_assignment_count",
+    "Assignments owned by the Token Router Agent.",
+)
+token_router_agent_host_cpu_utilization = Gauge(
+    "xinference:token_router_agent_host_cpu_utilization",
+    "Token Router Agent host CPU utilization (0-1).",
+)
+token_router_agent_host_cpu_total = Gauge(
+    "xinference:token_router_agent_host_cpu_total",
+    "Token Router Agent host CPU capacity.",
+)
+token_router_agent_host_memory_used_bytes = Gauge(
+    "xinference:token_router_agent_host_memory_used_bytes",
+    "Token Router Agent host memory used in bytes.",
+)
+token_router_agent_host_memory_available_bytes = Gauge(
+    "xinference:token_router_agent_host_memory_available_bytes",
+    "Token Router Agent host memory available in bytes.",
+)
+token_router_agent_host_memory_total_bytes = Gauge(
+    "xinference:token_router_agent_host_memory_total_bytes",
+    "Token Router Agent host memory total in bytes.",
+)
+
+token_router_assignment_info = Gauge(
+    "xinference:token_router_assignment_info",
+    "Token Router Assignment identity (value=1).",
+)
+token_router_assignment_desired_state = Gauge(
+    "xinference:token_router_assignment_desired_state",
+    "Token Router Assignment desired state (one-hot).",
+)
+token_router_assignment_observed_state = Gauge(
+    "xinference:token_router_assignment_observed_state",
+    "Token Router Assignment observed state (one-hot).",
+)
+token_router_assignment_generation = Gauge(
+    "xinference:token_router_assignment_generation",
+    "Token Router Assignment generation.",
+)
+token_router_assignment_config_revision = Gauge(
+    "xinference:token_router_assignment_config_revision",
+    "Token Router Assignment expected configuration revision.",
+)
+token_router_assignment_runtime_ready = Gauge(
+    "xinference:token_router_assignment_runtime_ready",
+    "Whether an associated Runtime reports ready.",
+)
+token_router_assignment_current = Gauge(
+    "xinference:token_router_assignment_current",
+    "Whether an associated Runtime matches the current Assignment generation.",
+)
+token_router_assignment_controllable = Gauge(
+    "xinference:token_router_assignment_controllable",
+    "Whether the associated Runtime can currently be controlled by its Agent.",
+)
+
+token_router_tokenizer_binding_state = Gauge(
+    "xinference:token_router_tokenizer_binding_state",
+    "Tokenizer Asset Binding desired/observed state (value=1).",
+)
+token_router_tokenizer_binding_generation = Gauge(
+    "xinference:token_router_tokenizer_binding_generation",
+    "Tokenizer Asset Binding generation.",
+)
+token_router_tokenizer_binding_synced = Gauge(
+    "xinference:token_router_tokenizer_binding_synced",
+    "Whether desired and observed Tokenizer Asset revisions are synchronized.",
+)
+token_router_tokenizer_binding_ready = Gauge(
+    "xinference:token_router_tokenizer_binding_ready",
+    "Whether the Tokenizer Asset Binding is ready.",
+)
+
+token_router_runtime_info = Gauge(
+    "xinference:token_router_runtime_info",
+    "Token Router Runtime identity and build information (value=1).",
+)
+token_router_runtime_up = Gauge(
+    "xinference:token_router_runtime_up",
+    "Whether the Runtime is online in the Supervisor Registry.",
+)
+token_router_runtime_heartbeat_age_seconds = Gauge(
+    "xinference:token_router_runtime_heartbeat_age_seconds",
+    "Seconds since the Token Router Runtime heartbeat.",
+)
+token_router_runtime_status = Gauge(
+    "xinference:token_router_runtime_status",
+    "Token Router Runtime state (one-hot).",
+)
+token_router_runtime_effective_ready = Gauge(
+    "xinference:token_router_runtime_effective_ready",
+    "Whether the Runtime is valid and effective for serving traffic.",
+)
+token_router_runtime_controllable = Gauge(
+    "xinference:token_router_runtime_controllable",
+    "Whether the Runtime is currently controllable through its Agent.",
+)
+token_router_runtime_expected_revision = Gauge(
+    "xinference:token_router_runtime_expected_revision",
+    "Configuration revision expected by the Supervisor.",
+)
+token_router_runtime_acked_revision = Gauge(
+    "xinference:token_router_runtime_acked_revision",
+    "Configuration revision acknowledged by the Runtime.",
+)
+token_router_runtime_config_synced = Gauge(
+    "xinference:token_router_runtime_config_synced",
+    "Whether Runtime configuration and Assignment generation are current.",
+)
+
+token_router_desired_replicas = Gauge(
+    "xinference:token_router_desired_replicas", "Desired Token Router replicas."
+)
+token_router_effective_ready_replicas = Gauge(
+    "xinference:token_router_effective_ready_replicas",
+    "Effective ready Token Router Runtime replicas.",
+)
+token_router_controllable_ready_replicas = Gauge(
+    "xinference:token_router_controllable_ready_replicas",
+    "Effective Runtime replicas currently controllable through an Agent.",
+)
+token_router_status = Gauge(
+    "xinference:token_router_status", "Logical Token Router status (one-hot)."
+)
+token_router_expected_revision = Gauge(
+    "xinference:token_router_expected_revision",
+    "Logical Token Router expected configuration revision.",
+)
+token_router_config_synced_replicas = Gauge(
+    "xinference:token_router_config_synced_replicas",
+    "Effective Runtime replicas synchronized to the current revision.",
+)
+build_info_gauge = Gauge(
+    "xinference:build_info",
+    "Xinference build information (value=1).",
+)
+config_info_gauge = Gauge(
+    "xinference:config_info",
+    "Xinference configuration information (value=1).",
+)
+
+# ===========================================================================
+# Supervisor-side API Key audit metrics
+# ===========================================================================
+api_key_requests_total = Counter(
+    "xinference:api_key_requests_total",
+    "Total API key requests.",
+)
+api_key_request_duration_seconds = Histogram(
+    "xinference:api_key_request_duration_seconds",
+    "API key request duration in seconds.",
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, float("inf")),
+)
+api_keys_active_total = Gauge(
+    "xinference:api_keys_active_total",
+    "Number of active API keys.",
+)
+api_keys_expired_total = Gauge(
+    "xinference:api_keys_expired_total",
+    "Number of expired API keys.",
+)
+banned_ips_total = Gauge(
+    "xinference:banned_ips_total",
+    "Number of currently banned IPs.",
+)
+banned_keys_total = Gauge(
+    "xinference:banned_keys_total",
+    "Number of currently banned (IP, Key) pairs.",
+)
+
+# ---------------------------------------------------------------------------
+# Supervisor-only metric names — removed from Worker Registry at startup
+# ---------------------------------------------------------------------------
+_SUPERVISOR_ONLY_METRICS = {
+    "xinference:supervisor_uptime_seconds",
+    "xinference:workers_total",
+    "xinference:models_loaded_total",
+    "xinference:model_info",
+    "xinference:model_status",
+    "xinference:worker_cpu_utilization",
+    "xinference:worker_memory_used_bytes",
+    "xinference:worker_memory_total_bytes",
+    "xinference:worker_gpu_utilization_percent",
+    "xinference:worker_gpu_memory_used_bytes",
+    "xinference:worker_gpu_memory_total_bytes",
+    "xinference:model_gpu_binding",
+    "xinference:model_gpu_memory_used_bytes",
+    "xinference:model_unexpected_termination",
+    "xinference:api_key_requests_total",
+    "xinference:api_key_request_duration_seconds",
+    "xinference:api_keys_active_total",
+    "xinference:api_keys_expired_total",
+    "xinference:banned_ips_total",
+    "xinference:banned_keys_total",
+    "xinference:token_router_agent_info",
+    "xinference:token_router_agent_connectivity_status",
+    "xinference:token_router_agent_management_state",
+    "xinference:token_router_agent_schedulable",
+    "xinference:token_router_agent_heartbeat_age_seconds",
+    "xinference:token_router_agent_max_instances",
+    "xinference:token_router_agent_reported_running_instances",
+    "xinference:token_router_agent_reported_available_slots",
+    "xinference:token_router_agent_assignment_count",
+    "xinference:token_router_agent_host_cpu_utilization",
+    "xinference:token_router_agent_host_cpu_total",
+    "xinference:token_router_agent_host_memory_used_bytes",
+    "xinference:token_router_agent_host_memory_available_bytes",
+    "xinference:token_router_agent_host_memory_total_bytes",
+    "xinference:token_router_assignment_info",
+    "xinference:token_router_assignment_desired_state",
+    "xinference:token_router_assignment_observed_state",
+    "xinference:token_router_assignment_generation",
+    "xinference:token_router_assignment_config_revision",
+    "xinference:token_router_assignment_runtime_ready",
+    "xinference:token_router_assignment_current",
+    "xinference:token_router_assignment_controllable",
+    "xinference:token_router_tokenizer_binding_state",
+    "xinference:token_router_tokenizer_binding_generation",
+    "xinference:token_router_tokenizer_binding_synced",
+    "xinference:token_router_tokenizer_binding_ready",
+    "xinference:token_router_runtime_info",
+    "xinference:token_router_runtime_up",
+    "xinference:token_router_runtime_heartbeat_age_seconds",
+    "xinference:token_router_runtime_status",
+    "xinference:token_router_runtime_effective_ready",
+    "xinference:token_router_runtime_controllable",
+    "xinference:token_router_runtime_expected_revision",
+    "xinference:token_router_runtime_acked_revision",
+    "xinference:token_router_runtime_config_synced",
+    "xinference:token_router_desired_replicas",
+    "xinference:token_router_effective_ready_replicas",
+    "xinference:token_router_controllable_ready_replicas",
+    "xinference:token_router_status",
+    "xinference:token_router_expected_revision",
+    "xinference:token_router_config_synced_replicas",
+}
+
+# ---------------------------------------------------------------------------
+# Worker-only metric names — removed from Supervisor Registry at startup
+# ---------------------------------------------------------------------------
+_WORKER_ONLY_METRICS = {
+    "xinference:generate_tokens_total",
+    "xinference:input_tokens_total_counter",
+    "xinference:output_tokens_total_counter",
+    "xinference:model_request_total",
+    "xinference:model_request_errors_total",
+    "xinference:model_request_duration_seconds",
+    "xinference:model_serve_count",
+    "xinference:model_request_limit",
+    "xinference:time_to_first_token_seconds",
+    "xinference:model_last_load_duration_seconds",
+}
+
+# ---------------------------------------------------------------------------
+# Stale-label tracking sets for update_cluster_metrics()
+# ---------------------------------------------------------------------------
+_prev_worker_labels: Set[Tuple[str, ...]] = set()
+_prev_gpu_labels: Set[Tuple[str, ...]] = set()
+_prev_model_labels: Set[Tuple[str, ...]] = set()
+_prev_status_labels: Set[Tuple[str, ...]] = set()
+_prev_model_gpu_mem_labels: Set[Tuple[str, ...]] = set()
+_prev_gpu_binding_labels: Set[Tuple[str, ...]] = set()
+_prev_unexpected_labels: Set[Tuple[str, ...]] = set()
+_prev_extended_labels: Dict[str, Set[Tuple[Tuple[str, str], ...]]] = {}
+
+
+def _drop_series(collector, labels: Dict[str, str]) -> None:
+    """Delete a single time series from a collector's underlying MetricDict.
+
+    aioprometheus has no public ``remove()``; the only correct way to drop one
+    series (instead of zeroing it) is to pop it from ``collector.values``.
+    HELP/TYPE rows are collector-level metadata and are unaffected.
+    """
+    try:
+        collector.values.pop(labels, None)
+    except Exception:
+        pass
+
+
+def _sync_gauge_series(
+    collector: Gauge,
+    rows: Iterable[tuple[Dict[str, str], int | float]],
+) -> None:
+    """Set a complete Gauge snapshot and remove labelsets absent this frame."""
+
+    current: Set[Tuple[Tuple[str, str], ...]] = set()
+    for raw_labels, value in rows:
+        labels = {str(key): str(label) for key, label in raw_labels.items()}
+        key = tuple(sorted(labels.items()))
+        current.add(key)
+        collector.set(labels, value)
+    previous = _prev_extended_labels.get(collector.name, set())
+    for stale in previous - current:
+        _drop_series(collector, dict(stale))
+    _prev_extended_labels[collector.name] = current
 
 
 def record_metrics(name, op, kwargs):
     collector = globals().get(name)
-    getattr(collector, op)(**kwargs)
+    if collector is not None:
+        try:
+            getattr(collector, op)(**kwargs)
+        except Exception:
+            logger.exception(
+                "Failed to record metric %s.%s with kwargs=%s", name, op, kwargs
+            )
 
 
-def launch_metrics_export_server(q, host=None, port=None):
+def set_build_info(
+    cluster: str = "",
+    role: str = "",
+    worker_address: str = "",
+    supervisor_address: str = "",
+) -> None:
+    """Set xinference:build_info gauge with version and runtime information."""
+    from xinference import __version__
+
+    labels = {
+        "version": __version__,
+        "python_version": platform.python_version(),
+    }
+    if cluster:
+        labels["cluster"] = cluster
+    if role:
+        labels["xinference_role"] = role
+    if worker_address:
+        labels["worker_address"] = worker_address
+    if supervisor_address:
+        labels["supervisor_address"] = supervisor_address
+    build_info_gauge.set(labels, 1)
+
+
+def set_config_info(
+    xinference_home: str,
+    role: str,
+    cluster: str = "",
+    worker_address: str = "",
+    supervisor_address: str = "",
+) -> None:
+    """Set xinference:config_info gauge with configuration information."""
+    labels = {
+        "xinference_home": xinference_home,
+        "xinference_role": role,
+    }
+    if cluster:
+        labels["cluster"] = cluster
+    if worker_address:
+        labels["worker_address"] = worker_address
+    if supervisor_address:
+        labels["supervisor_address"] = supervisor_address
+    config_info_gauge.set(labels, 1)
+
+
+def update_cluster_metrics(
+    cluster_data: Dict[str, Any],
+    models_data: Dict[str, Dict[str, Any]],
+    supervisor_address: str = "",
+) -> None:
+    """Refresh all Supervisor-side Prometheus gauges from in-memory data."""
+    global _prev_worker_labels, _prev_gpu_labels
+    global _prev_model_labels, _prev_status_labels, _prev_gpu_binding_labels, _prev_model_gpu_mem_labels
+    global _prev_unexpected_labels
+
+    # --- Build info (set once, labels are static) ---
+    cluster_name = cluster_data.get("cluster", "")
+    set_build_info(
+        cluster=cluster_name, role="supervisor", supervisor_address=supervisor_address
+    )
+
+    # --- Config info for supervisor ---
+    from xinference.constants import XINFERENCE_HOME as _xf_home
+
+    set_config_info(
+        xinference_home=_xf_home,
+        role="supervisor",
+        cluster=cluster_name,
+        supervisor_address=supervisor_address,
+    )
+
+    # --- Supervisor uptime ---
+    supervisor_uptime.set({}, cluster_data.get("uptime", 0))
+
+    # --- Workers total ---
+    workers_total.set({}, cluster_data.get("worker_count", 0))
+
+    # --- Worker resources ---
+    cur_worker_labels: Set[Tuple[str, ...]] = set()
+    cur_gpu_labels: Set[Tuple[str, ...]] = set()
+
+    for addr, status in cluster_data.get("workers", {}).items():
+        w_labels = {"worker_address": addr}
+        label_key = (addr,)
+        cur_worker_labels.add(label_key)
+
+        # status is Dict[str, Union[ResourceStatus, GPUStatus]] serialized as dict
+        # "cpu" key -> ResourceStatus, integer keys -> GPUStatus
+        cpu_res = status.get("cpu")
+        if cpu_res:
+            worker_cpu_utilization.set(w_labels, getattr(cpu_res, "usage", 0))
+            worker_memory_used_bytes.set(w_labels, getattr(cpu_res, "memory_used", 0))
+            worker_memory_total_bytes.set(w_labels, getattr(cpu_res, "memory_total", 0))
+
+        for key, val in status.items():
+            if key == "cpu":
+                continue
+            # GPU entries keyed by integer index
+            gpu_idx = str(key)
+            gpu_name = getattr(val, "name", "unknown")
+            g_labels = {
+                "worker_address": addr,
+                "gpu_index": gpu_idx,
+                "gpu_name": gpu_name,
+            }
+            g_key = (addr, gpu_idx, gpu_name)
+            cur_gpu_labels.add(g_key)
+            worker_gpu_utilization_percent.set(g_labels, getattr(val, "gpu_util", 0))
+            worker_gpu_memory_used_bytes.set(
+                g_labels, getattr(val, "gpu_mem_used", getattr(val, "mem_used", 0))
+            )
+            worker_gpu_memory_total_bytes.set(
+                g_labels, getattr(val, "gpu_mem_total", getattr(val, "mem_total", 0))
+            )
+
+    # Clear stale worker labels
+    for stale in _prev_worker_labels - cur_worker_labels:
+        s = {"worker_address": stale[0]}
+        _drop_series(worker_cpu_utilization, s)
+        _drop_series(worker_memory_used_bytes, s)
+        _drop_series(worker_memory_total_bytes, s)
+    _prev_worker_labels = cur_worker_labels
+
+    for stale in _prev_gpu_labels - cur_gpu_labels:
+        s = {"worker_address": stale[0], "gpu_index": stale[1], "gpu_name": stale[2]}
+        _drop_series(worker_gpu_utilization_percent, s)
+        _drop_series(worker_gpu_memory_used_bytes, s)
+        _drop_series(worker_gpu_memory_total_bytes, s)
+    _prev_gpu_labels = cur_gpu_labels
+
+    # --- Models loaded by type ---
+    type_counts: Dict[str, int] = defaultdict(int)
+    cur_model_labels: set = set()
+
+    model_replica_dist = cluster_data.get("model_replica_distribution", {})
+
+    for model_uid, info in models_data.items():
+        model_type = info.get("model_type", "unknown")
+        model_name = info.get("model_name", "unknown")
+        type_counts[model_type] += 1
+
+        dist = model_replica_dist.get(model_uid)
+        if dist and dist.get("worker_distribution"):
+            replica_total = str(dist["replica_total"])
+            for w_addr, w_count in dist["worker_distribution"].items():
+                m_labels = {
+                    "model_uid": model_uid,
+                    "model_name": model_name,
+                    "model_type": model_type,
+                    "worker_address": str(w_addr),
+                    "replica_on_worker": str(w_count),
+                    "replica_total": replica_total,
+                }
+                label_key = (  # type: ignore[assignment]
+                    model_uid,
+                    model_name,
+                    model_type,
+                    str(w_addr),
+                    str(w_count),
+                    replica_total,
+                )
+                cur_model_labels.add(label_key)
+                model_info_gauge.set(m_labels, 1)
+        else:
+            worker_address = info.get("address", "unknown")
+            replica = str(info.get("replica", 1))
+            m_labels = {
+                "model_uid": model_uid,
+                "model_name": model_name,
+                "model_type": model_type,
+                "worker_address": str(worker_address),
+                "replica_on_worker": replica,
+                "replica_total": replica,
+            }
+            label_key = (  # type: ignore[assignment]
+                model_uid,
+                model_name,
+                model_type,
+                str(worker_address),
+                replica,
+                replica,
+            )
+            cur_model_labels.add(label_key)
+            model_info_gauge.set(m_labels, 1)
+
+    # Clear stale model labels
+    for stale in _prev_model_labels - cur_model_labels:
+        stale_labels = {
+            "model_uid": stale[0],
+            "model_name": stale[1],
+            "model_type": stale[2],
+            "worker_address": stale[3],
+            "replica_on_worker": stale[4],
+            "replica_total": stale[5],
+        }
+        _drop_series(model_info_gauge, stale_labels)
+    _prev_model_labels = cur_model_labels
+
+    # --- Model GPU binding (per-replica, per-GPU) ---
+    cur_gpu_binding_labels: set = set()
+
+    for model_uid, info in models_data.items():
+        model_type = info.get("model_type", "unknown")
+        model_name = info.get("model_name", "unknown")
+        dist = model_replica_dist.get(model_uid)
+        if dist:
+            for rep_idx, w_addr, gpu_list in dist.get("replica_gpu_details", []):
+                for gpu_idx in gpu_list:
+                    b_labels = {
+                        "model_uid": model_uid,
+                        "model_name": model_name,
+                        "model_type": model_type,
+                        "worker_address": str(w_addr),
+                        "gpu_index": gpu_idx,
+                        "replica_index": rep_idx,
+                    }
+                    label_key = (  # type: ignore[assignment]
+                        model_uid,
+                        model_name,
+                        model_type,
+                        str(w_addr),
+                        gpu_idx,
+                        rep_idx,
+                    )
+                    cur_gpu_binding_labels.add(label_key)
+                    model_gpu_binding_gauge.set(b_labels, 1)
+
+    # Clear stale gpu_binding labels
+    for stale in _prev_gpu_binding_labels - cur_gpu_binding_labels:
+        stale_labels = {
+            "model_uid": stale[0],
+            "model_name": stale[1],
+            "model_type": stale[2],
+            "worker_address": stale[3],
+            "gpu_index": stale[4],
+            "replica_index": stale[5],
+        }
+        _drop_series(model_gpu_binding_gauge, stale_labels)
+    _prev_gpu_binding_labels = cur_gpu_binding_labels
+
+    # --- Models loaded total (by type) ---
+    for mt, count in type_counts.items():
+        models_loaded_total.set({"model_type": mt}, count)
+
+    # --- Model lifecycle status ---
+    cur_status_labels: Set[Tuple[str, ...]] = set()
+    for inst in cluster_data.get("instance_infos", []):
+        uid = inst.get("model_uid", "unknown")
+        mname = inst.get("model_name", "unknown")
+        status = inst.get("status", "unknown")
+        s_labels = {"model_uid": uid, "model_name": mname, "status": status}
+        s_key = (uid, mname, status)
+        cur_status_labels.add(s_key)
+        model_status_gauge.set(s_labels, 1)
+
+    for stale in _prev_status_labels - cur_status_labels:
+        stale_labels = {
+            "model_uid": stale[0],
+            "model_name": stale[1],
+            "status": stale[2],
+        }
+        _drop_series(model_status_gauge, stale_labels)
+    _prev_status_labels = cur_status_labels
+
+    # --- Per-model GPU memory ---
+    cur_model_gpu_mem_labels: Set[Tuple[str, ...]] = set()
+    model_gpu_mem_data = cluster_data.get("model_gpu_memory", {})
+    from .utils import parse_replica_model_uid
+
+    for worker_addr, models_mem in model_gpu_mem_data.items():
+        for m_uid, gpu_mem in models_mem.items():
+            try:
+                base_uid, rep_idx = parse_replica_model_uid(m_uid)
+            except (TypeError, ValueError):
+                base_uid = m_uid
+                rep_idx = 0
+            m_spec = models_data.get(base_uid, {})
+            m_name = m_spec.get("model_name", "unknown")
+            m_type = m_spec.get("model_type", "unknown")
+            if m_name == "unknown":
+                continue
+            replica_index = rep_idx
+            for gpu_idx, mem_bytes in gpu_mem.items():
+                mem_labels = {
+                    "model_uid": base_uid,
+                    "model_name": m_name,
+                    "model_type": m_type,
+                    "gpu_index": str(gpu_idx),
+                    "worker_address": worker_addr,
+                    "replica_index": str(replica_index),
+                }
+                mem_key = (
+                    base_uid,
+                    m_name,
+                    m_type,
+                    str(gpu_idx),
+                    worker_addr,
+                    str(replica_index),
+                )
+                cur_model_gpu_mem_labels.add(mem_key)
+                model_gpu_memory_used_bytes.set(mem_labels, mem_bytes)
+    for stale in _prev_model_gpu_mem_labels - cur_model_gpu_mem_labels:
+        stale_labels = {
+            "model_uid": stale[0],
+            "model_name": stale[1],
+            "model_type": stale[2],
+            "gpu_index": stale[3],
+            "worker_address": stale[4],
+            "replica_index": stale[5],
+        }
+        _drop_series(model_gpu_memory_used_bytes, stale_labels)
+    _prev_model_gpu_mem_labels = cur_model_gpu_mem_labels
+
+    # --- Replica-level unexpected termination (worker failure) ---
+    # Pull model: supervisor maintains a plain dict and serializes it here; this
+    # API process owns the gauge instance that /metrics actually exposes.
+    cur_unexpected_labels: Set[Tuple[str, ...]] = set()
+    for item in cluster_data.get("unexpected_down_replicas", []):
+        uid = item.get("model_uid", "unknown")
+        m_name = item.get("model_name", "unknown")
+        rep_idx = str(item.get("replica_index", "0"))
+        u_labels = {
+            "model_uid": uid,
+            "model_name": m_name,
+            "replica_index": rep_idx,
+        }
+        cur_unexpected_labels.add((uid, m_name, rep_idx))
+        model_unexpected_termination.set(u_labels, 1)
+    # Redeploy clears the supervisor-side dict, so the uid no longer appears
+    # this frame -> stale-pop removes the series (disappears from /metrics).
+    for stale in _prev_unexpected_labels - cur_unexpected_labels:
+        _drop_series(
+            model_unexpected_termination,
+            {
+                "model_uid": stale[0],
+                "model_name": stale[1],
+                "replica_index": stale[2],
+            },
+        )
+    _prev_unexpected_labels = cur_unexpected_labels
+
+    _update_token_router_gauges(cluster_data)
+
+
+def _update_token_router_gauges(cluster_data: Dict[str, Any]) -> None:
+    def labels(item: Dict[str, Any]) -> Dict[str, str]:
+        return {
+            "router_uid": str(item.get("router_uid") or ""),
+            "assignment_id": str(item.get("assignment_id") or ""),
+            "replica_index": str(item.get("replica_index", "")),
+            "node_id": str(item.get("node_id") or ""),
+        }
+
+    agents = cluster_data.get("token_router_agents", [])
+    _sync_gauge_series(
+        token_router_agent_info,
+        [
+            (
+                {
+                    "node_id": str(item.get("node_id") or ""),
+                    "node_host": str(item.get("advertise_host") or ""),
+                    "version": str(item.get("software_version") or ""),
+                    "commit": str(item.get("software_revision") or ""),
+                },
+                1,
+            )
+            for item in agents
+        ],
+    )
+    for collector, field in (
+        (token_router_agent_heartbeat_age_seconds, "heartbeat_age_seconds"),
+        (token_router_agent_max_instances, "max_instances"),
+        (token_router_agent_assignment_count, "assignments"),
+    ):
+        _sync_gauge_series(
+            collector,
+            [
+                ({"node_id": str(i.get("node_id") or "")}, float(i.get(field) or 0))
+                for i in agents
+            ],
+        )
+    _sync_gauge_series(
+        token_router_agent_schedulable,
+        [
+            (
+                {"node_id": str(i.get("node_id") or "")},
+                1 if i.get("can_schedule") else 0,
+            )
+            for i in agents
+        ],
+    )
+    connectivity_rows = []
+    management_rows = []
+    for item in agents:
+        node_id = str(item.get("node_id") or "")
+        connectivity = str(item.get("connectivity_status") or "offline")
+        for state in ("online", "suspected", "offline"):
+            connectivity_rows.append(
+                (
+                    {"node_id": node_id, "status": state},
+                    1 if connectivity == state else 0,
+                )
+            )
+        raw_management = str(
+            item.get("management_state") or item.get("desired_state") or "active"
+        )
+        management = {"active": "enabled", "cordoned": "disabled"}.get(
+            raw_management, raw_management
+        )
+        if management not in {"enabled", "disabled", "draining"}:
+            management = "disabled"
+        for state in ("enabled", "disabled", "draining"):
+            management_rows.append(
+                ({"node_id": node_id, "state": state}, 1 if management == state else 0)
+            )
+    _sync_gauge_series(token_router_agent_connectivity_status, connectivity_rows)
+    _sync_gauge_series(token_router_agent_management_state, management_rows)
+
+    def observed_resource(
+        item: Dict[str, Any], group: str, key: str, default: float = 0
+    ) -> float:
+        resources = (
+            item.get("resources") or (item.get("observed") or {}).get("resources") or {}
+        )
+        section = resources.get(group) or {}
+        try:
+            return float(section.get(key, default))
+        except (TypeError, ValueError):
+            return default
+
+    reported_rows = []
+    available_rows = []
+    cpu_usage_rows = []
+    cpu_total_rows = []
+    mem_used_rows = []
+    mem_available_rows = []
+    mem_total_rows = []
+    for item in agents:
+        node = {"node_id": str(item.get("node_id") or "")}
+        observed = item.get("observed") or {}
+        running = observed.get("running_instances", item.get("running_instances", 0))
+        available = observed.get("available_slots", item.get("available_slots", 0))
+        reported_rows.append((node, float(running or 0)))
+        available_rows.append((node, float(available or 0)))
+        cpu_usage_rows.append((node, observed_resource(item, "cpu", "usage")))
+        cpu_total_rows.append((node, observed_resource(item, "cpu", "total")))
+        mem_used_rows.append(
+            (
+                node,
+                observed_resource(
+                    item,
+                    "memory",
+                    "used",
+                    observed_resource(item, "cpu", "memory_used"),
+                ),
+            )
+        )
+        mem_available_rows.append(
+            (
+                node,
+                observed_resource(
+                    item,
+                    "memory",
+                    "available",
+                    observed_resource(item, "cpu", "memory_available"),
+                ),
+            )
+        )
+        mem_total_rows.append(
+            (
+                node,
+                observed_resource(
+                    item,
+                    "memory",
+                    "total",
+                    observed_resource(item, "cpu", "memory_total"),
+                ),
+            )
+        )
+    for collector, assignment_metric_rows in (
+        (token_router_agent_reported_running_instances, reported_rows),
+        (token_router_agent_reported_available_slots, available_rows),
+        (token_router_agent_host_cpu_utilization, cpu_usage_rows),
+        (token_router_agent_host_cpu_total, cpu_total_rows),
+        (token_router_agent_host_memory_used_bytes, mem_used_rows),
+        (token_router_agent_host_memory_available_bytes, mem_available_rows),
+        (token_router_agent_host_memory_total_bytes, mem_total_rows),
+    ):
+        _sync_gauge_series(collector, assignment_metric_rows)
+
+    assignments = cluster_data.get("token_router_assignments", [])
+    runtimes = cluster_data.get("token_router_runtimes", [])
+    runtimes_by_assignment: Dict[str, list[Dict[str, Any]]] = defaultdict(list)
+    for runtime in runtimes:
+        runtimes_by_assignment[str(runtime.get("assignment_id") or "")].append(runtime)
+    assignment_info_rows = []
+    desired_rows = []
+    observed_rows = []
+    generation_rows = []
+    revision_rows = []
+    ready_rows = []
+    current_rows = []
+    controllable_rows = []
+    for item in assignments:
+        base = labels(item)
+        assignment_info_rows.append((base, 1))
+        desired = str(item.get("desired_state") or "stopped")
+        for state in ("running", "stopped"):
+            desired_rows.append(
+                ({**base, "state": state}, 1 if desired == state else 0)
+            )
+        observed = (
+            "node_lost"
+            if item.get("management_state") == "node_lost"
+            else str(item.get("observed_state") or "pending")
+        )
+        states = (
+            "pending",
+            "starting",
+            "ready",
+            "failed",
+            "crash_loop",
+            "port_conflict",
+            "draining",
+            "stopped",
+            "node_lost",
+        )
+        for state in states:
+            observed_rows.append(
+                ({**base, "state": state}, 1 if observed == state else 0)
+            )
+        generation_rows.append((base, float(item.get("assignment_generation") or 0)))
+        revision_rows.append((base, float(item.get("config_revision") or 0)))
+        linked = runtimes_by_assignment.get(str(item.get("assignment_id") or ""), [])
+        ready_rows.append(
+            (
+                base,
+                (
+                    1
+                    if any(
+                        str(r.get("status")) == "ready" and r.get("online")
+                        for r in linked
+                    )
+                    else 0
+                ),
+            )
+        )
+        current_rows.append((base, 1 if any(r.get("current") for r in linked) else 0))
+        controllable_rows.append(
+            (base, 1 if any(r.get("controllable") for r in linked) else 0)
+        )
+    for collector, runtime_metric_rows in (
+        (token_router_assignment_info, assignment_info_rows),
+        (token_router_assignment_desired_state, desired_rows),
+        (token_router_assignment_observed_state, observed_rows),
+        (token_router_assignment_generation, generation_rows),
+        (token_router_assignment_config_revision, revision_rows),
+        (token_router_assignment_runtime_ready, ready_rows),
+        (token_router_assignment_current, current_rows),
+        (token_router_assignment_controllable, controllable_rows),
+    ):
+        _sync_gauge_series(collector, runtime_metric_rows)
+
+    bindings = cluster_data.get("tokenizer_asset_bindings", [])
+    _sync_gauge_series(
+        token_router_tokenizer_binding_state,
+        [
+            (
+                {
+                    "asset_id": str(i.get("asset_id") or ""),
+                    "node_id": str(i.get("node_id") or ""),
+                    "desired_state": str(i.get("desired_state") or ""),
+                    "observed_state": str(i.get("observed_state") or "unknown"),
+                },
+                1,
+            )
+            for i in bindings
+        ],
+    )
+    _sync_gauge_series(
+        token_router_tokenizer_binding_generation,
+        [
+            (
+                {
+                    "asset_id": str(i.get("asset_id") or ""),
+                    "node_id": str(i.get("node_id") or ""),
+                },
+                float(i.get("generation") or 0),
+            )
+            for i in bindings
+        ],
+    )
+    _sync_gauge_series(
+        token_router_tokenizer_binding_synced,
+        [
+            (
+                {
+                    "asset_id": str(i.get("asset_id") or ""),
+                    "node_id": str(i.get("node_id") or ""),
+                },
+                1 if i.get("synced") else 0,
+            )
+            for i in bindings
+        ],
+    )
+    _sync_gauge_series(
+        token_router_tokenizer_binding_ready,
+        [
+            (
+                {
+                    "asset_id": str(i.get("asset_id") or ""),
+                    "node_id": str(i.get("node_id") or ""),
+                },
+                1 if i.get("ready") else 0,
+            )
+            for i in bindings
+        ],
+    )
+
+    runtime_info_rows = []
+    runtime_up_rows = []
+    runtime_age_rows = []
+    runtime_status_rows = []
+    effective_rows = []
+    runtime_controllable_rows = []
+    expected_rows = []
+    acked_rows = []
+    synced_rows = []
+    for item in runtimes:
+        base = {
+            "router_uid": str(item.get("router_uid") or ""),
+            "assignment_id": str(item.get("assignment_id") or ""),
+            "instance_id": str(item.get("instance_id") or ""),
+        }
+        info = {
+            **labels(item),
+            "instance_id": base["instance_id"],
+            "assignment_generation": str(item.get("assignment_generation") or 0),
+            "version": str(item.get("version") or item.get("software_version") or ""),
+            "commit": str(item.get("commit") or item.get("software_revision") or ""),
+        }
+        runtime_info_rows.append((info, 1))
+        runtime_up_rows.append((base, 1 if item.get("online") else 0))
+        runtime_age_rows.append((base, float(item.get("heartbeat_age_seconds") or 0)))
+        status = str(
+            item.get("status") or ("stale" if not item.get("online") else "starting")
+        )
+        if not item.get("online"):
+            status = "stale"
+        for state in (
+            "starting",
+            "ready",
+            "degraded",
+            "draining",
+            "failed",
+            "stale",
+            "disabled",
+        ):
+            runtime_status_rows.append(
+                ({**base, "status": state}, 1 if status == state else 0)
+            )
+        effective_rows.append((base, 1 if item.get("effective_ready") else 0))
+        runtime_controllable_rows.append((base, 1 if item.get("controllable") else 0))
+        expected_rows.append((base, float(item.get("expected_revision") or 0)))
+        acked_rows.append((base, float(item.get("acked_revision") or 0)))
+        synced_rows.append((base, 1 if item.get("config_synced") else 0))
+    for collector, replica_metric_rows in (
+        (token_router_runtime_info, runtime_info_rows),
+        (token_router_runtime_up, runtime_up_rows),
+        (token_router_runtime_heartbeat_age_seconds, runtime_age_rows),
+        (token_router_runtime_status, runtime_status_rows),
+        (token_router_runtime_effective_ready, effective_rows),
+        (token_router_runtime_controllable, runtime_controllable_rows),
+        (token_router_runtime_expected_revision, expected_rows),
+        (token_router_runtime_acked_revision, acked_rows),
+        (token_router_runtime_config_synced, synced_rows),
+    ):
+        _sync_gauge_series(collector, replica_metric_rows)
+
+    summaries = cluster_data.get("token_router_summaries", [])
+    for collector, field in (
+        (token_router_desired_replicas, "desired_replicas"),
+        (token_router_effective_ready_replicas, "effective_ready_replicas"),
+        (token_router_controllable_ready_replicas, "controllable_ready_replicas"),
+        (token_router_expected_revision, "expected_revision"),
+        (token_router_config_synced_replicas, "config_synced_replicas"),
+    ):
+        _sync_gauge_series(
+            collector,
+            [
+                (
+                    {"router_uid": str(i.get("router_uid") or "")},
+                    float(i.get(field) or 0),
+                )
+                for i in summaries
+            ],
+        )
+    router_status_rows = []
+    for item in summaries:
+        uid = str(item.get("router_uid") or "")
+        current = str(item.get("status") or "unavailable")
+        for state in ("ready", "degraded", "unavailable", "disabled"):
+            router_status_rows.append(
+                ({"router_uid": uid, "status": state}, 1 if current == state else 0)
+            )
+    _sync_gauge_series(token_router_status, router_status_rows)
+
+
+def update_security_gauges(auth_service) -> None:
+    """Refresh security-related Prometheus gauges (API key counts + ban counts).
+
+    Called periodically from the metrics update loop to ensure gauges always
+    have a value, regardless of whether CRUD or ban events have occurred.
+    """
+    from datetime import datetime
+
+    try:
+        keys = auth_service._db.list_api_keys()
+        active = 0
+        expired = 0
+        now = datetime.utcnow()
+        for k in keys:
+            if not k.get("enabled", 1):
+                continue
+            expires_at = k.get("expires_at")
+            if expires_at:
+                try:
+                    if datetime.fromisoformat(expires_at) < now:
+                        expired += 1
+                        continue
+                except ValueError:
+                    continue
+            active += 1
+        api_keys_active_total.set({}, active)
+        api_keys_expired_total.set({}, expired)
+    except Exception:
+        pass
+
+    try:
+        import time as _time
+
+        rate_limiter = auth_service._rate_limiter
+        if rate_limiter:
+            with rate_limiter._lock:
+                now_ts = _time.time()
+                ip_count = sum(
+                    1
+                    for r in rate_limiter._ip_records.values()
+                    if r.banned_until and r.banned_until > now_ts
+                )
+                key_count = sum(
+                    1
+                    for r in rate_limiter._key_records.values()
+                    if r.banned_until and r.banned_until > now_ts
+                )
+            banned_ips_total.set({}, ip_count)
+            banned_keys_total.set({}, key_count)
+    except Exception:
+        pass
+
+
+def launch_metrics_export_server(q, host=None, port=None, stop_event=None):
+    # Remove Supervisor-only metrics from Worker's Registry to avoid
+    # empty HELP/TYPE headers on the Worker /metrics endpoint.
+    for collector in list(REGISTRY.get_all()):
+        if collector.name in _SUPERVISOR_ONLY_METRICS:
+            REGISTRY.deregister(collector.name)
+
     app = FastAPI()
     app.add_route("/metrics", metrics)
 
@@ -54,20 +1279,18 @@ def launch_metrics_export_server(q, host=None, port=None):
         return response
 
     async def main():
-        if host is not None and port is not None:
-            config = uvicorn.Config(
-                app, host=host, port=port, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL
-            )
-        elif host is not None:
-            config = uvicorn.Config(
-                app, host=host, port=0, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL
-            )
+        kwargs: Dict[str, Any] = {
+            "log_level": DEFAULT_METRICS_SERVER_LOG_LEVEL,
+            # Slow HTTP DoS (Slowloris) protection, see http_protocol.py
+            "http": create_hardened_http_protocol(XINFERENCE_HTTP_REQUEST_TIMEOUT),
+            "timeout_keep_alive": XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE,
+        }
+        if host is not None:
+            kwargs["host"] = host
+            kwargs["port"] = port if port is not None else 0
         elif port is not None:
-            config = uvicorn.Config(
-                app, port=port, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL
-            )
-        else:
-            config = uvicorn.Config(app, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL)
+            kwargs["port"] = port
+        config = uvicorn.Config(app, **kwargs)
 
         server = uvicorn.Server(config)
         task = asyncio.create_task(server.serve())
@@ -75,9 +1298,13 @@ def launch_metrics_export_server(q, host=None, port=None):
         while not server.started and not task.done():
             await asyncio.sleep(0.1)
 
-        for server in server.servers:
-            for socket in server.sockets:
+        for listener in server.servers:
+            for socket in listener.sockets:
                 q.put(socket.getsockname())
+        if stop_event is not None:
+            while not task.done() and not stop_event.is_set():
+                await asyncio.sleep(0.1)
+            server.should_exit = True
         await task
 
     asyncio.run(main())

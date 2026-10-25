@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,18 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import concurrent.futures
+import glob
 import logging
 import os
 import pprint
 import queue
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+import time
+import uuid
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 from packaging import version
 
 from ....constants import XINFERENCE_MAX_TOKENS
-from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
+from ....types import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    Completion,
+    CompletionChoice,
+    CompletionChunk,
+)
 from ...utils import check_dependency_available
-from ..core import LLM, chat_context_var
+from ..core import LLM, chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import ChatModelMixin, normalize_response_format
 
@@ -69,8 +78,59 @@ class _Error:
         self.msg = msg
 
 
+def _error_message(msg: Any) -> str:
+    if isinstance(msg, dict):
+        for key in ("message", "msg", "error"):
+            value = msg.get(key)
+            if value:
+                return _error_message(value)
+    return str(msg)
+
+
+def _get_error_payload(response: Any) -> Optional[Any]:
+    if not isinstance(response, dict):
+        return None
+    if response.get("error"):
+        return response["error"]
+    if response.get("code"):
+        return response
+    return None
+
+
+def _normalize_max_tokens(generate_config: Dict[str, Any]) -> None:
+    if generate_config.get("max_tokens") is not None:
+        return
+    if XINFERENCE_MAX_TOKENS is not None:
+        generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
+    else:
+        generate_config.pop("max_tokens", None)
+
+
+def _is_tool_call_arguments_parse_error(msg: Any) -> bool:
+    return "Failed to parse tool call arguments as JSON" in _error_message(msg)
+
+
+def _make_stream_stop_chunk(
+    chunk: CompletionChunk, fallback_model: str
+) -> ChatCompletionChunk:
+    return {
+        "id": str(chunk.get("id") or f"chatcmpl-{uuid.uuid4()}"),
+        "model": str(chunk.get("model") or fallback_model),
+        "created": int(chunk.get("created") or time.time()),
+        "object": "chat.completion.chunk",
+        "choices": [
+            {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop",
+            }
+        ],
+    }
+
+
 class XllamaCppModel(LLM, ChatModelMixin):
     allow_batch = True
+    support_draft_model = True
 
     def __init__(
         self,
@@ -83,6 +143,102 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+
+    # Engine-neutral speculative options: read, never forwarded. The dotted-key
+    # loop has to skip them rather than pop them — CommonParams has no such
+    # attributes, so passing them through logs a failure for each on every
+    # speculative launch, while removing them would lose the drafter on the
+    # load retry, which reuses this instance and its config.
+    DRAFT_OPTION_KEYS = ("draft_model_path", "num_speculative_tokens")
+    # Which passthrough keys mean "the user is choosing the speculative mode
+    # themselves". Tuning knobs like speculative.draft.n_min are not selectors
+    # and must not disable the drafter.
+    SPECULATIVE_SELECTOR_KEYS = (
+        "speculative.types",
+        "speculative.draft.mparams.path",
+    )
+
+    def _draft_options(self) -> Tuple[Optional[str], Optional[Any]]:
+        return (
+            self._llamacpp_model_config.get("draft_model_path"),
+            self._llamacpp_model_config.get("num_speculative_tokens"),
+        )
+
+    def _default_num_speculative_tokens(self, fallback: int) -> int:
+        return get_model_speculative_tokens_default(
+            getattr(self.model_family, "model_name", None),
+            getattr(self.model_spec, "model_size_in_billions", None),
+            fallback,
+        )
+
+    def _apply_draft_model(
+        self, params, draft_model_path: Optional[str], num_speculative_tokens: Any
+    ) -> None:
+        """Point llama.cpp at the drafter for MTP speculative decoding.
+
+        ``draft-mtp`` covers Gemma 4 style assistants, which are a separate
+        model sharing the target's KV cache; llama.cpp learned that
+        architecture (``gemma4-assistant``) in xllamacpp 2026.6.9713.
+        """
+        if not draft_model_path:
+            return
+
+        if any(
+            key in self._llamacpp_model_config for key in self.SPECULATIVE_SELECTOR_KEYS
+        ):
+            # The user is driving llama.cpp's speculative decoding directly, and
+            # the dotted-key loop has already applied it.
+            logger.info(
+                "Ignoring the drafter of %s, speculative params were set explicitly",
+                self.model_uid,
+            )
+            return
+
+        if os.path.isdir(draft_model_path):
+            # the cache dir holds the single drafter file
+            # recursive=True or ** collapses to a single level, which would miss
+            # a drafter sitting directly in the directory
+            ggufs = sorted(
+                glob.glob(
+                    os.path.join(draft_model_path, "**", "*.gguf"), recursive=True
+                )
+            )
+            if not ggufs:
+                raise ValueError(f"No gguf drafter found under {draft_model_path}")
+            draft_model_path = ggufs[0]
+
+        try:
+            from xllamacpp import common_speculative_type
+        except ImportError:
+            raise ImportError(
+                "Speculative decoding needs a xllamacpp that knows the "
+                "`gemma4-assistant` architecture, xllamacpp>=2026.6.9713"
+            )
+        mtp = getattr(
+            common_speculative_type, "COMMON_SPECULATIVE_TYPE_DRAFT_MTP", None
+        )
+        if mtp is None:
+            raise ValueError(
+                "The installed xllamacpp has no MTP speculative implementation, "
+                "upgrade to xllamacpp>=2026.6.9713"
+            )
+
+        params.speculative.types = [mtp]
+        params.speculative.draft.mparams.path = draft_model_path
+        from ..core import parse_num_speculative_tokens
+
+        requested = parse_num_speculative_tokens(num_speculative_tokens)
+        params.speculative.draft.n_max = (
+            requested
+            if requested is not None
+            else self._default_num_speculative_tokens(params.speculative.draft.n_max)
+        )
+        logger.info(
+            "Speculative decoding enabled for %s: draft-mtp with %s, n_max %s",
+            self.model_uid,
+            draft_model_path,
+            params.speculative.draft.n_max,
+        )
 
     def _sanitize_model_config(self, llamacpp_model_config: Optional[dict]) -> dict:
         if llamacpp_model_config is None:
@@ -111,7 +267,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         dep_check = check_dependency_available("xllamacpp", "xllamacpp")
-        if dep_check != True:
+        if dep_check is not True:
             return dep_check
         return True
 
@@ -189,11 +345,16 @@ class XllamaCppModel(LLM, ChatModelMixin):
         multimodal_projector = self._llamacpp_model_config.get(
             "multimodal_projector", ""
         )
-        mmproj = (
-            os.path.join(self.model_path, multimodal_projector)
-            if multimodal_projector
-            else ""
-        )
+        if not multimodal_projector:
+            mmproj = ""
+        elif os.path.isabs(multimodal_projector):
+            mmproj = multimodal_projector
+        else:
+            # ``model_path`` resolves to the model *file*; the projector lives
+            # alongside it, so resolve it against the model's directory. Joining
+            # onto ``self.model_path`` directly would yield ".../model.gguf/mmproj"
+            # (a nonexistent path) whenever --model-path points at a single file.
+            mmproj = os.path.join(os.path.dirname(model_path), multimodal_projector)
 
         try:
             params = CommonParams()
@@ -208,7 +369,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
             params.use_jinja = True
             # This is the default value, could be overwritten by _llamacpp_model_config
             params.n_parallel = min(8, os.cpu_count() or 1)
+            draft_options = self._draft_options()
             for k, v in self._llamacpp_model_config.items():
+                if k in self.DRAFT_OPTION_KEYS:
+                    continue
                 try:
                     if "." in k:
                         parts = k.split(".")
@@ -220,6 +384,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                         setattr(params, k, v)
                 except Exception as e:
                     logger.error("Failed to set the param %s = %s, error: %s", k, v, e)
+            self._apply_draft_model(params, *draft_options)
             n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
             params.cpuparams.n_threads = n_threads
             params.cpuparams_batch.n_threads = n_threads
@@ -274,8 +439,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self, prompt: str, generate_config: Optional[dict] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         generate_config = generate_config or {}
-        if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
-            generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
+        _normalize_max_tokens(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
         q: queue.Queue = queue.Queue()
@@ -298,11 +462,11 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 def _callback(res):
                     if type(res) is list:
                         for r in res:
-                            q.put(r)
-                    elif res.get("code"):
-                        q.put(_Error(res))
+                            error = _get_error_payload(r)
+                            q.put(_Error(error) if error else r)
                     else:
-                        q.put(res)
+                        error = _get_error_payload(res)
+                        q.put(_Error(error) if error else res)
 
                 self._llm.handle_completions(data, _callback)
             except Exception as ex:
@@ -318,15 +482,71 @@ class XllamaCppModel(LLM, ChatModelMixin):
             def _to_iterator():
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
-                        raise Exception("Got error in generate stream: %s", r.msg)
+                        raise Exception(_error_message(r.msg))
                     yield r
 
             return _to_iterator()
         else:
             r = q.get()
             if type(r) is _Error:
-                raise Exception("Got error in generate: %s", r.msg)
+                raise Exception(_error_message(r.msg))
             return r
+
+    def _normalize_disabled_thinking_reasoning_content(
+        self, response: ChatCompletion, tools: List[dict]
+    ) -> ChatCompletion:
+        if self.reasoning_parser and self.reasoning_parser.check_content_parser():
+            return response
+        if response.get("object") != "chat.completion":
+            return response
+        choices = response.get("choices")
+        if not choices:
+            return response
+        choice = choices[0]
+        message = cast(Dict[str, Any], choice.get("message") or {})
+        reasoning_content = message.get("reasoning_content")
+        if not reasoning_content:
+            return response
+        if message.get("content") or message.get("tool_calls"):
+            response_dict = cast(Dict[str, Any], response.copy())
+            choices_dicts = [cast(Dict[str, Any], dict(item)) for item in choices]
+            response_dict["choices"] = choices_dicts
+            choice_dict = choices_dicts[0]
+            message = dict(message)
+            choice_dict["message"] = message
+            message.pop("reasoning_content", None)
+            return cast(ChatCompletion, response_dict)
+
+        logger.warning(
+            "xllamacpp returned visible output in reasoning_content while thinking "
+            "is disabled; normalizing it as message content."
+        )
+        if not tools or not self.tool_parser:
+            response_dict = cast(Dict[str, Any], response.copy())
+            choices_dicts = [cast(Dict[str, Any], dict(item)) for item in choices]
+            response_dict["choices"] = choices_dicts
+            choice_dict = choices_dicts[0]
+            message = dict(message)
+            choice_dict["message"] = message
+            message["content"] = reasoning_content
+            message.pop("reasoning_content", None)
+            return cast(ChatCompletion, response_dict)
+
+        completion_choice = CompletionChoice(
+            index=choice.get("index", 0),
+            text=reasoning_content,
+            logprobs=None,
+            finish_reason=choice.get("finish_reason"),
+        )
+        completion = Completion(
+            id=response.get("id") or f"cmpl-{uuid.uuid4()}",
+            object="text_completion",
+            created=response.get("created") or int(time.time()),
+            model=response.get("model") or self.model_uid,
+            choices=[completion_choice],
+            usage=response["usage"],
+        )
+        return self._post_process_completion(None, self.model_uid, completion, tools)
 
     def chat(
         self,
@@ -334,8 +554,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         generate_config: Optional[dict] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         generate_config = generate_config or {}
-        if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
-            generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
+        _normalize_max_tokens(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
 
@@ -347,7 +566,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         )
         chat_context_var.set(chat_template_kwargs)
 
-        tools = generate_config.pop("tools", []) if generate_config else None
+        tools = list(generate_config.pop("tools", [])) if generate_config else []
         q: queue.Queue = queue.Queue()
 
         def _handle_chat_completion():
@@ -372,11 +591,11 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 def _callback(res):
                     if type(res) is list:
                         for r in res:
-                            q.put(r)
-                    elif res.get("code"):
-                        q.put(_Error(res))
+                            error = _get_error_payload(r)
+                            q.put(_Error(error) if error else r)
                     else:
-                        q.put(res)
+                        error = _get_error_payload(res)
+                        q.put(_Error(error) if error else res)
 
                 self._llm.handle_chat_completions(data, _callback)
             except Exception as ex:
@@ -390,9 +609,25 @@ class XllamaCppModel(LLM, ChatModelMixin):
         if stream:
 
             def _to_iterator():
+                last_chunk = None
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
-                        raise Exception(f"Got error in chat stream: {r.msg}")
+                        if (
+                            tools
+                            and last_chunk is not None
+                            and _is_tool_call_arguments_parse_error(r.msg)
+                        ):
+                            logger.warning(
+                                "xllamacpp failed to parse streamed tool call "
+                                "arguments; ending stream with a synthetic stop "
+                                "chunk so callers can validate or retry the "
+                                "partial tool arguments. error=%s",
+                                _error_message(r.msg),
+                            )
+                            yield _make_stream_stop_chunk(last_chunk, self.model_uid)
+                            break
+                        raise Exception(_error_message(r.msg))
+                    last_chunk = r
                     yield r
 
             return self._to_chat_completion_chunks(
@@ -401,5 +636,6 @@ class XllamaCppModel(LLM, ChatModelMixin):
         else:
             r = q.get()
             if type(r) is _Error:
-                raise Exception(f"Got error in chat: {r.msg}")
+                raise Exception(_error_message(r.msg))
+            r = self._normalize_disabled_thinking_reasoning_content(r, tools)
             return self._to_chat_completion(r, self.reasoning_parser)

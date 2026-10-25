@@ -59,15 +59,15 @@ Take the command-lines we implemented as examples:
 Each command is equipped with ``options`` and ``flags`` to customize its behavior, such as specifying log levels,
 host addresses, port numbers, and other relevant settings.
 
-Python projects define command-line console entry points in `setup.cfg` or `setup.py`.
+Python projects define command-line console entry points in ``pyproject.toml``.
 
 ::
 
-  console_scripts =
-      xinference = xinference.deploy.cmdline:cli
-      xinference-local = xinference.deploy.cmdline:local
-      xinference-supervisor = xinference.deploy.cmdline:supervisor
-      xinference-worker = xinference.deploy.cmdline:worker
+  [project.scripts]
+  xinference = "xinference.deploy.cmdline:cli"
+  xinference-local = "xinference.deploy.cmdline:local"
+  xinference-supervisor = "xinference.deploy.cmdline:supervisor"
+  xinference-worker = "xinference.deploy.cmdline:worker"
 
 The command-line ``xinference`` can be referred to code in ``xinference.deploy.cmdline:cli``.
 
@@ -184,9 +184,8 @@ Therefore, there is a lot of adaptation work to be done after the model generate
 JSON
 ----
 
-In `model/llm/llm_family.json <https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_,
-we utilize JSON files to manage the metadata of emerging open-source models. Adding a new model does not necessitate writing new code,
-it merely requires appending new metadata to the existing JSON file.
+In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_,
+each model has a JSON file containing all its variants. Add or remove a model by adding or deleting its file. Files are discovered automatically in case-insensitive filename order; the order of records within each file is preserved.
 
 ::
 
@@ -245,12 +244,6 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
     defines a set of tools for collecting and reporting metrics and the status of node resources, including model throughput,
     latency, the usage of CPU and GPU, memory usage, and more.
 
-  - `image_interface.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/image_interface.py>`_ and
-    `chat_interface.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/chat_interface.py>`_
-    implement `Gradio <https://github.com/gradio-app/gradio>`_ interfaces for image and chat models, respectively.
-    These interfaces allow users to interact with models through a Web UI, such as generating images or engaging in chat.
-    They build user interfaces using the gradio package and communicate with backend models through our RESTful APIs.
-
   - `worker.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/worker.py>`_ and
     `supervisor.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/supervisor.py>`_
     respectively define the logic for worker actors and supervisor actor. Worker actors are responsible for carrying out specific
@@ -279,4 +272,55 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
 - `model/ <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_: It provides a structure for model descriptions, creation,
   and caching. See `Model`_ for more information.
 
-- `web/ui/ <https://github.com/xorbitsai/inference/tree/main/xinference/web/ui>`_: The js code of the frontend (Web UI).
+- `frontend/ <https://github.com/xorbitsai/inference/tree/main/frontend>`_: The Next.js code of the frontend (Web UI).
+
+
+Runtime extensions
+==================
+
+Set ``XINFERENCE_EXTENSIONS`` to comma-separated ``module:factory`` entries before starting Xinference. Each process loads its own extension instances, including spawned API, worker, and recovery processes. An unset variable preserves the standard runtime; an invalid configured extension fails explicitly.
+
+A factory returns an object with a unique ``name``, ``api_version = 1``, and four methods: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)``, and ``control_operation(operation, payload)``. API context includes the app, router, authentication service, authentication mode, and an asynchronous supervisor reference getter. Routes and middleware are composed before the static frontend fallback. Reuse the authentication service when protecting extension routes.
+
+The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build.
+
+Factories and runtime hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop.
+
+``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API.
+
+Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement.
+
+Extensions may optionally implement synchronous, non-blocking ``model_catalog_credentials(request, model_type)``. For ``POST /v1/models/update_type``, this hook runs after the configured authentication and ``models:register`` permission checks. Return ``xinference.extensions.ModelCatalogCredentials(token=...)`` to supply a server-owned catalog token, or ``None`` to keep anonymous refresh. Existing extensions need no changes. Multiple credential providers and provider failures reject the refresh without an anonymous retry. Providers must keep tokens out of their own logs and HTTP error details or headers.
+
+Credentials travel only with that refresh through the supervisor to each worker, which sends ``X-Models-Token`` to ``https://model.xinference.io/api/models/download``. Xinference does not persist the token or export it to the process environment; its credential object hides the token in actor argument logs. Credentialed requests reject redirects. Remote errors are sanitized, and unavailable or failing workers cause the refresh to fail. Workers that already updated are not rolled back; retry after correcting the failure. Update all runtime nodes before using this hook. Catalog updates affect the shared model registry; this hook does not provide per-user model visibility or model-weight download credentials.
+
+To refresh one model, send ``POST /v1/models/update_spec`` with ``model_type`` and ``model_name``. It uses the same credential hook and ``models:register`` permission. The catalog response must contain one record or a non-empty list of variants, all with the requested ``model_name``. Only that model is replaced in the downloaded catalog; other downloaded models and packaged built-ins remain available. Full-category refresh through ``/v1/models/update_type`` is unchanged. Both paths coordinate file writes and publish complete JSON atomically. Upgrade the API, supervisor and all workers together before using the new endpoint.
+
+Malformed request bodies return HTTP 400. Credential provider failures return HTTP 500; explicit HTTP errors from providers keep their status and headers. Worker refresh failures return HTTP 502. No available workers or an unreachable supervisor return HTTP 503.
+
+For family-shaped world records, ``model_family`` is used when the top-level ``model_name`` is absent. Before a single-model update is published, the merged catalog must load successfully through the existing model-family loaders. Single-model downloads request the Hub README; a later full-category refresh replaces the catalog with the full-download response, which may omit README fields.
+
+Advanced-auth storage
+---------------------
+
+Extensions may optionally implement ``create_auth_store(context)`` to select advanced-auth storage before the authentication service is initialized. ``AuthStoreContext`` supplies ``db_path`` (the requested default SQLite path) and ``purpose``: ``service``, ``reset_password`` or ``migrate``. Return an object implementing ``xinference.api.oauth2.advanced.auth_store.AuthStore``, or ``None`` to retain SQLite. At most one extension may provide this hook; multiple providers are rejected before either is called. Provider failures or invalid stores abort initialization without falling back to SQLite.
+
+The store keeps the existing method signatures, row dictionaries and API-key name validation errors. It provides a mutable ``permission_resolver`` and a ``path`` property containing the local SQLite ``pathlib.Path`` or ``None`` for other storage. Setup, refresh-token rotation and password updates with token revocation must be atomic across processes; user deletion must preserve the existing dependent-record cleanup. Database drivers, schema upgrades and backend-specific configuration belong to the provider.
+
+Provider stores shared by multiple API processes can set ``api_key_cache_enabled = False`` before service initialization. This bypasses the process-local API-key cache and reads the current key, owner status and model grants on each lookup. Omit the attribute or set it to ``True`` to retain caching; non-boolean values are rejected. Storage failures propagate instead of reusing earlier authorization.
+
+The API service, offline administrator-password recovery and legacy JSON auth importer use the same selection mechanism. With a provider configured, ``--db-path`` is passed to its context; it does not override the provider's connection configuration. Use the same extension and backend configuration for the service and these tools. Unlike request/actor hooks, this synchronous initialization hook may connect to storage during startup. Store operations remain synchronous; asynchronous or incomplete implementations are rejected. Providers must keep connection credentials out of logs and error messages. Without a provider, SQLite behavior and dependencies are unchanged.
+
+Model favorites storage
+-----------------------
+
+Extensions may implement ``create_model_favorites_store(context)`` during API initialization, after auth-store selection. ``ModelFavoritesStoreContext`` supplies ``db_path`` and the selected ``auth_store`` (``None`` without authentication). Return a ``xinference.core.model_favorites_store.ModelFavoritesStore`` with synchronous ``list(owner)``, ``add(owner, model_name)`` and ``remove(owner, model_name)`` methods, or ``None`` for SQLite. Owners are positive account IDs, or ``None`` for the shared anonymous collection; account IDs must never be reassigned to another account after deletion. Operations must be persistent, owner-isolated and idempotent, and run in the API thread pool. Multiple providers, invalid stores and initialization failures abort startup without selecting a fallback. ``db_path`` is the configured ``XINFERENCE_AUTH_DB_PATH``. The SQLite default reuses the local path of the selected auth store, or this configured path without authentication. Providers must reuse the selected database; non-SQLite auth storage without a favorites provider aborts startup.
+
+Launch history storage
+----------------------
+
+Extensions may implement ``create_launch_history_store(context)`` during API and supervisor initialization. ``LaunchHistoryStoreContext`` supplies ``db_path`` (the configured ``XINFERENCE_LAUNCH_HISTORY_DB_PATH``), ``service`` (``api`` or ``supervisor``) and ``auth_store`` (the selected API auth store, or ``None`` without authentication and in the supervisor). Both services must select the same persistent history backend.
+
+Return a ``xinference.core.launch_history_store.LaunchHistoryStorage`` or ``None`` to retain the existing SQLite path and schema. Its synchronous methods are ``list``, ``upsert``, ``delete``, ``list_autostart``, ``upsert_autostart``, ``update_autostart_launch_config`` and ``remove_autostart``. Preserve the existing row dictionaries, owner filtering, redaction and UI metadata behavior. Autostart writes must be atomic across processes, with at most one enabled entry per model UID; disabling autostart must retain history. Database drivers and schema upgrades belong to the provider.
+
+At most one extension may provide the hook. Multiple providers, incomplete or asynchronous stores and provider failures abort initialization without falling back to SQLite. The synchronous startup hook may connect to storage; API operations run in the thread pool and supervisor operations use its executor. Providers must keep connection credentials out of logs and errors. No provider leaves existing storage and dependencies unchanged.

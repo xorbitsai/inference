@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,12 +54,19 @@ class CacheTrackerActor(xo.Actor):
             if model_name not in self._model_name_to_version_info:
                 self._model_name_to_version_info[model_name] = model_versions
             else:
-                assert len(model_versions) == len(
-                    self._model_name_to_version_info[model_name]
-                ), "Model version info inconsistency between supervisor and worker"
-                for version, origin_version in zip(
-                    model_versions, self._model_name_to_version_info[model_name]
-                ):
+                existing = self._model_name_to_version_info[model_name]
+                existing_by_version = {
+                    version["model_version"]: version for version in existing
+                }
+                for version in model_versions:
+                    model_version = version["model_version"]
+                    origin_version = existing_by_version.get(model_version)
+                    if origin_version is None:
+                        existing.append(version)
+                        existing_by_version[model_version] = version
+                        continue
+                    if version.get("model_type") is not None:
+                        origin_version["model_type"] = version["model_type"]
                     if (
                         version["cache_status"]
                         and version["model_file_location"] is not None
@@ -87,6 +94,14 @@ class CacheTrackerActor(xo.Actor):
                     if version_info["model_version"] == model_version:
                         self._update_file_location({address: model_path}, version_info)
                         version_info["cache_status"] = True
+
+    def rebind_worker(self, previous: str, current: str) -> None:
+        """Move cache locations with their owner; paths and files stay in place."""
+        for versions in self._model_name_to_version_info.values():
+            for version in versions:
+                paths = version.get("model_file_location")
+                if paths is not None and previous in paths:
+                    paths[current] = paths.pop(previous)
 
     def unregister_model_version(self, model_name: str):
         self._model_name_to_version_info.pop(model_name, None)

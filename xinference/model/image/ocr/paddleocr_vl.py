@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import torch
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from ....device_utils import get_available_device
+from ...utils import allow_trust_remote_code
 from .ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
@@ -33,7 +35,8 @@ class PaddleOCRVLModel(OCRModel):
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
-        return model_family.model_name == "PaddleOCR-VL"
+        model_name = model_family.model_name
+        return model_name == "PaddleOCR-VL" or model_name.startswith("PaddleOCR-VL-")
 
     def __init__(
         self,
@@ -65,24 +68,24 @@ class PaddleOCRVLModel(OCRModel):
         logger.info(f"Loading PaddleOCR-VL model from {self._model_path}")
 
         try:
-            # Determine device and dtype
-            if self._device == "cpu":
-                device = "cpu"
-                dtype = torch.float32
-            else:
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-                dtype = torch.bfloat16
+            # Resolve the device the same way the neighbouring OCR models do:
+            # honour an explicitly requested device (e.g. "cuda:1") and defer to
+            # the accelerator registry otherwise, instead of a CUDA-only check
+            # that silently downgrades non-CUDA accelerators to CPU.
+            device = self._device or get_available_device()
+            dtype = torch.float32 if device == "cpu" else torch.bfloat16
 
             # Load processor
             self._processor = AutoProcessor.from_pretrained(
-                self._model_path, trust_remote_code=True
+                self._model_path,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
             )
 
             # Load model
             self._model = (
                 AutoModelForCausalLM.from_pretrained(
                     self._model_path,
-                    trust_remote_code=True,
+                    trust_remote_code=allow_trust_remote_code(self.model_family),
                     torch_dtype=dtype,
                 )
                 .to(device)

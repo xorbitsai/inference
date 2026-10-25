@@ -1,0 +1,183 @@
+# Chinese translations for Xinference package
+# Xinference 软件包的简体中文翻译.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# Automatically generated, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-28 21:37+0800\n"
+"PO-Revision-Date: 2026-08-28 21:37+0800\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: zh_CN\n"
+
+#: ../../source/models/model_abilities/world.rst:5
+msgid "World (Experimental)"
+msgstr "世界模型（实验性）"
+
+#: ../../source/models/model_abilities/world.rst:7
+msgid ""
+"World models generate an environment video from a prompt and, when "
+"supported, an initial image. Xinference exposes one synchronous API for the "
+"first version:"
+msgstr ""
+"世界模型根据提示词生成环境视频，并在模型支持时接受初始图像。Xinference 的首个"
+"版本提供一个同步 API："
+
+#: ../../source/models/model_abilities/world.rst:10
+msgid "``POST /v1/worlds/generations``"
+msgstr "``POST /v1/worlds/generations``"
+
+#: ../../source/models/model_abilities/world.rst:12
+msgid ""
+"The common request fields are ``model``, ``prompt``, optional ``image`` or "
+"``video``, and ``generation_config``. Model-specific controls such as action "
+"or pose are passed through ``extra_body``. Continuous sessions and dedicated "
+"action or streaming APIs are not part of this first version."
+msgstr ""
+"通用请求字段包括 ``model``、``prompt``、可选的 ``image`` 或 ``video``，以及 "
+"``generation_config``。动作、位姿等模型特定的控制项通过 ``extra_body`` 传递。"
+"首个版本不包含连续会话，也不提供专用的动作或流式 API。"
+
+#: ../../source/models/model_abilities/world.rst:18
+msgid "Supported models"
+msgstr "支持的模型"
+
+#: ../../source/models/model_abilities/world.rst:20
+msgid ":ref:`Matrix-Game-3.0-5B <models_builtin_matrix-game-3.0-5b>`"
+msgstr ":ref:`Matrix-Game-3.0-5B <models_builtin_matrix-game-3.0-5b>`"
+
+#: ../../source/models/model_abilities/world.rst:21
+msgid ":ref:`HY-WorldPlay-5B <models_builtin_hy-worldplay-5b>`"
+msgstr ":ref:`HY-WorldPlay-5B <models_builtin_hy-worldplay-5b>`"
+
+#: ../../source/models/model_abilities/world.rst:22
+msgid ":ref:`Astra <models_builtin_astra>`"
+msgstr ":ref:`Astra <models_builtin_astra>`"
+
+#: ../../source/models/model_abilities/world.rst:24
+msgid ""
+"World models use the standard Xinference engine selection flow. Query ``GET /"
+"v1/engines/world/<MODEL_NAME>`` to list available engines and choose one "
+"with ``model_engine`` when launching the model. The initial built-in engine "
+"is ``PyTorch`` and requires an NVIDIA CUDA GPU."
+msgstr ""
+"世界模型使用 Xinference 标准的引擎选择流程。通过 ``GET /v1/engines/world/"
+"<MODEL_NAME>`` 查询可用引擎，并在启动模型时使用 ``model_engine`` 选择引擎。"
+"首个内置引擎为 ``PyTorch``，且需要 NVIDIA CUDA GPU。"
+
+#: ../../source/models/model_abilities/world.rst:30
+msgid "Quickstart"
+msgstr "快速开始"
+
+#: ../../source/models/model_abilities/world.rst:32
+msgid "Launch a model::"
+msgstr "启动模型::"
+
+#: ../../source/models/model_abilities/world.rst:39
+msgid "Generate with cURL:"
+msgstr "使用 cURL 生成："
+
+#: ../../source/models/model_abilities/world.rst:57
+msgid "Generate with the Xinference Python client:"
+msgstr "使用 Xinference Python 客户端生成："
+
+#: ../../source/models/model_abilities/world.rst:73
+msgid ""
+"The response follows the existing video result shape. The generated item is "
+"``result[\"data\"][0]`` and contains either a ``url`` or ``b64_json`` value. "
+"``b64_json`` is the raw base64 payload without a ``data:video/...`` prefix. "
+"The public REST endpoint accepts uploaded media as base64 data URLs; the "
+"Python client converts local file paths or bytes to that representation. "
+"Remote HTTP URLs and server-local paths are intentionally not accepted by "
+"the public endpoint. ``Matrix-Game-3.0-5B`` and ``Astra`` require an image; "
+"``HY-WorldPlay-5B`` accepts text-only or image-conditioned generation. None "
+"of the initial adapters accepts the reserved ``video`` input yet."
+msgstr ""
+"响应沿用现有的视频结果结构。生成项位于 ``result[\"data\"][0]``，其中包含 "
+"``url`` 或 ``b64_json``。``b64_json`` 是不带 ``data:video/...`` 前缀的原始 "
+"Base64 数据。公共 REST 端点接受以 Base64 data URL 形式上传的媒体；Python "
+"客户端会将本地文件路径或字节转换为该格式。公共端点有意不接受远程 HTTP URL "
+"或服务器本地路径。``Matrix-Game-3.0-5B`` 和 ``Astra`` 需要输入图像；``HY-"
+"WorldPlay-5B`` 支持纯文本生成或图像条件生成。首批适配器均不接受预留的 "
+"``video`` 输入。"
+
+#: ../../source/models/model_abilities/world.rst:85
+msgid "Progress and cancellation"
+msgstr "进度与取消"
+
+#: ../../source/models/model_abilities/world.rst:87
+msgid ""
+"Long-running requests can include a caller-generated ``request_id`` in "
+"``extra_body`` (or ``model_kwargs`` in the Python client). While that "
+"request is running, poll its progress::"
+msgstr ""
+"长时间运行的请求可以在 ``extra_body`` 中包含调用方生成的 ``request_id``"
+"（Python 客户端中为 ``model_kwargs``）。请求运行期间，可通过以下方式轮询进度::"
+
+#: ../../source/models/model_abilities/world.rst:93
+msgid "or use the REST endpoint::"
+msgstr "或者使用 REST 端点::"
+
+#: ../../source/models/model_abilities/world.rst:97
+msgid ""
+"The progress response is ``{\"progress\": <float>}``, where the value ranges "
+"from 0 to 1. Completed progress records are retained for five minutes by "
+"default (configurable with ``XINFERENCE_REMOVE_PROGRESS_INTERVAL``)."
+msgstr ""
+"进度响应为 ``{\"progress\": <float>}``，取值范围为 0 到 1。已完成的进度记录"
+"默认保留五分钟（可通过 ``XINFERENCE_REMOVE_PROGRESS_INTERVAL`` 配置）。"
+
+#: ../../source/models/model_abilities/world.rst:101
+msgid "Abort the same request with::"
+msgstr "使用以下方式中止同一请求::"
+
+#: ../../source/models/model_abilities/world.rst:105
+msgid "or::"
+msgstr "或者::"
+
+#: ../../source/models/model_abilities/world.rst:110
+msgid ""
+"For remote clients, ``b64_json`` is directly consumable but materializes the "
+"complete result in the response. ``url`` currently returns a path on the "
+"worker that ran the model and is intended for clients that share that "
+"filesystem. Xinference does not currently copy or clean up these files. "
+"Artifact storage, public download URLs, and continuous streaming are "
+"separate future capabilities rather than part of this synchronous first "
+"version."
+msgstr ""
+"对于远程客户端，``b64_json`` 可直接使用，但会在响应中物化完整结果。``url`` "
+"当前返回运行该模型的 worker 上的路径，适用于共享该文件系统的客户端。Xinference "
+"目前不会复制或清理这些文件。产物存储、公开下载 URL 和连续流式传输属于独立的未来"
+"能力，不在首个同步版本的范围内。"
+
+#: ../../source/models/model_abilities/world.rst:117
+msgid ""
+"The first launch downloads the pinned adapter source from its GitHub "
+"revision and any auxiliary base weights required by the selected model. "
+"Selecting ModelScope changes the model-weight source; it does not mirror the "
+"adapter source checkout. Launch therefore requires access to both configured "
+"sources. A fully managed air-gapped staging lifecycle for this complete "
+"dependency set is not part of the first version."
+msgstr ""
+"首次启动时会从固定的 GitHub 修订版本下载适配器源码，以及所选模型需要的辅助基础"
+"权重。选择 ModelScope 只会改变模型权重来源，不会镜像适配器源码。启动时因此需要"
+"同时访问这两个已配置的来源。首个版本不提供覆盖整套依赖的全托管隔离网络预部署"
+"流程。"
+
+#: ../../source/models/model_abilities/world.rst:124
+msgid ""
+"For Astra, camera control remains model-specific and is passed through "
+"``extra_body`` or ``model_kwargs``. For example, ``cam_type`` accepts values "
+"from 1 through 7 for the upstream preset trajectories. Astra's official "
+"inference path runs on a single 24 GB NVIDIA GPU."
+msgstr ""
+"Astra 的相机控制仍是模型特定参数，通过 ``extra_body`` 或 ``model_kwargs`` "
+"传递。例如，``cam_type`` 接受 1 到 7，分别对应上游预设的相机轨迹。Astra 的"
+"官方推理方式在单张 24 GB NVIDIA GPU 上运行。"

@@ -1,0 +1,43 @@
+[
+  {
+    "version": 2,
+    "model_name": "gte-Qwen2",
+    "dimensions": 3584,
+    "max_tokens": 32000,
+    "language": [
+      "zh",
+      "en"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Alibaba-NLP/gte-Qwen2-7B-instruct",
+            "model_revision": "e26182b2122f4435e8b3ebecbf363990f409b45b",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "iic/gte_Qwen2-7B-instruct",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "updated_at": 1784543822,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

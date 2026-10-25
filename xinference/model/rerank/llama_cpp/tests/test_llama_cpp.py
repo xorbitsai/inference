@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import shutil
+
+import pytest
 
 from ...cache_manager import RerankCacheManager as CacheManager
 from ...core import (
@@ -20,6 +24,7 @@ from ...core import (
     RerankModelFamilyV2,
     create_rerank_model_instance,
 )
+from ..core import XllamaCppRerankModel
 
 TEST_MODEL_SPEC = RerankModelFamilyV2(
     version=2,
@@ -37,6 +42,99 @@ TEST_MODEL_SPEC = RerankModelFamilyV2(
 )
 
 
+class _FakeLlamaCppServer:
+    def __init__(self, response):
+        self.response = response
+
+    def handle_rerank(self, data):
+        return self.response
+
+
+@pytest.mark.parametrize("return_documents", [False, True])
+@pytest.mark.parametrize("top_n", [None, 1])
+def test_rerank_model_returns_document_objects(return_documents, top_n):
+    documents = ["less relevant", "more relevant"]
+    model = XllamaCppRerankModel.__new__(XllamaCppRerankModel)
+    model._llm = _FakeLlamaCppServer(
+        {
+            "results": [
+                {"index": 1, "relevance_score": 0.9},
+                {"index": 0, "relevance_score": 0.1},
+            ],
+            "usage": {"total_tokens": 12},
+        }
+    )
+
+    result = model.rerank(documents, "query", top_n, None, return_documents, True)
+
+    expected_indices = [1, 0] if top_n is None else [1]
+    assert [doc["index"] for doc in result["results"]] == expected_indices
+    for doc in result["results"]:
+        expected = {"text": documents[doc["index"]]} if return_documents else None
+        assert doc["document"] == expected
+    assert result["meta"]["tokens"] == {"input_tokens": 12, "output_tokens": 12}
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_rerank_model_raises_xllamacpp_error(nested):
+    message = "Field 'documents': documents must not be empty"
+    error = {
+        "code": 400,
+        "message": message,
+        "type": "invalid_request_error",
+    }
+    model = XllamaCppRerankModel.__new__(XllamaCppRerankModel)
+    model._llm = _FakeLlamaCppServer({"error": error} if nested else error)
+
+    with pytest.raises(Exception, match="documents must not be empty") as exc_info:
+        model.rerank([], "query", None, None, False, False)
+
+    assert str(exc_info.value) == message
+
+
+def test_gguf_rerank_defaults_engine_and_quantization(tmp_path, monkeypatch):
+    # A GGUF-only custom rerank model launched without ``--model-engine`` or
+    # ``--quantization`` must pick llama.cpp and the spec's quantization
+    # instead of failing on sentence_transformers / rendering ``None`` into
+    # the GGUF file name.
+    from ...custom import CustomRerankModelFamilyV2, register_rerank, unregister_rerank
+
+    model_name = "custom_test_rerank_gguf"
+    model_family = CustomRerankModelFamilyV2(
+        model_name=model_name,
+        type="normal",
+        language=["en"],
+        max_tokens=512,
+        model_specs=[
+            LlamaCppRerankSpecV1(
+                model_format="ggufv2",
+                model_id=None,
+                model_revision=None,
+                model_uri=str(tmp_path),
+                model_file_name_template="bge-reranker-v2-m3-{quantization}.gguf",
+                quantization="Q4_K_M",
+                model_file_name_split_template=None,
+                quantization_parts=None,
+            )
+        ],
+    )
+    # Engine registration checks that xllamacpp is importable.
+    monkeypatch.setattr(XllamaCppRerankModel, "check_lib", classmethod(lambda _: True))
+
+    register_rerank(model_family, False)
+    try:
+        model = create_rerank_model_instance(
+            "mock", model_name, None, model_path=str(tmp_path)
+        )
+    finally:
+        unregister_rerank(model_name)
+
+    assert isinstance(model, XllamaCppRerankModel)
+    assert model.model_family.model_engine == "llama.cpp"
+    assert model._quantization == "Q4_K_M"
+
+
+@pytest.mark.platform_slow
 def test_rerank_model_with_xllamacpp():
     model_path = None
     try:

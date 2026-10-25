@@ -67,24 +67,37 @@ Once this feature is enabled, all requests for LLMs will be managed by continuou
 and the average throughput of requests made to a single model will increase.
 The usage of the LLM interface remains exactly the same as before, with no differences.
 
+Embedding
+---------
+
+With vLLM >= 0.19.0, text embedding models use the native asynchronous pooling scheduler. Configure ``max_num_seqs`` and ``max_num_batched_tokens`` at model launch; Xinference ``batch_size`` and ``batch_interval`` do not control this path. Older vLLM versions, VACC, WeMM and Qwen3-VL embeddings retain the existing Xinference batching path.
+
+Rerank
+------
+
+With vLLM >= 0.19.0, text cross-encoder rerank models also use native asynchronous pooling. The same ``max_num_seqs`` and ``max_num_batched_tokens`` settings apply instead of Xinference batch settings. Older vLLM versions, VACC, Qwen3-VL rerankers and other scoring types retain the existing path. Ranking, ``top_n``, returned documents and token counts keep the same API behavior.
+
 Image Model
 -----------
-Currently, for image models, only the ``text_to_image`` interface is supported for ``FLUX.1`` series models.
+For image-model batching, select the ``vLLM`` or ``SGLang`` engine with ``--model-engine``. SGLang supports dynamic request batching via ``batching_max_size`` and ``batching_delay_ms``; new requests wait while a batch is running. vLLM-Omni supports request batching via ``max_num_seqs`` and, on supported models, experimental step-level continuous batching with ``step_execution=true`` and ``max_num_seqs>1``. Diffusers supports ordinary image generation and multiple images per request, but does not provide Xinference-managed continuous batching. See :ref:`image` for supported models, required versions, and launch instructions.
 
-Enabling this feature requires setting the environment variable ``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``, which indicates the ``size`` of the generated images.
+Audio request batching
+----------------------
 
-For example, starting xinference like this:
+Whisper with the ``transformers`` engine and Qwen3-TTS with the ``PyTorch`` or ``MLX`` engine collect concurrent requests into native batches within each model replica. The audio API remains unchanged.
 
-.. code-block::
+Set ``request_batch_size`` (default ``4``) and ``batch_interval`` (default ``0.01`` seconds) at model launch. Set ``request_batch_size=1`` to disable request merging and MLX segment batching, or lower it when device memory is limited. Whisper's existing ``batch_size`` still controls the pipeline's audio-chunk batch size.
 
-    XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE=1024*1024 xinference-local --log-level debug
+.. code-block:: bash
 
+    xinference launch --model-name whisper-large-v3 --model-type audio --model-engine transformers --request_batch_size 4 --batch_interval 0.01
+    xinference launch --model-name Qwen3-TTS-12Hz-0.6B-CustomVoice --model-type audio --model-engine MLX --request_batch_size 4 --batch_interval 0.01
 
-Then just use the ``text_to_image`` interface as before, and nothing else needs to be changed.
+Only requests with compatible inference settings are merged. Qwen3-TTS requests with an explicit seed run separately. MLX batching also requires the same language and reference audio; unsupported batch options use the existing single-request path. Long MLX Qwen3-TTS inputs can batch text segments while preserving their order and pauses. Streaming support is unchanged.
 
 Abort your request
 ==================
-In this mode, you can abort requests that are in the process of inference.
+For LLMs using Xinference's continuous batching, you can abort requests that are in the process of inference.
 
 #. First, add ``request_id`` option in ``generate_config``. For example:
 
@@ -104,14 +117,11 @@ In this mode, you can abort requests that are in the process of inference.
     client.abort_request("<model_uid>", "<your_unique_request_id>")
 
 Note that if your request has already finished, aborting the request will be a no-op.
-Image models also support this feature.
 
 Note
 ====
 
 * Currently, for ``LLM`` models, this feature only supports the ``generate``, ``chat``, ``tool call`` and ``vision`` tasks.
-
-* Currently, for ``image`` models, this feature only supports the ``text_to_image`` tasks. Only ``FLUX.1`` series models are supported.
 
 * For ``vision`` tasks, currently only ``qwen2-vl-instruct``, ``qwen2.5-vl-instruct``, ``QvQ-72B-Preview``, ``glm-4v`` and ``MiniCPM-V-2.6`` (only for image tasks) models are supported. More models will be supported in the future. Please let us know your requirements.
 

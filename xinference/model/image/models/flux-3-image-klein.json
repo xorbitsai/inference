@@ -1,0 +1,49 @@
+[
+  {
+    "version": 2,
+    "model_name": "flux-3-image-klein",
+    "model_family": "flux3",
+    "model_description": "FLUX 3 Image Klein is a 5.6B step-distilled image model supporting text-to-image generation, editing with up to 10 reference images, and bounding-box layout control, with automatic prompt upsampling.",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "black-forest-labs/flux-3-image-klein",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "black-forest-labs/flux-3-image-klein",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "num_inference_steps": 16
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "modular_model_index.json",
+        "scheduler/*",
+        "transformer/*",
+        "text_encoder/*",
+        "tokenizer/*",
+        "processor/*",
+        "vae/*"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.42.0 ; #engine# == \"diffusers\"",
+        "transformers>=5.8.1,<6",
+        "accelerate>=1.13.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
+  }
+]

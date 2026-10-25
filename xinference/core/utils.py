@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,19 +16,29 @@ import logging
 import os
 import platform
 import random
+import re
 import string
+import sys
 import uuid
 import weakref
 from enum import Enum
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
 import orjson
+from packaging.markers import Marker
 from packaging.requirements import Requirement
 
 from .._compat import BaseModel
+from ..cache_isolation import redact_cache_salt
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_LOG_ARG_MAX_LENGTH,
+)
+from .rpc_context import (
+    _reset_rpc_metadata,
+    get_current_rpc_metadata,
+    pop_rpc_metadata,
+    wrap_async_iterator,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,10 +51,71 @@ class AbortRequestMessage(Enum):
 
 
 def truncate_log_arg(arg) -> str:
-    s = str(arg)
+    s = str(redact_cache_salt(arg))
     if len(s) > XINFERENCE_LOG_ARG_MAX_LENGTH:
         s = s[0:XINFERENCE_LOG_ARG_MAX_LENGTH] + "..."
     return s
+
+
+def normalize_n_worker(value: Any) -> int:
+    """Normalize the distributed worker count from RPC/JSON launch arguments."""
+    if value is None:
+        return 1
+    if isinstance(value, (bool, float)):
+        raise ValueError("n_worker must be a positive integer.")
+    try:
+        n_worker = int(value)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError("n_worker must be a positive integer.") from None
+    if n_worker < 1:
+        raise ValueError("n_worker must be a positive integer.")
+    return n_worker
+
+
+def get_path_size(path: str, follow_file_symlinks: bool = False) -> int:
+    """Return disk space allocated to files under *path*.
+
+    Directory symlinks are never traversed. File symlinks may be followed for
+    model caches, whose payload files commonly link to Hub-managed blobs.
+    """
+
+    if not path:
+        return 0
+    if os.path.islink(path):
+        if os.path.isdir(path) or (follow_file_symlinks and os.path.isfile(path)):
+            path = os.path.realpath(path)
+        else:
+            return 0
+
+    seen_inodes: Set[Tuple[int, int]] = set()
+
+    def get_file_size(file_path: str) -> int:
+        if os.path.islink(file_path) and not follow_file_symlinks:
+            return 0
+        try:
+            file_stat = os.stat(file_path)
+        except OSError:
+            return 0
+
+        inode = (file_stat.st_dev, file_stat.st_ino)
+        if inode in seen_inodes:
+            return 0
+        seen_inodes.add(inode)
+
+        blocks = getattr(file_stat, "st_blocks", 0)
+        return blocks * 512 if blocks else file_stat.st_size
+
+    if os.path.isfile(path):
+        return get_file_size(path)
+
+    total = 0
+    for root, dirs, files in os.walk(path, followlinks=False):
+        dirs[:] = [
+            name for name in dirs if not os.path.islink(os.path.join(root, name))
+        ]
+        for name in files:
+            total += get_file_size(os.path.join(root, name))
+    return total
 
 
 def log_async(
@@ -52,6 +123,7 @@ def log_async(
     level=logging.DEBUG,
     ignore_kwargs: Optional[List[str]] = None,
     log_exception=True,
+    wrap_result: bool = True,
 ):
     import time
     from functools import wraps
@@ -63,53 +135,98 @@ def log_async(
 
         @wraps(func)
         async def wrapped(*args, **kwargs):
-            request_id_str = kwargs.get("request_id")
-            if not request_id_str:
-                # sometimes `request_id` not in kwargs
-                # we try to bind the arguments
+            operation_request_id = kwargs.get("request_id")
+            if not operation_request_id:
                 try:
                     bound_args = sig.bind_partial(*args, **kwargs)
-                    arguments = bound_args.arguments
+                    operation_request_id = bound_args.arguments.get("request_id", "")
                 except TypeError:
-                    arguments = {}
-                request_id_str = arguments.get("request_id", "")
-            if not request_id_str:
-                request_id_str = uuid.uuid1()
+                    operation_request_id = ""
+
+            metadata, context_token = pop_rpc_metadata(kwargs, operation_request_id)
+            correlation_id = metadata.correlation_id if metadata else None
+            request_id = correlation_id or operation_request_id
+            if not request_id:
+                request_id = uuid.uuid1()
                 if func_name == "text_to_image":
-                    kwargs["request_id"] = request_id_str
-            request_id_str = f"[request {request_id_str}]"
+                    kwargs["request_id"] = request_id
+
+            # Keep untrusted IDs from injecting control characters into text logs.
+            request_id_text = "".join(
+                char if ord(char) >= 32 and ord(char) != 127 else "?"
+                for char in str(request_id)[:256]
+            )
+            request_prefix = f"[request {request_id_text}]"
             formatted_args = ",".join(map(truncate_log_arg, args))
             formatted_kwargs = ",".join(
                 [
-                    "%s=%s" % (k, truncate_log_arg(v))
-                    for k, v in kwargs.items()
-                    if ignore_kwargs is None or k not in ignore_kwargs
+                    "%s=%s" % (key, truncate_log_arg(value))
+                    for key, value in kwargs.items()
+                    if ignore_kwargs is None or key not in ignore_kwargs
                 ]
             )
+            fields = {
+                "request_id": request_id_text,
+                "correlation_id": correlation_id or "",
+                "operation_request_id": (
+                    metadata.operation_request_id
+                    if metadata and metadata.operation_request_id
+                    else str(operation_request_id) if operation_request_id else ""
+                ),
+                "actor_call_id": metadata.actor_call_id if metadata else "",
+                "parent_call_id": metadata.parent_call_id if metadata else "",
+                "operation": func_name,
+            }
             logger.log(
                 level,
-                f"{request_id_str} Enter {func_name}, args: {formatted_args}, kwargs: {formatted_kwargs}",
+                f"{request_prefix} Enter {func_name}, args: {formatted_args}, kwargs: {formatted_kwargs}",
+                extra={"xinference_fields": {**fields, "phase": "enter"}},
             )
-            start = time.time()
+            start_time = time.perf_counter()
             try:
                 ret = await func(*args, **kwargs)
+                if wrap_result:
+                    ret = wrap_async_iterator(ret, get_current_rpc_metadata())
+                elapsed = time.perf_counter() - start_time
                 logger.log(
                     level,
-                    f"{request_id_str} Leave {func_name}, elapsed time: {int(time.time() - start)} s",
+                    f"{request_prefix} Leave {func_name}, elapsed time: {int(elapsed)} s",
+                    extra={
+                        "xinference_fields": {
+                            **fields,
+                            "phase": "leave",
+                            "elapsed_ms": round(elapsed * 1000, 3),
+                        }
+                    },
                 )
                 return ret
             except Exception as e:
+                elapsed = time.perf_counter() - start_time
+                message = (
+                    f"{request_prefix} Leave {func_name}, error: {e}, "
+                    f"elapsed time: {int(elapsed)} s"
+                )
+                error_fields = {
+                    **fields,
+                    "phase": "error",
+                    "elapsed_ms": round(elapsed * 1000, 3),
+                    "error_type": type(e).__name__,
+                }
                 if log_exception:
                     logger.error(
-                        f"{request_id_str} Leave {func_name}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                        message,
                         exc_info=True,
+                        extra={"xinference_fields": error_fields},
                     )
                 else:
                     logger.log(
                         level,
-                        f"{request_id_str} Leave {func_name}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                        message,
+                        extra={"xinference_fields": error_fields},
                     )
                 raise
+            finally:
+                _reset_rpc_metadata(context_token)
 
         return wrapped
 
@@ -119,42 +236,111 @@ def log_async(
 def log_sync(logger, level=logging.DEBUG, log_exception=True):
     import time
     from functools import wraps
+    from inspect import signature
 
     def decorator(func):
+        sig = signature(func)
+
         @wraps(func)
         def wrapped(*args, **kwargs):
+            operation_request_id = kwargs.get("request_id")
+            if not operation_request_id:
+                try:
+                    bound_args = sig.bind_partial(*args, **kwargs)
+                    operation_request_id = bound_args.arguments.get("request_id", "")
+                except TypeError:
+                    operation_request_id = ""
+            metadata, context_token = pop_rpc_metadata(kwargs, operation_request_id)
+            correlation_id = metadata.correlation_id if metadata else None
+            display_id = correlation_id or operation_request_id
+            request_id_text = None
+            if display_id:
+                # Keep untrusted IDs from injecting control characters into text logs.
+                request_id_text = "".join(
+                    char if ord(char) >= 32 and ord(char) != 127 else "?"
+                    for char in str(display_id)[:256]
+                )
+            request_prefix = f"[request {request_id_text}] " if request_id_text else ""
             formatted_args = ",".join(map(truncate_log_arg, args))
             formatted_kwargs = ",".join(
-                map(lambda x: "%s=%s" % (x[0], truncate_log_arg(x[1])), kwargs.items())
+                [
+                    "%s=%s" % (key, truncate_log_arg(value))
+                    for key, value in kwargs.items()
+                ]
             )
+            fields = {
+                "correlation_id": correlation_id or "",
+                "operation_request_id": (
+                    metadata.operation_request_id
+                    if metadata and metadata.operation_request_id
+                    else str(operation_request_id) if operation_request_id else ""
+                ),
+                "actor_call_id": metadata.actor_call_id if metadata else "",
+                "parent_call_id": metadata.parent_call_id if metadata else "",
+                "operation": func.__name__,
+            }
+            if request_id_text:
+                fields["request_id"] = request_id_text
             logger.log(
                 level,
-                f"Enter {func.__name__}, args: {formatted_args}, kwargs: {formatted_kwargs}",
+                f"{request_prefix}Enter {func.__name__}, args: {formatted_args}, kwargs: {formatted_kwargs}",
+                extra={"xinference_fields": {**fields, "phase": "enter"}},
             )
-            start = time.time()
+            start = time.perf_counter()
             try:
                 ret = func(*args, **kwargs)
+                elapsed = time.perf_counter() - start
                 logger.log(
                     level,
-                    f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s",
+                    f"{request_prefix}Leave {func.__name__}, elapsed time: {int(elapsed)} s",
+                    extra={
+                        "xinference_fields": {
+                            **fields,
+                            "phase": "leave",
+                            "elapsed_ms": round(elapsed * 1000, 3),
+                        }
+                    },
                 )
                 return ret
             except Exception as e:
+                elapsed = time.perf_counter() - start
+                message = (
+                    f"{request_prefix}Leave {func.__name__}, error: {e}, "
+                    f"elapsed time: {int(elapsed)} s"
+                )
+                error_fields = {
+                    **fields,
+                    "phase": "error",
+                    "elapsed_ms": round(elapsed * 1000, 3),
+                    "error_type": type(e).__name__,
+                }
                 if log_exception:
                     logger.error(
-                        f"Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                        message,
                         exc_info=True,
+                        extra={"xinference_fields": error_fields},
                     )
                 else:
                     logger.log(
                         level,
-                        f"Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                        message,
+                        extra={"xinference_fields": error_fields},
                     )
                 raise
+            finally:
+                _reset_rpc_metadata(context_token)
 
         return wrapped
 
     return decorator
+
+
+# Replica suffix must not collide with bare model names that end in
+# "-<digits>" (llama-2, phi-2, gpt-2, ...). See #5198.
+_REPLICA_MODEL_UID_SEP = "-rep"
+_REPLICA_MODEL_UID_RE = re.compile(
+    rf"^(?P<uid>.+){_REPLICA_MODEL_UID_SEP}(?P<rep>\d+)$"
+)
 
 
 def iter_replica_model_uid(model_uid: str, replica: int) -> Generator[str, None, None]:
@@ -163,31 +349,68 @@ def iter_replica_model_uid(model_uid: str, replica: int) -> Generator[str, None,
     """
     replica = int(replica)
     for rep_id in range(replica):
-        yield f"{model_uid}-{rep_id}"
+        yield build_replica_model_uid(model_uid, rep_id)
 
 
 def build_replica_model_uid(model_uid: str, rep_id: int) -> str:
     """
     Build a replica model uid.
+
+    Uses a reserved ``-rep{n}`` suffix so bare model names that themselves
+    end in ``-<digits>`` (e.g. ``llama-2``) are not ambiguous with a replica
+    index.
     """
-    return f"{model_uid}-{rep_id}"
+    return f"{model_uid}{_REPLICA_MODEL_UID_SEP}{int(rep_id)}"
 
 
 def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int]:
     """
     Parse replica model uid to model uid and rep id.
+
+    Returns ``(model_uid, -1)`` when the input has no replica suffix.
     """
-    parts = replica_model_uid.split("-")
-    if len(parts) == 1:
-        return replica_model_uid, -1
-    rep_id = int(parts.pop())
-    model_uid = "-".join(parts)
-    return model_uid, rep_id
+    match = _REPLICA_MODEL_UID_RE.match(replica_model_uid)
+    if match:
+        return match.group("uid"), int(match.group("rep"))
+    # No reserved suffix: treat as bare model uid. Do NOT fall back to the
+    # legacy "-{n}" split here — that mis-parses real model names like
+    # "llama-2" as ("llama", 2). UIDs built by the old builder therefore no
+    # longer parse as replicas; migration paths that may still see them
+    # (e.g. worker recovery files written by an older version) must handle
+    # the legacy format explicitly via parse_legacy_replica_model_uid.
+    return replica_model_uid, -1
+
+
+_LEGACY_REPLICA_MODEL_UID_RE = re.compile(r"^(?P<uid>.+)-(?P<rep>\d+)$")
+
+
+def parse_legacy_replica_model_uid(
+    replica_model_uid: str,
+) -> Optional[Tuple[str, int]]:
+    """
+    Parse the legacy ``{model_uid}-{n}`` replica format used before the
+    reserved ``-rep{n}`` suffix was introduced.
+
+    Only intended for migration paths (e.g. worker recovery files written
+    by an older version). The legacy format is ambiguous by design — a bare
+    model name like ``llama-2`` also matches — so callers must verify that
+    the returned base uid actually refers to a known model before trusting
+    the result. Returns ``None`` when the input does not match the legacy
+    pattern.
+    """
+    match = _LEGACY_REPLICA_MODEL_UID_RE.match(replica_model_uid)
+    if match:
+        return match.group("uid"), int(match.group("rep"))
+    return None
 
 
 def is_valid_model_uid(model_uid: str) -> bool:
     model_uid = model_uid.strip()
     if not model_uid or len(model_uid) > 100:
+        return False
+    # Forbid user-supplied uids that look like a replica suffix so they
+    # cannot collide with build_replica_model_uid output.
+    if _REPLICA_MODEL_UID_RE.match(model_uid):
         return False
     return True
 
@@ -245,6 +468,9 @@ def parse_model_version(model_version: str, model_type: str) -> Tuple:
     elif model_type == "image":
         assert 2 >= len(results) >= 1, "Image model_version parses failed!"
         return tuple(results)
+    elif model_type == "world":
+        assert len(results) > 0, "World model_version parses failed!"
+        return (results[0],)
     else:
         raise ValueError(f"Not supported model_type: {model_type}")
 
@@ -254,48 +480,168 @@ def merge_virtual_env_packages(
 ) -> List[str]:
     """
     Merge default virtualenv packages with user provided ones. Packages with the
-    same name will be replaced by the user supplied version instead of appended.
+    same name and engine condition are deduplicated. Requirements for different
+    engines coexist when both are conditional, while a marked model requirement
+    replaces an unmarked default. A user-supplied package still overrides every
+    base variant with that name.
     """
 
     def get_key(package: str) -> str:
-        if package.startswith("#"):
-            # special placeholders like #system_torch#
-            return package
+        pkg_name = package.split(";", 1)[0].strip()
+        if pkg_name.startswith("#system_") and pkg_name.endswith("#"):
+            return pkg_name[len("#system_") : -1].lower()
+        if pkg_name.startswith("#"):
+            return pkg_name
         try:
             return Requirement(package).name.lower()
         except Exception:
             # fallback: strip version/url markers best effort
             for sep in ["@", "==", ">=", "<=", "~=", "!=", "[", " "]:
-                if sep in package:
-                    return package.split(sep, 1)[0].strip().lower()
-            return package.lower()
+                if sep in pkg_name:
+                    return pkg_name.split(sep, 1)[0].strip().lower()
+            return pkg_name.lower()
 
-    merged: List[str] = []
+    def get_engine_condition(package: str) -> Optional[str]:
+        _, separator, marker = package.partition(";")
+        if not separator:
+            return None
+        normalized_marker = marker.strip().lower()
+        if "#engine#" in normalized_marker or "#model_engine#" in normalized_marker:
+            return normalized_marker
+        return None
+
+    base_merged: List[Optional[str]] = []
     index_map: Dict[str, int] = {}
+    engine_keys: Dict[str, Set[str]] = {}
     for pkg in base_packages:
-        key = get_key(pkg)
-        if key in index_map:
-            merged[index_map[key]] = pkg
+        canonical_key = get_key(pkg)
+        pkg_name, separator, marker = pkg.partition(";")
+        normalized_marker = marker.strip().lower()
+        engine_condition = get_engine_condition(pkg)
+        is_conditional_system_package = separator and pkg_name.strip().startswith(
+            "#system_"
+        )
+
+        if is_conditional_system_package:
+            key = f"{canonical_key}; {normalized_marker}"
+        elif engine_condition:
+            key = f"{canonical_key}; {engine_condition}"
+            if canonical_key in index_map:
+                index = index_map.pop(canonical_key)
+                base_merged[index] = pkg
+                index_map[key] = index
+                engine_keys.setdefault(canonical_key, set()).add(key)
+                continue
+            engine_keys.setdefault(canonical_key, set()).add(key)
         else:
-            index_map[key] = len(merged)
-            merged.append(pkg)
+            conditional_keys = engine_keys.pop(canonical_key, set())
+            if conditional_keys:
+                indexes = sorted(index_map.pop(key) for key in conditional_keys)
+                index_map[canonical_key] = indexes[0]
+                base_merged[indexes[0]] = pkg
+                for index in indexes[1:]:
+                    base_merged[index] = None
+                continue
+            key = canonical_key
+
+        if key in index_map:
+            base_merged[index_map[key]] = pkg
+        else:
+            index_map[key] = len(base_merged)
+            base_merged.append(pkg)
+
+    merged = [pkg for pkg in base_merged if pkg is not None]
 
     if extra_packages:
         for pkg in extra_packages:
             key = get_key(pkg)
-            if key in index_map:
-                merged[index_map[key]] = pkg
+            matching_indexes = [
+                index
+                for index, base_pkg in enumerate(merged)
+                if get_key(base_pkg) == key
+            ]
+            if matching_indexes:
+                merged[matching_indexes[0]] = pkg
+                for index in reversed(matching_indexes[1:]):
+                    merged.pop(index)
             else:
-                index_map[key] = len(merged)
                 merged.append(pkg)
 
     return merged
+
+
+def normalize_sglang_kernel_packages(
+    packages: List[str],
+) -> Tuple[List[str], bool]:
+    """Drop the legacy kernel distribution when a recipe selects its successor.
+
+    SGLang 0.5.11 renamed the ``sgl-kernel`` distribution to
+    ``sglang-kernel`` while keeping the same ``sgl_kernel`` import package.
+    Installing both distributions into one cached virtualenv leaves two owners
+    for the same files.  Model recipes that explicitly select the new
+    distribution therefore supersede the legacy engine default.
+
+    Returns the normalized package list and whether the modern kernel was
+    selected.  Callers use the latter to migrate cached environments and force
+    dependency reconciliation for the renamed distribution.
+    """
+
+    def _requirement_name(package: str) -> Optional[str]:
+        head = package.split(";", 1)[0].strip()
+        try:
+            return Requirement(head).name.lower().replace("_", "-")
+        except Exception:
+            # Bare wheel URLs are not valid ``Requirement`` instances.  The
+            # legacy CUDA 13 engine dependency uses exactly this form.
+            lowered = head.lower()
+            if re.search(r"(?:^|/)sgl[_-]kernel-", lowered):
+                return "sgl-kernel"
+            return None
+
+    package_names = [_requirement_name(package) for package in packages]
+    modern_kernel_selected = "sglang-kernel" in package_names
+    if not modern_kernel_selected:
+        return packages, False
+
+    normalized = [
+        package
+        for package, package_name in zip(packages, package_names)
+        if package_name != "sgl-kernel"
+    ]
+    return normalized, True
+
+
+def build_subpool_envs_for_python(
+    envs: Dict[str, str], python_executable: str
+) -> Dict[str, str]:
+    """Prevent an inherited interpreter environment from overriding the target.
+
+    Xoscar merges these overrides with its parent environment, so removal is
+    insufficient: explicitly empty Python/activation variables instead.
+    """
+    result = dict(envs)
+    for name in (
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "VIRTUAL_ENV",
+        "CONDA_PREFIX",
+        "CONDA_DEFAULT_ENV",
+    ):
+        result[name] = ""
+    result["PATH"] = os.pathsep.join(
+        [
+            os.path.dirname(python_executable),
+            result.get("PATH") or os.environ.get("PATH", "") or "",
+        ]
+    )
+    return result
 
 
 def build_subpool_envs_for_virtual_env(
     envs: Optional[Dict[str, str]],
     enable_virtual_env: Optional[bool],
     virtual_env_manager: Any,
+    model_engine: Optional[str] = None,
 ) -> Dict[str, str]:
     subpool_envs = {} if envs is None else envs.copy()
     if bool(enable_virtual_env) and virtual_env_manager is not None:
@@ -312,6 +658,32 @@ def build_subpool_envs_for_virtual_env(
         subpool_envs.setdefault(
             "FLASHINFER_NINJA_PATH", os.path.join(venv_bin, "ninja")
         )
+        if sys.platform == "linux" and (model_engine or "").lower() in (
+            "sglang",
+            "vllm",
+        ):
+            import sysconfig
+
+            # PyTorch CUDA wheels load NVIDIA runtime libraries from Python
+            # packages.  The actor subprocess is exec'd directly instead of
+            # through virtualenv activation, so make both the child and
+            # inherited parent locations visible to the dynamic linker.  CUDA
+            # 13 packages use either the legacy per-library layout or the
+            # consolidated nvidia/cu13/lib layout, depending on the wheel.
+            child_site_packages = virtual_env_manager.get_lib_path()
+            parent_site_packages = sysconfig.get_path("purelib")
+            nvidia_lib_paths = []
+            for site_packages in (child_site_packages, parent_site_packages):
+                for directory in ("cusparselt", "cu13"):
+                    path = os.path.join(site_packages, "nvidia", directory, "lib")
+                    if path not in nvidia_lib_paths:
+                        nvidia_lib_paths.append(path)
+            current_ld_library_path = subpool_envs.get(
+                "LD_LIBRARY_PATH"
+            ) or os.environ.get("LD_LIBRARY_PATH", "")
+            if current_ld_library_path:
+                nvidia_lib_paths.append(current_ld_library_path)
+            subpool_envs["LD_LIBRARY_PATH"] = os.pathsep.join(nvidia_lib_paths)
     return subpool_envs
 
 
@@ -341,6 +713,7 @@ def filter_virtualenv_packages_by_markers(
     packages: List[str],
     model_engine: Optional[str],
     cuda_version: Optional[str],
+    target_sys_platform: Optional[str] = None,
 ) -> List[str]:
     """
     Filter virtualenv packages using custom markers and system placeholders.
@@ -350,12 +723,14 @@ def filter_virtualenv_packages_by_markers(
     """
     if not packages:
         return []
+    effective_sys_platform = target_sys_platform or sys.platform
     system_markers = {
         "#system_torch#",
         "#system_torchaudio#",
         "#system_torchvision#",
         "#system_torchcodec#",
         "#system_numpy#",
+        "#system_pandas#",
     }
 
     def _marker_allows(marker: str) -> bool:
@@ -370,10 +745,23 @@ def filter_virtualenv_packages_by_markers(
                 and f"#model_engine# == '{engine_value}'" not in marker
             ):
                 return False
-        if 'cuda_version == "13.0"' in marker and cuda_version != "13.0":
-            return False
-        if 'cuda_version < "13.0"' in marker:
-            if not cuda_version or cuda_version == "13.0":
+
+        if op_versions := re.findall(
+            r"\bcuda_version\b\s*([<>=!~]+)\s*['\"]([^'\"]+)['\"]", marker
+        ):
+            if not cuda_version:
+                return False
+            if not all(
+                check_marker(op_version, "cuda_version", cuda_version)
+                for op_version in op_versions
+            ):
+                return False
+        for operator, expected in re.findall(
+            r"\bsys_platform\b\s*(==|!=)\s*['\"]([^'\"]+)['\"]", marker
+        ):
+            if operator == "==" and effective_sys_platform != expected:
+                return False
+            if operator == "!=" and effective_sys_platform == expected:
                 return False
         if (
             'platform_machine == "x86_64"' in marker
@@ -414,6 +802,126 @@ def filter_virtualenv_packages_by_markers(
                 continue
         resolved_packages.append(pkg)
     return resolved_packages
+
+
+def rewrite_direct_url_packages_for_index(packages: List[str]) -> List[str]:
+    """
+    Rewrite direct wheel-URL requirements to ``name==version`` specs.
+
+    When a private index is explicitly configured (e.g. an offline mirror
+    inherited from pip.conf via ``inherit_pip_config``), direct wheel URLs
+    would bypass the index and hit the public internet, which fails in
+    air-gapped deployments. The private index carries these wheels, so
+    resolving them as ``name==version`` (keeping any local version segment
+    such as ``+cu130``) is equivalent and stays fully offline.
+
+    Non-wheel URLs (git+ sources, sdists) and unparsable entries are
+    returned unchanged.
+    """
+    import posixpath
+    from urllib.parse import unquote, urlparse
+
+    rewritten: List[str] = []
+    for pkg in packages:
+        spec, sep, marker = pkg.partition(";")
+        candidate = spec.strip()
+        # Accept both "https://…/x.whl" and PEP 508 "name @ https://…/x.whl".
+        if candidate.startswith(("http://", "https://")):
+            url = candidate
+        elif "@" in candidate:
+            url = candidate.partition("@")[2].strip()
+        else:
+            rewritten.append(pkg)
+            continue
+        if not url.startswith(("http://", "https://")):
+            rewritten.append(pkg)
+            continue
+        filename = unquote(posixpath.basename(urlparse(url).path))
+        if not filename.endswith(".whl"):
+            rewritten.append(pkg)
+            continue
+        # PEP 427: {name}-{version}(-{build})?-{python}-{abi}-{platform}.whl,
+        # dashes inside name/version are escaped, so the first two fields
+        # are exact.
+        parts = filename[: -len(".whl")].split("-")
+        if len(parts) < 5:
+            rewritten.append(pkg)
+            continue
+        name, version = parts[0], parts[1]
+        if not name or not version or not version[0].isdigit():
+            rewritten.append(pkg)
+            continue
+        new_spec = f"{name}=={version}"
+        rewritten.append(f"{new_spec} ; {marker.strip()}" if sep else new_spec)
+    return rewritten
+
+
+def find_direct_reference_packages(packages: List[str]) -> List[str]:
+    """Return requirements that still bypass package indexes.
+
+    Wheel URLs supported by :func:`rewrite_direct_url_packages_for_index`
+    disappear before this helper is called. Remaining HTTP(S), VCS, ``file://``
+    and PEP 508 direct references bypass the selected package index, so callers
+    must preserve their provenance instead of reconstructing name/version pins.
+    """
+
+    direct_references: List[str] = []
+    for pkg in packages:
+        if _direct_reference_target(pkg) is not None:
+            direct_references.append(pkg)
+    return direct_references
+
+
+def find_remote_direct_reference_packages(packages: List[str]) -> List[str]:
+    """Return direct references that require a non-index external source."""
+
+    remote_references: List[str] = []
+    for pkg in packages:
+        target = _direct_reference_target(pkg)
+        if target is None:
+            continue
+        if _is_local_direct_reference(target):
+            continue
+        remote_references.append(pkg)
+    return remote_references
+
+
+def _is_local_direct_reference(target: str) -> bool:
+    lowered = target.lower()
+    if lowered.startswith(
+        ("file://", "git+file://", "hg+file://", "svn+file://", "bzr+file://")
+    ):
+        return True
+    # PEP 508 also accepts absolute and relative path references without a
+    # file:// scheme. Remote direct references always carry a URL/VCS scheme.
+    return "://" not in target and not lowered.startswith(
+        ("git+", "hg+", "svn+", "bzr+")
+    )
+
+
+def _direct_reference_target(package: str) -> Optional[str]:
+    """Extract the URL/VCS target from a PEP 508 or bare direct reference."""
+
+    candidate = package.partition(";")[0].strip()
+    try:
+        requirement = Requirement(candidate)
+    except Exception:
+        requirement = None
+    if requirement is not None and requirement.url:
+        return requirement.url
+
+    direct_prefixes = (
+        "http://",
+        "https://",
+        "file://",
+        "git+",
+        "hg+",
+        "svn+",
+        "bzr+",
+    )
+    if candidate.lower().startswith(direct_prefixes):
+        return candidate
+    return None
 
 
 def assign_replica_gpu(
@@ -487,3 +995,18 @@ class CancelMixin:
             self._running_tasks[request_id] = asyncio.create_task(
                 block_task(), name=self._CANCEL_TASK_NAME
             )
+
+
+def check_marker(
+    op_version: Tuple[str, str], package_name: str, package_version: str
+) -> bool:
+    try:
+        op, version = op_version
+        marker_str = f'python_full_version {op} "{version}"'
+        env = {"python_full_version": package_version}
+        return Marker(marker_str).evaluate(env)
+    except Exception as e:
+        logger.warning(
+            f"Failed to evaluate {package_name} version marker {op_version} against {package_version}: {e}"
+        )
+        return False

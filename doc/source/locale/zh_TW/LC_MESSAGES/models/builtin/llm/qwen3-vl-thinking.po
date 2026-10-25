@@ -1,0 +1,24 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-10-17 12:51+0800\n"
+"PO-Revision-Date: 2026-10-17 12:51+0800\n"
+"Last-Translator: Xinference maintainers\n"
+"Language-Team: zh_TW\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: models/builtin/llm/qwen3-vl-thinking.rst:23
+#: models/builtin/llm/qwen3-vl-thinking.rst:39
+#: models/builtin/llm/qwen3-vl-thinking.rst:55
+#: models/builtin/llm/qwen3-vl-thinking.rst:71
+#: models/builtin/llm/qwen3-vl-thinking.rst:87
+#: models/builtin/llm/qwen3-vl-thinking.rst:103
+msgid "**Engines**: vLLM, Transformers, SGLang"
+msgstr "**引擎**: vLLM, Transformers, SGLang"

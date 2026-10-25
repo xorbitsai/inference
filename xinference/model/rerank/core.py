@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,13 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 
+import gc
 import logging
 import os
+import time
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Annotated, Dict, List, Literal, Optional, Tuple, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union
 
-from ..._compat import BaseModel, Field
+from ..._compat import BaseModel, Field, validator
+from ...constants import XINFERENCE_TRUST_REMOTE_CODE
+from ...device_utils import empty_cache
 from ...types import Rerank
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
@@ -34,6 +38,8 @@ logger = logging.getLogger(__name__)
 RERANK_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 RERANK_EMPTY_CACHE_COUNT = int(os.getenv("XINFERENCE_RERANK_EMPTY_CACHE_COUNT", "10"))
 assert RERANK_EMPTY_CACHE_COUNT > 0
+RERANK_GC_INTERVAL = float(os.getenv("XINFERENCE_RERANK_GC_INTERVAL", "60"))
+assert RERANK_GC_INTERVAL >= 0
 
 
 def get_rerank_model_descriptions():
@@ -74,13 +80,26 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     model_name: str
     model_specs: List[RerankSpecV1]
     language: List[str]
+    # Extra accepted input modalities. Text is implicit for every rerank model.
+    model_ability: List[Literal["rerank_vision", "rerank_video", "rerank_audio"]] = (
+        Field(default_factory=list)
+    )
     type: Optional[str] = "unknown"
     max_tokens: Optional[int]
     cache_config: Optional[dict] = None
     virtualenv: Optional[VirtualEnvSettings]
+    # Provenance: True only for bundled built-in models (gates trust_remote_code).
+    is_builtin: bool = False
 
     class Config:
         extra = "allow"
+
+    @validator("model_ability", pre=True, each_item=True)
+    def normalize_legacy_model_ability(cls, ability: Any) -> Any:
+        # Persisted custom V2 registrations may still use unprefixed modalities.
+        if isinstance(ability, str) and ability in ("vision", "video", "audio"):
+            return f"rerank_{ability}"
+        return ability
 
     def to_description(self):
         spec = self.model_specs[0]
@@ -90,8 +109,12 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "accelerators": getattr(self, "accelerators", None),
             "type": self.type,
             "model_name": self.model_name,
+            "model_engine": getattr(self, "model_engine", None),
+            "model_format": spec.model_format,
             "language": self.language,
+            "model_ability": ["rerank", *self.model_ability],
             "model_revision": spec.model_revision,
+            "quantization": spec.quantization,
         }
 
     def to_version_info(self):
@@ -130,14 +153,31 @@ class RerankModel:
         self._model_spec = model_family.model_specs[0]
         self._model_uid = model_uid
         self._model_path = model_path
-        self._quantization = quantization
+        # ``quantization`` is optional at launch time; fall back to the one
+        # resolved by ``match_rerank`` so GGUF file names render correctly.
+        self._quantization = quantization or self._model_spec.quantization
         self._device = device
         self._use_fp16 = use_fp16
-        self._model = None
+        self._model: Any = None
         self._counter = 0
+        self._last_gc_time: Optional[float] = None
         self._kwargs = kwargs
         if model_family.type == "unknown":
             model_family.type = self._auto_detect_type(model_path)
+
+    def _clean_cache_if_needed(self) -> None:
+        # Count inference groups, rather than requests split from their results.
+        self._counter += 1
+        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
+            logger.debug("Empty rerank cache.")
+            now = time.monotonic()
+            if (
+                self._last_gc_time is None
+                or now - self._last_gc_time >= RERANK_GC_INTERVAL
+            ):
+                gc.collect()
+                self._last_gc_time = time.monotonic()
+            empty_cache()
 
     @classmethod
     @abstractmethod
@@ -174,7 +214,9 @@ class RerankModel:
     def _get_tokenizer(model_path):
         from transformers import AutoTokenizer
 
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE
+        )
         return tokenizer
 
     @staticmethod
@@ -183,8 +225,11 @@ class RerankModel:
         Therefore, we only use this method for unknown model types."""
 
         type_mapper = {
+            "LlamaTokenizer": "LLM-based layerwise",
             "LlamaTokenizerFast": "LLM-based layerwise",
+            "GemmaTokenizer": "LLM-based",
             "GemmaTokenizerFast": "LLM-based",
+            "XLMRobertaTokenizer": "normal",
             "XLMRobertaTokenizerFast": "normal",
         }
 
@@ -203,8 +248,8 @@ class RerankModel:
     @abstractmethod
     def rerank(
         self,
-        documents: List[str],
-        query: str,
+        documents: List[Any],
+        query: Any,
         top_n: Optional[int],
         max_chunks_per_doc: Optional[int],
         return_documents: Optional[bool],
@@ -235,8 +280,13 @@ def create_rerank_model_instance(
 
     if model_engine is None:
         # unlike LLM and for compatibility,
-        # we use sentence_transformers as the default engine for all models
-        model_engine = "sentence_transformers"
+        # we use sentence_transformers as the default engine for all models,
+        # except GGUF specs which can only run on llama.cpp.
+        model_engine = (
+            "llama.cpp"
+            if model_family.model_specs[0].model_format == "ggufv2"
+            else "sentence_transformers"
+        )
 
     if enable_virtual_env is None:
         from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
@@ -258,6 +308,11 @@ def create_rerank_model_instance(
             model_format,
             quantization,
         )
+    # Record the engine actually used (including the default fallback above) on
+    # the family object so ``to_description`` can surface it to ``/v1/models``.
+    # Copy first to avoid mutating a possibly shared family object.
+    model_family = model_family.copy()
+    model_family.model_engine = model_engine
     model = rerank_cls(
         model_uid,
         model_path,

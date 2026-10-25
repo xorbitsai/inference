@@ -1,0 +1,196 @@
+name: Anthropic native regression
+
+on:
+  pull_request:
+    types: ['opened', 'reopened', 'synchronize', 'ready_for_review']
+    # Engine and Anthropic adapter changes require a manual dispatch for the
+    # matching engine; keep automatic GPU runs limited to this suite/workflow.
+    paths:
+      - '.github/workflows/anthropic-native.yaml'
+      - 'xinference/model/llm/tests/test_anthropic_engine_integration.py'
+  workflow_dispatch:
+    inputs:
+      engine:
+        description: Native engine to check
+        type: choice
+        options: [MLX, vLLM, SGLang]
+        required: true
+      text_model_path:
+        description: Optional cached Qwen3 text path (MLX 4B; others 1.7B)
+        type: string
+        default: ''
+      vision_model_path:
+        description: Optional cached vision path (MLX Qwen3.5-4B; others Qwen3-VL-2B-Instruct)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.engine || 'vLLM' }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    # PRs run one small vLLM smoke test on the existing GPU runner. The same
+    # suite can be dispatched for the other engines without adding PR jobs.
+    runs-on: ${{ inputs.engine == 'MLX' && 'macos-latest' || 'gpu-t4' }}
+    timeout-minutes: 90
+    env:
+      NO_WEB_UI: 1
+      XINFERENCE_TEST_ANTHROPIC_ENGINE: ${{ inputs.engine || 'vLLM' }}
+      XINFERENCE_TEST_CLAUDE_CODE: '1'
+      TEXT_MODEL_PATH: ${{ inputs.text_model_path }}
+      VISION_MODEL_PATH: ${{ inputs.vision_model_path }}
+      NATIVE_TEST_FILE: xinference/model/llm/tests/test_anthropic_engine_integration.py
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: '3.12'
+          activate-environment: native-test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Record runner hardware
+        run: |
+          if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = MLX ]; then
+            sysctl -n hw.memsize
+          else
+            nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
+          fi
+      - name: Install test and engine dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install -U pip 'setuptools<82'
+          case "$XINFERENCE_TEST_ANTHROPIC_ENGINE" in
+            MLX) engine_packages=('mlx-lm==0.31.3' 'mlx-vlm==0.4.4' 'llguidance>=1.7.0') ;;
+            vLLM) engine_packages=('vllm==0.19.0') ;;
+            SGLang) engine_packages=('sglang[srt]==0.5.21' ninja 'cuda-toolkit[nvcc,cccl]==13.0.3.0') ;;
+          esac
+          python -m pip install -e '.[dev]' 'anthropic>=0.84' pillow \
+            'qwen-vl-utils!=0.0.9' qwen_omni_utils audioread "${engine_packages[@]}"
+          if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = SGLang ]; then
+            # These dense, single-GPU models do not use DeepEP. Its optional
+            # package tries to initialize JIT without a CUDA toolkit on T4 CI.
+            python -m pip uninstall -y sgl-deep-ep
+            # FlashInfer RMSNorm uses JIT even with Triton attention. Keep the
+            # compiler/headers matched and expose the wheel's toolkit layout.
+            cuda_home="$(python -c 'import nvidia.cu13; print(next(iter(nvidia.cu13.__path__)))')"
+            test -x "$cuda_home/bin/nvcc"
+            test -f "$cuda_home/include/cuda_runtime.h"
+            ln -sfn lib "$cuda_home/lib64"
+            ln -sfn libcudart.so.13 "$cuda_home/lib/libcudart.so"
+            "$cuda_home/bin/nvcc" --version
+            echo "CUDA_HOME=$cuda_home" >> "$GITHUB_ENV"
+            echo "$cuda_home/bin" >> "$GITHUB_PATH"
+          fi
+          npm install -g '@anthropic-ai/claude-code@2.1.81'
+          python -m pip freeze > native-packages.txt
+          claude --version >> native-packages.txt
+      - name: Configure small models
+        run: |
+          python - <<'PY'
+          import json, os
+          engine = os.environ["XINFERENCE_TEST_ANTHROPIC_ENGINE"]
+          configs = {
+              "TEXT": {"model_name": "qwen3", "model_size_in_billions": "1_7"},
+              "VISION": {"model_name": "Qwen3-VL-Instruct", "model_size_in_billions": 2},
+          }
+          if engine == "MLX":
+              # Cover both the LM and VLM implementations with 4-bit models.
+              # Models are loaded sequentially.
+              configs["TEXT"]["model_size_in_billions"] = 4
+              configs["VISION"] = {"model_name": "qwen3.5", "model_size_in_billions": 4}
+          with open(os.environ["GITHUB_ENV"], "a") as output:
+              for profile, config in configs.items():
+                  config.update(model_format="mlx" if engine == "MLX" else "pytorch",
+                                quantization="4bit" if engine == "MLX" else "none",
+                                reasoning_content=profile == "TEXT" or engine == "MLX")
+                  if engine != "MLX":
+                      config["dtype"] = "float16"
+                  if engine == "vLLM":
+                      config.update(max_model_len=8192, limit_mm_per_prompt={},
+                                    attention_config={"backend": "TRITON_ATTN"})
+                      if profile == "VISION":
+                          config.update(limit_mm_per_prompt={"image": 2, "video": 0},
+                                        mm_processor_kwargs={"max_pixels": 65536})
+                  else:
+                      config["context_length"] = 8192
+                  if engine == "MLX" and profile == "TEXT":
+                      config["cache_limit_gb"] = 1
+                  if engine == "SGLang":
+                      config.update(attention_backend="triton", sampling_backend="pytorch")
+                  if os.environ[profile + "_MODEL_PATH"]:
+                      config["model_path"] = os.environ[profile + "_MODEL_PATH"]
+                  output.write(profile + "_MODEL_CONFIG=" + json.dumps(config) + "\n")
+          PY
+      - name: Run native text API and Claude Code regressions
+        id: text
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          export XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG="$TEXT_MODEL_CONFIG"
+          text_tests=(
+            "$NATIVE_TEST_FILE::test_structured_schema_is_enforced"
+            "$NATIVE_TEST_FILE::test_thinking_budget"
+            "$NATIVE_TEST_FILE::test_counting_and_unsupported_controls"
+            "$NATIVE_TEST_FILE::test_text_model_rejects_images"
+            "$NATIVE_TEST_FILE::test_stop_sequences"
+            "$NATIVE_TEST_FILE::test_openai_path"
+            "$NATIVE_TEST_FILE::test_claude_code[0]"
+          )
+          text_tests=("$NATIVE_TEST_FILE::test_thinking_replay_and_tool_loop" "${text_tests[@]}")
+          if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = MLX ]; then
+            text_tests+=("$NATIVE_TEST_FILE::test_mlx_cache_breakpoints")
+          fi
+          pytest --timeout=600 -s -vv \
+            --junitxml=native-text.xml --basetemp=native-text \
+            "${text_tests[@]}" 2>&1 | tee native-text.log
+      - name: Run native vision API and Claude Code regressions
+        id: vision
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          export XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG="$VISION_MODEL_CONFIG"
+          vision_tests=(
+            "$NATIVE_TEST_FILE::test_structured_schema_is_enforced"
+            "$NATIVE_TEST_FILE::test_images"
+            "$NATIVE_TEST_FILE::test_image_limits"
+            "$NATIVE_TEST_FILE::test_counting_and_unsupported_controls"
+            "$NATIVE_TEST_FILE::test_claude_code[1]"
+            "$NATIVE_TEST_FILE::test_claude_code[2]"
+          )
+          if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = MLX ]; then
+            vision_tests=("$NATIVE_TEST_FILE::test_thinking_replay_and_tool_loop" "${vision_tests[@]}")
+            vision_tests+=("$NATIVE_TEST_FILE::test_thinking_budget")
+            vision_tests+=("$NATIVE_TEST_FILE::test_mlx_cache_breakpoints")
+          fi
+          pytest --timeout=600 -s -vv \
+            --junitxml=native-vision.xml --basetemp=native-vision \
+            "${vision_tests[@]}" 2>&1 | tee native-vision.log
+      - name: Check native regression results
+        if: always()
+        env:
+          TEXT_OUTCOME: ${{ steps.text.outcome }}
+          VISION_OUTCOME: ${{ steps.vision.outcome }}
+        run: |
+          printf 'Text: %s\nVision: %s\n' "$TEXT_OUTCOME" "$VISION_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          test "$TEXT_OUTCOME" = success && test "$VISION_OUTCOME" = success
+      - name: Upload results and runtime versions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anthropic-native-${{ inputs.engine || 'vLLM' }}
+          path: |
+            native-*.xml
+            native-packages.txt
+            native-*.log
+            native-text/**/claude.jsonl
+            native-vision/**/claude.jsonl
+          if-no-files-found: ignore

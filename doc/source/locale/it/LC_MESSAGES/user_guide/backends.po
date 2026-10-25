@@ -1,0 +1,766 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version:  Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: it\n"
+"Language-Team: it <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/user_guide/backends.rst:5
+msgid "Backends"
+msgstr "Motore di inferenza"
+
+#: ../../source/user_guide/backends.rst:7
+msgid ""
+"Xinference supports multiple backends for different models. After the "
+"user specifies the model, xinference will automatically select the "
+"appropriate backend."
+msgstr ""
+"Xinference supporta diversi motori di inferenza per modelli differenti. "
+"Dopo che l'utente ha selezionato un modello, Xinference sceglierà "
+"automaticamente il motore appropriato."
+
+#: ../../source/user_guide/backends.rst:11
+msgid "llama.cpp"
+msgstr "llama.cpp"
+
+#: ../../source/user_guide/backends.rst:13
+msgid ""
+"Xinference now supports `xllamacpp "
+"<https://github.com/xorbitsai/xllamacpp>`_ which developed by Xinference "
+"team to run llama.cpp backend. `llama.cpp` is developed based on the "
+"tensor library `ggml`, supporting inference of the LLaMA series models "
+"and their variants."
+msgstr ""
+"Xinference attualmente supporta `xllamacpp "
+"<https://github.com/xorbitsai/xllamacpp>`_ sviluppato dal team di "
+"Xinference come backend per l'esecuzione di llama.cpp. `llama.cpp` è "
+"sviluppato sulla base della libreria tensoriale `ggml` e supporta "
+"l'inferenza dei modelli della serie LLaMA e delle loro varianti."
+
+#: ../../source/user_guide/backends.rst:20
+msgid ""
+"Since Xinference v1.5.0, ``xllamacpp`` becomes default option for "
+"llama.cpp, and ``llama-cpp-python`` is deprecated. Since Xinference "
+"v1.6.0, ``llama-cpp-python`` has been removed."
+msgstr ""
+"A partire da Xinference v1.5.0, ``xllamacpp`` è diventata l'opzione "
+"predefinita per llama.cpp, e ``llama-cpp-python`` è stato deprecato; a "
+"partire da Xinference v1.6.0, ``llama-cpp-python`` è stato rimosso."
+
+#: ../../source/user_guide/backends.rst:25
+msgid "Automatic GPU wheel selection"
+msgstr "Selezione automatica del wheel GPU"
+
+#: ../../source/user_guide/backends.rst:29
+msgid ""
+"When per-model virtual environments are enabled and a usable NVIDIA GPU "
+"is present, Xinference automatically installs the ``xllamacpp`` wheel "
+"matching the detected CUDA line. CUDA 12.8 and later in the 12.x line use"
+" the ``cu128`` wheel index, while CUDA 13.x uses the ``cu132`` wheel "
+"index. CPU-only hosts and unsupported CUDA versions keep the default CPU "
+"wheel from PyPI. No separate ``xllamacpp`` GPU installation command is "
+"required for this launch path."
+msgstr "Quando gli ambienti virtuali per modello sono abilitati ed è presente una GPU NVIDIA utilizzabile, Xinference installa automaticamente il wheel ``xllamacpp`` corrispondente alla linea CUDA rilevata. CUDA 12.8 e versioni successive della serie 12.x usano l’indice wheel ``cu128``, mentre CUDA 13.x usa l’indice ``cu132``. Gli host con sola CPU e le versioni CUDA non supportate continuano a usare il wheel CPU predefinito da PyPI. Per questo percorso di avvio non è necessario un comando separato di installazione GPU di ``xllamacpp``."
+
+#: ../../source/user_guide/backends.rst:37
+msgid ""
+"For all configurable llama.cpp parameters, please refer to the definition"
+" of the ``common_params`` structure in ``llama.cpp`` `common.h "
+"<https://github.com/ggml-org/llama.cpp/blob/master/common/common.h>`_"
+msgstr ""
+"Fare riferimento alla definizione della struttura ``common_params`` in "
+"``common.h <https://github.com/ggml-"
+"org/llama.cpp/blob/master/common/common.h>`_ di ``llama.cpp`` per "
+"impostare i parametri."
+
+#: ../../source/user_guide/backends.rst:39
+msgid ""
+"There may be some nested parameters. For example, ``sampling.top_k``. "
+"Just use the ``.`` to separate nested parameters."
+msgstr ""
+"Possono esserci parametri annidati su più livelli. Ad esempio, "
+"``sampling.top_k``. Utilizzare ``.`` per separare i parametri annidati."
+
+#: ../../source/user_guide/backends.rst:41
+msgid "Here is an example of setting nested sampling parameters in WebUI:"
+msgstr ""
+"Ecco un esempio di impostazione dei parametri di campionamento annidato "
+"nella WebUI:"
+
+#: ../../source/user_guide/backends.rst:48
+msgid "Auto NGL"
+msgstr "NGL automatico"
+
+#: ../../source/user_guide/backends.rst:50
+msgid ""
+"Auto GPU layers estimation is enabled since v1.6.1 when ``n-gpu-layers`` "
+"is not specified (default is -1)."
+msgstr ""
+"A partire dalla v1.6.1, se n-gpu-layers non viene specificato (valore "
+"predefinito -1), la stima del numero di layer GPU viene attivata "
+"automaticamente."
+
+#: ../../source/user_guide/backends.rst:53
+msgid ""
+"This feature automatically detects the number of GPU layers (NGL) for the"
+" llama.cpp backend. Please be aware that this is not an accurate "
+"calculation. Therefore, the ``-ngl`` result might not be the most "
+"optimized, and there is still a chance of encountering an out-of-memory "
+"error."
+msgstr ""
+"Questa funzionalità può impostare automaticamente il numero di layer GPU "
+"(NGL) per il backend llama.cpp. Si noti che non si tratta di un calcolo "
+"preciso, quindi il risultato di ``-ngl`` potrebbe non essere ottimale ed "
+"è ancora possibile incontrare errori di memoria GPU insufficiente."
+
+#: ../../source/user_guide/backends.rst:57
+msgid ""
+"Currently, there is no official implementation for auto ngl. Please refer"
+" to the following issues for more information:"
+msgstr ""
+"Al momento NGL automatico non ha supporto ufficiale. Fare riferimento al "
+"seguente issue per maggiori dettagli:"
+
+#: ../../source/user_guide/backends.rst:59
+msgid "https://github.com/ggml-org/llama.cpp/issues/13860"
+msgstr "https://github.com/ggml-org/llama.cpp/issues/13860"
+
+#: ../../source/user_guide/backends.rst:60
+msgid "https://github.com/ggml-org/llama.cpp/pull/6502"
+msgstr "https://github.com/ggml-org/llama.cpp/pull/6502"
+
+#: ../../source/user_guide/backends.rst:62
+msgid ""
+"Our implementation is based on the Ollama auto ngl, but there are some "
+"differences:"
+msgstr ""
+"La nostra implementazione si basa sull'NGL automatico di Ollama, ma "
+"presenta alcune differenze:"
+
+#: ../../source/user_guide/backends.rst:64
+msgid ""
+"We utilize device information detected by `xllamacpp "
+"<https://github.com/xorbitsai/xllamacpp>`_."
+msgstr ""
+"Utilizziamo le informazioni del dispositivo fornite da `xllamacpp "
+"<https://github.com/xorbitsai/xllamacpp>`_."
+
+#: ../../source/user_guide/backends.rst:65
+msgid ""
+"We have removed support for less popular architectures, these "
+"architectures will use the default calculation."
+msgstr ""
+"Abbiamo rimosso il supporto per alcune architetture poco comuni, per le "
+"quali veniva utilizzata la logica di calcolo predefinita."
+
+#: ../../source/user_guide/backends.rst:66
+msgid ""
+"We fall back to offloading all the layers to the GPU if the auto ngl "
+"fails."
+msgstr "Se il NGL automatico fallisce, proviamo a caricare tutto sulla GPU."
+
+#: ../../source/user_guide/backends.rst:67
+msgid ""
+"We do not support multimodal projectors embedded into the model GGUF, as "
+"this is a very experimental feature."
+msgstr ""
+"Non supportiamo l'incorporazione del proiettore multimodale all'interno "
+"del modello GGUF, poiché questo formato di modello è ancora in fase "
+"sperimentale."
+
+#: ../../source/user_guide/backends.rst:71
+msgid "Common Issues"
+msgstr "Domande Frequenti"
+
+#: ../../source/user_guide/backends.rst:73
+#, python-brace-format
+msgid ""
+"**Server error: {'code': 500, 'message': 'failed to process image', "
+"'type': 'server_error'}**"
+msgstr ""
+"**Server error: {'code': 500, 'message': 'failed to process image', "
+"'type': 'server_error'}**"
+
+#: ../../source/user_guide/backends.rst:75
+#: ../../source/user_guide/backends.rst:99
+msgid "The error logs from server:"
+msgstr "Log del server:"
+
+#: ../../source/user_guide/backends.rst:90
+msgid ""
+"This could be caused by running out of memory. You can try reducing "
+"memory usage by decreasing ``n_ctx``."
+msgstr ""
+"Possibilmente causato da memoria insufficiente. Puoi provare a ridurre "
+"``n_ctx`` per risolvere."
+
+#: ../../source/user_guide/backends.rst:92
+#, python-brace-format
+msgid ""
+"**Server error: {'code': 400, 'message': 'the request exceeds the "
+"available context size. try increasing the context size or enable context"
+" shift', 'type': 'invalid_request_error'}**"
+msgstr ""
+"**Server error: {'code': 400, 'message': 'the request exceeds the "
+"available context size. try increasing the context size or enable context"
+" shift', 'type': 'invalid_request_error'}**"
+
+#: ../../source/user_guide/backends.rst:94
+msgid ""
+"If you are using the multimodal feature, the ``ctx_shift`` is disabled by"
+" default. Please increase the context size by either increasing ``n_ctx``"
+" or reducing ``n_parallel``."
+msgstr ""
+"Se stai utilizzando la funzionalità multimodale, ``ctx_shift`` verrà "
+"disattivato per impostazione predefinita. Prova ad aumentare ``n_ctx`` o "
+"ridurre ``n_parallel`` per incrementare la dimensione del contesto per "
+"ogni slot."
+
+#: ../../source/user_guide/backends.rst:97
+#, python-brace-format
+msgid ""
+"**Server error: {'code': 500, 'message': 'Input prompt is too big "
+"compared to KV size. Please try increasing KV size.', 'type': "
+"'server_error'}**"
+msgstr ""
+"**Server error: {'code': 500, 'message': 'Input prompt is too big "
+"compared to KV size. Please try increasing KV size.', 'type': "
+"'server_error'}**"
+
+#: ../../source/user_guide/backends.rst:109
+msgid ""
+"This could be caused by the KV cache allocation failure. You can try to "
+"reduce the context size by either reducing ``n_ctx`` or increasing "
+"``n_parallel``, or loading a partial model onto the GPU by adjusting "
+"``n_gpu_layers``. Be aware that if you are handling inference requests "
+"serially, increasing ``n_parallel`` can't improve the latency or "
+"throughput."
+msgstr ""
+"Potrebbe essere causato dal fallimento della creazione della cache KV. "
+"Puoi risolvere riducendo ``n_ctx``, aumentando ``n_parallel`` o regolando"
+" il parametro ``n_gpu_layers`` per caricare parte del modello sulla GPU. "
+"Nota che se gestisci solo richieste di inferenza seriale, aumentare "
+"``n_parallel`` non porterà miglioramenti delle prestazioni."
+
+#: ../../source/user_guide/backends.rst:114
+msgid "transformers"
+msgstr "transformers"
+
+#: ../../source/user_guide/backends.rst:115
+msgid ""
+"Transformers supports the inference of most state-of-art models. It is "
+"the default backend for models in PyTorch format."
+msgstr ""
+"Transformers supporta la stragrande maggioranza dei modelli di nuova "
+"uscita. È il motore predefinito utilizzato per i modelli in formato "
+"Pytorch."
+
+#: ../../source/user_guide/backends.rst:120
+msgid "vLLM"
+msgstr "vLLM"
+
+#: ../../source/user_guide/backends.rst:121
+msgid "vLLM is a fast and easy-to-use library for LLM inference and serving."
+msgstr ""
+"vLLM è un motore di inferenza per modelli linguistici di grandi "
+"dimensioni molto efficiente e facile da usare."
+
+#: ../../source/user_guide/backends.rst:123
+msgid "vLLM is fast with:"
+msgstr "vLLM ha le seguenti caratteristiche:"
+
+#: ../../source/user_guide/backends.rst:125
+msgid "State-of-the-art serving throughput"
+msgstr "Latenza di inferenza leader"
+
+#: ../../source/user_guide/backends.rst:126
+msgid "Efficient management of attention key and value memory with PagedAttention"
+msgstr ""
+"Usare PagedAttention per gestire in modo efficiente la memoria delle "
+"chiavi e dei valori dell'attenzione"
+
+#: ../../source/user_guide/backends.rst:127
+msgid "Continuous batching of incoming requests"
+msgstr "Elaborazione in batch continua delle richieste in arrivo"
+
+#: ../../source/user_guide/backends.rst:128
+msgid "Optimized CUDA kernels"
+msgstr "Kernel CUDA ottimizzati"
+
+#: ../../source/user_guide/backends.rst:130
+msgid ""
+"When the following conditions are met, Xinference will choose vLLM as the"
+" inference engine:"
+msgstr ""
+"Quando vengono soddisfatte le seguenti condizioni, Xinference seleziona "
+"automaticamente vLLM come motore di inferenza:"
+
+#: ../../source/user_guide/backends.rst:132
+msgid ""
+"The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or "
+"``bnb``."
+msgstr ""
+"Il formato del modello è ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8``"
+" oppure ``bnb``."
+
+#: ../../source/user_guide/backends.rst:133
+msgid "When the model format is ``pytorch``, the quantization is ``none``."
+msgstr ""
+"Quando il formato del modello è ``pytorch``, l'opzione di quantizzazione "
+"deve essere ``none``."
+
+#: ../../source/user_guide/backends.rst:134
+msgid "When the model format is ``awq``, the quantization is ``Int4``."
+msgstr ""
+"Quando il formato del modello è ``awq``, l'opzione di quantizzazione deve"
+" essere ``Int4``."
+
+#: ../../source/user_guide/backends.rst:135
+msgid ""
+"When the model format is ``gptq``, the quantization is ``Int3``, ``Int4``"
+" or ``Int8``."
+msgstr ""
+"Quando il formato del modello è ``gptq``, le opzioni di quantizzazione "
+"devono essere ``Int3``, ``Int4`` o ``Int8``."
+
+#: ../../source/user_guide/backends.rst:136
+msgid "The system is Linux and has at least one CUDA device"
+msgstr ""
+"Il sistema operativo è Linux e dispone di almeno un dispositivo che "
+"supporta CUDA."
+
+#: ../../source/user_guide/backends.rst:137
+msgid ""
+"The model family (for custom models) / model name (for builtin models) is"
+" within the list of models supported by vLLM"
+msgstr ""
+"I campi ``model_family`` dei modelli personalizzati e ``model_name`` dei "
+"modelli integrati sono elencati nell'elenco di supporto di vLLM."
+
+#: ../../source/user_guide/backends.rst:139
+msgid "Currently, supported model includes:"
+msgstr "Attualmente, i modelli supportati includono:"
+
+#: ../../source/user_guide/backends.rst:143
+msgid ""
+"``code-llama``, ``code-llama-instruct``, ``code-llama-python``, "
+"``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-"
+"instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, "
+"``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, "
+"``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, "
+"``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``wizardcoder-"
+"python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
+"``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``"
+msgstr ""
+"``code-llama``, ``code-llama-instruct``, ``code-llama-python``, "
+"``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-"
+"instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, "
+"``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, "
+"``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, "
+"``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``wizardcoder-"
+"python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
+"``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``"
+
+#: ../../source/user_guide/backends.rst:144
+msgid ""
+"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``,"
+" ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
+"instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``"
+msgstr ""
+"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``,"
+" ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
+"instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``"
+
+#: ../../source/user_guide/backends.rst:145
+msgid ""
+"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1"
+"-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, "
+"``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+"``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, "
+"``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-"
+"32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-"
+"or1-preview``, ``vibethinker``, ``XiYanSQL-QwenCoder-2504``"
+msgstr ""
+"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1"
+"-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, "
+"``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+"``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, "
+"``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-"
+"32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-"
+"or1-preview``, ``vibethinker``, ``XiYanSQL-QwenCoder-2504``"
+
+#: ../../source/user_guide/backends.rst:146
+msgid "``llama-3.2-vision``, ``llama-3.2-vision-instruct``"
+msgstr "``llama-3.2-vision``, ``llama-3.2-vision-instruct``"
+
+#: ../../source/user_guide/backends.rst:147
+msgid "``baichuan-2``, ``baichuan-2-chat``"
+msgstr "``baichuan-2``, ``baichuan-2-chat``"
+
+#: ../../source/user_guide/backends.rst:148
+msgid "``InternLM2ForCausalLM``"
+msgstr "``InternLM2ForCausalLM``"
+
+#: ../../source/user_guide/backends.rst:149
+msgid "``qwen-chat``"
+msgstr "``qwen-chat``"
+
+#: ../../source/user_guide/backends.rst:150
+msgid ""
+"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, "
+"``mixtral-v0.1``"
+msgstr ""
+"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, "
+"``mixtral-v0.1``"
+
+#: ../../source/user_guide/backends.rst:151
+msgid "``cogagent``"
+msgstr "``cogagent``"
+
+#: ../../source/user_guide/backends.rst:152
+msgid "``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``"
+msgstr "``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``"
+
+#: ../../source/user_guide/backends.rst:153
+msgid "``codegeex4``, ``glm-4v``"
+msgstr "``codegeex4``, ``glm-4v``"
+
+#: ../../source/user_guide/backends.rst:154
+msgid "``seallm_v2.5``"
+msgstr "``seallm_v2.5``"
+
+#: ../../source/user_guide/backends.rst:155
+msgid "``orion-chat``"
+msgstr "``orion-chat``"
+
+#: ../../source/user_guide/backends.rst:156
+msgid "``qwen1.5-moe-chat``, ``qwen2-moe-instruct``"
+msgstr "``qwen1.5-moe-chat``, ``qwen2-moe-instruct``"
+
+#: ../../source/user_guide/backends.rst:157
+msgid "``CohereForCausalLM``"
+msgstr "``CohereForCausalLM``"
+
+#: ../../source/user_guide/backends.rst:158
+msgid ""
+"``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, "
+"``deepseek-vl2``"
+msgstr ""
+"``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, "
+"``deepseek-vl2``"
+
+#: ../../source/user_guide/backends.rst:159
+msgid ""
+"``deepseek-prover-v2``, ``deepseek-r1``, ``deepseek-r1-0528``, "
+"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, ``moonlight-"
+"16b-a3b-instruct``"
+msgstr ""
+"``deepseek-prover-v2``, ``deepseek-r1``, ``deepseek-r1-0528``, "
+"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, ``moonlight-"
+"16b-a3b-instruct``"
+
+#: ../../source/user_guide/backends.rst:160
+msgid "``deepseek-r1-0528-qwen3``, ``qwen3``"
+msgstr "``deepseek-r1-0528-qwen3``, ``qwen3``"
+
+#: ../../source/user_guide/backends.rst:161
+msgid "``minicpm3-4b``"
+msgstr "``minicpm3-4b``"
+
+#: ../../source/user_guide/backends.rst:162
+msgid "``internlm3-instruct``"
+msgstr "``internlm3-instruct``"
+
+#: ../../source/user_guide/backends.rst:163
+msgid "``gemma-3-1b-it``"
+msgstr "``gemma-3-1b-it``"
+
+#: ../../source/user_guide/backends.rst:164
+msgid "``glm4-0414``"
+msgstr "``glm4-0414``"
+
+#: ../../source/user_guide/backends.rst:165
+msgid ""
+"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-"
+"fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
+msgstr ""
+"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-"
+"fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
+
+#: ../../source/user_guide/backends.rst:166
+msgid "``Ernie4.5``"
+msgstr "``Ernie4.5``"
+
+#: ../../source/user_guide/backends.rst:167
+msgid "``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``"
+msgstr "``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``"
+
+#: ../../source/user_guide/backends.rst:168
+msgid "``glm-4.5``, ``GLM-4.6``, ``GLM-4.7``"
+msgstr "``glm-4.5``, ``GLM-4.6``, ``GLM-4.7``"
+
+#: ../../source/user_guide/backends.rst:169
+msgid "``gpt-oss``"
+msgstr "``gpt-oss``"
+
+#: ../../source/user_guide/backends.rst:170
+msgid "``seed-oss``"
+msgstr "``seed-oss``"
+
+#: ../../source/user_guide/backends.rst:171
+msgid "``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``"
+msgstr "``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``"
+
+#: ../../source/user_guide/backends.rst:172
+msgid "``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``"
+msgstr "``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``"
+
+#: ../../source/user_guide/backends.rst:173
+msgid "``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``"
+msgstr "``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``"
+
+#: ../../source/user_guide/backends.rst:174
+msgid "``GLM-4.7-Flash``"
+msgstr "``GLM-4.7-Flash``"
+
+#: ../../source/user_guide/backends.rst:175
+msgid "``glm-5``, ``glm-5.1``"
+msgstr "``glm-5``, ``glm-5.1``"
+
+#: ../../source/user_guide/backends.rst:176
+msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
+msgstr "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
+
+#: ../../source/user_guide/backends.rst:179
+msgid ""
+"Besides LLMs, vLLM can also serve embedding models. Model families whose "
+"names start with ``bge``, ``gte``, ``text2vec``, ``m3e``, ``Qwen3``, or "
+"``bce`` can be launched with ``--model-engine vllm`` — see "
+":ref:`Embeddings <embed>`."
+msgstr ""
+"Oltre agli LLM, vLLM può servire anche modelli di embedding. Le famiglie "
+"di modelli i cui nomi iniziano con ``bge``, ``gte``, ``text2vec``, "
+"``m3e``, ``Qwen3`` o ``bce`` possono essere avviate con ``--model-engine "
+"vllm`` — vedere :ref:`Embeddings <embed>`."
+
+#: ../../source/user_guide/backends.rst:187
+msgid "SGLang"
+msgstr "SGLang"
+
+#: ../../source/user_guide/backends.rst:188
+msgid ""
+"`SGLang <https://github.com/sgl-project/sglang>`_ has a high-performance "
+"inference runtime with RadixAttention. It significantly accelerates the "
+"execution of complex LLM programs by automatic KV cache reuse across "
+"multiple calls. And it also supports other common techniques like "
+"continuous batching and tensor parallelism."
+msgstr ""
+"`SGLang <https://github.com/sgl-project/sglang>`_ è dotato di un runtime "
+"di inferenza ad alte prestazioni basato su RadixAttention. Accelera "
+"significativamente l'esecuzione di programmi LLM complessi riutilizzando "
+"automaticamente la cache KV tra più chiamate. Supporta inoltre altre "
+"tecniche di inferenza comuni, come il batch continuo e l'elaborazione "
+"parallela dei tensori."
+
+#: ../../source/user_guide/backends.rst:195
+msgid "MLX"
+msgstr "MLX"
+
+#: ../../source/user_guide/backends.rst:196
+msgid ""
+"`MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ "
+"provides efficient runtime to run LLM on Apple silicon. It's recommended "
+"to use for Mac users when running on Apple silicon if the model has MLX "
+"format support."
+msgstr ""
+"`MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ "
+"fornisce un modo per eseguire LLM in modo efficiente sui chip Apple "
+"Silicon. Quando il modello è disponibile in formato MLX, si consiglia "
+"agli utenti Mac con chip Apple Silicon di utilizzare il motore MLX."
+
+#~ msgid ""
+#~ "``code-llama``, ``code-llama-instruct``, "
+#~ "``code-llama-python``, ``deepseek``, "
+#~ "``deepseek-chat``, ``deepseek-coder``, "
+#~ "``deepseek-coder-instruct``, ``deepseek-r1-distill-"
+#~ "llama``, ``gorilla-openfunctions-v2``, "
+#~ "``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``,"
+#~ " ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, "
+#~ "``llama-3.1-instruct``, ``llama-3.3-instruct``, ``tiny-"
+#~ "llama``, ``wizardcoder-python-v1.0``, "
+#~ "``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, "
+#~ "``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-"
+#~ "200k``, ``Yi-chat``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``,"
+#~ " ``deepseek-r1-distill-qwen``, ``DianJin-R1``, "
+#~ "``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, "
+#~ "``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+#~ "``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-"
+#~ "instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-"
+#~ "1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-"
+#~ "32B-Preview``, ``seallms-v3``, ``skywork-"
+#~ "or1``, ``skywork-or1-preview``, ``XiYanSQL-"
+#~ "QwenCoder-2504``"
+#~ msgstr ""
+
+#~ msgid "``glm-4.5``"
+#~ msgstr ""
+
+#~ msgid "``MiniMax-M2``"
+#~ msgstr ""
+
+msgid "vLLM can also serve as the engine for some text-to-image models (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see :ref:`image engines <image>`. This requires the vLLM-Omni add-on with a vLLM of the same major.minor version, e.g. ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``."
+msgstr "vLLM supporta anche alcuni modelli da testo a immagine (come ``Qwen-Image`` e ``Z-Image-Turbo``) su Linux con GPU NVIDIA; vedere :ref:`motori per immagini <image>`. Sono necessari vLLM-Omni e vLLM con la stessa versione principale e secondaria: ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``."
+
+msgid "Besides LLMs, SGLang can also serve as the engine for some text-to-image models (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see :ref:`image engines <image>`. This requires SGLang with diffusion support: ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``."
+msgstr "SGLang supporta anche alcuni modelli da testo a immagine (come ``Qwen-Image`` e ``Z-Image-Turbo``) su Linux con GPU NVIDIA; vedere :ref:`motori per immagini <image>`. È necessario SGLang con supporto diffusion: ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``."
+
+#: ../glm53-doc-check/user_guide/backends.rst:178
+msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+
+#: ../../source/user_guide/backends.rst:339
+msgid "TRT-LLM"
+msgstr "TRT-LLM"
+
+#: ../../source/user_guide/backends.rst:342
+msgid ""
+"The TRT-LLM backend uses the Python LLM API inside the model process. It "
+"requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. Model support "
+"follows the text architectures implemented by that version, including "
+"Qwen2/2.5, Qwen3 (dense, MoE and Next), Llama, Mistral/Mixtral, Gemma3, "
+"Phi3, DeepSeek, GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, "
+"SeedOSS and Starcoder2. Fine-tuned and custom models use the same "
+"architecture matching."
+msgstr ""
+"Il backend TRT-LLM usa l’API Python LLM nel processo del modello. Richiede "
+"Linux, GPU NVIDIA CUDA e ``tensorrt-llm==1.2.1``. Il supporto segue le "
+"architetture testuali implementate in questa versione, tra cui Qwen2/2.5, "
+"Qwen3 (dense, MoE, Next), Llama, Mistral/Mixtral, Gemma3, Phi3, DeepSeek, "
+"GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, SeedOSS, "
+"Starcoder2. I modelli adattati e personalizzati usano la stessa selezione "
+"per architettura."
+
+#: ../../source/user_guide/backends.rst:344
+msgid ""
+"The example launches two independent replicas with a shared 512 MiB Xavier "
+"CPU cache. Each replica uses one GPU. Install TRT-LLM in a compatible CUDA "
+"environment and set ``enable_virtual_env=False``, or use a per-model virtual"
+" environment with matching dependencies. Each replica currently requires "
+"TP=PP=CP=1, with TRT's worker running directly in the Xinference model "
+"process. Qwen3 weights and KV pages use BF16."
+msgstr ""
+"L’esempio avvia due repliche indipendenti con una cache CPU Xavier condivisa"
+" da 512 MiB. Ogni replica usa una GPU. Installare TRT-LLM in un ambiente "
+"CUDA compatibile e impostare ``enable_virtual_env=False``, oppure usare un "
+"ambiente virtuale per modello con dipendenze compatibili. Ogni replica "
+"richiede attualmente TP=PP=CP=1, con il worker TRT eseguito direttamente nel"
+" processo del modello Xinference. I pesi Qwen3 e le pagine KV usano BF16."
+
+#: ../../source/user_guide/backends.rst:366
+msgid ""
+"Xavier publishes complete 64-token BF16 KV pages and restores matching "
+"prefixes in another replica through actor RPC. Partial pages and the final "
+"prompt token are computed locally. The shared cache uses bounded storage and"
+" LRU eviction; transfers currently use synchronous CPU staging."
+msgstr ""
+"Xavier pubblica pagine KV BF16 complete da 64 token e ripristina i prefissi "
+"corrispondenti in un’altra replica tramite RPC degli attori. Le pagine "
+"parziali e l’ultimo token del prompt vengono calcolati localmente. La cache "
+"condivisa ha capacità limitata ed espulsione LRU; i trasferimenti usano "
+"attualmente uno staging CPU sincrono."
+
+#: ../../source/user_guide/backends.rst:370
+msgid ""
+"The shared cache actor reports ``imported_pages`` after copies into the "
+"destination KV pool complete. Use this counter to verify cross-instance "
+"imports. Measure latency and throughput for your workload; transfer costs "
+"can exceed the saved prefill computation."
+msgstr ""
+"L’attore della cache condivisa riporta ``imported_pages`` dopo il "
+"completamento delle copie nel pool KV di destinazione. Usare questo "
+"contatore per verificare le importazioni tra istanze. Misurare latenza e "
+"throughput per il proprio carico; il costo del trasferimento può superare il"
+" calcolo di prefill risparmiato."
+
+#: ../../source/user_guide/backends.rst:373
+msgid ""
+"For same-engine P/D, set explicit prefill/decode roles in ``replica_config``"
+" as described in :ref:`user_guide_pd_separation`. The default "
+"``transfer_backend_type=\"xavier\"`` uses NIXL to transfer KV pages directly"
+" between GPUs. Set ``transfer_backend_type=\"nixl\"`` for TRT's native "
+"context/generation protocol and NIXL transport; do not also set "
+"``enable_xavier=True``. Both paths support generation, chat, streaming and "
+"cancellation through the same Xinference API."
+msgstr ""
+"Per P/D con lo stesso motore, impostare ruoli prefill/decode espliciti in "
+"``replica_config`` come descritto in :ref:`user_guide_pd_separation`. Il "
+"valore predefinito ``transfer_backend_type=\"xavier\"`` trasferisce le "
+"pagine KV direttamente tra GPU tramite NIXL. Impostare "
+"``transfer_backend_type=\"nixl\"`` per il protocollo context/generation "
+"nativo di TRT e il trasporto NIXL; non impostare anche "
+"``enable_xavier=True``. Entrambi i percorsi supportano generazione, chat, "
+"streaming e annullamento tramite la stessa API Xinference."
+
+#: ../../source/user_guide/backends.rst:14
+msgid ""
+"For speculative decoding methods and launch options, see "
+":ref:`speculative_decoding`."
+msgstr ""
+"Per metodi e opzioni di avvio della decodifica speculativa, consultare "
+":ref:`speculative_decoding`."
+
+#: ../../source/user_guide/backends.rst:263
+msgid ""
+"Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, "
+"and disabled chunked prefill and overlap scheduling. Quantization, hybrid "
+"attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` "
+"are not supported in these configurations. Ordinary replicas support "
+":ref:`speculative_decoding` with NGram or Draft/Target. For supported cross-"
+"engine P/D combinations, see :ref:`user_guide_pd_separation`."
+msgstr ""
+"La cache condivisa e P/D con lo stesso motore richiedono TP=PP=CP=1, pesi e "
+"KV BF16, prefill a blocchi e pianificazione sovrapposta disabilitati. Queste"
+" configurazioni non supportano quantizzazione, attenzione ibrida, input "
+"multimodali, LoRA, decodifica speculativa o ``cache_salt``. Le repliche "
+"ordinarie supportano :ref:`speculative_decoding` con NGram o Draft/Target. "
+"Per le combinazioni P/D tra motori, consultare "
+":ref:`user_guide_pd_separation`."
+
+#: ../../source/user_guide/backends.rst:239
+msgid ""
+"Ordinary replicas accept ``pytorch``, ``fp8`` and ``fp4`` checkpoints, with "
+"quantization inferred from the checkpoint configuration. This includes "
+"compatible ModelOpt exports and native FP8 block-scaled or MXFP4 weights. "
+"Use ModelOpt exports for AWQ; generic Hugging Face AWQ/GPTQ, bitsandbytes, "
+"GGUF and MLX checkpoint formats are not supported by this PyTorch loader. "
+"TRT validates the checkpoint recipe and GPU kernel requirements at startup. "
+"Ordinary replicas accept ``dtype=\"auto\"``, ``\"float16\"`` or "
+"``\"bfloat16\"``; TP=PP=CP=1 still applies. Shared caching and P/D have the "
+"additional constraints below."
+msgstr ""
+"Le repliche ordinarie accettano checkpoint ``pytorch``, ``fp8`` e ``fp4`` e "
+"leggono la quantizzazione dalla loro configurazione. Sono inclusi gli export"
+" ModelOpt compatibili e i pesi nativi FP8 con scalatura a blocchi o MXFP4. "
+"Per AWQ usare gli export ModelOpt; questo caricatore PyTorch non supporta i "
+"formati generici Hugging Face AWQ/GPTQ, bitsandbytes, GGUF e MLX. TRT "
+"verifica la ricetta e i requisiti dei kernel GPU all’avvio. Le repliche "
+"ordinarie accettano ``dtype=\"auto\"``, ``\"float16\"`` o ``\"bfloat16\"``; "
+"resta richiesto TP=PP=CP=1. Cache condivisa e P/D hanno gli ulteriori "
+"vincoli riportati sotto."

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,16 @@
 # limitations under the License.
 
 import asyncio
+import json
 import logging
 import os
 import sys
 import time
 import warnings
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import click
+from click.core import ParameterSource
 from tqdm.auto import tqdm
 from xoscar.utils import get_next_port
 
@@ -38,8 +40,10 @@ from ..constants import (
     XINFERENCE_ENV_ENDPOINT,
     XINFERENCE_LOG_BACKUP_COUNT,
     XINFERENCE_LOG_MAX_BYTES,
+    XINFERENCE_LOG_RETENTION_DAYS,
+    XINFERENCE_SYSTEM_SETTINGS_PATH,
 )
-from ..isolation import Isolation
+from .service import service
 from .utils import (
     get_config_dict,
     get_log_file,
@@ -98,8 +102,10 @@ def start_local_cluster(
     port: int,
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
-    auth_config_file: Optional[str] = None,
 ):
+    from ..core.system_settings_store import initialize_system_settings
+
+    initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
     from .local import main
 
     dict_config = get_config_dict(
@@ -107,6 +113,9 @@ def start_local_cluster(
         get_log_file(f"local_{get_timestamp_ms()}"),
         XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
+        role="local",
+        address=f"{host}:{port}",
+        log_retention_days=XINFERENCE_LOG_RETENTION_DAYS,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     # refer to https://huggingface.co/docs/transformers/main_classes/logging
@@ -118,7 +127,6 @@ def start_local_cluster(
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
         logging_conf=dict_config,
-        auth_config_file=auth_config_file,
     )
 
 
@@ -210,18 +218,12 @@ def cli(
     type=int,
     help="Specify the port number for the Xinference metrics exporter server.",
 )
-@click.option(
-    "--auth-config",
-    type=str,
-    help="Specify the auth config json file.",
-)
 def local(
     log_level: str,
     host: str,
     port: int,
     metrics_exporter_host: Optional[str],
     metrics_exporter_port: Optional[int],
-    auth_config: Optional[str],
 ):
     if metrics_exporter_host is None:
         metrics_exporter_host = host
@@ -231,7 +233,6 @@ def local(
         port=port,
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
-        auth_config_file=auth_config,
     )
 
 
@@ -264,18 +265,15 @@ def local(
     type=int,
     help="Specify the port number for the Xinference supervisor.",
 )
-@click.option(
-    "--auth-config",
-    type=str,
-    help="Specify the auth config json file.",
-)
 def supervisor(
     log_level: str,
     host: str,
     port: int,
     supervisor_port: Optional[int],
-    auth_config: Optional[str],
 ):
+    from ..core.system_settings_store import initialize_system_settings
+
+    initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
     from ..deploy.supervisor import main
 
     dict_config = get_config_dict(
@@ -283,6 +281,9 @@ def supervisor(
         get_log_file(f"supervisor_{get_timestamp_ms()}"),
         XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
+        role="supervisor",
+        address=f"{host}:{supervisor_port or ''}",
+        log_retention_days=XINFERENCE_LOG_RETENTION_DAYS,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     set_envs("TRANSFORMERS_VERBOSITY", log_level.lower())
@@ -292,7 +293,6 @@ def supervisor(
         port=port,
         supervisor_port=supervisor_port,
         logging_conf=dict_config,
-        auth_config_file=auth_config,
     )
 
 
@@ -331,6 +331,11 @@ def supervisor(
     type=int,
     help="Specify the port number for the Xinference metrics exporter worker.",
 )
+@click.option(
+    "--replace-worker",
+    type=str,
+    help="Take over running model processes from this worker actor address on the same machine.",
+)
 def worker(
     log_level: str,
     endpoint: Optional[str],
@@ -338,7 +343,17 @@ def worker(
     worker_port: Optional[int],
     metrics_exporter_host: Optional[str],
     metrics_exporter_port: Optional[int],
+    replace_worker: Optional[str] = None,
 ):
+    from .worker_host import HOST_SOCKET
+
+    if replace_worker and os.name == "posix" and not os.environ.get(HOST_SOCKET):
+        raise click.UsageError(
+            "Use POST /v1/workers/{worker_address}/relaunch to replace a managed Worker and retain its service and model processes."
+        )
+    from ..core.system_settings_store import initialize_system_settings
+
+    initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
     from ..deploy.worker import main
 
     dict_config = get_config_dict(
@@ -346,6 +361,9 @@ def worker(
         get_log_file(f"worker_{get_timestamp_ms()}"),
         XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
+        role="worker",
+        address=f"{host}:{worker_port or ''}",
+        log_retention_days=XINFERENCE_LOG_RETENTION_DAYS,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     set_envs("TRANSFORMERS_VERBOSITY", log_level.lower())
@@ -356,6 +374,11 @@ def worker(
     supervisor_internal_addr = client._get_supervisor_internal_address()
 
     address = f"{host}:{worker_port or get_next_port()}"
+    worker_options: Dict[str, Any] = {}
+    if replace_worker:
+        worker_options["replace_worker"] = replace_worker
+    if os.name == "posix" and not os.environ.get(HOST_SOCKET):
+        worker_options["use_process_host"] = True
     main(
         address=address,
         supervisor_address=supervisor_internal_addr,
@@ -363,6 +386,7 @@ def worker(
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
         logging_conf=dict_config,
+        **worker_options,
     )
 
 
@@ -577,6 +601,25 @@ def list_model_registrations(
             ),
             file=sys.stderr,
         )
+    elif model_type in ("video", "world"):
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
+            table.append(
+                [
+                    model_type,
+                    model_family["model_name"],
+                    model_family["model_family"],
+                    model_family["model_ability"],
+                    registration["is_builtin"],
+                ]
+            )
+        print(
+            tabulate(
+                table, headers=["Type", "Name", "Family", "Ability", "Is-built-in"]
+            ),
+            file=sys.stderr,
+        )
     elif model_type == "flexible":
         for registration in registrations:
             model_name = registration["model_name"]
@@ -645,7 +688,8 @@ def list_cached_models(
     table_data = []
     for model in cached_models:
         row_data = [
-            str(value) if value is not None else "-" for value in model.values()
+            str(model[header]) if model.get(header) is not None else "-"
+            for header in headers
         ]
         table_data.append(row_data)
     print(tabulate(table_data, headers=headers, tablefmt="pretty"))
@@ -751,7 +795,7 @@ def remove_cache(
     "-en",
     type=str,
     default=None,
-    help="Specify the inference engine of the model when launching LLM.",
+    help="Specify the inference engine to use when launching the model.",
 )
 @click.option(
     "--model-uid",
@@ -782,11 +826,29 @@ def remove_cache(
     help="Define the quantization settings for the model.",
 )
 @click.option(
+    "--context-length",
+    type=click.IntRange(1, 2**31 - 1),
+    default=None,
+    help="Per-request input plus output token limit for LLMs; mapped to the selected engine. Unset keeps the engine default.",
+)
+@click.option(
     "--replica",
     "-r",
     default=1,
     type=int,
     help="The replica count of the model, default is 1.",
+)
+@click.option(
+    "--replica-config",
+    "--replica_config",
+    "replica_config",
+    default=None,
+    type=str,
+    help=(
+        "Per-replica worker and GPU placement as a non-empty JSON array. "
+        "For vLLM PD separation, set role to prefill or decode in each entry; "
+        "both roles are required. Replica count defaults to the array length."
+    ),
 )
 @click.option(
     "--n-worker",
@@ -859,7 +921,7 @@ def remove_cache(
     "--enable-thinking",
     "enable_thinking",
     flag_value=True,
-    default=None,
+    default=False,
     help="Enable thinking mode for hybrid reasoning LLMs (e.g., Qwen3).",
 )
 @click.option(
@@ -884,6 +946,12 @@ def remove_cache(
     help="Packages to install in the virtual environment. Can be used multiple times.",
 )
 @click.option(
+    "--virtual-env-find-link",
+    multiple=True,
+    type=click.Path(path_type=str),
+    help="Worker-local wheel directory for virtualenv installs. Can be used multiple times.",
+)
+@click.option(
     "--env",
     "-ev",
     multiple=True,
@@ -901,7 +969,9 @@ def model_launch(
     size_in_billions: str,
     model_format: str,
     quantization: str,
+    context_length: Optional[int],
     replica: int,
+    replica_config: Optional[str],
     n_worker: int,
     n_gpu: str,
     lora_modules: Optional[Tuple],
@@ -916,6 +986,7 @@ def model_launch(
     enable_thinking: Optional[bool],
     enable_virtual_env: Optional[bool],
     virtual_env_package: Optional[Tuple[str]],
+    virtual_env_find_link: Optional[Tuple[str]],
     env: Optional[Tuple[Tuple[str, str]]],
 ):
     kwargs = {}
@@ -936,10 +1007,68 @@ def model_launch(
             else:
                 raise ValueError("Cannot set both for --model-path and --model_path")
         kwargs[param_name] = param_value
+    if context_length is not None:
+        if "context_length" in kwargs and kwargs["context_length"] != context_length:
+            raise click.BadParameter(
+                "conflicts with --context_length", param_hint="--context-length"
+            )
+        kwargs["context_length"] = context_length
     print(f"Launch model name: {model_name} with kwargs: {kwargs}", file=sys.stderr)
 
     if model_type == "LLM" and model_engine is None:
         raise ValueError("--model-engine is required for LLM models.")
+
+    _replica_config: Optional[List[Dict]] = None
+    if replica_config is not None:
+        try:
+            parsed_replica_config = json.loads(replica_config)
+        except json.JSONDecodeError as e:
+            raise click.BadParameter(
+                f"must be valid JSON: {e.msg}", param_hint="--replica-config"
+            ) from e
+
+        if not isinstance(parsed_replica_config, list):
+            raise click.BadParameter(
+                "must be a JSON array", param_hint="--replica-config"
+            )
+        if not parsed_replica_config:
+            raise click.BadParameter(
+                "must be a non-empty JSON array", param_hint="--replica-config"
+            )
+
+        _replica_config = parsed_replica_config
+        from ..core.replica_config import ReplicaConfig, validate_pd_replica_configs
+
+        try:
+            configs = [ReplicaConfig.parse_obj(item) for item in _replica_config]
+            validate_pd_replica_configs(configs, model_engine, model_type)
+        except ValueError as e:
+            raise click.BadParameter(str(e), param_hint="--replica-config") from e
+
+        replica_source = ctx.get_parameter_source("replica")
+        if replica_source == ParameterSource.COMMANDLINE:
+            if replica != len(_replica_config):
+                raise click.BadParameter(
+                    "must match the number of entries in --replica-config",
+                    param_hint="--replica",
+                )
+        else:
+            replica = len(_replica_config)
+
+        conflicting_options = []
+        if worker_ip is not None:
+            conflicting_options.append("--worker-ip")
+        if gpu_idx is not None:
+            conflicting_options.append("--gpu-idx")
+        if n_gpu != "auto":
+            conflicting_options.append("--n-gpu")
+        if n_worker > 1:
+            conflicting_options.append("--n-worker")
+        if conflicting_options:
+            raise click.BadParameter(
+                "cannot be used together with " + ", ".join(conflicting_options),
+                param_hint="--replica-config",
+            )
 
     if n_gpu.lower() == "none":
         _n_gpu: Optional[Union[int, str]] = None
@@ -1011,6 +1140,7 @@ def model_launch(
         model_format=model_format,
         quantization=quantization,
         replica=replica,
+        replica_config=_replica_config,
         n_worker=n_worker,
         n_gpu=_n_gpu,
         peft_model_config=peft_model_config,
@@ -1021,6 +1151,9 @@ def model_launch(
         enable_thinking=enable_thinking,
         enable_virtual_env=enable_virtual_env,
         virtual_env_packages=list(virtual_env_package) if virtual_env_package else None,
+        virtual_env_find_links=(
+            list(virtual_env_find_link) if virtual_env_find_link else None
+        ),
         envs=dict(env) if env else None,
         **kwargs,
     )
@@ -1039,6 +1172,24 @@ def model_launch(
                 pbar.update(percent - pbar.n)
 
                 time.sleep(0.5)
+
+            # Terminated instances are dropped from the instance info, so an
+            # empty result means the launch was cancelled or torn down.
+            if not status:
+                raise click.ClickException(
+                    f"Model {model_uid} was terminated before it became ready."
+                )
+            if any(s["status"] != "READY" for s in status):
+                errors = [
+                    replica["error_message"].strip()
+                    for s in status
+                    for replica in s.get("replica_statuses") or []
+                    if replica.get("error_message")
+                ]
+                raise click.ClickException(
+                    f"Failed to launch model {model_uid}: "
+                    + ("; ".join(errors) or "see the server logs for details.")
+                )
 
             # setting to 100%
             pbar.update(pbar.total - pbar.n)
@@ -1085,6 +1236,7 @@ def model_list(endpoint: Optional[str], api_key: Optional[str]):
     rerank_table = []
     image_table = []
     audio_table = []
+    media_table = []
     models = client.list_models()
     for model_uid, model_spec in models.items():
         if model_spec["model_type"] == "LLM":
@@ -1120,9 +1272,18 @@ def model_list(endpoint: Optional[str], api_key: Optional[str]):
                     str(model_spec["controlnet"]),
                 ]
             )
-        elif model_spec["model_type"] == "audio":
+        elif model_spec["model_type"] in ("audio", "flexible"):
             audio_table.append(
                 [model_uid, model_spec["model_type"], model_spec["model_name"]]
+            )
+        elif model_spec["model_type"] in ("video", "world"):
+            media_table.append(
+                [
+                    model_uid,
+                    model_spec["model_type"],
+                    model_spec["model_name"],
+                    model_spec.get("model_engine", ""),
+                ]
             )
     if llm_table:
         print(
@@ -1180,6 +1341,11 @@ def model_list(endpoint: Optional[str], api_key: Optional[str]):
             ),
             file=sys.stderr,
         )
+    if media_table:
+        print(
+            tabulate(media_table, headers=["UID", "Type", "Name", "Engine"]),
+            file=sys.stderr,
+        )
         print()
 
 
@@ -1216,6 +1382,107 @@ def model_terminate(
     if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
     client.terminate_model(model_uid=model_uid)
+
+
+@cli.command(
+    "reload",
+    help="Reload parameters; engine changes require launch-time weight retention, "
+    "while standalone reasoning_content changes do not.",
+)
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+@click.option("--model-uid", required=True, type=str)
+@click.option(
+    "--model-config",
+    default="{}",
+    type=str,
+    help="JSON object of changed engine parameters.",
+)
+@click.option(
+    "--drain-timeout",
+    default=300.0,
+    type=click.FloatRange(min=0, min_open=True, max=3600),
+)
+@click.option("--api-key", "-ak", default=None, type=str)
+@click.option(
+    "--python-executable",
+    default=None,
+    type=str,
+    help="Installed Python executable on the model's Worker machine.",
+)
+def model_reload(
+    endpoint: Optional[str],
+    model_uid: str,
+    model_config: str,
+    drain_timeout: float,
+    api_key: Optional[str],
+    python_executable: Optional[str] = None,
+):
+    try:
+        config = json.loads(model_config)
+        if not isinstance(config, dict) or (not config and not python_executable):
+            raise ValueError("Expected a non-empty JSON object")
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint="--model-config") from exc
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
+    result = client.reload_model(
+        model_uid, config, drain_timeout, python_executable=python_executable
+    )
+    click.echo(json.dumps(result))
+
+
+@cli.command(
+    "relaunch-api",
+    help="Restart or upgrade the distributed API without restarting models.",
+)
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+@click.option(
+    "--python-executable",
+    default=None,
+    type=str,
+    help="Prepared Python executable on the Supervisor machine.",
+)
+@click.option("--request-id", default=None, type=str)
+@click.option("--api-key", "-ak", default=None, type=str)
+def api_relaunch(
+    endpoint: Optional[str],
+    python_executable: Optional[str],
+    request_id: Optional[str],
+    api_key: Optional[str],
+):
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
+    click.echo(json.dumps(client.relaunch_api(python_executable, request_id)))
+
+
+@cli.command(
+    "relaunch-supervisor",
+    help="Restart or upgrade the distributed Supervisor without restarting models.",
+)
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+@click.option(
+    "--python-executable",
+    default=None,
+    type=str,
+    help="Prepared Python executable on the Supervisor machine.",
+)
+@click.option("--request-id", default=None, type=str)
+@click.option("--api-key", "-ak", default=None, type=str)
+def supervisor_relaunch(
+    endpoint: Optional[str],
+    python_executable: Optional[str],
+    request_id: Optional[str],
+    api_key: Optional[str],
+):
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
+    click.echo(json.dumps(client.relaunch_supervisor(python_executable, request_id)))
 
 
 @cli.command("generate", help="Generate text using a running LLM.")
@@ -1285,22 +1552,18 @@ def model_generate(
                         print(choice["text"], end="", flush=True, file=sys.stdout)
                 print("", file=sys.stdout)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         coro = generate_internal()
 
-        if loop.is_running():
-            isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-            isolation.start()
-            isolation.call(coro)
-        else:
-            task = loop.create_task(coro)
-            try:
-                loop.run_until_complete(task)
-            except KeyboardInterrupt:
-                task.cancel()
-                loop.run_until_complete(task)
-                # avoid displaying exception-unhandled warnings
-                task.exception()
+        task = loop.create_task(coro)
+        try:
+            loop.run_until_complete(task)
+        except KeyboardInterrupt:
+            task.cancel()
+            loop.run_until_complete(task)
+            # avoid displaying exception-unhandled warnings
+            task.exception()
     else:
         restful_model = client.get_model(model_uid=model_uid)
         if not isinstance(
@@ -1400,22 +1663,18 @@ def model_chat(
                 print("", file=sys.stdout)
                 messages.append(dict(role="assistant", content=response_content))
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         coro = chat_internal()
 
-        if loop.is_running():
-            isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-            isolation.start()
-            isolation.call(coro)
-        else:
-            task = loop.create_task(coro)
-            try:
-                loop.run_until_complete(task)
-            except KeyboardInterrupt:
-                task.cancel()
-                loop.run_until_complete(task)
-                # avoid displaying exception-unhandled warnings
-                task.exception()
+        task = loop.create_task(coro)
+        try:
+            loop.run_until_complete(task)
+        except KeyboardInterrupt:
+            task.cancel()
+            loop.run_until_complete(task)
+            # avoid displaying exception-unhandled warnings
+            task.exception()
     else:
         restful_model = client.get_model(model_uid=model_uid)
         if not isinstance(restful_model, RESTfulChatModelHandle):
@@ -1706,14 +1965,17 @@ def cal_model_mem(
     from ..model.llm.llm_family import convert_model_size_to_float
     from ..model.llm.memory import estimate_llm_gpu_memory
 
-    mem_info = estimate_llm_gpu_memory(
-        model_size_in_billions=size_in_billions,
-        quantization=quantization,
-        context_length=context_length,
-        model_format=model_format,
-        model_name=model_name,
-        kv_cache_dtype=kv_cache_dtype,
-    )
+    try:
+        mem_info = estimate_llm_gpu_memory(
+            model_size_in_billions=size_in_billions,
+            quantization=quantization,
+            context_length=context_length,
+            model_format=model_format,
+            model_name=model_name,
+            kv_cache_dtype=kv_cache_dtype,
+        )
+    except (KeyError, ValueError, ArithmeticError, AssertionError) as exc:
+        raise click.ClickException(f"Memory estimate unavailable: {exc}") from exc
     if mem_info is None:
         print("The Specified model parameters is not match: `%s`" % model_name)
         os._exit(1)
@@ -1726,6 +1988,8 @@ def cal_model_mem(
     print("gpu mem usage:")
     print("  model mem: %d MB" % (mem_info.model_mem))
     print("  kv_cache: %d MB" % (mem_info.kv_cache_mem))
+    print("  recurrent state: %d MB" % (mem_info.recurrent_state_mem))
+    print("  retained prefix cache: %d MB" % (mem_info.prefix_cache_mem))
     print("  overhead: %d MB" % (mem_info.overhead))
     print("  active: %d MB" % (mem_info.activation_mem))
     print("  total: %d MB (%d GB)" % (mem_info.total, total_mem_g))
@@ -1775,6 +2039,9 @@ def stop_cluster(endpoint: str, api_key: Optional[str], check: bool):
         click.echo(f"Cluster stopped: {result}")
     except Exception as e:
         click.echo(e)
+
+
+cli.add_command(service)
 
 
 if __name__ == "__main__":

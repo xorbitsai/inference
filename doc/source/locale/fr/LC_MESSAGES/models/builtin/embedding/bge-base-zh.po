@@ -1,0 +1,63 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-01-03 15:51+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: fr\n"
+"Language-Team: fr <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/builtin/embedding/bge-base-zh.rst:5
+msgid "bge-base-zh"
+msgstr ""
+
+#: ../../source/models/builtin/embedding/bge-base-zh.rst:7
+msgid "**Model Name:** bge-base-zh"
+msgstr ""
+
+#: ../../source/models/builtin/embedding/bge-base-zh.rst:8
+msgid "**Languages:** zh"
+msgstr ""
+
+#: ../../source/models/builtin/embedding/bge-base-zh.rst:9
+msgid "**Abilities:** embed"
+msgstr ""
+
+#: ../../source/models/builtin/embedding/bge-base-zh.rst:12
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/embedding/bge-base-zh.rst:14
+msgid "**Dimensions:** 768"
+msgstr ""
+
+#: ../../source/models/builtin/embedding/bge-base-zh.rst:15
+msgid "**Max Tokens:** 512"
+msgstr ""
+
+#: ../../source/models/builtin/embedding/bge-base-zh.rst:16
+msgid "**Model ID:** BAAI/bge-base-zh"
+msgstr ""
+
+#: ../../source/models/builtin/embedding/bge-base-zh.rst:17
+msgid ""
+"**Model Hubs**: `Hugging Face <https://huggingface.co/BAAI/bge-base-"
+"zh>`_, `ModelScope <https://modelscope.cn/models/Xorbits/bge-base-zh>`_"
+msgstr ""
+
+#: ../../source/models/builtin/embedding/bge-base-zh.rst:19
+msgid "Execute the following command to launch the model::"
+msgstr ""
+

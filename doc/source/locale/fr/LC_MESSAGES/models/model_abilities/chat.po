@@ -1,0 +1,264 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-01 22:58+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: fr <LL@li.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/chat.rst:5
+msgid "Chat & Generate"
+msgstr "Chat & Génération"
+
+#: ../../source/models/model_abilities/chat.rst:7
+msgid "Learn how to chat with LLMs in Xinference."
+msgstr "Apprenez à discuter avec un LLM dans Xinference."
+
+#: ../../source/models/model_abilities/chat.rst:10
+msgid "Introduction"
+msgstr "Introduction"
+
+#: ../../source/models/model_abilities/chat.rst:12
+msgid ""
+"Models equipped with ``chat`` or ``generate`` abilities are frequently "
+"referred to as large language models (LLM) or text generation models. These "
+"models are designed to respond with text outputs to the inputs they receive,"
+" commonly known as \"prompts\". Typically, one can direct these models using"
+" specific instructions or by providing concrete examples illustrating how to"
+" accomplish a task."
+msgstr ""
+"Les modèles capables de `chat` ou de `generate` sont souvent appelés grands "
+"modèles de langage (LLM) ou modèles de génération de texte. Ces modèles sont"
+" conçus pour répondre sous forme de texte en fonction des entrées reçues, "
+"généralement appelées \"prompts\". En général, il est possible de guider ces"
+" modèles pour accomplir des tâches en leur fournissant des instructions "
+"spécifiques ou des exemples concrets."
+
+#: ../../source/models/model_abilities/chat.rst:17
+msgid ""
+"Models with ``generate`` capacities are typically pre-trained large language"
+" models. On the other hand, models equipped with ``chat`` capabilities are "
+"finely-tuned and aligned LLMs, optimized for dialogues use case. In most "
+"cases, models ending with \"chat\" (e.g. ``llama-2-chat``, ``qwen-chat``, "
+"etc) are identified as having ``chat`` capabilities."
+msgstr ""
+"Les modèles capables de la fonction ``generate`` sont généralement de grands"
+" modèles de langage pré-entraînés. En revanche, les modèles dotés de la "
+"fonction ``chat`` sont des LLM (Language Model) affinés et alignés, "
+"optimisés pour les scénarios de dialogue. Dans la plupart des cas, les "
+"modèles se terminant par « chat » (par exemple ``llama-2-chat``, ``qwen-"
+"chat``, etc.) possèdent la fonction ``chat``."
+
+#: ../../source/models/model_abilities/chat.rst:22
+msgid ""
+"The Chat API and Generate API offer two distinct approaches for interacting "
+"with LLMs:"
+msgstr ""
+"L'API Chat et l'API Generate offrent deux méthodes différentes d'interaction"
+" avec les LLMs :"
+
+#: ../../source/models/model_abilities/chat.rst:24
+msgid ""
+"The Chat API (like OpenAI's `Chat Completion API "
+"<https://platform.openai.com/docs/api-reference/chat/create>`__) can conduct"
+" multi-turn conversations."
+msgstr ""
+"API de Chat (similaire à l'`API de complétion de chat "
+"<https://platform.openai.com/docs/api-reference/chat/create>`__ d'OpenAI) "
+"permet des dialogues multi-tours."
+
+#: ../../source/models/model_abilities/chat.rst:27
+msgid ""
+"The Generate API (like OpenAI's legacy `Completions API "
+"<https://platform.openai.com/docs/api-reference/completions/create>`__) "
+"allows you to generate text based on a text prompt."
+msgstr ""
+"L'API de génération (similaire à l'`API Completions d'OpenAI "
+"<https://platform.openai.com/docs/api-reference/completions/create>`__) vous"
+" permet de générer du texte à partir d'une invite textuelle."
+
+#: ../../source/models/model_abilities/chat.rst:34
+msgid "MODEL ABILITY"
+msgstr "Capacité du modèle"
+
+#: ../../source/models/model_abilities/chat.rst:35
+msgid "API ENDPOINT"
+msgstr "Endpoint API"
+
+#: ../../source/models/model_abilities/chat.rst:36
+msgid "OpenAI-compatible ENDPOINT"
+msgstr "Point de terminaison compatible OpenAI"
+
+#: ../../source/models/model_abilities/chat.rst:38
+msgid "chat"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:39
+#: ../../source/models/model_abilities/chat.rst:56
+msgid "Chat API"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:40
+msgid "/v1/chat/completions"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:42
+msgid "generate"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:43
+#: ../../source/models/model_abilities/chat.rst:222
+msgid "Generate API"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:44
+msgid "/v1/completions"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:48
+msgid "Supported models"
+msgstr "Liste des modèles pris en charge"
+
+#: ../../source/models/model_abilities/chat.rst:50
+msgid ""
+"You can examine the abilities of all the :ref:`builtin LLM models in "
+"Xinference <models_llm_index>`."
+msgstr ""
+"Vous pouvez consulter toutes les capacités des modèles LLM intégrés dans "
+":ref:`Xinference <models_llm_index>`."
+
+#: ../../source/models/model_abilities/chat.rst:53
+msgid "Chat Models"
+msgstr "Modèle de chat"
+
+#: ../../source/models/model_abilities/chat.rst:58
+msgid ""
+"The Chat API mimics OpenAI's `Chat Completion API "
+"<https://platform.openai.com/docs/api-reference/chat/create>`__. We can try "
+"Chat API out either via cURL, OpenAI Client, or Xinference's python client:"
+msgstr ""
+"Essayez d'utiliser cURL, OpenAI Client ou le client Python de Xinference "
+"pour tester l'API Chat :"
+
+#: ../../source/models/model_abilities/chat.rst:145
+msgid "You can find more examples of Chat API in the tutorial notebook:"
+msgstr ""
+"Vous pouvez trouver plus d'exemples de l'API Chat dans le carnet de "
+"tutoriel."
+
+#: ../../source/models/model_abilities/chat.rst:149
+msgid "Gradio Chat"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:152
+msgid ""
+"Learn from an example of utilizing the Chat API with the Xinference Python "
+"client."
+msgstr ""
+"Exemple d'apprentissage de l'utilisation de l'API Chat de Xinference et du "
+"client Python."
+
+#: ../../source/models/model_abilities/chat.rst:155
+msgid "Hybrid Thinking Models"
+msgstr "Modèle de réflexion hybride"
+
+#: ../../source/models/model_abilities/chat.rst:157
+msgid ""
+"Some LLMs are marked as ``hybrid`` and can run with or without thinking "
+"mode."
+msgstr ""
+"Certains grands modèles de langage sont étiquetés comme ``hybrides``, avec "
+"la possibilité de choisir d'activer ou non le mode réflexion."
+
+#: ../../source/models/model_abilities/chat.rst:159
+msgid "Request-level ``enable_thinking`` is added in v1.17.0"
+msgstr ""
+"Le commutateur ``enable_thinking`` au niveau de la requête est pris en "
+"charge dans la v1.17.0."
+
+#: ../../source/models/model_abilities/chat.rst:162
+msgid ""
+"Xinference exposes a request-level ``enable_thinking`` switch that works "
+"across different model templates (e.g. Qwen uses ``enable_thinking`` while "
+"some DeepSeek templates use ``thinking``)."
+msgstr ""
+"Xinference fournit un interrupteur ``enable_thinking`` au niveau de la "
+"requête, qui s'applique à différents modèles de templates (par exemple, Qwen"
+" utilise ``enable_thinking``, tandis que certains templates DeepSeek "
+"utilisent ``thinking``)."
+
+#: ../../source/models/model_abilities/chat.rst:165
+msgid "Usage examples:"
+msgstr "Exemple d'utilisation :"
+
+#: ../../source/models/model_abilities/chat.rst:219
+msgid "Generate Models"
+msgstr "Modèle génératif"
+
+#: ../../source/models/model_abilities/chat.rst:224
+msgid ""
+"The Generate API mirrors OpenAI's legacy `Completions API "
+"<https://platform.openai.com/docs/api-reference/completions/create>`__."
+msgstr ""
+"Generate API reproduit l'`API Completions "
+"<https://platform.openai.com/docs/api-reference/completions/create>`__ "
+"d'OpenAI."
+
+#: ../../source/models/model_abilities/chat.rst:226
+msgid ""
+"The difference between the Generate API and the Chat API lies primarily in "
+"the form of input. Opposite to the Chat API that takes a list of messages as"
+" input, the Generate API accepts a freeform text string named \"prompt\"."
+msgstr ""
+"La principale différence entre l'API Generate et l'API Chat réside dans le "
+"format d'entrée. L'API Chat accepte une liste de messages en entrée, tandis "
+"que l'API Generate accepte une chaîne de texte libre appelée prompt en "
+"entrée."
+
+#: ../../source/models/model_abilities/chat.rst:297
+msgid "FAQ"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:300
+msgid ""
+"Does Xinference's LLM provide integration methods for LangChain or "
+"LlamaIndex?"
+msgstr ""
+"Xinference fournit-il des méthodes d’intégration avec LangChain ou "
+"LlamaIndex pour son LLM ?"
+
+#: ../../source/models/model_abilities/chat.rst:302
+msgid ""
+"Yes, you can refer to the related sections in their respective official "
+"Xinference documentation. Here are the links:"
+msgstr ""
+"Oui, vous pouvez vous référer aux sections correspondantes de la "
+"documentation officielle Xinference pour chacun d'eux. Voici les liens :"
+
+#: ../../source/models/model_abilities/chat.rst:304
+msgid ""
+"`LangChain LLMs: Xinference "
+"<https://python.langchain.com/docs/integrations/llms/xinference>`__"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:306
+msgid ""
+"`LlamaIndex LLM integrations: Xinference  "
+"<https://docs.llamaindex.ai/en/stable/examples/llm/xinference_local_deployment.html>`__"
+msgstr ""
+
+#~ msgid "Quickstart"
+#~ msgstr "Démarrage rapide"

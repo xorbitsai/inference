@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 import torch
 
 from .....model.utils import select_device
+from ....utils import allow_trust_remote_code
 from ...core import chat_context_var
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image, parse_messages
@@ -68,7 +69,8 @@ class CogAgentChatModel(PytorchMultiModalModel):
         from transformers import AutoTokenizer
 
         self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True
+            self.model_path,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
         )
 
     def load_multimodal_model(self):
@@ -78,7 +80,7 @@ class CogAgentChatModel(PytorchMultiModalModel):
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype=torch.bfloat16,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             device_map=self._device,
             **kwargs,
         ).eval()

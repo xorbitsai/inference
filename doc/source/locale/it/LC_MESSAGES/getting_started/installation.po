@@ -1,0 +1,922 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version:  Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: it\n"
+"Language-Team: it <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/getting_started/installation.rst:5
+msgid "Installation"
+msgstr "Installazione"
+
+#: ../../source/getting_started/installation.rst:6
+msgid ""
+"Install the base Xinference package with ``pip`` on Linux, Windows, or "
+"macOS::"
+msgstr ""
+"Installa il pacchetto base di Xinference con ``pip`` su Linux, Windows o "
+"macOS::"
+
+#: ../../source/getting_started/installation.rst:10
+msgid ""
+"Model virtual environments install supported engine dependencies on demand. "
+"To install a backend manually, use its corresponding extra; see "
+":ref:`inference_backend`."
+msgstr ""
+"Gli ambienti virtuali dei modelli installano le dipendenze dei motori "
+"supportati quando necessario. Per installare manualmente un backend, usa il "
+"relativo extra; vedi :ref:`inference_backend`."
+
+#: ../../source/getting_started/installation.rst:127
+msgid ""
+"These dependencies can change versions of shared packages such as "
+"``transformers``. Install only the backend dependencies you need in an "
+"isolated environment."
+msgstr ""
+"Queste dipendenze possono modificare le versioni di pacchetti condivisi come"
+" ``transformers``. Installa solo le dipendenze del backend necessarie in un "
+"ambiente isolato."
+
+#: ../../source/getting_started/installation.rst:41
+msgid "Transformers Backend"
+msgstr "Motore Transformers"
+
+#: ../../source/getting_started/installation.rst:46
+msgid "Notes:"
+msgstr "Nota:"
+
+#: ../../source/getting_started/installation.rst:48
+msgid ""
+"The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / "
+"``bnb`` / ``fp4`` formats."
+msgstr ""
+"Il motore Transformers supporta i formati ``pytorch`` / ``gptq`` / "
+"``awq`` / ``bnb`` / ``fp4``."
+
+#: ../../source/getting_started/installation.rst:54
+msgid "vLLM Backend"
+msgstr "Motore vLLM"
+
+#: ../../source/getting_started/installation.rst:55
+msgid ""
+"vLLM is a fast and easy-to-use library for LLM inference and serving. "
+"Xinference will choose vLLM as the backend to achieve better throughput "
+"when the following conditions are met:"
+msgstr ""
+"vLLM è un motore di inferenza per grandi modelli ad alte prestazioni che "
+"supporta un'alta concorrenza. Quando vengono soddisfatte le seguenti "
+"condizioni, Xinference seleziona automaticamente vllm come motore per "
+"ottenere una maggiore produttività:"
+
+#: ../../source/getting_started/installation.rst:57
+msgid ""
+"The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or "
+"``bnb``."
+msgstr ""
+"Il formato del modello è ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8``"
+" o ``bnb``."
+
+#: ../../source/getting_started/installation.rst:58
+msgid "When the model format is ``pytorch``, the quantization is ``none``."
+msgstr ""
+"Quando il formato del modello è ``pytorch``, l'opzione di quantizzazione "
+"deve essere ``none``."
+
+#: ../../source/getting_started/installation.rst:59
+msgid "When the model format is ``awq``, the quantization is ``Int4``."
+msgstr ""
+"Quando il formato del modello è ``awq``, l'opzione di quantizzazione deve"
+" essere ``Int4``."
+
+#: ../../source/getting_started/installation.rst:60
+msgid ""
+"When the model format is ``gptq``, the quantization is ``Int3``, ``Int4``"
+" or ``Int8``."
+msgstr ""
+"Quando il formato del modello è ``gptq``, l'opzione di quantizzazione "
+"deve essere ``Int3``, ``Int4`` o ``Int8``."
+
+#: ../../source/getting_started/installation.rst:61
+msgid "The system is Linux and has at least one CUDA device"
+msgstr ""
+"Il sistema operativo è Linux e dispone almeno di un dispositivo "
+"supportato da CUDA."
+
+#: ../../source/getting_started/installation.rst:62
+msgid ""
+"The model family (for custom models) / model name (for builtin models) is"
+" within the list of models supported by vLLM"
+msgstr ""
+"Il campo ``model_family`` dei modelli personalizzati e il campo "
+"``model_name`` dei modelli integrati si trovano nell'elenco dei supporti "
+"di vLLM."
+
+#: ../../source/getting_started/installation.rst:64
+msgid "Currently, supported models include:"
+msgstr "Attualmente, i modelli supportati includono:"
+
+#: ../../source/getting_started/installation.rst:68
+msgid ""
+"``code-llama``, ``code-llama-instruct``, ``code-llama-python``, "
+"``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-"
+"instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, "
+"``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, "
+"``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, "
+"``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``wizardcoder-"
+"python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
+"``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:69
+msgid ""
+"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``,"
+" ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
+"instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:70
+msgid ""
+"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1"
+"-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, "
+"``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+"``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, "
+"``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-"
+"32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-"
+"or1-preview``, ``vibethinker``, ``XiYanSQL-QwenCoder-2504``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:71
+msgid "``llama-3.2-vision``, ``llama-3.2-vision-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:72
+msgid "``baichuan-2``, ``baichuan-2-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:73
+msgid "``InternLM2ForCausalLM``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:74
+msgid "``qwen-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:75
+msgid ""
+"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, "
+"``mixtral-v0.1``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:76
+msgid "``cogagent``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:77
+msgid "``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:78
+msgid "``codegeex4``, ``glm-4v``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:79
+msgid "``seallm_v2.5``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:80
+msgid "``orion-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:81
+msgid "``qwen1.5-moe-chat``, ``qwen2-moe-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:82
+msgid "``CohereForCausalLM``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:83
+msgid ""
+"``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, "
+"``deepseek-vl2``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:84
+msgid ""
+"``deepseek-prover-v2``, ``deepseek-r1``, ``deepseek-r1-0528``, "
+"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, ``moonlight-"
+"16b-a3b-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:85
+msgid "``deepseek-r1-0528-qwen3``, ``qwen3``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:86
+msgid "``minicpm3-4b``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:87
+msgid "``internlm3-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:88
+msgid "``gemma-3-1b-it``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:89
+msgid "``glm4-0414``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:90
+msgid ""
+"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-"
+"fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:91
+msgid "``Ernie4.5``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:92
+msgid "``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:93
+msgid "``glm-4.5``, ``GLM-4.6``, ``GLM-4.7``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:94
+msgid "``gpt-oss``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:95
+msgid "``seed-oss``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:96
+msgid "``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:97
+msgid "``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:98
+msgid "``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:99
+msgid "``GLM-4.7-Flash``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:100
+msgid "``glm-5``, ``glm-5.1``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:101
+msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:117
+msgid "Llama.cpp Backend"
+msgstr "Motore Llama.cpp"
+
+#: ../../source/getting_started/installation.rst:118
+msgid ""
+"Xinference supports models in ``gguf`` format via ``xllamacpp``. "
+"`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by "
+"Xinference team, and is the sole backend for llama.cpp since v1.6.0."
+msgstr ""
+"Xinference supporta i modelli in formato gguf tramite xllamacpp. "
+"`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ è stato sviluppato "
+"dal team di Xinference ed è diventato l'unico backend di llama.cpp a "
+"partire dalla v1.6.0."
+
+#: ../../source/getting_started/installation.rst:124
+msgid ""
+"Since Xinference v1.5.0, ``llama-cpp-python`` is deprecated. Since "
+"Xinference v1.6.0, ``llama-cpp-python`` has been removed."
+msgstr ""
+"A partire da Xinference v1.5.0, ``llama-cpp-python`` è stato deprecato; a"
+" partire da Xinference v1.6.0, questo backend è stato rimosso."
+
+#: ../../source/getting_started/installation.rst:131
+msgid ""
+"With per-model virtual environments enabled, Xinference 3.0 automatically"
+" selects the matching ``xllamacpp`` GPU wheel for supported CUDA "
+"versions; see :ref:`user_guide_backends`. For a manual installation into "
+"the process environment, refer to https://github.com/xorbitsai/xllamacpp."
+msgstr "Con gli ambienti virtuali per modello abilitati, Xinference 3.0 seleziona automaticamente il wheel GPU ``xllamacpp`` corrispondente per le versioni CUDA supportate; consulta :ref:`user_guide_backends`. Per un’installazione manuale nell’ambiente del processo, consulta https://github.com/xorbitsai/xllamacpp."
+
+#: ../../source/getting_started/installation.rst:137
+msgid "SGLang Backend"
+msgstr "Motore SGLang"
+
+#: ../../source/getting_started/installation.rst:138
+msgid ""
+"SGLang has a high-performance inference runtime with RadixAttention. It "
+"significantly accelerates the execution of complex LLM programs by "
+"automatic KV cache reuse across multiple calls. And it also supports "
+"other common techniques like continuous batching and tensor parallelism."
+msgstr ""
+"SGLang dispone di un runtime di inferenza ad alte prestazioni basato su "
+"RadixAttention. Accelerando significativamente l'esecuzione di programmi "
+"LLM complessi tramite il riutilizzo automatico della cache KV tra più "
+"chiamate. Supporta inoltre altre tecniche di inferenza comuni, come il "
+"batch continuo e l'elaborazione parallela dei tensori."
+
+#: ../../source/getting_started/installation.rst:146
+msgid "MLX Backend"
+msgstr "Motore MLX"
+
+#: ../../source/getting_started/installation.rst:147
+msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
+msgstr ""
+"MLX-lm è utilizzato per fornire un'inferenza efficiente dei LLM sui chip "
+"Apple Silicon."
+
+#: ../../source/getting_started/installation.rst:156
+msgid "Other Platforms"
+msgstr "Altre piattaforme"
+
+#: ../../source/getting_started/installation.rst:158
+msgid ":ref:`Ascend NPU <installation_npu>`"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:6
+msgid "Install Xinference with ``pip`` on Linux, Windows, or macOS::"
+msgstr "Installare Xinference con ``pip`` su Linux, Windows o macOS::"
+
+#: ../../source/getting_started/installation.rst:11
+msgid "Automatic engine installation"
+msgstr "Installazione automatica dei motori"
+
+#: ../../source/getting_started/installation.rst:12
+msgid ""
+"Model virtual environments are enabled by default. When you launch a "
+"model, Xinference prepares a virtual environment for that model and engine"
+" and automatically installs the dependencies declared by its "
+"configuration. You do not need to install ``xinference[all]`` or an engine"
+" extra first."
+msgstr ""
+"Gli ambienti virtuali dei modelli sono abilitati per impostazione "
+"predefinita. All’avvio di un modello, Xinference prepara un ambiente "
+"virtuale per quel modello e il suo motore e installa automaticamente le "
+"dipendenze dichiarate nella configurazione. Non è necessario installare "
+"prima ``xinference[all]`` o un extra del motore."
+
+#: ../../source/getting_started/installation.rst:17
+msgid ""
+"This applies to engines such as Transformers, vLLM, SGLang, llama.cpp, and"
+" MLX. Choose a supported engine when launching the model; Xinference "
+"manages its Python dependencies. The engine's operating system, hardware, "
+"and driver requirements still apply."
+msgstr ""
+"Questo vale per motori come Transformers, vLLM, SGLang, llama.cpp e MLX. "
+"Scegliere un motore supportato all’avvio del modello; Xinference ne "
+"gestisce le dipendenze Python. I requisiti del motore relativi a sistema "
+"operativo, hardware e driver restano validi."
+
+#: ../../source/getting_started/installation.rst:22
+msgid ""
+"The first launch may take longer while packages are downloaded and "
+"installed. Later launches reuse the prepared environment when its "
+"dependencies are unchanged. The Worker needs access to the configured "
+"package indexes, or a prepared offline package source. See "
+":ref:`model_virtual_env` for dependency overrides and local wheel sources,"
+" and :ref:`using_docker_compose` for offline deployments."
+msgstr ""
+"Il primo avvio può richiedere più tempo per il download e l’installazione "
+"dei pacchetti. Gli avvii successivi riutilizzano l’ambiente preparato se "
+"le dipendenze non cambiano. Il Worker deve poter accedere agli indici dei "
+"pacchetti configurati o a una fonte di pacchetti offline preparata in "
+"anticipo. Consultare :ref:`model_virtual_env` per sovrascrivere le "
+"dipendenze e usare fonti locali di wheel, e :ref:`using_docker_compose` "
+"per i deployment offline."
+
+#: ../../source/getting_started/installation.rst:28
+msgid ""
+"The following sections describe the available engines. Manual installation"
+" is covered in :ref:`manual_backend_installation` for deployments that "
+"disable model virtual environments."
+msgstr ""
+"Le sezioni seguenti descrivono i motori disponibili. L’installazione "
+"manuale per i deployment che disabilitano gli ambienti virtuali dei "
+"modelli è descritta in :ref:`manual_backend_installation`."
+
+#: ../../source/getting_started/installation.rst:37
+msgid ""
+"PyTorch (transformers) supports the inference of most state-of-art models."
+" It is the default backend for models in PyTorch format."
+msgstr ""
+"PyTorch (transformers) supporta l’inferenza della maggior parte dei "
+"modelli più avanzati. È il backend predefinito per i modelli in formato "
+"PyTorch."
+
+#: ../../source/getting_started/installation.rst:42
+msgid ""
+"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. Use "
+":ref:`model_virtual_env` to override dependencies for a model when needed."
+msgstr ""
+"Il formato FP4 richiede ``transformers`` con supporto per "
+"``FPQuantConfig``. Consultare :ref:`model_virtual_env` per sovrascrivere "
+"le dipendenze di un modello quando necessario."
+
+#: ../../source/getting_started/installation.rst:101
+msgid ""
+"With model virtual environments enabled, Xinference installs the "
+"configured vLLM dependencies at launch. No separate vLLM or FlashInfer "
+"installation command is required for this path."
+msgstr ""
+"Con gli ambienti virtuali dei modelli abilitati, Xinference installa le "
+"dipendenze vLLM configurate all’avvio. Questo percorso non richiede un "
+"comando di installazione separato per vLLM o FlashInfer."
+
+#: ../../source/getting_started/installation.rst:127
+msgid ""
+"Select ``SGLang`` as the engine when launching a supported model. "
+"Xinference installs the configured SGLang dependencies in that model's "
+"virtual environment; you do not need to install ``xinference[sglang]`` "
+"separately."
+msgstr ""
+"Selezionare ``SGLang`` come motore all’avvio di un modello supportato. "
+"Xinference installa le dipendenze SGLang configurate nell’ambiente "
+"virtuale di quel modello; non è necessario installare "
+"``xinference[sglang]`` separatamente."
+
+#: ../../source/getting_started/installation.rst:136
+msgid ""
+"Xinference installs the configured MLX dependencies automatically when you"
+" launch a supported model with the MLX engine."
+msgstr ""
+"Xinference installa automaticamente le dipendenze MLX configurate quando "
+"si avvia un modello supportato con il motore MLX."
+
+#: ../../source/getting_started/installation.rst:140
+msgid "Optional components"
+msgstr "Componenti opzionali"
+
+#: ../../source/getting_started/installation.rst:144
+msgid ""
+"Token Router is an optional component for routing requests across model "
+"replicas. It is not required to install Xinference or launch models. If "
+"your deployment uses the Token Router Runtime or Router Agent, install the"
+" ``router`` extra in the environment where those processes run::"
+msgstr ""
+"Token Router è un componente opzionale per instradare le richieste tra "
+"repliche dei modelli. Non è necessario per installare Xinference o avviare"
+" i modelli. Se il deployment usa Token Router Runtime o Router Agent, "
+"installare l’extra ``router`` nell’ambiente in cui vengono eseguiti questi"
+" processi::"
+
+#: ../../source/getting_started/installation.rst:151
+msgid "When installing from a source checkout, use::"
+msgstr ""
+"Per l’installazione da una copia locale del codice sorgente, usare::"
+
+#: ../../source/getting_started/installation.rst:155
+msgid ""
+"Installing the package creates the ``xinference-router`` and ``xinference-"
+"router-agent`` commands. Installing the extra provides their dependencies;"
+" start the required processes separately."
+msgstr ""
+"L’installazione del pacchetto crea i comandi ``xinference-router`` e "
+"``xinference-router-agent``. L’installazione dell’extra fornisce le "
+"relative dipendenze; avviare separatamente i processi necessari."
+
+#: ../../source/getting_started/installation.rst:162
+msgid "Manual backend installation"
+msgstr "Installazione manuale dei backend"
+
+#: ../../source/getting_started/installation.rst:163
+msgid ""
+"If you disable model virtual environments with "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` or ``--disable-virtual-env`` at model "
+"launch, install the required backend dependencies in the Xinference Worker"
+" environment yourself. Engine extras such as ``transformers``, ``vllm``, "
+"``sglang``, ``llama_cpp``, and ``mlx`` remain available for this use case,"
+" for example:"
+msgstr ""
+"Se si disabilitano gli ambienti virtuali dei modelli con "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` o ``--disable-virtual-env`` all’avvio "
+"del modello, installare le dipendenze necessarie del backend nell’ambiente"
+" del Worker Xinference. Gli extra dei motori come ``transformers``, "
+"``vllm``, ``sglang``, ``llama_cpp`` e ``mlx`` restano disponibili per "
+"questo caso, ad esempio:"
+
+#: ../../source/getting_started/installation.rst:173
+msgid ""
+"Some hardware or quantization configurations require additional "
+"installation steps. Follow the selected backend's installation "
+"instructions for compatible packages and GPU support. Avoid installing "
+"unrelated engines together, since their dependencies may conflict."
+msgstr ""
+"Alcune configurazioni hardware o di quantizzazione richiedono ulteriori "
+"passaggi di installazione. Seguire le istruzioni del backend scelto per i "
+"pacchetti compatibili e il supporto GPU. Evitare di installare insieme "
+"motori non necessari, poiché le relative dipendenze possono entrare in "
+"conflitto."
+
+#: ../../source/getting_started/installation.rst:143
+msgid "Token Router"
+msgstr "Token Router"
+
+#~ msgid ""
+#~ "``code-llama``, ``code-llama-instruct``, "
+#~ "``code-llama-python``, ``deepseek``, "
+#~ "``deepseek-chat``, ``deepseek-coder``, "
+#~ "``deepseek-coder-instruct``, ``deepseek-r1-distill-"
+#~ "llama``, ``gorilla-openfunctions-v2``, "
+#~ "``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``,"
+#~ " ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, "
+#~ "``llama-3.1-instruct``, ``llama-3.3-instruct``, ``tiny-"
+#~ "llama``, ``wizardcoder-python-v1.0``, "
+#~ "``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, "
+#~ "``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-"
+#~ "200k``, ``Yi-chat``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``,"
+#~ " ``deepseek-r1-distill-qwen``, ``DianJin-R1``, "
+#~ "``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, "
+#~ "``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+#~ "``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-"
+#~ "instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-"
+#~ "1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-"
+#~ "32B-Preview``, ``seallms-v3``, ``skywork-"
+#~ "or1``, ``skywork-or1-preview``, ``XiYanSQL-"
+#~ "QwenCoder-2504``"
+#~ msgstr ""
+
+#~ msgid "``glm-4.5``"
+#~ msgstr ""
+
+#~ msgid "``MiniMax-M2``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "For more installation instructions for "
+#~ "``xllamacpp`` to enable GPU acceleration, "
+#~ "please refer to: "
+#~ "https://github.com/xorbitsai/xllamacpp"
+#~ msgstr ""
+#~ "Per ulteriori istruzioni di installazione "
+#~ "di ``xllamacpp`` per abilitare l'accelerazione"
+#~ " GPU, consultare: "
+#~ "https://github.com/xorbitsai/xllamacpp"
+
+#: ../../source/getting_started/installation.rst:10
+msgid "One-command installation"
+msgstr "Installazione con un solo comando"
+
+#: ../../source/getting_started/installation.rst:43
+msgid ""
+"The installer prepares uv, Python 3.12, and an isolated Xinference tool "
+"environment, then starts the local server in the foreground. Press Ctrl+C to"
+" stop it. On Linux and macOS::"
+msgstr ""
+"Il programma di installazione prepara uv, Python 3.12 e un ambiente "
+"Xinference isolato, quindi avvia il server locale in primo piano. Premere "
+"Ctrl+C per arrestarlo. Su Linux e macOS::"
+
+#: ../../source/getting_started/installation.rst:47
+msgid "On Windows, run this in PowerShell::"
+msgstr "Su Windows, eseguire questo comando in PowerShell::"
+
+#: ../../source/getting_started/installation.rst:51
+msgid ""
+"Set ``XINFERENCE_START=0`` to install without starting. Use "
+"``XINFERENCE_VERSION`` to pin a release, ``XINFERENCE_PYTHON`` to select "
+"Python, ``XINFERENCE_EXTRAS`` to preinstall backends, and "
+"``XINFERENCE_TOOL_DIR`` to change the uv tool store. ``XINFERENCE_HOME`` "
+"controls persistent model data; it is separate from the tool environment."
+msgstr ""
+"Impostare ``XINFERENCE_START=0`` per installare senza avviare. "
+"``XINFERENCE_VERSION`` fissa la versione, ``XINFERENCE_PYTHON`` seleziona "
+"Python, ``XINFERENCE_EXTRAS`` preinstalla i backend e "
+"``XINFERENCE_TOOL_DIR`` cambia l’archivio degli strumenti uv. "
+"``XINFERENCE_HOME`` controlla i dati persistenti dei modelli, separati "
+"dall’ambiente."
+
+#: ../../source/getting_started/installation.rst:53
+msgid ""
+"On Linux and Windows, ``XINFERENCE_BACKEND=auto`` selects PyTorch for the "
+"detected GPU driver or CPU. Override it with ``cpu``, ``cu128``, or another "
+"backend supported by uv. macOS uses its native PyTorch wheel. Recent PyTorch"
+" wheels require Apple Silicon; Intel Macs may resolve older dependencies or "
+"fail installation. Model virtual environments install engine dependencies on"
+" demand. Engine platform restrictions still apply, including Linux-only vLLM"
+" and Apple-Silicon-only MLX."
+msgstr ""
+"Su Linux e Windows, ``XINFERENCE_BACKEND=auto`` seleziona PyTorch per il "
+"driver GPU rilevato o per la CPU. Sostituirlo con ``cpu``, ``cu128`` o un "
+"altro backend supportato da uv. macOS usa il wheel PyTorch nativo. I wheel "
+"recenti richiedono Apple Silicon; sui Mac Intel la risoluzione può "
+"selezionare dipendenze precedenti o fallire. Gli ambienti dei modelli "
+"installano le dipendenze dei motori su richiesta. Restano valide le "
+"restrizioni di piattaforma, tra cui vLLM solo su Linux e MLX solo su Apple "
+"Silicon."
+
+#: ../../source/getting_started/installation.rst:55
+msgid ""
+"To run without a persistent tool installation, use ``uvx``. This requires "
+"uv; the first invocation downloads the Python environment and dependencies::"
+msgstr ""
+"Per eseguire senza installare permanentemente lo strumento, usare ``uvx``. È"
+" necessario uv; la prima invocazione scarica l’ambiente Python e le "
+"dipendenze::"
+
+#: ../../source/getting_started/installation.rst:59
+msgid ""
+"Use a recent uv supporting ``uv tool install --torch-backend`` (tested with "
+"uv 0.11.26). Services require a persistent installation; uvx environments "
+"can be removed by cache cleanup."
+msgstr ""
+"Usare una versione recente di uv che supporti ``uv tool install --torch-"
+"backend`` (testato con uv 0.11.26). I servizi richiedono un’installazione "
+"permanente; la pulizia della cache può rimuovere gli ambienti uvx."
+
+#: ../../source/getting_started/installation.rst:62
+msgid "System services"
+msgstr "Servizi di sistema"
+
+#: ../../source/getting_started/installation.rst:63
+msgid ""
+"After installing with pip, Conda, or uv, register and start a local service "
+"with::"
+msgstr ""
+"Dopo l’installazione con pip, Conda o uv, registrare e avviare un servizio "
+"locale con::"
+
+#: ../../source/getting_started/installation.rst:72
+msgid ""
+"Linux uses a systemd user service. To start it at boot without logging in, "
+"enable lingering for the account with ``loginctl enable-linger USER``. macOS"
+" uses a LaunchAgent that starts at login. For a systemd system service or "
+"macOS LaunchDaemon, use an elevated terminal, an absolute command path, and "
+"``--system`` before the action::"
+msgstr ""
+"Linux usa un servizio utente systemd. Per avviarlo all’accensione senza "
+"accesso, abilitare lingering con ``loginctl enable-linger USER``. macOS usa "
+"un LaunchAgent avviato all’accesso. Per un servizio systemd di sistema o un "
+"LaunchDaemon macOS, usare un terminale con privilegi elevati, un percorso "
+"assoluto al comando e ``--system`` prima dell’azione::"
+
+#: ../../source/getting_started/installation.rst:78
+msgid ""
+"Windows services currently require x86-64 Windows and an Administrator "
+"PowerShell terminal and run as LocalSystem. The installer downloads a "
+"pinned, checksum-verified WinSW wrapper. Service control files and the "
+"working directory use ``%ProgramFiles%\\Xinference\\service``. Use an "
+"administrator-controlled Python installation and model data because the "
+"service executes model code with its account's privileges. Service data "
+"defaults to ``%PROGRAMDATA%\\Xinference\\data``. Linux and macOS default to "
+"the runtime account's ``~/.xinference``. Override the data directory with "
+"``--home`` and the address with ``--host`` and ``--port`` on ``service "
+"install``."
+msgstr ""
+"I servizi Windows richiedono attualmente Windows x86-64 e un terminale "
+"PowerShell amministratore ed eseguono come LocalSystem. Il programma scarica"
+" un wrapper WinSW con versione fissata e checksum verificato. I file di "
+"controllo e la directory di lavoro usano "
+"``%ProgramFiles%\\Xinference\\service``. Usare un’installazione Python e "
+"dati dei modelli controllati dall’amministratore, poiché il servizio esegue "
+"codice dei modelli con i privilegi del proprio account. I dati del servizio "
+"usano per impostazione predefinita ``%PROGRAMDATA%\\Xinference\\data``. "
+"Linux e macOS usano ``~/.xinference`` dell’account di esecuzione. Sostituire"
+" la directory dei dati con ``--home`` e l’indirizzo con ``--host`` e "
+"``--port`` in ``service install``."
+
+#: ../../source/getting_started/installation.rst:80
+msgid ""
+"For one-command service installation, set ``XINFERENCE_SERVICE=user`` on "
+"Linux/macOS or ``XINFERENCE_SERVICE=system`` on any supported platform. "
+"System mode uses sudo on Linux/macOS after installing as your account, and "
+"requires an Administrator Windows terminal. ``XINFERENCE_START=0`` registers"
+" without starting. ``XINFERENCE_HOST`` and ``XINFERENCE_PORT`` default to "
+"``127.0.0.1`` and ``9997``. Service mode requires a Xinference release "
+"containing the service CLI::"
+msgstr ""
+"Per installare il servizio con un comando, impostare "
+"``XINFERENCE_SERVICE=user`` su Linux/macOS o ``XINFERENCE_SERVICE=system`` "
+"su qualsiasi piattaforma supportata. La modalità di sistema installa con il "
+"proprio account e poi registra il servizio con sudo su Linux/macOS; su "
+"Windows richiede un terminale amministratore. ``XINFERENCE_START=0`` "
+"registra senza avviare. ``XINFERENCE_HOST`` e ``XINFERENCE_PORT`` hanno "
+"valori predefiniti ``127.0.0.1`` e ``9997``. La modalità servizio richiede "
+"una versione Xinference che includa la CLI dei servizi::"
+
+#: ../../source/getting_started/installation.rst:86
+msgid ""
+"Services restart after failures. Starting waits for the cluster's "
+"``/status`` response; a failed readiness check stops a newly started "
+"service. Repeated installation reuses the same configuration. Stop and "
+"uninstall before changing the installation environment or service settings. "
+"Uninstall preserves model data and logs. This service interface manages "
+"single-machine local mode."
+msgstr ""
+"I servizi si riavviano dopo un errore. L’avvio attende la risposta "
+"``/status`` del cluster; se il controllo di disponibilità fallisce, arresta "
+"il servizio appena avviato. La reinstallazione riutilizza la configurazione."
+" Arrestare e disinstallare prima di cambiare ambiente o impostazioni. La "
+"disinstallazione conserva dati e log. Questa interfaccia gestisce la "
+"modalità locale su una singola macchina."
+
+#: getting_started/installation.rst:61
+msgid "Upgrading an installation"
+msgstr "Aggiornare un’installazione"
+
+#: getting_started/installation.rst:63
+msgid ""
+"Run the same one-command installer again to update to the latest stable "
+"release. Set ``XINFERENCE_VERSION`` each time to select a specific release, "
+"including a downgrade. Without this variable, a previously pinned "
+"installation also updates to the latest stable release. If the selected "
+"version, Python, extras, and PyTorch backend are unchanged, the installer "
+"keeps the existing environment and does not restart a running service."
+msgstr ""
+"Eseguire nuovamente lo stesso programma di installazione con un comando per "
+"aggiornare all’ultima versione stabile. Impostare ``XINFERENCE_VERSION`` "
+"ogni volta per selezionare una versione specifica, anche precedente. Senza "
+"questa variabile, anche un’installazione con versione fissata viene "
+"aggiornata all’ultima versione stabile. Se la versione selezionata, Python, "
+"gli extra e il backend PyTorch non cambiano, il programma mantiene "
+"l’ambiente esistente e non riavvia un servizio in esecuzione."
+
+#: getting_started/installation.rst:65
+msgid ""
+"The default ``XINFERENCE_SERVICE=auto`` detects an existing managed service "
+"for this tool environment. Upgrades preserve its service account, address, "
+"port, data directory, and registration. Python, extras, and the PyTorch "
+"backend are also retained unless explicitly overridden. Run as the original "
+"installation account and reuse any custom ``XINFERENCE_TOOL_DIR`` and "
+"``UV_TOOL_BIN_DIR``. Stop a foreground server before updating it."
+msgstr ""
+"Il valore predefinito ``XINFERENCE_SERVICE=auto`` rileva un servizio gestito"
+" esistente per questo ambiente di strumenti. Gli aggiornamenti mantengono "
+"l’account del servizio, l’indirizzo, la porta, la directory dei dati e la "
+"registrazione. Anche Python, gli extra e il backend PyTorch vengono "
+"mantenuti, salvo sostituzione esplicita. Eseguire con l’account di "
+"installazione originale e riutilizzare gli eventuali valori personalizzati "
+"di ``XINFERENCE_TOOL_DIR`` e ``UV_TOOL_BIN_DIR``. Arrestare un server in "
+"primo piano prima di aggiornarlo."
+
+#: getting_started/installation.rst:67
+msgid ""
+"During an upgrade, the installer downloads and checks the candidate "
+"environment before stopping a service. It then backs up the complete "
+"previous environment, switches versions, and waits for the service to become"
+" ready. If installation or service startup fails, it restores the previous "
+"environment and the service's original running or stopped state. Preparing "
+"the candidate and keeping the full backup require additional disk space. On "
+"a first installation, failed startup removes a newly registered service and "
+"keeps the installed package for retrying. Model data and caches are "
+"preserved; models that were running must be launched again after a service "
+"restart. Foreground startup does not perform a service readiness check or "
+"automatic startup rollback."
+msgstr ""
+"Durante un aggiornamento, il programma scarica e controlla l’ambiente "
+"candidato prima di arrestare un servizio. Quindi salva l’intero ambiente "
+"precedente, cambia versione e attende che il servizio sia pronto. Se "
+"l’installazione o l’avvio fallisce, ripristina l’ambiente precedente e lo "
+"stato originale del servizio, in esecuzione o arrestato. L’ambiente "
+"candidato e la copia completa richiedono spazio aggiuntivo su disco. Nella "
+"prima installazione, un avvio fallito rimuove il servizio appena registrato "
+"e conserva il pacchetto installato per riprovare. I dati e le cache dei "
+"modelli vengono mantenuti; dopo il riavvio del servizio occorre avviare "
+"nuovamente i modelli precedentemente in esecuzione. L’avvio in primo piano "
+"non esegue un controllo di disponibilità del servizio né un ripristino "
+"automatico in caso di errore di avvio."
+
+#: getting_started/installation.rst:69
+msgid ""
+"Concurrent installers for the same tool store are rejected. If an upgrade is"
+" interrupted, the next run restores the saved environment before trying "
+"again. Keep the recovery files in the tool store until recovery completes. "
+"``XINFERENCE_TIMEOUT`` sets the service readiness timeout in seconds "
+"(default 120). With ``XINFERENCE_START=0``, an updated service remains "
+"stopped."
+msgstr ""
+"Le installazioni simultanee nello stesso archivio di strumenti vengono "
+"rifiutate. Se un aggiornamento viene interrotto, l’esecuzione successiva "
+"ripristina l’ambiente salvato prima di riprovare. Conservare i file di "
+"ripristino nell’archivio di strumenti fino al completamento del ripristino. "
+"``XINFERENCE_TIMEOUT`` imposta il tempo di attesa per la disponibilità del "
+"servizio in secondi (predefinito: 120). Con ``XINFERENCE_START=0``, un "
+"servizio aggiornato rimane arrestato."
+
+#: getting_started/installation.rst:90
+msgid ""
+"A macOS user service requires a logged-in graphical session; use system mode"
+" on headless hosts. The launchd ``console.log`` does not rotate "
+"automatically."
+msgstr ""
+"Un servizio utente macOS richiede una sessione grafica attiva; usare la "
+"modalità di sistema sugli host senza sessione grafica. Il file launchd "
+"``console.log`` non viene ruotato automaticamente."
+
+#: getting_started/installation.rst:71
+msgid ""
+"The installer checks the candidate's service installer API before stopping a"
+" service. An incompatible release cannot be managed in service mode. Same-"
+"version checks still prepare a candidate to resolve the requested Python, "
+"extras, and backend. Installed dependencies are constrained to that "
+"candidate, so use this installer for upgrades; ``uv tool upgrade "
+"xinference`` retains these constraints."
+msgstr ""
+"Il programma verifica l’API di installazione dei servizi della versione "
+"candidata prima di arrestare un servizio. Una versione incompatibile non può"
+" essere gestita in modalità servizio. Anche per la stessa versione viene "
+"preparato un ambiente candidato per risolvere Python, extras e backend "
+"richiesti. Le dipendenze installate sono vincolate alle versioni del "
+"candidato, quindi usare questo programma per gli aggiornamenti; ``uv tool "
+"upgrade xinference`` mantiene questi vincoli."
+
+#: getting_started/installation.rst:73
+msgid ""
+"Do not run ``xinference service`` commands while the installer is running; "
+"they do not share its lock. If a service was uninstalled after an "
+"interrupted upgrade, recovery restores the package without recreating the "
+"service. For manual recovery, stop processes using the tool, read "
+"``.xinference-transaction.json`` in the tool store, copy its backup's "
+"``environment`` and ``shims`` back to their original tool and command "
+"directories, and remove the journal only after restoration succeeds."
+msgstr ""
+"Non eseguire comandi ``xinference service`` mentre il programma di "
+"installazione è in esecuzione; non condividono il suo blocco. Se un servizio"
+" è stato disinstallato dopo un aggiornamento interrotto, il ripristino "
+"recupera il pacchetto senza ricreare il servizio. Per il ripristino manuale,"
+" arrestare i processi che usano lo strumento, leggere ``.xinference-"
+"transaction.json`` nella directory degli strumenti, copiare ``environment`` "
+"e ``shims`` dal backup nelle directory originali di strumenti e comandi e "
+"rimuovere il registro solo dopo un ripristino riuscito."
+
+#: getting_started/installation.rst:92
+msgid ""
+"For ``--user USER``, that account must be able to traverse the Python "
+"installation's parent directories and execute its interpreter. The "
+"environment owner can modify code executed as the service account. Use a "
+"shared installation with appropriate ownership and permissions when these "
+"accounts differ."
+msgstr ""
+"Con ``--user USER``, tale account deve poter attraversare le directory "
+"superiori dell’installazione Python ed eseguire l’interprete. Il "
+"proprietario dell’ambiente può modificare il codice eseguito come account "
+"del servizio. Usare un’installazione condivisa con proprietà e permessi "
+"appropriati quando gli account sono diversi."
+
+#: getting_started/installation.rst:96
+msgid ""
+"The one-command Windows system installer uses the installing user's uv tool "
+"store and does not restrict runtime or data ACLs. This default is not an "
+"administrator-only Python installation. Protect both Python (including "
+"packages) and model data before starting a LocalSystem service, or use "
+"foreground mode. Any account able to modify them can execute code with the "
+"service account's privileges."
+msgstr ""
+"Il programma di installazione di sistema Windows con un comando usa la "
+"directory uv dell’utente che installa e non limita le ACL dell’ambiente o "
+"dei dati. Questa installazione Python predefinita non è scrivibile solo "
+"dagli amministratori. Proteggere Python, inclusi i pacchetti, e i dati dei "
+"modelli prima di avviare un servizio LocalSystem, oppure usare la modalità "
+"in primo piano. Qualsiasi account che possa modificarli può eseguire codice "
+"con i privilegi dell’account del servizio."
+
+#: ../../source/getting_started/installation.rst:15
+msgid "Installation and startup"
+msgstr "Installazione e avvio"
+
+#: ../../source/getting_started/installation.rst:86
+msgid "Installation with pip"
+msgstr "Installazione con pip"
+
+#: ../../source/getting_started/installation.rst:6
+msgid ""
+"Xinference can be installed with the :ref:`one-command installer "
+"<one_line_install>` or :ref:`pip <pip_installation>`. Choose the installer "
+"for a managed tool environment, or pip to use an existing Python "
+"environment."
+msgstr ""
+"Xinference può essere installato con :ref:`l’installer con un solo comando "
+"<one_line_install>` o con :ref:`pip <pip_installation>`. Scegliere "
+"l’installer per un ambiente di strumenti gestito, oppure pip per usare un "
+"ambiente Python esistente."
+
+#: ../glm53-doc-check/getting_started/installation.rst:176
+msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"

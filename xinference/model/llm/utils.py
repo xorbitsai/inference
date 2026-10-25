@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import base64
 import functools
+import importlib.util
+import inspect
 import json
 import logging
+import os
 import re
 import time
 import typing
@@ -29,12 +31,12 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Set,
     Tuple,
     Union,
     cast,
 )
 
-import requests
 from PIL import Image
 
 from ...types import (
@@ -43,77 +45,259 @@ from ...types import (
     ChatCompletionChunk,
     ChatCompletionChunkChoice,
     ChatCompletionChunkDelta,
+    ChatCompletionLogprob,
+    ChatCompletionLogprobs,
     ChatCompletionMessage,
+    ChatCompletionTopLogprob,
     Completion,
     CompletionChoice,
     CompletionChunk,
+    CompletionLogprobs,
     CompletionUsage,
+    ToolCallDelta,
 )
 from .core import chat_context_var
+from .media import load_media_bytes
 from .reasoning_parser import ReasoningParser
+from .tool_parsers.abstract_tool_parser import request_tools_var
 from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 
 logger = logging.getLogger(__name__)
 
 
-QWEN_TOOL_CALL_FAMILY = [
-    "qwen1.5-chat",
-    "qwen1.5-moe-chat",
-    "qwen2-instruct",
-    "qwen2-moe-instruct",
-    "qwen2.5-instruct",
-    "qwen2.5-coder-instruct",
-    "XiYanSQL-QwenCoder-2504",
-    "QwQ-32B",
-    "qwen3",
-    "HuatuoGPT-o1-Qwen2.5",
-    "DianJin-R1",
-    "Qwen3-Thinking",
-    "Qwen3-Instruct",
-    "Qwen3-Coder",
-    "Qwen3-VL-Instruct",
-    "Qwen3-VL-Thinking",
-    "Qwen3-Next-Instruct",
-    "Qwen3-Next-Thinking",
-    "Qwen3-Omni-Instruct",
-    "Qwen3-Omni-Thinking",
-    "MiniMax-M2",
-    "qwen3.5",
-]
+def _token_logprob_bytes(token: str) -> Optional[List[int]]:
+    """UTF-8 byte sequence of a logprob token, or ``None`` when not representable.
 
-GLM4_TOOL_CALL_FAMILY = [
-    "glm4-chat",
-    "glm4-chat-1m",
-    "glm-4.5",
-    "glm-4.5v",
-    "GLM-4.6",
-    "GLM-4.7",
-    "GLM-4.7-Flash",
-]
+    OpenAI encodes chat logprob tokens as their UTF-8 byte sequence; non-UTF-8
+    byte tokens surface as ``None`` so clients fall back to the token string.
+    """
+    if token is None:
+        return None
+    try:
+        return list(token.encode("utf-8"))
+    except (UnicodeEncodeError, AttributeError):
+        return None
 
-LLAMA3_TOOL_CALL_FAMILY = [
-    "llama-3.1-instruct",
-    "HuatuoGPT-o1-LLaMA-3.1",
-]
 
-DEEPSEEK_TOOL_CALL_FAMILY = ["deepseek-v3", "deepseek-r1-0528", "Deepseek-V3.1"]
+def _completion_logprobs_to_chat_logprobs(
+    logprobs: Optional[CompletionLogprobs],
+) -> Optional[ChatCompletionLogprobs]:
+    """Convert legacy parallel-list completion logprobs to the chat ``content[]`` shape.
 
-TOOL_CALL_FAMILY = (
-    QWEN_TOOL_CALL_FAMILY
-    + GLM4_TOOL_CALL_FAMILY
-    + LLAMA3_TOOL_CALL_FAMILY
-    + DEEPSEEK_TOOL_CALL_FAMILY
+    vLLM emits ``/v1/completions`` logprobs in the legacy shape
+    (``text_offset`` / ``tokens`` / ``token_logprobs`` / ``top_logprobs`` parallel
+    lists); chat completions clients (``openai-python``) expect
+    ``logprobs.content[]`` with per-token ``token`` / ``bytes`` / ``logprob`` /
+    ``top_logprobs``. Surfacing the legacy shape on a chat choice leaves
+    ``choice.logprobs.content`` ``None`` for standard chat clients, so convert at
+    the chat builder boundary (both streaming and non-streaming, and through the
+    tool post-processors). ``None`` input (logprobs not requested/produced) passes
+    through as ``None``.
+    """
+    if logprobs is None:
+        return None
+    tokens = logprobs.get("tokens") or []
+    token_logprobs = logprobs.get("token_logprobs") or []
+    top_logprobs = logprobs.get("top_logprobs") or []
+    content: List[ChatCompletionLogprob] = []
+    for i, token in enumerate(tokens):
+        logprob = token_logprobs[i] if i < len(token_logprobs) else None
+        # The OpenAI chat-completions schema requires ``logprob: float`` on every
+        # ``content[]`` entry; ``openai-python`` rejects ``null`` (reproduced with
+        # 1.99.9: "Input should be a valid number"). The legacy
+        # ``token_logprobs`` carries ``None`` for tokens whose logprob was not
+        # computed (e.g. the first generated token in the legacy completion
+        # shape). Rather than emit a fabricated probability, skip those tokens so
+        # ``content[]`` reports only tokens whose logprob is actually known.
+        if logprob is None:
+            continue
+        raw_top = top_logprobs[i] if i < len(top_logprobs) else None
+        top_list: List[ChatCompletionTopLogprob] = []
+        if raw_top:
+            for top_token, top_logprob in raw_top.items():
+                top_list.append(
+                    {
+                        "token": top_token,
+                        "bytes": _token_logprob_bytes(top_token),
+                        "logprob": top_logprob,
+                    }
+                )
+        content.append(
+            {
+                "token": token,
+                "bytes": _token_logprob_bytes(token),
+                "logprob": logprob,
+                "top_logprobs": top_list,
+            }
+        )
+    return {"content": content}
+
+
+class MessageRoleOrderError(ValueError):
+    """A ``system`` message appeared at a non-first position on a chat template
+    that requires system-first ordering (e.g. the Qwen3 family)."""
+
+
+def check_system_role_order(messages: List) -> None:
+    """Raise ``MessageRoleOrderError`` if a ``system`` role appears at index > 0.
+
+    Callers must gate this on the model description's ``strict_system_first``
+    flag so lenient templates are never rejected (zero regression).
+    """
+    if not messages:
+        return
+    for idx, message in enumerate(messages):
+        if idx == 0:
+            continue
+        if isinstance(message, dict):
+            role = message.get("role")
+        else:
+            role = getattr(message, "role", None)
+        if role == "system":
+            raise MessageRoleOrderError(
+                "messages: this model's chat template requires the 'system' "
+                "role to be the first message; found a system message at "
+                f"position {idx}. Merge all system instructions into "
+                "messages[0]; for mid-conversation reminders/context use a "
+                "'user' role message; tool results must use the 'tool' role "
+                "with tool_call_id."
+            )
+
+
+_CONTEXT_LENGTH_KEYS: Tuple[str, ...] = (
+    "max_sequence_length",
+    "seq_length",
+    "max_position_embeddings",
+    "sliding_window",
 )
+
+
+def _get_config_value(config: Union[dict, Any], key: str) -> Any:
+    if isinstance(config, dict):
+        return config.get(key)
+    return getattr(config, key, None)
+
+
+def _collect_context_length_candidates(
+    config: Union[dict, Any], nested_attrs: Iterable[str]
+) -> List[int]:
+    candidates: List[int] = []
+    for key in _CONTEXT_LENGTH_KEYS:
+        value = _get_config_value(config, key)
+        if value is not None:
+            candidates.append(value)
+    for nested_attr in nested_attrs:
+        nested = _get_config_value(config, nested_attr)
+        if nested is not None:
+            candidates.extend(_collect_context_length_candidates(nested, nested_attrs))
+    return candidates
+
+
+def get_context_length_from_config(
+    config: Union[dict, Any],
+    nested_attrs: Iterable[str] = ("text_config",),
+    *,
+    context_length: Optional[int] = None,
+) -> int:
+    """
+    Determine a reasonable context length from model config dictionaries or
+    HuggingFace config objects.
+    """
+    if context_length is not None:
+        from .context_length import validate_context_length
+
+        validate_context_length(context_length)
+        return context_length
+    candidates = _collect_context_length_candidates(config, nested_attrs)
+    if not candidates:
+        return 2048
+    return max(candidates)
+
+
+DEEPSEEK_TOOL_CALL_FAMILY: Set[str] = set()
+GEMMA_TOOL_CALL_FAMILY: Set[str] = set()
+GLM4_TOOL_CALL_FAMILY: Set[str] = set()
+LLAMA3_TOOL_CALL_FAMILY: Set[str] = set()
+QWEN_TOOL_CALL_FAMILY: Set[str] = set()
+GLM5_TOOL_CALL_FAMILY: Set[str] = set()
+KIMI_K3_TOOL_CALL_FAMILY: Set[str] = set()
+MINICPM5_TOOL_CALL_FAMILY: Set[str] = set()
 
 QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
 
 class ChatModelMixin:
     def __init__(self):
-        self.model_family = None
-        self.model_uid = None
-        self.reasoning_parser = None
-        self.tool_parser = None
+        # Only set attributes if they don't already exist
+        # to avoid overriding values set by parent classes
+        if not hasattr(self, "model_family"):
+            self.model_family = None
+        if not hasattr(self, "model_uid"):
+            self.model_uid = None
+        if not hasattr(self, "reasoning_parser"):
+            self.reasoning_parser = None
+        if not hasattr(self, "tool_parser"):
+            self.tool_parser = None
+
+    @staticmethod
+    def _sanitize_usage(usage: Any) -> Optional[CompletionUsage]:
+        """Normalize mapping- and object-style usage payloads."""
+        if usage is None:
+            return None
+
+        if isinstance(usage, dict):
+            usage_data = usage
+        else:
+            model_dump = getattr(usage, "model_dump", None)
+            dumped_usage = model_dump() if callable(model_dump) else None
+            if isinstance(dumped_usage, dict):
+                usage_data = dumped_usage
+            else:
+                usage_data = {
+                    key: getattr(usage, key, None)
+                    for key in (
+                        "prompt_tokens",
+                        "completion_tokens",
+                        "total_tokens",
+                        "prompt_tokens_details",
+                        "cache_creation_input_tokens",
+                        "cache_creation",
+                    )
+                }
+
+        required_keys = ("prompt_tokens", "completion_tokens", "total_tokens")
+        if any(usage_data.get(key) is None for key in required_keys):
+            return None
+
+        sanitized = CompletionUsage(
+            prompt_tokens=usage_data["prompt_tokens"],
+            completion_tokens=usage_data["completion_tokens"],
+            total_tokens=usage_data["total_tokens"],
+        )
+        if usage_data.get("cache_creation_input_tokens") is not None:
+            sanitized["cache_creation_input_tokens"] = usage_data[
+                "cache_creation_input_tokens"
+            ]
+        if isinstance(usage_data.get("cache_creation"), dict):
+            sanitized["cache_creation"] = usage_data["cache_creation"]
+        prompt_tokens_details = usage_data.get("prompt_tokens_details")
+        if prompt_tokens_details is not None:
+            if not isinstance(prompt_tokens_details, dict):
+                details_dump = getattr(prompt_tokens_details, "model_dump", None)
+                dumped_details = details_dump() if callable(details_dump) else None
+                if isinstance(dumped_details, dict):
+                    prompt_tokens_details = dumped_details
+                else:
+                    prompt_tokens_details = {
+                        "cached_tokens": getattr(
+                            prompt_tokens_details, "cached_tokens", None
+                        )
+                    }
+            if prompt_tokens_details.get("cached_tokens") is not None:
+                sanitized["prompt_tokens_details"] = {
+                    "cached_tokens": prompt_tokens_details["cached_tokens"]
+                }
+        return sanitized
 
     @staticmethod
     @functools.lru_cache
@@ -136,48 +320,302 @@ class ChatModelMixin:
             extensions=["jinja2.ext.loopcontrols"],
         )
         jinja_env.globals["raise_exception"] = raise_exception
+        # Model templates use the Transformers filter's json.dumps options,
+        # including ensure_ascii, which Jinja's built-in filter does not accept.
+        jinja_env.filters["tojson"] = json.dumps
         return jinja_env.from_string(chat_template)
+
+    @staticmethod
+    @functools.lru_cache(maxsize=64)
+    def _chat_template_needs_dict_arguments(chat_template: Optional[str]) -> bool:
+        # Detect templates that iterate tool-call arguments as a mapping.
+        # Content-driven (not name-driven) so future models copying this
+        # template style are covered automatically.
+        return chat_template is not None and (
+            "tool_call.arguments|items" in chat_template
+            or (
+                "_args = tc.arguments" in chat_template
+                and "_args.items()" in chat_template
+            )
+            or "tool_call.function.arguments is not mapping" in chat_template
+            or (
+                "args_dict = tool_call.arguments" in chat_template
+                and "args_dict.items()" in chat_template
+            )
+        )
+
+    @staticmethod
+    @functools.lru_cache(maxsize=64)
+    def _chat_template_needs_null_tool_content(chat_template: Optional[str]) -> bool:
+        # Recognize the positive assistant/null guard used by DeepSeek-style
+        # templates, with tool_calls accessed inside that branch. A template
+        # merely rendering None successfully may silently stringify it instead.
+        return (
+            chat_template is not None
+            and re.search(
+                r"\{%\-?\s*(?:if|elif)\s+message\[['\"]role['\"]\]\s*==\s*"
+                r"['\"]assistant['\"]\s+and\s+message\[['\"]content['\"]\]"
+                r"\s+is\s+none\s*\-?%\}"
+                r"(?:(?!\{%\-?\s*(?:elif|else|endif)\b).)*"
+                r"message(?:\[['\"]tool_calls['\"]\]|\.tool_calls)",
+                chat_template,
+                re.DOTALL,
+            )
+            is not None
+        )
+
+    @staticmethod
+    def _normalize_tool_call_arguments_to_dict(messages: List[Dict]) -> List[Dict]:
+        # OpenAI spec sends tool_calls.function.arguments as a JSON-encoded
+        # string, but Coder-style templates (Qwen3-Coder / qwen3.5 / qwen3.6)
+        # require a dict to iterate via `|items`. The HF Jinja sandbox does
+        # not register a `from_json` filter, so we normalize at the message
+        # layer before template rendering.
+        #
+        # Non-mutating: callers may reuse the input `messages` for history
+        # tracking / logging / serialization, so we deep-copy only the
+        # affected message + tool_call + function dict when a string
+        # argument is successfully parsed. Messages without string
+        # arguments are returned by reference (no copy).
+        normalized: List[Dict] = []
+        for message in messages:
+            if not isinstance(message, dict) or message.get("role") != "assistant":
+                normalized.append(message)
+                continue
+            tool_calls = message.get("tool_calls")
+            if not isinstance(tool_calls, list):
+                normalized.append(message)
+                continue
+            # Identify indices that need rewriting (string arguments that
+            # parse successfully into a JSON object). Malformed JSON and
+            # non-object JSON values (e.g. `"[]"`, `"null"`, `"1"`) are
+            # left as-is: the Qwen templates iterate `tool_call.arguments|items`
+            # which only works on mappings, so non-object values would still
+            # crash downstream — leaving them untouched lets the template
+            # surface the error naturally rather than masking it with a
+            # confusing type mismatch. This matches the contract of the
+            # existing `_normalize_tool_calls` helper.
+            rewrites: Dict[int, Dict] = {}
+            for i, tc in enumerate(tool_calls):
+                if not isinstance(tc, dict):
+                    continue
+                fn = tc.get("function")
+                if not isinstance(fn, dict):
+                    continue
+                args = fn.get("arguments")
+                if not (isinstance(args, str) and args):
+                    continue
+                try:
+                    parsed = json.loads(args)
+                except json.JSONDecodeError:
+                    # leave as-is so downstream surfaces the malformed JSON
+                    continue
+                if not isinstance(parsed, dict):
+                    # JSON parsed but not an object (list / number / str /
+                    # null / bool). Leave the original string so the
+                    # template raises a clear error rather than silently
+                    # producing garbage.
+                    continue
+                rewrites[i] = {**fn, "arguments": parsed}
+            if not rewrites:
+                normalized.append(message)
+                continue
+            new_tool_calls = list(tool_calls)
+            for i, new_fn in rewrites.items():
+                original_tc = tool_calls[i]
+                new_tool_calls[i] = {**original_tc, "function": new_fn}
+            normalized.append({**message, "tool_calls": new_tool_calls})
+        return normalized
 
     def _build_from_raw_template(
         self, messages: List, chat_template: str, **kwargs
     ) -> str:
         compiled_template = self._compile_jinja_template(chat_template)
         rendered = compiled_template.render(
-            messages=messages, add_generation_prompt=True, **kwargs
+            messages=self._prepare_chat_template_messages(messages, chat_template),
+            **{"add_generation_prompt": True, **kwargs},
         )
         return rendered
+
+    def _prepare_chat_template_messages(
+        self, messages: List[Dict], chat_template: Optional[str]
+    ) -> List[Dict]:
+        if self._chat_template_needs_dict_arguments(chat_template):
+            messages = self._normalize_tool_call_arguments_to_dict(messages)
+        return self.prefill_messages(
+            messages,
+            fill_tool_calls=not self._chat_template_needs_null_tool_content(
+                chat_template
+            ),
+        )
+
+    @staticmethod
+    def _close_reasoning_prompt(prompt: str, parser: Optional[ReasoningParser]) -> str:
+        """Start legacy JSON constraints in a reasoning-ended prompt state."""
+        if parser and parser.reasoning_start_tag and parser.reasoning_end_tag:
+            start = prompt.rfind(parser.reasoning_start_tag)
+            end = prompt.rfind(parser.reasoning_end_tag)
+            if end > start:
+                return prompt
+            if start < 0:
+                prompt += parser.reasoning_start_tag
+            return prompt + parser.reasoning_end_tag + "\n"
+        return prompt
+
+    @staticmethod
+    def prefill_messages(
+        messages: List[Dict], *, fill_tool_calls: bool = False
+    ) -> List[Dict]:
+        """
+        Fill missing content, deferring assistant tool-call content to the template.
+
+        Args:
+            messages: Original message list
+            fill_tool_calls: Also replace null tool-call content with a string
+
+        Returns:
+            Processed message list without changing the original dictionaries
+        """
+        processed_messages = []
+
+        for msg in messages:
+            if isinstance(msg, dict):
+                if msg.get("content") is None:
+                    msg_copy = msg.copy()
+                    msg_copy["content"] = (
+                        None
+                        if msg.get("role") == "assistant"
+                        and msg.get("tool_calls")
+                        and not fill_tool_calls
+                        else ""
+                    )
+                    processed_messages.append(msg_copy)
+                else:
+                    processed_messages.append(msg)
+            else:
+                processed_messages.append(msg)
+
+        return processed_messages
 
     def get_full_context(
         self,
         messages: List,
-        chat_template: str,
+        chat_template: Optional[str],
         tokenizer=None,
         tokenize=False,
         **kwargs,
     ):
-        if "vision" not in self.model_family.model_ability and "audio" not in self.model_family.model_ability:  # type: ignore
+        family = (
+            getattr(self.model_family, "model_family", None)
+            or self.model_family.model_name
+        )
+        if isinstance(
+            getattr(self, "tool_parser", None), Glm4ToolParser
+        ) and family.lower() in {"glm4-chat", "glm4-chat-1m", "glm4-0414"}:
+            glm_messages = []
+            for message in messages:
+                if message.get("role") == "tool":
+                    glm_messages.append({**message, "role": "observation"})
+                elif message.get("tool_calls"):
+                    if message.get("content"):
+                        glm_messages.append(
+                            {"role": "assistant", "content": message["content"]}
+                        )
+                    for call in message["tool_calls"]:
+                        function = call["function"]
+                        glm_messages.append(
+                            {
+                                "role": "assistant",
+                                "metadata": function["name"],
+                                "content": function["arguments"],
+                            }
+                        )
+                else:
+                    glm_messages.append(message)
+            messages = glm_messages
+        if (
+            "vision" not in self.model_family.model_ability
+            and "audio" not in self.model_family.model_ability
+        ):  # type: ignore
             messages = self.convert_messages_with_content_list_to_str_conversion(
                 messages
             )
         if tokenizer is not None:
-            try:
-                full_context = tokenizer.apply_chat_template(
-                    messages,
-                    tokenize=tokenize,
-                    chat_template=chat_template,
-                    add_generation_prompt=True,
-                    **kwargs,
-                )
-                logger.debug("Prompt: %s", full_context)
-                return full_context
-            except Exception as e:
-                logger.warning(
-                    f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}"
-                )
-                return self._build_from_raw_template(messages, chat_template, **kwargs)
+            if self.model_family.model_name.lower().startswith(
+                "deepseek-v4"
+            ) and "DeepseekV41ForCausalLM" not in (
+                getattr(self.model_family, "architectures", None) or []
+            ):
+                from ..utils import allow_trust_remote_code
+
+                if not allow_trust_remote_code(self.model_family):
+                    raise ValueError(
+                        "Loading this model executes code shipped in the model "
+                        "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                    )
+                module = _load_deepseekv4_encoding_module(self.model_path)  # type: ignore
+
+                target_func = getattr(module, "encode_messages")
+
+                sig = inspect.signature(target_func)
+
+                if kwargs.get("enable_thinking", False):
+                    em_kwargs = {"thinking_mode": "thinking"}
+                else:
+                    em_kwargs = {"thinking_mode": "chat"}
+                tools = kwargs.pop("tools", None)
+                if tools:
+                    messages = self._attach_deepseekv4_tools(messages, tools)
+                for name in sig.parameters:
+                    if name in kwargs:
+                        em_kwargs[name] = kwargs.pop(name)
+
+                prompt = target_func(messages, **em_kwargs)
+
+                return prompt
+            else:
+                try:
+                    get_chat_template = getattr(tokenizer, "get_chat_template", None)
+                    if callable(get_chat_template):
+                        selected_template = get_chat_template(
+                            chat_template, tools=kwargs.get("tools")
+                        )
+                    else:
+                        selected_template = chat_template
+                        if selected_template is None:
+                            selected_template = getattr(
+                                tokenizer, "chat_template", None
+                            )
+                    template_kwargs = {
+                        "tokenize": tokenize,
+                        "add_generation_prompt": True,
+                        **kwargs,
+                    }
+                    if chat_template is not None:
+                        template_kwargs["chat_template"] = chat_template
+                    full_context = tokenizer.apply_chat_template(
+                        self._prepare_chat_template_messages(
+                            messages, selected_template
+                        ),
+                        **template_kwargs,
+                    )
+                    logger.debug("Prompt: %s", full_context)
+                    return full_context
+                except Exception as e:
+                    logger.warning(
+                        f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}"
+                    )
+                    if chat_template is None:
+                        raise
+                    assert chat_template is not None
+                    return self._build_from_raw_template(
+                        messages, chat_template, **kwargs
+                    )
         else:
             # build from jinja
             # Compilation function uses a cache to avoid recompiling the same template
+            if chat_template is None:
+                raise ValueError("chat_template is required when tokenizer is not set")
             return self._build_from_raw_template(messages, chat_template, **kwargs)
 
     @staticmethod
@@ -189,22 +627,46 @@ class ChatModelMixin:
             kwargs = generate_config["chat_template_kwargs"]
             if isinstance(kwargs, str):
                 try:
-                    return json.loads(kwargs)
+                    kwargs = json.loads(kwargs)
                 except json.JSONDecodeError:
                     raise TypeError(
                         f"`chat_template_kwargs` should be json parsable, got: {kwargs}"
                     )
-            elif isinstance(kwargs, dict):
+            if isinstance(kwargs, dict):
+                kwargs = dict(kwargs)
+                if reasoning_parser and "enable_thinking" not in kwargs:
+                    thinking = kwargs.get("thinking")
+                    kwargs["enable_thinking"] = (
+                        thinking
+                        if isinstance(thinking, bool)
+                        else reasoning_parser.enable_thinking
+                    )
+                if reasoning_parser and not reasoning_parser.allow_disable_thinking:
+                    kwargs["enable_thinking"] = True
+                    if "thinking" in kwargs:
+                        kwargs["thinking"] = True
                 return kwargs
             else:
                 raise TypeError(
                     f"`chat_template_kwargs` but be a JSON parsable str or dict, got: {kwargs}"
                 )
-        elif reasoning_parser and not reasoning_parser.enable_thinking:
-            # hybrid model like qwen3,
-            # disabled thinking
-            return {"enable_thinking": False}
+        elif reasoning_parser:
+            # pass enable_thinking to chat template
+            return {
+                "enable_thinking": reasoning_parser.enable_thinking
+                or not reasoning_parser.allow_disable_thinking
+            }
         return None
+
+    @staticmethod
+    def _attach_deepseekv4_tools(messages: List[Dict], tools: List[Dict]) -> List[Dict]:
+        prepared_messages = [dict(message) for message in messages]
+        for message in prepared_messages:
+            if message.get("role") in ("system", "developer"):
+                existing_tools = message.get("tools") or []
+                message["tools"] = [*existing_tools, *tools]
+                return prepared_messages
+        return [{"role": "system", "content": "", "tools": tools}, *prepared_messages]
 
     @staticmethod
     def convert_messages_with_content_list_to_str_conversion(
@@ -334,6 +796,8 @@ class ChatModelMixin:
                     delta["role"] = "assistant"
                 if "content" not in delta:
                     delta["content"] = None
+            if chunk.get("usage") is not None:
+                chunk["usage"] = cls._sanitize_usage(chunk.get("usage"))  # type: ignore
             # Already a ChatCompletionChunk, we don't need to convert chunk.
             return cast(ChatCompletionChunk, chunk)
 
@@ -357,17 +821,24 @@ class ChatModelMixin:
                 if reasoning_parser and reasoning_parser.check_content_parser():
                     delta["reasoning_content"] = None
             elif "tool_calls" in choice:
-                delta["tool_calls"] = choice["tool_calls"]
+                # CompletionChoice keeps its non-streaming public type for
+                # compatibility, while engine-provided chunks contain deltas.
+                delta["tool_calls"] = cast(List[ToolCallDelta], choice["tool_calls"])
             choices_list.append(
                 {
                     "index": i,
                     "delta": delta,
+                    "logprobs": _completion_logprobs_to_chat_logprobs(
+                        choice.get("logprobs")
+                    ),
                     "finish_reason": choice["finish_reason"],
                 }
             )
+            if "stop_sequence" in choice:
+                choices_list[-1]["stop_sequence"] = choice["stop_sequence"]
         assert choices is not None
         usage = (
-            chunk["usage"]
+            cls._sanitize_usage(chunk.get("usage"))
             if choices and choices[0]["finish_reason"] is not None or not choices
             else None
         )
@@ -420,13 +891,35 @@ class ChatModelMixin:
         return chunks
 
     @classmethod
+    def _get_chat_completion_chunk_id(
+        cls,
+        chunk: CompletionChunk,
+        fallback_chunk: Optional[CompletionChunk] = None,
+    ) -> str:
+        source_chunk: Dict[str, Any] = cast(
+            Dict[str, Any], chunk if chunk.get("id") else fallback_chunk or {}
+        )
+        chunk_id = source_chunk.get("id")
+        if not chunk_id:
+            return f"chatcmpl-{uuid.uuid4()}"
+        chunk_id = str(chunk_id)
+        if source_chunk.get("object") == "chat.completion.chunk":
+            return chunk_id
+        return "chat" + chunk_id
+
+    @classmethod
     def _get_final_chat_completion_chunk(
-        cls, chunk: CompletionChunk
+        cls,
+        chunk: CompletionChunk,
+        fallback_chunk: Optional[CompletionChunk] = None,
     ) -> ChatCompletionChunk:
-        chat_chunk = {
-            "id": "chat" + chunk["id"],
-            "model": chunk["model"],
-            "created": chunk["created"],
+        fallback: Dict[str, Any] = cast(Dict[str, Any], fallback_chunk or {})
+        chat_chunk: Dict[str, Any] = {
+            "id": cls._get_chat_completion_chunk_id(chunk, fallback_chunk),
+            "model": chunk.get("model") or fallback.get("model") or "",
+            "created": chunk.get("created")
+            or fallback.get("created")
+            or int(time.time()),
             "object": "chat.completion.chunk",
             "choices": [
                 ChatCompletionChunkChoice(
@@ -434,7 +927,28 @@ class ChatModelMixin:
                 )
             ],
         }
-        usage = chunk.get("usage")
+        usage = cls._sanitize_usage(chunk.get("usage"))
+        if usage is not None:
+            chat_chunk["usage"] = usage
+        return cast(ChatCompletionChunk, chat_chunk)
+
+    @classmethod
+    def _get_usage_chat_completion_chunk(
+        cls,
+        chunk: CompletionChunk,
+        fallback_chunk: Optional[CompletionChunk] = None,
+    ) -> ChatCompletionChunk:
+        fallback: Dict[str, Any] = cast(Dict[str, Any], fallback_chunk or {})
+        chat_chunk: Dict[str, Any] = {
+            "id": cls._get_chat_completion_chunk_id(chunk, fallback_chunk),
+            "model": chunk.get("model") or fallback.get("model") or "",
+            "created": chunk.get("created")
+            or fallback.get("created")
+            or int(time.time()),
+            "object": "chat.completion.chunk",
+            "choices": [],
+        }
+        usage = cls._sanitize_usage(chunk.get("usage"))
         if usage is not None:
             chat_chunk["usage"] = usage
         return cast(ChatCompletionChunk, chat_chunk)
@@ -444,37 +958,58 @@ class ChatModelMixin:
         cls,
         chunks: Iterator[CompletionChunk],
         reasoning_parse: Optional[ReasoningParser] = None,
+        ctx: Optional[Dict[str, Any]] = None,
     ) -> Iterator[ChatCompletionChunk]:
         previous_texts = [""]
         is_first_chunk = True
+        fallback_chunk: Optional[CompletionChunk] = None
         if reasoning_parse:
             chunks = reasoning_parse.prepare_reasoning_content_sync(chunks)
-        for _, chunk in enumerate(chunks):
-            # usage
-            choices = chunk.get("choices")
-            if not choices:
-                # Fallback: convert plain content to choices for streaming
-                content = cast(Optional[str], chunk.get("content"))
-                if content is not None:
-                    finish_reason = cast(Optional[str], chunk.get("finish_reason"))
-                    chunk = chunk.copy()
-                    chunk["choices"] = [
-                        CompletionChoice(
-                            index=0,
-                            text=content,
-                            logprobs=None,
-                            finish_reason=finish_reason,
-                        )
-                    ]
-                    choices = chunk["choices"]
-                else:
-                    yield cls._get_final_chat_completion_chunk(chunk)
-                    continue
-
-            r = cls._to_chat_completion_chunk(
-                chunk, reasoning_parse, previous_texts, ensure_role=is_first_chunk
-            )
-            is_first_chunk = False
+        while True:
+            # Both parser iteration and conversion need the request context.
+            # Reset before yielding: a synchronous stream can resume on a
+            # different worker thread and must not leave request state behind.
+            token = chat_context_var.set(ctx) if ctx is not None else None
+            try:
+                try:
+                    chunk = next(chunks)
+                except StopIteration:
+                    break
+                choices = chunk.get("choices")
+                if not choices:
+                    content = cast(Optional[str], chunk.get("content"))
+                    if content is not None:
+                        finish_reason = cast(Optional[str], chunk.get("finish_reason"))
+                        chunk = chunk.copy()
+                        chunk["choices"] = [
+                            CompletionChoice(
+                                index=0,
+                                text=content,
+                                logprobs=None,
+                                finish_reason=finish_reason,
+                            )
+                        ]
+                        choices = chunk["choices"]
+                    elif chunk.get("usage") is not None:
+                        r = cls._get_usage_chat_completion_chunk(chunk, fallback_chunk)
+                    else:
+                        r = cls._get_final_chat_completion_chunk(chunk, fallback_chunk)
+                if choices:
+                    r = cls._to_chat_completion_chunk(
+                        chunk,
+                        reasoning_parse,
+                        previous_texts,
+                        ensure_role=is_first_chunk,
+                    )
+                    if is_first_chunk and ctx and ctx.get("_anthropic_request"):
+                        first_usage = cls._sanitize_usage(chunk.get("usage"))
+                        if first_usage is not None:
+                            r["usage"] = first_usage
+                    is_first_chunk = False
+                    fallback_chunk = chunk
+            finally:
+                if token is not None:
+                    chat_context_var.reset(token)
             yield r
 
     @classmethod
@@ -520,29 +1055,49 @@ class ChatModelMixin:
         previous_texts = [""]
         full_text = ""
         is_first_chunk = True
-        # Process chunks
-        if reasoning_parser:
-            set_context()
-            chunks = reasoning_parser.prepare_reasoning_content_streaming(chunks)
-        async for chunk in chunks:
-            set_context()
-            choices = chunk.get("choices")
-            if not choices:
-                # usage
-                chat_chunk = cls._get_final_chat_completion_chunk(chunk)
-            else:
-                if choices[0].get("text"):
-                    full_text += choices[0]["text"]  # type: ignore
+        fallback_chunk: Optional[CompletionChunk] = None
+        upstream_chunks = chunks
+        try:
+            # Process chunks
+            if reasoning_parser:
+                set_context()
+                chunks = reasoning_parser.prepare_reasoning_content_streaming(chunks)
+            async for chunk in chunks:
+                set_context()
+                choices = chunk.get("choices")
+                if not choices:
+                    # usage
+                    if chunk.get("usage") is not None:
+                        chat_chunk = cls._get_usage_chat_completion_chunk(
+                            chunk, fallback_chunk
+                        )
+                    else:
+                        chat_chunk = cls._get_final_chat_completion_chunk(
+                            chunk, fallback_chunk
+                        )
+                else:
+                    if choices[0].get("text"):
+                        full_text += choices[0]["text"]  # type: ignore
 
-                chat_chunk = cls._to_chat_completion_chunk(
-                    chunk,
-                    reasoning_parser,
-                    previous_texts,
-                    ensure_role=is_first_chunk,
-                )
-            is_first_chunk = False
-            yield chat_chunk
-        logger.debug("Chat finished, output: %s", full_text)
+                    chat_chunk = cls._to_chat_completion_chunk(
+                        chunk,
+                        reasoning_parser,
+                        previous_texts,
+                        ensure_role=is_first_chunk,
+                    )
+                    if is_first_chunk and ctx and ctx.get("_anthropic_request"):
+                        first_usage = cls._sanitize_usage(chunk.get("usage"))
+                        if first_usage is not None:
+                            chat_chunk["usage"] = first_usage
+                    fallback_chunk = chunk
+                    is_first_chunk = False
+                yield chat_chunk
+            logger.debug("Chat finished, output: %s", full_text)
+        finally:
+            # async for does not close its iterator when this conversion
+            # generator is closed early.  Close the original model stream
+            # explicitly so engines can release the request immediately.
+            await upstream_chunks.aclose()
 
     @staticmethod
     def _to_chat_completion(
@@ -589,9 +1144,14 @@ class ChatModelMixin:
                 {
                     "index": i,
                     "message": message,
+                    "logprobs": _completion_logprobs_to_chat_logprobs(
+                        choice.get("logprobs")
+                    ),
                     "finish_reason": choice["finish_reason"],
                 }
             )
+            if "stop_sequence" in choice:
+                choices[-1]["stop_sequence"] = choice["stop_sequence"]
         return {
             "id": "chat" + completion["id"],
             "object": "chat.completion",
@@ -601,247 +1161,6 @@ class ChatModelMixin:
             "usage": completion["usage"],
         }
 
-    @staticmethod
-    def _eval_glm_chat_arguments(c) -> List[Tuple]:
-        """
-        Currently, glm4 tool call only supports one function
-        """
-        try:
-            if isinstance(c, dict):
-                try:
-                    return [(None, c["name"], json.loads(c["arguments"]))]
-                except Exception:
-                    return [(None, c["name"], c["arguments"])]
-        except KeyError:
-            logger.error("Can't parse glm output: %s", c)
-            return [(str(c), None, None)]
-        else:
-            return [(str(c), None, None)]
-
-    @classmethod
-    def _handle_qwen_tool_result(cls, text: str) -> List[Tuple]:
-        text: str = text.strip()  # type: ignore
-
-        def split_into_blocks(text: str) -> list[str]:
-            # Match blocks starting with <think> or <tool_call> and ending with </think> or </tool_call>
-            pattern = r"(<(think|tool_call)>.*?</\2>)"
-            parts = []
-            last_end = 0
-            # Find all label blocks and record their positions
-            for m in re.finditer(pattern, text, re.DOTALL):
-                # Text before adding tags
-                if m.start() > last_end:
-                    parts.append(text[last_end : m.start()])
-                # Add label block
-                parts.append(m.group(0))
-                last_end = m.end()
-            # Text after adding the last tag
-            if last_end < len(text):
-                parts.append(text[last_end:])
-            return parts
-
-        contents = split_into_blocks(text)
-        results: List[Tuple] = []
-        for content in contents:
-            if content.strip():
-                pos1 = content.find(QWEN_TOOL_CALL_SYMBOLS[0])
-                if pos1 != -1:
-                    content = content[pos1 + len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
-                pos2 = content.find(QWEN_TOOL_CALL_SYMBOLS[1])
-                if pos2 != -1:
-                    content = content[:pos2]
-
-                # Skip empty content after extraction
-                if not content.strip():
-                    continue
-
-                try:
-                    res = json.loads(content, strict=False)
-                    if isinstance(res, dict):
-                        # Check if required fields exist
-                        if "name" in res and "arguments" in res:
-                            results.append((None, res["name"], res["arguments"]))
-                        else:
-                            logger.warning(
-                                "Missing required fields in qwen tool call: %s", content
-                            )
-                            results.append((content, None, None))
-                    else:
-                        logger.warning(
-                            "Qwen tool call result is not a dict: %s", content
-                        )
-                        results.append((content, None, None))
-                except json.JSONDecodeError as e:
-                    logger.error(
-                        "Can't parse single qwen tool call output: %s. Error: %s",
-                        content,
-                        e,
-                    )
-                    results.append((content, None, None))
-                except Exception as e:
-                    logger.error(
-                        "Unexpected error parsing qwen tool call: %s. Error: %s",
-                        content,
-                        e,
-                    )
-                    results.append((content, None, None))
-        return results
-
-    @classmethod
-    def _eval_qwen_chat_arguments(
-        cls, c, tool_call_text: Optional[str] = None
-    ) -> List[Tuple]:
-        text = c["choices"][0]["text"]
-        if tool_call_text:
-            text = tool_call_text
-        return cls._handle_qwen_tool_result(text)
-
-    @classmethod
-    def _eval_llama3_chat_arguments(cls, c) -> List[Tuple]:
-        text = c["choices"][0]["text"]
-        try:
-            data = eval(text, {}, {})
-            return [(None, data["name"], data["parameters"])]
-        except Exception:
-            return [(text, None, None)]
-
-    @classmethod
-    def _eval_deepseek_chat_arguments(cls, c) -> List[Tuple]:
-        """
-        Parses tool calls from deepseek-v3 format and removes duplicates.
-
-        Returns:
-        List[Tuple[Optional[str], Optional[str], Optional[dict]]]
-        - (None, function_name, arguments) if successfully parsed.
-        - (content, None, None) if parsing failed (content is raw JSON text).
-
-        Example input:
-        ```json
-        {
-            "name": "get_weather_and_time",
-            "parameters": {
-                "location": "Hangzhou"
-            }
-        }
-        ```
-
-        Output:
-        [
-            (None, "get_current_weather", {"location": "Hangzhou"})
-        ]
-        """
-
-        text = c["choices"][0]["text"]
-
-        pattern = r"\s*```json\s*(.*?)\s*```"
-        matches = re.findall(pattern, text, re.DOTALL)
-
-        if not matches:
-            return [(text, None, None)]
-
-        tool_calls = set()  # Used for deduplication
-        results = []
-
-        for raw_json in matches:
-            func_and_args = None
-            try:
-                func_and_args = json.loads(raw_json)
-                # Convert dictionary to frozenset for deduplication
-                arguments_hashable = frozenset(func_and_args["parameters"])
-                tool_call_tuple = (
-                    None,
-                    func_and_args["name"],
-                    func_and_args["parameters"],
-                )
-            except json.JSONDecodeError:
-                tool_call_tuple = (
-                    raw_json,
-                    None,
-                    None,
-                )  # If parsing fails, treat as raw content
-                arguments_hashable = None  # No need for hashing
-
-            # Avoid duplicate entries
-            dedup_key = (
-                (func_and_args["name"], arguments_hashable)
-                if func_and_args is not None
-                else (raw_json)
-            )
-            if dedup_key not in tool_calls:
-                tool_calls.add(dedup_key)
-                results.append(tool_call_tuple)
-
-        return results
-
-    @classmethod
-    def _eval_deepseek_r1_arguments(cls, c) -> List[Tuple]:
-        """
-        Parses tool calls from deepseek-r1 (0528) chat template format.
-        Returns:
-            List of (None, function_name, arguments_dict)
-            or (raw_content, None, None) if parsing fails.
-        """
-        text = c["choices"][0]["text"]
-        pattern = (
-            r"<\｜tool▁call▁begin｜>function<\｜tool▁sep｜>([^\n]+)\n"
-            r"```json\n(.*?)\n```<\｜tool▁call▁end｜>"
-        )
-
-        matches = re.findall(pattern, text, re.DOTALL)
-        if not matches:
-            return [(text, None, None)]
-
-        tool_calls = set()
-        results = []
-
-        for func_name, raw_json in matches:
-            func_and_args = None
-            try:
-                func_and_args = json.loads(raw_json)
-                arguments_hashable = frozenset(func_and_args.items())
-                tool_call_tuple = (
-                    None,
-                    func_name,
-                    func_and_args,
-                )
-            except Exception:
-                tool_call_tuple = (raw_json, None, None)
-                arguments_hashable = None
-
-            dedup_key = (
-                (func_name, arguments_hashable)
-                if func_and_args is not None
-                else raw_json
-            )
-            if dedup_key not in tool_calls:
-                tool_calls.add(dedup_key)
-                results.append(tool_call_tuple)
-
-        return results
-
-    @classmethod
-    def _eval_tool_arguments(
-        cls, model_family, c, tool_call_text: Optional[str] = None
-    ):
-        family = model_family.model_family or model_family.model_name
-        if family in GLM4_TOOL_CALL_FAMILY:
-            result = cls._eval_glm_chat_arguments(c)
-        elif family in QWEN_TOOL_CALL_FAMILY:
-            result = cls._eval_qwen_chat_arguments(c, tool_call_text)
-        elif family in LLAMA3_TOOL_CALL_FAMILY:
-            result = cls._eval_llama3_chat_arguments(c)
-        elif family in DEEPSEEK_TOOL_CALL_FAMILY:
-            if family == "deepseek-r1-0528":
-                result = cls._eval_deepseek_r1_arguments(c)
-            else:
-                result = cls._eval_deepseek_chat_arguments(c)
-        else:
-            raise Exception(
-                f"Model {model_family.model_name} is not support tool calls."
-            )
-        logger.debug(f"Tool call content: {result}")
-        return result
-
     def _post_process_completion_chunk(
         self,
         model_family,
@@ -849,51 +1168,129 @@ class ChatModelMixin:
         c,
         chunk_id=None,
         previous_texts: List[str] = [""],
+        tool_call_state: Optional[Dict[str, Any]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ):
         if not c.get("choices"):
             return c
-        _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
+        if self.tool_parser is None:
+            return c
+        # ChatGLM's override is an engine ID; c may already be a chat chunk.
+        _id = (
+            "chat" + chunk_id
+            if chunk_id is not None
+            else self._get_chat_completion_chunk_id(c)
+        )
         tool_result = None
         finish_reason = None
-        if isinstance(self.tool_parser, Glm4ToolParser):
-            tool_result = self.tool_parser.extract_tool_calls_streaming(
-                [],
-                c,
-                c,
-            )
-        else:
-            finish_reason = c["choices"][0]["finish_reason"]
-            delta_text = c["choices"][0]["delta"]["content"]
-            current_text = (
-                previous_texts[-1] + delta_text if previous_texts else delta_text
-            )
-            tool_result = self.tool_parser.extract_tool_calls_streaming(
-                previous_texts,
-                current_text,
-                delta_text,
-            )
-            previous_texts[-1] = current_text
+        token = request_tools_var.set(tools)
+        try:
+            if isinstance(self.tool_parser, Glm4ToolParser) and "name" in c:
+                tool_result = self.tool_parser.extract_tool_calls_streaming(
+                    [],
+                    c,
+                    c,
+                )
+            else:
+                finish_reason = c["choices"][0]["finish_reason"]
+                delta_text = c["choices"][0]["delta"].get("content") or ""
+                current_text = (
+                    previous_texts[-1] + delta_text if previous_texts else delta_text
+                )
+                tool_result = self.tool_parser.extract_tool_calls_streaming(
+                    previous_texts,
+                    current_text,
+                    delta_text,
+                )
+                previous_texts[-1] = current_text
+        finally:
+            request_tools_var.reset(token)
         if tool_result is None and not finish_reason:
             return None
-        tool_calls = []
+        tool_calls: List[Dict[str, Any]] = []
         failed_contents = []
-        content, func, args = tool_result if tool_result else ("", None, None)
-        if func:
-            tool_calls.append(
-                {
-                    "index": 0,
-                    "id": f"call_{str(uuid.uuid4())}",
-                    "type": "function",
-                    "function": {
-                        "name": func,
-                        "arguments": json.dumps(args, ensure_ascii=False),
-                    },
-                }
-            )
+        if isinstance(tool_result, list):
+            tool_results = tool_result
+        elif tool_result is not None:
+            tool_results = [tool_result]
         else:
-            failed_contents.append(content)
+            tool_results = []
+        ignored_incomplete_tool_call = False
+        for tool_event in tool_results:
+            if len(tool_event) == 4:
+                parsed_content, func, args, tool_call_index = tool_event
+                if func and tool_call_state is not None and tool_call_index is not None:
+                    tool_call_state["next_index"] = max(
+                        tool_call_state.get("next_index", 0), tool_call_index + 1
+                    )
+            else:
+                parsed_content, func, args = tool_event
+                tool_call_index = None
+            if func and tool_call_index is None:
+                if tool_call_state is None:
+                    tool_call_index = len(tool_calls)
+                else:
+                    tool_call_index = tool_call_state.get("next_index", 0)
+                    tool_call_state["next_index"] = tool_call_index + 1
+            if func:
+                # A caller without streaming state cannot reuse the same call ID
+                # when the completed arguments arrive. Preserve its historical
+                # one-shot behavior instead of finalizing an empty placeholder.
+                if args is None and tool_call_state is None:
+                    ignored_incomplete_tool_call = True
+                    continue
+                call_id = f"call_{str(uuid.uuid4())}"
+                function_name: Optional[str] = func
+                include_metadata = True
+                if tool_call_state is not None:
+                    call_ids = tool_call_state.setdefault("call_ids", {})
+                    call_id = call_ids.setdefault(tool_call_index, call_id)
+                    sent_names = tool_call_state.setdefault("sent_names", set())
+                    if tool_call_index in sent_names:
+                        function_name = None
+                    else:
+                        sent_names.add(tool_call_index)
+                    sent_metadata = tool_call_state.get("sent_metadata")
+                    if sent_metadata is None:
+                        sent_metadata = tool_call_state["sent_metadata"] = set()
+                    include_metadata = tool_call_index not in sent_metadata
+                    if include_metadata:
+                        sent_metadata.add(tool_call_index)
 
-        finish_reason = "tool_calls" if tool_calls else finish_reason
+                function_delta: Dict[str, Any] = {
+                    "arguments": (
+                        "" if args is None else json.dumps(args, ensure_ascii=False)
+                    )
+                }
+                if function_name is not None:
+                    function_delta["name"] = function_name
+                tool_call_delta: Dict[str, Any] = {
+                    "index": tool_call_index,
+                    "function": function_delta,
+                }
+                if include_metadata:
+                    tool_call_delta["id"] = call_id
+                    tool_call_delta["type"] = "function"
+                tool_calls.append(tool_call_delta)
+            elif parsed_content:
+                failed_contents.append(parsed_content)
+
+        if (
+            ignored_incomplete_tool_call
+            and not tool_calls
+            and not failed_contents
+            and not finish_reason
+        ):
+            return None
+
+        if tool_calls:
+            if tool_call_state is None:
+                # Keep compatibility with one-shot streaming callers.
+                finish_reason = "tool_calls"
+            else:
+                tool_call_state["seen"] = True
+        if finish_reason == "stop" and tool_call_state and tool_call_state.get("seen"):
+            finish_reason = "tool_calls"
 
         content = "".join(failed_contents) if failed_contents else None
 
@@ -907,9 +1304,9 @@ class ChatModelMixin:
         if finish_reason == "tool_calls":
             usage = None
         else:
-            usage = c.get("usage")
+            usage = self._sanitize_usage(c.get("usage"))
         return {
-            "id": "chat" + f"cmpl-{_id}",
+            "id": _id,
             "model": model_uid,
             "object": "chat.completion.chunk",
             "created": int(time.time()),
@@ -917,8 +1314,17 @@ class ChatModelMixin:
                 {
                     "index": 0,
                     "delta": d,
-                    "logprobs": None,
+                    # The streaming tool-completion helpers already converted
+                    # legacy completion logprobs to the chat ``content[]`` shape
+                    # via `_to_chat_completion_chunk`; pass it through unchanged
+                    # here so a real logprob is not collapsed to ``{"content": []}``.
+                    "logprobs": c["choices"][0].get("logprobs"),
                     "finish_reason": finish_reason,
+                    **(
+                        {"stop_sequence": c["choices"][0]["stop_sequence"]}
+                        if "stop_sequence" in c["choices"][0]
+                        else {}
+                    ),
                 }
             ],
             "usage": usage,
@@ -929,9 +1335,10 @@ class ChatModelMixin:
         model_family,
         model_uid,
         c,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ):
         if not self.tool_parser:
-            return self._get_final_chat_completion_chunk(c)
+            return self._to_chat_completion(c, self.reasoning_parser)
 
         _id = str(uuid.uuid4())
         reasoning_content = None
@@ -941,20 +1348,26 @@ class ChatModelMixin:
         text = c["choices"][0]["text"]
         if self.reasoning_parser and self.reasoning_parser.check_content_parser():
             # Extract reasoning content directly from the original text
-            reasoning_content, processed_content = (
-                self.reasoning_parser.extract_reasoning_content(text)
-            )
-            # Use the processed content (without thinking tags) for tool parsing
-            if processed_content:
-                text = processed_content
+            (
+                reasoning_content,
+                processed_content,
+            ) = self.reasoning_parser.extract_reasoning_content(text)
+            # Use the processed content (without thinking tags) for tool parsing.
+            # It is empty when the output only contains reasoning, e.g. when
+            # generation stops inside the thinking block.
+            text = processed_content or ""
 
         # Then, extract tool calls from the processed text (without thinking tags)
         tool_calls = []
         failed_contents = []
-        if isinstance(self.tool_parser, Glm4ToolParser):
-            tool_result = self.tool_parser.extract_tool_calls(c)
-        else:
-            tool_result = self.tool_parser.extract_tool_calls(text)
+        token = request_tools_var.set(tools)
+        try:
+            if isinstance(self.tool_parser, Glm4ToolParser) and "name" in c:
+                tool_result = self.tool_parser.extract_tool_calls(c)
+            else:
+                tool_result = self.tool_parser.extract_tool_calls(text)
+        finally:
+            request_tools_var.reset(token)
 
         # Process tool results
         for tool_content, func, args in tool_result:
@@ -981,7 +1394,11 @@ class ChatModelMixin:
             # For non-tool calls, use the processed content from reasoning parser
             content = text
 
-        finish_reason = "tool_calls" if tool_calls else "stop"
+        finish_reason = (
+            "tool_calls"
+            if tool_calls
+            else c["choices"][0].get("finish_reason") or "stop"
+        )
 
         m = {
             "role": "assistant",
@@ -993,7 +1410,7 @@ class ChatModelMixin:
             m["reasoning_content"] = reasoning_content
 
         # For tool completion chunks, use actual usage values when available
-        usage = c.get("usage")
+        usage = self._sanitize_usage(c.get("usage"))
         if not usage or not isinstance(usage, dict) or "prompt_tokens" not in usage:
             usage = {
                 "prompt_tokens": -1,
@@ -1009,7 +1426,15 @@ class ChatModelMixin:
                 {
                     "index": 0,
                     "message": m,
+                    "logprobs": _completion_logprobs_to_chat_logprobs(
+                        c["choices"][0].get("logprobs")
+                    ),
                     "finish_reason": finish_reason,
+                    **(
+                        {"stop_sequence": c["choices"][0]["stop_sequence"]}
+                        if "stop_sequence" in c["choices"][0]
+                        else {}
+                    ),
                 }
             ],
             "usage": usage,
@@ -1022,8 +1447,7 @@ class ChatModelMixin:
         transformed_messages = []
         for msg in messages:
             new_content = []
-            role = msg["role"]
-            content = msg["content"]
+            content = msg.get("content")
             if isinstance(content, str):
                 new_content.append({"type": "text", "text": content})
             elif isinstance(content, List):
@@ -1045,17 +1469,182 @@ class ChatModelMixin:
                     else:
                         logger.warning(
                             "Unknown message type, message: %s, this message may be ignored",
-                            messages,
+                            msg,
                         )
-            new_message = {"role": role, "content": new_content}
+            new_message = dict(msg)
+            if msg.get("tool_calls") is not None:
+                new_message["tool_calls"] = self._normalize_tool_calls(
+                    msg["tool_calls"]
+                )
+            new_message["content"] = new_content if new_content else None
+            if (
+                not new_content
+                and new_message.get("role") == "assistant"
+                and new_message.get("tool_calls")
+            ):
+                # Tool-only turns are valid; vision templates cannot iterate null.
+                new_message["content"] = ""
             transformed_messages.append(new_message)
 
         return transformed_messages
+
+    @staticmethod
+    def _normalize_tool_calls(tool_calls: Any) -> Any:
+        if isinstance(tool_calls, (str, bytes)):
+            return tool_calls
+        if isinstance(tool_calls, dict):
+            tool_calls = [tool_calls]
+        try:
+            normalized_tool_calls = list(tool_calls)
+        except TypeError:
+            return tool_calls
+
+        for index, tool_call in enumerate(normalized_tool_calls):
+            if not isinstance(tool_call, dict):
+                continue
+
+            normalized_tool_call = dict(tool_call)
+            function = normalized_tool_call.get("function")
+            if isinstance(function, dict) and "arguments" in function:
+                target = dict(function)
+                is_function_target = True
+            else:
+                target = normalized_tool_call
+                is_function_target = False
+            arguments = target.get("arguments")
+
+            if isinstance(arguments, (str, bytes)):
+                if not arguments or not arguments.strip():
+                    arguments = {}
+                else:
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError as exc:
+                        raise ValueError(
+                            "Tool call arguments must be a valid JSON object"
+                        ) from exc
+            elif arguments is not None and not isinstance(arguments, dict):
+                try:
+                    arguments = dict(arguments)
+                except (TypeError, ValueError) as exc:
+                    raise TypeError(
+                        "Tool call arguments must be a mapping or JSON object string"
+                    ) from exc
+
+            if arguments is not None and not isinstance(arguments, dict):
+                raise TypeError("Tool call arguments must decode to a JSON object")
+
+            if "arguments" in target:
+                target["arguments"] = arguments
+            if is_function_target:
+                normalized_tool_call["function"] = target
+            normalized_tool_calls[index] = normalized_tool_call
+
+        return normalized_tool_calls
+
+    @staticmethod
+    def _split_reasoning_tool_chunk(
+        chat_chunk: ChatCompletionChunk,
+    ) -> Tuple[Optional[ChatCompletionChunk], Optional[ChatCompletionChunk]]:
+        """Split a delta that crosses from reasoning into tool-call content."""
+        if not chat_chunk.get("choices"):
+            return None, chat_chunk
+
+        choice = chat_chunk["choices"][0]
+        delta = choice["delta"]
+        reasoning_content = delta.get("reasoning_content")
+        if reasoning_content is None:
+            return None, chat_chunk
+
+        content = delta.get("content")
+        if not content:
+            return chat_chunk, None
+
+        reasoning_choices = list(chat_chunk["choices"])
+        reasoning_choices[0] = cast(
+            ChatCompletionChunkChoice,
+            {
+                **choice,
+                "delta": {**delta, "content": None},
+            },
+        )
+        content_choices = list(chat_chunk["choices"])
+        content_choices[0] = cast(
+            ChatCompletionChunkChoice,
+            {
+                **choice,
+                "delta": {**delta, "reasoning_content": None},
+            },
+        )
+        return (
+            cast(ChatCompletionChunk, {**chat_chunk, "choices": reasoning_choices}),
+            cast(ChatCompletionChunk, {**chat_chunk, "choices": content_choices}),
+        )
+
+    def _to_tool_completion_chunks(
+        self,
+        chunks: Iterator[CompletionChunk],
+        ctx: Optional[Dict[str, Any]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> Iterator[ChatCompletionChunk]:
+        def set_context():
+            if ctx:
+                chat_context_var.set(ctx)
+
+        previous_texts = [""]
+        previous_tools_texts = [""]
+        tool_call_state: Dict[str, Any] = {"seen": False}
+        fallback_chunk: Optional[CompletionChunk] = None
+        if self.reasoning_parser:
+            set_context()
+            chunks = self.reasoning_parser.prepare_reasoning_content_sync(chunks)
+        choice_chunk_idx = 0
+        for completion_chunk in chunks:
+            set_context()
+            if not completion_chunk.get("choices"):
+                if completion_chunk.get("usage") is not None:
+                    yield self._get_usage_chat_completion_chunk(
+                        completion_chunk, fallback_chunk
+                    )
+                else:
+                    yield self._get_final_chat_completion_chunk(
+                        completion_chunk, fallback_chunk
+                    )
+                continue
+
+            fallback_chunk = completion_chunk
+            chat_chunk = self._to_chat_completion_chunk(
+                completion_chunk,
+                self.reasoning_parser,
+                previous_texts,
+                ensure_role=choice_chunk_idx == 0,
+            )
+            if choice_chunk_idx == 0 and ctx and ctx.get("_anthropic_request"):
+                first_usage = self._sanitize_usage(completion_chunk.get("usage"))
+                if first_usage is not None:
+                    chat_chunk["usage"] = first_usage
+            choice_chunk_idx += 1
+            reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(chat_chunk)
+            if reasoning_chunk is not None:
+                yield reasoning_chunk
+            if tool_chunk is None:
+                continue
+            processed_chunk = self._post_process_completion_chunk(
+                self.model_family,
+                self.model_uid,
+                tool_chunk,
+                previous_texts=previous_tools_texts,
+                tool_call_state=tool_call_state,
+                tools=tools,
+            )
+            if processed_chunk:
+                yield processed_chunk
 
     async def _async_to_tool_completion_chunks(
         self,
         chunks: AsyncGenerator[CompletionChunk, None],
         ctx: Optional[Dict[str, Any]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         def set_context():
             if ctx:
@@ -1064,35 +1653,63 @@ class ChatModelMixin:
         i = 0
         previous_texts = [""]
         previous_tools_texts = [""]
+        tool_call_state: Dict[str, Any] = {"seen": False}
         full_text = ""
-        if self.reasoning_parser:
-            set_context()
-            chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
-        async for completion_chunk in chunks:
-            set_context()
-            chat_chunk = self._to_chat_completion_chunk(
-                completion_chunk,
-                self.reasoning_parser,
-                previous_texts,
-                ensure_role=i == 0,
-            )
-            if (
-                chat_chunk["choices"]
-                and "reasoning_content" in chat_chunk["choices"][0]["delta"]
-                and chat_chunk["choices"][0]["delta"]["reasoning_content"] is not None
-            ):
-                yield chat_chunk
-                continue
-            processed_chunk = self._post_process_completion_chunk(
-                self.model_family,
-                self.model_uid,
-                chat_chunk,
-                previous_texts=previous_tools_texts,
-            )
-            if processed_chunk:
-                yield processed_chunk
-            i += 1
-        logger.debug("Chat finished, output: %s", full_text)
+        fallback_chunk: Optional[CompletionChunk] = None
+        upstream_chunks = chunks
+        try:
+            if self.reasoning_parser:
+                set_context()
+                chunks = self.reasoning_parser.prepare_reasoning_content_streaming(
+                    chunks
+                )
+            async for completion_chunk in chunks:
+                set_context()
+                if not completion_chunk.get("choices"):
+                    if completion_chunk.get("usage") is not None:
+                        yield self._get_usage_chat_completion_chunk(
+                            completion_chunk, fallback_chunk
+                        )
+                    else:
+                        yield self._get_final_chat_completion_chunk(
+                            completion_chunk, fallback_chunk
+                        )
+                    continue
+
+                fallback_chunk = completion_chunk
+                chat_chunk = self._to_chat_completion_chunk(
+                    completion_chunk,
+                    self.reasoning_parser,
+                    previous_texts,
+                    ensure_role=i == 0,
+                )
+                if i == 0 and ctx and ctx.get("_anthropic_request"):
+                    first_usage = self._sanitize_usage(completion_chunk.get("usage"))
+                    if first_usage is not None:
+                        chat_chunk["usage"] = first_usage
+                i += 1
+                reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(
+                    chat_chunk
+                )
+                if reasoning_chunk is not None:
+                    yield reasoning_chunk
+                if tool_chunk is None:
+                    continue
+                processed_chunk = self._post_process_completion_chunk(
+                    self.model_family,
+                    self.model_uid,
+                    tool_chunk,
+                    previous_texts=previous_tools_texts,
+                    tool_call_state=tool_call_state,
+                    tools=tools,
+                )
+                if processed_chunk:
+                    yield processed_chunk
+            logger.debug("Chat finished, output: %s", full_text)
+        finally:
+            # Keep request cleanup deterministic when the converted tool stream
+            # is closed before the model stream is exhausted.
+            await upstream_chunks.aclose()
 
 
 def get_model_version(
@@ -1105,41 +1722,11 @@ def get_model_version(
 
 
 def _decode_image(_url):
-    if _url.startswith("data:"):
-        logging.info("Parse url by base64 decoder.")
-        # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-        # e.g. f"data:image/jpeg;base64,{base64_image}"
-        _type, data = _url.split(";")
-        _, ext = _type.split("/")
-        data = data[len("base64,") :]
-        data = base64.b64decode(data.encode("utf-8"))
-        return Image.open(BytesIO(data)).convert("RGB")
-    else:
-        try:
-            response = requests.get(_url)
-        except requests.exceptions.MissingSchema:
-            return Image.open(_url).convert("RGB")
-        else:
-            return Image.open(BytesIO(response.content)).convert("RGB")
+    return _decode_image_without_rgb(_url).convert("RGB")
 
 
 def _decode_image_without_rgb(_url):
-    if _url.startswith("data:"):
-        logging.info("Parse url by base64 decoder.")
-        # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-        # e.g. f"data:image/jpeg;base64,{base64_image}"
-        _type, data = _url.split(";")
-        _, ext = _type.split("/")
-        data = data[len("base64,") :]
-        data = base64.b64decode(data.encode("utf-8"))
-        return Image.open(BytesIO(data))
-    else:
-        try:
-            response = requests.get(_url)
-        except requests.exceptions.MissingSchema:
-            return Image.open(_url)
-        else:
-            return Image.open(BytesIO(response.content))
+    return Image.open(BytesIO(load_media_bytes(_url)))
 
 
 @typing.no_type_check
@@ -1291,3 +1878,22 @@ def parse_messages(messages: List[Dict]) -> Tuple:
     system_prompt = ". ".join(system_messages) if system_messages else None
     chat_history = content_messages[:-1]
     return prompt, system_prompt, chat_history
+
+
+@functools.lru_cache
+def _load_deepseekv4_encoding_module(model_path: str):
+    module_path = os.path.join(
+        model_path,
+        "encoding",
+        "encoding_dsv4.py",  # type: ignore
+    )
+    if not os.path.exists(module_path):
+        raise FileNotFoundError(
+            f"Missing {module_path}.Please verify the model repository files."
+        )
+    spec = importlib.util.spec_from_file_location("encoding_dsv4", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Failed to load encoding_dsv4 module from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module

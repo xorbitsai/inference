@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,32 @@
 # limitations under the License.
 
 import importlib
+import os
+from typing import Set
+
+_LAUNCHER_ALLOWLIST_ENV = "XINFERENCE_FLEXIBLE_LAUNCHERS"
+_BUILTIN_LAUNCHERS = {
+    "xinference.model.flexible.launchers.transformers",
+    "xinference.model.flexible.launchers.modelscope",
+    "xinference.model.flexible.launchers.yolo",
+    "xinference.model.flexible.launchers.image_process",
+}
+
+
+def _get_launcher_allowlist() -> Set[str]:
+    raw = os.environ.get(_LAUNCHER_ALLOWLIST_ENV, "")
+    return _BUILTIN_LAUNCHERS | {
+        name.strip() for name in raw.split(",") if name.strip()
+    }
 
 
 def get_launcher(launcher_name: str):
+    if launcher_name not in _get_launcher_allowlist():
+        raise ValueError(
+            f"Launcher {launcher_name!r} is not permitted. Add its exact dotted "
+            f"name to the {_LAUNCHER_ALLOWLIST_ENV} environment variable "
+            "(comma-separated) to allow it."
+        )
     try:
         i = launcher_name.rfind(".")
         if i != -1:

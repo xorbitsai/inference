@@ -1,0 +1,143 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-08-02 15:15+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/using_kubernetes.rst:5
+msgid "Xinference on Kubernetes"
+msgstr "Kubernetes 클러스터에 Xinference 설치"
+
+#: ../../source/getting_started/using_kubernetes.rst:9
+msgid "Helm Support"
+msgstr "네이티브 Helm 방식 기반"
+
+#: ../../source/getting_started/using_kubernetes.rst:10
+msgid ""
+"Xinference provides a method for installation in a Kubernetes cluster via "
+"``Helm`` ."
+msgstr "Xinference는 네이티브 Helm을 기반으로 Kubernetes 클러스터에 설치하는 방식을 제공합니다."
+
+#: ../../source/getting_started/using_kubernetes.rst:14
+msgid "Prerequisites"
+msgstr "준비 조건"
+
+#: ../../source/getting_started/using_kubernetes.rst:15
+msgid "You have a fully functional Kubernetes cluster."
+msgstr "사용 가능한 Kubernetes 클러스터."
+
+#: ../../source/getting_started/using_kubernetes.rst:16
+msgid ""
+"Enable GPU support in Kubernetes, refer to `here "
+"<https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/>`_."
+msgstr ""
+"Kubernetes에서 GPU 지원을 활성화하려면 `여기 <https://kubernetes.io/zh-"
+"cn/docs/tasks/manage-gpus/scheduling-gpus/>`_ 를 참조하십시오."
+
+#: ../../source/getting_started/using_kubernetes.rst:17
+msgid "``Helm`` is correctly installed."
+msgstr "``Helm``을 올바르게 설치하십시오."
+
+#: ../../source/getting_started/using_kubernetes.rst:21
+msgid "Steps"
+msgstr "구체적인 단계"
+
+#: ../../source/getting_started/using_kubernetes.rst:22
+msgid "Add xinference helm repo."
+msgstr "Added Xinference Helm repository"
+
+#: ../../source/getting_started/using_kubernetes.rst:28
+msgid "Update xinference helm repo indexes and query versions."
+msgstr "저장소 인덱스를 업데이트하고 설치 가능한 버전을 조회합니다."
+
+#: ../../source/getting_started/using_kubernetes.rst:35
+msgid "Install"
+msgstr "설치"
+
+#: ../../source/getting_started/using_kubernetes.rst:43
+msgid "Customized Installation"
+msgstr "사용자 지정 설치"
+
+#: ../../source/getting_started/using_kubernetes.rst:44
+msgid ""
+"The installation method mentioned above sets up a Xinference cluster similar"
+" to a single-machine setup, with only one worker and all startup parameters "
+"at their default values. However, this is usually not the desired setup."
+msgstr ""
+"위 설치 방식은 단일 머신과 유사한 Xinference를 설치한 것으로, 즉 노드가 하나뿐이며 다른 모든 시작 매개변수는 기본값으로 "
+"유지됩니다."
+
+#: ../../source/getting_started/using_kubernetes.rst:48
+msgid "Below are some common custom installation configurations."
+msgstr "아래는 몇 가지 일반적인 사용자 지정 설치 구성입니다."
+
+#: ../../source/getting_started/using_kubernetes.rst:50
+msgid "I need to download models from ``ModelScope``."
+msgstr "ModelScope에서 모델을 다운로드해야 합니다."
+
+#: ../../source/getting_started/using_kubernetes.rst:56
+msgid ""
+"I want to use cpu image of xinference (or use any other version of "
+"xinference images)."
+msgstr "Xinference의 CPU 버전 이미지(또는 다른 버전의 이미지)를 사용하고 싶습니다."
+
+#: ../../source/getting_started/using_kubernetes.rst:62
+msgid "I want to have 4 Xinference workers, with each worker managing 4 GPUs."
+msgstr "4개의 Xinference worker 노드를 시작해야 하며, 각 worker는 4개의 GPU를 관리합니다."
+
+#: ../../source/getting_started/using_kubernetes.rst:68
+msgid ""
+"The above installation method is based on Helm ``--set`` option. For more "
+"complex custom installations, such as multiple workers with shared storage, "
+"it is highly recommended to use your own ``values.yaml`` file with Helm "
+"``-f`` option for installation."
+msgstr ""
+"위의 설치 방식은 Helm ``--set`` 옵션에 기반합니다. 더 복잡한 사용자 정의 설치 시나리오(예: 여러 worker가 스토리지를"
+" 공유하는 경우)에서는 자체 ``values.yaml`` 파일을 사용한 후, Helm ``-f`` 옵션을 통해 설치하는 것을 적극 "
+"권장합니다."
+
+#: ../../source/getting_started/using_kubernetes.rst:72
+msgid ""
+"The default ``values.yaml`` file is located `here "
+"<https://github.com/xorbitsai/xinference-helm-"
+"charts/blob/main/charts/xinference/values.yaml>`_. Some examples can be "
+"found `here <https://github.com/xorbitsai/xinference-helm-"
+"charts/tree/main/examples>`_."
+msgstr ""
+"기본 설치 방식에 해당하는 ``values.yaml`` 파일은 `여기 "
+"<https://github.com/xorbitsai/xinference-helm-"
+"charts/blob/main/charts/xinference/values.yaml>`_ 에 있습니다. `여기 "
+"<https://github.com/xorbitsai/xinference-helm-charts/tree/main/examples>`_ "
+"에는 참고할 수 있는 몇 가지 예제가 있습니다."
+
+#: ../../source/getting_started/using_kubernetes.rst:78
+msgid "KubeBlocks Support"
+msgstr "타사 KubeBlocks 기반 방식"
+
+#: ../../source/getting_started/using_kubernetes.rst:79
+msgid ""
+"You can also install Xinference in Kubernetes using the third-party "
+"``KubeBlocks``. This method is not maintained by Xinference and does not "
+"guarantee timely updates or availability. Please refer to the documentation "
+"at `here <https://kubeblocks.io/docs/preview/user_docs/kubeblocks-for-"
+"xinference/manage-xinference>`_."
+msgstr ""
+"또한 서드파티 ``KubeBlocks``를 통해 K8s 클러스터에 Xinference를 설치할 수 있습니다. 이 방식은 "
+"Xinference 공식적으로 유지 관리되지 않으므로, 실시간 업데이트 및 가용성을 엄격히 보장할 수 없습니다. `문서 "
+"<https://kubeblocks.io/docs/preview/user_docs/kubeblocks-for-"
+"xinference/manage-xinference>`_ 를 참조하십시오."

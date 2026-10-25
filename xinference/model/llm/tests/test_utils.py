@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+
+from ..core import chat_context_var
 from ..reasoning_parser import ReasoningParser
+from ..tool_parsers.deepseek_v4_tool_parser import DeepseekV4ToolParser
+from ..tool_parsers.glm4_tool_parser import Glm4ToolParser
+from ..tool_parsers.llama3_tool_parser import Llama3ToolParser
 from ..tool_parsers.qwen_tool_parser import QwenToolParser
 from ..utils import ChatModelMixin
+
+
+@pytest.fixture(autouse=True)
+def reset_chat_context_var():
+    token = chat_context_var.set({})
+    try:
+        yield
+    finally:
+        chat_context_var.reset(token)
 
 
 def test_is_valid_model_name():
@@ -27,8 +47,13 @@ def test_is_valid_model_name():
     assert is_valid_model_name("foo@bar")
     assert is_valid_model_name("_foo")
     assert is_valid_model_name("-foo")
+    assert is_valid_model_name("my.model.v2")
     assert not is_valid_model_name("foo bar")
     assert not is_valid_model_name("foo/bar")
+    assert not is_valid_model_name("foo\\bar")
+    assert not is_valid_model_name("..\\..\\evil")
+    assert not is_valid_model_name(".")
+    assert not is_valid_model_name("..")
     assert not is_valid_model_name("   ")
     assert not is_valid_model_name("")
 
@@ -43,6 +68,1532 @@ def filter_ids_and_created(data):
             if k not in ["id", "created"]
         }
     return data
+
+
+@pytest.mark.parametrize(
+    "usage",
+    [
+        {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+        },
+        SimpleNamespace(
+            prompt_tokens=3,
+            completion_tokens=2,
+            total_tokens=5,
+        ),
+        SimpleNamespace(
+            prompt_tokens=3,
+            completion_tokens=2,
+            total_tokens=5,
+            prompt_tokens_details=SimpleNamespace(cached_tokens=1),
+        ),
+        SimpleNamespace(
+            prompt_tokens=3,
+            completion_tokens=2,
+            total_tokens=5,
+            prompt_tokens_details=SimpleNamespace(
+                model_dump=lambda: None, cached_tokens=1
+            ),
+        ),
+    ],
+)
+def test_sanitize_usage_accepts_dict_and_object(usage):
+    expected = {
+        "prompt_tokens": 3,
+        "completion_tokens": 2,
+        "total_tokens": 5,
+    }
+    if getattr(usage, "prompt_tokens_details", None) is not None:
+        expected["prompt_tokens_details"] = {"cached_tokens": 1}
+    assert ChatModelMixin._sanitize_usage(usage) == expected
+
+
+def test_sanitize_usage_accepts_openai_completion_usage():
+    pytest.importorskip("openai")
+    from openai.types.completion_usage import CompletionUsage as OpenAICompletionUsage
+
+    usage = OpenAICompletionUsage(
+        prompt_tokens=3,
+        completion_tokens=2,
+        total_tokens=5,
+    )
+
+    assert ChatModelMixin._sanitize_usage(usage) == {
+        "prompt_tokens": 3,
+        "completion_tokens": 2,
+        "total_tokens": 5,
+    }
+
+
+@pytest.mark.parametrize("usage", [None, {}, SimpleNamespace()])
+def test_sanitize_usage_rejects_empty_or_incomplete_usage(usage):
+    assert ChatModelMixin._sanitize_usage(usage) is None
+
+
+def test_sync_tool_chunks_first_choice_keeps_assistant_role(monkeypatch):
+    mixin = ChatModelMixin()
+    mixin.reasoning_parser = None
+    mixin.model_family = "test-family"
+    mixin.model_uid = "test-model"
+    ensure_roles = []
+
+    def to_chat_chunk(completion_chunk, reasoning_parser, previous_texts, ensure_role):
+        ensure_roles.append(ensure_role)
+        return {
+            "choices": [
+                {
+                    "delta": {"role": "assistant", "content": "hello"},
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(mixin, "_to_chat_completion_chunk", to_chat_chunk)
+    monkeypatch.setattr(
+        mixin, "_split_reasoning_tool_chunk", lambda chunk: (chunk, None)
+    )
+    monkeypatch.setattr(
+        mixin,
+        "_get_usage_chat_completion_chunk",
+        lambda chunk, fallback: {"choices": [], "usage": chunk["usage"]},
+    )
+
+    chunks = [
+        {"choices": [], "usage": {"total_tokens": 1}},
+        {"choices": [{"delta": {"content": "hello"}}]},
+    ]
+    results = list(mixin._to_tool_completion_chunks(iter(chunks)))
+
+    assert len(results) == 2
+    assert ensure_roles == [True]
+
+
+@pytest.mark.asyncio
+async def test_async_tool_chunks_increment_role_after_reasoning_only_chunk(
+    monkeypatch,
+):
+    mixin = ChatModelMixin()
+    mixin.reasoning_parser = None
+    mixin.model_family = "test-family"
+    mixin.model_uid = "test-model"
+    ensure_roles = []
+
+    def to_chat_chunk(completion_chunk, reasoning_parser, previous_texts, ensure_role):
+        ensure_roles.append(ensure_role)
+        return {
+            "choices": [
+                {
+                    "delta": {
+                        "role": "assistant",
+                        "reasoning_content": completion_chunk["reasoning_content"],
+                        "content": None,
+                    },
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(mixin, "_to_chat_completion_chunk", to_chat_chunk)
+    monkeypatch.setattr(
+        mixin, "_split_reasoning_tool_chunk", lambda chunk: (chunk, None)
+    )
+
+    async def chunks():
+        yield {"choices": [{}], "reasoning_content": "first"}
+        yield {"choices": [{}], "reasoning_content": "second"}
+
+    results = [
+        chunk async for chunk in mixin._async_to_tool_completion_chunks(chunks())
+    ]
+
+    assert len(results) == 2
+    assert ensure_roles == [True, False]
+
+
+@pytest.mark.asyncio
+async def test_async_chat_chunks_first_choice_keeps_role_after_usage_chunk():
+    async def chunks():
+        yield {
+            "choices": [],
+            "usage": SimpleNamespace(
+                prompt_tokens=3,
+                completion_tokens=2,
+                total_tokens=5,
+            ),
+        }
+        yield {
+            "id": "cmpl-test",
+            "object": "text_completion",
+            "created": 123,
+            "model": "test-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": "hello",
+                    "logprobs": None,
+                    "finish_reason": None,
+                }
+            ],
+        }
+
+    results = [
+        chunk
+        async for chunk in ChatModelMixin._async_to_chat_completion_chunks(chunks())
+    ]
+
+    assert results[0]["usage"] == {
+        "prompt_tokens": 3,
+        "completion_tokens": 2,
+        "total_tokens": 5,
+    }
+    assert results[1]["choices"][0]["delta"]["role"] == "assistant"
+
+
+def test_to_chat_completion_chunks_usage_only_chunk_without_metadata():
+    chunks = [
+        {
+            "id": "cmpl-test",
+            "object": "text_completion",
+            "created": 123,
+            "model": "test-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": "hello",
+                    "logprobs": None,
+                    "finish_reason": None,
+                }
+            ],
+        },
+        {
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 2,
+                "total_tokens": 5,
+            }
+        },
+    ]
+
+    results = list(ChatModelMixin._to_chat_completion_chunks(iter(chunks)))
+
+    assert results[-1] == {
+        "id": "chatcmpl-test",
+        "model": "test-model",
+        "created": 123,
+        "object": "chat.completion.chunk",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+        },
+    }
+
+
+@pytest.mark.parametrize("stream_mode", ["sync", "async"])
+@pytest.mark.parametrize("chunk_format", ["text_completion", "chat.completion.chunk"])
+@pytest.mark.parametrize(
+    "scenario", ["plain-content", "tool", "content-then-tool", "reasoning-then-tool"]
+)
+async def test_stream_chunks_keep_completion_id(stream_mode, chunk_format, scenario):
+    mixin = ChatModelMixin()
+    mixin.model_uid = "test-model"
+    mixin.model_family = None
+    mixin.tool_parser = QwenToolParser() if scenario != "plain-content" else None
+    mixin.reasoning_parser = (
+        ReasoningParser(True, "<think>", "</think>", auto_insert_start_tag=False)
+        if scenario == "reasoning-then-tool"
+        else None
+    )
+    if scenario == "plain-content":
+        texts = ["Hello", " world"]
+    else:
+        texts = [
+            '<tool_call>\n{"name": "get_weather", "arguments":',
+            '{"city": "Beijing"}}\n</tool_call>',
+            '<tool_call>\n{"name": "get_weather", "arguments":',
+            '{"city": "Shanghai"}}\n</tool_call>',
+        ]
+        if scenario == "content-then-tool":
+            texts.insert(0, "Let me check. ")
+        elif scenario == "reasoning-then-tool":
+            texts[:0] = ["<think>", "need the tool", "</think>Let me check. "]
+    base = {
+        "id": (
+            "cmpl-engine-stream-1"
+            if chunk_format == "text_completion"
+            else "chatcmpl-engine-stream-1"
+        ),
+        "object": chunk_format,
+        "model": "test-model",
+        "created": 123,
+    }
+    chunks = []
+    for text in texts + [""]:
+        choice = {
+            "index": 0,
+            "finish_reason": "stop" if len(chunks) == len(texts) else None,
+        }
+        if chunk_format == "text_completion":
+            choice["text"] = text
+        else:
+            choice["delta"] = {"content": text}
+        chunks.append({**base, "choices": [choice]})
+    usage = {"prompt_tokens": 3, "completion_tokens": len(texts)}
+    usage["total_tokens"] = sum(usage.values())
+    # Exercise the fallback identity for a usage chunk without engine metadata.
+    chunks.append({"choices": [], "usage": usage})
+
+    if stream_mode == "sync":
+        if mixin.tool_parser:
+            results = list(mixin._to_tool_completion_chunks(iter(chunks)))
+        else:
+            results = list(mixin._to_chat_completion_chunks(iter(chunks)))
+    else:
+
+        async def source():
+            for chunk in chunks:
+                yield chunk
+
+        if mixin.tool_parser:
+            stream = mixin._async_to_tool_completion_chunks(source())
+        else:
+            stream = mixin._async_to_chat_completion_chunks(source())
+        results = [chunk async for chunk in stream]
+
+    assert results[-1]["choices"] == []
+    assert results[-1]["usage"] == usage
+    assert results[-2]["choices"][0]["finish_reason"] == (
+        "tool_calls" if mixin.tool_parser else "stop"
+    )
+    deltas = [choice["delta"] for chunk in results for choice in chunk["choices"]]
+    if mixin.tool_parser:
+        call_ids = [
+            call["id"]
+            for delta in deltas
+            for call in delta.get("tool_calls", [])
+            if "id" in call
+        ]
+        assert len(call_ids) == len(set(call_ids)) == 2
+        assert "chatcmpl-engine-stream-1" not in call_ids
+    else:
+        assert "".join(delta.get("content") or "" for delta in deltas) == "Hello world"
+    if mixin.reasoning_parser:
+        assert (
+            "".join(delta.get("reasoning_content") or "" for delta in deltas)
+            == "need the tool"
+        )
+    assert {chunk["id"] for chunk in results} == {"chatcmpl-engine-stream-1"}
+
+
+@pytest.mark.parametrize("chunk_id", ["engine-stream-1", "cmpl-engine-stream-1"])
+def test_post_process_completion_chunk_keeps_chatglm_explicit_id(chunk_id):
+    mixin = ChatModelMixin()
+    mixin.tool_parser = Glm4ToolParser()
+    base = {"id": chunk_id, "model": "test-model", "created": 123}
+    results = mixin._get_first_chat_completion_chunk(
+        {**base, "choices": [{"text": "", "index": 0, "finish_reason": None}]}
+    )
+    tool_chunk = mixin._post_process_completion_chunk(
+        None,
+        "test-model",
+        {
+            "id": "chatcmpl-ignored",
+            "object": "chat.completion.chunk",
+            "name": "get_weather",
+            "arguments": '{"city": "Beijing"}',
+            "choices": [{}],
+        },
+        chunk_id=chunk_id,
+    )
+    assert tool_chunk is not None
+    assert tool_chunk["choices"][0]["delta"]["tool_calls"][0]["id"] != tool_chunk["id"]
+    results.append(tool_chunk)
+    results.append(
+        mixin._get_usage_chat_completion_chunk(
+            {
+                **base,
+                "usage": {
+                    "prompt_tokens": 3,
+                    "completion_tokens": 2,
+                    "total_tokens": 5,
+                },
+            }
+        )
+    )
+    assert {chunk["id"] for chunk in results} == {"chat" + chunk_id}
+
+
+def test_to_chat_completion_propagates_logprobs():
+    # Regression for #1911 / #3553: /v1/chat/completions silently returned
+    # logprobs: null even when the engine produced them. The chat builder must
+    # propagate the source Completion choice's logprobs onto the chat choice.
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+    chat = ChatModelMixin._to_chat_completion(completion)
+
+    assert chat["choices"][0]["logprobs"] is not None
+    # Chat completions carry the chat ``content[]`` logprobs shape (token/bytes/
+    # logprob/top_logprobs), not the legacy parallel-list shape, so openai-python
+    # parses ``choice.logprobs.content`` instead of dropping it as extra fields.
+    assert chat["choices"][0]["logprobs"] == {
+        # The first token's legacy logprob is None (not computed), so it is
+        # omitted from content[] rather than emitted with a null logprob —
+        # openai-python rejects null (see test_chat_logprobs_parse_openai).
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_to_chat_completion_chunks_propagates_logprobs():
+    # Streaming counterpart: the chat chunk choice must carry the source
+    # CompletionChunk choice's logprobs instead of dropping them.
+    from ....types import CompletionChoice, CompletionChunk, CompletionLogprobs
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    chunk = CompletionChunk(
+        id="cmpl-2",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello", index=0, logprobs=logprobs, finish_reason=None
+            )
+        ],
+    )
+
+    results = list(ChatModelMixin._to_chat_completion_chunks(iter([chunk])))
+
+    assert results, "expected at least one chat chunk"
+    assert results[0]["choices"][0]["logprobs"] is not None
+    # Streaming chat chunks carry the chat ``content[]`` logprobs shape, converted
+    # from the legacy parallel-list shape the engine emits.
+    assert results[0]["choices"][0]["logprobs"] == {
+        # The first token's legacy logprob is None -> omitted from content[]
+        # (see test_chat_logprobs_parse_openai); only the known-logprob token
+        # survives, in the chat content[] shape.
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_chat_logprobs_parse_openai():
+    # Regression for the openai-python validation failure qinxuye reproduced with
+    # 1.99.9: ``ChatCompletionTokenLogprob.logprob`` is non-nullable, so a chat
+    # logprobs ``content[]`` entry must never carry ``null``. The converter now
+    # skips tokens whose legacy ``token_logprobs`` entry is ``None`` instead of
+    # emitting a null logprob; assert every emitted entry parses through the
+    # OpenAI client model.
+    pytest.importorskip("openai")
+    from openai.types.chat.chat_completion_token_logprob import (
+        ChatCompletionTokenLogprob,
+    )
+
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    # token_logprobs[0] is None (the legacy first-token case). The converter must
+    # drop that token rather than emit ``logprob: None``.
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+    chat = ChatModelMixin._to_chat_completion(completion)
+    content = chat["choices"][0]["logprobs"]["content"]
+    assert content, "content[] must not be empty when a known-logprob token exists"
+    # No entry carries a null logprob, and the None-logprob first token is dropped.
+    assert [e["token"] for e in content] == [" world"]
+    for entry in content:
+        # Must parse through the OpenAI client model without raising — the exact
+        # gate that was failing ("logprob: Input should be a valid number").
+        ChatCompletionTokenLogprob(**entry)
+
+
+class _NoOpToolParser:
+    """Minimal tool-parser stub: reports no tool calls so the tool post-processors
+    take the content-preserving branch while still exercising the logprobs path
+    (the real parsers are heavy to construct in a unit test)."""
+
+    def extract_tool_calls(self, text):  # non-streaming
+        return []
+
+    def extract_tool_calls_streaming(
+        self, previous_texts, current_text, delta_text
+    ):  # streaming; returns (content, func, args)
+        return (delta_text or "", None, None)
+
+
+class _MultiToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        return [
+            (None, "get_weather", {"city": "Beijing"}),
+            (None, "get_time", {"timezone": "UTC+8"}),
+            (" tail", None, None),
+        ]
+
+
+class _IndexedToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        if not delta_text:
+            return None
+        if delta_text == " gap":
+            return (delta_text, None, None)
+        if current_text == "first":
+            return (None, "first", {}, 0)
+        return (None, "second", {}, 1)
+
+
+class _IncrementalToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        if current_text == "start":
+            return (None, "get_weather", None, 0)
+        return (None, "get_weather", {"city": "Beijing"}, 0)
+
+
+class _SequentialToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        if not delta_text:
+            return None
+        return (None, delta_text, {})
+
+
+class _InterleavedIncrementalToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        events = {
+            "call0-start": (None, "get_weather", None, 0),
+            "call1-start": (None, "get_time", None, 1),
+            "call0-complete": (None, "get_weather", {"city": "Beijing"}, 0),
+            "call1-complete": (None, "get_time", {"timezone": "UTC+8"}, 1),
+        }
+        return events[delta_text]
+
+
+def test_post_process_completion_chunk_supports_multiple_tool_calls():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _MultiToolParser()
+    result = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {
+                    "delta": {"content": "tool output"},
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        },
+        previous_texts=[""],
+    )
+
+    assert result is not None
+    choice = result["choices"][0]
+    assert choice["finish_reason"] == "tool_calls"
+    assert choice["delta"]["content"] == " tail"
+    tool_calls = choice["delta"]["tool_calls"]
+    assert [call["index"] for call in tool_calls] == [0, 1]
+    assert all(call["id"].startswith("call_") for call in tool_calls)
+    assert all(call["type"] == "function" for call in tool_calls)
+    assert [
+        (call["function"]["name"], call["function"]["arguments"]) for call in tool_calls
+    ] == [
+        ("get_weather", '{"city": "Beijing"}'),
+        ("get_time", '{"timezone": "UTC+8"}'),
+    ]
+
+
+def test_post_process_completion_chunk_indexes_tool_calls_across_chunks():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _SequentialToolParser()
+    previous_texts = [""]
+    tool_call_state = {"seen": False, "next_index": 0}
+    streamed_calls = []
+
+    for name in ["first", "second"]:
+        result = mixin._post_process_completion_chunk(
+            "test-family",
+            "test-model",
+            {
+                "choices": [
+                    {
+                        "delta": {"content": name},
+                        "finish_reason": None,
+                        "logprobs": None,
+                    }
+                ]
+            },
+            previous_texts=previous_texts,
+            tool_call_state=tool_call_state,
+        )
+        assert result is not None
+        streamed_calls.extend(result["choices"][0]["delta"]["tool_calls"])
+
+    final = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": ""}, "finish_reason": "stop", "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+
+    assert final is not None
+    assert [call["index"] for call in streamed_calls] == [0, 1]
+    assert [call["function"]["name"] for call in streamed_calls] == [
+        "first",
+        "second",
+    ]
+    assert final["choices"][0]["finish_reason"] == "tool_calls"
+    assert final["choices"][0]["delta"]["tool_calls"] == []
+
+
+def test_post_process_completion_chunk_preserves_absolute_tool_call_index():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _IndexedToolParser()
+    previous_texts = [""]
+    tool_call_state = {"seen": False}
+
+    first = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": "first"}, "finish_reason": None, "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+    gap = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": " gap"}, "finish_reason": None, "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+    second = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {
+                    "delta": {"content": " second"},
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+    final = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": ""}, "finish_reason": "stop", "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+
+    assert first is not None
+    assert gap is not None
+    assert second is not None
+    assert final is not None
+    assert first["choices"][0]["delta"]["tool_calls"][0]["index"] == 0
+    assert gap["choices"][0]["delta"]["tool_calls"] == []
+    assert gap["choices"][0]["delta"]["content"] == " gap"
+    assert second["choices"][0]["delta"]["tool_calls"][0]["index"] == 1
+    assert first["choices"][0]["finish_reason"] is None
+    assert gap["choices"][0]["finish_reason"] is None
+    assert second["choices"][0]["finish_reason"] is None
+    assert final["choices"][0]["finish_reason"] == "tool_calls"
+
+
+def test_post_process_completion_chunk_emits_incremental_metadata_once():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _IncrementalToolParser()
+    previous_texts = [""]
+    tool_call_state = {"seen": False}
+
+    first = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": "start"}, "finish_reason": None, "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+    complete = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {
+                    "delta": {"content": " complete"},
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+
+    assert first is not None
+    assert complete is not None
+    first_call = first["choices"][0]["delta"]["tool_calls"][0]
+    complete_call = complete["choices"][0]["delta"]["tool_calls"][0]
+    assert first_call["id"] == tool_call_state["call_ids"][0]
+    assert first_call["type"] == "function"
+    assert first_call["function"] == {"name": "get_weather", "arguments": ""}
+    assert "id" not in complete_call
+    assert "type" not in complete_call
+    assert complete_call["function"] == {"arguments": '{"city": "Beijing"}'}
+    assert tool_call_state["sent_metadata"] == {0}
+
+
+def test_post_process_completion_chunk_tracks_metadata_per_tool_call_index():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _InterleavedIncrementalToolParser()
+    previous_texts = [""]
+    tool_call_state = {"seen": False}
+
+    def process(delta_text):
+        result = mixin._post_process_completion_chunk(
+            "test-family",
+            "test-model",
+            {
+                "choices": [
+                    {
+                        "delta": {"content": delta_text},
+                        "finish_reason": None,
+                        "logprobs": None,
+                    }
+                ]
+            },
+            previous_texts=previous_texts,
+            tool_call_state=tool_call_state,
+        )
+        assert result is not None
+        return result["choices"][0]["delta"]["tool_calls"][0]
+
+    first_call0 = process("call0-start")
+    first_call1 = process("call1-start")
+    complete_call0 = process("call0-complete")
+    complete_call1 = process("call1-complete")
+
+    assert first_call0["index"] == 0
+    assert first_call1["index"] == 1
+    assert first_call0["id"] != first_call1["id"]
+    assert first_call0["type"] == first_call1["type"] == "function"
+    assert first_call0["function"] == {"name": "get_weather", "arguments": ""}
+    assert first_call1["function"] == {"name": "get_time", "arguments": ""}
+
+    assert complete_call0 == {
+        "index": 0,
+        "function": {"arguments": '{"city": "Beijing"}'},
+    }
+    assert complete_call1 == {
+        "index": 1,
+        "function": {"arguments": '{"timezone": "UTC+8"}'},
+    }
+    assert tool_call_state["call_ids"] == {
+        0: first_call0["id"],
+        1: first_call1["id"],
+    }
+    assert tool_call_state["sent_names"] == {0, 1}
+    assert tool_call_state["sent_metadata"] == {0, 1}
+
+
+def test_post_process_completion_chunk_preserves_length_finish_reason():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _IndexedToolParser()
+
+    result = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {
+                    "delta": {"content": ""},
+                    "finish_reason": "length",
+                    "logprobs": None,
+                }
+            ]
+        },
+        previous_texts=["first"],
+        tool_call_state={"seen": True},
+    )
+
+    assert result is not None
+    assert result["choices"][0]["finish_reason"] == "length"
+
+
+def test_post_process_completion_preserves_chat_logprobs():
+    # Non-streaming tools path: _post_process_completion previously omitted the
+    # logprobs field entirely, so tool-enabled requests lost them. It must now
+    # carry the converted chat-shape logprobs from the source Completion choice.
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _NoOpToolParser()
+    mixin.reasoning_parser = None
+
+    result = mixin._post_process_completion("test-family", "test-model", completion)
+
+    assert result["choices"][0]["logprobs"] is not None
+    assert result["choices"][0]["logprobs"] == {
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_post_process_completion_chunk_preserves_chat_logprobs():
+    # Streaming tools path: `_async_to_tool_completion_chunks` first converts each
+    # legacy CompletionChunk to a chat chunk via `_to_chat_completion_chunk` (which
+    # already turns the legacy parallel-list logprobs into the chat ``content[]``
+    # shape), then hands the chat chunk to `_post_process_completion_chunk`. That
+    # post-processor must pass the already-converted logprobs through unchanged;
+    # re-running the converter would find no ``tokens`` key and collapse a real
+    # one-token logprob to ``{"content": []}`` (regression flagged on #5252).
+    from ....types import CompletionChoice, CompletionChunk, CompletionLogprobs
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    raw_chunk = CompletionChunk(
+        id="cmpl-2",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello",
+                index=0,
+                logprobs=logprobs,
+                finish_reason=None,
+            )
+        ],
+    )
+
+    # Production order: convert to a chat chunk first, then post-process it.
+    chat_chunk = ChatModelMixin._to_chat_completion_chunk(raw_chunk)
+    expected_logprobs = chat_chunk["choices"][0]["logprobs"]
+    assert expected_logprobs is not None  # converted once to the chat shape
+
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _NoOpToolParser()
+    mixin.reasoning_parser = None
+
+    result = mixin._post_process_completion_chunk(
+        "test-family", "test-model", chat_chunk, chunk_id="cmpl-2"
+    )
+
+    assert result is not None
+    # Passed through unchanged -- not double-converted to {"content": []}.
+    assert result["choices"][0]["logprobs"] == expected_logprobs
+    assert result["choices"][0]["logprobs"] == {
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_async_to_chat_completion_chunks_preserves_usage_only_chunk():
+    async def _chunks():
+        yield {
+            "id": "cmpl-test",
+            "object": "text_completion",
+            "created": 123,
+            "model": "test-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": "",
+                    "logprobs": None,
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+        yield {
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 2,
+                "total_tokens": 5,
+            },
+        }
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in ChatModelMixin._async_to_chat_completion_chunks(
+                _chunks()
+            )
+        ]
+
+    results = asyncio.run(_collect())
+
+    assert results[-1] == {
+        "id": "chatcmpl-test",
+        "model": "test-model",
+        "created": 123,
+        "object": "chat.completion.chunk",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "leading",
+    [
+        {"object": "text_completion", "choices": []},
+        {"object": "text_completion", "choices": [{"text": ""}]},
+        {"object": "chat.completion.chunk", "choices": [{"delta": None}]},
+        {"object": "chat.completion.chunk", "choices": [{"delta": {"content": ""}}]},
+    ],
+)
+def test_async_prepare_reasoning_keeps_leading_chunk_without_text(leading):
+    parser = ReasoningParser(True, "<think>", "</think>")
+    text = {
+        "id": "cmpl-test",
+        "model": "test-model",
+        "created": 123,
+        "object": "text_completion",
+        "choices": [{"index": 0, "text": "hi"}],
+    }
+
+    async def _chunks():
+        yield leading
+        yield text
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in parser.prepare_reasoning_content_streaming(_chunks())
+        ]
+
+    results = asyncio.run(_collect())
+
+    assert results[0] == leading
+    assert results[1]["choices"][0]["text"] == "<think>\n"
+    assert results[2] == text
+
+
+@pytest.mark.parametrize("delta_format", [False, True])
+@pytest.mark.parametrize(
+    "texts, reasoning, content, insert_start_tag",
+    [
+        (["\n", "<think>", "a", "</think>", "b"], "a", "b", True),
+        (["\n", "hi"], "\n\nhi", "", True),
+        (["a", "</think>", "b", "</think>", "c"], "\na", "b</think>c", True),
+        (["a", "</think>", "b", "</think>", "c"], "a", "b</think>c", False),
+        (["a</think>b", "c</think>d"], "\na", "bc</think>d", True),
+        (["a", "</think>", "use ", "<think>", "x"], "a", "use <think>x", False),
+    ],
+)
+def test_to_chat_completion_chunks_start_tag_after_leading_whitespace(
+    delta_format, texts, reasoning, content, insert_start_tag
+):
+    parser = ReasoningParser(True, "<think>", "</think>", auto_insert_start_tag=False)
+    ctx = {"enable_thinking": True}
+    if insert_start_tag:
+        ctx["reasoning_content"] = True
+
+    def _source():
+        base = {"id": "cmpl-test", "model": "test-model", "created": 123}
+        for text in texts:
+            if delta_format:
+                choice = {"index": 0, "delta": {"content": text}, "finish_reason": None}
+                yield {**base, "object": "chat.completion.chunk", "choices": [choice]}
+            else:
+                choice = {"index": 0, "text": text, "finish_reason": None}
+                yield {**base, "object": "text_completion", "choices": [choice]}
+
+    async def _chunks():
+        for chunk in _source():
+            yield chunk
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in ChatModelMixin._async_to_chat_completion_chunks(
+                _chunks(), parser, ctx
+            )
+        ]
+
+    for results in (
+        list(ChatModelMixin._to_chat_completion_chunks(_source(), parser, ctx)),
+        asyncio.run(_collect()),
+    ):
+        deltas = [chunk["choices"][0]["delta"] for chunk in results if chunk["choices"]]
+        assert "".join(d.get("reasoning_content") or "" for d in deltas) == reasoning
+        assert "".join(d.get("content") or "" for d in deltas) == content
+
+
+def test_async_to_chat_completion_chunks_with_reasoning_keeps_empty_stream():
+    parser = ReasoningParser(True, "<think>", "</think>")
+
+    async def _chunks():
+        yield {
+            "id": "cmpl-test",
+            "model": "test-model",
+            "created": 123,
+            "object": "text_completion",
+            "choices": [{"index": 0, "text": "", "finish_reason": "stop"}],
+        }
+        yield {
+            "choices": [],
+            "usage": {"prompt_tokens": 3, "completion_tokens": 0, "total_tokens": 3},
+        }
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in ChatModelMixin._async_to_chat_completion_chunks(
+                _chunks(), parser
+            )
+        ]
+
+    results = asyncio.run(_collect())
+
+    assert results[-2]["choices"][0]["finish_reason"] == "stop"
+    assert results[-1]["usage"]["total_tokens"] == 3
+
+
+def test_transform_messages_preserves_tool_call_fields():
+    mixin = ChatModelMixin()
+    messages = [
+        {"role": "user", "content": "Hi"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_bed4c5f1",
+                    "function": {
+                        "arguments": '{"file_path": "README*"}',
+                        "name": "view_file_in_detail",
+                    },
+                    "type": "function",
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": "Tool execute results: file not found: README*",
+            "tool_call_id": "call_bed4c5f1",
+        },
+    ]
+
+    transformed = mixin._transform_messages(messages)
+
+    assert transformed[0] == {
+        "role": "user",
+        "content": [{"type": "text", "text": "Hi"}],
+    }
+    assert transformed[1] == {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "call_bed4c5f1",
+                "function": {
+                    "arguments": {"file_path": "README*"},
+                    "name": "view_file_in_detail",
+                },
+                "type": "function",
+            }
+        ],
+    }
+    assert messages[1]["tool_calls"][0]["function"]["arguments"] == (
+        '{"file_path": "README*"}'
+    )
+    assert transformed[2] == {
+        "role": "tool",
+        "content": [
+            {"type": "text", "text": "Tool execute results: file not found: README*"}
+        ],
+        "tool_call_id": "call_bed4c5f1",
+    }
+
+
+@pytest.mark.parametrize("model_name", ["Qwen3-VL-Instruct", "Qwen3-VL-Thinking"])
+@pytest.mark.parametrize("protocol", ["openai", "anthropic"])
+def test_qwen3_vl_renders_tool_only_history(model_name, protocol):
+    from copy import deepcopy
+
+    from ....api.protocols import parse_anthropic_request
+    from .. import BUILTIN_LLM_FAMILIES
+
+    tools = [
+        {
+            "name": "lookup",
+            "input_schema": {
+                "type": "object",
+                "properties": {"value": {"type": "string"}},
+            },
+        }
+    ]
+    urls = ["https://example.com/red.png", "https://example.com/blue.png"]
+    messages = [
+        {"role": "user", "content": "Inspect the images returned by lookup."},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_images",
+                    "type": "function",
+                    "function": {"name": "lookup", "arguments": '{"value":"images"}'},
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call_images",
+            "content": [
+                {"type": "image_url", "image_url": {"url": url}} for url in urls
+            ],
+        },
+    ]
+    if protocol == "anthropic":
+        request = parse_anthropic_request(
+            {
+                "model": "test",
+                "max_tokens": 32,
+                "tools": tools,
+                "messages": [
+                    messages[0],
+                    {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "call_images",
+                                "name": "lookup",
+                                "input": {"value": "images"},
+                            }
+                        ],
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "call_images",
+                                "content": [
+                                    {
+                                        "type": "image",
+                                        "source": {"type": "url", "url": url},
+                                    }
+                                    for url in urls
+                                ],
+                            }
+                        ],
+                    },
+                ],
+            }
+        )
+        messages = request.messages
+    original = deepcopy(messages)
+    mixin = ChatModelMixin()
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name)
+    mixin.model_family = family
+    transformed = mixin._transform_messages(messages)
+    prompt = mixin.get_full_context(transformed, family.chat_template)
+
+    assert "<tool_call>" in prompt and '"name": "lookup"' in prompt
+    result = prompt.split("<tool_response>", 1)[1].split("</tool_response>", 1)[0]
+    assert result.count("<|image_pad|>") == 2
+    assert messages == original
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        None,
+        "",
+        "omitted",
+        "Visible answer",
+        "<think>\nInline reasoning.\n</think>\nVisible answer",
+    ],
+)
+@pytest.mark.parametrize("reasoning", [None, "I need to look up the value."])
+@pytest.mark.parametrize("enable_thinking", [False, True])
+def test_qwen3_renders_tool_only_history(content, reasoning, enable_thinking):
+    from copy import deepcopy
+
+    from .. import BUILTIN_LLM_FAMILIES
+
+    messages = [
+        {"role": "user", "content": "Look up alpha."},
+        {
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [
+                {
+                    "id": "call_lookup",
+                    "type": "function",
+                    "function": {"name": "lookup", "arguments": '{"value":"alpha"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_lookup", "content": "NATIVE_RESULT_42"},
+    ]
+    if content == "omitted":
+        del messages[1]["content"]
+    if reasoning is not None:
+        messages[1]["reasoning_content"] = reasoning
+    original = deepcopy(messages)
+    mixin = ChatModelMixin()
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen3")
+    mixin.model_family = family
+    prompt = mixin.get_full_context(
+        messages, family.chat_template, enable_thinking=enable_thinking
+    )
+
+    assert '<tool_call>\n{"name": "lookup", "arguments": {"value":"alpha"}}' in prompt
+    assert "<tool_response>\nNATIVE_RESULT_42\n</tool_response>" in prompt
+    assert "None" not in prompt
+    if content in (None, "", "omitted"):
+        prefix = "<|im_start|>assistant\n"
+        if reasoning is not None:
+            prefix += f"<think>\n{reasoning}\n</think>\n\n"
+        assert f"{prefix}<tool_call>" in prompt
+    if reasoning is not None:
+        assert f"<think>\n{reasoning}\n</think>" in prompt
+    if content and content.startswith("<think>"):
+        if reasoning is not None:
+            assert f"<think>\n{reasoning}\n</think>\n\n{content}" in prompt
+        else:
+            assert "<think>\nInline reasoning.\n</think>\n\nVisible answer" in prompt
+    if content and "Visible answer" in content:
+        assert "Visible answer" in prompt
+    suffix = "<|im_start|>assistant\n"
+    if not enable_thinking:
+        suffix += "<think>\n\n</think>\n\n"
+    assert prompt.endswith(suffix)
+    assert messages == original
+
+
+def test_transform_messages_materializes_tool_call_iterators():
+    mixin = ChatModelMixin()
+    messages = [
+        {
+            "role": "assistant",
+            "tool_calls": iter(
+                [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "read",
+                            "arguments": iter([("path", "README.md")]),
+                        },
+                    }
+                ]
+            ),
+        }
+    ]
+
+    transformed = mixin._transform_messages(messages)
+
+    assert transformed == [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "read",
+                        "arguments": {"path": "README.md"},
+                    },
+                }
+            ],
+        }
+    ]
+
+
+def test_transform_messages_rejects_invalid_tool_call_arguments_json():
+    mixin = ChatModelMixin()
+    messages = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "read",
+                        "arguments": '{"path":',
+                    },
+                }
+            ],
+        }
+    ]
+
+    with pytest.raises(
+        ValueError, match="Tool call arguments must be a valid JSON object"
+    ):
+        mixin._transform_messages(messages)
+
+
+def test_deepseekv4_get_full_context_attaches_tools(tmp_path):
+    encoding_dir = tmp_path / "encoding"
+    encoding_dir.mkdir()
+    (encoding_dir / "encoding_dsv4.py").write_text(
+        "def encode_messages(messages, thinking_mode):\n    return messages\n",
+        encoding="utf-8",
+    )
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name="DeepSeek-V4-Flash",
+        model_ability=["chat", "hybrid", "tools"],
+        is_builtin=True,
+    )
+    mixin.model_path = str(tmp_path)
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+
+    messages = mixin.get_full_context(
+        [{"role": "user", "content": "How is the weather?"}],
+        "",
+        tokenizer=object(),
+        tools=tools,
+    )
+
+    assert messages[0] == {"role": "system", "content": "", "tools": tools}
+    assert messages[1] == {"role": "user", "content": "How is the weather?"}
+
+
+def test_deepseekv4_get_full_context_blocks_custom_remote_code(tmp_path):
+    encoding_dir = tmp_path / "encoding"
+    encoding_dir.mkdir()
+    (encoding_dir / "encoding_dsv4.py").write_text(
+        "def encode_messages(messages, thinking_mode):\n    return messages\n",
+        encoding="utf-8",
+    )
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name="DeepSeek-V4-Flash",
+        model_ability=["chat", "hybrid", "tools"],
+    )
+    mixin.model_path = str(tmp_path)
+
+    with pytest.raises(ValueError, match="XINFERENCE_TRUST_REMOTE_CODE=1"):
+        mixin.get_full_context(
+            [{"role": "user", "content": "How is the weather?"}],
+            "",
+            tokenizer=object(),
+        )
+
+
+def test_chat_template_kwargs_inherit_model_thinking_default():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": {"add_vision_id": True}},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"add_vision_id": True, "enable_thinking": False}
+
+
+def test_chat_template_kwargs_keep_request_thinking_override():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": {"thinking": True}},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"thinking": True, "enable_thinking": True}
+
+
+def test_chat_template_kwargs_string_normalizes_thinking():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": '{"thinking": true}'},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"thinking": True, "enable_thinking": True}
 
 
 def test_post_process_completion_chunk_without_thinking():
@@ -1519,6 +3070,27 @@ def test_post_process_completion_chunk_with_parser():
             ), f"Mismatch at case {i}: expected {expected_filtered}, got {result_filtered}"
 
 
+def test_post_process_completion_preserves_deepseek_content():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = DeepseekV4ToolParser()
+    preamble = "Let me check the weather. "
+    text = preamble + (
+        '<tool_calls><invoke name="weather">'
+        '<parameter name="city" string="true">上海</parameter></invoke></tool_calls>'
+    )
+    result = mixin._post_process_completion(
+        None, "deepseek-v4", {"choices": [{"text": text, "finish_reason": "stop"}]}
+    )
+    choice = result["choices"][0]
+    message = choice["message"]
+    assert message["content"] == preamble
+    assert choice["finish_reason"] == "tool_calls"
+    assert len(message["tool_calls"]) == 1
+    call = message["tool_calls"][0]
+    assert call["type"] == "function"
+    assert call["function"] == {"name": "weather", "arguments": '{"city": "上海"}'}
+
+
 def test_post_process_completion_without_thinking():
     mixin = ChatModelMixin()
     mixin.tool_parser = QwenToolParser()
@@ -1561,6 +3133,7 @@ def test_post_process_completion_without_thinking():
                         }
                     ],
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],
@@ -1617,6 +3190,7 @@ def test_post_process_completion_with_thinking():
                         }
                     ],
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],
@@ -1680,6 +3254,7 @@ def test_post_process_completion_with_parser():
                     ],
                     "reasoning_content": '\n好的，用户问的是上海当前的天气。我需要调用get_current_weather这个工具来获取数据。首先，确认工具的参数是location，必须填写城市名称。用户提到的是上海，所以参数应该是"location": "上海"。然后，生成对应的JSON格式，确保正确无误。检查一下有没有其他必填项，这里只有location，所以没问题。最后，用工具调用的格式返回结果。\n',
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],
@@ -1693,3 +3268,848 @@ def test_post_process_completion_with_parser():
     assert (
         result_filtered == expected_filtered
     ), f"Mismatch: expected {expected_filtered}, got {result_filtered}"
+
+
+def test_post_process_completion_stopped_while_thinking():
+    # Generation hits max_tokens inside the thinking block, so the output has
+    # no tool call and no content. Like the request without tools, the
+    # response must keep "length" and must not repeat the reasoning as content.
+    mixin = ChatModelMixin()
+    mixin.tool_parser = QwenToolParser()
+    mixin.reasoning_parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+    )
+    test_case = {
+        "id": "1",
+        "object": "text_completion",
+        "created": 0,
+        "model": "qwen3",
+        "choices": [
+            {
+                "text": "The user asks for the weather in Shanghai, so I should call",
+                "index": 0,
+                "logprobs": None,
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {"prompt_tokens": 159, "completion_tokens": 12, "total_tokens": 171},
+    }
+
+    result = mixin._post_process_completion(None, model_uid="qwen3", c=test_case)
+
+    choice = result["choices"][0]
+    assert choice["finish_reason"] == "length"
+    assert choice["message"]["content"] == ""
+    assert choice["message"]["tool_calls"] == []
+    assert (
+        choice["message"]["reasoning_content"]
+        == "The user asks for the weather in Shanghai, so I should call"
+    )
+
+
+@pytest.mark.parametrize("text", ["The user asks", "<think>\nThe user asks"])
+def test_to_chat_completion_stopped_while_thinking(text):
+    # Generation hits max_tokens inside the thinking block, so there is no end
+    # tag. The reasoning content is the text after the start tag, as in a stream.
+    parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+    )
+    completion = {
+        "id": "1",
+        "object": "text_completion",
+        "created": 0,
+        "model": "qwen3",
+        "choices": [
+            {
+                "text": text,
+                "index": 0,
+                "logprobs": None,
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {"prompt_tokens": 159, "completion_tokens": 12, "total_tokens": 171},
+    }
+
+    result = ChatModelMixin._to_chat_completion(completion, parser)
+
+    choice = result["choices"][0]
+    assert choice["finish_reason"] == "length"
+    assert choice["message"]["content"] == ""
+    assert choice["message"]["reasoning_content"] == "\nThe user asks"
+
+
+@pytest.mark.parametrize(
+    "text, reasoning, content",
+    [
+        (
+            "\n<think>\nThe user asks\n</think>\n\nHello",
+            "\nThe user asks\n",
+            "\n\nHello",
+        ),
+        ("\n<think>\nThe user asks\n</think>", "\nThe user asks\n", ""),
+        ("a</think>Use the <think> tag", "a", "Use the <think> tag"),
+        ("a</think>b<think>c</think>d", "a", "b<think>c</think>d"),
+    ],
+)
+def test_to_chat_completion_text_before_start_tag(text, reasoning, content):
+    # The content is the text after the end tag, whatever comes before the start
+    # tag. When the prompt ended with the start tag, one after the end tag is content.
+    parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+    )
+    completion = {
+        "id": "1",
+        "object": "text_completion",
+        "created": 0,
+        "model": "reasoning-model",
+        "choices": [
+            {
+                "text": text,
+                "index": 0,
+                "logprobs": None,
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 159, "completion_tokens": 12, "total_tokens": 171},
+    }
+
+    result = ChatModelMixin._to_chat_completion(completion, parser)
+
+    message = result["choices"][0]["message"]
+    assert message["reasoning_content"] == reasoning
+    assert message["content"] == content
+
+
+# ── Security tests for Llama3ToolParser ────────────────────
+
+
+class TestEvalLlama3ChatArgumentsSecurity:
+    """Verify Llama3ToolParser uses safe parsing (no eval() RCE)."""
+
+    def test_valid_json_tool_call(self):
+        text = '{"name": "get_weather", "parameters": {"location": "Tokyo"}}'
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(None, "get_weather", {"location": "Tokyo"})]
+
+    def test_python_literal_tool_call(self):
+        text = "{'name': 'toggle', 'parameters': {'enabled': True}}"
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(None, "toggle", {"enabled": True})]
+
+    def test_reject_os_import_rce(self):
+        text = "__import__('os').system('echo PWNED')"
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(text, None, None)]
+
+    def test_reject_class_exploit(self):
+        text = "().__class__.__bases__[0].__subclasses__()"
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(text, None, None)]
+
+    def test_reject_exec(self):
+        text = "exec('import os')"
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(text, None, None)]
+
+    def test_malformed_json(self):
+        text = '{"name": "func", "parameters": {'
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(text, None, None)]
+
+    def test_missing_keys(self):
+        text = '{"function": "test", "args": {}}'
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(text, None, None)]
+
+
+def test_normalize_tool_call_arguments_to_dict():
+    # Pure-function unit test for ChatModelMixin._normalize_tool_call_arguments_to_dict.
+    # Contract: string arguments are parsed to dict; dict passthrough; malformed
+    # JSON and empty strings are left as-is so downstream surfaces a clear error;
+    # None / missing arguments are skipped; non-assistant messages are skipped.
+    messages = [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"北京"}',  # OpenAI spec: JSON string
+                    },
+                },
+                {
+                    "id": "c2",
+                    "type": "function",
+                    "function": {
+                        "name": "dict_passthrough",
+                        "arguments": {"already": "dict"},  # already dict, untouched
+                    },
+                },
+                {
+                    "id": "c3",
+                    "type": "function",
+                    "function": {
+                        "name": "malformed",
+                        "arguments": "{not json",  # malformed JSON, left as-is
+                    },
+                },
+                {
+                    "id": "c4",
+                    "type": "function",
+                    "function": {
+                        "name": "empty_str",
+                        "arguments": "",  # empty string, left as-is
+                    },
+                },
+                {
+                    "id": "c5",
+                    "type": "function",
+                    "function": {
+                        "name": "null_args",
+                        "arguments": None,  # null, left as-is
+                    },
+                },
+                {
+                    "id": "c6",
+                    "type": "function",
+                    "function": {
+                        "name": "list_args",
+                        # valid JSON but not an object — left as-is so
+                        # the template raises a clear error
+                        "arguments": "[1, 2, 3]",
+                    },
+                },
+                {
+                    "id": "c7",
+                    "type": "function",
+                    "function": {
+                        "name": "null_json",
+                        "arguments": "null",  # valid JSON null, left as-is
+                    },
+                },
+                {
+                    "id": "c8",
+                    "type": "function",
+                    "function": {
+                        "name": "number_args",
+                        "arguments": "42",  # valid JSON number, left as-is
+                    },
+                },
+            ],
+        },
+        {"role": "user", "content": "ignored"},  # non-assistant, skipped
+        "not-a-dict",  # malformed message, skipped
+    ]
+
+    result = ChatModelMixin._normalize_tool_call_arguments_to_dict(
+        [m for m in messages if m != "not-a-dict"] + ["not-a-dict"]
+    )
+
+    assistant_tc = result[0]["tool_calls"]
+    assert assistant_tc[0]["function"]["arguments"] == {"city": "北京"}  # string parsed
+    assert assistant_tc[1]["function"]["arguments"] == {
+        "already": "dict"
+    }  # dict passthrough
+    assert (
+        assistant_tc[2]["function"]["arguments"] == "{not json"
+    )  # malformed preserved
+    assert assistant_tc[3]["function"]["arguments"] == ""  # empty preserved
+    assert assistant_tc[4]["function"]["arguments"] is None  # null preserved
+    # Valid JSON but not an object — must be left as-is so the template
+    # raises a clear error rather than silently producing garbage.
+    assert assistant_tc[5]["function"]["arguments"] == "[1, 2, 3]"  # list
+    assert assistant_tc[6]["function"]["arguments"] == "null"  # JSON null
+    assert assistant_tc[7]["function"]["arguments"] == "42"  # JSON number
+
+    # Non-mutating contract: input messages must be unchanged.
+    assert messages[0]["tool_calls"][0]["function"]["arguments"] == (
+        '{"city":"北京"}'
+    ), "_normalize_tool_call_arguments_to_dict mutated input"
+    assert messages[0]["tool_calls"][1]["function"]["arguments"] == {"already": "dict"}
+    assert messages[0]["tool_calls"][2]["function"]["arguments"] == "{not json"
+    assert messages[0]["tool_calls"][3]["function"]["arguments"] == ""
+    assert messages[0]["tool_calls"][4]["function"]["arguments"] is None
+    assert messages[0]["tool_calls"][5]["function"]["arguments"] == "[1, 2, 3]"
+    assert messages[0]["tool_calls"][6]["function"]["arguments"] == "null"
+    assert messages[0]["tool_calls"][7]["function"]["arguments"] == "42"
+    # The returned list is a new list (callers can mutate it independently).
+    assert result is not messages
+
+
+def test_qwen3_family_get_full_context_handles_string_arguments():
+    # Regression for the OpenAI-spec string tool_calls.function.arguments crash.
+    # Pre-fix: builtin Qwen3 templates raised
+    # "Can only get item pairs from a mapping" because their templates iterate
+    # `tool_call.arguments|items` while OpenAI sends arguments as a JSON-encoded
+    # string.
+    from .. import BUILTIN_LLM_FAMILIES
+
+    targets = {
+        "Qwen3-Coder",
+        "qwen3.5",
+        "qwen3.6",
+        "qwen3.8",
+        "qwen3.8-max",
+    }
+    families = {
+        f.model_name: f for f in BUILTIN_LLM_FAMILIES if f.model_name in targets
+    }
+    assert set(families) == targets, f"missing: {targets - set(families)}"
+
+    base_messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "北京天气？"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"北京"}',  # OpenAI spec: string
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "c1",
+            "content": '{"temp":25,"condition":"晴"}',
+        },
+    ]
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                },
+            },
+        }
+    ]
+
+    for name in targets:
+        fam = families[name]
+        mixin = ChatModelMixin()
+        mixin.model_family = SimpleNamespace(
+            model_name=fam.model_name,
+            model_ability=getattr(fam, "model_ability", ["chat", "tools"]),
+            chat_template=fam.chat_template,
+        )
+        # tokenizer=None forces _build_from_raw_template, which uses the same
+        # ImmutableSandboxedEnvironment as production (and does NOT register
+        # from_json — the constraint that rules out in-template fixes).
+        prompt = mixin.get_full_context(
+            base_messages,
+            chat_template=fam.chat_template,
+            tokenizer=None,
+            tools=tools,
+        )
+        assert "<parameter=city>" in prompt, f"{name}: parameter block missing"
+        assert "北京" in prompt, f"{name}: argument value missing"
+        # Non-mutating contract: the input messages must be unchanged.
+        assert base_messages[2]["tool_calls"][0]["function"]["arguments"] == (
+            '{"city":"北京"}'
+        ), f"{name}: _normalize_tool_call_arguments_to_dict mutated input"
+
+
+def test_spark_x2_5_get_full_context_handles_string_arguments():
+    # Regression for Spark's official template, which rejects OpenAI's JSON
+    # string arguments before rendering tool-call continuation history.
+    spark_template = """
+{%- for message in messages %}
+    {%- if message.role == 'assistant' and message.tool_calls %}
+        {%- for tool_call in message.tool_calls %}
+            {%- if tool_call.function.arguments is not mapping %}
+                {{- raise_exception('tool_call.function.arguments must be a dictionary; normalize JSON strings before apply_chat_template') }}
+            {%- endif %}
+            {%- set args = tool_call.function.arguments %}
+            {{- '<tool_call>' + tool_call.function.name }}
+            {%- for k, v in args.items() %}
+                {{- '<arg_key>' ~ k ~ '</arg_key><arg_value>' ~ (v if v is string else v | tojson) ~ '</arg_value>' }}
+            {%- endfor %}
+            {{- '</tool_call>' }}
+        {%- endfor %}
+    {%- elif message.role == 'tool' %}
+        {{- '<tool_response>' + message.content + '</tool_response>' }}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}<|assistant|>{%- endif %}
+"""
+    messages = [
+        {"role": "user", "content": "北京天气？"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call-weather",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"北京"}',
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call-weather",
+            "content": '{"temperature":25}',
+        },
+        {"role": "user", "content": "继续回答。"},
+    ]
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name="Spark-X2.5", model_ability=["chat", "tools"]
+    )
+
+    # SGLang passes the downloaded chat_template.jinja text directly.
+    sglang_prompt = mixin.get_full_context(messages, spark_template)
+
+    class Tokenizer:
+        chat_template = spark_template
+
+        def apply_chat_template(self, rendered_messages, **kwargs):
+            kwargs.pop("add_generation_prompt", None)
+            return mixin._build_from_raw_template(
+                rendered_messages, self.chat_template, **kwargs
+            )
+
+    # Transformers and vLLM pass ``None`` and let tokenizer select template.
+    tokenizer_prompt = mixin.get_full_context(messages, None, tokenizer=Tokenizer())
+    for prompt in (sglang_prompt, tokenizer_prompt):
+        assert "<tool_call>get_weather" in prompt
+        assert "<arg_key>city</arg_key><arg_value>北京</arg_value>" in prompt
+        assert '<tool_response>{"temperature":25}</tool_response>' in prompt
+        assert prompt.endswith("<|assistant|>")
+    assert messages[1]["tool_calls"][0]["function"]["arguments"] == ('{"city":"北京"}')
+
+
+def test_minicpm5_get_full_context_handles_string_arguments():
+    from .. import BUILTIN_LLM_FAMILIES
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == "minicpm5-2b"
+    )
+    messages = [
+        {"role": "user", "content": "What is the weather in Beijing?"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"Beijing"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-1", "content": "Sunny"},
+    ]
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name=family.model_name,
+        model_ability=family.model_ability,
+        chat_template=family.chat_template,
+    )
+
+    prompt = mixin.get_full_context(
+        messages,
+        chat_template=family.chat_template,
+        tokenizer=None,
+    )
+
+    assert (
+        '<function name="get_weather"><param name="city">Beijing</param></function>'
+        in prompt
+    )
+    assert "<tool_response>\nSunny\n</tool_response>" in prompt
+    assert messages[1]["tool_calls"][0]["function"]["arguments"] == (
+        '{"city":"Beijing"}'
+    )
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "glm4-chat",
+        "glm4-chat-1m",
+        "glm4-0414",
+        "glm-4.5",
+        "glm-4.6",
+        "glm-4.7",
+        "glm-4.7-flash",
+        "glm-4.5v",
+    ],
+)
+def test_glm_tool_history_uses_the_actual_family_template(name):
+    import copy
+    from types import SimpleNamespace
+
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..tool_parsers.glm4_tool_parser import Glm4ToolParser
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name.lower() == name)
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_family=name, model_name=name, model_ability=family.model_ability
+    )
+    mixin.tool_parser = Glm4ToolParser()
+    messages = [
+        {"role": "user", "content": "weather in Beijing?"},
+        {
+            "role": "assistant",
+            "content": "Let me check.",
+            "tool_calls": [
+                {
+                    "id": "call",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"Beijing"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call", "content": "SUNNY_25C"},
+    ]
+    original = copy.deepcopy(messages)
+    prompt = mixin.get_full_context(messages, family.chat_template)
+    assert "Let me check." in prompt
+    assert "get_weather" in prompt
+    assert "SUNNY_25C" in prompt
+    assert messages == original
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("anthropic", [False, True])
+async def test_initial_prompt_usage_is_anthropic_only(anthropic):
+    usage = {
+        "prompt_tokens": 100,
+        "completion_tokens": 1,
+        "total_tokens": 101,
+        "prompt_tokens_details": {"cached_tokens": 60},
+    }
+
+    async def source():
+        yield {
+            "id": "test",
+            "model": "test",
+            "created": 1,
+            "choices": [{"index": 0, "text": "answer", "finish_reason": None}],
+            "usage": usage,
+        }
+
+    chunks = [
+        c
+        async for c in ChatModelMixin._async_to_chat_completion_chunks(
+            source(), ctx={"_anthropic_request": anthropic}
+        )
+    ]
+    if anthropic:
+        assert chunks[0]["usage"]["prompt_tokens"] == 100
+        assert chunks[0]["usage"]["prompt_tokens_details"]["cached_tokens"] == 60
+    else:
+        assert chunks[0].get("usage") is None
+
+
+@pytest.mark.asyncio
+async def test_synthetic_reasoning_start_preserves_initial_cache_usage():
+    from ..reasoning_parser import ReasoningParser
+
+    parser = ReasoningParser(
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        reasoning_content=True,
+        auto_insert_start_tag=True,
+    )
+    usage = {
+        "prompt_tokens": 100,
+        "completion_tokens": 1,
+        "total_tokens": 101,
+        "prompt_tokens_details": {"cached_tokens": 60},
+    }
+
+    async def source():
+        yield {
+            "id": "test",
+            "model": "test",
+            "created": 1,
+            "choices": [
+                {"index": 0, "text": "plan</think>answer", "finish_reason": None}
+            ],
+            "usage": usage,
+        }
+
+    chunks = [
+        c
+        async for c in ChatModelMixin._async_to_chat_completion_chunks(
+            source(),
+            parser,
+            ctx={
+                "_anthropic_request": True,
+                "reasoning_content": True,
+                "enable_thinking": True,
+            },
+        )
+    ]
+    assert chunks[0]["usage"]["prompt_tokens"] == 100
+    assert chunks[0]["usage"]["prompt_tokens_details"]["cached_tokens"] == 60
+
+
+def test_raw_template_can_omit_generation_prefix():
+    from ..utils import ChatModelMixin
+
+    model = ChatModelMixin()
+    template = (
+        "{{ messages[0].content }}{% if add_generation_prompt %}ASSISTANT{% endif %}"
+    )
+    messages = [{"role": "user", "content": "hello"}]
+    assert model._build_from_raw_template(messages, template) == "helloASSISTANT"
+    assert (
+        model._build_from_raw_template(messages, template, add_generation_prompt=False)
+        == "hello"
+    )
+
+
+@pytest.mark.parametrize("tokenizer_template", [False, True])
+@pytest.mark.parametrize("content", [None, "omitted", ""])
+@pytest.mark.parametrize("string_content", [False, True])
+def test_tool_history_template_content_normalization(
+    tokenizer_template, content, string_content
+):
+    from copy import deepcopy
+
+    from tokenizers import Tokenizer, models
+    from transformers import PreTrainedTokenizerFast
+
+    # A positive null-content guard must see null (including omitted content).
+    # String-only templates must receive empty content before rendering.
+    template = (
+        "{% for message in messages %}"
+        + ("{{ message.content + ':' }}" if string_content else "")
+        + "{% if message['role'] == 'assistant' and "
+        + (
+            "message['content'] == ''"
+            if string_content
+            else "message['content'] is none"
+        )
+        + " %}{{ message.tool_calls[0].function.name }}{% endif %}{% endfor %}"
+        "{% if add_generation_prompt %}ASSISTANT{% endif %}"
+    )
+    messages = [
+        {
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [{"function": {"name": "Read", "arguments": "{}"}}],
+        }
+    ]
+    if content == "omitted":
+        del messages[0]["content"]
+    original = deepcopy(messages)
+    model = ChatModelMixin()
+    model.model_family = SimpleNamespace(model_name="test", model_ability=["chat"])
+    tokenizer = None
+    if tokenizer_template:
+        tokenizer = PreTrainedTokenizerFast(
+            tokenizer_object=Tokenizer(
+                models.WordLevel({"[UNK]": 0}, unk_token="[UNK]")
+            ),
+            unk_token="[UNK]",
+            chat_template=template,
+        )
+    prompt = model.get_full_context(
+        model.prefill_messages(messages),
+        None if tokenizer_template else template,
+        tokenizer=tokenizer,
+        add_generation_prompt=False,
+    )
+    assert ("Read" in prompt) == (string_content or content != "")
+    assert "ASSISTANT" not in prompt
+    assert messages == original
+
+
+@pytest.mark.parametrize("tokenizer_template", [False, True])
+@pytest.mark.parametrize("content", [None, "omitted"])
+def test_tool_history_trim_does_not_render_none(tokenizer_template, content):
+    from copy import deepcopy
+
+    from tokenizers import Tokenizer, models
+    from transformers import PreTrainedTokenizerFast
+
+    template = (
+        "{{ messages[0].content | trim }}"
+        "{{ messages[0].tool_calls[0].function.name }}"
+    )
+    messages = [
+        {
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [{"function": {"name": "Read", "arguments": "{}"}}],
+        }
+    ]
+    if content == "omitted":
+        del messages[0]["content"]
+    original = deepcopy(messages)
+    model = ChatModelMixin()
+    model.model_family = SimpleNamespace(model_name="test", model_ability=["chat"])
+    tokenizer = None
+    if tokenizer_template:
+        tokenizer = PreTrainedTokenizerFast(
+            tokenizer_object=Tokenizer(
+                models.WordLevel({"[UNK]": 0}, unk_token="[UNK]")
+            ),
+            unk_token="[UNK]",
+            chat_template=template,
+        )
+    assert (
+        model.get_full_context(
+            model.prefill_messages(messages),
+            None if tokenizer_template else template,
+            tokenizer=tokenizer,
+        )
+        == "Read"
+    )
+    assert messages == original
+
+
+@pytest.mark.parametrize("selection", ["default", "tool_use", "named", "override"])
+@pytest.mark.parametrize("null_content", [False, True])
+@pytest.mark.parametrize("content", [None, "omitted", ""])
+def test_tool_history_uses_selected_tokenizer_template(
+    selection, null_content, content
+):
+    from copy import deepcopy
+
+    from tokenizers import Tokenizer, models
+    from transformers import PreTrainedTokenizerFast
+
+    null_template = (
+        "{% for message in messages %}"
+        "{% if message['role'] == 'assistant' and message['content'] is none %}"
+        "{{ message.tool_calls[0].function.name }}{% endif %}{% endfor %}"
+    )
+    string_template = (
+        "{{ messages[0].content | trim }}"
+        "{{ messages[0].tool_calls[0].function.name }}"
+    )
+    selected = null_template if null_content else string_template
+    other = string_template if null_content else null_template
+    templates = {"default": other, "tool_use": other, "named": other}
+    if selection != "override":
+        templates[selection] = selected
+    tokenizer = PreTrainedTokenizerFast(
+        tokenizer_object=Tokenizer(models.WordLevel({"[UNK]": 0}, unk_token="[UNK]")),
+        unk_token="[UNK]",
+        chat_template=templates,
+    )
+    messages = [
+        {
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [{"function": {"name": "Read", "arguments": "{}"}}],
+        }
+    ]
+    if content == "omitted":
+        del messages[0]["content"]
+    original = deepcopy(messages)
+    model = ChatModelMixin()
+    model.model_family = SimpleNamespace(model_name="test", model_ability=["chat"])
+    chat_template = {"named": "named", "override": selected}.get(selection)
+    prompt = model.get_full_context(
+        model.prefill_messages(messages),
+        chat_template,
+        tokenizer=tokenizer,
+        tools=[] if selection == "tool_use" else None,
+    )
+    assert prompt == ("" if null_content and content == "" else "Read")
+    assert messages == original
+
+
+@pytest.mark.parametrize("role", ["assistant", "user", "tool"])
+@pytest.mark.parametrize("tool_calls", [None, [], [{"function": {"name": "Read"}}]])
+@pytest.mark.parametrize("content", [None, "omitted", "", "text", [{"text": "image"}]])
+def test_prefill_messages_defers_only_assistant_tool_calls(role, tool_calls, content):
+    from copy import deepcopy
+
+    message = {"role": role, "content": content}
+    if content == "omitted":
+        del message["content"]
+    if tool_calls is not None:
+        message["tool_calls"] = tool_calls
+    original = deepcopy(message)
+    expected = content
+    if content is None or content == "omitted":
+        expected = None if role == "assistant" and tool_calls else ""
+    assert ChatModelMixin.prefill_messages([message])[0]["content"] == expected
+    assert message == original
+
+
+@pytest.mark.parametrize("content", [None, ""])
+def test_tool_history_normalization_preserves_template_errors(content):
+    model = ChatModelMixin()
+    messages = [
+        {
+            "role": "assistant",
+            "content": content,
+            "tool_calls": [{"function": {"name": "Read"}}],
+        }
+    ]
+    with pytest.raises(TypeError):
+        model._build_from_raw_template(messages, "{{ 1 + 'invalid' }}")
+
+
+@pytest.mark.parametrize("tokenizer_template", [False, True])
+@pytest.mark.parametrize("error", ["{{ 1 + 'invalid' }}", "{{ missing() }}"])
+def test_null_tool_content_does_not_retry_template_errors(tokenizer_template, error):
+    from jinja2.exceptions import UndefinedError
+    from tokenizers import Tokenizer, models
+    from transformers import PreTrainedTokenizerFast
+
+    template = (
+        "{% for message in messages %}"
+        "{% if message['role'] == 'assistant' and message['content'] is none %}"
+        "{{ message.tool_calls[0].function.name }}" + error + "{% endif %}{% endfor %}"
+    )
+    model = ChatModelMixin()
+    model.model_family = SimpleNamespace(model_name="test", model_ability=["chat"])
+    tokenizer = None
+    if tokenizer_template:
+        tokenizer = PreTrainedTokenizerFast(
+            tokenizer_object=Tokenizer(
+                models.WordLevel({"[UNK]": 0}, unk_token="[UNK]")
+            ),
+            unk_token="[UNK]",
+            chat_template=template,
+        )
+    messages = [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"function": {"name": "Read", "arguments": "{}"}}],
+        }
+    ]
+    with pytest.raises(UndefinedError if "missing" in error else TypeError):
+        model.get_full_context(
+            messages, None if tokenizer_template else template, tokenizer=tokenizer
+        )

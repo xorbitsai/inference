@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import os
 import tempfile
 
@@ -36,6 +37,7 @@ from ..cmdline import (
 
 @pytest.mark.parametrize("stream", [True, False])
 @pytest.mark.parametrize("model_uid", [None, "my_model_uid"])
+@pytest.mark.platform_slow
 def test_cmdline(setup, stream, model_uid):
     endpoint, _ = setup
     runner = CliRunner()
@@ -149,9 +151,10 @@ def test_cmdline(setup, stream, model_uid):
     assert model_uid not in result.stdout
 
 
+@pytest.mark.platform_slow
 def test_cmdline_model_path_error(setup):
     endpoint, _ = setup
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
 
     # launch model
     result = runner.invoke(
@@ -181,6 +184,7 @@ def test_cmdline_model_path_error(setup):
         raise e.with_traceback(tb)
 
 
+@pytest.mark.platform_slow
 def test_cmdline_of_custom_model(setup):
     endpoint, _ = setup
     runner = CliRunner()
@@ -244,7 +248,7 @@ def test_cmdline_of_custom_model(setup):
         ],
     )
     assert result.exit_code == 0
-    assert "custom_model" in result.stdout
+    assert "custom_model" in result.output
 
     # unregister custom model
     result = runner.invoke(
@@ -271,12 +275,20 @@ def test_cmdline_of_custom_model(setup):
         ],
     )
     assert result.exit_code == 0
-    assert "custom_model" not in result.stdout
+    assert "custom_model" not in result.output
 
 
-def test_worker_command_passes_endpoint_and_internal_address(monkeypatch):
+@pytest.mark.parametrize("replacement", [None, "127.0.0.1:9978"])
+@pytest.mark.parametrize("hosted", [False, True])
+def test_worker_command_passes_endpoint_and_internal_address(
+    monkeypatch, replacement, hosted
+):
     runner = CliRunner()
     calls = {}
+    if hosted:
+        monkeypatch.setenv("XINFERENCE_WORKER_HOST_SOCKET", "/tmp/host.sock")
+    else:
+        monkeypatch.delenv("XINFERENCE_WORKER_HOST_SOCKET", raising=False)
 
     class DummyRESTfulClient:
         def __init__(self, base_url):
@@ -301,16 +313,28 @@ def test_worker_command_passes_endpoint_and_internal_address(monkeypatch):
             "127.0.0.1",
             "--worker-port",
             "12345",
-        ],
+        ]
+        + (["--replace-worker", replacement] if replacement else []),
     )
 
+    if replacement and os.name == "posix" and not hosted:
+        assert result.exit_code == 2
+        assert "relaunch" in result.output
+        assert not calls
+        return
     assert result.exit_code == 0
     assert calls["base_url"] == "http://127.0.0.1:9997"
     assert calls["resolved"] is True
     assert calls["main_kwargs"]["supervisor_address"] == "test://supervisor-internal"
     assert calls["main_kwargs"]["supervisor_endpoint"] == "http://127.0.0.1:9997"
 
+    assert calls["main_kwargs"].get("replace_worker") == replacement
+    assert calls["main_kwargs"].get("use_process_host", False) is (
+        os.name == "posix" and not hosted
+    )
 
+
+@pytest.mark.platform_slow
 def test_rotate_logs(setup_with_file_logging):
     endpoint, _, log_file = setup_with_file_logging
     client = Client(endpoint)
@@ -350,6 +374,7 @@ def test_rotate_logs(setup_with_file_logging):
         assert len(content) > 0
 
 
+@pytest.mark.platform_slow
 def test_list_cached_models(setup):
     endpoint, _ = setup
     runner = CliRunner()
@@ -367,6 +392,7 @@ def test_list_cached_models(setup):
     assert "actor_ip_address" in result.stdout
 
 
+@pytest.mark.platform_slow
 def test_remove_cache(setup):
     endpoint, _ = setup
     runner = CliRunner()
@@ -434,3 +460,316 @@ def test_launch_error_in_passing_parameters():
         "You must specify extra kwargs with `--` prefix. There is an error in parameter passing that is -l."
         in str(result)
     )
+
+
+def _invoke_launch_with_replica_config(monkeypatch, replica_config, *extra_args):
+    calls = {}
+
+    class DummyRESTfulClient:
+        def __init__(self, base_url, api_key=None):
+            calls["base_url"] = base_url
+            calls["api_key"] = api_key
+
+        def launch_model(self, **kwargs):
+            calls["launch_kwargs"] = kwargs
+            return "test-model-uid"
+
+        def get_instance_info(self, model_name, model_uid):
+            return [{"status": "READY"}]
+
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", DummyRESTfulClient)
+    result = CliRunner().invoke(
+        model_launch,
+        [
+            "--endpoint",
+            "http://127.0.0.1:9997",
+            "--api-key",
+            "test-key",
+            "--model-name",
+            "test-model",
+            "--model-engine",
+            "transformers",
+            *extra_args,
+            replica_config,
+        ],
+    )
+    return result, calls
+
+
+@pytest.mark.parametrize("option", ["--replica-config", "--replica_config"])
+def test_launch_replica_config_is_passed_to_client(monkeypatch, option):
+    replica_config = [
+        {"devices": [{"worker_ip": "worker-0:9978", "n_gpu": 1, "gpu_idx": [0]}]},
+        {"devices": [{"worker_ip": "worker-1:9978", "n_gpu": 1, "gpu_idx": [1]}]},
+    ]
+
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, json.dumps(replica_config), option
+    )
+
+    assert result.exit_code == 0, result.output
+    assert calls["launch_kwargs"]["replica"] == 2
+    assert calls["launch_kwargs"]["replica_config"] == replica_config
+
+
+def test_launch_replica_config_accepts_matching_explicit_replica(monkeypatch):
+    replica_config = [
+        {"devices": [{"worker_ip": "worker-0:9978"}]},
+        {"devices": [{"worker_ip": "worker-1:9978"}]},
+    ]
+
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch,
+        json.dumps(replica_config),
+        "--replica",
+        "2",
+        "--replica-config",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert calls["launch_kwargs"]["replica"] == 2
+
+
+@pytest.mark.parametrize(
+    ("replica_config", "expected_message"),
+    [
+        ("not-json", "must be valid JSON"),
+        (json.dumps({"devices": []}), "must be a JSON array"),
+        (json.dumps([]), "must be a non-empty JSON array"),
+    ],
+)
+def test_launch_replica_config_rejects_invalid_json(
+    monkeypatch, replica_config, expected_message
+):
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, replica_config, "--replica-config"
+    )
+
+    assert result.exit_code == 2
+    assert expected_message in result.output
+    assert "launch_kwargs" not in calls
+
+
+def test_launch_replica_config_rejects_mismatched_explicit_replica(monkeypatch):
+    replica_config = [
+        {"devices": [{"worker_ip": "worker-0:9978"}]},
+        {"devices": [{"worker_ip": "worker-1:9978"}]},
+    ]
+
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch,
+        json.dumps(replica_config),
+        "--replica",
+        "1",
+        "--replica-config",
+    )
+
+    assert result.exit_code == 2
+    assert "must match the number of entries in --replica-config" in result.output
+    assert "launch_kwargs" not in calls
+
+
+@pytest.mark.parametrize(
+    "conflicting_args",
+    [
+        ["--worker-ip", "worker-0:9978"],
+        ["--gpu-idx", "0"],
+        ["--n-gpu", "1"],
+        ["--n-worker", "2"],
+    ],
+)
+def test_launch_replica_config_rejects_global_placement_options(
+    monkeypatch, conflicting_args
+):
+    replica_config = [{"devices": [{"worker_ip": "worker-0:9978"}]}]
+
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch,
+        json.dumps(replica_config),
+        *conflicting_args,
+        "--replica-config",
+    )
+
+    assert result.exit_code == 2
+    assert "cannot be used together with" in result.output
+    assert "launch_kwargs" not in calls
+
+
+@pytest.mark.parametrize("option", ["--replica-config", "--replica_config"])
+def test_launch_pd_roles_and_devices(monkeypatch, option):
+    config = [
+        {
+            "role": role,
+            "devices": [{"worker_ip": "worker:9978", "gpu_idx": [i], "n_gpu": 1}],
+        }
+        for i, role in enumerate(["prefill", "decode"])
+    ]
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, json.dumps(config), "--model-engine", "vLLM", option
+    )
+    assert result.exit_code == 0, result.output
+    assert calls["launch_kwargs"]["replica_config"] == config
+    assert calls["launch_kwargs"]["replica"] == 2
+
+
+@pytest.mark.parametrize(
+    "roles,engine",
+    [
+        (["prefill"], "vLLM"),
+        (["prefill", "hybrid"], "vLLM"),
+        (["prefill", "decode"], "transformers"),
+        (["invalid", "decode"], "vLLM"),
+    ],
+)
+def test_launch_invalid_pd_config(monkeypatch, roles, engine):
+    config = [
+        {"role": role, "devices": [{"worker_ip": "worker:9978"}]} for role in roles
+    ]
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, json.dumps(config), "--model-engine", engine, "--replica-config"
+    )
+    assert result.exit_code == 2
+    assert "--replica-config" in result.output
+    assert "launch_kwargs" not in calls
+
+
+@pytest.mark.parametrize(
+    "args", [["--context-length", "32768"], ["--context_length", "32768"]]
+)
+def test_launch_unified_context_reaches_client(monkeypatch, args):
+    result, calls = _invoke_launch_with_replica_config(monkeypatch, "32768", *args[:-1])
+    assert result.exit_code == 0, result.output
+    assert calls["launch_kwargs"]["context_length"] == 32768
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "1.5", str(2**31)])
+def test_launch_context_rejects_invalid_integer(monkeypatch, value):
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, value, "--context-length"
+    )
+    assert result.exit_code != 0
+    assert "launch_kwargs" not in calls
+
+
+def _invoke_launch_with_instance_info(monkeypatch, instance_info):
+    class DummyRESTfulClient:
+        def __init__(self, base_url, api_key=None):
+            pass
+
+        def launch_model(self, **kwargs):
+            return "test-model-uid"
+
+        def get_instance_info(self, model_name, model_uid):
+            return instance_info
+
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", DummyRESTfulClient)
+    return CliRunner().invoke(
+        model_launch,
+        [
+            "--endpoint",
+            "http://127.0.0.1:9997",
+            "--api-key",
+            "test-key",
+            "--model-name",
+            "test-model",
+            "--model-engine",
+            "transformers",
+        ],
+    )
+
+
+def test_launch_reports_ready_model_uid(monkeypatch):
+    result = _invoke_launch_with_instance_info(monkeypatch, [{"status": "READY"}])
+
+    assert result.exit_code == 0, result.output
+    assert "Model uid: test-model-uid" in result.output
+
+
+def test_launch_fails_when_model_launch_errors(monkeypatch):
+    instance_info = [
+        {
+            "status": "ERROR",
+            "replica_statuses": [
+                {"replica_id": 0, "status": "ERROR", "error_message": "CUDA OOM"}
+            ],
+        }
+    ]
+    result = _invoke_launch_with_instance_info(monkeypatch, instance_info)
+
+    assert result.exit_code == 1
+    assert "Failed to launch model test-model-uid: CUDA OOM" in result.output
+    assert "Model uid: test-model-uid" not in result.output
+
+
+def test_launch_fails_when_model_is_terminated(monkeypatch):
+    # Terminated instances are dropped from the instance info.
+    result = _invoke_launch_with_instance_info(monkeypatch, [])
+
+    assert result.exit_code == 1
+    assert "test-model-uid was terminated before it became ready" in result.output
+    assert "Model uid: test-model-uid" not in result.output
+
+
+@pytest.mark.parametrize("legacy_first", [False, True])
+def test_cached_columns_align_for_mixed_worker_metadata(monkeypatch, legacy_first):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    known = {
+        "model_name": "current",
+        "model_type": "LLM",
+        "model_engine": ["vLLM"],
+        "path": "/current",
+    }
+    legacy = {
+        "model_name": "legacy",
+        "path": "/legacy",
+        "model_type": None,
+        "model_engine": None,
+    }
+    records = [legacy, known] if legacy_first else [known, legacy]
+    client = SimpleNamespace(list_cached_models=MagicMock(return_value=records))
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", lambda **kwargs: client)
+    result = CliRunner().invoke(
+        list_cached_models,
+        ["--endpoint", "http://127.0.0.1:9997", "--api-key", "test-key"],
+    )
+    assert result.exit_code == 0, result.output
+    rows = [
+        [cell.strip() for cell in line.split("|")[1:-1]]
+        for line in result.output.splitlines()
+        if line.startswith("|")
+    ]
+    by_name = {
+        row["model_name"]: row
+        for row in [dict(zip(rows[0], values)) for values in rows[1:]]
+    }
+    assert by_name["current"]["path"] == "/current"
+    assert by_name["current"]["model_type"] == "LLM"
+    assert by_name["current"]["model_engine"] == "['vLLM']"
+    assert by_name["legacy"]["path"] == "/legacy"
+    assert by_name["legacy"]["model_type"] == "-"
+    assert by_name["legacy"]["model_engine"] == "-"
+
+
+def test_list_shows_running_flexible_models(monkeypatch):
+    class DummyRESTfulClient:
+        def __init__(self, base_url, api_key=None):
+            pass
+
+        def list_models(self):
+            return {
+                "my-flexible": {
+                    "model_type": "flexible",
+                    "model_name": "my-flexible-model",
+                }
+            }
+
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", DummyRESTfulClient)
+    result = CliRunner().invoke(
+        model_list, ["--endpoint", "http://127.0.0.1:9997", "--api-key", "k"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "my-flexible" in result.output
+    assert "my-flexible-model" in result.output

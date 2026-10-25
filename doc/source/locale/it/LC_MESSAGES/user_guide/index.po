@@ -1,0 +1,55 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: it <LL@li.org>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/index.rst:5
+msgid "User Guide"
+msgstr "Guida per l'utente"
+
+#: ../../source/user_guide/index.rst
+msgid "Model usage"
+msgstr "Utilizzo dei modelli"
+
+#: ../../source/user_guide/index.rst
+msgid "Deployment"
+msgstr "Deployment"
+
+#: ../../source/user_guide/index.rst
+msgid "Operations and security"
+msgstr "Gestione e sicurezza"
+
+#: ../../source/user_guide/index.rst
+msgid "Advanced performance"
+msgstr "Ottimizzazione avanzata delle prestazioni"
+
+#: ../../source/user_guide/index.rst
+msgid "SD WebUI API compatibility"
+msgstr "Compatibilità con l’API SD WebUI"
+
+#: ../../source/user_guide/index.rst
+msgid "Metrics"
+msgstr "Metriche"
+
+#: ../../source/user_guide/index.rst
+msgid "PD separation"
+msgstr "Separazione PD"
+
+#: ../../source/user_guide/index.rst:33
+msgid "Xavier"
+msgstr "Xavier"

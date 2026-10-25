@@ -9,10 +9,69 @@ XINFERENCE_ENDPOINT
 Endpoint of Xinference, used to connect to Xinference service.
 Default value is http://127.0.0.1:9997 , you can get it through logs.
 
+.. _actor_transport_authentication:
+
+XOSCAR_AUTH_KEY
+~~~~~~~~~~~~~~~
+Shared secret for Xoscar actor transport authentication, supported by Xoscar
+0.12.0 and later. Unset or empty keeps the legacy unauthenticated transport;
+upgrading alone does not enable protection. HTTP API authentication does not
+protect actor ports. See the `security advisory
+<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-mmvj-m246-m9vf>`_.
+
+Generate one random secret per deployment with the following command. Distribute
+the same value through your secret-management system before starting
+``xinference-local``, ``xinference-supervisor``, every ``xinference-worker``,
+and any direct Xoscar actor clients. Child processes, including model virtual
+environments, inherit the variable. HTTP clients do not need this secret.
+
+.. code-block:: bash
+
+   python -c "import secrets; print(secrets.token_hex(32))"
+   export XOSCAR_AUTH_KEY='<same-random-deployment-secret>'
+
+Upgrade all actor peers to Xoscar 0.12.0 or later before enabling the key, then
+coordinate a restart with the same key on every peer. Keyed and unkeyed peers
+cannot communicate; there is no automatic downgrade or mixed-mode rolling
+upgrade. Key rotation also requires a coordinated restart. For ``docker run``,
+pass the exported variable with ``-e XOSCAR_AUTH_KEY``; for Kubernetes, inject
+the same Secret into each server container's environment.
+
+Socket and UCX messages are authenticated before deserialization. Anyone holding
+the key is a trusted peer with Python execution privileges. Deployment
+administrators must restrict actor ports to intended cluster peers. Authentication
+does not encrypt traffic or prevent replay; authenticated GPU transfers stage
+device buffers in host memory for hashing and add CPU and host-memory overhead.
+
+XINFERENCE_TRUST_REMOTE_CODE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust.
+
+XINFERENCE_MODEL_REGISTER_ROOTS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+LLM auto-registration reads files only under ``XINFERENCE_MODEL_DIR`` and ``XINFERENCE_CACHE_DIR`` by default. Configure additional directories in the server environment with this variable, separated by ``:`` on Unix or ``;`` on Windows. Referenced files and symbolic-link targets must also lie under an allowed directory. For Hugging Face caches, allow the repository root containing both snapshots and blobs.
+
+XINFERENCE_FLEXIBLE_LAUNCHERS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The shipped Flexible launchers remain available. Permit additional launchers by listing their exact dotted names in this comma-separated variable before starting workers. Allowlisted launchers execute Python code with worker privileges; add only trusted implementations.
+
 XINFERENCE_MODEL_SRC
 ~~~~~~~~~~~~~~~~~~~~~
-Modelhub used for downloading models. Default is "huggingface", or you
-can set "modelscope" as downloading source.
+Modelhub used for downloading models. Options are "huggingface", "modelscope"
+and "auto". When unset or set to "auto", Xinference probes whether the Hugging
+Face endpoint (including ``HF_ENDPOINT``) would use an environment-configured
+proxy. If so, or if the endpoint is not directly reachable, it falls back to
+"modelscope"; otherwise it picks "huggingface". ``NO_PROXY`` is honored. Set an
+explicit value to pin the download source. An explicit value can be overridden
+for an individual launch with ``--download_hub``.
+
+XINFERENCE_HUB_DETECT_TIMEOUT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Timeout in seconds for probing hub connectivity when the download hub is
+automatically detected. Default is 3.
 
 .. _environments_xinference_home:
 
@@ -22,6 +81,11 @@ By default, Xinference uses ``<HOME>/.xinference`` as home path to store
 necessary files such as logs and models, where ``<HOME>`` is the home
 path of current user. You can change this directory by configuring this environment
 variable.
+
+XINFERENCE_SYSTEM_SETTINGS_PATH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Path to the JSON file that stores system settings configured through the Web UI.
+Default value is ``<XINFERENCE_HOME>/system-settings.json``.
 
 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -37,6 +101,13 @@ XINFERENCE_HEALTH_CHECK_TIMEOUT
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Health check timeout (seconds) at Xinference startup.
 Default value is 10.
+
+XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum age in seconds of the last valid per-model GPU-memory snapshot retained
+by the supervisor after a worker omits the field because collection failed or
+was skipped. An explicit empty snapshot still clears the cache immediately.
+Default value is 90.
 
 XINFERENCE_DISABLE_HEALTH_CHECK
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -54,10 +125,11 @@ XINFERENCE_DOWNLOAD_MAX_ATTEMPTS
 Maximum download retry attempts for model files.
 Default value is 3.
 
-XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Enable continuous batching for text-to-image models by specifying the target image size
-(e.g., ``1024*1024``). Default is unset.
+XINFERENCE_LLMMAN_BIN
+~~~~~~~~~~~~~~~~~~~~~
+Path to the ``llmman`` executable used to resolve ``oci://`` model URIs.
+Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an
+``llmman serve`` daemon that is not on ``127.0.0.1:17434``.
 
 XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -72,15 +144,70 @@ XINFERENCE_ALLOWED_IPS
 ~~~~~~~~~~~~~~~~~~~~~~
 Restrict access to specified IPs or CIDR blocks. Default is unset (no restriction).
 
+XINFERENCE_HTTP_REQUEST_TIMEOUT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum seconds allowed to receive a complete HTTP request (headers and body).
+Connections that fail to deliver a full request in time are closed, protecting
+against slow-request denial-of-service attacks such as Slowloris. Streaming
+responses and websockets are not affected. Set to 0 to disable.
+Default value is 120.
+
+XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Idle timeout (seconds) for keep-alive connections between requests.
+Default value is 5.
+
+XINFERENCE_HTTP_LIMIT_CONCURRENCY
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum number of concurrent connections or tasks the HTTP server allows
+before returning 503 responses. Default is unset (unlimited).
+
 XINFERENCE_BATCH_SIZE
 ~~~~~~~~~~~~~~~~~~~~~
 Default batch size used by the server when batching is enabled.
 Default value is 32.
 
+For text-only ``sentence_transformers`` models, the engine may group similar
+character lengths to reduce padding while preserving response order. The
+internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE``
+controls input merging by the server.
+
+Text-only CrossEncoder rerankers may also group pairs by combined query and
+document character length to reduce padding. The native ``predict()``
+``batch_size`` still limits each forward pass; short pairs stay together.
+
 XINFERENCE_BATCH_INTERVAL
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Default batching interval (seconds).
 Default value is 0.003.
+
+XINFERENCE_EMBEDDING_GC_INTERVAL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Minimum interval (seconds) between full Python garbage collections during
+embedding cache cleanup. Default is 60. The first cleanup collects immediately.
+Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged.
+
+The cooldown also applies to token-triggered cleanup. Tensors kept alive by
+Python reference cycles may remain allocated until automatic GC or a later full
+collection; ``empty_cache()`` cannot release them. Set this interval to 0 for
+models that require full collection on every cleanup.
+
+XINFERENCE_RERANK_EMPTY_CACHE_COUNT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Number of completed inference groups between cache releases in the Sentence
+Transformers and synchronous vLLM rerank engines. Default is 10. A merged group
+counts once, regardless of how many requests it contains.
+
+XINFERENCE_RERANK_GC_INTERVAL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Minimum interval (seconds) between full Python garbage collections during
+rerank cache cleanup. Default is 60. The first cache cleanup collects immediately.
+Set to 0 to collect on every cache cleanup. GPU cache release still follows
+``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``.
+
+Python reference cycles may keep tensors allocated until automatic GC or a
+later full collection; ``empty_cache()`` cannot release them. Set this interval
+to 0 for models that need full collection on every cache cleanup.
 
 XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -90,6 +217,14 @@ Default value is 1 (enabled).
 XINFERENCE_LAUNCH_STRATEGY
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 GPU allocation strategy for replicas. Default is ``IDLE_FIRST_LAUNCH_STRATEGY``.
+
+XINFERENCE_MAX_CONCURRENT_LAUNCHES
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum number of model launches that can proceed concurrently on a single
+worker node. When more replicas are launched than this limit, excess launches
+queue and proceed as slots free up. This prevents resource exhaustion (fork
+storms, disk IO saturation, GPU memory contention) that can cause heartbeat
+timeouts. Default value is 5.
 
 XINFERENCE_ENABLE_VIRTUAL_ENV
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -112,6 +247,123 @@ CSGHub endpoint for model source.
 Default value is ``https://hub-stg.opencsg.com/``.
 
 XINFERENCE_QWEN3_RERANK_TEMPLATE
-~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Enable template for Qwen3 rerank model family (0.6B, 4B, 8B,etc) globally.
 Default value is 1.
+
+XINFERENCE_LAUNCH_HISTORY_DB_PATH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Path to the SQLite database that stores the model launch configuration history
+shown in the "Launch Model" drawer of the Web UI. This store is shared across
+all clients so the history is available from any browser or machine, and it is
+independent of the authentication database. When authentication is enabled, each
+record keeps the creator's username (``created_by``).
+Default value is ``<XINFERENCE_HOME>/launch_history.db``.
+
+XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum number of times a crashed model actor is automatically recovered.
+Default is unset (no limit).
+
+XINFERENCE_FRONTEND_DIST_DIR
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Path to a static export of the web UI to serve instead of the one bundled
+with the package. Default is unset (serve the bundled Next.js export).
+
+.. versionchanged:: 3.0
+   Replaces the removed ``XINFERENCE_FRONTEND_ENDPOINT`` variable; the web UI
+   is now served by the Xinference server itself.
+
+XINFERENCE_AUTH_ADVANCED
+~~~~~~~~~~~~~~~~~~~~~~~~
+Enable the database-backed authentication system. Default value is 1
+(enabled, starting from v3.0). Set to ``0`` / ``false`` / ``no`` to run
+Xinference without any authentication.
+See :ref:`user_guide_auth_system`.
+
+XINFERENCE_AUTH_DB_PATH
+~~~~~~~~~~~~~~~~~~~~~~~
+Path to the SQLite database that stores users, permissions, API keys, and
+refresh tokens. Default value is ``<XINFERENCE_HOME>/auth/auth.db``.
+
+XINFERENCE_AUTH_JWT_SECRET_KEY
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+JWT signing secret for the authentication system. If unset, a secret is
+auto-generated and persisted at ``<XINFERENCE_HOME>/auth/jwt_secret_key`` on
+first run.
+
+XINFERENCE_AUTH_ENCRYPTION_KEY
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Key used to encrypt stored API keys at rest. If unset, a key is
+auto-generated and persisted at ``<XINFERENCE_HOME>/auth/encryption_key`` on
+first run.
+
+XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Lifetime (minutes) of access tokens issued by the authentication system.
+Default value is 30.
+
+XINFERENCE_OIDC_ENABLED
+~~~~~~~~~~~~~~~~~~~~~~~
+Enable OIDC single sign-on (e.g. Keycloak). Default value is 0 (disabled).
+When enabled, ``XINFERENCE_OIDC_ISSUER``, ``XINFERENCE_OIDC_CLIENT_ID``,
+``XINFERENCE_OIDC_CLIENT_SECRET``, and ``XINFERENCE_OIDC_REDIRECT_URI`` are
+required. See :ref:`user_guide_oidc`.
+
+XINFERENCE_AUDIT_LOG_RETENTION_DAYS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Number of days audit log files are retained.
+Default value is 90. See :ref:`user_guide_audit_security`.
+
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Initial delay in seconds between Router Agent bootstrap retries. The delay uses
+exponential backoff with jitter. Default value is 1.
+
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum delay in seconds between Router Agent bootstrap retries. Default value
+is 15 and must not be lower than the initial delay.
+
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Total deadline in seconds for Router Agent startup registration and initial
+synchronization retries. Default value is 120.
+
+.. _environments_media:
+
+XINFERENCE_MEDIA_BLOCK_PRIVATE_ADDRESS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Refuse client-supplied ``image_url`` / ``video_url`` / ``audio_url`` values that
+resolve to loopback, private, or link-local addresses, which otherwise let a
+chat request probe the server's own network (SSRF).
+Default value is ``true``.
+
+.. versionadded:: 3.5
+   Enabled by default. Requests referencing intranet hosts such as
+   ``http://minio.internal/x.png`` or a Kubernetes Service DNS name now fail.
+   Set this to ``false`` if the deployment is not publicly exposed and the
+   server is trusted to reach those hosts.
+
+XINFERENCE_MEDIA_ALLOW_LOCAL_PATH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Allow ``file://`` URLs and bare filesystem paths in chat media parts. When
+disabled, such values are rejected instead of being read off the server's disk.
+Default value is ``false``.
+
+.. versionadded:: 3.5
+   Disabled by default. Server-local paths that previously worked
+   (an ``image_url`` of ``/data/img.png``) now error. Send the media as a
+   ``data:`` URI or an HTTP(S) URL, or set this to ``true`` when every API
+   caller is already trusted with the server's filesystem.
+
+XINFERENCE_MEDIA_FETCH_TIMEOUT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Total wall-clock seconds allowed for fetching one remote media URL, redirects
+included. A single request's media as a whole is capped at three times this
+value. Default value is 20.
+
+XINFERENCE_MEDIA_MAX_BYTES
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum size in bytes of one fetched media file.
+Default value is 67108864 (64 MiB).

@@ -1,0 +1,894 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+import logging
+import secrets
+import sqlite3
+import threading
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+API_KEY_NAME_REQUIRED_MESSAGE = "API key name is required"
+API_KEY_NAME_CONFLICT_MESSAGE = "API key name already exists"
+API_KEY_NAME_UNIQUE_INDEX = "idx_api_keys_name_unique"
+API_KEY_NAME_SQL_TRIM_CHARS = (
+    "char(9) || char(10) || char(11) || char(12) || char(13) || ' '"
+)
+
+
+class ApiKeyNameRequiredError(ValueError):
+    pass
+
+
+class ApiKeyNameConflictError(ValueError):
+    pass
+
+
+def normalize_api_key_name(name: Any) -> str:
+    if not isinstance(name, str):
+        raise ApiKeyNameRequiredError(API_KEY_NAME_REQUIRED_MESSAGE)
+    normalized = name.strip()
+    if not normalized:
+        raise ApiKeyNameRequiredError(API_KEY_NAME_REQUIRED_MESSAGE)
+    return normalized
+
+
+def _api_key_name_identity(name: str) -> str:
+    # SQLite's built-in lower() is ASCII-only by default. Mirror that behavior
+    # so migration conflict detection exactly matches the expression index.
+    return "".join(
+        chr(ord(char) + 32) if "A" <= char <= "Z" else char for char in name.strip()
+    )
+
+
+_USER_ID_SEQUENCE_KEY = "_user_id_sequence"
+
+SCHEMA_SQL = f"""
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    username TEXT NOT NULL,
+    password_hash TEXT,
+    source TEXT NOT NULL DEFAULT 'local',
+    oidc_sub TEXT,
+    enabled INTEGER DEFAULT 1,
+    must_change_password INTEGER DEFAULT 0,
+    token_version INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_source_username ON users(source, username);
+
+CREATE TABLE IF NOT EXISTS user_permissions (
+    user_id INTEGER NOT NULL,
+    permission TEXT NOT NULL,
+    PRIMARY KEY (user_id, permission),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    key_hash TEXT UNIQUE NOT NULL,
+    key_encrypted TEXT NOT NULL,
+    key_prefix TEXT NOT NULL,
+    name TEXT NOT NULL CHECK (length(trim(name, {API_KEY_NAME_SQL_TRIM_CHARS})) > 0),
+    description TEXT,
+    enabled INTEGER DEFAULT 1,
+    expires_at TIMESTAMP,
+    encryption_version INTEGER DEFAULT 1,
+    rate_limit_max_failures INTEGER,
+    rate_limit_window_seconds INTEGER,
+    rate_limit_ban_seconds INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS api_key_model_permissions (
+    id INTEGER PRIMARY KEY,
+    api_key_id INTEGER NOT NULL,
+    permission_type TEXT NOT NULL,
+    permission_value TEXT,
+    UNIQUE(api_key_id, permission_type, permission_value),
+    FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    token_hash TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS system_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+"""
+
+
+class Database:
+    def __init__(self, db_path: str):
+        self._db_path = db_path
+        self._lock = threading.Lock()
+        # A distribution may supply effective grants for externally managed
+        # accounts. All identity reads (login, refresh, API and admin UI) use it.
+        # Callbacks must be synchronous, return fresh data, and fail closed.
+        self.permission_resolver: Optional[Callable[[int, List[str]], List[str]]] = None
+        self._init_db()
+
+    @property
+    def path(self) -> Path:
+        """Location of the auth store, for colocated distribution-owned state."""
+        return Path(self._db_path)
+
+    def _resolve_permissions(self, user_id: int, permissions: List[str]) -> List[str]:
+        """Return effective authentication grants, not editable local grants.
+
+        A distribution owning external grants must also guard both user-update
+        routes against writing resolved grants back to user_permissions, or
+        provide a separate local-grant editor. Otherwise an admin UI round-trip
+        can materialize external grants and outlive their external revocation.
+        The resolver itself must never persist its result to the local store.
+        """
+        if self.permission_resolver is None:
+            return permissions
+        return list(self.permission_resolver(user_id, list(permissions)))
+
+    def _init_db(self):
+        Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
+        with self._get_conn() as conn:
+            conn.executescript(SCHEMA_SQL)
+            # Schema migrations for existing databases
+            cursor = conn.execute("PRAGMA table_info(api_keys)")
+            columns = {row[1] for row in cursor.fetchall()}
+            if "description" not in columns:
+                conn.execute("ALTER TABLE api_keys ADD COLUMN description TEXT")
+
+            cursor = conn.execute("PRAGMA table_info(users)")
+            user_columns = {row[1] for row in cursor.fetchall()}
+            if "oidc_sub" not in user_columns:
+                conn.execute("ALTER TABLE users ADD COLUMN oidc_sub TEXT")
+            if "token_version" not in user_columns:
+                conn.execute(
+                    "ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL "
+                    "DEFAULT 0"
+                )
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub "
+                "ON users(oidc_sub) WHERE oidc_sub IS NOT NULL"
+            )
+            self._migrate_api_key_names(conn)
+            self._sync_user_id_sequence(conn)
+
+    @staticmethod
+    def _sync_user_id_sequence(conn: sqlite3.Connection) -> None:
+        # Persist the high-water mark before any existing owner can be deleted.
+        # An INSERT starts the write transaction even when the key exists;
+        # allocation and user insertion then share its cross-process lock.
+        conn.execute(
+            "INSERT OR IGNORE INTO system_config(key, value) "
+            "SELECT ?, COALESCE(MAX(id), 0) FROM users",
+            (_USER_ID_SEQUENCE_KEY,),
+        )
+        # Also account for explicit IDs written by an offline importer.
+        conn.execute(
+            "UPDATE system_config SET value=MAX(CAST(value AS INTEGER), "
+            "(SELECT COALESCE(MAX(id), 0) FROM users)) WHERE key=?",
+            (_USER_ID_SEQUENCE_KEY,),
+        )
+
+    @staticmethod
+    def _migrate_api_key_names(conn: sqlite3.Connection) -> None:
+        rows = conn.execute("SELECT id, name FROM api_keys ORDER BY id").fetchall()
+        used_names: set[str] = set()
+        trimmed_count = 0
+        generated_count = 0
+        renamed_count = 0
+
+        for row in rows:
+            key_id = row["id"]
+            original_name = row["name"]
+            if isinstance(original_name, str) and original_name.strip():
+                base_name = original_name.strip()
+                if base_name != original_name:
+                    trimmed_count += 1
+            else:
+                base_name = f"api-key-{key_id}"
+                generated_count += 1
+
+            candidate = base_name
+            if _api_key_name_identity(candidate) in used_names:
+                candidate = f"{base_name}-{key_id}"
+                suffix = 2
+                while _api_key_name_identity(candidate) in used_names:
+                    candidate = f"{base_name}-{key_id}-{suffix}"
+                    suffix += 1
+                renamed_count += 1
+
+            used_names.add(_api_key_name_identity(candidate))
+            if candidate != original_name:
+                conn.execute(
+                    "UPDATE api_keys SET name = ? WHERE id = ?",
+                    (candidate, key_id),
+                )
+
+        conn.execute(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {API_KEY_NAME_UNIQUE_INDEX} "
+            f"ON api_keys(lower(trim(name, {API_KEY_NAME_SQL_TRIM_CHARS})))"
+        )
+        conn.execute(
+            f"""
+            CREATE TRIGGER IF NOT EXISTS trg_api_keys_name_required_insert
+            BEFORE INSERT ON api_keys
+            FOR EACH ROW
+            WHEN NEW.name IS NULL OR length(trim(
+                NEW.name, {API_KEY_NAME_SQL_TRIM_CHARS}
+            )) = 0
+            BEGIN
+                SELECT RAISE(ABORT, '{API_KEY_NAME_REQUIRED_MESSAGE}');
+            END
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TRIGGER IF NOT EXISTS trg_api_keys_name_required_update
+            BEFORE UPDATE OF name ON api_keys
+            FOR EACH ROW
+            WHEN NEW.name IS NULL OR length(trim(
+                NEW.name, {API_KEY_NAME_SQL_TRIM_CHARS}
+            )) = 0
+            BEGIN
+                SELECT RAISE(ABORT, '{API_KEY_NAME_REQUIRED_MESSAGE}');
+            END
+            """
+        )
+
+        if trimmed_count or generated_count or renamed_count:
+            logger.info(
+                "Migrated API key names: checked=%d, trimmed=%d, generated=%d, "
+                "renamed_duplicates=%d",
+                len(rows),
+                trimmed_count,
+                generated_count,
+                renamed_count,
+            )
+
+    @staticmethod
+    def _api_key_name_exists(
+        conn: sqlite3.Connection, name: str, exclude_key_id: Optional[int] = None
+    ) -> bool:
+        sql = (
+            "SELECT 1 FROM api_keys "
+            f"WHERE lower(trim(name, {API_KEY_NAME_SQL_TRIM_CHARS})) = "
+            f"lower(trim(?, {API_KEY_NAME_SQL_TRIM_CHARS}))"
+        )
+        params: List[Any] = [name]
+        if exclude_key_id is not None:
+            sql += " AND id != ?"
+            params.append(exclude_key_id)
+        return conn.execute(sql, params).fetchone() is not None
+
+    @contextmanager
+    def _get_conn(self):
+        conn = sqlite3.connect(self._db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    # --- Users ---
+
+    def create_user(
+        self,
+        username: str,
+        password_hash: Optional[str],
+        source: str = "local",
+        oidc_sub: Optional[str] = None,
+        enabled: int = 1,
+        must_change_password: int = 0,
+        permissions: Optional[List[str]] = None,
+    ) -> int:
+        with self._lock:
+            with self._get_conn() as conn:
+                return self._insert_user(
+                    conn,
+                    username,
+                    password_hash,
+                    source,
+                    oidc_sub,
+                    enabled,
+                    must_change_password,
+                    permissions,
+                )
+
+    def get_or_create_setup_token(self) -> Optional[str]:
+        """Share one bootstrap secret across restarts and concurrent API processes."""
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                if conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is not None:
+                    conn.execute("DELETE FROM system_config WHERE key = 'setup_token'")
+                    return None
+                row = conn.execute(
+                    "SELECT value FROM system_config WHERE key = 'setup_token'"
+                ).fetchone()
+                if row is not None:
+                    return row["value"]
+                token = secrets.token_urlsafe(32)
+                conn.execute(
+                    "INSERT INTO system_config (key, value) VALUES ('setup_token', ?)",
+                    (token,),
+                )
+                return token
+
+    def create_first_user(
+        self,
+        username: str,
+        password_hash: Optional[str],
+        permissions: Optional[List[str]] = None,
+        setup_token: Optional[str] = None,
+    ) -> Optional[int]:
+        """Atomically create ``username`` only if the users table is still
+        empty. Returns the new user id, or None if a user already exists.
+
+        Uses BEGIN IMMEDIATE to take SQLite's write lock before checking the
+        row count, so the check-then-insert is a single atomic step even
+        across multiple processes (e.g. supervisor + worker) sharing the same
+        database file -- a plain SELECT would not block a concurrent writer
+        until the following INSERT, leaving a race window.
+
+        The HTTP setup handler supplies setup_token, which is checked again
+        under this lock before insertion. Trusted local callers may omit it.
+        """
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                existing = conn.execute("SELECT COUNT(*) AS cnt FROM users").fetchone()
+                if existing["cnt"] > 0:
+                    return None
+                if setup_token is not None:
+                    row = conn.execute(
+                        "SELECT value FROM system_config WHERE key = 'setup_token'"
+                    ).fetchone()
+                    if (
+                        row is None
+                        or not setup_token.isascii()
+                        or not secrets.compare_digest(setup_token.strip(), row["value"])
+                    ):
+                        return None
+                user_id = self._insert_user(
+                    conn,
+                    username,
+                    password_hash,
+                    "local",
+                    None,
+                    1,
+                    0,
+                    permissions,
+                )
+                return user_id
+
+    @staticmethod
+    def _insert_user(
+        conn,
+        username: str,
+        password_hash: Optional[str],
+        source: str,
+        oidc_sub: Optional[str],
+        enabled: int,
+        must_change_password: int,
+        permissions: Optional[List[str]],
+    ) -> int:
+        Database._sync_user_id_sequence(conn)
+        user_id = (
+            int(
+                conn.execute(
+                    "SELECT value FROM system_config WHERE key=?",
+                    (_USER_ID_SEQUENCE_KEY,),
+                ).fetchone()[0]
+            )
+            + 1
+        )
+        conn.execute(
+            "UPDATE system_config SET value=? WHERE key=?",
+            (str(user_id), _USER_ID_SEQUENCE_KEY),
+        )
+        conn.execute(
+            "INSERT INTO users (id, username, password_hash, source, oidc_sub, enabled, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                user_id,
+                username,
+                password_hash,
+                source,
+                oidc_sub,
+                enabled,
+                must_change_password,
+            ),
+        )
+        if permissions:
+            for perm in permissions:
+                conn.execute(
+                    "INSERT INTO user_permissions (user_id, permission) VALUES (?, ?)",
+                    (user_id, perm),
+                )
+        # Any first-user path (including external identity providers) completes
+        # setup. Never leave its bootstrap credential available for later reuse.
+        conn.execute("DELETE FROM system_config WHERE key = 'setup_token'")
+        return user_id
+
+    def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            if not row:
+                return None
+            user = dict(row)
+            perms = conn.execute(
+                "SELECT permission FROM user_permissions WHERE user_id = ?", (user_id,)
+            ).fetchall()
+            user["permissions"] = self._resolve_permissions(
+                user["id"], [p["permission"] for p in perms]
+            )
+            return user
+
+    def get_user_by_username(
+        self, username: str, source: str = "local"
+    ) -> Optional[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE username = ? AND source = ?",
+                (username, source),
+            ).fetchone()
+            if not row:
+                return None
+            user = dict(row)
+            perms = conn.execute(
+                "SELECT permission FROM user_permissions WHERE user_id = ?",
+                (user["id"],),
+            ).fetchall()
+            user["permissions"] = self._resolve_permissions(
+                user["id"], [p["permission"] for p in perms]
+            )
+            return user
+
+    def get_user_by_oidc_sub(self, oidc_sub: str) -> Optional[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE oidc_sub = ?", (oidc_sub,)
+            ).fetchone()
+            if not row:
+                return None
+            user = dict(row)
+            perms = conn.execute(
+                "SELECT permission FROM user_permissions WHERE user_id = ?",
+                (user["id"],),
+            ).fetchall()
+            user["permissions"] = self._resolve_permissions(
+                user["id"], [p["permission"] for p in perms]
+            )
+            return user
+
+    def list_users(self, source: Optional[str] = None) -> List[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            if source:
+                rows = conn.execute(
+                    "SELECT * FROM users WHERE source = ?", (source,)
+                ).fetchall()
+            else:
+                rows = conn.execute("SELECT * FROM users").fetchall()
+            users = [dict(row) for row in rows]
+            if not users:
+                return users
+            user_ids = [u["id"] for u in users]
+            placeholders = ",".join("?" * len(user_ids))
+            perms_rows = conn.execute(
+                f"SELECT user_id, permission FROM user_permissions "
+                f"WHERE user_id IN ({placeholders})",
+                user_ids,
+            ).fetchall()
+            perms_map: Dict[int, List[str]] = {}
+            for p in perms_rows:
+                perms_map.setdefault(p["user_id"], []).append(p["permission"])
+            for user in users:
+                user["permissions"] = self._resolve_permissions(
+                    user["id"], perms_map.get(user["id"], [])
+                )
+            return users
+
+    def update_user(self, user_id: int, **kwargs) -> bool:
+        allowed = {
+            "username",
+            "password_hash",
+            "enabled",
+            "must_change_password",
+            "oidc_sub",
+        }
+        fields = {k: v for k, v in kwargs.items() if k in allowed}
+        if not fields:
+            return False
+        with self._lock:
+            with self._get_conn() as conn:
+                set_clause = ", ".join(f"{k} = ?" for k in fields)
+                values = list(fields.values()) + [user_id]
+                conn.execute(f"UPDATE users SET {set_clause} WHERE id = ?", values)
+                return True
+
+    def delete_user(self, user_id: int) -> bool:
+        setup_token = None
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                self._sync_user_id_sequence(conn)
+                deleted = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+                if (
+                    deleted.rowcount
+                    and conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is None
+                ):
+                    setup_token = secrets.token_urlsafe(32)
+                    conn.execute(
+                        "INSERT OR REPLACE INTO system_config (key, value) "
+                        "VALUES ('setup_token', ?)",
+                        (setup_token,),
+                    )
+        if setup_token is not None:
+            logger.warning(
+                "Initial administrator setup reopened. Setup token: %s", setup_token
+            )
+        return True
+
+    def set_user_permissions(self, user_id: int, permissions: List[str]):
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute(
+                    "DELETE FROM user_permissions WHERE user_id = ?", (user_id,)
+                )
+                for perm in permissions:
+                    conn.execute(
+                        "INSERT INTO user_permissions (user_id, permission) VALUES (?, ?)",
+                        (user_id, perm),
+                    )
+
+    def user_count(self) -> int:
+        with self._get_conn() as conn:
+            row = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()
+            return row["cnt"]
+
+    # --- API Keys ---
+
+    def create_api_key(
+        self,
+        user_id: int,
+        key_hash: str,
+        key_encrypted: str,
+        key_prefix: str,
+        name: str,
+        description: Optional[str] = None,
+        expires_at: Optional[str] = None,
+        rate_limit_max_failures: Optional[int] = None,
+        rate_limit_window_seconds: Optional[int] = None,
+        rate_limit_ban_seconds: Optional[int] = None,
+        model_permissions: Optional[List[Dict[str, Optional[str]]]] = None,
+    ) -> int:
+        normalized_name = normalize_api_key_name(name)
+        with self._lock:
+            with self._get_conn() as conn:
+                if self._api_key_name_exists(conn, normalized_name):
+                    raise ApiKeyNameConflictError(API_KEY_NAME_CONFLICT_MESSAGE)
+                try:
+                    cursor = conn.execute(
+                        """INSERT INTO api_keys (user_id, key_hash, key_encrypted, key_prefix, name, description, expires_at,
+                           rate_limit_max_failures, rate_limit_window_seconds, rate_limit_ban_seconds)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            user_id,
+                            key_hash,
+                            key_encrypted,
+                            key_prefix,
+                            normalized_name,
+                            description,
+                            expires_at,
+                            rate_limit_max_failures,
+                            rate_limit_window_seconds,
+                            rate_limit_ban_seconds,
+                        ),
+                    )
+                except sqlite3.IntegrityError as exc:
+                    if self._api_key_name_exists(conn, normalized_name):
+                        raise ApiKeyNameConflictError(
+                            API_KEY_NAME_CONFLICT_MESSAGE
+                        ) from exc
+                    raise
+                key_id = cursor.lastrowid
+                if model_permissions:
+                    for mp in model_permissions:
+                        conn.execute(
+                            "INSERT INTO api_key_model_permissions (api_key_id, permission_type, permission_value) VALUES (?, ?, ?)",
+                            (key_id, mp["permission_type"], mp.get("permission_value")),
+                        )
+                return key_id
+
+    def get_api_key_by_id(self, key_id: int) -> Optional[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM api_keys WHERE id = ?", (key_id,)
+            ).fetchone()
+            if not row:
+                return None
+            key = dict(row)
+            perms = conn.execute(
+                "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?",
+                (key_id,),
+            ).fetchall()
+            key["model_permissions"] = [dict(p) for p in perms]
+            return key
+
+    def get_api_key_by_hash(self, key_hash: str) -> Optional[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM api_keys WHERE key_hash = ?", (key_hash,)
+            ).fetchone()
+            if not row:
+                return None
+            key = dict(row)
+            perms = conn.execute(
+                "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?",
+                (key["id"],),
+            ).fetchall()
+            key["model_permissions"] = [dict(p) for p in perms]
+            return key
+
+    def list_api_keys(self, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            if user_id is not None:
+                rows = conn.execute(
+                    "SELECT * FROM api_keys WHERE user_id = ?", (user_id,)
+                ).fetchall()
+            else:
+                rows = conn.execute("SELECT * FROM api_keys").fetchall()
+            keys = []
+            for row in rows:
+                key = dict(row)
+                perms = conn.execute(
+                    "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?",
+                    (key["id"],),
+                ).fetchall()
+                key["model_permissions"] = [dict(p) for p in perms]
+                keys.append(key)
+            return keys
+
+    def update_api_key(self, key_id: int, **kwargs) -> bool:
+        allowed = {
+            "name",
+            "description",
+            "enabled",
+            "expires_at",
+            "rate_limit_max_failures",
+            "rate_limit_window_seconds",
+            "rate_limit_ban_seconds",
+        }
+        fields = {k: v for k, v in kwargs.items() if k in allowed}
+        if not fields:
+            return False
+        if "name" in fields:
+            fields["name"] = normalize_api_key_name(fields["name"])
+        with self._lock:
+            with self._get_conn() as conn:
+                if "name" in fields and self._api_key_name_exists(
+                    conn, fields["name"], exclude_key_id=key_id
+                ):
+                    raise ApiKeyNameConflictError(API_KEY_NAME_CONFLICT_MESSAGE)
+                set_clause = ", ".join(f"{k} = ?" for k in fields)
+                values = list(fields.values()) + [key_id]
+                try:
+                    conn.execute(
+                        f"UPDATE api_keys SET {set_clause} WHERE id = ?", values
+                    )
+                except sqlite3.IntegrityError as exc:
+                    if "name" in fields and self._api_key_name_exists(
+                        conn, fields["name"], exclude_key_id=key_id
+                    ):
+                        raise ApiKeyNameConflictError(
+                            API_KEY_NAME_CONFLICT_MESSAGE
+                        ) from exc
+                    raise
+                return True
+
+    def delete_api_key(self, key_id: int) -> bool:
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("DELETE FROM api_keys WHERE id = ?", (key_id,))
+                return True
+
+    def set_api_key_model_permissions(
+        self, key_id: int, permissions: List[Dict[str, Optional[str]]]
+    ):
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute(
+                    "DELETE FROM api_key_model_permissions WHERE api_key_id = ?",
+                    (key_id,),
+                )
+                for mp in permissions:
+                    conn.execute(
+                        "INSERT INTO api_key_model_permissions (api_key_id, permission_type, permission_value) VALUES (?, ?, ?)",
+                        (key_id, mp["permission_type"], mp.get("permission_value")),
+                    )
+
+    def get_all_api_keys_with_users(self) -> List[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                """SELECT ak.*, u.username, u.enabled as user_enabled
+                   FROM api_keys ak JOIN users u ON ak.user_id = u.id"""
+            ).fetchall()
+            keys = []
+            for row in rows:
+                key = dict(row)
+                perms = conn.execute(
+                    "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?",
+                    (key["id"],),
+                ).fetchall()
+                key["model_permissions"] = [dict(p) for p in perms]
+                keys.append(key)
+            return keys
+
+    # --- Refresh Tokens ---
+
+    def create_refresh_token(
+        self, user_id: int, token_hash: str, expires_at: str
+    ) -> int:
+        with self._lock:
+            with self._get_conn() as conn:
+                cursor = conn.execute(
+                    "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
+                    (user_id, token_hash, expires_at),
+                )
+                return cursor.lastrowid
+
+    def get_refresh_token(self, token_hash: str) -> Optional[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM refresh_tokens WHERE token_hash = ?", (token_hash,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_user_refresh_tokens(self, user_id: int) -> List[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM refresh_tokens WHERE user_id = ?", (user_id,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def delete_refresh_token(self, token_hash: str) -> bool:
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute(
+                    "DELETE FROM refresh_tokens WHERE token_hash = ?", (token_hash,)
+                )
+                return True
+
+    def delete_user_refresh_tokens(self, user_id: int):
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("DELETE FROM refresh_tokens WHERE user_id = ?", (user_id,))
+
+    def cleanup_expired_refresh_tokens(self):
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute(
+                    "DELETE FROM refresh_tokens WHERE expires_at < datetime('now')"
+                )
+
+    def rotate_refresh_token(
+        self, old_token_hash: str, new_token_hash: str, expires_at: str
+    ) -> Optional[Dict[str, Any]]:
+        """Atomically validate-and-rotate a refresh token.
+
+        Deletes ``old_token_hash`` and inserts ``new_token_hash`` in a single
+        write transaction, but only if the old token still exists at delete
+        time. Returns the old token row (so the caller can read ``user_id`` /
+        ``expires_at``) or ``None`` if it was already gone.
+
+        Taking SQLite's write lock up front with BEGIN IMMEDIATE makes the
+        whole read-delete-insert one atomic step even across processes, so a
+        concurrent ``update_password_and_revoke_tokens`` (or another rotation)
+        cannot interleave and leave a token alive after a password reset
+        (see security report, Finding 4).
+        """
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                row = conn.execute(
+                    "SELECT * FROM refresh_tokens WHERE token_hash = ?",
+                    (old_token_hash,),
+                ).fetchone()
+                if row is None:
+                    return None
+                conn.execute(
+                    "DELETE FROM refresh_tokens WHERE token_hash = ?",
+                    (old_token_hash,),
+                )
+                conn.execute(
+                    "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) "
+                    "VALUES (?, ?, ?)",
+                    (row["user_id"], new_token_hash, expires_at),
+                )
+                return dict(row)
+
+    def update_password_and_revoke_tokens(
+        self, user_id: int, password_hash: str
+    ) -> None:
+        """Atomically update a user's password, bump their token version, and
+        revoke all their refresh tokens in a single write transaction.
+
+        Bumping token_version invalidates access tokens (JWTs) that were
+        minted before the reset: they embed the old version, which no longer
+        matches the stored one, so verify_access_token rejects them. Without
+        this, a pre-reset access token keeps its ``admin`` scope until it
+        expires (default 30 min), letting a leaked/stolen token keep calling
+        admin routes after the password has been changed.
+
+        BEGIN IMMEDIATE serializes this against ``rotate_refresh_token`` so a
+        refresh in flight cannot slip a freshly-rotated token past the
+        revocation and survive the password reset (see security report,
+        Finding 4).
+        """
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute(
+                    "UPDATE users SET password_hash = ?, must_change_password = 0, "
+                    "token_version = token_version + 1 WHERE id = ?",
+                    (password_hash, user_id),
+                )
+                conn.execute("DELETE FROM refresh_tokens WHERE user_id = ?", (user_id,))
+
+    def get_user_token_version(self, user_id: int) -> Optional[int]:
+        """Return the user's current token version, or None if no such user.
+
+        Used on every authenticated request to reject access tokens whose
+        embedded version is stale (e.g. minted before a password reset)."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT token_version FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            return row["token_version"] if row else None
+
+    # --- System Config ---
+
+    def get_config(self, key: str) -> Optional[str]:
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT value FROM system_config WHERE key = ?", (key,)
+            ).fetchone()
+            return row["value"] if row else None
+
+    def set_config(self, key: str, value: str):
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO system_config (key, value) VALUES (?, ?)",
+                    (key, value),
+                )

@@ -1,0 +1,41 @@
+[
+  {
+    "version": 2,
+    "model_name": "Fibo-2.0-edit-turbo",
+    "model_family": "fibo2",
+    "model_description": "Fibo 2.0 Edit Turbo is an 8B distilled image editing model with four-step generation, multiple references and masks.",
+    "model_ability": [
+      "image2image",
+      "inpainting"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "briaai/Fibo-2.0-edit-turbo",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "briaai/Fibo-2.0-edit-turbo",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "num_inference_steps": 4,
+      "guidance_scale": 1.0
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.42.0 ; #engine# == \"diffusers\"",
+        "transformers>=5.20.1,<6",
+        "accelerate>=1.10.0",
+        "Pillow>=10",
+        "#system_torch#",
+        "#system_torchvision#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
+  }
+]

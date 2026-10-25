@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,14 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 
+# CI: linux
 import pytest
 import requests
 
 
 @pytest.fixture
-def setup_cluster():
+def setup_cluster(request):
     import xoscar as xo
 
     from ...api.restful_api import run_in_subprocess as restful_api_run_in_subprocess
@@ -26,10 +26,20 @@ def setup_cluster():
     from ...deploy.local import health_check
     from ...deploy.local import run_in_subprocess as supervisor_run_in_subprocess
 
+    # Pass configuration directly to each child. Python 3.14 uses forkserver by
+    # default on Linux, and that server may have started before this fixture.
+    environment = {"XINFERENCE_AUTH_ADVANCED": "false"}
+    if getattr(request, "param", False):
+        environment["XINFERENCE_DISABLE_METRICS"] = "1"
+
     metrics_port = xo.utils.get_next_port()
     supervisor_address = f"localhost:{xo.utils.get_next_port()}"
     local_cluster = supervisor_run_in_subprocess(
-        supervisor_address, "localhost", metrics_port, TEST_LOGGING_CONF
+        supervisor_address,
+        "localhost",
+        metrics_port,
+        TEST_LOGGING_CONF,
+        environment=environment,
     )
 
     if not health_check(address=supervisor_address, max_attempts=20, sleep_interval=1):
@@ -42,12 +52,17 @@ def setup_cluster():
             host="localhost",
             port=port,
             logging_conf=TEST_FILE_LOGGING_CONF,
+            environment=environment,
         )
         endpoint = f"http://localhost:{port}"
         if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
             raise RuntimeError("Endpoint is not available after multiple attempts")
 
-        yield f"http://localhost:{port}", f"http://localhost:{metrics_port}/metrics", supervisor_address
+        yield (
+            f"http://localhost:{port}",
+            f"http://localhost:{metrics_port}/metrics",
+            supervisor_address,
+        )
         restful_api_proc.kill()
     finally:
         local_cluster.kill()
@@ -82,26 +97,19 @@ async def test_metrics_exporter_server(setup_cluster):
     # Check the worker metrics collected model metrics.
     model_ref = await supervisor_ref.get_model(model_uid)
     await model_ref.record_metrics(
-        "input_tokens_total_counter", "inc", {"labels": {"model": model_uid}}
+        "input_tokens_total_counter", "inc", {"labels": {"model_uid": model_uid}}
     )
     response = requests.get(metrics_exporter_address)
     assert response.ok
     assert (
-        'xinference:input_tokens_total_counter{model="qwen1.5-chat"} 1' in response.text
+        'xinference:input_tokens_total_counter{model_uid="qwen1.5-chat"} 1'
+        in response.text
     )
 
 
-@pytest.fixture
-def disable_metrics():
-    try:
-        os.environ["XINFERENCE_DISABLE_METRICS"] = "1"
-        yield
-    finally:
-        os.environ.pop("XINFERENCE_DISABLE_METRICS", None)
-
-
 @pytest.mark.asyncio
-async def test_disable_metrics_exporter_server(disable_metrics, setup_cluster):
+@pytest.mark.parametrize("setup_cluster", [True], indirect=True)
+async def test_disable_metrics_exporter_server(setup_cluster):
     endpoint, metrics_exporter_address, supervisor_address = setup_cluster
 
     from ...client import Client
@@ -125,6 +133,7 @@ async def test_disable_metrics_exporter_server(disable_metrics, setup_cluster):
 
 
 @pytest.mark.timeout(300)  # 5 minutes timeout to prevent hanging in Python 3.13
+@pytest.mark.platform_slow
 async def test_metrics_exporter_data(setup_cluster):
     endpoint, metrics_exporter_address, supervisor_address = setup_cluster
 
@@ -146,4 +155,7 @@ async def test_metrics_exporter_data(setup_cluster):
 
     response = requests.get(metrics_exporter_address)
     assert response.ok
-    assert 'format="ggufv2",model="qwen1.5-chat"' in response.text
+    assert (
+        'format="ggufv2",gpu_index="",model_name="qwen1.5-chat",'
+        'model_type="LLM",model_uid="qwen1.5-chat"' in response.text
+    )

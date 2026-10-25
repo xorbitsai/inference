@@ -1,0 +1,107 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-05-16 14:18+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/lora.rst:5
+msgid "LoRA Integration"
+msgstr "Integração LoRA"
+
+#: ../../source/models/lora.rst:7
+msgid ""
+"Currently, Xinference supports launching ``LLM`` and ``image`` models with "
+"an attached LoRA fine-tuned model."
+msgstr ""
+"Atualmente, o Xinference pode iniciar os modelos ``LLM`` e ``image`` "
+"juntamente com um modelo de ajuste fino LoRA para auxiliar o modelo base."
+
+#: ../../source/models/lora.rst:10
+msgid "Usage"
+msgstr "Uso"
+
+#: ../../source/models/lora.rst:13
+msgid "Launch"
+msgstr "Iniciar"
+
+#: ../../source/models/lora.rst:14
+msgid ""
+"Different from built-in models, xinference currently does not involve "
+"managing LoRA models. Users need to first download the LoRA model themselves"
+" and then provide the storage path of the model files to xinference."
+msgstr ""
+"Diferente dos modelos embutidos, o Xinference atualmente não gerencia "
+"modelos LoRA. O usuário precisa primeiro baixar o modelo LoRA correspondente"
+" e, em seguida, fornecer o caminho de armazenamento do modelo para o "
+"Xinference."
+
+#: ../../source/models/lora.rst:54
+msgid "Apply"
+msgstr "Aplicação"
+
+#: ../../source/models/lora.rst:55
+msgid ""
+"For LLM models, you can only configure one lora model you want when you use "
+"the model. Specifically, specify that the ``lora_name`` parameter be "
+"configured in the ``generate_config``. ``lora_name`` corresponds to the name"
+" of the lora in the LAUNCH procedure described above."
+msgstr ""
+"Para grandes modelos de linguagem, especifique uma LoRA ao usar. "
+"Especificamente, configure o parâmetro ``lora_name`` nos parâmetros "
+"``generate_config``. O ``lora_name`` corresponde à sua configuração durante "
+"o processo de inicialização."
+
+#: ../../source/models/lora.rst:75
+msgid "Note"
+msgstr "**Avisos** / **Notas Importantes**"
+
+#: ../../source/models/lora.rst:77
+msgid ""
+"The options ``image_lora_load_kwargs`` and ``image_lora_fuse_kwargs`` are "
+"only applicable to models with model_type ``image``. They correspond to the "
+"parameters in the ``load_lora_weights`` and ``fuse_lora`` interfaces of the "
+"``diffusers`` library. If launching an LLM model, these parameters are not "
+"required."
+msgstr ""
+"As opções ``image_lora_load_kwargs`` e ``image_lora_fuse_kwargs`` acima se "
+"aplicam apenas ao modelo ``image``. Elas correspondem a parâmetros "
+"adicionais nas interfaces ``load_lora_weights`` e ``fuse_lora`` da "
+"biblioteca ``diffusers``. Se estiver executando um modelo ``LLM``, não é "
+"necessário definir essas opções."
+
+#: ../../source/models/lora.rst:81
+msgid ""
+"You need to add the parameter lora_name during inference to specify the "
+"corresponding lora model. You can specify it in the Additional Inputs "
+"option."
+msgstr ""
+
+#: ../../source/models/lora.rst:83
+msgid ""
+"For LLM chat models, currently only LoRA models are supported that do not "
+"change the prompt style."
+msgstr ""
+"Para modelos de chat ``LLM``, atualmente só são suportados modelos LoRA que,"
+" após o fine-tuning, não alteram o template de prompt do modelo base "
+"original."
+
+#: ../../source/models/lora.rst:85
+msgid "When using GPU, both LoRA and its base model occupy the same devices."
+msgstr ""
+"Ao usar GPU, o modelo LoRA e seu modelo base estão no mesmo dispositivo, sem"
+" afetar outros modelos."

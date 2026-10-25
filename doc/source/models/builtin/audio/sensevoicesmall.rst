@@ -12,8 +12,15 @@ SenseVoiceSmall
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** FunAudioLLM/SenseVoiceSmall
+- **PyTorch model ID:** FunAudioLLM/SenseVoiceSmall
+- **MLX model ID:** mlx-community/SenseVoiceSmall
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name SenseVoiceSmall --model-type audio
+   xinference launch --model-name SenseVoiceSmall --model-type audio --model-engine PyTorch
+
+Available engines
+^^^^^^^^^^^^^^^^^
+
+* ``PyTorch``
+* ``MLX``

@@ -1,0 +1,77 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-14 14:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: it <LL@li.org>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_update.rst:5
+msgid "Model Update"
+msgstr "Aggiornamento del modello"
+
+#: ../../source/models/model_update.rst:8
+msgid ""
+"This section briefly introduces a common operation on the \"Launch Model\" "
+"page: updating the model list. It corresponds to the \"Type Selection + "
+"Update\" button at the top of the page, which is used to quickly refresh "
+"models of a specific type."
+msgstr ""
+"Questa sezione introduce brevemente un'operazione comune nella pagina "
+"\"Avvio modello\": aggiornare l'elenco dei modelli. Corrisponde al pulsante "
+"\"Selezione tipo + Aggiorna\" nella parte superiore della pagina, utilizzato"
+" per aggiornare rapidamente i modelli di un determinato tipo."
+
+#: ../../source/models/model_update.rst:10
+msgid ""
+"Model update rely on the online model list service provided by "
+":ref:`xinference_models_hub` ."
+msgstr ""
+"Il modello aggiorna la dipendenza dal servizio di elenco modelli online "
+"fornito da :ref:`xinference_models_hub`."
+
+#: ../../source/models/model_update.rst:17
+msgid "Update Models"
+msgstr "Aggiornare il modello"
+
+#: ../../source/models/model_update.rst:19
+msgid ""
+"Operation Location: \"Type Selection\" dropdown and \"Update\" button at the"
+" top right of the page."
+msgstr ""
+"Posizione operativa: il menu a discesa \"Selezione tipo\" e il pulsante "
+"\"Aggiorna\" nell'angolo superiore destro della pagina."
+
+#: ../../source/models/model_update.rst:20
+msgid "Usage:"
+msgstr "Metodo di utilizzo:"
+
+#: ../../source/models/model_update.rst:21
+msgid ""
+"Select a model type from the dropdown (such as llm, embedding, rerank, "
+"image, audio, video)."
+msgstr ""
+"Dal menu a discesa, seleziona il tipo di modello (ad esempio, llm, "
+"embedding, rerank, image, audio, video)."
+
+#: ../../source/models/model_update.rst:22
+msgid ""
+"Click the \"Update\" button, the page will send an update request to the "
+"backend, then automatically jump to the corresponding Tab and refresh the "
+"model list of that type."
+msgstr ""
+"Dopo aver cliccato sul pulsante \"Aggiorna\", la pagina invierà una "
+"richiesta di aggiornamento al backend, passerà automaticamente alla scheda "
+"corrispondente e aggiornerà l'elenco dei modelli di quel tipo."

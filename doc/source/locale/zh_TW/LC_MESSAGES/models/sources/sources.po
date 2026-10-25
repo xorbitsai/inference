@@ -1,0 +1,78 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-01-02 16:27+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/sources/sources.rst:5
+msgid "Download Sources"
+msgstr "模型來源"
+
+#: ../../source/models/sources/sources.rst:7
+msgid "Xinference supports downloading various models from different sources."
+msgstr "Xinference 支援從不同的來源下載各種模型。"
+
+#: ../../source/models/sources/sources.rst:10
+msgid "HuggingFace"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:11
+msgid ""
+"Xinference directly downloads the required models from the official `Hugging"
+" Face model repository <https://huggingface.co/models>`_ by default."
+msgstr ""
+"Xinference 預設直接從 `Hugging Face 官方模型倉庫 <https://huggingface.co/models>`_ "
+"下載所需的模型。"
+
+#: ../../source/models/sources/sources.rst:14
+msgid ""
+"If you have trouble connecting to Huggingface, you can use a mirror website "
+"to download with setting the environment variable ``HF_ENDPOINT=https://hf-"
+"mirror.com``."
+msgstr ""
+"如果你的網路無法連接到 HuggingFace ，你可以透過環境變數指定 HuggingFace "
+"鏡像網站：``HF_ENDPOINT=https://hf-mirror.com`` 。"
+
+#: ../../source/models/sources/sources.rst:18
+msgid "ModelScope"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:20
+msgid ""
+"When Xinference detects that the system's language is set to Simplified "
+"Chinese, it will automatically set the model download source to `ModelScope "
+"<https://modelscope.cn/models>`_."
+msgstr ""
+"當 Xinference 偵測到系統語言設定為「簡體中文」時，會將模型下載來源設為 `ModelScope "
+"<https://modelscope.cn/models>`_。"
+
+#: ../../source/models/sources/sources.rst:23
+msgid ""
+"You can also achieve this by manually setting an environment variable "
+"``XINFERENCE_MODEL_SRC=modelscope``."
+msgstr "你也可以透過手動設定環境變數 ``XINFERENCE_MODEL_SRC=modelscope`` 來實現這一點。"
+
+#: ../../source/models/sources/sources.rst:25
+msgid ""
+"Please check the detail page of a model to confirm whether the model "
+"supports downloading from ModelScope. If a model spec supports downloading "
+"from ModelScope, the \"Model Hubs\" section in the spec information will "
+"include \"ModelScope\"."
+msgstr ""
+"請在模型的詳情頁面上查看它是否支援從 ModelScope 進行下載。如果一個模型支援從 ModelScope 下載，模型資訊中的 Model Hubs"
+" 這一項會包含 ModelScope。"

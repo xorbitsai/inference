@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ def surprise_image_base64():
     return "data:image/png;base64," + img_base64
 
 
+@pytest.mark.platform_slow
 def test_gguf_multimodal(setup, surprise_image_base64):
     endpoint, _ = setup
     client = Client(endpoint)

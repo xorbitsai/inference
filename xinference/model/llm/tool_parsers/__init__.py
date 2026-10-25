@@ -52,9 +52,17 @@ def register_tool_parser(name: str):
 from . import (
     deepseek_r1_tool_parser,
     deepseek_v3_1_tool_parser,
+    deepseek_v3_2_tool_parser,
     deepseek_v3_tool_parser,
+    deepseek_v4_1_tool_parser,
+    deepseek_v4_tool_parser,
+    gemma_tool_parser,
     glm4_tool_parser,
+    glm5_tool_parser,
+    kimi_k3_tool_parser,
     llama3_tool_parser,
+    minicpm5_tool_parser,
+    minimax_m3_tool_parser,
     minimax_tool_parser,
     qwen_tool_parser,
 )

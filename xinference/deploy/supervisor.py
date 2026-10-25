@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 import asyncio
 import logging
 import multiprocessing
+import os
 import signal
 import sys
 from typing import Dict, Optional
@@ -27,13 +28,17 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_INTERVAL,
 )
 from ..core.supervisor import SupervisorActor
-from .utils import health_check
+from .utils import health_check, update_all_formatter_addresses
 
 logger = logging.getLogger(__name__)
 
 
 async def _start_supervisor(address: str, logging_conf: Optional[Dict] = None):
     logging.config.dictConfig(logging_conf)  # type: ignore
+    update_all_formatter_addresses("supervisor", address)
+    if logging_conf and "formatters" in logging_conf:
+        for formatter in logging_conf["formatters"].values():
+            formatter["address"] = address
 
     pool = None
     try:
@@ -55,11 +60,7 @@ def run(address: str, logging_conf: Optional[Dict] = None):
 
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    loop = asyncio.get_event_loop()
-    task = loop.create_task(
-        _start_supervisor(address=address, logging_conf=logging_conf)
-    )
-    loop.run_until_complete(task)
+    asyncio.run(_start_supervisor(address=address, logging_conf=logging_conf))
 
 
 def run_in_subprocess(
@@ -75,9 +76,21 @@ def main(
     port: int,
     supervisor_port: Optional[int],
     logging_conf: Optional[Dict] = None,
-    auth_config_file: Optional[str] = None,
 ):
     supervisor_address = f"{host}:{supervisor_port or get_next_port()}"
+    if os.name == "posix":
+        from .api_host import run as run_api_host
+
+        run_api_host(
+            {
+                "supervisor_address": supervisor_address,
+                "host": host,
+                "port": port,
+                "logging_conf": logging_conf,
+                "host_supervisor": True,
+            }
+        )
+        return
     local_cluster = run_in_subprocess(supervisor_address, logging_conf)
 
     if not health_check(
@@ -95,7 +108,7 @@ def main(
             host=host,
             port=port,
             logging_conf=logging_conf,
-            auth_config_file=auth_config_file,
+            api_role="supervisor",
         )
     finally:
         local_cluster.kill()

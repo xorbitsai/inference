@@ -13,8 +13,20 @@ The following is a list of built-in image models in Xinference:
   
    cogview4
   
+   deepdoc
+  
    deepseek-ocr
   
+   dots.ocr
+
+   fibo-2.0-dev
+
+   fibo-2.0-edit-turbo
+
+   firered-image-edit-1.1
+  
+   flux-3-image-klein
+
    flux.1-dev
   
    flux.1-kontext-dev
@@ -27,7 +39,15 @@ The following is a list of built-in image models in Xinference:
   
    flux.2-klein-9b
   
+   glm-image
+  
    got-ocr2_0
+  
+   hidream-o1-image
+  
+   hidream-o1-image-dev
+  
+   hidream-o1-image-dev-2604
   
    hunyuandit-v1.2
   
@@ -35,12 +55,48 @@ The following is a list of built-in image models in Xinference:
   
    hunyuanocr
   
-   kolors
+   ideogram4
+
+   iris-3b
+
+   iris-3b-turbo
+
+   jina-ocr-v1
+
+   joyai-image-edit
+
+   joyai-image-edit-plus
   
+   kolors
+
+   krea-2-raw
+
+   krea-2-turbo
+
+   mineru2.5
+
+   ming-image-0.1-design
+
+   ming-image-0.1-design-layer
+
+   monkeyocr
+  
+   moss-image-sft
+
+   navidc-ocr
+
+   ovisocr2
+
    paddleocr-vl
+  
+   paddleocr-vl-1.6
   
    qwen-image
   
+   qwen-image-2.1
+
+   qwen-image-2.1-turbo
+
    qwen-image-2512
   
    qwen-image-edit
@@ -63,6 +119,8 @@ The following is a list of built-in image models in Xinference:
   
    sdxl-turbo
   
+   sensenova-u1.5-8b-mot
+  
    stable-diffusion-2-inpainting
   
    stable-diffusion-inpainting
@@ -72,8 +130,13 @@ The following is a list of built-in image models in Xinference:
    stable-diffusion-xl-base-1.0
   
    stable-diffusion-xl-inpainting
+
+   teleocr
   
+   unlimited-ocr
+  
+   xiaomi-ocr-0
+
    z-image
   
    z-image-turbo
-  

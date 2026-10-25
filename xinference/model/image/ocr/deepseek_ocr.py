@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import logging
 import os
 import re
@@ -22,11 +23,12 @@ import numpy as np
 import PIL.Image
 import torch
 import torch.nn as nn
-from torchvision import transforms
 
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from ...utils import allow_trust_remote_code
+from .latex import process_ocr_result_with_latex
 from .ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
@@ -168,6 +170,8 @@ def normalize_transform(
     std: Optional[Union[Tuple[float, float, float], List[float]]],
 ):
     """Create normalization transform."""
+    from torchvision import transforms
+
     if mean is None and std is None:
         return None
     elif mean is None and std is not None:
@@ -189,6 +193,8 @@ class BasicImageTransform:
         std: Optional[Tuple[float, float, float]] = (0.5, 0.5, 0.5),
         normalize: bool = True,
     ):
+        from torchvision import transforms
+
         self.mean = mean
         self.std = std
 
@@ -228,8 +234,13 @@ def extract_coordinates_and_label(
     """Extract coordinates and label from reference text."""
     try:
         label_type = ref_text[1]
-        cor_list = eval(ref_text[2])
-    except Exception as e:
+        # Use ast.literal_eval instead of eval — the coordinate string comes
+        # from OCR model output (LLM-generated) and a prompt-injected response
+        # could otherwise execute arbitrary Python. literal_eval only accepts
+        # Python literal structures (lists/tuples/numbers) and refuses calls,
+        # imports, and attribute access.
+        cor_list = ast.literal_eval(ref_text[2])
+    except (ValueError, SyntaxError, IndexError, TypeError) as e:
         logger.error(f"Error extracting coordinates: {e}")
         return None
 
@@ -384,9 +395,13 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
     if not isinstance(text, str):
         return []
 
-    # Pattern to extract text and coordinates
+    # Pattern to extract text and coordinates. The coordinates group keeps
+    # the surrounding `[[...]]` so the resulting structure is nested
+    # (`[[x1, y1, x2, y2], ...]`) — matching extract_coordinates_and_label
+    # and the `bbox = coords[0] if len(coords) == 1 else coords` logic
+    # below, which assumes a list-of-lists.
     block_pattern = (
-        r"<\|ref\|>(.*?)<\|/ref\|><\|det\|>\[\[(.*?)\]\]<\|/det\|>(.*?)(?=<\|ref\|>|$)"
+        r"<\|ref\|>(.*?)<\|/ref\|><\|det\|>(\[\[.*?\]\])<\|/det\|>(.*?)(?=<\|ref\|>|$)"
     )
 
     blocks = []
@@ -396,7 +411,10 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
         content = match.group(3).strip()
 
         try:
-            coords = eval(f"[{coords_str}]")  # Convert string coordinates to list
+            # Use ast.literal_eval instead of eval — the coordinate string is
+            # OCR model output (LLM-generated). literal_eval only accepts
+            # Python literal structures and rejects code execution.
+            coords = ast.literal_eval(coords_str)
             if isinstance(coords, list) and len(coords) > 0:
                 blocks.append(
                     {
@@ -406,7 +424,7 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
                         "bbox": coords[0] if len(coords) == 1 else coords,
                     }
                 )
-        except Exception:
+        except (ValueError, SyntaxError):
             # Skip if coordinates can't be parsed
             continue
 
@@ -453,14 +471,14 @@ class DeepSeekOCRModel(OCRModel):
         try:
             self._tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 use_fast=False,
             )
             if self._device != "cpu":
                 # Use CUDA if available
                 model = AutoModel.from_pretrained(
                     self._model_path,
-                    trust_remote_code=True,
+                    trust_remote_code=allow_trust_remote_code(self.model_family),
                     low_cpu_mem_usage=True,
                     device_map="auto",
                     use_safetensors=True,
@@ -471,7 +489,7 @@ class DeepSeekOCRModel(OCRModel):
                 # Force CPU-only execution
                 model = AutoModel.from_pretrained(
                     self._model_path,
-                    trust_remote_code=True,
+                    trust_remote_code=allow_trust_remote_code(self.model_family),
                     low_cpu_mem_usage=True,
                     device_map="cpu",
                     use_safetensors=True,
@@ -615,15 +633,9 @@ class DeepSeekOCRModel(OCRModel):
             )
 
             # Apply LaTeX post-processing using unified function
-            try:
-                from ...ui.gradio.utils.latex import process_ocr_result_with_latex
-
-                result = process_ocr_result_with_latex(
-                    result, output_format="markdown", debug_info=True
-                )
-            except ImportError:
-                # Fallback: no LaTeX processing if import fails
-                pass
+            result = process_ocr_result_with_latex(
+                result, output_format="markdown", debug_info=True
+            )
 
             return result
         # Handle batch image input
@@ -635,15 +647,9 @@ class DeepSeekOCRModel(OCRModel):
                 )
 
                 # Apply LaTeX post-processing using unified function
-                try:
-                    from ...ui.gradio.utils.latex import process_ocr_result_with_latex
-
-                    result = process_ocr_result_with_latex(
-                        result, output_format="markdown", debug_info=False
-                    )
-                except ImportError:
-                    # Fallback: no LaTeX processing if import fails
-                    pass
+                result = process_ocr_result_with_latex(
+                    result, output_format="markdown", debug_info=False
+                )
 
                 results.append(result)
             return results
@@ -844,26 +850,16 @@ class DeepSeekOCRModel(OCRModel):
                 )
 
                 # Apply LaTeX post-processing using unified function
-                try:
-                    from ...ui.gradio.utils.latex import process_ocr_result_with_latex
+                processed_result = process_ocr_result_with_latex(
+                    result, output_format="markdown", debug_info=True
+                )
 
-                    # Process the result and extract LaTeX info
-                    processed_result = process_ocr_result_with_latex(
-                        result, output_format="markdown", debug_info=True
-                    )
-
-                    # Extract text and LaTeX info
-                    if isinstance(processed_result, dict):
-                        latex_info = processed_result.get("latex_processing")
-                        processed_result = processed_result.get("text", result)
-                    else:
-                        processed_result = (
-                            processed_result if processed_result else result
-                        )
-                        latex_info = None
-
-                except ImportError:
-                    processed_result = result
+                # Extract text and LaTeX info
+                if isinstance(processed_result, dict):
+                    latex_info = processed_result.get("latex_processing")
+                    processed_result = processed_result.get("text", result)
+                else:
+                    processed_result = processed_result if processed_result else result
                     latex_info = None
 
                 # Prepare response
@@ -878,7 +874,7 @@ class DeepSeekOCRModel(OCRModel):
                 }
 
                 # If the model returned an empty result, fall back to visualization
-                # mode (same path as Gradio) to give users a usable response.
+                # mode to give users a usable response.
                 if processed_result is None or (
                     isinstance(processed_result, str) and not processed_result.strip()
                 ):

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 import inspect
 import logging
-from typing import Dict, Iterator, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union, cast
 
 from ....types import (
     ChatCompletion,
@@ -95,4 +95,4 @@ class GPTOSSPytorchChatModel(PytorchChatModel):
         else:
             # Non-streaming sync - handle single result
             async for parsed_completion in async_stream_harmony_chat_completion(gen):  # type: ignore
-                return parsed_completion
+                return cast(ChatCompletion, parsed_completion)

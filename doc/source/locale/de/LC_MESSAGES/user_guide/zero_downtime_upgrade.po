@@ -1,0 +1,462 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference 4.0\n"
+"Report-Msgid-Bugs-To: https://github.com/xorbitsai/inference/issues\n"
+"POT-Creation-Date: 2026-10-24 00:00+0800\n"
+"PO-Revision-Date: 2026-10-24 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: de\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:4
+msgid "Zero-downtime upgrades (Experimental)"
+msgstr "Upgrades ohne Ausfallzeit (Experimental)"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:8
+msgid ""
+"Upgrade one component at a time while inference continues. Choose the component whose "
+"code or environment needs changing; replacing a control process keeps existing model "
+"processes and their loaded weights running."
+msgstr ""
+"Aktualisieren Sie jeweils eine Komponente, während die Inferenz weiterläuft. Wählen "
+"Sie die Komponente, deren Code oder Umgebung geändert werden soll. Beim Ersetzen eines"
+" Steuerprozesses laufen bestehende Modellprozesse mit ihren geladenen Gewichten "
+"weiter."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:11
+msgid "Prepare an upgrade"
+msgstr "Upgrade vorbereiten"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:13
+msgid ""
+"The running deployment must already support the relevant replacement protocol and "
+"service host. API, Supervisor and Worker replacement support local and distributed "
+"deployments on Linux and macOS. Windows is unsupported. Model-engine replacement has "
+"the Linux GPU requirements described below."
+msgstr ""
+"Die laufende Bereitstellung muss das jeweilige Ersetzungsprotokoll und den Diensthost "
+"bereits unterstützen. API-, Supervisor- und Worker-Ersetzung unterstützen lokale und "
+"verteilte Bereitstellungen unter Linux und macOS. Windows wird nicht unterstützt. Für "
+"die Ersetzung der Modell-Engine gelten die unten beschriebenen Linux-GPU-"
+"Anforderungen."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:15
+msgid ""
+"By default, a replacement uses the component's current Python environment. No Python "
+"path is required. Use an administrator session when authentication is enabled."
+msgstr ""
+"Standardmäßig verwendet der Ersatzprozess die aktuelle Python-Umgebung der Komponente."
+" Ein Python-Pfad ist nicht erforderlich. Verwenden Sie bei aktivierter "
+"Authentifizierung eine Administratorsitzung."
+
+msgid ""
+"In local mode, startup still uses an API parent and one shared Supervisor/Worker "
+"process. A component moves into a separate process only on its first upgrade; use the "
+"same commands and Web UI actions below. The original parent and shared process stay "
+"alive as service hosts, so stopping the original local service stops its replacement "
+"processes too. If a migrated Worker exits unexpectedly, the API and Supervisor stay "
+"available; attach a Worker to restore serving capacity."
+msgstr ""
+"Im lokalen Modus startet weiterhin ein API-Hauptprozess mit einem gemeinsamen "
+"Supervisor/Worker-Prozess. Eine Komponente wechselt erst bei ihrem ersten Upgrade in "
+"einen eigenen Prozess; verwenden Sie dieselben Befehle und Web-UI-Aktionen wie unten. "
+"Der ursprüngliche Hauptprozess und der gemeinsame Prozess bleiben als Diensthosts "
+"aktiv. Das Stoppen des ursprünglichen lokalen Dienstes stoppt daher auch seine "
+"Ersatzprozesse. Wenn ein migrierter Worker unerwartet beendet wird, bleiben API und "
+"Supervisor verfügbar; verbinden Sie einen Worker, um wieder Verarbeitungskapazität "
+"bereitzustellen."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:18
+msgid "API and Web UI"
+msgstr "API und Web-UI"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:20
+msgid "In **Cluster Information**, choose **Restart / upgrade API**, or run:"
+msgstr ""
+"Wählen Sie unter **Cluster Information** die Option **Restart / upgrade API** oder "
+"führen Sie Folgendes aus:"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:27
+msgid ""
+"The public HTTP address stays the same. New connections use the replacement API; "
+"existing requests and streams finish on the previous API. The Supervisor, Workers and "
+"models keep running. Refresh the browser to load the upgraded Web UI."
+msgstr ""
+"Die öffentliche HTTP-Adresse bleibt gleich. Neue Verbindungen verwenden die neue API; "
+"bestehende Anfragen und Streams werden von der bisherigen API abgeschlossen. "
+"Supervisor, Worker und Modelle laufen weiter. Laden Sie den Browser neu, um die "
+"aktualisierte Web-UI zu laden."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:29
+msgid "REST API: ``POST /v1/api/relaunch``."
+msgstr "REST-API: ``POST /v1/api/relaunch``."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:31
+msgid ""
+"The HTTP 202 response contains an ``operation_id``. Poll ``GET /v1/api-"
+"relaunches/{operation_id}`` or list operations with ``GET /v1/api-relaunches``. States"
+" are ``starting``, ``switching``, ``draining``, ``succeeded`` and ``failed``. "
+"``draining`` means the new API is serving while the previous API finishes admitted "
+"requests."
+msgstr ""
+"Die HTTP-202-Antwort enthält eine ``operation_id``. Fragen Sie ``GET /v1/api-"
+"relaunches/{operation_id}`` ab oder listen Sie Vorgänge mit ``GET /v1/api-relaunches``"
+" auf. Die Zustände sind ``starting``, ``switching``, ``draining``, ``succeeded`` und "
+"``failed``. ``draining`` bedeutet, dass die neue API bereits bedient, während die "
+"bisherige API angenommene Anfragen abschließt."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:43
+msgid ""
+"A failed startup leaves the previous API serving. Reuse ``request_id`` when retrying "
+"the same request. Only one replacement may run at a time. Operation history belongs to"
+" the stable service host and lasts until it stops. Windows, Supervisor upgrades and "
+"database migrations are outside this operation."
+msgstr ""
+"Bei einem fehlgeschlagenen Start bedient die bisherige API weiter. Verwenden Sie bei "
+"der Wiederholung derselben Anfrage dieselbe ``request_id``. Es darf jeweils nur eine "
+"Ersetzung laufen. Der stabile Diensthost hält den Vorgangsverlauf bis zu seinem Stopp."
+" Windows, Supervisor-Upgrades und Datenbankmigrationen sind nicht Teil dieses "
+"Vorgangs."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:46
+msgid "Supervisor"
+msgstr "Supervisor"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:48
+msgid "In **Cluster Information**, choose **Restart / upgrade Supervisor**, or run:"
+msgstr ""
+"Wählen Sie unter **Cluster Information** die Option **Restart / upgrade Supervisor** "
+"oder führen Sie Folgendes aus:"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:55
+msgid ""
+"On Linux and macOS, ``xinference-supervisor`` and ``xinference-local`` can replace their"
+" Supervisor control process while retaining the API, Workers and model processes. The "
+"HTTP address and Supervisor actor address stay the same. New inference requests "
+"continue using the serving routes while the replacement prepares; existing streams "
+"stay on their model processes."
+msgstr ""
+"Unter Linux und macOS kann ``xinference-supervisor`` / ``xinference-local`` den "
+"Supervisor-Steuerprozess ersetzen und dabei API, Worker und Modellprozesse "
+"beibehalten. Die HTTP-Adresse und die Supervisor-Actor-Adresse bleiben gleich. Während"
+" der Vorbereitung nutzen neue Inferenzanfragen weiterhin die aktiven Routen; laufende "
+"Streams bleiben bei ihren Modellprozessen."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:57
+msgid ""
+"The replacement loads persisted configuration and checks the registered Workers' live "
+"model inventories and ownership. Management operations briefly wait during state "
+"transfer; model route lookups remain available. An active model launch, download, "
+"model reload or Worker handoff prevents replacement until that operation finishes. "
+"Failed preparation leaves the previous Supervisor serving."
+msgstr ""
+"Der Ersatzprozess lädt die persistierte Konfiguration und prüft die laufenden Modelle "
+"und Eigentümerschaft der registrierten Worker. Verwaltungsoperationen warten während "
+"der Zustandsübergabe kurz; Modellrouten bleiben abrufbar. Ein laufender Modellstart, "
+"Download, Modell-Reload oder eine Worker-Übergabe verhindert den Austausch bis zum "
+"Abschluss der Operation. Schlägt die Vorbereitung fehl, arbeitet der bisherige "
+"Supervisor weiter."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:59
+msgid "REST API: ``POST /v1/supervisor/relaunch``."
+msgstr "REST-API: ``POST /v1/supervisor/relaunch``."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:61
+msgid ""
+"The HTTP 202 response includes an ``operation_id``. Poll ``GET /v1/supervisor-"
+"relaunches/{operation_id}`` or list operations with ``GET /v1/supervisor-relaunches``."
+" States are ``starting``, ``preparing``, ``switching``, ``draining``, ``succeeded`` "
+"and ``failed``. Only one Supervisor replacement runs at a time. Reuse ``request_id`` "
+"when retrying the same operation; history lasts until the stable service host stops."
+msgstr ""
+"Die HTTP-202-Antwort enthält eine ``operation_id``. Fragen Sie ``GET /v1/supervisor-"
+"relaunches/{operation_id}`` ab oder listen Sie Operationen mit ``GET /v1/supervisor-"
+"relaunches`` auf. Zustände sind ``starting``, ``preparing``, ``switching``, "
+"``draining``, ``succeeded`` und ``failed``. Es läuft höchstens ein Supervisor-"
+"Austausch gleichzeitig. Verwenden Sie bei Wiederholungen derselben Operation dieselbe "
+"``request_id``; der Verlauf bleibt bis zum Ende des stabilen Diensthosts erhalten."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:71
+msgid ""
+"The service must have been started with Supervisor hosting support. The stable host "
+"and its state, cache, event, progress and model-routing actors retain their original "
+"environments. This operation upgrades Supervisor control logic; upgrading retained "
+"actors or changing database schemas requires a planned restart. Windows is "
+"unsupported."
+msgstr ""
+"Der Dienst muss mit Unterstützung für Supervisor-Hosting gestartet worden sein. Der "
+"stabile Host und seine Actors für Zustand, Cache, Ereignisse, Fortschritt und "
+"Modellrouting behalten ihre ursprünglichen Umgebungen. Diese Operation aktualisiert "
+"die Supervisor-Steuerlogik; für Updates der beibehaltenen Actors oder Änderungen am "
+"Datenbankschema ist ein geplanter Neustart erforderlich. Windows wird nicht "
+"unterstützt."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:76
+msgid "Worker"
+msgstr "Worker"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:78
+msgid ""
+"Replace a Worker on Linux or macOS while retaining its model processes. The Supervisor"
+" and API server keep running. Both Workers and the model processes must support the "
+"handoff protocol and use Xoscar 0.12.1 or later, compatible Python versions, the same "
+"Supervisor, GPU visibility and extensions. Models spanning Workers and Xavier or P/D "
+"deployments are currently unsupported."
+msgstr ""
+"Ersetzen Sie einen Worker unter Linux oder macOS, während seine Modellprozesse "
+"weiterlaufen. Supervisor und API-Server bleiben aktiv. Beide Worker und die "
+"Modellprozesse müssen das Übergabeprotokoll unterstützen und Xoscar ab Version 0.12.1,"
+" kompatible Python-Versionen sowie denselben Supervisor, dieselbe GPU-Sichtbarkeit und"
+" dieselben Erweiterungen verwenden. Modelle über mehrere Worker sowie Xavier- und "
+"P/D-Bereitstellungen werden derzeit nicht unterstützt."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:80
+msgid ""
+"In **Cluster Information**, administrators can use **Restart / upgrade "
+"Worker** on a Worker. Operation records remain visible when its address "
+"changes or the page is refreshed. This retains the current model processes; "
+"model-engine upgrades use **Reconfigure / upgrade model** from **Running "
+"Models** or the model's detail view."
+msgstr ""
+"Unter **Clusterinformationen** können Administratoren bei Workern **Worker "
+"neu starten / aktualisieren** verwenden. Vorgangsprotokolle bleiben nach "
+"einer Adressänderung oder einem Neuladen der Seite sichtbar. Die "
+"Modellprozesse bleiben erhalten; zum Aktualisieren der Modell-Engine "
+"verwenden Sie **Modell neu konfigurieren / aktualisieren** unter **Laufende "
+"Modelle** oder in den Modelldetails."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:94
+msgid ""
+"To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. "
+"The Worker starts its replacement automatically and inherits its Supervisor, GPU "
+"visibility, runtime configuration and configured metrics exporter port; a new actor "
+"port is selected automatically."
+msgstr ""
+"Um einen vorhandenen Worker neu zu starten, senden Sie ``POST "
+"/v1/workers/{worker_address}/relaunch``. Der Worker startet seinen Ersatz automatisch "
+"und übernimmt Supervisor, GPU-Sichtbarkeit, Laufzeitkonfiguration und den "
+"konfigurierten Port des Metrikexporters; ein neuer Actor-Port wird automatisch "
+"ausgewählt."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:101
+msgid ""
+"The response is HTTP 202 with an ``operation_id``. Poll ``GET /v1/worker-"
+"relaunches/{operation_id}`` or list recent operations with ``GET /v1/worker-"
+"relaunches``. Status is one of ``starting``, ``transferring``, ``pending``, "
+"``succeeded`` or ``failed``. These routes require administrator access when "
+"authentication is enabled."
+msgstr ""
+"Die Antwort ist HTTP 202 mit einer ``operation_id``. Fragen Sie den Status über ``GET "
+"/v1/worker-relaunches/{operation_id}`` ab oder listen Sie aktuelle Vorgänge mit ``GET "
+"/v1/worker-relaunches`` auf. Der Status ist ``starting``, ``transferring``, "
+"``pending``, ``succeeded`` oder ``failed``. Bei aktivierter Authentifizierung "
+"erfordern diese Routen Administratorrechte."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:103
+msgid ""
+"The Supervisor stores operation records in ``XINFERENCE_HOME/worker-relaunches.json``,"
+" so status remains available after the old Worker exits and can be reconciled after a "
+"Supervisor restart. Duplicate requests reuse an active operation. Keep the same "
+"optional ``request_id`` when retrying a request; use a new ID for a new operation. "
+"``pending`` means the transfer outcome is uncertain: keep the processes alive and "
+"continue polling instead of starting another replacement."
+msgstr ""
+"Der Supervisor speichert Vorgänge in ``XINFERENCE_HOME/worker-relaunches.json``. Der "
+"Status bleibt nach dem Ende des alten Workers verfügbar und kann nach einem "
+"Supervisor-Neustart abgeglichen werden. Doppelte Anfragen verwenden einen laufenden "
+"Vorgang erneut. Behalten Sie bei Wiederholungen dieselbe optionale ``request_id`` bei;"
+" verwenden Sie für einen neuen Vorgang eine neue ID. ``pending`` bedeutet, dass das "
+"Ergebnis der Übergabe unklar ist: Lassen Sie die Prozesse laufen und fragen Sie weiter"
+" ab, statt einen weiteren Ersatz zu starten."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:105
+msgid ""
+"The Supervisor also stores ownership reservations in ``XINFERENCE_HOME/worker-"
+"handoffs.json`` so an interrupted handoff can resume after a Supervisor restart. "
+"Replacement Workers keep updating the recovery file for the original Worker address, "
+"including models launched after relaunch."
+msgstr ""
+"Der Supervisor speichert außerdem Eigentumsreservierungen in ``XINFERENCE_HOME/worker-"
+"handoffs.json``, damit eine unterbrochene Übergabe nach einem Supervisor-Neustart "
+"fortgesetzt werden kann. Ersatz-Worker aktualisieren weiterhin die "
+"Wiederherstellungsdatei für die ursprüngliche Worker-Adresse, einschließlich der nach "
+"dem Neustart gestarteten Modelle."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:107
+msgid ""
+"Model management changes pause during handoff; inference calls continue. Failure "
+"before ownership transfer restores the old Worker. After transfer starts, keep both "
+"processes alive while the replacement retries. The old Worker stops automatically "
+"after successful replacement."
+msgstr ""
+"Änderungen an der Modellverwaltung pausieren während der Übergabe; Inferenzaufrufe "
+"laufen weiter. Fehler vor der Übertragung der Zuständigkeit stellen den alten Worker "
+"wieder her. Sobald die Übertragung beginnt, lassen Sie beide Prozesse laufen, während "
+"der Ersatz die Übergabe erneut versucht. Nach erfolgreichem Ersatz stoppt der alte "
+"Worker automatisch."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:109
+msgid ""
+"The model processes retain their original Xinference and engine code and loaded "
+"weights. This replaces the Worker control process. Deploy both processes on the same "
+"machine, and configure the service manager to let retained processes outlive the old "
+"Worker instead of killing its process group or container."
+msgstr ""
+"Die Modellprozesse behalten ihren ursprünglichen Xinference- und Engine-Code sowie die"
+" geladenen Gewichte. Ersetzt wird der Steuerprozess des Workers. Beide Prozesse müssen"
+" auf demselben Rechner laufen. Konfigurieren Sie die Dienstverwaltung so, dass die "
+"beibehaltenen Prozesse den alten Worker überleben, ohne dessen gesamte Prozessgruppe "
+"oder Container zu beenden."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:112
+msgid "Service and container ownership"
+msgstr "Prozesszugehörigkeit bei Diensten und Containern"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:114
+msgid ""
+"On Linux and macOS, ``xinference-worker`` automatically keeps a stable Worker host as "
+"its main process. Replacement Workers register before handoff, so retirement of the "
+"original Worker does not stop its models, replacement, systemd service or container. "
+"Explicitly stopping the host terminates its owned processes. Custom launch commands "
+"can use the host wrapper below."
+msgstr ""
+"Unter Linux und macOS behält ``xinference-worker`` automatisch einen stabilen Worker-"
+"Host als Hauptprozess. Ersatz-Worker registrieren sich vor der Übergabe. Das Ende des "
+"ursprünglichen Workers stoppt deshalb weder Modelle noch Ersatz-Worker, systemd-Dienst"
+" oder Container. Das explizite Stoppen des Hosts beendet seine verwalteten Prozesse. "
+"Eigene Startbefehle können den folgenden Host-Wrapper verwenden."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:121
+msgid ""
+"A systemd service can keep its normal process-group cleanup, because the Worker host "
+"remains its main process."
+msgstr ""
+"Ein systemd-Dienst kann seine normale Bereinigung der Prozessgruppe beibehalten, da "
+"der Worker-Host sein Hauptprozess bleibt."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:132
+msgid ""
+"For Docker, use the same host command as the container command. Install or mount "
+"prepared Python environments inside the running container. Keep that container running"
+" during upgrades: replacing or stopping the container terminates its model processes "
+"and cannot preserve their GPU allocations."
+msgstr ""
+"Verwenden Sie bei Docker denselben Host-Befehl als Containerbefehl. Installieren oder "
+"mounten Sie vorbereitete Python-Umgebungen im laufenden Container. Lassen Sie diesen "
+"während der Aktualisierung laufen: Das Ersetzen oder Stoppen des Containers beendet "
+"seine Modellprozesse und kann deren GPU-Zuweisungen nicht erhalten."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:135
+msgid "Model and engine"
+msgstr "Modell und Engine"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:137
+msgid ""
+"Open a running model's detail view and choose **Reconfigure / upgrade model**. Engine "
+"replacement requires **Keep GPU weights for reload** (``enable_weight_cache=true``) at"
+" launch, vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one Worker, one "
+"replica and fixed tensor parallelism."
+msgstr ""
+"Öffnen Sie die Detailansicht eines laufenden Modells und wählen Sie **Reconfigure / "
+"upgrade model**. Ein Engine-Austausch erfordert **Keep GPU weights for reload** "
+"(``enable_weight_cache=true``) beim Start, vLLM 0.31.0+ oder SGLang 0.5.21+, Linux mit"
+" CUDA oder ROCm, einen Worker, eine Replik und feste Tensorparallelität."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:149
+msgid ""
+"The current engine serves until its replacement is healthy, then existing requests "
+"finish on the old engine. Compatible engine and PyTorch versions can share retained "
+"weights, but each engine needs its own KV cache and CUDA graphs. Reserve extra GPU "
+"memory; incompatible versions also need a separate weight cache. Insufficient memory "
+"rejects the upgrade while the current engine keeps serving. See "
+":ref:`launch_weight_cache_reload` for supported changes and limitations."
+msgstr ""
+"Die aktuelle Engine bedient Anfragen, bis der Ersatz die Zustandsprüfung bestanden "
+"hat. Bestehende Anfragen werden anschließend auf der alten Engine abgeschlossen. "
+"Kompatible Engine- und PyTorch-Versionen können erhaltene Gewichte teilen, benötigen "
+"jedoch jeweils eigene KV-Caches und CUDA-Graphen. Reservieren Sie zusätzlichen GPU-"
+"Speicher; inkompatible Versionen benötigen außerdem einen separaten Gewichtscache. Bei"
+" Speichermangel wird das Upgrade abgelehnt und die aktuelle Engine läuft weiter. "
+"Unterstützte Änderungen und Einschränkungen finden Sie unter "
+":ref:`launch_weight_cache_reload`."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:151
+msgid ""
+"Send ``POST /v1/models/{model_uid}/reload`` to submit a model upgrade. Poll ``GET "
+"/v1/models/{model_uid}/reload`` until ``status`` is ``ready`` or ``error``. On error, "
+"``restored=true`` confirms that the previous engine is serving."
+msgstr ""
+"Senden Sie ``POST /v1/models/{model_uid}/reload``, um ein Modell-Upgrade zu starten. "
+"Fragen Sie ``GET /v1/models/{model_uid}/reload`` ab, bis ``status`` den Wert ``ready``"
+" oder ``error`` hat. Bei einem Fehler bestätigt ``restored=true``, dass die bisherige "
+"Engine Anfragen bedient."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:154
+msgid "Upgrade boundaries"
+msgstr "Umfang des Upgrades"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:156
+msgid ""
+"Keep service hosts and containers running throughout an upgrade. Stopping them also "
+"stops retained processes and releases GPU allocations. Supervisor support actors "
+"retain their original environments. Updating these hosts, retained support actors or "
+"database schemas requires a planned restart; these operations do not upgrade an entire"
+" installation at once."
+msgstr ""
+"Lassen Sie Diensthosts und Container während des gesamten Upgrades laufen. Ihr Stopp "
+"beendet auch erhaltene Prozesse und gibt GPU-Zuweisungen frei. Unterstützende "
+"Supervisor-Actors behalten ihre ursprünglichen Umgebungen. Die Aktualisierung dieser "
+"Hosts, erhaltener unterstützender Actors oder von Datenbankschemata erfordert einen "
+"geplanten Neustart. Diese Vorgänge aktualisieren nicht die gesamte Installation auf "
+"einmal."
+
+msgid "Switch environments (optional)"
+msgstr "Umgebung wechseln (optional)"
+
+msgid ""
+"Install compatible Xinference and dependencies in the target environment first. Pass "
+"its absolute Python path with ``python_executable`` in Python/REST calls or "
+"``--python-executable`` in CLI commands. API/Supervisor paths are on the Supervisor "
+"machine; Worker/model paths are on the Worker machine. These operations do not install"
+" packages."
+msgstr ""
+"Installieren Sie zunächst kompatibles Xinference und die Abhängigkeiten in der "
+"Zielumgebung. Übergeben Sie den absoluten Python-Pfad mit ``python_executable`` in "
+"Python/REST-Aufrufen oder ``--python-executable`` in CLI-Befehlen. API/Supervisor-"
+"Pfade liegen auf dem Supervisor-Rechner, Worker/Modell-Pfade auf dem Worker-Rechner. "
+"Diese Vorgänge installieren keine Pakete."
+
+msgid "For vLLM:"
+msgstr "Für vLLM:"
+
+#: ../../user_guide/zero_downtime_upgrade.rst:28
+#: ../../user_guide/zero_downtime_upgrade.rst:33
+msgid "Restart or upgrade the API and Supervisor from Cluster Information."
+msgstr ""
+"Starten oder aktualisieren Sie API und Supervisor unter „Cluster-"
+"Informationen“."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:71
+#: ../../user_guide/zero_downtime_upgrade.rst:76
+msgid "Restart or upgrade a Worker from its row in Cluster Information."
+msgstr ""
+"Starten oder aktualisieren Sie einen Worker über seine Zeile unter „Cluster-"
+"Informationen“."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:117
+#: ../../user_guide/zero_downtime_upgrade.rst:122
+msgid "Open model reconfiguration from Running Models."
+msgstr "Öffnen Sie die Modellkonfiguration unter „Laufende Modelle“."
+
+#: ../../user_guide/zero_downtime_upgrade.rst:124
+#: ../../user_guide/zero_downtime_upgrade.rst:129
+msgid "Open Reconfigure / upgrade model from the model's detail view."
+msgstr ""
+"Öffnen Sie „Modell neu konfigurieren / aktualisieren“ in der Detailansicht "
+"des Modells."

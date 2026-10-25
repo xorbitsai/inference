@@ -1,23 +1,213 @@
+.. _user_guide_xavier:
 .. _user_guide_vllm_enhancement:
 
-############################################
-Xavier: Share KV Cache between vllm replicas
-############################################
-For scenarios such as long document queries and multi-round conversations,
-the computation during the inference prefill phase can be particularly heavy,
-which affects overall throughput and the latency of individual inferences.
-Xinference enhances the vllm engine by introducing the ``Xavier`` framework,
-enabling KV cache sharing across multiple vllm instances.
-This allows KV cache computed by other replicas to be directly reused, avoiding redundant computations.
+########################
+Xavier: KV Cache Sharing
+########################
+Xavier enables KV cache sharing between model replicas, with adapters for
+vLLM, SGLang, TRT-LLM and MLX. Replicas of the same engine can reuse compatible
+prefix caches to reduce repeated prefill computation for long prompts and
+multi-turn conversations.
 
-*****
+Choose a deployment mode
+------------------------
+
+Use ordinary replicas to share compatible prefixes while each replica handles
+complete requests. Shared prefix caching currently stays within the same
+engine. For separate prefill and decode roles, including cross-engine and
+CUDA/Metal deployments, use :ref:`user_guide_pd_separation`. P/D transport and
+ordinary cache storage have separate configuration and compatibility limits.
+
 Usage
-*****
-Simply add the parameter ``enable_xavier=True`` when starting the vllm model.
+-----
 
-***********
-Limitations
-***********
-* Xavier requires vllm version >= ``0.7.0``, and currently not supports for vllm version >= ``0.11.0`` due to vllm reconstruction.
-* Due to the underlying communication not recognizing ``0.0.0.0``, the actual IP address needs to be passed when starting Xinference, for example: ``xinference-local -H 192.168.xx.xx``.
-* Xavier only works for Nvidia product. 
+Launch multiple replicas with ``enable_xavier=True`` and select a supported ``model_engine``. See :ref:`user_guide_backends` for engine requirements and :ref:`user_guide_pd_separation` for P/D deployment.
+
+The example launches two ordinary replicas. Choose the engine installed on your
+workers; the model format and quantization must match it. Each CUDA replica
+uses one GPU, while MLX runs on Apple silicon.
+
+.. code-block:: python
+
+   from xinference.client import Client
+
+   client = Client("http://192.168.1.10:9997")
+   engine = "vLLM"  # vLLM, SGLang, TRT-LLM or MLX
+   model_format, quantization = {
+       "vLLM": ("pytorch", "none"),
+       "SGLang": ("pytorch", "none"),
+       "TRT-LLM": ("pytorch", "none"),
+       "MLX": ("mlx", "bf16"),
+   }[engine]
+   model_uid = client.launch_model(
+       model_name="qwen3",
+       model_size_in_billions="0_6",
+       model_engine=engine,
+       model_format=model_format,
+       quantization=quantization,
+       replica=2,
+       n_gpu="auto" if engine == "MLX" else 1,
+       context_length=4096,
+       enable_xavier=True,
+       enable_virtual_env=False,
+   )
+
+Due to the underlying communication not recognizing ``0.0.0.0``, the actual IP address needs to be passed when starting Xinference, for example: ``xinference-local -H 192.168.xx.xx``.
+
+Engine requirements
+-------------------
+
+.. _xavier-vllm:
+.. _limitations:
+
+vLLM
+~~~~
+
+.. versionadded:: v1.2.0
+
+V1 connector
+^^^^^^^^^^^^
+
+.. versionadded:: v3.4.0
+
+The V1 connector requires vLLM >= ``0.21.0``, TP=1 and PP=1, with text-only
+models and no LoRA. Multimodal and prompt-embedding inputs are unsupported.
+Versions 0.11 through 0.20 are unsupported. Use the P/D guide for recurrent
+model requirements and GPU history settings.
+
+The vLLM GPU transfer path requires NVIDIA GPUs.
+
+.. versionchanged:: v4.0.0
+
+   For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default.
+
+.. versionadded:: v4.0.0
+
+   Retained vLLM GPU history, configured with ``xavier_gpu_cache_bytes``.
+
+Legacy V0 adapter
+^^^^^^^^^^^^^^^^^
+
+The legacy adapter supports vLLM >= ``0.7.0`` and < ``0.11.0`` for ordinary
+replica cache sharing. Use the V1 connector for current P/D deployments.
+
+SGLang replicas
+~~~~~~~~~~~~~~~
+
+.. versionadded:: v4.0.0
+
+SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine="SGLang"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported.
+
+Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16.
+
+``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang.
+
+Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead. For same-engine or cross-engine P/D and per-replica engine settings, see :ref:`user_guide_pd_separation`.
+
+.. _xavier-trt-llm:
+
+TRT-LLM replicas
+~~~~~~~~~~~~~~~~
+
+.. versionadded:: v4.1.0
+
+TRT-LLM requires Linux/CUDA and ``tensorrt-llm==1.2.1``. Xavier supports
+unquantized BF16 dense Qwen3 text models, one worker and one GPU per replica
+(TP=PP=CP=1). Chunked prefill and overlap scheduling are disabled. Quantization,
+hybrid attention, multimodal input, LoRA and speculative decoding are unsupported
+with Xavier. See :ref:`trt_llm_backend` for the engine environment requirements.
+
+Ordinary TRT replicas publish complete 64-token KV pages to a shared CPU cache
+actor. ``xavier_cache_bytes`` sets the deployment budget (default: 512 MiB).
+Partial pages and the final prompt token are computed locally; misses fall back
+to local prefill. Model weights, engine KV pools and transfer buffers consume
+additional memory. Xavier P/D instead transfers live KV pages through NIXL;
+see :ref:`user_guide_pd_separation`.
+
+MLX replicas
+~~~~~~~~~~~~
+
+.. versionadded:: v4.0.0
+
+MLX Xavier requires Apple silicon and ``mlx-lm>=0.31.2``. It supports unquantized, full-attention Qwen2, Qwen3 and Llama text models with one worker per replica. Weights and KV cache use FP16. Quantized weights or KV cache, rotating caches, hybrid attention, multimodal inputs, LoRA and speculative decoding are unsupported.
+
+``xavier_cache_bytes`` bounds the shared CPU cache (default: 512 MiB). Each replica also owns its model and Metal KV cache. Ordinary replicas compute locally on a miss or unavailable storage; incompatible deployments cannot share pages. Returned usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-engine cache sharing is not yet supported.
+
+Storage backends
+----------------
+
+Native storage
+~~~~~~~~~~~~~~
+
+The default ``xavier_cache_backend="native"`` uses each engine's Xavier cache
+implementation. ``xavier_cache_bytes`` sets the shared CPU budget for SGLang,
+TRT-LLM and MLX; it is not a vLLM setting. vLLM's GPU history uses
+``xavier_gpu_cache_bytes``. These budgets exclude weights, engine KV pools and
+transfer buffers. Choose the engine above before sizing storage.
+
+LMCache
+~~~~~~~
+
+.. versionadded:: v4.1.0
+
+LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas.
+
+``xavier_cache_backend="native"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13.
+
+Select the backend when launching the model:
+
+.. code-block:: python
+
+   model_uid = client.launch_model(
+       model_name="qwen3",
+       model_engine="vLLM",
+       model_format="pytorch",
+       model_size_in_billions=8,
+       quantization="none",
+       replica=2,
+       enable_xavier=True,
+       xavier_cache_backend="lmcache",
+       xavier_cache_backend_config={
+           "cpu_bytes": 536870912,
+           "disk_path": "/mnt/nvme/xavier",
+           "disk_bytes": 10737418240,
+           "read_timeout": 30.0,
+       },
+   )
+
+``cpu_bytes`` bounds each LMCache instance's DRAM pool (default: 512 MiB). vLLM creates one instance per replica; SGLang and TRT-LLM share one supervisor-owned instance per deployment. ``disk_path`` must be absolute and local to that storage host, and ``disk_bytes`` is the positive disk capacity per instance. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per instance; engine KV pools, owned import buffers, serialization and transfer buffers consume additional memory.
+
+``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per storage instance; a timed-out or cancelled job still releases its LMCache read locks. Reads exceeding the transient capacity return a bounded prefix or fall back to local prefill. Compare TTFT and read latency against prefill cost for your workload.
+
+The LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use.
+
+.. _xavier-cache-isolation:
+
+Request-scoped cache isolation
+------------------------------
+
+.. versionadded:: v4.1.0
+
+Pass ``cache_salt`` with each inference request to isolate prefix-cache reuse. Requests with the same salt can reuse compatible caches across replicas; different salts cannot reuse each other's cached prefixes. This covers the local engine cache, Xavier shared caches and retained history, and same-engine or cross-engine P/D for vLLM, SGLang and MLX. Both P/D roles receive the same salt; incompatible cache scopes are rejected before importing KV.
+
+With the Xinference Python client, include ``cache_salt`` in ``generate_config``. With the OpenAI client, use ``extra_body``:
+
+.. code-block:: python
+
+   client.chat.completions.create(
+       model="my-model",
+       messages=[{"role": "user", "content": "Hello"}],
+       extra_body={"cache_salt": customer_cache_salt},
+   )
+
+The same top-level field is accepted by the Completions, Chat Completions, Responses and Anthropic Messages endpoints, for streaming and non-streaming inference. A salt must be a nonempty string of at most 256 characters without control characters. Unsupported model engines reject salted requests rather than ignoring the field. Legacy vLLM V0 requires Xavier to use salts.
+
+Choose a stable, unguessable salt for each intended sharing boundary. A trusted application or gateway should authenticate callers, derive the salt from its own customer identity, and overwrite any client-supplied salt. Xinference does not map salts to users or create a tenant database. Salt knowledge permits cache sharing within that scope; client-selected salts alone do not enforce customer identity.
+
+Without a salt, requests keep the existing shared-cache behavior. Set ``XINFERENCE_REQUIRE_CACHE_SALT=1`` in the API server environment to reject inference requests without a salt; the default is ``0``. Enable this policy after all callers or an API extension supply salts. The policy applies to the four inference endpoints above and does not disable prefix caching.
+
+Distribution wrappers can supply an authoritative salt through the optional synchronous ``cache_salt(request)`` extension hook, returning ``xinference.extensions.CacheSalt(value)``. The hook runs after model-access checks and may read identity prepared by authenticated API dependencies from ``request.state``. Its result overrides the request field. Configure the extension through ``XINFERENCE_EXTENSIONS``; provider failures, missing return values and multiple providers reject the request without falling back to the client salt. When no provider is configured, the request field is used. Extension hooks must remain non-blocking.
+
+Cache salting limits prefix-cache timing inference across sharing boundaries. It does not provide separate model processes, memory quotas or complete timing-side-channel isolation. Changing a salt starts a new cache scope; existing entries remain subject to normal eviction.
+
+TRT-LLM does not support ``cache_salt`` through this adapter.

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ class LaunchStatus(Enum):
     TERMINATED = 4
     READY = 5
     ERROR = 6
+    LOADING = 7
 
 
 class ReplicaStatus(BaseModel):
@@ -37,9 +38,16 @@ class ReplicaStatus(BaseModel):
     replica_id: int
     replica_model_uid: str
     worker_address: str
-    status: str  # CREATING, READY, ERROR
+    status: str  # CREATING, LOADING, READY, ERROR, TERMINATING, TERMINATED
+    model_state: str = ""  # registering/loading/reloading/ready/error/stopping/stopped
     created_ts: int
     error_message: Optional[str] = None
+    # User-facing replica label (from replica_config.replica_uid). Purely
+    # informational; not used for routing or as the internal replica_model_uid.
+    replica_uid: Optional[str] = None
+    # GPU indexes this replica was pinned to at launch (only known for
+    # explicitly placed replicas; None for auto-scheduled). Informational.
+    gpu_idx: Optional[List[int]] = None
 
 
 class InstanceInfo(BaseModel):
@@ -135,6 +143,8 @@ class StatusGuardActor(xo.StatelessActor):
                     status=status_update.get("status", LaunchStatus.CREATING.name),
                     created_ts=status_update.get("created_ts", 0),
                     error_message=status_update.get("error_message", None),
+                    replica_uid=status_update.get("replica_uid", None),
+                    gpu_idx=status_update.get("gpu_idx", None),
                 )
             )
 
@@ -143,3 +153,17 @@ class StatusGuardActor(xo.StatelessActor):
         if model_uid in self._model_uid_to_info:
             return self._model_uid_to_info[model_uid].replica_statuses or []
         return []
+
+    def remove_replica_status(self, model_uid: str, replica_id: int) -> int:
+        """Remove status for a specific replica and return remaining replica count."""
+        if model_uid not in self._model_uid_to_info:
+            logger.warning(f"Model {model_uid} not found in status guard")
+            return 0
+
+        instance_info = self._model_uid_to_info[model_uid]
+        replica_statuses = instance_info.replica_statuses or []
+        instance_info.replica_statuses = [
+            status for status in replica_statuses if status.replica_id != replica_id
+        ]
+        instance_info.replica = len(instance_info.replica_statuses)
+        return instance_info.replica

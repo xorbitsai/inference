@@ -1,0 +1,127 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C)
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-13 11:59+0800\n"
+"PO-Revision-Date: 2026-10-13 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language: ko\n"
+"Language-Team: ko\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:5
+msgid "qwen3.8-Flash-Next"
+msgstr "qwen3.8-Flash-Next"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:7
+msgid "**Context Length:** 262144"
+msgstr "**컨텍스트 길이:** 262144"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:8
+msgid "**Model Name:** qwen3.8-Flash-Next"
+msgstr "**모델 이름:** qwen3.8-Flash-Next"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:9
+msgid "**Languages:** en, zh"
+msgstr "**언어:** 영어, 중국어"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:10
+msgid "**Abilities:** chat, vision, tools, reasoning, hybrid"
+msgstr "**기능:** 채팅, 시각, 도구 호출, 추론, 하이브리드 사고 모드"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:11
+msgid ""
+"**Description:** Qwen3.8-Flash-Next is a native vision-language Mixture-of-"
+"Experts model with 125B main-model parameters, 6B activated per token, and "
+"an additional 51B n-gram embedding table. Its Qwen4 experimental "
+"architecture combines Gated DeltaNet, Qwen Sparse Attention, gated "
+"residuals, and flexible thinking control."
+msgstr ""
+"**설명:** Qwen3.8-Flash-Next는 시각과 언어를 기본적으로 처리하는 혼합 전문가 모델입니다. 주 모델은 1,250억 개의"
+" 매개변수를 가지며 토큰당 60억 개가 활성화되고, 별도로 510억 개의 매개변수를 가진 n-gram 임베딩 테이블이 있습니다. 실험적인"
+" Qwen4 아키텍처는 Gated DeltaNet, Qwen Sparse Attention, 게이트 잔차 연결 및 유연한 사고 제어를 "
+"결합합니다."
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:14
+msgid "Specifications"
+msgstr "사양"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:18
+msgid "Model Spec 1 (pytorch, 125 Billion)"
+msgstr "모델 사양 1 (pytorch, 1,250억 매개변수)"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:20
+msgid "**Model Format:** pytorch"
+msgstr "**모델 형식:** pytorch"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:21
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:37
+msgid "**Model Size (in billions):** 125"
+msgstr "**모델 크기(10억 매개변수 단위):** 125"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:22
+msgid "**Quantizations:** none"
+msgstr "**양자화 방식:** none"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:24
+msgid "**Model ID:** Qwen/Qwen3.8-Flash-Next"
+msgstr "**모델 ID:** Qwen/Qwen3.8-Flash-Next"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:25
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.8-Flash-"
+"Next>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.8-Flash-"
+"Next>`__"
+msgstr ""
+"**모델 저장소**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.8-Flash-"
+"Next>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.8-Flash-"
+"Next>`__"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:27
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:43
+#, python-brace-format
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options "
+"listed above::"
+msgstr "다음 명령으로 모델을 실행하세요. ``${quantization}`` 을 위에 나열된 양자화 방식 중 하나로 바꾸세요:"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:34
+msgid "Model Spec 2 (fp8, 125 Billion)"
+msgstr "모델 사양 2 (fp8, 1,250억 매개변수)"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:36
+msgid "**Model Format:** fp8"
+msgstr "**모델 형식:** fp8"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:38
+msgid "**Quantizations:** FP8"
+msgstr "**양자화 방식:** FP8"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:39
+msgid "**Engines**: vLLM"
+msgstr "**추론 엔진**: vLLM"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:40
+msgid "**Model ID:** Qwen/Qwen3.8-Flash-Next-FP8"
+msgstr "**모델 ID:** Qwen/Qwen3.8-Flash-Next-FP8"
+
+#: doc/source/models/builtin/llm/qwen3.8-flash-next.rst:41
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.8-Flash-"
+"Next-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.8-Flash-"
+"Next-FP8>`__"
+msgstr ""
+"**모델 저장소**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.8-Flash-Next-"
+"FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.8-Flash-Next-"
+"FP8>`__"
+

@@ -12,8 +12,8 @@
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** {{ model_id }}
+{{ specifications }}
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name {{ model_name }} --model-type audio
+   xinference launch --model-name {{ model_name }} --model-type audio{% if launch_engine %} --model-engine {{ launch_engine }}{% endif %}{{ available_engines_section }}

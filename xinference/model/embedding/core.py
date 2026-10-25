@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,21 @@ import gc
 import inspect
 import logging
 import os
+import time
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Annotated, Dict, List, Literal, Optional, Tuple, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union
 
 from xoscar import extensible
 
-from ..._compat import ROOT_KEY, BaseModel, ErrorWrapper, Field, ValidationError
+from ..._compat import (
+    ROOT_KEY,
+    BaseModel,
+    ErrorWrapper,
+    Field,
+    ValidationError,
+    validator,
+)
 from ...device_utils import empty_cache
 from ...types import Embedding
 from ...utils import make_hashable
@@ -42,8 +50,18 @@ EMBEDDING_EMPTY_CACHE_COUNT = int(
 EMBEDDING_EMPTY_CACHE_TOKENS = int(
     os.getenv("XINFERENCE_EMBEDDING_EMPTY_CACHE_TOKENS", "8192")
 )
+EMBEDDING_GC_INTERVAL = float(os.getenv("XINFERENCE_EMBEDDING_GC_INTERVAL", "60"))
 assert EMBEDDING_EMPTY_CACHE_COUNT > 0
 assert EMBEDDING_EMPTY_CACHE_TOKENS > 0
+assert EMBEDDING_GC_INTERVAL >= 0
+
+# Char-per-token estimate used by ``EmbeddingModel._truncate_sentences`` for the
+# character-based fallback (engines without a Python tokenizer, e.g. llama_cpp,
+# or when the tokenizer call itself fails). English-biased; CJK may run longer.
+_EMBEDDING_TRUNCATE_CHAR_PER_TOKEN = int(
+    os.getenv("XINFERENCE_EMBEDDING_TRUNCATE_CHAR_PER_TOKEN", "4")
+)
+assert _EMBEDDING_TRUNCATE_CHAR_PER_TOKEN > 0
 
 
 def get_embedding_model_descriptions():
@@ -71,6 +89,7 @@ class LlamaCppEmbeddingSpecV1(BaseModel):
     model_file_name_template: str
     model_file_name_split_template: Optional[str]
     quantization_parts: Optional[Dict[str, List[str]]]
+    multimodal_projector: Optional[str] = None
 
 
 EmbeddingSpecV1 = Annotated[
@@ -86,12 +105,25 @@ class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     dimensions: int
     max_tokens: int
     language: List[str]
+    # Extra accepted input modalities. Text is implicit for every embedding model.
+    model_ability: List[Literal["embed_vision", "embed_video", "embed_audio"]] = Field(
+        default_factory=list
+    )
     model_specs: List["EmbeddingSpecV1"]
     cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
+    # Provenance: True only for bundled built-in models (gates trust_remote_code).
+    is_builtin: bool = False
 
     class Config:
         extra = "allow"
+
+    @validator("model_ability", pre=True, each_item=True)
+    def normalize_legacy_model_ability(cls, ability: Any) -> Any:
+        # Persisted custom V2 registrations may still use unprefixed modalities.
+        if isinstance(ability, str) and ability in ("vision", "video", "audio"):
+            return f"embed_{ability}"
+        return ability
 
     def to_description(self):
         spec = self.model_specs[0]
@@ -100,9 +132,12 @@ class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "address": getattr(self, "address", None),
             "accelerators": getattr(self, "accelerators", None),
             "model_name": self.model_name,
+            "model_engine": getattr(self, "model_engine", None),
+            "model_format": spec.model_format,
             "dimensions": self.dimensions,
             "max_tokens": self.max_tokens,
             "language": self.language,
+            "model_ability": ["embed", *self.model_ability],
             "model_hub": spec.model_hub,
             "model_revision": spec.model_revision,
             "quantization": spec.quantization,
@@ -155,6 +190,7 @@ class EmbeddingModel(abc.ABC):
         self._model = None
         self._tokenizer = None
         self._counter = 0
+        self._last_gc_time: Optional[float] = None
         self.model_family = model_family
         self._model_spec = model_family.model_specs[0]
         self._quantization = quantization
@@ -199,7 +235,8 @@ class EmbeddingModel(abc.ABC):
         """
 
     def _fix_langchain_openai_inputs(
-        self, sentences: Union[str, List[str], Dict[str, str], List[Dict[str, str]]]
+        self,
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
     ):
         # Check if sentences is a two-dimensional list of integers
         if (
@@ -249,7 +286,7 @@ class EmbeddingModel(abc.ABC):
     @abstractmethod
     def _create_embedding(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Any,
         **kwargs,
     ):
         """
@@ -257,9 +294,9 @@ class EmbeddingModel(abc.ABC):
 
         Parameters
         ----------
-        sentences: Union[str, List[str]]
-            Input text to embed, encoded as a string or array of tokens.
-            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]]
+            Text or multimodal input. To embed multiple inputs in one request,
+            pass a list of strings or multimodal dictionaries.
 
         Returns
         -------
@@ -270,9 +307,12 @@ class EmbeddingModel(abc.ABC):
     @extensible
     def create_embedding(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
         **kwargs,
     ):
+        truncate_prompt_tokens = kwargs.pop("truncate_prompt_tokens", None)
+        if truncate_prompt_tokens is not None:
+            sentences = self._truncate_sentences(sentences, truncate_prompt_tokens)
         return self._create_embedding(sentences, **kwargs)
 
     @create_embedding.batch  # type: ignore
@@ -284,7 +324,7 @@ class EmbeddingModel(abc.ABC):
         # 1. Group by kwargs hash
         for i, (args, kwargs) in enumerate(zip(args_list, kwargs_list)):
             sentences, extra_kwargs = self._extract_sentences_kwargs(args, kwargs)
-            if isinstance(sentences, str):
+            if isinstance(sentences, (str, dict)):
                 sentences = [sentences]
 
             key = make_hashable(extra_kwargs)
@@ -305,6 +345,14 @@ class EmbeddingModel(abc.ABC):
             offsets = group["offsets"]
             indices = group["indices"]
 
+            # Honor ``truncate_prompt_tokens`` for embeddings (previously only
+            # implemented for vLLM LLMs). Pop it here so it never leaks into
+            # the engine's encode()/forward(), and bound the input length to
+            # avoid O(L^2) attention OOM on long documents.
+            truncate_prompt_tokens = kwargs.pop("truncate_prompt_tokens", None)
+            if truncate_prompt_tokens is not None:
+                sentences = self._truncate_sentences(sentences, truncate_prompt_tokens)
+
             embedding_list = self._create_embedding(sentences, **kwargs)
             usage = embedding_list.get("usage", {})
             model_uid = kwargs.get("model_uid", "unknown")
@@ -312,6 +360,15 @@ class EmbeddingModel(abc.ABC):
             # 3. Split and attach original index
             for (offset, n), idx in zip(offsets, indices):
                 data = embedding_list["data"][offset : offset + n]
+                # Re-normalize the per-item index to [0, n) for this caller.
+                # Engines number ``index`` over the whole concatenated batch
+                # (global enumerate); without this, a call whose inputs land at a
+                # non-zero offset leaks the global index (e.g. ``[1, 2]`` instead
+                # of ``[0, 1]``). ``embedding_list`` is the throw-away batch
+                # result and the per-caller slices are disjoint, so mutating the
+                # index in place is safe.
+                for j, item in enumerate(data):
+                    item["index"] = j
                 result = Embedding(
                     object="list",
                     model=model_uid,
@@ -359,6 +416,128 @@ class EmbeddingModel(abc.ABC):
         sentences = bound.arguments["sentences"]
         extra_kwargs = {k: v for k, v in kwargs.items() if k != "sentences"}
         return sentences, extra_kwargs
+
+    def _truncate_sentences(
+        self,
+        sentences: Union[
+            str,
+            List[str],
+            List[int],
+            List[List[int]],
+            Dict[str, Any],
+            List[Dict[str, Any]],
+            List[Union[str, Dict[str, Any]]],
+        ],
+        truncate_prompt_tokens: Optional[int],
+    ) -> Union[
+        str,
+        List[str],
+        List[int],
+        List[List[int]],
+        Dict[str, Any],
+        List[Dict[str, Any]],
+        List[Union[str, Dict[str, Any]]],
+    ]:
+        """Truncate input to ``truncate_prompt_tokens`` tokens before encoding.
+
+        Mirrors vLLM LLM semantics (``xinference/model/llm/vllm/core.py``):
+        ``None`` = no truncation, ``>0`` = cap at N tokens, ``==0`` = explicit
+        empty (``max_length=0``), ``<0`` = cap at the model's own ``max_tokens``.
+
+        Structure-preserving: token arrays (``List[int]`` / ``List[List[int]]``)
+        are sliced to N ids; multimodal dicts (``Dict[str, Any]`` /
+        ``List[Dict[str, Any]]``) keep their keys and non-text values, and only
+        the ``text`` field is truncated (``image`` / ``video`` / ``audio`` and
+        other media fields are preserved verbatim). Plain ``str`` / ``List[str]`` are
+        truncated token-based (sentence_transformers / flag / vllm) with a
+        character-based fallback (llama_cpp, or tokenizer failure).
+
+        This method must never raise: a tokenizer/decode failure degrades to a
+        character-based cut so embedding serving is not interrupted. It runs
+        *before* ``_fix_langchain_openai_inputs`` decodes token arrays, so it
+        must not stringify structured inputs (that would corrupt them -- e.g.
+        ``[[1, 2, 3]]`` embedded as the literal text ``"[[1,"``).
+        """
+        if truncate_prompt_tokens is None:
+            return sentences
+
+        # Resolve the effective token limit, matching vLLM LLM ``_tokenize``:
+        #   None  -> no truncation (handled above)
+        #   >0    -> cap at N tokens
+        #   ==0   -> explicit max_length=0 (empty input)
+        #   <0    -> cap at the model's own max_tokens
+        n_tokens: Optional[int]
+        if truncate_prompt_tokens > 0:
+            n_tokens = truncate_prompt_tokens
+        elif truncate_prompt_tokens == 0:
+            n_tokens = 0
+        else:  # <0: cap at the model's own max_tokens
+            n_tokens = getattr(self.model_family, "max_tokens", None)
+            if not n_tokens:  # None / 0 -> unknown, give up truncation safely
+                logger.debug(
+                    "truncate_prompt_tokens<0 but max_tokens unknown for %s; skip",
+                    self._model_uid,
+                )
+                return sentences
+
+        return self._truncate_value(sentences, n_tokens)
+
+    def _truncate_value(self, value: Any, n_tokens: int) -> Any:
+        """Recursively truncate ``value`` to ``n_tokens`` while preserving its
+        structure (see ``_truncate_sentences``)."""
+        # Token arrays: a single doc as a flat list of token ids.
+        if isinstance(value, list) and len(value) > 0 and isinstance(value[0], int):
+            return value[:n_tokens]
+        # Multiple docs, each a list of token ids.
+        if isinstance(value, list) and len(value) > 0 and isinstance(value[0], list):
+            return [inner[:n_tokens] for inner in value]
+        # Multimodal / structured: truncate ONLY the ``text`` field. The
+        # other Jina multimodal fields (``image`` / ``video`` / ``audio``)
+        # carry URLs, file paths or base64 payloads; truncating them corrupts
+        # the media (e.g. a 222-char base64 was cut to 32 chars at n=8). Keys
+        # and non-text values are preserved verbatim.
+        if isinstance(value, dict):
+            return {
+                k: (
+                    self._truncate_text(v, n_tokens)
+                    if k == "text" and isinstance(v, str)
+                    else v
+                )
+                for k, v in value.items()
+            }
+        # A list of texts or of dicts: recurse per element.
+        if isinstance(value, list):
+            return [self._truncate_value(item, n_tokens) for item in value]
+        if isinstance(value, str):
+            return self._truncate_text(value, n_tokens)
+        # Numbers / None / other primitives: leave untouched.
+        return value
+
+    def _truncate_text(self, s: str, n_tokens: int) -> str:
+        """Token-based truncation of a single string, with a character-based
+        fallback (llama_cpp has no Python tokenizer, or the call may raise).
+
+        ``n_tokens == 0`` matches vLLM ``max_length=0``: both the tokenizer
+        path (empty ``input_ids``) and the char fallback (``s[:0]``) yield "".
+        """
+        tokenizer = getattr(self, "_tokenizer", None)
+        if tokenizer is not None:
+            try:
+                ids = tokenizer(
+                    s,
+                    add_special_tokens=True,
+                    truncation=True,
+                    max_length=n_tokens,
+                ).input_ids
+                return tokenizer.decode(ids, skip_special_tokens=True)
+            except Exception:
+                logger.debug(
+                    "token-based truncation failed for %s, fallback to char",
+                    self._model_uid,
+                    exc_info=True,
+                )
+        # Fallback: character-based cut (llama_cpp, or tokenizer failure).
+        return s[: n_tokens * _EMBEDDING_TRUNCATE_CHAR_PER_TOKEN]
 
     def _get_batch_size(self, *args, **kwargs) -> int:
         sentences = self._extract_sentences_kwargs(args, kwargs)[0]
@@ -409,7 +588,16 @@ class EmbeddingModel(abc.ABC):
                 self._counter,
                 all_token_nums,
             )
-            gc.collect()
+            # A full heap scan can take much longer than GPU cache cleanup.
+            # Keep the existing cache-release policy, but collect cycles only
+            # on the first cleanup and at most once per GC interval afterwards.
+            now = time.monotonic()
+            if (
+                self._last_gc_time is None
+                or now - self._last_gc_time >= EMBEDDING_GC_INTERVAL
+            ):
+                gc.collect()
+                self._last_gc_time = time.monotonic()
             empty_cache()
 
 
@@ -463,6 +651,11 @@ def create_embedding_model_instance(
             model_format,
             quantization,
         )
+    # Record the engine actually used (including the default fallback above) on
+    # the family object so ``to_description`` can surface it to ``/v1/models``.
+    # Copy first to avoid mutating a possibly shared family object.
+    model_family = model_family.copy()
+    model_family.model_engine = model_engine
     model = embedding_cls(
         model_uid,
         model_path,

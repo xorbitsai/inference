@@ -12,8 +12,15 @@ whisper-base
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** openai/whisper-base
+- **transformers model ID:** openai/whisper-base
+- **MLX model ID:** mlx-community/whisper-base-mlx
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name whisper-base --model-type audio
+   xinference launch --model-name whisper-base --model-type audio --model-engine transformers
+
+Available engines
+^^^^^^^^^^^^^^^^^
+
+* ``transformers``
+* ``MLX``

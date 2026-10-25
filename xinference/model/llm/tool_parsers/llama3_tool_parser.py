@@ -1,3 +1,5 @@
+import ast
+import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -29,8 +31,8 @@ class Llama3ToolParser(ToolParser):
         """
         Extract tool calls from complete model output.
 
-        Parses the model output using eval() to extract tool call information.
-        This method expects the output to be a valid Python dictionary format.
+        Parses the model output using safe parsing to extract tool call information.
+        This method expects the output to be a valid JSON or Python literal dictionary format.
 
         Args:
             model_output (str): The complete output string from the model.
@@ -43,9 +45,20 @@ class Llama3ToolParser(ToolParser):
             - parameters (dict or None): Function parameters
         """
         try:
-            data = eval(model_output, {}, {})
+            # Try JSON first (most common LLM output format)
+            data = json.loads(model_output)
+        except (json.JSONDecodeError, TypeError):
+            try:
+                # Fall back to ast.literal_eval for Python literal formats
+                # (e.g., True/False/None instead of true/false/null).
+                # Unlike eval(), ast.literal_eval() only allows literal
+                # structures and cannot execute arbitrary code.
+                data = ast.literal_eval(model_output)
+            except (ValueError, SyntaxError):
+                return [(model_output, None, None)]
+        try:
             return [(None, data["name"], data["parameters"])]
-        except Exception:
+        except (KeyError, TypeError):
             return [(model_output, None, None)]
 
     def extract_tool_calls_streaming(

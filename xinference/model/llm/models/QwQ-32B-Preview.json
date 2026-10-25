@@ -1,0 +1,247 @@
+[
+  {
+    "version": 2,
+    "context_length": 32768,
+    "model_name": "QwQ-32B-Preview",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "QwQ-32B-Preview is an experimental research model developed by the Qwen Team, focused on advancing AI reasoning capabilities.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/QwQ-32B-Preview",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/Qwen/QwQ-32B-Preview/resolve/91906fe41a48b6a89ce2970abfd1269eefee170e/config.json",
+              "config_sha256": "dbdf0b45cb852d6647154ed63b6fb26a70061c1a16246315a55614d524e6e500",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/QwQ-32B-Preview",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/Qwen/QwQ-32B-Preview/resolve/master/config.json",
+              "config_sha256": "dbdf0b45cb852d6647154ed63b6fb26a70061c1a16246315a55614d524e6e500",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "KirillR/QwQ-32B-Preview-AWQ",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/KirillR/QwQ-32B-Preview-AWQ/resolve/b082e5c095a17c50cc78fc6fe43a0eae326bd203/config.json",
+              "config_sha256": "ba16cd41b5f1fb9cfef36534b50e38366c26d6b87c0e8b3c46e1f1b8bc72ab1c",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q3_K_L",
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "lmstudio-community/QwQ-32B-Preview-GGUF",
+            "model_file_name_template": "QwQ-32B-Preview-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/lmstudio-community/QwQ-32B-Preview-GGUF/resolve/main/QwQ-32B-Preview-Q3_K_L.gguf",
+              "config_sha256": "527697c1c800684995e1f8c70297beae43ff97b98228fdc0eadaf840294ec529",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q3_K_L",
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "AI-ModelScope/QwQ-32B-Preview-GGUF",
+            "model_file_name_template": "QwQ-32B-Preview-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/QwQ-32B-Preview-GGUF/resolve/master/QwQ-32B-Preview-Q3_K_L.gguf",
+              "config_sha256": "527697c1c800684995e1f8c70297beae43ff97b98228fdc0eadaf840294ec529",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Qwen_QwQ-32B-Preview_MLX-4bit",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Qwen_QwQ-32B-Preview_MLX-4bit/resolve/8853fac2a4164670ded0f82000b718c050dbd7ab/config.json",
+              "config_sha256": "837ba70a716232c637bf975dd75a331f612e8afb4d7520c9dd0d2826e2d9c586",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "okwinds/QwQ-32B-Preview-MLX-4bit",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/okwinds/QwQ-32B-Preview-MLX-4bit/resolve/master/config.json",
+              "config_sha256": "837ba70a716232c637bf975dd75a331f612e8afb4d7520c9dd0d2826e2d9c586",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen_QwQ-32B-Preview_MLX-8bit",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Qwen_QwQ-32B-Preview_MLX-8bit/resolve/36a8f42f41fd6b4889d36e15a677b879ff97201c/config.json",
+              "config_sha256": "174df83288ae84156737b5073de04fea597a662012da27391d768acb440413b9",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "okwinds/QwQ-32B-Preview-MLX-8bit",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/okwinds/QwQ-32B-Preview-MLX-8bit/resolve/master/config.json",
+              "config_sha256": "174df83288ae84156737b5073de04fea597a662012da27391d768acb440413b9",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "mlx-community/QwQ-32B-Preview-bf16",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/QwQ-32B-Preview-bf16/resolve/19a67ccb57e1c538088827dbac0543fd9d44a2ee/config.json",
+              "config_sha256": "58076fbdba544327e773e0cdbc992550f4e6e3c71a5ceaa817b02a90c12aa8e3",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ],
+    "updated_at": 1769418488,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ],
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

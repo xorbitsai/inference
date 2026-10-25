@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,11 @@
 # limitations under the License.
 
 import importlib.util
+import json
 import logging
 import os
+import shutil
+import tempfile
 from typing import Any, Dict, List, Optional, Tuple, Union, cast, no_type_check
 
 import numpy as np
@@ -22,11 +25,365 @@ import torch
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
-from ...utils import check_dependency_available, is_flash_attn_available
+from ...utils import (
+    ModelArtifactSource,
+    allow_trust_remote_code,
+    check_dependency_available,
+    is_flash_attn_available,
+    virtual_env_allows_missing_engine,
+)
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
+from ..wemm import ensure_wemm_video_reader, is_wemm_model, normalize_wemm_inputs
 
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
+# Keep short queries together to avoid extra model-forward overhead.
+_SENTENCE_BATCH_MIN_SPLIT_CHARS = 256
+
+
+def _get_sentence_batch_ranges(
+    sentences: List[Any], batch_size: int, *, split_by_length: bool
+) -> List[Tuple[int, int]]:
+    """Split length-sorted text without padding short inputs to long outliers.
+
+    Character length is the same inexpensive estimate used for encode sorting.
+    Short inputs stay together even when their relative lengths differ widely.
+    Structured inputs and non-sentence outputs retain fixed-size batches.
+    """
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than 0")
+    if not split_by_length or not all(isinstance(s, str) for s in sentences):
+        return [
+            (start, min(start + batch_size, len(sentences)))
+            for start in range(0, len(sentences), batch_size)
+        ]
+
+    batches = []
+    start = 0
+    while start < len(sentences):
+        longest = max(1, len(sentences[start]))
+        end = start + 1
+        while end < min(start + batch_size, len(sentences)):
+            if longest > _SENTENCE_BATCH_MIN_SPLIT_CHARS and longest > 2 * max(
+                1, len(sentences[end])
+            ):
+                break
+            end += 1
+        batches.append((start, end))
+        start = end
+    return batches
+
+
+def _resolve_sentence_transformer_device(model: Any, device: Any) -> Any:
+    """Use an explicit encode device or the model's public device property."""
+
+    if device is not None:
+        return device
+    return model.device
+
+
+def _atomic_write_text(path: str, content: str) -> None:
+    directory = os.path.dirname(os.path.abspath(path))
+    temp_path: Optional[str] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=directory,
+            prefix=f".{os.path.basename(path)}.",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temp_path = file.name
+            file.write(content)
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+
+
+def _patch_json_file(path: str, update: Any) -> None:
+    with open(path, encoding="utf-8") as file:
+        data = json.load(file)
+
+    update(data)
+    content = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    _atomic_write_text(path, content)
+
+
+def _copy_python_sources(source_dir: str, target_dir: str) -> None:
+    os.makedirs(target_dir, exist_ok=True)
+    for filename in os.listdir(source_dir):
+        source_path = os.path.join(source_dir, filename)
+        if filename.endswith(".py") and os.path.isfile(source_path):
+            shutil.copyfile(source_path, os.path.join(target_dir, filename))
+
+
+def _copy_python_sources_to_transformers_cache(source_dir: str) -> None:
+    from transformers.dynamic_module_utils import (
+        HF_MODULES_CACHE,
+        TRANSFORMERS_DYNAMIC_MODULE_NAME,
+        create_dynamic_module,
+    )
+
+    submodule = os.path.basename(source_dir)
+    full_submodule = os.path.join(TRANSFORMERS_DYNAMIC_MODULE_NAME, submodule)
+    create_dynamic_module(full_submodule)
+    _copy_python_sources(source_dir, os.path.join(HF_MODULES_CACHE, full_submodule))
+
+
+def _patch_python_source(
+    path: str, original: str, replacement: str, marker: str
+) -> None:
+    with open(path, encoding="utf-8") as file:
+        source = file.read()
+
+    if marker in source:
+        return
+    if original not in source:
+        raise RuntimeError(f"Unable to apply ModelScope compatibility patch to {path}")
+
+    _atomic_write_text(path, source.replace(original, replacement, 1))
+
+
+def _patch_jina_clip_config(data: Dict[str, Any], text_model_path: str) -> None:
+    data["auto_map"] = {
+        "AutoConfig": "configuration_clip.JinaCLIPConfig",
+        "AutoModel": "modeling_clip.JinaCLIPModel",
+    }
+    text_config = data.get("text_config")
+    if text_config is None:
+        text_config = {}
+    elif not isinstance(text_config, dict):
+        raise RuntimeError("Invalid Jina CLIP text_config: expected a JSON object")
+    text_config["hf_model_name_or_path"] = text_model_path
+    data["text_config"] = text_config
+
+
+def _patch_jina_clip_custom_st(model_path: str) -> None:
+    custom_st_path = os.path.join(model_path, "custom_st.py")
+    _patch_python_source(
+        custom_st_path,
+        "from transformers import AutoConfig, AutoImageProcessor, AutoModel, AutoTokenizer",
+        "from transformers import (\n"
+        "    AutoConfig,\n"
+        "    AutoImageProcessor,\n"
+        "    AutoModel,\n"
+        "    XLMRobertaTokenizerFast,\n"
+        ")",
+        "XLMRobertaTokenizerFast",
+    )
+    _patch_python_source(
+        custom_st_path,
+        "        self.tokenizer = AutoTokenizer.from_pretrained(\n"
+        "            tokenizer_name_or_path or model_name_or_path,\n"
+        "            **tokenizer_kwargs,\n"
+        "        )",
+        "        tokenizer_source = tokenizer_name_or_path or model_name_or_path\n"
+        "        tokenizer_kwargs.pop('config', None)\n"
+        "        self.tokenizer = XLMRobertaTokenizerFast.from_pretrained(\n"
+        "            tokenizer_source,\n"
+        "            **tokenizer_kwargs,\n"
+        "        )",
+        "tokenizer_kwargs.pop('config', None)",
+    )
+
+
+def _patch_jina_clip_modeling(model_path: str) -> None:
+    modeling_path = os.path.join(model_path, "modeling_clip.py")
+    _patch_python_source(
+        modeling_path,
+        "    AutoTokenizer,\n",
+        "    AutoTokenizer,\n    XLMRobertaTokenizerFast,\n",
+        "XLMRobertaTokenizerFast",
+    )
+    _patch_python_source(
+        modeling_path,
+        "            self.tokenizer = AutoTokenizer.from_pretrained(\n"
+        "                self.config._name_or_path, trust_remote_code=True\n"
+        "            )",
+        "            self.tokenizer = XLMRobertaTokenizerFast.from_pretrained(\n"
+        "                self.config._name_or_path\n"
+        "            )",
+        "self.tokenizer = XLMRobertaTokenizerFast.from_pretrained",
+    )
+
+
+def _patch_xlm_roberta_modeling(model_path: str) -> None:
+    modeling_path = os.path.join(model_path, "modeling_xlm_roberta.py")
+    _patch_python_source(
+        modeling_path,
+        "        self.tokenizer = AutoTokenizer.from_pretrained(\n"
+        "            self.name_or_path, trust_remote_code=True\n"
+        "        )",
+        "        self.tokenizer = None",
+        "self.tokenizer = None",
+    )
+
+
+def _prepare_modelscope_jina_clip_v2(
+    model_path: str, artifact_source: ModelArtifactSource
+) -> None:
+    clip_impl_path = artifact_source.snapshot_download(
+        "jinaai/jina-clip-implementation",
+        allow_patterns=["*.py", "configuration.json"],
+    )
+    _copy_python_sources(clip_impl_path, model_path)
+    _patch_jina_clip_custom_st(model_path)
+    _patch_jina_clip_modeling(model_path)
+
+    text_model_path = artifact_source.snapshot_download(
+        "jinaai/jina-embeddings-v3", allow_patterns=["config.json"]
+    )
+    text_impl_path = artifact_source.snapshot_download(
+        "jinaai/xlm-roberta-flash-implementation",
+        allow_patterns=["*.py", "configuration.json"],
+    )
+    _copy_python_sources(text_impl_path, text_model_path)
+    _patch_xlm_roberta_modeling(text_model_path)
+    _copy_python_sources_to_transformers_cache(text_model_path)
+
+    def patch_processor_config(data: Dict[str, Any]) -> None:
+        data["auto_map"] = {
+            "AutoImageProcessor": "processing_clip.JinaCLIPImageProcessor",
+            "AutoProcessor": "processing_clip.JinaCLIPProcessor",
+        }
+
+    def patch_text_config(data: Dict[str, Any]) -> None:
+        data["_name_or_path"] = text_model_path
+        data["auto_map"] = {
+            "AutoConfig": "configuration_xlm_roberta.XLMRobertaFlashConfig",
+            "AutoModel": "modeling_lora.XLMRobertaLoRA",
+            "AutoModelForMaskedLM": "modeling_xlm_roberta.XLMRobertaForMaskedLM",
+            "AutoModelForPreTraining": (
+                "modeling_xlm_roberta.XLMRobertaForPreTraining"
+            ),
+        }
+
+    _patch_json_file(
+        os.path.join(model_path, "config.json"),
+        lambda data: _patch_jina_clip_config(data, text_model_path),
+    )
+    _patch_json_file(
+        os.path.join(model_path, "preprocessor_config.json"), patch_processor_config
+    )
+    _patch_json_file(os.path.join(text_model_path, "config.json"), patch_text_config)
+
+
+# jina-embeddings-v3: uses standard SentenceTransformer prompt_name mechanism
+# v3 model.prompts keys use dot-notation: "retrieval.passage", "retrieval.query", etc.
+JINA_V3_TASK_TO_PROMPT_NAME: Dict[str, str] = {
+    "retrieval.passage": "retrieval.passage",
+    "retrieval.query": "retrieval.query",
+    "retrieval": "retrieval.passage",
+    "passage": "retrieval.passage",
+    "query": "retrieval.query",
+    "document": "document",
+}
+
+# jina-embeddings-v4: custom forward() consumes task param directly, bypasses prompt_name
+# This set is only for validation; task value is passed directly to model.forward()
+JINA_V4_VALID_TASKS = {
+    "retrieval.passage",
+    "retrieval.query",
+    "retrieval",
+    "text-matching",
+    "code",
+    "passage",
+    "query",
+    "document",
+}
+
+# jina-embeddings-v5 (text-* and omni-*): custom encode() consumes ``task`` directly.
+# Valid tasks come from the v5 model cards on HuggingFace.
+JINA_V5_VALID_TASKS = {
+    "retrieval",
+    "text-matching",
+    "classification",
+    "clustering",
+}
+# v5 retrieval additionally uses ``prompt_name`` to distinguish query vs document.
+JINA_V5_PROMPT_NAME_ALIASES = {
+    "query": "query",
+    "document": "document",
+    "passage": "document",
+    "retrieval.query": "query",
+    "retrieval.passage": "document",
+}
+
+
+def _resolve_jina_task(
+    model_name: str, task: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve Jina API task parameter.
+
+    Returns:
+        (prompt_name, task_passthrough)
+        - v3: (prompt_name, None) — uses prompt_name to look up prompt template
+        - v4: (None, task) — passes task directly to model.forward()
+        - v5: (prompt_name_or_None, task) — passes task directly to model.encode();
+              v5 models reject a missing task, so default to ``retrieval`` when the
+              caller does not pass one (OpenAI-compatible clients usually omit it)
+        - other models: (None, None)
+    """
+    model_lower = model_name.lower()
+    if task is None:
+        # v5 mandates a task on every call. Fall back to ``retrieval`` so OpenAI-
+        # style clients that have no notion of a task parameter still work.
+        if "jina-embeddings-v5" in model_lower:
+            return None, "retrieval"
+        return None, None
+    if "jina-embeddings-v3" in model_lower:
+        prompt_name = JINA_V3_TASK_TO_PROMPT_NAME.get(task)
+        if prompt_name is None:
+            valid = sorted(JINA_V3_TASK_TO_PROMPT_NAME.keys())
+            raise ValueError(
+                f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
+            )
+        return prompt_name, None
+    elif "jina-embeddings-v4" in model_lower:
+        if task not in JINA_V4_VALID_TASKS:
+            valid = sorted(JINA_V4_VALID_TASKS)
+            raise ValueError(
+                f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
+            )
+        return None, task
+    elif "jina-embeddings-v5" in model_lower:
+        # ``task`` may carry either a v5 task name or a retrieval-side alias
+        # (e.g. ``query`` / ``document``). Aliases imply ``task=retrieval``.
+        prompt_name = JINA_V5_PROMPT_NAME_ALIASES.get(task)
+        if prompt_name is not None:
+            return prompt_name, "retrieval"
+        if task not in JINA_V5_VALID_TASKS:
+            valid = sorted(
+                JINA_V5_VALID_TASKS | set(JINA_V5_PROMPT_NAME_ALIASES.keys())
+            )
+            raise ValueError(
+                f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
+            )
+        return None, task
+    return None, None
+
+
+def _build_encode_kwargs(
+    kwargs: Dict[str, Any], prompt_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """Build encode kwargs with optional prompt_name for Jina models.
+
+    Args:
+        kwargs: Original kwargs from the API call
+        prompt_name: Optional prompt_name resolved from Jina task parameter
+
+    Returns:
+        Dictionary with encode parameters including prompt_name if provided
+    """
+    encode_kwargs = dict(convert_to_numpy=False, **kwargs)
+    if prompt_name is not None:
+        encode_kwargs["prompt_name"] = prompt_name
+    return encode_kwargs
 
 
 class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
@@ -51,12 +408,27 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             )
             if spec is None or spec.loader is None:
                 raise ImportError(f"Failed to load embedding module from {module_path}")
+            if not allow_trust_remote_code(self.model_family):
+                raise ValueError(
+                    "Loading this model executes code shipped in the model "
+                    "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             self._embedder = module.Qwen3VLEmbedder(
                 model_name_or_path=self._model_path, **self._kwargs
             )
             return
+        # sentence-transformers >= 5.4 imports torchcodec at import time and only
+        # tolerates ImportError/OSError; a broken (version-mismatched) torchcodec
+        # raises RuntimeError and would abort loading of a text-only model. Defuse
+        # it before importing sentence_transformers (see #5208). Kept outside the
+        # try/except below so a mistake here surfaces instead of being reported as
+        # a missing sentence-transformers.
+        from ...utils import neutralize_broken_torchcodec
+
+        neutralize_broken_torchcodec()
+
         try:
             import sentence_transformers
             from sentence_transformers import SentenceTransformer
@@ -67,13 +439,19 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                     "Please upgrade your version via `pip install -U sentence_transformers` or refer to "
                     "https://github.com/UKPLab/sentence-transformers"
                 )
-        except ImportError:
+        except ImportError as e:
             error_message = "Failed to import module 'SentenceTransformer'"
             installation_guide = [
                 "Please make sure 'sentence-transformers' is installed. ",
                 "You can install it by `pip install sentence-transformers`\n",
             ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            # Preserve the original exception so that the real root cause is not
+            # swallowed. A common case is a torch/torchvision version mismatch
+            # (e.g. "operator torchvision::nms does not exist"), where the actual
+            # error has nothing to do with sentence-transformers being missing.
+            raise ImportError(
+                f"{error_message}: {e}\n\n{''.join(installation_guide)}"
+            ) from e
 
         class XSentenceTransformer(SentenceTransformer):
             def to(self, *args, **kwargs):
@@ -105,6 +483,14 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         )
 
         if (
+            self.model_family.model_name == "jina-clip-v2"
+            and self._model_spec.model_hub == "modelscope"
+        ):
+            _prepare_modelscope_jina_clip_v2(
+                self._model_path, ModelArtifactSource("modelscope")
+            )
+
+        if (
             "gte" in self.model_family.model_name.lower()
             and "qwen2" in self.model_family.model_name.lower()
         ):
@@ -117,8 +503,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 model_kwargs=model_kwargs,
                 truncate_dim=dimensions,
             )
-        elif "qwen3" in self.model_family.model_name.lower():
-            # qwen3 embedding
+        elif (
+            "qwen3" in self.model_family.model_name.lower()
+            or "r3-embedding" in self.model_family.model_name.lower()
+        ):
+            # qwen3 embedding (also covers R3-embedding, fine-tuned from Qwen3)
             flash_attn_enabled = self._kwargs.get(
                 "enable_flash_attn", is_flash_attn_available()
             )
@@ -144,26 +533,57 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
+            # jina-embeddings-v5-omni: the model card recommends loading via
+            # ``model_kwargs={"default_task": "retrieval"}`` so that the task
+            # adapter is selected up-front and ``encode()`` works for image /
+            # video / audio inputs (which cannot carry a ``task`` keyword).
+            st_kwargs: Dict[str, Any] = {}
+            if "jina-embeddings-v5-omni" in self.model_family.model_name.lower():
+                st_kwargs["model_kwargs"] = {"default_task": "retrieval"}
+                if model_kwargs:
+                    st_kwargs["model_kwargs"].update(model_kwargs)
+            else:
+                st_kwargs["model_kwargs"] = model_kwargs
             self._model = SentenceTransformer(
                 self._model_path,
                 device=self._device,
-                model_kwargs=model_kwargs,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 truncate_dim=dimensions,
+                **st_kwargs,
             )
 
         if hasattr(self._model, "tokenizer"):
             self._tokenizer = self._model.tokenizer
+        if is_wemm_model(self.model_family.model_name) and dimensions is not None:
+            self._validate_wemm_dimensions(dimensions)
+
+    def _validate_wemm_dimensions(self, dimensions: int) -> None:
+        assert self._model is not None
+        config = self._model[0].auto_model.config
+        supported = getattr(config, "matryoshka_dimensions", None)
+        if supported is not None and dimensions not in supported:
+            raise ValueError(
+                f"WeMM-Embedding dimensions must be one of {list(supported)}, got {dimensions}."
+            )
 
     def _create_embedding(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
         **kwargs,
     ):
         if self._embedder is not None:
             return self._create_qwen3_vl_embedding(sentences, **kwargs)
         sentences = self._fix_langchain_openai_inputs(sentences)
         model_uid = kwargs.pop("model_uid", None)
+
+        # Resolve Jina-style task parameter.
+        task = kwargs.pop("task", None)
+        jina_prompt_name, jina_task_passthrough = _resolve_jina_task(
+            self._model_name, task
+        )
+        # v4: put task back into kwargs for model.forward() to consume
+        if jina_task_passthrough is not None:
+            kwargs["task"] = jina_task_passthrough
 
         from sentence_transformers import SentenceTransformer
 
@@ -207,7 +627,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             """
             import torch
             from sentence_transformers.util import batch_to_device
-            from tqdm.autonotebook import trange
+            from tqdm.autonotebook import tqdm
 
             model.eval()
             if show_progress_bar is None:
@@ -259,8 +679,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                         tokenized_prompt["input_ids"].shape[-1] - 1
                     )
 
-            if device is None:
-                device = model._target_device
+            device = _resolve_sentence_transformer_device(model, device)
 
             if (
                 "gte" in self.model_family.model_name.lower()
@@ -275,16 +694,20 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             )
             sentences_sorted = [sentences[idx] for idx in length_sorted_idx]
 
-            for start_index in trange(
-                0,
-                len(sentences),
+            batch_ranges = _get_sentence_batch_ranges(
+                sentences_sorted,
                 batch_size,
+                split_by_length=(
+                    output_value == "sentence_embedding"
+                    and not self.model_family.model_ability
+                ),
+            )
+            for start_index, end_index in tqdm(
+                batch_ranges,
                 desc="Batches",
                 disable=not show_progress_bar,
             ):
-                sentences_batch = sentences_sorted[
-                    start_index : start_index + batch_size
-                ]
+                sentences_batch = sentences_sorted[start_index:end_index]
                 features = model.tokenize(sentences_batch)
                 features = batch_to_device(features, device)
                 features.update(extra_features)
@@ -416,18 +839,159 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                     else:
                         raise ValueError("Please check the input data.")
 
+            encode_kwargs = _build_encode_kwargs(kwargs, jina_prompt_name)
             all_embeddings, all_token_nums = encode(
                 self._model,
                 objs,
-                convert_to_numpy=False,
-                **kwargs,
+                **encode_kwargs,
             )
+        elif is_wemm_model(self.model_family.model_name):
+            # WeMM relies on Sentence Transformers 5.7's modality-aware
+            # ``encode`` path. The local text-only helper above bypasses its
+            # role/content conversion and vision preprocessing.
+            input_was_single = isinstance(sentences, (str, dict))
+            wemm_inputs = normalize_wemm_inputs(sentences)
+            ensure_wemm_video_reader()
+
+            wemm_kwargs = dict(kwargs)
+            wemm_kwargs.pop("convert_to_numpy", None)
+            wemm_kwargs.pop("return_sparse", None)
+            if "normalize_embedding" in wemm_kwargs:
+                wemm_kwargs["normalize_embeddings"] = wemm_kwargs.pop(
+                    "normalize_embedding"
+                )
+            dimensions = wemm_kwargs.pop("dimensions", None)
+            if dimensions is not None:
+                self._validate_wemm_dimensions(dimensions)
+                wemm_kwargs["truncate_dim"] = dimensions
+            wemm_kwargs.setdefault("batch_size", 1)
+
+            assert self._model is not None
+            with torch.inference_mode():
+                wemm_out = self._model.encode(
+                    wemm_inputs,
+                    convert_to_numpy=True,
+                    **wemm_kwargs,
+                )
+            if input_was_single:
+                if hasattr(wemm_out, "ndim") and getattr(wemm_out, "ndim", 0) > 1:
+                    all_embeddings = [wemm_out[0]]
+                else:
+                    all_embeddings = [wemm_out]
+                sentences = [sentences]  # type: ignore[list-item]
+            elif hasattr(wemm_out, "ndim") and getattr(wemm_out, "ndim", 0) == 1:
+                all_embeddings = [wemm_out]
+            else:
+                all_embeddings = list(wemm_out)
+            all_token_nums = len(wemm_inputs)
+        elif "jina-embeddings-v5-omni" in self.model_family.model_name.lower():
+            # jina-embeddings-v5-omni accepts text, image, video and audio.
+            # Per the model card, the SentenceTransformer wrapper auto-detects
+            # the modality of each sentence: URLs / file paths / PIL.Image /
+            # bytes / np.ndarray / torch.Tensor are routed to the matching
+            # tower. We additionally accept dict inputs of the form
+            # ``{"text": ...}`` / ``{"image": url_or_b64}`` /
+            # ``{"video": url_or_path}`` / ``{"audio": url_or_path}`` so the
+            # OpenAI-compatible HTTP API can express multimodal payloads.
+            #
+            # NOTE: we cannot reuse the local ``encode`` helper because it
+            # calls ``model.tokenize`` -> ``model.forward`` and assumes text
+            # input. Multimodal routing only happens inside
+            # ``SentenceTransformer.encode``.
+            import base64
+            import re
+            from io import BytesIO
+
+            from PIL import Image
+
+            def _b64_to_image(b64: str) -> Image.Image:
+                payload = b64.split(",", 1)[1] if "," in b64 else b64
+                return Image.open(BytesIO(base64.b64decode(payload)))
+
+            def _coerce_omni_item(item: Any) -> Any:
+                if isinstance(item, dict):
+                    if item.get("text") is not None:
+                        return item["text"]
+                    img = item.get("image")
+                    if img is not None:
+                        if isinstance(img, str) and re.match(
+                            r"^data:image/.+;base64,", img
+                        ):
+                            return _b64_to_image(img)
+                        return img
+                    video = item.get("video")
+                    if video is not None:
+                        return video
+                    audio = item.get("audio")
+                    if audio is not None:
+                        return audio
+                    raise ValueError(
+                        "jina-embeddings-v5-omni input dict must contain one "
+                        "of: text, image, video, audio."
+                    )
+                return item
+
+            # Treat str and dict as single-item inputs; only true sequences
+            # should be iterated. ``isinstance(sentences, dict)`` is critical:
+            # without it, iterating a dict yields its keys (e.g. "image"),
+            # which silently embeds the key name instead of the payload.
+            if isinstance(sentences, (str, dict)):
+                objs = [_coerce_omni_item(cast(Any, sentences))]
+                input_was_single = True
+            else:
+                objs = [_coerce_omni_item(it) for it in cast(List[Any], sentences)]
+                input_was_single = False
+
+            omni_kwargs = dict(kwargs)
+            omni_kwargs.pop("convert_to_numpy", None)
+            # OpenAI's embedding API uses ``dimensions`` to request Matryoshka
+            # truncation; v5-omni's encode() expects ``truncate_dim``.
+            if "dimensions" in omni_kwargs and "truncate_dim" not in omni_kwargs:
+                omni_kwargs["truncate_dim"] = omni_kwargs.pop("dimensions")
+            else:
+                omni_kwargs.pop("dimensions", None)
+            if jina_prompt_name is not None:
+                omni_kwargs["prompt_name"] = jina_prompt_name
+
+            assert self._model is not None
+            with torch.no_grad():
+                omni_out = self._model.encode(
+                    objs,
+                    convert_to_numpy=True,
+                    **omni_kwargs,
+                )
+
+            # ``encode`` on a single-item list returns either a 2-D ndarray of
+            # shape (1, dim) or a 1-D ndarray of shape (dim,). The downstream
+            # code below iterates ``all_embeddings`` and calls ``.tolist()`` on
+            # each item, expecting a flat 1-D vector per input. Normalise both
+            # shapes accordingly so the response stays ``[float, ...]`` rather
+            # than the accidentally-nested ``[[float, ...]]``.
+            if input_was_single:
+                if hasattr(omni_out, "ndim") and getattr(omni_out, "ndim", 0) > 1:
+                    all_embeddings = [omni_out[0]]
+                else:
+                    all_embeddings = [omni_out]
+            elif hasattr(omni_out, "ndim") and getattr(omni_out, "ndim", 0) == 1:
+                all_embeddings = [omni_out]
+            else:
+                all_embeddings = list(omni_out)
+            # The shared tail below re-wraps ``all_embeddings`` when
+            # ``sentences`` is a ``str``. We have already normalised the omni
+            # output into ``[ndarray]``; promote ``sentences`` to a list so the
+            # tail does not double-wrap it into ``[[ndarray]]`` and break the
+            # subsequent ``data.tolist()`` call.
+            if isinstance(sentences, (str, dict)):
+                sentences = [sentences]
+            # token accounting for multimodal inputs is not meaningful; report
+            # the input item count so usage stays non-zero.
+            all_token_nums = len(objs)
         else:
+            encode_kwargs = _build_encode_kwargs(kwargs, jina_prompt_name)
             all_embeddings, all_token_nums = encode(
                 self._model,
                 sentences,
-                convert_to_numpy=False,
-                **kwargs,
+                **encode_kwargs,
             )
         if isinstance(sentences, str):
             all_embeddings = [all_embeddings]
@@ -510,24 +1074,74 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name == "embeddinggemma-2":
+            return False, "EmbeddingGemma 2 requires its modality-aware adapter"
+        if is_wemm_model(model_family.model_name):
+            if not virtual_env_allows_missing_engine():
+                dep_check = check_dependency_available(
+                    "sentence_transformers", "sentence-transformers"
+                )
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("qwen_vl_utils", "qwen-vl-utils")
+                if dep_check != True:
+                    return dep_check
+                from importlib.metadata import PackageNotFoundError, version
+
+                from packaging.version import Version
+                from sentence_transformers import __version__ as st_version
+                from transformers import __version__ as transformers_version
+
+                if Version(st_version) < Version("5.7.0"):
+                    return (
+                        False,
+                        "WeMM-Embedding requires sentence-transformers>=5.7.0, "
+                        f"current: {st_version}",
+                    )
+                if Version(transformers_version) < Version("5.2.0"):
+                    return (
+                        False,
+                        "WeMM-Embedding requires transformers>=5.2.0, "
+                        f"current: {transformers_version}",
+                    )
+                try:
+                    qwen_utils_version = version("qwen-vl-utils")
+                except PackageNotFoundError:
+                    return False, "Cannot determine the installed qwen-vl-utils version"
+                if Version(qwen_utils_version) < Version("0.0.14"):
+                    return (
+                        False,
+                        "WeMM-Embedding requires qwen-vl-utils>=0.0.14, "
+                        f"current: {qwen_utils_version}",
+                    )
+            if model_spec.model_format != "pytorch":
+                return False, "WeMM-Embedding supports pytorch format only"
+            return True
+
+        from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
         if model_family.model_name.startswith("Qwen3-VL-Embedding"):
-            dep_check = check_dependency_available("transformers", "transformers")
-            if dep_check != True:
-                return dep_check
-            dep_check = check_dependency_available("qwen_vl_utils", "qwen_vl_utils")
-            if dep_check != True:
-                return dep_check
-            dep_check = check_dependency_available("PIL", "Pillow")
-            if dep_check != True:
-                return dep_check
+            if not XINFERENCE_ENABLE_VIRTUAL_ENV:
+                dep_check = check_dependency_available("transformers", "transformers")
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("qwen_vl_utils", "qwen_vl_utils")
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("PIL", "Pillow")
+                if dep_check != True:
+                    return dep_check
             if model_spec.model_format not in ["pytorch"]:
                 return False, "Qwen3-VL embedding supports pytorch format only"
             return True
-        dep_check = check_dependency_available(
-            "sentence_transformers", "sentence-transformers"
-        )
-        if dep_check != True:
-            return dep_check
+
+        # virtualenv mode: dependencies provided by child venv, skip import check
+        if not XINFERENCE_ENABLE_VIRTUAL_ENV:
+            dep_check = check_dependency_available(
+                "sentence_transformers", "sentence-transformers"
+            )
+            if dep_check != True:
+                return dep_check
         if model_spec.model_format not in ["pytorch"]:
             return False, "SentenceTransformer embeddings require pytorch format"
         return True

@@ -1,0 +1,78 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-01-02 16:27+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/sources/sources.rst:5
+msgid "Download Sources"
+msgstr "모델 출처"
+
+#: ../../source/models/sources/sources.rst:7
+msgid "Xinference supports downloading various models from different sources."
+msgstr "Xinference는 다양한 소스에서 여러 모델을 다운로드할 수 있도록 지원합니다."
+
+#: ../../source/models/sources/sources.rst:10
+msgid "HuggingFace"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:11
+msgid ""
+"Xinference directly downloads the required models from the official `Hugging"
+" Face model repository <https://huggingface.co/models>`_ by default."
+msgstr ""
+"Xinference는 기본적으로 `Hugging Face 공식 모델 저장소 <https://huggingface.co/models>`_ "
+"에서 필요한 모델을 직접 다운로드합니다."
+
+#: ../../source/models/sources/sources.rst:14
+msgid ""
+"If you have trouble connecting to Huggingface, you can use a mirror website "
+"to download with setting the environment variable ``HF_ENDPOINT=https://hf-"
+"mirror.com``."
+msgstr ""
+"네트워크가 HuggingFace에 연결할 수 없는 경우, 환경 변수를 통해 HuggingFace 미러 사이트를 지정할 수 있습니다: "
+"``HF_ENDPOINT=https://hf-mirror.com``."
+
+#: ../../source/models/sources/sources.rst:18
+msgid "ModelScope"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:20
+msgid ""
+"When Xinference detects that the system's language is set to Simplified "
+"Chinese, it will automatically set the model download source to `ModelScope "
+"<https://modelscope.cn/models>`_."
+msgstr ""
+"Xinference가 시스템 언어가 \"간체 중국어\"로 설정되어 있음을 감지하면 모델 다운로드 소스를 `ModelScope "
+"<https://modelscope.cn/models>`_로 설정합니다."
+
+#: ../../source/models/sources/sources.rst:23
+msgid ""
+"You can also achieve this by manually setting an environment variable "
+"``XINFERENCE_MODEL_SRC=modelscope``."
+msgstr "환경 변수 ``XINFERENCE_MODEL_SRC=modelscope``를 수동으로 설정하여 이를 구현할 수도 있습니다."
+
+#: ../../source/models/sources/sources.rst:25
+msgid ""
+"Please check the detail page of a model to confirm whether the model "
+"supports downloading from ModelScope. If a model spec supports downloading "
+"from ModelScope, the \"Model Hubs\" section in the spec information will "
+"include \"ModelScope\"."
+msgstr ""
+"모델 상세 페이지에서 ModelScope에서 다운로드가 지원되는지 확인하십시오. 모델이 ModelScope에서 다운로드를 지원하는 경우,"
+" 모델 정보의 Model Hubs 항목에 ModelScope가 포함됩니다."

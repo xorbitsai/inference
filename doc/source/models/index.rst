@@ -72,6 +72,12 @@ The following ``MODEL_TYPE`` is supported by Xinference:
 
 .. grid:: 2
 
+    .. grid-item-card::  world
+      :link: models_world_index
+      :link-type: ref
+
+      World generation models
+
     .. grid-item-card::  flexible
       :link: flexible
       :link-type: ref
@@ -236,6 +242,12 @@ Model Usage
       Learn how to generate video with Xinference.
 
 .. grid:: 2
+
+    .. grid-item-card::  World
+      :link: world
+      :link-type: ref
+
+      Learn how to generate environment videos with world models in Xinference.
 
     .. grid-item-card::  flexible
       :link: flexible

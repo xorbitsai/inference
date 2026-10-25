@@ -2,10 +2,84 @@ import json
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from ..._model_catalog import load_model_catalog
+from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
+
 _BUILTIN_FAMILY_CACHE: Optional[List[Dict[str, Any]]] = None
+
+# Colon/`os.pathsep`-separated extra roots operators may allow models to be
+# registered from via POST /v1/models/llm/auto-register.
+_MODEL_REGISTER_ROOTS_ENV = "XINFERENCE_MODEL_REGISTER_ROOTS"
+
+
+def _get_allowed_roots() -> List[str]:
+    roots = [XINFERENCE_MODEL_DIR, XINFERENCE_CACHE_DIR]
+    extra = os.environ.get(_MODEL_REGISTER_ROOTS_ENV, "")
+    if extra:
+        roots.extend(p.strip() for p in extra.split(os.pathsep) if p.strip())
+    resolved: List[str] = []
+    for root in roots:
+        try:
+            resolved.append(os.path.realpath(os.path.expanduser(root)))
+        except OSError:
+            continue
+    return resolved
+
+
+def _ensure_within_allowed_roots(model_path: str) -> str:
+    real_path = os.path.realpath(model_path)
+    for root in _get_allowed_roots():
+        try:
+            if os.path.normcase(
+                os.path.commonpath([real_path, root])
+            ) == os.path.normcase(root):
+                return real_path
+        except ValueError:
+            # e.g. different drive on Windows, or mixed absolute/relative
+            continue
+    raise ValueError(
+        "model_path is outside the allowed model directories. Set the "
+        f"{_MODEL_REGISTER_ROOTS_ENV} environment variable to permit additional "
+        "roots."
+    )
+
+
+def _resolve_huggingface_snapshot(model_dir: str) -> Optional[str]:
+    """Resolve a Hugging Face repository cache root to one snapshot."""
+    snapshots_dir = _ensure_within_allowed_roots(os.path.join(model_dir, "snapshots"))
+    if not os.path.isdir(snapshots_dir):
+        return None
+
+    for ref_name in ("main", "master"):
+        ref_path = os.path.join(model_dir, "refs", ref_name)
+        if os.path.isfile(ref_path):
+            ref_path = _ensure_within_allowed_roots(ref_path)
+            with open(ref_path, "r", encoding="utf-8") as file:
+                revision = file.read().strip()
+            if revision:
+                snapshot = os.path.join(snapshots_dir, revision)
+                if os.path.isfile(os.path.join(snapshot, "config.json")):
+                    return snapshot
+
+    candidates = sorted(
+        os.path.join(snapshots_dir, revision)
+        for revision in os.listdir(snapshots_dir)
+        if os.path.isfile(os.path.join(snapshots_dir, revision, "config.json"))
+    )
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(candidates) > 1:
+        raise ValueError(
+            f"Multiple Hugging Face snapshots found under {model_dir}; "
+            "specify one snapshots/<revision> directory explicitly."
+        )
+    return None
 
 
 def _resolve_config_and_dir(model_path: str) -> Tuple[str, str]:
+    # Validate the target without losing a snapshot file's name and directory
+    # when it is a symlink to a differently named Hugging Face cache blob.
+    _ensure_within_allowed_roots(model_path)
     if os.path.isdir(model_path):
         config_path = os.path.join(model_path, "config.json")
         model_dir = model_path
@@ -15,12 +89,18 @@ def _resolve_config_and_dir(model_path: str) -> Tuple[str, str]:
             config_path = model_path
         else:
             config_path = os.path.join(model_dir, "config.json")
+    if not os.path.exists(config_path) and os.path.isdir(model_dir):
+        snapshot_dir = _resolve_huggingface_snapshot(model_dir)
+        if snapshot_dir is not None:
+            model_dir = snapshot_dir
+            config_path = os.path.join(model_dir, "config.json")
     if not os.path.exists(config_path):
         raise ValueError(f"config.json not found under {model_path}.")
-    return config_path, model_dir
+    return _ensure_within_allowed_roots(config_path), model_dir
 
 
 def _load_json_file(path: str) -> Dict[str, Any]:
+    path = _ensure_within_allowed_roots(path)
     with open(path, "r") as file:
         return json.load(file)
 
@@ -36,6 +116,7 @@ def _load_chat_template_file(model_dir: str) -> Optional[str]:
     chat_template_path = os.path.join(model_dir, "chat_template.jinja")
     if not os.path.exists(chat_template_path):
         return None
+    chat_template_path = _ensure_within_allowed_roots(chat_template_path)
     with open(chat_template_path, "r") as file:
         content = file.read()
     return content.strip() if content else None
@@ -47,6 +128,17 @@ def _get_first_value(config: Dict[str, Any], *keys: str) -> Optional[Any]:
         if value is not None:
             return value
     return None
+
+
+def _with_text_config_fallback(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Expose nested text-model fields while preserving top-level values."""
+    text_config = config.get("text_config")
+    if not isinstance(text_config, dict):
+        return config
+
+    merged_config = dict(text_config)
+    merged_config.update(config)
+    return merged_config
 
 
 def _infer_context_length(config: Dict[str, Any]) -> int:
@@ -91,11 +183,8 @@ def _load_builtin_families() -> List[Dict[str, Any]]:
     global _BUILTIN_FAMILY_CACHE
     if _BUILTIN_FAMILY_CACHE is not None:
         return _BUILTIN_FAMILY_CACHE
-    json_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "llm_family.json"
-    )
-    with open(json_path, "r") as file:
-        _BUILTIN_FAMILY_CACHE = json.load(file)
+    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
+    _BUILTIN_FAMILY_CACHE = load_model_catalog(json_path)
     return _BUILTIN_FAMILY_CACHE
 
 
@@ -255,9 +344,9 @@ def _infer_model_format(config: Dict[str, Any]) -> str:
 def build_llm_registration_from_local_config(
     model_path: str, model_family: str
 ) -> Dict[str, Any]:
-
     config_path, model_dir = _resolve_config_and_dir(model_path)
     config = _load_json_file(config_path)
+    inference_config = _with_text_config_fallback(config)
     tokenizer_config = _load_tokenizer_config(model_dir)
     chat_template_file = _load_chat_template_file(model_dir)
 
@@ -283,8 +372,8 @@ def build_llm_registration_from_local_config(
                 if "reasoning" not in model_ability:
                     model_ability.append("reasoning")
 
-    context_length = _infer_context_length(config)
-    model_size_in_billions = _infer_model_size_in_billions(config)
+    context_length = _infer_context_length(inference_config)
+    model_size_in_billions = _infer_model_size_in_billions(inference_config)
     if model_size_in_billions is None:
         raise ValueError("Unable to infer model_size_in_billions from config.json.")
 
@@ -298,7 +387,7 @@ def build_llm_registration_from_local_config(
     model_spec = {
         "model_uri": model_dir,
         "model_format": model_format,
-        "model_size_in_billions": model_size_in_billions,
+        "model_size_in_billions": str(model_size_in_billions),
         "quantization": quantization,
     }
 

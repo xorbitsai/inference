@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ from typing import Any, Dict, Iterator, List, Tuple, Union
 import torch
 from PIL import Image
 
+from ....utils import allow_trust_remote_code
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
@@ -67,7 +68,7 @@ class Ovis2ChatModel(PytorchMultiModalModel):
             self.model_path,
             torch_dtype=torch.bfloat16,
             multimodal_max_length=32768,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             **kwargs,
         ).cuda()
         self._text_tokenizer = self._model.get_text_tokenizer()
@@ -244,6 +245,9 @@ class Ovis2ChatModel(PytorchMultiModalModel):
         input_ids = inputs.pop("input_ids")
 
         gen_kwargs = dict(**inputs, **config, streamer=streamer)
+        gen_kwargs["max_new_tokens"] = self._cap_context_max_new_tokens(
+            inputs["inputs_embeds"].shape[-2], gen_kwargs["max_new_tokens"]
+        )
 
         thread = Thread(target=self._model.llm.generate, kwargs=gen_kwargs)
         thread.start()

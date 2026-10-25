@@ -1,0 +1,104 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:5
+msgid "Example: LangChain Streamlit Doc Chat📄"
+msgstr "예시: LangChain Streamlit 문서 채팅 📄"
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:7
+msgid "**Description**:"
+msgstr "**설명**:"
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:9
+msgid ""
+"This Streamlit-based application demonstrates a AI chatbot powered by local "
+"LLM and embedding models"
+msgstr "이 Streamlit 기반 애플리케이션은 로컬 LLM 및 임베딩 모델로 구동되는 AI 챗봇을 시연합니다."
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:11
+msgid "**Used Technology**:"
+msgstr "**관련 기술**:"
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:13
+msgid ""
+"@ `Xinference <https://github.com/xorbitsai/inference>`_: as the LLM and "
+"embedding model hosting service"
+msgstr ""
+"@ `Xinference <https://github.com/xorbitsai/inference>`_: LLM 및 embedding 모델"
+" 호스팅 서비스"
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:15
+msgid ""
+"@ `LangChain <https://github.com/run-llama/llama_index>`_: orchestrates the "
+"entire document processing and query answering pipeline"
+msgstr ""
+"@ `LangChain <https://github.com/run-llama/llama_index>`_：전체 문서 처리 및 질의 응답 "
+"파이프라인을 오케스트레이션합니다."
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:17
+msgid "@ `Streamlit <https://streamlit.io/>`_: for interactive user interface"
+msgstr "@ `Streamlit <https://streamlit.io/>`_：대화형 사용자 인터페이스에 사용됨"
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:19
+msgid "**Detailed Explanation on the Demo Functionality** :"
+msgstr "**데모 기능에 대한 상세 설명**:"
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:21
+msgid "Streamlit UI for uploading text files, enhancing user interaction."
+msgstr "Streamlit 사용자 인터페이스, 텍스트 파일 업로드 지원, 사용자 상호작용 향상."
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:23
+msgid ""
+"Texts are split into chunks and embedded using Xinference for efficient "
+"processing."
+msgstr "텍스트가 청크로 분할되고, Xinference를 사용하여 embed 작업을 수행함으로써 효율적인 처리를 실현합니다."
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:25
+msgid ""
+"Executes similarity searches on embedded texts to pinpoint relevant sections"
+" for user queries."
+msgstr "임베딩된 텍스트에 대해 유사성 검색을 수행하여 사용자 쿼리의 관련 부분을 정확히 식별합니다."
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:27
+msgid "Utilizes a structured prompt template for focused LLM interactions."
+msgstr "구조화된 프롬프트 템플릿을 사용하여 LLM 모델과 상호작용합니다."
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:29
+msgid ""
+"Xinference's LLM processes queries within the context of relevant document "
+"parts, providing accurate responses."
+msgstr "Xinference의 LLM은 관련 문서 부분의 맥락에서 쿼리를 처리하여 정확한 응답을 제공합니다."
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:31
+msgid ""
+"The system facilitates effective and context-sensitive document exploration,"
+" aiding users in information retrieval."
+msgstr "이 시스템은 효과적이고 맥락에 민감한 문서 검색을 구현하여 사용자가 효율적으로 정보를 검색할 수 있도록 지원합니다."
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:33
+msgid "**Source Code** :"
+msgstr "**소스 코드**"
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:34
+msgid ""
+"`LangChain Streamlit Doc Chat "
+"<https://github.com/xorbitsai/inference/blob/main/examples/LangChain_Streamlit_Doc_Chat.py>`_"
+msgstr ""

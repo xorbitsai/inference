@@ -1,0 +1,245 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-25 03:59+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/multimodal.rst:5
+msgid "Multimodal"
+msgstr "멀티모달"
+
+#: ../../source/models/model_abilities/multimodal.rst:7
+msgid "Learn how to process images and audio with LLMs."
+msgstr "LLM을 사용하여 이미지와 오디오를 처리하는 방법을 학습합니다."
+
+#: ../../source/models/model_abilities/multimodal.rst:11
+msgid "Vision"
+msgstr "시각"
+
+#: ../../source/models/model_abilities/multimodal.rst:13
+msgid ""
+"With the ``vision`` ability you can have your model take in images and "
+"answer questions about them. Within Xinference, this indicates that certain "
+"models are capable of processing image inputs when conducting dialogues via "
+"the Chat API."
+msgstr ""
+"``vision`` 기능을 통해 모델이 이미지를 입력받고 이에 대한 질문에 답변하도록 할 수 있습니다. Xinference에서는 이는 "
+"특정 모델이 Chat API를 통해 대화할 때 이미지 입력을 처리할 수 있음을 의미합니다."
+
+#: ../../source/models/model_abilities/multimodal.rst:19
+#: ../../source/models/model_abilities/multimodal.rst:190
+msgid "Supported models"
+msgstr "지원되는 모델 목록"
+
+#: ../../source/models/model_abilities/multimodal.rst:21
+msgid ""
+"The ``vision`` ability is supported with the following models in Xinference:"
+msgstr "Xinference에서 ``vision`` 기능을 지원하는 모델은 다음과 같습니다:"
+
+#: ../../source/models/model_abilities/multimodal.rst:23
+msgid ":ref:`qwen-vl-chat <models_llm_qwen-vl-chat>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:24
+msgid ":ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:25
+msgid ":ref:`omnilmm <models_llm_omnilmm>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:26
+msgid ":ref:`cogvlm2 <models_llm_cogvlm2>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:27
+msgid ":ref:`MiniCPM-Llama3-V 2.5 <models_llm_minicpm-llama3-v-2_5>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:28
+msgid ":ref:`GLM-4V <models_llm_glm-4v>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:29
+msgid ":ref:`MiniCPM-Llama3-V 2.6 <models_llm_minicpm-v-2.6>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:30
+msgid ":ref:`qwen2-vl-instruct <models_llm_qwen2-vl-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:31
+msgid ":ref:`llama-3.2-vision <models_llm_llama-3.2-vision>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:32
+msgid ""
+":ref:`llama-3.2-vision-instruct <models_llm_llama-3.2-vision-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:33
+msgid ":ref:`glm-edge-v <models_llm_glm-edge-v>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:34
+msgid ":ref:`qwen2.5-vl-instruct <models_llm_qwen2.5-vl-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:35
+msgid ":ref:`gemma-3-it <models_llm_gemma-3-it>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:36
+msgid ":ref:`deepseek-vl2 <models_llm_deepseek-vl2>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:37
+msgid ":ref:`internvl3 <models_llm_internvl3>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:41
+#: ../../source/models/model_abilities/multimodal.rst:197
+msgid "Quickstart"
+msgstr "빠른 시작"
+
+#: ../../source/models/model_abilities/multimodal.rst:43
+msgid ""
+"Images are made available to the model in two main ways: by passing a link "
+"to the image or by passing the base64 encoded image directly in the request."
+msgstr ""
+"모델은 두 가지 주요 방식으로 이미지를 가져올 수 있습니다: 이미지 링크를 전달하거나 요청에 base64로 인코딩된 이미지를 직접 "
+"전달하는 방식입니다."
+
+#: ../../source/models/model_abilities/multimodal.rst:47
+msgid "Example using OpenAI Client"
+msgstr "OpenAI 클라이언트 사용 예시"
+
+#: ../../source/models/model_abilities/multimodal.rst:78
+msgid "Uploading base 64 encoded images"
+msgstr "Base64로 인코딩된 이미지 업로드"
+
+#: ../../source/models/model_abilities/multimodal.rst:121
+msgid "Limiting Images Per Prompt"
+msgstr "각 대화 턴에서 이미지 수 제한"
+
+#: ../../source/models/model_abilities/multimodal.rst:123
+msgid ""
+"For vision models using the VLLM backend, you can use the "
+"``limit_mm_per_prompt`` parameter to limit the number of images that can be "
+"processed in each conversation turn. This helps control memory usage and "
+"improve performance."
+msgstr ""
+"VLLM 백엔드를 사용하는 비전 모델의 경우, ``limit_mm_per_prompt`` 매개변수를 통해 각 대화에서 처리할 수 있는 "
+"이미지 수를 제한할 수 있습니다. 이는 메모리 사용을 제어하고 성능을 향상시키는 데 도움이 됩니다."
+
+#: ../../source/models/model_abilities/multimodal.rst:142
+msgid "Alternatively, you can launch the model using the command line:"
+msgstr "또는 명령줄을 사용하여 모델을 시작할 수 있습니다:"
+
+#: ../../source/models/model_abilities/multimodal.rst:155
+msgid ""
+"For Web UI, you can set the ``limit_mm_per_prompt`` parameter in the launch "
+"form:"
+msgstr "Web UI의 경우, vLLM 엔진 양식에서 ``limit_mm_per_prompt`` 매개변수를 설정할 수 있습니다:"
+
+#: ../../source/models/model_abilities/multimodal.rst:161
+msgid "This parameter provides the following benefits:"
+msgstr "이 매개변수는 다음과 같은 이점을 제공합니다:"
+
+#: ../../source/models/model_abilities/multimodal.rst:163
+msgid ""
+"**image**: Sets the maximum number of images allowed per conversation turn"
+msgstr "**image**: 각 대화 라운드에서 허용되는 최대 이미지 수를 설정합니다"
+
+#: ../../source/models/model_abilities/multimodal.rst:164
+msgid ""
+"Helps prevent memory overflow, especially when processing multiple images"
+msgstr "메모리 오버플로를 방지하는 데 도움이 되며, 특히 여러 이미지를 처리할 때 유용합니다."
+
+#: ../../source/models/model_abilities/multimodal.rst:165
+msgid "Improves model inference stability and performance"
+msgstr "모델 추론의 안정성과 성능 향상"
+
+#: ../../source/models/model_abilities/multimodal.rst:166
+msgid "Applies to all VLLM-based vision models"
+msgstr "VLLM 기반의 모든 비전 모델에 적용됩니다."
+
+#: ../../source/models/model_abilities/multimodal.rst:169
+msgid ""
+"The ``limit_mm_per_prompt`` parameter only takes effect when using the VLLM "
+"backend. If your model uses other backends, this parameter will be ignored."
+msgstr ""
+"``limit_mm_per_prompt`` 매개변수는 VLLM 백엔드를 사용할 때만 적용됩니다. 모델이 다른 백엔드를 사용하는 경우 이 "
+"매개변수는 무시됩니다."
+
+#: ../../source/models/model_abilities/multimodal.rst:171
+msgid ""
+"You can find more examples of ``vision`` ability in the tutorial notebook:"
+msgstr "튜토리얼 노트북에서 ``vision`` 능력에 대한 더 많은 예제를 찾을 수 있습니다."
+
+#: ../../source/models/model_abilities/multimodal.rst:175
+msgid "Qwen VL Chat"
+msgstr "Qwen VL Chat"
+
+#: ../../source/models/model_abilities/multimodal.rst:178
+msgid "Learn vision ability from a example using qwen-vl-chat"
+msgstr "qwen-vl-chat의 예시를 사용하여 LLM의 시각적 능력을 학습하는 방법"
+
+#: ../../source/models/model_abilities/multimodal.rst:182
+msgid "Audio"
+msgstr "음성"
+
+#: ../../source/models/model_abilities/multimodal.rst:184
+msgid ""
+"With the ``audio`` ability you can have your model take in audio and "
+"performing audio analysis or direct textual responses with regard to speech "
+"instructions. Within Xinference, this indicates that certain models are "
+"capable of processing audio inputs when conducting dialogues via the Chat "
+"API."
+msgstr ""
+"\"오디오\" 기능을 통해 모델은 오디오를 수신하여 오디오 분석을 수행하거나 음성 명령에 따라 직접 텍스트 응답을 생성할 수 있습니다. "
+"Xinference에서 이는 일부 모델이 Chat API를 통해 대화할 때 오디오 입력을 처리할 수 있음을 의미합니다."
+
+#: ../../source/models/model_abilities/multimodal.rst:192
+msgid ""
+"The ``audio`` ability is supported with the following models in Xinference:"
+msgstr "Xinference에서 \"오디오\" 기능은 다음 모델을 지원합니다:"
+
+#: ../../source/models/model_abilities/multimodal.rst:194
+msgid ":ref:`qwen2-audio-instruct <models_llm_qwen2-audio-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:199
+msgid ""
+"Audios are made available to the model in two main ways: by passing a link "
+"to the image or by passing the audio url directly in the request."
+msgstr ""
+"오디오는 모델에 두 가지 주요 방식으로 제공될 수 있습니다: 이미지 링크를 전달하거나 요청에 오디오 URL을 직접 전달하는 방식입니다."
+
+#: ../../source/models/model_abilities/multimodal.rst:204
+msgid "Chat with audio"
+msgstr "오디오가 포함된 채팅"
+
+#~ msgid ":ref:`yi-vl-chat <models_llm_yi-vl-chat>`"
+#~ msgstr ""
+
+#~ msgid ":ref:`internvl-chat <models_llm_internvl-chat>`"
+#~ msgstr ""
+
+#~ msgid ":ref:`internvl2 <models_llm_internvl2>`"
+#~ msgstr ""

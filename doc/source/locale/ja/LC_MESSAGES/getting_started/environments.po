@@ -1,0 +1,546 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version:  Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/environments.rst:5
+msgid "Environments Variables"
+msgstr "環境変数"
+
+#: ../../source/getting_started/environments.rst:8
+msgid "XINFERENCE_ENDPOINT"
+msgstr "XINFERENCE_ENDPOINT"
+
+#: ../../source/getting_started/environments.rst:9
+msgid ""
+"Endpoint of Xinference, used to connect to Xinference service. Default "
+"value is http://127.0.0.1:9997 , you can get it through logs."
+msgstr "Xinferenceのサービスアドレス。Xinferenceとの接続に使用します。デフォルトのアドレスはhttp://127.0.0.1:9997で、ログからこのアドレスを取得できます。"
+
+#: ../../source/getting_started/environments.rst:13
+msgid "XINFERENCE_MODEL_SRC"
+msgstr "XINFERENCE_MODEL_SRC"
+
+#: ../../source/getting_started/environments.rst:14
+msgid ""
+"Modelhub used for downloading models. Default is \"huggingface\", or you "
+"can set \"modelscope\" as downloading source."
+msgstr ""
+"モデルのダウンロードリポジトリを設定します。デフォルトのダウンロードソースは \"huggingface\" で、\"modelscope\" "
+"をダウンロードソースとして設定することもできます。"
+
+#: ../../source/getting_started/environments.rst:20
+msgid "XINFERENCE_HOME"
+msgstr "XINFERENCE_HOME"
+
+#: ../../source/getting_started/environments.rst:21
+msgid ""
+"By default, Xinference uses ``<HOME>/.xinference`` as home path to store "
+"necessary files such as logs and models, where ``<HOME>`` is the home "
+"path of current user. You can change this directory by configuring this "
+"environment variable."
+msgstr ""
+"Xinferenceはデフォルトで ``<HOME>/.xinference`` "
+"をモデルやログなどの必要なファイルを保存するデフォルトディレクトリとして使用します。ここで ``<HOME>`` "
+"は現在のユーザーのホームディレクトリです。この環境変数を設定することで、デフォルトディレクトリを変更できます。"
+
+#: ../../source/getting_started/environments.rst:27
+msgid "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
+msgstr "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
+
+#: ../../source/getting_started/environments.rst:28
+msgid ""
+"The maximum number of failed health checks tolerated at Xinference "
+"startup. Default value is 5."
+msgstr "Xinference起動時に許可される最大ヘルスチェック失敗回数。デフォルト値は5です。"
+
+#: ../../source/getting_started/environments.rst:32
+msgid "XINFERENCE_HEALTH_CHECK_INTERVAL"
+msgstr "XINFERENCE_HEALTH_CHECK_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:33
+msgid "Health check interval (seconds) at Xinference startup. Default value is 5."
+msgstr "Xinference起動時のヘルスチェック間隔（秒）。デフォルト値は5です。"
+
+#: ../../source/getting_started/environments.rst:37
+msgid "XINFERENCE_HEALTH_CHECK_TIMEOUT"
+msgstr "XINFERENCE_HEALTH_CHECK_TIMEOUT"
+
+#: ../../source/getting_started/environments.rst:38
+msgid "Health check timeout (seconds) at Xinference startup. Default value is 10."
+msgstr "Xinference起動時のヘルスチェックタイムアウト時間（秒）。デフォルト値は10。"
+
+#: ../../source/getting_started/environments.rst:42
+msgid "XINFERENCE_DISABLE_HEALTH_CHECK"
+msgstr "XINFERENCE_DISABLE_HEALTH_CHECK"
+
+#: ../../source/getting_started/environments.rst:43
+msgid ""
+"Xinference will automatically report health check at Xinference startup. "
+"Setting this environment to 1 can disable health check."
+msgstr "条件を満たす場合、Xinference は自動的にワーカーの健全性を報告します。この環境変数を 1 に設定すると、健全性チェックを無効にできます。"
+
+#: ../../source/getting_started/environments.rst:47
+msgid "XINFERENCE_DISABLE_METRICS"
+msgstr "XINFERENCE_DISABLE_METRICS"
+
+#: ../../source/getting_started/environments.rst:48
+msgid ""
+"Xinference will by default enable the metrics exporter on the supervisor "
+"and worker. Setting this environment to 1 will disable the /metrics "
+"endpoint on the supervisor and the HTTP service (only provide the "
+"/metrics endpoint) on the worker."
+msgstr ""
+"Xinference はデフォルトで supervisor と worker に metrics exporter を有効化します。環境変数を 1"
+" に設定すると、supervisor で /metrics エンドポイントが無効化され、worker で HTTP サービス（/metrics "
+"エンドポイントのみ提供）が無効化されます。"
+
+#: ../../source/getting_started/environments.rst:53
+msgid "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+msgstr "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+
+#: ../../source/getting_started/environments.rst:54
+msgid "Maximum download retry attempts for model files. Default value is 3."
+msgstr "モデルファイルの最大ダウンロードリトライ回数。デフォルト値は3です。"
+
+#: ../../source/getting_started/environments.rst:73
+msgid "XINFERENCE_LLMMAN_BIN"
+msgstr "XINFERENCE_LLMMAN_BIN"
+
+#: ../../source/getting_started/environments.rst:74
+msgid "Path to the ``llmman`` executable used to resolve ``oci://`` model URIs. Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an ``llmman serve`` daemon that is not on ``127.0.0.1:17434``."
+msgstr "``oci://`` モデル URI の解決に使用する ``llmman`` 実行ファイルのパス。既定では ``PATH`` 上の ``llmman`` です。``127.0.0.1:17434`` 以外で動作する ``llmman serve`` デーモンに接続する場合は ``LLMMAN_HOST`` を設定してください。"
+
+#: ../../source/getting_started/environments.rst:63
+msgid "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
+msgstr "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
+
+#: ../../source/getting_started/environments.rst:64
+msgid ""
+"Server-Sent Events keepalive ping interval (seconds). Default value is "
+"600."
+msgstr "サーバー送信イベントのキープアライブping間隔（秒）。デフォルト値は600です。"
+
+#: ../../source/getting_started/environments.rst:68
+msgid "XINFERENCE_MAX_TOKENS"
+msgstr "XINFERENCE_MAX_TOKENS"
+
+#: ../../source/getting_started/environments.rst:69
+msgid "Global max tokens limit override for requests. Default is unset."
+msgstr "リクエストのグローバル最大トークン制限を上書きします。デフォルト値は未設定です。"
+
+#: ../../source/getting_started/environments.rst:72
+msgid "XINFERENCE_ALLOWED_IPS"
+msgstr "XINFERENCE_ALLOWED_IPS"
+
+#: ../../source/getting_started/environments.rst:73
+msgid ""
+"Restrict access to specified IPs or CIDR blocks. Default is unset (no "
+"restriction)."
+msgstr "特定のIPアドレスまたはCIDRアドレスブロックへのアクセスを制限します。デフォルトでは設定されていません（無制限）。"
+
+#: ../../source/getting_started/environments.rst:76
+msgid "XINFERENCE_BATCH_SIZE"
+msgstr "XINFERENCE_BATCH_SIZE"
+
+#: ../../source/getting_started/environments.rst:77
+msgid ""
+"Default batch size used by the server when batching is enabled. Default "
+"value is 32."
+msgstr "バッチ処理が有効な場合、サーバーが使用するデフォルトのバッチサイズです。デフォルト値は32です。"
+
+#: ../../source/getting_started/environments.rst:81
+msgid "XINFERENCE_BATCH_INTERVAL"
+msgstr "XINFERENCE_BATCH_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:82
+msgid "Default batching interval (seconds). Default value is 0.003."
+msgstr "デフォルトのバッチ処理間隔（秒）。デフォルト値は0.003。"
+
+#: ../../source/getting_started/environments.rst:86
+msgid "XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU"
+msgstr "XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU"
+
+#: ../../source/getting_started/environments.rst:87
+msgid ""
+"Whether to allow multiple replicas on a single GPU. Default value is 1 "
+"(enabled)."
+msgstr "単一のGPU上に複数のレプリカを作成することを許可するかどうか。デフォルト値は1（有効）。"
+
+#: ../../source/getting_started/environments.rst:91
+msgid "XINFERENCE_LAUNCH_STRATEGY"
+msgstr "XINFERENCE_LAUNCH_STRATEGY"
+
+#: ../../source/getting_started/environments.rst:92
+msgid ""
+"GPU allocation strategy for replicas. Default is "
+"``IDLE_FIRST_LAUNCH_STRATEGY``."
+msgstr "レプリカのGPU割り当て戦略。デフォルト値は ``IDLE_FIRST_LAUNCH_STRATEGY`` です。"
+
+#: ../../source/getting_started/environments.rst:95
+msgid "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
+msgstr "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
+
+#: ../../source/getting_started/environments.rst:96
+msgid ""
+"Maximum number of model launches that can proceed concurrently on a "
+"single worker node. When more replicas are launched than this limit, "
+"excess launches queue and proceed as slots free up. This prevents "
+"resource exhaustion (fork storms, disk IO saturation, GPU memory "
+"contention) that can cause heartbeat timeouts. Default value is 5."
+msgstr ""
+"単一のワーカーノード上で同時に実行できるモデル起動処理の最大数です。この上限を超える数のレプリカが起動された場合、超過分の起動処理はキューに入り、空きができ次第順次実行されます。これにより、ハートビートのタイムアウトを引き起こす可能性のあるリソース枯渇（fork"
+" ストーム、ディスク I/O の飽和、GPU メモリの競合）を防ぎます。デフォルト値は 5 です。"
+
+#: ../../source/getting_started/environments.rst:103
+msgid "XINFERENCE_ENABLE_VIRTUAL_ENV"
+msgstr "XINFERENCE_ENABLE_VIRTUAL_ENV"
+
+#: ../../source/getting_started/environments.rst:104
+msgid ""
+"Enable model virtual environments globally. Default value is 1 (enabled, "
+"starting from v2.0)."
+msgstr "モデル仮想環境をグローバルに有効にします。デフォルト値は1です（有効、v2.0から有効）。"
+
+#: ../../source/getting_started/environments.rst:108
+msgid "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
+msgstr "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
+
+#: ../../source/getting_started/environments.rst:109
+msgid ""
+"Skip packages already present in system site-packages when creating "
+"virtual environments. Default value is 1."
+msgstr "仮想環境作成時に、システムのsite-packagesに既に存在するパッケージをスキップします。デフォルト値は1です。"
+
+#: ../../source/getting_started/environments.rst:113
+msgid "XINFERENCE_CSG_TOKEN"
+msgstr "XINFERENCE_CSG_TOKEN"
+
+#: ../../source/getting_started/environments.rst:114
+msgid "Authentication token for CSGHub model source. Default is unset."
+msgstr "CSGHubモデルソースの認証トークン。デフォルト値は未設定です。"
+
+#: ../../source/getting_started/environments.rst:118
+msgid "XINFERENCE_CSG_ENDPOINT"
+msgstr "XINFERENCE_CSG_ENDPOINT"
+
+#: ../../source/getting_started/environments.rst:119
+msgid ""
+"CSGHub endpoint for model source. Default value is ``https://hub-"
+"stg.opencsg.com/``."
+msgstr "CSGHub モデルソースエンドポイント。デフォルト値は ``https://hub-stg.opencsg.com/`` です。"
+
+#: ../../source/getting_started/environments.rst:123
+msgid "XINFERENCE_QWEN3_RERANK_TEMPLATE"
+msgstr "XINFERENCE_QWEN3_RERANK_TEMPLATE"
+
+#: ../../source/getting_started/environments.rst:124
+msgid ""
+"Enable template for Qwen3 rerank model family (0.6B, 4B, 8B,etc) "
+"globally. Default value is 1."
+msgstr "Qwen3 リランクモデルファミリー（0.6B、4B、8B など）のテンプレートをグローバルに有効にします。デフォルト値は 1 です。"
+
+#: ../../source/getting_started/environments.rst:128
+msgid "XINFERENCE_LAUNCH_HISTORY_DB_PATH"
+msgstr "XINFERENCE_LAUNCH_HISTORY_DB_PATH"
+
+#: ../../source/getting_started/environments.rst:129
+msgid ""
+"Path to the SQLite database that stores the model launch configuration "
+"history shown in the \"Launch Model\" drawer of the Web UI. This store is"
+" shared across all clients so the history is available from any browser "
+"or machine, and it is independent of the authentication database. When "
+"authentication is enabled, each record keeps the creator's username "
+"(``created_by``). Default value is "
+"``<XINFERENCE_HOME>/launch_history.db``."
+msgstr ""
+"Web UI の「Launch Model」ドロワーに表示されるモデル起動設定履歴を保存する SQLite "
+"データベースのパスです。このストアはすべてのクライアント間で共有されるため、任意のブラウザやマシンから履歴を参照でき、認証データベースからは独立しています。認証が有効な場合、各レコードには作成者のユーザー名（``created_by``）が保持されます。デフォルト値は"
+" ``<XINFERENCE_HOME>/launch_history.db`` です。"
+
+#: ../../source/getting_started/environments.rst:137
+msgid "XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"
+msgstr "XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"
+
+#: ../../source/getting_started/environments.rst:138
+msgid ""
+"Maximum number of times a crashed model actor is automatically recovered."
+" Default is unset (no limit)."
+msgstr "クラッシュしたモデルアクターが自動的に復旧される最大回数です。デフォルトは未設定（無制限）です。"
+
+#: ../../source/getting_started/environments.rst:142
+msgid "XINFERENCE_FRONTEND_DIST_DIR"
+msgstr "XINFERENCE_FRONTEND_DIST_DIR"
+
+#: ../../source/getting_started/environments.rst:143
+msgid ""
+"Path to a static export of the web UI to serve instead of the one bundled"
+" with the package. Default is unset (serve the bundled Next.js export)."
+msgstr ""
+"パッケージに同梱されたものの代わりに配信する Web UI の静的エクスポートのパスです。デフォルトは未設定（同梱の Next.js "
+"エクスポートを配信）です。"
+
+#: ../../source/getting_started/environments.rst:146
+msgid ""
+"Replaces the removed ``XINFERENCE_FRONTEND_ENDPOINT`` variable; the web "
+"UI is now served by the Xinference server itself."
+msgstr ""
+"削除された ``XINFERENCE_FRONTEND_ENDPOINT`` 変数を置き換えるものであり、Web UI は現在 "
+"Xinference サーバー自体によって配信されます。"
+
+#: ../../source/getting_started/environments.rst:151
+msgid "XINFERENCE_AUTH_ADVANCED"
+msgstr "XINFERENCE_AUTH_ADVANCED"
+
+#: ../../source/getting_started/environments.rst:152
+msgid ""
+"Enable the database-backed authentication system. Default value is 1 "
+"(enabled, starting from v3.0). Set to ``0`` / ``false`` / ``no`` to run "
+"Xinference without any authentication. See :ref:`user_guide_auth_system`."
+msgstr ""
+"データベースを用いた認証システムを有効にします。デフォルト値は 1（v3.0 以降、有効）です。 ``0`` / ``false`` / "
+"``no`` に設定すると、認証なしで Xinference を実行できます。詳細は :ref:`user_guide_auth_system` "
+"を参照してください。"
+
+#: ../../source/getting_started/environments.rst:158
+msgid "XINFERENCE_AUTH_DB_PATH"
+msgstr "XINFERENCE_AUTH_DB_PATH"
+
+#: ../../source/getting_started/environments.rst:159
+msgid ""
+"Path to the SQLite database that stores users, permissions, API keys, and"
+" refresh tokens. Default value is ``<XINFERENCE_HOME>/auth/auth.db``."
+msgstr ""
+"ユーザー、権限、API キー、リフレッシュトークンを保存する SQLite データベースのパスです。デフォルト値は "
+"``<XINFERENCE_HOME>/auth/auth.db`` です。"
+
+#: ../../source/getting_started/environments.rst:163
+msgid "XINFERENCE_AUTH_JWT_SECRET_KEY"
+msgstr "XINFERENCE_AUTH_JWT_SECRET_KEY"
+
+#: ../../source/getting_started/environments.rst:164
+msgid ""
+"JWT signing secret for the authentication system. If unset, a secret is "
+"auto-generated and persisted at ``<XINFERENCE_HOME>/auth/jwt_secret_key``"
+" on first run."
+msgstr ""
+"認証システム用の JWT 署名シークレットです。未設定の場合、初回実行時にシークレットが自動生成され、 "
+"``<XINFERENCE_HOME>/auth/jwt_secret_key`` に保存されます。"
+
+#: ../../source/getting_started/environments.rst:169
+msgid "XINFERENCE_AUTH_ENCRYPTION_KEY"
+msgstr "XINFERENCE_AUTH_ENCRYPTION_KEY"
+
+#: ../../source/getting_started/environments.rst:170
+msgid ""
+"Key used to encrypt stored API keys at rest. If unset, a key is auto-"
+"generated and persisted at ``<XINFERENCE_HOME>/auth/encryption_key`` on "
+"first run."
+msgstr ""
+"保存された API キーを暗号化するために使用される鍵です。未設定の場合、初回実行時に鍵が自動生成され、 "
+"``<XINFERENCE_HOME>/auth/encryption_key`` に保存されます。"
+
+#: ../../source/getting_started/environments.rst:175
+msgid "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"
+msgstr "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"
+
+#: ../../source/getting_started/environments.rst:176
+msgid ""
+"Lifetime (minutes) of access tokens issued by the authentication system. "
+"Default value is 30."
+msgstr "認証システムが発行するアクセストークンの有効期間（分）です。デフォルト値は 30 です。"
+
+#: ../../source/getting_started/environments.rst:180
+msgid "XINFERENCE_OIDC_ENABLED"
+msgstr "XINFERENCE_OIDC_ENABLED"
+
+#: ../../source/getting_started/environments.rst:181
+msgid ""
+"Enable OIDC single sign-on (e.g. Keycloak). Default value is 0 "
+"(disabled). When enabled, ``XINFERENCE_OIDC_ISSUER``, "
+"``XINFERENCE_OIDC_CLIENT_ID``, ``XINFERENCE_OIDC_CLIENT_SECRET``, and "
+"``XINFERENCE_OIDC_REDIRECT_URI`` are required. See "
+":ref:`user_guide_oidc`."
+msgstr ""
+"OIDC シングルサインオン（Keycloak など）を有効にします。デフォルト値は 0（無効）です。有効にする場合は "
+"``XINFERENCE_OIDC_ISSUER``、 ``XINFERENCE_OIDC_CLIENT_ID``、 "
+"``XINFERENCE_OIDC_CLIENT_SECRET``、 ``XINFERENCE_OIDC_REDIRECT_URI`` "
+"が必須です。詳細は :ref:`user_guide_oidc` を参照してください。"
+
+#: ../../source/getting_started/environments.rst:187
+msgid "XINFERENCE_AUDIT_LOG_RETENTION_DAYS"
+msgstr "XINFERENCE_AUDIT_LOG_RETENTION_DAYS"
+
+#: ../../source/getting_started/environments.rst:188
+msgid ""
+"Number of days audit log files are retained. Default value is 90. See "
+":ref:`user_guide_audit_security`."
+msgstr ""
+"監査ログファイルが保持される日数です。デフォルト値は 90 です。詳細は :ref:`user_guide_audit_security` "
+"を参照してください。"
+
+#: ../../source/getting_started/environments.rst:56
+msgid "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+
+#: ../../source/getting_started/environments.rst:58
+msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
+msgstr "収集が失敗またはスキップされて worker がフィールドを省略した場合に、Supervisor が保持するモデル別 GPU メモリの最後の有効なスナップショットの最大経過時間（秒）です。明示的な空のスナップショットは、引き続きキャッシュを直ちに消去します。デフォルト値は 90 です。"
+
+#: ../../source/getting_started/environments.rst:233
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+
+#: ../../source/getting_started/environments.rst:234
+msgid "Initial delay in seconds between Router Agent bootstrap retries. The delay uses exponential backoff with jitter. Default value is 1."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:238
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+
+#: ../../source/getting_started/environments.rst:239
+msgid "Maximum delay in seconds between Router Agent bootstrap retries. Default value is 15 and must not be lower than the initial delay."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:243
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+
+#: ../../source/getting_started/environments.rst:244
+msgid "Total deadline in seconds for Router Agent startup registration and initial synchronization retries. Default value is 120."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:15
+msgid "XOSCAR_AUTH_KEY"
+msgstr "XOSCAR_AUTH_KEY"
+
+#: ../../source/getting_started/environments.rst:16
+msgid ""
+"Shared secret for Xoscar actor transport authentication, supported by Xoscar"
+" 0.12.0 and later. Unset or empty keeps the legacy unauthenticated "
+"transport; upgrading alone does not enable protection. HTTP API "
+"authentication does not protect actor ports. See the `security advisory "
+"<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_."
+msgstr ""
+"Xoscar actor 通信の認証用共有シークレットです。Xoscar 0.12.0 "
+"以降で利用できます。未設定または空の場合は従来の未認証通信が使用され、アップグレードだけでは保護は有効になりません。HTTP API 認証は actor"
+" ポートを保護しません。`セキュリティアドバイザリ "
+"<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_ を参照してください。"
+
+#: ../../source/getting_started/environments.rst:22
+msgid ""
+"Generate one random secret per deployment with the following command. "
+"Distribute the same value through your secret-management system before "
+"starting ``xinference-local``, ``xinference-supervisor``, every "
+"``xinference-worker``, and any direct Xoscar actor clients. Child processes,"
+" including model virtual environments, inherit the variable. HTTP clients do"
+" not need this secret."
+msgstr ""
+"次のコマンドでデプロイごとにランダムなシークレットを一つ生成します。``xinference-local``、``xinference-"
+"supervisor``、すべての ``xinference-worker``、および Xoscar actor "
+"に直接接続するクライアントを起動する前に、シークレット管理システムで同じ値を配布してください。モデルの仮想環境を含む子プロセスはこの変数を継承します。HTTP"
+" クライアントにこのシークレットは不要です。"
+
+#: ../../source/getting_started/environments.rst:33
+msgid ""
+"Upgrade all actor peers to Xoscar 0.12.0 or later before enabling the key, "
+"then coordinate a restart with the same key on every peer. Keyed and unkeyed"
+" peers cannot communicate; there is no automatic downgrade or mixed-mode "
+"rolling upgrade. Key rotation also requires a coordinated restart. For "
+"``docker run``, pass the exported variable with ``-e XOSCAR_AUTH_KEY``; for "
+"Kubernetes, inject the same Secret into each server container's environment."
+msgstr ""
+"キーを有効にする前にすべての actor 通信相手を Xoscar 0.12.0 "
+"以降に更新し、全ノードに同じキーを設定して協調的に再起動してください。キー設定済みと未設定のノードは通信できず、自動ダウングレードや混在モードでのローリング更新はできません。キーのローテーションにも協調的な再起動が必要です。``docker"
+" run`` では ``-e XOSCAR_AUTH_KEY`` でエクスポート済み変数を渡し、Kubernetes では各サーバーコンテナの環境に同じ"
+" Secret を注入してください。"
+
+#: ../../source/getting_started/environments.rst:40
+msgid ""
+"Socket and UCX messages are authenticated before deserialization. Anyone "
+"holding the key is a trusted peer with Python execution privileges. "
+"Deployment administrators must restrict actor ports to intended cluster "
+"peers. Authentication does not encrypt traffic or prevent replay; "
+"authenticated GPU transfers stage device buffers in host memory for hashing "
+"and add CPU and host-memory overhead."
+msgstr ""
+"Socket と UCX のメッセージはデシリアライズ前に認証されます。キーの保有者は Python "
+"コードの実行権限を持つ信頼済みの通信相手です。デプロイ管理者は actor "
+"ポートへのアクセスを想定したクラスターノードに制限してください。認証は通信の暗号化やリプレイ防止を提供しません。認証付き GPU "
+"転送はハッシュ計算のためにデバイスバッファーをホストメモリーにステージングし、CPU とホストメモリーの負荷が増加します。"
+
+#: ../../source/getting_started/environments.rst:155
+msgid "For text-only ``sentence_transformers`` models, the engine may group similar character lengths to reduce padding while preserving response order. The internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE`` controls input merging by the server."
+msgstr "テキスト専用の ``sentence_transformers`` モデルでは、応答の順序を維持しながら、文字数が近い入力をグループ化してパディングを減らすことがあります。内部の ``encode()`` の ``batch_size`` がこれらのグループのサイズを制限し、``XINFERENCE_BATCH_SIZE`` はサーバー側での入力の結合を制御します。"
+
+#: ../../source/getting_started/environments.rst:164
+msgid "XINFERENCE_EMBEDDING_GC_INTERVAL"
+msgstr "XINFERENCE_EMBEDDING_GC_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:166
+msgid "Minimum interval (seconds) between full Python garbage collections during embedding cache cleanup. Default is 60. The first cleanup collects immediately. Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged."
+msgstr "埋め込みキャッシュのクリーンアップ時に Python の完全なガベージコレクションを実行する最小間隔（秒）です。デフォルトは 60 です。最初のクリーンアップでは直ちに実行します。0 に設定すると毎回実行します。GPU キャッシュの解放頻度は変わりません。"
+
+#: ../../source/getting_started/environments.rst:171
+msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
+msgstr "クールダウンはトークン数によって起動されるクリーンアップにも適用されます。Python の循環参照によって保持されるテンソルは、自動 GC または後続の完全なガベージコレクションまでメモリを占有する場合があります。``empty_cache()`` ではこれらを解放できません。クリーンアップのたびに完全な回収が必要なモデルでは、この間隔を 0 に設定してください。"
+
+msgid "Text-only CrossEncoder rerankers may also group pairs by combined query and document character length to reduce padding. The native ``predict()`` ``batch_size`` still limits each forward pass; short pairs stay together."
+msgstr "テキスト専用の CrossEncoder リランカーでは、クエリと文書の合計文字数に基づいて入力ペアをグループ化し、パディングを減らすこともあります。ネイティブの ``predict()`` の ``batch_size`` は引き続き各順伝播のサイズを制限し、短いペアは同じグループに保たれます。"
+
+msgid "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+msgstr "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+
+msgid "Number of completed inference groups between cache releases in the Sentence Transformers and synchronous vLLM rerank engines. Default is 10. A merged group counts once, regardless of how many requests it contains."
+msgstr "Sentence Transformers および同期 vLLM リランクエンジンで、キャッシュの解放間に完了する推論グループ数です。デフォルトは 10 です。結合されたグループは、含まれるリクエスト数にかかわらず 1 回と数えます。"
+
+msgid "XINFERENCE_RERANK_GC_INTERVAL"
+msgstr "XINFERENCE_RERANK_GC_INTERVAL"
+
+msgid "Minimum interval (seconds) between full Python garbage collections during rerank cache cleanup. Default is 60. The first cache cleanup collects immediately. Set to 0 to collect on every cache cleanup. GPU cache release still follows ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``."
+msgstr "リランクキャッシュのクリーンアップ時に Python の完全なガベージコレクションを実行する最小間隔（秒）です。デフォルトは 60 です。最初のキャッシュクリーンアップでは直ちに回収します。0 に設定すると毎回回収します。GPU キャッシュの解放は引き続き ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT`` に従います。"
+
+msgid "Python reference cycles may keep tensors allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that need full collection on every cache cleanup."
+msgstr "Python の循環参照によって、テンソルが自動 GC または後続の完全な回収までメモリを占有する場合があります。``empty_cache()`` ではこれらを解放できません。キャッシュクリーンアップのたびに完全な回収が必要なモデルでは、この間隔を 0 に設定してください。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_TRUST_REMOTE_CODE"
+msgstr "XINFERENCE_TRUST_REMOTE_CODE"
+
+#: ../../source/getting_started/environments.rst
+msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
+msgstr "CosyVoice の設定は読み込み時に Python コードを実行できます。登録済みモデルハブから取得した組み込みモデルは引き続き利用できます。カスタム CosyVoice モデルの読み込みやローカルモデルパスの変更には、ワーカー起動前に ``XINFERENCE_TRUST_REMOTE_CODE=1`` を設定する必要があります。信頼できるモデルソースに対してのみ有効にしてください。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
+msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"
+
+#: ../../source/getting_started/environments.rst
+msgid "LLM auto-registration reads files only under ``XINFERENCE_MODEL_DIR`` and ``XINFERENCE_CACHE_DIR`` by default. Configure additional directories in the server environment with this variable, separated by ``:`` on Unix or ``;`` on Windows. Referenced files and symbolic-link targets must also lie under an allowed directory. For Hugging Face caches, allow the repository root containing both snapshots and blobs."
+msgstr "LLM の自動登録は、既定では ``XINFERENCE_MODEL_DIR`` と ``XINFERENCE_CACHE_DIR`` 内のファイルだけを読み取ります。追加ディレクトリはサーバー環境のこの変数に指定し、Unix では ``:``、Windows では ``;`` で区切ります。参照ファイルとシンボリックリンク先も許可ディレクトリ内にある必要があります。Hugging Face キャッシュでは snapshots と blobs の両方を含むリポジトリのルートを許可してください。"
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_FLEXIBLE_LAUNCHERS"
+msgstr "XINFERENCE_FLEXIBLE_LAUNCHERS"
+
+#: ../../source/getting_started/environments.rst
+msgid "The shipped Flexible launchers remain available. Permit additional launchers by listing their exact dotted names in this comma-separated variable before starting workers. Allowlisted launchers execute Python code with worker privileges; add only trusted implementations."
+msgstr "組み込みの Flexible ランチャーは引き続き利用できます。追加ランチャーを許可するには、ワーカー起動前に完全なドット区切り名をこの変数へカンマ区切りで指定します。許可したランチャーはワーカー権限で Python コードを実行するため、信頼できる実装だけを追加してください。"

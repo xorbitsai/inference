@@ -1,0 +1,2312 @@
+'use client';
+
+import { useCallback, useEffect, useId, useMemo, useState, useRef } from 'react';
+import { Ban, Download, LoaderCircle, Rocket, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+import request from '@/lib/request';
+import { ModelType, ModelAbility } from '@/constants';
+import { ENGINES_WITH_WORKER } from '@/constants/launch';
+import { ModelFormat } from '@/constants/register';
+import { useGlobal } from '@/contexts/global-context';
+import { useI18n } from '@/contexts/i18n-context';
+import { useForm, useFormValues, useWatch } from '@/hooks/use-form';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
+import { cn } from '@/lib/utils';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Form } from '@/components/ui/form';
+import type {
+  ClusterInfoResponse,
+  ModelEngine,
+  ModelEngineItem,
+  ReplicaItem,
+} from '@/types/services';
+import type { FormValues } from '@/types/form';
+import CollapsibleConfig from './advanced-config';
+import ConfigCache from './config-cache';
+import { getLatestModelConfigHistory, saveLaunchConfigHistory } from './launch-history';
+import { replaceLaunchHistoryFormSnapshot, useLaunchHistoryForm } from './use-launch-history-form';
+import type { CatalogModel, LaunchFieldConfig, RequestModelType, WorkerOption } from '../types';
+import {
+  MODEL_ENGINE_TYPES,
+  buildEngineIndex,
+  buildLaunchHistoryValues,
+  createCacheKey,
+  isCachedSpec,
+  normalizeModelSize,
+  range,
+  renderLaunchFields,
+  syncLinkedField,
+  toOptionValue,
+  transformFormToFetch,
+  validateReplicaPlacement,
+  normalizeProgress,
+  normalizeReplicaStatuses,
+  isEmptyLaunchValue,
+  isVisibleRequiredLaunchField,
+  extractWorkerItems,
+  reconcileGpuIndexesForDevice,
+  reconcileWorkerSelectionForDevice,
+  requiresGpuWorkers,
+  GPU_IDX_PATTERN,
+} from '../utils';
+import CommandLine from './command-line';
+import { audioSpecsForEngine } from './audio-quantization';
+import DownloadProgressDetails, { type DownloadProgressFile } from './download-progress-details';
+import ReplicaPlacementConfig from './replica-placement-config';
+import { FormField } from '@/components/ui/form-field';
+import { shouldApplyPreferredDownloadSource } from './download-source-utils.mjs';
+import { recommendationUnavailable, recommendationWarningKeys } from './recommendation';
+import { useRecommendation } from './use-recommendation';
+import ContextLengthField from './context-length-field';
+
+interface LaunchDialogProps {
+  model?: CatalogModel;
+  modelType: RequestModelType;
+  gpuAvailable: number;
+  allowDownloadOnly?: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCacheCompleted?: () => void | Promise<void>;
+}
+
+interface LaunchProgressReplica {
+  replica_id: number;
+  replica_model_uid: string;
+  progress: number;
+  stage: string;
+  info: string | null;
+  updated_at: number | null;
+  download_files: DownloadProgressFile[];
+  dependency_install_completed?: number | null;
+  dependency_install_total?: number | null;
+  dependency_install_plan?: string[] | null;
+  dependency_install_status?: 'performed' | 'skipped' | null;
+}
+
+interface LaunchProgressResponse {
+  progress?: number | string;
+  stage?: string;
+  download_files?: DownloadProgressFile[];
+  replicas?: LaunchProgressReplica[];
+}
+
+interface SystemSettingsResponse {
+  download_source: string;
+}
+
+const DOWNLOAD_TERMINAL_STAGES = new Set(['completed', 'failed', 'cancelled']);
+
+export function getNGpuOptions(
+  modelType: RequestModelType,
+  gpuAvailable: number,
+  supportsRecommendation: boolean
+): Array<string | number> {
+  if ([ModelType.LLM, ModelType.Image].includes(modelType)) {
+    return gpuAvailable > 0 ? ['auto', 'CPU', ...range(1, gpuAvailable)] : ['auto', 'CPU'];
+  }
+  if (supportsRecommendation) {
+    // A zero GPU count does not rule out Metal/MLX on Apple Silicon.
+    return gpuAvailable > 0 ? ['auto', 'GPU', 'CPU'] : ['auto', 'CPU'];
+  }
+  return gpuAvailable > 0 ? ['GPU', 'CPU'] : ['CPU'];
+}
+
+function getLaunchStageKey(stage?: string, status?: string): string {
+  if (stage === 'downloading') return 'launchModel.stageDownloading';
+  if (stage === 'waiting_for_dependencies') return 'launchModel.stageWaitingDependencies';
+  if (stage === 'installing_dependencies') return 'launchModel.stageInstallingDependencies';
+  if (stage === 'loading' || status === 'LOADING') return 'launchModel.stageLoading';
+  return 'launchModel.stagePreparing';
+}
+
+const DOWNLOAD_ONLY_EXCLUDED_FIELDS = new Set([
+  'model_uid',
+  'replica',
+  'replica_config',
+  'replica_placement_mode',
+  'n_gpu',
+  'gpu_idx',
+  'n_gpu_layers',
+  'n_worker',
+  'request_limits',
+  'context_length',
+  'enable_thinking',
+  'reasoning_content',
+  'cpu_offload',
+  'quantization_config',
+  'num_speculative_tokens',
+  'envs',
+  'virtual_env_find_links',
+]);
+
+export default function LaunchDialog({
+  model,
+  modelType,
+  gpuAvailable,
+  allowDownloadOnly = true,
+  onOpenChange,
+  onCacheCompleted,
+}: LaunchDialogProps) {
+  const isOpen = Boolean(model);
+  const formId = useId();
+  const [form] = useForm();
+  const { t } = useI18n();
+  const { clusterAuth } = useGlobal();
+  const { isAdmin, hasSettingsRead } = useMenuAuth();
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [saveAutostart, setSaveAutostart] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressDetails, setProgressDetails] = useState<LaunchProgressResponse | null>(null);
+  const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
+  const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
+  const {
+    markFormEdited: markLaunchHistoryFormEdited,
+    resetFormEdited: resetLaunchHistoryFormEdited,
+    handleHistoryRefreshed: handleLaunchHistoryRefreshed,
+  } = useLaunchHistoryForm(form, isOpen, model?.model_name);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cacheUidRef = useRef<string | undefined>(undefined);
+  const isCanceledLaunchRef = useRef(false);
+  const isCanceledDownloadRef = useRef(false);
+  const modelEngineRequestIdRef = useRef(0);
+  const isLLM = modelType === ModelType.LLM;
+  const supportsRecommendation = [
+    ModelType.LLM,
+    ModelType.Embedding,
+    ModelType.Rerank,
+    ModelType.Audio,
+  ].includes(modelType);
+  const [modelEngineMap, setModelEngineMap] = useState<ModelEngine>({});
+  const launchFormValues = useFormValues(form);
+  const modelEngineValue = toOptionValue(useWatch('model_engine', form));
+  const modelFormatValue = toOptionValue(useWatch('model_format', form));
+  const modelSizeInBillionsValue = useWatch('model_size_in_billions', form) as
+    | ModelEngineItem['model_size_in_billions']
+    | undefined;
+  const enableThinkingValue = useWatch('enable_thinking', form);
+  const modelSizeInBillionsKey = toOptionValue(modelSizeInBillionsValue);
+  const quantizationValue = toOptionValue(useWatch('quantization', form));
+  const multimodalProjectorValue = toOptionValue(useWatch('multimodal_projector', form));
+  const nGpuValue = useWatch('n_gpu', form);
+  const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([]);
+  const replicaPlacementModeValue = useWatch('replica_placement_mode', form);
+  const replicaValue = Number(useWatch('replica', form)) || 1;
+  const modelUidValue = toOptionValue(useWatch('model_uid', form));
+  const isCustomPlacement = replicaPlacementModeValue === 'custom';
+  const enableVirtualEnvValue = useWatch('enable_virtual_env', form);
+  const effectiveVirtualEnv =
+    typeof enableVirtualEnvValue === 'boolean' ? enableVirtualEnvValue : undefined;
+  const recommendationEngineContext = useRef<{
+    modelName?: string;
+    enableVirtualEnv: boolean;
+  } | null>(null);
+  const applyRecommendationEngines = useCallback(
+    (engines: ModelEngine, enableVirtualEnv: boolean) => {
+      modelEngineRequestIdRef.current += 1;
+      recommendationEngineContext.current = { modelName: model?.model_name, enableVirtualEnv };
+      setModelEngineMap(engines);
+    },
+    [model?.model_name]
+  );
+  const recommendation = useRecommendation(
+    form,
+    model?.model_name,
+    isOpen && supportsRecommendation && !loading,
+    markLaunchHistoryFormEdited,
+    applyRecommendationEngines,
+    modelType,
+    (model?.modelSpecs || []).map((spec) => toOptionValue(spec.quantization)).filter(Boolean)
+  );
+  const cannotRecommend = recommendationUnavailable(launchFormValues);
+  const recommendationWarnings = recommendation.result
+    ? recommendationWarningKeys(recommendation.result)
+    : [];
+
+  const fetchWorkers = useCallback(async () => {
+    if (clusterAuth?.auth && !isAdmin) {
+      setWorkerOptions([]);
+      return;
+    }
+
+    try {
+      const data = await request.get<ClusterInfoResponse>('/v1/cluster/info', {
+        params: { detailed: true },
+      });
+      setWorkerOptions(extractWorkerItems(data, t));
+    } catch {
+      setWorkerOptions([]);
+    }
+  }, [clusterAuth?.auth, isAdmin, t]);
+  const fetchModelEngine = useCallback(async () => {
+    const requestId = ++modelEngineRequestIdRef.current;
+    // Applying an effective environment can trigger this effect. Its catalog
+    // was already refreshed and validated with that exact environment.
+    const recommendedContext = recommendationEngineContext.current;
+    recommendationEngineContext.current = null;
+    if (
+      recommendedContext?.modelName === model?.model_name &&
+      recommendedContext?.enableVirtualEnv === effectiveVirtualEnv
+    )
+      return;
+
+    if (!model?.model_name || !MODEL_ENGINE_TYPES.includes(modelType)) {
+      setModelEngineMap({});
+      return;
+    }
+
+    const url = isLLM
+      ? `/v1/engines/${model.model_name}`
+      : `/v1/engines/${modelType}/${model.model_name}`;
+
+    setModelEngineMap({});
+
+    const res = await request.get<ModelEngine>(url, {
+      params:
+        effectiveVirtualEnv !== undefined ? { enable_virtual_env: effectiveVirtualEnv } : undefined,
+    });
+
+    if (requestId !== modelEngineRequestIdRef.current) return;
+
+    const engineMap = res || {};
+    setModelEngineMap(engineMap);
+
+    const availableEngines = Object.entries(engineMap).filter(([, engineData]) =>
+      Array.isArray(engineData)
+    );
+    if (availableEngines.length === 1) {
+      const soleEngine = availableEngines[0][0];
+      if (form.getFieldValue('model_engine') !== soleEngine) {
+        form.setFieldValue('model_engine', soleEngine);
+      }
+    }
+  }, [form, isLLM, model?.model_name, modelType, effectiveVirtualEnv]);
+
+  const engineIndex = useMemo(() => buildEngineIndex(modelEngineMap), [modelEngineMap]);
+  const cacheIndex = useMemo(() => {
+    const formats = new Set<string>();
+    const sizes = new Set<string>();
+    const quantizations = new Set<string>();
+
+    (model?.modelSpecs || []).forEach((spec) => {
+      const format = toOptionValue(spec.model_format);
+      const size = normalizeModelSize(spec.model_size_in_billions);
+
+      if (!format || !isCachedSpec(spec)) return;
+
+      formats.add(format);
+
+      if (size) {
+        sizes.add(createCacheKey(format, size));
+      }
+
+      if (Array.isArray(spec.quantizations)) {
+        spec.quantizations.forEach((quantization, index) => {
+          const cached = Array.isArray(spec.cache_status)
+            ? spec.cache_status[index]
+            : spec.cache_status;
+
+          if (!cached) return;
+
+          quantizations.add(createCacheKey(format, size, quantization));
+          quantizations.add(createCacheKey(format, '', quantization));
+        });
+      } else if (spec.quantization) {
+        quantizations.add(createCacheKey(format, size, spec.quantization));
+        quantizations.add(createCacheKey(format, '', spec.quantization));
+      }
+    });
+
+    return { formats, sizes, quantizations };
+  }, [model?.modelSpecs]);
+
+  const modelEngineOptions = useMemo(() => {
+    return Object.entries(modelEngineMap).map(([key, engineData]) => {
+      if (typeof engineData === 'string') {
+        return {
+          label: `${key} (${engineData})`,
+          value: key,
+          disabled: true,
+        };
+      }
+      const cached = engineData.some((item) => cacheIndex.formats.has(item.model_format));
+
+      return {
+        label: key,
+        value: key,
+        suffix: cached ? t('launchModel.cached') : undefined,
+      };
+    });
+  }, [cacheIndex.formats, modelEngineMap, t]);
+
+  const selectedEngineFormats = engineIndex.get(modelEngineValue);
+  const selectedFormatIndex = selectedEngineFormats?.get(modelFormatValue);
+
+  const modelFormatOptions = useMemo(
+    () =>
+      Array.from(selectedEngineFormats?.keys() || []).map((format) => ({
+        label: format,
+        value: format,
+        suffix: cacheIndex.formats.has(format) ? t('launchModel.cached') : undefined,
+      })),
+    [cacheIndex.formats, selectedEngineFormats, t]
+  );
+  const modelSizeInBillionsOptions = useMemo(
+    () =>
+      Array.from(selectedFormatIndex?.sizes.values() || []).map((sizeIndex) => ({
+        label: String(sizeIndex.value),
+        value: sizeIndex.value,
+        suffix: cacheIndex.sizes.has(
+          createCacheKey(modelFormatValue, normalizeModelSize(sizeIndex.value))
+        )
+          ? t('launchModel.cached')
+          : undefined,
+      })),
+    [cacheIndex.sizes, modelFormatValue, selectedFormatIndex, t]
+  );
+
+  const quantizationOptions = useMemo(() => {
+    if (modelType === ModelType.Audio) {
+      const audioSpecs = audioSpecsForEngine(model?.modelSpecs || [], modelEngineValue);
+      const quantizations = Array.from(
+        new Set(audioSpecs.map((spec) => toOptionValue(spec.quantization)).filter(Boolean))
+      );
+
+      return quantizations.map((quantization) => {
+        const matchingSpecs = audioSpecs.filter(
+          (spec) => toOptionValue(spec.quantization) === quantization
+        );
+        const cached = matchingSpecs.some(isCachedSpec);
+
+        return {
+          label: quantization,
+          value: quantization,
+          suffix: cached ? t('launchModel.cached') : undefined,
+        };
+      });
+    }
+
+    const quantizations =
+      modelType === ModelType.LLM
+        ? selectedFormatIndex?.sizes.get(modelSizeInBillionsKey)?.quantizations
+        : selectedFormatIndex?.quantizations;
+
+    return Array.from(quantizations || []).map((quantization) => ({
+      label: quantization,
+      value: quantization,
+      suffix: cacheIndex.quantizations.has(
+        createCacheKey(
+          modelFormatValue,
+          modelType === ModelType.LLM ? normalizeModelSize(modelSizeInBillionsKey) : '',
+          quantization
+        )
+      )
+        ? t('launchModel.cached')
+        : undefined,
+    }));
+  }, [
+    cacheIndex.quantizations,
+    model?.modelSpecs,
+    modelEngineValue,
+    modelFormatValue,
+    modelSizeInBillionsKey,
+    modelType,
+    selectedFormatIndex,
+    t,
+  ]);
+
+  // The spec currently selected in the form, used to tell whether this
+  // format/size/quantization ships a drafter for speculative decoding.
+  const selectedSpec = useMemo(
+    () =>
+      model?.modelSpecs?.find(
+        (spec) =>
+          spec.model_format === modelFormatValue &&
+          toOptionValue(spec.model_size_in_billions) === modelSizeInBillionsKey &&
+          (spec.quantization === quantizationValue ||
+            (Array.isArray(spec.quantizations) && spec.quantizations.includes(quantizationValue)))
+      ),
+    [model?.modelSpecs, modelFormatValue, modelSizeInBillionsKey, quantizationValue]
+  );
+  // Drafter conversions available for the selected spec, each flagged with
+  // whether it is already downloaded. Empty when the spec declares a drafter
+  // without alternatives, in which case there is nothing to pick.
+  // A drafter needs both a spec that ships one and an engine that can run it:
+  // gemma-4's pytorch spec has a drafter but Transformers cannot use it, and
+  // showing the switch there only moves the failure to the launch button.
+  const engineSupportsDrafter = useMemo(() => {
+    const entries = modelEngineMap[modelEngineValue];
+    if (!Array.isArray(entries)) return false;
+    const matching = entries.filter(
+      (entry) =>
+        entry.model_format === modelFormatValue &&
+        toOptionValue(entry.model_size_in_billions) === modelSizeInBillionsKey
+    );
+    return (matching.length ? matching : entries).some((entry) => entry.support_draft_model);
+  }, [modelEngineMap, modelEngineValue, modelFormatValue, modelSizeInBillionsKey]);
+  const hasDrafter =
+    engineSupportsDrafter &&
+    Boolean(selectedSpec?.draft_model_id || selectedSpec?.draft_model_file_name_template);
+  const draftQuantizationOptions = useMemo(() => {
+    const quantizations = (selectedSpec?.draft_quantizations as string[] | undefined) || [];
+    const cacheStatus = selectedSpec?.draft_cache_status;
+
+    return quantizations.map((quantization, index) => ({
+      label: quantization,
+      value: quantization,
+      suffix: (Array.isArray(cacheStatus) ? cacheStatus[index] : cacheStatus)
+        ? t('launchModel.cached')
+        : undefined,
+    }));
+  }, [selectedSpec, t]);
+
+  const multimodalProjectorOptions = useMemo(
+    () =>
+      Array.from(
+        selectedFormatIndex?.sizes.get(modelSizeInBillionsKey)?.multimodalProjectors || []
+      ).map((projector) => ({
+        label: projector,
+        value: projector,
+      })),
+    [modelSizeInBillionsKey, selectedFormatIndex]
+  );
+
+  const nGpuFieldProps = useMemo(() => {
+    const options = getNGpuOptions(modelType, gpuAvailable, supportsRecommendation);
+    return {
+      options: options.map((item) => ({ label: String(item), value: item })),
+      onChange: (nextNGpu: string | number | undefined) => {
+        form.setFieldsValue({
+          gpu_idx: reconcileGpuIndexesForDevice(
+            form.getFieldValue('gpu_idx'),
+            nGpuValue,
+            nextNGpu,
+            modelType
+          ),
+          worker_ip: reconcileWorkerSelectionForDevice(
+            form.getFieldValue('worker_ip'),
+            nextNGpu,
+            workerOptions
+          ),
+        });
+      },
+    };
+  }, [gpuAvailable, modelType, supportsRecommendation, form, nGpuValue, workerOptions]);
+
+  const downloadHubOptions = useMemo(() => {
+    const allSpecHubs = Array.from(
+      new Set(
+        (model?.modelSpecs || []).map((spec) => toOptionValue(spec.model_hub)).filter(Boolean)
+      )
+    );
+    const modelHubs = Array.from(
+      new Set((model?.download_hubs || []).map(toOptionValue).filter(Boolean))
+    );
+    const engineHubs = modelEngineValue
+      ? Array.from(
+          new Set(
+            (model?.modelSpecs || [])
+              .filter(
+                (spec) =>
+                  toOptionValue(spec.model_engine).toLowerCase() === modelEngineValue.toLowerCase()
+              )
+              .map((spec) => toOptionValue(spec.model_hub))
+              .filter(Boolean)
+          )
+        )
+      : [];
+    const availableHubs =
+      engineHubs.length > 0 ? engineHubs : modelHubs.length > 0 ? modelHubs : allSpecHubs;
+    return ['auto', 'none', ...availableHubs].map((item) => ({
+      label: item,
+      value: item,
+    }));
+  }, [model?.download_hubs, model?.modelSpecs, modelEngineValue]);
+  const downloadHubOptionsRef = useRef(downloadHubOptions);
+  const downloadHubTouchedRef = useRef(false);
+  const downloadHubFieldProps = useMemo(
+    () => ({
+      options: downloadHubOptions,
+      onChange: () => {
+        downloadHubTouchedRef.current = true;
+      },
+    }),
+    [downloadHubOptions]
+  );
+
+  useEffect(() => {
+    downloadHubOptionsRef.current = downloadHubOptions;
+  }, [downloadHubOptions]);
+
+  const workerIpFieldProps = useMemo(
+    () => ({
+      options: requiresGpuWorkers(nGpuValue)
+        ? workerOptions.filter((workerOption) => workerOption.gpuCount > 0)
+        : workerOptions,
+      searchable: false,
+      creatable: true,
+    }),
+    [workerOptions, nGpuValue]
+  );
+  const ggufQuantizations =
+    model?.gguf_quantizations ??
+    model?.modelSpecs?.find((spec) => spec.gguf_quantizations)?.gguf_quantizations ??
+    null;
+
+  const ggufQuantizationsOptions = useMemo(() => {
+    if (Array.isArray(ggufQuantizations)) {
+      return ['none', ...ggufQuantizations].map((item) => ({
+        label: item,
+        value: item,
+      }));
+    }
+
+    return [];
+  }, [ggufQuantizations]);
+
+  const lightningVersionOptions = useMemo(() => {
+    if (Array.isArray(model?.lightning_versions)) {
+      return ['none', ...(model?.lightning_versions || [])].map((item) => ({
+        label: item,
+        value: item,
+      }));
+    }
+    return [];
+  }, [model?.lightning_versions]);
+  useEffect(() => {
+    const selectableOptions = modelEngineOptions.filter((option) => !option.disabled);
+
+    if (
+      modelEngineValue &&
+      selectableOptions.length > 0 &&
+      !selectableOptions.some((option) => option.value === modelEngineValue)
+    ) {
+      form.setFieldValue('model_engine', '');
+    }
+  }, [form, modelEngineOptions, modelEngineValue]);
+
+  useEffect(() => {
+    if (modelEngineValue && modelFormatOptions.length === 0) return;
+
+    syncLinkedField(form, 'model_format', modelFormatValue, modelFormatOptions);
+  }, [form, modelEngineValue, modelFormatOptions, modelFormatValue]);
+
+  useEffect(() => {
+    if (
+      modelType === ModelType.LLM &&
+      modelFormatValue &&
+      modelSizeInBillionsOptions.length === 0
+    ) {
+      return;
+    }
+
+    syncLinkedField(
+      form,
+      'model_size_in_billions',
+      modelSizeInBillionsValue,
+      modelType === ModelType.LLM ? modelSizeInBillionsOptions : []
+    );
+  }, [form, modelFormatValue, modelSizeInBillionsOptions, modelSizeInBillionsValue, modelType]);
+
+  useEffect(() => {
+    if (modelType !== ModelType.Audio && modelFormatValue && quantizationOptions.length === 0) {
+      return;
+    }
+
+    syncLinkedField(
+      form,
+      'quantization',
+      quantizationValue,
+      quantizationOptions,
+      modelType === ModelType.Audio
+    );
+  }, [form, modelFormatValue, modelType, quantizationOptions, quantizationValue]);
+
+  useEffect(() => {
+    if (multimodalProjectorValue && multimodalProjectorOptions.length === 0) return;
+
+    syncLinkedField(
+      form,
+      'multimodal_projector',
+      multimodalProjectorValue,
+      multimodalProjectorOptions,
+      true
+    );
+  }, [form, multimodalProjectorOptions, multimodalProjectorValue]);
+
+  // Keep replica_config row count in sync with `replica` while in custom
+  // placement mode. Preserves already-filled rows; pads/truncates otherwise.
+  useEffect(() => {
+    if (!isCustomPlacement) return;
+    const current =
+      (form.getFieldValue('replica_config') as
+        | Array<{
+            replica_uid?: string;
+            worker_ip: string;
+            gpu_idx: string;
+            n_gpu?: number | 'auto';
+          }>
+        | undefined) ?? [];
+    if (current.length === replicaValue) return;
+    const next = Array.from(
+      { length: replicaValue },
+      (_, i) => current[i] ?? { replica_uid: '', worker_ip: '', gpu_idx: '' }
+    );
+    form.setFieldsValue({ replica_config: next });
+  }, [isCustomPlacement, replicaValue, form]);
+
+  // Shared per-replica placement fields, appended after the `replica` field in
+  // every model type's field array so the feature is uniform across types.
+  const replicaPlacementFields: LaunchFieldConfig[] = [
+    {
+      name: 'replica_placement_mode',
+      type: 'radio-group',
+      label: t('launchModel.replicaPlacementMode'),
+      colSpan: 2,
+      fieldProps: {
+        options: [
+          { label: t('launchModel.placementAuto'), value: 'auto' },
+          { label: t('launchModel.placementCustom'), value: 'custom' },
+        ],
+      },
+    },
+    {
+      name: 'replica_config',
+      type: 'custom',
+      colSpan: 2,
+      show: isCustomPlacement,
+      content: (
+        <ReplicaPlacementConfig
+          form={form}
+          workerOptions={workerOptions}
+          modelUid={modelUidValue}
+        />
+      ),
+    },
+  ];
+
+  const modelTypeFields: Partial<Record<ModelType, LaunchFieldConfig[]>> = {
+    [ModelType.LLM]: [
+      {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
+      {
+        name: 'model_engine',
+        type: 'select',
+        label: t('launchModel.modelEngine'),
+        rules: [{ required: true }],
+        fieldProps: { options: modelEngineOptions },
+      },
+      {
+        name: 'model_format',
+        type: 'select',
+        label: t('launchModel.modelFormat'),
+        rules: [{ required: true }],
+        disabled: !modelEngineValue,
+        fieldProps: { options: modelFormatOptions },
+      },
+      {
+        name: 'model_size_in_billions',
+        type: 'select',
+        label: t('launchModel.modelSize'),
+        rules: [{ required: true }],
+        disabled: !modelFormatValue,
+        fieldProps: { options: modelSizeInBillionsOptions },
+      },
+      {
+        name: 'quantization',
+        type: 'select',
+        label: t('launchModel.quantization'),
+        rules: [{ required: true }],
+        disabled: !modelSizeInBillionsValue,
+        fieldProps: { options: quantizationOptions },
+      },
+      {
+        name: 'multimodal_projector',
+        type: 'select',
+        label: t('launchModel.multimodelProjector'),
+        rules: [{ required: true }],
+        disabled: !modelSizeInBillionsValue,
+        show: Boolean(multimodalProjectorOptions.length),
+        fieldProps: { options: multimodalProjectorOptions },
+      },
+      {
+        name: 'contextLength',
+        type: 'custom',
+        colSpan: 2,
+        content: (
+          <ContextLengthField
+            modelMaximum={
+              typeof model?.context_length === 'number' ? model.context_length : undefined
+            }
+          />
+        ),
+      },
+      {
+        name: 'n_gpu',
+        type: 'select',
+        label: t(
+          ENGINES_WITH_WORKER.includes(modelEngineValue)
+            ? 'launchModel.nGPUPerWorker'
+            : 'launchModel.nGPU'
+        ),
+        fieldProps: nGpuFieldProps,
+      },
+      {
+        name: 'n_gpu_layers',
+        type: 'input',
+        label: t('launchModel.nGpuLayers'),
+        show: [ModelFormat.GGMLV3, ModelFormat.GGUFV2].includes(modelFormatValue as ModelFormat),
+        fieldProps: { type: 'number', min: -1 },
+      },
+      {
+        name: 'request_limits',
+        type: 'input',
+        label: t('launchModel.requestLimits'),
+        placeholder: t('launchModel.requestLimitsPlaceholder'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v)),
+      },
+      {
+        name: 'n_worker',
+        type: 'input',
+        label: t('launchModel.workerCount'),
+        placeholder: t('launchModel.workerCountPlaceholder'),
+        show: ENGINES_WITH_WORKER.includes(modelEngineValue),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      {
+        name: 'gpu_idx',
+        type: 'input',
+        label: t('launchModel.GPUIdx'),
+        placeholder: t('launchModel.GPUIdxPlaceholder'),
+        rules: [
+          {
+            pattern: GPU_IDX_PATTERN,
+            message: t('launchModel.enterCommaSeparatedNumbers'),
+          },
+        ],
+        show: nGpuValue && nGpuValue !== 'CPU',
+      },
+      {
+        name: 'download_hub',
+        type: 'select',
+        label: t('launchModel.downloadHub'),
+        placeholder: t('launchModel.downloadHubPlaceholder'),
+        fieldProps: downloadHubFieldProps,
+      },
+      {
+        name: 'enable_thinking',
+        type: 'switch',
+        label: t('launchModel.enableThinking'),
+        valuePropName: 'checked',
+        show: model?.abilities.includes(ModelAbility.Hybrid),
+      },
+      {
+        name: 'reasoning_content',
+        type: 'switch',
+        label: t('launchModel.parsingReasoningContent'),
+        valuePropName: 'checked',
+        show: model?.abilities.includes(ModelAbility.Reasoning) && enableThinkingValue,
+      },
+      {
+        name: 'worker_ip',
+        type: 'multi-select',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2,
+        fieldProps: workerIpFieldProps,
+        normalize: (v) => v || undefined,
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2,
+      },
+      {
+        name: 'collapsibleConfig',
+        type: 'custom',
+        colSpan: 2,
+        content: (
+          <CollapsibleConfig
+            form={form}
+            modelType={modelType}
+            modelName={model?.model_name}
+            hasDrafter={hasDrafter}
+            draftQuantizationOptions={draftQuantizationOptions}
+          />
+        ),
+      },
+    ],
+    [ModelType.Embedding]: [
+      {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
+      {
+        name: 'model_engine',
+        type: 'select',
+        label: t('launchModel.modelEngine'),
+        rules: [{ required: true }],
+        fieldProps: { options: modelEngineOptions },
+      },
+      {
+        name: 'model_format',
+        type: 'select',
+        label: t('launchModel.modelFormat'),
+        rules: [{ required: true }],
+        disabled: !modelEngineValue,
+        fieldProps: { options: modelFormatOptions },
+      },
+      {
+        name: 'quantization',
+        type: 'select',
+        label: t('launchModel.quantization'),
+        rules: [{ required: true }],
+        disabled: !modelFormatValue,
+        fieldProps: { options: quantizationOptions },
+      },
+      {
+        name: 'n_gpu',
+        type: 'select',
+        label: t('launchModel.nGPUDevice'),
+        fieldProps: nGpuFieldProps,
+      },
+      {
+        name: 'gpu_idx',
+        type: 'input',
+        label: t('launchModel.GPUIdx'),
+        placeholder: t('launchModel.GPUIdxPlaceholder'),
+        rules: [
+          {
+            pattern: GPU_IDX_PATTERN,
+            message: t('launchModel.enterCommaSeparatedNumbers'),
+          },
+        ],
+        show: nGpuValue === 'GPU',
+      },
+      {
+        name: 'download_hub',
+        type: 'select',
+        label: t('launchModel.downloadHub'),
+        placeholder: t('launchModel.downloadHubPlaceholder'),
+        fieldProps: downloadHubFieldProps,
+      },
+      {
+        name: 'request_limits',
+        type: 'input',
+        label: t('launchModel.requestLimits'),
+        placeholder: t('launchModel.requestLimitsPlaceholder'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v)),
+      },
+      {
+        name: 'worker_ip',
+        type: 'multi-select',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2,
+        fieldProps: workerIpFieldProps,
+        normalize: (v) => v || undefined,
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2,
+      },
+      {
+        name: 'collapsibleConfig',
+        type: 'custom',
+        colSpan: 2,
+        content: <CollapsibleConfig form={form} modelType={modelType} />,
+      },
+    ],
+    [ModelType.Rerank]: [
+      {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
+      {
+        name: 'model_engine',
+        type: 'select',
+        label: t('launchModel.modelEngine'),
+        rules: [{ required: true }],
+        fieldProps: { options: modelEngineOptions },
+      },
+      {
+        name: 'model_format',
+        type: 'select',
+        label: t('launchModel.modelFormat'),
+        rules: [{ required: true }],
+        disabled: !modelEngineValue,
+        fieldProps: { options: modelFormatOptions },
+      },
+      {
+        name: 'quantization',
+        type: 'select',
+        label: t('launchModel.quantization'),
+        rules: [{ required: true }],
+        disabled: !modelFormatValue,
+        fieldProps: { options: quantizationOptions },
+      },
+      {
+        name: 'n_gpu',
+        type: 'select',
+        label: t('launchModel.nGPUDevice'),
+        fieldProps: nGpuFieldProps,
+      },
+      {
+        name: 'gpu_idx',
+        type: 'input',
+        label: t('launchModel.GPUIdx'),
+        placeholder: t('launchModel.GPUIdxPlaceholder'),
+        rules: [
+          {
+            pattern: GPU_IDX_PATTERN,
+            message: t('launchModel.enterCommaSeparatedNumbers'),
+          },
+        ],
+        show: nGpuValue === 'GPU',
+      },
+      {
+        name: 'download_hub',
+        type: 'select',
+        label: t('launchModel.downloadHub'),
+        placeholder: t('launchModel.downloadHubPlaceholder'),
+        fieldProps: downloadHubFieldProps,
+      },
+      {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization'),
+        placeholder: t('launchModel.GGUFQuantizationPlaceholder'),
+        type: 'select',
+        fieldProps: { options: ggufQuantizationsOptions },
+        show: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath'),
+        placeholder: t('launchModel.GGUFModelPathPlaceholder'),
+        type: 'input',
+        show: !!ggufQuantizations,
+      },
+      {
+        name: 'request_limits',
+        type: 'input',
+        label: t('launchModel.requestLimits'),
+        placeholder: t('launchModel.requestLimitsPlaceholder'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v)),
+      },
+      {
+        name: 'worker_ip',
+        type: 'multi-select',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2,
+        fieldProps: workerIpFieldProps,
+        normalize: (v) => v || undefined,
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2,
+      },
+      {
+        name: 'collapsibleConfig',
+        type: 'custom',
+        colSpan: 2,
+        content: <CollapsibleConfig form={form} modelType={modelType} />,
+      },
+    ],
+    [ModelType.Image]: [
+      {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'model_engine',
+        type: 'select',
+        label: t('launchModel.modelEngine'),
+        fieldProps: { options: modelEngineOptions },
+        show: !!modelEngineOptions.length,
+      },
+      {
+        name: 'model_format',
+        type: 'select',
+        label: t('launchModel.modelFormat'),
+        disabled: !modelEngineValue,
+        fieldProps: { options: modelFormatOptions },
+        show: !!modelFormatOptions.length,
+      },
+      {
+        name: 'quantization',
+        type: 'select',
+        label: t('launchModel.quantization'),
+        disabled: !modelFormatValue,
+        fieldProps: { options: quantizationOptions },
+        show: !!quantizationOptions.length,
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
+      {
+        name: 'n_gpu',
+        type: 'select',
+        label: t('launchModel.nGPU'),
+        fieldProps: nGpuFieldProps,
+      },
+      {
+        name: 'gpu_idx',
+        type: 'input',
+        label: t('launchModel.GPUIdx'),
+        placeholder: t('launchModel.GPUIdxPlaceholder'),
+        rules: [
+          {
+            pattern: GPU_IDX_PATTERN,
+            message: t('launchModel.enterCommaSeparatedNumbers'),
+          },
+        ],
+        show: nGpuValue && nGpuValue !== 'CPU',
+      },
+      {
+        name: 'download_hub',
+        type: 'select',
+        label: t('launchModel.downloadHub'),
+        placeholder: t('launchModel.downloadHubPlaceholder'),
+        fieldProps: downloadHubFieldProps,
+      },
+      {
+        name: 'request_limits',
+        type: 'input',
+        label: t('launchModel.requestLimits'),
+        placeholder: t('launchModel.requestLimitsPlaceholder'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v)),
+      },
+      {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization'),
+        placeholder: t('launchModel.GGUFQuantizationPlaceholder'),
+        type: 'select',
+        fieldProps: { options: ggufQuantizationsOptions },
+        show: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath'),
+        placeholder: t('launchModel.GGUFModelPathPlaceholder'),
+        type: 'input',
+        show: !!ggufQuantizations,
+      },
+      {
+        name: 'lightning_version',
+        label: t('launchModel.lightningVersions'),
+        placeholder: t('launchModel.lightningVersionsPlaceholder'),
+        type: 'select',
+        fieldProps: { options: lightningVersionOptions },
+        show: !!lightningVersionOptions.length,
+      },
+      {
+        name: 'lightning_model_path',
+        label: t('launchModel.lightningModelPath'),
+        placeholder: t('launchModel.lightningModelPathPlaceholder'),
+        type: 'input',
+        show: !!lightningVersionOptions.length,
+      },
+      {
+        name: 'worker_ip',
+        type: 'multi-select',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2,
+        fieldProps: workerIpFieldProps,
+        normalize: (v) => v || undefined,
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2,
+      },
+      {
+        name: 'cpu_offload',
+        label: t('launchModel.CPUOffload'),
+        type: 'switch',
+        valuePropName: 'checked',
+        tooltip: t('launchModel.CPUOffloadTip'),
+      },
+      {
+        name: 'collapsibleConfig',
+        type: 'custom',
+        colSpan: 2,
+        content: <CollapsibleConfig form={form} modelType={modelType} />,
+      },
+    ],
+    [ModelType.Audio]: [
+      {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'model_engine',
+        type: 'select',
+        label: t('launchModel.modelEngine'),
+        fieldProps: { options: modelEngineOptions },
+        show: !!modelEngineOptions.length,
+      },
+      {
+        name: 'quantization',
+        type: 'select',
+        label: t('launchModel.quantization'),
+        fieldProps: { options: quantizationOptions },
+        show: !!quantizationOptions.length,
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
+      {
+        name: 'n_gpu',
+        type: 'select',
+        label: t('launchModel.nGPUDevice'),
+        fieldProps: nGpuFieldProps,
+      },
+      {
+        name: 'gpu_idx',
+        type: 'input',
+        label: t('launchModel.GPUIdx'),
+        placeholder: t('launchModel.GPUIdxPlaceholder'),
+        rules: [
+          {
+            pattern: GPU_IDX_PATTERN,
+            message: t('launchModel.enterCommaSeparatedNumbers'),
+          },
+        ],
+        show: nGpuValue === 'GPU',
+      },
+
+      {
+        name: 'download_hub',
+        type: 'select',
+        label: t('launchModel.downloadHub'),
+        placeholder: t('launchModel.downloadHubPlaceholder'),
+        fieldProps: downloadHubFieldProps,
+      },
+      {
+        name: 'request_limits',
+        type: 'input',
+        label: t('launchModel.requestLimits'),
+        placeholder: t('launchModel.requestLimitsPlaceholder'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v)),
+      },
+      {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization'),
+        placeholder: t('launchModel.GGUFQuantizationPlaceholder'),
+        type: 'select',
+        fieldProps: { options: ggufQuantizationsOptions },
+        show: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath'),
+        placeholder: t('launchModel.GGUFModelPathPlaceholder'),
+        type: 'input',
+        show: !!ggufQuantizations,
+      },
+      {
+        name: 'worker_ip',
+        type: 'multi-select',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2,
+        fieldProps: workerIpFieldProps,
+        normalize: (v) => v || undefined,
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2,
+      },
+      {
+        name: 'collapsibleConfig',
+        type: 'custom',
+        colSpan: 2,
+        content: <CollapsibleConfig form={form} modelType={modelType} />,
+      },
+    ],
+    [ModelType.World]: [
+      {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'model_engine',
+        type: 'select',
+        label: t('launchModel.modelEngine'),
+        rules: [{ required: true }],
+        fieldProps: { options: modelEngineOptions },
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
+      {
+        name: 'n_gpu',
+        type: 'select',
+        label: t('launchModel.nGPUDevice'),
+        fieldProps: nGpuFieldProps,
+      },
+      {
+        name: 'gpu_idx',
+        type: 'input',
+        label: t('launchModel.GPUIdx'),
+        placeholder: t('launchModel.GPUIdxPlaceholder'),
+        rules: [
+          {
+            pattern: GPU_IDX_PATTERN,
+            message: t('launchModel.enterCommaSeparatedNumbers'),
+          },
+        ],
+        show: nGpuValue === 'GPU',
+      },
+      {
+        name: 'download_hub',
+        type: 'select',
+        label: t('launchModel.downloadHub'),
+        placeholder: t('launchModel.downloadHubPlaceholder'),
+        fieldProps: downloadHubFieldProps,
+      },
+      {
+        name: 'request_limits',
+        type: 'input',
+        label: t('launchModel.requestLimits'),
+        placeholder: t('launchModel.requestLimitsPlaceholder'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v)),
+      },
+      {
+        name: 'worker_ip',
+        type: 'multi-select',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2,
+        fieldProps: workerIpFieldProps,
+        normalize: (v) => v || undefined,
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2,
+      },
+      {
+        name: 'collapsibleConfig',
+        type: 'custom',
+        colSpan: 2,
+        content: <CollapsibleConfig form={form} modelType={modelType} />,
+      },
+    ],
+    [ModelType.Video]: [
+      {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'model_engine',
+        type: 'select',
+        label: t('launchModel.modelEngine'),
+        fieldProps: { options: modelEngineOptions },
+        show: !!modelEngineOptions.length,
+      },
+      {
+        name: 'model_format',
+        type: 'select',
+        label: t('launchModel.modelFormat'),
+        disabled: !modelEngineValue,
+        fieldProps: { options: modelFormatOptions },
+        show: !!modelFormatOptions.length,
+      },
+      {
+        name: 'quantization',
+        type: 'select',
+        label: t('launchModel.quantization'),
+        disabled: !modelFormatValue,
+        fieldProps: { options: quantizationOptions },
+        show: !!quantizationOptions.length,
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
+      {
+        name: 'n_gpu',
+        type: 'select',
+        label: t('launchModel.nGPUDevice'),
+        fieldProps: nGpuFieldProps,
+      },
+      {
+        name: 'gpu_idx',
+        type: 'input',
+        label: t('launchModel.GPUIdx'),
+        placeholder: t('launchModel.GPUIdxPlaceholder'),
+        rules: [
+          {
+            pattern: GPU_IDX_PATTERN,
+            message: t('launchModel.enterCommaSeparatedNumbers'),
+          },
+        ],
+        show: nGpuValue === 'GPU',
+      },
+
+      {
+        name: 'download_hub',
+        type: 'select',
+        label: t('launchModel.downloadHub'),
+        placeholder: t('launchModel.downloadHubPlaceholder'),
+        fieldProps: downloadHubFieldProps,
+      },
+      {
+        name: 'request_limits',
+        type: 'input',
+        label: t('launchModel.requestLimits'),
+        placeholder: t('launchModel.requestLimitsPlaceholder'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v)),
+      },
+      {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization'),
+        placeholder: t('launchModel.GGUFQuantizationPlaceholder'),
+        type: 'select',
+        fieldProps: { options: ggufQuantizationsOptions },
+        show: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath'),
+        placeholder: t('launchModel.GGUFModelPathPlaceholder'),
+        type: 'input',
+        show: !!ggufQuantizations,
+      },
+      {
+        name: 'lightning_version',
+        label: t('launchModel.lightningVersions'),
+        placeholder: t('launchModel.lightningVersionsPlaceholder'),
+        type: 'select',
+        fieldProps: { options: lightningVersionOptions },
+        show: !!lightningVersionOptions.length,
+      },
+      {
+        name: 'lightning_model_path',
+        label: t('launchModel.lightningModelPath'),
+        placeholder: t('launchModel.lightningModelPathPlaceholder'),
+        type: 'input',
+        show: !!lightningVersionOptions.length,
+      },
+      {
+        name: 'worker_ip',
+        type: 'multi-select',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2,
+        fieldProps: workerIpFieldProps,
+        normalize: (v) => v || undefined,
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2,
+      },
+      {
+        name: 'cpu_offload',
+        label: t('launchModel.CPUOffload'),
+        type: 'switch',
+        valuePropName: 'checked',
+        tooltip: t('launchModel.CPUOffloadTip'),
+        show: !modelEngineValue || modelEngineValue.toLowerCase() === 'diffusers',
+      },
+      {
+        name: 'collapsibleConfig',
+        type: 'custom',
+        colSpan: 2,
+        content: <CollapsibleConfig form={form} modelType={modelType} />,
+      },
+    ],
+    [ModelType.Flexible]: [
+      {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
+      {
+        name: 'n_gpu',
+        type: 'select',
+        label: t('launchModel.nGPUDevice'),
+        fieldProps: nGpuFieldProps,
+      },
+      {
+        name: 'gpu_idx',
+        type: 'input',
+        label: t('launchModel.GPUIdx'),
+        placeholder: t('launchModel.GPUIdxPlaceholder'),
+        rules: [
+          {
+            pattern: GPU_IDX_PATTERN,
+            message: t('launchModel.enterCommaSeparatedNumbers'),
+          },
+        ],
+        show: nGpuValue === 'GPU',
+      },
+      {
+        name: 'request_limits',
+        type: 'input',
+        label: t('launchModel.requestLimits'),
+        placeholder: t('launchModel.requestLimitsPlaceholder'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v)),
+      },
+      {
+        name: 'worker_ip',
+        type: 'multi-select',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2,
+        fieldProps: workerIpFieldProps,
+        normalize: (v) => v || undefined,
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2,
+      },
+      {
+        name: 'collapsibleConfig',
+        type: 'custom',
+        colSpan: 2,
+        content: <CollapsibleConfig form={form} modelType={modelType} />,
+      },
+    ],
+  };
+
+  // In custom placement mode, hide the legacy global placement fields. Each
+  // replica currently binds to exactly one worker, so n_worker is not editable.
+  const currentLaunchFields = (modelTypeFields[modelType] || []).filter(
+    (field) =>
+      !isCustomPlacement || !['n_worker', 'n_gpu', 'gpu_idx', 'worker_ip'].includes(field.name)
+  );
+  // required fields is filled in
+  const isReady = currentLaunchFields
+    .filter(isVisibleRequiredLaunchField)
+    .every((field) => !isEmptyLaunchValue(launchFormValues[field.name]));
+  const isDownloadReady = currentLaunchFields
+    .filter((field) => !DOWNLOAD_ONLY_EXCLUDED_FIELDS.has(field.name))
+    .filter(isVisibleRequiredLaunchField)
+    .every((field) => !isEmptyLaunchValue(launchFormValues[field.name]));
+
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current !== null) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  const fetchProgress = useCallback(async () => {
+    const modelUid = form.getFieldValue('model_uid') || model?.model_name;
+    const [progressResult, replicaResult] = await Promise.allSettled([
+      request.get<number | string | LaunchProgressResponse>(`/v1/models/${modelUid}/progress`),
+      request.get<unknown>(`/v1/models/${modelUid}/replicas`),
+    ]);
+    if (pollingRef.current === null) return;
+
+    if (progressResult.status === 'fulfilled') {
+      const progressRes = progressResult.value;
+      setProgressDetails(progressRes && typeof progressRes === 'object' ? progressRes : null);
+    }
+    if (replicaResult.status === 'fulfilled') {
+      setReplicaStatuses(normalizeReplicaStatuses(replicaResult.value));
+    }
+  }, [form, model]);
+
+  const fetchDownloadProgress = useCallback(async () => {
+    const cacheUid = cacheUidRef.current;
+    if (!cacheUid) return;
+
+    try {
+      const progressRes = await request.get<LaunchProgressResponse>(
+        `/v1/cache/models/${encodeURIComponent(cacheUid)}/progress`
+      );
+      const isTerminal = DOWNLOAD_TERMINAL_STAGES.has(progressRes.stage ?? '');
+      const reportedProgress = normalizeProgress(progressRes.progress);
+      const nextProgress = !isTerminal && reportedProgress >= 100 ? 99 : reportedProgress;
+
+      setProgress(nextProgress);
+      setProgressDetails(progressRes);
+
+      if (isTerminal) {
+        stopPolling();
+      }
+    } catch {
+      // The progress record is created asynchronously. Keep polling through
+      // transient startup/query failures; the operation request owns teardown.
+    }
+  }, [stopPolling]);
+
+  const startPolling = useCallback(() => {
+    if (pollingRef.current) return;
+    pollingRef.current = setInterval(fetchProgress, 1000);
+  }, [fetchProgress]);
+
+  const startDownloadPolling = useCallback(() => {
+    if (pollingRef.current) return;
+    pollingRef.current = setInterval(fetchDownloadProgress, 1000);
+  }, [fetchDownloadProgress]);
+
+  const renderReplicaStatuses = () => {
+    if (!replicaStatuses.length) {
+      return (
+        <div className="text-sm text-muted-foreground">{t('launchModel.noReplicaStatus')}</div>
+      );
+    }
+
+    const progressByReplicaId = new Map(
+      (progressDetails?.replicas ?? []).map((replica) => [replica.replica_id, replica])
+    );
+
+    return (
+      <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+        <div className="text-sm font-medium">{t('launchModel.launchProgress')}</div>
+        <div
+          className="grid max-h-[min(40vh,24rem)] grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-3 overflow-y-auto pr-1"
+          aria-live="polite"
+        >
+          {replicaStatuses.map((replica) => {
+            const replicaProgress = progressByReplicaId.get(replica.replica_id);
+            const replicaReady = replica.status === 'READY';
+            const replicaFailed = replica.status === 'ERROR';
+            const replicaPercent = replicaReady
+              ? 100
+              : Math.min(normalizeProgress(replicaProgress?.progress), 99);
+            const replicaStageKey = replicaReady
+              ? 'launchModel.stageReady'
+              : replicaFailed
+                ? 'launchModel.stageFailed'
+                : getLaunchStageKey(replicaProgress?.stage, replica.status);
+            const statusClassName =
+              replica.status === 'READY'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : replica.status === 'ERROR'
+                  ? 'border-red-200 bg-red-50 text-red-700'
+                  : 'border-border bg-muted/40 text-muted-foreground';
+
+            return (
+              <article
+                key={replica.replica_id}
+                aria-label={`${t('launchModel.replica')} ${replica.replica_id}`}
+                className="flex min-w-0 flex-col gap-3 rounded-md border bg-background/60 p-3"
+              >
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-col gap-1 text-xs">
+                    <span className="font-semibold">
+                      {t('launchModel.replica')}&nbsp;{replica.replica_id}
+                    </span>
+                    <span
+                      className="break-all font-mono text-muted-foreground"
+                      title={replica.worker_address || '-'}
+                    >
+                      {replica.worker_address || '-'}
+                    </span>
+                    {replica.replica_uid && (
+                      <span className="truncate text-muted-foreground" title={replica.replica_uid}>
+                        {replica.replica_uid}
+                      </span>
+                    )}
+                    <span className="text-muted-foreground">
+                      {t('launchModel.GPUIdx')}:{' '}
+                      {replica.gpu_idx && replica.gpu_idx.length > 0
+                        ? replica.gpu_idx.join(', ')
+                        : 'auto'}
+                    </span>
+                  </div>
+                  <div
+                    className={cn(
+                      'shrink-0 rounded-md border px-2 py-1 text-xs font-medium leading-none',
+                      statusClassName
+                    )}
+                  >
+                    {replica.status}
+                  </div>
+                </div>
+                <div className="space-y-1.5 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {!replicaReady && !replicaFailed && (
+                        <LoaderCircle
+                          className="size-3.5 shrink-0 animate-spin text-primary"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span>{t(replicaStageKey)}</span>
+                    </span>
+                    {(replicaProgress || replicaReady) && (
+                      <span className="shrink-0 tabular-nums">{Math.round(replicaPercent)}%</span>
+                    )}
+                  </div>
+                  {(replicaProgress || replicaReady) && (
+                    <Progress
+                      value={replicaPercent}
+                      className="h-1.5"
+                      aria-label={`${t('launchModel.replica')} ${replica.replica_id}: ${t(replicaStageKey)}`}
+                    />
+                  )}
+                </div>
+                {(replicaProgress?.stage === 'downloading' ||
+                  Boolean(replicaProgress?.download_files?.length)) && (
+                  <DownloadProgressDetails files={replicaProgress?.download_files ?? []} compact />
+                )}
+                {(replicaProgress?.stage === 'installing_dependencies' ||
+                  replicaProgress?.stage === 'loading') &&
+                  typeof replicaProgress.dependency_install_total === 'number' &&
+                  replicaProgress.dependency_install_total > 0 &&
+                  typeof replicaProgress.dependency_install_completed === 'number' && (
+                    <div className="space-y-1.5 text-xs text-muted-foreground">
+                      <div className="tabular-nums">
+                        {t('launchModel.dependencyInstallCount', {
+                          completed: replicaProgress.dependency_install_completed,
+                          total: replicaProgress.dependency_install_total,
+                        })}
+                      </div>
+                      {Boolean(replicaProgress.dependency_install_plan?.length) && (
+                        <details>
+                          <summary className="cursor-pointer">
+                            {t('launchModel.dependencyInstallPlan')}
+                          </summary>
+                          <ul className="mt-1 max-h-32 space-y-0.5 overflow-y-auto pl-4 font-mono">
+                            {replicaProgress.dependency_install_plan?.map((packageSpec) => (
+                              <li key={packageSpec} className="break-all">
+                                {packageSpec}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                  )}
+                {replicaProgress?.stage === 'loading' &&
+                  (replicaProgress.dependency_install_status === 'skipped' ||
+                    replicaProgress.dependency_install_total === 0) && (
+                    <div className="text-xs text-muted-foreground">
+                      {t('launchModel.dependencyInstallSkipped')}
+                    </div>
+                  )}
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const handleCancelLaunch = async () => {
+    const modelUid = form.getFieldValue('model_uid') || model?.model_name;
+    setCanceling(true);
+
+    try {
+      await request.post(`/v1/models/${encodeURIComponent(modelUid)}/cancel`);
+      isCanceledLaunchRef.current = true;
+      stopPolling();
+      setLoading(false);
+      setProgressDetails(null);
+      setReplicaStatuses([]);
+      toast.success(t('launchModel.launchCanceled'));
+    } finally {
+      setCanceling(false);
+    }
+  };
+
+  const handleCancelDownload = async () => {
+    const cacheUid = cacheUidRef.current;
+    if (!cacheUid) return;
+    setCanceling(true);
+
+    try {
+      await request.post(`/v1/cache/models/${encodeURIComponent(cacheUid)}/cancel`);
+      isCanceledDownloadRef.current = true;
+      stopPolling();
+      setLoading(false);
+      setIsDownloading(false);
+      setProgress(0);
+      setProgressDetails(null);
+      toast.success(t('launchModel.downloadCanceled'));
+    } finally {
+      setCanceling(false);
+    }
+  };
+
+  const handleLaunch = async (values: FormValues) => {
+    const placementError = validateReplicaPlacement(values);
+    if (placementError === 'incomplete') {
+      toast.error(t('launchModel.replicaPlacementIncomplete'));
+      return;
+    }
+    if (placementError === 'duplicate-alias') {
+      toast.error(t('launchModel.replicaAliasDuplicate'));
+      return;
+    }
+
+    const launchRequestValues = transformFormToFetch(values);
+    isCanceledLaunchRef.current = false;
+    setLoading(true);
+    setProgressDetails(null);
+    setReplicaStatuses([]);
+
+    request
+      .post<{ model_uid?: string }>('/v1/models', launchRequestValues, { noTimeout: true })
+      .then(async (launchResponse) => {
+        // Prevents a false deployment success notification when /v1/models returns model_uid after download cancellation, triggering the success logic below.
+        if (isCanceledLaunchRef.current) {
+          return;
+        }
+
+        stopPolling();
+        setProgressDetails({ stage: 'completed' });
+
+        const launchedValues = {
+          ...launchRequestValues,
+          model_uid:
+            launchResponse?.model_uid ||
+            launchRequestValues.model_uid ||
+            launchRequestValues.model_name,
+        };
+        const historyValues = buildLaunchHistoryValues(values, launchedValues);
+        void saveLaunchConfigHistory(historyValues.data, clusterAuth?.auth, historyValues.uiData)
+          .then((historySaved) => {
+            if (!historySaved) {
+              toast.warning(t('launchModel.configHistorySyncFailed'));
+            }
+          })
+          .catch((error) => {
+            console.error('Failed to save launch config history', error);
+            toast.warning(t('launchModel.configHistorySyncFailed'));
+          })
+          .finally(() => {
+            setConfigCacheRefreshKey((key) => key + 1);
+          });
+        let autostartSaved = false;
+        if (saveAutostart) {
+          try {
+            await request.post('/v1/autostart/models', {
+              enabled: true,
+              priority: 100,
+              launch: launchedValues,
+            });
+            autostartSaved = true;
+          } catch (error) {
+            console.error(error);
+            toast.error(t('launchModel.autostartSaveFailed'));
+          }
+        }
+        setLoading(false);
+        stopPolling();
+        onOpenChange(false);
+        toast.success(
+          t(
+            autostartSaved
+              ? 'launchModel.launchCompletedWithAutostart'
+              : 'launchModel.launchCompleted'
+          )
+        );
+        router.push('/running-model');
+      })
+      .catch(() => {
+        stopPolling();
+        setProgressDetails(null);
+        setReplicaStatuses([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    startPolling();
+  };
+
+  const handleDownload = async () => {
+    const newValues = transformFormToFetch({
+      ...launchFormValues,
+      replica_placement_mode: 'auto',
+    });
+    const cacheValues = Object.fromEntries(
+      Object.entries(newValues).filter(([key]) => !DOWNLOAD_ONLY_EXCLUDED_FIELDS.has(key))
+    );
+    const cacheUid =
+      globalThis.crypto?.randomUUID?.() ??
+      `cache-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    cacheUidRef.current = cacheUid;
+    isCanceledDownloadRef.current = false;
+    setIsDownloading(true);
+    setLoading(true);
+    setProgress(0);
+    setProgressDetails(null);
+    setReplicaStatuses([]);
+
+    const operationRequest = request.post(
+      '/v1/cache/models',
+      { ...cacheValues, cache_uid: cacheUid },
+      { noTimeout: true }
+    );
+    startDownloadPolling();
+
+    try {
+      await operationRequest;
+      if (isCanceledDownloadRef.current) return;
+
+      stopPolling();
+      onOpenChange(false);
+      toast.success(t('launchModel.modelDownloadCompleted'));
+      await onCacheCompleted?.();
+    } catch {
+      stopPolling();
+    } finally {
+      setLoading(false);
+      setIsDownloading(false);
+      cacheUidRef.current = undefined;
+    }
+  };
+
+  const handleClose = () => {
+    recommendation.invalidate();
+    recommendationEngineContext.current = null;
+    modelEngineRequestIdRef.current += 1;
+    setLoading(false);
+    setIsDownloading(false);
+    setCanceling(false);
+    setProgress(0);
+    setProgressDetails(null);
+    setReplicaStatuses([]);
+    setSaveAutostart(false);
+    cacheUidRef.current = undefined;
+    isCanceledDownloadRef.current = false;
+    stopPolling();
+    onOpenChange(false);
+    form.resetFields();
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchModelEngine();
+      fetchWorkers();
+    }
+
+    return () => {
+      modelEngineRequestIdRef.current += 1;
+    };
+  }, [fetchModelEngine, fetchWorkers, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || clusterAuth === null) return;
+
+    downloadHubTouchedRef.current = false;
+    resetLaunchHistoryFormEdited();
+    const latestConfig = getLatestModelConfigHistory(model?.model_name, clusterAuth.auth === true);
+
+    replaceLaunchHistoryFormSnapshot(form, latestConfig);
+  }, [clusterAuth, form, isOpen, model?.model_name, resetLaunchHistoryFormEdited]);
+
+  useEffect(() => {
+    if (!isOpen || (clusterAuth?.auth && !hasSettingsRead)) return;
+
+    let active = true;
+
+    const applyPreferredDownloadSource = async () => {
+      try {
+        const { download_source } = await request.get<SystemSettingsResponse>(
+          '/v1/cluster/system_settings'
+        );
+        if (
+          active &&
+          shouldApplyPreferredDownloadSource(
+            download_source,
+            downloadHubOptionsRef.current,
+            downloadHubTouchedRef.current
+          )
+        ) {
+          form.setFieldValue('download_hub', download_source);
+        }
+      } catch {
+        // Keep the current selection when settings are unavailable or unauthorized.
+      }
+    };
+
+    void applyPreferredDownloadSource();
+
+    return () => {
+      active = false;
+    };
+  }, [clusterAuth?.auth, form, hasSettingsRead, isOpen, model?.model_name]);
+
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, [stopPolling]);
+
+  const initialValues = {
+    model_name: model?.model_name,
+    model_type: modelType,
+    n_gpu:
+      supportsRecommendation || modelType === ModelType.Image
+        ? 'auto'
+        : gpuAvailable === 0
+          ? 'CPU'
+          : 'GPU',
+    n_gpu_layers: -1,
+    replica: 1,
+    replica_placement_mode: 'auto' as const,
+    enable_thinking: true,
+    reasoning_content: false,
+    enable_virtual_env: 'unset',
+    cpu_offload: false,
+  };
+  return (
+    <>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleClose();
+            return;
+          }
+          onOpenChange(open);
+        }}
+      >
+        <DialogContent
+          className={cn(loading ? '!max-h-[calc(100%-2rem)] !max-w-6xl' : '!max-w-3xl')}
+          maskClosable={false}
+        >
+          <DialogHeader>
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 pr-10">
+              <DialogTitle className="min-w-0 truncate">{model?.model_name}</DialogTitle>
+              <div className="ml-auto flex max-w-full flex-wrap justify-end gap-2">
+                {supportsRecommendation && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                    disabled={loading || recommendation.pending || cannotRecommend}
+                    loading={recommendation.pending}
+                    onClick={recommendation.recommend}
+                  >
+                    {!recommendation.pending && <Sparkles aria-hidden="true" />}
+                    {t('launchModel.recommendConfiguration')}
+                  </Button>
+                )}
+                <ConfigCache
+                  form={form}
+                  modelName={model?.model_name}
+                  modelType={modelType}
+                  refreshKey={configCacheRefreshKey}
+                  onHistoryRefreshed={handleLaunchHistoryRefreshed}
+                  onUserChange={markLaunchHistoryFormEdited}
+                />
+                <CommandLine
+                  form={form}
+                  canCopyCommandLine={isReady}
+                  onUserChange={markLaunchHistoryFormEdited}
+                />
+              </div>
+            </div>
+          </DialogHeader>
+          {supportsRecommendation &&
+            (cannotRecommend || recommendation.failed || recommendation.result) && (
+              <div className="space-y-2">
+                {cannotRecommend && (
+                  <p className="text-sm text-muted-foreground">
+                    {t('launchModel.recommendUnavailable')}
+                  </p>
+                )}
+                <div role="status" aria-live="polite" className="text-sm text-muted-foreground">
+                  {recommendation.failed && t('launchModel.recommendFailed')}
+                  {recommendation.result && (
+                    <p>
+                      {t(
+                        recommendation.result.status === 'recommended'
+                          ? 'launchModel.recommendApplied'
+                          : 'launchModel.noRecommendation'
+                      )}
+                      {recommendationWarnings.map((key) => (
+                        <span key={key}> {t(key)}</span>
+                      ))}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          <Form
+            id={formId}
+            form={form}
+            onFinish={handleLaunch}
+            onUserChange={markLaunchHistoryFormEdited}
+            initialValues={initialValues}
+            className="grid grid-cols-2 gap-x-4 gap-y-3 space-y-0"
+          >
+            <FormField hidden name="model_name" />
+            <FormField hidden name="model_type" />
+            {renderLaunchFields(currentLaunchFields)}
+          </Form>
+          <DialogFooter className={cn(loading ? '!flex-col' : '')}>
+            {loading && (
+              <div className="w-full space-y-2 pr-3">
+                {isDownloading && (
+                  <div className="flex items-center gap-3">
+                    <Progress
+                      value={progress}
+                      className="flex-1"
+                      aria-label={t('launchModel.overallProgress')}
+                    />
+                    <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                      {Math.round(progress)}%
+                    </span>
+                  </div>
+                )}
+                {isDownloading &&
+                  (progressDetails?.stage === 'downloading' ||
+                    Boolean(progressDetails?.download_files?.length)) && (
+                    <DownloadProgressDetails files={progressDetails?.download_files ?? []} />
+                  )}
+                {!isDownloading && renderReplicaStatuses()}
+              </div>
+            )}
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Switch checked={saveAutostart} disabled={loading} onChange={setSaveAutostart} />
+                {t('launchModel.saveAutostart')}
+              </label>
+              <div className="ml-auto flex items-center justify-end gap-2">
+                <Button variant="outline" disabled={loading} onClick={handleClose}>
+                  {t('common.cancel')}
+                </Button>
+                {loading ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={canceling}
+                    loading={canceling}
+                    onClick={isDownloading ? handleCancelDownload : handleCancelLaunch}
+                    className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Ban />
+                    {t('common.stop')}
+                  </Button>
+                ) : (
+                  <>
+                    {allowDownloadOnly && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!isDownloadReady}
+                        onClick={handleDownload}
+                      >
+                        <Download />
+                        {t('launchModel.downloadOnly')}
+                      </Button>
+                    )}
+                    <Button type="submit" form={formId}>
+                      <Rocket />
+                      {t('common.deploy')}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

@@ -1,0 +1,21 @@
+# Merge these rules under the top-level `inhibit_rules` key in alertmanager.yml.
+# Agent connectivity warnings must never suppress TokenRouterUnavailable.
+inhibit_rules:
+  # Prefer the logical Router availability signal over per-runtime and
+  # per-assignment symptoms for the same Router.
+  - source_matchers:
+      - alertname="TokenRouterUnavailable"
+    target_matchers:
+      - alertname=~"TokenRouterRuntimeDown|TokenRouterAssignmentNotReady"
+    equal:
+      - router_uid
+
+  # When the Agent is already offline, suppress only lower-level connectivity
+  # or capacity symptoms emitted for the same node. Runtime and Router service
+  # availability alerts remain visible.
+  - source_matchers:
+      - alertname="TokenRouterAgentOffline"
+    target_matchers:
+      - alertname=~"TokenRouterAgentSuspected|TokenRouterAgentCapacityMismatch|TokenRouterAgentHeartbeatStale"
+    equal:
+      - node_id

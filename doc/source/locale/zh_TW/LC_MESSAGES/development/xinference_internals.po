@@ -1,0 +1,758 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-05-31 11:46+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/development/xinference_internals.rst:3
+msgid "The internals of Xinference"
+msgstr "Xinference 的內部結構"
+
+#: ../../source/development/xinference_internals.rst:6
+msgid "Table of contents:"
+msgstr "目錄"
+
+#: ../../source/development/xinference_internals.rst:9
+msgid "Overview"
+msgstr "概述"
+
+#: ../../source/development/xinference_internals.rst:10
+msgid ""
+"Xinference leverages `Xoscar <https://github.com/xorbitsai/xoscar>`_, an "
+"actor programming framework we designed, as its core component to manage "
+"machines, devices, and model inference processes. Each actor serves as a "
+"basic unit for model inference and various inference backends can be "
+"integrate into the actor, enabling us to support multiple inference engines "
+"and hardware. These actors are hosted and scheduled within actor pools, "
+"which are designed to be asynchronous and non-blocking and function as "
+"resource pools."
+msgstr ""
+"Xinference 利用我們設計的 actor 程式設計框架 `Xoscar "
+"<https://github.com/xorbitsai/xoscar>`_ 作為其核心元件，以管理機器、裝置和模型推理程序。每個 actor "
+"都是模型推理的基本單元，各種推理後端可以整合到 actor 中，從而使我們能夠支援多種推理引擎和硬體。這些 actor 在 actor "
+"池中託管和排程，actor 池具有資源池的功能，actor 的設計是異步和非阻塞的。"
+
+#: ../../source/development/xinference_internals.rst:22
+msgid ""
+"Both supervisor and worker are actor instances. Initially, an actor pool, "
+"serving as a resource pool, needs to be created on each server; and each "
+"actor can utilize a CPU core or a GPU device. Each server has its own "
+"address (IP address or hostname), so actors on different computing nodes can"
+" communicate with each other through these addresses. See `Actor`_ for more "
+"information."
+msgstr ""
+"supervisor 和 worker 都是 actor 實例。需要先在每台伺服器上建立一個作為資源池的 actor 池；每個 actor 可以使用一個"
+" CPU 核心或一塊 GPU 裝置。每台伺服器都有自己的位址（IP 位址或主機名稱），因此不同計算節點上的 actor "
+"可以透過這些位址相互通訊。更多資訊，請參閱 `Actor`_。"
+
+#: ../../source/development/xinference_internals.rst:27
+msgid "RESTful API"
+msgstr "RESTful API"
+
+#: ../../source/development/xinference_internals.rst:28
+msgid ""
+"The RESTful API is implemented using `FastAPI "
+"<https://github.com/tiangolo/fastapi>`_, as specified in `api/restful_api.py"
+" "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_."
+msgstr ""
+"RESTful API 是利用 `FastAPI <https://github.com/tiangolo/fastapi>`_ 實作的，具體程式碼在 "
+"`api/restful_api.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_。"
+
+#: ../../source/development/xinference_internals.rst:35
+msgid ""
+"This is an example of the API ``/status``, it's corresponding function is "
+"``get_status``. You can add connection between RESTful API and the backend "
+"function you want in `api/restful_api.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_."
+msgstr ""
+"這是一個 API 的範例，API ``/status`` 對應函數 ``get_status``。您可以在 `api/restful_api.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_"
+" 中添加 RESTful API 和對應後端函數之間的關係。"
+
+#: ../../source/development/xinference_internals.rst:39
+msgid "Command Line"
+msgstr "命令列"
+
+#: ../../source/development/xinference_internals.rst:40
+msgid ""
+"The Command Line is implemented using `Click "
+"<https://click.palletsprojects.com/>`_, as specified in `deploy/cmdline.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy/cmdline.py>`_,"
+" allowing users to interact with the Xinference deployment features directly"
+" from the terminal."
+msgstr ""
+"命令列是透過 `Click <https://click.palletsprojects.com/>`_ 實現的，具體程式碼在 "
+"`deploy/cmdline.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy/cmdline.py>`_，命令列允許使用者直接在終端機與"
+" Xinference 進行互動。"
+
+#: ../../source/development/xinference_internals.rst:45
+msgid "Entry Points"
+msgstr "入口點"
+
+#: ../../source/development/xinference_internals.rst:46
+msgid "Take the command-lines we implemented as examples:"
+msgstr "以我們實作的命令行為例："
+
+#: ../../source/development/xinference_internals.rst:48
+msgid ""
+"``xinference``: Provides commands for model management, including "
+"registering/unregistering models, listing all registered/running models, and"
+" launching or terminating specific models. It also features interactive "
+"commands like generate and chat for testing and interacting with deployed "
+"models in real-time."
+msgstr ""
+"``xinference``：提供命令用於模型管理，包括註冊/取消註冊模型、列出所有已註冊/執行的模型，以及啟動或終止特定模型。它還提供生成語言和聊天等互動式命令，用於測試或互動已部署的模型。"
+
+#: ../../source/development/xinference_internals.rst:52
+msgid "``xinference-local``: Starts a local Xinference service."
+msgstr "``xinference-local``：啟動一個本地 Xinference 服務。"
+
+#: ../../source/development/xinference_internals.rst:54
+msgid ""
+"``xinference-supervisor``: Initiates a supervisor process that manages and "
+"monitors worker actors within a distributed setup."
+msgstr ""
+"``xinference-supervisor``：啟動 supervisor 進程，在分散式環境中管理和監控 worker actors。"
+
+#: ../../source/development/xinference_internals.rst:56
+msgid ""
+"``xinference-worker``: Starts a worker process that executes tasks assigned "
+"by the supervisor, utilizing available computational resources effectively."
+msgstr "``xinference-worker``：啟動 worker 程序，利用可用計算資源，執行 supervisor 分配的任務。"
+
+#: ../../source/development/xinference_internals.rst:59
+msgid ""
+"Each command is equipped with ``options`` and ``flags`` to customize its "
+"behavior, such as specifying log levels, host addresses, port numbers, and "
+"other relevant settings."
+msgstr "每條命令都配有 ``option`` 和 ``flag``，可自訂其行為，如指定日誌級別、主機地址、通訊埠號碼和其他相關設定。"
+
+#: ../../source/development/xinference_internals.rst:62
+msgid ""
+"Python projects define command-line console entry points in "
+"``pyproject.toml``."
+msgstr "Python 專案會在 ``pyproject.toml`` 中定義命令列主控台入口點。"
+
+#: ../../source/development/xinference_internals.rst:72
+msgid ""
+"The command-line ``xinference`` can be referred to code in "
+"``xinference.deploy.cmdline:cli``."
+msgstr "命令行 ``xinference`` 可參考 ``xinference.deploy.cmdline:cli`` 中的程式碼。"
+
+#: ../../source/development/xinference_internals.rst:75
+msgid "Click"
+msgstr "Click"
+
+#: ../../source/development/xinference_internals.rst:76
+msgid "We use Click to implement a specific command-line:"
+msgstr "我們使用 Click 來實現特定的命令列："
+
+#: ../../source/development/xinference_internals.rst:95
+msgid ""
+"For example, the ``xinference-local`` command allows you to define the host "
+"address and port."
+msgstr "例如，``xinference-local`` 指令允許您定義主機位址與埠號。"
+
+#: ../../source/development/xinference_internals.rst:98
+msgid "Actor"
+msgstr "Actor"
+
+#: ../../source/development/xinference_internals.rst:99
+msgid ""
+"Xinference is fundamentally based on `Xoscar "
+"<https://github.com/xorbitsai/xoscar>`_, our actor framework, which can "
+"manage computational resources and Python processes to support scalable and "
+"concurrent programming. The following is a pseudocode demonstrating how our "
+"Worker Actor works, the actual Worker Actor is more complex than this."
+msgstr ""
+"Xinference 以 `Xoscar <https://github.com/xorbitsai/xoscar>`_ 為基礎，Xoscar 是我們的"
+" actor 框架，可以管理計算資源和 Python 程序，支援可擴展的並行程式設計。下面的虛擬碼演示了 Worker Actor 的運作方式，實際的 "
+"Worker Actor 比這個複雜得多。"
+
+#: ../../source/development/xinference_internals.rst:126
+msgid ""
+"We use the ``WorkerActor`` as an example to illustrate how we build the "
+"Xinference. Each actor class is a standard Python class that inherits from "
+"``xoscar.Actor``. An instance of this class is a specific actor within the "
+"actor pool."
+msgstr ""
+"我們以 ``WorkerActor`` 為例，說明如何構建 Xinference。每個 actor 類別都是繼承自 ``xoscar.Actor`` "
+"的標準 Python 類別。該類別的實例即為 actor 池中的一個特定 actor。"
+
+#: ../../source/development/xinference_internals.rst:130
+msgid ""
+"**Define Actor Actions**: Each actor needs to define certain actions or "
+"behaviors to accomplish specific tasks. For instance, the model inference "
+"``WorkerActor`` needs to launch the model (``launch_model``), list the "
+"models in this actor (``list_models``), terminate a model "
+"(``terminate_model``). There are two special methods worth noting. The "
+"``__post_create__`` is invoked before the actor is created, allowing for "
+"necessary initializations. The ``__pre_destroy__`` is called after the actor"
+" is destroyed, allowing for cleanup or finalization tasks."
+msgstr ""
+"**定義 Actor 的行為**：每個 actor 都需要定義某些動作或行為來完成特定任務。例如，模型推理 ``WorkerActor`` "
+"需要啟動模型（``launch_model``）、列出該 actor "
+"中的模型（``list_models``）、終止模型（``termininate_model``）。有兩個特殊方法值得注意。``__post_create__``"
+" 在創建 actor 之前調用，進行必要的初始化。而 ``__pre_destroy__`` 會在 actor 被銷毀後調用，執行清理任務。"
+
+#: ../../source/development/xinference_internals.rst:136
+msgid ""
+"**Reference Actor and Invoke Methods**: When an actor is created, it yields "
+"a reference variable so that other actors can reference it. The actor "
+"reference can also be referenced with the address. Suppose the "
+"``WorkerActor`` is created and the reference variable is ``worker_ref``,  "
+"the ``launch_model`` method of this actor class can be invoked by calling "
+"``worker_ref.launch_model()``. Even if the actor's method is originally a "
+"synchronized method, when called with an actor reference, it will become as "
+"an asynchronous method."
+msgstr ""
+"**引用 Actor 和呼叫方法**：當建立一個 Actor 時，會產生一個參考變數，以便其他 Actor 可以引用它。Actor 也可以用 IP "
+"位址來引用。假設建立了 ``WorkerActor``，且參考變數為 ``worker_ref``，那麼就可以透過呼叫 "
+"``worker_ref.launch_model()`` 來呼叫該 Actor 類別的 ``launch_model``。即使 actor "
+"中的方法原本是一個傳統的阻塞式方法，當我們使用參考變數呼叫這個方法時，它也變成了一個非同步方法。"
+
+#: ../../source/development/xinference_internals.rst:143
+msgid ""
+"**Inference Engine**: The actor can manage the process, and the inference "
+"engine is also a process. In the launch model part of the ``WorkerActor``, "
+"we can initialize different inference engines according to the user's need. "
+"Therefore, Xinference can support multiple inference engines and can easily "
+"adapt to new inference engines in the future."
+msgstr ""
+"**推理引擎**：Actor 可以管理進程，而推理引擎也是一種進程。在 ``WorkerActor`` "
+"的啟動模型部分，我們可以根據使用者的需求初始化不同的推理引擎。因此，Xinference 可以支援多種推理引擎，並能輕鬆適應未來的新推理引擎。"
+
+#: ../../source/development/xinference_internals.rst:148
+msgid ""
+"See `Xoscar document <https://xoscar.dev/en/latest/getting_started/llm-"
+"inference.html>`_ for more actor use cases."
+msgstr ""
+"請參閱 `Xoscar 文件 <https://xoscar.dev/en/latest/getting_started/llm-"
+"inference.html>`_ 了解更多 Actor 使用案例。"
+
+#: ../../source/development/xinference_internals.rst:151
+msgid "Asynchronous Programming"
+msgstr "非同步程式設計"
+
+#: ../../source/development/xinference_internals.rst:153
+msgid ""
+"Both Xinference and Xoscar highly utilize asynchronous programming of "
+"``asyncio``. Asynchronous programming is a programming paradigm that does "
+"not block. Instead, requests and function calls are issued and executed in "
+"the background and results are returned in the future. This enables us to "
+"perform activities concurrently."
+msgstr ""
+"Xinference 和 Xoscar 高度依賴非同步程式庫 "
+"``asyncio``。非同步程式設計是一種非阻塞的程式設計範式。相較於傳統的阻塞式函式呼叫，非同步程式設計中的請求或函式呼叫在背景執行，執行結果在未來某個時間點返回。非同步程式設計的優勢在於能夠同時並行進行許多不同的活動或任務。"
+
+#: ../../source/development/xinference_internals.rst:159
+msgid ""
+"If you're not familiar with Pythons's ``asyncio``, you can see more "
+"tutorials for help:"
+msgstr "如果您不熟悉 Python 的 ``asyncio``，可以查看更多教學以獲得幫助："
+
+#: ../../source/development/xinference_internals.rst:161
+msgid ""
+"`Python Asyncio Tutorial <https://bbc.github.io/cloudfit-public-"
+"docs/asyncio/asyncio-part-1.html>`__"
+msgstr ""
+"`Python Asyncio 教學 <https://bbc.github.io/cloudfit-public-"
+"docs/asyncio/asyncio-part-1.html>`__"
+
+#: ../../source/development/xinference_internals.rst:163
+msgid ""
+"`Real Python's asyncio Tutorial <https://realpython.com/async-io-python/>`__"
+msgstr "`Real Python asyncio 教學 <https://realpython.com/async-io-python/>`__"
+
+#: ../../source/development/xinference_internals.rst:165
+msgid ""
+"`Python Official Documentation "
+"<https://docs.python.org/3/library/asyncio.html>`__"
+msgstr "`Python 官方文件 <https://docs.python.org/3/library/asyncio.html>`__"
+
+#: ../../source/development/xinference_internals.rst:169
+msgid "Model"
+msgstr "模型"
+
+#: ../../source/development/xinference_internals.rst:171
+msgid ""
+"Xinference supports different types of models including large language "
+"models (LLMs), image models, audio models, embedding models, etc. All models"
+" are implemented in `model/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model>`_."
+msgstr ""
+"Xinference 支援不同類型的模型，包括大型語言模型（LLM）、圖像模型、音訊模型、嵌入模型等。所有模型在 `model/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model>`_ "
+"資料夾下實現。"
+
+#: ../../source/development/xinference_internals.rst:175
+msgid "LLM"
+msgstr ""
+
+#: ../../source/development/xinference_internals.rst:177
+msgid ""
+"Take `model/llm/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ "
+"for example, it focuses on the management and instantiation of LLMs. It "
+"includes detailed implementations for loading, configuring, and deploying "
+"LLMs."
+msgstr ""
+"以 `model/llm/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ "
+"為例，它主要管理和啟動 LLM，包括載入、設定和執行大型語言模型。"
+
+#: ../../source/development/xinference_internals.rst:181
+msgid ""
+"We support many backends such as GGML, PyTorch, and vLLM. Our generated "
+"content is compatible with the format of OpenAI, supporting features such as"
+" streaming output and returning chat completion format (for chat models "
+"only). Therefore, there is a lot of adaptation work to be done after the "
+"model generate content. These tasks are not difficult, but they do require "
+"some time. When writing this part of the code, please refer to the `OpenAI "
+"API documentation <https://platform.openai.com/docs/introduction>`_ and the "
+"documentation of various inference backends, and make the necessary "
+"adaptations."
+msgstr ""
+"我們支援不同的推理後端，例如 GGML、PyTorch 和 vLLM。生成的內容與 OpenAI "
+"的格式相容，例如支援串流輸出（stream），對話模型以 chat completion "
+"格式回傳。因此模型輸出內容後需要進行許多適配工作。這些工作並不困難，但需要一些時間。編寫這部分程式碼時，請參考 `OpenAI 的 API 文件 "
+"<https://platform.openai.com/docs/introduction>`_ 和各個推理後端的文件，進行必要的適配。"
+
+#: ../../source/development/xinference_internals.rst:185
+msgid "JSON"
+msgstr ""
+
+#: ../../source/development/xinference_internals.rst:187
+msgid "In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_, each model has a JSON file containing all its variants. Add or remove a model by adding or deleting its file. Files are discovered automatically in case-insensitive filename order; the order of records within each file is preserved."
+msgstr "在 `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_ 中，每個模型都有一個 JSON 檔案，包含它的所有變體。新增或刪除模型只需新增或刪除對應檔案。系統自動探索檔案，按檔名排序（忽略大小寫），並保留每個檔案內部的記錄順序。"
+
+#: ../../source/development/xinference_internals.rst:214
+msgid ""
+"This is an example of how to define the Llama-2 chat model. The "
+"``model_specs`` define the information of the model, as one model family "
+"usually comes with various sizes, quantization methods, and file formats. "
+"For instance, the ``model_format`` could be ``pytorch`` (using Hugging Face "
+"Transformers or vLLM as backend), ``ggmlv3`` (a tensor library associated "
+"with llama.cpp), or ``gptq`` (a post-training quantization framework). The "
+"``model_id`` defines the repository of the model hub from which Xinference "
+"downloads the checkpoint files. Furthermore, due to distinct instruction-"
+"tuning processes, different model families have varying prompt styles. The "
+"``prompt_style`` in the JSON file specifies how to format prompts for this "
+"particular model. For example, ``system_prompt`` and ``roles`` are used to "
+"specify the instructions and personality of the model."
+msgstr ""
+"這是一個如何定義 Llama-2 聊天模型的範例。``model_specs`` "
+"定義了模型的資訊，因為一個模型系列通常有不同的尺寸、量化方法和檔案格式。例如，``model_format`` 可以是 ``pytorch`` （使用 "
+"Hugging Face Transformers 或 vLLM 作為後端）、 ``ggmlv3`` （與 llama.cpp 相關的張量庫）或 "
+"``gptq`` （訓練後量化框架）。``model_id`` 定義了模型中心的資源庫，Xinference "
+"從模型中心下載檢查點檔案。此外，由於不同的指令調整過程，不同的模型系列有不同的提示風格。JSON 檔案中的 ``prompt_style`` "
+"指定了該特定模型的提示格式。例如，``system_prompt`` 和 ``roles`` 用於指定模型的指令和個性。"
+
+#: ../../source/development/xinference_internals.rst:224
+msgid "Code Walkthrough"
+msgstr "程式碼指南"
+
+#: ../../source/development/xinference_internals.rst:226
+msgid ""
+"The main code is located in the `xinference/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference>`_:"
+msgstr ""
+"主要程式碼位於 `xinference/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference>`_："
+
+#: ../../source/development/xinference_internals.rst:228
+msgid ""
+"`api/ <https://github.com/xorbitsai/inference/tree/main/xinference/api>`_: "
+"`restful_api.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_"
+" is the core part that sets up and runs the RESTful APIs. It integrates an "
+"authentication service (the specific code is located in `oauth2/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/api/oauth2>`_),"
+" as some or all endpointsrequire user authentication."
+msgstr ""
+"`api/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/api>`_：`restful_api.py"
+" "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_"
+" 是設定與執行 RESTful API 的核心部分。它整合了一項身份驗證服務（具體程式碼位於 `oauth2/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/api/oauth2>`_），因為部分或所有端口需要使用者身份驗證。"
+
+#: ../../source/development/xinference_internals.rst:233
+msgid ""
+"`client/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/client>`_: This"
+" is the client of Xinference."
+msgstr ""
+"`client/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/client>`_：這是 "
+"Xinference 的客戶端。"
+
+#: ../../source/development/xinference_internals.rst:235
+msgid ""
+"`oscar/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/client/oscar>`_"
+" defines the Actor Client which acts as a client interface for interacting "
+"with models deployed in a Xinference cluster."
+msgstr ""
+"`oscar/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/client/oscar>`_"
+" 定義了 Actor 客戶端，這是一個客戶端介面，用於與 Xinference 中的模型進行互動。"
+
+#: ../../source/development/xinference_internals.rst:238
+msgid ""
+"`restful/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/client/restful>`_"
+" implements a RESTful client for interacting with a Xinference service."
+msgstr ""
+"`restful/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/client/restful>`_"
+" 實作與 Xinference 服務互動的 RESTful 客戶端。"
+
+#: ../../source/development/xinference_internals.rst:241
+msgid ""
+"`core/ <https://github.com/xorbitsai/inference/tree/main/xinference/core>`_:"
+" This is the core part of Xinference."
+msgstr ""
+"`core/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core>`_：這是 "
+"Xinference 的核心部分。"
+
+#: ../../source/development/xinference_internals.rst:243
+msgid ""
+"`metrics.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/metrics.py>`_"
+" and `resource.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/resource.py>`_"
+" defines a set of tools for collecting and reporting metrics and the status "
+"of node resources, including model throughput, latency, the usage of CPU and"
+" GPU, memory usage, and more."
+msgstr ""
+"`metrics.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/metrics.py>`_"
+" 和 `resource.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/resource.py>`_"
+" 定義了一套用於收集和報告指標以及節點資源狀態的工具，包括模型吞吐量、延遲、CPU 和 GPU 使用率、記憶體使用率等。"
+
+#: ../../source/development/xinference_internals.rst:248
+msgid ""
+"`image_interface.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/image_interface.py>`_"
+" and `chat_interface.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/chat_interface.py>`_"
+" implement `Gradio <https://github.com/gradio-app/gradio>`_ interfaces for "
+"image and chat models, respectively. These interfaces allow users to "
+"interact with models through a Web UI, such as generating images or engaging"
+" in chat. They build user interfaces using the gradio package and "
+"communicate with backend models through our RESTful APIs."
+msgstr ""
+"`image_interface.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/image_interface.py>`_"
+" 和 `chat_interface.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/chat_interface.py>`_"
+" 分別為圖像和聊天模型實作了 `Gradio <https://github.com/gradio-app/gradio>`_ "
+"介面。這些介面允許使用者透過 Web 界面與模型進行互動，例如生成圖像或進行聊天。程式碼使用 Gradio 套件建構使用者界面，並透過我們的 "
+"RESTful API 與後端模型通訊。"
+
+#: ../../source/development/xinference_internals.rst:254
+msgid ""
+"`worker.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/worker.py>`_"
+" and `supervisor.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/supervisor.py>`_"
+" respectively define the logic for worker actors and supervisor actor. "
+"Worker actors are responsible for carrying out specific model computation "
+"tasks, while supervisor actors manage the lifecycle of worker nodes, "
+"schedule tasks, and monitor system states."
+msgstr ""
+"`worker.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/worker.py>`_"
+" 和 `supervisor.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/supervisor.py>`_"
+" 分別定義了 worker actor 和 supervisor actor 的邏輯。worker actor 負責執行特定的模型計算任務，而 "
+"supervisor actor 則管理 Worker 節點的生命週期和任務調度，並監控系統狀態。"
+
+#: ../../source/development/xinference_internals.rst:259
+msgid ""
+"`status_guard.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/status_guard.py>`_"
+" implements a status monitor to track the status of models (like creating, "
+"updating, terminating, etc.). It allows querying status information of model"
+" instances and managing these statuses based on the model's UID."
+msgstr ""
+"`status_guard.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/status_guard.py>`_"
+" 實作了一個狀態監視器，用於追蹤模型的狀態（如建立、更新、終止等）。它允許根據模型的 UID 查詢模型實例的狀態資訊。"
+
+#: ../../source/development/xinference_internals.rst:263
+msgid ""
+"`cache_tracker.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/cache_tracker.py>`_"
+" defines a cache tracker for recording and managing cache status and "
+"information of model versions. It supports recording cache locations and "
+"statuses of model versions and querying model version information based on "
+"model names."
+msgstr ""
+"`cache_tracker.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/cache_tracker.py>`_"
+" 定義了一個快取追蹤器，用於記錄和管理快取狀態及模型版本資訊。它支援記錄快取位置與模型版本的狀態，並可依模型名稱查詢模型版本資訊。"
+
+#: ../../source/development/xinference_internals.rst:267
+msgid ""
+"`event.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/event.py>`_"
+" defines an event collector for gathering and reporting various runtime "
+"events of models, such as information, warnings, and errors. `model.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/model.py>`_"
+" defines a Model Actor, the core component for direct model interactions. "
+"The Model Actor is responsible for executing model inference requests, "
+"handling input and output data streams, and supports various types of model "
+"operations."
+msgstr ""
+"`event.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/event.py>`_"
+" 定義了一個事件收集器，用於收集和報告各種運行時模型的事件，例如資訊、警告和錯誤。`model.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/model.py>`_"
+" 定義了一個模型 Actor，它是與模型直接互動的核心組件。模型 actor "
+"負責執行模型推理請求、處理輸入和輸出資料流，並支援各種模型操作。這兩個部分都使用 `Xoscar "
+"<https://github.com/xorbitsai/xoscar>`_ 來進行並發與分散式執行。"
+
+#: ../../source/development/xinference_internals.rst:273
+msgid ""
+"`deploy/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy>`_: It "
+"provides a command-line interface (CLI) for interacting with the Xinference "
+"framework, allowing users to perform operations by command line. See "
+"`Command Line`_ for more information."
+msgstr ""
+"`deploy/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy>`_：它提供了一個命令列界面（CLI），用於與"
+" Xinference 框架進行互動，允許使用者透過命令列進行操作。更多資訊，請參見 `Command Line`_。"
+
+#: ../../source/development/xinference_internals.rst:276
+msgid ""
+"`locale/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/locale>`_: It "
+"supports multi-language localization. By simply adding and updating JSON "
+"translation files, it becomes possible to support more languages, improving "
+"user experience."
+msgstr ""
+"`locale/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/locale>`_：它支援多語言本地化。只需新增和更新"
+" JSON 翻譯檔案，即可支援更多語言，改善使用者體驗。"
+
+#: ../../source/development/xinference_internals.rst:279
+msgid ""
+"`model/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model>`_: It "
+"provides a structure for model descriptions, creation, and caching. See "
+"`Model`_ for more information."
+msgstr ""
+"`model/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model>`_：它為模型描述、建立和快取提供了一個框架。請參閱"
+" `Model`_ 以取得更多資訊。"
+
+#: ../../source/development/xinference_internals.rst:282
+msgid ""
+"`web/ui/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/web/ui>`_: The "
+"js code of the frontend (Web UI)."
+msgstr ""
+"`web/ui/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/web/ui>`_：前端（使用者介面）的"
+" JavaScript 程式碼。"
+
+#~ msgid ""
+#~ "Xinference supports different types of models including large language "
+#~ "models (LLMs), image models, audio models, embedding models, etc"
+#~ msgstr ""
+#~ "Xinference 支援不同類型的模型，包括大型語言模型（LLM）、圖像模型、音訊模型、嵌入模型等。所有模型都在 `model/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model>`_ 中實現。以 "
+#~ "`llm/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ "
+#~ "為例，它專注於 LLM 的管理和實例化。它包括載入、設定和部署 LLM 的詳細實現，包括處理不同類型的量化和模型格式。在 `llm/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ "
+#~ "中，它支援許多後端，如 `GGML "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/ggml>`_、`PyTorch"
+#~ " "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/pytorch>`_、`SGLang"
+#~ " "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/sglang>`_"
+#~ " 和 `vLLM "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/vllm>`_。"
+
+#~ msgid ""
+#~ "Take `llm/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ "
+#~ "for example, it focuses on the management and instantiation of LLMs. It "
+#~ "includes detailed implementations for loading, configuring, and deploying "
+#~ "LLMs, including handling different types of quantization and model formats. "
+#~ "In `llm/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_, "
+#~ "it supports many backends such as `GGML "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/ggml>`_,"
+#~ " `PyTorch "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/pytorch>`_,"
+#~ " `SGLang "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/sglang>`_"
+#~ " and `vLLM "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/vllm>`_."
+#~ msgstr ""
+#~ "所有模型都在 `model/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model>`_ 中實現。以 "
+#~ "`llm/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ "
+#~ "為例，它側重於 LLM 的管理和實例化。它包括加載、配置和部署 LLM 的詳細實現，包括處理不同類型的量化及模型格式。在 `llm/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ "
+#~ "中，它支援許多後端，如 `GGML "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/ggml>`_、`PyTorch"
+#~ " "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/pytorch>`_、`SGLang"
+#~ " "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/sglang>`_"
+#~ " 和 `vLLM "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/vllm>`_。"
+
+#~ msgid ""
+#~ "All models are implemented in `model/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model>`_."
+#~ msgstr ""
+#~ "所有模型在 `model/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/model>`_ 中實現"
+
+#~ msgid ""
+#~ "In ``model/llm/``, it supports many backends such as GGML, PyTorch, and "
+#~ "vLLM."
+#~ msgstr "在 ``model/llm/`` 下，我們支援了許多後端，例如 GGML、PyTorch 和 vLLM。"
+
+#~ msgid ""
+#~ "`oscar/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/client/oscar>`_"
+#~ " defines the Actor Client which acts as a client interface for interacting "
+#~ "with models deployed in a server environment. It includes functionalities to"
+#~ " register/unregister models, launch/terminate models, and interact with "
+#~ "different types of models. This part heavily utilizes ``asyncio`` for "
+#~ "asynchronous operations. See `Concurrency`_ for more information."
+#~ msgstr ""
+#~ "`oscar/ "
+#~ "<https://github.com/xorbitsai/inference/tree/main/xinference/client/oscar>`_"
+#~ " 定義了 Actor "
+#~ "客戶端，這是一個客戶端介面，用於與部署在伺服器環境中的模型互動。它包含註冊/取消註冊模型、啟動/終止模型，以及與不同類型模型互動的功能。這部分主要使用 "
+#~ "``asyncio`` 進行非同步操作。更多資訊，請參閱 `Concurrency`_。"
+
+#~ msgid "Concurrency"
+#~ msgstr "並發性"
+
+#~ msgid ""
+#~ "Both Xinference and Xoscar highly utilize coroutine programming of "
+#~ "``asyncio``."
+#~ msgstr "Xinference 和 Xoscar 都高度利用了 ``asyncio`` 進行協程程式設計。"
+
+#: ../../development/xinference_internals.rst
+msgid "Runtime extensions"
+msgstr "執行階段擴充"
+
+#: ../../development/xinference_internals.rst
+msgid "Set ``XINFERENCE_EXTENSIONS`` to comma-separated ``module:factory`` entries before starting Xinference. Each process loads its own extension instances, including spawned API, worker, and recovery processes. An unset variable preserves the standard runtime; an invalid configured extension fails explicitly."
+msgstr "啟動 Xinference 前，將 ``XINFERENCE_EXTENSIONS`` 設為以逗號分隔的 ``module:factory`` 項目。每個程序獨立載入擴充實例，包括新建的 API、Worker 與復原程序。未設定此變數時維持標準行為；錯誤的擴充設定會明確報錯。"
+
+#: ../../development/xinference_internals.rst
+msgid "A factory returns an object with a unique ``name``, ``api_version = 1``, and four methods: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)``, and ``control_operation(operation, payload)``. API context includes the app, router, authentication service, authentication mode, and an asynchronous supervisor reference getter. Routes and middleware are composed before the static frontend fallback. Reuse the authentication service when protecting extension routes."
+msgstr "工廠回傳的物件須包含唯一的 ``name``、``api_version = 1`` 與四個方法：``configure_api(context)``、``worker_metadata()``、``filter_worker_resources(worker, workers)`` 和 ``control_operation(operation, payload)``。API 上下文包含應用程式、路由、驗證服務、驗證模式與非同步取得 Supervisor 參照的方法。路由與中介軟體在靜態前端回退之前組合。保護擴充路由時應重用驗證服務。"
+
+#: ../../development/xinference_internals.rst
+msgid "The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build."
+msgstr "Supervisor 驗證 Worker 擴充是否一致，並向資源篩選器提供目前在線的 Worker 清單。篩選器可縮小可見 GPU 索引範圍，或拋出例外拒絕准入，包括 CPU 模型啟動。資源分配與程序建立皆檢查策略，涵蓋準備與復原路徑。具名控制操作在 Supervisor 執行；擴充必須驗證操作名稱與參數。預設前端導覽設定為空，發行版建置可組合自己的設定。"
+
+#: ../../development/xinference_internals.rst
+msgid "Factories and runtime hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "工廠和執行階段 hook 必須同步且不阻塞；傳回可等待物件會被拒絕。API 和 Actor 在啟動時載入設定的工廠，之後才處理請求或註冊 Worker。Actor hook 在 Actor 的事件迴圈上執行。"
+
+#: ../../development/xinference_internals.rst
+msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
+msgstr "``context.auth_enabled`` 表示伺服器整體的驗證設定，而非目前請求的驗證狀態。擴充路由處理函式必須如標準 API 一樣，將傳回型別標註為 ``starlette.responses.Response`` 的子類別。"
+
+#: ../../development/xinference_internals.rst
+msgid "Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement."
+msgstr "資源策略用於模型排程、分配和程序建立，並在 GPU 清理前檢查。僅快取或下載的 Worker 排程不受此篩選。"
+
+#: ../../development/xinference_internals.rst
+msgid "Extensions may optionally implement synchronous, non-blocking ``model_catalog_credentials(request, model_type)``. For ``POST /v1/models/update_type``, this hook runs after the configured authentication and ``models:register`` permission checks. Return ``xinference.extensions.ModelCatalogCredentials(token=...)`` to supply a server-owned catalog token, or ``None`` to keep anonymous refresh. Existing extensions need no changes. Multiple credential providers and provider failures reject the refresh without an anonymous retry. Providers must keep tokens out of their own logs and HTTP error details or headers."
+msgstr "擴充套件可以選擇實作同步、非阻塞的 ``model_catalog_credentials(request, model_type)``。對於 ``POST /v1/models/update_type``，此掛鉤會在設定的身分驗證和 ``models:register`` 權限檢查通過後執行。傳回 ``xinference.extensions.ModelCatalogCredentials(token=...)`` 可提供伺服器端管理的目錄 token，傳回 ``None`` 則維持匿名重新整理。現有擴充套件無須修改。多個憑證提供者或提供者執行失敗會拒絕重新整理，不會以匿名方式重試。提供者必須確保自己的日誌以及 HTTP 錯誤詳細資訊和回應標頭中不包含 token。"
+
+#: ../../development/xinference_internals.rst
+msgid "Credentials travel only with that refresh through the supervisor to each worker, which sends ``X-Models-Token`` to ``https://model.xinference.io/api/models/download``. Xinference does not persist the token or export it to the process environment; its credential object hides the token in actor argument logs. Credentialed requests reject redirects. Remote errors are sanitized, and unavailable or failing workers cause the refresh to fail. Workers that already updated are not rolled back; retry after correcting the failure. Update all runtime nodes before using this hook. Catalog updates affect the shared model registry; this hook does not provide per-user model visibility or model-weight download credentials."
+msgstr "憑證僅隨本次重新整理經 supervisor 傳遞至各 worker，worker 透過 ``X-Models-Token`` 將其傳送至 ``https://model.xinference.io/api/models/download``。Xinference 不會持久化 token，也不會將其匯出至程序環境；憑證物件會在 actor 引數日誌中隱藏 token。攜帶憑證的請求會拒絕重新導向。遠端錯誤會經過去敏感化處理；沒有可用 worker 或有 worker 失敗時，重新整理會失敗。已更新的 worker 不會回復；修復故障後可重試。使用此掛鉤前請更新所有執行節點。目錄更新會影響共用的模型登錄表；此掛鉤不提供依使用者隔離的模型可見性，也不提供模型權重下載憑證。"
+
+#: ../../development/xinference_internals.rst
+msgid "Malformed request bodies return HTTP 400. Credential provider failures return HTTP 500; explicit HTTP errors from providers keep their status and headers. Worker refresh failures return HTTP 502. No available workers or an unreachable supervisor return HTTP 503."
+msgstr "無效的請求本文會傳回 HTTP 400。憑證提供者執行失敗會傳回 HTTP 500；提供者明確拋出的 HTTP 錯誤會保留其狀態碼和回應標頭。Worker 重新整理失敗會傳回 HTTP 502。沒有可用 Worker 或無法連線至 Supervisor 時會傳回 HTTP 503。"
+
+#: ../../development/xinference_internals.rst
+msgid "To refresh one model, send ``POST /v1/models/update_spec`` with ``model_type`` and ``model_name``. It uses the same credential hook and ``models:register`` permission. The catalog response must contain one record or a non-empty list of variants, all with the requested ``model_name``. Only that model is replaced in the downloaded catalog; other downloaded models and packaged built-ins remain available. Full-category refresh through ``/v1/models/update_type`` is unchanged. Both paths coordinate file writes and publish complete JSON atomically. Upgrade the API, supervisor and all workers together before using the new endpoint."
+msgstr "重新整理單一模型時，向 ``POST /v1/models/update_spec`` 傳送 ``model_type`` 和 ``model_name``。此介面使用相同的憑證掛鉤及 ``models:register`` 權限。目錄回應必須包含一筆記錄或非空的變體清單，所有記錄的 ``model_name`` 都必須與請求相符。僅取代下載目錄中的該模型；其他已下載模型和套件內建模型仍可使用。``/v1/models/update_type`` 的整類重新整理行為維持不變。兩個入口協調檔案寫入，並以不可分割的操作發布完整 JSON。使用新介面前，請一併升級 API、Supervisor 和所有 Worker。"
+
+#: ../../development/xinference_internals.rst
+msgid "For family-shaped world records, ``model_family`` is used when the top-level ``model_name`` is absent. Before a single-model update is published, the merged catalog must load successfully through the existing model-family loaders. Single-model downloads request the Hub README; a later full-category refresh replaces the catalog with the full-download response, which may omit README fields."
+msgstr "對於按模型族組織的 world 記錄，頂層缺少 ``model_name`` 時使用 ``model_family``。發布單模型更新前，合併後的目錄必須能透過現有模型族 loader 成功載入。單模型下載會請求 Hub 的 README；之後的整類重新整理會用完整下載回應取代目錄，該回應可能不包含 README 欄位。"
+
+#: ../../development/xinference_internals.rst
+msgid "Advanced-auth storage"
+msgstr "進階認證儲存"
+
+#: ../../development/xinference_internals.rst
+msgid "Extensions may optionally implement ``create_auth_store(context)`` to select advanced-auth storage before the authentication service is initialized. ``AuthStoreContext`` supplies ``db_path`` (the requested default SQLite path) and ``purpose``: ``service``, ``reset_password`` or ``migrate``. Return an object implementing ``xinference.api.oauth2.advanced.auth_store.AuthStore``, or ``None`` to retain SQLite. At most one extension may provide this hook; multiple providers are rejected before either is called. Provider failures or invalid stores abort initialization without falling back to SQLite."
+msgstr "擴充可以實作選用的 ``create_auth_store(context)``，在認證服務初始化前選擇儲存。``AuthStoreContext`` 提供 ``db_path``（要求的預設 SQLite 路徑）和 ``purpose``：``service``、``reset_password`` 或 ``migrate``。傳回實作 ``xinference.api.oauth2.advanced.auth_store.AuthStore`` 的物件，或傳回 ``None`` 保留 SQLite。最多只能有一個擴充提供此 hook；多個提供者會在任何呼叫前被拒絕。提供者失敗或傳回無效儲存時會中止初始化，不會退回 SQLite。"
+
+#: ../../development/xinference_internals.rst
+msgid "The store keeps the existing method signatures, row dictionaries and API-key name validation errors. It provides a mutable ``permission_resolver`` and a ``path`` property containing the local SQLite ``pathlib.Path`` or ``None`` for other storage. Setup, refresh-token rotation and password updates with token revocation must be atomic across processes; user deletion must preserve the existing dependent-record cleanup. Database drivers, schema upgrades and backend-specific configuration belong to the provider."
+msgstr "儲存保持既有的方法簽章、資料列字典和 API Key 名稱驗證錯誤，提供可修改的 ``permission_resolver`` 及 ``path`` 屬性：本機 SQLite 的 ``pathlib.Path``，或其他儲存的 ``None``。首次設定、重新整理權杖輪替，以及密碼修改與權杖撤銷必須跨處理程序保持原子性；刪除使用者必須保留關聯紀錄的清理行為。資料庫驅動程式、schema 升級與後端專屬設定由提供者負責。"
+
+#: ../../development/xinference_internals.rst
+msgid "The API service, offline administrator-password recovery and legacy JSON auth importer use the same selection mechanism. With a provider configured, ``--db-path`` is passed to its context; it does not override the provider's connection configuration. Use the same extension and backend configuration for the service and these tools. Unlike request/actor hooks, this synchronous initialization hook may connect to storage during startup. Store operations remain synchronous; asynchronous or incomplete implementations are rejected. Providers must keep connection credentials out of logs and error messages. Without a provider, SQLite behavior and dependencies are unchanged."
+msgstr "API 服務、離線管理員密碼復原與舊 JSON 認證匯入使用相同的選擇機制。設定提供者後，``--db-path`` 傳入其內容，不會覆寫提供者的連線設定。服務與這些工具應使用相同的擴充與後端設定。與請求/Actor hook 不同，此同步初始化 hook 可在啟動時連線儲存。儲存操作維持同步；非同步或不完整實作會被拒絕。提供者不得在日誌或錯誤訊息中輸出連線憑據。未設定提供者時，SQLite 行為與相依性保持不變。"
+
+#: ../../source/development/xinference_internals.rst:310
+msgid "Provider stores shared by multiple API processes can set ``api_key_cache_enabled = False`` before service initialization. This bypasses the process-local API-key cache and reads the current key, owner status and model grants on each lookup. Omit the attribute or set it to ``True`` to retain caching; non-boolean values are rejected. Storage failures propagate instead of reusing earlier authorization."
+msgstr "多個 API 程序共用的擴充套件儲存可在服務初始化前設定 ``api_key_cache_enabled = False``。這會略過程序本機的 API Key 快取，在每次查詢時讀取目前金鑰、所屬帳號狀態及模型權限。省略此屬性或設為 ``True`` 可保留快取；非布林值會被拒絕。儲存故障會直接向上傳遞，不會重用先前的授權結果。"
+
+#: ../../source/development/xinference_internals.rst
+msgid "Model favorites storage"
+msgstr "模型收藏儲存"
+
+#: ../../source/development/xinference_internals.rst
+msgid "Extensions may implement ``create_model_favorites_store(context)`` during API initialization, after auth-store selection. ``ModelFavoritesStoreContext`` supplies ``db_path`` and the selected ``auth_store`` (``None`` without authentication). Return a ``xinference.core.model_favorites_store.ModelFavoritesStore`` with synchronous ``list(owner)``, ``add(owner, model_name)`` and ``remove(owner, model_name)`` methods, or ``None`` for SQLite. Owners are positive account IDs, or ``None`` for the shared anonymous collection; account IDs must never be reassigned to another account after deletion. Operations must be persistent, owner-isolated and idempotent, and run in the API thread pool. Multiple providers, invalid stores and initialization failures abort startup without selecting a fallback. ``db_path`` is the configured ``XINFERENCE_AUTH_DB_PATH``. The SQLite default reuses the local path of the selected auth store, or this configured path without authentication. Providers must reuse the selected database; non-SQLite auth storage without a favorites provider aborts startup."
+msgstr "擴充功能可在 API 初始化且已選定驗證儲存體後實作 ``create_model_favorites_store(context)``。``ModelFavoritesStoreContext`` 提供 ``db_path`` 與選定的 ``auth_store`` (未啟用驗證時為 ``None``)。傳回實作同步 ``list(owner)``、``add(owner, model_name)`` 與 ``remove(owner, model_name)`` 方法的 ``xinference.core.model_favorites_store.ModelFavoritesStore``，或傳回 ``None`` 以使用 SQLite。擁有者為正整數帳號 ID；共用匿名收藏使用 ``None``。帳號刪除後，其 ID 絕不能重新分配給其他帳號。操作必須持久儲存、隔離擁有者且具冪等性，並在 API 執行緒集區中執行。多個提供者、無效儲存體或初始化失敗都會中止啟動，不會選用回退儲存體。 ``db_path`` 是設定的 ``XINFERENCE_AUTH_DB_PATH``。預設 SQLite 實作重用所選驗證儲存體的本機路徑；未啟用驗證時使用此設定路徑。提供者必須重用所選資料庫；非 SQLite 驗證儲存體缺少收藏提供者時會中止啟動。"
+
+#: ../../source/development/xinference_internals.rst
+msgid "Launch history storage"
+msgstr "啟動歷史儲存"
+
+#: ../../source/development/xinference_internals.rst
+msgid "Extensions may implement ``create_launch_history_store(context)`` during API and supervisor initialization. ``LaunchHistoryStoreContext`` supplies ``db_path`` (the configured ``XINFERENCE_LAUNCH_HISTORY_DB_PATH``), ``service`` (``api`` or ``supervisor``) and ``auth_store`` (the selected API auth store, or ``None`` without authentication and in the supervisor). Both services must select the same persistent history backend."
+msgstr "擴充功能可在 API 和 supervisor 初始化期間實作 ``create_launch_history_store(context)``。``LaunchHistoryStoreContext`` 提供 ``db_path``（設定的 ``XINFERENCE_LAUNCH_HISTORY_DB_PATH``）、``service``（``api`` 或 ``supervisor``）以及 ``auth_store``（API 選定的驗證儲存；未啟用驗證或在 supervisor 中為 ``None``）。兩個服務必須選擇同一個持久化歷史後端。"
+
+#: ../../source/development/xinference_internals.rst
+msgid "Return a ``xinference.core.launch_history_store.LaunchHistoryStorage`` or ``None`` to retain the existing SQLite path and schema. Its synchronous methods are ``list``, ``upsert``, ``delete``, ``list_autostart``, ``upsert_autostart``, ``update_autostart_launch_config`` and ``remove_autostart``. Preserve the existing row dictionaries, owner filtering, redaction and UI metadata behavior. Autostart writes must be atomic across processes, with at most one enabled entry per model UID; disabling autostart must retain history. Database drivers and schema upgrades belong to the provider."
+msgstr "傳回 ``xinference.core.launch_history_store.LaunchHistoryStorage``，或傳回 ``None`` 保留現有 SQLite 路徑與資料表結構。同步方法包括 ``list``、``upsert``、``delete``、``list_autostart``、``upsert_autostart``、``update_autostart_launch_config`` 和 ``remove_autostart``。保持現有記錄字典、擁有者篩選、敏感資料遮蔽及 UI 中繼資料行為。自動啟動寫入必須跨處理程序保持原子性，每個模型 UID 最多有一筆啟用記錄；停用自動啟動必須保留歷史。資料庫驅動與資料表升級由提供者負責。"
+
+#: ../../source/development/xinference_internals.rst
+msgid "At most one extension may provide the hook. Multiple providers, incomplete or asynchronous stores and provider failures abort initialization without falling back to SQLite. The synchronous startup hook may connect to storage; API operations run in the thread pool and supervisor operations use its executor. Providers must keep connection credentials out of logs and errors. No provider leaves existing storage and dependencies unchanged."
+msgstr "最多允許一個擴充功能提供此 hook。多個提供者、不完整或非同步儲存及提供者故障都會中止初始化，不會退回 SQLite。同步啟動 hook 可以連接儲存；API 操作在線程池中執行，supervisor 操作使用其執行器。提供者不得在日誌及錯誤中輸出連線憑證。未設定提供者時，現有儲存與相依套件維持不變。"

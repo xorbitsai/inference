@@ -1,0 +1,97 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-05-16 14:18+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/lora.rst:5
+msgid "LoRA Integration"
+msgstr "LoRA 통합"
+
+#: ../../source/models/lora.rst:7
+msgid ""
+"Currently, Xinference supports launching ``LLM`` and ``image`` models with "
+"an attached LoRA fine-tuned model."
+msgstr ""
+"현재, Xinference는 ``LLM``과 ``image`` 모델을 시작할 때 LoRA 미세 조정 모델을 함께 사용하여 기본 모델을 "
+"보조할 수 있습니다."
+
+#: ../../source/models/lora.rst:10
+msgid "Usage"
+msgstr "사용 방법"
+
+#: ../../source/models/lora.rst:13
+msgid "Launch"
+msgstr "시작"
+
+#: ../../source/models/lora.rst:14
+msgid ""
+"Different from built-in models, xinference currently does not involve "
+"managing LoRA models. Users need to first download the LoRA model themselves"
+" and then provide the storage path of the model files to xinference."
+msgstr ""
+"내장 모델과 달리, Xinference는 현재 LoRA 모델 관리에 관여하지 않습니다. 사용자는 먼저 해당 LoRA 모델을 다운로드한 "
+"후, 모델 저장 경로를 Xinference에 제공해야 합니다."
+
+#: ../../source/models/lora.rst:54
+msgid "Apply"
+msgstr "**의역**"
+
+#: ../../source/models/lora.rst:55
+msgid ""
+"For LLM models, you can only configure one lora model you want when you use "
+"the model. Specifically, specify that the ``lora_name`` parameter be "
+"configured in the ``generate_config``. ``lora_name`` corresponds to the name"
+" of the lora in the LAUNCH procedure described above."
+msgstr ""
+"대규모 언어 모델의 경우, 사용 시 하나의 LoRA를 지정합니다. 구체적으로, ``generate_config`` 매개변수에서 "
+"``lora_name`` 매개변수를 설정합니다. ``lora_name``은 launch 과정에서 설정한 구성에 해당합니다."
+
+#: ../../source/models/lora.rst:75
+msgid "Note"
+msgstr "주의사항"
+
+#: ../../source/models/lora.rst:77
+msgid ""
+"The options ``image_lora_load_kwargs`` and ``image_lora_fuse_kwargs`` are "
+"only applicable to models with model_type ``image``. They correspond to the "
+"parameters in the ``load_lora_weights`` and ``fuse_lora`` interfaces of the "
+"``diffusers`` library. If launching an LLM model, these parameters are not "
+"required."
+msgstr ""
+"위의 ``image_lora_load_kwargs`` 및 ``image_lora_fuse_kwargs`` 옵션은 ``image`` "
+"모델에만 적용됩니다. 이는 ``diffusers`` 라이브러리의 ``load_lora_weights`` 및 ``fuse_lora`` "
+"인터페이스의 추가 매개변수에 해당합니다. ``LLM`` 모델을 실행하는 경우 이러한 옵션을 설정할 필요가 없습니다."
+
+#: ../../source/models/lora.rst:81
+msgid ""
+"You need to add the parameter lora_name during inference to specify the "
+"corresponding lora model. You can specify it in the Additional Inputs "
+"option."
+msgstr ""
+
+#: ../../source/models/lora.rst:83
+msgid ""
+"For LLM chat models, currently only LoRA models are supported that do not "
+"change the prompt style."
+msgstr ""
+"``LLM`` 채팅 모델의 경우, 현재는 미세 조정 후 원래 기본 모델의 프롬프트 템플릿을 변경하지 않는 LoRA 모델만 지원됩니다."
+
+#: ../../source/models/lora.rst:85
+msgid "When using GPU, both LoRA and its base model occupy the same devices."
+msgstr "GPU 사용 시, LoRA 모델과 그 기본 모델은 동일한 장치에 있더라도 다른 모델에 영향을 미치지 않습니다."

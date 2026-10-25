@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ from typing import Tuple, Union
 
 import torch
 
+from ...utils import allow_trust_remote_code
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from .core import PytorchChatModel, register_non_default_model
 
@@ -45,14 +46,14 @@ class DeepSeekV2PytorchChatModel(PytorchChatModel):
 
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
-            trust_remote_code=kwargs["trust_remote_code"],
+            trust_remote_code=allow_trust_remote_code(self.model_family),
         )
         logger.info(f"kwargs:{kwargs}")
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             attn_implementation="eager",
             torch_dtype=torch.bfloat16,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             device_map="auto",
             **kwargs,
         )

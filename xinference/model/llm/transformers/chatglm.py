@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,12 @@ logger = logging.getLogger(__name__)
 @register_transformer
 @register_non_default_model("GlmForCausalLM")
 class ChatglmPytorchChatModel(PytorchChatModel):
-    GLM4_ARCHITECTURES = {"GlmForCausalLM", "Glm4ForCausalLM", "Glm4MoeForCausalLM"}
+    GLM4_ARCHITECTURES = {
+        "GlmForCausalLM",
+        "Glm4ForCausalLM",
+        "Glm4MoeForCausalLM",
+        "Glm4MoeLiteForCausalLM",
+    }
 
     def __init__(
         self,
@@ -361,7 +366,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         stream = generate_config.get("stream", False)
         stream_options = generate_config.pop("stream_options", None)
         include_usage = (
-            stream_options["include_usage"]
+            stream_options.get("include_usage", False)
             if isinstance(stream_options, dict)
             else False
         )
@@ -574,5 +579,5 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                         )
 
         if req.stopped and req.include_usage:
-            results.append(self._get_final_chat_completion_chunk(req.completion[-1]))
+            results.append(self._get_usage_chat_completion_chunk(req.completion[-1]))
         req.completion = results

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,155 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+import json
 import re
 
+import pytest
+
 from ..harmony import HarmonyStreamParser, async_stream_harmony_chat_completion
+
+
+def _logprobs(tokens):
+    return {
+        "content": [
+            {
+                "token": token,
+                "bytes": list(token.encode("utf-8")),
+                "logprob": -0.1 * (i + 1),
+                "top_logprobs": [],
+            }
+            for i, token in enumerate(tokens)
+        ]
+    }
+
+
+@pytest.mark.parametrize("prefix", ["", "analysis\n"])
+def test_structured_json_keeps_analysis_at_every_chunk_boundary(prefix):
+    value = '{"answer":"analysis complete"}'
+    text = prefix + value
+    for cut in range(len(prefix) + 1, len(text)):
+        parser = HarmonyStreamParser(structured_output=True)
+        segments = parser.feed(text[:cut]) + parser.feed(text[cut:]) + parser.flush()
+        content = "".join(s["content"] for s in segments if s["channel"] == "final")
+        assert content == value
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("expose_reasoning", [False, True])
+@pytest.mark.parametrize("group_size", [1, 3, 100])
+@pytest.mark.parametrize("ending", ["stop", "usage", "eof"])
+@pytest.mark.parametrize(
+    "final_tokens,closing",
+    [
+        (["39", "1", " ", "<"], []),
+        (["你好", " <"], []),
+        (["39", "1"], ["<|return|>"]),
+    ],
+)
+async def test_harmony_logprobs_only_include_final_tokens(
+    stream, expose_reasoning, group_size, ending, final_tokens, closing
+):
+    tokens = (
+        [
+            "<|chan",
+            "nel|>",
+            "analysis",
+            "<|message|>",
+            "391",
+            "<|end|>",
+            "<|start|>",
+            "assistant",
+            "<|channel|>",
+            "fi",
+            "nal",
+            "<|message|>",
+        ]
+        + final_tokens
+        + closing
+    )
+    logprobs = _logprobs(tokens)
+    original = {
+        "id": "logprobs",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "gpt-oss",
+        "choices": [
+            {
+                "index": 2,
+                "message": {"role": "assistant", "content": "".join(tokens)},
+                "finish_reason": "length",
+                "logprobs": logprobs,
+            }
+        ],
+        "usage": {},
+    }
+
+    async def chunks():
+        for start in range(0, len(tokens), group_size):
+            yield {
+                "id": "logprobs",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": "gpt-oss",
+                "choices": [
+                    {
+                        "index": 2,
+                        "delta": {
+                            "role": "assistant",
+                            "content": "".join(tokens[start : start + group_size]),
+                        },
+                        "finish_reason": None,
+                        "logprobs": {
+                            "content": logprobs["content"][start : start + group_size]
+                        },
+                    }
+                ],
+            }
+        if ending == "stop":
+            yield {
+                **original,
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {
+                        "index": 2,
+                        "delta": {},
+                        "finish_reason": "length",
+                    }
+                ],
+            }
+        elif ending == "usage":
+            yield {
+                **original,
+                "object": "chat.completion.chunk",
+                "choices": [],
+                "usage": {"total_tokens": len(tokens)},
+            }
+
+    results = [
+        item
+        async for item in async_stream_harmony_chat_completion(
+            chunks() if stream else original,
+            expose_reasoning=expose_reasoning,
+        )
+    ]
+    if stream:
+        choices = [c for item in results for c in item["choices"]]
+        assert all(c["index"] == 2 for c in choices)
+        content = "".join(c["delta"].get("content") or "" for c in choices)
+        entries = [
+            entry
+            for c in choices
+            for entry in (c.get("logprobs") or {}).get("content", [])
+        ]
+        assert choices[0]["delta"]["role"] == "assistant"
+    else:
+        choice = results[0]["choices"][0]
+        content = choice["message"]["content"]
+        entries = choice["logprobs"]["content"]
+        assert original["choices"][0]["logprobs"] == logprobs
+    assert content == "".join(final_tokens)
+    assert entries == logprobs["content"][12 : 12 + len(final_tokens)]
 
 
 def test_streaming_parser_multiple_texts():
@@ -28,7 +174,7 @@ def test_streaming_parser_multiple_texts():
         'analysisThe user wrote "你好" (Hello in Chinese). We need to respond appropriately, '
         "presumably in Chinese. The system instructions say we should produce natural, friendly tone, "
         "follow style guidelines.\n\n"
-        "We can greet back and ask how we can help. "  # noqa: codespell
+        "We can greet back and ask how we can help. "
         "Possibly ask if they want assistance with something specific. Use Chinese. "
         "Also note use of markdown optionally.\n\n"
         "Will respond with a friendly greeting and ask what they need."
@@ -54,6 +200,234 @@ def test_streaming_parser_multiple_texts():
     assert "你好！很高兴" in all_segments[1]["content"]
     assert "The user wrote" in all_segments[2]["content"]
     assert "你好！有什么我可以帮忙" in all_segments[3]["content"]
+
+
+def test_parser_accepts_raw_harmony_control_tokens_split_across_chunks():
+    parser = HarmonyStreamParser()
+    segments = []
+    for chunk in (
+        "<|channel|>ana",
+        "lysis<|message|>check the answer<|end|><|start|>assistant<|channel|>fin",
+        "al<|message|>391<|end|>",
+    ):
+        segments.extend(parser.feed(chunk))
+
+    assert segments == [
+        {"channel": "analysis", "content": "check the answer"},
+        {"channel": "final", "content": "391"},
+    ]
+
+
+def test_parser_keeps_literal_analysis_after_final_channel():
+    parser = HarmonyStreamParser()
+    segments = []
+    for chunk in (
+        "<|channel|>analysis<|message|>thinking<|end|>"
+        "<|start|>assistant<|channel|>final<|message|>",
+        "analysis",
+        " complete<|end|>",
+    ):
+        segments.extend(parser.feed(chunk))
+    segments.extend(parser.flush())
+
+    assert (
+        "".join(
+            segment["content"]
+            for segment in segments
+            if segment["channel"] == "analysis"
+        )
+        == "thinking"
+    )
+    assert (
+        "".join(
+            segment["content"] for segment in segments if segment["channel"] == "final"
+        )
+        == "analysis complete"
+    )
+
+
+async def test_harmony_flushes_partial_marker_and_preserves_stream_metadata():
+    partial_content = (
+        "<|channel|>analysis<|message|>thinking<|end|>"
+        "<|start|>assistant<|channel|>final<|message|>a <"
+    )
+    completion = {
+        "id": "partial-marker",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "gpt-oss",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": partial_content,
+                    "reasoning_content": "",
+                },
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {},
+    }
+
+    async for parsed in async_stream_harmony_chat_completion(
+        completion, expose_reasoning=False
+    ):
+        assert parsed["choices"][0]["message"]["content"] == "a <"
+
+    async def chunks():
+        yield {
+            "id": "partial-marker-stream",
+            "object": "chat.completion.chunk",
+            "created": 0,
+            "model": "gpt-oss",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": partial_content},
+                    "logprobs": _logprobs(
+                        [
+                            partial_content[:-3],
+                            "a",
+                            " ",
+                            "<",
+                        ]
+                    ),
+                    "finish_reason": None,
+                }
+            ],
+        }
+        yield {
+            "id": "partial-marker-stream",
+            "object": "chat.completion.chunk",
+            "created": 0,
+            "model": "gpt-oss",
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "length"}],
+        }
+
+    results = [
+        chunk
+        async for chunk in async_stream_harmony_chat_completion(
+            chunks(), expose_reasoning=False
+        )
+    ]
+    assert results[0]["choices"][0]["delta"]["role"] == "assistant"
+    assert results[0]["choices"][0]["delta"]["content"] == "a "
+    assert results[0]["choices"][0]["logprobs"]["content"][0]["token"] == "a"
+    assert results[1]["choices"][0]["delta"]["content"] == "<"
+    assert results[1]["choices"][0]["logprobs"]["content"][0]["token"] == "<"
+
+
+async def test_raw_harmony_completion_can_hide_reasoning_content():
+    completion = {
+        "id": "raw-harmony",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "gpt-oss",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "content": (
+                        "<|channel|>analysis<|message|>internal"
+                        "<|end|><|start|>assistant<|channel|>final<|message|>391<|end|>"
+                    ),
+                    "reasoning_content": "",
+                },
+            }
+        ],
+        "usage": {},
+    }
+
+    parsed = []
+    async for result in async_stream_harmony_chat_completion(
+        completion, expose_reasoning=False
+    ):
+        parsed.append(result)
+
+    message = parsed[0]["choices"][0]["message"]
+    assert message["content"] == "391"
+    assert "reasoning_content" not in message
+
+
+async def test_structured_output_treats_bare_analysis_prefix_as_content():
+    completion = {
+        "id": "structured-harmony",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "gpt-oss",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "content": 'analysis\n{"answer": 391}',
+                    "reasoning_content": "",
+                },
+            }
+        ],
+        "usage": {},
+    }
+
+    async for parsed in async_stream_harmony_chat_completion(
+        completion,
+        expose_reasoning=False,
+        structured_output=True,
+    ):
+        message = parsed["choices"][0]["message"]
+        assert json.loads(message["content"]) == {"answer": 391}
+        assert "reasoning_content" not in message
+
+
+async def test_streaming_structured_output_preserves_finish_and_usage():
+    async def chunks():
+        for text in ("analysis", "\n", '{"answer":', " 391}"):
+            yield {
+                "id": "structured-stream",
+                "model": "gpt-oss",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"content": text},
+                        "finish_reason": None,
+                    }
+                ],
+            }
+        yield {
+            "id": "structured-stream",
+            "model": "gpt-oss",
+            "object": "chat.completion.chunk",
+            "created": 0,
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+        }
+        yield {
+            "id": "structured-stream",
+            "model": "gpt-oss",
+            "object": "chat.completion.chunk",
+            "created": 0,
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 4,
+                "total_tokens": 7,
+            },
+        }
+
+    content = ""
+    results = []
+    async for chunk in async_stream_harmony_chat_completion(
+        chunks(),
+        expose_reasoning=False,
+        structured_output=True,
+    ):
+        results.append(chunk)
+        if chunk["choices"]:
+            content += chunk["choices"][0]["delta"].get("content") or ""
+
+    assert json.loads(content) == {"answer": 391}
+    assert results[-2]["choices"][0]["finish_reason"] == "stop"
+    assert results[-1]["usage"]["total_tokens"] == 7
 
 
 async def test_harmony_streaming_and_nonstreaming():

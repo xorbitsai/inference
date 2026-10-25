@@ -1,0 +1,76 @@
+[
+  {
+    "version": 2,
+    "model_name": "Qwen3-Reranker-4B",
+    "type": "normal",
+    "language": [
+      "en",
+      "zh"
+    ],
+    "max_tokens": 32768,
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3-Reranker-4B",
+            "model_revision": "f16fc5d5d2b9b1d0db8280929242745d79794ef5",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3-Reranker-4B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Voodisss/Qwen3-Reranker-4B-GGUF-llama_cpp",
+            "model_revision": "1b452c803342e73ac3644551b727dfd51a09fd5b",
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_M",
+              "Q4_0",
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_K_M",
+              "Q6_K"
+            ],
+            "model_file_name_template": "Qwen3-Reranker-4B-{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Voodisss/Qwen3-Reranker-4B-GGUF-llama_cpp",
+            "model_revision": "1b452c803342e73ac3644551b727dfd51a09fd5b",
+            "quantizations": [
+              "Q8_0"
+            ],
+            "model_file_name_template": "Qwen3-Reranker-4B.{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "featured": false,
+    "updated_at": 1785221029,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

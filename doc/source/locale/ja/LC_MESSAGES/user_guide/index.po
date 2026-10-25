@@ -1,0 +1,55 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/index.rst:5
+msgid "User Guide"
+msgstr "ユーザーガイド"
+
+#: ../../source/user_guide/index.rst
+msgid "Model usage"
+msgstr "モデルの利用"
+
+#: ../../source/user_guide/index.rst
+msgid "Deployment"
+msgstr "デプロイ"
+
+#: ../../source/user_guide/index.rst
+msgid "Operations and security"
+msgstr "運用とセキュリティ"
+
+#: ../../source/user_guide/index.rst
+msgid "Advanced performance"
+msgstr "高度なパフォーマンス最適化"
+
+#: ../../source/user_guide/index.rst
+msgid "SD WebUI API compatibility"
+msgstr "SD WebUI API 互換性"
+
+#: ../../source/user_guide/index.rst
+msgid "Metrics"
+msgstr "メトリクス"
+
+#: ../../source/user_guide/index.rst
+msgid "PD separation"
+msgstr "PD 分離"
+
+#: ../../source/user_guide/index.rst:33
+msgid "Xavier"
+msgstr "Xavier"

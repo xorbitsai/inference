@@ -1,0 +1,113 @@
+'use client';
+
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { translations } from '@/i18n/translations';
+import type { Locale } from '@/types/common';
+import { LANGUAGES_KEYS, DEFAULT_LANGUAGE } from '@/constants';
+type InterpolationValue = string | number | boolean | null | undefined;
+export type TFunc = (key: string, vars?: Record<string, InterpolationValue>) => string;
+
+interface I18nContextValue {
+  locale: Locale;
+  setLocale: (l: Locale) => void;
+  t: TFunc;
+}
+
+const I18nContext = createContext<I18nContextValue | undefined>(undefined);
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function interpolate(str: string, vars?: Record<string, InterpolationValue>) {
+  if (!vars) return str;
+
+  return Object.entries(vars).reduce((s, [key, value]) => {
+    const escapedKey = escapeRegExp(key);
+    const normalizedValue = value === null || value === undefined ? '' : String(value);
+
+    return s.replace(new RegExp(`\\{\\{\\s*${escapedKey}\\s*\\}\\}`, 'g'), normalizedValue);
+  }, str);
+}
+
+export function I18nProvider({
+  children,
+  initialLocale = DEFAULT_LANGUAGE,
+}: {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+}) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    try {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('app_locale') : null;
+      if (stored && stored !== locale) {
+        setLocaleState(
+          (LANGUAGES_KEYS.includes(stored as Locale) ? stored : DEFAULT_LANGUAGE) as Locale
+        );
+      } else if (!stored) {
+        // First visit: the app is statically exported, so there is no
+        // request-time Accept-Language detection; use the browser language.
+        const navLang = typeof navigator !== 'undefined' ? navigator.language?.toLowerCase() : '';
+        const browserLocale: Locale = navLang?.match(/^zh-(tw|hk|mo)/)
+          ? 'zh-TW'
+          : navLang?.includes('zh')
+            ? 'zh'
+            : DEFAULT_LANGUAGE;
+        if (browserLocale !== locale) {
+          setLocaleState(browserLocale);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [locale]);
+
+  const setLocale = (l: Locale) => {
+    setLocaleState(l);
+    try {
+      localStorage.setItem('app_locale', l);
+      document.cookie = `app_locale=${l}; path=/; max-age=31536000; samesite=lax`;
+    } catch {
+      // ignore
+    }
+  };
+
+  // Sync <html lang> attribute
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = locale;
+    }
+  }, [locale]);
+
+  const t: TFunc = useMemo(() => {
+    return (key, vars) => {
+      const dict = translations[locale as keyof typeof translations] || {};
+      const parts = key.split('.');
+      const resolve = (source: unknown) => {
+        let current = source;
+        for (const part of parts) {
+          if (typeof current !== 'object' || current === null || !(part in current)) {
+            return undefined;
+          }
+          current = (current as Record<string, unknown>)[part];
+        }
+        return current;
+      };
+      const value = resolve(dict) ?? resolve(translations.en);
+      const str = typeof value === 'string' ? value : key;
+      return interpolate(str, vars);
+    };
+  }, [locale]);
+
+  const value = useMemo(() => ({ locale, setLocale, t }), [locale, t]);
+
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+}
+
+export function useI18n() {
+  const ctx = useContext(I18nContext);
+  if (!ctx) throw new Error('useI18n must be used within I18nProvider');
+  return ctx;
+}

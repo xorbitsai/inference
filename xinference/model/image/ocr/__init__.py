@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,36 +12,72 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .deepdoc import DeepDocModel
 from .deepseek_ocr import DeepSeekOCRModel
+from .dots_ocr import DotsOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
+from .jina_ocr import JinaOCRModel
 from .mlx import MLXDeepSeekOCRModel
+from .monkeyocr import MonkeyOCRModel
+from .navidc_ocr import NaviDCOCRModel
 from .ocr_family import SUPPORTED_ENGINES
+from .ovisocr2 import OvisOCR2Model
 from .paddleocr_vl import PaddleOCRVLModel
+from .teleocr import LlamaCppTeleOCRModel, TeleOCRModel
+from .unlimited_ocr import UnlimitedOCRModel
 from .vllm import (
     VLLMDeepSeekOCRModel,
     VLLMGotOCR2Model,
     VLLMHunyuanOCRModel,
+    VLLMNaviDCOCRModel,
+    VLLMOvisOCR2Model,
     VLLMPaddleOCRVLModel,
+    VLLMTeleOCRModel,
 )
+from .xiaomi_ocr import XiaomiOCRModel
 
 __all__ = [
+    "DeepDocModel",
     "DeepSeekOCRModel",
+    "DotsOCRModel",
     "GotOCR2Model",
     "HunyuanOCRModel",
+    "JinaOCRModel",
+    "MonkeyOCRModel",
+    "NaviDCOCRModel",
+    "OvisOCR2Model",
     "PaddleOCRVLModel",
+    "TeleOCRModel",
+    "LlamaCppTeleOCRModel",
+    "UnlimitedOCRModel",
+    "XiaomiOCRModel",
 ]
 
 
 def register_builtin_ocr_engines() -> None:
     SUPPORTED_ENGINES["transformers"] = [
         DeepSeekOCRModel,
+        DotsOCRModel,
         GotOCR2Model,
         HunyuanOCRModel,
+        JinaOCRModel,
+        MonkeyOCRModel,
+        NaviDCOCRModel,
+        OvisOCR2Model,
         PaddleOCRVLModel,
+        TeleOCRModel,
+        UnlimitedOCRModel,
+        XiaomiOCRModel,
     ]
     SUPPORTED_ENGINES["vllm"] = [
         VLLMDeepSeekOCRModel,
         VLLMHunyuanOCRModel,
+        VLLMNaviDCOCRModel,
+        VLLMOvisOCR2Model,
+        VLLMTeleOCRModel,
     ]
+    SUPPORTED_ENGINES["llama.cpp"] = [LlamaCppTeleOCRModel]
     SUPPORTED_ENGINES["mlx"] = [MLXDeepSeekOCRModel]
+    # DeepDoc runs on onnxruntime via its own engine name
+    SUPPORTED_ENGINES["deepdoc"] = [DeepDocModel]

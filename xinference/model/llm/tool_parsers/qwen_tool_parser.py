@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
@@ -101,6 +101,20 @@ class QwenToolParser(ToolParser):
         if len(function_calls) == 0:
             return None
         return function_calls[-1]
+
+    @staticmethod
+    def _parse_partial_function_name(function_call_str: str) -> Optional[str]:
+        """Return a function name as soon as an incomplete call exposes it."""
+        xml_match = re.search(
+            r"<function\s*=\s*([a-zA-Z0-9_\-\.]+)\s*>", function_call_str
+        )
+        if xml_match:
+            return xml_match.group(1)
+
+        json_match = re.search(r'"name"\s*:\s*"([a-zA-Z0-9_\-\.]+)"', function_call_str)
+        if json_match:
+            return json_match.group(1)
+        return None
 
     def is_contain_think_end_token(self, model_output: str) -> bool:
         """
@@ -204,6 +218,66 @@ class QwenToolParser(ToolParser):
         matched_ranges = self.tool_call_regex.findall(model_output)
         return matched_ranges
 
+    def _scan_tool_calls(self, text: str) -> Tuple[List[Tuple[int, int]], int]:
+        """
+        Locate tool call blocks with ``str.find`` instead of the lazy regexes.
+
+        Streaming calls this on the whole accumulated text for every token,
+        so a regex scan here makes long tool calls quadratic with a large
+        constant. The result matches ``tool_call_complete_regex`` and
+        ``tool_call_regex``.
+
+        Returns:
+            The ``(start, end)`` span of every complete block, and the start
+            of the trailing unclosed block, or -1 when there is none.
+        """
+        start_token = self.tool_call_start_token
+        end_token = self.tool_call_end_token
+        blocks: List[Tuple[int, int]] = []
+        pos = 0
+        while True:
+            start = text.find(start_token, pos)
+            if start == -1:
+                return blocks, -1
+            end = text.find(end_token, start + len(start_token))
+            if end == -1:
+                return blocks, start
+            pos = end + len(end_token)
+            blocks.append((start, pos))
+
+    def _last_function_call(
+        self, text: str, blocks: List[Tuple[int, int]], partial_start: int
+    ) -> str:
+        """Return ``_get_function_calls_streaming(text)[-1]``, or "" if empty."""
+        if partial_start != -1:
+            # ``.*?$`` stops before a final newline.
+            stop = len(text) - 1 if text.endswith("\n") else len(text)
+            return text[partial_start:stop]
+        if blocks:
+            start, end = blocks[-1]
+            return text[start:end]
+        return ""
+
+    def _iter_tool_call_tags(self, text: str):
+        """Yield ``(start, end, is_start_token)`` for each tool call tag in order."""
+        start_token = self.tool_call_start_token
+        end_token = self.tool_call_end_token
+        next_start = text.find(start_token)
+        next_end = text.find(end_token)
+        while next_start != -1 or next_end != -1:
+            if next_end == -1 or (next_start != -1 and next_start < next_end):
+                tag_end = next_start + len(start_token)
+                yield next_start, tag_end, True
+                next_start = text.find(start_token, tag_end)
+                if next_end != -1 and next_end < tag_end:
+                    next_end = text.find(end_token, tag_end)
+            else:
+                tag_end = next_end + len(end_token)
+                yield next_end, tag_end, False
+                next_end = text.find(end_token, tag_end)
+                if next_start != -1 and next_start < tag_end:
+                    next_start = text.find(start_token, tag_end)
+
     def extract_tool_calls(
         self, model_output: str
     ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
@@ -244,12 +318,20 @@ class QwenToolParser(ToolParser):
                 Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
             ] = []
             for function_call in function_calls:
+                # Text outside tool call tags (preamble, reasoning, blank
+                # lines between calls) is plain content, as in streaming.
+                if self.tool_call_start_token not in function_call:
+                    results.append((function_call, None, None))
+                    continue
                 try:
                     parsed_json = self._parse_json_function_call(function_call)
                     # Check for Qwen3.5 XML-like format before JSON parsing
-                    if "<function=" in parsed_json and "<parameter=" in parsed_json:
-                        results.append(self.parse_qwen35_tool_call(parsed_json))
-                        continue
+                    end_index = parsed_json.find(">")
+                    if end_index != -1:
+                        res = self.parse_qwen35_tool_call(parsed_json)
+                        if res:
+                            results.append(res)
+                            continue
                     res = json.loads(parsed_json, strict=False)
                     # Validate that we have the required fields
                     if "name" in res and "arguments" in res:
@@ -297,7 +379,23 @@ class QwenToolParser(ToolParser):
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
-    ) -> Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
+    ) -> Optional[
+        Union[
+            Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
+            Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]], int],
+            List[
+                Union[
+                    Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
+                    Tuple[
+                        Optional[str],
+                        Optional[str],
+                        Optional[Dict[str, Any]],
+                        int,
+                    ],
+                ]
+            ],
+        ]
+    ]:
         """
         Extract tool calls from streaming output.
 
@@ -311,12 +409,13 @@ class QwenToolParser(ToolParser):
             delta_text (str): New text delta in this chunk.
 
         Returns:
-            Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-            A tuple containing:
+            Optional tuple containing:
             - content (str or None): Text content or None for tool calls
             - function_name (str or None): Name of the function to call
             - arguments (dict or None): Function arguments
-            Returns None if no complete tool call is ready.
+            - tool_call_index (int): Absolute index for a parsed tool call
+            A list is returned when one model chunk advances multiple calls.
+            Returns None if no tool-call delta is ready.
 
         Note:
             This method is designed to work with Qwen's streaming output format
@@ -325,23 +424,141 @@ class QwenToolParser(ToolParser):
         try:
             # Check if current output contains tool_call start token
             if self.is_contain_tool_call_start_token(current_text):
-                function_calls = self._get_function_calls_streaming(current_text)
-                # If the last function call contains thinking, it's not a tool call
-                if self.is_contain_think(function_calls[-1]):
-                    return None
-                # If the previous round's tool_call tags are closed, this is a new tool call
-                if not self._has_unclosed_tool_call(previous_text[-1]):
-                    return None
-                # Parse and return
-                function_call = self._parse_json_function_call_stream(
-                    function_calls[-1]
+                previous_blocks, previous_partial_start = self._scan_tool_calls(
+                    previous_text[-1]
                 )
-                if function_call is None:
+                current_blocks, current_partial_start = self._scan_tool_calls(
+                    current_text
+                )
+                tool_events: List[
+                    Union[
+                        Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
+                        Tuple[
+                            Optional[str],
+                            Optional[str],
+                            Optional[Dict[str, Any]],
+                            int,
+                        ],
+                    ]
+                ] = []
+                completed_events: Dict[
+                    int,
+                    Union[
+                        Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
+                        Tuple[
+                            Optional[str],
+                            Optional[str],
+                            Optional[Dict[str, Any]],
+                            int,
+                        ],
+                    ],
+                ] = {}
+
+                # Associate each newly completed call with the end position of
+                # its closing tag. Content and tool events are emitted below by
+                # walking the generated text, rather than grouping events by
+                # type and losing their original order.
+                start_len = len(self.tool_call_start_token)
+                end_len = len(self.tool_call_end_token)
+                for tool_call_index, (block_start, block_end) in enumerate(
+                    current_blocks
+                ):
+                    if tool_call_index < len(previous_blocks):
+                        continue
+                    function_call = current_text[
+                        block_start + start_len : block_end - end_len
+                    ]
+                    if not function_call.strip():
+                        continue
+                    try:
+                        end_index = function_call.find(">")
+                        if end_index != -1:
+                            parsed = self.parse_qwen35_tool_call(function_call)
+                            if parsed:
+                                completed_events[block_end] = (
+                                    *parsed,
+                                    tool_call_index,
+                                )
+                                continue
+                        parsed_json = json.loads(function_call, strict=False)
+                        completed_events[block_end] = (
+                            None,
+                            parsed_json["name"],
+                            parsed_json["arguments"],
+                            tool_call_index,
+                        )
+                    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+                        logger.warning(
+                            "Skipping malformed Qwen streaming tool call: %s. "
+                            "Error: %s",
+                            function_call,
+                            e,
+                        )
+
+                new_text_start = len(current_text) - len(delta_text)
+                inside_tool_call = False
+                cursor = 0
+                for tag_start, tag_end, is_start_tag in self._iter_tool_call_tags(
+                    current_text
+                ):
+                    if not inside_tool_call:
+                        content_start = max(cursor, new_text_start)
+                        if content_start < tag_start:
+                            content = current_text[content_start:tag_start]
+                            if content.strip():
+                                tool_events.append((content, None, None))
+
+                    if is_start_tag:
+                        inside_tool_call = True
+                    else:
+                        inside_tool_call = False
+                        completed_event = completed_events.get(tag_end)
+                        if completed_event is not None:
+                            tool_events.append(completed_event)
+                    cursor = tag_end
+
+                if not inside_tool_call:
+                    content_start = max(cursor, new_text_start)
+                    if content_start < len(current_text):
+                        content = current_text[content_start:]
+                        if content.strip():
+                            tool_events.append((content, None, None))
+
+                partial_call = self._last_function_call(
+                    current_text, current_blocks, current_partial_start
+                )
+                if self._has_unclosed_tool_call(
+                    current_text
+                ) and not self.is_contain_think(partial_call):
+                    # Emit the tool identity once its first argument begins.
+                    # The completed event later reuses the same index and call ID.
+                    func_name = self._parse_partial_function_name(partial_call)
+                    has_argument_start = bool(
+                        re.search(r"<parameter\s*=", partial_call)
+                        or re.search(r'"arguments"\s*:', partial_call)
+                    )
+                    previous_partial = self._last_function_call(
+                        previous_text[-1], previous_blocks, previous_partial_start
+                    )
+                    previous_had_argument_start = bool(
+                        re.search(r"<parameter\s*=", previous_partial)
+                        or re.search(r'"arguments"\s*:', previous_partial)
+                    )
+                    if (
+                        func_name is not None
+                        and has_argument_start
+                        and (
+                            len(current_blocks) != len(previous_blocks)
+                            or not previous_had_argument_start
+                        )
+                    ):
+                        tool_events.append((None, func_name, None, len(current_blocks)))
+
+                if not tool_events:
                     return None
-                if "<function=" in function_call and "<parameter=" in function_call:
-                    return self.parse_qwen35_tool_call(function_call)
-                res = json.loads(function_call, strict=False)
-                return None, res["name"], res["arguments"]
+                if len(tool_events) == 1:
+                    return tool_events[0]
+                return tool_events
             else:
                 # Return delta text as regular content
                 return (delta_text, None, None)
@@ -355,24 +572,32 @@ class QwenToolParser(ToolParser):
         """
         Parse Qwen3.5 tool call.
         """
-        func_match = re.search(r"<function\s*=\s*([a-zA-Z0-9_]+)\s*>", text)
+        func_match = re.search(r"<function\s*=\s*([a-zA-Z0-9_\-\.]+)\s*>", text)
         if not func_match:
-            logger.error("Qwen3.5: missing function name")
-            return text, None, None
+            logger.warning(
+                "Function name not found in tool call for xml format: %s", text
+            )
+            return None
 
         func_name = func_match.group(1)
 
         param_pattern = re.compile(
-            r"<parameter\s*=\s*([a-zA-Z0-9_]+)\s*>\s*(.*?)\s*</parameter>", re.DOTALL
+            r"<parameter\s*=\s*([a-zA-Z0-9_\-\.]+)\s*>(.*?)</parameter>",
+            re.DOTALL,
         )
 
         args = {}
         for key, value in param_pattern.findall(text):
-            cleaned = value.strip()
-            try:
-                cleaned = json.loads(cleaned)
-            except Exception:
-                pass
+            # The chat template wraps each value in one newline on each side.
+            # Any other whitespace (code indentation, a final newline) belongs
+            # to the value.
+            cleaned = value[1:] if value.startswith("\n") else value
+            cleaned = cleaned[:-1] if cleaned.endswith("\n") else cleaned
+            if not ToolParser._is_string_parameter(func_name, key):
+                try:
+                    cleaned = json.loads(cleaned)
+                except Exception:
+                    pass
             args[key] = cleaned
 
         return None, func_name, args

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import platform
 import pprint
 import queue
 import sys
-from typing import List, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 from packaging import version
 
@@ -40,18 +40,50 @@ class _Error:
         self.msg = msg
 
 
+def _error_message(msg: Any) -> str:
+    if isinstance(msg, dict):
+        for key in ("message", "msg", "error"):
+            value = msg.get(key)
+            if value:
+                return _error_message(value)
+    return str(msg)
+
+
+def _get_error_payload(response: Any) -> Optional[Any]:
+    if not isinstance(response, dict):
+        return None
+    if response.get("error"):
+        return response["error"]
+    if response.get("code"):
+        return response
+    return None
+
+
 class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
+    supports_dimensions = False
+
     def __init__(self, *args, **kwargs) -> None:
         EmbeddingModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
         llamacpp_model_config = self._kwargs.get("llamacpp_model_config")
+        if llamacpp_model_config is None:
+            # Launch-time llama.cpp options arrive as flat kwargs from the CLI / REST API.
+            # Keep BatchMixin options out of the llama.cpp config.
+            llamacpp_model_config = {
+                k: v
+                for k, v in self._kwargs.items()
+                if k not in ("llamacpp_model_config", "batch_size", "batch_interval")
+            }
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
 
     def _sanitize_model_config(self, llamacpp_model_config: Optional[dict]) -> dict:
         if llamacpp_model_config is None:
             llamacpp_model_config = {}
+        else:
+            # Copy so defaults are not written back into the caller's config.
+            llamacpp_model_config = dict(llamacpp_model_config)
 
         llamacpp_model_config.setdefault("embedding", True)
         llamacpp_model_config.setdefault("use_mmap", False)
@@ -70,9 +102,15 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
     def _is_linux(self):
         return sys.platform.startswith("linux")
 
+    def _configure_params(self, params: Any) -> None:
+        from xllamacpp import llama_pooling_type
+
+        params.n_parallel = min(8, os.cpu_count() or 1)
+        params.pooling_type = llama_pooling_type.LLAMA_POOLING_TYPE_LAST
+
     def load(self):
         # add truncate_dim args hint
-        if "dimensions" in self._kwargs:
+        if "dimensions" in self._kwargs and not self.supports_dimensions:
             raise NotImplementedError(
                 "LlamaCpp embedder does not support dimensions argument now."
             )
@@ -84,7 +122,6 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
                 estimate_gpu_layers,
                 get_device_info,
                 ggml_backend_dev_type,
-                llama_pooling_type,
             )
 
             try:
@@ -129,9 +166,14 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
             except Exception:
                 params.model.path = model_path
 
-            # This is the default value, could be overwritten by _llamacpp_model_config
-            params.n_parallel = min(8, os.cpu_count() or 1)
-            params.pooling_type = llama_pooling_type.LLAMA_POOLING_TYPE_LAST
+            projector = getattr(self._model_spec, "multimodal_projector", None)
+            projector_path = (
+                os.path.join(self._model_path, projector) if projector else ""
+            )
+            if projector_path:
+                params.mmproj.path = projector_path
+            # Defaults may be overwritten by _llamacpp_model_config.
+            self._configure_params(params)
             for k, v in self._llamacpp_model_config.items():
                 try:
                     if "." in k:
@@ -170,7 +212,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
                         estimate = estimate_gpu_layers(
                             gpus=gpus,
                             model_path=model_path,
-                            projectors=[],
+                            projectors=[projector_path] if projector_path else [],
                             context_length=params.n_ctx,
                             batch_size=params.n_batch,
                             num_parallel=params.n_parallel,
@@ -194,9 +236,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         except AssertionError:
             raise RuntimeError(f"Load model {self._model_name} failed")
 
-    def _create_embedding(
-        self, sentences: Union[str, List[str]], **kwargs
-    ) -> Embedding:
+    def _create_embedding(self, sentences: Any, **kwargs) -> Embedding:
         if self._llm is None:
             raise RuntimeError("Model is not loaded.")
 
@@ -211,10 +251,8 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
                 data["model"] = model_uid
             try:
                 res = self._llm.handle_embeddings(data)
-                if res.get("code"):
-                    q.put(_Error(res))
-                else:
-                    q.put(res)
+                error = _get_error_payload(res)
+                q.put(_Error(error) if error else res)
             except Exception as ex:
                 q.put(_Error(str(ex)))
             q.put(_Done)
@@ -224,7 +262,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
 
         r = q.get()
         if type(r) is _Error:
-            raise Exception(f"Failed to create embedding: {r.msg}")
+            raise Exception(_error_message(r.msg))
         r["model_replica"] = self._model_uid
         return Embedding(**r)  # type: ignore
 
@@ -244,4 +282,6 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
     ) -> Union[bool, Tuple[bool, str]]:
         if model_spec.model_format not in ["ggufv2"]:
             return False, "llama.cpp embedding engine only supports ggufv2 format"
+        if model_family.model_name == "embeddinggemma-2":
+            return False
         return True

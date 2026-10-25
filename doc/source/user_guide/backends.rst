@@ -7,6 +7,14 @@ Backends
 Xinference supports multiple backends for different models. After the user specifies the model,
 xinference will automatically select the appropriate backend.
 
+.. raw:: html
+
+   <span id="speculative-decoding"></span>
+
+For speculative decoding methods and launch options, see :ref:`speculative_decoding`.
+
+.. _llama_cpp_backend:
+
 llama.cpp
 =========
 
@@ -20,6 +28,18 @@ the LLaMA series models and their variants.
     Since Xinference v1.5.0,
     ``xllamacpp`` becomes default option for llama.cpp, and ``llama-cpp-python`` is deprecated.
     Since Xinference v1.6.0, ``llama-cpp-python`` has been removed.
+
+Automatic GPU wheel selection
+-----------------------------
+
+.. versionadded:: 3.0
+
+When per-model virtual environments are enabled and a usable NVIDIA GPU is
+present, Xinference automatically installs the ``xllamacpp`` wheel matching
+the detected CUDA line. CUDA 12.8 and later in the 12.x line use the ``cu128``
+wheel index, while CUDA 13.x uses the ``cu132`` wheel index. CPU-only hosts and
+unsupported CUDA versions keep the default CPU wheel from PyPI. No separate
+``xllamacpp`` GPU installation command is required for this launch path.
 
 
 For all configurable llama.cpp parameters, please refer to the definition of the ``common_params`` structure in ``llama.cpp`` `common.h <https://github.com/ggml-org/llama.cpp/blob/master/common/common.h>`_
@@ -128,9 +148,10 @@ Currently, supported model includes:
 
 .. vllm_start
 
-- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``tiny-llama``, ``wizardcoder-python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
+- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``minicpm5-1b``, ``minicpm5-2b``, ``tiny-llama``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
 - ``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``
-- ``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-or1-preview``, ``XiYanSQL-QwenCoder-2504``
+- ``Spark-X2.5``, ``Spark-X2.5-Base``
+- ``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-or1-preview``, ``vibethinker``, ``XiYanSQL-QwenCoder-2504``
 - ``llama-3.2-vision``, ``llama-3.2-vision-instruct``
 - ``baichuan-2``, ``baichuan-2-chat``
 - ``InternLM2ForCausalLM``
@@ -139,6 +160,7 @@ Currently, supported model includes:
 - ``cogagent``
 - ``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``
 - ``codegeex4``, ``glm-4v``
+- ``qwen3.8-max``
 - ``seallm_v2.5``
 - ``orion-chat``
 - ``qwen1.5-moe-chat``, ``qwen2-moe-instruct``
@@ -158,9 +180,25 @@ Currently, supported model includes:
 - ``seed-oss``
 - ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
 - ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
-- ``MiniMax-M2``, ``MiniMax-M2.5``
-- ``glm-5``
+- ``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``
+- ``GLM-4.7-Flash``
+- ``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``
+- ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Flash-0731``, ``DeepSeek-V4-Pro``
+- ``Hy-MT2-1.8B``, ``Hy-MT2-7B``
+- ``Hy-MT2-30B-A3B``
+
 .. vllm_end
+
+Besides LLMs, vLLM can also serve embedding models. Model families whose
+names start with ``bge``, ``gte``, ``text2vec``, ``m3e``, ``Qwen3``, or
+``bce`` can be launched with ``--model-engine vllm`` — see
+:ref:`Embeddings <embed>`.
+
+vLLM can also serve as the engine for some text-to-image models
+(e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see
+:ref:`image engines <image>`. This requires the vLLM-Omni add-on with a vLLM
+of the same major.minor version, e.g.
+``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``.
 
 .. _sglang_backend:
 
@@ -170,6 +208,11 @@ SGLang
 It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls.
 And it also supports other common techniques like continuous batching and tensor parallelism.
 
+Besides LLMs, SGLang can also serve as the engine for some text-to-image models
+(e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see
+:ref:`image engines <image>`. This requires SGLang with diffusion support:
+``pip install 'sglang[diffusion]>=0.5.20,<0.6'``.
+
 .. _mlx_backend:
 
 MLX
@@ -178,3 +221,49 @@ MLX
 to run LLM on Apple silicon. It's recommended to use for Mac users when running on Apple silicon
 if the model has MLX format support.
 
+MLX can also serve supported audio models on Apple silicon. Whisper models,
+``F5-TTS``, and ``Kokoro-82M`` expose it through ``--model-engine MLX``; see
+:ref:`Audio engines <audio>`.
+
+
+
+.. _trt_llm_backend:
+
+TRT-LLM
+========
+
+.. versionadded:: v4.1.0
+
+The TRT-LLM backend uses the Python LLM API inside the model process. It requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. Model support follows the text architectures implemented by that version, including Qwen2/2.5, Qwen3 (dense, MoE and Next), Llama, Mistral/Mixtral, Gemma3, Phi3, DeepSeek, GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, SeedOSS and Starcoder2. Fine-tuned and custom models use the same architecture matching.
+
+Ordinary replicas accept ``pytorch``, ``fp8`` and ``fp4`` checkpoints, with quantization inferred from the checkpoint configuration. This includes compatible ModelOpt exports and native FP8 block-scaled or MXFP4 weights. Use ModelOpt exports for AWQ; generic Hugging Face AWQ/GPTQ, bitsandbytes, GGUF and MLX checkpoint formats are not supported by this PyTorch loader. TRT validates the checkpoint recipe and GPU kernel requirements at startup. Ordinary replicas accept ``dtype="auto"``, ``"float16"`` or ``"bfloat16"``; TP=PP=CP=1 still applies. Shared caching and P/D have the additional constraints below.
+
+The example launches two independent replicas with a shared 512 MiB Xavier CPU cache. Each replica uses one GPU. Install TRT-LLM in a compatible CUDA environment and set ``enable_virtual_env=False``, or use a per-model virtual environment with matching dependencies. Each replica currently requires TP=PP=CP=1, with TRT's worker running directly in the Xinference model process. Qwen3 weights and KV pages use BF16.
+
+.. code-block:: python
+
+   from xinference.client import Client
+
+   client = Client("http://localhost:9997")
+   client.launch_model(
+       model_uid="qwen-trt",
+       model_name="qwen3",
+       model_size_in_billions="0_6",
+       model_format="pytorch",
+       model_engine="TRT-LLM",
+       quantization="none",
+       replica=2,
+       n_gpu=1,
+       context_length=4096,
+       enable_virtual_env=False,
+       enable_xavier=True,
+       xavier_cache_bytes=512 * 1024**2,
+   )
+
+Xavier publishes complete 64-token BF16 KV pages and restores matching prefixes in another replica through actor RPC. Partial pages and the final prompt token are computed locally. The shared cache uses bounded storage and LRU eviction; transfers currently use synchronous CPU staging.
+
+Shared caching and same-engine P/D require TP=PP=CP=1, BF16 weights and KV, and disabled chunked prefill and overlap scheduling. Quantization, hybrid attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` are not supported in these configurations. Ordinary replicas support :ref:`speculative_decoding` with NGram or Draft/Target. For supported cross-engine P/D combinations, see :ref:`user_guide_pd_separation`.
+
+For same-engine P/D, set explicit prefill/decode roles in ``replica_config`` as described in :ref:`user_guide_pd_separation`. The default ``transfer_backend_type="xavier"`` uses NIXL to transfer KV pages directly between GPUs. Set ``transfer_backend_type="nixl"`` for TRT's native context/generation protocol and NIXL transport; do not also set ``enable_xavier=True``. Both paths support generation, chat, streaming and cancellation through the same Xinference API.
+
+The shared cache actor reports ``imported_pages`` after copies into the destination KV pool complete. Use this counter to verify cross-instance imports. Measure latency and throughput for your workload; transfer costs can exceed the saved prefill computation.

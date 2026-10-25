@@ -10,15 +10,20 @@ The following is a list of built-in audio models in Xinference:
 .. toctree::
    :maxdepth: 1
 
-  
-   belle-distilwhisper-large-v2-zh
-  
-   belle-whisper-large-v2-zh
+   ace-step1.5
+
+   auk
+
+   auk-flash
   
    belle-whisper-large-v3-zh
   
+   breeze-tts-2
+
    chattts
   
+   confucius4-tts
+
    cosyvoice-300m
   
    cosyvoice-300m-instruct
@@ -29,19 +34,27 @@ The following is a list of built-in audio models in Xinference:
   
    f5-tts
   
-   f5-tts-mlx
+   fireredtts3-base
   
+   fireredtts3-instruct
+  
+   fishaudio-s1-mini
+
+   fishaudio-s2-pro
+
    fishspeech-1.5
   
    fun-asr-mlt-nano-2512
   
    fun-asr-nano-2512
   
+   indextts-2.5
+  
    indextts2
   
+   irodori-tts-v4.1-anime
+   irodori-tts-v4.1-small
    kokoro-82m
-  
-   kokoro-82m-mlx
   
    kokoro-82m-v1.1-zh
   
@@ -62,6 +75,12 @@ The following is a list of built-in audio models in Xinference:
    melotts-korean
   
    melotts-spanish
+  
+   ming-3.0-tts-0.5b
+
+   ming-3.0-tts-tiny
+
+   minimax-music3
   
    paraformer-zh
   
@@ -89,43 +108,30 @@ The following is a list of built-in audio models in Xinference:
   
    sensevoicesmall
   
-   whisper-base
+   speech_campplus_sv_zh-cn_16k-common
   
-   whisper-base-mlx
+   speech_campplus_sv_zh_en_16k-common_advanced
+  
+   voxcpm2
+  
+   whisper-base
   
    whisper-base.en
   
-   whisper-base.en-mlx
-  
    whisper-large-v3
-  
-   whisper-large-v3-mlx
   
    whisper-large-v3-turbo
   
-   whisper-large-v3-turbo-mlx
-  
    whisper-medium
-  
-   whisper-medium-mlx
   
    whisper-medium.en
   
-   whisper-medium.en-mlx
-  
    whisper-small
-  
-   whisper-small-mlx
   
    whisper-small.en
   
-   whisper-small.en-mlx
-  
    whisper-tiny
   
-   whisper-tiny-mlx
-  
    whisper-tiny.en
-  
-   whisper-tiny.en-mlx
-  
+
+   yue2-3b

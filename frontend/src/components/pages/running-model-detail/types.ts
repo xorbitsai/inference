@@ -1,0 +1,88 @@
+import type { ComponentType, ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import type { TFunc } from '@/contexts/i18n-context';
+
+import type { FileUploadValue } from '@/types/common';
+import type { ModelAbility } from '@/constants';
+import type { CodeExampleConfig } from '@/constants/running';
+import type { FormInstance, FormValues } from '@/types/form';
+import type { GenerationProgressTiming } from '@/lib/generation-progress';
+import type { RunningModelDetail } from '@/types/services';
+
+type Attachment = Omit<FileUploadValue, 'file'> & {
+  file?: File;
+};
+
+export interface CapabilityFormProps {
+  form: FormInstance;
+  model: RunningModelDetail;
+  modelUid: string;
+  /** Optional action controls rendered alongside the form fields. */
+  actions?: ReactNode;
+}
+
+export interface CapabilityResultProps {
+  result?: unknown;
+  values?: FormValues;
+  loading?: boolean;
+  progress?: number;
+  progressTiming?: GenerationProgressTiming;
+  ability: ModelAbility;
+}
+
+export interface TransformContext {
+  modelUid: string;
+  model: RunningModelDetail;
+  values: FormValues;
+  requestId?: string;
+  t?: TFunc;
+}
+
+export interface CapabilityConfig {
+  ability: ModelAbility;
+  label: string;
+  labelKey?: string;
+  descriptionKey?: string;
+  icon: LucideIcon;
+  requestApi: string;
+  initialValues?: FormValues;
+  showProgress?: boolean;
+  stream?: boolean;
+  submitLabel?: string;
+  submitLabelKey?: string;
+  formPanel: ComponentType<CapabilityFormProps>;
+  resultPanel: ComponentType<CapabilityResultProps>;
+  transformValues: (
+    context: TransformContext
+  ) => BodyInit | Record<string, unknown> | Promise<BodyInit | Record<string, unknown>>;
+  responseType?: 'blob' | 'audio-stream';
+  codeExample?: CodeExampleConfig;
+}
+
+export interface ChatSettings {
+  max_tokens: number;
+  temperature: number;
+  stream: boolean;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  loading: boolean;
+  reasoning?: string;
+  attachment?: Attachment;
+  thinkingContent?: string;
+  thinkingCompleted?: boolean;
+  success?: boolean;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export interface FieldSchema {
+  name: string;
+  label: ReactNode;
+  type?: 'text' | 'textarea' | 'number' | 'select' | 'switch' | 'upload';
+}

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,9 +36,10 @@ from ..utils import (
     download_from_csghub,
     download_from_modelscope,
     download_from_openmind_hub,
-    retry_download,
+    retry_snapshot_download,
 )
 from . import LLM
+from .model_metadata import ModelMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +49,30 @@ BUILTIN_LLM_MODEL_CHAT_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_GENERATE_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES: Set[str] = set()
 
+# Substring(s) whose presence in a chat_template signal that the template
+# enforces system-first ordering (it raises if a ``system`` message is not the
+# first message). Used to derive the ``strict_system_first`` flag exposed in
+# model descriptions, so the API layer can reject misplaced ``system`` messages
+# before the request reaches the worker / GPU. Qwen3-family templates carry
+# this guard (Ornith-1.0-35B / qwen3.5 / qwen3.6 / Nex-N2).
+STRICT_SYSTEM_FIRST_MARKERS: Tuple[str, ...] = (
+    "System message must be at the beginning",
+)
+
+
+def is_strict_system_first_template(chat_template: Optional[str]) -> bool:
+    """True iff the template text (case-insensitive) contains a system-first
+    guard marker."""
+    if chat_template is None:
+        return False
+    chat_template_lower = chat_template.lower()
+    return any(
+        marker.lower() in chat_template_lower for marker in STRICT_SYSTEM_FIRST_MARKERS
+    )
+
 
 class LlamaCppLLMSpecV2(BaseModel):
+    model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["ggufv2"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
@@ -64,6 +87,18 @@ class LlamaCppLLMSpecV2(BaseModel):
     model_revision: Optional[str]
     # for MOE model, illustrates the activated model size
     activated_size_in_billions: Optional[Union[str, int]]
+    # see MLXLLMSpecV2 for the semantics of these. A gguf drafter is a single
+    # file, usually inside the target's own repo, hence the extra template;
+    # ``draft_model_id`` defaults to ``model_id`` when it is left out.
+    draft_model_id: Optional[str]
+    draft_model_file_name_template: Optional[str]
+    draft_quantizations: Optional[List[str]]
+    draft_model_revision: Optional[str]
+
+    class Config:
+        # Optional Union ordering may be cached as int first by Python.
+        # Keep radix strings intact until the validator normalizes sizes.
+        smart_union = True
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
@@ -78,6 +113,7 @@ class LlamaCppLLMSpecV2(BaseModel):
 
 
 class PytorchLLMSpecV2(BaseModel):
+    model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
@@ -88,6 +124,13 @@ class PytorchLLMSpecV2(BaseModel):
     model_revision: Optional[str]
     # for MOE model, illustrates the activated model size
     activated_size_in_billions: Optional[Union[str, int]]
+    # see MLXLLMSpecV2 for the semantics of these three
+    draft_model_id: Optional[str]
+    draft_quantizations: Optional[List[str]]
+    draft_model_revision: Optional[str]
+
+    class Config:
+        smart_union = True
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
@@ -102,6 +145,7 @@ class PytorchLLMSpecV2(BaseModel):
 
 
 class MLXLLMSpecV2(BaseModel):
+    model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["mlx"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
@@ -112,6 +156,18 @@ class MLXLLMSpecV2(BaseModel):
     model_revision: Optional[str]
     # for MOE model, illustrates the activated model size
     activated_size_in_billions: Optional[Union[str, int]]
+    # Paired drafter checkpoint for speculative decoding (e.g. Gemma 4 MTP),
+    # only downloaded when speculative decoding is enabled at launch time.
+    # ``draft_model_id`` may carry a ``{draft_quantization}`` placeholder filled
+    # from ``draft_quantizations``; do NOT use ``{quantization}`` here, that one
+    # is substituted with the *target* model's quantization when specs are
+    # flattened, which is unrelated to how the drafter was converted.
+    draft_model_id: Optional[str]
+    draft_quantizations: Optional[List[str]]
+    draft_model_revision: Optional[str]
+
+    class Config:
+        smart_union = True
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
@@ -156,6 +212,9 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
     tool_parser: Optional[str]
+    # Provenance: True only for bundled built-in models; user-registered /
+    # custom models keep it False. Gates implicit trust_remote_code (CWE-94).
+    is_builtin: bool = False
 
     class Config:
         extra = "allow"
@@ -165,13 +224,15 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
             return self.architectures
         if not self.model_family:
             return None
+        for family in BUILTIN_LLM_FAMILIES:
+            if family.model_name == self.model_family:
+                return family.architectures
+
         from .custom import get_user_defined_llm_families
 
-        user_defined = {f.model_name: f for f in get_user_defined_llm_families()}
-        all_families = {f.model_name: f for f in BUILTIN_LLM_FAMILIES}
-        all_families.update(user_defined)
-        if self.model_family in all_families:
-            return all_families[self.model_family].architectures
+        for family in get_user_defined_llm_families():
+            if family.model_name == self.model_family:
+                return family.architectures
         return None
 
     def has_architecture(self, *architectures: str) -> bool:
@@ -206,6 +267,9 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "model_hub": spec.model_hub,
             "revision": spec.model_revision,
             "context_length": self.context_length,
+            # Whether the chat template enforces system-first ordering; the
+            # API layer uses this to reject misplaced ``system`` messages early.
+            "strict_system_first": is_strict_system_first_template(self.chat_template),
         }
 
     def to_version_info(self):
@@ -314,7 +378,7 @@ class CustomLLMFamilyV2(LLMFamilyV2):
 
         # check model ability, registering LLM only provides generate and chat
         # but for vision models, we add back the abilities so that
-        # gradio chat interface can be generated properly
+        # the frontend and REST API can detect and expose vision support
         if (
             llm_spec.model_family in vision_model_names
             and "vision" not in llm_spec.model_ability
@@ -341,10 +405,23 @@ SGLANG_CLASSES: List[Type[LLM]] = []
 TRANSFORMERS_CLASSES: List[Type[LLM]] = []
 VLLM_CLASSES: List[Type[LLM]] = []
 MLX_CLASSES: List[Type[LLM]] = []
-LMDEPLOY_CLASSES: List[Type[LLM]] = []
+TRTLLM_CLASSES: List[Type[LLM]] = []
 
 LLM_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
 SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
+
+
+def get_llm_family_by_name(model_name: str) -> Optional[LLMFamilyV2]:
+    from .custom import get_user_defined_llm_families
+
+    return next(
+        (
+            family
+            for family in BUILTIN_LLM_FAMILIES + get_user_defined_llm_families()
+            if family.model_name == model_name
+        ),
+        None,
+    )
 
 
 # Add decorator definition
@@ -379,7 +456,7 @@ def cache_model_tokenizer_and_config(
     if llm_spec.model_hub == "huggingface":
         from huggingface_hub import snapshot_download
 
-        download_dir = retry_download(
+        download_dir = retry_snapshot_download(
             snapshot_download,
             llm_family.model_name,
             {
@@ -394,7 +471,7 @@ def cache_model_tokenizer_and_config(
     elif llm_spec.model_hub == "modelscope":
         from modelscope.hub.snapshot_download import snapshot_download
 
-        download_dir = retry_download(
+        download_dir = retry_snapshot_download(
             snapshot_download,
             llm_family.model_name,
             {
@@ -634,7 +711,10 @@ def check_engine_by_spec_parameters_with_virtual_env(
     quantization: str,
     llm_family: Optional["LLMFamilyV2"] = None,
 ) -> Type[LLM]:
-    from ..utils import _collect_virtualenv_engine_markers
+    from ..utils import (
+        _collect_virtualenv_engine_markers,
+        _collect_virtualenv_installable_engines,
+    )
 
     def get_model_engine_from_spell(engine_str: str) -> str:
         for engine in LLM_ENGINES[model_name].keys():
@@ -663,6 +743,18 @@ def check_engine_by_spec_parameters_with_virtual_env(
     ) -> Optional[Type[LLM]]:
         if not engine_classes:
             return None
+        if model_engine.lower() == "trt-llm":
+            # Installing dependencies cannot extend this adapter's model support.
+            spec = _select_llm_spec(family)
+            return next(
+                (
+                    cls
+                    for cls in engine_classes
+                    if spec is not None
+                    and cls.match_json(family, spec, quantization) is True
+                ),
+                None,
+            )
         abilities = set(getattr(family, "model_ability", []) or [])
         preferred_tokens: List[Tuple[str, ...]] = []
         if any(a in abilities for a in ("vision", "audio", "omni")):
@@ -679,17 +771,16 @@ def check_engine_by_spec_parameters_with_virtual_env(
     if model_name not in LLM_ENGINES:
         raise ValueError(f"Model {model_name} not found.")
     if llm_family is None:
-        llm_family = next(
-            (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
-        )
+        llm_family = get_llm_family_by_name(model_name)
     engine_markers = _collect_virtualenv_engine_markers(llm_family)
-    if engine_markers and model_engine.lower() not in engine_markers:
+    installable_engines = _collect_virtualenv_installable_engines(llm_family)
+    if engine_markers and model_engine.lower() not in installable_engines:
         raise ValueError(
             f"Engine {model_engine} is not listed in virtualenv packages for model {model_name}."
         )
     model_engine = get_model_engine_from_spell(model_engine)
     if model_engine not in LLM_ENGINES[model_name]:
-        if model_engine.lower() in engine_markers:
+        if model_engine.lower() in installable_engines:
             if model_engine.lower() == "mlx" and model_format != "mlx":
                 raise ValueError(
                     f"Engine {model_engine} only supports mlx format, got {model_format}."
@@ -729,7 +820,7 @@ def check_engine_by_spec_parameters_with_virtual_env(
             and quantization in param["quantizations"]
         ):
             return param["llm_class"]
-    if model_engine.lower() in engine_markers:
+    if model_engine.lower() in installable_engines:
         if model_engine.lower() == "mlx" and model_format != "mlx":
             raise ValueError(
                 f"Engine {model_engine} only supports mlx format, got {model_format}."

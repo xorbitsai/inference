@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,8 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 
 import asyncio
+import json
+import logging
+import types
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -20,9 +25,14 @@ import xoscar as xo
 from xoscar import create_actor_pool
 
 from ..model import ModelActor
+from ..model_generation import ModelGenerationMixin
 
 TEST_EVENT = None
 TEST_VALUE = None
+
+
+class _ModelCleanupStub(ModelGenerationMixin, types.SimpleNamespace):
+    """Run generation cleanup without requiring an xoscar actor context."""
 
 
 class MockModelFamily:
@@ -43,6 +53,31 @@ class MockModel:
         yield {"test2": prompt}
 
 
+class _DescribedModelFamily:
+    def __init__(self, model_type: str):
+        self._model_type = model_type
+
+    def to_description(self) -> dict:
+        return {"model_type": self._model_type, "model_name": "test-video"}
+
+
+class _DescribedModel:
+    def __init__(self, model_type: str):
+        self.model_family = _DescribedModelFamily(model_type)
+
+
+def test_video_metrics_keep_selected_engine_label():
+    actor = ModelActor(
+        supervisor_address="test:123",
+        worker_address="test:345",
+        model=_DescribedModel("video"),  # type: ignore
+        replica_model_uid="test-video-0",
+        model_engine="MLX",
+    )
+
+    assert actor._metrics_labels["engine"] == "MLX"
+
+
 class MockModelActor(ModelActor):
     def __init__(
         self,
@@ -56,6 +91,10 @@ class MockModelActor(ModelActor):
             model=MockModel(),  # type: ignore
             replica_model_uid=replica_model_uid,
         )
+        # This actor is constructed directly with a ready-to-use MockModel
+        # (no launch/load path), so mark it ready to bypass the
+        # _require_ready() guard added by the model state machine.
+        self._model_state = "ready"
         self._lock = asyncio.locks.Lock()
 
     async def __pre_destroy__(self):
@@ -121,3 +160,377 @@ async def test_concurrent_call(setup_pool):
     await check_task
     pending_count = await worker.get_pending_requests_count()
     assert pending_count == 0
+
+
+def _gguf_spec_fields():
+    return {
+        "quantization": "Q8_0",
+        "model_file_name_template": "m.gguf",
+        "model_file_name_split_template": None,
+        "quantization_parts": None,
+        "model_id": None,
+        "model_uri": None,
+        "model_revision": None,
+    }
+
+
+def _make_rerank_model(model_format: str):
+    """Build an unloaded RerankModel with the given spec format (issue #5156)."""
+    from typing import Any, Dict
+
+    from ...model.rerank.core import RerankModel, RerankModelFamilyV2
+
+    spec: Dict[str, Any] = {
+        "model_format": model_format,
+        "model_hub": "huggingface",
+        "quantization": "none",
+    }
+    if model_format == "ggufv2":
+        spec.update(_gguf_spec_fields())
+    family = RerankModelFamilyV2(
+        version=2,
+        model_name="fake-reranker",
+        model_specs=[spec],
+        language=["en"],
+        # non-"unknown" type avoids _auto_detect_type reading a real model path
+        type="normal",
+        max_tokens=512,
+        virtualenv=None,
+    )
+
+    class _FakeRerankModel(RerankModel):
+        @classmethod
+        def check_lib(cls):
+            return True
+
+        @classmethod
+        def match_json(cls, model_family, model_spec, quantization):
+            return True
+
+        def load(self):
+            pass
+
+        def rerank(self, *args, **kwargs):
+            raise NotImplementedError
+
+    model = _FakeRerankModel("fake-reranker-0", "/tmp/fake", family, "none")
+    # emulate a loaded model holding GPU tensors
+    model._model = object()  # type: ignore[assignment]
+    return model
+
+
+def _make_embedding_model(model_format: str):
+    """Build an unloaded EmbeddingModel with the given spec format (issue #5156)."""
+    from typing import Any, Dict
+
+    from ...model.embedding.core import EmbeddingModel, EmbeddingModelFamilyV2
+
+    spec: Dict[str, Any] = {
+        "model_format": model_format,
+        "model_hub": "huggingface",
+        "model_id": None,
+        "model_uri": None,
+        "model_revision": None,
+        "quantization": "none",
+    }
+    if model_format == "ggufv2":
+        spec.update(_gguf_spec_fields())
+    family = EmbeddingModelFamilyV2(
+        version=2,
+        model_name="fake-embedding",
+        dimensions=8,
+        max_tokens=512,
+        language=["en"],
+        model_specs=[spec],
+        cache_config=None,
+        virtualenv=None,
+    )
+
+    class _FakeEmbeddingModel(EmbeddingModel):
+        @classmethod
+        def check_lib(cls):
+            return True
+
+        @classmethod
+        def match_json(cls, model_family, model_spec, quantization):
+            return True
+
+        def load(self):
+            pass
+
+        def _create_embedding(self, *args, **kwargs):
+            raise NotImplementedError
+
+    model = _FakeEmbeddingModel("fake-embedding-0", "/tmp/fake", family)
+    # emulate a loaded model holding GPU tensors
+    model._model = object()  # type: ignore[assignment]
+    return model
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "make_model, model_format, expect_freed",
+    [
+        (_make_rerank_model, "pytorch", True),
+        (_make_rerank_model, "ggufv2", False),
+        (_make_embedding_model, "pytorch", True),
+        (_make_embedding_model, "ggufv2", False),
+    ],
+)
+async def test_pre_destroy_frees_gpu_memory(
+    monkeypatch, make_model, model_format, expect_freed
+):
+    # Regression test for issue #5156: stopping a pytorch (sentence_transformers)
+    # rerank/embedding model must run del + empty_cache so its VRAM is
+    # released; the torch-free llama.cpp (ggufv2) path must be skipped.
+    calls = []
+    monkeypatch.setattr(
+        "xinference.core.model.empty_cache",
+        lambda: calls.append(1),
+    )
+
+    # Use the real generation cleanup alongside the backend teardown, without
+    # requiring the xoscar actor context.
+    stub = _ModelCleanupStub(
+        _model=make_model(model_format),
+        _transfer_ref=None,
+        address="test:0",
+    )
+
+    await ModelActor.__pre_destroy__(stub)
+
+    if expect_freed:
+        assert len(calls) == 1
+        assert not hasattr(stub, "_model")
+    else:
+        assert len(calls) == 0
+        assert stub._model is not None
+
+
+# ---------------------------------------------------------------------------
+# Regression test for the non-stream chat metrics guard (candidate #2).
+# A backend whose non-stream chat completion lacks a "usage" field (or sets
+# it to None) must not crash ModelActor.chat inside its `finally` metrics
+# block. The streaming path already guards with `if final_usage is not None`;
+# this keeps the non-stream path consistent with that intent.
+# ---------------------------------------------------------------------------
+class _NoUsageChatModel:
+    def __init__(self):
+        self.model_family = MockModelFamily()
+
+    async def chat(self, messages, **kwargs):
+        # Intentionally omit "usage" to mimic backends that don't report tokens.
+        return {
+            "id": "chatcmpl-test",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "fake-no-usage",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hello"},
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+
+
+class _NoUsageChatModelActor(MockModelActor):
+    def __init__(self, supervisor_address, worker_address, replica_model_uid):
+        super().__init__(supervisor_address, worker_address, replica_model_uid)
+        # Replace the placeholder MockModel with one that returns no usage.
+        self._model = _NoUsageChatModel()
+
+
+@pytest_asyncio.fixture
+async def _chat_pool():
+    pool = await create_actor_pool(
+        f"test://127.0.0.1:{xo.utils.get_next_port()}", n_process=0
+    )
+    async with pool:
+        yield pool
+
+
+@pytest.mark.asyncio
+async def test_chat_without_usage_does_not_crash(_chat_pool):
+    # Before the fix, `await actor.chat(...)` raised KeyError/TypeError from
+    # the `finally` block because it indexed `record["usage"]` unconditionally.
+    pool = _chat_pool
+    addr = pool.external_address
+    actor = await xo.create_actor(
+        _NoUsageChatModelActor,
+        address=addr,
+        uid=_NoUsageChatModelActor.default_uid(),
+        supervisor_address="test:123",
+        worker_address="test:345",
+        replica_model_uid="test_chat_no_usage",
+    )
+    result = await actor.chat([{"role": "user", "content": "hi"}])
+    # Tolerate both a raw bytes return and an xoscar generator wrapper.
+    if isinstance(result, (bytes, str)):
+        parsed = json.loads(result)
+    else:
+        collected = []
+        async for chunk in result:
+            collected.append(chunk)
+        first = collected[0]
+        parsed = json.loads(
+            first if isinstance(first, (bytes, str)) else first.decode()
+        )
+    assert parsed["choices"][0]["message"]["content"] == "hello"
+
+
+class _NonDictUsageChatModel:
+    """A model whose non-stream chat returns usage as a non-dict truthy value
+    (e.g. a string). The original `if usage:` guard would have crashed on it
+    via AttributeError when calling .get()."""
+
+    def __init__(self):
+        self.model_family = MockModelFamily()
+
+    async def chat(self, messages, **kwargs):
+        return {
+            "id": "chatcmpl-test",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "fake-non-dict-usage",
+            "usage": "unexpected-string-usage",  # truthy but NOT a dict
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hi"},
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+
+
+class _NonDictUsageChatModelActor(MockModelActor):
+    def __init__(self, supervisor_address, worker_address, replica_model_uid):
+        super().__init__(supervisor_address, worker_address, replica_model_uid)
+        self._model = _NonDictUsageChatModel()
+
+
+@pytest.mark.asyncio
+async def test_chat_with_non_dict_usage_does_not_crash(_chat_pool):
+    # Regression test for the isinstance(usage, dict) guard: a non-dict truthy
+    # usage (string/list) must not raise AttributeError from .get().
+    pool = _chat_pool
+    addr = pool.external_address
+    actor = await xo.create_actor(
+        _NonDictUsageChatModelActor,
+        address=addr,
+        uid=_NonDictUsageChatModelActor.default_uid(),
+        supervisor_address="test:123",
+        worker_address="test:345",
+        replica_model_uid="test_chat_non_dict_usage",
+    )
+    result = await actor.chat([{"role": "user", "content": "hi"}])
+    if isinstance(result, (bytes, str)):
+        parsed = json.loads(result)
+    else:
+        collected = []
+        async for chunk in result:
+            collected.append(chunk)
+        first = collected[0]
+        parsed = json.loads(
+            first if isinstance(first, (bytes, str)) else first.decode()
+        )
+    assert parsed["choices"][0]["message"]["content"] == "hi"
+
+
+class _BatchGenerateModel:
+    allow_batch = True
+
+    def __init__(self):
+        self.model_family = MockModelFamily()
+        self._batch_scheduler = object()
+        self.generate_config = None
+
+    async def generate(self, prompt, generate_config=None):
+        self.generate_config = generate_config
+        return {"prompt": prompt}
+
+
+@pytest.mark.asyncio
+async def test_generate_moves_request_id_into_batch_config():
+    model = _BatchGenerateModel()
+    actor = ModelActor("test:123", "test:345", model, "test_model")  # type: ignore
+    actor._model_state = "ready"
+    actor.record_metrics = AsyncMock()
+    generate_config = {"max_tokens": 1}
+
+    result = await actor.generate(
+        "prompt", generate_config, request_id=123, raw_params={"ignored": True}
+    )
+
+    assert json.loads(result) == {"prompt": "prompt"}
+    assert model.generate_config == {"max_tokens": 1, "request_id": "123"}
+    assert generate_config == {"max_tokens": 1}
+
+
+class _BusyOnceModel:
+    def __init__(self):
+        self.model_family = MockModelFamily()
+        self.calls = 0
+
+    def load(self):
+        self.calls += 1
+        if self.calls == 1:
+            raise RuntimeError("device is busy or unavailable")
+
+
+@pytest.mark.asyncio
+async def test_load_retry_log_names_the_model(monkeypatch, caplog):
+    model = _BusyOnceModel()
+    actor = ModelActor("test:123", "test:345", model, "retry-model-0")  # type: ignore
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+
+    with caplog.at_level(logging.WARNING, logger="xinference.core.model"):
+        await actor.load()
+
+    assert model.calls == 2
+    assert "Retry to load model retry-model-0: 1 times" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stop_first", [False, True])
+async def test_gpu_cache_close_failure_does_not_skip_model_cleanup(
+    monkeypatch, stop_first
+):
+    from unittest.mock import Mock
+
+    from ...model.llm.vllm.core import VLLMModel
+
+    calls = []
+    model = Mock(spec=VLLMModel)
+    model.model_spec = types.SimpleNamespace(model_format="pytorch")
+    model.stop.side_effect = lambda: calls.append("stop")
+
+    async def close():
+        calls.append("close")
+        raise RuntimeError("transfer actor unreachable")
+
+    ref = types.SimpleNamespace(close_gpu_caches_v1=AsyncMock(side_effect=close))
+    stub = _ModelCleanupStub(
+        _model=model,
+        _transfer_ref=ref,
+        _xavier_config={"gpu_cache_bytes": 0},
+        address="test:0",
+    )
+    destroy = AsyncMock(side_effect=lambda ref: calls.append("destroy"))
+    monkeypatch.setattr(xo, "destroy_actor", destroy)
+    monkeypatch.setattr(
+        "xinference.core.model.empty_cache", lambda: calls.append("free")
+    )
+    if stop_first:
+        await ModelActor.stop(stub)
+    await ModelActor.__pre_destroy__(stub)
+    assert calls == (["close", "stop"] if stop_first else []) + [
+        "close",
+        "stop",
+        "destroy",
+        "free",
+    ]
+    destroy.assert_awaited_once_with(ref)
+    assert not hasattr(stub, "_model")

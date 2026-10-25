@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,30 +12,111 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import json
 import os
 import shutil
+import sys
 import tempfile
+from types import SimpleNamespace
 
 import pytest
 
+from xinference._model_catalog import load_model_catalog
+
 from ....client import Client
+from ..sentence_transformers.core import _get_causal_lm_rerank_forward_kwargs
+
+
+def test_causal_lm_rerank_forward_kwargs_use_supported_memory_optimizations():
+    class QwenLikeModel:
+        def forward(self, input_ids, logits_to_keep=0, use_cache=True):
+            pass
+
+    assert _get_causal_lm_rerank_forward_kwargs(QwenLikeModel()) == {
+        "logits_to_keep": 1,
+        "use_cache": False,
+    }
+
+
+def test_causal_lm_rerank_forward_kwargs_preserve_legacy_models():
+    class LegacyModel:
+        def forward(self, input_ids):
+            pass
+
+    assert _get_causal_lm_rerank_forward_kwargs(LegacyModel()) == {}
+
+
+def test_causal_lm_rerank_forward_kwargs_handles_missing_forward():
+    class ModelWithoutForward:
+        pass
+
+    assert _get_causal_lm_rerank_forward_kwargs(ModelWithoutForward()) == {}
+
+
+def test_causal_lm_rerank_forward_kwargs_handles_uninspectable_forward():
+    class UninspectableForward:
+        @property
+        def __signature__(self):
+            raise ValueError("signature unavailable")
+
+        def __call__(self, input_ids):
+            pass
+
+    class WrappedModel:
+        forward = UninspectableForward()
+
+    assert _get_causal_lm_rerank_forward_kwargs(WrappedModel()) == {}
+
+
+async def test_qwen3_reranker_return_len_counts_input_tokens():
+    import torch
+
+    from ..sentence_transformers.core import SentenceTransformerRerankModel
+
+    family = SimpleNamespace(
+        model_name="Qwen3-Reranker-0.6B",
+        type="normal",
+        model_ability=[],
+        model_specs=[SimpleNamespace(quantization="none")],
+    )
+    model = SentenceTransformerRerankModel("uid", "/model", family, "none")
+    model._model = object()
+    # Left-padded batch as returned by tokenizer.pad(): 3 and 5 real tokens.
+    mask = torch.tensor([[0, 0, 1, 1, 1], [1, 1, 1, 1, 1]])
+    model.process_inputs = lambda pairs: {"attention_mask": mask[: len(pairs)]}
+    model.compute_logits = lambda inputs: [0.2, 0.9]
+
+    result = await model.rerank(["doc a", "doc b"], "query", None, None, True, True)
+
+    assert result["meta"]["tokens"] == {"input_tokens": 8, "output_tokens": 8}
 
 
 @pytest.mark.parametrize("model_name", ["bge-reranker-v2-m3", "bge-reranker-base"])
-@pytest.mark.parametrize("model_engine", ["sentence_transformers", "vllm"])
-def test_restful_api(model_name, model_engine, setup):
+@pytest.mark.parametrize(
+    "model_engine",
+    [
+        "sentence_transformers",
+        pytest.param(
+            "vllm",
+            marks=pytest.mark.skipif(
+                sys.platform != "linux", reason="vLLM requires Linux"
+            ),
+        ),
+    ],
+)
+@pytest.mark.platform_slow
+def test_restful_api(model_name, model_engine, request):
     if model_name == "bge-reranker-base" and model_engine == "vllm":
         pytest.skip("bge-reranker-base exceeds the max_model_len( 560 > 512 ) of vllm")
     if model_engine == "vllm":
         pytest.importorskip("vllm", reason="vllm is not installed")
 
     # Skip network-intensive tests on CI to avoid timeout issues
-    import os
-
     if os.environ.get("CI") and model_engine == "sentence_transformers":
         pytest.skip("Skip network-intensive rerank test on CI to avoid timeout")
-    endpoint, _ = setup
+    endpoint, _ = request.getfixturevalue("setup")
     client = Client(endpoint)
 
     model_uid = client.launch_model(
@@ -198,12 +279,31 @@ def test_register_custom_rerank():
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+@pytest.mark.parametrize(
+    "tokenizer_name,expected",
+    [
+        ("LlamaTokenizer", "LLM-based layerwise"),
+        ("LlamaTokenizerFast", "LLM-based layerwise"),
+        ("GemmaTokenizer", "LLM-based"),
+        ("GemmaTokenizerFast", "LLM-based"),
+        ("XLMRobertaTokenizer", "normal"),
+        ("XLMRobertaTokenizerFast", "normal"),
+        ("UnknownTokenizer", "normal"),
+    ],
+)
+def test_auto_detect_tokenizer_types(monkeypatch, tokenizer_name, expected):
+    from ..core import RerankModel
+
+    tokenizer = type(tokenizer_name, (), {})()
+    monkeypatch.setattr(RerankModel, "_get_tokenizer", lambda path: tokenizer)
+    assert RerankModel._auto_detect_type("unused") == expected
+
+
 def test_auto_detect_type():
     from ..core import RerankModel
 
-    rerank_model_json = os.path.join(os.path.dirname(__file__), "../model_spec.json")
-    with open(rerank_model_json, "r") as f:
-        rerank_models = json.load(f)
+    rerank_model_json = os.path.join(os.path.dirname(__file__), "../models")
+    rerank_models = load_model_catalog(rerank_model_json)
     for m in rerank_models:
         if m["model_name"] == "minicpm-reranker":
             # TODO: we need to fix the auto detect type
@@ -215,3 +315,206 @@ def test_auto_detect_type():
         except EnvironmentError:
             # gated repo, ignore
             continue
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_revision"),
+    [
+        (
+            "Qwen3-Reranker-0.6B",
+            "eb9ad47d4e53c2a6abd6158b505f1539d1c5650c",
+        ),
+        ("Qwen3-Reranker-4B", "1b452c803342e73ac3644551b727dfd51a09fd5b"),
+        ("Qwen3-Reranker-8B", "646e3a1fc04936cab940ad02e18ee6b14af46263"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("quantization", "separator"),
+    [("Q4_K_M", "-"), ("Q8_0", ".")],
+)
+def test_qwen3_reranker_gguf_uses_llama_cpp_compatible_models(
+    model_name, model_revision, quantization, separator
+):
+    from .. import register_builtin_model
+    from ..rerank_family import match_rerank
+
+    register_builtin_model()
+    family = match_rerank(
+        model_name,
+        model_format="ggufv2",
+        quantization=quantization,
+        download_hub="modelscope",
+    )
+    spec = family.model_specs[0]
+
+    assert spec.model_hub == "huggingface"
+    assert spec.model_id == f"Voodisss/{model_name}-GGUF-llama_cpp"
+    assert spec.model_revision == model_revision
+    assert spec.model_file_name_template == (
+        f"{model_name}{separator}{quantization}.gguf"
+    )
+
+
+def test_register_builtin_model_is_idempotent():
+    # Worker.update_model_type() calls register_builtin_model() again on
+    # every runtime hub-refresh, on the same already-imported process. It
+    # must leave the engine registry as if it had only run once.
+    from .. import register_builtin_model
+    from ..rerank_family import BUILTIN_RERANK_MODELS, RERANK_ENGINES, SUPPORTED_ENGINES
+
+    register_builtin_model()
+    model_name = next(iter(RERANK_ENGINES))
+    baseline_classes = {
+        engine: list(classes) for engine, classes in SUPPORTED_ENGINES.items()
+    }
+    baseline_engine_entries = sum(
+        len(specs) for specs in RERANK_ENGINES[model_name].values()
+    )
+    baseline_model_table = sum(len(specs) for specs in BUILTIN_RERANK_MODELS.values())
+
+    for _ in range(3):
+        register_builtin_model()
+
+    assert {
+        engine: list(classes) for engine, classes in SUPPORTED_ENGINES.items()
+    } == baseline_classes
+    assert (
+        sum(len(specs) for specs in RERANK_ENGINES[model_name].values())
+        == baseline_engine_entries
+    )
+    # BUILTIN_RERANK_MODELS itself must not grow either: load_model_family_from_json
+    # unconditionally appended a fresh spec per model name on every refresh, independent
+    # of the engine-class and engine-entry guards above.
+    assert (
+        sum(len(specs) for specs in BUILTIN_RERANK_MODELS.values())
+        == baseline_model_table
+    )
+
+
+def test_register_builtin_model_downloaded_catalog_merge_is_idempotent(
+    tmp_path, monkeypatch
+):
+    # Worker.update_model_type() re-parses a downloaded catalog file and
+    # merges it into the built-in table on every refresh. A downloaded entry
+    # that is value-identical to the built-in one (same content, same
+    # updated_at) must not keep padding the family list on repeat refreshes.
+    import xinference.model.rerank as rerank_module
+
+    from .... import constants
+    from .. import register_builtin_model
+    from ..rerank_family import BUILTIN_RERANK_MODELS
+
+    # Patch both: rerank/__init__.py binds this at import time (unlike
+    # embedding's per-call import), and utils.py's loader re-imports it
+    # from constants.py fresh, so either one alone still hits the real dir.
+    monkeypatch.setattr(rerank_module, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    raw_entry = load_model_catalog(spec_path)[0]
+    model_name = raw_entry["model_name"]
+
+    register_builtin_model()
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "rerank")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "rerank_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([raw_entry], f)
+
+    register_builtin_model()
+    baseline_count = len(BUILTIN_RERANK_MODELS[model_name])
+
+    for _ in range(3):
+        register_builtin_model()
+
+    assert len(BUILTIN_RERANK_MODELS[model_name]) == baseline_count
+    # the vetted built-in entry must still be present, not shadowed out
+    # by the freshly re-parsed downloaded duplicate.
+    assert any(f.is_builtin for f in BUILTIN_RERANK_MODELS[model_name])
+
+
+def test_register_builtin_model_preserves_equal_timestamp_family_engines(
+    tmp_path, monkeypatch
+):
+    import xinference.model.rerank as rerank_module
+
+    from .... import constants
+    from .. import register_builtin_model
+    from ..rerank_family import BUILTIN_RERANK_MODELS, RERANK_ENGINES
+
+    monkeypatch.setattr(rerank_module, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", True)
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    downloaded_entry = next(
+        entry
+        for entry in load_model_catalog(spec_path)
+        if entry["model_name"] == "bge-reranker-v2-m3"
+    )
+    downloaded_entry["model_specs"] = [downloaded_entry["model_specs"][1]]
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "rerank")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "rerank_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([downloaded_entry], f)
+
+    register_builtin_model()
+    assert len(BUILTIN_RERANK_MODELS["bge-reranker-v2-m3"]) == 2
+    engine_formats = {
+        param["model_format"]
+        for params in RERANK_ENGINES["bge-reranker-v2-m3"].values()
+        for param in params
+    }
+    assert {"pytorch", "ggufv2"}.issubset(engine_formats)
+    baseline_engines = {
+        engine: list(params)
+        for engine, params in RERANK_ENGINES["bge-reranker-v2-m3"].items()
+    }
+    register_builtin_model()
+    assert RERANK_ENGINES["bge-reranker-v2-m3"] == baseline_engines
+
+
+def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
+    tmp_path, monkeypatch
+):
+    # A downloaded-only model still in RERANK_ENGINES/RERANK_MODEL_DESCRIPTIONS
+    # after it drops out of a later catalog refresh keeps advertising a launch
+    # config and a description, even though BUILTIN_RERANK_MODELS (the table
+    # both derive from) no longer has it.
+    import xinference.model.rerank as rerank_module
+
+    from .... import constants
+    from .. import register_builtin_model
+    from ..core import RERANK_MODEL_DESCRIPTIONS
+    from ..rerank_family import BUILTIN_RERANK_MODELS, RERANK_ENGINES
+
+    monkeypatch.setattr(rerank_module, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    raw_entry = load_model_catalog(spec_path)[0]
+    downloaded_only = dict(raw_entry)
+    downloaded_only["model_name"] = "downloaded-only-catalog-removal-test"
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "rerank")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "rerank_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([downloaded_only], f)
+
+    register_builtin_model()
+    assert "downloaded-only-catalog-removal-test" in BUILTIN_RERANK_MODELS
+    assert "downloaded-only-catalog-removal-test" in RERANK_ENGINES
+    assert "downloaded-only-catalog-removal-test" in RERANK_MODEL_DESCRIPTIONS
+
+    # A later refresh's catalog no longer lists the model (removed upstream).
+    with open(catalog_path, "w") as f:
+        json.dump([], f)
+
+    register_builtin_model()
+    assert "downloaded-only-catalog-removal-test" not in BUILTIN_RERANK_MODELS
+    assert "downloaded-only-catalog-removal-test" not in RERANK_ENGINES
+    assert "downloaded-only-catalog-removal-test" not in RERANK_MODEL_DESCRIPTIONS

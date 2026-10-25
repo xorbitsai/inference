@@ -1,0 +1,210 @@
+<div align="center">
+<img src="../assets/xorbits-logo.png"  width="180px" alt="xorbits" />
+
+# Xorbits Inference: モデルサービングを簡単に 🤖
+
+<p align="center">
+  <a href="https://xinference.co">Xinference エンタープライズ</a> ·
+  <a href="https://inference.readthedocs.io/en/latest/getting_started/installation.html#installation">セルフホスティング</a> ·
+  <a href="https://inference.readthedocs.io/">ドキュメント</a>
+</p>
+
+[![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
+[![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
+[![Docker Pulls](https://img.shields.io/docker/pulls/xprobe/xinference?style=for-the-badge&logo=docker)](https://hub.docker.com/r/xprobe/xinference)
+[![Discord](https://img.shields.io/badge/join_Discord-5462eb.svg?logo=discord&style=for-the-badge&logoColor=%23f5f5f5)](https://discord.gg/Xw9tszSkr5)
+[![Telegram](https://img.shields.io/badge/join_Telegram-26A5E4.svg?logo=telegram&style=for-the-badge&logoColor=white)](https://t.me/+nCNpwmySwk9iYmI1)
+[![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
+
+<p align="center">
+  <a href="../README.md"><img alt="English" src="https://img.shields.io/badge/English-d9d9d9?style=for-the-badge"></a>
+  <a href="./README_ja_JP.md"><img alt="日本語" src="https://img.shields.io/badge/日本語-454545?style=for-the-badge"></a>
+  <a href="./README_ko.md"><img alt="한국어" src="https://img.shields.io/badge/한국어-d9d9d9?style=for-the-badge"></a>
+  <a href="./README_de.md"><img alt="Deutsch" src="https://img.shields.io/badge/Deutsch-d9d9d9?style=for-the-badge"></a>
+  <a href="./README_fr.md"><img alt="Français" src="https://img.shields.io/badge/Français-d9d9d9?style=for-the-badge"></a>
+  <br>
+  <a href="./README_es.md"><img alt="Español" src="https://img.shields.io/badge/Español-d9d9d9?style=for-the-badge"></a>
+  <a href="./README_it.md"><img alt="Italiano" src="https://img.shields.io/badge/Italiano-d9d9d9?style=for-the-badge"></a>
+  <a href="./README_pt_BR.md"><img alt="Português" src="https://img.shields.io/badge/Português-d9d9d9?style=for-the-badge"></a>
+  <a href="./README_zh_TW.md"><img alt="繁體中文" src="https://img.shields.io/badge/繁體中文-d9d9d9?style=for-the-badge"></a>
+  <a href="./README_zh_CN.md"><img alt="简体中文" src="https://img.shields.io/badge/简体中文-d9d9d9?style=for-the-badge"></a>
+</p>
+</div>
+<br />
+
+Xorbits Inference（Xinference）は、言語、音声認識、マルチモーダルモデル向けの高機能で汎用性の高いライブラリです。Xorbits Inference を使えば、たった一つのコマンドで自分のモデルや組み込みの最先端モデルを簡単にデプロイしてサービス化できます。研究者、開発者、データサイエンティストいずれにとっても、最先端 AI モデルの能力を存分に引き出すことができます。
+
+<div align="center">
+<i><a href="https://discord.gg/Xw9tszSkr5">👉 Discord コミュニティに参加してください！</a> · <a href="https://t.me/+nCNpwmySwk9iYmI1">Telegram グループに参加！</a></i>
+</div>
+
+## 🔥 注目のトピック
+### フレームワークの強化
+- Xinference 4.0.0 が公開され、マルチエンジン Xavier、異種環境 P/D 分離、実行中のモデル再構成をサポートします: [リリースノート](https://github.com/xorbitsai/inference/releases/tag/v4.0.0)
+- Agent ネイティブ配信：Xinference は [Xagent](https://github.com/xorbitsai/xagent) と統合し、動的プランニング、ツール利用、自己完結型の複数ステップ推論を可能にし、静的なパイプラインの限界を超えます。
+- 自動バッチ処理：複数の同時リクエストを自動的にバッチ化し、スループットを大幅に向上させます。: [#4197](https://github.com/xorbitsai/inference/pull/4197)
+- [Xllamacpp](https://github.com/xorbitsai/xllamacpp): Xinference チームが管理する新しい llama.cpp の Python バインディングは、継続的なバッチ処理をサポートし、より本番運用に適しています。: [#2997](https://github.com/xorbitsai/inference/pull/2997)
+- 分散推論：ワーカー間でモデルを実行できます: [#2877](https://github.com/xorbitsai/inference/pull/2877)
+- VLLM の強化：複数レプリカ間で KV キャッシュを共有: [#2732](https://github.com/xorbitsai/inference/pull/2732)
+### 新規モデル
+- [FLUX 3 Image Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein) を組み込みでサポート: [#5792](https://github.com/xorbitsai/inference/pull/5792)
+- FIBO 2.0 シリーズ（[Dev](https://huggingface.co/briaai/Fibo-2.0-dev)、[Edit Turbo](https://huggingface.co/briaai/Fibo-2.0-edit-turbo)） を組み込みでサポート: [#5790](https://github.com/xorbitsai/inference/pull/5790)
+- Ming-3.0 TTS シリーズ（[Tiny](https://huggingface.co/inclusionAI/Ming-3.0-tts-tiny)、[0.5B](https://huggingface.co/inclusionAI/Ming-3.0-tts-0.5B)） を組み込みでサポート: [#5788](https://github.com/xorbitsai/inference/pull/5788)
+- [Xiaomi-OCR-0](https://huggingface.co/SeerRay-Lab/Xiaomi-OCR-0) を組み込みでサポート: [#5764](https://github.com/xorbitsai/inference/pull/5764)
+- [MOSS-Image-SFT](https://huggingface.co/OpenMOSS-Team/MOSS-Image-SFT) を組み込みでサポート: [#5755](https://github.com/xorbitsai/inference/pull/5755)
+- [DeepSeek-V4.1-Flash-1017](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017) を組み込みでサポート: [#5753](https://github.com/xorbitsai/inference/pull/5753)
+- Iris-3B シリーズ（[Base](https://huggingface.co/speridlabs/iris-3b)、[Turbo](https://huggingface.co/speridlabs/iris-3b/tree/main/turbo)） を組み込みでサポート: [#5686](https://github.com/xorbitsai/inference/pull/5686)
+- MiniCPM-V-4.7 シリーズ（[1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)、[35B-A3B](https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B)） を組み込みでサポート: [#5676](https://github.com/xorbitsai/inference/pull/5676)
+- Qwen3.8-Flash-Next シリーズ（[Base](https://huggingface.co/Qwen/Qwen3.8-Flash-Next)、[FP8](https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8)） を組み込みでサポート: [#5673](https://github.com/xorbitsai/inference/pull/5673)
+- GLM-5.3 シリーズ（[BF16](https://huggingface.co/zai-org/GLM-5.3-BF16)、[FP8](https://huggingface.co/zai-org/GLM-5.3)） を組み込みでサポート: [#5666](https://github.com/xorbitsai/inference/pull/5666)
+- [Qwen-Image-2.1-Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo) を組み込みでサポート: [#5665](https://github.com/xorbitsai/inference/pull/5665)
+- [DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash) を組み込みでサポート: [#5661](https://github.com/xorbitsai/inference/pull/5661)
+- [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) を組み込みでサポート: [#5644](https://github.com/xorbitsai/inference/pull/5644)
+- [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS) を組み込みでサポート: [#5591](https://github.com/xorbitsai/inference/pull/5591)
+- [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) を組み込みでサポート: [#5588](https://github.com/xorbitsai/inference/pull/5588)
+### 統合
+- [Xagent](https://github.com/xorbitsai/xagent): 計画、メモリ、ツール利用を備えたエンタープライズ向けエージェントプラットフォームです。
+- [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): LLMOps プラットフォームで、視覚化・操作可能な形で迅速にアプリを構築できます。
+- [FastGPT](https://github.com/labring/FastGPT): LLM ベースのナレッジプラットフォームで、データ処理やモデル呼び出し機能を提供します。
+- [RAGFlow](https://github.com/infiniflow/ragflow): 深層ドキュメント理解に基づくオープンソース RAG エンジンです。
+- [MaxKB](https://github.com/1Panel-dev/MaxKB): RAG を統合したオープンソースの知識ベースアシスタントです。
+
+## 主な機能
+🌟 **モデルサービングを簡単に**: 大規模言語モデル、音声認識、マルチモーダルモデルの提供プロセスを簡素化します。実験用・本番用のモデルをワンコマンドでセットアップしてデプロイできます。
+
+⚡️ **最先端モデルを手軽に**: 組み込みの最先端モデルをコマンド一つで試せます。Xinference はオープンソースの最先端モデルへのアクセスを提供します。
+
+🖥 **異種ハードウェアの活用**: [ggml](https://github.com/ggerganov/ggml) を用いて GPU と CPU を効率的に利用し、推論を高速化します。
+
+⚙️ **柔軟な API とインターフェース**: OpenAI 互換の RESTful API（Function Calling を含む）、RPC、CLI、Web UI など、多様なインターフェースでモデルを操作できます。
+
+🌐 **分散デプロイ**: 複数デバイスやマシンにまたがる分散デプロイを容易にし、推論をシームレスに分散します。
+
+🔌 **サードパーティとの統合**: [LangChain](https://python.langchain.com/docs/integrations/providers/xinference)、[LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window)、[Dify](https://docs.dify.ai/advanced/model-configuration/xinference)、[Chatbox](https://chatboxai.app/) 等とシームレスに連携します。
+
+## なぜ Xinference か
+| 機能                                        | Xinference | FastChat | OpenLLM | RayLLM |
+|---------------------------------------------|------------|----------|---------|--------|
+| OpenAI 互換の RESTful API                    | ✅ | ✅ | ✅ | ✅ |
+| vLLM 統合                                   | ✅ | ✅ | ✅ | ✅ |
+| 多様な推論エンジン（GGML、TensorRT）        | ✅ | ❌ | ✅ | ✅ |
+| 多様なプラットフォーム（CPU、Metal）        | ✅ | ✅ | ❌ | ❌ |
+| マルチノードクラスタデプロイ                | ✅ | ❌ | ❌ | ✅ |
+| 画像モデル（テキスト→画像）                 | ✅ | ✅ | ❌ | ❌ |
+| テキスト埋め込みモデル                      | ✅ | ❌ | ❌ | ❌ |
+| マルチモーダルモデル                        | ✅ | ❌ | ❌ | ❌ |
+| 音声モデル                                  | ✅ | ❌ | ❌ | ❌ |
+| OpenAI 機能（関数呼び出し）                 | ✅ | ❌ | ❌ | ❌ |
+
+## Xinference の使い方
+
+- **セルフホスティング Xinference Community Edition**
+  この [スターターガイド](#入門) に従って、自分の環境で Xinference を素早く起動してください。詳細はドキュメント（https://inference.readthedocs.io/）を参照してください。
+
+- **企業/組織向け Xinference**
+  **Xinference Enterprise** は、本番環境でモデルを運用するチーム向けの商用版です。自社のクラウドやデータセンターに導入するか、**Xinference Cloud** によるマネージド専用環境を選択できます。ホスト型の **Model API** では、推論インフラを管理することなく、OpenAI 互換 API を通じて対応モデルにアクセスできます。詳細は [xinference.co](https://xinference.co) をご覧ください。
+  企業向けのお問い合わせは、[メール](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry)でご連絡ください。
+
+## 常に先を行くために
+
+GitHub で Xinference にスターを付けると、新しいリリースの通知を受け取れます。
+
+![star-us](../assets/stay_ahead.gif)
+
+## 入門
+
+* [ドキュメント](https://inference.readthedocs.io/en/latest/index.html)
+* [組み込みモデル](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
+* [カスタムモデル](https://inference.readthedocs.io/en/latest/models/custom.html)
+* [デプロイメントドキュメント](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
+
+### クイックスタート
+
+**pip**
+
+```bash
+pip install xinference
+xinference-local
+```
+
+**ワンコマンドインストール**
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+[インストールガイド](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [利用ガイド](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
+
+### Docker
+
+Nvidia GPU ユーザーは [Xinference Docker イメージ](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html) を使って Xinference サーバを起動できます。インストール実行前に、システムに [Docker](https://docs.docker.com/get-docker/) と [CUDA](https://developer.nvidia.com/cuda-downloads) が導入されていることを確認してください。
+
+```bash
+docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
+```
+
+### K8s (helm)
+
+Kubernetes クラスタで GPU を有効にした後、次のようにインストールします。
+
+```
+# リポジトリを追加
+helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
+
+# インデックスを更新し、バージョンを確認
+helm repo update xinference
+helm search repo xinference/xinference --devel --versions
+
+# Xinference をインストール
+helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
+```
+
+詳細な K8s 向けカスタムインストールについてはドキュメントを参照してください。
+
+![web UI](../assets/screenshot.png)
+
+## 参加方法
+
+| プラットフォーム                                                                                        | 目的                                     |
+|---------------------------------------------------------------------------------------------------------|-----------------------------------------|
+| [Github Issues](https://github.com/xorbitsai/inference/issues)                                           | バグ報告・機能要望の提出                  |
+| [Discord](https://discord.gg/Xw9tszSkr5)                                                                 | 他の Xinference ユーザーとの協力         |
+| [Telegram](https://t.me/+nCNpwmySwk9iYmI1)                                                               | 他の Xinference ユーザーとの対話         |
+| [Twitter](https://twitter.com/xorbitsio)                                                                 | 新機能の最新情報                         |
+
+## 引用
+
+このプロジェクトが役に立った場合、以下のように引用してください：
+
+```bibtex
+@inproceedings{lu2024xinference,
+    title = "Xinference: Making Large Model Serving Easy",
+    author = "Lu, Weizheng and Xiong, Lingfeng and Zhang, Feng and Qin, Xuye and Chen, Yueguo",
+    booktitle = "Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing: System Demonstrations",
+    month = nov,
+    year = "2024",
+    address = "Miami, Florida, USA",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.emnlp-demo.30",
+    pages = "291--300",
+}
+```
+
+## コントリビューター
+
+<a href="https://github.com/xorbitsai/inference/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=xorbitsai/inference" />
+</a>
+
+## Star 履歴
+
+[![Star History Chart](https://star-history.dera.page/svg?repos=xorbitsai/inference&type=Date)](https://star-history.dera.page/#xorbitsai/inference&Date)

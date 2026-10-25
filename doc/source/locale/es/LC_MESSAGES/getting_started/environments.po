@@ -1,0 +1,620 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version:  Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: es\n"
+"Language-Team: es <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/environments.rst:5
+msgid "Environments Variables"
+msgstr "Variables de entorno"
+
+#: ../../source/getting_started/environments.rst:8
+msgid "XINFERENCE_ENDPOINT"
+msgstr "XINFERENCE_ENDPOINT"
+
+#: ../../source/getting_started/environments.rst:9
+msgid ""
+"Endpoint of Xinference, used to connect to Xinference service. Default "
+"value is http://127.0.0.1:9997 , you can get it through logs."
+msgstr ""
+"Dirección del servicio de Xinference, utilizada para conectarse con "
+"Xinference. La dirección predeterminada es http://127.0.0.1:9997, que se "
+"puede obtener en los registros."
+
+#: ../../source/getting_started/environments.rst:13
+msgid "XINFERENCE_MODEL_SRC"
+msgstr "XINFERENCE_MODEL_SRC"
+
+#: ../../source/getting_started/environments.rst:14
+msgid ""
+"Modelhub used for downloading models. Default is \"huggingface\", or you "
+"can set \"modelscope\" as downloading source."
+msgstr ""
+"Configurar el repositorio de descarga del modelo. La fuente de descarga "
+"predeterminada es \"huggingface\", también se puede configurar "
+"\"modelscope\" como fuente de descarga."
+
+#: ../../source/getting_started/environments.rst:20
+msgid "XINFERENCE_HOME"
+msgstr "XINFERENCE_HOME"
+
+#: ../../source/getting_started/environments.rst:21
+msgid ""
+"By default, Xinference uses ``<HOME>/.xinference`` as home path to store "
+"necessary files such as logs and models, where ``<HOME>`` is the home "
+"path of current user. You can change this directory by configuring this "
+"environment variable."
+msgstr ""
+"Xinference utiliza por defecto ``<HOME>/.xinference`` como directorio "
+"predeterminado para almacenar modelos y archivos necesarios como "
+"registros. ``<HOME>`` es el directorio principal del usuario actual. Se "
+"puede modificar el directorio predeterminado configurando esta variable "
+"de entorno."
+
+#: ../../source/getting_started/environments.rst:27
+msgid "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
+msgstr "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
+
+#: ../../source/getting_started/environments.rst:28
+msgid ""
+"The maximum number of failed health checks tolerated at Xinference "
+"startup. Default value is 5."
+msgstr ""
+"Número máximo de fallos de verificación de salud permitidos al iniciar "
+"Xinference. El valor predeterminado es 5."
+
+#: ../../source/getting_started/environments.rst:32
+msgid "XINFERENCE_HEALTH_CHECK_INTERVAL"
+msgstr "XINFERENCE_HEALTH_CHECK_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:33
+msgid "Health check interval (seconds) at Xinference startup. Default value is 5."
+msgstr ""
+"Intervalo de verificación de salud al iniciar Xinference (en segundos). "
+"El valor predeterminado es 5."
+
+#: ../../source/getting_started/environments.rst:37
+msgid "XINFERENCE_HEALTH_CHECK_TIMEOUT"
+msgstr "XINFERENCE_HEALTH_CHECK_TIMEOUT"
+
+#: ../../source/getting_started/environments.rst:38
+msgid "Health check timeout (seconds) at Xinference startup. Default value is 10."
+msgstr ""
+"Tiempo de espera de la verificación de salud al iniciar Xinference (en "
+"segundos). El valor predeterminado es 10."
+
+#: ../../source/getting_started/environments.rst:42
+msgid "XINFERENCE_DISABLE_HEALTH_CHECK"
+msgstr "XINFERENCE_DISABLE_HEALTH_CHECK"
+
+#: ../../source/getting_started/environments.rst:43
+msgid ""
+"Xinference will automatically report health check at Xinference startup. "
+"Setting this environment to 1 can disable health check."
+msgstr ""
+"Cuando se cumplan las condiciones, Xinference informará automáticamente "
+"del estado del worker; establecer esta variable de entorno en 1 puede "
+"deshabilitar la verificación de estado."
+
+#: ../../source/getting_started/environments.rst:47
+msgid "XINFERENCE_DISABLE_METRICS"
+msgstr "XINFERENCE_DISABLE_METRICS"
+
+#: ../../source/getting_started/environments.rst:48
+msgid ""
+"Xinference will by default enable the metrics exporter on the supervisor "
+"and worker. Setting this environment to 1 will disable the /metrics "
+"endpoint on the supervisor and the HTTP service (only provide the "
+"/metrics endpoint) on the worker."
+msgstr ""
+"Xinference habilita por defecto el exportador de métricas en supervisor y"
+" worker. Establecer la variable de entorno en 1 permite deshabilitar el "
+"punto final /metrics en el supervisor y deshabilitar el servicio HTTP en "
+"el worker (solo proporciona el punto final /metrics)."
+
+#: ../../source/getting_started/environments.rst:53
+msgid "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+msgstr "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+
+#: ../../source/getting_started/environments.rst:54
+msgid "Maximum download retry attempts for model files. Default value is 3."
+msgstr ""
+"El número máximo de reintentos de descarga para el archivo del modelo. El"
+" valor predeterminado es 3."
+
+#: ../../source/getting_started/environments.rst:73
+msgid "XINFERENCE_LLMMAN_BIN"
+msgstr "XINFERENCE_LLMMAN_BIN"
+
+#: ../../source/getting_started/environments.rst:74
+msgid "Path to the ``llmman`` executable used to resolve ``oci://`` model URIs. Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an ``llmman serve`` daemon that is not on ``127.0.0.1:17434``."
+msgstr "Ruta al ejecutable ``llmman`` utilizado para resolver URIs de modelo ``oci://``. Por defecto, ``llmman`` en ``PATH``. Defina ``LLMMAN_HOST`` para acceder a un demonio ``llmman serve`` que no esté en ``127.0.0.1:17434``."
+
+#: ../../source/getting_started/environments.rst:63
+msgid "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
+msgstr "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
+
+#: ../../source/getting_started/environments.rst:64
+msgid ""
+"Server-Sent Events keepalive ping interval (seconds). Default value is "
+"600."
+msgstr ""
+"Intervalo de ping de keep-alive de eventos enviados por el servidor (en "
+"segundos). El valor predeterminado es 600."
+
+#: ../../source/getting_started/environments.rst:68
+msgid "XINFERENCE_MAX_TOKENS"
+msgstr "XINFERENCE_MAX_TOKENS"
+
+#: ../../source/getting_started/environments.rst:69
+msgid "Global max tokens limit override for requests. Default is unset."
+msgstr ""
+"El límite máximo global de tokens de la solicitud está sobrescrito. El "
+"valor predeterminado es no establecido."
+
+#: ../../source/getting_started/environments.rst:72
+msgid "XINFERENCE_ALLOWED_IPS"
+msgstr "XINFERENCE_ALLOWED_IPS"
+
+#: ../../source/getting_started/environments.rst:73
+msgid ""
+"Restrict access to specified IPs or CIDR blocks. Default is unset (no "
+"restriction)."
+msgstr ""
+"Restringir el acceso a una dirección IP o bloque de direcciones CIDR "
+"específicos. Por defecto no está configurado (sin restricciones)."
+
+#: ../../source/getting_started/environments.rst:76
+msgid "XINFERENCE_BATCH_SIZE"
+msgstr "XINFERENCE_BATCH_SIZE"
+
+#: ../../source/getting_started/environments.rst:77
+msgid ""
+"Default batch size used by the server when batching is enabled. Default "
+"value is 32."
+msgstr ""
+"Tamaño de lote predeterminado utilizado por el servidor cuando se "
+"habilita el procesamiento por lotes. El valor predeterminado es 32."
+
+#: ../../source/getting_started/environments.rst:81
+msgid "XINFERENCE_BATCH_INTERVAL"
+msgstr "XINFERENCE_BATCH_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:82
+msgid "Default batching interval (seconds). Default value is 0.003."
+msgstr ""
+"Intervalo de procesamiento por lotes predeterminado (en segundos). El "
+"valor predeterminado es 0.003."
+
+#: ../../source/getting_started/environments.rst:86
+msgid "XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU"
+msgstr "XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU"
+
+#: ../../source/getting_started/environments.rst:87
+msgid ""
+"Whether to allow multiple replicas on a single GPU. Default value is 1 "
+"(enabled)."
+msgstr ""
+"¿Está permitido crear múltiples réplicas en una sola GPU. El valor "
+"predeterminado es 1 (habilitado)."
+
+#: ../../source/getting_started/environments.rst:91
+msgid "XINFERENCE_LAUNCH_STRATEGY"
+msgstr "XINFERENCE_LAUNCH_STRATEGY"
+
+#: ../../source/getting_started/environments.rst:92
+msgid ""
+"GPU allocation strategy for replicas. Default is "
+"``IDLE_FIRST_LAUNCH_STRATEGY``."
+msgstr ""
+"La estrategia de asignación de GPU para réplicas. El valor predeterminado"
+" es ``IDLE_FIRST_LAUNCH_STRATEGY``."
+
+#: ../../source/getting_started/environments.rst:95
+msgid "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
+msgstr "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
+
+#: ../../source/getting_started/environments.rst:96
+msgid ""
+"Maximum number of model launches that can proceed concurrently on a "
+"single worker node. When more replicas are launched than this limit, "
+"excess launches queue and proceed as slots free up. This prevents "
+"resource exhaustion (fork storms, disk IO saturation, GPU memory "
+"contention) that can cause heartbeat timeouts. Default value is 5."
+msgstr ""
+"Número máximo de lanzamientos de modelos que pueden ejecutarse de forma "
+"concurrente en un mismo nodo worker. Cuando se lanzan más réplicas de las"
+" que permite este límite, los lanzamientos excedentes se ponen en cola y "
+"continúan a medida que se liberan espacios. Esto evita el agotamiento de "
+"recursos (tormentas de forks, saturación de E/S de disco, contención de "
+"memoria de la GPU) que puede provocar tiempos de espera agotados en los "
+"latidos (heartbeats). El valor predeterminado es 5."
+
+#: ../../source/getting_started/environments.rst:103
+msgid "XINFERENCE_ENABLE_VIRTUAL_ENV"
+msgstr "XINFERENCE_ENABLE_VIRTUAL_ENV"
+
+#: ../../source/getting_started/environments.rst:104
+msgid ""
+"Enable model virtual environments globally. Default value is 1 (enabled, "
+"starting from v2.0)."
+msgstr ""
+"Habilitar globalmente el entorno virtual del modelo. El valor "
+"predeterminado es 1 (habilitado, efectivo desde la versión v2.0)."
+
+#: ../../source/getting_started/environments.rst:108
+msgid "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
+msgstr "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
+
+#: ../../source/getting_started/environments.rst:109
+msgid ""
+"Skip packages already present in system site-packages when creating "
+"virtual environments. Default value is 1."
+msgstr ""
+"Al crear el entorno virtual, omita los paquetes ya existentes en los "
+"site-packages del sistema. El valor predeterminado es 1."
+
+#: ../../source/getting_started/environments.rst:113
+msgid "XINFERENCE_CSG_TOKEN"
+msgstr "XINFERENCE_CSG_TOKEN"
+
+#: ../../source/getting_started/environments.rst:114
+msgid "Authentication token for CSGHub model source. Default is unset."
+msgstr ""
+"El token de autenticación para la fuente del modelo CSGHub. El valor "
+"predeterminado es no establecido."
+
+#: ../../source/getting_started/environments.rst:118
+msgid "XINFERENCE_CSG_ENDPOINT"
+msgstr "XINFERENCE_CSG_ENDPOINT"
+
+#: ../../source/getting_started/environments.rst:119
+msgid ""
+"CSGHub endpoint for model source. Default value is ``https://hub-"
+"stg.opencsg.com/``."
+msgstr ""
+"CSGHub extremo de origen del modelo. El valor predeterminado es ``https"
+"://hub-stg.opencsg.com/`` ."
+
+#: ../../source/getting_started/environments.rst:123
+msgid "XINFERENCE_QWEN3_RERANK_TEMPLATE"
+msgstr "XINFERENCE_QWEN3_RERANK_TEMPLATE"
+
+#: ../../source/getting_started/environments.rst:124
+msgid ""
+"Enable template for Qwen3 rerank model family (0.6B, 4B, 8B,etc) "
+"globally. Default value is 1."
+msgstr ""
+"Habilitar globalmente la plantilla para la familia de modelos de rerank "
+"Qwen3 (0.6B, 4B, 8B, etc.). El valor predeterminado es 1."
+
+#: ../../source/getting_started/environments.rst:128
+msgid "XINFERENCE_LAUNCH_HISTORY_DB_PATH"
+msgstr "XINFERENCE_LAUNCH_HISTORY_DB_PATH"
+
+#: ../../source/getting_started/environments.rst:129
+msgid ""
+"Path to the SQLite database that stores the model launch configuration "
+"history shown in the \"Launch Model\" drawer of the Web UI. This store is"
+" shared across all clients so the history is available from any browser "
+"or machine, and it is independent of the authentication database. When "
+"authentication is enabled, each record keeps the creator's username "
+"(``created_by``). Default value is "
+"``<XINFERENCE_HOME>/launch_history.db``."
+msgstr ""
+"Ruta a la base de datos SQLite que almacena el historial de "
+"configuraciones de lanzamiento de modelos que se muestra en el panel "
+"\"Launch Model\" de la interfaz web. Este almacén se comparte entre todos"
+" los clientes, de modo que el historial está disponible desde cualquier "
+"navegador o máquina, y es independiente de la base de datos de "
+"autenticación. Cuando la autenticación está habilitada, cada registro "
+"conserva el nombre de usuario del creador (``created_by``). El valor "
+"predeterminado es ``<XINFERENCE_HOME>/launch_history.db``."
+
+#: ../../source/getting_started/environments.rst:137
+msgid "XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"
+msgstr "XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"
+
+#: ../../source/getting_started/environments.rst:138
+msgid ""
+"Maximum number of times a crashed model actor is automatically recovered."
+" Default is unset (no limit)."
+msgstr ""
+"Número máximo de veces que un actor de modelo caído se recupera "
+"automáticamente. Por defecto no está establecido (sin límite)."
+
+#: ../../source/getting_started/environments.rst:142
+msgid "XINFERENCE_FRONTEND_DIST_DIR"
+msgstr "XINFERENCE_FRONTEND_DIST_DIR"
+
+#: ../../source/getting_started/environments.rst:143
+msgid ""
+"Path to a static export of the web UI to serve instead of the one bundled"
+" with the package. Default is unset (serve the bundled Next.js export)."
+msgstr ""
+"Ruta a una exportación estática de la interfaz web que se servirá en "
+"lugar de la incluida en el paquete. Por defecto no está establecido (se "
+"sirve la exportación de Next.js incluida)."
+
+#: ../../source/getting_started/environments.rst:146
+msgid ""
+"Replaces the removed ``XINFERENCE_FRONTEND_ENDPOINT`` variable; the web "
+"UI is now served by the Xinference server itself."
+msgstr ""
+"Sustituye a la variable eliminada ``XINFERENCE_FRONTEND_ENDPOINT``; la "
+"interfaz web ahora la sirve el propio servidor de Xinference."
+
+#: ../../source/getting_started/environments.rst:151
+msgid "XINFERENCE_AUTH_ADVANCED"
+msgstr "XINFERENCE_AUTH_ADVANCED"
+
+#: ../../source/getting_started/environments.rst:152
+msgid ""
+"Enable the database-backed authentication system. Default value is 1 "
+"(enabled, starting from v3.0). Set to ``0`` / ``false`` / ``no`` to run "
+"Xinference without any authentication. See :ref:`user_guide_auth_system`."
+msgstr ""
+"Habilitar el sistema de autenticación respaldado por base de datos. El "
+"valor predeterminado es 1 (habilitado a partir de la versión v3.0). "
+"Establézcalo en ``0`` / ``false`` / ``no`` para ejecutar Xinference sin "
+"ninguna autenticación. Consulte :ref:`user_guide_auth_system`."
+
+#: ../../source/getting_started/environments.rst:158
+msgid "XINFERENCE_AUTH_DB_PATH"
+msgstr "XINFERENCE_AUTH_DB_PATH"
+
+#: ../../source/getting_started/environments.rst:159
+msgid ""
+"Path to the SQLite database that stores users, permissions, API keys, and"
+" refresh tokens. Default value is ``<XINFERENCE_HOME>/auth/auth.db``."
+msgstr ""
+"Ruta a la base de datos SQLite que almacena usuarios, permisos, claves de"
+" API y tokens de actualización. El valor predeterminado es "
+"``<XINFERENCE_HOME>/auth/auth.db``."
+
+#: ../../source/getting_started/environments.rst:163
+msgid "XINFERENCE_AUTH_JWT_SECRET_KEY"
+msgstr "XINFERENCE_AUTH_JWT_SECRET_KEY"
+
+#: ../../source/getting_started/environments.rst:164
+msgid ""
+"JWT signing secret for the authentication system. If unset, a secret is "
+"auto-generated and persisted at ``<XINFERENCE_HOME>/auth/jwt_secret_key``"
+" on first run."
+msgstr ""
+"Secreto de firma JWT del sistema de autenticación. Si no se establece, en"
+" la primera ejecución se genera automáticamente un secreto y se guarda en"
+" ``<XINFERENCE_HOME>/auth/jwt_secret_key``."
+
+#: ../../source/getting_started/environments.rst:169
+msgid "XINFERENCE_AUTH_ENCRYPTION_KEY"
+msgstr "XINFERENCE_AUTH_ENCRYPTION_KEY"
+
+#: ../../source/getting_started/environments.rst:170
+msgid ""
+"Key used to encrypt stored API keys at rest. If unset, a key is auto-"
+"generated and persisted at ``<XINFERENCE_HOME>/auth/encryption_key`` on "
+"first run."
+msgstr ""
+"Clave utilizada para cifrar en reposo las claves de API almacenadas. Si "
+"no se establece, en la primera ejecución se genera automáticamente una "
+"clave y se guarda en ``<XINFERENCE_HOME>/auth/encryption_key``."
+
+#: ../../source/getting_started/environments.rst:175
+msgid "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"
+msgstr "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"
+
+#: ../../source/getting_started/environments.rst:176
+msgid ""
+"Lifetime (minutes) of access tokens issued by the authentication system. "
+"Default value is 30."
+msgstr ""
+"Tiempo de vida (en minutos) de los tokens de acceso emitidos por el "
+"sistema de autenticación. El valor predeterminado es 30."
+
+#: ../../source/getting_started/environments.rst:180
+msgid "XINFERENCE_OIDC_ENABLED"
+msgstr "XINFERENCE_OIDC_ENABLED"
+
+#: ../../source/getting_started/environments.rst:181
+msgid ""
+"Enable OIDC single sign-on (e.g. Keycloak). Default value is 0 "
+"(disabled). When enabled, ``XINFERENCE_OIDC_ISSUER``, "
+"``XINFERENCE_OIDC_CLIENT_ID``, ``XINFERENCE_OIDC_CLIENT_SECRET``, and "
+"``XINFERENCE_OIDC_REDIRECT_URI`` are required. See "
+":ref:`user_guide_oidc`."
+msgstr ""
+"Habilitar el inicio de sesión único OIDC (por ejemplo, Keycloak). El "
+"valor predeterminado es 0 (deshabilitado). Cuando está habilitado, se "
+"requieren ``XINFERENCE_OIDC_ISSUER``, ``XINFERENCE_OIDC_CLIENT_ID``, "
+"``XINFERENCE_OIDC_CLIENT_SECRET`` y ``XINFERENCE_OIDC_REDIRECT_URI``. "
+"Consulte :ref:`user_guide_oidc`."
+
+#: ../../source/getting_started/environments.rst:187
+msgid "XINFERENCE_AUDIT_LOG_RETENTION_DAYS"
+msgstr "XINFERENCE_AUDIT_LOG_RETENTION_DAYS"
+
+#: ../../source/getting_started/environments.rst:188
+msgid ""
+"Number of days audit log files are retained. Default value is 90. See "
+":ref:`user_guide_audit_security`."
+msgstr ""
+"Número de días durante los cuales se conservan los archivos de registro "
+"de auditoría. El valor predeterminado es 90. Consulte "
+":ref:`user_guide_audit_security`."
+
+#: ../../source/getting_started/environments.rst:56
+msgid "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+
+#: ../../source/getting_started/environments.rst:58
+msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
+msgstr "Antigüedad máxima en segundos de la última instantánea válida de memoria de GPU por modelo que conserva el supervisor cuando un worker omite el campo porque la recopilación falló o se omitió. Una instantánea vacía explícita sigue borrando la caché inmediatamente. El valor predeterminado es 90."
+
+#: ../../source/getting_started/environments.rst:233
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+
+#: ../../source/getting_started/environments.rst:234
+msgid "Initial delay in seconds between Router Agent bootstrap retries. The delay uses exponential backoff with jitter. Default value is 1."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:238
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+
+#: ../../source/getting_started/environments.rst:239
+msgid "Maximum delay in seconds between Router Agent bootstrap retries. Default value is 15 and must not be lower than the initial delay."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:243
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+
+#: ../../source/getting_started/environments.rst:244
+msgid "Total deadline in seconds for Router Agent startup registration and initial synchronization retries. Default value is 120."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:15
+msgid "XOSCAR_AUTH_KEY"
+msgstr "XOSCAR_AUTH_KEY"
+
+#: ../../source/getting_started/environments.rst:16
+msgid ""
+"Shared secret for Xoscar actor transport authentication, supported by Xoscar"
+" 0.12.0 and later. Unset or empty keeps the legacy unauthenticated "
+"transport; upgrading alone does not enable protection. HTTP API "
+"authentication does not protect actor ports. See the `security advisory "
+"<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_."
+msgstr ""
+"Secreto compartido para autenticar el transporte de actores de Xoscar, "
+"disponible desde Xoscar 0.12.0. Si no se configura o está vacío, se mantiene"
+" el transporte anterior sin autenticación; actualizar por sí solo no activa "
+"la protección. La autenticación de la API HTTP no protege los puertos de los"
+" actores. Consulte el `aviso de seguridad "
+"<https://github.com/xorbitsai/xoscar/security/advisories/GHSA-"
+"mmvj-m246-m9vf>`_."
+
+#: ../../source/getting_started/environments.rst:22
+msgid ""
+"Generate one random secret per deployment with the following command. "
+"Distribute the same value through your secret-management system before "
+"starting ``xinference-local``, ``xinference-supervisor``, every "
+"``xinference-worker``, and any direct Xoscar actor clients. Child processes,"
+" including model virtual environments, inherit the variable. HTTP clients do"
+" not need this secret."
+msgstr ""
+"Genere un único secreto aleatorio por despliegue con el siguiente comando. "
+"Distribuya el mismo valor mediante su sistema de gestión de secretos antes "
+"de iniciar ``xinference-local``, ``xinference-supervisor``, todos los "
+"``xinference-worker`` y los clientes directos de actores Xoscar. Los "
+"procesos secundarios, incluidos los entornos virtuales de los modelos, "
+"heredan la variable. Los clientes HTTP no necesitan este secreto."
+
+#: ../../source/getting_started/environments.rst:33
+msgid ""
+"Upgrade all actor peers to Xoscar 0.12.0 or later before enabling the key, "
+"then coordinate a restart with the same key on every peer. Keyed and unkeyed"
+" peers cannot communicate; there is no automatic downgrade or mixed-mode "
+"rolling upgrade. Key rotation also requires a coordinated restart. For "
+"``docker run``, pass the exported variable with ``-e XOSCAR_AUTH_KEY``; for "
+"Kubernetes, inject the same Secret into each server container's environment."
+msgstr ""
+"Antes de activar la clave, actualice todos los pares de actores a Xoscar "
+"0.12.0 o posterior y coordine su reinicio con la misma clave. Los pares con "
+"y sin clave no pueden comunicarse; no hay degradación automática ni "
+"actualización gradual en modo mixto. La rotación de claves también requiere "
+"un reinicio coordinado. Con ``docker run``, pase la variable exportada "
+"mediante ``-e XOSCAR_AUTH_KEY``; en Kubernetes, inyecte el mismo Secret en "
+"el entorno de cada contenedor servidor."
+
+#: ../../source/getting_started/environments.rst:40
+msgid ""
+"Socket and UCX messages are authenticated before deserialization. Anyone "
+"holding the key is a trusted peer with Python execution privileges. "
+"Deployment administrators must restrict actor ports to intended cluster "
+"peers. Authentication does not encrypt traffic or prevent replay; "
+"authenticated GPU transfers stage device buffers in host memory for hashing "
+"and add CPU and host-memory overhead."
+msgstr ""
+"Los mensajes Socket y UCX se autentican antes de deserializarse. Cualquier "
+"poseedor de la clave es un par de confianza con permisos para ejecutar "
+"código Python. Los administradores deben restringir los puertos de actores a"
+" los pares previstos del clúster. La autenticación no cifra el tráfico ni "
+"evita ataques de repetición; las transferencias GPU autenticadas almacenan "
+"temporalmente los búferes del dispositivo en memoria del host para calcular "
+"su hash, lo que añade consumo de CPU y memoria del host."
+
+#: ../../source/getting_started/environments.rst:155
+msgid "For text-only ``sentence_transformers`` models, the engine may group similar character lengths to reduce padding while preserving response order. The internal ``encode()`` ``batch_size`` limits these groups; ``XINFERENCE_BATCH_SIZE`` controls input merging by the server."
+msgstr "Para los modelos ``sentence_transformers`` de solo texto, el motor puede agrupar entradas de longitud similar en caracteres para reducir el relleno y conservar el orden de las respuestas. El parámetro interno ``batch_size`` de ``encode()`` limita estos grupos; ``XINFERENCE_BATCH_SIZE`` controla la combinación de entradas en el servidor."
+
+#: ../../source/getting_started/environments.rst:164
+msgid "XINFERENCE_EMBEDDING_GC_INTERVAL"
+msgstr "XINFERENCE_EMBEDDING_GC_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:166
+msgid "Minimum interval (seconds) between full Python garbage collections during embedding cache cleanup. Default is 60. The first cleanup collects immediately. Set to 0 to collect on every cleanup. GPU cache release frequency is unchanged."
+msgstr "Intervalo mínimo (segundos) entre recolecciones completas de basura de Python durante la limpieza de la caché de embeddings. El valor predeterminado es 60. La primera limpieza realiza la recolección de inmediato. Con 0 se realiza en cada limpieza. La frecuencia de liberación de la caché de GPU no cambia."
+
+#: ../../source/getting_started/environments.rst:171
+msgid "The cooldown also applies to token-triggered cleanup. Tensors kept alive by Python reference cycles may remain allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that require full collection on every cleanup."
+msgstr "El intervalo también se aplica a la limpieza activada por el número de tokens. Los tensores retenidos por referencias cíclicas de Python pueden seguir ocupando memoria hasta la recolección automática o una recolección completa posterior; ``empty_cache()`` no puede liberarlos. Establezca este intervalo en 0 para los modelos que necesiten una recolección completa en cada limpieza."
+
+msgid "Text-only CrossEncoder rerankers may also group pairs by combined query and document character length to reduce padding. The native ``predict()`` ``batch_size`` still limits each forward pass; short pairs stay together."
+msgstr "Los modelos de reclasificación CrossEncoder de solo texto también pueden agrupar pares según la longitud total en caracteres de la consulta y del documento para reducir el relleno. El parámetro nativo ``batch_size`` de ``predict()`` sigue limitando cada pasada hacia delante; los pares cortos permanecen juntos."
+
+msgid "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+msgstr "XINFERENCE_RERANK_EMPTY_CACHE_COUNT"
+
+msgid "Number of completed inference groups between cache releases in the Sentence Transformers and synchronous vLLM rerank engines. Default is 10. A merged group counts once, regardless of how many requests it contains."
+msgstr "Número de grupos de inferencia completados entre liberaciones del caché en los motores de reclasificación Sentence Transformers y vLLM síncrono. El valor predeterminado es 10. Un grupo combinado cuenta una vez, independientemente del número de solicitudes que contenga."
+
+msgid "XINFERENCE_RERANK_GC_INTERVAL"
+msgstr "XINFERENCE_RERANK_GC_INTERVAL"
+
+msgid "Minimum interval (seconds) between full Python garbage collections during rerank cache cleanup. Default is 60. The first cache cleanup collects immediately. Set to 0 to collect on every cache cleanup. GPU cache release still follows ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``."
+msgstr "Intervalo mínimo (segundos) entre recolecciones completas de basura de Python durante la limpieza del caché de reclasificación. El valor predeterminado es 60. La primera limpieza recolecta inmediatamente. Con 0, se recolecta en cada limpieza. La liberación del caché GPU sigue ``XINFERENCE_RERANK_EMPTY_CACHE_COUNT``."
+
+msgid "Python reference cycles may keep tensors allocated until automatic GC or a later full collection; ``empty_cache()`` cannot release them. Set this interval to 0 for models that need full collection on every cache cleanup."
+msgstr "Las referencias cíclicas de Python pueden mantener tensores asignados hasta la recolección automática o una recolección completa posterior; ``empty_cache()`` no puede liberarlos. Establezca este intervalo en 0 para los modelos que necesiten una recolección completa en cada limpieza del caché."
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_TRUST_REMOTE_CODE"
+msgstr "XINFERENCE_TRUST_REMOTE_CODE"
+
+#: ../../source/getting_started/environments.rst
+msgid "CosyVoice configurations can execute Python code while loading. Built-in models downloaded from their registered model hub remain supported. Loading a custom CosyVoice model or overriding its local model path requires ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup. Enable this only for model sources you trust."
+msgstr "Las configuraciones de CosyVoice pueden ejecutar código Python durante la carga. Los modelos integrados descargados desde su repositorio registrado siguen siendo compatibles. Para cargar un modelo CosyVoice personalizado o cambiar su ruta local, establezca ``XINFERENCE_TRUST_REMOTE_CODE=1`` en el worker antes de iniciarlo. Actívelo solo para fuentes de modelos de confianza."
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_MODEL_REGISTER_ROOTS"
+msgstr "XINFERENCE_MODEL_REGISTER_ROOTS"
+
+#: ../../source/getting_started/environments.rst
+msgid "LLM auto-registration reads files only under ``XINFERENCE_MODEL_DIR`` and ``XINFERENCE_CACHE_DIR`` by default. Configure additional directories in the server environment with this variable, separated by ``:`` on Unix or ``;`` on Windows. Referenced files and symbolic-link targets must also lie under an allowed directory. For Hugging Face caches, allow the repository root containing both snapshots and blobs."
+msgstr "El registro automático de LLM solo lee por defecto archivos bajo ``XINFERENCE_MODEL_DIR`` y ``XINFERENCE_CACHE_DIR``. Configure directorios adicionales en el entorno del servidor con esta variable, separados por ``:`` en Unix o ``;`` en Windows. Los archivos referenciados y los destinos de enlaces simbólicos también deben estar en un directorio permitido. Para cachés de Hugging Face, permita la raíz del repositorio que contiene snapshots y blobs."
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_FLEXIBLE_LAUNCHERS"
+msgstr "XINFERENCE_FLEXIBLE_LAUNCHERS"
+
+#: ../../source/getting_started/environments.rst
+msgid "The shipped Flexible launchers remain available. Permit additional launchers by listing their exact dotted names in this comma-separated variable before starting workers. Allowlisted launchers execute Python code with worker privileges; add only trusted implementations."
+msgstr "Los lanzadores Flexible incluidos siguen disponibles. Para permitir otros lanzadores, indique sus nombres cualificados exactos, separados por comas, en esta variable antes de iniciar los workers. Los lanzadores permitidos ejecutan código Python con los privilegios del worker; agregue solo implementaciones de confianza."
