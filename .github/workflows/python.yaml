@@ -496,6 +496,9 @@ jobs:
             xinference/model/audio/tests/test_audio_batching.py
             xinference/model/audio/tests/test_cosyvoice_security.py
             xinference/model/audio/tests/test_kokoro.py::test_kokoro_dependencies_exclude_broken_preshed
+            xinference/model/audio/tests/test_funasr_realtime.py
+            xinference/model/audio/tests/test_funasr_realtime_probe.py
+            xinference/model/audio/tests/test_funasr_realtime_sdk.py
             xinference/model/llm/sglang/tests/test_xavier.py
             xinference/model/llm/sglang/tests/test_xavier_pd.py
             xinference/model/llm/sglang/tests/test_pd.py
