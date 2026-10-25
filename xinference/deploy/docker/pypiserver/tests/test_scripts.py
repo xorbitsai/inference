@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import hashlib
 import importlib.util
 import io
@@ -753,6 +755,8 @@ def test_download_packages_main_orchestration_skips_git(
     engines.mkdir(parents=True)
     (engines / "test.in").write_text("engine-pkg>=1.0\n")
     (engines / "test.meta.json").write_text("{}\n")
+    (engines / "trt_llm.in").write_text("tensorrt_llm==1.2.1\n")
+    (engines / "trt_llm.meta.json").write_text("{}\n")
     pin = {"spec": "model-pin==1.0", "sources": ["test"]}
     if model_indexes:
         pin["extra_index_urls"] = model_indexes
@@ -778,7 +782,12 @@ def test_download_packages_main_orchestration_skips_git(
         compile_calls.append((in_file, out_file, kwargs))
         if out_file.name in ("runtime.lock", "torch-family.lock"):
             out_file.write_text(runtime_constraints.read_text())
+        elif out_file.name == "trt_llm.lock":
+            # TRT-LLM pins a different Transformers version than the parent.
+            assert kwargs["constraints"] is None
+            out_file.write_text("tensorrt-llm==1.2.1\ntransformers==4.57.3\n")
         else:
+            assert kwargs["constraints"] == manifest / "locks/constraints-runtime.txt"
             out_file.write_text("engine-pkg==1.0\n")
         return subprocess.CompletedProcess([], 0)
 
@@ -839,13 +848,16 @@ def test_download_packages_main_orchestration_skips_git(
 
     downloader.main()
 
-    assert len(compile_calls) == 3
+    assert len(compile_calls) == 4
     expected_machine = "x86_64" if platform == "amd64" else "aarch64"
     assert all(
-        call[2]["python_platform"] == expected_machine + "-manylinux_2_34"
+        call[2]["python_platform"] == expected_machine + "-manylinux_2_35"
         for call in compile_calls
     )
     assert compile_calls[0][0] == runtime_constraints
+    assert ["-r", str(manifest / "locks" / "trt_llm.lock")] in [
+        call[0] for call in download_calls
+    ]
     assert ["-r", str(manifest / "locks" / "test.lock")] in [
         call[0] for call in download_calls
     ]
@@ -905,7 +917,8 @@ def test_download_packages_main_orchestration_skips_git(
     assert report["sdist_left"] == []
 
 
-def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
+@pytest.mark.parametrize("platform", ["amd64", "arm64"])
+def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys, platform):
     selfcheck = _load_script("selfcheck")
     manifest = tmp_path / "manifest"
     engines = manifest / "engines"
@@ -941,13 +954,16 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
             "--manifest-dir",
             str(manifest),
             "--platform",
-            "amd64",
+            platform,
             "--runtime-constraints",
             str(runtime_constraints),
         ],
     )
 
     selfcheck.main()
+
+    machine = "x86_64" if platform == "amd64" else "aarch64"
+    assert all(call[3] == f"{machine}-manylinux_2_35" for call in compile_calls)
 
     assert [call[0] for call in compile_calls] == [
         runtime_constraints.read_text().splitlines(),

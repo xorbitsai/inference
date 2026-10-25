@@ -59,8 +59,8 @@ from packaging.version import InvalidVersion, Version
 
 TORCH_FAMILY = ("torch", "torchvision", "torchaudio", "torchcodec")
 
-# Engines whose releases hard-pin their own torch stack.
-SELF_PINNING_ENGINES = ("vllm", "sglang")
+# Engine manifest names whose releases pin their own dependency stack.
+SELF_PINNING_ENGINES = ("vllm", "sglang", "trt_llm")
 
 
 def load_runtime_constraints(path: Path) -> Dict[str, str]:
@@ -347,9 +347,9 @@ def main() -> None:
     package_build_env["TORCH_VERSION"] = torch_specifier.version
 
     machine = {"amd64": "x86_64", "arm64": "aarch64"}[args.platform]
-    # The runtime image's glibc supports manylinux_2_34 wheels; the default
-    # (manylinux_2_17) would hide e.g. recent sglang releases.
-    python_platform = f"{machine}-manylinux_2_34"
+    # Match the Ubuntu 22.04 runtime image's glibc 2.35. TensorRT's ARM64
+    # bindings require manylinux_2_35 and disappear with a lower target.
+    python_platform = f"{machine}-manylinux_2_35"
     unconstrained_fallbacks: List[str] = []
     raw_sdist_fallbacks: List[str] = []
     sdist_left: List[str] = []
@@ -402,8 +402,8 @@ def main() -> None:
         engine = in_file.stem
         meta = json.loads(in_file.with_suffix(".meta.json").read_text())
         lock = work / f"{engine}.lock"
-        # vllm/sglang releases hard-pin their own torch stack; forcing the
-        # runtime image's torch on them is unsolvable. Their venvs install
+        # These engines pin their own torch/transformers stack; forcing the
+        # runtime image's versions on them is unsolvable. Their venvs install
         # a self-consistent stack anyway.
         self_pinning = engine in SELF_PINNING_ENGINES
         proc = uv_compile(

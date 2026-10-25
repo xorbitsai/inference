@@ -126,9 +126,9 @@ def main() -> None:
     args = parser.parse_args()
 
     machine = {"amd64": "x86_64", "arm64": "aarch64"}[args.platform]
-    # Must match download_packages.py: the runtime image supports
-    # manylinux_2_34 wheels (e.g. recent sglang releases).
-    python_platform = f"{machine}-manylinux_2_34"
+    # Match download_packages.py and the Ubuntu 22.04 runtime (glibc 2.35),
+    # including TensorRT ARM64 bindings tagged manylinux_2_35.
+    python_platform = f"{machine}-manylinux_2_35"
 
     wait_for_server(args.index)
 
