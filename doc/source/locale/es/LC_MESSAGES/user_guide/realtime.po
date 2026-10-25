@@ -121,3 +121,15 @@ msgstr ""
 "debe producir texto no vacío antes de la última trama y ``input.end``. La "
 "sonda no demuestra por sí sola cero RPC multimedia ni liberación de "
 "recursos; ejecute también las pruebas de integración del runtime."
+
+#: user_guide/realtime.rst:54
+msgid "Nano launch options"
+msgstr "Opciones de inicio de Nano"
+
+#: user_guide/realtime.rst:57
+msgid "With ``realtime=True``, set ``realtime_options`` at model launch, not in session ``parameters``. In the Web UI, add an engine parameter named ``realtime_options`` with the JSON value below; the UI submits it as an object. REST/Python clients should send an object; JSON object strings are accepted for compatibility with older Web UIs. Unknown fields, non-object JSON and invalid value types are rejected."
+msgstr "Con ``realtime=True``, configure ``realtime_options`` al iniciar el modelo, no en los ``parameters`` de la sesión. En la interfaz web, añada un parámetro del motor llamado ``realtime_options`` con el valor JSON siguiente; la interfaz lo envía como objeto. Los clientes REST/Python deben enviar un objeto; se aceptan cadenas de objetos JSON por compatibilidad con interfaces web anteriores. Se rechazan los campos desconocidos, el JSON que no sea un objeto y los tipos de valores no válidos."
+
+#: user_guide/realtime.rst:63
+msgid "Optimization is disabled by default. This is a candidate configuration, not a latency guarantee. Removing ``realtime_options`` restores defaults; setting only ``optimize=false`` does not reset explicitly configured timing or segment limits."
+msgstr "La optimización está desactivada de forma predeterminada. Esta es una configuración candidata, no una garantía de latencia. Eliminar ``realtime_options`` restaura los valores predeterminados; establecer solo ``optimize=false`` no restablece los parámetros temporales ni los límites de segmento configurados explícitamente."

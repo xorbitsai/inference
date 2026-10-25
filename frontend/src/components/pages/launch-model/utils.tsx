@@ -8,7 +8,12 @@ import { MultiSelect } from '@/components/ui/multi-select';
 import { ModelType, XINFERENCE_IO, CUSTOM_MODEL_OPTIONS } from '@/constants';
 import { ALL_FORM_KEYS, LAUNCH_MODEL_ROUTE_TABS } from '@/constants/launch';
 import type { FormInstance, FormValues } from '@/types/form';
-import { transformFormListToObj, transformObjToFormList } from '@/lib/utils';
+import { transformFormListToObj, transformObjToFormList, transformValueType } from '@/lib/utils';
+import {
+  isStructuredLaunchParameter,
+  parseStructuredLaunchParameter,
+  STRUCTURED_LAUNCH_PARAMETERS,
+} from './structured-launch-params';
 import type {
   ModelEngine,
   ModelEngineItem,
@@ -332,7 +337,15 @@ function transformArrayToOnlyValueFormList(values: FormValues, field: string) {
 
 function restoreKwargsFormList(values: FormValues) {
   const kwargsValue = values.kwargs;
-  const kwargs = isRecord(kwargsValue) ? transformObjToFormList(kwargsValue) : [];
+  const toKwargsFormList = (record: Record<string, unknown>) =>
+    Object.entries(record).map(([key, value]) => ({
+      key,
+      value:
+        isStructuredLaunchParameter(key) && typeof value === 'object'
+          ? JSON.stringify(value)
+          : String(value),
+    }));
+  const kwargs = isRecord(kwargsValue) ? toKwargsFormList(kwargsValue) : [];
   const extraKwargs: Record<string, unknown> = {};
 
   Object.keys(values)
@@ -343,7 +356,7 @@ function restoreKwargsFormList(values: FormValues) {
       delete values[key];
     });
 
-  kwargs.push(...transformObjToFormList(extraKwargs));
+  kwargs.push(...toKwargsFormList(extraKwargs));
 
   if (kwargs.length > 0) {
     values.kwargs = kwargs;
@@ -365,12 +378,17 @@ function applyFormListObject(values: FormValues, field: string, transformValue =
 function mergeFormListObject(values: FormValues, field: string) {
   if (!(field in values)) return;
 
-  const nextValue = getFormListObject(values[field]);
+  // Structured values must be handled before the shared converter calls String.
+  const nextValue = getFormListObject(values[field], false);
 
   delete values[field];
 
   if (nextValue) {
-    Object.assign(values, nextValue);
+    for (const [key, value] of Object.entries(nextValue)) {
+      values[key] = isStructuredLaunchParameter(key)
+        ? parseStructuredLaunchParameter(key, value)
+        : transformValueType(value);
+    }
   }
 }
 
@@ -463,6 +481,11 @@ export function transformFormToFetch(values: FormValues) {
   applyFormListObject(nextValues, 'quantization_config');
   applyFormListObject(nextValues, 'envs', false);
   mergeFormListObject(nextValues, 'kwargs');
+  for (const key of STRUCTURED_LAUNCH_PARAMETERS) {
+    if (Object.hasOwn(nextValues, key)) {
+      nextValues[key] = parseStructuredLaunchParameter(key, nextValues[key]);
+    }
+  }
   applyNestedFormListObject(nextValues, 'peft_model_config', 'image_lora_load_kwargs');
   applyNestedFormListObject(nextValues, 'peft_model_config', 'image_lora_fuse_kwargs');
   transformOnlyValueFormListToArray(nextValues, 'virtual_env_packages');
@@ -1056,7 +1079,10 @@ export function parseXinferenceCommand(command: string) {
       continue;
     }
 
-    params[normalizedKey] = valueTokens.length === 0 ? true : value;
+    const parameterValue = valueTokens.length === 0 ? true : value;
+    params[normalizedKey] = isStructuredLaunchParameter(normalizedKey)
+      ? parseStructuredLaunchParameter(normalizedKey, parameterValue)
+      : parameterValue;
   }
 
   if (

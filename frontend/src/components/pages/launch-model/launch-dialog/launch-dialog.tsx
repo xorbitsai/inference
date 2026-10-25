@@ -68,6 +68,7 @@ import { shouldApplyPreferredDownloadSource } from './download-source-utils.mjs'
 import { recommendationUnavailable, recommendationWarningKeys } from './recommendation';
 import { useRecommendation } from './use-recommendation';
 import ContextLengthField from './context-length-field';
+import { StructuredLaunchParameterError } from '../structured-launch-params';
 
 interface LaunchDialogProps {
   model?: CatalogModel;
@@ -1929,6 +1930,16 @@ export default function LaunchDialog({
     }
   };
 
+  const getLaunchRequestValues = (values: FormValues) => {
+    try {
+      return transformFormToFetch(values);
+    } catch (error) {
+      if (!(error instanceof StructuredLaunchParameterError)) throw error;
+      toast.error(t(error.messageKey, { parameter: error.parameter }));
+      return undefined;
+    }
+  };
+
   const handleLaunch = async (values: FormValues) => {
     const placementError = validateReplicaPlacement(values);
     if (placementError === 'incomplete') {
@@ -1940,7 +1951,8 @@ export default function LaunchDialog({
       return;
     }
 
-    const launchRequestValues = transformFormToFetch(values);
+    const launchRequestValues = getLaunchRequestValues(values);
+    if (!launchRequestValues) return;
     isCanceledLaunchRef.current = false;
     setLoading(true);
     setProgressDetails(null);
@@ -2016,10 +2028,11 @@ export default function LaunchDialog({
   };
 
   const handleDownload = async () => {
-    const newValues = transformFormToFetch({
+    const newValues = getLaunchRequestValues({
       ...launchFormValues,
       replica_placement_mode: 'auto',
     });
+    if (!newValues) return;
     const cacheValues = Object.fromEntries(
       Object.entries(newValues).filter(([key]) => !DOWNLOAD_ONLY_EXCLUDED_FIELDS.has(key))
     );

@@ -52,3 +52,14 @@ Run the repository probe with a mono PCM16 WAV, using ``XINFERENCE_API_KEY`` fro
      --audio ./samples/zh_60s.wav \
      --chunk-ms 100 --require-interim \
      --report ./reports/nano_realtime.json
+
+Nano launch options
+-------------------
+
+With ``realtime=True``, set ``realtime_options`` at model launch, not in session ``parameters``. In the Web UI, add an engine parameter named ``realtime_options`` with the JSON value below; the UI submits it as an object. REST/Python clients should send an object; JSON object strings are accepted for compatibility with older Web UIs. Unknown fields, non-object JSON and invalid value types are rejected.
+
+.. code-block:: json
+
+   {"optimize":true,"first_partial_ms":960,"partial_interval_ms":1500,"max_segment_ms":6000}
+
+Optimization is disabled by default. This is a candidate configuration, not a latency guarantee. Removing ``realtime_options`` restores defaults; setting only ``optimize=false`` does not reset explicitly configured timing or segment limits.

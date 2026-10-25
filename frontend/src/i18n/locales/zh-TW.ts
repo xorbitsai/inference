@@ -614,6 +614,8 @@ const zhTW = {
     partialConfigHistoryDeleteFailed: '部分設定歷史刪除失敗。',
     invalidConfigCache: '這條設定快取對應的模型引擎當前不可用。',
     commandLineParsing: '解析命令列參數',
+    structuredParameterInvalidJson: '{{parameter}} 必須填寫有效的 JSON。',
+    structuredParameterObjectRequired: '{{parameter}} 必須是 JSON 物件。',
     commandLineParsingFailed: '命令列參數處理失敗：{{error}}',
     copyToCommandLine: '複製為命令列指令',
     modelEngine: '模型引擎',

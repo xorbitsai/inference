@@ -618,6 +618,8 @@ const ko = {
     partialConfigHistoryDeleteFailed: '일부 구성 기록을 삭제하지 못했습니다.',
     invalidConfigCache: '이 구성 캐시에 필요한 모델 엔진을 현재 사용할 수 없습니다.',
     commandLineParsing: '명령줄 인수 파싱',
+    structuredParameterInvalidJson: '{{parameter}}에 유효한 JSON을 입력하세요.',
+    structuredParameterObjectRequired: '{{parameter}}은(는) JSON 객체여야 합니다.',
     commandLineParsingFailed: '명령줄 처리에 실패했습니다: {{error}}',
     copyToCommandLine: '명령줄 명령으로 복사',
     modelEngine: '모델 엔진',

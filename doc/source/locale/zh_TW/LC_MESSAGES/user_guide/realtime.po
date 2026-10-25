@@ -104,3 +104,15 @@ msgid ""
 msgstr ""
 "使用單聲道 PCM16 WAV 執行儲存庫探針，從環境讀取 ``XINFERENCE_API_KEY``。30–60 秒語音須在最後音訊框架及 "
 "``input.end`` 之前產生非空文字。探針無法單獨證明零媒體 RPC 或資源清理，亦須執行執行階段整合測試。"
+
+#: user_guide/realtime.rst:54
+msgid "Nano launch options"
+msgstr "Nano 啟動選項"
+
+#: user_guide/realtime.rst:57
+msgid "With ``realtime=True``, set ``realtime_options`` at model launch, not in session ``parameters``. In the Web UI, add an engine parameter named ``realtime_options`` with the JSON value below; the UI submits it as an object. REST/Python clients should send an object; JSON object strings are accepted for compatibility with older Web UIs. Unknown fields, non-object JSON and invalid value types are rejected."
+msgstr "啟用 ``realtime=True`` 時，在模型啟動參數中設定 ``realtime_options``，不要放入會話 ``parameters``。在 Web UI 中新增名為 ``realtime_options`` 的引擎參數，填寫下方 JSON；UI 會將其作為物件提交。REST/Python 用戶端應傳送物件；為相容舊版 Web UI，也接受 JSON 物件字串。未知欄位、非物件 JSON 及無效值型別均會被拒絕。"
+
+#: user_guide/realtime.rst:63
+msgid "Optimization is disabled by default. This is a candidate configuration, not a latency guarantee. Removing ``realtime_options`` restores defaults; setting only ``optimize=false`` does not reset explicitly configured timing or segment limits."
+msgstr "預設不啟用最佳化。這是候選設定，不保證延遲達標。移除 ``realtime_options`` 可恢復預設值；僅設定 ``optimize=false`` 不會重設明確設定的時間參數或分段上限。"

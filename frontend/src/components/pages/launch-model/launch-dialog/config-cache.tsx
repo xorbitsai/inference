@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import type { FormInstance, FormValues } from '@/types/form';
 import type { RequestModelType } from '../types';
 import { transformFetchToForm, transformFormToFetch } from '../utils';
+import { StructuredLaunchParameterError } from '../structured-launch-params';
 import {
   deleteLaunchHistory,
   getModelConfigHistory,
@@ -96,7 +97,14 @@ export default function ConfigCache({
   ) as LaunchConfigHistoryItem[];
   const currentFetchValues = useMemo(() => {
     void formUpdateKey;
-    return transformFormToFetch(form.getFieldsValue());
+    try {
+      return transformFormToFetch(form.getFieldsValue());
+    } catch (error) {
+      if (!(error instanceof StructuredLaunchParameterError)) throw error;
+      // JSON is often incomplete while typing. Only report validation errors
+      // on an explicit action, never during render or history comparison.
+      return undefined;
+    }
   }, [form, formUpdateKey]);
   const hasModelConfigHistory = modelConfigHistory.length > 0;
   const hasAnyConfigHistory = hasModelConfigHistory || allOtherModelConfigHistory.length > 0;
@@ -278,10 +286,9 @@ export default function ConfigCache({
                   </h3>
                   {modelConfigHistory.length ? (
                     modelConfigHistory.map((item) => {
-                      const isActiveConfig = isSameConfig(
-                        currentFetchValues,
-                        item.launch_data ?? item.data
-                      );
+                      const isActiveConfig =
+                        currentFetchValues !== undefined &&
+                        isSameConfig(currentFetchValues, item.launch_data ?? item.data);
                       const canDelete = item.is_owner && !item.autostart_enabled;
 
                       return (
