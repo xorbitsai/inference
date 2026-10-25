@@ -413,8 +413,19 @@ async def test_end_hint_precedes_draining_all_accepted_frames(runtime):
     assert events.index("input_end") < events.index("input_drained")
 
 
-async def test_native_cancel_ack_fences_output_and_retains_capacity_on_stop(runtime):
+@pytest.mark.parametrize("tied_trace_timestamps", [False, True])
+async def test_native_cancel_ack_fences_output_and_retains_capacity_on_stop(
+    runtime, monkeypatch, tied_trace_timestamps
+):
     import threading
+
+    if tied_trace_timestamps:
+        from types import SimpleNamespace
+
+        from ..realtime import telemetry
+
+        # Freeze only trace timestamps, not the runtime or asyncio timeout clocks.
+        monkeypatch.setattr(telemetry, "time", SimpleNamespace(monotonic=lambda: 0.0))
 
     entered, release = asyncio.Event(), threading.Event()
     loop = asyncio.get_running_loop()
@@ -468,8 +479,15 @@ async def test_native_cancel_ack_fences_output_and_retains_capacity_on_stop(runt
             await asyncio.wait_for(stopper, 2)
     assert runtime.active_count == 0 and not runtime._inference_lock.locked()
     summary = runtime.recent_summaries[-1]
-    events = {e["stage"]: e["at_ms"] for e in summary["events"]}
-    assert events["native_start"] < events["cancel_processed"] < events["native_end"]
+    # Event order is authoritative even when coarse clocks produce equal times.
+    stages = [event["stage"] for event in summary["events"]]
+    assert (
+        stages.index("native_start")
+        < stages.index("cancel_processed")
+        < stages.index("native_end")
+    )
+    if tied_trace_timestamps:
+        assert {event["at_ms"] for event in summary["events"]} == {0.0}
     assert "invoke" in summary["durations"]
     assert "session_id" not in str(summary)
 
