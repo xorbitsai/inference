@@ -297,6 +297,8 @@ audio = [
     "gruut[de,es,fr]",  # For MeloTTS
     "kokoro>=0.7.15",  # Kokoro, already included misaki[en]
     "misaki[en,zh]>=0.7.15",  # Kokoro
+    # Preshed 3.0.14 wheels overflow on spaCy's uint64 tokenizer keys.
+    "preshed!=3.0.14",
     "langdetect",  # MegaTTS3
     "pyloudnorm",  # MegaTTS3
     "json5",  # IndexTTS2

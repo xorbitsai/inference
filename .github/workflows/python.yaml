@@ -492,6 +492,7 @@ jobs:
             benchmark/tests/test_analyze_pd_profile.py
             xinference/model/audio/tests/test_audio_batching.py
             xinference/model/audio/tests/test_cosyvoice_security.py
+            xinference/model/audio/tests/test_kokoro.py::test_kokoro_dependencies_exclude_broken_preshed
             xinference/model/llm/sglang/tests/test_xavier.py
             xinference/model/llm/sglang/tests/test_xavier_pd.py
             xinference/model/llm/sglang/tests/test_pd.py

@@ -12,11 +12,71 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import os
 import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+from packaging.requirements import Requirement
+
+from xinference._model_catalog import load_model_catalog
+
+from ....core.utils import filter_virtualenv_packages_by_markers
 from ..kokoro import KokoroModel
+
+
+@pytest.mark.parametrize(
+    "dependency_source,engine",
+    [
+        ("audio-extra", None),
+        ("cpu-image", None),
+        ("Kokoro-82M", "PyTorch"),
+        ("Kokoro-82M", "MLX"),
+        ("Kokoro-82M-v1.1-zh", "PyTorch"),
+    ],
+)
+def test_kokoro_dependencies_exclude_broken_preshed(dependency_source, engine):
+    root = Path(__file__).resolve().parents[4]
+    if dependency_source == "audio-extra":
+        try:
+            import tomllib
+        except ImportError:
+            import tomli as tomllib
+
+        with (root / "pyproject.toml").open("rb") as source:
+            packages = tomllib.load(source)["project"]["optional-dependencies"]["audio"]
+    elif dependency_source == "cpu-image":
+        requirements_path = (
+            root
+            / "xinference/deploy/docker/requirements_cpu/requirements_cpu-models.txt"
+        )
+        packages = [
+            line.split("#", 1)[0].strip()
+            for line in requirements_path.read_text().splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+    else:
+        spec = next(
+            spec
+            for spec in load_model_catalog(
+                Path(__file__).resolve().parents[1] / "models"
+            )
+            if spec["model_name"] == dependency_source
+            and (spec.get("engine") or "PyTorch") == engine
+        )
+        packages = filter_virtualenv_packages_by_markers(
+            spec["virtualenv"]["packages"], model_engine=engine, cuda_version=None
+        )
+    requirements = [
+        Requirement(package) for package in packages if not package.startswith("#")
+    ]
+    preshed = [req for req in requirements if req.name == "preshed"]
+    assert preshed
+    assert all("3.0.13" in req.specifier for req in preshed)
+    assert all("3.0.14" not in req.specifier for req in preshed)
 
 
 def test_kokoro_resolves_bundled_voice(tmp_path):
