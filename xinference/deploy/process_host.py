@@ -5,11 +5,40 @@
 import asyncio
 import base64
 import contextlib
+import os
 import signal
 import socket
 import subprocess
 import sys
-from typing import Callable, List, Optional, cast
+from pathlib import Path
+from typing import Callable, List, Mapping, Optional, Tuple, cast
+
+
+def python_process_environment(
+    executable: str, environment: Mapping[str, str]
+) -> Tuple[str, Mapping[str, str]]:
+    """Keep a Windows venv's Python PID, bypassing its redirector executable."""
+    if sys.platform != "win32":
+        return executable, environment
+    if os.path.normcase(executable) == os.path.normcase(sys.executable):
+        base = getattr(sys, "_base_executable", executable)
+    else:
+        path = Path(executable)
+        if not path.name.lower().startswith("python") or not any(
+            (directory / "pyvenv.cfg").is_file()
+            for directory in (path.parent, path.parent.parent)
+        ):
+            return executable, environment
+        base = subprocess.check_output(
+            [executable, "-I", "-c", "import sys; print(sys._base_executable)"],
+            env=environment,
+            text=True,
+            timeout=30,
+        ).strip()
+    if os.path.normcase(base) == os.path.normcase(executable):
+        return executable, environment
+    # This is the same mechanism used by multiprocessing's Windows spawn.
+    return base, {**environment, "__PYVENV_LAUNCHER__": executable}
 
 
 def start_process(
@@ -26,6 +55,10 @@ def start_process(
         set_kill_child_on_death_win32,
     )
 
+    command = list(command)
+    command[0], kwargs["env"] = python_process_environment(
+        command[0], kwargs.get("env", os.environ)
+    )
     if not detect_fate_sharing_support_win32():
         raise RuntimeError("Windows service hosting requires Job Object support")
     kwargs.pop("start_new_session", None)

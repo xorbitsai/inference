@@ -377,10 +377,20 @@ class WorkerRelaunchLauncher:
             try:
                 with os.fdopen(fd, "w") as stream:
                     json.dump(config, stream)
+                from ..deploy.process_host import python_process_environment
+
+                command_executable, process_environment = python_process_environment(
+                    executable, env
+                )
                 with open(get_log_file(f"worker-relaunch-{operation_id}"), "ab") as log:
                     self.process = subprocess.Popen(
-                        [executable, "-m", "xinference.deploy.worker_relaunch", path],
-                        env=env,
+                        [
+                            command_executable,
+                            "-m",
+                            "xinference.deploy.worker_relaunch",
+                            path,
+                        ],
+                        env=process_environment,
                         stdin=subprocess.DEVNULL,
                         stdout=log,
                         stderr=subprocess.STDOUT,

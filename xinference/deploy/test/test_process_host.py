@@ -7,6 +7,7 @@ import os
 import socket
 import sys
 import tempfile
+import venv
 from pathlib import Path
 
 import pytest
@@ -16,14 +17,31 @@ from ..worker_host import HOST_SOCKET, ProcessOwner, register_worker_host
 from .test_worker_host import _source_environment
 
 
-def test_listener_survives_overlapping_process_generations(tmp_path):
+@pytest.mark.parametrize(
+    "use_venv",
+    [
+        False,
+        pytest.param(
+            True,
+            marks=pytest.mark.skipif(
+                os.name != "nt", reason="Windows venv redirectors"
+            ),
+        ),
+    ],
+)
+def test_listener_survives_overlapping_process_generations(tmp_path, use_venv):
+    executable = sys.executable
+    if use_venv:
+        directory = tmp_path / "venv"
+        venv.EnvBuilder(with_pip=False, system_site_packages=True).create(directory)
+        executable = str(directory / "Scripts/python.exe")
     script = tmp_path / "listener.py"
     script.write_text(
-        "import os,sys,time\nfrom pathlib import Path\n"
+        "import json,os,sys,time\nfrom pathlib import Path\n"
         "from xinference.deploy.process_host import inherited_listener\n"
         "listener=inherited_listener(int(sys.argv[1]))\n"
         "client,_=listener.accept()\n"
-        "client.sendall((str(os.getpid())+'\\n').encode())\n"
+        "client.sendall((json.dumps({'pid':os.getpid(),'prefix':sys.prefix,'executable':sys.executable})+'\\n').encode())\n"
         "while not Path(sys.argv[2]).exists(): time.sleep(.01)\n"
         "client.sendall(b'finished\\n')\nclient.close()\nlistener.close()\n"
     )
@@ -35,7 +53,7 @@ def test_listener_survives_overlapping_process_generations(tmp_path):
             for generation in ("old", "new"):
                 process = start_process(
                     [
-                        sys.executable,
+                        executable,
                         str(script),
                         str(listener.fileno()),
                         str(tmp_path / generation),
@@ -47,7 +65,14 @@ def test_listener_survives_overlapping_process_generations(tmp_path):
                 client = socket.create_connection(listener.getsockname(), timeout=60)
                 stream = client.makefile("rb")
                 clients.append((client, stream))
-                assert int(stream.readline()) == process.pid
+                identity = json.loads(stream.readline())
+                assert identity["pid"] == process.pid
+                assert Path(identity["prefix"]).resolve() == (
+                    directory.resolve() if use_venv else Path(sys.prefix).resolve()
+                )
+                assert (
+                    Path(identity["executable"]).resolve() == Path(executable).resolve()
+                )
             for generation, process, (_, stream) in zip(
                 ("old", "new"), processes, clients
             ):
