@@ -9,6 +9,7 @@ import shlex
 import socket
 import subprocess
 import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,6 +27,52 @@ from ..api_host import (
     _forward_output,
     _wait_process,
 )
+
+
+def test_live_process_monitor_does_not_starve_an_exited_sibling(monkeypatch):
+    async def run():
+        loop = asyncio.get_running_loop()
+        loop.set_default_executor(ThreadPoolExecutor(max_workers=1))
+        processes, watchers = [], []
+        started = threading.Event()
+        try:
+            live = subprocess.Popen(
+                [sys.executable, "-S", "-c", "import time; time.sleep(60)"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            processes.append(live)
+            original_wait = live.wait
+
+            def wait():
+                started.set()
+                return original_wait()
+
+            monkeypatch.setattr(live, "wait", wait)
+            watchers.append(asyncio.create_task(_wait_process(live, APIDiagnostics())))
+            deadline = loop.time() + 5
+            while not started.is_set() and loop.time() < deadline:
+                await asyncio.sleep(0.01)
+            assert started.is_set()
+            exited = subprocess.Popen(
+                [sys.executable, "-S", "-c", "pass"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            processes.append(exited)
+            watchers.append(
+                asyncio.create_task(_wait_process(exited, APIDiagnostics()))
+            )
+            assert await asyncio.wait_for(asyncio.shield(watchers[-1]), 5) == 0
+            assert live.poll() is None
+            assert await asyncio.wait_for(asyncio.to_thread(lambda: True), 5)
+        finally:
+            for process in processes:
+                if process.poll() is None:
+                    process.kill()
+            await asyncio.gather(*watchers, return_exceptions=True)
+
+    asyncio.run(run())
 
 
 @pytest.mark.asyncio
