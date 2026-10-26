@@ -28,6 +28,7 @@ from ..cmdline import (
     model_launch,
     model_list,
     model_terminate,
+    query_engine_by_model_name,
     register_model,
     remove_cache,
     unregister_model,
@@ -772,3 +773,57 @@ def test_list_shows_running_flexible_models(monkeypatch):
     assert result.exit_code == 0, result.output
     assert "my-flexible" in result.output
     assert "my-flexible-model" in result.output
+
+
+@pytest.mark.parametrize(
+    "option, value, expected_quantization",
+    [
+        ("--model-size-in-billions", "0.5", "Q4_K_M"),
+        ("--quantization", "q4_k_m", "Q4_K_M"),
+    ],
+)
+def test_engine_matches_parameters_like_launch(
+    monkeypatch, option, value, expected_quantization
+):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    engines = {
+        "llama.cpp": [
+            {
+                "model_name": "qwen2.5-instruct",
+                "model_format": "ggufv2",
+                "model_size_in_billions": "0_5",
+                "quantizations": ["Q4_K_M"],
+            }
+        ]
+    }
+    client = SimpleNamespace(
+        query_engine_by_model_name=MagicMock(return_value=engines),
+        _set_token=MagicMock(),
+    )
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", lambda **kwargs: client)
+    result = CliRunner().invoke(
+        query_engine_by_model_name,
+        [
+            "--endpoint",
+            "http://127.0.0.1:9997",
+            "--api-key",
+            "test-key",
+            "--model-name",
+            "qwen2.5-instruct",
+            option,
+            value,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "does not support" not in result.output
+    rows = [line.split() for line in result.output.splitlines()]
+    assert [
+        "qwen2.5-instruct",
+        "llama.cpp",
+        "ggufv2",
+        "0_5",
+        expected_quantization,
+    ] in rows
