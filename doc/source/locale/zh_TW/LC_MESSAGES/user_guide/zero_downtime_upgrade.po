@@ -381,3 +381,19 @@ msgstr "在「執行中的模型」頁面開啟重新設定。"
 #: ../../user_guide/zero_downtime_upgrade.rst:129
 msgid "Open Reconfigure / upgrade model from the model's detail view."
 msgstr "在模型詳細資訊頁選擇「重新設定 / 升級模型」。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:69
+msgid ""
+"Worker relaunch requires the target Xinference version to support the "
+"running host's registration protocol. A downgrade to a version without that "
+"support fails while the current Worker keeps serving."
+msgstr ""
+"Worker 重新啟動要求目標 Xinference 版本支援目前宿主使用的註冊協定。若降級目標不支援該協定，替換會失敗，既有 Worker "
+"繼續提供服務。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:105
+msgid ""
+"On Windows, stopping the Worker host forcibly terminates its owned "
+"processes. The Supervisor detects the stopped Worker after its heartbeat "
+"timeout."
+msgstr "在 Windows 上，停止 Worker 宿主會強制終止其所屬程序。Supervisor 會在心跳逾時後偵測到該 Worker 已停止。"

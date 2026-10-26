@@ -143,7 +143,7 @@ class ProcessOwner:
             self.descendants[proc.pid] = self.workers[proc.pid]
             writer.write(b"ok\n")
             await writer.drain()
-        except (ValueError, KeyError, asyncio.TimeoutError, psutil.Error):
+        except (ValueError, TypeError, KeyError, asyncio.TimeoutError, psutil.Error):
             writer.write(b"error\n")
             await writer.drain()
         finally:

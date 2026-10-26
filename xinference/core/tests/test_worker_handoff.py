@@ -304,10 +304,25 @@ async def runtime(tmp_path):
             )
         )
     yield pools, supervisor, workers
+    with contextlib.suppress(xo.ActorNotExist):
+        await xo.destroy_actor(supervisor)
     for pool in reversed(pools):
         with contextlib.suppress(Exception):
             await pool.stop()
     Router.set_instance(None)
+
+
+@pytest.mark.asyncio
+async def test_runtime_teardown_releases_local_supervisor(tmp_path):
+    fixture = runtime.__wrapped__(tmp_path)
+    pools, supervisor, _ = await anext(fixture)
+    supervisor = await xo.actor_ref(address=supervisor.address, uid=supervisor.uid)
+    with pytest.raises(StopAsyncIteration):
+        await anext(fixture)
+    # Keep the stopped pools alive to reproduce a later test reusing an address.
+    assert pools
+    with pytest.raises(xo.ActorNotExist):
+        await supervisor.inspect_workers()
 
 
 @pytest.mark.asyncio

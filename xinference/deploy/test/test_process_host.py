@@ -346,16 +346,21 @@ async def test_worker_registration_checks_capability_and_ancestry():
     server, address = await owner.serve()
     connection = json.loads(address)
     try:
-        for token in ("invalid", connection["token"]):
+        for token, pid in [
+            ("invalid", os.getpid()),
+            *[
+                (connection["token"], pid)
+                for pid in (os.getpid(), "invalid", [], {}, 1.5)
+            ],
+        ]:
             reader, writer = await asyncio.open_connection(
                 "127.0.0.1", connection["port"]
             )
             writer.write(
-                json.dumps({"version": 1, "pid": os.getpid(), "token": token}).encode()
-                + b"\n"
+                json.dumps({"version": 1, "pid": pid, "token": token}).encode() + b"\n"
             )
             await writer.drain()
-            assert await reader.readline() == b"error\n"
+            assert await asyncio.wait_for(reader.readline(), 1) == b"error\n"
             writer.close()
             await writer.wait_closed()
         assert not owner.workers

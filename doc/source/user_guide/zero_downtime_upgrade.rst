@@ -66,6 +66,8 @@ Worker
 
 Replace a Worker on Linux, macOS or Windows while retaining its model processes. The Supervisor and API server keep running. Both Workers and the model processes must support the handoff protocol and use Xoscar 0.12.2 or later, compatible Python versions, the same Supervisor, GPU visibility and extensions. Models spanning Workers and Xavier or P/D deployments are currently unsupported.
 
+Worker relaunch requires the target Xinference version to support the running host's registration protocol. A downgrade to a version without that support fails while the current Worker keeps serving.
+
 In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a Worker. Operation records remain visible when its address changes or the page is refreshed. This retains the current model processes; model-engine upgrades use **Reconfigure / upgrade model** from **Running Models** or the model's detail view.
 
 .. figure:: /_static/worker_restart.png
@@ -99,6 +101,8 @@ Service and container ownership
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 On Linux, macOS and Windows, ``xinference-worker`` automatically keeps a stable Worker host as its main process. Replacement Workers register before handoff, so retirement of the original Worker does not stop its models, replacement, service or container. Explicitly stopping the host terminates its owned processes. Custom launch commands can use the host wrapper below.
+
+On Windows, stopping the Worker host forcibly terminates its owned processes. The Supervisor detects the stopped Worker after its heartbeat timeout.
 
 .. code-block:: bash
 
