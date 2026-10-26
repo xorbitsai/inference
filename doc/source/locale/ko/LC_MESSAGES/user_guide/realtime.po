@@ -19,9 +19,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+#: user_guide/realtime.rst:3
 msgid "Realtime model sessions"
 msgstr "모델 실시간 세션"
 
+#: user_guide/realtime.rst:6
 #, python-brace-format
 msgid ""
 "Use ``WS /v1/models/{model_uid}/realtime`` for continuous media input. When "
@@ -33,6 +35,34 @@ msgstr ""
 "``Authorization: Bearer <API_KEY>`` 를 보내며 모델 권한과 ``models:read`` 범위가 적용됩니다. "
 "이는 Xinference 프로토콜이며 OpenAI Realtime API가 아닙니다."
 
+#: user_guide/realtime.rst:8
+msgid ""
+"The initial adapter is opt-in segmental transcription for PyTorch ``Fun-ASR-"
+"Nano-2512``. Launch with ``realtime=True`` and a FunASR version providing "
+"``DynamicStreamingVAD``. It reuses loaded ASR and FSMN VAD weights; it does "
+"not load vLLM or promise incremental acoustic encoding. Other instances "
+"remain unchanged."
+msgstr ""
+"첫 어댑터는 명시적으로 활성화하는 PyTorch ``Fun-ASR-Nano-2512`` 구간별 전사입니다. "
+"``realtime=True`` 로 시작하고 ``DynamicStreamingVAD`` 를 제공하는 FunASR 버전을 사용합니다. "
+"로드된 ASR 및 FSMN VAD 가중치를 재사용하며 vLLM을 로드하거나 완전한 증분 음향 인코딩을 보장하지 않습니다. 다른 인스턴스는"
+" 변경되지 않습니다."
+
+#: user_guide/realtime.rst:22
+msgid ""
+"Send the configuration below, wait for ``session.started``, then send binary"
+" mono 16 kHz PCM16 little-endian audio without a WAV header. Send "
+"``input.end`` to flush accepted audio, or ``session.cancel`` to cancel. "
+"Results use increasing ``seq`` values; replace cumulative ``sentences`` and "
+"mutable ``partial`` snapshots instead of appending them. Success requires "
+"one final output and ``session.closed`` with reason ``completed``."
+msgstr ""
+"아래 설정을 보내고 ``session.started`` 를 기다린 뒤 WAV 헤더 없는 모노 16 kHz PCM16 리틀 엔디언 오디오를"
+" 바이너리로 전송합니다. ``input.end`` 는 받은 오디오를 마무리하고 ``session.cancel`` 은 취소합니다. 결과의 "
+"``seq`` 는 증가합니다. 누적 ``sentences`` 와 수정 가능한 ``partial`` 스냅샷은 추가하지 말고 교체합니다. "
+"성공하려면 최종 출력 하나와 reason이 ``completed`` 인 ``session.closed`` 가 필요합니다."
+
+#: user_guide/realtime.rst:36
 msgid ""
 "Only connection initialization uses Actor routing. Media and results use an "
 "authenticated persistent connection to the model process. Configure "
@@ -50,6 +80,7 @@ msgstr ""
 "``XINFERENCE_REALTIME_ALLOWED_ORIGINS`` 에 등록해야 허용되며 브라우저 네이티브 티켓 인증은 구현되지 "
 "않았습니다."
 
+#: user_guide/realtime.rst:38
 msgid ""
 "Defaults are one realtime session per replica, 64 KiB input frames, 2 MiB "
 "output messages, eight-element input and output queues, 60 seconds of media "
@@ -67,10 +98,14 @@ msgstr ""
 msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
 msgstr "설정된 ``XINFERENCE_ALLOWED_IPS`` 허용 목록은 WebSocket 업그레이드 전에도 적용됩니다."
 
+#: user_guide/realtime.rst:44
 msgid ""
-"A model must provide a realtime adapter; instances without one reject "
-"realtime connections. Task-specific input and output schemas are defined by "
-"each adapter."
+"Run the repository probe with a mono PCM16 WAV, using ``XINFERENCE_API_KEY``"
+" from the environment. A 30–60 second speech recording must produce nonempty"
+" text before the last audio frame and ``input.end``. The probe cannot "
+"independently prove zero media RPC or resource cleanup; run the runtime "
+"integration tests as well."
 msgstr ""
-"모델은 실시간 어댑터를 제공해야 하며, 어댑터가 없는 인스턴스는 실시간 연결을 거부합니다. 작업별 입력 및 출력 스키마는 각 어댑터에서 "
-"정의합니다."
+"모노 PCM16 WAV와 환경 변수 ``XINFERENCE_API_KEY`` 로 저장소 프로브를 실행합니다. 30–60초 음성은 마지막 "
+"오디오 프레임과 ``input.end`` 전에 비어 있지 않은 텍스트를 생성해야 합니다. 프로브만으로는 미디어 RPC가 없거나 리소스가 "
+"정리됨을 증명할 수 없으므로 런타임 통합 테스트도 실행하십시오."

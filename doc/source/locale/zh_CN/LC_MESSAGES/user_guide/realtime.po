@@ -19,9 +19,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+#: user_guide/realtime.rst:3
 msgid "Realtime model sessions"
 msgstr "模型实时会话"
 
+#: user_guide/realtime.rst:6
 #, python-brace-format
 msgid ""
 "Use ``WS /v1/models/{model_uid}/realtime`` for continuous media input. When "
@@ -33,6 +35,33 @@ msgstr ""
 "Bearer <API_KEY>``，同时校验模型访问权限和 ``models:read`` Scope。这是 Xinference 自定义协议，并非 "
 "OpenAI Realtime API。"
 
+#: user_guide/realtime.rst:8
+msgid ""
+"The initial adapter is opt-in segmental transcription for PyTorch ``Fun-ASR-"
+"Nano-2512``. Launch with ``realtime=True`` and a FunASR version providing "
+"``DynamicStreamingVAD``. It reuses loaded ASR and FSMN VAD weights; it does "
+"not load vLLM or promise incremental acoustic encoding. Other instances "
+"remain unchanged."
+msgstr ""
+"首个适配器为显式启用的 PyTorch ``Fun-ASR-Nano-2512`` 分段转写。启动时设置 "
+"``realtime=True``，FunASR 版本须提供 ``DynamicStreamingVAD``。适配器复用已加载的 ASR 和 FSMN "
+"VAD 权重，不加载 vLLM，也不承诺声学编码完全增量。其他实例保持不变。"
+
+#: user_guide/realtime.rst:22
+msgid ""
+"Send the configuration below, wait for ``session.started``, then send binary"
+" mono 16 kHz PCM16 little-endian audio without a WAV header. Send "
+"``input.end`` to flush accepted audio, or ``session.cancel`` to cancel. "
+"Results use increasing ``seq`` values; replace cumulative ``sentences`` and "
+"mutable ``partial`` snapshots instead of appending them. Success requires "
+"one final output and ``session.closed`` with reason ``completed``."
+msgstr ""
+"发送以下配置，等待 ``session.started``，然后发送不含 WAV 文件头的单声道 16 kHz PCM16 小端二进制音频。发送 "
+"``input.end`` 完成已接收音频的尾段处理，或发送 ``session.cancel`` 取消。结果的 ``seq`` 递增；累计 "
+"``sentences`` 和可修订的 ``partial`` 是替换快照，不应重复追加。成功要求唯一最终结果，以及 reason 为 "
+"``completed`` 的 ``session.closed``。"
+
+#: user_guide/realtime.rst:36
 msgid ""
 "Only connection initialization uses Actor routing. Media and results use an "
 "authenticated persistent connection to the model process. Configure "
@@ -48,6 +77,7 @@ msgstr ""
 "``XINFERENCE_REALTIME_ADVERTISE_HOST``。内部端口须位于可信私网或加密隧道中，此端点自身不提供 TLS。浏览器 "
 "Origin 默认拒绝，需通过 ``XINFERENCE_REALTIME_ALLOWED_ORIGINS`` 显式允许；尚未实现浏览器原生票据鉴权。"
 
+#: user_guide/realtime.rst:38
 msgid ""
 "Defaults are one realtime session per replica, 64 KiB input frames, 2 MiB "
 "output messages, eight-element input and output queues, 60 seconds of media "
@@ -64,8 +94,13 @@ msgstr ""
 msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
 msgstr "配置的 ``XINFERENCE_ALLOWED_IPS`` IP 白名单也会在 WebSocket 升级前执行检查。"
 
+#: user_guide/realtime.rst:44
 msgid ""
-"A model must provide a realtime adapter; instances without one reject "
-"realtime connections. Task-specific input and output schemas are defined by "
-"each adapter."
-msgstr "模型必须提供实时适配器；未提供适配器的实例会拒绝实时连接。各适配器分别定义任务特定的输入和输出结构。"
+"Run the repository probe with a mono PCM16 WAV, using ``XINFERENCE_API_KEY``"
+" from the environment. A 30–60 second speech recording must produce nonempty"
+" text before the last audio frame and ``input.end``. The probe cannot "
+"independently prove zero media RPC or resource cleanup; run the runtime "
+"integration tests as well."
+msgstr ""
+"使用单声道 PCM16 WAV 运行仓库探针，并从环境变量读取 ``XINFERENCE_API_KEY``。30–60 秒有效语音必须在末块音频和 "
+"``input.end`` 之前返回非空文本。客户端探针无法独立证明零媒体 RPC 或资源清理，须同时运行运行时集成测试。"
