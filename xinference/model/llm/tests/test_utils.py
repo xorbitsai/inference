@@ -1756,6 +1756,48 @@ def test_enable_thinking_preserves_qwen3_template(enable_thinking: bool) -> None
     assert prompt.endswith(suffix)
 
 
+@pytest.mark.parametrize(
+    "template_kwargs",
+    [
+        {"enable_thinking": True, "thinking": True},
+        {"enable_thinking": False, "thinking": False},
+        {},
+    ],
+    ids=["thinking-true", "thinking-false", "omitted"],
+)
+def test_qwen2_vl_forwards_chat_template_kwargs(monkeypatch, template_kwargs):
+    import sys
+    from unittest.mock import Mock
+
+    from ..transformers.multimodal.qwen2_vl import Qwen2VLChatModel
+
+    processor = Mock(return_value=SimpleNamespace(to=lambda device: None))
+    processor.apply_chat_template.return_value = "prompt"
+    monkeypatch.setitem(
+        sys.modules,
+        "qwen_vl_utils",
+        SimpleNamespace(process_vision_info=lambda messages: (None, None)),
+    )
+    model = object.__new__(Qwen2VLChatModel)
+    model._processor = processor
+    model._device = "cpu"
+    model.reasoning_parser = None
+    generate_config = (
+        {"chat_template_kwargs": template_kwargs} if template_kwargs else {}
+    )
+
+    model.build_inputs_from_messages(
+        [{"role": "user", "content": "hello"}], generate_config
+    )
+
+    processor.apply_chat_template.assert_called_once_with(
+        [{"role": "user", "content": [{"type": "text", "text": "hello"}]}],
+        tokenize=False,
+        add_generation_prompt=True,
+        **template_kwargs,
+    )
+
+
 def test_post_process_completion_chunk_without_thinking():
     mixin = ChatModelMixin()
     mixin.tool_parser = QwenToolParser()
