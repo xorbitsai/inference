@@ -28,7 +28,7 @@ async def calls(monkeypatch):
         await asyncio.Event().wait()
 
     await restful_api.EventSourceResponse(startup(), ping=3600)(
-        {"type": "http", "method": "GET"}, receive, AsyncMock()
+        {"type": "http", "method": "POST"}, receive, AsyncMock()
     )
     baseline, entries = asyncio.all_tasks(), {}
 
