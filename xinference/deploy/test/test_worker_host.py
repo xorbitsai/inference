@@ -67,8 +67,18 @@ else:
 
 
 @pytest.mark.parametrize("relaunches", [1, 2])
+@pytest.mark.parametrize(
+    "graceful",
+    [
+        False,
+        pytest.param(
+            True,
+            marks=pytest.mark.skipif(os.name != "nt", reason="Windows console stop"),
+        ),
+    ],
+)
 def test_host_survives_original_worker_exit_and_stops_only_owned_descendants(
-    tmp_path, relaunches
+    tmp_path, relaunches, graceful
 ):
     script = tmp_path / "worker.py"
     script.write_text(
@@ -80,6 +90,12 @@ from xinference.deploy.worker_host import register_worker_host
 root = Path(sys.argv[1])
 generation, relaunches = map(int, sys.argv[2:])
 parent = psutil.Process(os.getppid())
+if not generation:
+    # Record the model's Python PID, including when a Windows venv redirects it.
+    model = subprocess.Popen([sys.executable, "-c",
+        "import os,sys,time; from pathlib import Path; Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(180)",
+        str(root / "model")])
+    while not (root / "model").exists(): time.sleep(.02)
 if generation:
     asyncio.run(register_worker_host())
 if generation < relaunches:
@@ -98,12 +114,10 @@ if generation < relaunches:
     if not generation:
         (root / "original-exited").write_text(str(os.getpid()))
 else:
-    model = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
-    (root / "model").write_text(str(model.pid))
     (root / "socket").write_text(os.environ["XINFERENCE_WORKER_HOST_SOCKET"])
     (root / "replacement").write_text(str(os.getpid()))
     (root / f"registered-{generation}").touch()
-    time.sleep(60)
+    time.sleep(180)
 """
     )
     host = subprocess.Popen(
@@ -118,8 +132,9 @@ else:
             str(relaunches),
         ],
         env=_source_environment(),
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if graceful else 0,
     )
-    unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(180)"])
     identities = {}
     try:
         deadline = (
@@ -154,8 +169,10 @@ else:
             await writer.wait_closed()
 
         asyncio.run(outside_registration())
-        host.send_signal(signal.SIGTERM)
-        host.wait(timeout=10)
+        host.send_signal(signal.CTRL_BREAK_EVENT if graceful else signal.SIGTERM)
+        host.wait(timeout=40 if graceful else 10)
+        if graceful:
+            assert host.returncode == 0
         assert unrelated.poll() is None
         for pid, created in identities.items():
             try:

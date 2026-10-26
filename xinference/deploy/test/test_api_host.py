@@ -9,9 +9,10 @@ import shlex
 import socket
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -25,6 +26,54 @@ from ..api_host import (
     _forward_output,
     _wait_process,
 )
+
+
+@pytest.mark.asyncio
+async def test_process_wait_does_not_starve_serving_executor():
+    asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=1))
+    process = subprocess.Popen(
+        [sys.executable, "-S", "-c", "import time; time.sleep(30)"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    waiting = asyncio.create_task(_wait_process(process, APIDiagnostics()))
+    try:
+        await asyncio.sleep(0.1)
+        assert await asyncio.wait_for(asyncio.to_thread(lambda: True), 2)
+    finally:
+        process.terminate()
+        await asyncio.wait_for(waiting, 5)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error", [RuntimeError("lost serving acknowledgement"), asyncio.TimeoutError()]
+)
+async def test_failure_after_activation_drains_target_without_terminating(
+    tmp_path, error
+):
+    host = APIHost(
+        MagicMock(), {}, SystemSettingsStore(str(tmp_path / "settings.json"))
+    )
+    source, target = MagicMock(), MagicMock()
+    source.environment = {}
+    target.wait = AsyncMock(side_effect=[None, error])
+    target.send = AsyncMock()
+    target.process.poll.return_value = None
+    target.exited = asyncio.get_running_loop().create_future()
+    host.active = source
+    host.spawn = AsyncMock(return_value=target)
+    operation = {"requested_executable": None, "python_executable": sys.executable}
+    await host.replace(operation)
+    assert operation["status"] == "failed"
+    assert host.active is source
+    target.send.assert_awaited_once_with("activate")
+    target.wait.assert_any_await(target.serving)
+    target.writer.close.assert_called_once_with()
+    target.process.terminate.assert_not_called()
+    target.process.kill.assert_not_called()
+    source.send.assert_not_called()
+    assert not target.exited.cancelled()
 
 
 @pytest.mark.asyncio
@@ -642,8 +691,6 @@ async def update(settings):
 async def actor_ref(**kwargs):
     return SimpleNamespace(update_system_settings=update)
 xo.actor_ref = actor_ref
-supervisor.run_in_subprocess = lambda *args, **kwargs: MagicMock()
-supervisor.health_check = lambda **kwargs: True
 
 async def check_host(self, stopping):
     try:

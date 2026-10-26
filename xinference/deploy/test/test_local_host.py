@@ -481,10 +481,16 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
     (tmp_path / "local_extension.py").write_text(EXTENSION)
     script = tmp_path / "start.py"
     script.write_text(
+        "import asyncio\n"
+        "from concurrent.futures import ThreadPoolExecutor\n"
         "from xinference.deploy.api_host import run\n"
         "from xinference.deploy.local_host import LocalHost\n"
+        "class LimitedHost(LocalHost):\n"
+        "    async def run(self, stopping):\n"
+        "        asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=1))\n"
+        "        await super().run(stopping)\n"
         "if __name__ == '__main__':\n"
-        f"    run({configuration!r}, host_class=LocalHost)\n"
+        f"    run({configuration!r}, host_class=LimitedHost)\n"
     )
     source_root = str(Path(__file__).resolve().parents[3])
     environment = {

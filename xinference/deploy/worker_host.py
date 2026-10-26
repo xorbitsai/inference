@@ -85,8 +85,10 @@ class ProcessOwner:
     def alive(pid, created):
         try:
             proc = psutil.Process(pid)
-            return (
-                proc.create_time() == created and proc.status() != psutil.STATUS_ZOMBIE
+            return proc.create_time() == created and (
+                proc.is_running()
+                if os.name == "nt"
+                else proc.status() != psutil.STATUS_ZOMBIE
             )
         except psutil.NoSuchProcess:
             return False
@@ -101,8 +103,11 @@ class ProcessOwner:
             with contextlib.suppress(psutil.Error):
                 for proc in root.children(recursive=True):
                     with contextlib.suppress(psutil.Error):
-                        if self.same_user(proc):
-                            self.descendants[proc.pid] = proc.create_time()
+                        created = proc.create_time()
+                        if self.descendants.get(proc.pid) == created or self.same_user(
+                            proc
+                        ):
+                            self.descendants[proc.pid] = created
 
     def reap(self, watched=()):
         """Reap adopted children without racing their explicit process watchers."""
@@ -161,7 +166,7 @@ class ProcessOwner:
         self.remember()
         # Identities come only from this host's children/registered Workers.
         for pid, created in self.descendants.items():
-            with contextlib.suppress(psutil.NoSuchProcess):
+            with contextlib.suppress(psutil.Error):
                 process = psutil.Process(pid)
                 if process.create_time() == created:
                     process.kill() if force else process.terminate()

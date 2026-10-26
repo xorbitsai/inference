@@ -3,7 +3,6 @@
 
 import asyncio
 import os
-import socket
 import sys
 from pathlib import Path
 
@@ -14,6 +13,7 @@ from xoscar.backends.allocate_strategy import RandomSubPool
 
 from ...core.system_settings_store import SystemSettingsStore
 from ..api_host import APIHost
+from ..process_host import bind_listener
 from .test_api_host import EXTENSION, Backend, Supervisor, until
 
 
@@ -35,8 +35,7 @@ async def test_windows_api_cutover_preserves_stream_and_failed_startup(
     monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_ENABLED", "0")
     monkeypatch.setenv("API_GATE_ROOT", str(tmp_path))
     monkeypatch.setenv("API_STREAM_RELEASE", str(tmp_path / "release"))
-    listener = socket.socket()
-    listener.bind(("127.0.0.1", 0))
+    listener = bind_listener("127.0.0.1", 0)
     listener.listen()
     port = listener.getsockname()[1]
     async with await xo.create_actor_pool("127.0.0.1", n_process=1) as pool:

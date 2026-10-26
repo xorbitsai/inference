@@ -5,6 +5,7 @@
 import asyncio
 import base64
 import contextlib
+import logging
 import os
 import signal
 import socket
@@ -12,6 +13,24 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Callable, Coroutine, List, Mapping, Optional, Tuple, cast
+
+
+def bind_listener(host: str, port: int) -> socket.socket:
+    if sys.platform != "win32":
+        from uvicorn import Config
+
+        return Config(None, host=host, port=port).bind_socket()
+    listener = socket.socket(socket.AF_INET6 if ":" in host else socket.AF_INET)
+    try:
+        # SO_REUSEADDR permits a second listener to steal a Windows port.
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        listener.bind((host, port))
+        listener.set_inheritable(True)
+        return listener
+    except OSError as error:
+        listener.close()
+        logging.getLogger("uvicorn.error").error(error)
+        raise SystemExit(1) from error
 
 
 def python_process_environment(

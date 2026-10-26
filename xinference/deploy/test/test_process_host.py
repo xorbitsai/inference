@@ -17,9 +17,108 @@ from unittest.mock import MagicMock
 import psutil
 import pytest
 
-from ..process_host import start_process
+from ..process_host import bind_listener, start_process
 from ..worker_host import HOST_SOCKET, ProcessOwner, register_worker_host
 from .test_worker_host import _source_environment
+
+
+def test_local_health_check_remains_available():
+    from ..local import health_check
+    from ..utils import health_check as original
+
+    assert health_check is original
+
+
+@pytest.mark.skipif(
+    sys.platform != "win32", reason="Windows exclusive listener semantics"
+)
+def test_windows_listener_rejects_duplicate_bind():
+    with bind_listener("127.0.0.1", 0) as listener:
+        listener.listen()
+        port = listener.getsockname()[1]
+        with pytest.raises(SystemExit):
+            bind_listener("127.0.0.1", port)
+        with socket.socket() as competitor:
+            competitor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            with pytest.raises(OSError):
+                competitor.bind(("127.0.0.1", port))
+
+
+@pytest.mark.parametrize("default", [False, True])
+def test_listener_conflict_retries_only_default_port(monkeypatch, default):
+    from xoscar import utils
+
+    from ...constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
+    from .. import api_host
+
+    calls = []
+
+    def bind(host, port):
+        calls.append(port)
+        if len(calls) == 1:
+            raise SystemExit(1)
+        return bind_listener(host, port)
+
+    class Host(api_host.APIHost):
+        async def run(self, stopping):
+            self.listener.close()
+
+    monkeypatch.setattr(api_host, "bind_listener", bind)
+    monkeypatch.setattr(utils, "get_next_port", lambda: 0)
+    configuration = {
+        "host": "127.0.0.1",
+        "port": XINFERENCE_DEFAULT_ENDPOINT_PORT if default else 0,
+    }
+    if default:
+        api_host.run(configuration, host_class=Host)
+        assert calls == [XINFERENCE_DEFAULT_ENDPOINT_PORT, 0]
+    else:
+        with pytest.raises(SystemExit):
+            api_host.run(configuration, host_class=Host)
+        assert calls == [0]
+
+
+@pytest.mark.parametrize("force", [False, True])
+def test_stop_continues_after_access_denied(monkeypatch, force):
+    owner = ProcessOwner()
+    denied, child = MagicMock(), MagicMock()
+    denied.create_time.return_value = 100
+    child.create_time.return_value = 200
+    denied.terminate.side_effect = denied.kill.side_effect = psutil.AccessDenied(123)
+    owner.descendants = {123: 100, 456: 200}
+    monkeypatch.setattr(owner, "remember", lambda: None)
+    monkeypatch.setattr(psutil, "Process", lambda pid: denied if pid == 123 else child)
+    owner._stop_descendants(force)
+    (child.kill if force else child.terminate).assert_called_once_with()
+
+
+def test_process_scan_rechecks_user_only_for_new_identity(monkeypatch):
+    owner = ProcessOwner()
+    child = MagicMock(pid=123)
+    child.create_time.return_value = 100
+    check = MagicMock(return_value=True)
+    monkeypatch.setattr(owner, "same_user", check)
+    monkeypatch.setattr(owner.process, "children", lambda **kwargs: [child])
+    owner.remember()
+    owner.remember()
+    assert check.call_count == 1
+    child.create_time.return_value = 101
+    owner.remember()
+    assert check.call_count == 2
+    assert owner.descendants == {123: 101}
+
+
+@pytest.mark.parametrize("running", [False, True])
+def test_windows_liveness_does_not_query_thread_status(monkeypatch, running):
+    from .. import worker_host
+
+    process = MagicMock()
+    process.create_time.return_value = 100
+    process.is_running.return_value = running
+    monkeypatch.setattr(worker_host, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(psutil, "Process", lambda pid: process)
+    assert ProcessOwner.alive(123, 100) is running
+    process.status.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -199,8 +298,7 @@ async def test_listener_survives_overlapping_process_generations(tmp_path, use_v
         "client.sendall(b'finished\\n')\nclient.close()\nlistener.close()\n"
     )
     processes, clients = [], []
-    with socket.socket() as listener:
-        listener.bind(("127.0.0.1", 0))
+    with bind_listener("127.0.0.1", 0) as listener:
         listener.listen()
         try:
             for generation in ("old", "new"):

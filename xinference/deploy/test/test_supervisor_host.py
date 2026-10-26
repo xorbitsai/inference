@@ -161,9 +161,7 @@ class RouterControl(Control):
     "route", ["get_model", "describe_running_model", "resolve_token_router_runtime"]
 )
 async def test_gateway_drains_callbacks_and_queues_new_management(route):
-    pool = await xo.create_actor_pool(
-        address=f"127.0.0.1:{get_next_port()}", n_process=0
-    )
+    pool = await xo.create_actor_pool(address="127.0.0.1", n_process=0)
     try:
         gateway = await xo.create_actor(
             SupervisorGateway, address=pool.external_address
@@ -330,9 +328,7 @@ async def test_terminal_replica_death_survives_frozen_callback_timeout(
     try:
         workers, models = [], []
         for index in range(2):
-            pool = await xo.create_actor_pool(
-                address=f"127.0.0.1:{get_next_port()}", n_process=0
-            )
+            pool = await xo.create_actor_pool(address="127.0.0.1", n_process=0)
             pools.append(pool)
             model = await xo.create_actor(Model, address=pool.external_address)
             models.append(model)

@@ -27,6 +27,7 @@ from xoscar.utils import get_next_port
 
 from ..constants import XINFERENCE_HEALTH_CHECK_TIMEOUT
 from ..core.supervisor import SupervisorActor
+from .utils import health_check  # noqa: F401 - preserve existing imports
 from .worker import start_worker_components
 
 logger = logging.getLogger(__name__)

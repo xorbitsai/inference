@@ -16,6 +16,7 @@ import tempfile
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
@@ -23,6 +24,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 from ..core.system_settings_store import SystemSettingsStore
 from ..core.worker_relaunch import validate_relaunch_options
 from .process_host import (
+    bind_listener,
     pipe_bytes_available,
     run_api_loop,
     shutdown_signals,
@@ -97,13 +99,17 @@ def _forward_output(
 
 async def _wait_process(process: subprocess.Popen, diagnostics: APIDiagnostics) -> int:
     stopping = threading.Event()
-    waiting = asyncio.create_task(asyncio.to_thread(process.wait))
+    # These waits last for a whole process generation. Keep them off the
+    # serving loop's default executor so upgrades and RPCs can still use it.
+    executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="xinf-process")
+    loop = asyncio.get_running_loop()
+    waiting = loop.run_in_executor(executor, process.wait)
     forwarding = asyncio.gather(
-        asyncio.to_thread(
-            _forward_output, process.stdout, sys.stdout, diagnostics, stopping
+        loop.run_in_executor(
+            executor, _forward_output, process.stdout, sys.stdout, diagnostics, stopping
         ),
-        asyncio.to_thread(
-            _forward_output, process.stderr, sys.stderr, diagnostics, stopping
+        loop.run_in_executor(
+            executor, _forward_output, process.stderr, sys.stderr, diagnostics, stopping
         ),
     )
     try:
@@ -116,6 +122,7 @@ async def _wait_process(process: subprocess.Popen, diagnostics: APIDiagnostics) 
         return exit_code
     finally:
         stopping.set()
+        executor.shutdown(wait=False)
 
 
 async def host_request(command: str, **options: Any) -> Any:
@@ -510,7 +517,6 @@ class APIHost:
 
 
 def run(configuration: Dict[str, Any], host_class=APIHost) -> None:
-    from uvicorn import Config
     from xoscar.utils import get_next_port
 
     from ..constants import (
@@ -520,16 +526,12 @@ def run(configuration: Dict[str, Any], host_class=APIHost) -> None:
     from ..core.system_settings_store import get_system_settings_store
 
     try:
-        listener = Config(
-            None, host=configuration["host"], port=configuration["port"]
-        ).bind_socket()
+        listener = bind_listener(configuration["host"], configuration["port"])
     except SystemExit:
         if configuration["port"] is not XINFERENCE_DEFAULT_ENDPOINT_PORT:
             raise
         configuration = {**configuration, "port": get_next_port()}
-        listener = Config(
-            None, host=configuration["host"], port=configuration["port"]
-        ).bind_socket()
+        listener = bind_listener(configuration["host"], configuration["port"])
     configuration = {**configuration, "port": listener.getsockname()[1]}
     listener.listen(2048)
 
