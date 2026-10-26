@@ -136,11 +136,17 @@ class SupervisorHost:
             "Supervisor failed to become ready: " + child.diagnostics.read()[-2000:]
         )
 
-    def create(self, executable=None, request_id=None):
+    def create(self, executable=None, request_id=None, version=None):
+        from .upgrade import validate_upgrade
+
         validate_relaunch_options(executable, request_id)
+        validate_upgrade(version, executable)
         for operation in self.operations.values():
             if request_id is not None and operation["request_id"] == request_id:
-                if operation["requested_executable"] != executable:
+                if (
+                    operation["requested_executable"],
+                    operation.get("requested_version"),
+                ) != (executable, version):
                     raise RuntimeError(
                         "request_id already names a different Supervisor relaunch"
                     )
@@ -154,6 +160,7 @@ class SupervisorHost:
             "operation_id": identity,
             "request_id": request_id,
             "requested_executable": executable,
+            "requested_version": version,
             "python_executable": executable or self.active.executable,
             "source_pid": self.active.process.pid,
             "source_version": self.active.version,
@@ -191,7 +198,24 @@ class SupervisorHost:
         committed = False
         try:
             environment = source.environment
-            if operation["requested_executable"] is not None:
+            if operation.get("requested_version") is not None:
+                from .upgrade import prepare_upgrade
+
+                operation["python_executable"] = await prepare_upgrade(
+                    operation["requested_version"],
+                    "supervisor",
+                    source.executable,
+                    source.version,
+                    {
+                        **environment,
+                        "PIP_INDEX_URL": self.settings_store.get().pip_index_url,
+                    },
+                    lambda **fields: operation.update(fields),
+                )
+            if (
+                operation["requested_executable"] is not None
+                or operation.get("requested_version") is not None
+            ):
                 from ..core.utils import build_subpool_envs_for_python
 
                 environment = build_subpool_envs_for_python(
@@ -235,7 +259,9 @@ class SupervisorHost:
     def handle(self, command, request):
         if command == "supervisor-relaunch":
             return self.create(
-                request.get("python_executable"), request.get("request_id")
+                request.get("python_executable"),
+                request.get("request_id"),
+                request.get("version"),
             )
         if command == "supervisor-get":
             return copy.deepcopy(self.operations[request["operation_id"]])

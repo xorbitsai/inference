@@ -2082,15 +2082,42 @@ class Client:
         response_data = response.json()
         return response_data
 
+    def check_component_update(
+        self, component: str, worker_address: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Check the package source on the selected component's machine."""
+        if component not in {"api", "supervisor", "worker"}:
+            raise ValueError("Unknown component")
+        if component == "worker":
+            if not worker_address:
+                raise ValueError("worker_address is required")
+            path = f"workers/{quote(worker_address, safe='')}"
+        else:
+            path = component
+        response = self.session.get(
+            f"{self.base_url}/v1/{path}/updates", headers=self._headers
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to check updates: {_get_error_string(response)}"
+            )
+        return response.json()
+
     def relaunch_api(
         self,
         python_executable: Optional[str] = None,
         request_id: Optional[str] = None,
+        *,
+        version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Replace the distributed API process while existing requests drain."""
         response = self.session.post(
             f"{self.base_url}/v1/api/relaunch",
-            json={"python_executable": python_executable, "request_id": request_id},
+            json={
+                "python_executable": python_executable,
+                "request_id": request_id,
+                **({"version": version} if version is not None else {}),
+            },
             headers=self._headers,
         )
         if response.status_code != 202:
@@ -2122,11 +2149,17 @@ class Client:
         self,
         python_executable: Optional[str] = None,
         request_id: Optional[str] = None,
+        *,
+        version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Replace the distributed Supervisor process while models remain running."""
         response = self.session.post(
             f"{self.base_url}/v1/supervisor/relaunch",
-            json={"python_executable": python_executable, "request_id": request_id},
+            json={
+                "python_executable": python_executable,
+                "request_id": request_id,
+                **({"version": version} if version is not None else {}),
+            },
             headers=self._headers,
         )
         if response.status_code != 202:
@@ -2161,11 +2194,17 @@ class Client:
         worker_address: str,
         python_executable: Optional[str] = None,
         request_id: Optional[str] = None,
+        *,
+        version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Relaunch a Worker and return its asynchronous operation status."""
         response = self.session.post(
             f"{self.base_url}/v1/workers/{quote(worker_address, safe='')}/relaunch",
-            json={"python_executable": python_executable, "request_id": request_id},
+            json={
+                "python_executable": python_executable,
+                "request_id": request_id,
+                **({"version": version} if version is not None else {}),
+            },
             headers=self._headers,
         )
         if response.status_code != 202:

@@ -1381,6 +1381,8 @@ const en = {
   },
   clusterInfo: {
     serviceRelaunch: {
+      installing: 'Installing Xinference',
+      migrating: 'Running migrations',
       api: {
         name: 'API service',
         title: 'Restart / upgrade API',
@@ -1411,6 +1413,19 @@ const en = {
       retry: 'Retry status query',
     },
     relaunch: {
+      packageUpdate: 'Xinference update',
+      checkUpdates: 'Check for updates',
+      checking: 'Checking…',
+      installHint:
+        'Install Xinference into a separate environment on this component’s machine. Models keep their current environments.',
+      upToDate: 'Up to date',
+      useCurrent: 'Use current environment',
+      selectUpdate: 'Use this update',
+      installSelected: 'A separate environment will be prepared before switching.',
+      installUpgrade: 'Install and upgrade',
+      installLog: 'Installation output',
+      installing: 'Installing Xinference',
+      migrating: 'Running migrations',
       title: 'Restart / upgrade Worker',
       description: 'Model processes and ongoing inference keep running during the restart.',
       python: 'Python executable (optional)',

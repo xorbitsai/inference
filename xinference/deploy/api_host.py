@@ -145,11 +145,10 @@ async def host_request(command: str, **options: Any) -> Any:
             + b"\n"
         )
         await writer.drain()
-        result = json.loads(
-            await asyncio.wait_for(
-                reader.readline(), None if command == "settings" else 5
-            )
-        )
+        timeout: Optional[float] = 90 if command.endswith("updates") else 5
+        if command == "settings":
+            timeout = None
+        result = json.loads(await asyncio.wait_for(reader.readline(), timeout))
         if "error" in result:
             error_type = {"ValueError": ValueError, "KeyError": KeyError}.get(
                 result.get("type"), RuntimeError
@@ -276,7 +275,24 @@ class APIHost:
                         child.draining.set()
                 return
             command = request.get("command")
-            if command in {"supervisor-relaunch", "supervisor-get", "supervisor-list"}:
+            if command in {"updates", "supervisor-updates"}:
+                from .upgrade import check_update
+
+                host = self if command == "updates" else self.supervisor_host
+                if host is None or host.active is None:
+                    raise RuntimeError("Component is not hosted or not ready")
+                environment = {
+                    **host.active.environment,
+                    "PIP_INDEX_URL": self.settings_store.get().pip_index_url,
+                }
+                result = await check_update(
+                    host.active.executable, host.active.version, environment
+                )
+            elif command in {
+                "supervisor-relaunch",
+                "supervisor-get",
+                "supervisor-list",
+            }:
                 if self.supervisor_host is None:
                     raise RuntimeError(
                         "Supervisor relaunch requires a hosted Supervisor"
@@ -284,7 +300,9 @@ class APIHost:
                 result = self.supervisor_host.handle(command, request)
             elif command == "relaunch":
                 result = self.create(
-                    request.get("python_executable"), request.get("request_id")
+                    request.get("python_executable"),
+                    request.get("request_id"),
+                    request.get("version"),
                 )
             elif command == "get":
                 result = copy.deepcopy(self.operations[request["operation_id"]])
@@ -352,12 +370,18 @@ class APIHost:
         self.children[identity] = child
         return child
 
-    def create(self, executable=None, request_id=None) -> Dict[str, Any]:
+    def create(self, executable=None, request_id=None, version=None) -> Dict[str, Any]:
+        from .upgrade import validate_upgrade
+
         validate_relaunch_options(executable, request_id)
+        validate_upgrade(version, executable)
         if request_id is not None:
             for operation in self.operations.values():
                 if operation["request_id"] == request_id:
-                    if operation["requested_executable"] != executable:
+                    if (
+                        operation["requested_executable"],
+                        operation.get("requested_version"),
+                    ) != (executable, version):
                         raise RuntimeError(
                             "request_id already names a different API relaunch"
                         )
@@ -376,6 +400,7 @@ class APIHost:
             "operation_id": identity,
             "request_id": request_id,
             "requested_executable": executable,
+            "requested_version": version,
             "python_executable": executable or self.active.executable,
             "source_pid": self.active.process.pid,
             "source_version": self.active.version,
@@ -392,7 +417,26 @@ class APIHost:
         activated = False
         try:
             environment = source.environment
-            if operation["requested_executable"] is not None:
+            if operation.get("requested_version") is not None:
+                from .upgrade import prepare_upgrade
+
+                if source.version is None:
+                    raise RuntimeError("Running API version is unavailable")
+                operation["python_executable"] = await prepare_upgrade(
+                    operation["requested_version"],
+                    "api",
+                    source.executable,
+                    source.version,
+                    {
+                        **environment,
+                        "PIP_INDEX_URL": self.settings_store.get().pip_index_url,
+                    },
+                    lambda **fields: operation.update(fields),
+                )
+            if (
+                operation["requested_executable"] is not None
+                or operation.get("requested_version") is not None
+            ):
                 from ..core.utils import build_subpool_envs_for_python
 
                 environment = build_subpool_envs_for_python(

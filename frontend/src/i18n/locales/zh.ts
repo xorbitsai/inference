@@ -1324,6 +1324,8 @@ const zh = {
   },
   clusterInfo: {
     serviceRelaunch: {
+      installing: '正在安装 Xinference',
+      migrating: '正在运行迁移',
       api: {
         name: 'API 服务',
         title: '重启 / 升级 API',
@@ -1350,6 +1352,18 @@ const zh = {
       retry: '重试查询状态',
     },
     relaunch: {
+      packageUpdate: 'Xinference 更新',
+      checkUpdates: '检查更新',
+      checking: '检查中…',
+      installHint: '在此组件所在机器上创建独立环境并安装 Xinference。模型继续使用当前环境。',
+      upToDate: '已是最新版本',
+      useCurrent: '使用当前环境',
+      selectUpdate: '使用此更新',
+      installSelected: '先准备独立环境，就绪后再切换。',
+      installUpgrade: '安装并升级',
+      installLog: '安装输出',
+      installing: '正在安装 Xinference',
+      migrating: '正在运行迁移',
       title: '重启 / 升级 Worker',
       description: '重启期间，模型进程和正在执行的推理继续运行。',
       python: 'Python 可执行文件（可选）',

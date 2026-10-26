@@ -20,6 +20,7 @@ import copy
 import json
 import math
 import os
+import sys
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
@@ -539,12 +540,22 @@ class WorkerHandoffMixin:
                 WorkerHandoffCoordinator(self).run(source, timeout)
             )
 
-    async def launch_worker_replacement(self, operation_id, python_executable=None):
+    async def check_package_update(self):
+        from .. import __version__
+        from ..deploy.upgrade import check_update
+
+        return await check_update(sys.executable, __version__, dict(os.environ))
+
+    async def launch_worker_replacement(
+        self, operation_id, python_executable=None, version=None
+    ):
         from .worker_relaunch import WorkerRelaunchLauncher
 
         if self._relaunch_launcher is None:
             self._relaunch_launcher = WorkerRelaunchLauncher(self)
         try:
+            if version is not None:
+                return await self._relaunch_launcher.prepare(operation_id, version)
             return await finish_before_cancelling(
                 self._relaunch_launcher.launch(operation_id, python_executable)
             )
@@ -565,6 +576,8 @@ class WorkerHandoffMixin:
         return self._relaunch_launcher.state(operation_id)
 
     def worker_relaunch_state(self, operation_id):
+        from .. import __version__
+
         if self._relaunch_operation_id != operation_id:
             raise ValueError("Worker relaunch operation changed")
         state = self._incoming_handoff or {}
@@ -572,6 +585,7 @@ class WorkerHandoffMixin:
             "status": "succeeded" if state.get("done") else "transferring",
             "incarnation": self._incarnation,
             "pid": os.getpid(),
+            "version": __version__,
         }
 
 

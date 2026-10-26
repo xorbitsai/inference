@@ -58,6 +58,23 @@ async def test_request_id_cannot_be_reused_for_another_target(tmp_path, monkeypa
 
 
 @pytest.mark.asyncio
+async def test_package_version_survives_journal_and_cannot_change_on_retry(
+    tmp_path, monkeypatch
+):
+    manager = manager_at(tmp_path, monkeypatch)
+    original = await manager.create("old", request_id="click", version="4.2.0")
+    assert await manager.create("old", request_id="click", version="4.2.0") == original
+    restored = WorkerRelaunchManager(manager.supervisor, manager.path)
+    assert restored.get(original["operation_id"])["requested_version"] == "4.2.0"
+    with pytest.raises(RuntimeError, match="request_id"):
+        await manager.create("old", request_id="click", version="4.3.0")
+    manager.update(original["operation_id"], status="succeeded")
+    manager.supervisor._worker_address_to_worker.clear()
+    with pytest.raises(ValueError, match="not registered"):
+        await manager.create("old", version="4.3.0")
+
+
+@pytest.mark.asyncio
 async def test_older_worker_is_rejected_before_creating_job(tmp_path, monkeypatch):
     manager = manager_at(tmp_path, monkeypatch)
     manager.supervisor._worker_address_to_worker[

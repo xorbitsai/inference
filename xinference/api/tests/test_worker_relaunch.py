@@ -76,6 +76,7 @@ def test_worker_relaunch_routes_require_admin_scope(authenticated):
     }
     for path in (
         "/v1/workers/{worker_address}/relaunch",
+        "/v1/workers/{worker_address}/updates",
         "/v1/worker-relaunches",
         "/v1/worker-relaunches/{operation_id}",
     ):

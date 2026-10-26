@@ -57,8 +57,10 @@ beforeEach(() => {
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
-  request.get = (async () => {
+  request.get = (async (url: string) => {
     calls++;
+    if (url.endsWith('/updates'))
+      return { current_version: '4.1.0', latest_version: '4.2.0', update_available: true };
     return jobs;
   }) as typeof request.get;
   request.post = (async (url: string, body: Record<string, string>) => {
@@ -169,6 +171,21 @@ it('restarts in the current environment without sending a Python override', asyn
   await act(async () => submit().click());
   assert.equal(posts.length, 1);
   assert.ok(posts[0].body.request_id);
+  assert.equal('python_executable' in posts[0].body, false);
+  assert.equal(closed, 1);
+});
+
+it('installs the detected Worker update without a prepared environment path', async () => {
+  await act(async () =>
+    root.render(
+      <WorkerRelaunchDialog address="[::1]:9999" onClose={() => closed++} onStarted={() => {}} />
+    )
+  );
+  await act(async () => submit('checkUpdates').click());
+  await act(async () => submit('selectUpdate').click());
+  await act(async () => submit('installUpgrade').click());
+  assert.equal(posts[0].url, '/v1/workers/%5B%3A%3A1%5D%3A9999/relaunch');
+  assert.equal(posts[0].body.version, '4.2.0');
   assert.equal('python_executable' in posts[0].body, false);
   assert.equal(closed, 1);
 });

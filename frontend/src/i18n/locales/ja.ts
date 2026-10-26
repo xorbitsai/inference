@@ -1199,6 +1199,8 @@ const ja = {
   },
   clusterInfo: {
     serviceRelaunch: {
+      installing: 'Xinference をインストール中',
+      migrating: '移行を実行中',
       api: {
         name: 'API サービス',
         title: 'API の再起動 / アップグレード',
@@ -1229,6 +1231,19 @@ const ja = {
       retry: '状態の取得を再試行',
     },
     relaunch: {
+      packageUpdate: 'Xinference の更新',
+      checkUpdates: '更新を確認',
+      checking: '確認中…',
+      installHint:
+        'このコンポーネントのマシン上で独立した環境に Xinference をインストールします。モデルは現在の環境を使用し続けます。',
+      upToDate: '最新です',
+      useCurrent: '現在の環境を使用',
+      selectUpdate: 'この更新を使用',
+      installSelected: '切り替え前に独立した環境を準備します。',
+      installUpgrade: 'インストールして更新',
+      installLog: 'インストール出力',
+      installing: 'Xinference をインストール中',
+      migrating: '移行を実行中',
       title: 'Worker の再起動 / 更新',
       description: '再起動中もモデルプロセスと実行中の推論は稼働を続けます。',
       python: 'Python 実行ファイル（省略可）',

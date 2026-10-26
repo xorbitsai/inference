@@ -11,8 +11,19 @@ export interface WorkerRelaunchOperation {
   operation_id: string;
   source_worker: string;
   target_worker?: string;
-  status: 'starting' | 'transferring' | 'pending' | 'succeeded' | 'failed';
+  status:
+    | 'installing'
+    | 'migrating'
+    | 'starting'
+    | 'transferring'
+    | 'pending'
+    | 'succeeded'
+    | 'failed';
   error?: string;
+  log?: string;
+  requested_version?: string;
+  source_version?: string;
+  target_version?: string;
 }
 
 function relaunchError(error: unknown): string {
@@ -82,6 +93,7 @@ export function WorkerRelaunchDialog({
 }) {
   const { t } = useI18n();
   const [python, setPython] = useState('');
+  const [version, setVersion] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const requestId = useRef('');
@@ -89,6 +101,7 @@ export function WorkerRelaunchDialog({
     requestId.current =
       crypto.randomUUID?.() ?? `worker-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setPython('');
+    setVersion('');
     setError('');
   }, [address]);
   const submit = async () => {
@@ -101,6 +114,7 @@ export function WorkerRelaunchDialog({
         {
           request_id: requestId.current,
           ...(python.trim() ? { python_executable: python.trim() } : {}),
+          ...(version ? { version } : {}),
         },
         { suppressGlobalError: true }
       );
@@ -124,6 +138,9 @@ export function WorkerRelaunchDialog({
       target={address}
       python={python}
       onPythonChange={setPython}
+      updatesUrl={`/v1/workers/${encodeURIComponent(address || '')}/updates`}
+      version={version}
+      onVersionChange={setVersion}
       environmentHint={t('clusterInfo.relaunch.environmentHint')}
       busy={busy}
       error={error}
@@ -156,8 +173,22 @@ export function WorkerRelaunchHistory({
             {job.target_worker ? ` → ${job.target_worker}` : ''}
           </p>
           <p role="status">{t(`clusterInfo.relaunch.${job.status}`)}</p>
+          {job.requested_version && (
+            <p>
+              {job.source_version ? `${job.source_version} → ` : ''}
+              {job.target_version || job.requested_version}
+            </p>
+          )}
           {job.status === 'pending' && <p>{t('clusterInfo.relaunch.pendingHint')}</p>}
           {job.error && <p className="text-destructive">{job.error}</p>}
+          {job.log && (
+            <details>
+              <summary className="cursor-pointer">{t('clusterInfo.relaunch.installLog')}</summary>
+              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">
+                {job.log}
+              </pre>
+            </details>
+          )}
         </div>
       ))}
     </div>

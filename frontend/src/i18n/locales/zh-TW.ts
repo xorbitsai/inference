@@ -1173,6 +1173,8 @@ const zhTW = {
   },
   clusterInfo: {
     serviceRelaunch: {
+      installing: '正在安裝 Xinference',
+      migrating: '正在執行遷移',
       api: {
         name: 'API 服務',
         title: '重新啟動 / 升級 API',
@@ -1199,6 +1201,18 @@ const zhTW = {
       retry: '重試查詢狀態',
     },
     relaunch: {
+      packageUpdate: 'Xinference 更新',
+      checkUpdates: '檢查更新',
+      checking: '檢查中…',
+      installHint: '在此元件所在機器上建立獨立環境並安裝 Xinference。模型繼續使用目前環境。',
+      upToDate: '已是最新版本',
+      useCurrent: '使用目前環境',
+      selectUpdate: '使用此更新',
+      installSelected: '先準備獨立環境，就緒後再切換。',
+      installUpgrade: '安裝並升級',
+      installLog: '安裝輸出',
+      installing: '正在安裝 Xinference',
+      migrating: '正在執行遷移',
       title: '重新啟動 / 升級 Worker',
       description: '重新啟動期間，模型程序和執行中的推論持續運作。',
       python: 'Python 執行檔（選填）',

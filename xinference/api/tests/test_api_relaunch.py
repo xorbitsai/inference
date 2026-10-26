@@ -31,7 +31,15 @@ def endpoint(monkeypatch, request):
 
 @pytest.mark.parametrize(
     "body",
-    [[], {"unexpected": 1}, {"python_executable": "python"}, {"request_id": True}],
+    [
+        [],
+        {"unexpected": 1},
+        {"python_executable": "python"},
+        {"request_id": True},
+        {"version": True},
+        {"version": "4.2rc1"},
+        {"version": "4.2", "python_executable": "/python"},
+    ],
 )
 def test_invalid_api_relaunch_does_not_execute_host_command(endpoint, body):
     client, call, component = endpoint
@@ -56,6 +64,22 @@ def test_operation_routes_and_errors(endpoint):
         "API relaunch requires a hosted xinference-local or xinference-supervisor service"
     )
     assert client.post(f"/v1/{component}/relaunch").status_code == 409
+
+
+def test_package_update_uses_component_host_and_existing_operation_routes(endpoint):
+    client, call, component = endpoint
+    assert client.get(f"/v1/{component}/updates").status_code == 200
+    call.assert_called_once_with(
+        "updates" if component == "api" else "supervisor-updates"
+    )
+    call.reset_mock()
+    assert (
+        client.post(f"/v1/{component}/relaunch", json={"version": "4.2.0"}).status_code
+        == 202
+    )
+    call.assert_called_once_with(
+        "relaunch" if component == "api" else "supervisor-relaunch", version="4.2.0"
+    )
 
 
 @pytest.mark.parametrize("component", ["api", "supervisor"])
@@ -83,6 +107,7 @@ def test_every_route_requires_an_administrator_session(
     app.include_router(api._router)
     client = TestClient(app, headers={"Authorization": "Bearer " + token})
     for method, path in [
+        ("GET", f"/v1/{component}/updates"),
         ("POST", f"/v1/{component}/relaunch"),
         ("GET", f"/v1/{component}-relaunches"),
         ("GET", f"/v1/{component}-relaunches/one"),

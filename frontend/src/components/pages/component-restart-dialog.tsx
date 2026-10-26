@@ -1,6 +1,7 @@
 'use client';
 
-import { type ReactNode, useId } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
+import { isAxiosError } from 'axios';
 import { AlertCircle, ArrowUpRight, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +14,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useI18n } from '@/contexts/i18n-context';
+import request from '@/lib/request';
+
+interface UpdateInfo {
+  current_version: string;
+  latest_version: string;
+  update_available: boolean;
+}
 
 interface ComponentRestartDialogProps {
   open: boolean;
@@ -23,6 +31,9 @@ interface ComponentRestartDialogProps {
   target?: string | null;
   python: string;
   onPythonChange: (value: string) => void;
+  updatesUrl: string;
+  version: string;
+  onVersionChange: (value: string) => void;
   environmentHint: string;
   busy: boolean;
   canSubmit?: boolean;
@@ -40,6 +51,9 @@ export function ComponentRestartDialog({
   target,
   python,
   onPythonChange,
+  updatesUrl,
+  version,
+  onVersionChange,
   environmentHint,
   busy,
   canSubmit = true,
@@ -51,6 +65,43 @@ export function ComponentRestartDialog({
   const formId = useId();
   const prefix = 'clusterInfo.relaunch';
   const changingEnvironment = Boolean(python.trim());
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState('');
+  const checks = useRef({ revision: 0 });
+  useEffect(() => {
+    const current = checks.current;
+    current.revision++;
+    setUpdate(null);
+    setChecking(false);
+    setCheckError('');
+    return () => {
+      current.revision++;
+    };
+  }, [open, updatesUrl]);
+
+  const check = async () => {
+    const id = ++checks.current.revision;
+    setChecking(true);
+    setCheckError('');
+    try {
+      const info = await request.get<UpdateInfo>(updatesUrl, {
+        suppressGlobalError: true,
+        timeout: 90000,
+      });
+      if (id !== checks.current.revision) return;
+      setUpdate(info);
+    } catch (err) {
+      if (id === checks.current.revision) {
+        const detail = isAxiosError(err) ? err.response?.data?.detail : undefined;
+        setCheckError(
+          typeof detail === 'string' ? detail : err instanceof Error ? err.message : String(err)
+        );
+      }
+    } finally {
+      if (id === checks.current.revision) setChecking(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,10 +133,58 @@ export function ComponentRestartDialog({
             void onSubmit();
           }}
         >
+          <div className="space-y-3 rounded-xl border p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium">{t(`${prefix}.packageUpdate`)}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void check()}
+                disabled={busy || checking}
+              >
+                {checking && <Loader2 className="size-4 animate-spin" />}
+                {t(`${prefix}.${checking ? 'checking' : 'checkUpdates'}`)}
+              </Button>
+            </div>
+            <p className="text-xs leading-5 text-muted-foreground">{t(`${prefix}.installHint`)}</p>
+            {update && (
+              <div
+                className="flex flex-wrap items-center justify-between gap-2 text-sm"
+                role="status"
+              >
+                <span>
+                  {update.current_version}
+                  {update.update_available
+                    ? ` → ${update.latest_version}`
+                    : ` · ${t(`${prefix}.upToDate`)}`}
+                </span>
+                {update.update_available && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={version ? 'secondary' : 'outline'}
+                    disabled={busy}
+                    onClick={() => {
+                      onPythonChange('');
+                      onVersionChange(version ? '' : update.latest_version);
+                    }}
+                  >
+                    {t(`${prefix}.${version ? 'useCurrent' : 'selectUpdate'}`)}
+                  </Button>
+                )}
+              </div>
+            )}
+            {checkError && (
+              <p role="alert" className="break-words text-sm text-destructive">
+                {checkError}
+              </p>
+            )}
+          </div>
           <div className="overflow-hidden rounded-xl border">
             <div className="flex items-start gap-3 bg-muted/30 p-4">
               <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                {changingEnvironment ? (
+                {changingEnvironment || version ? (
                   <ArrowUpRight className="size-4" />
                 ) : (
                   <Check className="size-4" />
@@ -93,15 +192,19 @@ export function ComponentRestartDialog({
               </div>
               <div className="min-w-0 space-y-1">
                 <p className="text-sm font-medium">
-                  {t(
-                    `${prefix}.${changingEnvironment ? 'preparedEnvironment' : 'currentEnvironment'}`
-                  )}
+                  {version
+                    ? `Xinference ${version}`
+                    : t(
+                        `${prefix}.${changingEnvironment ? 'preparedEnvironment' : 'currentEnvironment'}`
+                      )}
                 </p>
                 <p
                   className="truncate text-xs leading-5 text-muted-foreground"
                   title={changingEnvironment ? python.trim() : undefined}
                 >
-                  {python.trim() || t(`${prefix}.currentEnvironmentHint`)}
+                  {version
+                    ? t(`${prefix}.installSelected`)
+                    : python.trim() || t(`${prefix}.currentEnvironmentHint`)}
                 </p>
               </div>
             </div>
@@ -120,7 +223,10 @@ export function ComponentRestartDialog({
                   className="font-mono text-xs"
                   value={python}
                   disabled={busy}
-                  onChange={(event) => onPythonChange(event.target.value)}
+                  onChange={(event) => {
+                    onVersionChange('');
+                    onPythonChange(event.target.value);
+                  }}
                   placeholder="/opt/xinference/bin/python"
                 />
                 <p className="text-xs leading-5 text-muted-foreground">{environmentHint}</p>
@@ -143,7 +249,9 @@ export function ComponentRestartDialog({
           </Button>
           <Button type="submit" form={formId} disabled={busy || !canSubmit}>
             {busy && <Loader2 className="size-4 animate-spin" />}
-            {t(`${prefix}.${busy ? 'submitting' : changingEnvironment ? 'upgrade' : 'restart'}`)}
+            {t(
+              `${prefix}.${busy ? 'submitting' : version ? 'installUpgrade' : changingEnvironment ? 'upgrade' : 'restart'}`
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

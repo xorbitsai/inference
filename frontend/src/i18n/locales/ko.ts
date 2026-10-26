@@ -1191,6 +1191,8 @@ const ko = {
   },
   clusterInfo: {
     serviceRelaunch: {
+      installing: 'Xinference 설치 중',
+      migrating: '마이그레이션 실행 중',
       api: {
         name: 'API 서비스',
         title: 'API 재시작 / 업그레이드',
@@ -1219,6 +1221,19 @@ const ko = {
       retry: '상태 조회 재시도',
     },
     relaunch: {
+      packageUpdate: 'Xinference 업데이트',
+      checkUpdates: '업데이트 확인',
+      checking: '확인 중…',
+      installHint:
+        '이 구성 요소의 머신에서 별도 환경에 Xinference를 설치합니다. 모델은 현재 환경을 계속 사용합니다.',
+      upToDate: '최신 버전입니다',
+      useCurrent: '현재 환경 사용',
+      selectUpdate: '이 업데이트 사용',
+      installSelected: '전환 전에 별도 환경을 준비합니다.',
+      installUpgrade: '설치 및 업그레이드',
+      installLog: '설치 출력',
+      installing: 'Xinference 설치 중',
+      migrating: '마이그레이션 실행 중',
       title: 'Worker 재시작 / 업그레이드',
       description: '재시작 중에도 모델 프로세스와 진행 중인 추론은 계속 실행됩니다.',
       python: 'Python 실행 파일 (선택 사항)',

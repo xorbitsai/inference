@@ -17,12 +17,21 @@ type Service = 'api' | 'supervisor';
 export interface ServiceRelaunchOperation {
   operation_id: string;
   request_id?: string;
-  status: 'starting' | 'preparing' | 'switching' | 'draining' | 'succeeded' | 'failed';
+  status:
+    | 'installing'
+    | 'migrating'
+    | 'starting'
+    | 'preparing'
+    | 'switching'
+    | 'draining'
+    | 'succeeded'
+    | 'failed';
   created_at: number;
   source_version?: string;
   target_version?: string;
   python_executable?: string;
   error?: string;
+  log?: string;
 }
 
 const SERVICES = {
@@ -107,6 +116,7 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
   const state = useServiceRelaunches(service);
   const [open, setOpen] = useState(false);
   const [python, setPython] = useState('');
+  const [version, setVersion] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -117,6 +127,7 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
     requestId.current =
       crypto.randomUUID?.() ?? `${service}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setPython('');
+    setVersion('');
     setSubmitError('');
   }, [open, service]);
   useEffect(() => {
@@ -134,6 +145,7 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
         {
           request_id: requestId.current,
           ...(python.trim() ? { python_executable: python.trim() } : {}),
+          ...(version ? { version } : {}),
         },
         { suppressGlobalError: true }
       );
@@ -204,6 +216,16 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
                     <p className="break-all text-muted-foreground">{job.python_executable}</p>
                   )}
                   {job.error && <p className="break-words text-destructive">{job.error}</p>}
+                  {job.log && (
+                    <details>
+                      <summary className="cursor-pointer">
+                        {t('clusterInfo.relaunch.installLog')}
+                      </summary>
+                      <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">
+                        {job.log}
+                      </pre>
+                    </details>
+                  )}
                 </div>
               ))}
           </div>
@@ -219,6 +241,9 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
         icon={service === 'api' ? <Globe /> : <Network />}
         python={python}
         onPythonChange={setPython}
+        updatesUrl={`/v1/${service}/updates`}
+        version={version}
+        onVersionChange={setVersion}
         environmentHint={t(`${prefix}.environmentHint`)}
         busy={submitting}
         canSubmit={state.canStart}
