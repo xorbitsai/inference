@@ -135,6 +135,9 @@ else:
         for pid, created in identities.items():
             try:
                 proc = psutil.Process(pid)
+                if os.name == "nt" and proc.create_time() == created:
+                    # Closing the host's job starts asynchronous child cleanup.
+                    proc.wait(timeout=5)
                 assert (
                     proc.create_time() != created
                     or proc.status() == psutil.STATUS_ZOMBIE
@@ -210,7 +213,7 @@ else:
                 "python:3.12-slim",
                 "sh",
                 "-c",
-                "pip install --disable-pip-version-check psutil 'xoscar>=0.12.1' && exec python -m xinference.deploy.worker_host python /evidence/worker.py",
+                "pip install --disable-pip-version-check psutil 'xoscar>=0.12.2' && exec python -m xinference.deploy.worker_host python /evidence/worker.py",
             ],
             check=True,
             timeout=300,

@@ -22,7 +22,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
 from ..core.system_settings_store import SystemSettingsStore
 from ..core.worker_relaunch import validate_relaunch_options
-from .process_host import pipe_bytes_available, shutdown_signals, start_process
+from .process_host import (
+    pipe_bytes_available,
+    run_api_loop,
+    shutdown_signals,
+    start_process,
+)
 
 if TYPE_CHECKING:
     from .supervisor_host import SupervisorHost
@@ -539,4 +544,4 @@ def run(configuration: Dict[str, Any], host_class=APIHost) -> None:
         with shutdown_signals(stop):
             await host.run(stopping)
 
-    asyncio.run(serve())
+    run_api_loop(serve())

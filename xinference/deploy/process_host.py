@@ -11,7 +11,7 @@ import socket
 import subprocess
 import sys
 from pathlib import Path
-from typing import Callable, List, Mapping, Optional, Tuple, cast
+from typing import Any, Callable, Coroutine, List, Mapping, Optional, Tuple, cast
 
 
 def python_process_environment(
@@ -98,6 +98,22 @@ def inherited_listener(fd: int) -> socket.socket:
     if sys.platform == "win32":
         return socket.fromshare(base64.b64decode(sys.stdin.buffer.readline()))
     return socket.socket(fileno=fd)
+
+
+def run_api_loop(coroutine: Coroutine[Any, Any, Any]) -> Any:
+    # Windows cannot associate the shared listener with two different IOCPs.
+    # Match Uvicorn's multiprocess mode by using a selector for hosted APIs.
+    if sys.platform != "win32":
+        return asyncio.run(coroutine)
+    if sys.version_info >= (3, 11):
+        with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+            return runner.run(coroutine)
+    policy = asyncio.get_event_loop_policy()
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    try:
+        return asyncio.run(coroutine)
+    finally:
+        asyncio.set_event_loop_policy(policy)
 
 
 def pipe_bytes_available(source) -> int:

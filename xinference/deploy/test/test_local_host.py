@@ -561,7 +561,7 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
                 else None
             )
         )
-        assert result["status"] == "succeeded", result
+        assert result["status"] == "succeeded", json.dumps(result, indent=2)
         if result.get("target_pid"):
             seen.add(result["target_pid"])
         return result
@@ -665,6 +665,9 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
                     for child in psutil.Process(process.pid).children(recursive=True)
                 )
             )
+        except BaseException:
+            print((tmp_path / "service.log").read_text()[-12000:], file=sys.stderr)
+            raise
         finally:
             stop_polling.set()
             (tmp_path / "release").touch()

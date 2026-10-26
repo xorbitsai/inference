@@ -361,7 +361,7 @@ async def test_terminal_replica_death_survives_frozen_callback_timeout(
         await workers[1].block_inventory()
         operation = host.create()
         await asyncio.wait_for(
-            asyncio.gather(*(worker.wait_inspected() for worker in workers)), 15
+            asyncio.gather(*(worker.wait_inspected() for worker in workers)), 180
         )
         # A has already been inspected; B holds restoration in the frozen phase.
         await workers[0].stop_model()

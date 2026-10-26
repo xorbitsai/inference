@@ -157,8 +157,8 @@ def test_replacement_persists_to_original_service_recovery_path(tmp_path, monkey
 
     monkeypatch.setattr(module, "XINFERENCE_HOME", str(tmp_path))
     fresh = SimpleNamespace(_recovery_address=None, address="host:1000")
-    assert module.WorkerActor._get_recovery_file_path(fresh).endswith(
-        "host_1000/models.json"
+    assert module.WorkerActor._get_recovery_file_path(fresh) == str(
+        tmp_path / "worker_recovery" / "host_1000" / "models.json"
     )
     worker = module.WorkerActor.__new__(module.WorkerActor)
     worker._recovery_address = "host:1000"

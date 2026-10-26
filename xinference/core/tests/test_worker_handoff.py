@@ -1191,7 +1191,16 @@ async def test_abort_rpc_failure_restores_admission_and_allows_new_handoff(
             await asyncio.sleep(0.02)
         assert await old.inspect_phase() == "active"
         await old.install_model("second-rep0")
-    assert pools[0]._actors[supervisor.uid]._ownership_registry().pending
+    registry = pools[0]._actors[supervisor.uid]._ownership_registry()
+    assert registry.pending
+
+    async def reservation_expired():
+        # The Supervisor starts its lease after the Worker's local timer.
+        # Admission can resume before that independently timed lease expires.
+        while registry.protected(old.address):
+            await asyncio.sleep(0.01)
+
+    await asyncio.wait_for(reservation_expired(), 5)
     assert await new.replace_worker(old.address)
 
 

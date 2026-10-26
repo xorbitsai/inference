@@ -53,7 +53,7 @@ def test_operation_routes_and_errors(endpoint):
     call.side_effect = KeyError("missing")
     assert client.get(f"/v1/{component}-relaunches/missing").status_code == 404
     call.side_effect = RuntimeError(
-        "API relaunch requires a POSIX xinference-local or xinference-supervisor service"
+        "API relaunch requires a hosted xinference-local or xinference-supervisor service"
     )
     assert client.post(f"/v1/{component}/relaunch").status_code == 409
 
@@ -100,6 +100,6 @@ def test_every_route_requires_an_administrator_session(
 async def test_unmanaged_api_cannot_start_a_replacement(monkeypatch):
     monkeypatch.delenv(api_host.API_HOST_ENV, raising=False)
     with pytest.raises(
-        RuntimeError, match="POSIX xinference-local or xinference-supervisor"
+        RuntimeError, match="hosted xinference-local or xinference-supervisor"
     ):
         await api_host.host_request("relaunch")
