@@ -52,6 +52,8 @@ For detailed updates, please visit the corresponding links below.
 +-----------------+--------------------------------------------------------------------------------+
 | Version         | Release Notes                                                                  |
 +=================+================================================================================+
+| v4.1.0          | `View release notes <https://xinference.co/release_notes/v4.1.0.html>`_        |
++-----------------+--------------------------------------------------------------------------------+
 | v4.0.0          | `View release notes <https://xinference.co/release_notes/v4.0.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
 | v3.5.0          | `View release notes <https://xinference.co/release_notes/v3.5.0.html>`_        |
