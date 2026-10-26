@@ -509,6 +509,13 @@ class ChatModelMixin:
             getattr(self.model_family, "model_family", None)
             or self.model_family.model_name
         )
+        thinking_modes = {
+            "baichuan-m2": {True: "on", False: "off"},
+            "minimax-m3": {True: "enabled", False: "disabled"},
+        }.get(family.lower())
+        enable_thinking = kwargs.get("enable_thinking")
+        if thinking_modes is not None and isinstance(enable_thinking, bool):
+            kwargs.setdefault("thinking_mode", thinking_modes[enable_thinking])
         if isinstance(
             getattr(self, "tool_parser", None), Glm4ToolParser
         ) and family.lower() in {"glm4-chat", "glm4-chat-1m", "glm4-0414"}:

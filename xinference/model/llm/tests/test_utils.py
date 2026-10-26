@@ -1596,6 +1596,83 @@ def test_chat_template_kwargs_string_normalizes_thinking():
     assert kwargs == {"thinking": True, "enable_thinking": True}
 
 
+@pytest.mark.parametrize("tokenizer_template", [False, True])
+@pytest.mark.parametrize(
+    "model_name,on_mode,off_mode",
+    [("Baichuan-M2", "on", "off"), ("MiniMax-M3", "enabled", "disabled")],
+)
+def test_enable_thinking_renders_native_thinking_mode(
+    model_name: str, on_mode: str, off_mode: str, tokenizer_template: bool
+) -> None:
+    from tokenizers import Tokenizer, models
+    from transformers import PreTrainedTokenizerFast
+
+    from .. import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name)
+    mixin = ChatModelMixin()
+    mixin.model_family = family
+    messages = [{"role": "user", "content": "What is 2 + 2?"}]
+    tokenizer = None
+    if tokenizer_template:
+        tokenizer = PreTrainedTokenizerFast(
+            tokenizer_object=Tokenizer(
+                models.WordLevel({"[UNK]": 0}, unk_token="[UNK]")
+            ),
+            unk_token="[UNK]",
+            chat_template=family.chat_template,
+        )
+
+    def render(**kwargs) -> str:
+        context = (
+            mixin._get_chat_template_kwargs_from_generate_config(
+                {"chat_template_kwargs": kwargs}
+            )
+            or {}
+        )
+        return mixin.get_full_context(
+            messages,
+            None if tokenizer_template else family.chat_template,
+            tokenizer=tokenizer,
+            **context,
+        )
+
+    native_on = render(thinking_mode=on_mode)
+    native_off = render(thinking_mode=off_mode)
+    assert native_on != native_off
+    assert render(enable_thinking=True) == native_on
+    assert render(enable_thinking=False) == native_off
+    assert render(enable_thinking=False, thinking_mode=on_mode) == native_on
+    assert render(enable_thinking=True, thinking_mode=off_mode) == native_off
+    if model_name == "MiniMax-M3":
+        adaptive = render(thinking_mode="adaptive")
+        assert render(enable_thinking=True, thinking_mode="adaptive") == adaptive
+        assert render(enable_thinking=False, thinking_mode="adaptive") == adaptive
+
+
+@pytest.mark.parametrize("enable_thinking", [False, True])
+def test_enable_thinking_preserves_qwen3_template(enable_thinking: bool) -> None:
+    from .. import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen3")
+    chat_template = family.chat_template
+    assert chat_template is not None
+    mixin = ChatModelMixin()
+    mixin.model_family = family
+    messages = [{"role": "user", "content": "What is 2 + 2?"}]
+    prompt = mixin.get_full_context(
+        messages, chat_template, enable_thinking=enable_thinking
+    )
+
+    assert prompt == mixin._build_from_raw_template(
+        messages, chat_template, enable_thinking=enable_thinking
+    )
+    suffix = "<|im_start|>assistant\n"
+    if not enable_thinking:
+        suffix += "<think>\n\n</think>\n\n"
+    assert prompt.endswith(suffix)
+
+
 def test_post_process_completion_chunk_without_thinking():
     mixin = ChatModelMixin()
     mixin.tool_parser = QwenToolParser()
