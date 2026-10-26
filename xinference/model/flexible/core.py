@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import json
 import logging
 from collections import defaultdict
@@ -138,7 +139,9 @@ def create_flexible_model_instance(
     model_path: Optional[str] = None,
     **kwargs,
 ) -> FlexibleModel:
-    model_spec = match_flexible_model(model_name)
+    # Launchers and Worker placement decorate the instance family. Keep the
+    # registered definition stable for later launches and component handoff.
+    model_spec = copy.deepcopy(match_flexible_model(model_name))
     if not model_path:
         model_path = model_spec.model_uri
     launcher_name = model_spec.launcher
