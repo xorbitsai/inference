@@ -392,7 +392,14 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
         )
         try:
             endpoint = f"http://127.0.0.1:{ports[0]}"
-            until(lambda: session.get(endpoint + "/local-test/info", timeout=2).ok)
+
+            def ready():
+                assert process.poll() is None, (tmp_path / "service.log").read_text()[
+                    -12000:
+                ]
+                return session.get(endpoint + "/local-test/info", timeout=2).ok
+
+            until(ready, timeout=180 if sys.platform == "win32" else 60)
             owned = {
                 p.pid: p.create_time()
                 for p in psutil.Process(process.pid).children(recursive=True)
@@ -425,6 +432,9 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
                 -5000:
             ]
             until(lambda: not any(alive(pid) for pid in owned), timeout=5)
+        except BaseException:
+            print((tmp_path / "service.log").read_text()[-12000:], file=sys.stderr)
+            raise
         finally:
             if stream is not None:
                 stream.close()
@@ -516,6 +526,7 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
     stream_started = threading.Event()
 
     def get_info():
+        assert process.poll() is None, (tmp_path / "service.log").read_text()[-12000:]
         response = session.get(endpoint + "/local-test/info", timeout=5)
         response.raise_for_status()
         return response.json()
@@ -604,7 +615,7 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
         )
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
         try:
-            info = until(get_info)
+            info = until(get_info, timeout=180 if sys.platform == "win32" else 60)
             client = Client(endpoint)
             client.session.trust_env = False
             assert client.list_models() == {}
