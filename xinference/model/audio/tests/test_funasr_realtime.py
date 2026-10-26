@@ -825,8 +825,9 @@ async def test_candidate_windows_bound_decode_and_audio(nano, window_ms):
 
 
 @pytest.mark.parametrize("kind", ["partial", "forced_commit", "final"])
+@pytest.mark.parametrize("tied_trace_timestamps", [False, True])
 async def test_nano_native_stage_cancel_has_trace_and_safe_cleanup(
-    nano, monkeypatch, kind
+    nano, monkeypatch, kind, tied_trace_timestamps
 ):
     import threading
 
@@ -834,6 +835,11 @@ async def test_nano_native_stage_cancel_has_trace_and_safe_cleanup(
 
     from ....api.tests.test_realtime_api import serve_gateway
     from ....core.tests.test_realtime_runtime import wait_empty
+
+    if tied_trace_timestamps:
+        from ....core.realtime import telemetry
+
+        monkeypatch.setattr(telemetry, "time", SimpleNamespace(monotonic=lambda: 0.0))
 
     options = {
         "optimize": True,
@@ -880,8 +886,16 @@ async def test_nano_native_stage_cancel_has_trace_and_safe_cleanup(
         summary = service.runtime.recent_summaries[-1]
         starts = [e for e in summary["events"] if e["stage"] == "native_start"]
         assert [e["kind"] for e in starts] == [kind]
-        times = {e["stage"]: e["at_ms"] for e in summary["events"]}
-        assert times["native_start"] < times["cancel_processed"] < times["native_end"]
+        stages = [event["stage"] for event in summary["events"]]
+        # Ordering, not strictly increasing clock readings, proves cancellation
+        # happened during native work, including on coarse Windows clocks.
+        assert (
+            stages.index("native_start")
+            < stages.index("cancel_processed")
+            < stages.index("native_end")
+        )
+        if tied_trace_timestamps:
+            assert {event["at_ms"] for event in summary["events"]} == {0.0}
         assert "识别" not in str(summary)
 
 
