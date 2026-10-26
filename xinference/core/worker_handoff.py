@@ -17,6 +17,7 @@
 import asyncio
 import contextlib
 import copy
+import json
 import math
 import os
 import sys
@@ -53,6 +54,8 @@ class CustomModelState:
     """Carry in-memory registrations without rewriting shared registration files."""
 
     TYPES = ("llm", "embedding", "rerank", "image", "audio", "flexible")
+    # Worker placement decorates model instances, not registered definitions.
+    RUNTIME_FIELDS = {"address", "accelerators"}
 
     @classmethod
     def capture(cls, worker):
@@ -62,7 +65,7 @@ class CustomModelState:
             return {}
         return {
             kind: {
-                model.model_name: model.json()
+                model.model_name: model.json(exclude=cls.RUNTIME_FIELDS)
                 for model in RegistryManager.get_registry(kind).get_custom_models()
             }
             for kind in cls.TYPES
@@ -90,13 +93,18 @@ class CustomModelState:
                     "Custom model catalog changed; restart the prepared replacement"
                 )
             for name, payload in models.items():
-                spec = schema.parse_raw(payload)
+                definition = json.loads(payload)
+                for field in cls.RUNTIME_FIELDS:
+                    definition.pop(field, None)
+                spec = schema.parse_obj(definition)
                 if hasattr(spec, "is_builtin"):
                     spec.is_builtin = False
                 if name != spec.model_name:
                     raise ValueError("Custom model registration identity changed")
                 if name in existing:
-                    if existing[name].dict() != spec.dict():
+                    if existing[name].dict(exclude=cls.RUNTIME_FIELDS) != spec.dict(
+                        exclude=cls.RUNTIME_FIELDS
+                    ):
                         raise ValueError(
                             "Custom model definition differs between workers"
                         )
