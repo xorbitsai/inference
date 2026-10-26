@@ -8,7 +8,6 @@ import json
 import logging.config
 import os
 import signal
-import socket
 import sys
 from pathlib import Path
 
@@ -18,9 +17,15 @@ from uvicorn.lifespan.on import LifespanOn
 
 from .. import __version__
 from ..api.restful_api import RESTfulAPI
+from .process_host import inherited_listener, run_api_loop
 
 
 class HostedServer(Server):
+    def run(self, sockets=None):
+        if sys.platform == "win32":
+            return run_api_loop(self.serve(sockets=sockets))
+        return super().run(sockets=sockets)
+
     def __init__(self, config, api, configuration):
         super().__init__(config)
         self.api = api
@@ -181,7 +186,7 @@ def main():
         # concurrently. Use the auth store's existing authoritative read path.
         api_key_cache_enabled=False,
     )
-    listener = socket.socket(fileno=configuration["listener_fd"])
+    listener = inherited_listener(configuration["listener_fd"])
     api.serve(
         logging_conf=configuration.get("logging_conf"),
         server_factory=lambda config: HostedServer(config, api, configuration),

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# CI: linux
 import asyncio
 import contextlib
 import json
@@ -283,8 +282,6 @@ class HandoffWorker(WorkerActor):
 
 @pytest_asyncio.fixture
 async def runtime(tmp_path):
-    if sys.platform == "win32":
-        pytest.skip("Native ownership transfer requires POSIX")
     pools = [await xo.create_actor_pool("127.0.0.1", n_process=0) for _ in range(3)]
     supervisor = await xo.create_actor(
         HandoffSupervisor,
@@ -307,10 +304,25 @@ async def runtime(tmp_path):
             )
         )
     yield pools, supervisor, workers
+    with contextlib.suppress(xo.ActorNotExist):
+        await xo.destroy_actor(supervisor)
     for pool in reversed(pools):
         with contextlib.suppress(Exception):
             await pool.stop()
     Router.set_instance(None)
+
+
+@pytest.mark.asyncio
+async def test_runtime_teardown_releases_local_supervisor(tmp_path):
+    fixture = runtime.__wrapped__(tmp_path)
+    pools, supervisor, _ = await anext(fixture)
+    supervisor = await xo.actor_ref(address=supervisor.address, uid=supervisor.uid)
+    with pytest.raises(StopAsyncIteration):
+        await anext(fixture)
+    # Keep the stopped pools alive to reproduce a later test reusing an address.
+    assert pools
+    with pytest.raises(xo.ActorNotExist):
+        await supervisor.inspect_workers()
 
 
 @pytest.mark.asyncio
@@ -430,7 +442,7 @@ async def test_old_process_exits_while_direct_call_and_stream_survive(
                     raise RuntimeError("Source worker exited before readiness")
                 await asyncio.sleep(0.05)
 
-        await asyncio.wait_for(wait_ready(), 45)
+        await asyncio.wait_for(wait_ready(), 120 if sys.platform == "win32" else 45)
         data = json.loads(ready.read_text())
         model = await xo.actor_ref(address=data["model"], uid="counter-rep0")
         release = tmp_path / "release"
@@ -658,8 +670,6 @@ asyncio.run(main())
 
 @pytest.mark.asyncio
 async def test_real_worker_registration_heartbeat_and_shutdown(tmp_path):
-    if sys.platform == "win32":
-        pytest.skip("Native ownership transfer requires POSIX")
     env = dict(
         os.environ,
         XINFERENCE_HOME=str(tmp_path),
@@ -676,7 +686,9 @@ async def test_real_worker_registration_heartbeat_and_shutdown(tmp_path):
         stderr=asyncio.subprocess.STDOUT,
     )
     try:
-        output, _ = await asyncio.wait_for(process.communicate(), 60)
+        output, _ = await asyncio.wait_for(
+            process.communicate(), 180 if sys.platform == "win32" else 60
+        )
         assert process.returncode == 0, output.decode()
         line = next(
             line
@@ -709,7 +721,10 @@ async def test_adopted_process_failure_is_recovered_by_new_worker(runtime):
                 return await ref.add(1)
             await asyncio.sleep(0.05)
 
-    value, new_pid, owner = await asyncio.wait_for(recovered(), 15)
+    # A replacement imports the runtime in a fresh Windows process too.
+    value, new_pid, owner = await asyncio.wait_for(
+        recovered(), 60 if sys.platform == "win32" else 15
+    )
     assert value == 1 and new_pid != pid and owner == new.address
 
 
@@ -850,7 +865,7 @@ async def test_model_failure_between_pool_commit_and_binding_repair_recovers(
 
     with monkeypatch.context() as patch:
         patch.setattr(HandoffWorker, "_commit_worker_handoff", lose_process)
-        assert await asyncio.wait_for(complete(), 20)
+        assert await asyncio.wait_for(complete(), 60 if sys.platform == "win32" else 20)
     recovered = await new.get_model("counter-rep0")
     _, recovered_pid, owner = await recovered.add(1)
     assert recovered_pid != original_pid and owner == new.address
@@ -1195,7 +1210,16 @@ async def test_abort_rpc_failure_restores_admission_and_allows_new_handoff(
             await asyncio.sleep(0.02)
         assert await old.inspect_phase() == "active"
         await old.install_model("second-rep0")
-    assert pools[0]._actors[supervisor.uid]._ownership_registry().pending
+    registry = pools[0]._actors[supervisor.uid]._ownership_registry()
+    assert registry.pending
+
+    async def reservation_expired():
+        # The Supervisor starts its lease after the Worker's local timer.
+        # Admission can resume before that independently timed lease expires.
+        while registry.protected(old.address):
+            await asyncio.sleep(0.01)
+
+    await asyncio.wait_for(reservation_expired(), 5)
     assert await new.replace_worker(old.address)
 
 

@@ -20,7 +20,6 @@ import copy
 import json
 import math
 import os
-import sys
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
@@ -253,8 +252,6 @@ class WorkerHandoffMixin:
     async def check_worker_handoff_support(self, timeout=30):
         from .supervisor import SupervisorActor
 
-        if sys.platform == "win32":
-            raise NotImplementedError("Worker handoff currently requires POSIX")
         if os.getpid() == 1:
             raise ValueError(
                 "Worker relaunch requires a container supervisor that outlives the old Worker"

@@ -1,6 +1,5 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-# CI: linux
 
 import asyncio
 import json
@@ -25,7 +24,6 @@ def _source_environment():
     )
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX Worker service host")
 @pytest.mark.parametrize("replacement", [False, True])
 @pytest.mark.parametrize("parent_delay", [0, 0.6])
 def test_worker_failure_reaches_service_manager(tmp_path, replacement, parent_delay):
@@ -59,33 +57,67 @@ else:
             str(parent_delay),
         ],
         env=_source_environment(),
-        timeout=20,
+        timeout=60 if sys.platform == "win32" else 20,
     )
     # Linux adopts grandchildren and preserves their exact exit status. macOS
     # cannot waitpid an orphan, but still reports it as a failed service.
-    assert result.returncode == (1 if replacement and sys.platform == "darwin" else 17)
+    assert result.returncode == (
+        1 if replacement and sys.platform in {"darwin", "win32"} else 17
+    )
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX Worker service host")
-def test_host_survives_original_worker_exit_and_stops_only_owned_descendants(tmp_path):
+@pytest.mark.parametrize("relaunches", [1, 2])
+@pytest.mark.parametrize(
+    "graceful",
+    [
+        False,
+        pytest.param(
+            True,
+            marks=pytest.mark.skipif(os.name != "nt", reason="Windows console stop"),
+        ),
+    ],
+)
+def test_host_survives_original_worker_exit_and_stops_only_owned_descendants(
+    tmp_path, relaunches, graceful
+):
     script = tmp_path / "worker.py"
     script.write_text(
         """
 import asyncio, os, subprocess, sys, time
 from pathlib import Path
+import psutil
 from xinference.deploy.worker_host import register_worker_host
 root = Path(sys.argv[1])
-if len(sys.argv) == 2:
-    child = subprocess.Popen([sys.executable, __file__, str(root), "replacement"])
-    while not (root / "replacement").exists(): time.sleep(.02)
-    (root / "original-exited").write_text(str(os.getpid()))
-else:
+generation, relaunches = map(int, sys.argv[2:])
+parent = psutil.Process(os.getppid())
+if not generation:
+    # Record the model's Python PID, including when a Windows venv redirects it.
+    model = subprocess.Popen([sys.executable, "-c",
+        "import os,sys,time; from pathlib import Path; Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(180)",
+        str(root / "model")])
+    while not (root / "model").exists(): time.sleep(.02)
+if generation:
     asyncio.run(register_worker_host())
-    model = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
-    (root / "replacement").write_text(str(os.getpid()))
-    (root / "model").write_text(str(model.pid))
+if generation < relaunches:
+    if generation:
+        (root / f"registered-{generation}").touch()
+        # Relaunch again only after the original generation has retired.
+        while True:
+            try:
+                if not parent.is_running() or parent.status() == psutil.STATUS_ZOMBIE:
+                    break
+            except psutil.NoSuchProcess:
+                break
+            time.sleep(.02)
+    subprocess.Popen([sys.executable, __file__, str(root), str(generation + 1), str(relaunches)])
+    while not (root / f"registered-{generation + 1}").exists(): time.sleep(.02)
+    if not generation:
+        (root / "original-exited").write_text(str(os.getpid()))
+else:
     (root / "socket").write_text(os.environ["XINFERENCE_WORKER_HOST_SOCKET"])
-    time.sleep(60)
+    (root / "replacement").write_text(str(os.getpid()))
+    (root / f"registered-{generation}").touch()
+    time.sleep(180)
 """
     )
     host = subprocess.Popen(
@@ -96,14 +128,21 @@ else:
             sys.executable,
             str(script),
             str(tmp_path),
+            "0",
+            str(relaunches),
         ],
         env=_source_environment(),
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if graceful else 0,
     )
-    unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(180)"])
     identities = {}
     try:
-        deadline = time.monotonic() + 15
-        while not (tmp_path / "original-exited").exists():
+        deadline = (
+            time.monotonic() + (60 if sys.platform == "win32" else 15) * relaunches
+        )
+        while not all(
+            (tmp_path / name).exists() for name in ("original-exited", "replacement")
+        ):
             assert host.poll() is None
             assert time.monotonic() < deadline
             time.sleep(0.02)
@@ -114,11 +153,15 @@ else:
         assert host.poll() is None
 
         async def outside_registration():
-            reader, writer = await asyncio.open_unix_connection(
-                (tmp_path / "socket").read_text()
+            connection = json.loads((tmp_path / "socket").read_text())
+            reader, writer = await asyncio.open_connection(
+                "127.0.0.1", connection["port"]
             )
             writer.write(
-                json.dumps({"version": 1, "pid": os.getpid()}).encode() + b"\n"
+                json.dumps(
+                    {"version": 1, "pid": os.getpid(), "token": connection["token"]}
+                ).encode()
+                + b"\n"
             )
             await writer.drain()
             assert await reader.readline() == b"error\n"
@@ -126,12 +169,17 @@ else:
             await writer.wait_closed()
 
         asyncio.run(outside_registration())
-        host.send_signal(signal.SIGTERM)
-        host.wait(timeout=10)
+        host.send_signal(signal.CTRL_BREAK_EVENT if graceful else signal.SIGTERM)
+        host.wait(timeout=40 if graceful else 10)
+        if graceful:
+            assert host.returncode == 0
         assert unrelated.poll() is None
         for pid, created in identities.items():
             try:
                 proc = psutil.Process(pid)
+                if os.name == "nt" and proc.create_time() == created:
+                    # Closing the host's job starts asynchronous child cleanup.
+                    proc.wait(timeout=5)
                 assert (
                     proc.create_time() != created
                     or proc.status() == psutil.STATUS_ZOMBIE
@@ -207,7 +255,7 @@ else:
                 "python:3.12-slim",
                 "sh",
                 "-c",
-                "pip install --disable-pip-version-check psutil 'xoscar>=0.12.1' && exec python -m xinference.deploy.worker_host python /evidence/worker.py",
+                "pip install --disable-pip-version-check psutil 'xoscar>=0.12.2' && exec python -m xinference.deploy.worker_host python /evidence/worker.py",
             ],
             check=True,
             timeout=300,

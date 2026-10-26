@@ -1,9 +1,9 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-# CI: linux
 
 import asyncio
 import os
+import sys
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -17,8 +17,6 @@ from ...core.supervisor_upgrade import SupervisorGateway
 from ...core.system_settings_store import SystemSettingsStore
 from ...core.worker import WorkerActor
 from ..supervisor_host import SupervisorHost
-
-pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX process hosting")
 
 
 class Model(xo.StatelessActor):
@@ -163,9 +161,7 @@ class RouterControl(Control):
     "route", ["get_model", "describe_running_model", "resolve_token_router_runtime"]
 )
 async def test_gateway_drains_callbacks_and_queues_new_management(route):
-    pool = await xo.create_actor_pool(
-        address=f"127.0.0.1:{get_next_port()}", n_process=0
-    )
+    pool = await xo.create_actor_pool(address="127.0.0.1", n_process=0)
     try:
         gateway = await xo.create_actor(
             SupervisorGateway, address=pool.external_address
@@ -308,7 +304,9 @@ async def test_router_heartbeats_remain_live_through_long_drain_and_freeze(monke
 
 
 async def completed(host, operation):
-    await asyncio.wait_for(asyncio.shield(host.operation_task), 60)
+    await asyncio.wait_for(
+        asyncio.shield(host.operation_task), 180 if sys.platform == "win32" else 60
+    )
     return host.operations[operation["operation_id"]]
 
 
@@ -330,9 +328,7 @@ async def test_terminal_replica_death_survives_frozen_callback_timeout(
     try:
         workers, models = [], []
         for index in range(2):
-            pool = await xo.create_actor_pool(
-                address=f"127.0.0.1:{get_next_port()}", n_process=0
-            )
+            pool = await xo.create_actor_pool(address="127.0.0.1", n_process=0)
             pools.append(pool)
             model = await xo.create_actor(Model, address=pool.external_address)
             models.append(model)
@@ -364,7 +360,8 @@ async def test_terminal_replica_death_survives_frozen_callback_timeout(
         await workers[1].block_inventory()
         operation = host.create()
         await asyncio.wait_for(
-            asyncio.gather(*(worker.wait_inspected() for worker in workers)), 15
+            asyncio.gather(*(worker.wait_inspected() for worker in workers)),
+            180 if sys.platform == "win32" else 15,
         )
         # A has already been inspected; B holds restoration in the frozen phase.
         await workers[0].stop_model()
@@ -450,7 +447,7 @@ async def test_supervisor_process_replacement_retains_routes(tmp_path, monkeypat
                 == operation["operation_id"]
             )
             with pytest.raises(RuntimeError, match="different Supervisor relaunch"):
-                host.create("/different/python", request_id="first")
+                host.create(str(tmp_path / "different-python"), request_id="first")
             with pytest.raises(RuntimeError, match="already in progress"):
                 host.create(request_id="concurrent")
             result = await completed(host, operation)
@@ -471,7 +468,8 @@ async def test_supervisor_process_replacement_retains_routes(tmp_path, monkeypat
             assert result["status"] == "succeeded", result
             active = host.active
             result = await completed(
-                host, host.create("/missing/python", request_id="bad-python")
+                host,
+                host.create(str(tmp_path / "missing-python"), request_id="bad-python"),
             )
             assert result["status"] == "failed"
             assert host.active is active

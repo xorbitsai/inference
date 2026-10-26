@@ -176,26 +176,6 @@ def test_source_checkout_starts_temp_script_without_inherited_pythonpath(
     )
 
 
-def test_socket_directory_falls_back_to_writable_tempdir(tmp_path, monkeypatch):
-    import tempfile
-
-    from ..local_host import _socket_directory
-
-    original = tempfile.TemporaryDirectory
-
-    def create(*args, **kwargs):
-        if kwargs.get("dir") == "/tmp":
-            raise PermissionError("read-only /tmp")
-        return original(*args, **kwargs)
-
-    monkeypatch.setattr(
-        "xinference.deploy.local_host.tempfile.TemporaryDirectory", create
-    )
-    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
-    with _socket_directory() as directory:
-        assert Path(directory).parent == tmp_path
-
-
 @pytest.mark.skipif(os.name != "posix", reason="POSIX local startup")
 @pytest.mark.parametrize("failure", ["exit", "hang"])
 def test_local_startup_failure_stops_unregistered_cluster_and_children(
@@ -338,8 +318,24 @@ async def test_inline_api_failure_keeps_traceback(caplog):
     assert caplog.records[-1].exc_info[2] is not None
 
 
-@pytest.mark.skipif(os.name != "posix", reason="Local service hosting requires POSIX")
-@pytest.mark.parametrize("stop_mode", ["group-term", "group-int", "double-int"])
+@pytest.mark.parametrize(
+    "stop_mode",
+    [
+        *[
+            pytest.param(
+                mode,
+                marks=pytest.mark.skipif(
+                    os.name != "posix", reason="POSIX process group signals"
+                ),
+            )
+            for mode in ("group-term", "group-int", "double-int")
+        ],
+        pytest.param(
+            "ctrl-break",
+            marks=pytest.mark.skipif(os.name != "nt", reason="Windows console signal"),
+        ),
+    ],
+)
 def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, stop_mode):
     ports = [get_next_port() for _ in range(3)]
     configuration = {
@@ -354,12 +350,13 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
     script.write_text(
         "from pathlib import Path\n"
         "from xinference.deploy.api_host import run\n"
-        "from xinference.deploy.local_host import LocalHost, InlineAPIProcess\n"
-        "original_drain = InlineAPIProcess.terminate\n"
+        "from xinference.deploy.local_host import LocalHost\n"
+        "from xinference.deploy.api_worker import HostedServer\n"
+        "original_drain = HostedServer.begin_drain\n"
         "def drain(process):\n"
         "    original_drain(process)\n"
         f"    Path({str(tmp_path / 'draining')!r}).touch()\n"
-        "InlineAPIProcess.terminate = drain\n"
+        "HostedServer.begin_drain = drain\n"
         "if __name__ == '__main__':\n"
         f"    run({configuration!r}, host_class=LocalHost)\n"
     )
@@ -390,11 +387,19 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
             env=environment,
             stdout=log,
             stderr=subprocess.STDOUT,
-            start_new_session=True,
+            start_new_session=os.name == "posix",
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
         )
         try:
             endpoint = f"http://127.0.0.1:{ports[0]}"
-            until(lambda: session.get(endpoint + "/local-test/info", timeout=2).ok)
+
+            def ready():
+                assert process.poll() is None, (tmp_path / "service.log").read_text()[
+                    -12000:
+                ]
+                return session.get(endpoint + "/local-test/info", timeout=2).ok
+
+            until(ready, timeout=180 if sys.platform == "win32" else 60)
             owned = {
                 p.pid: p.create_time()
                 for p in psutil.Process(process.pid).children(recursive=True)
@@ -415,6 +420,8 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
                     process.poll() is None
                 ), "First interrupt should drain the active stream"
                 process.send_signal(signal.SIGINT)
+            elif stop_mode == "ctrl-break":
+                process.send_signal(signal.CTRL_BREAK_EVENT)
             else:
                 os.killpg(
                     process.pid,
@@ -425,12 +432,18 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
                 -5000:
             ]
             until(lambda: not any(alive(pid) for pid in owned), timeout=5)
+        except BaseException:
+            print((tmp_path / "service.log").read_text()[-12000:], file=sys.stderr)
+            raise
         finally:
             if stream is not None:
                 stream.close()
             session.close()
             if process.poll() is None:
-                os.killpg(process.pid, signal.SIGKILL)
+                if os.name == "nt":
+                    process.kill()
+                else:
+                    os.killpg(process.pid, signal.SIGKILL)
                 process.wait(timeout=5)
             for pid, created in owned.items():
                 try:
@@ -441,7 +454,6 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
                     pass
 
 
-@pytest.mark.skipif(os.name != "posix", reason="Local service hosting requires POSIX")
 @pytest.mark.parametrize("first", ["worker", "supervisor"])
 def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, first):
     from xinference.client import Client
@@ -479,10 +491,16 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
     (tmp_path / "local_extension.py").write_text(EXTENSION)
     script = tmp_path / "start.py"
     script.write_text(
+        "import asyncio\n"
+        "from concurrent.futures import ThreadPoolExecutor\n"
         "from xinference.deploy.api_host import run\n"
         "from xinference.deploy.local_host import LocalHost\n"
+        "class LimitedHost(LocalHost):\n"
+        "    async def run(self, stopping):\n"
+        "        asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=1))\n"
+        "        await super().run(stopping)\n"
         "if __name__ == '__main__':\n"
-        f"    run({configuration!r}, host_class=LocalHost)\n"
+        f"    run({configuration!r}, host_class=LimitedHost)\n"
     )
     source_root = str(Path(__file__).resolve().parents[3])
     environment = {
@@ -508,6 +526,7 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
     stream_started = threading.Event()
 
     def get_info():
+        assert process.poll() is None, (tmp_path / "service.log").read_text()[-12000:]
         response = session.get(endpoint + "/local-test/info", timeout=5)
         response.raise_for_status()
         return response.json()
@@ -582,7 +601,7 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
                 else None
             )
         )
-        assert result["status"] == "succeeded", result
+        assert result["status"] == "succeeded", json.dumps(result, indent=2)
         if result.get("target_pid"):
             seen.add(result["target_pid"])
         return result
@@ -596,7 +615,7 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
         )
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
         try:
-            info = until(get_info)
+            info = until(get_info, timeout=180 if sys.platform == "win32" else 60)
             client = Client(endpoint)
             client.session.trust_env = False
             assert client.list_models() == {}
@@ -617,7 +636,9 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
             assert stream_started.wait(10)
 
             for component in ["api", "supervisor", "worker"]:
-                bad = submit(component, "bad-" + component, "/does/not/exist/python")
+                bad = submit(
+                    component, "bad-" + component, str(tmp_path / "missing-python")
+                )
                 failed = until(
                     lambda: (
                         value
@@ -684,6 +705,9 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
                     for child in psutil.Process(process.pid).children(recursive=True)
                 )
             )
+        except BaseException:
+            print((tmp_path / "service.log").read_text()[-12000:], file=sys.stderr)
+            raise
         finally:
             stop_polling.set()
             (tmp_path / "release").touch()
@@ -697,6 +721,10 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, f
                 process.kill()
                 process.wait(timeout=10)
             executor.shutdown(wait=True)
-        assert process.returncode == 0, (tmp_path / "service.log").read_text()[-5000:]
+        # Windows terminate() stops the host immediately; its Job Object still
+        # closes every retained child. POSIX SIGTERM exits through cleanup.
+        assert process.returncode == (1 if os.name == "nt" else 0), (
+            tmp_path / "service.log"
+        ).read_text()[-5000:]
         assert not failures
         until(lambda: not any(alive(pid) for pid in seen), timeout=10)

@@ -11,12 +11,14 @@ import asyncio
 import contextlib
 import json
 import os
-import signal
+import secrets
 import sys
 import tempfile
 from pathlib import Path
 
 import psutil
+
+from .process_host import shutdown_signals, start_process
 
 HOST_SOCKET = "XINFERENCE_WORKER_HOST_SOCKET"
 HOST_PID = "XINFERENCE_WORKER_HOST_PID"
@@ -26,9 +28,20 @@ async def register_worker_host() -> None:
     address = os.environ.get(HOST_SOCKET)
     if not address:
         return
-    reader, writer = await asyncio.wait_for(asyncio.open_unix_connection(address), 5)
+    # Keep accepting the Unix endpoint inherited from an older POSIX host.
+    connection = json.loads(address) if address.startswith("{") else None
+    if connection is not None:
+        opening = asyncio.open_connection("127.0.0.1", connection["port"])
+    elif sys.platform != "win32":
+        opening = asyncio.open_unix_connection(address)
+    else:
+        raise RuntimeError("Windows Worker hosting requires a TCP endpoint")
+    reader, writer = await asyncio.wait_for(opening, 5)
     try:
-        writer.write(json.dumps({"version": 1, "pid": os.getpid()}).encode() + b"\n")
+        payload = {"version": 1, "pid": os.getpid()}
+        if connection is not None:
+            payload["token"] = connection["token"]
+        writer.write(json.dumps(payload).encode() + b"\n")
         await writer.drain()
         if await asyncio.wait_for(reader.readline(), 5) != b"ok\n":
             raise RuntimeError("Worker service host refused registration")
@@ -52,15 +65,30 @@ class ProcessOwner:
 
     def __init__(self):
         self.process = psutil.Process()
+        self.user = self.process.username() if os.name == "nt" else os.getuid()
         self.workers = {}
         self.descendants = {}
+        self.token = secrets.token_urlsafe(32)
+
+    async def serve(self):
+        server = await asyncio.start_server(self.register, "127.0.0.1", 0, limit=4096)
+        return server, json.dumps(
+            {"port": server.sockets[0].getsockname()[1], "token": self.token}
+        )
+
+    def same_user(self, process):
+        if os.name == "nt":
+            return process.username() == self.user
+        return process.uids().real == self.user
 
     @staticmethod
     def alive(pid, created):
         try:
             proc = psutil.Process(pid)
-            return (
-                proc.create_time() == created and proc.status() != psutil.STATUS_ZOMBIE
+            return proc.create_time() == created and (
+                proc.is_running()
+                if os.name == "nt"
+                else proc.status() != psutil.STATUS_ZOMBIE
             )
         except psutil.NoSuchProcess:
             return False
@@ -72,16 +100,20 @@ class ProcessOwner:
                 with contextlib.suppress(psutil.NoSuchProcess):
                     roots.append(psutil.Process(pid))
         for root in roots:
-            with contextlib.suppress(psutil.NoSuchProcess):
+            with contextlib.suppress(psutil.Error):
                 for proc in root.children(recursive=True):
-                    if proc.uids().real == os.getuid():
-                        self.descendants[proc.pid] = proc.create_time()
+                    with contextlib.suppress(psutil.Error):
+                        created = proc.create_time()
+                        if self.descendants.get(proc.pid) == created or self.same_user(
+                            proc
+                        ):
+                            self.descendants[proc.pid] = created
 
     def reap(self, watched=()):
         """Reap adopted children without racing their explicit process watchers."""
         for pid, created in tuple(self.descendants.items()):
             if not self.alive(pid, created):
-                if pid not in watched:
+                if pid not in watched and os.name != "nt":
                     with contextlib.suppress(ChildProcessError, ProcessLookupError):
                         os.waitpid(pid, os.WNOHANG)
                 self.descendants.pop(pid, None)
@@ -89,18 +121,29 @@ class ProcessOwner:
     async def register(self, reader, writer):
         try:
             payload = json.loads(await asyncio.wait_for(reader.readline(), 5))
+            if not isinstance(payload, dict) or not secrets.compare_digest(
+                str(payload.get("token", "")), self.token
+            ):
+                raise ValueError("Invalid Worker host capability")
             proc = psutil.Process(payload["pid"])
             if (
                 payload.get("version") != 1
-                or proc.uids().real != os.getuid()
-                or self.process.pid not in {parent.pid for parent in proc.parents()}
+                or not self.same_user(proc)
+                or not any(
+                    parent.pid == self.process.pid
+                    or (
+                        self.workers.get(parent.pid) == parent.create_time()
+                        and parent.status() != psutil.STATUS_ZOMBIE
+                    )
+                    for parent in proc.parents()
+                )
             ):
                 raise ValueError("Worker is outside this service")
             self.workers[proc.pid] = proc.create_time()
             self.descendants[proc.pid] = self.workers[proc.pid]
             writer.write(b"ok\n")
             await writer.drain()
-        except (ValueError, KeyError, asyncio.TimeoutError, psutil.Error):
+        except (ValueError, TypeError, KeyError, asyncio.TimeoutError, psutil.Error):
             writer.write(b"error\n")
             await writer.drain()
         finally:
@@ -108,13 +151,7 @@ class ProcessOwner:
             await writer.wait_closed()
 
     async def stop(self):
-        self.remember()
-        # Identities come only from this host's children/registered Workers;
-        # neither shutdown nor a failed upgrade scans other GPU services.
-        for pid, created in self.descendants.items():
-            if self.alive(pid, created):
-                with contextlib.suppress(ProcessLookupError):
-                    os.kill(pid, signal.SIGTERM)
+        self._stop_descendants(force=False)
         deadline = asyncio.get_running_loop().time() + 30
         while asyncio.get_running_loop().time() < deadline and any(
             self.alive(pid, created) for pid, created in self.descendants.items()
@@ -123,34 +160,31 @@ class ProcessOwner:
         self.kill()
 
     def kill(self):
+        self._stop_descendants(force=True)
+
+    def _stop_descendants(self, force):
         self.remember()
+        # Identities come only from this host's children/registered Workers.
         for pid, created in self.descendants.items():
-            if self.alive(pid, created):
-                with contextlib.suppress(ProcessLookupError):
-                    os.kill(pid, signal.SIGKILL)
+            with contextlib.suppress(psutil.Error):
+                process = psutil.Process(pid)
+                if process.create_time() == created:
+                    process.kill() if force else process.terminate()
 
 
 async def run_worker_host(command):
-    if os.name != "posix":
-        raise RuntimeError("Worker service hosting requires Linux or macOS")
     if not command:
         raise ValueError("Expected a Worker command")
     _enable_subreaper()
     owner = ProcessOwner()
     exits = {}
     stopping = asyncio.Event()
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, stopping.set)
-
-    # A private short namespace also works when this process is Docker PID 1.
-    with tempfile.TemporaryDirectory(prefix="xinf-host-", dir="/tmp") as directory:
-        address = str(Path(directory) / "worker.sock")
-        server = await asyncio.start_unix_server(owner.register, address, limit=4096)
+    with shutdown_signals(stopping.set):
+        server, address = await owner.serve()
         process = None
         try:
-            process = await asyncio.create_subprocess_exec(
-                *command,
+            process = await start_process(
+                command,
                 env={
                     **os.environ,
                     HOST_SOCKET: address,
@@ -163,8 +197,12 @@ async def run_worker_host(command):
                 for pid, created in tuple(owner.workers.items()):
                     if pid not in exits and not owner.alive(pid, created):
                         if pid == process.pid:
-                            exits[pid] = await process.wait()
+                            exits[pid] = await asyncio.to_thread(process.wait)
                         else:
+                            if os.name == "nt":
+                                # An orphan's exact exit status is unavailable.
+                                exits[pid] = 1
+                                continue
                             if sys.platform == "linux":
                                 # A replacement can exit before its parent
                                 # retires. Wait until the subreaper adopts it.
@@ -181,8 +219,7 @@ async def run_worker_host(command):
                                 exits[pid] = 1
                 if all(pid in exits for pid in owner.workers):
                     break
-                # Reap adopted grandchildren without racing asyncio's watcher
-                # for the initial command.
+                # The initial command is reaped through its Popen handle.
                 owner.reap(owner.workers)
                 try:
                     await asyncio.wait_for(stopping.wait(), 0.1)
@@ -196,9 +233,7 @@ async def run_worker_host(command):
             await server.wait_closed()
             await owner.stop()
             if process is not None:
-                await process.wait()
-            for sig in (signal.SIGTERM, signal.SIGINT):
-                loop.remove_signal_handler(sig)
+                await asyncio.to_thread(process.wait)
 
 
 def main():
@@ -206,7 +241,7 @@ def main():
 
 
 async def run_worker_configuration(config):
-    with tempfile.TemporaryDirectory(prefix="xinf-worker-", dir="/tmp") as directory:
+    with tempfile.TemporaryDirectory(prefix="xinf-worker-") as directory:
         path = Path(directory) / "worker.json"
         path.write_text(json.dumps(config))
         path.chmod(0o600)

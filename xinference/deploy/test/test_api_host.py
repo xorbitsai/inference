@@ -1,6 +1,5 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-# CI: linux
 
 import asyncio
 import io
@@ -10,9 +9,10 @@ import shlex
 import socket
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -29,7 +29,54 @@ from ..api_host import (
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(os.name != "posix", reason="POSIX pipe forwarding")
+async def test_process_wait_does_not_starve_serving_executor():
+    asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=1))
+    process = subprocess.Popen(
+        [sys.executable, "-S", "-c", "import time; time.sleep(30)"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    waiting = asyncio.create_task(_wait_process(process, APIDiagnostics()))
+    try:
+        await asyncio.sleep(0.1)
+        assert await asyncio.wait_for(asyncio.to_thread(lambda: True), 2)
+    finally:
+        process.terminate()
+        await asyncio.wait_for(waiting, 5)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error", [RuntimeError("lost serving acknowledgement"), asyncio.TimeoutError()]
+)
+async def test_failure_after_activation_drains_target_without_terminating(
+    tmp_path, error
+):
+    host = APIHost(
+        MagicMock(), {}, SystemSettingsStore(str(tmp_path / "settings.json"))
+    )
+    source, target = MagicMock(), MagicMock()
+    source.environment = {}
+    target.wait = AsyncMock(side_effect=[None, error])
+    target.send = AsyncMock()
+    target.process.poll.return_value = None
+    target.exited = asyncio.get_running_loop().create_future()
+    host.active = source
+    host.spawn = AsyncMock(return_value=target)
+    operation = {"requested_executable": None, "python_executable": sys.executable}
+    await host.replace(operation)
+    assert operation["status"] == "failed"
+    assert host.active is source
+    target.send.assert_awaited_once_with("activate")
+    target.wait.assert_any_await(target.serving)
+    target.writer.close.assert_called_once_with()
+    target.process.terminate.assert_not_called()
+    target.process.kill.assert_not_called()
+    source.send.assert_not_called()
+    assert not target.exited.cancelled()
+
+
+@pytest.mark.asyncio
 async def test_exited_process_does_not_wait_for_descendant_pipe_holder(tmp_path):
     import psutil
 
@@ -163,8 +210,9 @@ async def until(function, timeout=30):
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(os.name != "posix", reason="Inherited API listener requires POSIX")
+@pytest.mark.parametrize("control_lost", [False, True])
 async def test_api_cutover_preserves_stream_backend_and_failed_startup(
-    tmp_path, monkeypatch, capfd
+    tmp_path, monkeypatch, capfd, control_lost
 ):
     from ...api.oauth2.advanced.auth_service import AdvancedAuthService
     from ...api.oauth2.advanced.crypto import get_password_hash
@@ -274,6 +322,15 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
 
             await until(ready)
             first_pid = host.active.process.pid
+            if control_lost:
+                send = host.active.send
+
+                async def fail_drain(command):
+                    if command == "drain":
+                        raise ConnectionError("Lost source control connection")
+                    await send(command)
+
+                monkeypatch.setattr(host.active, "send", fail_drain)
             async with httpx.AsyncClient(
                 base_url=f"http://127.0.0.1:{port}",
                 timeout=10,
@@ -590,7 +647,6 @@ def test_diagnostics_are_bounded_without_truncating_service_output():
     assert diagnostics.read() == data[-DIAGNOSTIC_LIMIT:].decode()
 
 
-@pytest.mark.skipif(os.name != "posix", reason="Hosted supervisor requires POSIX")
 def test_supervisor_cli_preserves_startup_baseline(tmp_path):
     path = tmp_path / "settings.json"
     startup = (
@@ -635,8 +691,6 @@ async def update(settings):
 async def actor_ref(**kwargs):
     return SimpleNamespace(update_system_settings=update)
 xo.actor_ref = actor_ref
-supervisor.run_in_subprocess = lambda *args, **kwargs: MagicMock()
-supervisor.health_check = lambda **kwargs: True
 
 async def check_host(self, stopping):
     try:

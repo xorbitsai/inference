@@ -347,7 +347,7 @@ def worker(
 ):
     from .worker_host import HOST_SOCKET
 
-    if replace_worker and os.name == "posix" and not os.environ.get(HOST_SOCKET):
+    if replace_worker and not os.environ.get(HOST_SOCKET):
         raise click.UsageError(
             "Use POST /v1/workers/{worker_address}/relaunch to replace a managed Worker and retain its service and model processes."
         )
@@ -377,7 +377,7 @@ def worker(
     worker_options: Dict[str, Any] = {}
     if replace_worker:
         worker_options["replace_worker"] = replace_worker
-    if os.name == "posix" and not os.environ.get(HOST_SOCKET):
+    if not os.environ.get(HOST_SOCKET):
         worker_options["use_process_host"] = True
     main(
         address=address,
