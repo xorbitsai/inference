@@ -11,10 +11,82 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 import base64
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 import requests
+
+
+@pytest.mark.parametrize("content_type", ["string", "text-parts", "image-plus-text"])
+def test_glm4v_processed_content_blocks(monkeypatch, content_type):
+    from ..transformers.multimodal import glm4_1v
+
+    image = object()
+    decode_image = Mock(return_value=image)
+    monkeypatch.setattr(glm4_1v, "_decode_image", decode_image)
+    content = [
+        {"type": "text", "text": "hello"},
+        {"type": "text", "text": "world"},
+    ]
+    expected = [{"type": "text", "text": "hello world"}]
+    if content_type == "string":
+        content = "hello world"
+    elif content_type == "image-plus-text":
+        content.insert(1, {"type": "image_url", "image_url": {"url": "test-image.png"}})
+        expected.insert(0, {"type": "image", "image": image})
+
+    messages = [{"role": "user", "content": content}]
+    assert glm4_1v.Glm4_1VModel._get_processed_msgs(messages) == [
+        {"role": "user", "content": expected}
+    ]
+    if content_type == "image-plus-text":
+        decode_image.assert_called_once_with("test-image.png")
+    else:
+        decode_image.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["hello world", [{"type": "text", "text": "hello world"}]],
+    ids=["string", "text-parts"],
+)
+def test_glm4v_processor_accepts_text_content(content):
+    from tokenizers import Tokenizer
+    from tokenizers.models import WordLevel
+    from tokenizers.pre_tokenizers import Whitespace
+    from transformers import (
+        Glm4vImageProcessor,
+        Glm4vProcessor,
+        Glm4vVideoProcessor,
+        PreTrainedTokenizerFast,
+    )
+
+    from ..transformers.multimodal.glm4_1v import Glm4_1VModel
+
+    backend = Tokenizer(
+        WordLevel({"[UNK]": 0, "hello": 1, "world": 2}, unk_token="[UNK]")
+    )
+    backend.pre_tokenizer = Whitespace()
+    tokenizer = PreTrainedTokenizerFast(tokenizer_object=backend, unk_token="[UNK]")
+    processor = Glm4vProcessor(
+        image_processor=Glm4vImageProcessor(),
+        tokenizer=tokenizer,
+        video_processor=Glm4vVideoProcessor(),
+        # Content-block traversal must succeed before any template is rendered.
+        chat_template="{{ 'hello world' }}",
+    )
+    adapter = object.__new__(Glm4_1VModel)
+    adapter._processor = processor
+    adapter._model = SimpleNamespace(device="cpu")
+    adapter.reasoning_parser = None
+
+    inputs = adapter.build_inputs_from_messages(
+        [{"role": "user", "content": content}], {}
+    )
+    assert inputs["input_ids"].tolist() == [[1, 2]]
 
 
 @pytest.mark.skip(reason="Cost too many resources.")
