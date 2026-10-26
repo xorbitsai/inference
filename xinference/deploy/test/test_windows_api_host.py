@@ -116,6 +116,19 @@ async def test_windows_api_cutover_preserves_stream_and_failed_startup(
                     }
                 finally:
                     active.environment.pop("FAIL_API_STARTUP", None)
+                (tmp_path / "release").unlink()
+                async with client.stream("GET", "/acceptance/stream") as response:
+                    lines = response.aiter_lines()
+                    assert await lines.__anext__() == "data: start"
+                    stopping.set()
+
+                    async def closing():
+                        return active.writer is None or active.writer.is_closing()
+
+                    await until(closing)
+                    assert active.process.poll() is None
+                    (tmp_path / "release").touch()
+                    assert "data: finish" in [line async for line in lines]
         finally:
             (tmp_path / "release").touch()
             stopping.set()

@@ -25,13 +25,8 @@ from typing import Dict, Optional
 import xoscar as xo
 from xoscar.utils import get_next_port
 
-from ..constants import (
-    XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
-    XINFERENCE_HEALTH_CHECK_INTERVAL,
-    XINFERENCE_HEALTH_CHECK_TIMEOUT,
-)
+from ..constants import XINFERENCE_HEALTH_CHECK_TIMEOUT
 from ..core.supervisor import SupervisorActor
-from .utils import health_check
 from .worker import start_worker_components
 
 logger = logging.getLogger(__name__)
@@ -218,48 +213,23 @@ def main(
     multiprocessing.set_start_method("spawn")
 
     supervisor_address = f"{host}:{get_next_port()}"  # noqa: E231
-    if os.name in {"posix", "nt"}:
-        from .api_host import run as run_api_host
-        from .local_host import LocalHost
+    from .api_host import run as run_api_host
+    from .local_host import LocalHost
 
-        run_api_host(
-            {
-                "supervisor_address": supervisor_address,
-                "worker_address": f"{host}:{get_next_port()}",
-                "host": host,
-                "port": port,
-                "metrics_exporter_host": metrics_exporter_host,
-                "metrics_exporter_port": metrics_exporter_port,
-                "logging_conf": logging_conf,
-                "api_role": "local",
-                "local_deployment": True,
-            },
-            host_class=LocalHost,
-        )
-        return
-    local_cluster = run_in_subprocess(
-        supervisor_address, metrics_exporter_host, metrics_exporter_port, logging_conf
+    run_api_host(
+        {
+            "supervisor_address": supervisor_address,
+            "worker_address": f"{host}:{get_next_port()}",
+            "host": host,
+            "port": port,
+            "metrics_exporter_host": metrics_exporter_host,
+            "metrics_exporter_port": metrics_exporter_port,
+            "logging_conf": logging_conf,
+            "api_role": "local",
+            "local_deployment": True,
+        },
+        host_class=LocalHost,
     )
-
-    if not health_check(
-        address=supervisor_address,
-        max_attempts=XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
-        sleep_interval=XINFERENCE_HEALTH_CHECK_INTERVAL,
-    ):
-        raise RuntimeError("Cluster is not available after multiple attempts")
-
-    try:
-        from ..api import restful_api
-
-        restful_api.run(
-            supervisor_address=supervisor_address,
-            host=host,
-            port=port,
-            logging_conf=logging_conf,
-            api_role="local",
-        )
-    finally:
-        local_cluster.kill()
 
 
 if __name__ == "__main__":

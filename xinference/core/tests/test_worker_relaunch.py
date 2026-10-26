@@ -361,14 +361,14 @@ async def driver():
     owned={}
     target_pid=None
     try:
-        raw=await asyncio.wait_for(process.stdout.readline(),120)
+        raw=await asyncio.wait_for(process.stdout.readline(),120 if sys.platform=='win32' else 45)
         initial=json.loads(raw)
         for p in [psutil.Process(process.pid),*psutil.Process(process.pid).children(recursive=True)]:
             owned[p.pid]=p.create_time()
         bad=await asyncio.to_thread(client.relaunch_worker,initial['worker'],str(Path(os.environ['XINFERENCE_HOME'])/'missing-python'),'bad')
         async def done(operation):
             nonlocal target_pid
-            for _ in range(1200):
+            for _ in range(1200 if sys.platform=='win32' else 300):
                 state=await async_client.get_worker_relaunch(operation['operation_id'])
                 if state.get('target_pid'):
                     target_pid=state['target_pid']
@@ -461,7 +461,9 @@ async def test_relaunch_starts_replacement_and_status_outlives_source(
         stderr=asyncio.subprocess.STDOUT,
     )
     try:
-        output, _ = await asyncio.wait_for(process.communicate(), 180)
+        output, _ = await asyncio.wait_for(
+            process.communicate(), 180 if sys.platform == "win32" else 100
+        )
         source_log = tmp_path / "source.log"
         assert process.returncode == 0, output.decode() + (
             source_log.read_text() if source_log.exists() else ""

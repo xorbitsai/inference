@@ -65,6 +65,7 @@ class ProcessOwner:
 
     def __init__(self):
         self.process = psutil.Process()
+        self.user = self.process.username() if os.name == "nt" else os.getuid()
         self.workers = {}
         self.descendants = {}
         self.token = secrets.token_urlsafe(32)
@@ -77,8 +78,8 @@ class ProcessOwner:
 
     def same_user(self, process):
         if os.name == "nt":
-            return process.username() == self.process.username()
-        return process.uids().real == os.getuid()
+            return process.username() == self.user
+        return process.uids().real == self.user
 
     @staticmethod
     def alive(pid, created):
@@ -97,10 +98,11 @@ class ProcessOwner:
                 with contextlib.suppress(psutil.NoSuchProcess):
                     roots.append(psutil.Process(pid))
         for root in roots:
-            with contextlib.suppress(psutil.NoSuchProcess):
+            with contextlib.suppress(psutil.Error):
                 for proc in root.children(recursive=True):
-                    if self.same_user(proc):
-                        self.descendants[proc.pid] = proc.create_time()
+                    with contextlib.suppress(psutil.Error):
+                        if self.same_user(proc):
+                            self.descendants[proc.pid] = proc.create_time()
 
     def reap(self, watched=()):
         """Reap adopted children without racing their explicit process watchers."""
@@ -122,7 +124,14 @@ class ProcessOwner:
             if (
                 payload.get("version") != 1
                 or not self.same_user(proc)
-                or self.process.pid not in {parent.pid for parent in proc.parents()}
+                or not any(
+                    parent.pid == self.process.pid
+                    or (
+                        self.workers.get(parent.pid) == parent.create_time()
+                        and parent.status() != psutil.STATUS_ZOMBIE
+                    )
+                    for parent in proc.parents()
+                )
             ):
                 raise ValueError("Worker is outside this service")
             self.workers[proc.pid] = proc.create_time()
@@ -169,7 +178,7 @@ async def run_worker_host(command):
         server, address = await owner.serve()
         process = None
         try:
-            process = start_process(
+            process = await start_process(
                 command,
                 env={
                     **os.environ,
@@ -205,8 +214,7 @@ async def run_worker_host(command):
                                 exits[pid] = 1
                 if all(pid in exits for pid in owner.workers):
                     break
-                # Reap adopted grandchildren without racing asyncio's watcher
-                # for the initial command.
+                # The initial command is reaped through its Popen handle.
                 owner.reap(owner.workers)
                 try:
                     await asyncio.wait_for(stopping.wait(), 0.1)

@@ -57,7 +57,7 @@ else:
             str(parent_delay),
         ],
         env=_source_environment(),
-        timeout=60,
+        timeout=60 if sys.platform == "win32" else 20,
     )
     # Linux adopts grandchildren and preserves their exact exit status. macOS
     # cannot waitpid an orphan, but still reports it as a failed service.
@@ -66,24 +66,43 @@ else:
     )
 
 
-def test_host_survives_original_worker_exit_and_stops_only_owned_descendants(tmp_path):
+@pytest.mark.parametrize("relaunches", [1, 2])
+def test_host_survives_original_worker_exit_and_stops_only_owned_descendants(
+    tmp_path, relaunches
+):
     script = tmp_path / "worker.py"
     script.write_text(
         """
 import asyncio, os, subprocess, sys, time
 from pathlib import Path
+import psutil
 from xinference.deploy.worker_host import register_worker_host
 root = Path(sys.argv[1])
-if len(sys.argv) == 2:
-    child = subprocess.Popen([sys.executable, __file__, str(root), "replacement"])
-    while not (root / "replacement").exists(): time.sleep(.02)
-    (root / "original-exited").write_text(str(os.getpid()))
-else:
+generation, relaunches = map(int, sys.argv[2:])
+parent = psutil.Process(os.getppid())
+if generation:
     asyncio.run(register_worker_host())
+if generation < relaunches:
+    if generation:
+        (root / f"registered-{generation}").touch()
+        # Relaunch again only after the original generation has retired.
+        while True:
+            try:
+                if not parent.is_running() or parent.status() == psutil.STATUS_ZOMBIE:
+                    break
+            except psutil.NoSuchProcess:
+                break
+            time.sleep(.02)
+    subprocess.Popen([sys.executable, __file__, str(root), str(generation + 1), str(relaunches)])
+    while not (root / f"registered-{generation + 1}").exists(): time.sleep(.02)
+    if not generation:
+        (root / "original-exited").write_text(str(os.getpid()))
+else:
     model = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
-    (root / "replacement").write_text(str(os.getpid()))
     (root / "model").write_text(str(model.pid))
     (root / "socket").write_text(os.environ["XINFERENCE_WORKER_HOST_SOCKET"])
+    (root / "replacement").write_text(str(os.getpid()))
+    (root / f"registered-{generation}").touch()
     time.sleep(60)
 """
     )
@@ -95,14 +114,20 @@ else:
             sys.executable,
             str(script),
             str(tmp_path),
+            "0",
+            str(relaunches),
         ],
         env=_source_environment(),
     )
     unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
     identities = {}
     try:
-        deadline = time.monotonic() + 60
-        while not (tmp_path / "original-exited").exists():
+        deadline = (
+            time.monotonic() + (60 if sys.platform == "win32" else 15) * relaunches
+        )
+        while not all(
+            (tmp_path / name).exists() for name in ("original-exited", "replacement")
+        ):
             assert host.poll() is None
             assert time.monotonic() < deadline
             time.sleep(0.02)

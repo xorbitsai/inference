@@ -202,6 +202,8 @@ class APIProcess:
 
 
 class APIHost:
+    serves_api_inline = False
+
     def __init__(
         self,
         listener: socket.socket,
@@ -308,7 +310,7 @@ class APIHost:
             with contextlib.suppress(ConnectionError):
                 await writer.wait_closed()
 
-    def spawn(self, executable: str, environment: Dict[str, str]) -> APIProcess:
+    async def spawn(self, executable: str, environment: Dict[str, str]) -> APIProcess:
         identity = uuid.uuid4().hex
         path = self.directory / (identity + ".json")
         path.write_text(
@@ -323,7 +325,7 @@ class APIHost:
         )
         path.chmod(0o600)
         diagnostics = APIDiagnostics()
-        process = start_process(
+        process = await start_process(
             [executable, "-u", str(self.directory / "start_api.py"), str(path)],
             listener=self.listener,
             env={**environment, API_HOST_ENV: json.dumps(self.connection)},
@@ -389,7 +391,7 @@ class APIHost:
                 environment = build_subpool_envs_for_python(
                     environment, operation["python_executable"]
                 )
-            target = self.spawn(operation["python_executable"], environment)
+            target = await self.spawn(operation["python_executable"], environment)
             operation["target_pid"] = target.process.pid
             await target.wait(target.ready)
             operation.update(status="switching", target_version=target.version)
@@ -432,7 +434,7 @@ class APIHost:
                 self.configuration, self.directory, self.settings_store
             )
             await self.supervisor_host.start(environment)
-        self.active = self.spawn(sys.executable, environment)
+        self.active = await self.spawn(sys.executable, environment)
         await self.active.wait(self.active.ready)
         await self.active.send("activate")
         await self.active.wait(self.active.serving)
@@ -491,7 +493,10 @@ class APIHost:
                 server.close()
                 for child in self.children.values():
                     if child.process.poll() is None:
-                        child.process.terminate()
+                        if child.writer is not None:
+                            child.writer.close()
+                        else:
+                            child.process.terminate()
                 for child in self.children.values():
                     try:
                         await asyncio.wait_for(asyncio.shield(child.exited), 30)
@@ -544,4 +549,7 @@ def run(configuration: Dict[str, Any], host_class=APIHost) -> None:
         with shutdown_signals(stop):
             await host.run(stopping)
 
-    run_api_loop(serve())
+    if host_class.serves_api_inline:
+        run_api_loop(serve())
+    else:
+        asyncio.run(serve())

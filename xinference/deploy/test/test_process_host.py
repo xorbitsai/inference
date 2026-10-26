@@ -4,12 +4,17 @@
 import asyncio
 import json
 import os
+import signal
 import socket
 import sys
 import tempfile
+import threading
 import venv
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
+import psutil
 import pytest
 
 from ..process_host import start_process
@@ -17,6 +22,154 @@ from ..worker_host import HOST_SOCKET, ProcessOwner, register_worker_host
 from .test_worker_host import _source_environment
 
 
+@pytest.mark.asyncio
+async def test_windows_environment_probe_does_not_block_event_loop(monkeypatch):
+    from xoscar.backends.indigen import fate_sharing
+
+    from .. import process_host
+
+    entered, release = threading.Event(), threading.Event()
+    process = MagicMock(pid=123)
+
+    def probe(executable, environment):
+        entered.set()
+        assert release.wait(5), "Environment probe blocked the event loop"
+        return executable, environment
+
+    monkeypatch.setattr(process_host, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(process_host, "python_process_environment", probe)
+    monkeypatch.setattr(
+        process_host,
+        "subprocess",
+        SimpleNamespace(
+            Popen=MagicMock(return_value=process), CREATE_NEW_PROCESS_GROUP=0x200
+        ),
+    )
+    monkeypatch.setattr(psutil, "Process", MagicMock())
+    monkeypatch.setattr(fate_sharing, "detect_fate_sharing_support_win32", lambda: True)
+    monkeypatch.setattr(
+        fate_sharing, "set_kill_child_on_death_win32", lambda process: None
+    )
+    task = asyncio.create_task(start_process(["python"]))
+    try:
+        assert await asyncio.wait_for(asyncio.to_thread(entered.wait, 2), 3)
+        assert not task.done()
+    finally:
+        release.set()
+        result = await task
+    assert result is process
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "created,status,accepted",
+    [
+        (100, psutil.STATUS_RUNNING, True),
+        (101, psutil.STATUS_RUNNING, False),
+        (100, psutil.STATUS_ZOMBIE, False),
+    ],
+)
+async def test_orphan_replacement_requires_live_registered_ancestor(
+    monkeypatch, created, status, accepted
+):
+    owner = ProcessOwner()
+    owner.workers[123] = 100
+    ancestor = SimpleNamespace(
+        pid=123, create_time=lambda: created, status=lambda: status
+    )
+    child = SimpleNamespace(
+        pid=456, parents=lambda: [ancestor], create_time=lambda: 200
+    )
+    monkeypatch.setattr(owner, "same_user", lambda process: True)
+    monkeypatch.setattr(psutil, "Process", lambda pid: child)
+    server, address = await owner.serve()
+    connection = json.loads(address)
+    try:
+        reader, writer = await asyncio.open_connection("127.0.0.1", connection["port"])
+        writer.write(
+            json.dumps({"version": 1, "pid": child.pid, "token": owner.token}).encode()
+            + b"\n"
+        )
+        await writer.drain()
+        assert await reader.readline() == (b"ok\n" if accepted else b"error\n")
+        assert (child.pid in owner.workers) == accepted
+        writer.close()
+        await writer.wait_closed()
+    finally:
+        server.close()
+        await server.wait_closed()
+
+
+def test_process_scan_skips_inaccessible_descendant(monkeypatch):
+    owner = ProcessOwner()
+    denied, child = MagicMock(pid=123), MagicMock(pid=456)
+    denied.username.side_effect = denied.uids.side_effect = psutil.AccessDenied(123)
+    child.username.return_value = child.uids.return_value.real = owner.user
+    child.create_time.return_value = 200
+    monkeypatch.setattr(owner.process, "children", lambda **kwargs: [denied, child])
+    monkeypatch.setattr(
+        owner.process,
+        "username",
+        MagicMock(side_effect=AssertionError("host username must be cached")),
+    )
+    owner.remember()
+    assert owner.descendants == {456: 200}
+
+
+@pytest.mark.parametrize("inline", [False, True])
+def test_only_inline_api_host_uses_api_event_loop(tmp_path, monkeypatch, inline):
+    from .. import api_host
+    from ..local_host import LocalHost
+
+    selected = []
+
+    def api_loop(coroutine):
+        selected.append("selector")
+        return asyncio.run(coroutine)
+
+    async def run(host, stopping):
+        host.listener.close()
+
+    host_class = LocalHost if inline else api_host.APIHost
+    monkeypatch.setattr(host_class, "run", run)
+    monkeypatch.setattr(api_host, "run_api_loop", api_loop)
+    api_host.run({"host": "127.0.0.1", "port": 0}, host_class=host_class)
+    assert selected == (["selector"] if inline else [])
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows console signal handlers")
+@pytest.mark.parametrize("interrupt", ["SIGINT", "SIGBREAK"])
+def test_windows_interrupt_drains_then_forces_and_restores_handlers(interrupt):
+    from .. import api_host
+
+    calls = []
+    interrupt = getattr(signal, interrupt)
+    previous = {
+        sig: signal.getsignal(sig)
+        for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGBREAK)
+    }
+
+    class Host(api_host.APIHost):
+        async def run(self, stopping):
+            try:
+                signal.raise_signal(interrupt)
+                await asyncio.wait_for(stopping.wait(), 1)
+                assert not calls
+                calls.append("draining")
+                signal.raise_signal(interrupt)
+                await asyncio.sleep(0)
+                assert calls == ["draining", "forced"]
+            finally:
+                self.listener.close()
+
+        def force_exit(self):
+            calls.append("forced")
+
+    api_host.run({"host": "127.0.0.1", "port": 0}, host_class=Host)
+    assert all(signal.getsignal(sig) == value for sig, value in previous.items())
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "use_venv",
     [
@@ -29,7 +182,7 @@ from .test_worker_host import _source_environment
         ),
     ],
 )
-def test_listener_survives_overlapping_process_generations(tmp_path, use_venv):
+async def test_listener_survives_overlapping_process_generations(tmp_path, use_venv):
     executable = sys.executable
     if use_venv:
         directory = tmp_path / "venv"
@@ -51,7 +204,7 @@ def test_listener_survives_overlapping_process_generations(tmp_path, use_venv):
         listener.listen()
         try:
             for generation in ("old", "new"):
-                process = start_process(
+                process = await start_process(
                     [
                         executable,
                         str(script),

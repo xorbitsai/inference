@@ -82,6 +82,8 @@ class InlineAPIProcess:
 class LocalHost(APIHost):
     """Reuse the API parent as service owner without an initial API subprocess."""
 
+    serves_api_inline = True
+
     def __init__(self, listener, configuration, settings_store):
         super().__init__(listener, configuration, settings_store)
         self.owner = ProcessOwner()
@@ -127,7 +129,7 @@ class LocalHost(APIHost):
             "if __name__ == '__main__':\n    import runpy\n    runpy.run_module('xinference.deploy.local', run_name='__main__')\n"
         )
         diagnostics = APIDiagnostics()
-        self.cluster = start_process(
+        self.cluster = await start_process(
             [sys.executable, "-u", str(script), str(path)],
             env=environment,
             stdout=subprocess.PIPE,

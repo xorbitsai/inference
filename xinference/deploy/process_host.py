@@ -41,7 +41,7 @@ def python_process_environment(
     return base, {**environment, "__PYVENV_LAUNCHER__": executable}
 
 
-def start_process(
+async def start_process(
     command, *, listener: Optional[socket.socket] = None, **kwargs
 ) -> subprocess.Popen:
     if sys.platform != "win32":
@@ -56,15 +56,14 @@ def start_process(
     )
 
     command = list(command)
-    command[0], kwargs["env"] = python_process_environment(
-        command[0], kwargs.get("env", os.environ)
+    command[0], kwargs["env"] = await asyncio.to_thread(
+        python_process_environment, command[0], kwargs.get("env", os.environ)
     )
     if not detect_fate_sharing_support_win32():
         raise RuntimeError("Windows service hosting requires Job Object support")
     kwargs.pop("start_new_session", None)
     kwargs["creationflags"] = (
-        kwargs.get("creationflags", 0)
-        | 0x00000004  # CREATE_SUSPENDED: assign the job before descendants exist.
+        0x00000004  # CREATE_SUSPENDED: assign the job before descendants exist.
         | subprocess.CREATE_NEW_PROCESS_GROUP
     )
     if listener is not None:

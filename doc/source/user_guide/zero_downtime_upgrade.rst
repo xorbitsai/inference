@@ -10,7 +10,7 @@ Upgrade one component at a time while inference continues. Choose the component 
 Prepare an upgrade
 ------------------
 
-The running deployment must already support the relevant replacement protocol and service host. API, Supervisor and Worker replacement support local and distributed deployments on Linux, macOS and Windows. Model-engine replacement has the Linux GPU requirements described below. On Windows, run original and replacement processes under the same user and privilege level. On Windows, hosted API event loops support at most 512 sockets per loop.
+The running deployment must already support the relevant replacement protocol and service host. API, Supervisor and Worker replacement support local and distributed deployments on Linux, macOS and Windows. Model-engine replacement has the Linux GPU requirements described below. On Windows, run original and replacement processes under the same user and privilege level. On Windows, the local service host and API subprocesses use selector event loops, each limited to 512 sockets.
 
 By default, a replacement uses the component's current Python environment. No Python path is required. Use an administrator session when authentication is enabled.
 

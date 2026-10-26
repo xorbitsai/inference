@@ -427,7 +427,7 @@ async def test_old_process_exits_while_direct_call_and_stream_survive(
                     raise RuntimeError("Source worker exited before readiness")
                 await asyncio.sleep(0.05)
 
-        await asyncio.wait_for(wait_ready(), 120)
+        await asyncio.wait_for(wait_ready(), 120 if sys.platform == "win32" else 45)
         data = json.loads(ready.read_text())
         model = await xo.actor_ref(address=data["model"], uid="counter-rep0")
         release = tmp_path / "release"
@@ -671,7 +671,9 @@ async def test_real_worker_registration_heartbeat_and_shutdown(tmp_path):
         stderr=asyncio.subprocess.STDOUT,
     )
     try:
-        output, _ = await asyncio.wait_for(process.communicate(), 180)
+        output, _ = await asyncio.wait_for(
+            process.communicate(), 180 if sys.platform == "win32" else 60
+        )
         assert process.returncode == 0, output.decode()
         line = next(
             line
@@ -705,7 +707,9 @@ async def test_adopted_process_failure_is_recovered_by_new_worker(runtime):
             await asyncio.sleep(0.05)
 
     # A replacement imports the runtime in a fresh Windows process too.
-    value, new_pid, owner = await asyncio.wait_for(recovered(), 60)
+    value, new_pid, owner = await asyncio.wait_for(
+        recovered(), 60 if sys.platform == "win32" else 15
+    )
     assert value == 1 and new_pid != pid and owner == new.address
 
 
@@ -846,7 +850,7 @@ async def test_model_failure_between_pool_commit_and_binding_repair_recovers(
 
     with monkeypatch.context() as patch:
         patch.setattr(HandoffWorker, "_commit_worker_handoff", lose_process)
-        assert await asyncio.wait_for(complete(), 60)
+        assert await asyncio.wait_for(complete(), 60 if sys.platform == "win32" else 20)
     recovered = await new.get_model("counter-rep0")
     _, recovered_pid, owner = await recovered.add(1)
     assert recovered_pid != original_pid and owner == new.address

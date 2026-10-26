@@ -15,7 +15,6 @@
 import asyncio
 import logging
 import multiprocessing
-import os
 import signal
 import sys
 from typing import Dict, Optional
@@ -23,12 +22,8 @@ from typing import Dict, Optional
 import xoscar as xo
 from xoscar.utils import get_next_port
 
-from ..constants import (
-    XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
-    XINFERENCE_HEALTH_CHECK_INTERVAL,
-)
 from ..core.supervisor import SupervisorActor
-from .utils import health_check, update_all_formatter_addresses
+from .utils import update_all_formatter_addresses
 
 logger = logging.getLogger(__name__)
 
@@ -78,37 +73,14 @@ def main(
     logging_conf: Optional[Dict] = None,
 ):
     supervisor_address = f"{host}:{supervisor_port or get_next_port()}"
-    if os.name in {"posix", "nt"}:
-        from .api_host import run as run_api_host
+    from .api_host import run as run_api_host
 
-        run_api_host(
-            {
-                "supervisor_address": supervisor_address,
-                "host": host,
-                "port": port,
-                "logging_conf": logging_conf,
-                "host_supervisor": True,
-            }
-        )
-        return
-    local_cluster = run_in_subprocess(supervisor_address, logging_conf)
-
-    if not health_check(
-        address=supervisor_address,
-        max_attempts=XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
-        sleep_interval=XINFERENCE_HEALTH_CHECK_INTERVAL,
-    ):
-        raise RuntimeError("Supervisor is not available after multiple attempts")
-
-    try:
-        from ..api import restful_api
-
-        restful_api.run(
-            supervisor_address=supervisor_address,
-            host=host,
-            port=port,
-            logging_conf=logging_conf,
-            api_role="supervisor",
-        )
-    finally:
-        local_cluster.kill()
+    run_api_host(
+        {
+            "supervisor_address": supervisor_address,
+            "host": host,
+            "port": port,
+            "logging_conf": logging_conf,
+            "host_supervisor": True,
+        }
+    )

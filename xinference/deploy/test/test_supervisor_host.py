@@ -3,6 +3,7 @@
 
 import asyncio
 import os
+import sys
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -305,7 +306,9 @@ async def test_router_heartbeats_remain_live_through_long_drain_and_freeze(monke
 
 
 async def completed(host, operation):
-    await asyncio.wait_for(asyncio.shield(host.operation_task), 180)
+    await asyncio.wait_for(
+        asyncio.shield(host.operation_task), 180 if sys.platform == "win32" else 60
+    )
     return host.operations[operation["operation_id"]]
 
 
@@ -361,7 +364,8 @@ async def test_terminal_replica_death_survives_frozen_callback_timeout(
         await workers[1].block_inventory()
         operation = host.create()
         await asyncio.wait_for(
-            asyncio.gather(*(worker.wait_inspected() for worker in workers)), 180
+            asyncio.gather(*(worker.wait_inspected() for worker in workers)),
+            180 if sys.platform == "win32" else 15,
         )
         # A has already been inspected; B holds restoration in the frozen phase.
         await workers[0].stop_model()

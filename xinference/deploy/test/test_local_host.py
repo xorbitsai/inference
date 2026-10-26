@@ -318,8 +318,24 @@ async def test_inline_api_failure_keeps_traceback(caplog):
     assert caplog.records[-1].exc_info[2] is not None
 
 
-@pytest.mark.skipif(os.name != "posix", reason="Local service hosting requires POSIX")
-@pytest.mark.parametrize("stop_mode", ["group-term", "group-int", "double-int"])
+@pytest.mark.parametrize(
+    "stop_mode",
+    [
+        *[
+            pytest.param(
+                mode,
+                marks=pytest.mark.skipif(
+                    os.name != "posix", reason="POSIX process group signals"
+                ),
+            )
+            for mode in ("group-term", "group-int", "double-int")
+        ],
+        pytest.param(
+            "ctrl-break",
+            marks=pytest.mark.skipif(os.name != "nt", reason="Windows console signal"),
+        ),
+    ],
+)
 def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, stop_mode):
     ports = [get_next_port() for _ in range(3)]
     configuration = {
@@ -334,12 +350,13 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
     script.write_text(
         "from pathlib import Path\n"
         "from xinference.deploy.api_host import run\n"
-        "from xinference.deploy.local_host import LocalHost, InlineAPIProcess\n"
-        "original_drain = InlineAPIProcess.terminate\n"
+        "from xinference.deploy.local_host import LocalHost\n"
+        "from xinference.deploy.api_worker import HostedServer\n"
+        "original_drain = HostedServer.begin_drain\n"
         "def drain(process):\n"
         "    original_drain(process)\n"
         f"    Path({str(tmp_path / 'draining')!r}).touch()\n"
-        "InlineAPIProcess.terminate = drain\n"
+        "HostedServer.begin_drain = drain\n"
         "if __name__ == '__main__':\n"
         f"    run({configuration!r}, host_class=LocalHost)\n"
     )
@@ -370,7 +387,8 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
             env=environment,
             stdout=log,
             stderr=subprocess.STDOUT,
-            start_new_session=True,
+            start_new_session=os.name == "posix",
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
         )
         try:
             endpoint = f"http://127.0.0.1:{ports[0]}"
@@ -395,6 +413,8 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
                     process.poll() is None
                 ), "First interrupt should drain the active stream"
                 process.send_signal(signal.SIGINT)
+            elif stop_mode == "ctrl-break":
+                process.send_signal(signal.CTRL_BREAK_EVENT)
             else:
                 os.killpg(
                     process.pid,
@@ -410,7 +430,10 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
                 stream.close()
             session.close()
             if process.poll() is None:
-                os.killpg(process.pid, signal.SIGKILL)
+                if os.name == "nt":
+                    process.kill()
+                else:
+                    os.killpg(process.pid, signal.SIGKILL)
                 process.wait(timeout=5)
             for pid, created in owned.items():
                 try:

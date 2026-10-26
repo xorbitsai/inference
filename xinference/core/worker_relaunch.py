@@ -379,8 +379,8 @@ class WorkerRelaunchLauncher:
                     json.dump(config, stream)
                 from ..deploy.process_host import python_process_environment
 
-                command_executable, process_environment = python_process_environment(
-                    executable, env
+                command_executable, process_environment = await asyncio.to_thread(
+                    python_process_environment, executable, env
                 )
                 with open(get_log_file(f"worker-relaunch-{operation_id}"), "ab") as log:
                     self.process = subprocess.Popen(

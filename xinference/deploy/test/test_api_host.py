@@ -161,8 +161,9 @@ async def until(function, timeout=30):
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(os.name != "posix", reason="Inherited API listener requires POSIX")
+@pytest.mark.parametrize("control_lost", [False, True])
 async def test_api_cutover_preserves_stream_backend_and_failed_startup(
-    tmp_path, monkeypatch, capfd
+    tmp_path, monkeypatch, capfd, control_lost
 ):
     from ...api.oauth2.advanced.auth_service import AdvancedAuthService
     from ...api.oauth2.advanced.crypto import get_password_hash
@@ -272,6 +273,15 @@ async def test_api_cutover_preserves_stream_backend_and_failed_startup(
 
             await until(ready)
             first_pid = host.active.process.pid
+            if control_lost:
+                send = host.active.send
+
+                async def fail_drain(command):
+                    if command == "drain":
+                        raise ConnectionError("Lost source control connection")
+                    await send(command)
+
+                monkeypatch.setattr(host.active, "send", fail_drain)
             async with httpx.AsyncClient(
                 base_url=f"http://127.0.0.1:{port}",
                 timeout=10,

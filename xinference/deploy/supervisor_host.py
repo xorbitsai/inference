@@ -69,14 +69,14 @@ class SupervisorHost:
         ):
             await xo.create_actor(cls, address=self.address, uid=cls.default_uid())
         (self.directory / "start_supervisor.py").write_text(START_SUPERVISOR)
-        source = self.spawn(sys.executable, environment)
+        source = await self.spawn(sys.executable, environment)
         await self.ready(source)
         await source.ref.activate_supervisor()
         await self.gateway.select_supervisor(source.ref)
         await self.gateway.release_supervisor()
         self.active = source
 
-    def spawn(self, executable, environment):
+    async def spawn(self, executable, environment):
         environment = {
             key: value for key, value in environment.items() if key != API_HOST_ENV
         }
@@ -96,7 +96,7 @@ class SupervisorHost:
         )
         path.chmod(0o600)
         diagnostics = APIDiagnostics()
-        process = start_process(
+        process = await start_process(
             [executable, "-u", str(self.directory / "start_supervisor.py"), str(path)],
             env=environment,
             cwd=Path.cwd(),
@@ -197,7 +197,7 @@ class SupervisorHost:
                 environment = build_subpool_envs_for_python(
                     environment, operation["python_executable"]
                 )
-            target = self.spawn(operation["python_executable"], environment)
+            target = await self.spawn(operation["python_executable"], environment)
             operation["target_pid"] = target.process.pid
             await self.ready(target)
             operation.update(status="preparing", target_version=target.version)
