@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import math
 import os
@@ -113,6 +114,9 @@ async def probe(args, key: str) -> Dict[str, Any]:
                         )
                         return report
                     session_id = first["session_id"]
+                    report["trace_id"] = hashlib.sha256(
+                        session_id.encode()
+                    ).hexdigest()[:16]
                     stamp("session_started")
                     stop = asyncio.Event()
                     final_count = 0
@@ -321,6 +325,7 @@ async def probe(args, key: str) -> Dict[str, Any]:
                         for name in ("sender_failure_type", "receiver_failure_type")
                     )
                     if args.scenario == "cancel":
+                        report["native_cancel_stage"] = "not_verified_by_client"
                         checks.update(
                             no_error=protocol_error is None,
                             cancelled=closed_reason == "cancelled",

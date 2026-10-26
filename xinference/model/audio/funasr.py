@@ -43,6 +43,14 @@ class FunASRModel:
         self._realtime_enabled = kwargs.pop("realtime", False)
         if not isinstance(self._realtime_enabled, bool):
             raise ValueError("realtime must be a boolean")
+        realtime_options = kwargs.pop("realtime_options", None)
+        self._realtime_options = None
+        if realtime_options is not None:
+            from .funasr_realtime import NanoRealtimeOptions
+
+            if not self._realtime_enabled:
+                raise ValueError("realtime_options requires realtime=True")
+            self._realtime_options = NanoRealtimeOptions.from_dict(realtime_options)
         self._realtime_ready = False
         self._kwargs = kwargs
 

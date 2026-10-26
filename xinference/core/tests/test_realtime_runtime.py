@@ -317,7 +317,10 @@ async def test_final_deadline_includes_queued_audio(runtime):
     await wait_empty(runtime)
 
 
-async def test_final_timeout_closes_socket_but_retains_native_capacity(runtime):
+@pytest.mark.parametrize("native_stage", ["partial", "final"])
+async def test_final_timeout_closes_socket_but_retains_native_capacity(
+    runtime, native_stage
+):
     import threading
 
     runtime.limits = replace(runtime.limits, final_timeout=0.03)
@@ -325,7 +328,12 @@ async def test_final_timeout_closes_socket_but_retains_native_capacity(runtime):
 
     class NativeSession(FakeSession):
         async def receive_input(self, frame):
-            await runtime.invoke(release.wait, 5)
+            if native_stage == "partial":
+                await runtime.invoke(release.wait, 5)
+
+        async def finish_input(self):
+            if native_stage == "final":
+                await runtime.invoke(release.wait, 5)
 
     runtime.model.create_realtime_session = lambda config, owner: NativeSession(owner)
     try:
@@ -342,6 +350,28 @@ async def test_final_timeout_closes_socket_but_retains_native_capacity(runtime):
     finally:
         release.set()
         await wait_empty(runtime)
+
+
+async def test_finalizer_failure_reaches_client(runtime):
+    class FailedSession(FakeSession):
+        async def finish_input(self):
+            def fail():
+                raise RuntimeError("private native failure")
+
+            await runtime.invoke(fail)
+
+    runtime.model.create_realtime_session = lambda config, owner: FailedSession(owner)
+    async with aiohttp.ClientSession() as client:
+        ws = await connect(client, runtime)
+        await ws.receive_json()
+        await ws.send_json({"event": "input.end"})
+        error = await asyncio.wait_for(ws.receive_json(), 1)
+        assert error["code"] == "inference_failed"
+        assert "private native failure" not in str(error)
+        await ws.close()
+    await wait_empty(runtime)
+    assert runtime.failed_count == 1
+    assert not runtime._inference_lock.locked()
 
 
 async def test_repeated_invoke_cancellation_keeps_lock_until_native_end(runtime):
@@ -414,8 +444,9 @@ async def test_end_hint_precedes_draining_all_accepted_frames(runtime):
 
 
 @pytest.mark.parametrize("tied_trace_timestamps", [False, True])
+@pytest.mark.parametrize("native_stage", ["partial", "final"])
 async def test_native_cancel_ack_fences_output_and_retains_capacity_on_stop(
-    runtime, monkeypatch, tied_trace_timestamps
+    runtime, monkeypatch, tied_trace_timestamps, native_stage
 ):
     import threading
 
@@ -431,13 +462,21 @@ async def test_native_cancel_ack_fences_output_and_retains_capacity_on_stop(
     loop = asyncio.get_running_loop()
 
     def native():
-        runtime.record_event("native_start", kind="partial")
+        runtime.record_event("native_start", kind=native_stage)
         loop.call_soon_threadsafe(entered.set)
         release.wait(5)
-        runtime.record_event("native_end", kind="partial")
+        runtime.record_event("native_end", kind=native_stage)
 
     class NativeSession(FakeSession):
         async def receive_input(self, frame):
+            if native_stage == "partial":
+                await self.decode()
+
+        async def finish_input(self):
+            if native_stage == "final":
+                await self.decode()
+
+        async def decode(self):
             await runtime.invoke(native)
             await self.emit({"late": True})
 
@@ -450,6 +489,8 @@ async def test_native_cancel_ack_fences_output_and_retains_capacity_on_stop(
             ws = await connect(client, runtime)
             await ws.receive_json()
             await ws.send_bytes(b"12")
+            if native_stage == "final":
+                await ws.send_json({"event": "input.end"})
             await asyncio.wait_for(entered.wait(), 1)
             await ws.send_json({"event": "session.cancel"})
             assert (await asyncio.wait_for(ws.receive_json(), 1))[

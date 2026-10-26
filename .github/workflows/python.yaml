@@ -62,6 +62,8 @@ jobs:
         run: cd frontend && npm run test:catalog-refresh
       - name: Test persistent model favorites
         run: cd frontend && npm run test:model-favorites
+      - name: Test structured realtime launch options
+        run: cd frontend && npm run test:realtime-options
       - name: Test model and service upgrade controls
         run: cd frontend && npm run test:model-reload && npm run test:worker-relaunch && npm run test:service-relaunch
       - name: Build frontend (static export)

@@ -426,9 +426,20 @@ class RealtimeRuntime:
                 if frame is None:
                     self.record_event("input_drained")
                     self.record_event("finish_start")
-                    await asyncio.wait_for(
-                        session.finish_input(), self.limits.final_timeout
-                    )
+                    # Own the finalizer explicitly. On Python 3.10, repeated
+                    # cancellation can interrupt wait_for's child-task drain.
+                    # Keep this processor alive until native final work settles,
+                    # before observations, session.close() or capacity release.
+                    finalizer = asyncio.create_task(session.finish_input())
+                    try:
+                        await asyncio.wait_for(
+                            asyncio.shield(finalizer), self.limits.final_timeout
+                        )
+                    finally:
+                        if not finalizer.done():
+                            finalizer.cancel()
+                        with suppress(Exception, asyncio.CancelledError):
+                            await _settle(finalizer)
                     self.record_event("finish_end")
                     return
                 try:

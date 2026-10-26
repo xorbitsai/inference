@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useI18n } from '@/contexts/i18n-context';
 import { copyToClipboard } from '@/lib/utils';
 import type { FormInstance } from '@/types/form';
+import { StructuredLaunchParameterError } from '../structured-launch-params';
 import {
   generateCommandLineStatement,
   parseXinferenceCommand,
@@ -36,6 +37,10 @@ const CommandLine: FC<CommandLineProps> = ({ canCopyCommandLine, form, onUserCha
   const { t } = useI18n();
 
   const showCommandLineError = (error: unknown) => {
+    if (error instanceof StructuredLaunchParameterError) {
+      toast.error(t(error.messageKey, { parameter: error.parameter }));
+      return;
+    }
     toast.error(
       t('launchModel.commandLineParsingFailed', {
         error: error instanceof Error ? error.message : String(error),

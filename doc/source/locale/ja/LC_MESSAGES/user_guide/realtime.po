@@ -108,3 +108,15 @@ msgstr ""
 "モノラル PCM16 WAV と環境変数 ``XINFERENCE_API_KEY`` を使ってリポジトリのプローブを実行します。30–60 "
 "秒の音声では最終音声フレームと ``input.end`` より前に空でないテキストが必要です。プローブだけではメディア RPC "
 "がゼロであることやリソース解放を証明できないため、ランタイム統合テストも実行してください。"
+
+#: user_guide/realtime.rst:54
+msgid "Nano launch options"
+msgstr "Nano の起動オプション"
+
+#: user_guide/realtime.rst:57
+msgid "With ``realtime=True``, set ``realtime_options`` at model launch, not in session ``parameters``. In the Web UI, add an engine parameter named ``realtime_options`` with the JSON value below; the UI submits it as an object. REST/Python clients should send an object; JSON object strings are accepted for compatibility with older Web UIs. Unknown fields, non-object JSON and invalid value types are rejected."
+msgstr "``realtime=True`` を有効にした場合、``realtime_options`` はセッションの ``parameters`` ではなくモデル起動時に設定します。Web UI で ``realtime_options`` という名前のエンジンパラメーターを追加し、以下の JSON を入力してください。UI はオブジェクトとして送信します。REST/Python クライアントはオブジェクトを送信してください。旧 Web UI との互換性のため、JSON オブジェクト文字列も受け付けます。不明なフィールド、オブジェクト以外の JSON、不正な値の型は拒否されます。"
+
+#: user_guide/realtime.rst:63
+msgid "Optimization is disabled by default. This is a candidate configuration, not a latency guarantee. Removing ``realtime_options`` restores defaults; setting only ``optimize=false`` does not reset explicitly configured timing or segment limits."
+msgstr "最適化はデフォルトでは無効です。これは候補設定であり、レイテンシーを保証しません。``realtime_options`` を削除するとデフォルトに戻ります。``optimize=false`` だけを設定しても、明示的に設定した時間パラメーターやセグメント上限はリセットされません。"

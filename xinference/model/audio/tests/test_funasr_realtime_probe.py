@@ -330,3 +330,92 @@ async def test_probe_server_error_cli_report_and_exit_code(
     assert SECRET not in report_path.read_text()
     assert SECRET.encode() not in stdout + stderr
     assert_no_probe_tasks()
+
+
+@pytest.fixture
+def trace_module():
+    path = Path(__file__).resolve().parents[4] / "benchmark/realtime_trace_report.py"
+    spec = importlib.util.spec_from_file_location("realtime_trace_report", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize(
+    "start,end,verified",
+    [(1, 3, True), (3, 4, False), (0, 1, False), (None, 3, False), (1, None, False)],
+)
+def test_trace_native_cancel_requires_bracketing_interval(
+    trace_module, start, end, verified
+):
+    events = [{"stage": "cancel_processed", "at_ms": 2}]
+    if start is not None:
+        events.append({"stage": "native_start", "at_ms": start})
+    if end is not None:
+        events.append({"stage": "native_end", "at_ms": end})
+    probe = {"trace_id": "a" * 16, "scenario": "cancel", "passed": True}
+    summary = {"trace_id": "a" * 16, "reason": "cancelled", "events": events}
+    result = trace_module.analyze([probe], [summary])
+    assert result["reports"][0]["native_cancel_verified"] is verified
+    # A failed client scenario or ambiguous server association cannot certify.
+    assert not trace_module.analyze([{**probe, "passed": False}], [summary])["reports"][
+        0
+    ]["native_cancel_verified"]
+    assert not trace_module.analyze([probe], [summary, summary])["reports"][0][
+        "native_cancel_verified"
+    ]
+
+
+def test_trace_groups_sample_sizes_by_replica_and_duration(trace_module):
+    probes, summaries = [], []
+    for index in range(40):
+        trace_id = f"{index:016x}"
+        probes.append(
+            {
+                "trace_id": trace_id,
+                "passed": index != 39,
+                "end_to_final_ms": index,
+                "audio_duration_ms": 60000,
+                "scenario": "normal",
+            }
+        )
+        summaries.append(
+            {
+                "trace_id": trace_id,
+                "replica_model_uid": f"nano-{index // 20}",
+                "events": [],
+                "untrusted_text": SECRET,
+            }
+        )
+    result = trace_module.analyze(probes, summaries)
+    first, second = result["groups"]
+    assert first["samples"] == 20 and first["p95_end_to_final_ms"] == 18
+    assert second["samples"] == 19 and second["p95_end_to_final_ms"] is None
+    assert second["failed"] == 1
+    assert SECRET not in json.dumps(result)
+    assert trace_module.analyze(probes, [])["groups"][0]["p95_end_to_final_ms"] is None
+
+
+async def test_trace_report_cli_missing_phase_is_nonzero(trace_module, tmp_path):
+    probe_path, log_path, report_path = (
+        tmp_path / name for name in ("probe.json", "runtime.log", "report.json")
+    )
+    probe_path.write_text(
+        json.dumps(
+            {"reports": [{"trace_id": "a" * 16, "scenario": "cancel", "passed": True}]}
+        )
+    )
+    log_path.write_text("credentials=" + SECRET + "\nmalformed diagnostics=not-json\n")
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        trace_module.__file__,
+        "--probe-report",
+        str(probe_path),
+        "--runtime-log",
+        str(log_path),
+        "--report",
+        str(report_path),
+        "--require-native-cancel",
+    )
+    assert await asyncio.wait_for(process.wait(), 5) == 1
+    assert SECRET not in report_path.read_text()
