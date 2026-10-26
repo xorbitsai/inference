@@ -141,20 +141,20 @@ class RouterAssignmentStore:
         generation = current["assignment_generation"] + int(
             bump_generation or contract_changed
         )
-        observed_state = (
-            "pending"
-            if generation != current["assignment_generation"]
-            else current["observed_state"]
-        )
         now = self._now()
         with self._lock, self._connect() as conn:
-            conn.execute(
+            cursor = conn.execute(
                 """UPDATE token_router_assignments
                    SET node_id = ?, listen_host = ?, listen_port = ?,
                        public_endpoint = ?, desired_state = ?,
                        assignment_generation = ?, config_revision = ?,
-                       observed_state = ?, updated_at = ?
-                   WHERE assignment_id = ?""",
+                       observed_state = CASE WHEN ? THEN 'pending'
+                                             ELSE observed_state END,
+                       updated_at = ?
+                   WHERE assignment_id = ? AND assignment_generation = ?
+                     AND node_id = ? AND listen_host = ? AND listen_port = ?
+                     AND public_endpoint = ? AND desired_state = ?
+                     AND config_revision = ?""",
                 (
                     next_values["node_id"],
                     next_values["listen_host"],
@@ -163,11 +163,20 @@ class RouterAssignmentStore:
                     next_values["desired_state"],
                     generation,
                     next_values["config_revision"],
-                    observed_state,
+                    generation != current["assignment_generation"],
                     now,
                     assignment_id,
+                    current["assignment_generation"],
+                    current["node_id"],
+                    current["listen_host"],
+                    current["listen_port"],
+                    current["public_endpoint"],
+                    current["desired_state"],
+                    current["config_revision"],
                 ),
             )
+            if cursor.rowcount == 0:
+                raise ValueError("Stale Assignment desired state")
         result = self.get(assignment_id)
         assert result is not None
         return result
@@ -191,31 +200,33 @@ class RouterAssignmentStore:
                 f"Stale Assignment generation {assignment_generation}; current is "
                 f"{current['assignment_generation']}"
             )
-        effective_instance_id = (
-            current["instance_id"] if instance_id is None else instance_id
-        )
-        effective_pid = current["pid"] if pid is None else pid
         now = self._now()
         with self._lock, self._connect() as conn:
-            conn.execute(
+            cursor = conn.execute(
                 """UPDATE token_router_assignments
-                   SET observed_state = ?, pid = ?, instance_id = ?, last_error = ?,
-                       observed_json = ?, last_seen_at = ?, updated_at = ?
-                   WHERE assignment_id = ?""",
+                   SET observed_state = ?, pid = COALESCE(?, pid),
+                       instance_id = COALESCE(?, instance_id), last_error = ?,
+                       observed_json = COALESCE(?, observed_json),
+                       last_seen_at = ?, updated_at = ?
+                   WHERE assignment_id = ? AND assignment_generation = ?""",
                 (
                     observed_state,
-                    effective_pid,
-                    effective_instance_id,
+                    pid,
+                    instance_id,
                     last_error,
-                    json.dumps(
-                        current["observed"] if observed is None else observed,
-                        ensure_ascii=False,
+                    (
+                        json.dumps(observed, ensure_ascii=False)
+                        if observed is not None
+                        else None
                     ),
                     now,
                     now,
                     assignment_id,
+                    assignment_generation,
                 ),
             )
+            if cursor.rowcount == 0:
+                raise ValueError(f"Stale Assignment generation {assignment_generation}")
         result = self.get(assignment_id)
         assert result is not None
         return result
