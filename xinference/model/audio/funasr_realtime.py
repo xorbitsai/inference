@@ -22,7 +22,8 @@ the current utterance for partials. It is not incremental acoustic encoding.
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict
+from typing import Any, Dict, Iterable
+from unicodedata import east_asian_width
 
 from ...core.realtime.protocol import RealtimeError
 from ..realtime import RealtimeSession
@@ -190,7 +191,9 @@ class NanoRealtimeSession(RealtimeSession):
             "duration_ms": self._total * 1000 // self.sample_rate,
         }
         if final:
-            data["text"] = "".join(sentence["text"] for sentence in self._sentences)
+            data["text"] = join_sentence_texts(
+                sentence["text"] for sentence in self._sentences
+            )
         return data
 
     def _feed(self, pcm: bytes, final: bool = False):
@@ -202,17 +205,21 @@ class NanoRealtimeSession(RealtimeSession):
         self._total += len(audio)
         if self._total > int(self.runtime.limits.max_duration * self.sample_rate):
             raise RealtimeError("duration_exceeded", "Maximum audio duration exceeded")
-        # Some FSMN releases require a nonempty final flush. Padding is VAD-only;
-        # it never changes the accepted sample count or ASR tail.
-        vad_audio = audio if len(audio) else np.zeros(160, dtype=np.float32)
+        # FSMN's 25 ms frames, 10 ms shift and LFR right context need more than
+        # a 10 ms empty flush. One VAD chunk of silence both initializes a new
+        # frontend for sub-frame input and drains the frame-quantized tail.
+        # Padding is VAD-only: _commit clips endpoints to accepted PCM. Natural
+        # silence endpoints remain unchanged instead of extending every final
+        # segment to the end of the recording.
+        vad_audio = (
+            np.concatenate((audio, np.zeros(self.vad_chunk_samples, dtype=np.float32)))
+            if final
+            else audio
+        )
         segments = self.vad.feed(torch.from_numpy(vad_audio), is_final=final)
         changed = False
         for start_ms, end_ms in segments:
             end = int(end_ms) * 16
-            # VAD timestamps have millisecond resolution, PCM does not. Preserve
-            # sub-millisecond accepted tail samples when flushing the last chunk.
-            if final and 0 <= self._total - end < 16:
-                end = self._total
             self._commit(int(start_ms) * 16, end)
             changed = True
         start_ms = self.vad.current_speech_start
@@ -273,6 +280,25 @@ class NanoRealtimeSession(RealtimeSession):
         self._pending.clear()
         self._audio = self._audio[:0].copy()
         self.vad.reset()
+
+
+def join_sentence_texts(texts: Iterable[str]) -> str:
+    """Keep word boundaries without adding spaces between CJK characters."""
+    joined = ""
+    for text in texts:
+        if (
+            joined
+            and text
+            and text[0].isalnum()
+            and not joined[-1].isspace()
+            and all(
+                east_asian_width(char) not in {"W", "F"}
+                for char in (joined[-1], text[0])
+            )
+        ):
+            joined += " "
+        joined += text
+    return joined
 
 
 def trim_overlap(previous: str, current: str) -> str:

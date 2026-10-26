@@ -169,3 +169,171 @@ def test_installed_automodel_preserves_model_level_fs(installed_sdk):
     # or mutate shared configs to hide it. Check deployed model configs separately.
     assert calls[0]["fs"] == 16000
     assert auto._base_kwargs_map["kwargs"]["fs"] == 16000
+
+
+@pytest.fixture
+def installed_vad_owner(monkeypatch):
+    try:
+        sdk = import_module("funasr.models.fsmn_vad_streaming.model")
+        frontend = import_module("funasr.frontends.wav_frontend")
+        auto = import_module("funasr.auto.auto_model")
+        import_module("funasr.models.fsmn_vad_streaming.dynamic_vad")
+    except ImportError:
+        pytest.skip("Optional FunASR streaming VAD SDK dependencies are missing")
+
+    from ..funasr import FunASRModel
+
+    def compute_scores(self, feats, cache):
+        # Substitute only neural scores, deterministically from the real
+        # frontend's score-aligned waveform. Keep real decibels and detection.
+        stats = cache["stats"]
+        frames = stats.waveform.reshape(-1).unfold(0, 400, 160)
+        speech = frames.square().sum(dim=-1) > 1e-6
+        noise = torch.where(speech, 0.01, 0.99)
+        scores = torch.stack((noise, 1 - noise), dim=-1).unsqueeze(0)
+        assert scores.shape[1] == feats.shape[1]
+        self.vad_opts.nn_eval_block_size = scores.shape[1]
+        stats.frm_cnt += scores.shape[1]
+        stats.scores = (
+            scores if stats.scores is None else torch.cat((stats.scores, scores), dim=1)
+        )
+
+    monkeypatch.setattr(sdk.FsmnVADStreaming, "ComputeScores", compute_scores)
+
+    vad = sdk.FsmnVADStreaming.__new__(sdk.FsmnVADStreaming)
+    torch.nn.Module.__init__(vad)
+    vad.vad_opts = sdk.VADXOptions()
+    vad.register_parameter("cpu_marker", torch.nn.Parameter(torch.zeros(1)))
+    model = automodel_without_weights(auto.AutoModel, torch.nn.Identity())
+    model.vad_model = vad
+    model.vad_kwargs = {
+        "device": "cpu",
+        "disable_pbar": True,
+        "frontend": frontend.WavFrontendOnline(
+            frame_length=25, frame_shift=10, lfr_m=5, lfr_n=1, dither=0.0
+        ),
+    }
+    waveforms = []
+    inference = model.inference
+
+    def decode(input, **kwargs):
+        if "model" in kwargs:
+            return inference(input, **kwargs)
+        waveforms.append(input.clone())
+        return [{"text": "speech"}]
+
+    model.inference = decode
+    owner = FunASRModel(
+        "nano", "/unused", SimpleNamespace(default_transcription_config={})
+    )
+    owner._model = model
+    owner._realtime_ready = True
+    return SimpleNamespace(owner=owner, waveforms=waveforms)
+
+
+@pytest.mark.parametrize("samples", [0, 1, 123, 399, 400, 960, 15360, 16000, 16123])
+async def test_installed_vad_finalization_over_websocket(installed_vad_owner, samples):
+    import aiohttp
+
+    from ....api.tests.test_realtime_api import serve_gateway
+
+    pcm = np.full(samples, 1000, dtype="<i2")
+    config = {
+        "event": "session.start",
+        "protocol_version": 1,
+        "task": "audio.transcription",
+        "input": {"audio": PCM_FORMAT},
+    }
+    async with serve_gateway(backend_model=installed_vad_owner.owner) as service:
+        async with aiohttp.ClientSession() as client:
+            async with client.ws_connect(service.url) as ws:
+                await ws.send_json(config)
+                assert (await ws.receive_json(timeout=5))["event"] == "session.started"
+                raw = pcm.tobytes()
+                for start in range(0, len(raw), 3199):
+                    await ws.send_bytes(raw[start : start + 3199])
+                await ws.send_json({"event": "input.end"})
+                results = []
+                while True:
+                    event = await ws.receive_json(timeout=5)
+                    assert event["event"] != "error", event
+                    if event["event"] == "session.closed":
+                        assert event["reason"] == "completed"
+                        break
+                    results.append(event["data"])
+    assert sum(result["is_final"] for result in results) == 1
+    final = results[-1]
+    assert final["duration_ms"] == samples * 1000 // 16000
+    if samples >= 15360:
+        assert final["text"] == "speech"
+        expected = torch.from_numpy(pcm.astype(np.float32) / 32768.0)
+        torch.testing.assert_close(installed_vad_owner.waveforms[-1], expected)
+    else:
+        # A sub-frame utterance may not meet the real VAD onset threshold. If
+        # recognized, only accepted PCM, never synthetic padding, reaches ASR.
+        assert all(
+            len(waveform) <= samples for waveform in installed_vad_owner.waveforms
+        )
+    if not samples:
+        assert final["text"] == ""
+        assert not installed_vad_owner.waveforms
+
+
+@pytest.mark.parametrize(
+    "silence_samples,flush_start", [(31040, 46080), (32000, 47040)]
+)
+async def test_installed_vad_silence_boundary_not_extended(
+    installed_vad_owner, silence_samples, flush_start
+):
+    from ....core.realtime.runtime import RealtimeRuntime
+
+    runtime = RealtimeRuntime(installed_vad_owner.owner, "nano", "nano-0")
+    session = NanoRealtimeSession(
+        installed_vad_owner.owner,
+        {"task": "audio.transcription", "input": {"audio": PCM_FORMAT}},
+        runtime,
+    )
+    try:
+        # Cover a natural endpoint returned during the final call as well as
+        # one already committed before that call. Neither may be lengthened.
+        pcm = np.concatenate(
+            (np.full(16000, 1000, dtype="<i2"), np.zeros(silence_samples, dtype="<i2"))
+        )
+        for start in range(0, flush_start, 960):
+            session._feed(pcm[start : start + 960].tobytes())
+        assert bool(session._sentences) == (flush_start == 47040)
+        final = session._feed(pcm[flush_start:].tobytes(), final=True)
+        assert len(final["sentences"]) == 1
+        assert final["sentences"][0]["end"] == 1160
+        assert final["duration_ms"] == len(pcm) * 1000 // 16000
+        expected = torch.from_numpy(pcm[:18560].astype(np.float32) / 32768.0)
+        torch.testing.assert_close(installed_vad_owner.waveforms[-1], expected)
+    finally:
+        await session.close("test")
+        await runtime.stop()
+
+
+async def test_installed_vad_forced_cut_preserves_tail(installed_vad_owner):
+    from ....core.realtime.runtime import RealtimeRuntime
+
+    runtime = RealtimeRuntime(installed_vad_owner.owner, "nano", "nano-0")
+    session = NanoRealtimeSession(
+        installed_vad_owner.owner,
+        {"task": "audio.transcription", "input": {"audio": PCM_FORMAT}},
+        runtime,
+    )
+    session.max_segment_samples = 3840
+    session.overlap_samples = 640
+    pcm = np.full(16123, 1000, dtype="<i2")
+    try:
+        await session.receive_input(pcm.tobytes())
+        await session.finish_input()
+        final = [result async for result in session.iter_outputs()][-1]
+        assert len(final["sentences"]) == 5
+        assert final["sentences"][-1]["end"] == len(pcm) * 1000 // 16000
+        expected = torch.from_numpy(pcm[15360 - 640 :].astype(np.float32) / 32768.0)
+        torch.testing.assert_close(installed_vad_owner.waveforms[-1], expected)
+        assert all(len(waveform) <= 4480 for waveform in installed_vad_owner.waveforms)
+    finally:
+        await session.close("test")
+        await runtime.stop()

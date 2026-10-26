@@ -383,6 +383,53 @@ def test_overlap_merge_is_conservative():
     assert trim_overlap("重复", "重复") == "重复"
 
 
+@pytest.mark.parametrize(
+    "texts,expected",
+    [
+        (["hello", "world"], "hello world"),
+        (["你好", "世界"], "你好世界"),
+        (["hello,", "world!"], "hello, world!"),
+        (["café", "déjà vu"], "café déjà vu"),
+        (["こんにちは", "世界"], "こんにちは世界"),
+        (["안녕", "세계"], "안녕세계"),
+        (["hello", ", world"], "hello, world"),
+    ],
+)
+async def test_vad_sentence_text_boundaries(nano, monkeypatch, texts, expected):
+    hypotheses = iter(texts)
+    monkeypatch.setattr(
+        nano.owner._model, "inference", lambda **kwargs: [{"text": next(hypotheses)}]
+    )
+    for _ in texts:
+        await nano.session.receive_input(speech(960))
+        await nano.session.receive_input(bytes(1920))
+    await nano.session.finish_input()
+    final = (await collect(nano.session))[-1]
+    assert [sentence["text"] for sentence in final["sentences"]] == texts
+    assert final["text"] == expected
+
+
+@pytest.mark.parametrize(
+    "texts,expected",
+    [
+        (["hello world", "world again"], "hello world again"),
+        (["今天开会", "开会讨论方案"], "今天开会讨论方案"),
+    ],
+)
+async def test_forced_overlap_text_boundaries(nano, monkeypatch, texts, expected):
+    hypotheses = iter(texts)
+    monkeypatch.setattr(
+        nano.owner._model, "inference", lambda **kwargs: [{"text": next(hypotheses)}]
+    )
+    nano.session.max_segment_samples = 1920
+    nano.session.overlap_samples = 320
+    await nano.session.receive_input(speech(2880))
+    await nano.session.finish_input()
+    final = (await collect(nano.session))[-1]
+    assert len(final["sentences"]) == 2
+    assert final["text"] == expected
+
+
 async def test_session_parameters_and_state_are_isolated(nano):
     other = NanoRealtimeSession(
         nano.owner,
