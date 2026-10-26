@@ -1,0 +1,71 @@
+# Chinese (Simplified, China) translations for Xinference.
+# Copyright (C) 2026 Xinference contributors
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-10-23 16:34+0800\n"
+"PO-Revision-Date: 2026-10-23 12:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+msgid "Realtime model sessions"
+msgstr "模型实时会话"
+
+#, python-brace-format
+msgid ""
+"Use ``WS /v1/models/{model_uid}/realtime`` for continuous media input. When "
+"authentication is enabled, send ``Authorization: Bearer <API_KEY>``; model "
+"permissions and the ``models:read`` scope apply. This is a Xinference "
+"protocol, not the OpenAI Realtime API."
+msgstr ""
+"使用 ``WS /v1/models/{model_uid}/realtime`` 持续输入媒体。启用鉴权时发送 ``Authorization: "
+"Bearer <API_KEY>``，同时校验模型访问权限和 ``models:read`` Scope。这是 Xinference 自定义协议，并非 "
+"OpenAI Realtime API。"
+
+msgid ""
+"Only connection initialization uses Actor routing. Media and results use an "
+"authenticated persistent connection to the model process. Configure "
+"``XINFERENCE_REALTIME_BIND_HOST`` and ``XINFERENCE_REALTIME_ADVERTISE_HOST``"
+" when the Worker address is unsuitable. Keep internal ports on a trusted "
+"private network or encrypted tunnel; this endpoint does not provide TLS "
+"itself. Browser origins are rejected unless listed in "
+"``XINFERENCE_REALTIME_ALLOWED_ORIGINS``; browser-native ticket "
+"authentication is not implemented."
+msgstr ""
+"仅建连初始化经过 Actor 路由，媒体与结果通过持久鉴权连接传输到模型进程。Worker 地址不适用时，配置 "
+"``XINFERENCE_REALTIME_BIND_HOST`` 和 "
+"``XINFERENCE_REALTIME_ADVERTISE_HOST``。内部端口须位于可信私网或加密隧道中，此端点自身不提供 TLS。浏览器 "
+"Origin 默认拒绝，需通过 ``XINFERENCE_REALTIME_ALLOWED_ORIGINS`` 显式允许；尚未实现浏览器原生票据鉴权。"
+
+msgid ""
+"Defaults are one realtime session per replica, 64 KiB input frames, 2 MiB "
+"output messages, eight-element input and output queues, 60 seconds of media "
+"inactivity, and 30 minutes per session. File requests and realtime sessions "
+"share request-limit accounting and inference locking. Cancellation retains "
+"capacity until an already running native operation finishes; safe unloading "
+"can therefore exceed the drain timeout. Real-GPU latency, accuracy and "
+"capacity still require deployment validation."
+msgstr ""
+"默认每副本一个实时会话，输入帧最大 64 KiB，输出消息最大 2 MiB，输入和输出队列各八项，媒体空闲超时 60 秒，会话上限 30 "
+"分钟。文件请求与实时会话共享请求限额计数和推理锁。取消时，正在执行的原生操作结束前仍保留容量，因此安全卸载可能超过排空超时。真实 GPU "
+"的延迟、准确率和容量仍需部署验证。"
+
+msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
+msgstr "配置的 ``XINFERENCE_ALLOWED_IPS`` IP 白名单也会在 WebSocket 升级前执行检查。"
+
+msgid ""
+"A model must provide a realtime adapter; instances without one reject "
+"realtime connections. Task-specific input and output schemas are defined by "
+"each adapter."
+msgstr "模型必须提供实时适配器；未提供适配器的实例会拒绝实时连接。各适配器分别定义任务特定的输入和输出结构。"

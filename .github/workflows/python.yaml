@@ -459,6 +459,7 @@ jobs:
             xinference/api/tests/test_launch_history.py
             xinference/api/tests/test_frontend_static.py
             xinference/api/tests/test_runtime_logs.py
+            xinference/api/tests/test_realtime_api.py
             xinference/client/tests
             xinference/core/tests/test_download_task_store.py
             xinference/core/tests/test_monitor_config_store.py
@@ -466,6 +467,8 @@ jobs:
             xinference/core/tests/test_router_config_store.py
             xinference/core/tests/test_router_node_store.py
             xinference/core/tests/test_subpool_hardening.py
+            xinference/core/tests/test_realtime_runtime.py
+            xinference/core/tests/test_realtime_data_plane.py
             xinference/core/tests/test_system_settings_store.py
             xinference/core/tests/test_tokenizer_asset_store.py
             xinference/core/tests/test_utils.py

@@ -1,0 +1,73 @@
+# Japanese translations for Xinference.
+# Copyright (C) 2026 Xinference contributors
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-10-23 16:34+0800\n"
+"PO-Revision-Date: 2026-10-23 12:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+msgid "Realtime model sessions"
+msgstr "モデルのリアルタイムセッション"
+
+#, python-brace-format
+msgid ""
+"Use ``WS /v1/models/{model_uid}/realtime`` for continuous media input. When "
+"authentication is enabled, send ``Authorization: Bearer <API_KEY>``; model "
+"permissions and the ``models:read`` scope apply. This is a Xinference "
+"protocol, not the OpenAI Realtime API."
+msgstr ""
+"連続メディア入力には ``WS /v1/models/{model_uid}/realtime`` を使用します。認証が有効な場合は "
+"``Authorization: Bearer <API_KEY>`` を送信し、モデル権限と ``models:read`` "
+"スコープが適用されます。これは Xinference 独自のプロトコルであり、OpenAI Realtime API ではありません。"
+
+msgid ""
+"Only connection initialization uses Actor routing. Media and results use an "
+"authenticated persistent connection to the model process. Configure "
+"``XINFERENCE_REALTIME_BIND_HOST`` and ``XINFERENCE_REALTIME_ADVERTISE_HOST``"
+" when the Worker address is unsuitable. Keep internal ports on a trusted "
+"private network or encrypted tunnel; this endpoint does not provide TLS "
+"itself. Browser origins are rejected unless listed in "
+"``XINFERENCE_REALTIME_ALLOWED_ORIGINS``; browser-native ticket "
+"authentication is not implemented."
+msgstr ""
+"Actor のルーティングは接続初期化時のみです。メディアと結果はモデルプロセスとの認証済み持続接続を使います。Worker のアドレスが不適切な場合は"
+" ``XINFERENCE_REALTIME_BIND_HOST`` と ``XINFERENCE_REALTIME_ADVERTISE_HOST`` "
+"を設定します。内部ポートは信頼できるプライベートネットワークか暗号化トンネルに限定してください。このエンドポイント自体は TLS "
+"を提供しません。ブラウザーの Origin は ``XINFERENCE_REALTIME_ALLOWED_ORIGINS`` "
+"に登録しない限り拒否され、ブラウザー用チケット認証は未実装です。"
+
+msgid ""
+"Defaults are one realtime session per replica, 64 KiB input frames, 2 MiB "
+"output messages, eight-element input and output queues, 60 seconds of media "
+"inactivity, and 30 minutes per session. File requests and realtime sessions "
+"share request-limit accounting and inference locking. Cancellation retains "
+"capacity until an already running native operation finishes; safe unloading "
+"can therefore exceed the drain timeout. Real-GPU latency, accuracy and "
+"capacity still require deployment validation."
+msgstr ""
+"既定値はレプリカごとに一セッション、入力フレーム 64 KiB、出力メッセージ 2 MiB、入出力キュー各八要素、メディア無入力 60 "
+"秒、セッション最大 30 "
+"分です。ファイル要求とリアルタイムセッションは要求数制限と推論ロックを共有します。中止後も実行中のネイティブ処理が完了するまで容量を保持するため、安全なアンロードはドレイン期限を超える場合があります。実"
+" GPU の遅延、精度、容量は配備時の検証が必要です。"
+
+msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
+msgstr "設定された ``XINFERENCE_ALLOWED_IPS`` の許可リストは、WebSocket へのアップグレード前にも適用されます。"
+
+msgid ""
+"A model must provide a realtime adapter; instances without one reject "
+"realtime connections. Task-specific input and output schemas are defined by "
+"each adapter."
+msgstr "モデルにはリアルタイムアダプターが必要です。アダプターがないインスタンスはリアルタイム接続を拒否します。タスク固有の入出力スキーマは各アダプターが定義します。"
