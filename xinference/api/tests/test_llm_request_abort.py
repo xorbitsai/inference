@@ -134,7 +134,11 @@ async def _run_asgi_disconnect(response, phase, next_item_started):
                 await asyncio.Event().wait()
 
     await asyncio.wait_for(
-        response({"type": "http", "asgi": {"version": "3.0"}}, receive, send),
+        response(
+            {"type": "http", "method": "POST", "asgi": {"version": "3.0"}},
+            receive,
+            send,
+        ),
         timeout=5,
     )
 

@@ -300,5 +300,5 @@ def test_project_declares_supported_python_versions_and_xoscar_floor():
     assert project["requires-python"] == ">=3.10"
     assert "Programming Language :: Python :: 3.9" not in project["classifiers"]
     assert "Programming Language :: Python :: 3.14" in project["classifiers"]
-    assert "xoscar>=0.12.1" in project["dependencies"]
-    assert "xoscar>=0.12.1" in cpu_requirements
+    assert "xoscar>=0.12.2" in project["dependencies"]
+    assert "xoscar>=0.12.2" in cpu_requirements

@@ -602,6 +602,8 @@ const zh = {
     partialConfigHistoryDeleteFailed: '部分配置历史删除失败。',
     invalidConfigCache: '这条配置缓存对应的模型引擎当前不可用。',
     commandLineParsing: '解析命令行参数',
+    structuredParameterInvalidJson: '{{parameter}} 必须填写合法的 JSON。',
+    structuredParameterObjectRequired: '{{parameter}} 必须是 JSON 对象。',
     commandLineParsingFailed: '命令行参数处理失败：{{error}}',
     copyToCommandLine: '复制为命令行指令',
     modelEngine: '模型引擎',

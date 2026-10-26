@@ -33,7 +33,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "xoscar>=0.12.1",
+    "xoscar>=0.12.2",
     "psutil>=5.9.0",
     "torch",
     "pillow",
@@ -48,6 +48,7 @@ dependencies = [
     "python-multipart>=0.0.18",  # required by FastAPI's Form/File/UploadFile params; used to come in transitively via gradio
     "orjson",  # used by core.utils.json_dumps for all REST API JSON responses; used to come in transitively via gradio
     "uvicorn",
+    "websockets>=12",  # WebSocket transport for the generic realtime API
     "PyYAML",
     "huggingface-hub>=0.19.4",
     "filelock>=3.30.0",  # preserve_lock_file keeps Wan MLX conversion locks stable on Windows

@@ -1,0 +1,134 @@
+# Portuguese (Brazil) translations for Xinference.
+# Copyright (C) 2026 Xinference contributors
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-10-23 16:34+0800\n"
+"PO-Revision-Date: 2026-10-23 12:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language: pt_BR\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: user_guide/realtime.rst:3
+msgid "Realtime model sessions"
+msgstr "Sessões de modelo em tempo real"
+
+#: user_guide/realtime.rst:6
+#, python-brace-format
+msgid ""
+"Use ``WS /v1/models/{model_uid}/realtime`` for continuous media input. When "
+"authentication is enabled, send ``Authorization: Bearer <API_KEY>``; model "
+"permissions and the ``models:read`` scope apply. This is a Xinference "
+"protocol, not the OpenAI Realtime API."
+msgstr ""
+"Use ``WS /v1/models/{model_uid}/realtime`` para entrada contínua de mídia. "
+"Quando a autenticação estiver habilitada, envie ``Authorization: Bearer "
+"<API_KEY>``; aplicam-se as permissões do modelo e o escopo ``models:read``. "
+"Este é um protocolo Xinference, não a API OpenAI Realtime."
+
+#: user_guide/realtime.rst:8
+msgid ""
+"The initial adapter is opt-in segmental transcription for PyTorch ``Fun-ASR-"
+"Nano-2512``. Launch with ``realtime=True`` and a FunASR version providing "
+"``DynamicStreamingVAD``. It reuses loaded ASR and FSMN VAD weights; it does "
+"not load vLLM or promise incremental acoustic encoding. Other instances "
+"remain unchanged."
+msgstr ""
+"O primeiro adaptador oferece transcrição segmentada opcional para PyTorch "
+"``Fun-ASR-Nano-2512``. Inicie com ``realtime=True`` e uma versão FunASR com "
+"``DynamicStreamingVAD``. Ele reutiliza os pesos ASR e FSMN VAD carregados; "
+"não carrega vLLM nem garante codificação acústica incremental. As demais "
+"instâncias permanecem inalteradas."
+
+#: user_guide/realtime.rst:22
+msgid ""
+"Send the configuration below, wait for ``session.started``, then send binary"
+" mono 16 kHz PCM16 little-endian audio without a WAV header. Send "
+"``input.end`` to flush accepted audio, or ``session.cancel`` to cancel. "
+"Results use increasing ``seq`` values; replace cumulative ``sentences`` and "
+"mutable ``partial`` snapshots instead of appending them. Success requires "
+"one final output and ``session.closed`` with reason ``completed``."
+msgstr ""
+"Envie a configuração abaixo, aguarde ``session.started`` e envie áudio "
+"binário mono de 16 kHz PCM16 little-endian sem cabeçalho WAV. ``input.end`` "
+"conclui o áudio aceito e ``session.cancel`` cancela. Os resultados usam "
+"``seq`` crescente; substitua os snapshots cumulativos ``sentences`` e "
+"mutáveis ``partial`` em vez de anexá-los. O sucesso exige uma única saída "
+"final e ``session.closed`` com reason ``completed``."
+
+#: user_guide/realtime.rst:36
+msgid ""
+"Only connection initialization uses Actor routing. Media and results use an "
+"authenticated persistent connection to the model process. Configure "
+"``XINFERENCE_REALTIME_BIND_HOST`` and ``XINFERENCE_REALTIME_ADVERTISE_HOST``"
+" when the Worker address is unsuitable. Keep internal ports on a trusted "
+"private network or encrypted tunnel; this endpoint does not provide TLS "
+"itself. Browser origins are rejected unless listed in "
+"``XINFERENCE_REALTIME_ALLOWED_ORIGINS``; browser-native ticket "
+"authentication is not implemented."
+msgstr ""
+"Apenas a inicialização usa roteamento Actor. Mídia e resultados usam uma "
+"conexão persistente autenticada com o processo do modelo. Configure "
+"``XINFERENCE_REALTIME_BIND_HOST`` e ``XINFERENCE_REALTIME_ADVERTISE_HOST`` "
+"quando o endereço Worker for inadequado. Mantenha portas internas em rede "
+"privada confiável ou túnel criptografado; este endpoint não fornece TLS por "
+"si só. Origens de navegador são rejeitadas salvo inclusão em "
+"``XINFERENCE_REALTIME_ALLOWED_ORIGINS``; autenticação nativa por ticket no "
+"navegador não está implementada."
+
+#: user_guide/realtime.rst:38
+msgid ""
+"Defaults are one realtime session per replica, 64 KiB input frames, 2 MiB "
+"output messages, eight-element input and output queues, 60 seconds of media "
+"inactivity, and 30 minutes per session. File requests and realtime sessions "
+"share request-limit accounting and inference locking. Cancellation retains "
+"capacity until an already running native operation finishes; safe unloading "
+"can therefore exceed the drain timeout. Real-GPU latency, accuracy and "
+"capacity still require deployment validation."
+msgstr ""
+"Os padrões são uma sessão por réplica, quadros de entrada de 64 KiB, "
+"mensagens de saída de 2 MiB, filas de oito elementos, 60 segundos sem mídia "
+"e 30 minutos por sessão. Requisições de arquivo e sessões compartilham "
+"contagem de limites e bloqueio de inferência. O cancelamento retém "
+"capacidade até a operação nativa em execução terminar; o descarregamento "
+"seguro pode exceder o tempo de drenagem. Latência, precisão e capacidade GPU"
+" ainda exigem validação na implantação."
+
+msgid "The configured ``XINFERENCE_ALLOWED_IPS`` allowlist also applies before WebSocket upgrade."
+msgstr "A lista de IPs permitidos configurada em ``XINFERENCE_ALLOWED_IPS`` também se aplica antes da atualização para WebSocket."
+
+#: user_guide/realtime.rst:44
+msgid ""
+"Run the repository probe with a mono PCM16 WAV, using ``XINFERENCE_API_KEY``"
+" from the environment. A 30–60 second speech recording must produce nonempty"
+" text before the last audio frame and ``input.end``. The probe cannot "
+"independently prove zero media RPC or resource cleanup; run the runtime "
+"integration tests as well."
+msgstr ""
+"Execute a sonda do repositório com um WAV mono PCM16 e "
+"``XINFERENCE_API_KEY`` do ambiente. Uma gravação de fala de 30–60 segundos "
+"deve gerar texto não vazio antes do último quadro e de ``input.end``. A "
+"sonda sozinha não comprova zero RPC de mídia nem liberação de recursos; "
+"execute também os testes de integração do runtime."
+
+#: user_guide/realtime.rst:54
+msgid "Nano launch options"
+msgstr "Opções de inicialização do Nano"
+
+#: user_guide/realtime.rst:57
+msgid "With ``realtime=True``, set ``realtime_options`` at model launch, not in session ``parameters``. In the Web UI, add an engine parameter named ``realtime_options`` with the JSON value below; the UI submits it as an object. REST/Python clients should send an object; JSON object strings are accepted for compatibility with older Web UIs. Unknown fields, non-object JSON and invalid value types are rejected."
+msgstr "Com ``realtime=True``, defina ``realtime_options`` na inicialização do modelo, não nos ``parameters`` da sessão. Na interface Web, adicione um parâmetro do mecanismo chamado ``realtime_options`` com o valor JSON abaixo; a interface o envia como objeto. Clientes REST/Python devem enviar um objeto; strings de objetos JSON são aceitas para compatibilidade com interfaces Web antigas. Campos desconhecidos, JSON que não seja um objeto e tipos de valores inválidos são rejeitados."
+
+#: user_guide/realtime.rst:63
+msgid "Optimization is disabled by default. This is a candidate configuration, not a latency guarantee. Removing ``realtime_options`` restores defaults; setting only ``optimize=false`` does not reset explicitly configured timing or segment limits."
+msgstr "A otimização é desativada por padrão. Esta é uma configuração candidata, não uma garantia de latência. Remover ``realtime_options`` restaura os padrões; definir apenas ``optimize=false`` não redefine os parâmetros de tempo ou os limites de segmento configurados explicitamente."

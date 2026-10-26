@@ -10,7 +10,7 @@ Upgrade one component at a time while inference continues. Choose the component 
 Prepare an upgrade
 ------------------
 
-The running deployment must already support the relevant replacement protocol and service host. API, Supervisor and Worker replacement support local and distributed deployments on Linux and macOS. Windows is unsupported. Model-engine replacement has the Linux GPU requirements described below.
+The running deployment must already support the relevant replacement protocol and service host. API, Supervisor and Worker replacement support local and distributed deployments on Linux, macOS and Windows. Model-engine replacement has the Linux GPU requirements described below. On Windows, run original and replacement processes under the same user and privilege level. On Windows, the local service host and API subprocesses use selector event loops, each limited to 512 sockets.
 
 By default, a replacement uses the component's current Python environment. No Python path is required. Use an administrator session when authentication is enabled.
 
@@ -38,7 +38,7 @@ REST API: ``POST /v1/api/relaunch``.
 
 The HTTP 202 response contains an ``operation_id``. Poll ``GET /v1/api-relaunches/{operation_id}`` or list operations with ``GET /v1/api-relaunches``. States are ``starting``, ``switching``, ``draining``, ``succeeded`` and ``failed``. ``draining`` means the new API is serving while the previous API finishes admitted requests.
 
-A failed startup leaves the previous API serving. Reuse ``request_id`` when retrying the same request. Only one replacement may run at a time. Operation history belongs to the stable service host and lasts until it stops. Windows, Supervisor upgrades and database migrations are outside this operation.
+A failed startup leaves the previous API serving. Reuse ``request_id`` when retrying the same request. Only one replacement may run at a time. Operation history belongs to the stable service host and lasts until it stops. Supervisor upgrades and database migrations are outside this operation.
 
 Supervisor
 ----------
@@ -49,7 +49,7 @@ In **Cluster Information**, choose **Restart / upgrade Supervisor**, or run:
 
     xinference relaunch-supervisor --endpoint http://127.0.0.1:9997
 
-On Linux and macOS, ``xinference-supervisor`` and ``xinference-local`` can replace their Supervisor control process while retaining the API, Workers and model processes. The HTTP address and Supervisor actor address stay the same. New inference requests continue using the serving routes while the replacement prepares; existing streams stay on their model processes.
+On Linux, macOS and Windows, ``xinference-supervisor`` and ``xinference-local`` can replace their Supervisor control process while retaining the API, Workers and model processes. The HTTP address and Supervisor actor address stay the same. New inference requests continue using the serving routes while the replacement prepares; existing streams stay on their model processes.
 
 The replacement loads persisted configuration and checks the registered Workers' live model inventories and ownership. Management operations briefly wait during state transfer; model route lookups remain available. An active model launch, download, model reload or Worker handoff prevents replacement until that operation finishes. Failed preparation leaves the previous Supervisor serving.
 
@@ -57,14 +57,16 @@ REST API: ``POST /v1/supervisor/relaunch``.
 
 The HTTP 202 response includes an ``operation_id``. Poll ``GET /v1/supervisor-relaunches/{operation_id}`` or list operations with ``GET /v1/supervisor-relaunches``. States are ``starting``, ``preparing``, ``switching``, ``draining``, ``succeeded`` and ``failed``. Only one Supervisor replacement runs at a time. Reuse ``request_id`` when retrying the same operation; history lasts until the stable service host stops.
 
-The service must have been started with Supervisor hosting support. The stable host and its state, cache, event, progress and model-routing actors retain their original environments. This operation upgrades Supervisor control logic; upgrading retained actors or changing database schemas requires a planned restart. Windows is unsupported.
+The service must have been started with Supervisor hosting support. The stable host and its state, cache, event, progress and model-routing actors retain their original environments. This operation upgrades Supervisor control logic; upgrading retained actors or changing database schemas requires a planned restart.
 
 .. _worker_hot_replacement:
 
 Worker
 ------
 
-Replace a Worker on Linux or macOS while retaining its model processes. The Supervisor and API server keep running. Both Workers and the model processes must support the handoff protocol and use Xoscar 0.12.1 or later, compatible Python versions, the same Supervisor, GPU visibility and extensions. Models spanning Workers and Xavier or P/D deployments are currently unsupported.
+Replace a Worker on Linux, macOS or Windows while retaining its model processes. The Supervisor and API server keep running. Both Workers and the model processes must support the handoff protocol and use Xoscar 0.12.2 or later, compatible Python versions, the same Supervisor, GPU visibility and extensions. Models spanning Workers and Xavier or P/D deployments are currently unsupported.
+
+Worker relaunch requires the target Xinference version to support the running host's registration protocol. A downgrade to a version without that support fails while the current Worker keeps serving.
 
 In **Cluster Information**, administrators can use **Restart / upgrade Worker** on a Worker. Operation records remain visible when its address changes or the page is refreshed. This retains the current model processes; model-engine upgrades use **Reconfigure / upgrade model** from **Running Models** or the model's detail view.
 
@@ -98,7 +100,9 @@ The model processes retain their original Xinference and engine code and loaded 
 Service and container ownership
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-On Linux and macOS, ``xinference-worker`` automatically keeps a stable Worker host as its main process. Replacement Workers register before handoff, so retirement of the original Worker does not stop its models, replacement, systemd service or container. Explicitly stopping the host terminates its owned processes. Custom launch commands can use the host wrapper below.
+On Linux, macOS and Windows, ``xinference-worker`` automatically keeps a stable Worker host as its main process. Replacement Workers register before handoff, so retirement of the original Worker does not stop its models, replacement, service or container. Explicitly stopping the host terminates its owned processes. Custom launch commands can use the host wrapper below.
+
+On Windows, stopping the Worker host forcibly terminates its owned processes. The Supervisor detects the stopped Worker after its heartbeat timeout.
 
 .. code-block:: bash
 

@@ -633,6 +633,8 @@ const en = {
     partialConfigHistoryDeleteFailed: 'Some configuration history records could not be deleted.',
     invalidConfigCache: 'The model engine required by this cached configuration is unavailable.',
     commandLineParsing: 'Command Line Argument Parsing',
+    structuredParameterInvalidJson: '{{parameter}} must contain valid JSON.',
+    structuredParameterObjectRequired: '{{parameter}} must be a JSON object.',
     commandLineParsingFailed: 'Failed to process command line: {{error}}',
     copyToCommandLine: 'Copy as Command Line Command',
     modelEngine: 'Model Engine',

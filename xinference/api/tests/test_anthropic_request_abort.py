@@ -1,3 +1,4 @@
+# CI: linux
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 import asyncio
 import json
@@ -27,7 +28,7 @@ async def calls(monkeypatch):
         await asyncio.Event().wait()
 
     await restful_api.EventSourceResponse(startup(), ping=3600)(
-        {"type": "http"}, receive, AsyncMock()
+        {"type": "http", "method": "POST"}, receive, AsyncMock()
     )
     baseline, entries = asyncio.all_tasks(), {}
 

@@ -82,7 +82,9 @@ class Glm4_1VModel(PytorchMultiModalModel):
             role = message["role"]
             content = message["content"]
             if isinstance(content, str):
-                res.append({"role": role, "content": content})
+                res.append(
+                    {"role": role, "content": [{"type": "text", "text": content}]}
+                )
             else:
                 texts = []
                 image_urls = []
@@ -113,7 +115,7 @@ class Glm4_1VModel(PytorchMultiModalModel):
                     res.append({"role": role, "content": content})
                 else:
                     res.append(
-                        {"role": role, "content": {"type": "text", "text": text}}
+                        {"role": role, "content": [{"type": "text", "text": text}]}
                     )
         return res
 

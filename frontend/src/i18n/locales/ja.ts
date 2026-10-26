@@ -620,6 +620,8 @@ const ja = {
     partialConfigHistoryDeleteFailed: '一部の設定履歴を削除できませんでした。',
     invalidConfigCache: 'この設定キャッシュに必要なモデルエンジンは現在利用できません。',
     commandLineParsing: 'コマンドライン引数解析',
+    structuredParameterInvalidJson: '{{parameter}} に有効な JSON を入力してください。',
+    structuredParameterObjectRequired: '{{parameter}} は JSON オブジェクトである必要があります。',
     commandLineParsingFailed: 'コマンドラインの処理に失敗しました: {{error}}',
     copyToCommandLine: 'コマンドラインコマンドとしてコピー',
     modelEngine: 'モデルエンジン',

@@ -62,6 +62,8 @@ jobs:
         run: cd frontend && npm run test:catalog-refresh
       - name: Test persistent model favorites
         run: cd frontend && npm run test:model-favorites
+      - name: Test structured realtime launch options
+        run: cd frontend && npm run test:realtime-options
       - name: Test model and service upgrade controls
         run: cd frontend && npm run test:model-reload && npm run test:worker-relaunch && npm run test:service-relaunch
       - name: Build frontend (static export)
@@ -459,6 +461,7 @@ jobs:
             xinference/api/tests/test_launch_history.py
             xinference/api/tests/test_frontend_static.py
             xinference/api/tests/test_runtime_logs.py
+            xinference/api/tests/test_realtime_api.py
             xinference/client/tests
             xinference/core/tests/test_download_task_store.py
             xinference/core/tests/test_monitor_config_store.py
@@ -466,6 +469,8 @@ jobs:
             xinference/core/tests/test_router_config_store.py
             xinference/core/tests/test_router_node_store.py
             xinference/core/tests/test_subpool_hardening.py
+            xinference/core/tests/test_realtime_runtime.py
+            xinference/core/tests/test_realtime_data_plane.py
             xinference/core/tests/test_system_settings_store.py
             xinference/core/tests/test_tokenizer_asset_store.py
             xinference/core/tests/test_utils.py
@@ -473,6 +478,8 @@ jobs:
             xinference/core/tests/test_virtual_env_manager.py
             xinference/core/tests/test_virtualenv_package_rewrite.py
             xinference/core/tests/test_worker.py
+            xinference/core/tests/test_worker_handoff.py
+            xinference/core/tests/test_worker_relaunch.py
             xinference/core/tests/test_worker_address_resolution.py
             xinference/deploy/test
             xinference/model/llm/llama_cpp/tests/test_gguf.py
@@ -493,6 +500,9 @@ jobs:
             xinference/model/audio/tests/test_audio_batching.py
             xinference/model/audio/tests/test_cosyvoice_security.py
             xinference/model/audio/tests/test_kokoro.py::test_kokoro_dependencies_exclude_broken_preshed
+            xinference/model/audio/tests/test_funasr_realtime.py
+            xinference/model/audio/tests/test_funasr_realtime_probe.py
+            xinference/model/audio/tests/test_funasr_realtime_sdk.py
             xinference/model/llm/sglang/tests/test_xavier.py
             xinference/model/llm/sglang/tests/test_xavier_pd.py
             xinference/model/llm/sglang/tests/test_pd.py

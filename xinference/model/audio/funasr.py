@@ -40,6 +40,18 @@ class FunASRModel:
         self._model_spec = model_spec
         self._device = device
         self._model = None
+        self._realtime_enabled = kwargs.pop("realtime", False)
+        if not isinstance(self._realtime_enabled, bool):
+            raise ValueError("realtime must be a boolean")
+        realtime_options = kwargs.pop("realtime_options", None)
+        self._realtime_options = None
+        if realtime_options is not None:
+            from .funasr_realtime import NanoRealtimeOptions
+
+            if not self._realtime_enabled:
+                raise ValueError("realtime_options requires realtime=True")
+            self._realtime_options = NanoRealtimeOptions.from_dict(realtime_options)
+        self._realtime_ready = False
         self._kwargs = kwargs
 
     @property
@@ -152,8 +164,43 @@ class FunASRModel:
             else {}
         )
         kwargs.update(self._kwargs)
+        if self._realtime_enabled:
+            if self._model_spec.model_name != "Fun-ASR-Nano-2512":
+                raise ValueError("Realtime FunASR adapter currently supports Nano only")
+            try:
+                from funasr.models.fsmn_vad_streaming.dynamic_vad import (  # noqa: F401
+                    DynamicStreamingVAD,
+                )
+            except ImportError as exc:
+                raise ImportError(
+                    "Nano realtime requires FunASR with DynamicStreamingVAD support"
+                ) from exc
+            kwargs.setdefault("vad_model", "fsmn-vad")
         logger.debug("Loading FunASR model with kwargs: %s", kwargs)
         self._model = AutoModel(model=self._model_path, device=self._device, **kwargs)
+        if self._realtime_enabled:
+            if (
+                not callable(getattr(self._model, "inference", None))
+                or getattr(self._model, "vad_model", None) is None
+            ):
+                raise RuntimeError("Nano realtime requires loaded ASR and FSMN VAD")
+            self._realtime_ready = True
+
+    def get_realtime_capabilities(self):
+        if not self._realtime_ready:
+            return {}
+        from copy import deepcopy
+
+        from .funasr_realtime import CAPABILITIES
+
+        return deepcopy(CAPABILITIES)
+
+    def create_realtime_session(self, config, runtime):
+        if not self._realtime_ready:
+            raise ValueError("Realtime input is not enabled for this model instance")
+        from .funasr_realtime import NanoRealtimeSession
+
+        return NanoRealtimeSession(self, config, runtime)
 
     def transcriptions(
         self,

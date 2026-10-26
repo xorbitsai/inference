@@ -303,6 +303,7 @@ def test_worker_command_passes_endpoint_and_internal_address(
 
     monkeypatch.setattr(cmdline_module, "RESTfulClient", DummyRESTfulClient)
     monkeypatch.setattr("xinference.deploy.worker.main", fake_main)
+    monkeypatch.setattr("logging.config.dictConfig", lambda config: None)
 
     result = runner.invoke(
         worker,
@@ -317,7 +318,7 @@ def test_worker_command_passes_endpoint_and_internal_address(
         + (["--replace-worker", replacement] if replacement else []),
     )
 
-    if replacement and os.name == "posix" and not hosted:
+    if replacement and not hosted:
         assert result.exit_code == 2
         assert "relaunch" in result.output
         assert not calls
@@ -329,9 +330,7 @@ def test_worker_command_passes_endpoint_and_internal_address(
     assert calls["main_kwargs"]["supervisor_endpoint"] == "http://127.0.0.1:9997"
 
     assert calls["main_kwargs"].get("replace_worker") == replacement
-    assert calls["main_kwargs"].get("use_process_host", False) is (
-        os.name == "posix" and not hosted
-    )
+    assert calls["main_kwargs"].get("use_process_host", False) is (not hosted)
 
 
 @pytest.mark.platform_slow

@@ -9,7 +9,6 @@ import json
 import os
 import secrets
 import selectors
-import signal
 import socket
 import subprocess
 import sys
@@ -17,12 +16,20 @@ import tempfile
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
 from ..core.system_settings_store import SystemSettingsStore
 from ..core.worker_relaunch import validate_relaunch_options
+from .process_host import (
+    bind_listener,
+    pipe_bytes_available,
+    run_api_loop,
+    shutdown_signals,
+    start_process,
+)
 
 if TYPE_CHECKING:
     from .supervisor_host import SupervisorHost
@@ -55,7 +62,7 @@ def _forward_output(
     with source, contextlib.ExitStack() as stack:
         reader = (
             stack.enter_context(selectors.DefaultSelector())
-            if stopping is not None
+            if stopping is not None and os.name != "nt"
             else None
         )
         if reader is not None:
@@ -65,6 +72,14 @@ def _forward_output(
                 if not reader.select(0.1):
                     continue
                 data = os.read(source.fileno(), 65536)
+            elif stopping is not None:
+                available = pipe_bytes_available(source)
+                if available < 0:
+                    break
+                if not available:
+                    stopping.wait(0.1)
+                    continue
+                data = os.read(source.fileno(), min(available, 65536))
             else:
                 data = source.read1(65536)
             if not data:
@@ -83,30 +98,31 @@ def _forward_output(
 
 
 async def _wait_process(process: subprocess.Popen, diagnostics: APIDiagnostics) -> int:
-    stopping = threading.Event() if os.name == "posix" else None
-    waiting = asyncio.create_task(asyncio.to_thread(process.wait))
+    stopping = threading.Event()
+    # These waits last for a whole process generation. Keep them off the
+    # serving loop's default executor so upgrades and RPCs can still use it.
+    executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="xinf-process")
+    loop = asyncio.get_running_loop()
+    waiting = loop.run_in_executor(executor, process.wait)
     forwarding = asyncio.gather(
-        asyncio.to_thread(
-            _forward_output, process.stdout, sys.stdout, diagnostics, stopping
+        loop.run_in_executor(
+            executor, _forward_output, process.stdout, sys.stdout, diagnostics, stopping
         ),
-        asyncio.to_thread(
-            _forward_output, process.stderr, sys.stderr, diagnostics, stopping
+        loop.run_in_executor(
+            executor, _forward_output, process.stderr, sys.stderr, diagnostics, stopping
         ),
     )
     try:
         exit_code = await waiting
-        if stopping is None:
+        try:
+            await asyncio.wait_for(asyncio.shield(forwarding), 1)
+        except asyncio.TimeoutError:
+            stopping.set()
             await forwarding
-        else:
-            try:
-                await asyncio.wait_for(asyncio.shield(forwarding), 1)
-            except asyncio.TimeoutError:
-                stopping.set()
-                await forwarding
         return exit_code
     finally:
-        if stopping is not None:
-            stopping.set()
+        stopping.set()
+        executor.shutdown(wait=False)
 
 
 async def host_request(command: str, **options: Any) -> Any:
@@ -114,7 +130,7 @@ async def host_request(command: str, **options: Any) -> Any:
     if not address:
         component = "Supervisor" if command.startswith("supervisor-") else "API"
         raise RuntimeError(
-            f"{component} relaunch requires a POSIX xinference-local or "
+            f"{component} relaunch requires a hosted xinference-local or "
             "xinference-supervisor service"
         )
     connection = json.loads(address)
@@ -193,6 +209,8 @@ class APIProcess:
 
 
 class APIHost:
+    serves_api_inline = False
+
     def __init__(
         self,
         listener: socket.socket,
@@ -299,7 +317,7 @@ class APIHost:
             with contextlib.suppress(ConnectionError):
                 await writer.wait_closed()
 
-    def spawn(self, executable: str, environment: Dict[str, str]) -> APIProcess:
+    async def spawn(self, executable: str, environment: Dict[str, str]) -> APIProcess:
         identity = uuid.uuid4().hex
         path = self.directory / (identity + ".json")
         path.write_text(
@@ -314,9 +332,9 @@ class APIHost:
         )
         path.chmod(0o600)
         diagnostics = APIDiagnostics()
-        process = subprocess.Popen(
+        process = await start_process(
             [executable, "-u", str(self.directory / "start_api.py"), str(path)],
-            pass_fds=(self.listener.fileno(),),
+            listener=self.listener,
             env={**environment, API_HOST_ENV: json.dumps(self.connection)},
             cwd=self.working_directory,
             stdout=subprocess.PIPE,
@@ -380,7 +398,7 @@ class APIHost:
                 environment = build_subpool_envs_for_python(
                     environment, operation["python_executable"]
                 )
-            target = self.spawn(operation["python_executable"], environment)
+            target = await self.spawn(operation["python_executable"], environment)
             operation["target_pid"] = target.process.pid
             await target.wait(target.ready)
             operation.update(status="switching", target_version=target.version)
@@ -393,14 +411,16 @@ class APIHost:
                 await source.send("drain")
                 await source.wait(source.draining)
             except (ConnectionError, RuntimeError):
-                if source.process.poll() is None:
-                    source.process.terminate()  # Uvicorn drains on SIGTERM too.
+                # Control EOF also starts draining, including on Windows where
+                # Popen.terminate() would immediately cancel active requests.
+                if source.writer is not None:
+                    source.writer.close()
             await asyncio.shield(source.exited)
             operation.update(status="succeeded", finished_at=time.time())
         except Exception as error:
             operation.update(status="failed", error=str(error), finished_at=time.time())
             if target is not None and self.active is not target:
-                if target.process.poll() is None:
+                if not activated and target.process.poll() is None:
                     target.process.terminate()
                 if target.writer is not None:
                     target.writer.close()
@@ -410,8 +430,8 @@ class APIHost:
                     except asyncio.TimeoutError:
                         target.process.kill()
                         await target.exited
-                # Once activation was sent, preserve any admitted requests.
-                # SIGTERM drains them; a failed preparation has admitted none.
+                # Once activation was sent, control EOF drains any admitted
+                # requests. A failed preparation has admitted none.
 
     async def start_components(self, environment: Dict[str, str]) -> None:
         if self.configuration.get("host_supervisor"):
@@ -421,7 +441,7 @@ class APIHost:
                 self.configuration, self.directory, self.settings_store
             )
             await self.supervisor_host.start(environment)
-        self.active = self.spawn(sys.executable, environment)
+        self.active = await self.spawn(sys.executable, environment)
         await self.active.wait(self.active.ready)
         await self.active.send("activate")
         await self.active.wait(self.active.serving)
@@ -480,7 +500,10 @@ class APIHost:
                 server.close()
                 for child in self.children.values():
                     if child.process.poll() is None:
-                        child.process.terminate()
+                        if child.writer is not None:
+                            child.writer.close()
+                        else:
+                            child.process.terminate()
                 for child in self.children.values():
                     try:
                         await asyncio.wait_for(asyncio.shield(child.exited), 30)
@@ -494,7 +517,6 @@ class APIHost:
 
 
 def run(configuration: Dict[str, Any], host_class=APIHost) -> None:
-    from uvicorn import Config
     from xoscar.utils import get_next_port
 
     from ..constants import (
@@ -504,22 +526,17 @@ def run(configuration: Dict[str, Any], host_class=APIHost) -> None:
     from ..core.system_settings_store import get_system_settings_store
 
     try:
-        listener = Config(
-            None, host=configuration["host"], port=configuration["port"]
-        ).bind_socket()
+        listener = bind_listener(configuration["host"], configuration["port"])
     except SystemExit:
         if configuration["port"] is not XINFERENCE_DEFAULT_ENDPOINT_PORT:
             raise
         configuration = {**configuration, "port": get_next_port()}
-        listener = Config(
-            None, host=configuration["host"], port=configuration["port"]
-        ).bind_socket()
+        listener = bind_listener(configuration["host"], configuration["port"])
     configuration = {**configuration, "port": listener.getsockname()[1]}
     listener.listen(2048)
 
     async def serve():
         stopping = asyncio.Event()
-        loop = asyncio.get_running_loop()
         host = host_class(
             listener,
             configuration,
@@ -531,12 +548,10 @@ def run(configuration: Dict[str, Any], host_class=APIHost) -> None:
                 host.force_exit()
             stopping.set()
 
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(sig, stop)
-        try:
+        with shutdown_signals(stop):
             await host.run(stopping)
-        finally:
-            for sig in (signal.SIGTERM, signal.SIGINT):
-                loop.remove_signal_handler(sig)
 
-    asyncio.run(serve())
+    if host_class.serves_api_inline:
+        run_api_loop(serve())
+    else:
+        asyncio.run(serve())
