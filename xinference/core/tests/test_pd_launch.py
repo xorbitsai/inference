@@ -476,6 +476,55 @@ async def test_pd_route_waits_for_transfers(launch_runtime):
 @pytest.mark.parametrize(
     "stage", ["pre-worker-launch", "pd-finalization", "sharded-load"]
 )
+async def test_cancel_initial_launch_owns_complete_dispatch_lifecycle(
+    launch_runtime, stage
+):
+    supervisor, workers, _, _ = launch_runtime
+    entered = asyncio.Event()
+
+    async def wait(*args, **kwargs):
+        entered.set()
+        await asyncio.Event().wait()
+
+    kwargs = launch_kwargs()
+    kwargs["wait_ready"] = False
+    for worker in workers:
+        worker.cancel_launch_model = AsyncMock(
+            side_effect=RuntimeError("no launch guard")
+        )
+    if stage == "pre-worker-launch":
+        supervisor._resolve_download_hub_from_workers = wait
+    elif stage == "pd-finalization":
+        workers[1].start_transfer_for_vllm.side_effect = wait
+    else:
+        kwargs.pop("replica_config")
+        kwargs.update(n_worker=2, replica=1)
+        supervisor.is_local_deployment = lambda: False
+        supervisor._choose_worker = AsyncMock(side_effect=workers)
+        for worker in workers:
+            worker.get_model_registration = AsyncMock(return_value={})
+            worker.launch_builtin_model.return_value = ("model:1234", {})
+        workers[0].wait_for_load.side_effect = wait
+
+    await supervisor._launch_builtin_model(**kwargs)
+    await asyncio.wait_for(entered.wait(), 2)
+    await asyncio.wait_for(supervisor.cancel_launch_builtin_model("pd"), 2)
+    assert not supervisor._initial_model_launches
+    assert not supervisor._async_launch_tasks
+    assert not supervisor._model_uid_to_replica_info
+    assert not supervisor._replica_model_uid_to_worker
+    assert not supervisor._pd_model_mapping
+    assert not supervisor._collective_manager_mapping
+    assert not supervisor._block_tracker_mapping
+    for worker in workers:
+        if worker.launch_builtin_model.await_count:
+            assert worker.terminate_model.await_count
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "stage", ["pre-worker-launch", "pd-finalization", "sharded-load"]
+)
 async def test_supervisor_switch_waits_for_complete_async_launch(launch_runtime, stage):
     supervisor, workers, _, _ = launch_runtime
     entered, proceed = asyncio.Event(), asyncio.Event()

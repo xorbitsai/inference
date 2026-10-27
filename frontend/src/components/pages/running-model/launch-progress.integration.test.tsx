@@ -83,6 +83,7 @@ function instance(status = 'LOADING', created = 1) {
     model_ability: ['chat'],
     replica: 2,
     status,
+    can_cancel_launch: status === 'CREATING' || status === 'LOADING',
     instance_created_ts: created,
     replica_statuses: [
       {
@@ -277,7 +278,7 @@ it('retains failed instances and server replica errors across remounts', async (
 it('stops launch polling on failure even if a replica still reports an earlier loading state', async (context) => {
   context.mock.timers.enable({ apis: ['setTimeout'] });
   await mount();
-  instances = [{ ...instance(), status: 'ERROR' }];
+  instances = [{ ...instance(), status: 'ERROR', can_cancel_launch: false }];
   await act(async () => context.mock.timers.tick(2000));
   const count = reads.filter((url) => url === progressUrl).length;
   await act(async () => context.mock.timers.tick(4000));
@@ -378,6 +379,44 @@ it('cancels the selected launch using its encoded UID', async () => {
   await act(async () => confirm.click());
   assert.deepEqual(posts, ['/v1/models/model%2Fone/cancel']);
   assert.match(host.textContent!, /runningModels.noRunningModels/);
+});
+
+it('can cancel an initial launch with both ready and loading replicas', async () => {
+  const mixed = instance('READY');
+  mixed.can_cancel_launch = true;
+  mixed.replica_statuses[1].status = 'LOADING';
+  instances = [mixed];
+  models = [running()];
+  await mount();
+  assert.ok(button('runningModels.cancelLaunch'));
+  assert.equal(button('runningModels.terminateConfirmOk'), undefined);
+  assert.equal(button('runningModels.addReplica'), undefined);
+  await act(async () => button('runningModels.cancelLaunch')!.click());
+  const confirm = [
+    ...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+  ].find((item) => item.textContent === 'runningModels.cancelLaunch')!;
+  await act(async () => confirm.click());
+  assert.deepEqual(posts, ['/v1/models/model%2Fone/cancel']);
+});
+
+it('keeps an established model usable during scale-up without offering initial-launch cancellation', async () => {
+  const scaling = instance('READY');
+  scaling.replica_statuses[1].status = 'CREATING';
+  instances = [scaling];
+  models = [running()];
+  await mount();
+  assert.equal(button('runningModels.cancelLaunch'), undefined);
+  assert.equal(button('runningModels.terminateConfirmOk'), undefined);
+  assert.ok(button('runningModels.tryApi'));
+  assert.deepEqual(posts, []);
+});
+
+it('does not infer cancellation safety when an older server omits the capability', async () => {
+  const legacy: Partial<ReturnType<typeof instance>> = instance();
+  delete legacy.can_cancel_launch;
+  instances = [legacy];
+  await mount();
+  assert.equal(button('runningModels.cancelLaunch'), undefined);
 });
 
 it('clears a failed launch without a running model and keeps it removed after remount', async () => {

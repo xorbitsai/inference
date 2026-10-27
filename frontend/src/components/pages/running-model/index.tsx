@@ -737,8 +737,7 @@ const RunningModel = () => {
               </Button>
             )}
             {(clusterAuth?.auth === false || canWriteModels) &&
-              isModelLaunching(activeModel) &&
-              activeModel.instance?.status !== 'READY' && (
+              activeModel.instance?.can_cancel_launch && (
                 <Button
                   variant="outline"
                   size="icon"

@@ -17,6 +17,7 @@ export type ModelListItem = Partial<RunningModelItem> &
 const ACTIVE_STATUSES = new Set(['CREATING', 'LOADING', 'UPDATING']);
 
 export function isModelLaunching(model?: ModelListItem): boolean {
+  if (model?.instance?.can_cancel_launch) return true;
   if (!model?.instance || ['ERROR', 'TERMINATING', 'TERMINATED'].includes(model.instance.status)) {
     return false;
   }
@@ -27,7 +28,11 @@ export function isModelLaunching(model?: ModelListItem): boolean {
 }
 
 export function isModelReady(model: ModelListItem): boolean {
-  return model.runtimeAvailable && (!model.instance || model.instance.status === 'READY');
+  return (
+    model.runtimeAvailable &&
+    !model.instance?.can_cancel_launch &&
+    (!model.instance || model.instance.status === 'READY')
+  );
 }
 
 export function useModelInstances() {
