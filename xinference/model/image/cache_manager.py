@@ -131,6 +131,27 @@ class ImageCacheManager(CacheManager):
 
         return full_path
 
+    def check_lightning(self, lightning_version: str) -> str:
+        """Return the lightning file name for a supported version, else raise.
+
+        Nothing is downloaded, so callers can reject a bad version before
+        caching anything.
+        """
+        from .core import ImageModelFamilyV2
+
+        assert isinstance(self._model_family, ImageModelFamilyV2)
+        filename_template = self._model_family.lightning_model_file_name_template
+        if not filename_template:
+            raise NotImplementedError(
+                f"{self._model_family.model_name} does not support lightning"
+            )
+        if lightning_version not in (self._model_family.lightning_versions or []):
+            raise ValueError(
+                f"Cannot support lightning version {lightning_version}, "
+                f"available lightning version: {self._model_family.lightning_versions}"
+            )
+        return filename_template.format(lightning_version=lightning_version)
+
     def cache_lightning(self, lightning_version: Optional[str] = None):
         from ..utils import IS_NEW_HUGGINGFACE_HUB, retry_download, symlink_local_file
         from .core import ImageModelFamilyV2
@@ -141,17 +162,7 @@ class ImageCacheManager(CacheManager):
         assert isinstance(self._model_family, ImageModelFamilyV2)
         cache_dir = self.get_cache_dir()
 
-        if not self._model_family.lightning_model_file_name_template:
-            raise NotImplementedError(
-                f"{self._model_family.model_name} does not support lightning"
-            )
-        if lightning_version not in (self._model_family.lightning_versions or []):
-            raise ValueError(
-                f"Cannot support lightning version {lightning_version}, "
-                f"available lightning version: {self._model_family.lightning_versions}"
-            )
-
-        filename = self._model_family.lightning_model_file_name_template.format(lightning_version=lightning_version)  # type: ignore
+        filename = self.check_lightning(lightning_version)
         full_path = os.path.join(cache_dir, filename)
 
         if self._model_family.model_hub == "huggingface":

@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import patch
+# CI: linux
+
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -140,6 +142,73 @@ def test_invalid_video_engine_is_rejected_before_download():
                 enable_virtual_env=False,
             )
     cache.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("model_name", "message"),
+    [
+        pytest.param(
+            "Wan2.1-1.3B",
+            "Model Wan2.1-1.3B does not support lightning acceleration",
+            id="model-without-lightning",
+        ),
+        pytest.param(
+            "MiniMax-H3",
+            "Cannot support lightning version not-a-version, available lightning "
+            "versions: ['4step_v0.1', '8step_v1.0_bf16', '4step_v1.0_768p_bf16']",
+            id="unknown-version",
+        ),
+    ],
+)
+def test_unsupported_video_lightning_is_rejected_before_download(model_name, message):
+    cache = Mock(side_effect=AssertionError("Invalid lightning reached caching"))
+    with (
+        patch.object(VideoCacheManager, "cache", cache),
+        patch.object(VideoCacheManager, "cache_lightning", cache),
+    ):
+        with pytest.raises(ValueError) as exc_info:
+            create_video_model_instance(
+                "uid",
+                model_name,
+                lightning_version="not-a-version",
+                enable_virtual_env=False,
+            )
+    assert str(exc_info.value) == message
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("lightning_model_path", [None, "/mine/lightning.safetensors"])
+def test_video_still_caches_the_model_then_the_lightning_file(lightning_model_path):
+    calls = []
+
+    def fake_cache(cache_manager):
+        calls.append("model")
+        return "/cache/model"
+
+    def fake_cache_lightning(cache_manager, lightning_version):
+        calls.append("lightning " + lightning_version)
+        return "/cache/lightning.safetensors"
+
+    with (
+        patch.object(VideoCacheManager, "cache", fake_cache),
+        patch.object(VideoCacheManager, "cache_lightning", fake_cache_lightning),
+    ):
+        model = create_video_model_instance(
+            "uid",
+            "MiniMax-H3",
+            lightning_version="not-a-version" if lightning_model_path else "4step_v0.1",
+            lightning_model_path=lightning_model_path,
+            enable_virtual_env=False,
+        )
+
+    assert model._model_path == "/cache/model"
+    if lightning_model_path:
+        # An explicit path is used as given: the version is not consulted.
+        assert calls == ["model"]
+        assert model._lightning_model_path == lightning_model_path
+    else:
+        assert calls == ["model", "lightning 4step_v0.1"]
+        assert model._lightning_model_path == "/cache/lightning.safetensors"
 
 
 @pytest.mark.parametrize("download_hub", ["modelscope", "auto", None])

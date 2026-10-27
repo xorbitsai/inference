@@ -274,9 +274,6 @@ def create_rerank_model_instance(
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_family = match_rerank(model_name, model_format, quantization, download_hub)
-    if model_path is None:
-        cache_manager = RerankCacheManager(model_family)
-        model_path = cache_manager.cache()
 
     if model_engine is None:
         # unlike LLM and for compatibility,
@@ -308,6 +305,11 @@ def create_rerank_model_instance(
             model_format,
             quantization,
         )
+    # Cache only after the engine is accepted: an invalid engine must not
+    # download the model before it is rejected.
+    if model_path is None:
+        cache_manager = RerankCacheManager(model_family)
+        model_path = cache_manager.cache()
     # Record the engine actually used (including the default fallback above) on
     # the family object so ``to_description`` can surface it to ``/v1/models``.
     # Copy first to avoid mutating a possibly shared family object.

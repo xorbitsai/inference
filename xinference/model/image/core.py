@@ -347,6 +347,39 @@ def create_image_model_instance(
     model_default_config.update(kwargs)
     kwargs = model_default_config
 
+    # Reject an unsupported engine or lightning version before any cache call
+    # below can download.
+    from .engine_family import (
+        check_engine_by_model_name_and_engine,
+        check_engine_by_model_name_and_engine_with_virtual_env,
+    )
+
+    model_engine = resolve_image_model_engine(model_name, model_engine) or "diffusers"
+
+    if enable_virtual_env is None:
+        from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+
+    if enable_virtual_env:
+        model_cls = check_engine_by_model_name_and_engine_with_virtual_env(
+            model_engine,
+            model_spec.model_name,
+            model_format,
+            quantization,
+            model_family=model_spec,
+        )
+    else:
+        model_cls = check_engine_by_model_name_and_engine(
+            model_engine,
+            model_spec.model_name,
+            model_format,
+            quantization,
+        )
+    cache_manager = ImageCacheManager(model_spec)
+    if not lightning_model_path and lightning_version:
+        cache_manager.check_lightning(lightning_version)
+
     controlnet = kwargs.get("controlnet")
     # Handle controlnet
     if controlnet is not None:
@@ -378,7 +411,6 @@ def create_image_model_instance(
             kwargs["controlnet"] = [
                 (n, path) for n, path in zip(controlnet, controlnet_model_paths)
             ]
-    cache_manager = ImageCacheManager(model_spec)
     if not model_path:
         model_path = cache_manager.cache()
     if not gguf_model_path and gguf_quantization:
@@ -393,34 +425,6 @@ def create_image_model_instance(
         lora_model = None
         lora_load_kwargs = None
         lora_fuse_kwargs = None
-
-    from .engine_family import (
-        check_engine_by_model_name_and_engine,
-        check_engine_by_model_name_and_engine_with_virtual_env,
-    )
-
-    model_engine = resolve_image_model_engine(model_name, model_engine) or "diffusers"
-
-    if enable_virtual_env is None:
-        from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
-
-        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
-
-    if enable_virtual_env:
-        model_cls = check_engine_by_model_name_and_engine_with_virtual_env(
-            model_engine,
-            model_spec.model_name,
-            model_format,
-            quantization,
-            model_family=model_spec,
-        )
-    else:
-        model_cls = check_engine_by_model_name_and_engine(
-            model_engine,
-            model_spec.model_name,
-            model_format,
-            quantization,
-        )
 
     # Record the engine actually used (including the default fallback above) on
     # the family object so ``to_description`` can surface it to ``/v1/models``.
