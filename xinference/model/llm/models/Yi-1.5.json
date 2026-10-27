@@ -133,7 +133,7 @@
               "none"
             ],
             "model_id": "01-ai/Yi-1.5-34B",
-            "model_revision": "4f83007957ec3eec76d87df19ad061eb0f57b5c5"
+            "model_revision": "58a29f6dca2a4eda38821c086c29c1906114aabb"
           },
           "modelscope": {
             "quantizations": [
