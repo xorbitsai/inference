@@ -654,3 +654,42 @@ msgstr ""
 "estable más reciente compatible con el Python del componente. Configure "
 "``XINFERENCE_UPGRADE_INDEX_URL`` con la URL de la API simple del índice para"
 " la detección y la instalación."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:31
+msgid ""
+"Open the update dialog from the version at the bottom left of the Web UI."
+msgstr ""
+"Abra el diálogo de actualización desde la versión en la esquina inferior "
+"izquierda de la interfaz web."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:38
+msgid ""
+"Review available updates for each component, then choose Install and "
+"upgrade."
+msgstr ""
+"Revise las actualizaciones disponibles para cada componente y elija Instalar"
+" y actualizar."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:45
+msgid ""
+"Components upgrade one at a time. Expand Installation output to view the "
+"installation log."
+msgstr ""
+"Los componentes se actualizan uno a uno. Despliegue Salida de instalación "
+"para ver el registro de instalación."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:52
+msgid ""
+"When all components are updated, choose Refresh interface to load the new "
+"Web UI."
+msgstr ""
+"Cuando todos los componentes estén actualizados, elija Actualizar interfaz "
+"para cargar la nueva interfaz web."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:59
+msgid ""
+"Check for updates again to confirm that all components report the new "
+"version."
+msgstr ""
+"Busque actualizaciones de nuevo para confirmar que todos los componentes "
+"muestran la nueva versión."

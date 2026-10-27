@@ -539,3 +539,32 @@ msgstr ""
 "的套件來源，例如內部儲存庫或私人鏡像。該來源也必須提供或代理所需的相依套件。套件名稱維持為 ``xinference`` ，使用高於目前版本且相容元件 "
 "Python 的穩定版本。將 ``XINFERENCE_UPGRADE_INDEX_URL`` 設為該來源的 simple API "
 "位址，檢查更新和安裝都會使用此來源。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:31
+msgid ""
+"Open the update dialog from the version at the bottom left of the Web UI."
+msgstr "點選 Web 介面左下角的版本，開啟更新對話框。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:38
+msgid ""
+"Review available updates for each component, then choose Install and "
+"upgrade."
+msgstr "查看各元件的可用更新，然後選擇「安裝並升級」。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:45
+msgid ""
+"Components upgrade one at a time. Expand Installation output to view the "
+"installation log."
+msgstr "各元件依序升級。展開「安裝輸出」可查看安裝日誌。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:52
+msgid ""
+"When all components are updated, choose Refresh interface to load the new "
+"Web UI."
+msgstr "所有元件更新完成後，選擇「重新整理介面」載入新的 Web 介面。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:59
+msgid ""
+"Check for updates again to confirm that all components report the new "
+"version."
+msgstr "再次檢查更新，確認所有元件均顯示新版本。"

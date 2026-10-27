@@ -23,6 +23,41 @@ Check and install updates
 
 Use the version control at the bottom left of the Web UI to check for updates. Choose **Install and upgrade** to update Workers, then Supervisor, then API. Each component shows its progress; the displayed version changes after the API takes over. Detection uses the configured package source (``PIP_INDEX_URL``, or PyPI by default) on each component's machine and offers newer stable versions compatible with its Python.
 
+.. figure:: /_static/upgrade_version_entry.png
+   :alt: Open the update dialog from the version at the bottom left of the Web UI.
+   :width: 360px
+   :align: center
+
+   Open the update dialog from the version at the bottom left of the Web UI.
+
+.. figure:: /_static/upgrade_available.png
+   :alt: Review available updates for each component, then choose Install and upgrade.
+   :width: 100%
+   :align: center
+
+   Review available updates for each component, then choose Install and upgrade.
+
+.. figure:: /_static/upgrade_installing.png
+   :alt: Components upgrade one at a time. Expand Installation output to view the installation log.
+   :width: 100%
+   :align: center
+
+   Components upgrade one at a time. Expand Installation output to view the installation log.
+
+.. figure:: /_static/upgrade_completed.png
+   :alt: When all components are updated, choose Refresh interface to load the new Web UI.
+   :width: 100%
+   :align: center
+
+   When all components are updated, choose Refresh interface to load the new Web UI.
+
+.. figure:: /_static/upgrade_up_to_date.png
+   :alt: Check for updates again to confirm that all components report the new version.
+   :width: 100%
+   :align: center
+
+   Check for updates again to confirm that all components report the new version.
+
 Xinference installs the selected version and its dependencies into a separate directory under ``XINFERENCE_HOME/upgrades``. Status shows ``installing`` and ``migrating`` before the usual replacement states. Preparation failure leaves the current component serving. Existing model environments and service hosts keep running; prepared environments are retained for diagnosis and reuse.
 
 Worker upgrades preserve the source environment's package versions, including inference engines and the Torch build. The new Worker environment reuses base Python packages and reinstalls the source environment's own packages. If the selected release requires incompatible dependencies, preparation fails and the existing Worker keeps serving; use a manually prepared compatible environment for that upgrade.

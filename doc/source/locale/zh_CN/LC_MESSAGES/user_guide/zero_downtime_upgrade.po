@@ -539,3 +539,32 @@ msgstr ""
 "的软件包源，例如内部仓库或私有镜像。该源也需要提供或代理所需的依赖包。软件包名称保持为 ``xinference`` ，使用比当前版本更高、且兼容组件 "
 "Python 的稳定版本。将 ``XINFERENCE_UPGRADE_INDEX_URL`` 设置为该源的 simple API "
 "地址，检查更新和安装都会使用这个源。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:31
+msgid ""
+"Open the update dialog from the version at the bottom left of the Web UI."
+msgstr "点击 Web 界面左下角的版本，打开更新对话框。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:38
+msgid ""
+"Review available updates for each component, then choose Install and "
+"upgrade."
+msgstr "查看各组件的可用更新，然后选择“安装并升级”。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:45
+msgid ""
+"Components upgrade one at a time. Expand Installation output to view the "
+"installation log."
+msgstr "各组件依次升级。展开“安装输出”可查看安装日志。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:52
+msgid ""
+"When all components are updated, choose Refresh interface to load the new "
+"Web UI."
+msgstr "所有组件更新完成后，选择“刷新界面”加载新的 Web 界面。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:59
+msgid ""
+"Check for updates again to confirm that all components report the new "
+"version."
+msgstr "再次检查更新，确认所有组件均显示新版本。"

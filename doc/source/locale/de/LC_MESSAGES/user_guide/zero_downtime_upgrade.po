@@ -669,3 +669,42 @@ msgstr ""
 "kompatibel ist. Setzen Sie ``XINFERENCE_UPGRADE_INDEX_URL`` auf die simple-"
 "API-URL dieses Indexes; Prüfung und Installation verwenden dann diese "
 "Quelle."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:31
+msgid ""
+"Open the update dialog from the version at the bottom left of the Web UI."
+msgstr ""
+"Öffnen Sie den Update-Dialog über die Versionsanzeige unten links in der "
+"Weboberfläche."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:38
+msgid ""
+"Review available updates for each component, then choose Install and "
+"upgrade."
+msgstr ""
+"Prüfen Sie die verfügbaren Updates der einzelnen Komponenten und wählen Sie "
+"Installieren und aktualisieren."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:45
+msgid ""
+"Components upgrade one at a time. Expand Installation output to view the "
+"installation log."
+msgstr ""
+"Die Komponenten werden nacheinander aktualisiert. Klappen Sie "
+"Installationsausgabe auf, um das Installationsprotokoll zu sehen."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:52
+msgid ""
+"When all components are updated, choose Refresh interface to load the new "
+"Web UI."
+msgstr ""
+"Wenn alle Komponenten aktualisiert sind, wählen Sie Oberfläche neu laden, um"
+" die neue Weboberfläche zu laden."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:59
+msgid ""
+"Check for updates again to confirm that all components report the new "
+"version."
+msgstr ""
+"Suchen Sie erneut nach Updates und prüfen Sie, ob alle Komponenten die neue "
+"Version anzeigen."

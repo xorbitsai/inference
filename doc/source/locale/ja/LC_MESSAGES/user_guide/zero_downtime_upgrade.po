@@ -567,3 +567,32 @@ msgstr ""
 "のままとし、現在より新しく、コンポーネントの Python と互換性のある安定版を使用してください。 "
 "``XINFERENCE_UPGRADE_INDEX_URL`` にそのソースの simple API URL "
 "を設定すると、更新確認とインストールの両方で使用します。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:31
+msgid ""
+"Open the update dialog from the version at the bottom left of the Web UI."
+msgstr "Web UI 左下のバージョンをクリックして更新ダイアログを開きます。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:38
+msgid ""
+"Review available updates for each component, then choose Install and "
+"upgrade."
+msgstr "各コンポーネントの利用可能な更新を確認し、「インストールして更新」を選択します。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:45
+msgid ""
+"Components upgrade one at a time. Expand Installation output to view the "
+"installation log."
+msgstr "コンポーネントは順番に更新されます。「インストール出力」を展開するとインストールログを確認できます。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:52
+msgid ""
+"When all components are updated, choose Refresh interface to load the new "
+"Web UI."
+msgstr "すべてのコンポーネントの更新が完了したら、「画面を再読み込み」を選択して新しい Web UI を読み込みます。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:59
+msgid ""
+"Check for updates again to confirm that all components report the new "
+"version."
+msgstr "もう一度更新を確認し、すべてのコンポーネントが新しいバージョンを表示していることを確認します。"
