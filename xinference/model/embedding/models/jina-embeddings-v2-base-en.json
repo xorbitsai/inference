@@ -2,7 +2,7 @@
   {
     "version": 2,
     "model_name": "jina-embeddings-v2-base-en",
-    "dimensions": 512,
+    "dimensions": 768,
     "max_tokens": 8192,
     "language": [
       "en"
