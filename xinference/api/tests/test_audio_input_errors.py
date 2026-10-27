@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 from types import SimpleNamespace
 
 import pytest
 import xoscar as xo
 from fastapi import HTTPException
+from starlette.datastructures import FormData
 
 from ...core.exceptions import InvalidAudioInputError
 from .. import restful_api as restful_api_module
@@ -91,7 +94,7 @@ async def test_transcription_invalid_audio_returns_400(invalid_audio_api):
     with pytest.raises(HTTPException) as exc_info:
         await RESTfulAPI.create_transcriptions(
             invalid_audio_api,
-            _Request({}),
+            _Request(FormData()),
             model="funasr-test",
             file=_UploadFile(b""),
             language=None,
@@ -158,7 +161,7 @@ async def test_invalid_audio_detail_is_stable_across_actor_boundary(monkeypatch)
         with pytest.raises(HTTPException) as exc_info:
             await RESTfulAPI.create_transcriptions(
                 api,
-                _Request({}),
+                _Request(FormData()),
                 model="funasr-test",
                 file=_UploadFile(b""),
                 language=None,
