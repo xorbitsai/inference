@@ -1846,40 +1846,36 @@ def query_engine_by_model_name(
             )
             return
 
+    def normalize_model_size(size: Union[str, int]) -> str:
+        # Match sizes the way launch does: "0.5" and "0_5" are the same size.
+        return str(size).replace("_", ".")
+
     table = []
     engines = [model_engine] if model_engine is not None else list(llm_engines.keys())
     for engine in engines:
         params = llm_engines[engine]
         for param in params:
-            if (
-                (model_format is None or model_format == param["model_format"])
-                and (
-                    model_size_in_billions is None
-                    or model_size_in_billions == str(param["model_size_in_billions"])
-                )
-                and (quantization is None or quantization in param["quantizations"])
+            if (model_format is None or model_format == param["model_format"]) and (
+                model_size_in_billions is None
+                or normalize_model_size(model_size_in_billions)
+                == normalize_model_size(param["model_size_in_billions"])
             ):
-                if quantization is not None:
+                # Quantization names are matched case-insensitively, as on launch.
+                quants = [
+                    quant
+                    for quant in param["quantizations"]
+                    if quantization is None or quant.lower() == quantization.lower()
+                ]
+                for quant in quants:
                     table.append(
                         [
                             model_name,
                             engine,
                             param["model_format"],
                             param["model_size_in_billions"],
-                            quantization,
+                            quant,
                         ]
                     )
-                else:
-                    for quant in param["quantizations"]:
-                        table.append(
-                            [
-                                model_name,
-                                engine,
-                                param["model_format"],
-                                param["model_size_in_billions"],
-                                quant,
-                            ]
-                        )
     if len(table) == 0:
         print(
             f"Xinference does not support "
