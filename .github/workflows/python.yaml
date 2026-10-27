@@ -64,6 +64,8 @@ jobs:
         run: cd frontend && npm run test:model-favorites
       - name: Test structured realtime launch options
         run: cd frontend && npm run test:realtime-options
+      - name: Test model launch visibility and progress
+        run: cd frontend && npm run test:launch-progress
       - name: Test model and service upgrade controls
         run: cd frontend && npm run test:model-reload && npm run test:worker-relaunch && npm run test:service-relaunch && npm run test:software-update
       - name: Build frontend (static export)

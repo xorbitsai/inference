@@ -44,8 +44,11 @@ require.cache[require.resolve('@/hooks/use-form')]!.exports = {
   ...formModule,
   useForm: () => [form],
 };
+let navigations: string[] = [];
 require('next/navigation');
-require.cache[require.resolve('next/navigation')]!.exports = { useRouter: () => ({ push() {} }) };
+require.cache[require.resolve('next/navigation')]!.exports = {
+  useRouter: () => ({ push: (url: string) => navigations.push(url) }),
+};
 const request = require('@/lib/request').default as typeof import('@/lib/request').default;
 const { I18nProvider } =
   require('@/contexts/i18n-context') as typeof import('@/contexts/i18n-context');
@@ -131,6 +134,7 @@ async function deploy() {
 
 beforeEach(async () => {
   localStorage.clear();
+  navigations = [];
   form = formModule.createForm();
   progress = { progress: 0, stage: 'pending' };
   replicaStatuses = [];
@@ -470,4 +474,24 @@ it('provides the deployment stage and empty replica labels in every locale', () 
       assert.doesNotMatch(labels[key], /^launchModel\./);
     }
   }
+});
+
+it('does not navigate or close another page when a launch completes after unmount', async () => {
+  await deploy();
+  await act(async () => root.unmount());
+  await act(async () => resolveLaunch({ model_uid: 'demo' }));
+  assert.deepEqual(navigations, []);
+  assert.equal(closed, false);
+  assert.equal(polling, false);
+});
+
+it('does not navigate when a background launch completes after closing its dialog', async () => {
+  await deploy();
+  const close = document.querySelector<HTMLButtonElement>('[data-slot="dialog-close"]')!;
+  assert.ok(close);
+  await act(async () => close.click());
+  assert.equal(closed, true);
+  assert.equal(polling, false);
+  await act(async () => resolveLaunch({ model_uid: 'demo' }));
+  assert.deepEqual(navigations, []);
 });

@@ -168,6 +168,39 @@ export interface ReplicaItem {
   gpu_idx?: number[];
 }
 
+export interface ModelInstanceInfo {
+  model_uid: string;
+  model_name: string;
+  model_version?: string | null;
+  model_ability: ModelAbility[];
+  replica: number;
+  n_worker?: number | null;
+  status: string;
+  instance_created_ts: number;
+  replica_statuses: ReplicaItem[];
+}
+
+export interface LaunchProgressReplica {
+  replica_id: number;
+  replica_model_uid: string;
+  progress: number;
+  stage: string;
+  info: string | null;
+  updated_at: number | null;
+  download_files: DownloadProgressFile[];
+  dependency_install_completed?: number | null;
+  dependency_install_total?: number | null;
+  dependency_install_plan?: string[] | null;
+  dependency_install_status?: 'performed' | 'skipped' | null;
+}
+
+export interface LaunchProgressResponse {
+  progress?: number | string;
+  stage?: string;
+  download_files?: DownloadProgressFile[];
+  replicas?: LaunchProgressReplica[];
+}
+
 export interface AddReplicaRequest {
   replica: number;
   model_engine?: string;

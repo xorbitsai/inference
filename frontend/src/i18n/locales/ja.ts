@@ -770,6 +770,19 @@ const ja = {
     downloadCompleted: '完了',
   },
   runningModels: {
+    statusUnavailable: 'モデルの状態を更新できません。再試行しています…',
+    statuses: {
+      CREATING: '起動中',
+      LOADING: '読み込み中',
+      UPDATING: '更新中',
+      READY: '実行中',
+      ERROR: '失敗',
+      TERMINATING: '停止中',
+      TERMINATED: '停止済み',
+    },
+    cancelLaunch: '起動をキャンセル',
+    cancelLaunchConfirm: 'モデル {{modelUid}} の起動をキャンセルしますか？',
+    launchFailed: 'モデルの起動に失敗しました。以下のレプリカのエラーを確認してください。',
     reload: {
       title: 'モデルの再設定 / 更新',
       description: '新しい設定の準備中も現在のエンジンがリクエストを処理します。',
