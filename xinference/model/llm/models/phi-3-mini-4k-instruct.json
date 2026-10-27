@@ -44,7 +44,7 @@
               "none"
             ],
             "model_id": "microsoft/Phi-3-mini-4k-instruct",
-            "model_revision": "b86bcaf57ea4dfdec5dbe12a377028b2fab0d480"
+            "model_revision": "f39ac1d28e925b323eae81227eaba4464caced4e"
           },
           "modelscope": {
             "quantizations": [

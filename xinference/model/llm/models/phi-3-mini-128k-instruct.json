@@ -20,7 +20,7 @@
               "none"
             ],
             "model_id": "microsoft/Phi-3-mini-128k-instruct",
-            "model_revision": "ebee18c488086b396dde649f2aa6548b9b8d2404"
+            "model_revision": "f3c06aed622e14ca0abf5115094e4fc9a9948f36"
           },
           "modelscope": {
             "quantizations": [
