@@ -34,6 +34,10 @@ Use a recent uv supporting ``uv tool install --torch-backend`` (tested with uv 0
 
 Upgrading an installation
 -------------------------
+.. note::
+
+   Starting with v4.2.0, administrators can upgrade a running deployment from the Web UI: click the version at the bottom left, check for updates, then choose **Install and upgrade**. Existing models continue serving while components are replaced. See :ref:`zero_downtime_upgrade` for requirements and supported deployments.
+
 Run the same one-command installer again to update to the latest stable release. Set ``XINFERENCE_VERSION`` each time to select a specific release, including a downgrade. Without this variable, a previously pinned installation also updates to the latest stable release. If the selected version, Python, extras, and PyTorch backend are unchanged, the installer keeps the existing environment and does not restart a running service.
 
 The default ``XINFERENCE_SERVICE=auto`` detects an existing managed service for this tool environment. Upgrades preserve its service account, address, port, data directory, and registration. Python, extras, and the PyTorch backend are also retained unless explicitly overridden. Run as the original installation account and reuse any custom ``XINFERENCE_TOOL_DIR`` and ``UV_TOOL_BIN_DIR``. Stop a foreground server before updating it.

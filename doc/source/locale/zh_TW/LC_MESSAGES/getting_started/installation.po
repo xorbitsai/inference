@@ -790,3 +790,14 @@ msgstr ""
 #: ../glm53-doc-check/getting_started/installation.rst:176
 msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
 msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+
+#: ../../source/getting_started/installation.rst:39
+msgid ""
+"Starting with v4.2.0, administrators can upgrade a running deployment from "
+"the Web UI: click the version at the bottom left, check for updates, then "
+"choose **Install and upgrade**. Existing models continue serving while "
+"components are replaced. See :ref:`zero_downtime_upgrade` for requirements "
+"and supported deployments."
+msgstr ""
+"從 v4.2.0 起，管理員可以直接透過 Web 介面升級執行中的部署：點選左下角的版本，檢查更新，然後選擇 **安裝並升級** "
+"。元件替換期間，現有模型繼續提供服務。具體要求及支援的部署方式請參閱 :ref:`zero_downtime_upgrade`。"

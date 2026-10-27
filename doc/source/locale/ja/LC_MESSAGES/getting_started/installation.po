@@ -813,3 +813,15 @@ msgstr ""
 #: ../glm53-doc-check/getting_started/installation.rst:176
 msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
 msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+
+#: ../../source/getting_started/installation.rst:39
+msgid ""
+"Starting with v4.2.0, administrators can upgrade a running deployment from "
+"the Web UI: click the version at the bottom left, check for updates, then "
+"choose **Install and upgrade**. Existing models continue serving while "
+"components are replaced. See :ref:`zero_downtime_upgrade` for requirements "
+"and supported deployments."
+msgstr ""
+"v4.2.0 以降、管理者は Web UI から稼働中の環境をアップグレードできます。左下のバージョンをクリックして更新を確認し、 "
+"**インストールして更新** を選択します。コンポーネントの置き換え中も既存のモデルはサービスを継続します。要件とサポートされるデプロイ方法は"
+" :ref:`zero_downtime_upgrade` を参照してください。"

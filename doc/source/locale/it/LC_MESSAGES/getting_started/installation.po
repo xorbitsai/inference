@@ -920,3 +920,18 @@ msgstr ""
 #: ../glm53-doc-check/getting_started/installation.rst:176
 msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
 msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+
+#: ../../source/getting_started/installation.rst:39
+msgid ""
+"Starting with v4.2.0, administrators can upgrade a running deployment from "
+"the Web UI: click the version at the bottom left, check for updates, then "
+"choose **Install and upgrade**. Existing models continue serving while "
+"components are replaced. See :ref:`zero_downtime_upgrade` for requirements "
+"and supported deployments."
+msgstr ""
+"A partire dalla v4.2.0, gli amministratori possono aggiornare un deployment "
+"in esecuzione dall’interfaccia Web: fai clic sulla versione in basso a "
+"sinistra, controlla gli aggiornamenti e scegli **Installa e aggiorna**. I "
+"modelli esistenti continuano a gestire le richieste durante la sostituzione "
+"dei componenti. Consulta :ref:`zero_downtime_upgrade` per i requisiti e i "
+"deployment supportati."
