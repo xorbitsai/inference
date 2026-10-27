@@ -482,13 +482,21 @@ class WorkerRelaunchLauncher:
                 command_executable, process_environment = await asyncio.to_thread(
                     python_process_environment, executable, env
                 )
+                entrypoint = ["-m", "xinference.deploy.worker_relaunch"]
+                if python_executable is not None and not isolated:
+                    # Match the hosts' script launches: omit the checkout from
+                    # imports while preserving the selected Python's site paths.
+                    entrypoint = [
+                        "-c",
+                        "import sys; sys.path = [p for p in sys.path if p]; "
+                        "from xinference.deploy.worker_relaunch import main; main()",
+                    ]
                 with open(get_log_file(f"worker-relaunch-{operation_id}"), "ab") as log:
                     self.process = subprocess.Popen(
                         [
                             command_executable,
                             *(["-I"] if isolated else []),
-                            "-m",
-                            "xinference.deploy.worker_relaunch",
+                            *entrypoint,
                             path,
                         ],
                         env=process_environment,
