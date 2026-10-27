@@ -11,7 +11,7 @@ jina-embeddings-v2-base-en
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Dimensions:** 512
+- **Dimensions:** 768
 - **Max Tokens:** 8192
 - **Model ID:** jinaai/jina-embeddings-v2-base-en
 - **Model Hubs**: `Hugging Face <https://huggingface.co/jinaai/jina-embeddings-v2-base-en>`__, `ModelScope <https://modelscope.cn/models/Xorbits/jina-embeddings-v2-base-en>`__
