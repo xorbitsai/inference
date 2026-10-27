@@ -106,6 +106,14 @@ def _normalize_max_tokens(generate_config: Dict[str, Any]) -> None:
         generate_config.pop("max_tokens", None)
 
 
+def _map_repetition_penalty(generate_config: Dict[str, Any]) -> None:
+    # llama-server reads ``repeat_penalty`` and silently ignores the
+    # ``repetition_penalty`` name used by the Xinference API and other engines.
+    if "repetition_penalty" in generate_config:
+        penalty = generate_config.pop("repetition_penalty")
+        generate_config.setdefault("repeat_penalty", penalty)
+
+
 def _is_tool_call_arguments_parse_error(msg: Any) -> bool:
     return "Failed to parse tool call arguments as JSON" in _error_message(msg)
 
@@ -440,6 +448,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         generate_config = generate_config or {}
         _normalize_max_tokens(generate_config)
+        _map_repetition_penalty(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
         q: queue.Queue = queue.Queue()
@@ -555,6 +564,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         generate_config = generate_config or {}
         _normalize_max_tokens(generate_config)
+        _map_repetition_penalty(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
 
