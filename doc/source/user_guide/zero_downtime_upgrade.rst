@@ -27,6 +27,8 @@ Worker upgrades preserve the source environment's package versions, including in
 
 API and Supervisor upgrades also preserve source packages when guard protection or ``XINFERENCE_EXTENSIONS`` is enabled. Guard-enabled upgrades install the target release's ``guard`` extra. Dependency conflicts fail preparation while the current component keeps serving.
 
+For preserved PyTorch builds with CUDA, CPU, ROCm or XPU version tags, Xinference first checks the configured package source. If that source cannot provide the build, uv selects the matching official PyTorch backend; other packages keep the configured source. The original build remains pinned. Bundled ``pip`` is excluded from the runtime package profile.
+
 Use ``GET /v1/api/updates``, ``GET /v1/supervisor/updates`` or ``GET /v1/workers/{worker_address}/updates`` to check a component. Pass ``version`` to its existing relaunch endpoint to install and upgrade; ``version`` and ``python_executable`` are mutually exclusive. For a private source or integration tests, set ``XINFERENCE_UPGRADE_INDEX_URL`` before starting the service on each relevant machine. The override applies to both detection and installation.
 
 .. code-block:: python

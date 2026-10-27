@@ -832,3 +832,183 @@ async def test_local_reaper_preserves_package_command_exit_status(
     with pytest.raises(RuntimeError, match="deliberate install failure"):
         await task
     assert not upgrade.active_command_pids
+
+
+@pytest.mark.parametrize(
+    "version,expected",
+    [
+        ("2.11.0+cu130", "cu130"),
+        ("2.10.0+cu128", "cu128"),
+        ("2.11.0+cpu", "cpu"),
+        ("2.11.0+rocm6.4", "rocm6.4"),
+        ("2.11.0+xpu", "xpu"),
+        ("2.11.0", None),
+        ("2.11.0+custom.1", None),
+    ],
+)
+def test_torch_backend_follows_the_installed_build(version, expected):
+    assert upgrade.torch_backend({"torch": version}) == expected
+    assert upgrade.torch_backend({}) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.platform_slow
+@pytest.mark.parametrize(
+    "component,backend,mirrored",
+    [
+        ("worker", "cu130", False),
+        ("api", "cpu", False),
+        ("supervisor", "rocm6.4", False),
+        ("worker", "cu130", True),
+    ],
+)
+async def test_upgrade_retains_torch_from_another_index_and_ignores_bundled_pip(
+    tmp_path, monkeypatch, package_index, component, backend, mirrored
+):
+    from ... import constants
+
+    index, _ = package_index
+    home = tmp_path / "home"
+    monkeypatch.setattr(constants, "XINFERENCE_HOME", str(home))
+    env = {
+        **os.environ,
+        upgrade.UPGRADE_INDEX_ENV: index,
+        "NO_PROXY": "127.0.0.1,localhost",
+        "UV_CACHE_DIR": str(tmp_path / "cache"),
+        "XINFERENCE_GUARD_ENABLED": "0",
+        "XINFERENCE_EXTENSIONS": "",
+    }
+    main_root = tmp_path / "index"
+    plain = write_wheel(
+        main_root, "torch", "2.11.0", {"torch/__init__.py": b"__version__ = '2.11.0'\n"}
+    )
+    (main_root / "torch").mkdir()
+    (main_root / "torch/index.html").write_text(f'<a href="../{plain}">{plain}</a>')
+    # This acceptance only exercises package preparation, so keep its
+    # Xinference wheels independent of real Torch APIs and model migrations.
+    for release in (A, B):
+        write_wheel(
+            main_root,
+            "xinference",
+            release,
+            {"xinference/__init__.py": f"__version__ = {release!r}\n".encode()},
+            requires=[
+                "upgrade-test-runtime==1.0",
+                "torch>=2.0",
+                'fastapi-guard==8.1.0; extra == "guard"',
+            ],
+            extras=("guard",),
+        )
+    source = await upgrade.prepare_upgrade(
+        A, "api", sys.executable, "0.0.0", env, lambda **fields: None
+    )
+    torch_root = tmp_path / "torch-index"
+    torch_root.mkdir()
+    version = "2.11.0+" + backend
+    wheel = write_wheel(
+        torch_root,
+        "torch",
+        version,
+        {"torch/__init__.py": f"__version__ = {version!r}\n".encode()},
+    )
+    (torch_root / "torch").mkdir()
+    (torch_root / "torch/index.html").write_text(f'<a href="../{wheel}">{wheel}</a>')
+    if mirrored:
+        (main_root / wheel).write_bytes((torch_root / wheel).read_bytes())
+        with (main_root / "torch/index.html").open("a") as links:
+            links.write(f'\n<a href="../{wheel}">{wheel}</a>')
+    server = http.server.ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        functools.partial(
+            http.server.SimpleHTTPRequestHandler, directory=str(torch_root)
+        ),
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    torch_index = f"http://127.0.0.1:{server.server_port}"
+    try:
+        subprocess.run(
+            [
+                upgrade._uv(),
+                "--no-config",
+                "pip",
+                "install",
+                "--python",
+                source,
+                "--index-url",
+                torch_index,
+                f"torch=={version}",
+            ],
+            check=True,
+            env=upgrade._environment(env),
+            capture_output=True,
+        )
+        # Model python-build-standalone's bundled pip metadata: its installed
+        # files are valid, but the archive named by direct_url.json is gone.
+        pip_wheel = tmp_path / write_wheel(
+            tmp_path, "pip", "9999.0", {"pip/__init__.py": b""}
+        )
+        subprocess.run(
+            [
+                upgrade._uv(),
+                "--no-config",
+                "pip",
+                "install",
+                "--python",
+                source,
+                str(pip_wheel),
+            ],
+            check=True,
+            env=upgrade._environment(env),
+            capture_output=True,
+        )
+        pip_wheel.unlink()
+        frozen = subprocess.check_output(
+            [upgrade._uv(), "--no-config", "pip", "freeze", "--python", source],
+            env=upgrade._environment(env),
+            text=True,
+        )
+        assert "pip @ file://" in frozen
+        original = upgrade.start_process
+        backends = []
+
+        async def start(command, **kwargs):
+            environment = dict(kwargs["env"])
+            selected = environment.pop("UV_TORCH_BACKEND", None)
+            if selected:
+                backends.append(selected)
+                # uv owns the backend -> official PyTorch URL mapping. Replace
+                # that external source with the local PyTorch-only index; run
+                # the real resolver/installer against both synthetic indexes.
+                environment["UV_EXTRA_INDEX_URL"] = torch_index
+            kwargs["env"] = environment
+            return await original(command, **kwargs)
+
+        monkeypatch.setattr(upgrade, "start_process", start)
+        target = await upgrade.prepare_upgrade(
+            B,
+            component,
+            source,
+            A,
+            {
+                **env,
+                "XINFERENCE_GUARD_ENABLED": "1" if component != "worker" else "0",
+                "UV_TORCH_BACKEND": "wrong-inherited-backend",
+            },
+            lambda **fields: None,
+        )
+        output = subprocess.check_output(
+            [
+                target,
+                "-I",
+                "-c",
+                "import torch, xinference; from importlib.metadata import version; print(xinference.__version__, torch.__version__, version('torch'))",
+            ],
+            text=True,
+        )
+        assert output.strip() == f"{B} {version} {version}"
+        assert set(backends) == (set() if mirrored else {backend})
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()

@@ -221,7 +221,7 @@ from packaging.utils import canonicalize_name
 packages = {}
 for dist in distributions():
     name = canonicalize_name(dist.metadata['Name'])
-    if name != 'xinference':
+    if name not in {'xinference', 'pip'}:
         packages.setdefault(name, dist.version)
 print(json.dumps(packages))
 """
@@ -235,6 +235,15 @@ for name, expected in json.loads(Path(sys.argv[1]).read_text()).items():
     if Version(version(name)) != Version(expected):
         raise RuntimeError('Source dependency changed during upgrade: ' + name)
 """
+
+
+def torch_backend(packages: Dict[str, str]) -> Optional[str]:
+    """Route PyTorch wheels by the installed build, never by GPU auto-detection."""
+    version = packages.get("torch")
+    backend = Version(version).local if version else None
+    if backend and re.fullmatch(r"cpu|cu\d+|rocm\d+(?:\.\d+)*|xpu", backend):
+        return backend
+    return None
 
 
 async def prepare_upgrade(
@@ -286,6 +295,8 @@ async def prepare_upgrade(
                         executable,
                         "--exclude",
                         "xinference",
+                        "--exclude",
+                        "pip",
                     ],
                     env,
                     profile,
@@ -302,6 +313,44 @@ async def prepare_upgrade(
                     capture_all=True,
                 )
                 baseline = json.loads(raw)
+                backend = torch_backend(baseline)
+                if backend:
+                    from ..core.virtual_env_manager import PYTORCH_PACKAGES
+
+                    pytorch = profile / "pytorch.txt"
+                    pytorch.write_text(
+                        "".join(
+                            f"{name}=={baseline[name]}\n"
+                            for name in sorted(PYTORCH_PACKAGES)
+                            if name in baseline and Version(baseline[name]).local
+                        )
+                    )
+                    try:
+                        # Private/offline mirrors may already serve these
+                        # builds. Prefer them before selecting the official
+                        # PyTorch backend, which routes only that ecosystem.
+                        await _command(
+                            [
+                                uv,
+                                "--no-config",
+                                "pip",
+                                "compile",
+                                str(pytorch),
+                                "--no-deps",
+                                "--no-header",
+                                "--no-annotate",
+                                "--python",
+                                executable,
+                                "--no-python-downloads",
+                                "--refresh",
+                            ],
+                            env,
+                            profile,
+                            lambda **fields: None,
+                            timeout=60,
+                        )
+                    except RuntimeError:
+                        env["UV_TORCH_BACKEND"] = backend
                 requirements = profile / "requirements.txt"
                 requirements.write_text(frozen)
                 constraints = profile / "constraints.txt"
