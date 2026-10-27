@@ -24,6 +24,7 @@ import pytest
 import pytest_asyncio
 import xoscar as xo
 from xoscar.backends.router import Router
+from xoscar.core import create_local_actor_ref
 
 from ..lifecycle import (
     WorkerLifecycle,
@@ -309,18 +310,23 @@ async def runtime(tmp_path):
     for pool in reversed(pools):
         with contextlib.suppress(Exception):
             await pool.stop()
+        # Captured tracebacks can retain stopped pools after their TCP ports
+        # are reused. They must no longer expose actors through local lookup.
+        pool._actors.clear()
     Router.set_instance(None)
 
 
 @pytest.mark.asyncio
-async def test_runtime_teardown_releases_local_supervisor(tmp_path):
+async def test_runtime_teardown_releases_local_actors(tmp_path):
     fixture = runtime.__wrapped__(tmp_path)
-    pools, supervisor, _ = await anext(fixture)
+    pools, supervisor, workers = await anext(fixture)
     supervisor = await xo.actor_ref(address=supervisor.address, uid=supervisor.uid)
     with pytest.raises(StopAsyncIteration):
         await anext(fixture)
     # Keep the stopped pools alive to reproduce a later test reusing an address.
     assert pools
+    for actor in [supervisor, *workers]:
+        assert create_local_actor_ref(actor.address, actor.uid) is None
     with pytest.raises(xo.ActorNotExist):
         await supervisor.inspect_workers()
 
