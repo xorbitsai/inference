@@ -321,9 +321,13 @@ class APIHost:
                 raise ValueError("Unknown API host command")
             writer.write(json.dumps({"result": result}).encode() + b"\n")
             await writer.drain()
-        except (ValueError, KeyError, RuntimeError) as error:
+        except (ValueError, KeyError, RuntimeError, OSError) as error:
+            from .upgrade import redact_output
+
             writer.write(
-                json.dumps({"error": str(error), "type": type(error).__name__}).encode()
+                json.dumps(
+                    {"error": redact_output(str(error)), "type": type(error).__name__}
+                ).encode()
                 + b"\n"
             )
             with contextlib.suppress(ConnectionError):
@@ -388,6 +392,7 @@ class APIHost:
                     return copy.deepcopy(operation)
         if self.active is None:
             raise RuntimeError("API is not ready")
+        validate_upgrade(version, current_version=self.active.version)
         if self.operation_task is not None and not self.operation_task.done():
             raise RuntimeError("An API relaunch is already in progress")
         if any(

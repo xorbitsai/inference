@@ -149,6 +149,25 @@ class WorkerRelaunchManager:
                     raise ValueError(
                         "Timed out checking Worker relaunch support"
                     ) from error
+                if version is not None:
+                    try:
+                        if (
+                            await xo.wait_for(
+                                worker.worker_package_upgrade_protocol(), 5
+                            )
+                            != 1
+                        ):
+                            raise ValueError(
+                                "Unsupported Worker package upgrade protocol"
+                            )
+                    except AttributeError as error:
+                        raise ValueError(
+                            "Worker does not support automatic package upgrades; use a prepared Python environment"
+                        ) from error
+                    except asyncio.TimeoutError as error:
+                        raise ValueError(
+                            "Timed out checking Worker package upgrade support"
+                        ) from error
             for record in reversed(list(self.records.values())):
                 if record["source_worker"] != address:
                     continue
@@ -173,6 +192,9 @@ class WorkerRelaunchManager:
                     return self.get(record["operation_id"])
             if worker is None:
                 raise ValueError("Worker is not registered")
+            if version is not None:
+                metadata = await xo.wait_for(worker.get_node_metadata(), 5)
+                validate_upgrade(version, current_version=metadata["software_version"])
             if registry.protected(address):
                 raise RuntimeError("Worker ownership is already being transferred")
             operation_id = uuid.uuid4().hex
@@ -299,9 +321,14 @@ class WorkerRelaunchManager:
                             self.update(
                                 operation_id, status="failed", error=state["error"]
                             )
-                        elif state.get("status") in {"installing", "migrating"}:
+                        elif state.get("status") in {
+                            "installing",
+                            "migrating",
+                            "starting",
+                        }:
                             self.update(
                                 operation_id,
+                                error="",
                                 **{
                                     key: state[key]
                                     for key in ("status", "log", "source_version")
@@ -360,9 +387,8 @@ class WorkerRelaunchLauncher:
 
     async def prepare(self, operation_id, version):
         from .. import __version__
-        from ..deploy.upgrade import prepare_upgrade, validate_upgrade
+        from ..deploy.upgrade import prepare_upgrade
 
-        validate_upgrade(version)
         async with self.lock:
             if self.preparing_id == operation_id:
                 return self.state(operation_id)
@@ -495,6 +521,7 @@ class WorkerRelaunchLauncher:
         worker = self.worker
         outgoing = worker._outgoing_handoff
         return dict(
+            **({"status": "starting"} if self.preparing_id == operation_id else {}),
             target_worker=self.target,
             pid=self.process.pid,
             exit_code=self.process.poll(),
@@ -523,7 +550,7 @@ class SupervisorRelaunchMixin:
         worker = self._worker_address_to_worker.get(address)
         if worker is None:
             raise ValueError("Worker is not registered")
-        return await worker.check_package_update()
+        return await xo.wait_for(worker.check_package_update(), 90)
 
     def get_worker_relaunch(self, operation_id):
         return self._relaunch_manager().get(operation_id)

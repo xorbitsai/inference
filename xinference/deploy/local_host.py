@@ -135,6 +135,7 @@ class LocalHost(APIHost):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
+        assert self.cluster is not None
         self.cluster_exit = asyncio.create_task(
             _wait_process(self.cluster, diagnostics)
         )
@@ -240,12 +241,15 @@ class LocalHost(APIHost):
         await child.wait(child.serving)
 
     def check(self) -> None:
+        from .upgrade import active_command_pids
+
         super().check()
         now = time.monotonic()
         if now - self.last_process_scan >= 1:
             self.owner.remember()
             self.last_process_scan = now
         watched = {child.process.pid for child in self.children.values()}
+        watched.update(active_command_pids)
         if self.supervisor_host is not None:
             watched.update(child.process.pid for child in self.supervisor_host.children)
         if self.cluster is not None:

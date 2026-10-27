@@ -21,12 +21,39 @@ import xoscar as xo
 
 from ...core.system_settings_store import SystemSettingsStore
 from ..api_host import (
+    API_HOST_ENV,
     DIAGNOSTIC_LIMIT,
     APIDiagnostics,
     APIHost,
     _forward_output,
     _wait_process,
+    host_request,
 )
+
+
+@pytest.mark.asyncio
+async def test_missing_upgrade_tool_returns_a_host_error(monkeypatch):
+    from .. import upgrade
+
+    host = APIHost(MagicMock(), {}, MagicMock())
+    host.active = SimpleNamespace(
+        executable=sys.executable, version="4.1.0", environment={}
+    )
+    monkeypatch.setattr(
+        upgrade,
+        "check_update",
+        AsyncMock(side_effect=FileNotFoundError("uv is unavailable")),
+    )
+    server = await asyncio.start_server(host._connection, "127.0.0.1", 0)
+    async with server:
+        monkeypatch.setenv(
+            API_HOST_ENV,
+            json.dumps(
+                {"port": server.sockets[0].getsockname()[1], "token": host.token}
+            ),
+        )
+        with pytest.raises(RuntimeError, match="uv is unavailable"):
+            await host_request("updates")
 
 
 def test_live_process_monitor_does_not_starve_an_exited_sibling(monkeypatch):

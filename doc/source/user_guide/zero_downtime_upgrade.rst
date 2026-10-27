@@ -19,9 +19,11 @@ In local mode, startup still uses an API parent and one shared Supervisor/Worker
 Check and install updates
 -------------------------
 
-In **Cluster Information**, open a component's restart dialog, choose **Check for updates**, then **Use this update** and **Install and upgrade**. Detection uses the configured package source (``PIP_INDEX_URL``, or PyPI by default) on that component's machine. Only newer stable versions compatible with its Python are offered.
+Use the version control at the bottom left of the Web UI to check for updates. Choose **Install and upgrade** to update Workers, then Supervisor, then API. Each component shows its progress; the displayed version changes after the API takes over. Detection uses the configured package source (``PIP_INDEX_URL``, or PyPI by default) on each component's machine and offers newer stable versions compatible with its Python.
 
 Xinference installs the selected version and its dependencies into a separate directory under ``XINFERENCE_HOME/upgrades``. Status shows ``installing`` and ``migrating`` before the usual replacement states. Preparation failure leaves the current component serving. Existing model environments and service hosts keep running; prepared environments are retained for diagnosis and reuse.
+
+Worker upgrades preserve the source environment's package versions, including inference engines and the Torch build. The new Worker environment reuses base Python packages and reinstalls the source environment's own packages. If the selected release requires incompatible dependencies, preparation fails and the existing Worker keeps serving; use a manually prepared compatible environment for that upgrade.
 
 Use ``GET /v1/api/updates``, ``GET /v1/supervisor/updates`` or ``GET /v1/workers/{worker_address}/updates`` to check a component. Pass ``version`` to its existing relaunch endpoint to install and upgrade; ``version`` and ``python_executable`` are mutually exclusive. For a private source or integration tests, set ``XINFERENCE_UPGRADE_INDEX_URL`` before starting the service on each relevant machine. The override applies to both detection and installation.
 
@@ -40,6 +42,22 @@ A release can register optional ``xinference.migrations`` entry points in its pa
 
     [project.entry-points."xinference.migrations"]
     prepare = "xinference.deploy.migrations:migrate"
+
+Test with a mock package source
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Run the following command from the checkout in the Xinference environment. It serves the current code as a higher version of Xinference and forwards dependency requests to ``PIP_INDEX_URL`` (or PyPI). Use ``--upstream`` to select a different dependency source. It does not start or replace a Xinference service.
+
+.. code-block:: bash
+
+    python scripts/mock_upgrade_index.py --version 9999.0.0 --port 18080
+
+Set ``XINFERENCE_UPGRADE_INDEX_URL=http://127.0.0.1:18080/simple`` before starting your normal Xinference service. Open the version control at the bottom left, check for updates and install. Confirm that ``GET /v1/cluster/version`` reports ``9999.0.0`` and the service still handles requests. Run the mock source on the same machine as the service, or use an address reachable by every component.
+
+.. code-block:: bash
+
+    export XINFERENCE_UPGRADE_INDEX_URL=http://127.0.0.1:18080/simple
+    xinference-local --host 127.0.0.1 --port 9997
 
 API and Web UI
 --------------
@@ -61,7 +79,7 @@ The public HTTP address stays the same. New connections use the replacement API;
 
 REST API: ``POST /v1/api/relaunch``.
 
-The HTTP 202 response contains an ``operation_id``. Poll ``GET /v1/api-relaunches/{operation_id}`` or list operations with ``GET /v1/api-relaunches``. States are ``starting``, ``switching``, ``draining``, ``succeeded`` and ``failed``. ``draining`` means the new API is serving while the previous API finishes admitted requests.
+The HTTP 202 response contains an ``operation_id``. Poll ``GET /v1/api-relaunches/{operation_id}`` or list operations with ``GET /v1/api-relaunches``. States are ``installing``, ``migrating``, ``starting``, ``switching``, ``draining``, ``succeeded`` and ``failed``. ``draining`` means the new API is serving while the previous API finishes admitted requests.
 
 A failed startup leaves the previous API serving. Reuse ``request_id`` when retrying the same request. Only one replacement may run at a time. Operation history belongs to the stable service host and lasts until it stops. Supervisor upgrades are separate operations.
 
@@ -80,7 +98,7 @@ The replacement loads persisted configuration and checks the registered Workers'
 
 REST API: ``POST /v1/supervisor/relaunch``.
 
-The HTTP 202 response includes an ``operation_id``. Poll ``GET /v1/supervisor-relaunches/{operation_id}`` or list operations with ``GET /v1/supervisor-relaunches``. States are ``starting``, ``preparing``, ``switching``, ``draining``, ``succeeded`` and ``failed``. Only one Supervisor replacement runs at a time. Reuse ``request_id`` when retrying the same operation; history lasts until the stable service host stops.
+The HTTP 202 response includes an ``operation_id``. Poll ``GET /v1/supervisor-relaunches/{operation_id}`` or list operations with ``GET /v1/supervisor-relaunches``. States are ``installing``, ``migrating``, ``starting``, ``preparing``, ``switching``, ``draining``, ``succeeded`` and ``failed``. Only one Supervisor replacement runs at a time. Reuse ``request_id`` when retrying the same operation; history lasts until the stable service host stops.
 
 The service must have been started with Supervisor hosting support. The stable host and its state, cache, event, progress and model-routing actors retain their original environments. This operation upgrades Supervisor control logic; upgrading retained actors requires a planned restart.
 
@@ -112,7 +130,7 @@ In **Cluster Information**, administrators can use **Restart / upgrade Worker** 
 
 To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker starts its replacement automatically and inherits its Supervisor, GPU visibility, runtime configuration and configured metrics exporter port; a new actor port is selected automatically.
 
-The response is HTTP 202 with an ``operation_id``. Poll ``GET /v1/worker-relaunches/{operation_id}`` or list recent operations with ``GET /v1/worker-relaunches``. Status is one of ``starting``, ``transferring``, ``pending``, ``succeeded`` or ``failed``. These routes require administrator access when authentication is enabled.
+The response is HTTP 202 with an ``operation_id``. Poll ``GET /v1/worker-relaunches/{operation_id}`` or list recent operations with ``GET /v1/worker-relaunches``. Status is one of ``installing``, ``migrating``, ``starting``, ``transferring``, ``pending``, ``succeeded`` or ``failed``. These routes require administrator access when authentication is enabled.
 
 The Supervisor stores operation records in ``XINFERENCE_HOME/worker-relaunches.json``, so status remains available after the old Worker exits and can be reconciled after a Supervisor restart. Duplicate requests reuse an active operation. Keep the same optional ``request_id`` when retrying a request; use a new ID for a new operation. ``pending`` means the transfer outcome is uncertain: keep the processes alive and continue polling instead of starting another replacement.
 

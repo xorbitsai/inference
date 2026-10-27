@@ -93,7 +93,6 @@ export function WorkerRelaunchDialog({
 }) {
   const { t } = useI18n();
   const [python, setPython] = useState('');
-  const [version, setVersion] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const requestId = useRef('');
@@ -101,7 +100,6 @@ export function WorkerRelaunchDialog({
     requestId.current =
       crypto.randomUUID?.() ?? `worker-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setPython('');
-    setVersion('');
     setError('');
   }, [address]);
   const submit = async () => {
@@ -114,7 +112,6 @@ export function WorkerRelaunchDialog({
         {
           request_id: requestId.current,
           ...(python.trim() ? { python_executable: python.trim() } : {}),
-          ...(version ? { version } : {}),
         },
         { suppressGlobalError: true }
       );
@@ -138,9 +135,6 @@ export function WorkerRelaunchDialog({
       target={address}
       python={python}
       onPythonChange={setPython}
-      updatesUrl={`/v1/workers/${encodeURIComponent(address || '')}/updates`}
-      version={version}
-      onVersionChange={setVersion}
       environmentHint={t('clusterInfo.relaunch.environmentHint')}
       busy={busy}
       error={error}

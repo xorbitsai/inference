@@ -86,9 +86,21 @@ def until(function, timeout=60):
 
 
 def alive(pid):
-    return (
-        psutil.pid_exists(pid) and psutil.Process(pid).status() != psutil.STATUS_ZOMBIE
-    )
+    try:
+        return (
+            psutil.pid_exists(pid)
+            and psutil.Process(pid).status() != psutil.STATUS_ZOMBIE
+        )
+    except psutil.NoSuchProcess:
+        return False
+
+
+def test_alive_tolerates_exit_between_existence_and_status_checks(monkeypatch):
+    monkeypatch.setattr(psutil, "pid_exists", lambda pid: True)
+    process = MagicMock()
+    process.status.side_effect = psutil.NoSuchProcess(123)
+    monkeypatch.setattr(psutil, "Process", lambda pid: process)
+    assert alive(123) is False
 
 
 @pytest.mark.asyncio

@@ -18,6 +18,8 @@ def manager_at(tmp_path, monkeypatch):
     worker = SimpleNamespace(
         worker_incarnation=AsyncMock(return_value="source-generation"),
         worker_handoff_protocol=AsyncMock(return_value=1),
+        worker_package_upgrade_protocol=AsyncMock(return_value=1),
+        get_node_metadata=AsyncMock(return_value={"software_version": "4.1.0"}),
     )
     registry = WorkerOwnership()
     supervisor = SimpleNamespace(
@@ -72,6 +74,21 @@ async def test_package_version_survives_journal_and_cannot_change_on_retry(
     manager.supervisor._worker_address_to_worker.clear()
     with pytest.raises(ValueError, match="not registered"):
         await manager.create("old", version="4.3.0")
+
+
+@pytest.mark.asyncio
+async def test_older_worker_rejects_package_upgrade_before_journaling(
+    tmp_path, monkeypatch
+):
+    manager = manager_at(tmp_path, monkeypatch)
+    del manager.supervisor._worker_address_to_worker[
+        "old"
+    ].worker_package_upgrade_protocol
+    with pytest.raises(ValueError, match="does not support automatic package upgrades"):
+        await manager.create("old", version="4.2.0")
+    assert not manager.records
+    # The existing prepared-environment relaunch still works with that Worker.
+    assert (await manager.create("old"))["status"] == "starting"
 
 
 @pytest.mark.asyncio
@@ -462,6 +479,7 @@ async def test_relaunch_starts_replacement_and_status_outlives_source(
     env = dict(
         os.environ,
         XINFERENCE_HOME=str(tmp_path / "home"),
+        XINFERENCE_LOG_DIR=str(tmp_path / "home" / "logs"),
         XINFERENCE_DISABLE_METRICS="0" if metrics_enabled else "1",
         TEST_METRICS_PORT=str(get_next_port()),
         TEST_EXIT_DURING_COMMIT="1" if source_exit else "0",
@@ -482,8 +500,9 @@ async def test_relaunch_starts_replacement_and_status_outlives_source(
             process.communicate(), 180 if sys.platform == "win32" else 100
         )
         source_log = tmp_path / "source.log"
-        assert process.returncode == 0, output.decode() + (
-            source_log.read_text() if source_log.exists() else ""
+        logs = [source_log, *sorted((tmp_path / "home" / "logs").glob("*.log"))]
+        assert process.returncode == 0, output.decode() + "\n".join(
+            path.read_text(errors="replace")[-8000:] for path in logs if path.exists()
         )
         record = next(
             json.loads(line)
@@ -495,3 +514,109 @@ async def test_relaunch_starts_replacement_and_status_outlives_source(
         if process.returncode is None:
             process.kill()
             await process.wait()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("version", ["4.1.0", "4.0.0"])
+async def test_worker_rejects_non_upgrade_before_journaling(
+    tmp_path, monkeypatch, version
+):
+    manager = manager_at(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="must be newer"):
+        await manager.create("old", version=version)
+    assert not manager.records
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [False, True])
+async def test_worker_package_preparation_deduplicates_and_reports_outcome(
+    monkeypatch, failure
+):
+    from ...deploy import upgrade
+    from ..worker_relaunch import WorkerRelaunchLauncher
+
+    launcher = WorkerRelaunchLauncher(SimpleNamespace(_outgoing_handoff=None))
+    started, release = asyncio.Event(), asyncio.Event()
+
+    async def install(*args):
+        started.set()
+        await release.wait()
+        if failure:
+            raise RuntimeError("package migration failed")
+        return sys.executable
+
+    async def launch(*args, **kwargs):
+        launcher.operation_id = "one"
+        launcher.process = SimpleNamespace(pid=123, poll=lambda: None)
+
+    prepare = AsyncMock(side_effect=install)
+    monkeypatch.setattr(upgrade, "prepare_upgrade", prepare)
+    monkeypatch.setattr(launcher, "launch", AsyncMock(side_effect=launch))
+    assert (await launcher.prepare("one", "9999.0.0"))["status"] == "installing"
+    await started.wait()
+    assert (await launcher.prepare("one", "9999.0.0"))["status"] == "installing"
+    with pytest.raises(RuntimeError, match="in progress"):
+        await launcher.prepare("two", "9999.0.0")
+    release.set()
+    await launcher.preparation
+    prepare.assert_awaited_once()
+    state = launcher.state("one")
+    if failure:
+        assert state["error"] == "package migration failed"
+        launcher.launch.assert_not_awaited()
+    else:
+        assert state["status"] == "starting"
+        launcher.launch.assert_awaited_once_with("one", sys.executable, isolated=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", ["installing", "migrating", "starting"])
+async def test_worker_upgrade_progress_clears_transient_error(
+    tmp_path, monkeypatch, status
+):
+    manager = manager_at(tmp_path, monkeypatch)
+    record = await manager.create("old", version="4.2.0")
+    identity = record["operation_id"]
+    manager.update(identity, status="pending", error="temporary connection failure")
+
+    async def launch(*args, **kwargs):
+        return {"status": status}
+
+    source = manager.supervisor._worker_address_to_worker["old"]
+    source.launch_worker_replacement = AsyncMock(side_effect=launch)
+    manager._worker = AsyncMock(return_value=source)
+    task = asyncio.create_task(manager._monitor(identity))
+
+    async def progressed():
+        while manager.get(identity)["status"] != status:
+            await asyncio.sleep(0.01)
+
+    try:
+        await asyncio.wait_for(progressed(), 2)
+        assert manager.get(identity)["status"] == status
+        assert manager.get(identity)["error"] == ""
+    finally:
+        manager.update(identity, status="failed")
+        await asyncio.wait_for(task, 2)
+
+
+@pytest.mark.asyncio
+async def test_worker_update_probe_has_a_bounded_wait(monkeypatch):
+    import xoscar as xo
+
+    from ..worker_relaunch import SupervisorRelaunchMixin
+
+    worker = SimpleNamespace(
+        check_package_update=AsyncMock(return_value={"update_available": True})
+    )
+    supervisor = SimpleNamespace(_worker_address_to_worker={"old": worker})
+    original = xo.wait_for
+
+    async def wait(awaitable, timeout):
+        assert timeout == 90
+        return await original(awaitable, 1)
+
+    monkeypatch.setattr(xo, "wait_for", wait)
+    assert await SupervisorRelaunchMixin.check_worker_update(supervisor, "old") == {
+        "update_available": True
+    }

@@ -153,6 +153,7 @@ class SupervisorHost:
                 return copy.deepcopy(operation)
         if self.active is None:
             raise RuntimeError("Supervisor is not ready")
+        validate_upgrade(version, current_version=self.active.version)
         if self.operation_task is not None and not self.operation_task.done():
             raise RuntimeError("A Supervisor relaunch is already in progress")
         identity = uuid.uuid4().hex

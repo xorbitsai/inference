@@ -116,7 +116,6 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
   const state = useServiceRelaunches(service);
   const [open, setOpen] = useState(false);
   const [python, setPython] = useState('');
-  const [version, setVersion] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -127,7 +126,6 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
     requestId.current =
       crypto.randomUUID?.() ?? `${service}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setPython('');
-    setVersion('');
     setSubmitError('');
   }, [open, service]);
   useEffect(() => {
@@ -145,7 +143,6 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
         {
           request_id: requestId.current,
           ...(python.trim() ? { python_executable: python.trim() } : {}),
-          ...(version ? { version } : {}),
         },
         { suppressGlobalError: true }
       );
@@ -241,9 +238,6 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
         icon={service === 'api' ? <Globe /> : <Network />}
         python={python}
         onPythonChange={setPython}
-        updatesUrl={`/v1/${service}/updates`}
-        version={version}
-        onVersionChange={setVersion}
         environmentHint={t(`${prefix}.environmentHint`)}
         busy={submitting}
         canSubmit={state.canStart}

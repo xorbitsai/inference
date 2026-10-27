@@ -540,6 +540,9 @@ class WorkerHandoffMixin:
                 WorkerHandoffCoordinator(self).run(source, timeout)
             )
 
+    def worker_package_upgrade_protocol(self):
+        return 1
+
     async def check_package_update(self):
         from .. import __version__
         from ..deploy.upgrade import check_update

@@ -61,12 +61,10 @@ let failures: Record<string, Error[]>;
 let gets: string[];
 let posts: { url: string; body: Record<string, string> }[];
 let loseResponse: boolean, rejectOnce: boolean;
-let updateError: boolean;
 
 beforeEach(() => {
   isAdmin = globalReady = true;
   loseResponse = rejectOnce = false;
-  updateError = false;
   gets = [];
   posts = [];
   jobs = Object.fromEntries(paths.map((path) => [path, []]));
@@ -77,10 +75,6 @@ beforeEach(() => {
   request.get = (async (url: string, config) => {
     assert.equal(config?.suppressGlobalError, true);
     gets.push(url);
-    if (url.endsWith('/updates')) {
-      if (updateError) throw new Error('package source unavailable');
-      return { current_version: '4.1.0', latest_version: '4.2.0', update_available: true };
-    }
     const error = failures[url]?.shift();
     if (error) throw error;
     return jobs[url];
@@ -294,38 +288,6 @@ it('shows server-confirmed failures and allows a new operation', async () => {
   assert.match(host.textContent!, /serviceRelaunch.failed/);
   assert.match(host.textContent!, /Python executable not found/);
   assert.equal(trigger('supervisor').disabled, false);
-});
-
-it('checks the selected component and submits the detected version to the existing upgrade endpoint', async () => {
-  await act(async () => root.render(<ServiceRelaunchPanel />));
-  await act(async () => trigger('supervisor').click());
-  const button = (key: string) =>
-    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
-      (item) => item.textContent === `clusterInfo.relaunch.${key}`
-    )!;
-  await act(async () => button('checkUpdates').click());
-  assert.equal(gets.at(-1), '/v1/supervisor/updates');
-  assert.match(document.body.textContent!, /4.1.0.*4.2.0/);
-  await act(async () => button('selectUpdate').click());
-  assert.ok(button('installUpgrade'));
-  await submit();
-  assert.equal(posts[0].url, '/v1/supervisor/relaunch');
-  assert.equal(posts[0].body.version, '4.2.0');
-  assert.equal('python_executable' in posts[0].body, false);
-});
-
-it('shows update-check failure while still allowing a current-environment restart', async () => {
-  updateError = true;
-  await act(async () => root.render(<ServiceRelaunchPanel />));
-  await act(async () => trigger('api').click());
-  const check = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
-    (item) => item.textContent === 'clusterInfo.relaunch.checkUpdates'
-  )!;
-  await act(async () => check.click());
-  assert.match(document.body.textContent!, /package source unavailable/);
-  await submit();
-  assert.equal(posts[0].url, '/v1/api/relaunch');
-  assert.equal('version' in posts[0].body, false);
 });
 
 it('stops administrative polling when the administrator loses access', async () => {
