@@ -33,6 +33,7 @@ import numpy as np
 import PIL.Image
 
 from ...constants import XINFERENCE_VIDEO_DIR
+from ...core.exceptions import InvalidModelRequestError
 from ...device_utils import (
     get_available_device,
     gpu_count,
@@ -1007,7 +1008,7 @@ class DiffusersVideoModel:
         **kwargs,
     ) -> VideoList:
         if n < 1:
-            raise ValueError("n must be at least 1")
+            raise InvalidModelRequestError("n must be at least 1")
 
         progressor = kwargs.pop("progressor", None)
         kwargs.pop("request_id", None)
@@ -1017,6 +1018,7 @@ class DiffusersVideoModel:
         kwargs.pop("num_videos_per_prompt", None)
         kwargs.pop("fps", None)
 
+        steps_from_request = num_inference_steps is not None
         generate_kwargs = (self._model_spec.default_generate_config or {}).copy()
         generate_kwargs.update(kwargs)
         self._process_seed(generate_kwargs)
@@ -1027,7 +1029,8 @@ class DiffusersVideoModel:
         else:
             generate_kwargs.pop("num_inference_steps", None)
         if num_inference_steps < 1:
-            raise ValueError("num_inference_steps must be at least 1")
+            error_type = InvalidModelRequestError if steps_from_request else ValueError
+            raise error_type("num_inference_steps must be at least 1")
         # MiniMaxH3Scheduler includes terminal sigma zero in the requested grid,
         # so N transformer evaluations require N + 1 grid points.
         generate_kwargs["num_inference_steps"] = num_inference_steps + 1

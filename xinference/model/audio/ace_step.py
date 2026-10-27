@@ -21,6 +21,7 @@ import threading
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional
 
+from ...core.exceptions import InvalidModelRequestError
 from ...device_utils import get_available_device
 
 if TYPE_CHECKING:
@@ -336,40 +337,48 @@ class AceStepModel:
         duration: Any,
     ) -> str:
         if not isinstance(input, str) or not input.strip():
-            raise ValueError("ACE-Step 1.5 requires non-empty lyrics in `input`.")
+            raise InvalidModelRequestError(
+                "ACE-Step 1.5 requires non-empty lyrics in `input`."
+            )
         if len(input) > 4096:
-            raise ValueError("ACE-Step 1.5 `input` must not exceed 4096 characters.")
+            raise InvalidModelRequestError(
+                "ACE-Step 1.5 `input` must not exceed 4096 characters."
+            )
         if not isinstance(instruct, str) or not instruct.strip():
-            raise ValueError(
+            raise InvalidModelRequestError(
                 "ACE-Step 1.5 requires a non-empty music description in `instruct`."
             )
         if len(instruct) > 512:
-            raise ValueError("ACE-Step 1.5 `instruct` must not exceed 512 characters.")
+            raise InvalidModelRequestError(
+                "ACE-Step 1.5 `instruct` must not exceed 512 characters."
+            )
         if voice not in (None, "", "default"):
-            raise ValueError(
+            raise InvalidModelRequestError(
                 "ACE-Step 1.5 only accepts `voice` as null, an empty string, "
                 "or 'default'."
             )
         audio_format = (response_format or "").lower()
         if audio_format not in AceStepModel._response_formats:
             formats = ", ".join(sorted(AceStepModel._response_formats))
-            raise ValueError(
+            raise InvalidModelRequestError(
                 f"ACE-Step 1.5 supports these response formats: {formats}."
             )
         if speed != 1.0:
-            raise ValueError("ACE-Step 1.5 only supports `speed=1.0`.")
+            raise InvalidModelRequestError("ACE-Step 1.5 only supports `speed=1.0`.")
         if stream is not False:
-            raise ValueError("ACE-Step 1.5 only supports non-streaming generation.")
+            raise InvalidModelRequestError(
+                "ACE-Step 1.5 only supports non-streaming generation."
+            )
         if isinstance(seed, bool) or not isinstance(seed, int) or seed < -1:
-            raise ValueError(
+            raise InvalidModelRequestError(
                 "ACE-Step 1.5 `seed` must be -1 or a non-negative integer."
             )
         if isinstance(duration, bool) or not isinstance(duration, (int, float)):
-            raise ValueError(
+            raise InvalidModelRequestError(
                 "ACE-Step 1.5 `duration` must be -1 or a number from 10 to 600 seconds."
             )
         if duration != -1 and not 10 <= duration <= 600:
-            raise ValueError(
+            raise InvalidModelRequestError(
                 "ACE-Step 1.5 `duration` must be -1 or a number from 10 to 600 seconds."
             )
         return audio_format
@@ -412,11 +421,11 @@ class AceStepModel:
         duration = kwargs.pop("duration", 60.0)
         thinking = kwargs.pop("thinking", self._llm_handler is not None)
         if not isinstance(thinking, bool):
-            raise ValueError("ACE-Step 1.5 `thinking` must be a boolean.")
+            raise InvalidModelRequestError("ACE-Step 1.5 `thinking` must be a boolean.")
         cot_options = ("use_cot_caption", "use_cot_language", "use_cot_metas")
         uses_lm = thinking or any(kwargs.get(name, False) for name in cot_options)
         if uses_lm and self._llm_handler is None:
-            raise ValueError(
+            raise InvalidModelRequestError(
                 "ACE-Step 1.5 LM generation options require launching with "
                 f"`lm_model_path={self._bundled_lm_model}`."
             )
@@ -434,7 +443,7 @@ class AceStepModel:
 
         unknown = sorted(set(kwargs) - self._generation_options)
         if unknown:
-            raise ValueError(
+            raise InvalidModelRequestError(
                 "ACE-Step 1.5 does not support speech parameter(s): "
                 + ", ".join(unknown)
             )

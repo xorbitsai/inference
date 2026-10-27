@@ -89,7 +89,11 @@ from ..constants import (
     is_metrics_disabled,
 )
 from ..core.event import Event, EventCollectorActor, EventType
-from ..core.exceptions import InvalidAudioInputError, ModelNotReadyError
+from ..core.exceptions import (
+    InvalidAudioInputError,
+    InvalidModelRequestError,
+    ModelNotReadyError,
+)
 from ..core.http_protocol import create_hardened_http_protocol
 from ..core.replica_config import ReplicaConfig
 from ..core.rpc_context import actor_call, correlate_model_ref
@@ -156,6 +160,21 @@ from .streaming_outcome import (
 from .utils import get_request_route_path, require_model
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_kwargs(kwargs: Optional[str]) -> Dict[str, Any]:
+    if kwargs is None:
+        return {}
+    try:
+        parsed_kwargs = json.loads(kwargs)
+    except (TypeError, ValueError) as e:
+        raise HTTPException(
+            status_code=400, detail="kwargs must be a valid JSON object"
+        ) from e
+    if not isinstance(parsed_kwargs, dict):
+        raise HTTPException(status_code=400, detail="kwargs must be a JSON object")
+    return parsed_kwargs
+
 
 # One base64-encoded 512 MiB media reference plus bounded JSON/config overhead.
 _MAX_WORLD_REQUEST_BYTES = ((512 * 1024 * 1024 + 2) // 3) * 4 + 1024 * 1024
@@ -3462,8 +3481,11 @@ class RESTfulAPI(CancelMixin):
         )
 
     async def create_embedding(self, request: Request) -> Response:
-        payload = await request.json()
-        body = CreateEmbeddingRequest.parse_obj(payload)
+        try:
+            payload = await request.json()
+            body = CreateEmbeddingRequest.parse_obj(payload)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("embedding")
@@ -3494,8 +3516,11 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
     async def convert_ids_to_tokens(self, request: Request) -> Response:
-        payload = await request.json()
-        body = CreateEmbeddingRequest.parse_obj(payload)
+        try:
+            payload = await request.json()
+            body = CreateEmbeddingRequest.parse_obj(payload)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("embedding")
@@ -3522,22 +3547,22 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
     async def rerank(self, request: Request) -> Response:
-        payload = await request.json()
-        body = RerankRequest.parse_obj(payload)
+        try:
+            payload = await request.json()
+            body = RerankRequest.parse_obj(payload)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("rerank")
         self._check_model_access(request, model_uid, "rerank")
+        parsed_kwargs = _parse_kwargs(body.kwargs)
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         try:
-            if body.kwargs is not None:
-                parsed_kwargs = json.loads(body.kwargs)
-            else:
-                parsed_kwargs = {}
             scores = await model.rerank(
                 body.documents,
                 body.query,
@@ -3600,15 +3625,12 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("audio")
         self._check_model_access(request, model_uid, "audio")
+        parsed_kwargs = _parse_kwargs(kwargs)
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         try:
-            if kwargs is not None:
-                parsed_kwargs = json.loads(kwargs)
-            else:
-                parsed_kwargs = {}
             transcription = await model_ref.transcriptions(
                 audio=await file.read(),
                 language=language,
@@ -3648,15 +3670,12 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("audio")
         self._check_model_access(request, model_uid, "audio")
+        parsed_kwargs = _parse_kwargs(kwargs)
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         try:
-            if kwargs is not None:
-                parsed_kwargs = json.loads(kwargs)
-            else:
-                parsed_kwargs = {}
             translation = await model_ref.translations(
                 audio=await file.read(),
                 language=language,
@@ -3684,24 +3703,24 @@ class RESTfulAPI(CancelMixin):
             None, media_type="application/octet-stream"
         ),
     ) -> Response:
-        if prompt_speech or prompt_latent:
-            f = await request.form()
-        else:
-            f = await request.json()
-        body = SpeechRequest.parse_obj(f)
+        try:
+            if prompt_speech or prompt_latent:
+                f = await request.form()
+            else:
+                f = await request.json()
+            body = SpeechRequest.parse_obj(f)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("audio")
         self._check_model_access(request, model_uid, "audio")
+        parsed_kwargs = _parse_kwargs(body.kwargs)
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         try:
-            if body.kwargs is not None:
-                parsed_kwargs = json.loads(body.kwargs)
-            else:
-                parsed_kwargs = {}
             if prompt_speech is not None:
                 parsed_kwargs["prompt_speech"] = await prompt_speech.read()
             if prompt_latent is not None:
@@ -3737,8 +3756,8 @@ class RESTfulAPI(CancelMixin):
                     media_type=_audio_response_media_type(body.response_format),
                     content=out,
                 )
-        except InvalidAudioInputError as e:
-            logger.warning("Invalid speech audio for model %s: %s", model_uid, e)
+        except (InvalidAudioInputError, InvalidModelRequestError) as e:
+            logger.warning("Invalid speech request for model %s: %s", model_uid, e)
             raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
@@ -3748,18 +3767,21 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_images(self, request: Request) -> Response:
-        body = TextToImageRequest.parse_obj(await request.json())
+        try:
+            body = TextToImageRequest.parse_obj(await request.json())
+        except (TypeError, ValueError) as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
         self._check_model_access(request, model_uid, "image")
+        kwargs = _parse_kwargs(body.kwargs or None)
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         request_id = None
         try:
-            kwargs = json.loads(body.kwargs) if body.kwargs else {}
             request_id = kwargs.get("request_id")
             self._add_running_task(request_id)
             image_list = await model.text_to_image(
@@ -3936,16 +3958,13 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
         self._check_model_access(request, model_uid, "image")
+        parsed_kwargs = _parse_kwargs(kwargs)
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         request_id = None
         try:
-            if kwargs is not None:
-                parsed_kwargs = json.loads(kwargs)
-            else:
-                parsed_kwargs = {}
             request_id = parsed_kwargs.get("request_id")
             self._add_running_task(request_id)
 
@@ -3996,16 +4015,13 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
         self._check_model_access(request, model_uid, "image")
+        parsed_kwargs = _parse_kwargs(kwargs)
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         request_id = None
         try:
-            if kwargs is not None:
-                parsed_kwargs = json.loads(kwargs)
-            else:
-                parsed_kwargs = {}
             request_id = parsed_kwargs.get("request_id")
             self._add_running_task(request_id)
             im = Image.open(image.file)
@@ -4047,16 +4063,13 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
         self._check_model_access(request, model_uid, "image")
+        parsed_kwargs = _parse_kwargs(kwargs)
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         request_id = None
         try:
-            if kwargs is not None:
-                parsed_kwargs = json.loads(kwargs)
-            else:
-                parsed_kwargs = {}
             request_id = parsed_kwargs.get("request_id")
             self._add_running_task(request_id)
             head = image.file.read(len(PDF_MAGIC))
@@ -4174,25 +4187,13 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
         self._check_model_access(request, model_uid, "image")
+        parsed_kwargs = _parse_kwargs(kwargs)
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         request_id = None
         try:
-            if kwargs is not None:
-                try:
-                    parsed_kwargs = json.loads(kwargs)
-                except json.JSONDecodeError:
-                    raise HTTPException(
-                        status_code=400, detail="kwargs must be a valid JSON object"
-                    )
-                if not isinstance(parsed_kwargs, dict):
-                    raise HTTPException(
-                        status_code=400, detail="kwargs must be a JSON object"
-                    )
-            else:
-                parsed_kwargs = {}
             request_id = parsed_kwargs.get("request_id")
             self._add_running_task(request_id)
             file_bytes = await file.read()
@@ -4503,18 +4504,21 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_videos(self, request: Request) -> Response:
-        body = TextToVideoRequest.parse_obj(await request.json())
+        try:
+            body = TextToVideoRequest.parse_obj(await request.json())
+        except (TypeError, ValueError) as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("video")
         self._check_model_access(request, model_uid, "video")
+        kwargs = _parse_kwargs(body.kwargs or None)
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         request_id = None
         try:
-            kwargs = json.loads(body.kwargs) if body.kwargs else {}
             request_id = kwargs.get("request_id")
             self._add_running_task(request_id)
             video_list = await model.text_to_video(
@@ -4528,6 +4532,9 @@ class RESTfulAPI(CancelMixin):
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
+        except InvalidModelRequestError as e:
+            logger.warning("Invalid video request for model %s: %s", model_uid, e)
+            raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
@@ -4550,16 +4557,13 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("video")
         self._check_model_access(request, model_uid, "video")
+        parsed_kwargs = _parse_kwargs(kwargs)
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         request_id = None
         try:
-            if kwargs is not None:
-                parsed_kwargs = json.loads(kwargs)
-            else:
-                parsed_kwargs = {}
             if video is not None:
                 parsed_kwargs["video"] = await video.read()
             request_id = parsed_kwargs.get("request_id")
@@ -4577,6 +4581,9 @@ class RESTfulAPI(CancelMixin):
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
+        except InvalidModelRequestError as e:
+            logger.warning("Invalid video request for model %s: %s", model_uid, e)
+            raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
@@ -4599,16 +4606,13 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("video")
         self._check_model_access(request, model_uid, "video")
+        parsed_kwargs = _parse_kwargs(kwargs)
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
 
         request_id = None
         try:
-            if kwargs is not None:
-                parsed_kwargs = json.loads(kwargs)
-            else:
-                parsed_kwargs = {}
             request_id = parsed_kwargs.get("request_id")
             self._add_running_task(request_id)
             video_list = await model_ref.flf_to_video(
@@ -4625,6 +4629,9 @@ class RESTfulAPI(CancelMixin):
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
+        except InvalidModelRequestError as e:
+            logger.warning("Invalid video request for model %s: %s", model_uid, e)
+            raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)

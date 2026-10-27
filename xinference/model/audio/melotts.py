@@ -15,6 +15,7 @@ import logging
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
+from ...core.exceptions import InvalidModelRequestError
 from ...device_utils import get_available_device, is_device_available
 
 if TYPE_CHECKING:
@@ -95,7 +96,7 @@ class MeloTTSModel:
             voice = next(iter(speaker_ids.keys()))
             logger.info("Auto select speaker: %s", voice)
         elif voice not in speaker_ids:
-            raise ValueError(
+            raise InvalidModelRequestError(
                 f"Invalid voice: {voice}, available speakers: {speaker_ids}"
             )
         audio = self._model.tts_to_file(
