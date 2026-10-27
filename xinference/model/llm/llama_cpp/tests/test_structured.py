@@ -403,6 +403,27 @@ def test_apply_response_format_ignores_non_schema(monkeypatch):
     assert "json_schema" not in cfg
 
 
+def test_llamacpp_chat_forwards_json_object_response_format():
+    response = {
+        "choices": [],
+        "created": 123,
+        "id": "chatcmpl-test",
+        "model": "test-model",
+        "object": "chat.completion",
+        "usage": {"prompt_tokens": 1, "completion_tokens": 0, "total_tokens": 1},
+    }
+    model = _new_fake_llamacpp_model([response])
+
+    model.chat(
+        [{"role": "user", "content": "hi"}],
+        {"response_format": {"type": "json_object"}},
+    )
+
+    # llama-server's oaicompat_chat_params_parse turns json_object into a
+    # {"type": "object"} schema constraint, so the field must reach it.
+    assert model._llm.requests[0]["response_format"] == {"type": "json_object"}
+
+
 def test_apply_response_format_uses_real_xllamacpp_if_available():
     if importlib.util.find_spec("xllamacpp") is None:
         pytest.skip("xllamacpp not installed")
