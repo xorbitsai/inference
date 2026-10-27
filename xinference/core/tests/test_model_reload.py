@@ -66,6 +66,7 @@ def make_pipeline(actor):
     supervisor._replica_model_uid_to_worker = {"test-replica": worker}
     supervisor._model_reload_status = {}
     supervisor._model_reload_tasks = {}
+    supervisor._initial_model_launches = {}
     supervisor._autostart_store_lock = asyncio.Lock()
     supervisor._launch_history_store = SimpleNamespace(
         update_autostart_launch_config=MagicMock()

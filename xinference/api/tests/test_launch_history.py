@@ -755,6 +755,7 @@ def _runtime_api(store):
     supervisor._launch_history_store = store
     supervisor._autostart_store_lock = asyncio.Lock()
     supervisor._autostart_model_states = {}
+    supervisor._initial_model_launches = {}
     supervisor._status_guard_ref = SimpleNamespace(
         get_instance_info=AsyncMock(return_value=[])
     )
