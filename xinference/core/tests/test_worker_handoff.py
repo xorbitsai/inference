@@ -1193,33 +1193,50 @@ async def test_supervisor_restart_during_handoff_restores_ownership(
 async def test_abort_rpc_failure_restores_admission_and_allows_new_handoff(
     runtime, monkeypatch
 ):
+    from .. import worker_registry
+
     pools, supervisor, (old, new) = runtime
     await old.install_model()
+    prepared = asyncio.Event()
+    aborted = asyncio.Event()
+    expire = HandoffWorker._expire_worker_handoff
+
+    async def expire_after_preparation(worker, ticket, timeout):
+        if ticket == "expired":
+            await prepared.wait()
+            timeout = 0
+        await expire(worker, ticket, timeout)
 
     async def disconnected(*args):
+        aborted.set()
         raise ConnectionResetError("Supervisor abort unavailable")
 
     with monkeypatch.context() as patch:
         patch.setattr(HandoffSupervisor, "abort_worker_handoff", disconnected)
+        patch.setattr(HandoffWorker, "_expire_worker_handoff", expire_after_preparation)
         await old.prepare_worker_handoff(
-            new.address, await new.incarnation(), "expired", 0.05
+            new.address, await new.incarnation(), "expired", 5
         )
-        for _ in range(100):
-            if await old.inspect_phase() == "active":
-                break
-            await asyncio.sleep(0.02)
-        assert await old.inspect_phase() == "active"
+        prepared.set()
+        await asyncio.wait_for(aborted.wait(), 5)
+
+        async def resumed():
+            while await old.inspect_phase() != "active":
+                await asyncio.sleep(0.02)
+
+        await asyncio.wait_for(resumed(), 5)
         await old.install_model("second-rep0")
     registry = pools[0]._actors[supervisor.uid]._ownership_registry()
     assert registry.pending
-
-    async def reservation_expired():
-        # The Supervisor starts its lease after the Worker's local timer.
-        # Admission can resume before that independently timed lease expires.
-        while registry.protected(old.address):
-            await asyncio.sleep(0.01)
-
-    await asyncio.wait_for(reservation_expired(), 5)
+    # Expire the independent Supervisor lease without imposing a tiny timeout
+    # on preparation RPCs or waiting for the normal lease duration.
+    deadline = registry.pending[old.address]["deadline"]
+    monkeypatch.setattr(
+        worker_registry,
+        "time",
+        SimpleNamespace(time=worker_registry.time.time, monotonic=lambda: deadline),
+    )
+    assert not registry.protected(old.address)
     assert await new.replace_worker(old.address)
 
 

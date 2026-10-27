@@ -6,6 +6,7 @@ import asyncio
 import copy
 import json
 import logging
+import socket
 import subprocess
 import sys
 import time
@@ -15,7 +16,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import xoscar as xo
-from xoscar.utils import get_next_port
 
 from ..core.supervisor_upgrade import PROTOCOL_VERSION, SupervisorGateway
 from ..core.worker_relaunch import validate_relaunch_options
@@ -81,7 +81,11 @@ class SupervisorHost:
             key: value for key, value in environment.items() if key != API_HOST_ENV
         }
         identity = uuid.uuid4().hex
-        address = f"127.0.0.1:{get_next_port()}"
+        # Scanning connections misses Windows' excluded port ranges. Ask the
+        # OS for a bindable IPv4 loopback port for the private generation.
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(("127.0.0.1", 0))
+            address = f"127.0.0.1:{listener.getsockname()[1]}"
         path = self.directory / ("supervisor-" + identity + ".json")
         path.write_text(
             json.dumps(
@@ -249,6 +253,9 @@ class SupervisorHost:
             await self.stop_child(source)
             operation.update(status="succeeded", finished_at=time.time())
         except Exception as error:
+            logger.exception(
+                "Supervisor replacement failed during %s", operation["status"]
+            )
             if not committed:
                 if target is not None:
                     await self.stop_child(target)

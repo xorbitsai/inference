@@ -23,7 +23,6 @@ from pathlib import Path
 import psutil
 import pytest
 import requests
-from xoscar.utils import get_next_port
 
 from .. import upgrade
 
@@ -483,7 +482,7 @@ async def test_mock_pypi_discovers_installs_and_runs_the_new_version(
 
 @pytest.mark.platform_slow
 def test_installed_component_upgrades_execute_build_b_and_keep_model_requests(
-    tmp_path, monkeypatch, package_index
+    tmp_path, monkeypatch, package_index, unused_tcp_port_factory
 ):
     from ... import constants
 
@@ -523,9 +522,9 @@ def test_installed_component_upgrades_execute_build_b_and_keep_model_requests(
     # No PyPI calls and no fake version response: A really runs from its wheel.
     configuration = {
         "host": "127.0.0.1",
-        "port": get_next_port(),
-        "supervisor_address": f"127.0.0.1:{get_next_port()}",
-        "worker_address": f"127.0.0.1:{get_next_port()}",
+        "port": unused_tcp_port_factory(),
+        "supervisor_address": f"127.0.0.1:{unused_tcp_port_factory()}",
+        "worker_address": f"127.0.0.1:{unused_tcp_port_factory()}",
         "local_deployment": True,
         "api_role": "local",
     }

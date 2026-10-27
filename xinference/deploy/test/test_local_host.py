@@ -18,7 +18,6 @@ from unittest.mock import AsyncMock, MagicMock
 import psutil
 import pytest
 import requests
-from xoscar.utils import get_next_port
 
 from ..local_host import LocalHost
 
@@ -191,9 +190,9 @@ def test_source_checkout_starts_temp_script_without_inherited_pythonpath(
 @pytest.mark.skipif(os.name != "posix", reason="POSIX local startup")
 @pytest.mark.parametrize("failure", ["exit", "hang"])
 def test_local_startup_failure_stops_unregistered_cluster_and_children(
-    tmp_path, failure
+    tmp_path, failure, unused_tcp_port_factory
 ):
-    ports = [get_next_port() for _ in range(3)]
+    ports = [unused_tcp_port_factory() for _ in range(3)]
     config = {
         "host": "127.0.0.1",
         "port": ports[0],
@@ -348,8 +347,10 @@ async def test_inline_api_failure_keeps_traceback(caplog):
         ),
     ],
 )
-def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, stop_mode):
-    ports = [get_next_port() for _ in range(3)]
+def test_local_shutdown_handles_process_group_and_second_interrupt(
+    tmp_path, stop_mode, unused_tcp_port_factory
+):
+    ports = [unused_tcp_port_factory() for _ in range(3)]
     configuration = {
         "host": "127.0.0.1",
         "port": ports[0],
@@ -467,10 +468,12 @@ def test_local_shutdown_handles_process_group_and_second_interrupt(tmp_path, sto
 
 
 @pytest.mark.parametrize("first", ["worker", "supervisor"])
-def test_local_components_migrate_on_demand_and_keep_local_semantics(tmp_path, first):
+def test_local_components_migrate_on_demand_and_keep_local_semantics(
+    tmp_path, first, unused_tcp_port_factory
+):
     from xinference.client import Client
 
-    ports = [get_next_port() for _ in range(3)]
+    ports = [unused_tcp_port_factory() for _ in range(3)]
     configuration = {
         "host": "127.0.0.1",
         "port": ports[0],
