@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import functools
 import inspect
 import math
 import re
@@ -105,6 +104,30 @@ _binding: ContextVar[Optional[Tuple[Any, "ControlContext"]]] = ContextVar(
 )
 
 
+class _BoundWorkerControlMethod:
+    def __init__(self, owner: Any, method: Any, dispatch: Any):
+        self.__self__ = owner
+        self.__wrapped__ = method
+        self._dispatch = dispatch
+
+    def __call__(self, owner: Any, *args, **kwargs):
+        return self._dispatch(owner, *args, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        method = object.__getattribute__(self, "__wrapped__")
+        if (
+            name in {"batch", "delay"}
+            and getattr(
+                object.__getattribute__(self, "__self__"), "_control_fence", None
+            )
+            is not None
+        ):
+            raise ControlSessionRejected("unsupported_batch")
+        # Preserve the callable's interface, including descriptors/dynamic
+        # attributes that functools.wraps cannot copy from its __dict__.
+        return getattr(method, name)
+
+
 def bind_worker_control_method(owner: Any, name: str, method: Any) -> Any:
     """Give LocalActorRef the same admission boundary as remote dispatch.
 
@@ -113,7 +136,6 @@ def bind_worker_control_method(owner: Any, name: str, method: Any) -> Any:
     bound method's actor identity so StatelessActor remains lock-free.
     """
 
-    @functools.wraps(method)
     def guarded(self, *args, **kwargs):
         fence = getattr(self, "_control_fence", None)
         supplied = kwargs.pop(CONTROL_CONTEXT_KEY, None)
@@ -133,7 +155,7 @@ def bind_worker_control_method(owner: Any, name: str, method: Any) -> Any:
             raise ControlSessionRejected("handoff_requires_session_transfer")
         # Only an explicitly bound, already admitted task may use nested
         # synchronous cleanup. Caller metadata always takes the normal gate.
-        if supplied is None and getattr(method, "_management_cleanup", False):
+        if supplied is None and getattr(method, "_management_cleanup", False) is True:
             fence.check_cleanup()
             return method(*args, **kwargs)
         if supplied is None and not inspect.iscoroutinefunction(method):
@@ -149,13 +171,7 @@ def bind_worker_control_method(owner: Any, name: str, method: Any) -> Any:
 
         return admitted()
 
-    def unsupported(*args, **kwargs):
-        raise ControlSessionRejected("unsupported_batch")
-
-    if getattr(owner, "_control_fence", None) is not None:
-        setattr(guarded, "batch", unsupported)
-        setattr(guarded, "delay", unsupported)
-    return MethodType(guarded, owner)
+    return MethodType(_BoundWorkerControlMethod(owner, method, guarded), owner)
 
 
 class ControlSessionRejected(RuntimeError):

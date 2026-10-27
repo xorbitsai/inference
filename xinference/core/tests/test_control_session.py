@@ -529,6 +529,52 @@ async def test_context_never_silently_selects_an_unprotected_worker():
 
 
 @pytest.mark.asyncio
+async def test_instance_callable_keeps_its_interface_but_cannot_bypass_a_fence():
+    worker = WorkerActor("supervisor", None, SimpleNamespace(), [])
+    mutation = AsyncMock(return_value="mutated")
+    worker.future_mutation = mutation
+    assert worker.future_mutation.__wrapped__ is mutation
+    assert worker.future_mutation.__self__ is worker
+    assert await worker.future_mutation("legacy") == "mutated"
+    worker.future_mutation.assert_awaited_once_with("legacy")
+    worker.future_mutation.reset_mock()
+
+    fence, authority = setup_fence()
+    worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+    old = authority.owner
+    await worker.install_controller_session(old.to_dict())
+    with pytest.raises(ControlSessionRejected, match="missing_context"):
+        await worker.future_mutation("missing")
+    mutation.assert_not_awaited()
+    assert (
+        await worker.future_mutation(
+            "current", **{CONTROL_CONTEXT_KEY: command(old).to_dict()}
+        )
+        == "mutated"
+    )
+    mutation.assert_awaited_once_with("current")
+
+    async with fence.command(command(old)):
+        authority.owner = session(2)
+        installing = asyncio.create_task(
+            worker.install_controller_session(authority.owner.to_dict())
+        )
+        while fence.session != authority.owner:
+            if installing.done():
+                await installing
+            await asyncio.sleep(0)
+        with pytest.raises(ControlSessionRejected, match="stale_session"):
+            # A dynamic attribute on an ordinary callable is not a cleanup tag.
+            await worker.future_mutation("stale-bound")
+    await installing
+    with pytest.raises(ControlSessionRejected, match="stale_session"):
+        await worker.future_mutation(
+            "stale", **{CONTROL_CONTEXT_KEY: command(old).to_dict()}
+        )
+    mutation.assert_awaited_once_with("current")
+
+
+@pytest.mark.asyncio
 async def test_false_authority_result_is_a_rejection():
     class Denied:
         def validate(self, owner, *, phases):

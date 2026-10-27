@@ -196,6 +196,7 @@ def test_replacement_persists_to_original_service_recovery_path(tmp_path, monkey
     )
     worker = module.WorkerActor.__new__(module.WorkerActor)
     worker._recovery_address = "host:1000"
+    worker._pending_recovery_launch_args = {}
     worker._model_uid_to_launch_args = {
         "after-upgrade-rep0": {"model_uid": "after-upgrade-rep0"}
     }
