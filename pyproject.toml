@@ -70,7 +70,7 @@ dependencies = [
     "peft>=0.18.0",
     "timm",
     "setproctitle",
-    "uv",
+    "uv>=0.10.9",
 ]
 
 [project.urls]

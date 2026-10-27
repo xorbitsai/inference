@@ -817,3 +817,15 @@ msgstr ""
 #: ../glm53-doc-check/getting_started/installation.rst:176
 msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
 msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+
+#: ../../source/getting_started/installation.rst:39
+msgid ""
+"Starting with v4.2.0, administrators can upgrade a running deployment from "
+"the Web UI: click the version at the bottom left, check for updates, then "
+"choose **Install and upgrade**. Existing models continue serving while "
+"components are replaced. See :ref:`zero_downtime_upgrade` for requirements "
+"and supported deployments."
+msgstr ""
+"v4.2.0부터 관리자는 Web UI에서 실행 중인 배포를 업그레이드할 수 있습니다. 왼쪽 아래의 버전을 클릭해 업데이트를 확인한 다음 "
+"**설치 및 업그레이드** 를 선택하세요. 구성 요소를 교체하는 동안에도 기존 모델은 계속 서비스합니다. 요구 사항과 지원되는 배포 "
+"방식은 :ref:`zero_downtime_upgrade` 를 참조하세요."

@@ -25,6 +25,7 @@ import {
   UserRound,
   KeyRound,
   Database,
+  ArrowUpCircle,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -46,6 +47,7 @@ import {
 import ThemeToggle from '@/components/layout/theme-toggle';
 import LanguageSwitcher from '@/components/layout/language-switcher';
 import LoginOut from '@/components/layout/login-out';
+import { SoftwareUpdateDialog } from '@/components/layout/software-update';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 
@@ -153,8 +155,9 @@ export function Sidebar() {
   const { t, locale } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [updateOpen, setUpdateOpen] = useState(false);
   const branding = getBrandingFromEnv();
-  const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
+  const { clusterVersion, clusterAuth, clusterUIConfig, globalReady } = useGlobal();
   const {
     isAdmin,
     usersManagePage,
@@ -442,11 +445,24 @@ export function Sidebar() {
               <ThemeToggle className="flex h-8 w-8 items-center justify-center rounded-md" />
               <LanguageSwitcher className="flex h-8 w-8 items-center justify-center rounded-md" />
             </div>
-            {clusterVersion?.version && (
-              <div className="min-w-0 max-w-[132px] truncate text-right text-xs text-slate-400">
-                v:{clusterVersion.version}
-              </div>
-            )}
+            {clusterVersion?.version &&
+              (isAdmin ? (
+                <button
+                  type="button"
+                  disabled={!globalReady}
+                  title={t('softwareUpdate.check')}
+                  aria-label={t('softwareUpdate.check')}
+                  onClick={() => setUpdateOpen(true)}
+                  className="flex min-w-0 max-w-[132px] items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <ArrowUpCircle className="size-3.5 shrink-0" />
+                  <span className="truncate">v:{clusterVersion.version}</span>
+                </button>
+              ) : (
+                <span className="truncate text-xs text-muted-foreground">
+                  v:{clusterVersion.version}
+                </span>
+              ))}
           </div>
           {showLoginOut && (
             <div className="mt-2 flex h-8 min-w-0 items-center justify-between gap-2">
@@ -474,12 +490,27 @@ export function Sidebar() {
           )}
         </div>
       ) : (
-        showLoginOut && (
-          <div className="flex justify-center border-t border-border py-3">
-            <LoginOut className="flex h-8 w-8 items-center justify-center rounded-md" />
+        (showLoginOut || (isAdmin && clusterVersion?.version)) && (
+          <div className="flex justify-center gap-1 border-t border-border py-3">
+            {isAdmin && clusterVersion?.version && (
+              <button
+                type="button"
+                disabled={!globalReady}
+                title={t('softwareUpdate.check')}
+                aria-label={t('softwareUpdate.check')}
+                onClick={() => setUpdateOpen(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+              >
+                <ArrowUpCircle className="size-4" />
+              </button>
+            )}
+            {showLoginOut && (
+              <LoginOut className="flex h-8 w-8 items-center justify-center rounded-md" />
+            )}
           </div>
         )
       )}
+      <SoftwareUpdateDialog open={updateOpen} onOpenChange={setUpdateOpen} />
       {passwordOpen && (
         <ChangePasswordDialog
           open

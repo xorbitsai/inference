@@ -17,12 +17,21 @@ type Service = 'api' | 'supervisor';
 export interface ServiceRelaunchOperation {
   operation_id: string;
   request_id?: string;
-  status: 'starting' | 'preparing' | 'switching' | 'draining' | 'succeeded' | 'failed';
+  status:
+    | 'installing'
+    | 'migrating'
+    | 'starting'
+    | 'preparing'
+    | 'switching'
+    | 'draining'
+    | 'succeeded'
+    | 'failed';
   created_at: number;
   source_version?: string;
   target_version?: string;
   python_executable?: string;
   error?: string;
+  log?: string;
 }
 
 const SERVICES = {
@@ -204,6 +213,16 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
                     <p className="break-all text-muted-foreground">{job.python_executable}</p>
                   )}
                   {job.error && <p className="break-words text-destructive">{job.error}</p>}
+                  {job.log && (
+                    <details>
+                      <summary className="cursor-pointer">
+                        {t('clusterInfo.relaunch.installLog')}
+                      </summary>
+                      <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">
+                        {job.log}
+                      </pre>
+                    </details>
+                  )}
                 </div>
               ))}
           </div>

@@ -11,8 +11,19 @@ export interface WorkerRelaunchOperation {
   operation_id: string;
   source_worker: string;
   target_worker?: string;
-  status: 'starting' | 'transferring' | 'pending' | 'succeeded' | 'failed';
+  status:
+    | 'installing'
+    | 'migrating'
+    | 'starting'
+    | 'transferring'
+    | 'pending'
+    | 'succeeded'
+    | 'failed';
   error?: string;
+  log?: string;
+  requested_version?: string;
+  source_version?: string;
+  target_version?: string;
 }
 
 function relaunchError(error: unknown): string {
@@ -156,8 +167,22 @@ export function WorkerRelaunchHistory({
             {job.target_worker ? ` → ${job.target_worker}` : ''}
           </p>
           <p role="status">{t(`clusterInfo.relaunch.${job.status}`)}</p>
+          {job.requested_version && (
+            <p>
+              {job.source_version ? `${job.source_version} → ` : ''}
+              {job.target_version || job.requested_version}
+            </p>
+          )}
           {job.status === 'pending' && <p>{t('clusterInfo.relaunch.pendingHint')}</p>}
           {job.error && <p className="text-destructive">{job.error}</p>}
+          {job.log && (
+            <details>
+              <summary className="cursor-pointer">{t('clusterInfo.relaunch.installLog')}</summary>
+              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">
+                {job.log}
+              </pre>
+            </details>
+          )}
         </div>
       ))}
     </div>

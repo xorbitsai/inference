@@ -1686,6 +1686,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     async def __pre_destroy__(self):
         self._cancel_handoff_expiry()
+        launcher = getattr(self, "_relaunch_launcher", None)
+        if launcher is not None and launcher.preparation is not None:
+            launcher.preparation.cancel()
+            await asyncio.gather(launcher.preparation, return_exceptions=True)
         self._stop_worker_services()
         self._lifecycle.phase = WorkerPhase.STOPPED
 

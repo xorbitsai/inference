@@ -22,7 +22,8 @@
     "test:model-reload": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/running-model-detail/components/reload-dialog.integration.test.tsx src/components/pages/running-model/reload.integration.test.tsx",
     "test:model-favorites": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/launch-model/model-favorites.integration.test.tsx",
     "test:worker-relaunch": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/worker-relaunch.integration.test.tsx",
-    "test:service-relaunch": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/service-relaunch.integration.test.tsx"
+    "test:service-relaunch": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/service-relaunch.integration.test.tsx",
+    "test:software-update": "node --require ./scripts/register-test-typescript.cjs --test src/components/layout/software-update.integration.test.tsx"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",

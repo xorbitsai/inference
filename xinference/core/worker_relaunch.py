@@ -21,7 +21,7 @@ from xoscar.utils import get_next_port
 from .worker_state import WorkerJournalError, read_worker_journal, write_worker_journal
 
 TERMINAL = {"succeeded", "failed"}
-STATUSES = {"starting", "transferring", "pending", *TERMINAL}
+STATUSES = {"installing", "migrating", "starting", "transferring", "pending", *TERMINAL}
 
 
 def validate_relaunch_options(python_executable=None, request_id=None):
@@ -105,16 +105,26 @@ class WorkerRelaunchManager:
                     self._monitor(operation_id)
                 )
 
-    async def create(self, address, python_executable=None, request_id=None):
+    async def create(
+        self, address, python_executable=None, request_id=None, version=None
+    ):
+        from ..deploy.upgrade import validate_upgrade
+
         validate_relaunch_options(python_executable, request_id)
+        validate_upgrade(version, python_executable)
         registry = self.supervisor._ownership_registry()
         async with registry.lock(address):
             if request_id:
                 for record in self.records.values():
                     if record.get("request_id") == request_id:
-                        if (record["source_worker"], record["python_executable"]) != (
+                        if (
+                            record["source_worker"],
+                            record["python_executable"],
+                            record.get("requested_version"),
+                        ) != (
                             address,
                             python_executable,
+                            version,
                         ):
                             raise RuntimeError(
                                 "request_id already belongs to another relaunch"
@@ -139,6 +149,25 @@ class WorkerRelaunchManager:
                     raise ValueError(
                         "Timed out checking Worker relaunch support"
                     ) from error
+                if version is not None:
+                    try:
+                        if (
+                            await xo.wait_for(
+                                worker.worker_package_upgrade_protocol(), 5
+                            )
+                            != 1
+                        ):
+                            raise ValueError(
+                                "Unsupported Worker package upgrade protocol"
+                            )
+                    except AttributeError as error:
+                        raise ValueError(
+                            "Worker does not support automatic package upgrades; use a prepared Python environment"
+                        ) from error
+                    except asyncio.TimeoutError as error:
+                        raise ValueError(
+                            "Timed out checking Worker package upgrade support"
+                        ) from error
             for record in reversed(list(self.records.values())):
                 if record["source_worker"] != address:
                     continue
@@ -148,13 +177,24 @@ class WorkerRelaunchManager:
                 ):
                     continue
                 if record["status"] not in TERMINAL:
-                    if record["python_executable"] != python_executable:
+                    if (
+                        record["python_executable"],
+                        record.get("requested_version"),
+                    ) != (python_executable, version):
                         raise RuntimeError("Worker already has a relaunch in progress")
                     return self.get(record["operation_id"])
-                if worker is None and record["status"] == "succeeded":
+                if (
+                    worker is None
+                    and record["status"] == "succeeded"
+                    and (record["python_executable"], record.get("requested_version"))
+                    == (python_executable, version)
+                ):
                     return self.get(record["operation_id"])
             if worker is None:
                 raise ValueError("Worker is not registered")
+            if version is not None:
+                metadata = await xo.wait_for(worker.get_node_metadata(), 5)
+                validate_upgrade(version, current_version=metadata["software_version"])
             if registry.protected(address):
                 raise RuntimeError("Worker ownership is already being transferred")
             operation_id = uuid.uuid4().hex
@@ -167,6 +207,7 @@ class WorkerRelaunchManager:
                 target_incarnation=None,
                 target_pid=None,
                 python_executable=python_executable,
+                requested_version=version,
                 status="starting",
                 error="",
                 created_at=time.time(),
@@ -207,17 +248,19 @@ class WorkerRelaunchManager:
         if record["target_incarnation"] not in (None, incarnation):
             raise RuntimeError("Worker relaunch incarnation changed")
         pid = record.get("target_pid")
+        version = record.get("target_version")
         if incarnation is not None and record["target_incarnation"] is None:
             worker = await self._worker(target)
             if await xo.wait_for(worker.worker_incarnation(), 5) != incarnation:
                 raise RuntimeError("Worker relaunch incarnation changed")
-            pid = (await xo.wait_for(worker.worker_relaunch_state(operation_id), 5))[
-                "pid"
-            ]
+            state = await xo.wait_for(worker.worker_relaunch_state(operation_id), 5)
+            pid = state["pid"]
+            version = state.get("version")
         return self.update(
             operation_id,
             target_incarnation=incarnation,
             target_pid=pid,
+            target_version=version,
             status=status,
             error=error,
         )
@@ -264,13 +307,33 @@ class WorkerRelaunchManager:
                     if not record["target_worker"]:
                         state = await xo.wait_for(
                             source.launch_worker_replacement(
-                                operation_id, record["python_executable"]
+                                operation_id,
+                                record["python_executable"],
+                                **(
+                                    {"version": record["requested_version"]}
+                                    if record.get("requested_version")
+                                    else {}
+                                ),
                             ),
                             15,
                         )
                         if state.get("error"):
                             self.update(
                                 operation_id, status="failed", error=state["error"]
+                            )
+                        elif state.get("status") in {
+                            "installing",
+                            "migrating",
+                            "starting",
+                        }:
+                            self.update(
+                                operation_id,
+                                error="",
+                                **{
+                                    key: state[key]
+                                    for key in ("status", "log", "source_version")
+                                    if key in state
+                                },
                             )
                     else:
                         state = await xo.wait_for(
@@ -318,8 +381,45 @@ class WorkerRelaunchLauncher:
         self._reaper = None
         self.target = None
         self.errors = {}
+        self.preparation = None
+        self.preparing_id = None
+        self.preparation_state = {}
 
-    async def launch(self, operation_id, python_executable):
+    async def prepare(self, operation_id, version):
+        from .. import __version__
+        from ..deploy.upgrade import prepare_upgrade
+
+        async with self.lock:
+            if self.preparing_id == operation_id:
+                return self.state(operation_id)
+            if (self.preparation is not None and not self.preparation.done()) or (
+                self.process is not None and self.process.poll() is None
+            ):
+                raise RuntimeError("Worker already has a replacement in progress")
+            self.preparing_id = operation_id
+            self.preparation_state = {
+                "status": "installing",
+                "source_version": __version__,
+            }
+
+            async def install():
+                try:
+                    python = await prepare_upgrade(
+                        version,
+                        "worker",
+                        sys.executable,
+                        __version__,
+                        dict(os.environ),
+                        lambda **fields: self.preparation_state.update(fields),
+                    )
+                    await self.launch(operation_id, python, isolated=True)
+                except Exception as error:
+                    self.errors[operation_id] = str(error) or type(error).__name__
+
+            self.preparation = asyncio.create_task(install())
+            return self.state(operation_id)
+
+    async def launch(self, operation_id, python_executable, *, isolated=False):
         from ..constants import XINFERENCE_HOME
         from ..deploy.utils import get_log_file
         from ..device_utils import get_available_device_env_name
@@ -386,6 +486,7 @@ class WorkerRelaunchLauncher:
                     self.process = subprocess.Popen(
                         [
                             command_executable,
+                            *(["-I"] if isolated else []),
                             "-m",
                             "xinference.deploy.worker_relaunch",
                             path,
@@ -413,11 +514,14 @@ class WorkerRelaunchLauncher:
     def state(self, operation_id):
         if operation_id in self.errors:
             return dict(exit_code=-1, transfer="idle", error=self.errors[operation_id])
+        if self.preparing_id == operation_id and self.operation_id != operation_id:
+            return dict(exit_code=None, transfer="idle", **self.preparation_state)
         if self.operation_id != operation_id or self.process is None:
             raise ValueError("Worker relaunch process is not available")
         worker = self.worker
         outgoing = worker._outgoing_handoff
         return dict(
+            **({"status": "starting"} if self.preparing_id == operation_id else {}),
             target_worker=self.target,
             pid=self.process.pid,
             exit_code=self.process.poll(),
@@ -435,10 +539,18 @@ class SupervisorRelaunchMixin:
             manager.resume()
         return manager
 
-    async def relaunch_worker(self, address, python_executable=None, request_id=None):
+    async def relaunch_worker(
+        self, address, python_executable=None, request_id=None, version=None
+    ):
         return await self._relaunch_manager().create(
-            address, python_executable, request_id
+            address, python_executable, request_id, version
         )
+
+    async def check_worker_update(self, address):
+        worker = self._worker_address_to_worker.get(address)
+        if worker is None:
+            raise ValueError("Worker is not registered")
+        return await xo.wait_for(worker.check_package_update(), 90)
 
     def get_worker_relaunch(self, operation_id):
         return self._relaunch_manager().get(operation_id)

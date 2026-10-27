@@ -6,6 +6,7 @@ import asyncio
 import copy
 import json
 import logging
+import socket
 import subprocess
 import sys
 import time
@@ -15,7 +16,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import xoscar as xo
-from xoscar.utils import get_next_port
 
 from ..core.supervisor_upgrade import PROTOCOL_VERSION, SupervisorGateway
 from ..core.worker_relaunch import validate_relaunch_options
@@ -81,7 +81,11 @@ class SupervisorHost:
             key: value for key, value in environment.items() if key != API_HOST_ENV
         }
         identity = uuid.uuid4().hex
-        address = f"127.0.0.1:{get_next_port()}"
+        # Scanning connections misses Windows' excluded port ranges. Ask the
+        # OS for a bindable IPv4 loopback port for the private generation.
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(("127.0.0.1", 0))
+            address = f"127.0.0.1:{listener.getsockname()[1]}"
         path = self.directory / ("supervisor-" + identity + ".json")
         path.write_text(
             json.dumps(
@@ -136,17 +140,24 @@ class SupervisorHost:
             "Supervisor failed to become ready: " + child.diagnostics.read()[-2000:]
         )
 
-    def create(self, executable=None, request_id=None):
+    def create(self, executable=None, request_id=None, version=None):
+        from .upgrade import validate_upgrade
+
         validate_relaunch_options(executable, request_id)
+        validate_upgrade(version, executable)
         for operation in self.operations.values():
             if request_id is not None and operation["request_id"] == request_id:
-                if operation["requested_executable"] != executable:
+                if (
+                    operation["requested_executable"],
+                    operation.get("requested_version"),
+                ) != (executable, version):
                     raise RuntimeError(
                         "request_id already names a different Supervisor relaunch"
                     )
                 return copy.deepcopy(operation)
         if self.active is None:
             raise RuntimeError("Supervisor is not ready")
+        validate_upgrade(version, current_version=self.active.version)
         if self.operation_task is not None and not self.operation_task.done():
             raise RuntimeError("A Supervisor relaunch is already in progress")
         identity = uuid.uuid4().hex
@@ -154,6 +165,7 @@ class SupervisorHost:
             "operation_id": identity,
             "request_id": request_id,
             "requested_executable": executable,
+            "requested_version": version,
             "python_executable": executable or self.active.executable,
             "source_pid": self.active.process.pid,
             "source_version": self.active.version,
@@ -191,7 +203,24 @@ class SupervisorHost:
         committed = False
         try:
             environment = source.environment
-            if operation["requested_executable"] is not None:
+            if operation.get("requested_version") is not None:
+                from .upgrade import prepare_upgrade
+
+                operation["python_executable"] = await prepare_upgrade(
+                    operation["requested_version"],
+                    "supervisor",
+                    source.executable,
+                    source.version,
+                    {
+                        **environment,
+                        "PIP_INDEX_URL": self.settings_store.get().pip_index_url,
+                    },
+                    lambda **fields: operation.update(fields),
+                )
+            if (
+                operation["requested_executable"] is not None
+                or operation.get("requested_version") is not None
+            ):
                 from ..core.utils import build_subpool_envs_for_python
 
                 environment = build_subpool_envs_for_python(
@@ -224,6 +253,9 @@ class SupervisorHost:
             await self.stop_child(source)
             operation.update(status="succeeded", finished_at=time.time())
         except Exception as error:
+            logger.exception(
+                "Supervisor replacement failed during %s", operation["status"]
+            )
             if not committed:
                 if target is not None:
                     await self.stop_child(target)
@@ -235,7 +267,9 @@ class SupervisorHost:
     def handle(self, command, request):
         if command == "supervisor-relaunch":
             return self.create(
-                request.get("python_executable"), request.get("request_id")
+                request.get("python_executable"),
+                request.get("request_id"),
+                request.get("version"),
             )
         if command == "supervisor-get":
             return copy.deepcopy(self.operations[request["operation_id"]])

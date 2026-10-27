@@ -16,6 +16,97 @@ By default, a replacement uses the component's current Python environment. No Py
 
 In local mode, startup still uses an API parent and one shared Supervisor/Worker process. A component moves into a separate process only on its first upgrade; use the same commands and Web UI actions below. The original parent and shared process stay alive as service hosts, so stopping the original local service stops its replacement processes too. If a migrated Worker exits unexpectedly, the API and Supervisor stay available; attach a Worker to restore serving capacity.
 
+Check and install updates
+-------------------------
+
+.. versionadded:: v4.2.0
+
+Use the version control at the bottom left of the Web UI to check for updates. Choose **Install and upgrade** to update Workers, then Supervisor, then API. Each component shows its progress; the displayed version changes after the API takes over. Detection uses the configured package source (``PIP_INDEX_URL``, or PyPI by default) on each component's machine and offers newer stable versions compatible with its Python.
+
+.. figure:: /_static/upgrade_version_entry.png
+   :alt: Open the update dialog from the version at the bottom left of the Web UI.
+   :width: 360px
+   :align: center
+
+   Open the update dialog from the version at the bottom left of the Web UI.
+
+.. figure:: /_static/upgrade_available.png
+   :alt: Review available updates for each component, then choose Install and upgrade.
+   :width: 100%
+   :align: center
+
+   Review available updates for each component, then choose Install and upgrade.
+
+.. figure:: /_static/upgrade_installing.png
+   :alt: Components upgrade one at a time. Expand Installation output to view the installation log.
+   :width: 100%
+   :align: center
+
+   Components upgrade one at a time. Expand Installation output to view the installation log.
+
+.. figure:: /_static/upgrade_completed.png
+   :alt: When all components are updated, choose Refresh interface to load the new Web UI.
+   :width: 100%
+   :align: center
+
+   When all components are updated, choose Refresh interface to load the new Web UI.
+
+.. figure:: /_static/upgrade_up_to_date.png
+   :alt: Check for updates again to confirm that all components report the new version.
+   :width: 100%
+   :align: center
+
+   Check for updates again to confirm that all components report the new version.
+
+Xinference installs the selected version and its dependencies into a separate directory under ``XINFERENCE_HOME/upgrades``. Status shows ``installing`` and ``migrating`` before the usual replacement states. Preparation failure leaves the current component serving. Existing model environments and service hosts keep running; prepared environments are retained for diagnosis and reuse.
+
+Worker upgrades preserve the source environment's package versions, including inference engines and the Torch build. The new Worker environment reuses base Python packages and reinstalls the source environment's own packages. If the selected release requires incompatible dependencies, preparation fails and the existing Worker keeps serving; use a manually prepared compatible environment for that upgrade.
+
+API and Supervisor upgrades also preserve source packages when guard protection or ``XINFERENCE_EXTENSIONS`` is enabled. Guard-enabled upgrades install the target release's ``guard`` extra. Dependency conflicts fail preparation while the current component keeps serving.
+
+For preserved PyTorch builds with CUDA, CPU, ROCm or XPU version tags, Xinference first checks the configured package source. If that source cannot provide the build, uv selects the matching official PyTorch backend; other packages keep the configured source. The original build remains pinned. Bundled ``pip`` is excluded from the runtime package profile.
+
+Use ``GET /v1/api/updates``, ``GET /v1/supervisor/updates`` or ``GET /v1/workers/{worker_address}/updates`` to check a component. Pass ``version`` to its existing relaunch endpoint to install and upgrade; ``version`` and ``python_executable`` are mutually exclusive. To use your own Xinference package source, set ``XINFERENCE_UPGRADE_INDEX_URL`` before starting the service on each relevant machine. The override applies to both detection and installation.
+
+.. code-block:: python
+
+    from xinference.client import Client
+
+    client = Client("http://127.0.0.1:9997")
+    update = client.check_component_update("api")
+    if update["update_available"]:
+        operation = client.relaunch_api(version=update["latest_version"])
+
+A release can register optional ``xinference.migrations`` entry points in its package metadata. Each hook runs in the installed target environment before replacement and receives a dictionary with ``component``, ``source_version``, ``target_version`` and ``home``. Hooks must be safe to retry and compatible with components still serving. A hook failure stops the upgrade; the framework does not undo its data changes.
+
+.. code-block:: toml
+
+    [project.entry-points."xinference.migrations"]
+    prepare = "xinference.deploy.migrations:migrate"
+
+Use a custom package source
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can publish your own Xinference builds to a PyPI-compatible package index, such as an internal repository or private mirror. The index must also provide or proxy the required dependencies. Keep the package name ``xinference`` and use a newer stable version compatible with the component's Python. Set ``XINFERENCE_UPGRADE_INDEX_URL`` to the index's simple API URL for both update checks and installation.
+
+.. code-block:: bash
+
+    export XINFERENCE_UPGRADE_INDEX_URL=https://packages.example.com/simple
+    xinference-local --host 127.0.0.1 --port 9997
+
+For a local package source, run the following helper from the checkout in the Xinference environment. It builds the current code into a Xinference wheel with the specified version and serves it over HTTP. Dependency requests are forwarded to ``PIP_INDEX_URL`` (or PyPI); use ``--upstream`` to select another dependency source.
+
+.. code-block:: bash
+
+    python scripts/mock_upgrade_index.py --version 9999.0.0 --port 18080
+
+Run the package source on the same machine as the service, or use an address reachable by every component. For the local example above, set the URL below before starting Xinference. Use the version control at the bottom left to check for updates and install. After upgrading, confirm that ``GET /v1/cluster/version`` reports the version you published and the service still handles requests.
+
+.. code-block:: bash
+
+    export XINFERENCE_UPGRADE_INDEX_URL=http://127.0.0.1:18080/simple
+    xinference-local --host 127.0.0.1 --port 9997
+
 API and Web UI
 --------------
 
@@ -36,9 +127,9 @@ The public HTTP address stays the same. New connections use the replacement API;
 
 REST API: ``POST /v1/api/relaunch``.
 
-The HTTP 202 response contains an ``operation_id``. Poll ``GET /v1/api-relaunches/{operation_id}`` or list operations with ``GET /v1/api-relaunches``. States are ``starting``, ``switching``, ``draining``, ``succeeded`` and ``failed``. ``draining`` means the new API is serving while the previous API finishes admitted requests.
+The HTTP 202 response contains an ``operation_id``. Poll ``GET /v1/api-relaunches/{operation_id}`` or list operations with ``GET /v1/api-relaunches``. States are ``installing``, ``migrating``, ``starting``, ``switching``, ``draining``, ``succeeded`` and ``failed``. ``draining`` means the new API is serving while the previous API finishes admitted requests.
 
-A failed startup leaves the previous API serving. Reuse ``request_id`` when retrying the same request. Only one replacement may run at a time. Operation history belongs to the stable service host and lasts until it stops. Supervisor upgrades and database migrations are outside this operation.
+A failed startup leaves the previous API serving. Reuse ``request_id`` when retrying the same request. Only one replacement may run at a time. Operation history belongs to the stable service host and lasts until it stops. Supervisor upgrades are separate operations.
 
 Supervisor
 ----------
@@ -55,9 +146,9 @@ The replacement loads persisted configuration and checks the registered Workers'
 
 REST API: ``POST /v1/supervisor/relaunch``.
 
-The HTTP 202 response includes an ``operation_id``. Poll ``GET /v1/supervisor-relaunches/{operation_id}`` or list operations with ``GET /v1/supervisor-relaunches``. States are ``starting``, ``preparing``, ``switching``, ``draining``, ``succeeded`` and ``failed``. Only one Supervisor replacement runs at a time. Reuse ``request_id`` when retrying the same operation; history lasts until the stable service host stops.
+The HTTP 202 response includes an ``operation_id``. Poll ``GET /v1/supervisor-relaunches/{operation_id}`` or list operations with ``GET /v1/supervisor-relaunches``. States are ``installing``, ``migrating``, ``starting``, ``preparing``, ``switching``, ``draining``, ``succeeded`` and ``failed``. Only one Supervisor replacement runs at a time. Reuse ``request_id`` when retrying the same operation; history lasts until the stable service host stops.
 
-The service must have been started with Supervisor hosting support. The stable host and its state, cache, event, progress and model-routing actors retain their original environments. This operation upgrades Supervisor control logic; upgrading retained actors or changing database schemas requires a planned restart.
+The service must have been started with Supervisor hosting support. The stable host and its state, cache, event, progress and model-routing actors retain their original environments. This operation upgrades Supervisor control logic; upgrading retained actors requires a planned restart.
 
 .. _worker_hot_replacement:
 
@@ -87,7 +178,7 @@ In **Cluster Information**, administrators can use **Restart / upgrade Worker** 
 
 To relaunch an existing Worker, send ``POST /v1/workers/{worker_address}/relaunch``. The Worker starts its replacement automatically and inherits its Supervisor, GPU visibility, runtime configuration and configured metrics exporter port; a new actor port is selected automatically.
 
-The response is HTTP 202 with an ``operation_id``. Poll ``GET /v1/worker-relaunches/{operation_id}`` or list recent operations with ``GET /v1/worker-relaunches``. Status is one of ``starting``, ``transferring``, ``pending``, ``succeeded`` or ``failed``. These routes require administrator access when authentication is enabled.
+The response is HTTP 202 with an ``operation_id``. Poll ``GET /v1/worker-relaunches/{operation_id}`` or list recent operations with ``GET /v1/worker-relaunches``. Status is one of ``installing``, ``migrating``, ``starting``, ``transferring``, ``pending``, ``succeeded`` or ``failed``. These routes require administrator access when authentication is enabled.
 
 The Supervisor stores operation records in ``XINFERENCE_HOME/worker-relaunches.json``, so status remains available after the old Worker exits and can be reconciled after a Supervisor restart. Duplicate requests reuse an active operation. Keep the same optional ``request_id`` when retrying a request; use a new ID for a new operation. ``pending`` means the transfer outcome is uncertain: keep the processes alive and continue polling instead of starting another replacement.
 
@@ -149,9 +240,9 @@ Send ``POST /v1/models/{model_uid}/reload`` to submit a model upgrade. Poll ``GE
 Switch environments (optional)
 ------------------------------
 
-Install compatible Xinference and dependencies in the target environment first. Pass its absolute Python path with ``python_executable`` in Python/REST calls or ``--python-executable`` in CLI commands. API/Supervisor paths are on the Supervisor machine; Worker/model paths are on the Worker machine. These operations do not install packages.
+You can also prepare a compatible Xinference environment manually. Pass its absolute Python path with ``python_executable`` in Python/REST calls or ``--python-executable`` in CLI commands. API/Supervisor paths are on the Supervisor machine; Worker/model paths are on the Worker machine. Omit ``version`` when using a prepared environment.
 
 Upgrade boundaries
 ------------------
 
-Keep service hosts and containers running throughout an upgrade. Stopping them also stops retained processes and releases GPU allocations. Supervisor support actors retain their original environments. Updating these hosts, retained support actors or database schemas requires a planned restart; these operations do not upgrade an entire installation at once.
+Keep service hosts and containers running throughout an upgrade. Stopping them also stops retained processes and releases GPU allocations. Supervisor support actors retain their original environments. Updating these hosts or retained support actors requires a planned restart; these operations do not upgrade an entire installation at once.

@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 import asyncio
+import json
 import os
 import sys
 import uuid
@@ -10,7 +11,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import xoscar as xo
-from xoscar.utils import get_next_port
 
 from ...core.router_registry import RouterRuntimeRegistry
 from ...core.supervisor_upgrade import SupervisorGateway
@@ -203,9 +203,7 @@ async def test_gateway_drains_callbacks_and_queues_new_management(route):
 @pytest.mark.asyncio
 async def test_worker_liveness_never_triggers_reconnect_during_freeze(monkeypatch):
     monkeypatch.setattr("xinference.core.worker.XINFERENCE_TCP_REQUEST_TIMEOUT", 0.1)
-    pool = await xo.create_actor_pool(
-        address=f"127.0.0.1:{get_next_port()}", n_process=0
-    )
+    pool = await xo.create_actor_pool(address="127.0.0.1:0", n_process=0)
     try:
         gateway = await xo.create_actor(
             SupervisorGateway, address=pool.external_address
@@ -239,9 +237,7 @@ async def test_worker_liveness_never_triggers_reconnect_during_freeze(monkeypatc
 async def test_router_heartbeats_remain_live_through_long_drain_and_freeze(monkeypatch):
     now = [100.0]
     monkeypatch.setattr("xinference.core.router_registry.time.time", lambda: now[0])
-    pool = await xo.create_actor_pool(
-        address=f"127.0.0.1:{get_next_port()}", n_process=0
-    )
+    pool = await xo.create_actor_pool(address="127.0.0.1:0", n_process=0)
     try:
         gateway = await xo.create_actor(
             SupervisorGateway, address=pool.external_address
@@ -313,12 +309,12 @@ async def completed(host, operation):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("rollback", [False, True])
 async def test_terminal_replica_death_survives_frozen_callback_timeout(
-    tmp_path, monkeypatch, rollback
+    tmp_path, monkeypatch, rollback, unused_tcp_port_factory
 ):
     monkeypatch.setenv("XINFERENCE_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XINFERENCE_EXTENSIONS", "")
     monkeypatch.setenv("XINFERENCE_DISABLE_HEALTH_CHECK", "1")
-    address = f"127.0.0.1:{get_next_port()}"
+    address = f"127.0.0.1:{unused_tcp_port_factory()}"
     host = SupervisorHost(
         {"supervisor_address": address},
         tmp_path,
@@ -400,19 +396,19 @@ async def test_terminal_replica_death_survives_frozen_callback_timeout(
 
 
 @pytest.mark.asyncio
-async def test_supervisor_process_replacement_retains_routes(tmp_path, monkeypatch):
+async def test_supervisor_process_replacement_retains_routes(
+    tmp_path, monkeypatch, unused_tcp_port_factory
+):
     monkeypatch.setenv("XINFERENCE_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XINFERENCE_EXTENSIONS", "")
     monkeypatch.setenv("XINFERENCE_DISABLE_HEALTH_CHECK", "1")
-    address = f"127.0.0.1:{get_next_port()}"
+    address = f"127.0.0.1:{unused_tcp_port_factory()}"
     host = SupervisorHost(
         {"supervisor_address": address},
         tmp_path,
         SystemSettingsStore(str(tmp_path / "settings.json")),
     )
-    worker_pool = await xo.create_actor_pool(
-        address=f"127.0.0.1:{get_next_port()}", n_process=0
-    )
+    worker_pool = await xo.create_actor_pool(address="127.0.0.1:0", n_process=0)
     try:
         model = await xo.create_actor(Model, address=worker_pool.external_address)
         worker = await xo.create_actor(
@@ -451,7 +447,7 @@ async def test_supervisor_process_replacement_retains_routes(tmp_path, monkeypat
             with pytest.raises(RuntimeError, match="already in progress"):
                 host.create(request_id="concurrent")
             result = await completed(host, operation)
-            assert result["status"] == "succeeded", result
+            assert result["status"] == "succeeded", json.dumps(result, indent=2)
             assert result["source_pid"] != result["target_pid"]
             assert source.process.poll() is not None
             assert await (await supervisor.get_model("model")).identity() == os.getpid()
@@ -465,7 +461,7 @@ async def test_supervisor_process_replacement_retains_routes(tmp_path, monkeypat
                     os.getenv("XINFERENCE_TEST_SUPERVISOR_PYTHON"), request_id="second"
                 ),
             )
-            assert result["status"] == "succeeded", result
+            assert result["status"] == "succeeded", json.dumps(result, indent=2)
             active = host.active
             result = await completed(
                 host,

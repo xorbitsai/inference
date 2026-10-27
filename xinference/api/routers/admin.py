@@ -23,6 +23,7 @@ from ...core.rpc_context import actor_call
 from ...core.virtual_env_manager import VirtualEnvConflictError
 from ...core.worker_relaunch import validate_relaunch_options
 from ...core.worker_state import WorkerJournalError
+from ...deploy.upgrade import validate_upgrade
 from ...types import PeftModelConfig
 from ..dependencies import get_api
 from ..model_request_logging import get_model_request_id
@@ -148,9 +149,11 @@ async def _relaunch_service(request: Request, command: str) -> JSONResponse:
         if not isinstance(body, dict) or set(body) - {
             "python_executable",
             "request_id",
+            "version",
         }:
-            raise ValueError("Expected python_executable and/or request_id")
+            raise ValueError("Expected python_executable, request_id and/or version")
         validate_relaunch_options(body.get("python_executable"), body.get("request_id"))
+        validate_upgrade(body.get("version"), body.get("python_executable"))
         result = await host_request(command, **body)
         return JSONResponse(content=result, status_code=202)
     except (ValueError, TypeError) as error:
@@ -215,6 +218,28 @@ async def list_supervisor_relaunches(
     return await _list_service_relaunches("supervisor-list")
 
 
+async def get_api_updates(api: "RESTfulAPI" = Depends(get_api)) -> JSONResponse:
+    return await _list_service_relaunches("updates")
+
+
+async def get_supervisor_updates(api: "RESTfulAPI" = Depends(get_api)) -> JSONResponse:
+    return await _list_service_relaunches("supervisor-updates")
+
+
+async def get_worker_updates(
+    worker_address: str, api: "RESTfulAPI" = Depends(get_api)
+) -> JSONResponse:
+    try:
+        supervisor = await api._get_supervisor_ref()
+        return JSONResponse(
+            content=await supervisor.check_worker_update(worker_address)
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+
+
 async def relaunch_worker(
     worker_address: str, request: Request, api: "RESTfulAPI" = Depends(get_api)
 ) -> JSONResponse:
@@ -224,12 +249,17 @@ async def relaunch_worker(
         if not isinstance(body, dict) or set(body) - {
             "python_executable",
             "request_id",
+            "version",
         }:
-            raise ValueError("Expected python_executable and/or request_id")
+            raise ValueError("Expected python_executable, request_id and/or version")
         validate_relaunch_options(body.get("python_executable"), body.get("request_id"))
+        validate_upgrade(body.get("version"), body.get("python_executable"))
         supervisor = await api._get_supervisor_ref()
         result = await supervisor.relaunch_worker(
-            worker_address, body.get("python_executable"), body.get("request_id")
+            worker_address,
+            body.get("python_executable"),
+            body.get("request_id"),
+            **({"version": body["version"]} if body.get("version") is not None else {}),
         )
         return JSONResponse(content=result, status_code=202)
     except WorkerJournalError as error:
@@ -2299,6 +2329,24 @@ def register_routes(api: "RESTfulAPI") -> None:
     router.add_api_route(
         "/v1/workers",
         get_workers_info,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/api/updates",
+        get_api_updates,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/supervisor/updates",
+        get_supervisor_updates,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/workers/{worker_address}/updates",
+        get_worker_updates,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
     )
