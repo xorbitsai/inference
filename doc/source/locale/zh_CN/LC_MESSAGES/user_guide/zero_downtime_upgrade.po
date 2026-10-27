@@ -504,3 +504,13 @@ msgstr ""
 "``XINFERENCE_UPGRADE_INDEX_URL=http://127.0.0.1:18080/simple`` "
 "。在左下角版本处检查并安装更新。确认 ``GET /v1/cluster/version`` 返回 ``9999.0.0`` "
 "，且服务仍能处理请求。模拟源应运行在服务所在机器上，或使用所有组件均可访问的地址。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:28
+msgid ""
+"API and Supervisor upgrades also preserve source packages when guard "
+"protection or ``XINFERENCE_EXTENSIONS`` is enabled. Guard-enabled upgrades "
+"install the target release's ``guard`` extra. Dependency conflicts fail "
+"preparation while the current component keeps serving."
+msgstr ""
+"启用安全防护或 ``XINFERENCE_EXTENSIONS`` 时，API 和 Supervisor "
+"升级也会保留原环境的软件包。启用安全防护时还会安装目标版本的 ``guard`` 扩展依赖。依赖冲突会使准备过程失败，当前组件继续提供服务。"

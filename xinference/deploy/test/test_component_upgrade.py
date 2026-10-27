@@ -48,6 +48,8 @@ SOURCE_CHECKOUT = {checkout!r}
 
 def identity(component):
     value = dict(build=BUILD, version=__version__, pid=os.getpid(), python=sys.executable, module=__file__, engine=__import__('upgrade_test_engine').VERSION, torch=str(__import__('torch').__version__))
+    value['extension_module'] = __import__('upgrade_test_extension').__file__
+    value['guard_runtime'] = __import__('upgrade_test_guard_runtime').BUILD if BUILD != 'A' else None
     root = Path(XINFERENCE_HOME) / 'evidence'
     root.mkdir(exist_ok=True)
     (root / (component + '-' + BUILD + '.json')).write_text(json.dumps(value))
@@ -128,11 +130,14 @@ def create(): return Extension()
 """
 
 
-def write_wheel(directory, name, version, files, requires=(), entry_points=""):
+def write_wheel(
+    directory, name, version, files, requires=(), entry_points="", extras=()
+):
     metadata = f"{name}-{version}.dist-info"
     files = dict(files)
     files[f"{metadata}/METADATA"] = (
         f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
+        + "".join(f"Provides-Extra: {extra}\n" for extra in extras)
         + "".join(f"Requires-Dist: {item}\n" for item in requires)
     ).encode()
     files[f"{metadata}/WHEEL"] = (
@@ -200,6 +205,45 @@ def package_index(tmp_path):
         engine_links.append(f'<a href="../{filename}">{filename}</a>')
     (root / "upgrade-test-engine").mkdir()
     (root / "upgrade-test-engine/index.html").write_text("\n".join(engine_links))
+    # These optional runtime distributions are deliberately separate from
+    # Xinference B. The extension cannot be recovered by installing core B.
+    optional_packages = [
+        (
+            "upgrade_test_guard_runtime",
+            "1.0",
+            {"upgrade_test_guard_runtime.py": b"BUILD = 'B'\n"},
+        ),
+        (
+            "upgrade_test_extension",
+            "1.0",
+            {
+                "upgrade_test_extension.py": b"from xinference.upgrade_acceptance import Extension\ndef create(): return Extension()\n"
+            },
+        ),
+        (
+            "fastapi_guard",
+            "8.1.0",
+            {
+                "guard/__init__.py": b"""
+class SecurityConfig:
+    def __init__(self, **kwargs): pass
+class SecurityMiddleware:
+    def __init__(self, app, config): self.app = app
+    async def __call__(self, scope, receive, send):
+        async def guarded(message):
+            if message['type'] == 'http.response.start':
+                message = dict(message, headers=[*message['headers'], (b'x-upgrade-test-guard', b'active')])
+            await send(message)
+        await self.app(scope, receive, guarded)
+"""
+            },
+        ),
+    ]
+    for name, version, contents in optional_packages:
+        filename = write_wheel(root, name, version, contents)
+        package = root / name.replace("_", "-")
+        package.mkdir()
+        (package / "index.html").write_text(f'<a href="../{filename}">{filename}</a>')
     source = Path(__file__).resolve().parents[2]
     files = {}
     for path in source.rglob("*"):
@@ -244,6 +288,23 @@ def package_index(tmp_path):
             contents,
             requires=[
                 "upgrade-test-runtime==1.0",
+                'fastapi-guard>=8.1.0,<9; extra == "guard"',
+                # B's guard extra adds a dependency absent from source A. This
+                # proves that the target extra is resolved, beyond retaining
+                # the source's optional packages.
+                *(
+                    ['upgrade-test-guard-runtime==1.0; extra == "guard"']
+                    if build != "A"
+                    else []
+                ),
+                # Seed the source A environment as if the optional packages
+                # had been installed by its operator; B does not depend on
+                # the external extension.
+                *(
+                    ["upgrade-test-extension==1.0", "fastapi-guard==8.1.0"]
+                    if build == "A"
+                    else []
+                ),
                 (
                     "upgrade-test-engine==1.0"
                     if build == "A"
@@ -255,6 +316,7 @@ def package_index(tmp_path):
                 ),
             ],
             entry_points="[xinference.migrations]\nprepare = xinference.upgrade_acceptance:migrate\n",
+            extras=("guard",),
         )
         links.append(f'<a href="../{filename}">{filename}</a>')
         package = root / "xinference"
@@ -434,7 +496,8 @@ def test_installed_component_upgrades_execute_build_b_and_keep_model_requests(
         upgrade.UPGRADE_INDEX_ENV: index,
         "XINFERENCE_HOME": str(home),
         "PYTHONPATH": "deliberately-invalid-source-path",
-        "XINFERENCE_EXTENSIONS": "xinference.upgrade_acceptance:create",
+        "XINFERENCE_EXTENSIONS": "upgrade_test_extension:create",
+        "XINFERENCE_GUARD_ENABLED": "1",
         "XINFERENCE_AUTH_ADVANCED": "0",
         "XINFERENCE_DISABLE_METRICS": "1",
         "CUDA_VISIBLE_DEVICES": "-1",
@@ -443,7 +506,18 @@ def test_installed_component_upgrades_execute_build_b_and_keep_model_requests(
     }
     python = asyncio.run(
         upgrade.prepare_upgrade(
-            A, "api", sys.executable, "0.0.0", environment, lambda **fields: None
+            A,
+            "api",
+            sys.executable,
+            "0.0.0",
+            # Bootstrap A from the index, before there is a serving source
+            # environment whose optional package profile can be preserved.
+            {
+                **environment,
+                "XINFERENCE_EXTENSIONS": "",
+                "XINFERENCE_GUARD_ENABLED": "0",
+            },
+            lambda **fields: None,
         )
     )
     # No PyPI calls and no fake version response: A really runs from its wheel.
@@ -472,6 +546,7 @@ def test_installed_component_upgrades_execute_build_b_and_keep_model_requests(
         )[-8000:]
         response = session.get(endpoint + path, timeout=15)
         response.raise_for_status()
+        assert response.headers["x-upgrade-test-guard"] == "active"
         return response.json()
 
     def traffic():
@@ -576,8 +651,12 @@ def test_installed_component_upgrades_execute_build_b_and_keep_model_requests(
                 }
                 evidence = info[component]
                 assert evidence["build"] == "B" and evidence["version"] == B
+                assert evidence["guard_runtime"] == "B"
                 assert evidence["pid"] != initial[component]["pid"]
                 assert Path(evidence["module"]).is_relative_to(
+                    Path(evidence["python"]).parent.parent
+                )
+                assert Path(evidence["extension_module"]).is_relative_to(
                     Path(evidence["python"]).parent.parent
                 )
                 assert (

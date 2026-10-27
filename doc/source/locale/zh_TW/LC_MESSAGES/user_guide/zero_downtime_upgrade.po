@@ -505,3 +505,13 @@ msgstr ""
 "``XINFERENCE_UPGRADE_INDEX_URL=http://127.0.0.1:18080/simple`` "
 "。在左下角版本處檢查並安裝更新。確認 ``GET /v1/cluster/version`` 回傳 ``9999.0.0`` "
 "，且服務仍能處理請求。模擬來源應在服務所在機器上執行，或使用所有元件皆可存取的位址。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:28
+msgid ""
+"API and Supervisor upgrades also preserve source packages when guard "
+"protection or ``XINFERENCE_EXTENSIONS`` is enabled. Guard-enabled upgrades "
+"install the target release's ``guard`` extra. Dependency conflicts fail "
+"preparation while the current component keeps serving."
+msgstr ""
+"啟用安全防護或 ``XINFERENCE_EXTENSIONS`` 時，API 和 Supervisor "
+"升級也會保留原環境的套件。啟用安全防護時還會安裝目標版本的 ``guard`` 額外相依套件。相依套件衝突會使準備程序失敗，目前元件繼續提供服務。"

@@ -214,7 +214,7 @@ assert Version(version('xinference')) == Version(sys.argv[1]), 'Installed packag
 assert Version(xinference.__version__) == Version(sys.argv[1]), 'Loaded code version differs from requested version'
 """
 
-WORKER_BASELINE = """
+PACKAGE_BASELINE = """
 import json
 from importlib.metadata import distributions
 from packaging.utils import canonicalize_name
@@ -226,14 +226,14 @@ for dist in distributions():
 print(json.dumps(packages))
 """
 
-VERIFY_WORKER = """
+VERIFY_PACKAGES = """
 import json, sys
 from importlib.metadata import version
 from packaging.version import Version
 from pathlib import Path
 for name, expected in json.loads(Path(sys.argv[1]).read_text()).items():
     if Version(version(name)) != Version(expected):
-        raise RuntimeError('Worker dependency changed during upgrade: ' + name)
+        raise RuntimeError('Source dependency changed during upgrade: ' + name)
 """
 
 
@@ -253,6 +253,16 @@ async def prepare_upgrade(
     root.parent.mkdir(parents=True, exist_ok=True)
     env = _environment(environment)
     uv = _uv()
+    guard_enabled = environment.get("XINFERENCE_GUARD_ENABLED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    preserve_packages = (
+        component == "worker"
+        or guard_enabled
+        or bool(environment.get("XINFERENCE_EXTENSIONS", "").strip())
+    )
     try:
         report(status="installing")
         baseline = None
@@ -262,10 +272,10 @@ async def prepare_upgrade(
             prefix=".upgrade-profile-", dir=root.parent
         ) as temporary:
             profile = Path(temporary)
-            if component == "worker":
-                # Freeze owned packages (including editable engines/direct URLs)
-                # and constrain every visible distribution, including the torch
-                # build inherited from the base Python. Xinference alone moves.
+            if preserve_packages:
+                # Preserve engines and configured runtime extensions, including
+                # editable/direct URL installs, without guessing their extras
+                # or distribution names. Xinference alone moves.
                 frozen = await _command(
                     [
                         uv,
@@ -284,7 +294,7 @@ async def prepare_upgrade(
                     capture_all=True,
                 )
                 raw = await _command(
-                    [executable, "-I", "-c", WORKER_BASELINE],
+                    [executable, "-I", "-c", PACKAGE_BASELINE],
                     env,
                     profile,
                     lambda **fields: None,
@@ -308,7 +318,7 @@ async def prepare_upgrade(
                     "--python",
                     executable,
                     "--no-python-downloads",
-                    *(["--system-site-packages"] if component == "worker" else []),
+                    *(["--system-site-packages"] if preserve_packages else []),
                     str(root),
                 ],
                 env,
@@ -330,7 +340,7 @@ async def prepare_upgrade(
                     "disallow",
                     "--refresh-package",
                     "xinference",
-                    f"xinference=={Version(version)}",
+                    f"xinference{'[guard]' if guard_enabled else ''}=={Version(version)}",
                     *(
                         ["-r", str(requirements), "-c", str(constraints)]
                         if requirements is not None
@@ -352,7 +362,7 @@ async def prepare_upgrade(
                 baseline_file = profile / "baseline.json"
                 baseline_file.write_text(json.dumps(baseline))
                 await _command(
-                    [python, "-I", "-c", VERIFY_WORKER, str(baseline_file)],
+                    [python, "-I", "-c", VERIFY_PACKAGES, str(baseline_file)],
                     env,
                     root.parent,
                     report,
