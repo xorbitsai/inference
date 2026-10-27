@@ -34,7 +34,6 @@
           "huggingface": {
             "model_id": "gpustack/bge-reranker-v2-m3-GGUF",
             "quantizations": [
-              "Q3_K",
               "Q3_K_M",
               "Q4_0",
               "Q4_K_M",
@@ -48,7 +47,6 @@
           "modelscope": {
             "model_id": "gpustack/bge-reranker-v2-m3-GGUF",
             "quantizations": [
-              "Q3_K",
               "Q3_K_M",
               "Q4_0",
               "Q4_K_M",
