@@ -41,13 +41,19 @@ require.cache[require.resolve('@/contexts/i18n-context')]!.exports = {
   useI18n: () => ({ t: translate }),
 };
 const globalContext = { clusterAuth: { auth: false } };
+const menuAuth = {
+  isAdmin: false,
+  hasRouterRead: false,
+  canAccessRouterPage: false,
+  canWriteModels: false,
+};
 require('@/contexts/global-context');
 require.cache[require.resolve('@/contexts/global-context')]!.exports = {
   useGlobal: () => globalContext,
 };
 require('@/hooks/use-menu-auth');
 require.cache[require.resolve('@/hooks/use-menu-auth')]!.exports = {
-  useMenuAuth: () => ({ isAdmin: false, hasRouterRead: false, canAccessRouterPage: false }),
+  useMenuAuth: () => menuAuth,
 };
 require('next/navigation');
 require.cache[require.resolve('next/navigation')]!.exports = { useRouter: () => ({ push() {} }) };
@@ -56,6 +62,7 @@ const RunningModel = require('./index').default as typeof import('./index').defa
 const { translations } = require('@/i18n/translations') as typeof import('@/i18n/translations');
 const originalGet = request.get;
 const originalPost = request.post;
+const originalDelete = request.delete;
 let root: Root;
 let host: HTMLDivElement;
 let models: Record<string, unknown>[];
@@ -63,6 +70,8 @@ let instances: Record<string, unknown>[];
 let progress: Record<string, unknown>;
 let reads: string[];
 let posts: string[];
+let deletes: string[];
+let failDelete: boolean;
 let failReads: Set<string>;
 
 const uid = 'model/one';
@@ -131,6 +140,8 @@ async function mount() {
 
 beforeEach(async () => {
   localStorage.clear();
+  globalContext.clusterAuth.auth = false;
+  menuAuth.canWriteModels = false;
   models = [];
   instances = [instance()];
   progress = {
@@ -139,6 +150,8 @@ beforeEach(async () => {
   };
   reads = [];
   posts = [];
+  deletes = [];
+  failDelete = false;
   failReads = new Set();
   request.get = async <T,>(url: string) => {
     reads.push(url);
@@ -155,6 +168,14 @@ beforeEach(async () => {
     if (url.endsWith('/cancel')) instances = [];
     return {} as T;
   };
+  request.delete = async <T,>(url: string) => {
+    deletes.push(url);
+    if (failDelete) throw new Error('delete failed');
+    instances = instances.filter(
+      (item) => `/v1/models/${encodeURIComponent(String(item.model_uid))}` !== url
+    );
+    return null as T;
+  };
 });
 
 afterEach(async () => {
@@ -162,6 +183,7 @@ afterEach(async () => {
   document.body.innerHTML = '';
   request.get = originalGet;
   request.post = originalPost;
+  request.delete = originalDelete;
 });
 
 it('discovers a loading instance with independent replica progress and no inference controls', async () => {
@@ -358,6 +380,66 @@ it('cancels the selected launch using its encoded UID', async () => {
   assert.match(host.textContent!, /runningModels.noRunningModels/);
 });
 
+it('clears a failed launch without a running model and keeps it removed after remount', async () => {
+  instances = [instance('ERROR')];
+  await mount();
+  await act(async () => button('runningModels.clearFailedRecord')!.click());
+  const confirm = document.querySelector<HTMLElement>('[role="alertdialog"]')!;
+  assert.match(confirm.textContent!, /runningModels.clearFailedRecordConfirm/);
+  const clear = [...confirm.querySelectorAll('button')].find(
+    (item) => item.textContent === 'runningModels.clearFailedRecord'
+  )!;
+  await act(async () => clear.click());
+  assert.deepEqual(deletes, ['/v1/models/model%2Fone']);
+  assert.match(host.textContent!, /runningModels.noRunningModels/);
+  await act(async () => root.unmount());
+  host.remove();
+  await mount();
+  assert.match(host.textContent!, /runningModels.noRunningModels/);
+});
+
+it('retains the failed record when deletion fails and allows retry', async () => {
+  instances = [instance('ERROR')];
+  failDelete = true;
+  await mount();
+  await act(async () => button('runningModels.clearFailedRecord')!.click());
+  const clear = [
+    ...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+  ].find((item) => item.textContent === 'runningModels.clearFailedRecord')!;
+  await act(async () => clear.click());
+  assert.match(host.textContent!, /runningModels.launchFailed/);
+  assert.ok(document.querySelector('[role="alertdialog"]'));
+  failDelete = false;
+  await act(async () => clear.click());
+  assert.match(host.textContent!, /runningModels.noRunningModels/);
+});
+
+it('requires model write permission to clear failed records', async () => {
+  globalContext.clusterAuth.auth = true;
+  instances = [instance('ERROR')];
+  await mount();
+  assert.equal(button('runningModels.clearFailedRecord'), undefined);
+  menuAuth.canWriteModels = true;
+  await act(async () => root.render(<RunningModel />));
+  assert.ok(button('runningModels.clearFailedRecord'));
+});
+
+it('keeps the confirmed deletion target when the selected model changes', async (context) => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  instances = [instance('ERROR'), { ...instance('ERROR'), model_uid: 'second' }];
+  await mount();
+  await act(async () => button('runningModels.clearFailedRecord')!.click());
+  // The first row may disappear in another browser while its dialog is open.
+  instances = instances.slice(1);
+  await act(async () => context.mock.timers.tick(2000));
+  const clear = [
+    ...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+  ].find((item) => item.textContent === 'runningModels.clearFailedRecord')!;
+  await act(async () => clear.click());
+  assert.deepEqual(deletes, ['/v1/models/model%2Fone']);
+  assert.match(host.textContent!, /second/);
+});
+
 it('waits for each list poll to finish and stops scheduling after unmount', async (context) => {
   context.mock.timers.enable({ apis: ['setTimeout'] });
   const get = request.get;
@@ -385,6 +467,8 @@ it('provides lifecycle labels in every maintained UI language', () => {
     for (const label of Object.values(labels.statuses)) assert.ok(label.length);
     assert.ok(labels.cancelLaunch);
     assert.ok(labels.cancelLaunchConfirm.includes('{{modelUid}}'));
+    assert.ok(labels.clearFailedRecord);
+    assert.ok(labels.clearFailedRecordConfirm.includes('{{modelUid}}'));
     assert.ok(labels.launchFailed);
   }
 });

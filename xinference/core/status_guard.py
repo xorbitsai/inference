@@ -111,6 +111,14 @@ class StatusGuardActor(xo.StatelessActor):
     def update_instance_info(self, model_uid: str, info: Dict):
         self._model_uid_to_info[model_uid].update(**info)
 
+    def remove_failed_instance_info(self, model_uid: str) -> bool:
+        """Clear a failed launch without removing a replacement instance."""
+        info = self._model_uid_to_info.get(model_uid)
+        if info is None or info.status != LaunchStatus.ERROR.name:
+            return False
+        del self._model_uid_to_info[model_uid]
+        return True
+
     def update_replica_status(
         self, model_uid: str, replica_id: int, status_update: Dict
     ):

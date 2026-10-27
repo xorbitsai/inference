@@ -781,6 +781,8 @@ const ja = {
       TERMINATED: '停止済み',
     },
     cancelLaunch: '起動をキャンセル',
+    clearFailedRecord: '失敗した起動記録を削除',
+    clearFailedRecordConfirm: 'モデル {{modelUid}} の失敗した起動記録を削除しますか？',
     cancelLaunchConfirm: 'モデル {{modelUid}} の起動をキャンセルしますか？',
     launchFailed: 'モデルの起動に失敗しました。以下のレプリカのエラーを確認してください。',
     reload: {

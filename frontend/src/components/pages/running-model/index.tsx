@@ -269,6 +269,10 @@ const RunningModel = () => {
   >({});
   const [routerRuntimeLoadingIds, setRouterRuntimeLoadingIds] = useState<string[]>([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ModelListItem>();
+  const clearingFailedRecord = Boolean(
+    deleteTarget && !deleteTarget.runtimeAvailable && deleteTarget.instance?.status === 'ERROR'
+  );
   const [deleteConfirmLoading, setDeleteConfirmLoading] = useState(false);
   const [deleteReplicaId, setDeleteReplicaId] = useState<string | undefined>(undefined);
   const [deleteReplicaLoading, setDeleteReplicaLoading] = useState(false);
@@ -507,19 +511,22 @@ const RunningModel = () => {
   ]);
 
   const handleDeleteModel = () => {
-    if (!activeModel || isTokenRouterModel(activeModel)) return;
+    if (!deleteTarget || isTokenRouterModel(deleteTarget)) return;
     setDeleteConfirmLoading(true);
     request
-      .delete(`/v1/models/${encodeURIComponent(activeModel.id)}`)
+      .delete(`/v1/models/${encodeURIComponent(deleteTarget.id)}`)
       .then(() => {
         setDeleteConfirmOpen(false);
-        setActiveModel(undefined);
+        setSelectedModelUid((current) => (current === deleteTarget.id ? undefined : current));
         setReplicaLogs((prev) => {
           const next = { ...prev };
-          delete next[activeModel.id];
+          delete next[deleteTarget.id];
           return next;
         });
         fetchModels();
+      })
+      .catch(() => {
+        // Keep the record and confirmation available for retry.
       })
       .finally(() => {
         setDeleteConfirmLoading(false);
@@ -755,16 +762,26 @@ const RunningModel = () => {
                 </Button>
               </InfoTooltip>
             ) : !tokenRouterModel &&
-              activeModel.runtimeAvailable &&
+              (clusterAuth?.auth === false || canWriteModels) &&
+              (activeModel.runtimeAvailable || activeModel.instance?.status === 'ERROR') &&
               !isModelLaunching(activeModel) ? (
               <Button
                 type="button"
                 variant="outline"
-                size="icon"
-                onClick={() => setDeleteConfirmOpen(true)}
+                size={activeModel.runtimeAvailable ? 'icon' : 'sm'}
+                aria-label={t(
+                  activeModel.runtimeAvailable
+                    ? 'runningModels.terminateConfirmOk'
+                    : 'runningModels.clearFailedRecord'
+                )}
+                onClick={() => {
+                  setDeleteTarget(activeModel);
+                  setDeleteConfirmOpen(true);
+                }}
                 className="h-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
               >
                 <Trash2 />
+                {!activeModel.runtimeAvailable && t('runningModels.clearFailedRecord')}
               </Button>
             ) : null}
           </div>
@@ -1212,11 +1229,19 @@ const RunningModel = () => {
       <ConfirmDialog
         isOpen={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
-        description={t('runningModels.terminateConfirmBody', {
-          name: activeModel?.model_name,
-          replica: activeModel?.replica,
-        })}
-        confirmText={t('runningModels.terminateConfirmOk')}
+        description={
+          clearingFailedRecord
+            ? t('runningModels.clearFailedRecordConfirm', { modelUid: deleteTarget?.id })
+            : t('runningModels.terminateConfirmBody', {
+                name: deleteTarget?.model_name,
+                replica: deleteTarget?.replica,
+              })
+        }
+        confirmText={t(
+          clearingFailedRecord
+            ? 'runningModels.clearFailedRecord'
+            : 'runningModels.terminateConfirmOk'
+        )}
         confirmClassName="bg-destructive  hover:bg-destructive/90"
         onConfirm={handleDeleteModel}
         isLoading={deleteConfirmLoading}

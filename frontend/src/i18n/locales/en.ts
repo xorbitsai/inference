@@ -795,6 +795,8 @@ const en = {
       TERMINATED: 'Stopped',
     },
     cancelLaunch: 'Cancel launch',
+    clearFailedRecord: 'Clear failed record',
+    clearFailedRecordConfirm: 'Clear the failed launch record for model {{modelUid}}?',
     cancelLaunchConfirm: 'Cancel launch for model {{modelUid}}?',
     launchFailed: 'Model launch failed. Check the replica errors below.',
     reload: {

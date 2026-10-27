@@ -777,6 +777,8 @@ const ko = {
       TERMINATED: '중지됨',
     },
     cancelLaunch: '시작 취소',
+    clearFailedRecord: '실패 기록 삭제',
+    clearFailedRecordConfirm: '모델 {{modelUid}}의 시작 실패 기록을 삭제하시겠습니까?',
     cancelLaunchConfirm: '모델 {{modelUid}} 시작을 취소하시겠습니까?',
     launchFailed: '모델 시작에 실패했습니다. 아래 복제본 오류를 확인하세요.',
     reload: {

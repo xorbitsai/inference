@@ -6,6 +6,8 @@ Model Launching Instructions
 
 This document aims to provide a functional overview of model launching.
 
+On **Running Models**, choose **Clear failed record** to remove a failed launch after its runtime has been cleaned up. You can also use ``DELETE /v1/models/{model_uid}``. This clears the status record and keeps cached model files. With authentication enabled, the operation requires ``models:write`` permission.
+
 .. note::
 
    The LMDeploy backend has been removed because its Xinference integration is

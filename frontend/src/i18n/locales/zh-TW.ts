@@ -770,6 +770,8 @@ const zhTW = {
       TERMINATED: '已停止',
     },
     cancelLaunch: '取消啟動',
+    clearFailedRecord: '清除失敗記錄',
+    clearFailedRecordConfirm: '確定清除模型 {{modelUid}} 的啟動失敗記錄？',
     cancelLaunchConfirm: '確定取消模型 {{modelUid}} 的啟動？',
     launchFailed: '模型啟動失敗，請查看下方副本的錯誤資訊。',
     reload: {

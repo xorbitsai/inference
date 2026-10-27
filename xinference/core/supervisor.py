@@ -5326,6 +5326,11 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         if replica_info is None:
             if suppress_exception:
                 return
+            # Launch rollback removes routing but retains the failure details.
+            # Check and remove in one actor call so a new CREATING instance
+            # reusing the UID cannot be removed by a stale failure lookup.
+            if await self._status_guard_ref.remove_failed_instance_info(model_uid):
+                return
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         rep_model_uids = list(self._iter_active_replica_model_uids(model_uid))

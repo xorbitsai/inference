@@ -758,6 +758,8 @@ const zh = {
       TERMINATED: '已停止',
     },
     cancelLaunch: '取消启动',
+    clearFailedRecord: '清除失败记录',
+    clearFailedRecordConfirm: '确定清除模型 {{modelUid}} 的启动失败记录？',
     cancelLaunchConfirm: '确定取消模型 {{modelUid}} 的启动？',
     launchFailed: '模型启动失败，请查看下方副本的错误信息。',
     reload: {

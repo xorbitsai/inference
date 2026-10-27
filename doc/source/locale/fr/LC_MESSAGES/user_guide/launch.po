@@ -686,3 +686,7 @@ msgid "Open Reconfigure / upgrade model from the model's detail view."
 msgstr ""
 "Ouvrez « Reconfigurer / mettre à niveau le modèle » dans la vue détaillée du"
 " modèle."
+
+#: ../../source/user_guide/launch.rst:9
+msgid "On **Running Models**, choose **Clear failed record** to remove a failed launch after its runtime has been cleaned up. You can also use ``DELETE /v1/models/{model_uid}``. This clears the status record and keeps cached model files. With authentication enabled, the operation requires ``models:write`` permission."
+msgstr "Dans **Running Models**, choisissez **Clear failed record** pour supprimer un lancement échoué après la libération de ses ressources d’exécution. Vous pouvez aussi utiliser ``DELETE /v1/models/{model_uid}``. Cette opération supprime l’enregistrement d’état et conserve les fichiers du modèle en cache. Lorsque l’authentification est activée, la permission ``models:write`` est requise."
