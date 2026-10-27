@@ -97,11 +97,22 @@ from .cache_metadata import (
     tag_model_type,
 )
 from .cache_tracker import CacheTrackerActor
+from .control_session import (
+    CONTROL_CONTEXT_KEY,
+    NATIVE_HANDOFF_RPCS,
+    READ_ONLY_WORKER_RPCS,
+    ControlContext,
+    ControllerSession,
+    ControlSessionRejected,
+    WorkerControlFence,
+    check_control_session,
+)
 from .event import Event, EventCollectorActor, EventType
 from .exceptions import ModelNotReadyError
 from .lifecycle import (
     WorkerLifecycle,
     WorkerPhase,
+    management_cleanup,
     management_operation,
     spawn_management_task,
 )
@@ -913,6 +924,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     ):
         super().__init__()
         self._lifecycle = WorkerLifecycle(active=not standby)
+        self._control_fence: Optional[WorkerControlFence] = None
         self._initialize_handoff(standby)
         self._relaunch_operation_id = relaunch_operation_id
         self._worker_logging_conf = logging_conf
@@ -1008,6 +1020,58 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._subpool_creation_lock = asyncio.Lock()
         self._persist_launch_args_dirty_uids: Set[str] = set()
         self._persist_retry_count: Dict[str, int] = {}
+
+    async def __on_receive__(self, message):
+        method, call_method, args, kwargs = message
+        if method in {"install_controller_session", "controller_session_status"}:
+            return await super().__on_receive__(message)
+        fence = getattr(self, "_control_fence", None)
+        supplied = kwargs.get(CONTROL_CONTEXT_KEY) if kwargs else None
+        if fence is None:
+            if supplied is not None:
+                raise ControlSessionRejected("authority_not_configured")
+            return await super().__on_receive__(message)
+        if call_method != 0:
+            raise ControlSessionRejected("unsupported_batch")
+        kwargs = dict(kwargs)
+        kwargs.pop(CONTROL_CONTEXT_KEY, None)
+        cleaned = (method, call_method, args, kwargs)
+        if method in READ_ONLY_WORKER_RPCS:
+            return await super().__on_receive__(cleaned)
+        if supplied is None:
+            raise ControlSessionRejected("missing_context")
+        try:
+            command = ControlContext.from_dict(supplied)
+        except (TypeError, ValueError):
+            raise ControlSessionRejected("invalid_context") from None
+        async with fence.command(command):
+            if method in NATIVE_HANDOFF_RPCS:
+                raise ControlSessionRejected("handoff_requires_session_transfer")
+            return await super().__on_receive__(cleaned)
+
+    async def install_controller_session(self, session, timeout=30):
+        """Close old admission and acknowledge only after management is idle.
+
+        Caller cancellation cannot roll back an installed term. This does not
+        elect or activate a controller. Native Worker/model replacement needs
+        separate session-transfer negotiation in authority-enabled mode.
+        """
+        from .lifecycle import finish_before_cancelling
+
+        fence = getattr(self, "_control_fence", None)
+        if fence is None:
+            raise ControlSessionRejected("authority_not_configured")
+        try:
+            parsed = ControllerSession.from_dict(session)
+        except (TypeError, ValueError):
+            raise ControlSessionRejected("invalid_context") from None
+        return await finish_before_cancelling(fence.install(parsed, timeout))
+
+    def controller_session_status(self):
+        fence = getattr(self, "_control_fence", None)
+        if fence is None:
+            return {"version": 1, "configured": False}
+        return {"configured": True, **fence.status()}
 
     @management_operation
     async def recover_sub_pool(self, address):
@@ -1443,9 +1507,18 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             await self._activate_worker(recover=True)
 
     async def _initialize_worker(self):
-        from ..extensions import get_extensions
+        from ..extensions import (
+            WorkerControlAuthorityContext,
+            get_extensions,
+            resolve_worker_control_authority,
+        )
 
         get_extensions()
+        authority = resolve_worker_control_authority(
+            WorkerControlAuthorityContext(self.address, self._incarnation)
+        )
+        if authority is not None:
+            self._control_fence = WorkerControlFence(authority, self._lifecycle)
         self._actor_loop = asyncio.get_running_loop()
         if not self._standby:
             self._start_metrics_service()
@@ -1774,6 +1847,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             supervisor_ref,
             supervisor_generation,
         ) = await self._get_supervisor_ref_with_generation(add_worker)
+        fence = getattr(self, "_control_fence", None)
+        if fence is not None and fence.bound_context() is not None:
+            await fence.checkpoint()
         try:
             method = getattr(supervisor_ref, method_name)
             return await xo.wait_for(
@@ -2425,7 +2501,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         """Resolve a launch's hub using this worker's local environment."""
         return resolve_model_download_hub(download_hub, model_path)
 
-    @management_operation
+    @management_cleanup
     def release_devices(self, model_uid: str):
         for dev, model_uids in list(self._gpu_to_model_uids.items()):
             if model_uid in model_uids:
@@ -5307,6 +5383,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             try:
                                 _load_start = time.time()
                                 await model_ref.load()
+                                await check_control_session(self)
                                 _load_duration = time.time() - _load_start
                                 from .metrics import model_last_load_duration_seconds
 
@@ -5416,6 +5493,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             if self._status_guard_ref is None:
                 _ = await self.get_supervisor_ref()
             assert self._status_guard_ref is not None
+            await check_control_session(self)
             await self._status_guard_ref.update_instance_info(
                 origin_uid,
                 {"model_ability": abilities, "status": LaunchStatus.READY.name},
@@ -5993,6 +6071,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     ]
 
         try:
+            await check_control_session(self)
             logger.debug("Start to destroy model actor: %s", model_ref)
             if model_ref is not None and not was_reloading:
                 try:
@@ -6003,6 +6082,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         model_uid,
                         e,
                     )
+                await check_control_session(self)
                 coro = xo.destroy_actor(model_ref)
                 # see https://github.com/xorbitsai/xoscar/pull/140
                 # asyncio.wait_for cannot work for Xoscar actor call,
@@ -6012,6 +6092,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 # however the actor pool may be stuck already,
                 # thus the timeout will never be raised
                 await xo.wait_for(coro, timeout=5)
+        except ControlSessionRejected:
+            raise
         except Exception as e:
             logger.debug(
                 "Destroy model actor failed, model uid: %s, error: %s", model_uid, e

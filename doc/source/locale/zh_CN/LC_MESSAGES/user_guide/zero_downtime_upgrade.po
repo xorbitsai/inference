@@ -568,3 +568,7 @@ msgid ""
 "Check for updates again to confirm that all components report the new "
 "version."
 msgstr "再次检查更新，确认所有组件均显示新版本。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:21
+msgid "An extension can optionally require controller sessions for Worker management RPCs. Callers must attach the versioned session and an operation ID; normal Supervisors do not add them automatically. A newer session is acknowledged only after management work drains, and failed drain keeps old sessions fenced. The provider must validate current authority on every check. Election and endpoint discovery are separate responsibilities. Worker replacement and model reload are rejected in this mode until session/resource transfer is supported. Without a provider, normal upgrade behavior is unchanged."
+msgstr "扩展可选择要求 Worker 管理 RPC 携带控制器会话。调用方必须附带带版本的会话和操作 ID；普通 Supervisor 不会自动添加这些信息。只有管理操作排空后，Worker 才确认新会话；排空失败时，旧会话仍被隔离。提供者必须在每次校验时检查当前权威状态。选主和端点发现由其他机制负责。在支持会话和资源转交之前，此模式会拒绝 Worker 替换和模型重载。未配置提供者时，原有升级行为保持不变。"

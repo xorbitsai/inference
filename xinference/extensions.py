@@ -81,6 +81,21 @@ class LaunchHistoryStoreContext:
 
 
 @dataclass(frozen=True)
+class WorkerControlAuthorityContext:
+    """Worker identity only; an authority must not initialize an auth store.
+
+    The optional provider returns an object with validate(session, phases=...).
+    Validation may be async; synchronous validation runs in the Worker's thread
+    pool. Every call must check current authority and raise on rejection or
+    unavailability. Returning None from the factory preserves legacy admission.
+    This hook does not elect or automatically install a controller session.
+    """
+
+    address: str
+    incarnation: str
+
+
+@dataclass(frozen=True)
 class ModelCatalogCredentials:
     """An ephemeral catalog token whose repr stays safe in actor call logs."""
 
@@ -208,6 +223,20 @@ def resolve_launch_history_store(context: LaunchHistoryStoreContext) -> Any:
     if not providers:
         return None
     return _call_hook(providers[0], "create_launch_history_store", context)
+
+
+def resolve_worker_control_authority(context: WorkerControlAuthorityContext) -> Any:
+    providers = [
+        e for e in get_extensions() if hasattr(e, "create_worker_control_authority")
+    ]
+    if len(providers) > 1:
+        raise ValueError("Multiple worker control authority providers")
+    if not providers:
+        return None
+    authority = _call_hook(providers[0], "create_worker_control_authority", context)
+    if authority is not None and not callable(getattr(authority, "validate", None)):
+        raise TypeError("Worker control authority must implement validate")
+    return authority
 
 
 def resolve_model_catalog_credentials(

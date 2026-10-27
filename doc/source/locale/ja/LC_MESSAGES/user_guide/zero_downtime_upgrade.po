@@ -596,3 +596,7 @@ msgid ""
 "Check for updates again to confirm that all components report the new "
 "version."
 msgstr "もう一度更新を確認し、すべてのコンポーネントが新しいバージョンを表示していることを確認します。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:21
+msgid "An extension can optionally require controller sessions for Worker management RPCs. Callers must attach the versioned session and an operation ID; normal Supervisors do not add them automatically. A newer session is acknowledged only after management work drains, and failed drain keeps old sessions fenced. The provider must validate current authority on every check. Election and endpoint discovery are separate responsibilities. Worker replacement and model reload are rejected in this mode until session/resource transfer is supported. Without a provider, normal upgrade behavior is unchanged."
+msgstr "拡張機能は、Worker の管理 RPC にコントローラーセッションを要求できます。呼び出し側は、バージョン付きセッションと操作 ID を付加する必要があります。通常の Supervisor はこれらを自動では追加しません。管理処理が完了してから新しいセッションが承認され、処理の完了待ちに失敗しても古いセッションの拒否は維持されます。プロバイダーは検証のたびに現在の権限状態を確認する必要があります。リーダー選出とエンドポイント検出は別の仕組みが担当します。セッションとリソースの移譲がサポートされるまで、このモードでは Worker の置き換えとモデルの再読み込みが拒否されます。プロバイダーがない場合、通常のアップグレード動作は変わりません。"
