@@ -19,6 +19,8 @@ In local mode, startup still uses an API parent and one shared Supervisor/Worker
 Check and install updates
 -------------------------
 
+.. versionadded:: v4.2.0
+
 Use the version control at the bottom left of the Web UI to check for updates. Choose **Install and upgrade** to update Workers, then Supervisor, then API. Each component shows its progress; the displayed version changes after the API takes over. Detection uses the configured package source (``PIP_INDEX_URL``, or PyPI by default) on each component's machine and offers newer stable versions compatible with its Python.
 
 Xinference installs the selected version and its dependencies into a separate directory under ``XINFERENCE_HOME/upgrades``. Status shows ``installing`` and ``migrating`` before the usual replacement states. Preparation failure leaves the current component serving. Existing model environments and service hosts keep running; prepared environments are retained for diagnosis and reuse.
@@ -29,7 +31,7 @@ API and Supervisor upgrades also preserve source packages when guard protection 
 
 For preserved PyTorch builds with CUDA, CPU, ROCm or XPU version tags, Xinference first checks the configured package source. If that source cannot provide the build, uv selects the matching official PyTorch backend; other packages keep the configured source. The original build remains pinned. Bundled ``pip`` is excluded from the runtime package profile.
 
-Use ``GET /v1/api/updates``, ``GET /v1/supervisor/updates`` or ``GET /v1/workers/{worker_address}/updates`` to check a component. Pass ``version`` to its existing relaunch endpoint to install and upgrade; ``version`` and ``python_executable`` are mutually exclusive. For a private source or integration tests, set ``XINFERENCE_UPGRADE_INDEX_URL`` before starting the service on each relevant machine. The override applies to both detection and installation.
+Use ``GET /v1/api/updates``, ``GET /v1/supervisor/updates`` or ``GET /v1/workers/{worker_address}/updates`` to check a component. Pass ``version`` to its existing relaunch endpoint to install and upgrade; ``version`` and ``python_executable`` are mutually exclusive. To use your own Xinference package source, set ``XINFERENCE_UPGRADE_INDEX_URL`` before starting the service on each relevant machine. The override applies to both detection and installation.
 
 .. code-block:: python
 
@@ -47,16 +49,23 @@ A release can register optional ``xinference.migrations`` entry points in its pa
     [project.entry-points."xinference.migrations"]
     prepare = "xinference.deploy.migrations:migrate"
 
-Test with a mock package source
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Use a custom package source
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Run the following command from the checkout in the Xinference environment. It serves the current code as a higher version of Xinference and forwards dependency requests to ``PIP_INDEX_URL`` (or PyPI). Use ``--upstream`` to select a different dependency source. It does not start or replace a Xinference service.
+You can publish your own Xinference builds to a PyPI-compatible package index, such as an internal repository or private mirror. The index must also provide or proxy the required dependencies. Keep the package name ``xinference`` and use a newer stable version compatible with the component's Python. Set ``XINFERENCE_UPGRADE_INDEX_URL`` to the index's simple API URL for both update checks and installation.
+
+.. code-block:: bash
+
+    export XINFERENCE_UPGRADE_INDEX_URL=https://packages.example.com/simple
+    xinference-local --host 127.0.0.1 --port 9997
+
+For a local package source, run the following helper from the checkout in the Xinference environment. It builds the current code into a Xinference wheel with the specified version and serves it over HTTP. Dependency requests are forwarded to ``PIP_INDEX_URL`` (or PyPI); use ``--upstream`` to select another dependency source.
 
 .. code-block:: bash
 
     python scripts/mock_upgrade_index.py --version 9999.0.0 --port 18080
 
-Set ``XINFERENCE_UPGRADE_INDEX_URL=http://127.0.0.1:18080/simple`` before starting your normal Xinference service. Open the version control at the bottom left, check for updates and install. Confirm that ``GET /v1/cluster/version`` reports ``9999.0.0`` and the service still handles requests. Run the mock source on the same machine as the service, or use an address reachable by every component.
+Run the package source on the same machine as the service, or use an address reachable by every component. For the local example above, set the URL below before starting Xinference. Use the version control at the bottom left to check for updates and install. After upgrading, confirm that ``GET /v1/cluster/version`` reports the version you published and the service still handles requests.
 
 .. code-block:: bash
 
