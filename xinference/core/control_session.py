@@ -26,12 +26,14 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import inspect
 import math
 import re
 import uuid
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
+from types import MethodType
 from typing import Any, AsyncIterator, Dict, Iterator, Optional, Tuple
 
 PROTOCOL_VERSION = 1
@@ -41,11 +43,18 @@ CONTROL_CONTEXT_KEY = "_xinference_control_context"
 READ_ONLY_WORKER_RPCS = frozenset(
     {
         "ping",
+        "default_uid",
+        "get_devices_count",
+        # ModelActors report inference metrics independently of controller ownership.
+        "record_metrics",
         "get_model",
         "get_model_for_abort",
         "describe_model",
         "list_models",
         "get_model_status",
+        "get_model_count",
+        "get_launch_args",
+        "get_model_launch_status",
         "get_model_reload_config",
         "get_model_reload_status",
         "is_model_vllm_backend",
@@ -94,6 +103,59 @@ NATIVE_HANDOFF_RPCS = frozenset(
 _binding: ContextVar[Optional[Tuple[Any, "ControlContext"]]] = ContextVar(
     "xinference_worker_control", default=None
 )
+
+
+def bind_worker_control_method(owner: Any, name: str, method: Any) -> Any:
+    """Give LocalActorRef the same admission boundary as remote dispatch.
+
+    Xoscar resolves local references with getattr(actor, name), bypassing
+    __on_receive__. Keep synchronous nested calls synchronous, and keep the
+    bound method's actor identity so StatelessActor remains lock-free.
+    """
+
+    @functools.wraps(method)
+    def guarded(self, *args, **kwargs):
+        fence = getattr(self, "_control_fence", None)
+        supplied = kwargs.pop(CONTROL_CONTEXT_KEY, None)
+        if fence is None:
+            if supplied is not None:
+                raise ControlSessionRejected("authority_not_configured")
+            return method(*args, **kwargs)
+        current = fence.bound_context()
+        if supplied is not None:
+            try:
+                current = ControlContext.from_dict(supplied)
+            except (TypeError, ValueError):
+                raise ControlSessionRejected("invalid_context") from None
+        if current is None:
+            raise ControlSessionRejected("missing_context")
+        if name in NATIVE_HANDOFF_RPCS:
+            raise ControlSessionRejected("handoff_requires_session_transfer")
+        # Only an explicitly bound, already admitted task may use nested
+        # synchronous cleanup. Caller metadata always takes the normal gate.
+        if supplied is None and getattr(method, "_management_cleanup", False):
+            fence.check_cleanup()
+            return method(*args, **kwargs)
+        if supplied is None and not inspect.iscoroutinefunction(method):
+            fence.check_local()
+            if asyncio.current_task() not in fence.lifecycle._tasks:
+                raise ControlSessionRejected("missing_admission")
+            return method(*args, **kwargs)
+
+        async def admitted():
+            async with fence.command(current):
+                result = method(*args, **kwargs)
+                return await result if inspect.isawaitable(result) else result
+
+        return admitted()
+
+    def unsupported(*args, **kwargs):
+        raise ControlSessionRejected("unsupported_batch")
+
+    if getattr(owner, "_control_fence", None) is not None:
+        setattr(guarded, "batch", unsupported)
+        setattr(guarded, "delay", unsupported)
+    return MethodType(guarded, owner)
 
 
 class ControlSessionRejected(RuntimeError):
@@ -325,3 +387,18 @@ async def check_control_session(owner: Any) -> None:
     fence = getattr(owner, "_control_fence", None)
     if fence is not None:
         await fence.checkpoint()
+
+
+async def run_worker_control_callback(owner: Any, method: Any) -> Any:
+    fence = getattr(owner, "_control_fence", None)
+    if fence is None:
+        return await method()
+    # The status isolation has its own event loop. Capture when the Worker
+    # schedules its callback, then admit/drain it on the actor loop.
+    captured = fence.capture()
+
+    async def run():
+        async with fence.command(captured):
+            return await method()
+
+    return await owner._run_on_actor_loop(run)

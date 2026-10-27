@@ -150,7 +150,9 @@ def management_operation(method: Callable) -> Callable:
 
 def management_cleanup(method: Callable) -> Callable:
     """Cleanup nested in already admitted work; never admit a stale callback."""
-    return _management_operation(method, cleanup=True)
+    admitted = _management_operation(method, cleanup=True)
+    setattr(admitted, "_management_cleanup", True)
+    return admitted
 
 
 def _management_operation(method: Callable, *, cleanup: bool) -> Callable:
@@ -176,16 +178,15 @@ def _management_operation(method: Callable, *, cleanup: bool) -> Callable:
     async def admitted(self, *args, **kwargs):
         lifecycle = getattr(self, "_lifecycle", None)
         fence = getattr(self, "_control_fence", None)
-        with fence.local_scope() if fence is not None else contextlib.nullcontext():
-            if fence is not None:
-                if cleanup:
-                    fence.check_cleanup()
-                else:
-                    await fence.checkpoint()
-            if lifecycle is None:  # Lightweight actor test doubles have no runtime.
-                return await method(self, *args, **kwargs)
-            async with lifecycle.operation():
-                return await method(self, *args, **kwargs)
+        if fence is not None:
+            if cleanup:
+                fence.check_cleanup()
+            else:
+                await fence.checkpoint()
+        if lifecycle is None:  # Lightweight actor test doubles have no runtime.
+            return await method(self, *args, **kwargs)
+        async with lifecycle.operation():
+            return await method(self, *args, **kwargs)
 
     return admitted
 

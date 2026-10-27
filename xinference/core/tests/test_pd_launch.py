@@ -689,6 +689,7 @@ async def test_nixl_startup_replay_is_skipped_and_removed(tmp_path):
     worker._supervisor_ref = AsyncMock()
     worker._supervisor_ref.describe_model.return_value = {"model_name": "still-running"}
     worker._model_uid_to_launch_args = {}
+    worker._pending_recovery_launch_args = {}
     worker.launch_builtin_model = AsyncMock()
     worker.wait_for_load = AsyncMock()
     (tmp_path / "models.json").write_text(

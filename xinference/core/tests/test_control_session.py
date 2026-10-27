@@ -3,11 +3,15 @@
 # CI: linux
 import asyncio
 import contextlib
+import json
+import os
 import pickle
 import sys
 import threading
 from dataclasses import FrozenInstanceError, replace
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 import xoscar as xo
@@ -15,6 +19,7 @@ from xoscar.backends.router import Router
 
 from xinference import extensions
 
+from .. import worker as worker_module
 from ..control_session import (
     CONTROL_CONTEXT_KEY,
     READ_ONLY_WORKER_RPCS,
@@ -32,7 +37,7 @@ from ..lifecycle import (
     spawn_management_task,
 )
 from ..worker import WorkerActor
-from .test_worker_handoff import HandoffSupervisor, HandoffWorker
+from .test_worker_handoff import CounterModel, HandoffSupervisor, HandoffWorker
 
 
 def session(term=1, **changes):
@@ -229,11 +234,15 @@ async def test_cancelled_installation_finishes_without_rolling_back_the_term():
     task = asyncio.create_task(work())
     await entered.wait()
     authority.owner = new = session(2)
-    owner = SimpleNamespace(_control_fence=fence)
+    owner = WorkerActor("supervisor", None, SimpleNamespace(), [])
+    owner._control_fence = fence
+    owner._lifecycle = fence.lifecycle
     installing = asyncio.create_task(
         WorkerActor.install_controller_session(owner, new.to_dict(), 1)
     )
     while fence.session != new:
+        if installing.done():
+            await installing
         await asyncio.sleep(0)
     installing.cancel()
     await asyncio.sleep(0)
@@ -289,11 +298,15 @@ async def test_local_management_tasks_validate_authority_and_nested_release():
     owner = Owner()
     with pytest.raises(ControlSessionRejected, match="missing_context"):
         owner.release()
-    await owner.work()
+    with pytest.raises(ControlSessionRejected, match="missing_context"):
+        await owner.work()
+    with fence.local_scope(command(authority.owner)):
+        await owner.work()
     assert owner.released
     authority.unavailable = True
-    with pytest.raises(ControlSessionRejected, match="authority_unavailable"):
-        await owner.work()
+    with fence.local_scope(command(authority.owner)):
+        with pytest.raises(ControlSessionRejected, match="authority_unavailable"):
+            await owner.work()
 
 
 @pytest.mark.asyncio
@@ -503,6 +516,17 @@ async def test_context_never_silently_selects_an_unprotected_worker():
             )
         )
 
+    class LocalWorker(WorkerActor):
+        async def mutation(self, **kwargs):
+            return "legacy"
+
+    local_worker = LocalWorker("supervisor", None, SimpleNamespace(), [])
+    assert await local_worker.mutation() == "legacy"
+    with pytest.raises(ControlSessionRejected, match="authority_not_configured"):
+        await local_worker.mutation(
+            **{CONTROL_CONTEXT_KEY: command(session()).to_dict()}
+        )
+
 
 @pytest.mark.asyncio
 async def test_false_authority_result_is_a_rejection():
@@ -535,6 +559,17 @@ class FencedWorker(HandoffWorker):
         # Deliberately undecorated: unclassified RPCs must still be guarded.
         return "mutated"
 
+    def future_sync_mutation(self, value):
+        self._test_value = value
+        return value
+
+    @staticmethod
+    def future_static_mutation(value):
+        return value
+
+    async def callback_mutation(self):
+        return await spawn_management_task(self, self.future_mutation())
+
 
 @pytest.mark.asyncio
 async def test_real_worker_rejects_old_controller_and_retains_model_process(tmp_path):
@@ -561,6 +596,8 @@ async def test_real_worker_rejects_old_controller_and_retains_model_process(tmp_
         )
         old = session()
         await worker.install_controller_session(old.to_dict())
+        local = await xo.actor_ref(address=worker.address, uid=worker.uid)
+        assert type(local).__name__ == "LocalActorRef"
         old_kwargs = {CONTROL_CONTEXT_KEY: command(old, "launch").to_dict()}
         model = await worker.install_model(**old_kwargs)
         value, pid, _ = await model.add(5)
@@ -569,16 +606,32 @@ async def test_real_worker_rejects_old_controller_and_retains_model_process(tmp_
         await worker.install_controller_session(new.to_dict())
         assert await worker.ping()
         assert (await model.add(1))[:2] == (value + 1, pid)
-        for kwargs, reason in (({}, "missing_context"), (old_kwargs, "stale_session")):
-            with pytest.raises(ControlSessionRejected) as rejected:
-                await worker.terminate_model("counter-rep0", **kwargs)
-            assert rejected.value.reason == reason
+        for ref in (worker, local):
+            for kwargs, reason in (
+                ({}, "missing_context"),
+                (old_kwargs, "stale_session"),
+            ):
+                for name, args in (
+                    ("terminate_model", ("counter-rep0",)),
+                    ("future_mutation", ()),
+                    ("future_sync_mutation", (7,)),
+                    ("future_static_mutation", (7,)),
+                    ("callback_mutation", ()),
+                    ("release_devices", ("counter-rep0",)),
+                ):
+                    with pytest.raises(ControlSessionRejected) as rejected:
+                        await getattr(ref, name)(*args, **kwargs)
+                    assert rejected.value.reason == reason
         assert (await model.add(1))[:2] == (value + 2, pid)
         current = {CONTROL_CONTEXT_KEY: command(new, "terminate").to_dict()}
         with pytest.raises(ControlSessionRejected, match="authority_rejected"):
             await worker.future_mutation(**current)
         await authority.select(new.to_dict())
         assert await worker.future_mutation(**current) == "mutated"
+        assert await local.future_mutation(**current) == "mutated"
+        assert await local.future_sync_mutation(7, **current) == 7
+        assert await local.future_static_mutation(7, **current) == 7
+        assert await local.callback_mutation(**current) == "mutated"
         for method, args in (
             ("replace_worker", (worker.address,)),
             ("reload_model", ("counter-rep0", {}, 30, "reload")),
@@ -610,3 +663,287 @@ def test_read_only_allowlist_cannot_accidentally_name_missing_worker_methods():
     assert all(
         callable(getattr(WorkerActor, method, None)) for method in READ_ONLY_WORKER_RPCS
     )
+
+
+class LaunchCounterModel(CounterModel):
+    """Real subprocess actor without a model engine/download dependency."""
+
+    def __init__(self, worker_address, model, **kwargs):
+        super().__init__(worker_address)
+        self.cleanup_path = model.cleanup_path
+
+    async def load(self):
+        pass
+
+    async def wait_for_load(self):
+        pass
+
+    def need_create_pools(self):
+        return False
+
+    def get_pool_addresses(self):
+        return []
+
+    async def stop(self):
+        if self.cleanup_path:
+            Path(self.cleanup_path + ".entered").touch()
+            while not Path(self.cleanup_path + ".release").exists():
+                await asyncio.sleep(0.01)
+
+
+class LaunchProgress(contextlib.AbstractContextManager):
+    def __exit__(self, *args):
+        pass
+
+    def split_stages(self, *args, **kwargs):
+        pass
+
+    def activate_stage(self):
+        pass
+
+    def set_progress(self, *args, **kwargs):
+        pass
+
+
+def make_launch_worker(pool, tmp_path, monkeypatch, *, cleanup=False):
+    """Retain production launch/terminate/persistence; replace engine I/O only."""
+    worker = WorkerActor("supervisor", None, pool, [])
+    worker.address = pool.external_address
+    worker._actor_loop = asyncio.get_running_loop()
+    fence, authority = setup_fence()
+    worker._lifecycle = fence.lifecycle
+    worker._control_fence = fence
+    supervisor = SimpleNamespace(
+        describe_model=AsyncMock(return_value={"model_name": "counter"}),
+        can_recover_model=AsyncMock(return_value=True),
+    )
+    worker._supervisor_ref = supervisor
+    worker._status_guard_ref = SimpleNamespace(
+        update_instance_info=AsyncMock(), update_replica_info=AsyncMock()
+    )
+    monkeypatch.setattr(worker_module, "ModelActor", LaunchCounterModel)
+    monkeypatch.setattr(worker, "_check_model_is_valid", lambda *args: None)
+    monkeypatch.setattr(worker, "_create_virtual_env_manager", lambda *args: None)
+    monkeypatch.setattr(
+        worker, "_get_progressor", AsyncMock(return_value=LaunchProgress())
+    )
+    monkeypatch.setattr(
+        worker, "_get_recovery_file_path", lambda: str(tmp_path / "models.json")
+    )
+    monkeypatch.setattr(
+        worker,
+        "_get_supervisor_ref_with_generation",
+        AsyncMock(return_value=(supervisor, 1)),
+    )
+    monkeypatch.setattr(worker, "_get_model_ability", AsyncMock(return_value=["chat"]))
+    family = SimpleNamespace(
+        to_description=lambda: {"model_name": "counter", "model_type": "LLM"}
+    )
+    model = SimpleNamespace(
+        model_family=family,
+        cleanup_path=str(tmp_path / "cleanup") if cleanup else None,
+    )
+    monkeypatch.setattr(
+        worker,
+        "_download_model_files",
+        AsyncMock(return_value=(model, SimpleNamespace(cancelled=False))),
+    )
+
+    async def allocate(model_uid, *args, **kwargs):
+        # Exercise reservation release without requiring a physical GPU.
+        worker._gpu_to_model_uids[0].add(model_uid)
+        return {}, []
+
+    monkeypatch.setattr(worker, "_allocate_subpool_devices", allocate)
+    return worker, authority
+
+
+def counter_launch_args(uid="counter-rep0"):
+    return dict(
+        model_uid=uid,
+        model_name="counter",
+        model_size_in_billions=None,
+        model_format=None,
+        quantization=None,
+        model_engine=None,
+        n_gpu=None,
+        enable_virtual_env=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_production_launch_rolls_back_before_new_session_ack(
+    tmp_path, monkeypatch
+):
+    import psutil
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        worker, authority = make_launch_worker(
+            pool, tmp_path, monkeypatch, cleanup=True
+        )
+        old, new = authority.owner, session(2)
+        await worker.install_controller_session(old.to_dict())
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def ability(*args):
+            entered.set()
+            await release.wait()
+            return ["chat"]
+
+        monkeypatch.setattr(worker, "_get_model_ability", ability)
+        uid = "counter-rep0"
+        launching = asyncio.create_task(
+            worker.launch_builtin_model(
+                **counter_launch_args(),
+                **{CONTROL_CONTEXT_KEY: command(old).to_dict()},
+            )
+        )
+        await asyncio.wait_for(entered.wait(), 20)
+        ref = worker._model_uid_to_model[uid]
+        pid = await ref.get_pid()
+        assert pid != os.getpid() and psutil.pid_exists(pid)
+        assert uid in json.loads((tmp_path / "models.json").read_text())
+        authority.owner = new
+        installing = asyncio.create_task(
+            worker.install_controller_session(new.to_dict())
+        )
+        while worker._control_fence.session != new:
+            await asyncio.sleep(0)
+        release.set()
+
+        async def wait_cleanup():
+            while not (tmp_path / "cleanup.entered").exists():
+                await asyncio.sleep(0.01)
+
+        await asyncio.wait_for(wait_cleanup(), 10)
+        assert not installing.done()
+        assert worker._model_uid_to_model[uid] is ref
+        assert uid in worker._gpu_to_model_uids[0]
+        # Normal stale termination cannot acquire the rollback privilege.
+        with pytest.raises(ControlSessionRejected, match="stale_session"):
+            await worker.terminate_model(
+                uid, **{CONTROL_CONTEXT_KEY: command(old).to_dict()}
+            )
+        (tmp_path / "cleanup.release").touch()
+        with pytest.raises(ControlSessionRejected, match="stale_session"):
+            await asyncio.wait_for(launching, 10)
+        assert (await asyncio.wait_for(installing, 10))["ready"]
+        assert not psutil.pid_exists(pid)
+        assert not pool.sub_processes
+        for table in (
+            worker._model_uid_to_model,
+            worker._model_uid_to_addr,
+            worker._model_uid_to_launch_args,
+            worker._model_uid_to_model_spec,
+            worker._model_uid_to_model_status,
+            worker._model_uid_to_pid,
+            worker._model_uid_to_subpool_addresses,
+            worker._model_uid_to_subpool_pids,
+        ):
+            assert uid not in table
+        assert uid not in worker._gpu_to_model_uids[0]
+        assert uid not in json.loads((tmp_path / "models.json").read_text())
+        current = {CONTROL_CONTEXT_KEY: command(new).to_dict()}
+        await worker.launch_builtin_model(**counter_launch_args(), **current)
+        # A delayed cleanup must not touch this newer registration.
+        async with worker._control_fence.command(command(new)):
+            with pytest.raises(
+                ControlSessionRejected, match="cleanup_resource_changed"
+            ):
+                await worker._terminate_model(uid, True, failed_launch_ref=ref)
+        await worker.terminate_model(uid, True, **current)
+    finally:
+        await pool.stop()
+        pool._actors.clear()
+        Router.set_instance(None)
+
+
+@pytest.mark.parametrize("interruption", ["none", "fence", "cancel"])
+@pytest.mark.asyncio
+async def test_startup_recovery_waits_for_explicit_active_session(
+    tmp_path, monkeypatch, interruption
+):
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        worker, authority = make_launch_worker(pool, tmp_path, monkeypatch)
+        saved = {
+            "counter-rep0": counter_launch_args(),
+            "other-rep0": counter_launch_args("other-rep0"),
+        }
+        path = tmp_path / "models.json"
+        path.write_text(json.dumps(saved))
+        monkeypatch.setattr(worker, "_start_metrics_service", lambda: None)
+        monkeypatch.setattr(worker_module, "purge_dir", lambda *args: None)
+        monkeypatch.setattr(worker_module, "XINFERENCE_DISABLE_HEALTH_CHECK", True)
+        monkeypatch.setattr(
+            asyncio.get_running_loop(), "add_signal_handler", lambda *args: None
+        )
+        await worker._activate_worker(recover=True)
+        assert worker._pending_recovery_launch_args == saved
+        assert json.loads(path.read_text()) == saved
+        assert not pool.sub_processes
+        # A different persistence trigger must retain the pending snapshot.
+        worker._persist_launch_args()
+        assert json.loads(path.read_text()) == saved
+        authority.phase = "fencing"
+        assert (await worker.install_controller_session(authority.owner.to_dict()))[
+            "ready"
+        ]
+        assert not pool.sub_processes and json.loads(path.read_text()) == saved
+        authority.phase = "active"
+        if interruption != "none":
+            entered, release = asyncio.Event(), asyncio.Event()
+
+            async def ability(*args):
+                entered.set()
+                await release.wait()
+                return ["chat"]
+
+            monkeypatch.setattr(worker, "_get_model_ability", ability)
+            resuming = asyncio.create_task(
+                worker.install_controller_session(authority.owner.to_dict())
+            )
+            await asyncio.wait_for(entered.wait(), 20)
+            if interruption == "cancel":
+                resuming.cancel()
+                await asyncio.sleep(0)
+                assert not resuming.done()
+                release.set()
+                with pytest.raises(asyncio.CancelledError):
+                    await asyncio.wait_for(resuming, 20)
+                assert not worker._pending_recovery_launch_args
+                assert set(worker._model_uid_to_model) == set(saved)
+            else:
+                authority.owner, authority.phase = session(2), "fencing"
+                fencing = asyncio.create_task(
+                    worker.install_controller_session(authority.owner.to_dict())
+                )
+                while worker._control_fence.session != authority.owner:
+                    await asyncio.sleep(0)
+                release.set()
+                await asyncio.wait_for(resuming, 10)
+                await asyncio.wait_for(fencing, 10)
+                assert not pool.sub_processes
+                assert worker._pending_recovery_launch_args == saved
+                assert json.loads(path.read_text()) == saved
+                authority.phase = "active"
+        await worker.install_controller_session(authority.owner.to_dict())
+        assert not worker._pending_recovery_launch_args
+        assert "counter-rep0" in await worker.list_models()
+        assert worker._model_uid_to_model_status["counter-rep0"].model_state == "ready"
+        assert "counter-rep0" in json.loads(path.read_text())
+        await worker.terminate_model(
+            "counter-rep0",
+            True,
+            **{CONTROL_CONTEXT_KEY: command(authority.owner).to_dict()},
+        )
+        await worker.terminate_model(
+            "other-rep0",
+            True,
+            **{CONTROL_CONTEXT_KEY: command(authority.owner).to_dict()},
+        )
+    finally:
+        await pool.stop()
+        pool._actors.clear()
+        Router.set_instance(None)

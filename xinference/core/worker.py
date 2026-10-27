@@ -27,6 +27,7 @@ import signal
 import sys
 import threading
 import time
+import uuid
 from collections import defaultdict
 from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass, field
@@ -105,7 +106,9 @@ from .control_session import (
     ControllerSession,
     ControlSessionRejected,
     WorkerControlFence,
+    bind_worker_control_method,
     check_control_session,
+    run_worker_control_callback,
 )
 from .event import Event, EventCollectorActor, EventType
 from .exceptions import ModelNotReadyError
@@ -987,6 +990,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
+        self._pending_recovery_launch_args: Dict[str, Dict] = {}
+        self._startup_recovery_lock = asyncio.Lock()
         self._model_uid_to_pid: Dict[str, int] = {}
         # Per-replica sub-pool process PIDs (primary ModelActor pool + per-device
         # vLLM/SGLang rank pools). Used by report_status to attribute NVML GPU
@@ -1020,6 +1025,17 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._subpool_creation_lock = asyncio.Lock()
         self._persist_launch_args_dirty_uids: Set[str] = set()
         self._persist_retry_count: Dict[str, int] = {}
+
+    def __getattribute__(self, name):
+        value = super().__getattribute__(name)
+        if (
+            not name.startswith("_")
+            and name not in READ_ONLY_WORKER_RPCS
+            and name not in {"install_controller_session", "controller_session_status"}
+            and callable(value)
+        ):
+            return bind_worker_control_method(self, name, value)
+        return value
 
     async def __on_receive__(self, message):
         method, call_method, args, kwargs = message
@@ -1065,7 +1081,23 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             parsed = ControllerSession.from_dict(session)
         except (TypeError, ValueError):
             raise ControlSessionRejected("invalid_context") from None
-        return await finish_before_cancelling(fence.install(parsed, timeout))
+        return await finish_before_cancelling(
+            self._install_controller_session(parsed, timeout)
+        )
+
+    async def _install_controller_session(self, parsed, timeout):
+        fence = self._control_fence
+        result = await fence.install(parsed, timeout)
+        if self._pending_recovery_launch_args:
+            # Installing during fencing must still acknowledge the drain. A
+            # retry of this same RPC after activation resumes pending recovery.
+            try:
+                async with fence.command(ControlContext(parsed, uuid.uuid4().hex)):
+                    async with self._startup_recovery_lock:
+                        await self._try_recover_models()
+            except ControlSessionRejected:
+                logger.info("Startup recovery is waiting for an active control session")
+        return result
 
     def controller_session_status(self):
         fence = getattr(self, "_control_fence", None)
@@ -1665,21 +1697,20 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         purge_dir(XINFERENCE_CACHE_DIR)
 
         try:
-            await self.get_supervisor_ref(add_worker=True)
+            await self._get_supervisor_ref_with_generation(add_worker=True)
         except Exception:
             # Do not crash the worker if supervisor is down, auto re-connect later
             logger.error(f"cannot connect to supervisor", exc_info=True)
 
         # §4.3: If connected as fresh worker, try to recover persisted models
-        if (
-            recover
-            and self._supervisor_ref is not None
-            and not self._model_uid_to_launch_args
-        ):
-            try:
-                await self._try_recover_models()
-            except Exception:
-                logger.error("Model recovery failed", exc_info=True)
+        if recover and not self._model_uid_to_launch_args:
+            if self._control_fence is not None:
+                self._pending_recovery_launch_args = self._load_persisted_launch_args()
+            elif self._supervisor_ref is not None:
+                try:
+                    await self._try_recover_models()
+                except Exception:
+                    logger.error("Model recovery failed", exc_info=True)
 
         if not XINFERENCE_DISABLE_HEALTH_CHECK and not hasattr(self, "_isolation"):
             from ..isolation import Isolation
@@ -2157,7 +2188,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
             # Serialize: filter out non-serializable values
             data = {}
-            for uid, args in self._model_uid_to_launch_args.items():
+            launch_args = {
+                **self._pending_recovery_launch_args,
+                **self._model_uid_to_launch_args,
+            }
+            for uid, args in launch_args.items():
                 serializable_args = {}
                 for k, v in args.items():
                     try:
@@ -2181,6 +2216,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     def _remove_persisted_launch_args(self, model_uid: str):
         """Remove a single model from the persisted launch_args file."""
+        if model_uid in self._pending_recovery_launch_args:
+            self._persist_launch_args()
+            return
         try:
             filepath = self._get_recovery_file_path()
             if not os.path.exists(filepath):
@@ -2217,7 +2255,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         previously running models using persisted launch_args.
         Cross-validates with supervisor to avoid rebuilding manually deleted models.
         """
-        persisted = self._load_persisted_launch_args()
+        fence = getattr(self, "_control_fence", None)
+        if fence is not None:
+            await fence.checkpoint()
+            persisted = self._pending_recovery_launch_args.copy()
+        else:
+            persisted = self._load_persisted_launch_args()
         if not persisted:
             return
 
@@ -2233,7 +2276,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         recovered = 0
         skipped = 0
         failed = 0
-        for model_uid, launch_args in persisted.items():
+        for saved_uid, saved_args in persisted.items():
+            model_uid, launch_args = saved_uid, saved_args.copy()
+            if fence is not None:
+                await fence.checkpoint()
             # Worker restart cannot rebuild the supervisor-owned native PD
             # route. Do not allocate an unregistered replacement replica.
             if launch_args.get("_nixl_config") is not None or launch_args.get(
@@ -2243,6 +2289,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     "Skipping native PD replica %s on worker startup", model_uid
                 )
                 skipped += 1
+                if fence is not None:
+                    self._pending_recovery_launch_args.pop(saved_uid, None)
                 continue
             try:
                 # Cross-validate: check if supervisor still knows about this model
@@ -2273,12 +2321,16 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             )
                             model_uid = new_uid
                             launch_args["model_uid"] = new_uid
+                if fence is not None:
+                    await fence.checkpoint()
                 if model_info is None:
                     logger.info(
                         "Model %s no longer registered in supervisor, skipping recovery",
                         model_uid,
                     )
                     skipped += 1
+                    if fence is not None:
+                        self._pending_recovery_launch_args.pop(saved_uid, None)
                     continue
 
                 try:
@@ -2289,12 +2341,16 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     permitted = (
                         True  # Registration remains compatible with older supervisors.
                     )
+                if fence is not None:
+                    await fence.checkpoint()
                 if not permitted:
                     logger.info(
                         "Model %s is owned by another worker, skipping recovery",
                         model_uid,
                     )
                     skipped += 1
+                    if fence is not None:
+                        self._pending_recovery_launch_args.pop(saved_uid, None)
                     continue
 
                 logger.info("Recovering model %s ...", model_uid)
@@ -2308,14 +2364,22 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         model_uid,
                         sorted(_stripped),
                     )
-                await self.launch_builtin_model(**launch_args)
+                if fence is None or model_uid not in self._model_uid_to_model:
+                    await self.launch_builtin_model(**launch_args)
                 # Mark the recovered replica ready, mirroring the normal launch
                 # path. Same gap as recover_model: launch_builtin_model leaves
                 # model_state="loading"; without this, models recovered on worker
                 # restart stay "loading" forever. Idempotent if the supervisor
                 # also reconciles on reconnect.
                 await self.wait_for_load(model_uid)
+                if fence is not None:
+                    await fence.checkpoint()
                 recovered += 1
+            except ControlSessionRejected:
+                # Keep this entry and all unattempted entries. Launch rollback
+                # must not delete their saved intent when authority changes.
+                self._persist_launch_args()
+                raise
             except Exception:
                 logger.error(
                     "Failed to recover model %s, continuing with others",
@@ -2323,6 +2387,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     exc_info=True,
                 )
                 failed += 1
+            if fence is not None:
+                self._pending_recovery_launch_args.pop(saved_uid, None)
 
         logger.info(
             "Model recovery complete: recovered=%d, skipped=%d, failed=%d",
@@ -5506,10 +5572,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             logger.error(
                 f"Failed to finalize launch of model {model_uid}", exc_info=True
             )
-            await self._clean_up_failed_launch(model_uid)
+            await self._clean_up_failed_launch(model_uid, model_ref)
             raise
 
-    async def _clean_up_failed_launch(self, model_uid: str):
+    async def _clean_up_failed_launch(self, model_uid: str, model_ref=None):
         """Roll back the state registered by ``launch_builtin_model`` when the
         launch fails after registration (e.g. an engine that loads
         asynchronously crashes at init and the error only surfaces in
@@ -5517,7 +5583,16 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         entry makes relaunching the same model_uid fail on the registration
         assert until the whole service is restarted."""
         try:
-            await self.terminate_model(model_uid, is_model_die=True)
+            fence = getattr(self, "_control_fence", None)
+            if fence is None:
+                await self.terminate_model(model_uid, is_model_die=True)
+            else:
+                fence.check_cleanup()
+                if model_ref is None:
+                    raise ControlSessionRejected("cleanup_not_admitted")
+                await self._terminate_model(
+                    model_uid, is_model_die=True, failed_launch_ref=model_ref
+                )
         except Exception:
             logger.error(
                 "Failed to clean up worker state after failed launch, model uid: %s",
@@ -5529,7 +5604,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             # for the auto-recovery path, which relaunches the same model_uid;
             # a failed launch has no relaunch, so drop it here to avoid leaking
             # a stale "loading" entry.
-            self._model_uid_to_model_status.pop(model_uid, None)
+            if model_uid not in self._model_uid_to_model:
+                self._model_uid_to_model_status.pop(model_uid, None)
 
     @log_async(logger=logger, level=logging.INFO)
     @management_operation
@@ -5539,7 +5615,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             await model_ref.wait_for_load()
         except Exception:
             logger.error(f"Failed to load model {model_uid}", exc_info=True)
-            await self._clean_up_failed_launch(model_uid)
+            await self._clean_up_failed_launch(model_uid, model_ref)
             raise
         await self._update_model_state(model_uid, "ready")
 
@@ -5972,6 +6048,23 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     @log_async(logger=logger, level=logging.INFO)
     @management_operation
     async def terminate_model(self, model_uid: str, is_model_die=False):
+        return await self._terminate_model(model_uid, is_model_die)
+
+    async def _terminate_model(
+        self, model_uid: str, is_model_die=False, *, failed_launch_ref=None
+    ):
+        async def checkpoint():
+            if failed_launch_ref is None:
+                await check_control_session(self)
+            else:
+                # This private rollback is limited to the exact model created
+                # by an already admitted launch. It cannot terminate a newer
+                # registration, and drain waits for its original task to exit.
+                self._control_fence.check_cleanup()
+                if self._model_uid_to_model.get(model_uid) is not failed_launch_ref:
+                    raise ControlSessionRejected("cleanup_resource_changed")
+
+        await checkpoint()
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:
             raise ValueError(f"{model_uid} is launching")
@@ -5979,15 +6072,17 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         was_reloading = (
             model_status is not None and model_status.model_state == "reloading"
         ) or model_uid in self.__dict__.get("_model_reload_active", ())
-        await self._update_model_state(model_uid, "stopping")
+        if failed_launch_ref is None:
+            await self._update_model_state(model_uid, "stopping")
         # In special cases, if the suffix is `-rank0`, this is the Xavier's rank 0 model actor.
         if model_uid.endswith("-rank0"):
             origin_uid = model_uid.removesuffix("-rank0")
         else:
             origin_uid, _ = parse_replica_model_uid(model_uid)
         try:
-            _ = await self.get_supervisor_ref()
-            if self._event_collector_ref is not None:
+            if failed_launch_ref is None:
+                _ = await self.get_supervisor_ref()
+            if failed_launch_ref is None and self._event_collector_ref is not None:
                 await self._event_collector_ref.report_event(
                     origin_uid,
                     Event(
@@ -6000,7 +6095,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             # Report callback error can be log and ignore, should not interrupt the Process
             logger.error("report_event error: %s" % (e))
 
-        if self._status_guard_ref is not None:
+        if failed_launch_ref is None and self._status_guard_ref is not None:
             try:
                 await self._status_guard_ref.update_instance_info(
                     origin_uid, {"status": LaunchStatus.TERMINATING.name}
@@ -6071,7 +6166,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     ]
 
         try:
-            await check_control_session(self)
+            await checkpoint()
             logger.debug("Start to destroy model actor: %s", model_ref)
             if model_ref is not None and not was_reloading:
                 try:
@@ -6082,7 +6177,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         model_uid,
                         e,
                     )
-                await check_control_session(self)
+                await checkpoint()
                 coro = xo.destroy_actor(model_ref)
                 # see https://github.com/xorbitsai/xoscar/pull/140
                 # asyncio.wait_for cannot work for Xoscar actor call,
@@ -6135,6 +6230,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             self._model_uid_to_pid.pop(model_uid, None)
             self._model_uid_to_subpool_pids.pop(model_uid, None)
             self._model_uid_to_subpool_addresses.pop(model_uid, None)
+            if failed_launch_ref is None:
+                self._pending_recovery_launch_args.pop(model_uid, None)
             # §4.3: Remove from persisted recovery file
             self._remove_persisted_launch_args(model_uid)
 
@@ -6146,12 +6243,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 self._model_uid_to_model_status.pop(model_uid, None)
 
             try:
-                if self._status_guard_ref is None:
-                    _ = await self.get_supervisor_ref()
-                assert self._status_guard_ref is not None
-                await self._status_guard_ref.update_instance_info(
-                    origin_uid, {"status": status}
-                )
+                if failed_launch_ref is None:
+                    if self._status_guard_ref is None:
+                        _ = await self.get_supervisor_ref()
+                    assert self._status_guard_ref is not None
+                    await self._status_guard_ref.update_instance_info(
+                        origin_uid, {"status": status}
+                    )
             except Exception:
                 # Local cleanup already happened above; a status guard or
                 # supervisor outage must not fail the terminate itself.
@@ -6643,7 +6741,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             report_due = report_count % XINFERENCE_STATUS_REPORT_MULTIPLIER == 0
 
             try:
-                await self.heartbeat()
+                await run_worker_control_callback(self, self.heartbeat)
             except asyncio.CancelledError:  # pragma: no cover
                 break
             except Exception as ex:  # pragma: no cover
@@ -6667,7 +6765,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
             if report_due:
                 try:
-                    await self.report_status()
+                    await run_worker_control_callback(self, self.report_status)
                 except asyncio.CancelledError:  # pragma: no cover
                     break
                 except Exception as ex:  # pragma: no cover

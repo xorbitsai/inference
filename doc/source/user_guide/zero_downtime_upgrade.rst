@@ -20,6 +20,8 @@ In local mode, startup still uses an API parent and one shared Supervisor/Worker
 
    An extension can optionally require controller sessions for Worker management RPCs. Callers must attach the versioned session and an operation ID; normal Supervisors do not add them automatically. A newer session is acknowledged only after management work drains, and failed drain keeps old sessions fenced. The provider must validate current authority on every check. Election and endpoint discovery are separate responsibilities. Worker replacement and model reload are rejected in this mode until session/resource transfer is supported. Without a provider, normal upgrade behavior is unchanged.
 
+   Session metadata is also required through same-process ActorRefs. Startup recovery records are retained until an active session is installed. If installation happens during fencing or reconciliation, retry ``install_controller_session`` after activation to resume recovery. Recovery interrupted by a newer session preserves unfinished records.
+
 Check and install updates
 -------------------------
 
