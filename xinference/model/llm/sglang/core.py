@@ -113,6 +113,8 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     max_new_tokens: int
     stop: Optional[Union[str, List[str]]]
     ignore_eos: bool
+    seed: Optional[int]
+    sampling_seed: Optional[int]
     cache_salt: str
     stream: bool
     stream_options: Optional[Union[dict, None]]
@@ -590,6 +592,11 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         stream_options = generate_config.get("stream_options")
         generate_config.setdefault("stream_options", stream_options)
         generate_config.setdefault("ignore_eos", False)
+        # SGLang's SamplingParams names the OpenAI ``seed`` ``sampling_seed`` and
+        # rejects unknown keys, so a raw ``seed`` fails the whole request.
+        seed = generate_config.pop("seed", None)
+        if seed is not None:
+            generate_config.setdefault("sampling_seed", seed)
         response_format = generate_config.pop("response_format", None)
         if response_format:
             if response_format.get("type") == "json_object":
