@@ -604,3 +604,7 @@ msgstr "拡張機能は、Worker の管理 RPC にコントローラーセッシ
 #: ../../source/user_guide/zero_downtime_upgrade.rst:23
 msgid "Session metadata is also required through same-process ActorRefs. Startup recovery records are retained until an active session is installed. If installation happens during fencing or reconciliation, retry ``install_controller_session`` after activation to resume recovery. Recovery interrupted by a newer session preserves unfinished records."
 msgstr "同一プロセスの ActorRef 経由でもセッション情報が必要です。起動時の復旧記録は、アクティブなセッションがインストールされるまで保持されます。フェンシングまたは調整中にインストールした場合は、有効化後に ``install_controller_session`` を再実行して復旧を再開してください。新しいセッションによって復旧が中断されても、未完了の記録は保持されます。"
+
+#: ../../source/user_guide/zero_downtime_upgrade.rst:25
+msgid "Worker-owned crash recovery and pending cache inventory publication acquire active-session admission for new events; already admitted operations keep their original session. Model OOM reports update only diagnostics for the current model incarnation and do not authorize management commands."
+msgstr "Worker 自身の障害復旧と保留中のキャッシュ一覧の公開は、新しいイベントごとにアクティブなセッションの実行許可を取得します。許可済みの操作は元のセッションを維持します。モデルの OOM 報告は現在のモデルインスタンスの診断情報のみを更新し、管理コマンドを許可するものではありません。"

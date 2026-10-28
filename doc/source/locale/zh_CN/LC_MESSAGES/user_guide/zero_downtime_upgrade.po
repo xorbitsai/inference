@@ -576,3 +576,7 @@ msgstr "扩展可选择要求 Worker 管理 RPC 携带控制器会话。调用�
 #: ../../source/user_guide/zero_downtime_upgrade.rst:23
 msgid "Session metadata is also required through same-process ActorRefs. Startup recovery records are retained until an active session is installed. If installation happens during fencing or reconciliation, retry ``install_controller_session`` after activation to resume recovery. Recovery interrupted by a newer session preserves unfinished records."
 msgstr "通过同进程 ActorRef 调用时也必须携带会话信息。启动恢复记录会保留到安装 active 会话后。如果安装发生在隔离或协调阶段，请在激活后重试 ``install_controller_session``，以继续恢复。新会话中断恢复时，未完成的记录仍会保留。"
+
+#: ../../source/user_guide/zero_downtime_upgrade.rst:25
+msgid "Worker-owned crash recovery and pending cache inventory publication acquire active-session admission for new events; already admitted operations keep their original session. Model OOM reports update only diagnostics for the current model incarnation and do not authorize management commands."
+msgstr "Worker 自身的故障恢复和待处理缓存目录上报会为新事件申请 active 会话准入；已准入的操作保留原会话。模型 OOM 上报只能更新当前模型实例的诊断信息，不能授权管理命令。"

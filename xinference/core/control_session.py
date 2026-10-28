@@ -82,6 +82,8 @@ READ_ONLY_WORKER_RPCS = frozenset(
         "worker_relaunch_process",
     }
 )
+# These callbacks validate their model incarnation instead of controller state.
+MODEL_DIAGNOSTIC_RPCS = frozenset({"report_model_oom"})
 # Native Worker/model generation replacement transfers execution or schedules
 # callbacks outside the current Worker operation. Session/resource transfer must
 # be negotiated before this optional mode can support it. Legacy replacement is
@@ -274,6 +276,10 @@ class WorkerControlFence:
         current = self.bound_context()
         if current is not None:
             return current
+        return self.capture_event()
+
+    def capture_event(self) -> ControlContext:
+        """Bind a newly detected Worker event, ignoring a monitor's old context."""
         if self.session is None or not self.ready:
             raise ControlSessionRejected("not_installed")
         return ControlContext(self.session, uuid.uuid4().hex)

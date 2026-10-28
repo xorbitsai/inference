@@ -599,3 +599,7 @@ msgstr "확장 기능은 Worker 관리 RPC에 컨트롤러 세션을 요구하�
 #: ../../source/user_guide/zero_downtime_upgrade.rst:23
 msgid "Session metadata is also required through same-process ActorRefs. Startup recovery records are retained until an active session is installed. If installation happens during fencing or reconciliation, retry ``install_controller_session`` after activation to resume recovery. Recovery interrupted by a newer session preserves unfinished records."
 msgstr "동일 프로세스의 ActorRef를 통한 호출에도 세션 메타데이터가 필요합니다. 시작 복구 기록은 활성 세션이 설치될 때까지 유지됩니다. 펜싱 또는 조정 중에 설치했다면 활성화 후 ``install_controller_session`` 을 다시 호출하여 복구를 재개하세요. 새 세션이 복구를 중단해도 완료되지 않은 기록은 유지됩니다."
+
+#: ../../source/user_guide/zero_downtime_upgrade.rst:25
+msgid "Worker-owned crash recovery and pending cache inventory publication acquire active-session admission for new events; already admitted operations keep their original session. Model OOM reports update only diagnostics for the current model incarnation and do not authorize management commands."
+msgstr "Worker 자체의 장애 복구와 보류 중인 캐시 목록 게시는 새 이벤트마다 활성 세션의 실행 허가를 받습니다. 이미 허가된 작업은 원래 세션을 유지합니다. 모델 OOM 보고는 현재 모델 인스턴스의 진단 정보만 갱신하며 관리 명령을 허가하지 않습니다."

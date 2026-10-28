@@ -15,6 +15,7 @@
 import asyncio
 import errno
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -100,6 +101,7 @@ from .cache_metadata import (
 from .cache_tracker import CacheTrackerActor
 from .control_session import (
     CONTROL_CONTEXT_KEY,
+    MODEL_DIAGNOSTIC_RPCS,
     NATIVE_HANDOFF_RPCS,
     READ_ONLY_WORKER_RPCS,
     ControlContext,
@@ -943,7 +945,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._supervisor_init_lock: Optional[asyncio.Lock] = None
         self._actor_loop: Optional[asyncio.AbstractEventLoop] = None
         self._main_pool = main_pool
-        self._main_pool.recover_sub_pool = self.recover_sub_pool
+        self._main_pool.recover_sub_pool = self._recover_sub_pool_event
         self._status_guard_ref: xo.ActorRefType[
             "StatusGuardActor"
         ] = None  # type: ignore
@@ -953,6 +955,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._cache_tracker_ref: xo.ActorRefType[
             CacheTrackerActor
         ] = None  # type: ignore
+        self._pending_cache_inventory_ref = None
         self._progress_tracker_ref: Optional[xo.ActorRefType] = None
         # Tracks whether this worker has successfully called supervisor.add_worker().
         # _supervisor_ref being non-None no longer implies registered, because
@@ -981,6 +984,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, Dict[str, Any]] = {}
         self._model_uid_to_model_status: Dict[str, ModelStatus] = {}
+        self._model_uid_to_status_token: Dict[str, str] = {}
         self._gpu_to_model_uids: Dict[int, Set[str]] = defaultdict(set)
         # Dict structure: gpu_index: {(replica_model_uid, model_type)}
         self._user_specified_gpu_to_model_uids: Dict[int, Set[Tuple[str, str]]] = (
@@ -1031,6 +1035,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         if (
             not name.startswith("_")
             and name not in READ_ONLY_WORKER_RPCS
+            and name not in MODEL_DIAGNOSTIC_RPCS
             and name not in {"install_controller_session", "controller_session_status"}
             and callable(value)
         ):
@@ -1052,7 +1057,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         kwargs = dict(kwargs)
         kwargs.pop(CONTROL_CONTEXT_KEY, None)
         cleaned = (method, call_method, args, kwargs)
-        if method in READ_ONLY_WORKER_RPCS:
+        if method in READ_ONLY_WORKER_RPCS or method in MODEL_DIAGNOSTIC_RPCS:
             return await super().__on_receive__(cleaned)
         if supplied is None:
             raise ControlSessionRejected("missing_context")
@@ -1088,15 +1093,20 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     async def _install_controller_session(self, parsed, timeout):
         fence = self._control_fence
         result = await fence.install(parsed, timeout)
-        if self._pending_recovery_launch_args:
+        if self._pending_recovery_launch_args or self._pending_cache_inventory_ref:
             # Installing during fencing must still acknowledge the drain. A
             # retry of this same RPC after activation resumes pending recovery.
             try:
                 async with fence.command(ControlContext(parsed, uuid.uuid4().hex)):
-                    async with self._startup_recovery_lock:
-                        await self._try_recover_models()
+                    if self._pending_cache_inventory_ref is not None:
+                        await self._record_model_versions_best_effort(
+                            self._pending_cache_inventory_ref
+                        )
+                    if self._pending_recovery_launch_args:
+                        async with self._startup_recovery_lock:
+                            await self._try_recover_models()
             except ControlSessionRejected:
-                logger.info("Startup recovery is waiting for an active control session")
+                logger.info("Startup work is waiting for an active control session")
         return result
 
     def controller_session_status(self):
@@ -1104,6 +1114,20 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         if fence is None:
             return {"version": 1, "configured": False}
         return {"configured": True, **fence.status()}
+
+    async def _recover_sub_pool_event(self, address):
+        fence = self._control_fence
+        if fence is None:
+            return await self.recover_sub_pool(address)
+        if asyncio.current_task() is not getattr(
+            self._main_pool, "_monitor_task", None
+        ):
+            raise ControlSessionRejected("untrusted_recovery_event")
+        # Xoscar's monitor is long-lived and can inherit the first launch's
+        # context. Each newly observed fault is a separate admitted event.
+        captured = fence.capture_event()
+        async with fence.command(captured):
+            return await self.recover_sub_pool(address)
 
     @management_operation
     async def recover_sub_pool(self, address):
@@ -2035,13 +2059,35 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             logger.info("Connected to supervisor as a fresh worker")
 
         if cache_tracker_ref is not None:
-            spawn_management_task(
+            self._pending_cache_inventory_ref = cache_tracker_ref
+            publication = spawn_management_task(
                 self, self._record_model_versions_best_effort(cache_tracker_ref)
             )
+            if publication is not None:
+
+                def finished(task):
+                    if task.cancelled():
+                        return
+                    try:
+                        task.result()
+                    except ControlSessionRejected:
+                        pass  # The retained intent will be retried under active admission.
+                    except Exception:
+                        logger.warning(
+                            "Cache inventory publication failed", exc_info=True
+                        )
+
+                publication.add_done_callback(finished)
         return supervisor_ref, generation
 
     async def _record_model_versions_best_effort(self, cache_tracker_ref):
         try:
+            await check_control_session(self)
+            if (
+                getattr(self, "_control_fence", None) is not None
+                and cache_tracker_ref is not self._cache_tracker_ref
+            ):
+                return
             # cache_tracker is on supervisor
             model_version_infos = get_model_version_infos()
             await xo.wait_for(
@@ -2050,7 +2096,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 ),
                 XINFERENCE_TCP_REQUEST_TIMEOUT,
             )
+            await check_control_session(self)
+            if getattr(self, "_pending_cache_inventory_ref", None) is cache_tracker_ref:
+                self._pending_cache_inventory_ref = None
         except asyncio.CancelledError:
+            raise
+        except ControlSessionRejected:
             raise
         except Exception:
             logger.warning(
@@ -2430,7 +2481,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     async def is_model_vllm_backend(self, model_uid: str) -> bool:
         _model_uid, _ = parse_replica_model_uid(model_uid)
-        supervisor_ref = await self.get_supervisor_ref()
+        if getattr(self, "_control_fence", None) is None:
+            supervisor_ref = await self.get_supervisor_ref()
+        else:
+            supervisor_ref, _ = await self._get_supervisor_ref_with_generation(
+                add_worker=False
+            )
         model_ref = await supervisor_ref.get_model(_model_uid)
         return await model_ref.is_vllm_backend()
 
@@ -2544,7 +2600,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
         if not get_extensions():
             return None
-        supervisor = await self.get_supervisor_ref()
+        if getattr(self, "_control_fence", None) is None:
+            supervisor = await self.get_supervisor_ref()
+        else:
+            supervisor, _ = await self._get_supervisor_ref_with_generation(
+                add_worker=False
+            )
         return await supervisor.get_worker_resource_policy(self.address)
 
     @log_async(logger=logger)
@@ -5400,6 +5461,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         model.model_family.address = subpool_address
                         model.model_family.accelerators = devices
 
+                        status_token = (
+                            uuid.uuid4().hex
+                            if getattr(self, "_control_fence", None) is not None
+                            else None
+                        )
                         model_ref = await xo.create_actor(
                             ModelActor,
                             address=subpool_address,
@@ -5415,6 +5481,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             driver_info=driver_info,
                             model_engine=model_engine,
                             model_python_executable=model_python_executable,
+                            **(
+                                {"worker_status_token": status_token}
+                                if status_token is not None
+                                else {}
+                            ),
                         )
                         if await model_ref.need_create_pools() and (
                             len(devices) > 1 or n_worker > 1  # type: ignore
@@ -5509,6 +5580,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     self._model_uid_to_model_status[model_uid] = ModelStatus(
                         model_state="loading"
                     )
+                    if status_token is not None:
+                        self._model_uid_to_status_token[model_uid] = status_token
                     self._model_uid_to_addr[model_uid] = subpool_address
                     self._model_uid_to_recover_count.setdefault(
                         model_uid, XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT
@@ -6222,6 +6295,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             self._release_virtual_env_usage(model_uid)
 
             self._model_uid_to_model.pop(model_uid, None)
+            if getattr(self, "_control_fence", None) is not None:
+                self._model_uid_to_status_token.pop(model_uid, None)
             self._model_uid_to_model_spec.pop(model_uid, None)
             self.release_devices(model_uid)
             self._model_uid_to_addr.pop(model_uid, None)
@@ -6651,6 +6726,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         return model_gpu_memory
 
     async def report_status(self):
+        if (
+            getattr(self, "_control_fence", None) is not None
+            and self._pending_cache_inventory_ref is not None
+        ):
+            await self._record_model_versions_best_effort(
+                self._pending_cache_inventory_ref
+            )
         status = dict()
         try:
             # Use configurable timeout for status gathering
@@ -7417,6 +7499,25 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         from .runtime_logs import read_runtime_log
 
         return await asyncio.to_thread(read_runtime_log, cursor)
+
+    def report_model_oom(self, model_uid: str, token: str, message: str) -> bool:
+        """Accept diagnostic text only from the still-current launched model."""
+        expected = self._model_uid_to_status_token.get(model_uid)
+        status = self._model_uid_to_model_status.get(model_uid)
+        if (
+            self._lifecycle.phase in (WorkerPhase.TRANSFERRED, WorkerPhase.STOPPED)
+            or model_uid not in self._model_uid_to_model
+            or expected is None
+            or type(token) is not str
+            or len(token) != 32
+            or not token.isascii()
+            or not hmac.compare_digest(token, expected)
+            or type(message) is not str
+            or status is None
+        ):
+            return False
+        status.last_error = message
+        return True
 
     def update_model_status(self, model_uid: str, **kwargs):
         model_status = self._model_uid_to_model_status.get(model_uid)

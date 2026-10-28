@@ -22,6 +22,8 @@ In local mode, startup still uses an API parent and one shared Supervisor/Worker
 
    Session metadata is also required through same-process ActorRefs. Startup recovery records are retained until an active session is installed. If installation happens during fencing or reconciliation, retry ``install_controller_session`` after activation to resume recovery. Recovery interrupted by a newer session preserves unfinished records.
 
+   Worker-owned crash recovery and pending cache inventory publication acquire active-session admission for new events; already admitted operations keep their original session. Model OOM reports update only diagnostics for the current model incarnation and do not authorize management commands.
+
 Check and install updates
 -------------------------
 

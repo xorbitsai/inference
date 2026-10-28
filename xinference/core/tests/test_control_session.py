@@ -3,6 +3,7 @@
 # CI: linux
 import asyncio
 import contextlib
+import copy
 import json
 import os
 import pickle
@@ -11,7 +12,7 @@ import threading
 from dataclasses import FrozenInstanceError, replace
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import xoscar as xo
@@ -19,7 +20,9 @@ from xoscar.backends.router import Router
 
 from xinference import extensions
 
+from .. import model as model_module
 from .. import worker as worker_module
+from ..cache_tracker import CacheTrackerActor
 from ..control_session import (
     CONTROL_CONTEXT_KEY,
     READ_ONLY_WORKER_RPCS,
@@ -28,6 +31,7 @@ from ..control_session import (
     ControlSessionRejected,
     WorkerControlFence,
     check_control_session,
+    run_worker_control_callback,
 )
 from ..lifecycle import (
     WorkerLifecycle,
@@ -36,7 +40,8 @@ from ..lifecycle import (
     management_operation,
     spawn_management_task,
 )
-from ..worker import WorkerActor
+from ..model import ModelActor
+from ..worker import ModelStatus, WorkerActor
 from .test_worker_handoff import CounterModel, HandoffSupervisor, HandoffWorker
 
 
@@ -711,12 +716,274 @@ def test_read_only_allowlist_cannot_accidentally_name_missing_worker_methods():
     )
 
 
+@pytest.mark.parametrize("dispatch", ["local", "receive"])
+@pytest.mark.parametrize(
+    "method", ["get_gpu_allocation_status", "is_model_vllm_backend"]
+)
+@pytest.mark.asyncio
+async def test_gpu_reads_need_no_control_context_or_worker_registration(
+    monkeypatch, dispatch, method
+):
+    worker = WorkerActor("supervisor", None, SimpleNamespace(), [0, 1])
+    fence, authority = setup_fence()
+    worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+    await worker.install_controller_session(authority.owner.to_dict())
+    supervisor = SimpleNamespace(
+        get_worker_resource_policy=AsyncMock(return_value=[1]),
+        get_model=AsyncMock(
+            return_value=SimpleNamespace(is_vllm_backend=AsyncMock(return_value=True))
+        ),
+        add_worker=AsyncMock(),
+    )
+    lookup = AsyncMock(return_value=(supervisor, 1))
+    monkeypatch.setattr(worker, "_get_supervisor_ref_with_generation", lookup)
+    monkeypatch.setattr(extensions, "get_extensions", lambda: (object(),))
+    args = ("counter-rep0",) if method == "is_model_vllm_backend" else ()
+    if dispatch == "local":
+        result = await getattr(worker, method)(*args)
+    else:
+        result = await worker.__on_receive__((method, 0, args, {}))
+    assert result is True if args else result["total"] == [1]
+    lookup.assert_awaited_once_with(add_worker=False)
+    supervisor.add_worker.assert_not_awaited()
+    with pytest.raises(ControlSessionRejected, match="missing_context"):
+        await worker.get_supervisor_ref()
+
+
+@pytest.mark.asyncio
+async def test_native_monitor_captures_each_fault_and_drains_inflight_recovery(
+    monkeypatch,
+):
+    pool = SimpleNamespace(remove_sub_pool=AsyncMock())
+    worker = WorkerActor("supervisor", None, pool, [])
+    fence, authority = setup_fence()
+    worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+    old = authority.owner
+    await worker.install_controller_session(old.to_dict())
+    faults = asyncio.Queue()
+    seen = []
+
+    async def monitor():
+        while True:
+            address, done = await faults.get()
+            try:
+                await pool.recover_sub_pool(address)
+            except Exception as error:
+                done.set_exception(error)
+            else:
+                done.set_result(True)
+
+    monitor_task = None
+
+    async def start_monitor():
+        nonlocal monitor_task
+        monitor_task = asyncio.create_task(monitor())
+        pool._monitor_task = monitor_task
+
+    pool.start_monitor = start_monitor
+    worker._model_uid_to_model = {"counter-rep0": SimpleNamespace()}
+    worker._model_uid_to_addr = {"counter-rep0": "dead"}
+    worker._model_uid_to_launch_args = {"counter-rep0": {"model_uid": "counter-rep0"}}
+    worker._model_uid_to_recover_count = {"counter-rep0": 0}
+
+    async def record(*args, **kwargs):
+        seen.append(fence.bound_context().session)
+
+    terminate = AsyncMock(side_effect=record)
+    evict = AsyncMock(side_effect=record)
+    monkeypatch.setattr(worker, "terminate_model", terminate)
+    monkeypatch.setattr(worker, "_evict_replica_from_supervisor", evict)
+    try:
+        async with fence.command(command(old)):
+            await worker._ensure_subpool_monitor()
+        authority.owner = second = session(2)
+        await worker.install_controller_session(second.to_dict())
+        completed = asyncio.get_running_loop().create_future()
+        await faults.put(("dead", completed))
+        assert await asyncio.wait_for(completed, 2)
+        terminate.assert_awaited_once_with("counter-rep0", is_model_die=True)
+        evict.assert_awaited_once_with("counter-rep0")
+        assert seen == [second, second]
+
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def recover(address):
+            seen.append(fence.bound_context().session)
+            entered.set()
+            await release.wait()
+
+        monkeypatch.setattr(worker, "recover_sub_pool", recover)
+        completed = asyncio.get_running_loop().create_future()
+        await faults.put(("another-dead-process", completed))
+        await asyncio.wait_for(entered.wait(), 2)
+        authority.owner = third = session(3)
+        installing = asyncio.create_task(
+            worker.install_controller_session(third.to_dict())
+        )
+        while fence.session != third:
+            if installing.done():
+                await installing
+            await asyncio.sleep(0)
+        assert not installing.done()
+        release.set()
+        assert await asyncio.wait_for(completed, 2)
+        assert (await asyncio.wait_for(installing, 2))["ready"]
+        assert seen[-1] == second
+        with fence.local_scope(command(old)):
+            with pytest.raises(ControlSessionRejected, match="stale_session"):
+                await worker.recover_sub_pool("stale-callback")
+        with pytest.raises(ControlSessionRejected, match="untrusted_recovery_event"):
+            await pool.recover_sub_pool("forged-fault")
+        completed = asyncio.get_running_loop().create_future()
+        await faults.put(("third-fault", completed))
+        assert await asyncio.wait_for(completed, 2)
+        assert seen[-1] == third
+    finally:
+        if monitor_task is not None:
+            monitor_task.cancel()
+            await asyncio.gather(monitor_task, return_exceptions=True)
+
+
+@pytest.mark.parametrize("phase", ["fencing", "reconciling", "queued"])
+@pytest.mark.asyncio
+async def test_startup_cache_inventory_survives_until_active_callback(
+    monkeypatch, phase
+):
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        tracker = await xo.create_actor(
+            CacheTrackerActor, address=pool.external_address
+        )
+        worker = WorkerActor("supervisor", None, SimpleNamespace(), [])
+        worker.address = "worker:1234"
+        worker._actor_loop = asyncio.get_running_loop()
+        fence, authority = setup_fence(phase="active" if phase == "queued" else phase)
+        worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+        supervisor = SimpleNamespace(
+            add_worker=AsyncMock(), report_worker_status=AsyncMock()
+        )
+        worker._supervisor_ref = supervisor
+        worker._supervisor_ref_address = "supervisor"
+
+        async def actor_ref(*, address, uid):
+            return (
+                tracker if uid == CacheTrackerActor.default_uid() else SimpleNamespace()
+            )
+
+        monkeypatch.setattr(xo, "actor_ref", actor_ref)
+        inventory = {
+            "cached-model": [
+                {
+                    "model_version": "cached-v1",
+                    "model_type": "embedding",
+                    "cache_status": True,
+                    "model_file_location": "/cache/existing",
+                }
+            ]
+        }
+        versions = MagicMock(side_effect=lambda: copy.deepcopy(inventory))
+        monkeypatch.setattr(worker_module, "get_model_version_infos", versions)
+        monkeypatch.setattr(worker_module, "gather_node_info", lambda: {})
+        if phase == "queued":
+            await fence.install(authority.owner, 1)
+            async with fence.command(command(authority.owner)):
+                await worker._get_supervisor_ref_with_generation(add_worker=True)
+                versions.assert_not_called()
+                authority.owner, authority.phase = session(2), "fencing"
+        else:
+            await worker._get_supervisor_ref_with_generation(add_worker=True)
+        supervisor.add_worker.assert_awaited_once()
+        assert not await tracker.get_model_versions("cached-model")
+        await worker.install_controller_session(authority.owner.to_dict())
+        assert not await tracker.get_model_versions("cached-model")
+        authority.phase = "active"
+        await run_worker_control_callback(worker, worker.report_status)
+        entries = await tracker.get_model_versions("cached-model")
+        assert entries[0]["model_file_location"] == {worker.address: "/cache/existing"}
+        cached = await tracker.list_cached_models(worker.address)
+        assert cached[0]["model_file_location"] == "/cache/existing"
+        assert (
+            await tracker.list_deletable_models("cached-v1", worker.address)
+            == "/cache/existing"
+        )
+        versions.assert_called_once()
+        await worker.install_controller_session(authority.owner.to_dict())
+        await run_worker_control_callback(worker, worker.report_status)
+        versions.assert_called_once()
+    finally:
+        await pool.stop()
+        pool._actors.clear()
+        Router.set_instance(None)
+
+
+@pytest.mark.parametrize("local_ref", [False, True])
+@pytest.mark.asyncio
+async def test_model_oom_report_checks_current_incarnation_without_controller_context(
+    monkeypatch, local_ref
+):
+    async def post_create(self):
+        pass
+
+    monkeypatch.setattr(WorkerActor, "__post_create__", post_create)
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        ref = await xo.create_actor(
+            WorkerActor, "supervisor", None, pool, [], address=pool.external_address
+        )
+        worker = pool._actors[ref.uid]
+        fence, authority = setup_fence()
+        worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+        await ref.install_controller_session(authority.owner.to_dict())
+        uid, token = "counter-rep0", "1" * 32
+        worker._model_uid_to_model[uid] = SimpleNamespace()
+        worker._model_uid_to_model_status[uid] = ModelStatus(model_state="ready")
+        worker._model_uid_to_status_token = {uid: token}
+        authority.owner = session(2)
+        await ref.install_controller_session(authority.owner.to_dict())
+        if local_ref:
+            ref = await xo.actor_ref(address=ref.address, uid=ref.uid)
+        model = ModelActor.__new__(ModelActor)
+        model._model = object()
+        model._replica_model_uid = uid
+        model._worker_status_token = token
+        model.model_uid = lambda: uid
+        model._get_worker_ref = AsyncMock(return_value=ref)
+        model.stop = AsyncMock()
+        exits = []
+        monkeypatch.setattr(model_module.os, "_exit", exits.append)
+        await model._handle_oom_error(MemoryError("diagnostic-test"))
+        status = await ref.get_model_status(uid)
+        assert "out of memory" in status.last_error
+        assert "diagnostic-test" in status.last_error
+        assert exits == [1]
+        model.stop.assert_awaited_once()
+        with pytest.raises(Exception, match="out of memory"):
+            await ref.get_model(uid)
+        worker._model_uid_to_status_token[uid] = "2" * 32
+        worker._model_uid_to_model_status[uid] = ModelStatus(model_state="ready")
+        assert not await ref.report_model_oom(uid, token, "late old-model OOM")
+        assert not await ref.report_model_oom(uid, "\u00e9" * 32, "invalid token")
+        assert (await ref.get_model_status(uid)).last_error == ""
+        with pytest.raises(ControlSessionRejected, match="missing_context"):
+            await ref.update_model_status(uid, last_error="unscoped setter")
+        assert await ref.report_model_oom(uid, "2" * 32, "current model OOM")
+        assert (await ref.get_model_status(uid)).model_state == "ready"
+    finally:
+        await pool.stop()
+        pool._actors.clear()
+        Router.set_instance(None)
+
+
 class LaunchCounterModel(CounterModel):
     """Real subprocess actor without a model engine/download dependency."""
 
     def __init__(self, worker_address, model, **kwargs):
         super().__init__(worker_address)
         self.cleanup_path = model.cleanup_path
+        self._test_status_token = kwargs.get("worker_status_token")
+
+    def get_status_token_for_test(self):
+        return self._test_status_token
 
     async def load(self):
         pass
@@ -817,6 +1084,73 @@ def counter_launch_args(uid="counter-rep0"):
     )
 
 
+@pytest.mark.parametrize("recover", [False, True], ids=["evict", "recover"])
+@pytest.mark.asyncio
+async def test_real_native_monitor_handles_fault_after_session_change(
+    tmp_path, monkeypatch, recover
+):
+    import psutil
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        worker, authority = make_launch_worker(pool, tmp_path, monkeypatch)
+        old = authority.owner
+        await worker.install_controller_session(old.to_dict())
+        await worker.launch_builtin_model(
+            **counter_launch_args(), **{CONTROL_CONTEXT_KEY: command(old).to_dict()}
+        )
+        uid = "counter-rep0"
+        worker._model_uid_to_recover_count[uid] = 1 if recover else 0
+        old_token = worker._model_uid_to_status_token[uid]
+        pid = worker._model_uid_to_pid[uid]
+        assert pid != os.getpid()
+        event = asyncio.Event()
+        sessions = []
+
+        async def mark_dead(model_uid):
+            assert model_uid == uid
+            sessions.append(worker._control_fence.bound_context().session)
+            event.set()
+
+        worker._supervisor_ref.mark_replica_dead = AsyncMock(side_effect=mark_dead)
+        authority.owner = current = session(2)
+        await worker.install_controller_session(current.to_dict())
+        psutil.Process(pid).kill()
+        if recover:
+
+            async def ready():
+                while (
+                    worker._model_uid_to_pid.get(uid) in (None, pid)
+                    or getattr(
+                        worker._model_uid_to_model_status.get(uid), "model_state", None
+                    )
+                    != "ready"
+                ):
+                    await asyncio.sleep(0.02)
+
+            await asyncio.wait_for(ready(), 20)
+            restored = worker._model_uid_to_model[uid]
+            value, new_pid, _ = await restored.add(1)
+            assert value == 1 and new_pid != pid
+            assert worker._model_uid_to_status_token[uid] != old_token
+            assert (
+                await restored.get_status_token_for_test()
+                == worker._model_uid_to_status_token[uid]
+            )
+            assert not worker.report_model_oom(uid, old_token, "late old-model OOM")
+            worker._supervisor_ref.mark_replica_dead.assert_not_awaited()
+        else:
+            await asyncio.wait_for(event.wait(), 20)
+            assert sessions == [current]
+            assert uid not in worker._model_uid_to_model
+            assert uid not in worker._model_uid_to_status_token
+            assert not pool.sub_processes
+    finally:
+        await pool.stop()
+        pool._actors.clear()
+        Router.set_instance(None)
+
+
 @pytest.mark.asyncio
 async def test_production_launch_rolls_back_before_new_session_ack(
     tmp_path, monkeypatch
@@ -847,6 +1181,8 @@ async def test_production_launch_rolls_back_before_new_session_ack(
         )
         await asyncio.wait_for(entered.wait(), 20)
         ref = worker._model_uid_to_model[uid]
+        old_status_token = worker._model_uid_to_status_token[uid]
+        assert await ref.get_status_token_for_test() == old_status_token
         pid = await ref.get_pid()
         assert pid != os.getpid() and psutil.pid_exists(pid)
         assert uid in json.loads((tmp_path / "models.json").read_text())
@@ -883,6 +1219,7 @@ async def test_production_launch_rolls_back_before_new_session_ack(
             worker._model_uid_to_launch_args,
             worker._model_uid_to_model_spec,
             worker._model_uid_to_model_status,
+            worker._model_uid_to_status_token,
             worker._model_uid_to_pid,
             worker._model_uid_to_subpool_addresses,
             worker._model_uid_to_subpool_pids,
@@ -892,6 +1229,8 @@ async def test_production_launch_rolls_back_before_new_session_ack(
         assert uid not in json.loads((tmp_path / "models.json").read_text())
         current = {CONTROL_CONTEXT_KEY: command(new).to_dict()}
         await worker.launch_builtin_model(**counter_launch_args(), **current)
+        assert worker._model_uid_to_status_token[uid] != old_status_token
+        assert not worker.report_model_oom(uid, old_status_token, "late OOM")
         # A delayed cleanup must not touch this newer registration.
         async with worker._control_fence.command(command(new)):
             with pytest.raises(
