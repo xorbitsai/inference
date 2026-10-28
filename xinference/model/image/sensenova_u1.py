@@ -377,7 +377,7 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
     def image_to_image(
         self,
         image: Union[PIL.Image.Image, List[PIL.Image.Image]],
-        prompt: Optional[str] = None,
+        prompt: Optional[Union[str, List[str]]] = None,
         n: int = 1,
         size: Optional[str] = None,
         response_format: str = "url",
@@ -389,6 +389,9 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
             raise RuntimeError("SenseNova-U1 model is not loaded.")
         if prompt is None:
             raise ValueError("SenseNova-U1 image editing requires a prompt.")
+        # A plain prompt field of /v1/images/variations arrives as a one-element list.
+        if isinstance(prompt, list) and len(prompt) == 1:
+            prompt = prompt[0]
         if not isinstance(prompt, str):
             raise ValueError("SenseNova-U1 image editing requires a string prompt.")
 
