@@ -766,6 +766,21 @@ const ko = {
     downloadCompleted: '완료',
   },
   runningModels: {
+    statusUnavailable: '모델 상태를 새로 고칠 수 없습니다. 다시 시도하는 중…',
+    statuses: {
+      CREATING: '시작 중',
+      LOADING: '로딩 중',
+      UPDATING: '업데이트 중',
+      READY: '실행 중',
+      ERROR: '실패',
+      TERMINATING: '중지 중',
+      TERMINATED: '중지됨',
+    },
+    cancelLaunch: '시작 취소',
+    clearFailedRecord: '실패 기록 삭제',
+    clearFailedRecordConfirm: '모델 {{modelUid}}의 시작 실패 기록을 삭제하시겠습니까?',
+    cancelLaunchConfirm: '모델 {{modelUid}} 시작을 취소하시겠습니까?',
+    launchFailed: '모델 시작에 실패했습니다. 아래 복제본 오류를 확인하세요.',
     reload: {
       title: '모델 재설정 / 업그레이드',
       description: '새 구성을 준비하는 동안 현재 엔진이 요청을 계속 처리합니다.',

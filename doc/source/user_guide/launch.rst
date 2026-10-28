@@ -6,6 +6,10 @@ Model Launching Instructions
 
 This document aims to provide a functional overview of model launching.
 
+On **Running Models**, choose **Clear failed record** to remove a failed launch after its runtime has been cleaned up. You can also use ``DELETE /v1/models/{model_uid}``. This clears the status record and keeps cached model files. With authentication enabled, the operation requires ``models:write`` permission.
+
+An initial launch remains cancellable until all its replicas finish, even when some are already ready. **Cancel launch** on **Running Models** calls ``POST /v1/models/{model_uid}/cancel`` to stop pending work and remove replicas created by that launch. ``GET /v1/models/instances`` reports ``can_cancel_launch`` for this operation. Scale-up of an established model does not enable initial-launch cancellation.
+
 .. note::
 
    The LMDeploy backend has been removed because its Xinference integration is

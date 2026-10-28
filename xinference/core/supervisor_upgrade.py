@@ -226,6 +226,7 @@ class SupervisorUpgradeState:
         manager = getattr(owner, "_worker_relaunch_manager", None)
         if (
             owner._workers_launching
+            or owner._initial_model_launches
             or any(not task.done() for task in owner._async_launch_tasks)
             or owner._model_reload_tasks
             or owner._cache_uid_to_task

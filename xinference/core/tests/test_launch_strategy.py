@@ -99,6 +99,9 @@ class DummySupervisor:
         self._worker_address_to_worker = workers
         self._model_uid_to_replica_info = {}
         self._replica_model_uid_to_worker = {}
+        self._replica_model_uid_to_worker_shards = {}
+        self._initial_model_launches = {}
+        self._async_launch_tasks = set()
         self._status_guard_ref = DummyStatusGuard()
         self._unexpected_down_replicas = {}
         self._worker_status = {}
@@ -120,6 +123,9 @@ class DummySupervisor:
         )
         self.launch_builtin_model = SupervisorActor.launch_builtin_model.__get__(self)
         self._launch_builtin_model = SupervisorActor._launch_builtin_model.__get__(self)
+        self._run_initial_model_launch = (
+            SupervisorActor._run_initial_model_launch.__get__(self)
+        )
         self._get_worker_host = SupervisorActor._get_worker_host
         self._get_worker_refs_by_ip = SupervisorActor._get_worker_refs_by_ip.__get__(
             self
@@ -178,6 +184,7 @@ def _shard_lifecycle_supervisor(n_worker):
     for name in (
         "terminate_model",
         "_terminate_model",
+        "_clear_model_routing",
         "_get_model_replica_lock",
         "_iter_active_replica_model_uids",
     ):

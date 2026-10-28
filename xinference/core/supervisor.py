@@ -28,6 +28,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Coroutine,
     DefaultDict,
     Dict,
     Iterator,
@@ -43,6 +44,7 @@ from typing import (
 import xoscar as xo
 
 from ..constants import (
+    XINFERENCE_CANCEL_LAUNCH_TIMEOUT,
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_DOWNLOAD_TASK_DB_PATH,
@@ -239,6 +241,15 @@ class ReplicaInfo:
     active_replica_ids: List[int] = field(default_factory=list)
 
 
+@dataclass
+class InitialModelLaunch:
+    task: asyncio.Task
+    workers: Dict[str, List[xo.ActorRefType["WorkerActor"]]] = field(
+        default_factory=dict
+    )
+    cancelling: bool = False
+
+
 class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     def __init__(
         self,
@@ -308,6 +319,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         # long-running model downloads can starve the actor event loop.
         self._workers_launching: Dict[str, int] = {}  # address -> active launch count
         self._async_launch_tasks: Set[asyncio.Task] = set()
+        self._initial_model_launches: Dict[str, InitialModelLaunch] = {}
         # Active download-only operations, used only for dispatch cancellation.
         # Progress itself is retained by ProgressTrackerActor after completion.
         self._cache_uid_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
@@ -402,6 +414,37 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             lock = asyncio.Lock()
             self._model_replica_locks[model_uid] = lock
         return lock
+
+    async def _run_initial_model_launch(
+        self, model_uid: str, launch: Coroutine[Any, Any, None], wait_ready: bool
+    ) -> None:
+        task = asyncio.create_task(launch)
+        operation = InitialModelLaunch(task)
+        self._initial_model_launches[model_uid] = operation
+
+        def done(completed: asyncio.Task) -> None:
+            if (
+                not operation.cancelling
+                and self._initial_model_launches.get(model_uid) is operation
+            ):
+                self._initial_model_launches.pop(model_uid)
+            self._invalidate_list_models_debounce_cache()
+
+        task.add_done_callback(done)
+        if wait_ready:
+            try:
+                await task
+            except asyncio.CancelledError:
+                if operation.cancelling:
+                    raise RuntimeError(f"Model launch cancelled: {model_uid}") from None
+                raise
+        else:
+            self._async_launch_tasks.add(task)
+            task.add_done_callback(
+                functools.partial(
+                    callback_for_async_launch, self._async_launch_tasks, model_uid
+                )
+            )
 
     def _iter_active_replica_model_uids(self, model_uid: str) -> List[str]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
@@ -3574,6 +3617,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 }
 
             if enable_xavier and rank == 0:
+                self._initial_model_launches[model_uid].workers[_replica_model_uid] = [
+                    worker_ref
+                ]
                 rank0_address, _port = await worker_ref.launch_rank0_model(
                     _replica_model_uid, xavier_config
                 )
@@ -3676,6 +3722,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     replica_kwargs["_xavier_cache_config"].update(
                         source_address=source.address, source_uid=source_uid
                     )
+                self._initial_model_launches[model_uid].workers[_replica_model_uid] = [
+                    worker_ref
+                ]
                 subpool_address = await worker_ref.launch_builtin_model(
                     model_uid=_replica_model_uid,
                     model_name=model_name,
@@ -4068,6 +4117,10 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         idx: cfg.role for idx, cfg in enumerate(replica_config)
                     }
             except (Exception, asyncio.CancelledError):
+                if self._initial_model_launches[model_uid].cancelling:
+                    # The cancellation coordinator owns rollback until every
+                    # launch RPC has settled and every initial replica is gone.
+                    raise
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
                 await self._status_guard_ref.update_instance_info(
@@ -4087,7 +4140,10 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 "The `request_limits` parameter must be greater or equal than 0."
             )
 
-        if model_uid in self._model_uid_to_replica_info:
+        if (
+            model_uid in self._model_uid_to_replica_info
+            or model_uid in self._initial_model_launches
+        ):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
         # Set replica info first for exception handler to terminate model.
         self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
@@ -4105,22 +4161,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             instance_created_ts=int(time.time()),
         )
         await self._status_guard_ref.set_instance_info(model_uid, instance_info)
-        if wait_ready:
-            await _launch_model()
-            self._invalidate_list_models_debounce_cache()
-        else:
-            task = asyncio.create_task(_launch_model())
-            self._async_launch_tasks.add(task)
-            task.add_done_callback(
-                functools.partial(
-                    callback_for_async_launch, self._async_launch_tasks, model_uid
-                )
-            )
-            # Invalidate the debounce cache once the background launch
-            # completes so the newly-ready model appears immediately.
-            task.add_done_callback(
-                lambda _: self._invalidate_list_models_debounce_cache()
-            )
+        await self._run_initial_model_launch(model_uid, _launch_model(), wait_ready)
         return model_uid
 
     @functools.wraps(_launch_builtin_model)
@@ -4251,6 +4292,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 model_type = model_type or "LLM"
 
                 for _, rep_model_uid, replica_gpu_idx, worker_refs in shard_placements:
+                    self._initial_model_launches[model_uid].workers[
+                        rep_model_uid
+                    ] = worker_refs
                     driver_info = None
                     for i_worker, worker_ref in enumerate(worker_refs):
                         if i_worker > 1:
@@ -4295,6 +4339,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     for worker_ref in worker_refs:
                         await worker_ref.wait_for_load(rep_model_uid)
             except (Exception, asyncio.CancelledError):
+                if self._initial_model_launches[model_uid].cancelling:
+                    raise
                 self._replica_model_uid_to_worker.update(pending_shards)
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
@@ -4318,7 +4364,10 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 "The `request_limits` parameter must be greater or equal than 0."
             )
 
-        if model_uid in self._model_uid_to_replica_info:
+        if (
+            model_uid in self._model_uid_to_replica_info
+            or model_uid in self._initial_model_launches
+        ):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
 
         # Set replica info first for exception handler to terminate model.
@@ -4336,20 +4385,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             instance_created_ts=int(time.time()),
         )
         await self._status_guard_ref.set_instance_info(model_uid, instance_info)
-        if wait_ready:
-            await _launch_model()
-            self._invalidate_list_models_debounce_cache()
-        else:
-            task = asyncio.create_task(_launch_model())
-            self._async_launch_tasks.add(task)
-            task.add_done_callback(
-                functools.partial(
-                    callback_for_async_launch, self._async_launch_tasks, model_uid
-                )
-            )
-            task.add_done_callback(
-                lambda _: self._invalidate_list_models_debounce_cache()
-            )
+        await self._run_initial_model_launch(model_uid, _launch_model(), wait_ready)
         return model_uid
 
     async def get_launch_builtin_model_progress(self, model_uid: str) -> float:
@@ -4824,26 +4860,74 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         )
 
     async def cancel_launch_builtin_model(self, model_uid: str):
-        try:
-            info = self._model_uid_to_replica_info[model_uid]
-        except KeyError:
-            raise RuntimeError(f"Model {model_uid} has not been launched yet")
+        operation = self._initial_model_launches.get(model_uid)
+        if operation is None:
+            raise ValueError(f"No initial launch in progress for model {model_uid}")
+        async with self._get_model_replica_lock(model_uid):
+            if self._initial_model_launches.get(model_uid) is not operation or (
+                operation.task.done() and not operation.cancelling
+            ):
+                raise ValueError(f"No initial launch in progress for model {model_uid}")
 
-        coros = []
-        for replica_id in info.active_replica_ids:
-            rep_model_uid = build_replica_model_uid(model_uid, replica_id)
-            worker_refs = self._model_uid_to_replica_info[
-                model_uid
-            ].replica_to_worker_refs[replica_id]
-            for worker_ref in worker_refs:
-                coros.append(worker_ref.cancel_launch_model(rep_model_uid))
-        try:
-            await asyncio.gather(*coros)
-        except RuntimeError:
-            # some may have finished
-            pass
-        # remove replica info
-        self._model_uid_to_replica_info.pop(model_uid, None)
+            async def stop(
+                replica_uid: str, worker: xo.ActorRefType["WorkerActor"]
+            ) -> None:
+                try:
+                    await worker.cancel_launch_model(replica_uid)
+                except RuntimeError:
+                    # Ready replicas and asynchronously loading engines no
+                    # longer have a worker launch guard; terminate them too.
+                    pass
+                await worker.terminate_model(model_uid=replica_uid)
+
+            if not operation.cancelling:
+                operation.cancelling = True
+                # Stop dispatch before asking workers to abort. Worker RPC
+                # cancellation may wait for native loads, so explicitly stop
+                # their pools in parallel to unblock those RPCs.
+                operation.task.cancel()
+            try:
+                await asyncio.gather(
+                    *(
+                        stop(uid, worker)
+                        for uid, workers in operation.workers.items()
+                        for worker in workers
+                    ),
+                    return_exceptions=True,
+                )
+                _, pending = await asyncio.wait(
+                    [operation.task], timeout=XINFERENCE_CANCEL_LAUNCH_TIMEOUT
+                )
+                if pending:
+                    raise RuntimeError(f"Initial launch is still stopping: {model_uid}")
+                await asyncio.gather(operation.task, return_exceptions=True)
+                # A launch RPC can publish its model while cancellation is
+                # being acknowledged. Sweep again after dispatch has drained.
+                results = await asyncio.gather(
+                    *(
+                        worker.terminate_model(model_uid=uid)
+                        for uid, workers in operation.workers.items()
+                        for worker in workers
+                    ),
+                    return_exceptions=True,
+                )
+                for result in results:
+                    if isinstance(result, BaseException):
+                        raise result
+                replica_uids = [
+                    uid for uid in operation.workers if not uid.endswith("-rank0")
+                ]
+                # Rank 0 was stopped above, so distributed actor cleanup must
+                # not try its worker again.
+                self._replica_model_uid_to_worker.pop(model_uid + "-rank0", None)
+                await self._clear_model_routing(model_uid, replica_uids)
+            finally:
+                # Preserve the existing cancelled-launch ERROR record. Keep
+                # ownership on failure so a retry cannot target a new model.
+                await self._status_guard_ref.update_instance_info(
+                    model_uid, {"status": LaunchStatus.ERROR.name}
+                )
+            self._initial_model_launches.pop(model_uid, None)
 
     async def get_instance_info(
         self, model_name: Optional[str], model_uid: Optional[str]
@@ -4851,7 +4935,19 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         infos = await self._status_guard_ref.get_instance_info(
             model_name=model_name, model_uid=model_uid
         )
-        return [info.dict() for info in sorted(infos, key=lambda info: info.model_uid)]
+        result = []
+        for info in sorted(infos, key=lambda info: info.model_uid):
+            operation = self._initial_model_launches.get(info.model_uid)
+            result.append(
+                {
+                    **info.dict(),
+                    "can_cancel_launch": bool(
+                        operation
+                        and (operation.cancelling or not operation.task.done())
+                    ),
+                }
+            )
+        return result
 
     async def _get_replica_runtime_info(
         self, replica_model_uids: Set[str]
@@ -5299,6 +5395,11 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
         async with self._get_model_replica_lock(model_uid):
+            operation = self._initial_model_launches.get(model_uid)
+            if operation is not None and operation.task is not asyncio.current_task():
+                raise ValueError(
+                    "Initial launch is in progress; cancel the launch instead"
+                )
             task = self._model_reload_tasks.pop(model_uid, None)
             if task is not None:
                 # Do not await an actor RPC cancellation: a hung engine cannot
@@ -5326,6 +5427,11 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         if replica_info is None:
             if suppress_exception:
                 return
+            # Launch rollback removes routing but retains the failure details.
+            # Check and remove in one actor call so a new CREATING instance
+            # reusing the UID cannot be removed by a stale failure lookup.
+            if await self._status_guard_ref.remove_failed_instance_info(model_uid):
+                return
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         rep_model_uids = list(self._iter_active_replica_model_uids(model_uid))
@@ -5336,10 +5442,17 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         errors = [r for r in results if isinstance(r, Exception)]
         if errors and not suppress_exception:
             raise errors[0]
+        await self._clear_model_routing(model_uid, rep_model_uids)
+
+    async def _clear_model_routing(
+        self, model_uid: str, rep_model_uids: List[str]
+    ) -> None:
         self._model_uid_to_replica_info.pop(model_uid, None)
         self._model_reload_status.pop(model_uid, None)
         self._clear_unexpected_down_replicas(model_uid)
         for replica_model_uid in rep_model_uids:
+            self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+            self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
             self._clear_replica_model_gpu_memory(replica_model_uid)
         self._invalidate_list_models_debounce_cache()
 
@@ -5531,6 +5644,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         ``worker_address`` for the caller.
         """
         # ---- 1. Look up the model ------------------------------------------------
+        if model_uid in self._initial_model_launches:
+            raise ValueError("Initial launch must finish before adding replicas")
         if model_uid in self._pd_model_mapping:
             raise ValueError(
                 "PD topology cannot be resized in place; terminate and relaunch the model"

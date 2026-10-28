@@ -784,6 +784,21 @@ const en = {
     downloadCompleted: 'Completed',
   },
   runningModels: {
+    statusUnavailable: 'Unable to refresh model status. Retrying...',
+    statuses: {
+      CREATING: 'Starting',
+      LOADING: 'Loading',
+      UPDATING: 'Updating',
+      READY: 'Ready',
+      ERROR: 'Failed',
+      TERMINATING: 'Stopping',
+      TERMINATED: 'Stopped',
+    },
+    cancelLaunch: 'Cancel launch',
+    clearFailedRecord: 'Clear failed record',
+    clearFailedRecordConfirm: 'Clear the failed launch record for model {{modelUid}}?',
+    cancelLaunchConfirm: 'Cancel launch for model {{modelUid}}?',
+    launchFailed: 'Model launch failed. Check the replica errors below.',
     reload: {
       title: 'Reconfigure / upgrade model',
       description: 'Your model keeps serving while the new configuration is prepared.',

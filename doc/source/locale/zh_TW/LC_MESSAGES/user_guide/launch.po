@@ -590,3 +590,11 @@ msgstr "在「執行中的模型」頁面開啟重新設定。"
 #: ../../user_guide/launch.rst:523 ../../user_guide/launch.rst:528
 msgid "Open Reconfigure / upgrade model from the model's detail view."
 msgstr "在模型詳細資訊頁選擇「重新設定 / 升級模型」。"
+
+#: ../../source/user_guide/launch.rst:9
+msgid "On **Running Models**, choose **Clear failed record** to remove a failed launch after its runtime has been cleaned up. You can also use ``DELETE /v1/models/{model_uid}``. This clears the status record and keeps cached model files. With authentication enabled, the operation requires ``models:write`` permission."
+msgstr "在 **執行中模型** 頁面，選擇 **清除失敗記錄**，即可移除執行資源已清理的啟動失敗記錄。也可以呼叫 ``DELETE /v1/models/{model_uid}``。此操作只清除狀態記錄，保留已快取的模型檔案。啟用身分驗證時，需要 ``models:write`` 權限。"
+
+#: ../../source/user_guide/launch.rst:11
+msgid "An initial launch remains cancellable until all its replicas finish, even when some are already ready. **Cancel launch** on **Running Models** calls ``POST /v1/models/{model_uid}/cancel`` to stop pending work and remove replicas created by that launch. ``GET /v1/models/instances`` reports ``can_cancel_launch`` for this operation. Scale-up of an established model does not enable initial-launch cancellation."
+msgstr "首次啟動在所有副本完成前皆可取消，即使部分副本已經就緒。在 **執行中模型** 頁面點選 **取消啟動**，會呼叫 ``POST /v1/models/{model_uid}/cancel``，停止尚未完成的工作，並移除此次啟動建立的副本。``GET /v1/models/instances`` 透過 ``can_cancel_launch`` 標示是否支援此操作。已執行模型的擴容不會啟用首次啟動取消操作。"

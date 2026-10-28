@@ -747,6 +747,21 @@ const zh = {
     downloadCompleted: '已完成',
   },
   runningModels: {
+    statusUnavailable: '暂时无法刷新模型状态，正在重试…',
+    statuses: {
+      CREATING: '启动中',
+      LOADING: '加载中',
+      UPDATING: '更新中',
+      READY: '运行中',
+      ERROR: '失败',
+      TERMINATING: '停止中',
+      TERMINATED: '已停止',
+    },
+    cancelLaunch: '取消启动',
+    clearFailedRecord: '清除失败记录',
+    clearFailedRecordConfirm: '确定清除模型 {{modelUid}} 的启动失败记录？',
+    cancelLaunchConfirm: '确定取消模型 {{modelUid}} 的启动？',
+    launchFailed: '模型启动失败，请查看下方副本的错误信息。',
     reload: {
       title: '重新配置 / 升级模型',
       description: '准备新配置期间，当前引擎继续处理请求。',

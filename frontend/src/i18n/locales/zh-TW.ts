@@ -759,6 +759,21 @@ const zhTW = {
     downloadCompleted: '已完成',
   },
   runningModels: {
+    statusUnavailable: '暫時無法重新整理模型狀態，正在重試…',
+    statuses: {
+      CREATING: '啟動中',
+      LOADING: '載入中',
+      UPDATING: '更新中',
+      READY: '執行中',
+      ERROR: '失敗',
+      TERMINATING: '停止中',
+      TERMINATED: '已停止',
+    },
+    cancelLaunch: '取消啟動',
+    clearFailedRecord: '清除失敗記錄',
+    clearFailedRecordConfirm: '確定清除模型 {{modelUid}} 的啟動失敗記錄？',
+    cancelLaunchConfirm: '確定取消模型 {{modelUid}} 的啟動？',
+    launchFailed: '模型啟動失敗，請查看下方副本的錯誤資訊。',
     reload: {
       title: '重新設定 / 升級模型',
       description: '準備新設定期間，目前的引擎會繼續處理請求。',
