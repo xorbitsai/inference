@@ -3618,9 +3618,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         form = await request.form()
-        timestamp_granularities = form.get("timestamp_granularities[]")
-        if timestamp_granularities:
-            timestamp_granularities = [timestamp_granularities]
+        timestamp_granularities = form.getlist("timestamp_granularities[]") or None
         model_uid = model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("audio")
@@ -3663,9 +3661,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         form = await request.form()
-        timestamp_granularities = form.get("timestamp_granularities[]")
-        if timestamp_granularities:
-            timestamp_granularities = [timestamp_granularities]
+        timestamp_granularities = form.getlist("timestamp_granularities[]") or None
         model_uid = model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("audio")
