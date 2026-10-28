@@ -25,7 +25,7 @@ from transformers import PreTrainedTokenizerFast
 from .. import BUILTIN_LLM_FAMILIES
 from ..mlx.core import MLXChatModel
 from ..sglang.core import SGLANGChatModel
-from ..tool_parsers import TOOL_PARSERS
+from ..transformers.core import PytorchChatModel
 from ..vllm.core import VLLMChatModel
 
 
@@ -55,10 +55,11 @@ def tokenizer():
             "qwen2.5-instruct",
         )
     ]
-    # HuatuoGPT has no built-in MLX spec.
+    # HuatuoGPT and Baichuan-M2 have no built-in MLX spec.
     + [
-        (model_class, "HuatuoGPT-o1-LLaMA-3.1")
+        (model_class, family_name)
         for model_class in (VLLMChatModel, SGLANGChatModel)
+        for family_name in ("HuatuoGPT-o1-LLaMA-3.1", "Baichuan-M2")
     ],
 )
 @pytest.mark.parametrize("tool_choice", ["auto", None, "none", "no-tools"])
@@ -70,7 +71,8 @@ async def test_request_tools_reach_prompt(
     model.model_family = family
     model.model_uid = "tools-prompt-test"
     model.reasoning_parser = None
-    model.tool_parser = TOOL_PARSERS[family.tool_parser]()
+    model.tool_parser = None
+    model.prepare_parse_tool_calls()
     model._model_config = {}
     model._model_generation_config = {}
     model._context_length = 8192
@@ -121,3 +123,33 @@ async def test_request_tools_reach_prompt(
     assert ("Look up the weather for a city." in prompt) is enabled
     assert result["choices"][0]["message"]["content"] == "Hello"
     assert config == original
+
+
+def test_transformers_request_tools_reach_prompt_for_baichuan_m2(tokenizer):
+    # The Transformers adapter forwards tools for the same tool-call family sets.
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "Baichuan-M2")
+    model = object.__new__(PytorchChatModel)
+    model.model_family = family
+    model.reasoning_parser = None
+    model._tokenizer = tokenizer
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "lookup_weather",
+                "description": "Look up the weather for a city.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                },
+            },
+        }
+    ]
+
+    prompt = model._get_full_prompt(
+        [{"role": "user", "content": "What is the weather in Paris?"}], tools, {}
+    )
+
+    assert "What is the weather in Paris?" in prompt
+    assert "lookup_weather" in prompt
+    assert "Look up the weather for a city." in prompt

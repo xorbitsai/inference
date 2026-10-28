@@ -1,3 +1,4 @@
+# CI: linux
 import json
 import re
 
@@ -994,3 +995,122 @@ def test_streaming_long_tool_call_in_small_deltas():
         (None, "write_file", None, 0),
         (None, "write_file", arguments, 0),
     ]
+
+
+def _baichuan_m2():
+    from ...llm_family import BUILTIN_LLM_FAMILIES
+
+    return next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "Baichuan-M2")
+
+
+def test_baichuan_m2_template_tool_calls_parse_with_the_qwen_parser():
+    from types import SimpleNamespace
+
+    from ...utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
+    from .. import TOOL_PARSERS
+
+    family = _baichuan_m2()
+    assert "tools" in family.model_ability
+    assert family.tool_parser == "qwen"
+    assert family.model_name in QWEN_TOOL_CALL_FAMILY
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                },
+            },
+        }
+    ]
+    messages = [
+        {"role": "user", "content": "Weather in Beijing?"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city": "Beijing"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-1", "content": "Sunny"},
+    ]
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name=family.model_name,
+        model_family=None,
+        model_ability=family.model_ability,
+    )
+
+    # The family's own chat template carries the tool definitions and writes a
+    # tool call using the format declared by the template.
+    prompt = mixin.get_full_context(messages, family.chat_template, tools=tools)
+
+    call = (
+        '<tool_call>\n{"name": "get_weather", "arguments": {"city": "Beijing"}}'
+        "\n</tool_call>"
+    )
+    assert f"<tools>\n{json.dumps(tools[0])}\n</tools>" in prompt
+    assert call in prompt
+    assert "<tool_response>\nSunny\n</tool_response>" in prompt
+    parser = TOOL_PARSERS[family.tool_parser]()
+    assert parser.extract_tool_calls(call) == [
+        (None, "get_weather", {"city": "Beijing"})
+    ]
+
+
+def test_baichuan_m2_reasoning_then_tool_call_output():
+    from ...reasoning_parser import ReasoningParser
+    from ...utils import ChatModelMixin
+    from .. import TOOL_PARSERS
+
+    family = _baichuan_m2()
+    mixin = ChatModelMixin()
+    mixin.tool_parser = TOOL_PARSERS[family.tool_parser]()
+    mixin.reasoning_parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag=family.reasoning_start_tag,
+        reasoning_end_tag=family.reasoning_end_tag,
+        enable_thinking=True,
+        auto_insert_start_tag="hybrid" not in family.model_ability,
+    )
+    completion = {
+        "id": "cmpl-1",
+        "object": "text_completion",
+        "created": 0,
+        "model": "Baichuan-M2",
+        "choices": [
+            {
+                "text": (
+                    "<think>\nI need the weather, so I call get_weather.\n</think>\n\n"
+                    '<tool_call>\n{"name": "get_weather", '
+                    '"arguments": {"city": "Beijing"}}\n</tool_call>'
+                ),
+                "index": 0,
+                "logprobs": None,
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+    }
+
+    choice = mixin._post_process_completion(
+        None, model_uid="Baichuan-M2", c=completion
+    )["choices"][0]
+
+    assert choice["finish_reason"] == "tool_calls"
+    assert choice["message"]["reasoning_content"] == (
+        "\nI need the weather, so I call get_weather.\n"
+    )
+    (tool_call,) = choice["message"]["tool_calls"]
+    assert tool_call["function"]["name"] == "get_weather"
+    assert json.loads(tool_call["function"]["arguments"]) == {"city": "Beijing"}
