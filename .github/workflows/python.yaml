@@ -504,6 +504,8 @@ jobs:
             xinference/model/audio/tests/test_funasr_realtime.py
             xinference/model/audio/tests/test_funasr_realtime_probe.py
             xinference/model/audio/tests/test_funasr_realtime_sdk.py
+            xinference/model/llm/tests/test_audio_url.py
+            xinference/model/llm/transformers/tests/test_qwen2_audio.py
             xinference/model/llm/sglang/tests/test_xavier.py
             xinference/model/llm/sglang/tests/test_xavier_pd.py
             xinference/model/llm/sglang/tests/test_pd.py

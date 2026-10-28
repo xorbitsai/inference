@@ -1438,6 +1438,10 @@ class ChatModelMixin:
             "usage": usage,
         }
 
+    @staticmethod
+    def _get_audio_url(audio_url: Union[str, Dict[str, str]]) -> str:
+        return audio_url if isinstance(audio_url, str) else audio_url["url"]
+
     def _transform_messages(
         self,
         messages: Union[List[ChatCompletionMessage], List[dict]],
@@ -1462,7 +1466,10 @@ class ChatModelMixin:
                         )
                     elif "audio_url" in item:
                         new_content.append(
-                            {"type": "audio", "audio": item["audio_url"]["url"]}
+                            {
+                                "type": "audio",
+                                "audio": self._get_audio_url(item["audio_url"]),
+                            }
                         )
                     else:
                         logger.warning(

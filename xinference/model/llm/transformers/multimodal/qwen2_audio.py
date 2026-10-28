@@ -88,8 +88,9 @@ class Qwen2AudioChatModel(PytorchMultiModalModel):
             if isinstance(content, List):
                 for item in content:  # type: ignore
                     if item.get("type") == "audio" and "audio_url" in item:
+                        audio_url = self._get_audio_url(item["audio_url"])
                         audio = librosa.load(
-                            BytesIO(urlopen(item["audio_url"]["url"]).read()),
+                            BytesIO(urlopen(audio_url).read()),
                             sr=self._processor.feature_extractor.sampling_rate,
                         )[0]
                         audios.append(audio)
