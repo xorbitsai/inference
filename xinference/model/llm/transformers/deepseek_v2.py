@@ -74,4 +74,6 @@ class DeepSeekV2PytorchChatModel(PytorchChatModel):
             )
         if "chat" not in llm_family.model_ability:
             return False, "DeepSeek v2 transformer requires chat ability"
+        if "vision" in llm_family.model_ability:
+            return False, "DeepSeek v2 transformer does not support vision models"
         return True

@@ -36,10 +36,7 @@ logger = logging.getLogger(__name__)
 @register_transformer
 @register_non_default_model("ChatGLMModel")
 class Glm4VModel(PytorchMultiModalModel):
-    GLM4V_ARCHITECTURES = {
-        "Glm4vForConditionalGeneration",
-        "Glm4vMoeForConditionalGeneration",
-    }
+    GLM4V_ARCHITECTURES = {"ChatGLMModel"}
 
     @classmethod
     def match_json(
