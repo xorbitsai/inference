@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 # CI: linux
 import asyncio
+from copy import deepcopy
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -1223,14 +1224,35 @@ async def test_nvidia_mlx_rejects_unsupported_launch_before_allocation(
         worker.launch_builtin_model.assert_not_awaited()
 
 
+@pytest.fixture(params=["filesystem", "mooncake"])
+def lmcache_launch_options(request):
+    options = {"cpu_bytes": 8192}
+    if request.param == "filesystem":
+        options.update(disk_bytes=32768, disk_path="/cache")
+    else:
+        options.update(
+            l2_backend="mooncake",
+            storage_bytes=32768,
+            mooncake_config={
+                "local_hostname": "client",
+                "metadata_server": "http://store:18080/metadata",
+                "master_server_addr": "store:15051",
+                "protocol": "tcp",
+                "global_segment_size": "0",
+            },
+        )
+    return options
+
+
 @pytest.mark.asyncio
-async def test_lmcache_backend_launch_config(launch_runtime):
+async def test_lmcache_backend_launch_config(launch_runtime, lmcache_launch_options):
     supervisor, workers, actors, _ = launch_runtime
     kwargs = launch_kwargs()
     kwargs["enable_xavier"] = True
     for replica in kwargs["replica_config"]:
         replica.role = "hybrid"
-    config = {"cpu_bytes": 8192, "disk_bytes": 32768, "disk_path": "/cache"}
+    config = lmcache_launch_options
+    original = deepcopy(config)
     await supervisor.launch_builtin_model(
         **kwargs, xavier_cache_backend="lmcache", xavier_cache_backend_config=config
     )
@@ -1244,7 +1266,7 @@ async def test_lmcache_backend_launch_config(launch_runtime):
         assert "xavier_cache_backend" not in launch
         assert "xavier_cache_backend_config" not in launch
     assert len(namespaces) == 2
-    assert config == {"cpu_bytes": 8192, "disk_bytes": 32768, "disk_path": "/cache"}
+    assert config == original
 
 
 @pytest.mark.asyncio
@@ -1285,15 +1307,15 @@ async def test_lmcache_backend_rejects_unsupported_launch_before_side_effects(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("engine", ["SGLang", "TRT-LLM"])
-async def test_lmcache_shared_actor_launch_and_cleanup(launch_runtime, engine):
+async def test_lmcache_shared_actor_launch_and_cleanup(
+    launch_runtime, engine, lmcache_launch_options
+):
     supervisor, workers, actors, destroy = launch_runtime
     kwargs = launch_kwargs()
     kwargs.update(model_engine=engine, enable_xavier=True)
     for replica in kwargs["replica_config"]:
         replica.role = None
-    options = dict(
-        cpu_bytes=8192, disk_bytes=32768, disk_path="/cache", read_timeout=45
-    )
+    options = {**lmcache_launch_options, "read_timeout": 45}
     await supervisor.launch_builtin_model(
         **kwargs, xavier_cache_backend="lmcache", xavier_cache_backend_config=options
     )
