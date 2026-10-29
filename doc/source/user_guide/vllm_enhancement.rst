@@ -184,7 +184,7 @@ For filesystem storage, the LMCache backend requires multiple ordinary replicas 
 Mooncake Store
 ^^^^^^^^^^^^^^
 
-.. versionadded:: v4.1.0
+.. versionadded:: v4.2.0
 
 Set ``l2_backend="mooncake"`` in ``xavier_cache_backend_config`` to use LMCache's Mooncake Store adapter. The default ``l2_backend="filesystem"`` preserves the disk configuration above. This selects storage for ordinary prefix-cache reuse; P/D transport and supported engine/model combinations remain the same.
 
