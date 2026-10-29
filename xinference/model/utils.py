@@ -1270,6 +1270,27 @@ def resolve_model_uri(model_uri: str, model_name: Optional[str] = None) -> str:
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
 
 
+def link_model_uri(src_root: str, cache_dir: str) -> str:
+    """Link a local model path into the cache and return the path to load.
+
+    Creating a symlink on Windows needs Developer Mode or admin rights; without
+    them, load the model from its local path instead of failing the launch.
+    """
+    try:
+        os.symlink(src_root, cache_dir, target_is_directory=os.path.isdir(src_root))
+    except OSError as e:
+        if os.name != "nt" or getattr(e, "winerror", None) != 1314:
+            raise
+        logger.warning(
+            "Cannot symlink %s to %s (%s); loading the model from its local path.",
+            src_root,
+            cache_dir,
+            e,
+        )
+        return src_root
+    return cache_dir
+
+
 def cache_from_uri(model_spec: CacheableModelSpec) -> str:
     cache_dir = os.path.realpath(
         os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
@@ -1281,8 +1302,7 @@ def cache_from_uri(model_spec: CacheableModelSpec) -> str:
     assert model_spec.model_uri is not None
     src_root = resolve_model_uri(model_spec.model_uri, model_spec.model_name)
     os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
-    os.symlink(src_root, cache_dir, target_is_directory=True)
-    return cache_dir
+    return link_model_uri(src_root, cache_dir)
 
 
 def select_device(device):

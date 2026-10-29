@@ -171,7 +171,7 @@ class LLMCacheManager(CacheManager):
         )
 
     def cache_uri(self) -> str:
-        from ..utils import is_remote_uri, resolve_model_uri
+        from ..utils import is_remote_uri, link_model_uri, resolve_model_uri
 
         cache_dir = self.get_cache_dir()
         assert self._model_uri is not None
@@ -204,8 +204,7 @@ class LLMCacheManager(CacheManager):
         # the parent exists before symlinking to avoid a cryptic
         # ``FileNotFoundError: src -> dst``.
         os.makedirs(os.path.dirname(cache_dir), exist_ok=True)
-        os.symlink(src_root, cache_dir, target_is_directory=True)
-        return cache_dir
+        return link_model_uri(src_root, cache_dir)
 
     def cache_from_huggingface(self) -> str:
         """
