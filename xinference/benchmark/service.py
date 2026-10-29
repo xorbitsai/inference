@@ -9,8 +9,10 @@ import logging
 import os
 import sys
 import uuid
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable, ContextManager, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -18,6 +20,7 @@ from .adapter import RUNNERS
 
 logger = logging.getLogger(__name__)
 ACTIVE_STATES = {"queued", "running"}
+BENCHMARK_TIMEOUT_SECONDS = 3600
 
 
 class BenchmarkConfig(BaseModel):
@@ -113,7 +116,15 @@ class BenchmarkService:
             )
         ]
 
-    def create(self, config, snapshot, endpoint, token):
+    def create(
+        self,
+        config,
+        snapshot,
+        endpoint,
+        token,
+        *,
+        credential_factory: Optional[Callable[[], ContextManager[str]]] = None,
+    ):
         if self._closed:
             raise RuntimeError("Benchmark service is shutting down")
         job_id = uuid.uuid4().hex
@@ -134,19 +145,24 @@ class BenchmarkService:
         }
         self.jobs[job_id] = job
         self._save(job)
-        task = asyncio.create_task(self._execute(job, endpoint, token))
+        task = asyncio.create_task(
+            self._execute(job, endpoint, token, credential_factory)
+        )
         self.tasks[job_id] = task
         task.add_done_callback(lambda _: self.tasks.pop(job_id, None))
         return self.get(job_id)
 
-    async def _execute(self, job, endpoint, token):
+    async def _execute(self, job, endpoint, token, credential_factory=None):
         process = None
         acquired = False
+        credentials = ExitStack()
         try:
             await self._lock.acquire()
             acquired = True
             job.update(state="running", started_at=now())
             self._save(job)
+            if credential_factory is not None:
+                token = credentials.enter_context(credential_factory())
             # Credentials travel only over stdin, never argv or persisted JSON.
             with (self.directory / (job["id"] + ".log")).open("wb") as errors:
                 process = await asyncio.create_subprocess_exec(
@@ -201,7 +217,9 @@ class BenchmarkService:
                         self._save(job)
                     return await process.wait()
 
-                code = await asyncio.wait_for(collect(), timeout=3600)
+                code = await asyncio.wait_for(
+                    collect(), timeout=BENCHMARK_TIMEOUT_SECONDS
+                )
                 if code:
                     raise RuntimeError(
                         job["logs"][-1]
@@ -227,6 +245,7 @@ class BenchmarkService:
                     await process.wait()
             job["finished_at"] = now()
             try:
+                credentials.close()
                 self._save(job)
             finally:
                 if acquired:

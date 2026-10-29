@@ -45,6 +45,7 @@ class RequestOutput:
     error: str = ""
     usage_received: bool = False
     last_token_latency: float = 0.0
+    http_status: int = 0
 
 
 class BenchmarkRunner:
@@ -121,6 +122,7 @@ class BenchmarkRunner:
             async with self._session.post(
                 self.api_url, headers=headers, json=payload
             ) as response:
+                output.http_status = response.status
                 if response.status != 200:
                     raise RuntimeError(
                         f"HTTP {response.status}: {(await response.text())[:1000]}"
@@ -185,6 +187,7 @@ class BenchmarkRunner:
             output.error = str(exc)[:1000]
         if not warming_up:
             self.outputs.append(output)
+        return output
 
     def print_stats(self):
         total_time = self.benchmark_time

@@ -16,7 +16,7 @@ Tests run sequentially in background processes on the API host and send requests
 
 TTFT includes reasoning output. TPOT measures decode time per output token, excluding the first token. ITL measures gaps between streamed chunks, which may contain multiple tokens. The table shows averages and tail percentiles; unavailable measurements appear as a dash. Compare the workload, actual token lengths, runner metric version, and environment snapshots before comparing performance.
 
-With authentication enabled, these endpoints require both ``models:write`` and ``models:read``. Inference uses the initiating credential, which is held in memory and sent to the runner through stdin. It is not saved with results. An expired or revoked credential causes requests to fail. Tests use live serving capacity.
+With authentication enabled, these endpoints require both ``models:write`` and ``models:read``. Jobs receive a temporary credential when execution starts, restricted to the target model's chat and token-count endpoints. It stays in memory, travels to the runner over stdin, and is revoked when execution ends. Session expiry does not interrupt queued or running jobs. Disabling the account, resetting its password, or removing model-management permissions revokes job authorization. HTTP 401/403 aborts the current concurrency point without saving its metrics. Tests use live serving capacity.
 
 The built-in ``xinference`` runner reuses the serving benchmark implementation. Runner adapters expose ``run``, ``cancel``, and ``capabilities``; records retain the runner version and raw request measurements. Additional tools can implement the adapter contract without changing task storage or the results page.
 

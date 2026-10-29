@@ -44,6 +44,15 @@ class StageRunner(ConcurrentBenchmarkRunner):
         self._warmup_requests = warmup_requests
         self._progress = progress
 
+    async def send_request(self, request: tuple, warming_up: bool = False):
+        output = await super().send_request(request, warming_up=warming_up)
+        if output.http_status in (401, 403):
+            raise RuntimeError(
+                f"Benchmark authorization failed (HTTP {output.http_status}); "
+                "the current concurrency point was discarded"
+            )
+        return output
+
     async def warm_up(self, num_requests=5):
         for request in self._warmup_requests:
             await self.send_request(request, warming_up=True)
@@ -56,9 +65,16 @@ class StageRunner(ConcurrentBenchmarkRunner):
                 await self.send_request(request)
                 self._progress(len(self.outputs))
 
-        await asyncio.gather(
-            *(worker() for _ in range(min(self.concurrency, len(self.input_requests))))
-        )
+        workers = [
+            asyncio.create_task(worker())
+            for _ in range(min(self.concurrency, len(self.input_requests)))
+        ]
+        try:
+            await asyncio.gather(*workers)
+        finally:
+            for task in workers:
+                task.cancel()
+            await asyncio.gather(*workers, return_exceptions=True)
 
     def result(self):
         successful = [r for r in self.outputs if r.success]

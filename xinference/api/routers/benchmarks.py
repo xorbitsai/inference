@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, ContextManager, Optional
 
 from fastapi import HTTPException, Request, Security
 
 from ... import __version__
-from ...benchmark.service import BenchmarkConfig, BenchmarkService
+from ...benchmark.service import (
+    BENCHMARK_TIMEOUT_SECONDS,
+    BenchmarkConfig,
+    BenchmarkService,
+)
 from ...constants import XINFERENCE_HOME
 from ...core.exceptions import ModelNotReadyError
 from ..responses import JSONResponse
@@ -35,7 +39,28 @@ def register_routes(api: "RESTfulAPI") -> None:
         return JSONResponse(content=service(api).list())
 
     async def create_benchmark(body: BenchmarkConfig, request: Request) -> JSONResponse:
+        from ..restful_api import _request_credential
+
         api._check_model_access(request, body.model_uid, "LLM")
+        token = _request_credential(request)
+        credential_factory: Optional[Callable[[], ContextManager[str]]] = None
+        if api.is_authenticated():
+            auth = api._advanced_auth_service
+            principal = auth.verify_access_token(token)
+            if principal is None:
+                raise HTTPException(
+                    status_code=401, detail="Invalid benchmark credential"
+                )
+
+            # Capture identity, not the expiring session token. A scoped lease
+            # is created only when this job actually starts and revoked on exit.
+            def acquire_credential():
+                return auth.benchmark_credential(
+                    principal, body.model_uid, BENCHMARK_TIMEOUT_SECONDS + 60
+                )
+
+            credential_factory = acquire_credential
+            token = ""
         supervisor = await api._get_supervisor_ref()
         try:
             model = await supervisor.describe_running_model(body.model_uid)
@@ -111,9 +136,12 @@ def register_routes(api: "RESTfulAPI") -> None:
             host = "127.0.0.1"
         if ":" in host:
             host = f"[{host}]"
-        token = request.headers.get("authorization", "").removeprefix("Bearer ")
         result = service(api).create(
-            body, snapshot, f"http://{host}:{api._port}", token
+            body,
+            snapshot,
+            f"http://{host}:{api._port}",
+            token,
+            credential_factory=credential_factory,
         )
         return JSONResponse(content=result, status_code=201)
 
