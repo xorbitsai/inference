@@ -116,18 +116,56 @@ class WorkerLifecycle:
 
 def spawn_management_task(owner: Any, coroutine: Coroutine[Any, Any, _T]):
     lifecycle = getattr(owner, "_lifecycle", None)
-    return (
+    fence = getattr(owner, "_control_fence", None)
+    original = coroutine
+    if fence is not None:
+        try:
+            command = fence.capture()
+        except RuntimeError:
+            coroutine.close()
+            return None
+
+        async def guarded():
+            with fence.local_scope(command):
+                await fence.checkpoint()
+                return await original
+
+        coroutine = guarded()
+    task = (
         lifecycle.start_background(coroutine)
         if lifecycle
         else asyncio.create_task(coroutine)
     )
+    if fence is not None:
+        if task is None:
+            original.close()
+        else:
+            task.add_done_callback(lambda _: original.close())
+    return task
 
 
 def management_operation(method: Callable) -> Callable:
+    return _management_operation(method, cleanup=False)
+
+
+def management_cleanup(method: Callable) -> Callable:
+    """Cleanup nested in already admitted work; never admit a stale callback."""
+    admitted = _management_operation(method, cleanup=True)
+    setattr(admitted, "_management_cleanup", True)
+    return admitted
+
+
+def _management_operation(method: Callable, *, cleanup: bool) -> Callable:
     if not inspect.iscoroutinefunction(method):
 
         @functools.wraps(method)
         def sync_admitted(self, *args, **kwargs):
+            fence = getattr(self, "_control_fence", None)
+            if fence is not None:
+                if cleanup:
+                    fence.check_cleanup()
+                else:
+                    fence.check_local()
             lifecycle = getattr(self, "_lifecycle", None)
             if lifecycle is None:
                 return method(self, *args, **kwargs)
@@ -139,6 +177,12 @@ def management_operation(method: Callable) -> Callable:
     @functools.wraps(method)
     async def admitted(self, *args, **kwargs):
         lifecycle = getattr(self, "_lifecycle", None)
+        fence = getattr(self, "_control_fence", None)
+        if fence is not None:
+            if cleanup:
+                fence.check_cleanup()
+            else:
+                await fence.checkpoint()
         if lifecycle is None:  # Lightweight actor test doubles have no runtime.
             return await method(self, *args, **kwargs)
         async with lifecycle.operation():

@@ -340,6 +340,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         driver_info: Optional[dict] = None,  # for model across workers
         model_engine: Optional[str] = None,
         model_python_executable: Optional[str] = None,
+        worker_status_token: Optional[str] = None,
     ):
         super().__init__()
         self._generation_python_executable = model_python_executable
@@ -361,6 +362,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         )
         self._worker_ref = None
         self._worker_generation = 0
+        self._worker_status_token = worker_status_token
         self._progress_tracker_ref = None
         self._serve_count = 0
         self._realtime_runtime = None
@@ -874,9 +876,15 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
         async def _report_oom_status():
             worker_ref = await self._get_worker_ref()
-            await worker_ref.update_model_status(
-                self._replica_model_uid, last_error=error_message
-            )
+            token = self.__dict__.get("_worker_status_token")
+            if token is None:
+                await worker_ref.update_model_status(
+                    self._replica_model_uid, last_error=error_message
+                )
+            else:
+                await worker_ref.report_model_oom(
+                    self._replica_model_uid, token, error_message
+                )
 
         try:
             await xo.wait_for(_report_oom_status(), timeout=5)

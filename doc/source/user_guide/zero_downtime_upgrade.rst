@@ -16,6 +16,14 @@ By default, a replacement uses the component's current Python environment. No Py
 
 In local mode, startup still uses an API parent and one shared Supervisor/Worker process. A component moves into a separate process only on its first upgrade; use the same commands and Web UI actions below. The original parent and shared process stay alive as service hosts, so stopping the original local service stops its replacement processes too. If a migrated Worker exits unexpectedly, the API and Supervisor stay available; attach a Worker to restore serving capacity.
 
+.. note::
+
+   An extension can optionally require controller sessions for Worker management RPCs. Callers must attach the versioned session and an operation ID; normal Supervisors do not add them automatically. A newer session is acknowledged only after management work drains, and failed drain keeps old sessions fenced. The provider must validate current authority on every check. Election and endpoint discovery are separate responsibilities. Worker replacement and model reload are rejected in this mode until session/resource transfer is supported. Without a provider, normal upgrade behavior is unchanged.
+
+   Session metadata is also required through same-process ActorRefs. Startup recovery records are retained until an active session is installed. If installation happens during fencing or reconciliation, retry ``install_controller_session`` after activation to resume recovery. Recovery interrupted by a newer session preserves unfinished records.
+
+   Worker-owned crash recovery and pending cache inventory publication acquire active-session admission for new events; already admitted operations keep their original session. Model OOM reports update only diagnostics for the current model incarnation and do not authorize management commands. Admitted termination finishes cleanup of its original model registration before drain completes. Interrupted native faults retain their intent and retry under active-session admission during installation or a later status report. This mechanism covers public management methods; private Python helpers remain internal. Lightweight heartbeats continue before session installation, during draining and after a drain timeout; they never register the Worker or resume recovery. Full status reports and their registration/recovery work still require active-session admission.
+
 Check and install updates
 -------------------------
 

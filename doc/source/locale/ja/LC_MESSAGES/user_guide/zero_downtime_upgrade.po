@@ -596,3 +596,15 @@ msgid ""
 "Check for updates again to confirm that all components report the new "
 "version."
 msgstr "もう一度更新を確認し、すべてのコンポーネントが新しいバージョンを表示していることを確認します。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:21
+msgid "An extension can optionally require controller sessions for Worker management RPCs. Callers must attach the versioned session and an operation ID; normal Supervisors do not add them automatically. A newer session is acknowledged only after management work drains, and failed drain keeps old sessions fenced. The provider must validate current authority on every check. Election and endpoint discovery are separate responsibilities. Worker replacement and model reload are rejected in this mode until session/resource transfer is supported. Without a provider, normal upgrade behavior is unchanged."
+msgstr "拡張機能は、Worker の管理 RPC にコントローラーセッションを要求できます。呼び出し側は、バージョン付きセッションと操作 ID を付加する必要があります。通常の Supervisor はこれらを自動では追加しません。管理処理が完了してから新しいセッションが承認され、処理の完了待ちに失敗しても古いセッションの拒否は維持されます。プロバイダーは検証のたびに現在の権限状態を確認する必要があります。リーダー選出とエンドポイント検出は別の仕組みが担当します。セッションとリソースの移譲がサポートされるまで、このモードでは Worker の置き換えとモデルの再読み込みが拒否されます。プロバイダーがない場合、通常のアップグレード動作は変わりません。"
+
+#: ../../source/user_guide/zero_downtime_upgrade.rst:23
+msgid "Session metadata is also required through same-process ActorRefs. Startup recovery records are retained until an active session is installed. If installation happens during fencing or reconciliation, retry ``install_controller_session`` after activation to resume recovery. Recovery interrupted by a newer session preserves unfinished records."
+msgstr "同一プロセスの ActorRef 経由でもセッション情報が必要です。起動時の復旧記録は、アクティブなセッションがインストールされるまで保持されます。フェンシングまたは調整中にインストールした場合は、有効化後に ``install_controller_session`` を再実行して復旧を再開してください。新しいセッションによって復旧が中断されても、未完了の記録は保持されます。"
+
+#: ../../source/user_guide/zero_downtime_upgrade.rst:25
+msgid "Worker-owned crash recovery and pending cache inventory publication acquire active-session admission for new events; already admitted operations keep their original session. Model OOM reports update only diagnostics for the current model incarnation and do not authorize management commands. Admitted termination finishes cleanup of its original model registration before drain completes. Interrupted native faults retain their intent and retry under active-session admission during installation or a later status report. This mechanism covers public management methods; private Python helpers remain internal. Lightweight heartbeats continue before session installation, during draining and after a drain timeout; they never register the Worker or resume recovery. Full status reports and their registration/recovery work still require active-session admission."
+msgstr "Worker 自身の障害復旧と保留中のキャッシュ一覧の公開は、新しいイベントごとにアクティブなセッションの実行許可を取得します。許可済みの操作は元のセッションを維持します。モデルの OOM 報告は現在のモデルインスタンスの診断情報のみを更新し、管理コマンドを許可するものではありません。 受け入れ済みの終了処理は、ドレインの完了前に元のモデル登録に属するリソースのクリーンアップを完了します。切り替えで中断されたネイティブ障害の処理要求は保持され、セッションのインストール時または後のステータス報告時に、アクティブセッションの許可を得て再試行されます。この仕組みは公開管理メソッドを対象とし、非公開の Python ヘルパーは内部実装に留まります。 軽量ハートビートはセッションのインストール前、ドレイン中、ドレインのタイムアウト後も継続し、Worker の登録や復旧処理は行いません。完全なステータス報告と、それに伴う登録・復旧処理には、引き続きアクティブセッションの許可が必要です。"

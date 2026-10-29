@@ -137,7 +137,7 @@ async def test_mlx_pd_recovery_keeps_bytes_cache_and_registers_replacement(role)
             XavierBytesCacheActor, address=pool.external_address, uid="bytes-cache"
         )
         namespace = (await cache.configure(contract().to_dict()))["namespace"]
-        worker = MagicMock()
+        worker = MagicMock(_control_fence=None)
         supervisor = AsyncMock()
         worker.get_supervisor_ref = AsyncMock(return_value=supervisor)
         worker.launch_builtin_model = AsyncMock(return_value="replacement:1234")
@@ -625,7 +625,7 @@ async def test_nixl_launch_skips_xavier_collectives(launch_runtime):
 async def test_nixl_worker_recovery_refreshes_route_without_collectives():
     from ..worker import WorkerActor
 
-    worker = MagicMock()
+    worker = MagicMock(_control_fence=None)
     supervisor = AsyncMock()
     worker.get_supervisor_ref = AsyncMock(return_value=supervisor)
     worker.launch_builtin_model = AsyncMock(return_value="new:1234")
@@ -689,6 +689,7 @@ async def test_nixl_startup_replay_is_skipped_and_removed(tmp_path):
     worker._supervisor_ref = AsyncMock()
     worker._supervisor_ref.describe_model.return_value = {"model_name": "still-running"}
     worker._model_uid_to_launch_args = {}
+    worker._pending_recovery_launch_args = {}
     worker.launch_builtin_model = AsyncMock()
     worker.wait_for_load = AsyncMock()
     (tmp_path / "models.json").write_text(
@@ -806,7 +807,7 @@ async def test_sglang_recovery_replaces_registered_gpu_peer_and_invalidates_room
         await directory.prepare(2, "ns", "other", role, 1)
         with pytest.raises(ValueError, match="restarted"):
             await directory.register_peer(0, "new:1234")
-        worker = MagicMock()
+        worker = MagicMock(_control_fence=None)
         supervisor = AsyncMock()
         worker.get_supervisor_ref = AsyncMock(return_value=supervisor)
 
