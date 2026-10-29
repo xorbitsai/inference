@@ -225,13 +225,6 @@ export function Sidebar() {
             Extra: ChevronRight,
           },
           {
-            path: '/benchmarks',
-            name: t('benchmarks.title'),
-            Icon: Activity,
-            Extra: ChevronRight,
-            show: canWriteModels && hasModelsRead,
-          },
-          {
             path: '/token-router',
             name: t('menu.tokenRouter'),
             Icon: Route,
@@ -256,6 +249,13 @@ export function Sidebar() {
               clusterAuth?.auth === false ||
               !clusterUIConfig?.auth_advanced ||
               canAccessCacheManagement,
+          },
+          {
+            path: '/benchmarks',
+            name: t('benchmarks.title'),
+            Icon: Activity,
+            Extra: ChevronRight,
+            show: canWriteModels && hasModelsRead,
           },
         ],
       },
