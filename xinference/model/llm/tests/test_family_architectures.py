@@ -106,3 +106,61 @@ def test_custom_parent_lookup_reflects_registry_changes(monkeypatch):
     assert child.has_architecture("CustomForCausalLM")
     families.clear()
     assert child._resolve_architectures() is None
+
+
+@pytest.mark.parametrize("registered_parent", [False, True])
+def test_registration_can_resolve_custom_architectures(monkeypatch, registered_parent):
+    from ... import llm
+    from ...custom import RegistryManager
+    from ..llm_family import LlamaCppLLMSpecV2
+
+    monkeypatch.setattr(custom, "UD_LLM_FAMILIES", [])
+    monkeypatch.setattr(llm_family, "BUILTIN_LLM_FAMILIES", [])
+    registry = custom.LLMModelRegistry()
+    monkeypatch.setattr(RegistryManager, "_instances", {"llm": registry})
+
+    class BoundedLock:
+        # Preserve the registry's real lock semantics, but fail instead of
+        # hanging the entire test process when registration re-enters it.
+        def __init__(self, lock):
+            self.lock = lock
+
+        def __enter__(self):
+            assert self.lock.acquire(timeout=1), "registry lookup deadlocked"
+
+        def __exit__(self, *_):
+            self.lock.release()
+
+    registry.lock = BoundedLock(registry.lock)
+    expected = ["CustomForCausalLM"] if registered_parent else None
+    checked = []
+
+    class MatchingEngine:
+        @classmethod
+        def match(cls, family, spec, quantization):
+            checked.append(family.model_name)
+            assert family._resolve_architectures() == expected
+            return family.has_architecture("CustomForCausalLM")
+
+    engines = {}
+    monkeypatch.setattr(llm, "SUPPORTED_ENGINES", {"llama.cpp": [MatchingEngine]})
+    monkeypatch.setattr(llm, "LLM_ENGINES", engines)
+    if registered_parent:
+        custom.register_llm(
+            _family("custom-parent", architectures=expected), persist=False
+        )
+
+    child = _family("custom-child", parent="custom-parent")
+    child.model_specs = [
+        LlamaCppLLMSpecV2(
+            model_format="ggufv2",
+            model_size_in_billions=1,
+            quantization="Q4_0",
+            model_file_name_template="unused.gguf",
+        )
+    ]
+    custom.register_llm(child, persist=False)
+
+    assert checked == ["custom-child"]
+    assert ("llama.cpp" in engines["custom-child"]) is registered_parent
+    assert registry.get_custom_models()[-1] is child
