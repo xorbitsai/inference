@@ -2,6 +2,7 @@
 
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Activity,
   Loader2,
   Ban,
   MousePointerClick,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { ModelAbility } from '@/constants';
 import { toast } from 'sonner';
 import PageContainer from '@/components/ui/page-container';
 import { Input } from '@/components/ui/input';
@@ -251,7 +253,8 @@ const RunningModel = () => {
   const { t } = useI18n();
   const router = useRouter();
   const { clusterAuth } = useGlobal();
-  const { isAdmin, hasRouterRead, canAccessRouterPage, canWriteModels } = useMenuAuth();
+  const { isAdmin, hasRouterRead, canAccessRouterPage, canWriteModels, hasModelsRead } =
+    useMenuAuth();
   const canReadRouterRuntime = clusterAuth?.auth === false || hasRouterRead;
   const canManageRouter = clusterAuth?.auth === false || canAccessRouterPage;
   const { models, loading, refreshFailed, refresh: fetchModels } = useModelInstances();
@@ -697,6 +700,24 @@ const RunningModel = () => {
                 </Button>
               </InfoTooltip>
             )}
+            {activeModelReady &&
+              activeModel.model_type === 'LLM' &&
+              activeModel.model_ability?.includes(ModelAbility.Chat) &&
+              canWriteModels &&
+              hasModelsRead && (
+                <InfoTooltip content={t('benchmarks.title')}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label={t('benchmarks.title')}
+                    onClick={() =>
+                      router.push(`/benchmarks?model=${encodeURIComponent(activeModel.id)}`)
+                    }
+                  >
+                    <Activity />
+                  </Button>
+                </InfoTooltip>
+              )}
             {activeModelReady && (
               <InfoTooltip content={t('runningModels.tryApi')}>
                 <Button

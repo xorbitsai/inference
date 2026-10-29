@@ -1,0 +1,122 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"PO-Revision-Date: 2026-10-29 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: ko\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: user_guide/benchmarks.rst
+msgid "Model performance tests"
+msgstr "모델 성능 테스트"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Open **Performance Tests**, select a running chat model, and start a test. "
+"You can also open this page from the performance-test button on a running "
+"model. Select history records to compare results, or export a record as "
+"JSON."
+msgstr ""
+"**성능 테스트** 를 열어 실행 중인 채팅 모델을 선택하고 테스트를 시작하세요. 실행 중인 모델의 성능 테스트 버튼으로도 이동할 수 "
+"있습니다. 기록을 선택하여 결과를 비교하거나 JSON으로 내보낼 수 있습니다."
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Configure the approximate input token target, maximum output tokens, comma-"
+"separated concurrency points, requests per point, warmup requests, and "
+"random seed. When a separate token-count endpoint is unavailable, "
+"calibration uses single-token chat requests and their prompt usage; these "
+"probes are excluded from measurements. Actual input and output lengths come "
+"from response usage; models may stop before the output limit. Warmup is "
+"excluded, and each concurrency point uses independent synthetic prompts. "
+"Server caches are not flushed."
+msgstr ""
+"근사 입력 토큰 목표, 최대 출력 토큰 수, 쉼표로 구분한 동시 요청 수, 단계별 요청 수, 워밍업 수와 난수 시드를 설정합니다. 별도 "
+"토큰 계산 API를 사용할 수 없으면 단일 토큰 채팅 요청의 입력 usage로 보정하며 이 준비 요청은 측정에서 제외합니다. 실제 길이는"
+" 응답 usage에서 가져오며 출력은 한도보다 일찍 끝날 수 있습니다. 워밍업은 제외하고 단계마다 독립된 합성 프롬프트를 사용합니다. "
+"서버 캐시는 비우지 않습니다."
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Tests run sequentially in background processes on the API host and send "
+"requests through the Xinference chat API, including its replica routing. "
+"Closing the page does not stop a test. Stop a task before deleting it. "
+"Results, logs, and configuration snapshots are saved under "
+"``XINFERENCE_HOME/benchmarks``. Restarting the API server interrupts active "
+"tasks and preserves their history."
+msgstr ""
+"테스트는 API 호스트의 백그라운드 프로세스에서 순서대로 실행되며 복제본 라우팅을 포함한 Xinference 채팅 API로 요청을 "
+"보냅니다. 페이지를 닫아도 계속됩니다. 삭제 전에 작업을 중지하세요. 결과, 로그와 설정 스냅샷은 "
+"``XINFERENCE_HOME/benchmarks`` 에 저장됩니다. API 서버를 다시 시작하면 활성 작업은 중단되고 기록은 "
+"유지됩니다."
+
+#: user_guide/benchmarks.rst
+msgid ""
+"TTFT includes reasoning output. TPOT measures decode time per output token, "
+"excluding the first token. ITL measures gaps between streamed chunks, which "
+"may contain multiple tokens. The table shows averages and tail percentiles; "
+"unavailable measurements appear as a dash. Compare the workload, actual "
+"token lengths, runner metric version, and environment snapshots before "
+"comparing performance."
+msgstr ""
+"TTFT에는 추론 출력이 포함됩니다. TPOT는 첫 토큰을 제외한 출력 토큰당 디코딩 시간입니다. ITL은 여러 토큰을 포함할 수 있는 "
+"스트리밍 청크 사이의 간격입니다. 표에는 평균과 꼬리 백분위수를 표시하며 측정 불가 지표는 대시로 표시합니다. 성능 비교 전에 워크로드,"
+" 실제 토큰 길이, runner 지표 버전과 환경을 확인하세요."
+
+#: user_guide/benchmarks.rst
+msgid ""
+"With authentication enabled, these endpoints require both ``models:write`` "
+"and ``models:read``. Jobs receive a temporary credential when execution "
+"starts, restricted to the target model's chat and token-count endpoints. It "
+"stays in memory, travels to the runner over stdin, and is revoked when "
+"execution ends. Session expiry does not interrupt queued or running jobs. "
+"Disabling the account, resetting its password, or removing model-management "
+"permissions revokes job authorization. HTTP 401/403 aborts the current "
+"concurrency point without saving its metrics. Tests use live serving "
+"capacity."
+msgstr ""
+"인증이 활성화된 경우 이 엔드포인트에는 ``models:write`` 및 ``models:read`` 권한이 모두 필요합니다. 작업은 "
+"실행 시작 시 대상 모델의 채팅 및 토큰 계산 엔드포인트로 제한된 임시 자격 증명을 받습니다. 자격 증명은 메모리에만 유지되고 "
+"stdin을 통해 runner에 전달되며 실행 종료 시 폐기됩니다. 세션이 만료되어도 대기 중이거나 실행 중인 작업은 중단되지 않습니다."
+" 계정을 비활성화하거나 비밀번호를 재설정하거나 모델 관리 권한을 제거하면 작업의 인가가 취소됩니다. HTTP 401/403이 반환되면 "
+"현재 동시성 지점의 측정을 중단하고 해당 지표를 저장하지 않습니다. 테스트는 실제 서비스 용량을 사용합니다."
+
+#: user_guide/benchmarks.rst
+msgid ""
+"The built-in ``xinference`` runner reuses the serving benchmark "
+"implementation. Runner adapters expose ``run``, ``cancel``, and "
+"``capabilities``; records retain the runner version and raw request "
+"measurements. Additional tools can implement the adapter contract without "
+"changing task storage or the results page."
+msgstr ""
+"내장 ``xinference`` runner는 서비스 부하 테스트 구현을 재사용합니다. 어댑터는 ``run``, ``cancel``, "
+"``capabilities`` 를 제공하며 기록은 runner 버전과 원시 요청 측정값을 유지합니다. 다른 도구도 이 계약을 구현하여 "
+"작업 저장소와 결과 페이지를 재사용할 수 있습니다."
+
+#: user_guide/benchmarks.rst
+msgid "API example::"
+msgstr "API 예제::"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Each test displays output throughput, TTFT, and TPOT curves against "
+"concurrency. Use Latency statistic to switch the latency charts between "
+"mean, P95, and P99. Selected history records are overlaid with matching "
+"colors across charts. Points represent measurements; missing values stay "
+"blank. A notice identifies different workloads or runner metric versions."
+msgstr ""
+"각 테스트는 동시 요청 수에 따른 출력 처리량, TTFT, TPOT 곡선을 표시합니다. 지연 통계에서 평균, P95, P99를 전환할 수"
+" 있습니다. 선택한 기록은 모든 차트에서 동일한 색상으로 겹쳐 표시됩니다. 점은 측정값이며 없는 지표는 비워 둡니다. 워크로드 또는 "
+"Runner 지표 버전이 다르면 알림이 표시됩니다."
+
+#: user_guide/benchmarks.rst
+msgid "Configure a benchmark for a running chat model."
+msgstr "실행 중인 채팅 모델의 벤치마크를 구성합니다."
+
+#: user_guide/benchmarks.rst
+msgid "Compare saved runs with throughput and P99 latency curves."
+msgstr "처리량 및 P99 지연 시간 곡선으로 저장된 실행 결과를 비교합니다."

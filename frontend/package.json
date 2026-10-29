@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "format": "prettier . --write",
+    "test:benchmarks": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/benchmarks/benchmarks.integration.test.tsx",
     "test:address-utils": "node --test src/components/pages/running-model/address-utils.test.mjs",
     "test:permissions": "node --require ./scripts/register-test-typescript.cjs --test src/contexts/global-permissions.integration.test.tsx",
     "test:catalog-refresh": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/launch-model/catalog-refresh.integration.test.tsx",

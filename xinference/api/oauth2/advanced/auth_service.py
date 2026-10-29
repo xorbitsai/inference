@@ -16,8 +16,10 @@ import logging
 import os
 import re
 import secrets
+import time
+from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
@@ -144,6 +146,7 @@ class AdvancedAuthService:
         self._jwt_secret_key = jwt_secret_key
         self._encryption_key = derive_encryption_key(encryption_key)
         self._cache = ApiKeyCache(self._db, enabled=api_key_cache_enabled)
+        self._benchmark_credentials: Dict[str, Dict[str, Any]] = {}
         self._db.get_or_create_setup_token()
 
         try:
@@ -331,6 +334,52 @@ class AdvancedAuthService:
             return None
         return entry
 
+    # --- Benchmark credential leases ---
+
+    def _benchmark_user(self, credential: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        user = self._db.get_user_by_id(credential["user_id"])
+        if (
+            time.monotonic() >= credential["expires_at"]
+            or not user
+            or not user["enabled"]
+            or user.get("must_change_password")
+            or self._db.get_user_token_version(credential["user_id"])
+            != credential["token_version"]
+        ):
+            return None
+        scopes = _normalize_scopes(user.get("permissions", []))
+        if "admin" not in scopes and not {"models:read", "models:write"}.issubset(
+            scopes
+        ):
+            return None
+        return user
+
+    @contextmanager
+    def benchmark_credential(
+        self, principal: Dict[str, Any], model_uid: str, duration: float
+    ) -> Iterator[str]:
+        """Lease an in-memory, model-bound credential after a job leaves the queue.
+
+        The caller was authenticated on submission. Session expiry does not
+        revoke queued work, but account/password/permission changes still do.
+        This credential cannot authenticate management routes or mint a session.
+        """
+        credential = {
+            "user_id": principal["user_id"],
+            "token_version": principal.get("token_version", 0),
+            "model_uid": model_uid,
+            "expires_at": time.monotonic() + duration,
+        }
+        if self._benchmark_user(credential) is None:
+            raise RuntimeError("Benchmark authorization was revoked before execution")
+        token = "xf-benchmark-" + secrets.token_urlsafe(32)
+        token_hash = sha256_hex(token)
+        self._benchmark_credentials[token_hash] = credential
+        try:
+            yield token
+        finally:
+            self._benchmark_credentials.pop(token_hash, None)
+
     # --- API Key CRUD ---
 
     def create_api_key_for_user(
@@ -509,6 +558,20 @@ class AdvancedAuthService:
 
         # Look up key in cache (including disabled/expired) for proper (IP, Key) ban handling
         _key_hash = sha256_hex(token)
+        benchmark = self._benchmark_credentials.get(_key_hash)
+        if benchmark is not None:
+            user = self._benchmark_user(benchmark)
+            if (
+                user is None
+                or request.method != "POST"
+                or get_request_route_path(request)
+                not in {"/v1/chat/completions", "/v1/messages/count_tokens"}
+                or any(scope != "models:read" for scope in security_scopes.scopes)
+            ):
+                _audit("invalid_benchmark_credential", auth_type="benchmark")
+                raise credentials_exception
+            _set_audit_identity(user=user["username"], auth_type="benchmark")
+            return user
         api_key_entry, user_obj = self._cache.get_with_user(_key_hash)
         if api_key_entry:
             _username = user_obj["username"] if user_obj else ""
@@ -704,6 +767,13 @@ class AdvancedAuthService:
     def validate_model_access(
         self, token: str, model_uid: str, model_type: Optional[str] = None
     ) -> bool:
+        benchmark = self._benchmark_credentials.get(sha256_hex(token))
+        if benchmark is not None:
+            return (
+                self._benchmark_user(benchmark) is not None
+                and benchmark["model_uid"] == model_uid
+                and model_type in (None, "LLM")
+            )
         api_key_entry = self.validate_api_key(token)
         if api_key_entry:
             return api_key_entry.has_model_access(model_uid, model_type)

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { FaGithub } from 'react-icons/fa';
 import {
+  Activity,
   Box,
   Layers,
   ChevronLeft,
@@ -160,6 +161,8 @@ export function Sidebar() {
   const { clusterVersion, clusterAuth, clusterUIConfig, globalReady } = useGlobal();
   const {
     isAdmin,
+    canWriteModels,
+    hasModelsRead,
     usersManagePage,
     canAccessKeysPage,
     hasLogsList,
@@ -246,6 +249,13 @@ export function Sidebar() {
               clusterAuth?.auth === false ||
               !clusterUIConfig?.auth_advanced ||
               canAccessCacheManagement,
+          },
+          {
+            path: '/benchmarks',
+            name: t('benchmarks.title'),
+            Icon: Activity,
+            Extra: ChevronRight,
+            show: canWriteModels && hasModelsRead,
           },
         ],
       },
@@ -379,6 +389,8 @@ export function Sidebar() {
     usersManagePage,
     canAccessKeysPage,
     isAdmin,
+    canWriteModels,
+    hasModelsRead,
     hasLogsList,
     hasMonitorView,
     hasSettingsRead,
