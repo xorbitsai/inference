@@ -120,3 +120,7 @@ msgstr "実行中のチャットモデルのベンチマークを設定します
 #: user_guide/benchmarks.rst
 msgid "Compare saved runs with throughput and P99 latency curves."
 msgstr "保存済みの実行結果をスループットと P99 レイテンシの曲線で比較します。"
+
+#: user_guide/benchmarks.rst
+msgid "Benchmark tests can be started from the Web UI."
+msgstr "Web UI からベンチマークテストを開始できるようになりました。"

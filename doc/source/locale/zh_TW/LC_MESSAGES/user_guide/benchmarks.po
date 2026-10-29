@@ -113,3 +113,7 @@ msgstr "為執行中的對話模型設定效能測試。"
 #: user_guide/benchmarks.rst
 msgid "Compare saved runs with throughput and P99 latency curves."
 msgstr "透過吞吐量與 P99 延遲曲線比較已儲存的測試結果。"
+
+#: user_guide/benchmarks.rst
+msgid "Benchmark tests can be started from the Web UI."
+msgstr "支援從 Web UI 發起 benchmark 測試。"

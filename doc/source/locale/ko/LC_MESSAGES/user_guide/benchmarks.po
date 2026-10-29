@@ -120,3 +120,7 @@ msgstr "실행 중인 채팅 모델의 벤치마크를 구성합니다."
 #: user_guide/benchmarks.rst
 msgid "Compare saved runs with throughput and P99 latency curves."
 msgstr "처리량 및 P99 지연 시간 곡선으로 저장된 실행 결과를 비교합니다."
+
+#: user_guide/benchmarks.rst
+msgid "Benchmark tests can be started from the Web UI."
+msgstr "Web UI에서 벤치마크 테스트를 시작할 수 있습니다."

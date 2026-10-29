@@ -141,3 +141,7 @@ msgstr "Configure um benchmark para um modelo de chat em execução."
 msgid "Compare saved runs with throughput and P99 latency curves."
 msgstr ""
 "Compare execuções salvas com curvas de taxa de transferência e latência P99."
+
+#: user_guide/benchmarks.rst
+msgid "Benchmark tests can be started from the Web UI."
+msgstr "Os testes de benchmark podem ser iniciados pela interface Web."
