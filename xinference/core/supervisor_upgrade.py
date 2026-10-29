@@ -24,6 +24,7 @@ INFERENCE_READS = {
     "describe_running_model",
     "get_model_status",
     "list_models",
+    "list_virtual_models",
     "resolve_token_router_runtime",
     "get_token_router_config_after",
 }

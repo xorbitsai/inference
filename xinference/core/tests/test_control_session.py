@@ -1661,3 +1661,87 @@ async def test_startup_recovery_waits_for_explicit_active_session(
         await pool.stop()
         pool._actors.clear()
         Router.set_instance(None)
+
+
+@pytest.mark.asyncio
+async def test_ready_registration_recovers_persisted_models_after_releasing_lock(
+    tmp_path, monkeypatch
+):
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    worker = None
+    try:
+        worker, authority = make_launch_worker(pool, tmp_path, monkeypatch)
+        saved = {"counter-rep0": counter_launch_args()}
+        path = tmp_path / "models.json"
+        path.write_text(json.dumps(saved))
+        supervisor = worker._supervisor_ref
+        # Registration can remove the last live route. Recovery still consults
+        # the real Supervisor's retained unexpected-loss record, not inference.
+        live = SupervisorActor()
+        live._unexpected_down_replicas[("counter", 0)] = "counter"
+        from ..supervisor_control import SupervisorControl
+
+        provider = SimpleNamespace(session=authority.owner, validate=authority.validate)
+        live._controller_control = SupervisorControl(live, provider)
+        live._controller_control.fence.ready = True
+        live._controller_control.has_served = True
+        supervisor.describe_model = live.describe_model
+        supervisor.can_recover_model = live.can_recover_model
+        worker._supervisor_init_lock = asyncio.Lock()
+        monkeypatch.setattr(worker, "_start_metrics_service", lambda: None)
+        monkeypatch.setattr(worker, "_cleanup_gpu_orphans_on_startup", AsyncMock())
+        monkeypatch.setattr(worker_module, "purge_dir", lambda *args: None)
+        monkeypatch.setattr(worker_module, "XINFERENCE_DISABLE_HEALTH_CHECK", True)
+        monkeypatch.setattr(
+            asyncio.get_running_loop(), "add_signal_handler", lambda *args: None
+        )
+
+        async def connect(add_worker):
+            if not worker._registered:
+                async with worker._supervisor_init_lock:
+                    await worker.install_controller_session(authority.owner.to_dict())
+                    assert not worker._pending_recovery_launch_args
+                    worker._registered = True
+            return supervisor, 1
+
+        monkeypatch.setattr(worker, "_get_supervisor_ref_with_generation", connect)
+        await asyncio.wait_for(worker._activate_worker(recover=True), 15)
+        assert not worker._pending_recovery_launch_args
+        assert worker._model_uid_to_model_status["counter-rep0"].model_state == "ready"
+        assert "counter-rep0" in json.loads(path.read_text())
+        await worker.terminate_model(
+            "counter-rep0",
+            True,
+            **{CONTROL_CONTEXT_KEY: command(authority.owner).to_dict()},
+        )
+    finally:
+        if worker is not None:
+            worker._lifecycle.stop_background()
+        await pool.stop()
+        pool._actors.clear()
+        Router.set_instance(None)
+
+
+@pytest.mark.asyncio
+async def test_fenced_description_keeps_recovery_intent_for_retry(
+    tmp_path, monkeypatch
+):
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        worker, authority = make_launch_worker(pool, tmp_path, monkeypatch)
+        saved = {"counter-rep0": counter_launch_args()}
+        path = tmp_path / "models.json"
+        path.write_text(json.dumps(saved))
+        worker._pending_recovery_launch_args = saved.copy()
+        await worker._control_fence.install(authority.owner, 1)
+        worker._supervisor_ref.describe_model.side_effect = ControlSessionRejected(
+            "fence_pending"
+        )
+        await worker._resume_pending_recovery()
+        assert worker._pending_recovery_launch_args == saved
+        assert json.loads(path.read_text()) == saved
+        assert not pool.sub_processes
+    finally:
+        await pool.stop()
+        pool._actors.clear()
+        Router.set_instance(None)

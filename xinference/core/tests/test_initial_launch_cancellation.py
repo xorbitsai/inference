@@ -4,7 +4,7 @@
 
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -39,7 +39,7 @@ class _Worker:
         self.launching.discard(model_uid)
         return "subpool"
 
-    async def wait_for_load(self, model_uid):
+    async def wait_for_load(self, model_uid, **kwargs):
         if self.stage == "load":
             self.entered.set()
             try:
@@ -107,6 +107,176 @@ def runtime():
         ],
     )
     return supervisor, guard, workers, kwargs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["success", "failure", "cancel", "resume_failure"])
+async def test_initial_resume_keeps_public_calls_closed_until_activation_commits(
+    runtime, monkeypatch, outcome
+):
+    from ..control_session import ControlSessionRejected
+    from ..supervisor_control import SupervisorControl, SupervisorControlPort
+    from .test_control_session import session
+    from .test_supervisor_control import Provider
+
+    supervisor, _, workers, kwargs = runtime
+    state = SimpleNamespace(owner=session(), phase="active", failed=False)
+    control = SupervisorControl(supervisor, Provider(state, state.owner))
+    supervisor._controller_control = control
+    supervisor._control_fence = control.fence
+    supervisor._standby = True
+    supervisor._schedule_autostart = Mock()
+    supervisor._relaunch_manager = Mock()
+    supervisor.list_models = AsyncMock(return_value={"existing-model": {}})
+    monkeypatch.setattr(
+        "xinference.core.supervisor.XINFERENCE_DISABLE_HEALTH_CHECK", True
+    )
+    for worker in workers:
+        worker.uid = b"worker"
+        worker.stage = "dispatch"
+        worker.launch_builtin_model = AsyncMock(side_effect=worker.launch_builtin_model)
+    refs = [control.worker(worker) for worker in workers]
+    supervisor._worker_address_to_worker = {ref.address: ref for ref in refs}
+    supervisor._resolve_replica_config.return_value = (
+        [(ref, None, None) for ref in refs],
+        {},
+    )
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def prepare(*args):
+        entered.set()
+        await release.wait()
+        if outcome == "failure":
+            raise RuntimeError("cache tracker unavailable")
+
+    supervisor._cache_tracker_ref = SimpleNamespace(
+        record_model_version=AsyncMock(side_effect=prepare)
+    )
+    if outcome == "resume_failure":
+        supervisor._upgrade_state.resume = Mock(
+            side_effect=RuntimeError("resume failed")
+        )
+    port = SupervisorControlPort(supervisor)
+    await port.pause(1)
+    resuming = asyncio.create_task(port.resume())
+    launch = None
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        read = (await asyncio.gather(supervisor.list_models(), return_exceptions=True))[
+            0
+        ]
+        request = (
+            await asyncio.gather(
+                supervisor.launch_builtin_model(**kwargs, wait_ready=False),
+                return_exceptions=True,
+            )
+        )[0]
+        if not isinstance(request, ControlSessionRejected):
+            launch = supervisor._initial_model_launches["demo"].task
+            await asyncio.wait_for(
+                asyncio.gather(*(w.entered.wait() for w in workers)), 2
+            )
+        if outcome == "cancel":
+            resuming.cancel()
+        else:
+            release.set()
+        result = (await asyncio.gather(resuming, return_exceptions=True))[0]
+        for worker in workers:
+            worker.release.set()
+        if launch is not None:
+            await asyncio.gather(launch, return_exceptions=True)
+        assert isinstance(read, ControlSessionRejected)
+        assert isinstance(request, ControlSessionRejected)
+        for worker in workers:
+            worker.launch_builtin_model.assert_not_awaited()
+            assert not worker.models and not worker.launching
+        assert not supervisor._initial_model_launches
+        assert not supervisor._model_uid_to_replica_info
+        assert not supervisor._replica_model_uid_to_worker
+        if outcome == "success":
+            assert result["ready"] and control.has_served
+            assert await supervisor.launch_builtin_model(**kwargs) == "demo"
+            assert all(worker.models for worker in workers)
+            await port.pause(1)
+            assert await supervisor.list_models() == {"existing-model": {}}
+            with pytest.raises(ControlSessionRejected):
+                await supervisor.launch_builtin_model(**kwargs, wait_ready=False)
+        else:
+            assert isinstance(
+                result, asyncio.CancelledError if outcome == "cancel" else RuntimeError
+            )
+            assert not control.ready and not control.has_served
+    finally:
+        release.set()
+        for worker in workers:
+            worker.release.set()
+        resuming.cancel()
+        await asyncio.gather(
+            resuming, *([launch] if launch else []), return_exceptions=True
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wait_ready", [False, True])
+@pytest.mark.parametrize("load_fails", [False, True])
+async def test_control_pause_rejects_busy_spawned_launch_before_closing_admission(
+    runtime, wait_ready, load_fails
+):
+    from ..supervisor_control import SupervisorControl, SupervisorControlPort
+    from .test_control_session import session
+    from .test_supervisor_control import Provider
+
+    supervisor, guard, workers, kwargs = runtime
+    state = SimpleNamespace(owner=session(), phase="active", failed=False)
+    control = SupervisorControl(supervisor, Provider(state, state.owner))
+    supervisor._controller_control = control
+    supervisor._control_fence = control.fence
+    control.fence.ready = control.has_served = True
+    for worker in workers:
+        worker.uid = b"worker"
+    refs = [control.worker(worker) for worker in workers]
+    supervisor._worker_address_to_worker = {ref.address: ref for ref in refs}
+    supervisor._resolve_replica_config.return_value = (
+        [(ref, None, None) for ref in refs],
+        {},
+    )
+    workers[1].stage = "dispatch"
+    if load_fails:
+        workers[1].wait_for_load = AsyncMock(side_effect=RuntimeError("load failed"))
+    request = asyncio.create_task(
+        supervisor.launch_builtin_model(**kwargs, wait_ready=wait_ready)
+    )
+    launch = None
+    try:
+        await asyncio.wait_for(workers[1].entered.wait(), 2)
+        launch = supervisor._initial_model_launches["demo"].task
+        # This is the real create_task/gather launch path, with the Worker RPC
+        # still suspended. A rejected pause must not fence readiness or rollback.
+        with pytest.raises(RuntimeError, match="active"):
+            await SupervisorControlPort(supervisor).pause(0.2)
+        assert control.ready
+        workers[1].release.set()
+        results = await asyncio.gather(request, launch, return_exceptions=True)
+        assert not supervisor._initial_model_launches
+        assert not supervisor._workers_launching
+        if load_fails:
+            assert isinstance(results[1], RuntimeError)
+            assert str(results[1]) == "load failed"
+            assert all(not worker.models and not worker.launching for worker in workers)
+            assert not supervisor._model_uid_to_replica_info
+            assert not supervisor._replica_model_uid_to_worker
+            assert guard.get_instance_info(model_uid="demo")[0].status == "ERROR"
+        else:
+            assert results == ["demo", None]
+            assert all(worker.models for worker in workers)
+            assert all(r.status == "READY" for r in guard.get_replica_statuses("demo"))
+        await SupervisorControlPort(supervisor).pause(1)
+        assert not control.ready
+    finally:
+        workers[1].release.set()
+        await asyncio.gather(
+            request, *([launch] if launch else []), return_exceptions=True
+        )
 
 
 @pytest.mark.asyncio
