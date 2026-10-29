@@ -44,8 +44,8 @@ def register_routes(api: "RESTfulAPI") -> None:
         api._check_model_access(request, body.model_uid, "LLM")
         token = _request_credential(request)
         credential_factory: Optional[Callable[[], ContextManager[str]]] = None
-        if api.is_authenticated():
-            auth = api._advanced_auth_service
+        auth = api._advanced_auth_service
+        if auth is not None:
             principal = auth.verify_access_token(token)
             if principal is None:
                 raise HTTPException(
