@@ -125,3 +125,12 @@ msgstr ""
 "coerenti in tutti i grafici. I punti rappresentano misurazioni; i valori "
 "mancanti restano vuoti. Un avviso segnala carichi o versioni delle metriche "
 "del runner differenti."
+
+#: user_guide/benchmarks.rst
+msgid "Configure a benchmark for a running chat model."
+msgstr "Configura un benchmark per un modello di chat in esecuzione."
+
+#: user_guide/benchmarks.rst
+msgid "Compare saved runs with throughput and P99 latency curves."
+msgstr ""
+"Confronta le esecuzioni salvate con le curve di throughput e latenza P99."

@@ -3,6 +3,13 @@ Model performance tests
 
 Open **Performance Tests**, select a running chat model, and start a test. You can also open this page from the performance-test button on a running model. Select history records to compare results, or export a record as JSON.
 
+.. figure:: /_static/benchmarks_setup.png
+   :alt: Configure a benchmark for a running chat model.
+   :width: 100%
+   :align: center
+
+   Configure a benchmark for a running chat model.
+
 Configure the approximate input token target, maximum output tokens, comma-separated concurrency points, requests per point, warmup requests, and random seed. When a separate token-count endpoint is unavailable, calibration uses single-token chat requests and their prompt usage; these probes are excluded from measurements. Actual input and output lengths come from response usage; models may stop before the output limit. Warmup is excluded, and each concurrency point uses independent synthetic prompts. Server caches are not flushed.
 
 Tests run sequentially in background processes on the API host and send requests through the Xinference chat API, including its replica routing. Closing the page does not stop a test. Stop a task before deleting it. Results, logs, and configuration snapshots are saved under ``XINFERENCE_HOME/benchmarks``. Restarting the API server interrupts active tasks and preserves their history.
@@ -14,6 +21,13 @@ With authentication enabled, these endpoints require both ``models:write`` and `
 The built-in ``xinference`` runner reuses the serving benchmark implementation. Runner adapters expose ``run``, ``cancel``, and ``capabilities``; records retain the runner version and raw request measurements. Additional tools can implement the adapter contract without changing task storage or the results page.
 
 Each test displays output throughput, TTFT, and TPOT curves against concurrency. Use Latency statistic to switch the latency charts between mean, P95, and P99. Selected history records are overlaid with matching colors across charts. Points represent measurements; missing values stay blank. A notice identifies different workloads or runner metric versions.
+
+.. figure:: /_static/benchmarks_compare.png
+   :alt: Compare saved runs with throughput and P99 latency curves.
+   :width: 100%
+   :align: center
+
+   Compare saved runs with throughput and P99 latency curves.
 
 API example::
 

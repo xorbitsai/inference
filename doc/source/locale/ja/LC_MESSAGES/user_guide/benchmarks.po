@@ -106,3 +106,11 @@ msgstr ""
 "各テストでは、同時実行数に対する出力スループット、TTFT、TPOT の曲線を表示します。「レイテンシ統計」で平均、P95、P99 "
 "を切り替えられます。選択した履歴を重ねて表示し、各グラフで同じ記録には同じ色を使います。点は実測値で、取得できない値は空欄です。ワークロードまたは "
 "Runner 指標バージョンが異なる場合は通知を表示します。"
+
+#: user_guide/benchmarks.rst
+msgid "Configure a benchmark for a running chat model."
+msgstr "実行中のチャットモデルのベンチマークを設定します。"
+
+#: user_guide/benchmarks.rst
+msgid "Compare saved runs with throughput and P99 latency curves."
+msgstr "保存済みの実行結果をスループットと P99 レイテンシの曲線で比較します。"

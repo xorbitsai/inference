@@ -126,3 +126,13 @@ msgstr ""
 "einheitlichen Farben überlagert. Punkte sind Messwerte; fehlende Werte "
 "bleiben leer. Abweichende Arbeitslasten oder Runner-Metrikversionen werden "
 "angezeigt."
+
+#: user_guide/benchmarks.rst
+msgid "Configure a benchmark for a running chat model."
+msgstr "Konfigurieren Sie einen Benchmark für ein laufendes Chatmodell."
+
+#: user_guide/benchmarks.rst
+msgid "Compare saved runs with throughput and P99 latency curves."
+msgstr ""
+"Vergleichen Sie gespeicherte Läufe anhand der Durchsatz- und "
+"P99-Latenzkurven."

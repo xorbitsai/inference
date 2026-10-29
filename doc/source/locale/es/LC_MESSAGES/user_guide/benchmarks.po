@@ -124,3 +124,13 @@ msgstr ""
 "colores coherentes en todas las gráficas. Los puntos representan mediciones;"
 " los valores ausentes quedan vacíos. Un aviso identifica cargas o versiones "
 "de métricas del runner diferentes."
+
+#: user_guide/benchmarks.rst
+msgid "Configure a benchmark for a running chat model."
+msgstr ""
+"Configure una prueba de rendimiento para un modelo de chat en ejecución."
+
+#: user_guide/benchmarks.rst
+msgid "Compare saved runs with throughput and P99 latency curves."
+msgstr ""
+"Compare ejecuciones guardadas mediante curvas de rendimiento y latencia P99."

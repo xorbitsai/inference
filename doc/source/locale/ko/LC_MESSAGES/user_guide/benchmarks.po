@@ -106,3 +106,11 @@ msgstr ""
 "각 테스트는 동시 요청 수에 따른 출력 처리량, TTFT, TPOT 곡선을 표시합니다. 지연 통계에서 평균, P95, P99를 전환할 수"
 " 있습니다. 선택한 기록은 모든 차트에서 동일한 색상으로 겹쳐 표시됩니다. 점은 측정값이며 없는 지표는 비워 둡니다. 워크로드 또는 "
 "Runner 지표 버전이 다르면 알림이 표시됩니다."
+
+#: user_guide/benchmarks.rst
+msgid "Configure a benchmark for a running chat model."
+msgstr "실행 중인 채팅 모델의 벤치마크를 구성합니다."
+
+#: user_guide/benchmarks.rst
+msgid "Compare saved runs with throughput and P99 latency curves."
+msgstr "처리량 및 P99 지연 시간 곡선으로 저장된 실행 결과를 비교합니다."
