@@ -35,6 +35,7 @@ User Guide
    :maxdepth: 2
    :caption: Advanced performance
 
+   benchmarks
    continuous_batching
    speculative_decoding
    distributed_inference

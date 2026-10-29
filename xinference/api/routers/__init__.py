@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from . import (
     admin,
     audio,
+    benchmarks,
     embeddings,
     images,
     launch_history,
@@ -36,6 +37,7 @@ def register_all_routes(api: RESTfulAPI) -> None:
     runtime_logs.register_routes(api)
     system_settings.register_routes(api)
     models.register_routes(api)
+    benchmarks.register_routes(api)
     model_favorites.register_routes(api)
     llm.register_routes(api)
     embeddings.register_routes(api)

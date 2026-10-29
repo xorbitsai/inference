@@ -68,6 +68,8 @@ jobs:
         run: cd frontend && npm run test:launch-progress
       - name: Test model and service upgrade controls
         run: cd frontend && npm run test:model-reload && npm run test:worker-relaunch && npm run test:service-relaunch && npm run test:software-update
+      - name: Test benchmark page
+        run: cd frontend && npm run test:benchmarks
       - name: Build frontend (static export)
         run: cd frontend && npm run build
       - name: Verify static export output

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 """Integration tests: SPA routing against a real Next.js static export.
 
 Skipped unless the export has been built. CI builds it in the lint job
@@ -70,6 +72,7 @@ def test_root_serves_index(client):
     [
         "/launch-model",
         "/running-model",
+        "/benchmarks",
         "/register-model",
         "/cluster-information",
         "/login",

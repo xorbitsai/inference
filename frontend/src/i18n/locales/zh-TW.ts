@@ -11,6 +11,51 @@
 // All 1240 leaf entries in upstream main zh.ts are present here.
 
 const zhTW = {
+  benchmarks: {
+    title: '效能測試',
+    description: '執行服務壓測並比較歷史結果。',
+    create: '新增測試',
+    model: '模型',
+    selectModel: '選擇執行中的對話模型',
+    name: '名稱',
+    inputTokens: '目標輸入 token 數（近似）',
+    outputTokens: '最大輸出 token 數',
+    concurrency: '並行檔位（逗號分隔）',
+    requests: '每檔請求數',
+    warmup: '每檔預熱請求數',
+    seed: '隨機種子',
+    workloadHint:
+      '合成文字使用模型 tokenizer 校準，實際長度可能變化。各檔使用獨立提示詞，預熱不計入結果。壓測會使用目前模型的服務容量。',
+    start: '開始測試',
+    history: '歷史記錄',
+    empty: '尚無效能測試。',
+    compare: '比較',
+    compareHint:
+      '請比較相同工作負載與指標版本的結果。展開記錄可查看設定與硬體。— 表示無法取得；ITL 測量串流區塊之間的間隔。',
+    created: '建立時間',
+    status: '狀態',
+    actions: '操作',
+    successFailed: '成功 / 失敗',
+    inputThroughput: '輸入 tok/s',
+    outputThroughput: '輸出 tok/s',
+    actualInput: '實際輸入 token 平均值',
+    actualOutput: '實際輸出 token 平均值',
+    latency: '延遲 P95（ms）',
+    configuration: '設定與環境',
+    logs: '執行日誌',
+    export: '匯出 JSON',
+    stop: '停止',
+    invalidConcurrency: '請輸入最多 10 個不重複的並行值，範圍為 1–256。',
+    states: {
+      queued: '排隊中',
+      running: '執行中',
+      completed: '已完成',
+      failed: '失敗',
+      stopped: '已停止',
+      interrupted: '已中斷',
+    },
+  },
+
   menu: {
     modelManagement: '模型管理',
     monitoringManagement: '監控管理',

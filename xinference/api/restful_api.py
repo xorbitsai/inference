@@ -749,6 +749,8 @@ class RESTfulAPI(CancelMixin):
         finally:
             if owns_gc_freeze:
                 gc.unfreeze()
+            if getattr(self, "_benchmark_service", None) is not None:
+                await self._benchmark_service.close()
             try:
                 task = self._cluster_metrics_task
                 self._cluster_metrics_task = None
@@ -786,6 +788,7 @@ class RESTfulAPI(CancelMixin):
         self._advanced_auth_service = None
         self._auth_service: Any = None
         self._uid_to_model_name: dict = {}
+        self._benchmark_service: Any = None
 
         # Authentication has two modes: the database-backed advanced auth
         # (enabled by default via XINFERENCE_AUTH_ADVANCED), and no auth at

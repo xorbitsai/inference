@@ -1,0 +1,93 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"PO-Revision-Date: 2026-10-29 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: ko\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: user_guide/benchmarks.rst
+msgid "Model performance tests"
+msgstr "모델 성능 테스트"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Open **Performance Tests**, select a running chat model, and start a test. "
+"You can also open this page from the performance-test button on a running "
+"model. Select history records to compare results, or export a record as "
+"JSON."
+msgstr ""
+"**성능 테스트** 를 열어 실행 중인 채팅 모델을 선택하고 테스트를 시작하세요. 실행 중인 모델의 성능 테스트 버튼으로도 이동할 수 "
+"있습니다. 기록을 선택하여 결과를 비교하거나 JSON으로 내보낼 수 있습니다."
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Configure the approximate input token target, maximum output tokens, comma-"
+"separated concurrency points, requests per point, warmup requests, and "
+"random seed. The model must support token counting. Actual input and output "
+"lengths come from response usage; models may stop before the output limit. "
+"Warmup is excluded, and each concurrency point uses independent synthetic "
+"prompts. Server caches are not flushed."
+msgstr ""
+"근사 입력 토큰 목표, 최대 출력 토큰 수, 쉼표로 구분한 동시 요청 수, 단계별 요청 수, 워밍업 수와 난수 시드를 설정합니다. 모델이"
+" 토큰 계산을 지원해야 합니다. 실제 길이는 응답 usage에서 가져오며 출력은 한도보다 일찍 끝날 수 있습니다. 워밍업은 제외하고 "
+"단계마다 독립된 합성 프롬프트를 사용합니다. 서버 캐시는 비우지 않습니다."
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Tests run sequentially in background processes on the API host and send "
+"requests through the Xinference chat API, including its replica routing. "
+"Closing the page does not stop a test. Stop a task before deleting it. "
+"Results, logs, and configuration snapshots are saved under "
+"``XINFERENCE_HOME/benchmarks``. Restarting the API server interrupts active "
+"tasks and preserves their history."
+msgstr ""
+"테스트는 API 호스트의 백그라운드 프로세스에서 순서대로 실행되며 복제본 라우팅을 포함한 Xinference 채팅 API로 요청을 "
+"보냅니다. 페이지를 닫아도 계속됩니다. 삭제 전에 작업을 중지하세요. 결과, 로그와 설정 스냅샷은 "
+"``XINFERENCE_HOME/benchmarks`` 에 저장됩니다. API 서버를 다시 시작하면 활성 작업은 중단되고 기록은 "
+"유지됩니다."
+
+#: user_guide/benchmarks.rst
+msgid ""
+"TTFT includes reasoning output. TPOT measures decode time per output token, "
+"excluding the first token. ITL measures gaps between streamed chunks, which "
+"may contain multiple tokens. The table shows averages and tail percentiles; "
+"unavailable measurements appear as a dash. Compare the workload, actual "
+"token lengths, runner metric version, and environment snapshots before "
+"comparing performance."
+msgstr ""
+"TTFT에는 추론 출력이 포함됩니다. TPOT는 첫 토큰을 제외한 출력 토큰당 디코딩 시간입니다. ITL은 여러 토큰을 포함할 수 있는 "
+"스트리밍 청크 사이의 간격입니다. 표에는 평균과 꼬리 백분위수를 표시하며 측정 불가 지표는 대시로 표시합니다. 성능 비교 전에 워크로드,"
+" 실제 토큰 길이, runner 지표 버전과 환경을 확인하세요."
+
+#: user_guide/benchmarks.rst
+msgid ""
+"With authentication enabled, these endpoints require both ``models:write`` "
+"and ``models:read``. Inference uses the initiating credential, which is held"
+" in memory and sent to the runner through stdin. It is not saved with "
+"results. An expired or revoked credential causes requests to fail. Tests use"
+" live serving capacity."
+msgstr ""
+"인증을 사용하면 이 엔드포인트에는 ``models:write`` 와 ``models:read`` 권한이 모두 필요합니다. 추론은 시작한 "
+"사용자의 자격 증명을 메모리에만 보관하고 stdin으로 runner에 전달합니다. 결과에 저장하지 않습니다. 자격 증명이 만료되거나 "
+"취소되면 요청이 실패합니다. 테스트는 실시간 서비스 용량을 사용합니다."
+
+#: user_guide/benchmarks.rst
+msgid ""
+"The built-in ``xinference`` runner reuses the serving benchmark "
+"implementation. Runner adapters expose ``run``, ``cancel``, and "
+"``capabilities``; records retain the runner version and raw request "
+"measurements. Additional tools can implement the adapter contract without "
+"changing task storage or the results page."
+msgstr ""
+"내장 ``xinference`` runner는 서비스 부하 테스트 구현을 재사용합니다. 어댑터는 ``run``, ``cancel``, "
+"``capabilities`` 를 제공하며 기록은 runner 버전과 원시 요청 측정값을 유지합니다. 다른 도구도 이 계약을 구현하여 "
+"작업 저장소와 결과 페이지를 재사용할 수 있습니다."
+
+#: user_guide/benchmarks.rst
+msgid "API example::"
+msgstr "API 예제::"

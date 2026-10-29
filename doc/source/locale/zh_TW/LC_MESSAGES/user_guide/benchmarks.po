@@ -1,0 +1,87 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"PO-Revision-Date: 2026-10-29 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: zh_TW\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: user_guide/benchmarks.rst
+msgid "Model performance tests"
+msgstr "模型效能測試"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Open **Performance Tests**, select a running chat model, and start a test. "
+"You can also open this page from the performance-test button on a running "
+"model. Select history records to compare results, or export a record as "
+"JSON."
+msgstr ""
+"開啟 **效能測試**，選擇執行中的對話模型並開始測試。也可點擊執行中模型的效能測試按鈕進入此頁面。選取歷史記錄可比較結果，也可將記錄匯出為 JSON。"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Configure the approximate input token target, maximum output tokens, comma-"
+"separated concurrency points, requests per point, warmup requests, and "
+"random seed. The model must support token counting. Actual input and output "
+"lengths come from response usage; models may stop before the output limit. "
+"Warmup is excluded, and each concurrency point uses independent synthetic "
+"prompts. Server caches are not flushed."
+msgstr ""
+"設定近似的輸入 token 目標、最大輸出 token 數、以逗號分隔的並行檔位、每檔請求數、預熱請求數和隨機種子。模型需要支援 token "
+"計數。實際輸入與輸出長度來自回應 usage；模型可能提早結束輸出。預熱不計入結果，各檔使用獨立的合成提示詞，不清除伺服器快取。"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Tests run sequentially in background processes on the API host and send "
+"requests through the Xinference chat API, including its replica routing. "
+"Closing the page does not stop a test. Stop a task before deleting it. "
+"Results, logs, and configuration snapshots are saved under "
+"``XINFERENCE_HOME/benchmarks``. Restarting the API server interrupts active "
+"tasks and preserves their history."
+msgstr ""
+"測試在 API 主機的背景程序中依序執行，透過 Xinference 對話 API "
+"傳送請求，包含副本路由。關閉頁面不會停止測試。刪除任務前需先停止。結果、日誌和設定快照儲存在 "
+"``XINFERENCE_HOME/benchmarks``。重新啟動 API 服務會中斷活動任務並保留歷史記錄。"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"TTFT includes reasoning output. TPOT measures decode time per output token, "
+"excluding the first token. ITL measures gaps between streamed chunks, which "
+"may contain multiple tokens. The table shows averages and tail percentiles; "
+"unavailable measurements appear as a dash. Compare the workload, actual "
+"token lengths, runner metric version, and environment snapshots before "
+"comparing performance."
+msgstr ""
+"TTFT 包含思考輸出。TPOT 衡量排除首 token 後的每輸出 token 解碼耗時。ITL 衡量串流區塊的間隔，一個區塊可能包含多個 "
+"token。表格顯示平均值及尾部分位數，無法測量的指標顯示為橫線。比較效能前請核對工作負載、實際 token 長度、runner 指標版本與環境快照。"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"With authentication enabled, these endpoints require both ``models:write`` "
+"and ``models:read``. Inference uses the initiating credential, which is held"
+" in memory and sent to the runner through stdin. It is not saved with "
+"results. An expired or revoked credential causes requests to fail. Tests use"
+" live serving capacity."
+msgstr ""
+"啟用驗證後，這些端點同時要求 ``models:write`` 和 ``models:read`` 權限。推理使用發起者的憑證，僅保留在記憶體中並透過 "
+"stdin 傳給 runner，不隨結果儲存。憑證過期或被撤銷會導致請求失敗。測試會使用即時服務容量。"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"The built-in ``xinference`` runner reuses the serving benchmark "
+"implementation. Runner adapters expose ``run``, ``cancel``, and "
+"``capabilities``; records retain the runner version and raw request "
+"measurements. Additional tools can implement the adapter contract without "
+"changing task storage or the results page."
+msgstr ""
+"內建的 ``xinference`` runner 重用服務壓測實作。Runner 適配器提供 ``run``、``cancel`` 和 "
+"``capabilities``；記錄保留 runner 版本及原始請求測量資料。其他工具可實作適配器協定，重用任務儲存與結果頁面。"
+
+#: user_guide/benchmarks.rst
+msgid "API example::"
+msgstr "API 範例::"
