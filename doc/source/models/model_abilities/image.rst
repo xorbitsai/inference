@@ -516,6 +516,49 @@ raster would exceed 80 megapixels is rejected — lower ``dpi`` in that case:
       -F 'kwargs={"pages": [1, 2], "dpi": 300}' \
       -F image=@xxx.pdf
 
+MiniCPM-OCR-1.0 Usage
+~~~~~~~~~~~~~~~~~~~~~
+
+:ref:`MiniCPM-OCR-1.0 <models_builtin_minicpm-ocr-1.0>` uses the image OCR API
+with Transformers, vLLM, SGLang, or llama.cpp. The regular weights are
+``openbmb/MiniCPM-OCR-1.0`` on Hugging Face (``main``) and
+``OpenBMB/MiniCPM-OCR-1.0`` on ModelScope (``master``). Launch with::
+
+    xinference launch --model-name MiniCPM-OCR-1.0 --model-type image --model-engine transformers
+
+Replace ``transformers`` with ``vllm`` or ``sglang`` to select another engine.
+Transformers requires version 5.21.0 or newer. The model's virtual environment
+configuration pins vLLM and SGLang source commits that contain the new
+architecture; their released wheels do not yet include the required native
+model implementation. Installing these source builds requires the appropriate
+compiler and CUDA build environment. See the `upstream deployment guides
+<https://github.com/OpenBMB/MiniCPM-OCR/blob/main/docs/minicpm_ocr_tutorial_en.md>`_.
+
+The official GGUF weights and the 4x vision projector are available from both
+hubs. llama.cpp uses ``xllamacpp>=2026.10.11870``. Select a quantization with::
+
+    xinference launch --model-name MiniCPM-OCR-1.0 --model-type image --model-engine llama.cpp --model-format ggufv2 --quantization Q8_0
+
+Only the selected GGUF file and ``mmproj-model-f16-4x.gguf`` are downloaded.
+DSpark draft weights are not required for standard decoding and are not
+downloaded automatically.
+
+The default prompt is ``Text Recognition:``, thinking is disabled, and the
+output limit is 4096 new tokens. Select another recognition task through
+``prompt``:
+
+.. code-block:: python
+
+    model = client.get_model("<MODEL_UID>")
+    with open("table.png", "rb") as f:
+        result = model.ocr(f.read(), prompt="Table Recognition:", max_new_tokens=8192)
+
+Other upstream prompts include ``Formula Recognition:``, ``Seal Recognition:``,
+``Chart to Table:``, and custom instructions for extracting fields as JSON.
+The API returns the recognition model's raw text. The upstream SDK's layout
+detection, table-to-HTML conversion, and whole-document Markdown assembly are
+separate processing stages and are not run by this adapter.
+
 TeleOCR Usage
 ~~~~~~~~~~~~~
 

@@ -79,6 +79,8 @@ The following is a list of built-in image models in Xinference:
 
    ming-image-0.1-design-layer
 
+   minicpm-ocr-1.0
+
    monkeyocr
   
    moss-image-sft

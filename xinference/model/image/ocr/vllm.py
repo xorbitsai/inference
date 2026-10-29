@@ -25,6 +25,7 @@ from ...utils import allow_trust_remote_code
 from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
+from .minicpm_ocr import MiniCPMOCRModel
 from .navidc_ocr import NaviDCOCRModel
 from .ovisocr2 import OvisOCR2Model
 from .ovisocr3 import ThreadedOvisOCR3Model
@@ -33,6 +34,7 @@ from .teleocr import TeleOCRModel
 
 logger = logging.getLogger(__name__)
 _navidc_vllm_executor_lock = threading.Lock()
+_minicpm_vllm_executor_lock = threading.Lock()
 
 
 def _load_vllm_model(model_path: str, model_kwargs: Dict[str, Any]):
@@ -581,3 +583,75 @@ class VLLMOvisOCR3Model(ThreadedOvisOCR3Model):
 
 class VLLMPaddleOCRVLModel(PaddleOCRVLModel):
     required_libs = ("vllm",)
+
+
+class VLLMMiniCPMOCRModel(MiniCPMOCRModel):
+    required_libs = ("vllm",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+
+    def _run_on_vllm_thread(self, fn, *args, **kwargs):
+        # vLLM's offline client must be created and used on the same thread.
+        with _minicpm_vllm_executor_lock:
+            if self._executor is None:
+                self._executor = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=1, thread_name_prefix=f"minicpm-ocr-{self._model_uid}"
+                )
+            executor = self._executor
+        return executor.submit(fn, *args, **kwargs).result()
+
+    def load(self) -> None:
+        config = _sanitize_vllm_kwargs(self._kwargs)
+        config.setdefault(
+            "trust_remote_code", allow_trust_remote_code(self.model_family)
+        )
+        config.setdefault("max_model_len", 40960)
+        config.setdefault("limit_mm_per_prompt", {"image": 1, "video": 0})
+        config.setdefault("mm_processor_kwargs", {"downsample_mode": "4x"})
+        try:
+            self._model = self._run_on_vllm_thread(
+                _load_vllm_model, self._model_path, config
+            )
+            self._tokenizer = self._run_on_vllm_thread(self._model.get_tokenizer)
+        except Exception:
+            self.stop()
+            raise
+
+    def stop(self) -> None:
+        try:
+            if self._model is not None:
+                self._run_on_vllm_thread(_shutdown_vllm_model, self._model)
+        finally:
+            self._model = None
+            self._tokenizer = None
+            with _minicpm_vllm_executor_lock:
+                executor, self._executor = self._executor, None
+            if executor is not None:
+                executor.shutdown(wait=False)
+
+    def ocr(
+        self, image: PIL.Image.Image, prompt: Optional[str] = None, **kwargs: Any
+    ) -> str:
+        image = self._prepare_image(image)
+        if self._model is None or self._tokenizer is None:
+            self.load()
+        assert self._model is not None
+        assert self._tokenizer is not None
+        text = self._tokenizer.apply_chat_template(
+            self._messages(image, prompt),
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
+        )
+        for key in self.NON_GENERATION_KWARGS + ("use_cache",):
+            kwargs.pop(key, None)
+        kwargs.setdefault("max_new_tokens", 4096)
+        inputs = [{"prompt": text, "multi_modal_data": {"image": image}}]
+        sampling_params = _build_sampling_params(kwargs)
+        outputs = self._run_on_vllm_thread(
+            self._model.generate, inputs, sampling_params
+        )
+        texts = _extract_text(outputs)
+        return texts[0] if texts else ""
