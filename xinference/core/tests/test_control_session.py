@@ -11,7 +11,7 @@ import sys
 import threading
 from dataclasses import FrozenInstanceError, replace
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import MethodType, ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -21,6 +21,7 @@ from xoscar.backends.router import Router
 from xinference import extensions
 
 from .. import model as model_module
+from .. import supervisor as supervisor_module
 from .. import worker as worker_module
 from ..cache_tracker import CacheTrackerActor
 from ..control_session import (
@@ -41,6 +42,7 @@ from ..lifecycle import (
     spawn_management_task,
 )
 from ..model import ModelActor
+from ..supervisor import SupervisorActor, WorkerStatus
 from ..worker import ModelStatus, WorkerActor
 from .test_worker_handoff import CounterModel, HandoffSupervisor, HandoffWorker
 
@@ -714,6 +716,147 @@ def test_read_only_allowlist_cannot_accidentally_name_missing_worker_methods():
     assert all(
         callable(getattr(WorkerActor, method, None)) for method in READ_ONLY_WORKER_RPCS
     )
+
+
+@pytest.mark.parametrize("phase", ["uninstalled", "draining", "timeout", "finished"])
+@pytest.mark.asyncio
+async def test_heartbeats_preserve_worker_liveness_while_control_is_fenced(
+    monkeypatch, phase
+):
+    worker = WorkerActor("supervisor", None, SimpleNamespace(), [])
+    worker.address = "worker:1234"
+    worker._actor_loop = asyncio.get_running_loop()
+    fence, authority = setup_fence()
+    worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+    supervisor = HandoffSupervisor()
+    supervisor.receive_heartbeat = MethodType(
+        SupervisorActor.receive_heartbeat, supervisor
+    )
+    supervisor._worker_address_to_worker[worker.address] = worker
+    supervisor._worker_ownership.incarnations[worker.address] = worker._incarnation
+    worker._supervisor_ownership_supported = True
+    status = WorkerStatus(update_time=0, failure_remaining_count=5, status={})
+    supervisor._worker_status[worker.address] = status
+    supervisor._replica_model_uid_to_worker["counter-rep0"] = worker
+    supervisor._remove_dead_worker = AsyncMock(return_value=False)
+    worker._supervisor_ref = supervisor
+    worker._registered = True
+    recover = AsyncMock()
+    publish = AsyncMock()
+    monkeypatch.setattr(worker, "_retry_control_faults", recover)
+    monkeypatch.setattr(worker, "_record_model_versions_best_effort", publish)
+    monkeypatch.setattr(supervisor, "add_worker", AsyncMock())
+    release, entered = asyncio.Event(), asyncio.Event()
+    held = installing = None
+    old = authority.owner
+
+    async def hold():
+        async with fence.command(command(old)):
+            entered.set()
+            await release.wait()
+
+    try:
+        if phase != "uninstalled":
+            await fence.install(old, 1)
+            held = asyncio.create_task(hold())
+            await entered.wait()
+            authority.owner = session(2)
+            installing = asyncio.create_task(
+                fence.install(authority.owner, 10 if phase == "draining" else 0.02)
+            )
+            while fence.ready:
+                await asyncio.sleep(0)
+            if phase in {"timeout", "finished"}:
+                with pytest.raises(asyncio.TimeoutError):
+                    await installing
+            if phase == "finished":
+                release.set()
+                await held
+        assert not fence.ready
+        validations = authority.calls
+        clock = [0.0]
+        original_sleep = asyncio.sleep
+
+        async def one_tick(delay):
+            if delay == worker_module.XINFERENCE_HEALTH_CHECK_INTERVAL:
+                raise asyncio.CancelledError
+            await original_sleep(delay)
+
+        monkeypatch.setattr(supervisor_module.time, "time", lambda: clock[0])
+        monkeypatch.setattr(worker_module.asyncio, "sleep", one_tick)
+        for _ in range(8):
+            clock[0] += worker_module.XINFERENCE_HEALTH_CHECK_INTERVAL
+            # Production schedules this loop on a separate status-isolation loop.
+            await asyncio.to_thread(
+                lambda: asyncio.run(worker._periodical_report_status())
+            )
+            assert status.update_time == clock[0]
+            # A stale inherited binding must not turn liveness into management.
+            with fence.local_scope(command(old)):
+                await worker.heartbeat()
+            with pytest.raises(asyncio.CancelledError):
+                await supervisor._check_dead_nodes()
+        supervisor._remove_dead_worker.assert_not_awaited()
+        assert supervisor._replica_model_uid_to_worker["counter-rep0"] is worker
+        assert authority.calls == validations
+        supervisor.add_worker.assert_not_awaited()
+        recover.assert_not_awaited()
+        publish.assert_not_awaited()
+        with pytest.raises(ControlSessionRejected, match="missing_context"):
+            await worker.report_status()
+    finally:
+        release.set()
+        if held is not None:
+            await held
+        if installing is not None:
+            await asyncio.gather(installing, return_exceptions=True)
+
+
+@pytest.mark.parametrize("dispatch", ["local", "receive"])
+@pytest.mark.asyncio
+async def test_heartbeat_dispatch_needs_no_controller_or_registration(
+    monkeypatch, dispatch
+):
+    worker = WorkerActor("supervisor", None, SimpleNamespace(), [])
+    worker.address = "worker:1234"
+    worker._control_fence, _ = setup_fence()
+    call = AsyncMock()
+    monkeypatch.setattr(worker, "_call_supervisor", call)
+    if dispatch == "local":
+        await worker.heartbeat()
+    else:
+        await worker.__on_receive__(("heartbeat", 0, (), {}))
+    call.assert_awaited_once_with("receive_heartbeat", worker.address, add_worker=False)
+
+
+@pytest.mark.parametrize("configured", [False, True])
+@pytest.mark.asyncio
+async def test_failed_launch_status_cleanup_preserves_legacy_behavior(
+    monkeypatch, configured
+):
+    worker = WorkerActor("supervisor", None, SimpleNamespace(), [])
+    ref = object()
+    uid = "counter-rep0"
+    worker._model_uid_to_model[uid] = ref
+    worker._model_uid_to_model_status[uid] = ModelStatus(model_state="loading")
+    monkeypatch.setattr(
+        worker, "terminate_model", AsyncMock(side_effect=RuntimeError("failed cleanup"))
+    )
+    monkeypatch.setattr(
+        worker,
+        "_terminate_model",
+        AsyncMock(side_effect=RuntimeError("failed cleanup")),
+    )
+    scope = contextlib.nullcontext()
+    if configured:
+        fence, authority = setup_fence()
+        worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+        await fence.install(authority.owner, 1)
+        scope = fence.command(command(authority.owner))
+    async with scope:
+        await worker._clean_up_failed_launch(uid, ref)
+    assert (uid in worker._model_uid_to_model_status) == configured
+    assert worker._model_uid_to_model[uid] is ref
 
 
 @pytest.mark.parametrize("dispatch", ["local", "receive"])

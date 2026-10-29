@@ -1993,7 +1993,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             supervisor_generation,
         ) = await self._get_supervisor_ref_with_generation(add_worker)
         fence = getattr(self, "_control_fence", None)
-        if fence is not None and fence.bound_context() is not None:
+        if (
+            fence is not None
+            and fence.bound_context() is not None
+            and (method_name != "receive_heartbeat" or add_worker)
+        ):
             await fence.checkpoint()
         try:
             method = getattr(supervisor_ref, method_name)
@@ -5767,7 +5771,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             # for the auto-recovery path, which relaunches the same model_uid;
             # a failed launch has no relaunch, so drop it here to avoid leaking
             # a stale "loading" entry.
-            if model_uid not in self._model_uid_to_model:
+            if fence is None or model_uid not in self._model_uid_to_model:
                 self._model_uid_to_model_status.pop(model_uid, None)
 
     @log_async(logger=logger, level=logging.INFO)
@@ -6934,7 +6938,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             report_due = report_count % XINFERENCE_STATUS_REPORT_MULTIPLIER == 0
 
             try:
-                await run_worker_control_callback(self, self.heartbeat)
+                # Liveness must continue before installation and during drain.
+                # heartbeat's non-registering RPC already moves to the actor loop.
+                await self.heartbeat()
             except asyncio.CancelledError:  # pragma: no cover
                 break
             except Exception as ex:  # pragma: no cover

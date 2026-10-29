@@ -42,6 +42,8 @@ CONTROL_CONTEXT_KEY = "_xinference_control_context"
 READ_ONLY_WORKER_RPCS = frozenset(
     {
         "ping",
+        # Liveness never registers a Worker or changes its model ownership.
+        "heartbeat",
         "default_uid",
         "get_devices_count",
         # ModelActors report inference metrics independently of controller ownership.
