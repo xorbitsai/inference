@@ -20,7 +20,7 @@ Model Spec 1 (fp8, 552 Billion)
 - **Model Format:** fp8
 - **Model Size (in billions):** 552
 - **Quantizations:** fp8
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM
 - **Model ID:** deepseek-ai/DeepSeek-V4.1-Flash-1017
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-V4.1-Flash-1017>`__
 

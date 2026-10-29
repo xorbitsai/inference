@@ -290,12 +290,10 @@
         "vllm>=0.30.0.dev0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "qwen-omni-utils ; #engine# == \"vllm\"",
-        "#transformers_dependencies# ; #engine# == \"Transformers\"",
-        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
-        "transformers>=5.6.0 ; #engine# == \"Transformers\""
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
     "featured": true,
-    "updated_at": 1793268451
+    "updated_at": 1793284101
   }
 ]
