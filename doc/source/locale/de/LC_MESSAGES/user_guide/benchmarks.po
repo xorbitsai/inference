@@ -145,3 +145,7 @@ msgid "Compare saved runs with throughput and P99 latency curves."
 msgstr ""
 "Vergleichen Sie gespeicherte Läufe anhand der Durchsatz- und "
 "P99-Latenzkurven."
+
+#: user_guide/benchmarks.rst
+msgid "Benchmark tests can be started from the Web UI."
+msgstr "Benchmark-Tests können über die Weboberfläche gestartet werden."

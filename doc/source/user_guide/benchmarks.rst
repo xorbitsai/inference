@@ -1,6 +1,9 @@
 Model performance tests
 =======================
 
+.. versionadded:: v4.2.0
+   Benchmark tests can be started from the Web UI.
+
 Open **Performance Tests**, select a running chat model, and start a test. You can also open this page from the performance-test button on a running model. Select history records to compare results, or export a record as JSON.
 
 .. figure:: /_static/benchmarks_setup.png
