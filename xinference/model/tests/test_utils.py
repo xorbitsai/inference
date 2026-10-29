@@ -1343,3 +1343,56 @@ def test_tqdm_patch_accepts_default_update_increment():
             bar.update()
             assert bar.n == 2
             assert downloader.get_progress() == 1.0
+
+
+def _symlink_error(winerror):
+    error = OSError(1, "A required privilege is not held by the client")
+    error.winerror = winerror
+    return error
+
+
+@pytest.mark.parametrize("is_dir", [True, False])
+def test_link_model_uri_falls_back_without_windows_symlink_privilege(
+    tmp_path, monkeypatch, is_dir
+):
+    from .. import utils
+
+    src = tmp_path / ("model" if is_dir else "model.gguf")
+    if is_dir:
+        src.mkdir()
+    else:
+        src.write_bytes(b"GGUF")
+    cache_dir = str(tmp_path / "cache" / "model")
+
+    def fake_symlink(*args, **kwargs):
+        raise _symlink_error(1314)
+
+    monkeypatch.setattr(utils.os, "name", "nt")
+    monkeypatch.setattr(utils.os, "symlink", fake_symlink)
+    assert utils.link_model_uri(str(src), cache_dir) == str(src)
+
+
+def test_link_model_uri_reraises_other_symlink_errors(tmp_path, monkeypatch):
+    from .. import utils
+
+    def fake_symlink(*args, **kwargs):
+        raise _symlink_error(5)
+
+    monkeypatch.setattr(utils.os, "name", "nt")
+    monkeypatch.setattr(utils.os, "symlink", fake_symlink)
+    with pytest.raises(OSError):
+        utils.link_model_uri(str(tmp_path), str(tmp_path / "cache"))
+
+
+def test_link_model_uri_links_file_as_file(tmp_path, monkeypatch):
+    from .. import utils
+
+    calls = []
+    monkeypatch.setattr(
+        utils.os, "symlink", lambda *args, **kwargs: calls.append(kwargs)
+    )
+    src = tmp_path / "model.gguf"
+    src.write_bytes(b"GGUF")
+    cache_dir = str(tmp_path / "cache")
+    assert utils.link_model_uri(str(src), cache_dir) == cache_dir
+    assert calls == [{"target_is_directory": False}]

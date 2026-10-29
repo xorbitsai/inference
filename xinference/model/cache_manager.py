@@ -38,7 +38,7 @@ class CacheManager:
         return os.path.exists(cache_dir)
 
     def _cache_from_uri(self, model_spec: "CacheableModelSpec") -> str:
-        from .utils import resolve_model_uri
+        from .utils import link_model_uri, resolve_model_uri
 
         cache_dir = self.get_cache_dir()
         if os.path.exists(cache_dir):
@@ -47,8 +47,7 @@ class CacheManager:
 
         assert model_spec.model_uri is not None
         src_root = resolve_model_uri(model_spec.model_uri, model_spec.model_name)
-        os.symlink(src_root, cache_dir, target_is_directory=True)
-        return cache_dir
+        return link_model_uri(src_root, cache_dir)
 
     def _cache(self) -> str:
         from .utils import (
