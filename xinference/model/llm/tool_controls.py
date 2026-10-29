@@ -44,7 +44,10 @@ def prepare_forced_tools(
     variants = []
     for index, tool in enumerate(selected):
         function = tool["function"]
-        schema = copy.deepcopy(function["parameters"])
+        # ``parameters`` is optional; omitting it means no arguments.
+        schema = copy.deepcopy(
+            function.get("parameters") or {"type": "object", "properties": {}}
+        )
         if schema.get("type", "object") != "object":
             raise ValueError("Tool parameter schemas must describe objects")
         schema["type"] = "object"
