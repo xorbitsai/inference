@@ -186,8 +186,8 @@ msgid "Storage backends"
 msgstr "ストレージバックエンド"
 
 #: source/user_guide/vllm_enhancement.rst:34
-msgid "``xavier_cache_backend=\"native\"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13."
-msgstr "``xavier_cache_backend=\"native\"`` が既定で、既存の CPU/GPU キャッシュ動作を維持します。任意の ``lmcache`` バックエンドは、通常の vLLM V1、SGLang、TRT-LLM レプリカにディスクを使ったプレフィックス再利用を提供します。ストレージを実行する Linux 環境に ``xinference[xavier-lmcache]`` をインストールしてください。vLLM では各転送 actor の環境、SGLang と TRT-LLM では supervisor の環境です。モデル環境は分離できます。このアダプターはネイティブ FS 拡張を備えた LMCache >= ``0.5.6`` かつ < ``0.6`` と Python 3.10～3.13 を対象とします。"
+msgid "``xavier_cache_backend=\"native\"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds external prefix-cache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with the native extension for the selected L2 backend, and Python 3.10 through 3.13."
+msgstr "``xavier_cache_backend=\"native\"`` が既定で、既存の CPU/GPU キャッシュ動作を維持します。任意の ``lmcache`` バックエンドは、通常の vLLM V1、SGLang、TRT-LLM レプリカに外部プレフィックスキャッシュストレージを提供します。ストレージを実行する Linux 環境に ``xinference[xavier-lmcache]`` をインストールしてください。vLLM では各転送 actor の環境、SGLang と TRT-LLM では supervisor の環境です。モデル環境は分離できます。このアダプターは選択した L2 バックエンドのネイティブ拡張を備えた LMCache >= ``0.5.6`` かつ < ``0.6`` と Python 3.10～3.13 を対象とします。"
 
 #: source/user_guide/vllm_enhancement.rst:36
 msgid "Select the backend when launching the model:"
@@ -202,8 +202,8 @@ msgid "``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). M
 msgstr "``read_timeout`` はキャッシュ検索の待機時間を秒で制限します（既定 30）。未登録、利用不能、タイムアウト時はローカル prefill に戻ります。ストレージインスタンスごとに実行する LMCache プリフェッチは最大一つです。タイムアウトやキャンセル後も読み取りロックを解放します。一時容量を超える読み取りは制限されたプレフィックスを返すか、ローカル prefill に戻ります。ワークロードに応じて TTFT、読み取り遅延と prefill コストを比較してください。"
 
 #: source/user_guide/vllm_enhancement.rst:61
-msgid "The LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
-msgstr "LMCache バックエンドには同じエンジンの複数の通常レプリカが必要です。各エンジンの既存の Xavier モデル、dtype、並列度の制約を維持します。P/D ロール、旧 vLLM V0、MLX は非対応で、P/D KV 引き渡しは別の転送経路が担います。native の ``xavier_cache_bytes`` や ``xavier_gpu_cache_bytes`` ではなく、バックエンドの ``cpu_bytes`` を使ってください。バックエンド選択で異なるエンジン間のキャッシュ共有が有効になったり、既存の cache-salt 動作が変わったりすることはありません。各デプロイのストレージインスタンスは専用の名前空間とディレクトリを持ち、再起動で古いエントリは復元しません。正常終了時にディレクトリを削除します。クラッシュ後は、使用していないことを確認して残存ディレクトリを削除してください。"
+msgid "For filesystem storage, the LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
+msgstr "ファイルシステムストレージでは、LMCache バックエンドには同じエンジンの複数の通常レプリカが必要です。各エンジンの既存の Xavier モデル、dtype、並列度の制約を維持します。P/D ロール、旧 vLLM V0、MLX は非対応で、P/D KV 引き渡しは別の転送経路が担います。native の ``xavier_cache_bytes`` や ``xavier_gpu_cache_bytes`` ではなく、バックエンドの ``cpu_bytes`` を使ってください。バックエンド選択で異なるエンジン間のキャッシュ共有が有効になったり、既存の cache-salt 動作が変わったりすることはありません。各デプロイのストレージインスタンスは専用の名前空間とディレクトリを持ち、再起動で古いエントリは復元しません。正常終了時にディレクトリを削除します。クラッシュ後は、使用していないことを確認して残存ディレクトリを削除してください。"
 
 #: source/user_guide/vllm_enhancement.rst:34
 msgid "LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas."
@@ -359,3 +359,24 @@ msgstr "LMCache"
 #: ../../source/user_guide/vllm_enhancement.rst:213
 msgid "TRT-LLM does not support ``cache_salt`` through this adapter."
 msgstr "このアダプターの TRT-LLM は ``cache_salt`` に未対応です。"
+
+
+#: source/user_guide/vllm_enhancement.rst:184
+msgid "Mooncake Store"
+msgstr "Mooncake Store"
+
+#: source/user_guide/vllm_enhancement.rst:189
+msgid "Set ``l2_backend=\"mooncake\"`` in ``xavier_cache_backend_config`` to use LMCache's Mooncake Store adapter. The default ``l2_backend=\"filesystem\"`` preserves the disk configuration above. This selects storage for ordinary prefix-cache reuse; P/D transport and supported engine/model combinations remain the same."
+msgstr "``xavier_cache_backend_config`` に ``l2_backend=\"mooncake\"`` を設定すると、LMCache の Mooncake Store アダプターを使用できます。デフォルトの ``l2_backend=\"filesystem\"`` は上記のディスク設定を維持します。この設定は通常のプレフィックスキャッシュ再利用用ストレージを選択し、P/D 転送と対応するエンジン・モデルの組み合わせは変わりません。"
+
+#: source/user_guide/vllm_enhancement.rst:191
+msgid "The storage environment needs LMCache built with ``BUILD_MOONCAKE=1`` and compatible Mooncake SDK headers and libraries. Start the Mooncake master, metadata service and storage pool first. Use a reachable ``local_hostname`` without a port; Mooncake allocates a distinct port for each storage actor. Replace the endpoints in this TCP example with reachable service addresses, and pass the object as ``xavier_cache_backend_config``:"
+msgstr "ストレージ環境には ``BUILD_MOONCAKE=1`` でビルドした LMCache と、互換性のある Mooncake SDK のヘッダーおよびライブラリが必要です。最初に Mooncake master、メタデータサービス、ストレージプールを起動してください。``local_hostname`` にはポートを含まない到達可能なホスト名を使用し、Mooncake が各ストレージ actor に別々のポートを割り当てます。以下の TCP 例のエンドポイントを到達可能なサービスアドレスに置き換え、オブジェクトを ``xavier_cache_backend_config`` として渡してください。"
+
+#: source/user_guide/vllm_enhancement.rst:210
+msgid "``storage_bytes`` bounds this actor's tracked remote cache capacity, together with ``cpu_bytes``; it is not a Mooncake cluster quota. Admission may skip new pages while a bounded background eviction is pending. Mooncake manages actual storage capacity and eviction; ``global_segment_size`` is the memory this client contributes. ``disk_path`` and ``disk_bytes`` apply only to filesystem storage and are rejected with Mooncake. ``protocol=\"rdma\"`` additionally requires working RDMA hardware and drivers; LMCache registers the eagerly allocated L1 buffer."
+msgstr "``storage_bytes`` は ``cpu_bytes`` と合わせて、この actor が追跡するリモートキャッシュ容量を制限します。Mooncake クラスターのクォータではありません。上限のあるバックグラウンドの退避処理中は、新しいページの書き込みをスキップする場合があります。実際の容量と削除は Mooncake が管理し、``global_segment_size`` はこのクライアントが提供するメモリです。``disk_path`` と ``disk_bytes`` はファイルシステム専用で、Mooncake では拒否されます。``protocol=\"rdma\"`` には動作する RDMA ハードウェアとドライバーも必要で、LMCache は事前割り当てした L1 バッファーを登録します。"
+
+#: source/user_guide/vllm_enhancement.rst:212
+msgid "Deployment, schema and cache-salt isolation still apply. Other deployments' objects are not discovered, and relaunching does not recover old entries. Cache misses, unavailable reads and timeouts fall back to local prefill. Graceful shutdown drains writes and deletes only this actor's tracked namespaced objects before closing its client. If cleanup fails or the process crashes, remaining objects are subject to Mooncake's eviction policy. Cleanup never explicitly deletes other clients' keys or stops the shared service. A client contributing memory withdraws that segment on close; use ``global_segment_size=0`` with a separate storage pool to avoid this."
+msgstr "デプロイ、スキーマ、cache-salt による分離は引き続き適用されます。他のデプロイのオブジェクトは検出されず、再起動しても古いエントリーは復元されません。キャッシュミス、読み取り不可、タイムアウト時にはローカル prefill に戻ります。正常終了では書き込み完了を待ち、この actor が追跡する名前空間付きオブジェクトだけを削除してからクライアントを閉じます。クリーンアップ失敗やプロセスクラッシュ時の残存オブジェクトには Mooncake の削除ポリシーが適用されます。他のクライアントのキーを明示的に削除したり、共有サービスを停止したりしません。メモリを提供するクライアントは終了時にそのセグメントを撤回するため、別のストレージプールと ``global_segment_size=0`` を使用してこの影響を避けてください。"

@@ -187,6 +187,7 @@ def test_packed_export_owns_pages_independently(backend):
 async def test_storage_adapter_releases_every_successful_read_lock():
     storage = module._LMCacheStorage.__new__(module._LMCacheStorage)
     storage._closed = threading.Event()
+    storage._remote_keys = None
     storage._key = lambda key: key
     storage._layout = None
     storage._group_type = lambda *args: args

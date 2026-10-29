@@ -1,8 +1,11 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Storage stand-in and disk-tier controls used by Xavier integration tests."""
+"""Storage stand-in and L2 controls used by Xavier integration tests."""
 
 import asyncio
+import json
+import os
+from pathlib import Path
 
 from ..backends import lmcache
 from ..backends.torch.storage import XavierCacheActor
@@ -67,5 +70,36 @@ class DiskCacheActor(XavierCacheActor):
             assert (
                 asyncio.get_running_loop().time() < deadline
             ), "Disk writes did not drain"
+            await asyncio.sleep(0.05)
+        storage.manager.clear()
+
+
+def mooncake_backend_config(cpu_bytes=64 << 20):
+    """Read explicit test-service configuration; ordinary CI needs no Mooncake."""
+    import pytest
+
+    location = os.environ.get("XINFERENCE_TEST_MOONCAKE_CONFIG")
+    if not location:
+        pytest.skip("requires XINFERENCE_TEST_MOONCAKE_CONFIG JSON file")
+    return dict(
+        l2_backend="mooncake",
+        cpu_bytes=cpu_bytes,
+        storage_bytes=128 << 20,
+        read_timeout=10,
+        mooncake_config=json.loads(Path(location).read_text()),
+    )
+
+
+class RemoteCacheActor(XavierCacheActor):
+    async def force_remote_reads(self):
+        storage = self._store._storage
+        deadline = asyncio.get_running_loop().time() + 30
+        while any(
+            state["pending_keys_count"] or state["in_flight_task_count"]
+            for state in storage.manager.report_status()["store_controllers"].values()
+        ):
+            assert (
+                asyncio.get_running_loop().time() < deadline
+            ), "Remote writes did not drain"
             await asyncio.sleep(0.05)
         storage.manager.clear()

@@ -152,7 +152,7 @@ LMCache
 
 LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas.
 
-``xavier_cache_backend="native"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13.
+``xavier_cache_backend="native"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds external prefix-cache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with the native extension for the selected L2 backend, and Python 3.10 through 3.13.
 
 Select the backend when launching the model:
 
@@ -179,7 +179,37 @@ Select the backend when launching the model:
 
 ``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per storage instance; a timed-out or cancelled job still releases its LMCache read locks. Reads exceeding the transient capacity return a bounded prefix or fall back to local prefill. Compare TTFT and read latency against prefill cost for your workload.
 
-The LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use.
+For filesystem storage, the LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use.
+
+Mooncake Store
+^^^^^^^^^^^^^^
+
+.. versionadded:: v4.1.0
+
+Set ``l2_backend="mooncake"`` in ``xavier_cache_backend_config`` to use LMCache's Mooncake Store adapter. The default ``l2_backend="filesystem"`` preserves the disk configuration above. This selects storage for ordinary prefix-cache reuse; P/D transport and supported engine/model combinations remain the same.
+
+The storage environment needs LMCache built with ``BUILD_MOONCAKE=1`` and compatible Mooncake SDK headers and libraries. Start the Mooncake master, metadata service and storage pool first. Use a reachable ``local_hostname`` without a port; Mooncake allocates a distinct port for each storage actor. Replace the endpoints in this TCP example with reachable service addresses, and pass the object as ``xavier_cache_backend_config``:
+
+.. code-block:: json
+
+   {
+     "l2_backend": "mooncake",
+     "cpu_bytes": 536870912,
+     "storage_bytes": 10737418240,
+     "read_timeout": 30,
+     "mooncake_config": {
+       "local_hostname": "storage-node",
+       "metadata_server": "http://store-host:18080/metadata",
+       "master_server_addr": "store-host:15051",
+       "protocol": "tcp",
+       "global_segment_size": 0,
+       "local_buffer_size": 67108864
+     }
+   }
+
+``storage_bytes`` bounds this actor's tracked remote cache capacity, together with ``cpu_bytes``; it is not a Mooncake cluster quota. Admission may skip new pages while a bounded background eviction is pending. Mooncake manages actual storage capacity and eviction; ``global_segment_size`` is the memory this client contributes. ``disk_path`` and ``disk_bytes`` apply only to filesystem storage and are rejected with Mooncake. ``protocol="rdma"`` additionally requires working RDMA hardware and drivers; LMCache registers the eagerly allocated L1 buffer.
+
+Deployment, schema and cache-salt isolation still apply. Other deployments' objects are not discovered, and relaunching does not recover old entries. Cache misses, unavailable reads and timeouts fall back to local prefill. Graceful shutdown drains writes and deletes only this actor's tracked namespaced objects before closing its client. If cleanup fails or the process crashes, remaining objects are subject to Mooncake's eviction policy. Cleanup never explicitly deletes other clients' keys or stops the shared service. A client contributing memory withdraws that segment on close; use ``global_segment_size=0`` with a separate storage pool to avoid this.
 
 .. _xavier-cache-isolation:
 

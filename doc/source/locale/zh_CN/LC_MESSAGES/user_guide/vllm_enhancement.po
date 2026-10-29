@@ -178,8 +178,8 @@ msgid "Storage backends"
 msgstr "存储后端"
 
 #: source/user_guide/vllm_enhancement.rst:34
-msgid "``xavier_cache_backend=\"native\"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds disk-backed prefix reuse for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with its native FS extension, and Python 3.10 through 3.13."
-msgstr "``xavier_cache_backend=\"native\"`` 为默认值，保持现有 CPU 和 GPU 缓存行为。可选的 ``lmcache`` 后端为普通 vLLM V1、SGLang 和 TRT-LLM 副本提供磁盘前缀缓存复用。在托管存储的 Linux 环境中安装 ``xinference[xavier-lmcache]``：vLLM 使用各传输 actor 的环境，SGLang 和 TRT-LLM 使用 supervisor 环境。模型环境可以独立配置。此适配器支持带原生 FS 扩展的 LMCache >= ``0.5.6`` 且 < ``0.6``，以及 Python 3.10 至 3.13。"
+msgid "``xavier_cache_backend=\"native\"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds external prefix-cache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with the native extension for the selected L2 backend, and Python 3.10 through 3.13."
+msgstr "``xavier_cache_backend=\"native\"`` 为默认值，保持现有 CPU 和 GPU 缓存行为。可选的 ``lmcache`` 后端为普通 vLLM V1、SGLang 和 TRT-LLM 副本提供外部前缀缓存存储。在托管存储的 Linux 环境中安装 ``xinference[xavier-lmcache]``：vLLM 使用各传输 actor 的环境，SGLang 和 TRT-LLM 使用 supervisor 环境。模型环境可以独立配置。此适配器支持带所选 L2 后端的原生扩展的 LMCache >= ``0.5.6`` 且 < ``0.6``，以及 Python 3.10 至 3.13。"
 
 #: source/user_guide/vllm_enhancement.rst:36
 msgid "Select the backend when launching the model:"
@@ -194,8 +194,8 @@ msgid "``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). M
 msgstr "``read_timeout`` 限制缓存查找的等待秒数（默认 30）。缓存缺失、不可用或读取超时会回退到本地 prefill。每个存储实例最多运行一个 LMCache 预取任务；超时或取消后，任务仍会释放 LMCache 读取锁。超过临时容量的读取会返回有界前缀或回退到本地 prefill。请根据工作负载比较 TTFT、读取延迟和 prefill 成本。"
 
 #: source/user_guide/vllm_enhancement.rst:61
-msgid "The LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
-msgstr "LMCache 后端要求同一引擎的多个普通副本，并保留该引擎现有的 Xavier 模型、dtype 和并行度限制。不支持 P/D 角色、旧版 vLLM V0 或 MLX；P/D KV 交接仍由独立的传输路径负责。请使用后端 ``cpu_bytes``，而非 native 的 ``xavier_cache_bytes`` 或 ``xavier_gpu_cache_bytes`` 预算。后端选择不会启用跨引擎缓存共享，也不会改变现有 cache-salt 行为。每个部署的每个存储实例拥有独立命名空间和目录；重新启动不会恢复旧条目。正常关闭会删除该目录；进程崩溃后，请在确认不再使用时清理遗留的部署目录。"
+msgid "For filesystem storage, the LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
+msgstr "对于文件系统存储，LMCache 后端要求同一引擎的多个普通副本，并保留该引擎现有的 Xavier 模型、dtype 和并行度限制。不支持 P/D 角色、旧版 vLLM V0 或 MLX；P/D KV 交接仍由独立的传输路径负责。请使用后端 ``cpu_bytes``，而非 native 的 ``xavier_cache_bytes`` 或 ``xavier_gpu_cache_bytes`` 预算。后端选择不会启用跨引擎缓存共享，也不会改变现有 cache-salt 行为。每个部署的每个存储实例拥有独立命名空间和目录；重新启动不会恢复旧条目。正常关闭会删除该目录；进程崩溃后，请在确认不再使用时清理遗留的部署目录。"
 
 #: source/user_guide/vllm_enhancement.rst:34
 msgid "LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas."
@@ -346,3 +346,24 @@ msgstr "LMCache"
 #: ../../source/user_guide/vllm_enhancement.rst:213
 msgid "TRT-LLM does not support ``cache_salt`` through this adapter."
 msgstr "此适配器的 TRT-LLM 尚不支持 ``cache_salt``。"
+
+
+#: source/user_guide/vllm_enhancement.rst:184
+msgid "Mooncake Store"
+msgstr "Mooncake Store"
+
+#: source/user_guide/vllm_enhancement.rst:189
+msgid "Set ``l2_backend=\"mooncake\"`` in ``xavier_cache_backend_config`` to use LMCache's Mooncake Store adapter. The default ``l2_backend=\"filesystem\"`` preserves the disk configuration above. This selects storage for ordinary prefix-cache reuse; P/D transport and supported engine/model combinations remain the same."
+msgstr "在 ``xavier_cache_backend_config`` 中设置 ``l2_backend=\"mooncake\"``，即可使用 LMCache 的 Mooncake Store 适配器。默认的 ``l2_backend=\"filesystem\"`` 保留上面的磁盘配置。这一选项用于普通前缀缓存复用的存储，P/D 传输方式及支持的引擎与模型组合保持一致。"
+
+#: source/user_guide/vllm_enhancement.rst:191
+msgid "The storage environment needs LMCache built with ``BUILD_MOONCAKE=1`` and compatible Mooncake SDK headers and libraries. Start the Mooncake master, metadata service and storage pool first. Use a reachable ``local_hostname`` without a port; Mooncake allocates a distinct port for each storage actor. Replace the endpoints in this TCP example with reachable service addresses, and pass the object as ``xavier_cache_backend_config``:"
+msgstr "存储环境需要使用 ``BUILD_MOONCAKE=1`` 编译 LMCache，并提供兼容的 Mooncake SDK 头文件与库。请先启动 Mooncake master、元数据服务和存储池。``local_hostname`` 应使用可达的主机名或地址且不带端口，Mooncake 会为每个存储 actor 分配独立端口。将下面 TCP 示例中的端点替换为可达的服务地址，并将整个对象传入 ``xavier_cache_backend_config``："
+
+#: source/user_guide/vllm_enhancement.rst:210
+msgid "``storage_bytes`` bounds this actor's tracked remote cache capacity, together with ``cpu_bytes``; it is not a Mooncake cluster quota. Admission may skip new pages while a bounded background eviction is pending. Mooncake manages actual storage capacity and eviction; ``global_segment_size`` is the memory this client contributes. ``disk_path`` and ``disk_bytes`` apply only to filesystem storage and are rejected with Mooncake. ``protocol=\"rdma\"`` additionally requires working RDMA hardware and drivers; LMCache registers the eagerly allocated L1 buffer."
+msgstr "``storage_bytes`` 与 ``cpu_bytes`` 共同限制当前 actor 跟踪的远端缓存容量，不是 Mooncake 集群配额。在有界的后台淘汰任务尚未完成时，新页面可能跳过缓存写入。实际存储容量与淘汰由 Mooncake 管理，``global_segment_size`` 表示当前客户端贡献的内存。``disk_path`` 和 ``disk_bytes`` 仅适用于文件系统存储，与 Mooncake 一起使用时会被拒绝。``protocol=\"rdma\"`` 还需要可用的 RDMA 硬件和驱动，LMCache 会注册预先分配的 L1 缓冲区。"
+
+#: source/user_guide/vllm_enhancement.rst:212
+msgid "Deployment, schema and cache-salt isolation still apply. Other deployments' objects are not discovered, and relaunching does not recover old entries. Cache misses, unavailable reads and timeouts fall back to local prefill. Graceful shutdown drains writes and deletes only this actor's tracked namespaced objects before closing its client. If cleanup fails or the process crashes, remaining objects are subject to Mooncake's eviction policy. Cleanup never explicitly deletes other clients' keys or stops the shared service. A client contributing memory withdraws that segment on close; use ``global_segment_size=0`` with a separate storage pool to avoid this."
+msgstr "部署、schema 和 cache-salt 隔离规则仍然生效。不会发现其他部署的对象，重新启动部署也不会恢复旧条目。缓存未命中、读取不可用或超时会回退到本地 prefill。正常关闭时先等待写入结束，再仅删除当前 actor 跟踪的命名空间对象并关闭客户端。清理失败或进程崩溃后，残留对象由 Mooncake 的淘汰策略处理。清理过程不会主动删除其他客户端的键，也不会停止共享服务。贡献内存的客户端关闭时会撤回该内存段；使用独立存储池并设置 ``global_segment_size=0`` 可避免这一影响。"

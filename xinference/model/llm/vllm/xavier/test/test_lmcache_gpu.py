@@ -22,7 +22,12 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.parametrize("deployment_mode", ["local", "supervisor-workers"])
-def test_lmcache_gpu_prefix_reuse(monkeypatch, tmp_path, deployment_mode):
+@pytest.mark.parametrize("l2_backend", ["filesystem", "mooncake"])
+def test_lmcache_gpu_prefix_reuse(monkeypatch, tmp_path, deployment_mode, l2_backend):
+    if l2_backend == "mooncake":
+        from ....xavier.tests.utils import mooncake_backend_config
+
+        mooncake_backend_config()
     import torch
     import xoscar as xo
 
@@ -80,7 +85,9 @@ def test_lmcache_gpu_prefix_reuse(monkeypatch, tmp_path, deployment_mode):
                     pass
                 assert time.monotonic() < deadline, "REST API did not start"
                 time.sleep(0.1)
-        asyncio.run(_exercise_cluster(address, tmp_path, worker_addresses, endpoint))
+        asyncio.run(
+            _exercise_cluster(address, tmp_path, worker_addresses, endpoint, l2_backend)
+        )
     finally:
         for process in reversed(processes):
             if process.is_alive():
@@ -109,7 +116,9 @@ def _run_test_api(supervisor_address, port, logging_config):
     )
 
 
-async def _exercise_cluster(address, tmp_path, worker_addresses=None, endpoint=None):
+async def _exercise_cluster(
+    address, tmp_path, worker_addresses=None, endpoint=None, l2_backend="filesystem"
+):
     import xoscar as xo
 
     from xinference.core.replica_config import DeviceConfig, ReplicaConfig
@@ -138,12 +147,17 @@ async def _exercise_cluster(address, tmp_path, worker_addresses=None, endpoint=N
     ]
     assert len(gpu_indices) == 2
     disk = tmp_path / "kv"
+    cpu_bytes = int(os.environ.get("XINFERENCE_TEST_LMCACHE_CPU_BYTES", 8 << 20))
     launch_config = dict(
         model_uid=uid,
-        model_name="qwen2.5-instruct",
+        model_name=os.environ.get(
+            "XINFERENCE_TEST_LMCACHE_MODEL_NAME", "qwen2.5-instruct"
+        ),
         model_engine="vLLM",
         model_type="LLM",
-        model_size_in_billions="0_5",
+        model_size_in_billions=os.environ.get(
+            "XINFERENCE_TEST_LMCACHE_MODEL_SIZE", "0_5"
+        ),
         model_path=model_path,
         model_format="pytorch",
         quantization="none",
@@ -152,7 +166,7 @@ async def _exercise_cluster(address, tmp_path, worker_addresses=None, endpoint=N
         enable_xavier=True,
         xavier_cache_backend="lmcache",
         xavier_cache_backend_config={
-            "cpu_bytes": 8 << 20,
+            "cpu_bytes": cpu_bytes,
             "disk_path": str(disk),
             "disk_bytes": 128 << 20,
             "read_timeout": 10,
@@ -164,6 +178,7 @@ async def _exercise_cluster(address, tmp_path, worker_addresses=None, endpoint=N
         dtype="float16",
         enforce_eager=True,
         enable_prefix_caching=False,
+        enable_thinking=False,
         max_num_seqs=4,
         replica_config=[
             ReplicaConfig(
@@ -174,6 +189,12 @@ async def _exercise_cluster(address, tmp_path, worker_addresses=None, endpoint=N
             for worker_address, gpu_index in zip(worker_addresses, gpu_indices)
         ],
     )
+    if l2_backend == "mooncake":
+        from ....xavier.tests.utils import mooncake_backend_config
+
+        launch_config["xavier_cache_backend_config"] = mooncake_backend_config(
+            cpu_bytes=cpu_bytes
+        )
     if endpoint is None:
         await supervisor.launch_builtin_model(**launch_config)
     else:
@@ -196,12 +217,12 @@ async def _exercise_cluster(address, tmp_path, worker_addresses=None, endpoint=N
         transfer = await xo.actor_ref(
             address=producer.address, uid=f"{TransferActor.default_uid()}-1"
         )
-        verification_number = "73814926"
+        verification_number = "7381"
         target = (
             f"The verification number is {verification_number}.\n"
             + " ".join(["signal"] * 420)
             + ". What is the verification number from the first line? "
-            "Reply only with the eight digits."
+            "Reply only with the four digits."
         )
 
         async def chat(model, prompt, salt):
@@ -215,11 +236,11 @@ async def _exercise_cluster(address, tmp_path, worker_addresses=None, endpoint=N
 
         original = await chat(producer, target, "scope-a")
         # New, unrelated prefixes on the same producer exceed its DRAM pool.
-        # The old prefix remains on disk; local vLLM prefix reuse is disabled.
+        # The old prefix remains in L2; local vLLM prefix reuse is disabled.
         for word in ("pressureone", "pressuretwo", "pressurethree"):
             await chat(producer, " ".join([word] * 220), "pressure")
         # LMCache 0.5.6 checks L1 eviction on a one-second background tick.
-        # Allow that tick to run before claiming this is a disk-cache test.
+        # Allow that tick to run before checking L2 hits.
         await asyncio.sleep(1.5)
         before = await transfer.get_cache_backend_stats_v1()
         restored = await chat(consumer, target, "scope-a")
@@ -228,6 +249,7 @@ async def _exercise_cluster(address, tmp_path, worker_addresses=None, endpoint=N
         after_isolated = await transfer.get_cache_backend_stats_v1()
         content = lambda result: result["choices"][0]["message"]["content"]
         evidence = {
+            "l2_backend": l2_backend,
             "gpu_indices": gpu_indices,
             "supervisor_address": address,
             "worker_addresses": worker_addresses,
