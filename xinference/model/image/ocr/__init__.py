@@ -26,6 +26,7 @@ from .ovisocr2 import OvisOCR2Model
 from .paddleocr_vl import PaddleOCRVLModel
 from .teleocr import LlamaCppTeleOCRModel, TeleOCRModel
 from .unlimited_ocr import UnlimitedOCRModel
+from .unlimited_ocr2 import UnlimitedOCR2Model
 from .vllm import (
     VLLMDeepSeekOCRModel,
     VLLMGotOCR2Model,
@@ -51,6 +52,7 @@ __all__ = [
     "TeleOCRModel",
     "LlamaCppTeleOCRModel",
     "UnlimitedOCRModel",
+    "UnlimitedOCR2Model",
     "XiaomiOCRModel",
 ]
 
@@ -68,6 +70,7 @@ def register_builtin_ocr_engines() -> None:
         PaddleOCRVLModel,
         TeleOCRModel,
         UnlimitedOCRModel,
+        UnlimitedOCR2Model,
         XiaomiOCRModel,
     ]
     SUPPORTED_ENGINES["vllm"] = [

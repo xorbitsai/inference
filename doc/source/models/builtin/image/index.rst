@@ -134,6 +134,8 @@ The following is a list of built-in image models in Xinference:
    teleocr
   
    unlimited-ocr
+
+   unlimited-ocr-2
   
    xiaomi-ocr-0
 
