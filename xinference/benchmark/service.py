@@ -204,7 +204,9 @@ class BenchmarkService:
                 code = await asyncio.wait_for(collect(), timeout=3600)
                 if code:
                     raise RuntimeError(
-                        "Benchmark runner failed; inspect the task log and request errors"
+                        job["logs"][-1]
+                        if job["logs"] and job["logs"][-1].startswith("Error: ")
+                        else "Benchmark runner failed; inspect the task log and request errors"
                     )
             job.update(state="completed", progress=100)
         except asyncio.CancelledError:

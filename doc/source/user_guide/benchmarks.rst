@@ -3,7 +3,7 @@ Model performance tests
 
 Open **Performance Tests**, select a running chat model, and start a test. You can also open this page from the performance-test button on a running model. Select history records to compare results, or export a record as JSON.
 
-Configure the approximate input token target, maximum output tokens, comma-separated concurrency points, requests per point, warmup requests, and random seed. The model must support token counting. Actual input and output lengths come from response usage; models may stop before the output limit. Warmup is excluded, and each concurrency point uses independent synthetic prompts. Server caches are not flushed.
+Configure the approximate input token target, maximum output tokens, comma-separated concurrency points, requests per point, warmup requests, and random seed. When a separate token-count endpoint is unavailable, calibration uses single-token chat requests and their prompt usage; these probes are excluded from measurements. Actual input and output lengths come from response usage; models may stop before the output limit. Warmup is excluded, and each concurrency point uses independent synthetic prompts. Server caches are not flushed.
 
 Tests run sequentially in background processes on the API host and send requests through the Xinference chat API, including its replica routing. Closing the page does not stop a test. Stop a task before deleting it. Results, logs, and configuration snapshots are saved under ``XINFERENCE_HOME/benchmarks``. Restarting the API server interrupts active tasks and preserves their history.
 

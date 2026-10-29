@@ -143,31 +143,67 @@ class XinferenceRunner:
         headers["anthropic-version"] = "2023-06-01"
         # Calibrate on the serving model's tokenizer. No model files or optional
         # tokenizer dependencies are needed on the API/benchmark host.
-        rng = random.Random(config["seed"])
+        # Calibration must not prime any measured prompt when warmup is zero.
+        rng = random.Random(config["seed"] ^ 0x5A17CA1B)
         words = [
             str(rng.randrange(100000, 999999)) for _ in range(config["input_tokens"])
         ]
         async with aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=60)
         ) as session:
+            count_api_supported = True
 
             async def count(size):
+                nonlocal count_api_supported
+                messages = [{"role": "user", "content": " ".join(words[:size])}]
+                if count_api_supported:
+                    async with session.post(
+                        endpoint + "/v1/messages/count_tokens",
+                        headers=headers,
+                        json={
+                            "model": config["model_uid"],
+                            "messages": messages,
+                            "max_tokens": config["output_tokens"],
+                        },
+                    ) as response:
+                        if response.status == 200:
+                            return (await response.json())["input_tokens"]
+                        if response.status not in (404, 405, 501):
+                            raise RuntimeError(
+                                f"Prompt token calibration failed (HTTP {response.status})"
+                            )
+                        count_api_supported = False
+                        emit(
+                            {
+                                "type": "log",
+                                "message": "Token-count API unavailable; calibrating with untimed single-token chat requests.",
+                            }
+                        )
+                # Engines such as llama.cpp serve chat and report prompt usage
+                # without implementing the separate Anthropic count endpoint.
+                # These probes are preparation only, outside every stage timer.
                 async with session.post(
-                    endpoint + "/v1/messages/count_tokens",
+                    endpoint + "/v1/chat/completions",
                     headers=headers,
                     json={
                         "model": config["model_uid"],
-                        "messages": [
-                            {"role": "user", "content": " ".join(words[:size])}
-                        ],
-                        "max_tokens": config["output_tokens"],
+                        "messages": messages,
+                        "max_tokens": 1,
+                        "temperature": 0,
+                        "stream": False,
                     },
                 ) as response:
                     if response.status != 200:
                         raise RuntimeError(
-                            f"Prompt token calibration failed (HTTP {response.status}); this model must support token counting"
+                            f"Chat prompt calibration failed (HTTP {response.status})"
                         )
-                    return (await response.json())["input_tokens"]
+                    data = await response.json()
+                    count = (data.get("usage") or {}).get("prompt_tokens")
+                    if type(count) is not int or count <= 0:
+                        raise RuntimeError(
+                            "Prompt calibration requires usage.prompt_tokens in chat responses when the token-count API is unavailable"
+                        )
+                    return count
 
             low, high = 1, len(words)
             minimum = await count(low)
@@ -247,4 +283,8 @@ def main():
     def emit(event):
         print(json.dumps(event, allow_nan=False), flush=True)
 
-    asyncio.run(RUNNERS[payload["config"]["runner"]]().run(payload, emit))
+    try:
+        asyncio.run(RUNNERS[payload["config"]["runner"]]().run(payload, emit))
+    except Exception as exc:
+        emit({"type": "log", "message": f"Error: {exc}"})
+        raise

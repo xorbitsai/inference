@@ -21,10 +21,18 @@ from xinference.benchmark.service import BenchmarkConfig, BenchmarkService
 @pytest_asyncio.fixture
 async def server():
     seen = []
+    count_calls = []
     entered = asyncio.Event()
 
     async def count(request):
         body = await request.json()
+        count_calls.append(body)
+        if body["model"] in ("no-count", "missing-calibration-usage"):
+            return web.json_response(
+                {"error": "Token counting is not supported"}, status=501
+            )
+        if body["model"] == "forbidden-count":
+            return web.json_response({"error": "Forbidden"}, status=403)
         return web.json_response(
             {"input_tokens": len(body["messages"][0]["content"].split()) * 2 + 8}
         )
@@ -32,6 +40,18 @@ async def server():
     async def chat(request):
         body = await request.json()
         seen.append((body, request.headers.get("Authorization")))
+        if not body.get("stream"):
+            if body["model"] == "missing-calibration-usage":
+                return web.json_response({"choices": [{"message": {"content": "x"}}]})
+            return web.json_response(
+                {
+                    "usage": {
+                        "prompt_tokens": len(body["messages"][0]["content"].split()) * 2
+                        + 8,
+                        "completion_tokens": 1,
+                    }
+                }
+            )
         response = web.StreamResponse(headers={"Content-Type": "text/event-stream"})
         await response.prepare(request)
         entered.set()
@@ -68,13 +88,13 @@ async def server():
     site = web.TCPSite(runner, "127.0.0.1", 0)
     await site.start()
     port = site._server.sockets[0].getsockname()[1]
-    yield f"http://127.0.0.1:{port}", seen, entered
+    yield f"http://127.0.0.1:{port}", seen, entered, count_calls
     await runner.cleanup()
 
 
 @pytest.mark.asyncio
 async def test_stream_metrics_ignore_role_usage_and_count_reasoning(server):
-    endpoint, _, _ = server
+    endpoint, _, _, _ = server
     runner = StageRunner(
         endpoint + "/v1/chat/completions",
         "model",
@@ -102,7 +122,7 @@ async def test_stream_metrics_ignore_role_usage_and_count_reasoning(server):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model", ["no-usage", "truncated"])
 async def test_missing_measurements_and_incomplete_stream(server, model):
-    endpoint, _, _ = server
+    endpoint, _, _, _ = server
     runner = StageRunner(
         endpoint + "/v1/chat/completions",
         model,
@@ -129,7 +149,7 @@ async def test_missing_measurements_and_incomplete_stream(server, model):
 async def test_subprocess_job_persistence_progress_and_no_saved_credentials(
     server, tmp_path
 ):
-    endpoint, seen, _ = server
+    endpoint, seen, _, _ = server
     service = BenchmarkService(tmp_path)
     config = BenchmarkConfig(
         model_uid="model",
@@ -164,7 +184,7 @@ async def test_subprocess_job_persistence_progress_and_no_saved_credentials(
 
 @pytest.mark.asyncio
 async def test_stop_running_and_queued_jobs_releases_process(server, tmp_path):
-    endpoint, _, entered = server
+    endpoint, _, entered, _ = server
     service = BenchmarkService(tmp_path)
     config = BenchmarkConfig(
         model_uid="hang", input_tokens=32, concurrency=[1], requests=1, warmup=0
@@ -305,4 +325,65 @@ async def test_api_permissions_validation_and_snapshot(tmp_path):
                 "/v1/benchmarks", json={"model_uid": "model"}, headers=headers
             )
         ).status_code == 422
+    await service.close()
+
+
+@pytest.mark.asyncio
+async def test_unsupported_token_count_uses_unmeasured_chat_usage(server, tmp_path):
+    endpoint, seen, _, count_calls = server
+    service = BenchmarkService(tmp_path)
+    config = BenchmarkConfig(
+        model_uid="no-count",
+        input_tokens=32,
+        output_tokens=4,
+        requests=3,
+        concurrency=[1, 2],
+        warmup=0,
+    )
+    job = service.create(config, {}, endpoint, "token")
+    await asyncio.wait_for(service.tasks[job["id"]], 30)
+    result = service.get(job["id"], raw=True)
+    assert result["state"] == "completed"
+    assert len(count_calls) == 1
+    probes = [body for body, _ in seen if not body.get("stream")]
+    measured = [body for body, _ in seen if body.get("stream")]
+    assert len(probes) > 1
+    assert all(body["max_tokens"] == 1 for body in probes)
+    assert len(measured) == 6
+    assert all(
+        stage["successful"] == 3 and len(stage["raw_requests"]) == 3
+        for stage in result["results"]
+    )
+    calibration_prompts = {body["messages"][0]["content"] for body in probes}
+    assert not calibration_prompts.intersection(
+        body["messages"][0]["content"] for body in measured
+    )
+    assert any("untimed" in line for line in result["logs"])
+    await service.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model, message",
+    [
+        ("forbidden-count", "HTTP 403"),
+        ("missing-calibration-usage", "usage.prompt_tokens"),
+    ],
+)
+async def test_calibration_failure_reports_actual_error_without_unsafe_fallback(
+    server, tmp_path, model, message
+):
+    endpoint, seen, _, _ = server
+    service = BenchmarkService(tmp_path)
+    config = BenchmarkConfig(
+        model_uid=model, input_tokens=32, requests=1, concurrency=[1], warmup=0
+    )
+    job = service.create(config, {}, endpoint, "")
+    await asyncio.wait_for(service.tasks[job["id"]], 30)
+    result = service.get(job["id"])
+    assert result["state"] == "failed"
+    assert message in result["error"]
+    assert result["results"] == []
+    if model == "forbidden-count":
+        assert not seen
     await service.close()
