@@ -87,6 +87,8 @@ The following is a list of built-in image models in Xinference:
 
    ovisocr2
 
+   ovisocr3
+
    paddleocr-vl
   
    paddleocr-vl-1.6

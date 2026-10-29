@@ -27,6 +27,7 @@ from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
 from .navidc_ocr import NaviDCOCRModel
 from .ovisocr2 import OvisOCR2Model
+from .ovisocr3 import ThreadedOvisOCR3Model
 from .paddleocr_vl import PaddleOCRVLModel
 from .teleocr import TeleOCRModel
 
@@ -507,6 +508,75 @@ class VLLMOvisOCR2Model(OvisOCR2Model):
         outputs = self._model.generate(inputs, sampling_params)
         texts = _extract_text(outputs)
         return self._postprocess_output(texts[0], filter_imgtags) if texts else ""
+
+
+class VLLMOvisOCR3Model(ThreadedOvisOCR3Model):
+    required_libs = ("vllm",)
+
+    def load(self) -> None:
+        vllm_kwargs = _sanitize_vllm_kwargs(self._kwargs)
+        # These are processor arguments rather than EngineArgs.
+        vllm_kwargs.pop("min_pixels", None)
+        vllm_kwargs.pop("max_pixels", None)
+        vllm_kwargs.setdefault("gpu_memory_utilization", 0.8)
+        vllm_kwargs.setdefault("gdn_prefill_backend", "triton")
+        vllm_kwargs.setdefault("limit_mm_per_prompt", {"image": 1})
+        self._model = self._run_on_engine_thread(
+            _load_vllm_model, self._model_path, vllm_kwargs
+        )
+        try:
+            self._processor = self._run_on_engine_thread(self._model.get_tokenizer)
+        except Exception:
+            self.stop()
+            raise
+
+    def _shutdown_model(self) -> None:
+        _shutdown_vllm_model(self._model)
+
+    def ocr(
+        self,
+        image: PIL.Image.Image,
+        prompt: Optional[str] = None,
+        filter_imgtags: bool = True,
+        **kwargs: Any,
+    ) -> str:
+        if not isinstance(image, PIL.Image.Image):
+            raise ValueError("Input must be a PIL Image")
+        from vllm import SamplingParams
+
+        if self._model is None or self._processor is None:
+            self.load()
+        assert self._model is not None
+        assert self._processor is not None
+        normalized_prompt = self._normalize_prompt(prompt)
+        text = self._processor.apply_chat_template(
+            self._messages(normalized_prompt),
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
+        )
+        inputs = [
+            {
+                "prompt": text,
+                "multi_modal_data": {"image": [image.convert("RGB")]},
+                "mm_processor_kwargs": {
+                    "images_kwargs": {
+                        "min_pixels": self._kwargs.get("min_pixels", self.MIN_PIXELS),
+                        "max_pixels": self._kwargs.get("max_pixels", self.MAX_PIXELS),
+                    }
+                },
+            }
+        ]
+        sampling_kwargs = self._generation_kwargs(kwargs)
+        sampling_kwargs.pop("use_cache", None)
+        do_sample = sampling_kwargs.pop("do_sample", False)
+        sampling_kwargs["max_tokens"] = sampling_kwargs.pop("max_new_tokens")
+        sampling_kwargs.setdefault("temperature", 1.0 if do_sample else 0.0)
+        outputs = self._run_on_engine_thread(
+            self._model.generate, inputs, SamplingParams(**sampling_kwargs)
+        )
+        text = outputs[0].outputs[0].text if outputs and outputs[0].outputs else ""
+        return self._process_output(text, normalized_prompt, filter_imgtags)
 
 
 class VLLMPaddleOCRVLModel(PaddleOCRVLModel):

@@ -23,7 +23,9 @@ from .monkeyocr import MonkeyOCRModel
 from .navidc_ocr import NaviDCOCRModel
 from .ocr_family import SUPPORTED_ENGINES
 from .ovisocr2 import OvisOCR2Model
+from .ovisocr3 import OvisOCR3Model
 from .paddleocr_vl import PaddleOCRVLModel
+from .sglang import SGLangOvisOCR3Model
 from .teleocr import LlamaCppTeleOCRModel, TeleOCRModel
 from .unlimited_ocr import UnlimitedOCRModel
 from .vllm import (
@@ -32,6 +34,7 @@ from .vllm import (
     VLLMHunyuanOCRModel,
     VLLMNaviDCOCRModel,
     VLLMOvisOCR2Model,
+    VLLMOvisOCR3Model,
     VLLMPaddleOCRVLModel,
     VLLMTeleOCRModel,
 )
@@ -47,6 +50,7 @@ __all__ = [
     "MonkeyOCRModel",
     "NaviDCOCRModel",
     "OvisOCR2Model",
+    "OvisOCR3Model",
     "PaddleOCRVLModel",
     "TeleOCRModel",
     "LlamaCppTeleOCRModel",
@@ -65,6 +69,7 @@ def register_builtin_ocr_engines() -> None:
         MonkeyOCRModel,
         NaviDCOCRModel,
         OvisOCR2Model,
+        OvisOCR3Model,
         PaddleOCRVLModel,
         TeleOCRModel,
         UnlimitedOCRModel,
@@ -75,9 +80,11 @@ def register_builtin_ocr_engines() -> None:
         VLLMHunyuanOCRModel,
         VLLMNaviDCOCRModel,
         VLLMOvisOCR2Model,
+        VLLMOvisOCR3Model,
         VLLMTeleOCRModel,
     ]
     SUPPORTED_ENGINES["llama.cpp"] = [LlamaCppTeleOCRModel]
+    SUPPORTED_ENGINES["sglang"] = [SGLangOvisOCR3Model]
     SUPPORTED_ENGINES["mlx"] = [MLXDeepSeekOCRModel]
     # DeepDoc runs on onnxruntime via its own engine name
     SUPPORTED_ENGINES["deepdoc"] = [DeepDocModel]
