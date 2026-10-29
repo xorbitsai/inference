@@ -1064,10 +1064,20 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
+        # DeepSeek V4.1 checkpoints carry their FP8 quantization configuration.
+        # AutoModelForCausalLM reads it directly from config.json.
+        deepseek_v41_fp8 = (
+            llm_spec.model_format == "fp8"
+            and llm_family.has_architecture("DeepseekV41ForCausalLM")
+        )
+        if (
+            llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]
+            and not deepseek_v41_fp8
+        ):
             return (
                 False,
-                "Transformers chat engine supports pytorch/gptq/awq/bnb/fp4 formats only",
+                "Transformers chat engine supports pytorch/gptq/awq/bnb/fp4 formats "
+                "and DeepSeek V4.1 FP8 checkpoints only",
             )
         if llm_family.has_architecture("Qwen4ExpForConditionalGeneration"):
             return (

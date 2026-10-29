@@ -55,6 +55,220 @@
             }
           }
         }
+      },
+      {
+        "model_size_in_billions": 552,
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/DeepSeek-V4.1-Flash-1017-GGUF",
+            "quantizations": [
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_XXS",
+              "UD-IQ3_S",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "model_file_name_template": "{quantization}/DeepSeek-V4.1-Flash-1017-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/DeepSeek-V4.1-Flash-1017-{quantization}-{part}.gguf",
+            "quantization_parts": {
+              "UD-IQ1_M": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-IQ1_S": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-IQ2_XXS": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-IQ3_S": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-IQ3_XXS": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ]
+            },
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf"
+            ]
+          },
+          "modelscope": {
+            "model_id": "unsloth/DeepSeek-V4.1-Flash-1017-GGUF",
+            "quantizations": [
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_XXS",
+              "UD-IQ3_S",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "model_file_name_template": "{quantization}/DeepSeek-V4.1-Flash-1017-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/DeepSeek-V4.1-Flash-1017-{quantization}-{part}.gguf",
+            "quantization_parts": {
+              "UD-IQ1_M": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-IQ1_S": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-IQ2_XXS": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-IQ3_S": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-IQ3_XXS": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ]
+            },
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf"
+            ]
+          }
+        }
       }
     ],
     "architectures": [
@@ -75,10 +289,12 @@
       "packages": [
         "vllm>=0.30.0.dev0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\"",
-        "qwen-omni-utils ; #engine# == \"vllm\""
+        "qwen-omni-utils ; #engine# == \"vllm\"",
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
     "featured": true,
-    "updated_at": 1792382535
+    "updated_at": 1793266432
   }
 ]
