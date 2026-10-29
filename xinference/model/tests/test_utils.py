@@ -1396,3 +1396,32 @@ def test_link_model_uri_links_file_as_file(tmp_path, monkeypatch):
     cache_dir = str(tmp_path / "cache")
     assert utils.link_model_uri(str(src), cache_dir) == cache_dir
     assert calls == [{"target_is_directory": False}]
+
+
+def test_cache_manager_relinks_a_dangling_model_uri_link(tmp_path, monkeypatch):
+    from ... import constants
+    from ..cache_manager import CacheManager
+
+    old_path = tmp_path / "old" / "model"
+    old_path.mkdir(parents=True)
+    try:
+        (tmp_path / "probe").symlink_to(old_path, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"Symbolic links are unavailable: {exc}")
+    monkeypatch.setattr(constants, "XINFERENCE_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path / "custom"))
+    monkeypatch.setattr(CacheManager, "is_initialized", False)
+    family = SimpleNamespace(
+        model_name="my-image", cache_name=None, model_uri=str(old_path)
+    )
+    cache_dir = CacheManager(family).cache()
+    assert os.path.islink(cache_dir)
+
+    # Moving the weights leaves the cache entry as a dangling symlink.
+    new_path = tmp_path / "new" / "model"
+    new_path.parent.mkdir()
+    old_path.rename(new_path)
+    family.model_uri = str(new_path)
+
+    assert CacheManager(family).cache() == cache_dir
+    assert os.path.realpath(cache_dir) == os.path.realpath(new_path)

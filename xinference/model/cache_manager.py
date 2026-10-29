@@ -47,6 +47,12 @@ class CacheManager:
 
         assert model_spec.model_uri is not None
         src_root = resolve_model_uri(model_spec.model_uri, model_spec.model_name)
+        if os.path.islink(cache_dir):
+            # ``os.path.exists`` follows the link, so a dangling symlink (its
+            # target was moved or removed) gets here while still occupying
+            # ``cache_dir``; drop it so it can be recreated.
+            logger.info("Removing stale cache symlink %s", cache_dir)
+            os.unlink(cache_dir)
         return link_model_uri(src_root, cache_dir)
 
     def _cache(self) -> str:
