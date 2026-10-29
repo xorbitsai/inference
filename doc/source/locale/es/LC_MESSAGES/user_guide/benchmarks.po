@@ -109,3 +109,18 @@ msgstr ""
 #: user_guide/benchmarks.rst
 msgid "API example::"
 msgstr "Ejemplo de API::"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Each test displays output throughput, TTFT, and TPOT curves against "
+"concurrency. Use Latency statistic to switch the latency charts between "
+"mean, P95, and P99. Selected history records are overlaid with matching "
+"colors across charts. Points represent measurements; missing values stay "
+"blank. A notice identifies different workloads or runner metric versions."
+msgstr ""
+"Cada prueba muestra curvas de rendimiento de salida, TTFT y TPOT frente a la"
+" concurrencia. Latency statistic permite alternar entre media, P95 y P99 en "
+"las curvas de latencia. Los registros seleccionados se superponen con "
+"colores coherentes en todas las gráficas. Los puntos representan mediciones;"
+" los valores ausentes quedan vacíos. Un aviso identifica cargas o versiones "
+"de métricas del runner diferentes."

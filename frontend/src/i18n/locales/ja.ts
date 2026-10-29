@@ -1,5 +1,19 @@
 const ja = {
   benchmarks: {
+    charts: {
+      title: '性能曲線',
+      statistic: 'レイテンシ統計',
+      mean: '平均',
+      differentWorkloads:
+        '選択した記録のワークロードまたは Runner 指標バージョンが異なります。設定を確認してから比較してください。',
+      legend: 'テスト記録',
+      noData: '測定データなし',
+      output_throughput: '出力スループット',
+      ttft_ms: '最初のトークンまでの時間（TTFT）',
+      tpot_ms: '出力トークンあたりの時間（TPOT）',
+      concurrency: '同時実行数',
+      hint: '点は実測値です。取得できない指標は空欄のままです。実行中または中断したテストの曲線は未完成の場合があります。',
+    },
     title: '性能テスト',
     description: 'サービスの負荷テストを実行し、保存した結果を比較します。',
     create: '新規テスト',

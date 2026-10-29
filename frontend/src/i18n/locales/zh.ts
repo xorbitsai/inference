@@ -1,5 +1,18 @@
 const zh = {
   benchmarks: {
+    charts: {
+      title: '性能曲线',
+      statistic: '延迟统计口径',
+      mean: '均值',
+      differentWorkloads: '所选记录的工作负载或 Runner 指标版本不同，请核对配置后再比较结论。',
+      legend: '测试记录',
+      noData: '暂无实测数据',
+      output_throughput: '输出吞吐',
+      ttft_ms: '首 token 延迟（TTFT）',
+      tpot_ms: '每输出 token 耗时（TPOT）',
+      concurrency: '并发数',
+      hint: '圆点表示实测点，缺失指标留空。运行中或已中断测试的曲线可能不完整。',
+    },
     title: '性能测试',
     description: '运行服务压测并对比历史结果。',
     create: '新建测试',

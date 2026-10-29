@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import request from '@/lib/request';
+import BenchmarkCharts from './charts';
 
 interface Distribution {
   mean: number;
@@ -457,6 +458,7 @@ export default function Benchmarks() {
               {t('benchmarks.compare')} ({compared.length})
             </h2>
             <p className="text-xs text-muted-foreground">{t('benchmarks.compareHint')}</p>
+            <BenchmarkCharts runs={compared} />
             {results(compared)}
             <div className="grid gap-3 lg:grid-cols-2">
               {compared.map((job) => (
@@ -487,7 +489,12 @@ export default function Benchmarks() {
                 {detail.error}
               </p>
             )}
-            {detail.results.length > 0 && results([detail])}
+            {detail.results.length > 0 && (
+              <>
+                <BenchmarkCharts runs={[detail]} />
+                {results([detail])}
+              </>
+            )}
             <pre className="overflow-auto text-xs text-muted-foreground">
               {detail.logs.join('\n')}
             </pre>

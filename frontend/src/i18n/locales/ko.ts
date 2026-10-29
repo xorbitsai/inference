@@ -1,5 +1,19 @@
 const ko = {
   benchmarks: {
+    charts: {
+      title: '성능 곡선',
+      statistic: '지연 통계',
+      mean: '평균',
+      differentWorkloads:
+        '선택한 기록의 워크로드 또는 Runner 지표 버전이 다릅니다. 설정을 확인한 후 비교하세요.',
+      legend: '테스트 기록',
+      noData: '측정 데이터 없음',
+      output_throughput: '출력 처리량',
+      ttft_ms: '첫 토큰 지연 (TTFT)',
+      tpot_ms: '출력 토큰당 시간 (TPOT)',
+      concurrency: '동시 요청 수',
+      hint: '점은 측정값입니다. 없는 지표는 비워 둡니다. 실행 중이거나 중단된 테스트의 곡선은 불완전할 수 있습니다.',
+    },
     title: '성능 테스트',
     description: '서비스 부하 테스트를 실행하고 저장된 결과를 비교합니다.',
     create: '새 테스트',

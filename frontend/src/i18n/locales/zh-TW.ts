@@ -12,6 +12,19 @@
 
 const zhTW = {
   benchmarks: {
+    charts: {
+      title: '效能曲線',
+      statistic: '延遲統計口徑',
+      mean: '平均值',
+      differentWorkloads: '所選記錄的工作負載或 Runner 指標版本不同，請核對設定後再比較結論。',
+      legend: '測試記錄',
+      noData: '尚無實測資料',
+      output_throughput: '輸出吞吐',
+      ttft_ms: '首 token 延遲（TTFT）',
+      tpot_ms: '每輸出 token 耗時（TPOT）',
+      concurrency: '並行數',
+      hint: '圓點表示實測點，缺失指標留空。執行中或已中斷測試的曲線可能不完整。',
+    },
     title: '效能測試',
     description: '執行服務壓測並比較歷史結果。',
     create: '新增測試',

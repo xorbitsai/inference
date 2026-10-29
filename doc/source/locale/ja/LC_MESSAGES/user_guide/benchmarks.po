@@ -94,3 +94,15 @@ msgstr ""
 #: user_guide/benchmarks.rst
 msgid "API example::"
 msgstr "API の例::"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Each test displays output throughput, TTFT, and TPOT curves against "
+"concurrency. Use Latency statistic to switch the latency charts between "
+"mean, P95, and P99. Selected history records are overlaid with matching "
+"colors across charts. Points represent measurements; missing values stay "
+"blank. A notice identifies different workloads or runner metric versions."
+msgstr ""
+"各テストでは、同時実行数に対する出力スループット、TTFT、TPOT の曲線を表示します。「レイテンシ統計」で平均、P95、P99 "
+"を切り替えられます。選択した履歴を重ねて表示し、各グラフで同じ記録には同じ色を使います。点は実測値で、取得できない値は空欄です。ワークロードまたは "
+"Runner 指標バージョンが異なる場合は通知を表示します。"

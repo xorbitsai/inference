@@ -88,3 +88,14 @@ msgstr ""
 #: user_guide/benchmarks.rst
 msgid "API example::"
 msgstr "API 範例::"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Each test displays output throughput, TTFT, and TPOT curves against "
+"concurrency. Use Latency statistic to switch the latency charts between "
+"mean, P95, and P99. Selected history records are overlaid with matching "
+"colors across charts. Points represent measurements; missing values stay "
+"blank. A notice identifies different workloads or runner metric versions."
+msgstr ""
+"每次測試會顯示輸出吞吐、TTFT 和 TPOT 隨並行數變化的曲線。使用「延遲統計口徑」可在平均值、P95 和 P99 "
+"之間切換延遲曲線。所選歷史記錄會疊加顯示，各圖中同一記錄使用相同顏色。圓點表示實測值，缺失指標留空。工作負載或 Runner 指標版本不同時會顯示提示。"

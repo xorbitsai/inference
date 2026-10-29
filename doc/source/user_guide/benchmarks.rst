@@ -13,6 +13,8 @@ With authentication enabled, these endpoints require both ``models:write`` and `
 
 The built-in ``xinference`` runner reuses the serving benchmark implementation. Runner adapters expose ``run``, ``cancel``, and ``capabilities``; records retain the runner version and raw request measurements. Additional tools can implement the adapter contract without changing task storage or the results page.
 
+Each test displays output throughput, TTFT, and TPOT curves against concurrency. Use Latency statistic to switch the latency charts between mean, P95, and P99. Selected history records are overlaid with matching colors across charts. Points represent measurements; missing values stay blank. A notice identifies different workloads or runner metric versions.
+
 API example::
 
     curl -H "Authorization: Bearer $TOKEN" \

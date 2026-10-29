@@ -94,3 +94,15 @@ msgstr ""
 #: user_guide/benchmarks.rst
 msgid "API example::"
 msgstr "API 예제::"
+
+#: user_guide/benchmarks.rst
+msgid ""
+"Each test displays output throughput, TTFT, and TPOT curves against "
+"concurrency. Use Latency statistic to switch the latency charts between "
+"mean, P95, and P99. Selected history records are overlaid with matching "
+"colors across charts. Points represent measurements; missing values stay "
+"blank. A notice identifies different workloads or runner metric versions."
+msgstr ""
+"각 테스트는 동시 요청 수에 따른 출력 처리량, TTFT, TPOT 곡선을 표시합니다. 지연 통계에서 평균, P95, P99를 전환할 수"
+" 있습니다. 선택한 기록은 모든 차트에서 동일한 색상으로 겹쳐 표시됩니다. 점은 측정값이며 없는 지표는 비워 둡니다. 워크로드 또는 "
+"Runner 지표 버전이 다르면 알림이 표시됩니다."

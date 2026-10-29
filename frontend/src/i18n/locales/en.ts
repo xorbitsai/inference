@@ -1,5 +1,19 @@
 const en = {
   benchmarks: {
+    charts: {
+      title: 'Performance curves',
+      statistic: 'Latency statistic',
+      mean: 'Mean',
+      differentWorkloads:
+        'Selected runs have different workloads or runner metric versions. Check their configurations before drawing conclusions.',
+      legend: 'Test runs',
+      noData: 'No measured data',
+      output_throughput: 'Output throughput',
+      ttft_ms: 'Time to first token (TTFT)',
+      tpot_ms: 'Time per output token (TPOT)',
+      concurrency: 'Concurrency',
+      hint: 'Dots are measured points. Missing metrics remain blank. Curves from running or interrupted tests may be incomplete.',
+    },
     title: 'Performance Tests',
     description: 'Run serving benchmarks and compare saved results.',
     create: 'New test',
