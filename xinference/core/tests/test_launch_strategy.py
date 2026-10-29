@@ -223,7 +223,11 @@ async def test_sharded_launch_failure_rolls_back(
 
     with pytest.raises(error_type) as exc:
         await _launch_shard_lifecycle(supervisor, workers, replica)
-    assert exc.value is failing_worker.error
+    # Python 3.10 may recreate cancellation exceptions across a Task boundary.
+    # Cancellation propagation and rollback, rather than object identity, are
+    # the contract; ordinary launch failures still preserve their exception.
+    if error_type is not asyncio.CancelledError:
+        assert exc.value is failing_worker.error
     for i, worker in enumerate(workers):
         expected = [build_replica_model_uid("sharded", r) for r in range(replica - 1)]
         if i < fail_shard:

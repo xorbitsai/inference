@@ -1084,6 +1084,192 @@ def counter_launch_args(uid="counter-rep0"):
     )
 
 
+@pytest.mark.parametrize("pause", ["status", "stop"])
+@pytest.mark.asyncio
+async def test_admitted_termination_finishes_cleanup_during_handoff(
+    tmp_path, monkeypatch, pause
+):
+    import psutil
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    release = asyncio.Event()
+    try:
+        worker, authority = make_launch_worker(
+            pool, tmp_path, monkeypatch, cleanup=pause == "stop"
+        )
+        old, new = authority.owner, session(2)
+        await worker.install_controller_session(old.to_dict())
+        await worker.launch_builtin_model(
+            **counter_launch_args(), **{CONTROL_CONTEXT_KEY: command(old).to_dict()}
+        )
+        uid = "counter-rep0"
+        pid = worker._model_uid_to_pid[uid]
+        entered = asyncio.Event()
+
+        async def status(*args):
+            entered.set()
+            await release.wait()
+
+        if pause == "status":
+            worker._status_guard_ref.update_instance_info = status
+        terminating = asyncio.create_task(
+            worker.terminate_model(uid, **{CONTROL_CONTEXT_KEY: command(old).to_dict()})
+        )
+        if pause == "status":
+            await asyncio.wait_for(entered.wait(), 10)
+        else:
+
+            async def stopping():
+                while not (tmp_path / "cleanup.entered").exists():
+                    await asyncio.sleep(0.01)
+
+            await asyncio.wait_for(stopping(), 10)
+        authority.owner = new
+        installing = asyncio.create_task(
+            worker.install_controller_session(new.to_dict())
+        )
+        while worker._control_fence.session != new:
+            await asyncio.sleep(0)
+        assert not installing.done()
+        with pytest.raises(ControlSessionRejected, match="stale_session"):
+            await worker.terminate_model(
+                uid, **{CONTROL_CONTEXT_KEY: command(old).to_dict()}
+            )
+        release.set()
+        (tmp_path / "cleanup.release").touch()
+        await asyncio.wait_for(terminating, 10)
+        assert (await asyncio.wait_for(installing, 10))["ready"]
+        assert not psutil.pid_exists(pid) and not pool.sub_processes
+        for name in (
+            "model",
+            "addr",
+            "launch_args",
+            "model_spec",
+            "model_status",
+            "status_token",
+            "pid",
+            "subpool_addresses",
+            "subpool_pids",
+        ):
+            assert uid not in getattr(worker, f"_model_uid_to_{name}")
+        assert uid not in worker._gpu_to_model_uids[0]
+        assert uid not in json.loads((tmp_path / "models.json").read_text())
+        current = {CONTROL_CONTEXT_KEY: command(new).to_dict()}
+        await worker.launch_builtin_model(**counter_launch_args(), **current)
+        await worker.terminate_model(uid, **current)
+    finally:
+        release.set()
+        (tmp_path / "cleanup.release").touch()
+        await pool.stop()
+        pool._actors.clear()
+        Router.set_instance(None)
+
+
+@pytest.mark.parametrize(
+    "pause,recover,continuation",
+    [
+        ("remove", False, None),
+        ("remove", True, None),
+        ("cleanup", False, None),
+        ("cleanup", True, None),
+        ("launch", True, None),
+        ("cleanup", True, "delete"),
+        ("cleanup", True, "replace"),
+        ("cleanup", True, "status"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_native_fault_intent_survives_inflight_handoff(
+    tmp_path, monkeypatch, pause, recover, continuation
+):
+    import psutil
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    release = asyncio.Event()
+    try:
+        worker, authority = make_launch_worker(pool, tmp_path, monkeypatch)
+        old, new = authority.owner, session(2)
+        await worker.install_controller_session(old.to_dict())
+        await worker.launch_builtin_model(
+            **counter_launch_args(), **{CONTROL_CONTEXT_KEY: command(old).to_dict()}
+        )
+        uid = "counter-rep0"
+        pid = worker._model_uid_to_pid[uid]
+        address = worker._model_uid_to_addr[uid]
+        worker._model_uid_to_recover_count[uid] = 1 if recover else 0
+        worker._supervisor_ref.mark_replica_dead = AsyncMock()
+        entered = asyncio.Event()
+        target, name = {
+            "remove": (pool, "remove_sub_pool"),
+            "cleanup": (worker, "_terminate_model"),
+            "launch": (worker, "_get_model_ability"),
+        }[pause]
+        original = getattr(target, name)
+
+        async def paused(*args, **kwargs):
+            result = await original(*args, **kwargs)
+            if not entered.is_set():
+                entered.set()
+                await release.wait()
+            return result
+
+        monkeypatch.setattr(target, name, paused)
+        psutil.Process(pid).kill()
+        await asyncio.wait_for(entered.wait(), 20)
+        assert address not in pool.sub_processes
+        authority.owner = new
+        if continuation is not None:
+            authority.phase = "fencing"
+        installing = asyncio.create_task(
+            worker.install_controller_session(new.to_dict())
+        )
+        while worker._control_fence.session != new:
+            await asyncio.sleep(0)
+        assert not installing.done()
+        release.set()
+        assert (await asyncio.wait_for(installing, 20))["ready"]
+        if continuation is not None:
+            assert worker._pending_control_faults
+            authority.phase = "active"
+            current = {CONTROL_CONTEXT_KEY: command(new).to_dict()}
+            if continuation == "delete":
+                await worker.terminate_model(uid, **current)
+            elif continuation == "replace":
+                await worker.launch_builtin_model(**counter_launch_args(), **current)
+                await worker.wait_for_load(uid, **current)
+                replacement = worker._model_uid_to_model[uid]
+            if continuation == "status":
+                monkeypatch.setattr(worker, "_call_supervisor", AsyncMock())
+                monkeypatch.setattr(worker_module, "gather_node_info", lambda: {})
+                await worker.report_status(**current)
+            else:
+                await worker.install_controller_session(new.to_dict())
+            if continuation == "delete":
+                assert uid not in worker._model_uid_to_model
+                assert not worker._pending_control_faults and not pool.sub_processes
+                worker._supervisor_ref.mark_replica_dead.assert_not_awaited()
+                return
+            if continuation == "replace":
+                assert worker._model_uid_to_model[uid] is replacement
+        if recover:
+            restored = worker._model_uid_to_model[uid]
+            value, new_pid, _ = await restored.add(1)
+            assert value == 1 and new_pid != pid
+            assert worker._model_uid_to_model_status[uid].model_state == "ready"
+            worker._supervisor_ref.mark_replica_dead.assert_not_awaited()
+        else:
+            assert uid not in worker._model_uid_to_model
+            assert uid not in worker._gpu_to_model_uids[0]
+            assert not pool.sub_processes
+            worker._supervisor_ref.mark_replica_dead.assert_awaited_once_with(uid)
+        assert not worker._pending_control_faults
+    finally:
+        release.set()
+        await pool.stop()
+        pool._actors.clear()
+        Router.set_instance(None)
+
+
 @pytest.mark.parametrize("recover", [False, True], ids=["evict", "recover"])
 @pytest.mark.asyncio
 async def test_real_native_monitor_handles_fault_after_session_change(

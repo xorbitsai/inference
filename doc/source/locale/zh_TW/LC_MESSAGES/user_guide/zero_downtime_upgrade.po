@@ -578,5 +578,5 @@ msgid "Session metadata is also required through same-process ActorRefs. Startup
 msgstr "透過同程序 ActorRef 呼叫時也必須攜帶工作階段資訊。啟動復原記錄會保留到安裝 active 工作階段後。如果安裝發生在隔離或協調階段，請在啟用後重試 ``install_controller_session``，以繼續復原。新工作階段中斷復原時，未完成的記錄仍會保留。"
 
 #: ../../source/user_guide/zero_downtime_upgrade.rst:25
-msgid "Worker-owned crash recovery and pending cache inventory publication acquire active-session admission for new events; already admitted operations keep their original session. Model OOM reports update only diagnostics for the current model incarnation and do not authorize management commands."
-msgstr "Worker 自身的故障復原和待處理快取目錄上報會為新事件申請 active 工作階段准入；已准入的操作保留原工作階段。模型 OOM 上報只能更新目前模型實例的診斷資訊，不能授權管理命令。"
+msgid "Worker-owned crash recovery and pending cache inventory publication acquire active-session admission for new events; already admitted operations keep their original session. Model OOM reports update only diagnostics for the current model incarnation and do not authorize management commands. Admitted termination finishes cleanup of its original model registration before drain completes. Interrupted native faults retain their intent and retry under active-session admission during installation or a later status report. This mechanism covers public management methods; private Python helpers remain internal."
+msgstr "Worker 自身的故障復原和待處理快取目錄上報會為新事件申請 active 工作階段准入；已准入的操作保留原工作階段。模型 OOM 上報只能更新目前模型實例的診斷資訊，不能授權管理命令。 已接納的終止操作會在排空完成前清理其原始模型註冊的資源。被切換中斷的原生故障會保留處理意圖，在工作階段安裝或後續狀態回報時通過活躍工作階段准入後重試。此機制涵蓋公開管理方法，私有 Python helper 仍屬內部實作。"

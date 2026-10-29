@@ -898,6 +898,13 @@ class ModelStatus:
 
 
 @dataclass
+class _ControlFaultModel:
+    model_ref: Any
+    launch_args: Dict[str, Any]
+    recover_count: Optional[int]
+
+
+@dataclass
 class DownloadInfo:
     cancel_event: threading.Event = field(default_factory=threading.Event)
     # downloader, reports progress and cancels the active file transfer
@@ -956,6 +963,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             CacheTrackerActor
         ] = None  # type: ignore
         self._pending_cache_inventory_ref = None
+        self._pending_control_faults: Dict[str, Dict[str, _ControlFaultModel]] = {}
+        self._retrying_control_faults = False
         self._progress_tracker_ref: Optional[xo.ActorRefType] = None
         # Tracks whether this worker has successfully called supervisor.add_worker().
         # _supervisor_ref being non-None no longer implies registered, because
@@ -1032,6 +1041,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     def __getattribute__(self, name):
         value = super().__getattribute__(name)
+        # Private helpers are internal Python calls, outside the public ActorRef
+        # contract. This admission gate is not an in-process Python sandbox.
         if (
             not name.startswith("_")
             and name not in READ_ONLY_WORKER_RPCS
@@ -1093,11 +1104,16 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     async def _install_controller_session(self, parsed, timeout):
         fence = self._control_fence
         result = await fence.install(parsed, timeout)
-        if self._pending_recovery_launch_args or self._pending_cache_inventory_ref:
+        if (
+            self._pending_recovery_launch_args
+            or self._pending_cache_inventory_ref
+            or self._pending_control_faults
+        ):
             # Installing during fencing must still acknowledge the drain. A
             # retry of this same RPC after activation resumes pending recovery.
             try:
                 async with fence.command(ControlContext(parsed, uuid.uuid4().hex)):
+                    await self._retry_control_faults()
                     if self._pending_cache_inventory_ref is not None:
                         await self._record_model_versions_best_effort(
                             self._pending_cache_inventory_ref
@@ -1106,7 +1122,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         async with self._startup_recovery_lock:
                             await self._try_recover_models()
             except ControlSessionRejected:
-                logger.info("Startup work is waiting for an active control session")
+                logger.info(
+                    "Worker maintenance is waiting for an active control session"
+                )
         return result
 
     def controller_session_status(self):
@@ -1126,17 +1144,51 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # Xoscar's monitor is long-lived and can inherit the first launch's
         # context. Each newly observed fault is a separate admitted event.
         captured = fence.capture_event()
-        async with fence.command(captured):
-            return await self.recover_sub_pool(address)
+        try:
+            async with fence.command(captured):
+                return await self.recover_sub_pool(address)
+        except ControlSessionRejected:
+            # remove_sub_pool may already have removed the native monitor's
+            # entry. Keep our intent until an active session can finish it.
+            logger.info("Process recovery is waiting for an active control session")
+
+    async def _retry_control_faults(self):
+        if self._retrying_control_faults:
+            return
+        self._retrying_control_faults = True
+        try:
+            for address in list(self._pending_control_faults):
+                await self.recover_sub_pool(address)
+        finally:
+            self._retrying_control_faults = False
 
     @management_operation
     async def recover_sub_pool(self, address):
         logger.warning("Process %s is down.", address)
+        fence = getattr(self, "_control_fence", None)
+        pending = None
+        if fence is not None:
+            # Capture before native removal or local termination destroys the
+            # lookup needed to retry. This is transient fault intent, not a
+            # second persistence store. Retain the exact original registration.
+            pending = self._pending_control_faults.setdefault(
+                address,
+                {
+                    uid: _ControlFaultModel(
+                        self._model_uid_to_model.get(uid),
+                        dict(self._model_uid_to_launch_args[uid]),
+                        self._model_uid_to_recover_count.get(uid),
+                    )
+                    for uid, addr in self._model_uid_to_addr.items()
+                    if addr == address and uid in self._model_uid_to_launch_args
+                },
+            )
         # Xoscar does not remove the address from sub_processes.
         try:
             await self._main_pool.remove_sub_pool(address)
         except Exception:
             pass
+        await check_control_session(self)
         failed_generations = set()
         for model_uid, addresses in list(self._model_uid_to_subpool_addresses.items()):
             if (
@@ -1162,15 +1214,39 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     logger.exception("Failed to recover generation for %s", model_uid)
                 finally:
                     addresses.discard(address)
-        for model_uid, addr in list(self._model_uid_to_addr.items()):
+        models = dict(self._model_uid_to_addr)
+        if pending:
+            models.update({uid: address for uid in pending})
+        for model_uid, addr in list(models.items()):
             if addr == address or model_uid in failed_generations:
-                launch_args = self._model_uid_to_launch_args.get(model_uid)
+                saved = pending.get(model_uid) if pending is not None else None
+                current_ref = (
+                    self._model_uid_to_model.get(model_uid)
+                    if saved is not None
+                    else None
+                )
+                if (
+                    saved is not None
+                    and current_ref is not None
+                    and current_ref is not saved.model_ref
+                ):
+                    pending.pop(model_uid)
+                    continue  # A newer registration owns this UID now.
+                launch_args = (
+                    saved.launch_args
+                    if saved is not None
+                    else self._model_uid_to_launch_args.get(model_uid)
+                )
                 if launch_args is None:
                     logger.warning(
                         "Not recreate model because the it is down during launch."
                     )
                 else:
-                    recover_count = self._model_uid_to_recover_count.get(model_uid)
+                    recover_count = (
+                        saved.recover_count
+                        if saved is not None
+                        else self._model_uid_to_recover_count.get(model_uid)
+                    )
 
                     # Strip test-injected envs from cached launch_args before
                     # passing them to recover_model, so test env vars don't
@@ -1213,9 +1289,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                 )
 
                     try:
-                        await self.terminate_model(model_uid, is_model_die=True)
+                        if current_ref is not None or saved is None:
+                            await self.terminate_model(model_uid, is_model_die=True)
+                    except ControlSessionRejected:
+                        raise
                     except Exception:
                         pass
+                    await check_control_session(self)
 
                     # Wait for VRAM reclaim after terminate, then clean up
                     # any orphan GPU processes (e.g. spawn-created EngineCore
@@ -1319,6 +1399,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             # recovery. mark_replica_dead is idempotent (safe).
                             try:
                                 await self.recover_model(launch_args)
+                            except ControlSessionRejected:
+                                raise
                             except Exception:
                                 logger.warning(
                                     "Recreate failed for %s, evicting dead replica "
@@ -1343,6 +1425,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         # mark_replica_dead is idempotent, so this is safe.
                         try:
                             await self.recover_model(launch_args)
+                        except ControlSessionRejected:
+                            raise
                         except Exception:
                             logger.warning(
                                 "Recreate failed for %s, evicting dead replica "
@@ -1351,7 +1435,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                 exc_info=True,
                             )
                             await self._evict_replica_from_supervisor(model_uid)
+                if pending is not None:
+                    pending.pop(model_uid, None)
                 break
+        if pending is not None and not pending:
+            self._pending_control_faults.pop(address, None)
 
     async def _evict_replica_from_supervisor(self, model_uid: str) -> None:
         """Notify the supervisor to evict a dead replica from round-robin.
@@ -1375,6 +1463,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 _notify_replica_dead(),
                 timeout=5,
             )
+        except ControlSessionRejected:
+            raise
         except Exception:
             logger.warning(
                 "Failed to notify supervisor of dead replica %s",
@@ -6126,21 +6216,39 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     async def _terminate_model(
         self, model_uid: str, is_model_die=False, *, failed_launch_ref=None
     ):
+        fence = getattr(self, "_control_fence", None)
+        cleanup_ref = failed_launch_ref
+
         async def checkpoint():
-            if failed_launch_ref is None:
+            if fence is None or cleanup_ref is None:
                 await check_control_session(self)
             else:
-                # This private rollback is limited to the exact model created
-                # by an already admitted launch. It cannot terminate a newer
-                # registration, and drain waits for its original task to exit.
-                self._control_fence.check_cleanup()
-                if self._model_uid_to_model.get(model_uid) is not failed_launch_ref:
+                # Only an admitted task may finish teardown of this exact
+                # registration. Drain waits for it; new stale calls still fail.
+                fence.check_cleanup()
+                if self._model_uid_to_model.get(model_uid) is not cleanup_ref:
                     raise ControlSessionRejected("cleanup_resource_changed")
+
+        def can_report():
+            if failed_launch_ref is not None:
+                return False
+            if fence is not None:
+                try:
+                    fence.check_local()
+                except ControlSessionRejected:
+                    return False
+            return True
 
         await checkpoint()
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:
             raise ValueError(f"{model_uid} is launching")
+        if fence is not None and failed_launch_ref is None:
+            cleanup_ref = self._model_uid_to_model.get(model_uid)
+            if not is_model_die:
+                # A later explicit delete supersedes a deferred crash recovery.
+                for records in self._pending_control_faults.values():
+                    records.pop(model_uid, None)
         model_status = self._model_uid_to_model_status.get(model_uid)
         was_reloading = (
             model_status is not None and model_status.model_state == "reloading"
@@ -6153,9 +6261,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         else:
             origin_uid, _ = parse_replica_model_uid(model_uid)
         try:
-            if failed_launch_ref is None:
+            if can_report():
                 _ = await self.get_supervisor_ref()
-            if failed_launch_ref is None and self._event_collector_ref is not None:
+            if can_report() and self._event_collector_ref is not None:
                 await self._event_collector_ref.report_event(
                     origin_uid,
                     Event(
@@ -6168,7 +6276,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             # Report callback error can be log and ignore, should not interrupt the Process
             logger.error("report_event error: %s" % (e))
 
-        if failed_launch_ref is None and self._status_guard_ref is not None:
+        if can_report() and self._status_guard_ref is not None:
             try:
                 await self._status_guard_ref.update_instance_info(
                     origin_uid, {"status": LaunchStatus.TERMINATING.name}
@@ -6314,11 +6422,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 status = LaunchStatus.ERROR.name
             else:
                 status = LaunchStatus.TERMINATED.name
-                await self._update_model_state(model_uid, "stopped")
+                if can_report():
+                    await self._update_model_state(model_uid, "stopped")
                 self._model_uid_to_model_status.pop(model_uid, None)
 
             try:
-                if failed_launch_ref is None:
+                if can_report():
                     if self._status_guard_ref is None:
                         _ = await self.get_supervisor_ref()
                     assert self._status_guard_ref is not None
@@ -6726,6 +6835,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         return model_gpu_memory
 
     async def report_status(self):
+        if getattr(self, "_control_fence", None) is not None:
+            await self._retry_control_faults()
         if (
             getattr(self, "_control_fence", None) is not None
             and self._pending_cache_inventory_ref is not None
