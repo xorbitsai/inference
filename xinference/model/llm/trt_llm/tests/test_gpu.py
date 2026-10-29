@@ -18,7 +18,11 @@ import torch
 import xoscar as xo
 
 from ...xavier.backends.torch.storage import XavierCacheActor
-from ...xavier.tests.utils import DiskCacheActor
+from ...xavier.tests.utils import (
+    DiskCacheActor,
+    RemoteCacheActor,
+    mooncake_backend_config,
+)
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "linux"
@@ -66,10 +70,12 @@ if __name__ == "__main__":
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("backend", ["native", "lmcache"])
+@pytest.mark.parametrize("backend", ["native", "lmcache", "mooncake"])
 async def test_fresh_gpu_instances_share_prefix_pages(tmp_path, backend):
-    if backend == "lmcache":
+    if backend != "native":
         pytest.importorskip("lmcache")
+    if backend == "mooncake":
+        mooncake_backend_config()
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
     async with pool:
         actor_class = XavierCacheActor
@@ -84,6 +90,13 @@ async def test_fresh_gpu_instances_share_prefix_pages(tmp_path, backend):
                     disk_path=str(tmp_path / "kv"),
                 ),
                 namespace="trt-disk",
+            )
+        if backend == "mooncake":
+            actor_class = RemoteCacheActor
+            options["cache_backend"] = dict(
+                name="lmcache",
+                config=mooncake_backend_config(),
+                namespace="trt-mooncake",
             )
         actor = await xo.create_actor(
             actor_class,
@@ -119,6 +132,8 @@ async def test_fresh_gpu_instances_share_prefix_pages(tmp_path, backend):
         assert (await actor.get_stats())["stored_pages"] > 0
         if backend == "lmcache":
             await actor.force_disk_reads()
+        elif backend == "mooncake":
+            await actor.force_remote_reads()
         warm = await run()
         stats = await actor.get_stats()
         print("TRT_XAVIER_STATS=" + json.dumps(stats, sort_keys=True))
@@ -130,7 +145,7 @@ async def test_fresh_gpu_instances_share_prefix_pages(tmp_path, backend):
             == warm["completion"]["choices"][0]["text"]
         )
         assert warm["completion"]["usage"]["completion_tokens"] == 16
-        if backend == "lmcache":
+        if backend != "native":
             assert stats["backend_stats"]["l2_hits"] > 0
         (tmp_path / "result.json").write_text(
             json.dumps(

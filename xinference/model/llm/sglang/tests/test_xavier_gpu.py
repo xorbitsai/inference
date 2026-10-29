@@ -82,9 +82,9 @@ def test_salted_sglang_storage_hashes_cannot_reuse_other_salts(monkeypatch):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("backend", ["native", "lmcache"])
+@pytest.mark.parametrize("backend", ["native", "lmcache", "mooncake"])
 async def test_real_sglang_remote_prefix_restore(tmp_path, backend):
-    if backend == "lmcache":
+    if backend != "native":
         pytest.importorskip("lmcache")
     import requests
     import sglang as sgl
@@ -93,10 +93,25 @@ async def test_real_sglang_remote_prefix_restore(tmp_path, backend):
     from transformers import AutoTokenizer
 
     from ...xavier.backends.torch.storage import XavierCacheActor
-    from ...xavier.tests.utils import DiskCacheActor
+    from ...xavier.tests.utils import (
+        DiskCacheActor,
+        RemoteCacheActor,
+        mooncake_backend_config,
+    )
     from ..xavier.config import configure_xavier
 
-    assert torch.cuda.device_count() >= 2
+    gpu_indices = [
+        int(i)
+        for i in os.environ.get(
+            "XINFERENCE_TEST_SGLANG_XAVIER_GPU_INDICES", "0,1"
+        ).split(",")
+    ]
+    assert len(gpu_indices) == 2 and torch.cuda.device_count() > max(gpu_indices)
+    if backend == "mooncake":
+        mooncake_backend_config()
+    cache_bytes = int(
+        os.environ.get("XINFERENCE_TEST_SGLANG_XAVIER_CACHE_BYTES", 64 << 20)
+    )
     multiprocessing.set_start_method("spawn", force=True)
     model_path = os.environ["XINFERENCE_TEST_PD_MODEL_PATH"]
     tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -118,9 +133,16 @@ async def test_real_sglang_remote_prefix_restore(tmp_path, backend):
                 ),
                 namespace="sglang-disk",
             )
+        if backend == "mooncake":
+            actor_class = RemoteCacheActor
+            options["cache_backend"] = dict(
+                name="lmcache",
+                config=mooncake_backend_config(cpu_bytes=cache_bytes),
+                namespace="sglang-mooncake",
+            )
         actor = await xo.create_actor(
             actor_class,
-            64 * 1024 * 1024,
+            cache_bytes,
             **options,
             address=pool.external_address,
             uid="xavier-test",
@@ -160,7 +182,7 @@ async def test_real_sglang_remote_prefix_restore(tmp_path, backend):
 
         try:
             producer = await asyncio.to_thread(
-                sgl.Runtime, model_path=model_path, base_gpu_id=0, **config
+                sgl.Runtime, model_path=model_path, base_gpu_id=gpu_indices[0], **config
             )
             engines.append(producer)
             results["cold"] = await generate(producer)
@@ -172,14 +194,19 @@ async def test_real_sglang_remote_prefix_restore(tmp_path, backend):
             assert stats["stored_pages"] > 0, stats
             if backend == "lmcache":
                 await actor.force_disk_reads()
+            if backend == "mooncake":
+                await actor.force_remote_reads()
+            if gpu_indices[0] == gpu_indices[1]:
+                await asyncio.to_thread(producer.shutdown)
+                engines.remove(producer)
             results["after_publish"] = stats
             consumer = await asyncio.to_thread(
-                sgl.Runtime, model_path=model_path, base_gpu_id=1, **config
+                sgl.Runtime, model_path=model_path, base_gpu_id=gpu_indices[1], **config
             )
             engines.append(consumer)
             results["warm"] = await generate(consumer)
             results["after_restore"] = await actor.get_stats()
-            if backend == "lmcache":
+            if backend != "native":
                 assert results["after_restore"]["backend_stats"]["l2_hits"] > 0
             assert (
                 results["after_restore"]["read_pages"]

@@ -16,6 +16,7 @@ import sys
 import threading
 import time
 from collections import OrderedDict
+from concurrent.futures import Future, ThreadPoolExecutor
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -41,11 +42,10 @@ def check_lmcache_available() -> None:
     if not Version("0.5.6") <= installed < Version("0.6"):
         raise RuntimeError("The Xavier LMCache backend requires lmcache>=0.5.6,<0.6")
     try:
-        from lmcache.lmcache_fs import LMCacheFSClient  # noqa: F401
         from lmcache.v1.distributed.storage_manager import StorageManager  # noqa: F401
     except (ImportError, OSError) as error:
         raise RuntimeError(
-            "Xavier LMCache requires a compatible LMCache build with the native FS extension"
+            "Xavier LMCache requires a compatible LMCache storage manager build"
         ) from error
 
 
@@ -67,9 +67,6 @@ class _LMCacheStorage:
             StorageManagerConfig,
         )
         from lmcache.v1.distributed.l2_adapters.config import L2AdaptersConfig
-        from lmcache.v1.distributed.l2_adapters.fs_native_l2_adapter import (
-            FSNativeL2AdapterConfig,
-        )
         from lmcache.v1.distributed.storage_manager import StorageManager
 
         self._key_type = ObjectKey
@@ -78,14 +75,48 @@ class _LMCacheStorage:
         self._namespace = namespace
         self._layout = MemoryLayoutDesc([torch.Size([page_bytes])], [torch.uint8])
         self._closed = threading.Event()
-        # Each actor owns an independent LMCache instance and disk directory.
-        # Deployment IDs prevent reuse after relaunch with different weights.
-        self._disk_path = Path(config["disk_path"]) / namespace
-        disk = FSNativeL2AdapterConfig(
-            base_path=str(self._disk_path),
-            max_capacity_gb=config["disk_bytes"] / (1 << 30),
-        )
-        disk.eviction_config = EvictionConfig("LRU")
+        self._disk_path = None
+        self._remote_keys: Optional[OrderedDict[int, None]] = None
+        self._remote_lock = threading.Lock()
+        self._delete_future: Optional[Future] = None
+        self._delete_executor: Optional[ThreadPoolExecutor] = None
+        self._evicting_remote: Optional[int] = None
+        self._read_timeout = config["read_timeout"]
+        if config.get("l2_backend", "filesystem") == "filesystem":
+            try:
+                from lmcache.lmcache_fs import LMCacheFSClient  # noqa: F401
+                from lmcache.v1.distributed.l2_adapters.fs_native_l2_adapter import (
+                    FSNativeL2AdapterConfig,
+                )
+            except (ImportError, OSError) as error:
+                raise RuntimeError(
+                    "Xavier LMCache filesystem storage requires the native FS extension"
+                ) from error
+            self._disk_path = Path(config["disk_path"]) / namespace
+            adapter = FSNativeL2AdapterConfig(
+                base_path=str(self._disk_path),
+                max_capacity_gb=config["disk_bytes"] / (1 << 30),
+            )
+            adapter.eviction_config = EvictionConfig("LRU")
+        else:
+            try:
+                from lmcache.lmcache_mooncake import LMCacheMooncakeClient  # noqa: F401
+                from lmcache.v1.distributed.l2_adapters.mooncake_store_l2_adapter import (
+                    MooncakeStoreL2AdapterConfig,
+                )
+            except (ImportError, OSError) as error:
+                raise RuntimeError(
+                    "Xavier LMCache Mooncake storage requires LMCache built with "
+                    "BUILD_MOONCAKE=1 and compatible Mooncake headers/libraries"
+                ) from error
+            adapter = MooncakeStoreL2AdapterConfig(
+                setup_config=config["mooncake_config"]
+            )
+            self._remote_keys = OrderedDict()
+            allocation = (page_bytes + 4095) // 4096 * 4096
+            self._remote_capacity = (
+                config["cpu_bytes"] + config["storage_bytes"]
+            ) // allocation
         self.manager = StorageManager(
             StorageManagerConfig(
                 l1_manager_config=L1ManagerConfig(
@@ -96,20 +127,84 @@ class _LMCacheStorage:
                     )
                 ),
                 eviction_config=EvictionConfig("LRU"),
-                l2_adapter_config=L2AdaptersConfig([disk]),
+                l2_adapter_config=L2AdaptersConfig([adapter]),
                 prefetch_policy="retain",
             )
         )
+        if self._remote_keys is not None:
+            self._delete_executor = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="xavier-mooncake-evict"
+            )
+
+    def _remove_remote(self, keys: List[int]) -> None:
+        """Delete only this actor's namespaced objects, never the shared pool."""
+        assert self._remote_keys is not None
+        deadline = time.monotonic() + self._read_timeout
+        while any(
+            state["pending_keys_count"] or state["in_flight_task_count"]
+            for state in self.manager.report_status()["store_controllers"].values()
+        ):
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Mooncake writes did not drain before cleanup")
+            time.sleep(0.05)
+        for _, adapter in self.manager.l2_adapters():
+            adapter.delete([self._key(key) for key in keys])
+        with self._remote_lock:
+            for key in keys:
+                self._remote_keys.pop(key, None)
+
+    def _admit_remote(self, key: int) -> Tuple[bool, bool]:
+        """Return admission and whether this call created an ownership record."""
+        if self._remote_keys is None:
+            return True, False
+        with self._remote_lock:
+            if key == self._evicting_remote:
+                return False, False
+            if key in self._remote_keys:
+                self._remote_keys.move_to_end(key)
+                return True, False
+            if len(self._remote_keys) >= self._remote_capacity:
+                if self._delete_future is None or self._delete_future.done():
+                    if self._delete_future is not None:
+                        try:
+                            self._delete_future.result()
+                        except Exception:
+                            logger.warning(
+                                "Mooncake cache eviction failed", exc_info=True
+                            )
+                    victim = next(iter(self._remote_keys))
+                    self._evicting_remote = victim
+                    assert self._delete_executor is not None
+                    self._delete_future = self._delete_executor.submit(
+                        self._evict_remote, victim
+                    )
+                # Keep both remote ownership tracking and pending deletions bounded.
+                return False, False
+            self._remote_keys[key] = None
+            return True, True
+
+    def _evict_remote(self, key: int) -> None:
+        try:
+            self._remove_remote([key])
+        finally:
+            with self._remote_lock:
+                self._evicting_remote = None
 
     def _key(self, key: int):
         digest = hashlib.sha256(str(key).encode("ascii")).digest()
         return self._key_type(chunk_hash=digest, model_name=self._namespace, kv_rank=0)
 
     def store(self, key: int, page: torch.Tensor) -> bool:
+        admitted, new_remote_key = self._admit_remote(key)
+        if not admitted:
+            return False
         object_key = self._key(key)
         reserved = self.manager.reserve_write([object_key], self._layout)
         obj = reserved.get(object_key)
         if obj is None:
+            if self._remote_keys is not None and new_remote_key:
+                with self._remote_lock:
+                    self._remote_keys.pop(key, None)
             return False
         # Both tensors are flat CPU uint8 with exactly the negotiated page size.
         obj.tensor.view(torch.uint8).reshape(-1).copy_(page)
@@ -152,16 +247,44 @@ class _LMCacheStorage:
             if found is not None
             else set()
         )
+        if self._remote_keys is not None:
+            with self._remote_lock:
+                for key in absent:
+                    self._remote_keys.pop(key, None)
+                for key in pages:
+                    if key in self._remote_keys:
+                        self._remote_keys.move_to_end(key)
         return pages, absent, result.l1_hit_count, result.l2_hit_count
 
     def stop(self) -> None:
         self._closed.set()
 
     def close(self) -> None:
-        self.manager.close()
+        try:
+            if self._delete_executor is not None:
+                assert self._remote_keys is not None
+                self._delete_executor.shutdown(wait=True)
+                try:
+                    self._remove_remote(list(self._remote_keys))
+                except Exception:
+                    logger.warning(
+                        "Mooncake cleanup failed; remaining objects are subject to store eviction",
+                        exc_info=True,
+                    )
+                # Detach through LMCache's public lifecycle API. Controllers may
+                # otherwise retain the native client until cyclic GC runs.
+                for descriptor, _ in self.manager.l2_adapters():
+                    try:
+                        self.manager.delete_l2_adapter(
+                            descriptor.index, timeout=self._read_timeout
+                        )
+                    except Exception:
+                        logger.warning("Mooncake adapter drain failed", exc_info=True)
+        finally:
+            self.manager.close()
         # The directory is private to this deployment/storage instance and cannot be
         # rediscovered after relaunch. Remove only that owned cache directory.
-        if self._disk_path.exists():
+        if self._disk_path is not None and self._disk_path.exists():
             shutil.rmtree(self._disk_path)
 
 
@@ -184,14 +307,19 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         if self._page_bytes <= 0:
             raise ValueError("Xavier LMCache requires nonempty KV pages")
         allocation_bytes = (self._page_bytes + 4095) // 4096 * 4096
-        if min(config["cpu_bytes"], config["disk_bytes"]) < allocation_bytes:
+        storage_bytes = (
+            config["disk_bytes"]
+            if config.get("l2_backend", "filesystem") == "filesystem"
+            else config["storage_bytes"]
+        )
+        if min(config["cpu_bytes"], storage_bytes) < allocation_bytes:
             raise ValueError("Xavier LMCache budgets cannot hold one aligned KV page")
         # Staging/leased copies are transient and have their own bounded budget.
         super().__init__(min(capacity, config["cpu_bytes"] // allocation_bytes))
         self._config = dict(config)
         self._known: OrderedDict[int, None] = OrderedDict()
         self._directory_capacity = (
-            config["cpu_bytes"] + config["disk_bytes"]
+            config["cpu_bytes"] + storage_bytes
         ) // allocation_bytes
         identity = fingerprint_metadata(
             {
@@ -360,6 +488,7 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         return {
             **self._counts,
             "backend": "lmcache",
+            "l2_backend": self._config.get("l2_backend", "filesystem"),
             "pages": len(self._known),
             "resident_pages": len(self.ready),
             "capacity": self.capacity,
