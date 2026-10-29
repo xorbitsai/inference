@@ -252,6 +252,22 @@ def test_required_choice_preserves_alternatives_and_rejects_unknown_names():
         )
 
 
+@pytest.mark.parametrize(
+    "function", [{"name": "now"}, {"name": "now", "parameters": None}]
+)
+def test_forced_tool_without_parameters_takes_empty_arguments(function):
+    # OpenAI allows omitting ``parameters`` for a function with no arguments.
+    _, generated = prepare_forced_tools(
+        [],
+        {
+            "tools": [{"type": "function", "function": function}],
+            "tool_choice": "required",
+        },
+    )
+    schema = generated["response_format"]["json_schema"]["schema"]
+    jsonschema.validate([{"name": "now", "arguments": {}}], schema)
+
+
 def test_truncated_arguments_never_become_executable_calls():
     result = convert_forced_completion(completion('[{"name":', "length"))
     assert result["choices"][0]["finish_reason"] == "length"
