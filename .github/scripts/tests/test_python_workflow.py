@@ -26,6 +26,7 @@ PLATFORM_STEP = next(
     step for step in JOBS["changes"]["steps"] if step.get("id") == "platform"
 )
 GPU_STEP = next(step for step in JOBS["changes"]["steps"] if step.get("id") == "gpu")
+DOCS_STEP = next(step for step in JOBS["changes"]["steps"] if step.get("id") == "docs")
 INSTALL_STEP = next(
     step for step in JOBS["changes"]["steps"] if step.get("id") == "install"
 )
@@ -127,6 +128,168 @@ class TestPythonWorkflow(unittest.TestCase):
         platform = JOBS["platform_test_job"]["strategy"]["matrix"]
         self.assertEqual(platform["os"], ["macos-latest", "windows-latest"])
         self.assertEqual(platform["python-version"], ["3.10", "3.14"])
+
+    def test_documentation_content_uses_lightweight_ci(self):
+        paths = [
+            "README.md",
+            "README_zh_CN.md",
+            "doc/source/models/model_abilities/video.rst",
+            "doc/source/locale/zh_CN/LC_MESSAGES/models/video.po",
+            "doc/source/locale/models/video.pot",
+            "doc/source/_static/images/new screenshot.png",
+            "doc/source/_static/custom.css",
+        ]
+        for event in ("pull_request", "push"):
+            with self.subTest(event=event):
+                self.assertEqual(
+                    self.select(paths, event=event, step=DOCS_STEP),
+                    {"docs_only": "true"},
+                )
+
+    def test_docs_mixed_code_and_build_configuration_keep_normal_ci(self):
+        for path in (
+            "xinference/api/restful_api.py",
+            "frontend/README.md",
+            "doc/source/conf.py",
+            "doc/source/gen_docs.py",
+            "doc/build_i18n.py",
+            "doc/i18n_locales.py",
+            "doc/Makefile",
+            ".readthedocs.yaml",
+            ".github/workflows/python.yaml",
+            "pyproject.toml",
+            "build_backend.py",
+            "build_web.py",
+            "unknown-file",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(
+                    self.select(["README.md", path], step=DOCS_STEP),
+                    {"docs_only": "false"},
+                )
+
+    def test_manual_unknown_and_empty_diffs_keep_normal_ci(self):
+        for kwargs in (
+            {"paths": []},
+            {"paths": ["README.md"], "event": "workflow_dispatch"},
+            {"paths": ["README.md"], "diff_available": False},
+        ):
+            with self.subTest(kwargs=kwargs):
+                self.assertEqual(
+                    self.select(**kwargs, step=DOCS_STEP), {"docs_only": "false"}
+                )
+
+    def test_docs_skip_expensive_checks_but_preserve_lint_status(self):
+        lint = JOBS["lint"]
+        self.assertEqual(lint["needs"], ["changes"])
+        self.assertEqual(lint["strategy"]["matrix"]["os"], ["ubuntu-latest"])
+        self.assertEqual(lint["strategy"]["matrix"]["python-version"], ["3.10"])
+        heavy = False
+        for step in lint["steps"]:
+            if step["name"] == "Install lint and workflow test dependencies":
+                heavy = True
+            if heavy:
+                self.assertEqual(
+                    step["if"], "${{ needs.changes.outputs.docs_only != 'true' }}"
+                )
+            elif "documentation" in step["name"]:
+                self.assertEqual(
+                    step["if"], "${{ needs.changes.outputs.docs_only == 'true' }}"
+                )
+        self.assertTrue(heavy)
+        self.assertEqual(
+            JOBS["build_test_job"]["if"],
+            "${{ needs.changes.outputs.docs_only != 'true' }}",
+        )
+
+    def test_docs_validate_only_changed_existing_catalogs(self):
+        step = next(
+            step
+            for step in JOBS["lint"]["steps"]
+            if step["name"] == "Check documentation changes and translations"
+        )
+        for event in ("pull_request", "push"):
+            with self.subTest(event=event), tempfile.TemporaryDirectory() as directory:
+                work = Path(directory)
+                catalogs = work / "doc/source/locale/zh_CN/LC_MESSAGES"
+                catalogs.mkdir(parents=True)
+                changed = catalogs / "changed catalog.po"
+                deleted = catalogs / "deleted.po"
+                unchanged = catalogs / "unchanged.po"
+                for catalog in (changed, deleted, unchanged):
+                    catalog.write_text("original\n")
+
+                def git(*args):
+                    return subprocess.check_output(
+                        [
+                            "git",
+                            "-c",
+                            "core.hooksPath=/dev/null",
+                            "-c",
+                            "commit.gpgsign=false",
+                            *args,
+                        ],
+                        cwd=work,
+                        text=True,
+                        stderr=subprocess.DEVNULL,
+                    ).strip()
+
+                git("init", "-q")
+                git("config", "user.name", "CI Test")
+                git("config", "user.email", "ci@example.invalid")
+                git("add", ".")
+                git("commit", "-qm", "base")
+                base = git("rev-parse", "HEAD")
+                changed.write_text("updated\n")
+                deleted.unlink()
+                git("add", ".")
+                git("commit", "-qm", "docs")
+                head = git("rev-parse", "HEAD")
+                (work / "bin").mkdir()
+                for command in ("msgfmt", "python"):
+                    fake = work / "bin" / command
+                    fake.write_text(
+                        f"#!{sys.executable}\n"
+                        "import json, os, sys\n"
+                        "with open(os.environ['TRACE'], 'a') as trace:\n"
+                        "    trace.write(json.dumps(sys.argv) + '\\n')\n"
+                    )
+                    fake.chmod(0o755)
+                trace = work / "trace"
+                subprocess.run(
+                    [
+                        "bash",
+                        "-e",
+                        "-o",
+                        "pipefail",
+                        "-c",
+                        step["run"].replace("${{ github.event_name }}", event),
+                    ],
+                    cwd=work,
+                    env={
+                        **os.environ,
+                        "PATH": str(work / "bin") + os.pathsep + os.environ["PATH"],
+                        "TRACE": str(trace),
+                        "TEST_BASE_SHA": base,
+                        "TEST_HEAD_SHA": head,
+                    },
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                calls = [json.loads(line) for line in trace.read_text().splitlines()]
+                self.assertEqual(len(calls), 2)
+                self.assertEqual(
+                    calls[0][1:],
+                    [
+                        "--check",
+                        "--check-format",
+                        "-o",
+                        "/dev/null",
+                        str(changed.relative_to(work)),
+                    ],
+                )
+                self.assertEqual(calls[1][1:], ["doc/build_i18n.py", "--all"])
 
     def test_platform_versions_share_one_condition_and_test_step(self):
         platform = JOBS["platform_test_job"]
@@ -386,6 +549,9 @@ class TestPythonWorkflow(unittest.TestCase):
                 )
                 paths = (work / "changed-files.txt").read_text().splitlines()
                 self.assertEqual(set(paths), {source, destination})
+                self.assertEqual(
+                    self.select(paths, step=DOCS_STEP), {"docs_only": "false"}
+                )
                 self.assertEqual(
                     self.select(paths),
                     {"platform": "true", "metal": "true", "suite": "platform"},
