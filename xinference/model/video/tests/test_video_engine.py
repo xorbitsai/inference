@@ -278,15 +278,14 @@ def test_video_engine_api_returns_diffusers_format():
             "video", "MiniMax-H3", enable_virtual_env=False
         )
 
-    assert params == {
-        "diffusers": [
-            {
-                "model_name": "MiniMax-H3",
-                "model_format": "diffusers",
-                "quantization": "none",
-            }
-        ]
-    }
+    assert set(params) == {"diffusers", "vLLM", "SGLang"}
+    assert params["diffusers"] == [
+        {
+            "model_name": "MiniMax-H3",
+            "model_format": "diffusers",
+            "quantization": "none",
+        }
+    ]
 
 
 def test_video_engine_uses_virtualenv_when_dependency_is_missing():
@@ -465,7 +464,7 @@ async def test_video_catalog_groups_hub_variants():
 
     assert len(entries) == 1
     specs = entries[0]["model_specs"]
-    assert {spec["model_engine"] for spec in specs} == {"diffusers"}
+    assert {spec["model_engine"] for spec in specs} == {"diffusers", "vLLM", "SGLang"}
     assert {spec["model_format"] for spec in specs} == {"diffusers"}
     assert {spec["model_hub"] for spec in specs} == {"huggingface", "modelscope"}
 

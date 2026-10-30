@@ -110,6 +110,32 @@ The Web UI obtains the engines supported by each model from the engine query
 API and presents them in the launch dialog. Additional video runtimes can be
 registered independently without changing the Video API.
 
+MiniMax-H3 also supports ``SGLang`` (0.5.22 or newer, below 0.6) and ``vLLM``
+(matching vLLM-Omni and vLLM 0.32.x) on Linux with CUDA. Both engines implement
+text-to-video, image-to-video and first/last-frame generation through the
+FL2VA checkpoint, retaining the synchronized stereo soundtrack at 24 fps.
+Ref2VA is not exposed through these Xinference Video API endpoints.
+
+MiniMax-H3 downloads only the files needed by the selected engine. Diffusers
+uses the root FL2VA components; SGLang and vLLM share the native ``FL2VA/``
+checkpoint. Each layout is about 134 GiB in BF16 before runtime quantization.
+Lightning weights are downloaded separately.
+
+Both native H3 engines accept the LightX2V ``lightning_version`` values listed
+below. Xinference loads the adapter and selects its step count and video/audio
+flow shifts automatically. Conflicting per-request step counts or flow shifts
+are rejected. For vLLM, keep the published Diffusers checkpoint filename;
+ComfyUI exports are incompatible.
+
+Configure GPU parallelism and memory options for your hardware. For example,
+on four suitable CUDA GPUs, launch H3 with Lightning using::
+
+    xinference launch --model-name MiniMax-H3 --model-type video --model-engine SGLang \
+        --num_gpus 4 --tp_size 2 --ulysses_degree 2 --lightning_version 4step_v0.1
+    xinference launch --model-name MiniMax-H3 --model-type video --model-engine vLLM \
+        --num_gpus 4 --usp 4 --vae_patch_parallel_size 4 --vae_parallel_mode tile \
+        --vae_use_tiling True --lightning_version 4step_v1.0_768p_bf16
+
 Quickstart
 ===================
 

@@ -487,3 +487,44 @@ msgstr "``torchao``：``int8`` 的相容別名。新的啟動設定請使用 ``i
 #: ../../source/models/model_abilities/video.rst:364
 msgid "For example, select INT8 with::"
 msgstr "例如，選擇 INT8::"
+
+#: ../../source/models/model_abilities/video.rst:113
+msgid ""
+"MiniMax-H3 also supports ``SGLang`` (0.5.22 or newer, below 0.6) and "
+"``vLLM`` (matching vLLM-Omni and vLLM 0.32.x) on Linux with CUDA. Both "
+"engines implement text-to-video, image-to-video and first/last-frame "
+"generation through the FL2VA checkpoint, retaining the synchronized stereo "
+"soundtrack at 24 fps. Ref2VA is not exposed through these Xinference Video "
+"API endpoints."
+msgstr ""
+"MiniMax-H3 也支援在 Linux CUDA 環境中使用 ``SGLang`` （0.5.22 以上、低於 0.6）與 ``vLLM`` "
+"（相互匹配的 vLLM-Omni 與 vLLM 0.32.x）。兩個引擎皆透過 FL2VA 檢查點實作文字生成影片、圖片生成影片及首尾影格生成，並保留與"
+" 24 fps 影片同步的立體聲音軌。這些 Xinference Video API 端點尚未提供 Ref2VA。"
+
+#: ../../source/models/model_abilities/video.rst:119
+msgid ""
+"Both native H3 engines accept the LightX2V ``lightning_version`` values "
+"listed below. Xinference loads the adapter and selects its step count and "
+"video/audio flow shifts automatically. Conflicting per-request step counts "
+"or flow shifts are rejected. For vLLM, keep the published Diffusers "
+"checkpoint filename; ComfyUI exports are incompatible."
+msgstr ""
+"兩個 H3 原生引擎皆接受下文列出的 LightX2V ``lightning_version`` 值。Xinference "
+"會載入適配器，並自動選擇其步數及影片、音訊的 flow shift。請求中的步數或 flow shift 若與適配器衝突，將遭拒絕。使用 vLLM "
+"時，請保留已發布的 Diffusers 檢查點檔名；ComfyUI 匯出格式不相容。"
+
+#: ../../source/models/model_abilities/video.rst:125
+msgid ""
+"Configure GPU parallelism and memory options for your hardware. For example,"
+" on four suitable CUDA GPUs, launch H3 with Lightning using::"
+msgstr "請依硬體設定 GPU 平行與記憶體選項。例如，在四張合適的 CUDA GPU 上，可用以下命令啟動含 Lightning 的 H3::"
+
+#: ../../source/models/model_abilities/video.rst:119
+msgid ""
+"MiniMax-H3 downloads only the files needed by the selected engine. Diffusers"
+" uses the root FL2VA components; SGLang and vLLM share the native ``FL2VA/``"
+" checkpoint. Each layout is about 134 GiB in BF16 before runtime "
+"quantization. Lightning weights are downloaded separately."
+msgstr ""
+"MiniMax-H3 僅下載所選引擎需要的檔案。Diffusers 使用根目錄中的 FL2VA 元件；SGLang 與 vLLM 共用原生 "
+"``FL2VA/`` 檢查點。每種配置在執行時量化前的 BF16 檔案約為 134 GiB。Lightning 權重另行下載。"

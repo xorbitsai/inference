@@ -1,0 +1,27 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-01 16:29+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+msgid "**diffusers model ID:** MiniMaxAI/MiniMax-H3"
+msgstr "**diffusers モデル ID:** MiniMaxAI/MiniMax-H3"
+
+msgid "**vLLM model ID:** MiniMaxAI/MiniMax-H3"
+msgstr "**vLLM モデル ID:** MiniMaxAI/MiniMax-H3"
+
+msgid "**SGLang model ID:** MiniMaxAI/MiniMax-H3"
+msgstr "**SGLang モデル ID:** MiniMaxAI/MiniMax-H3"
+
+msgid "Available engines"
+msgstr "利用可能なエンジン"

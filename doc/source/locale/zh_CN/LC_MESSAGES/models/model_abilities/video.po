@@ -492,3 +492,44 @@ msgstr "``torchao``：``int8`` 的兼容别名。新的启动配置请使用 ``i
 #: ../../source/models/model_abilities/video.rst:364
 msgid "For example, select INT8 with::"
 msgstr "例如，选择 INT8::"
+
+#: ../../source/models/model_abilities/video.rst:113
+msgid ""
+"MiniMax-H3 also supports ``SGLang`` (0.5.22 or newer, below 0.6) and "
+"``vLLM`` (matching vLLM-Omni and vLLM 0.32.x) on Linux with CUDA. Both "
+"engines implement text-to-video, image-to-video and first/last-frame "
+"generation through the FL2VA checkpoint, retaining the synchronized stereo "
+"soundtrack at 24 fps. Ref2VA is not exposed through these Xinference Video "
+"API endpoints."
+msgstr ""
+"MiniMax-H3 还支持在 Linux CUDA 环境中使用 ``SGLang`` （0.5.22 及以上、低于 0.6）和 ``vLLM`` "
+"（相互匹配的 vLLM-Omni 与 vLLM 0.32.x）。两个引擎均通过 FL2VA 检查点实现文生视频、图生视频和首尾帧生成，并保留与 24 "
+"fps 视频同步的立体声音轨。这些 Xinference Video API 端点尚未提供 Ref2VA。"
+
+#: ../../source/models/model_abilities/video.rst:119
+msgid ""
+"Both native H3 engines accept the LightX2V ``lightning_version`` values "
+"listed below. Xinference loads the adapter and selects its step count and "
+"video/audio flow shifts automatically. Conflicting per-request step counts "
+"or flow shifts are rejected. For vLLM, keep the published Diffusers "
+"checkpoint filename; ComfyUI exports are incompatible."
+msgstr ""
+"两个 H3 原生引擎均接受下文列出的 LightX2V ``lightning_version`` 值。Xinference "
+"会加载适配器，并自动选择其步数和视频、音频的 flow shift。请求中的步数或 flow shift 若与适配器冲突，将被拒绝。使用 vLLM "
+"时，请保留已发布的 Diffusers 检查点文件名；ComfyUI 导出格式不兼容。"
+
+#: ../../source/models/model_abilities/video.rst:125
+msgid ""
+"Configure GPU parallelism and memory options for your hardware. For example,"
+" on four suitable CUDA GPUs, launch H3 with Lightning using::"
+msgstr "请根据硬件配置 GPU 并行和内存选项。例如，在四张合适的 CUDA GPU 上，可用以下命令启动带 Lightning 的 H3::"
+
+#: ../../source/models/model_abilities/video.rst:119
+msgid ""
+"MiniMax-H3 downloads only the files needed by the selected engine. Diffusers"
+" uses the root FL2VA components; SGLang and vLLM share the native ``FL2VA/``"
+" checkpoint. Each layout is about 134 GiB in BF16 before runtime "
+"quantization. Lightning weights are downloaded separately."
+msgstr ""
+"MiniMax-H3 只下载所选引擎需要的文件。Diffusers 使用根目录中的 FL2VA 组件；SGLang 和 vLLM 共享原生 "
+"``FL2VA/`` 检查点。每种布局在运行时量化前的 BF16 文件约为 134 GiB。Lightning 权重单独下载。"

@@ -44,6 +44,22 @@
         "lora_alpha": 128
       }
     },
+    "cache_config": {
+      "allow_patterns": [
+        "model_index.json",
+        "modular_model_index.json",
+        "transformer/*",
+        "text_encoder/*",
+        "tokenizer/*",
+        "processor/*",
+        "vae/*",
+        "audio_vae/*",
+        "scheduler/*",
+        "audio_scheduler/*",
+        "LICENSE",
+        "README.md"
+      ]
+    },
     "virtualenv": {
       "packages": [
         "git+https://github.com/huggingface/diffusers@2da7040be1a2e5f2fcbc8b985083342a308f5a86 ; #engine# == \"diffusers\"",
@@ -76,7 +92,165 @@
         "lightning_model_revision": "master"
       }
     },
-    "updated_at": 1786840547,
+    "updated_at": 1793376000,
+    "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "MiniMax-H3",
+    "model_family": "MiniMax-H3",
+    "engine": "vLLM",
+    "model_format": "diffusers",
+    "cache_name": "MiniMax-H3-FL2VA",
+    "model_ability": [
+      "text2video",
+      "image2video",
+      "firstlastframe2video"
+    ],
+    "default_model_config": {
+      "task_type": "fl2va",
+      "trust_remote_code": true
+    },
+    "default_generate_config": {
+      "width": 1344,
+      "height": 768,
+      "num_frames": 124
+    },
+    "lightning_versions": [
+      "4step_v0.1",
+      "8step_v1.0_bf16",
+      "4step_v1.0_768p_bf16"
+    ],
+    "lightning_model_file_name_template": "minimax_h3_fl2v_turbo_{lightning_version}.safetensors",
+    "lightning_version_configs": {
+      "4step_v0.1": {
+        "num_inference_steps": 4,
+        "video_shift": 12.0,
+        "audio_shift": 3.0,
+        "lora_alpha": 8
+      },
+      "8step_v1.0_bf16": {
+        "num_inference_steps": 8,
+        "video_shift": 12.0,
+        "audio_shift": 3.0,
+        "lora_alpha": 8
+      },
+      "4step_v1.0_768p_bf16": {
+        "num_inference_steps": 4,
+        "video_shift": 6.0,
+        "audio_shift": 3.0,
+        "lora_alpha": 128
+      }
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "model_index.json",
+        "FL2VA/*",
+        "LICENSE",
+        "README.md"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "vllm-omni==0.32.* ; #engine# == \"vLLM\"",
+        "vllm==0.32.* ; #engine# == \"vLLM\"",
+        "av"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "MiniMaxAI/MiniMax-H3",
+        "model_revision": "6818f6c32d12b210915e44ad56a4228c2608f160",
+        "lightning_model_id": "lightx2v/Minimax-h3-Turbo",
+        "lightning_model_revision": "5d1d4829fe614c1b93fcfd9cc7718e9ba71f73e1"
+      },
+      "modelscope": {
+        "model_id": "MiniMax/MiniMax-H3",
+        "model_revision": "master",
+        "lightning_model_id": "lightx2v/Minimax-h3-Turbo",
+        "lightning_model_revision": "master"
+      }
+    },
+    "updated_at": 1793376000,
+    "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "MiniMax-H3",
+    "model_family": "MiniMax-H3",
+    "engine": "SGLang",
+    "model_format": "diffusers",
+    "cache_name": "MiniMax-H3-FL2VA",
+    "model_ability": [
+      "text2video",
+      "image2video",
+      "firstlastframe2video"
+    ],
+    "default_model_config": {
+      "model_variant": "fl2va"
+    },
+    "default_generate_config": {
+      "width": 1344,
+      "height": 768,
+      "num_frames": 124
+    },
+    "lightning_versions": [
+      "4step_v0.1",
+      "8step_v1.0_bf16",
+      "4step_v1.0_768p_bf16"
+    ],
+    "lightning_model_file_name_template": "minimax_h3_fl2v_turbo_{lightning_version}.safetensors",
+    "lightning_version_configs": {
+      "4step_v0.1": {
+        "num_inference_steps": 4,
+        "video_shift": 12.0,
+        "audio_shift": 3.0,
+        "lora_alpha": 8
+      },
+      "8step_v1.0_bf16": {
+        "num_inference_steps": 8,
+        "video_shift": 12.0,
+        "audio_shift": 3.0,
+        "lora_alpha": 8
+      },
+      "4step_v1.0_768p_bf16": {
+        "num_inference_steps": 4,
+        "video_shift": 6.0,
+        "audio_shift": 3.0,
+        "lora_alpha": 128
+      }
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "model_index.json",
+        "FL2VA/*",
+        "LICENSE",
+        "README.md"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "sglang[diffusion]>=0.5.22,<0.6 ; #engine# == \"SGLang\"",
+        "av",
+        "imageio",
+        "imageio-ffmpeg"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "MiniMaxAI/MiniMax-H3",
+        "model_revision": "6818f6c32d12b210915e44ad56a4228c2608f160",
+        "lightning_model_id": "lightx2v/Minimax-h3-Turbo",
+        "lightning_model_revision": "5d1d4829fe614c1b93fcfd9cc7718e9ba71f73e1"
+      },
+      "modelscope": {
+        "model_id": "MiniMax/MiniMax-H3",
+        "model_revision": "master",
+        "lightning_model_id": "lightx2v/Minimax-h3-Turbo",
+        "lightning_model_revision": "master"
+      }
+    },
+    "updated_at": 1793376000,
     "featured": true
   }
 ]
