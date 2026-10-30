@@ -65,7 +65,7 @@ Xorbits Inference（Xinference）は、言語、音声認識、マルチモー�
 - [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) を組み込みでサポート: [#5588](https://github.com/xorbitsai/inference/pull/5588)
 ### 統合
 - [Xagent](https://github.com/xorbitsai/xagent): 計画、メモリ、ツール利用を備えたエンタープライズ向けエージェントプラットフォームです。
-- [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): LLMOps プラットフォームで、視覚化・操作可能な形で迅速にアプリを構築できます。
+- [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference): LLMOps プラットフォームで、視覚化・操作可能な形で迅速にアプリを構築できます。
 - [FastGPT](https://github.com/labring/FastGPT): LLM ベースのナレッジプラットフォームで、データ処理やモデル呼び出し機能を提供します。
 - [RAGFlow](https://github.com/infiniflow/ragflow): 深層ドキュメント理解に基づくオープンソース RAG エンジンです。
 - [MaxKB](https://github.com/1Panel-dev/MaxKB): RAG を統合したオープンソースの知識ベースアシスタントです。
@@ -81,7 +81,7 @@ Xorbits Inference（Xinference）は、言語、音声認識、マルチモー�
 
 🌐 **分散デプロイ**: 複数デバイスやマシンにまたがる分散デプロイを容易にし、推論をシームレスに分散します。
 
-🔌 **サードパーティとの統合**: [LangChain](https://python.langchain.com/docs/integrations/providers/xinference)、[LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window)、[Dify](https://docs.dify.ai/advanced/model-configuration/xinference)、[Chatbox](https://chatboxai.app/) 等とシームレスに連携します。
+🔌 **サードパーティとの統合**: [LangChain](https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference)、[LlamaIndex](https://developers.llamaindex.ai/python/framework/integrations/llm/xinference_local_deployment/)、[Dify](https://marketplace.dify.ai/plugin/langgenius/xinference)、[Chatbox](https://chatboxai.app/) 等とシームレスに連携します。
 
 ## なぜ Xinference か
 | 機能                                        | Xinference | FastChat | OpenLLM | RayLLM |

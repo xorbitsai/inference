@@ -359,6 +359,6 @@ Does Xinference's LLM provide integration methods for LangChain or LlamaIndex?
 
 Yes, you can refer to the related sections in their respective official Xinference documentation. Here are the links:
 
-* `LangChain LLMs: Xinference <https://python.langchain.com/docs/integrations/llms/xinference>`__
+* `LangChain LLMs: Xinference <https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference>`__
 
 * `LlamaIndex LLM integrations: Xinference  <https://docs.llamaindex.ai/en/stable/examples/llm/xinference_local_deployment.html>`__

@@ -72,12 +72,12 @@ msgstr ""
 
 #: ../../source/development/contributing_environment.rst:27
 msgid ""
-"`GitHub has instructions <https://help.github.com/set-up-git-redirect>`__ "
+"`GitHub has instructions <https://docs.github.com/en/get-started/git-basics/set-up-git>`__ "
 "for installing git, setting up your SSH key, and configuring git. All these "
 "steps need to be completed before you can work seamlessly between your local"
 " repository and GitHub."
 msgstr ""
-"`GitHub ガイド <https://help.github.com/set-up-git-redirect>`_ を参照して、git "
+"`GitHub ガイド <https://docs.github.com/en/get-started/git-basics/set-up-git>`_ を参照して、git "
 "のインストール、SSH キーの設定、および git の構成を行ってください。これらの手順を完了し、ローカルリポジトリと GitHub "
 "が正常に動作することを確認してから、後続の作業を進める必要があります。"
 

@@ -24,7 +24,7 @@ contribute you will need to sign up for a `free GitHub account
 <https://github.com/signup/free>`_. We use `Git <https://git-scm.com/>`_ for
 version control to allow many people to work together on the project.
 
-`GitHub has instructions <https://help.github.com/set-up-git-redirect>`__ for installing git,
+`GitHub has instructions <https://docs.github.com/en/get-started/git-basics/set-up-git>`__ for installing git,
 setting up your SSH key, and configuring git. All these steps need to be completed before
 you can work seamlessly between your local repository and GitHub.
 

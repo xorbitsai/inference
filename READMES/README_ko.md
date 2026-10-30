@@ -65,7 +65,7 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
 - [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) 기본 지원: [#5588](https://github.com/xorbitsai/inference/pull/5588)
 ### 통합
 - [Xagent](https://github.com/xorbitsai/xagent): 플래닝, 메모리, 툴 통합을 제공하는 엔터프라이즈 에이전트 플랫폼.
-- [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 시각화와 제어가 가능한 LLMOps 플랫폼.
+- [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference): 시각화와 제어가 가능한 LLMOps 플랫폼.
 - [FastGPT](https://github.com/labring/FastGPT): 데이터 처리와 모델 호출을 위한 LLM 기반 지식 플랫폼.
 - [RAGFlow](https://github.com/infiniflow/ragflow): 문서의 심층 이해를 위한 오픈소스 RAG 엔진.
 - [MaxKB](https://github.com/1Panel-dev/MaxKB): RAG 통합형 오픈소스 지식베이스 어시스턴트.
@@ -81,7 +81,7 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
 
 🌐 분산 배포: 여러 장치와 머신에 걸친 분산 추론을 용이하게 합니다.
 
-🔌 서드파티 통합: [LangChain](https://python.langchain.com/docs/integrations/providers/xinference), [LlamaIndex], [Dify], [Chatbox] 등과의 통합을 지원합니다.
+🔌 서드파티 통합: [LangChain](https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference), [LlamaIndex], [Dify], [Chatbox] 등과의 통합을 지원합니다.
 
 ## 왜 Xinference인가
 | 기능                                      | Xinference | FastChat | OpenLLM | RayLLM |

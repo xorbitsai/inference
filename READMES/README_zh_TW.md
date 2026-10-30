@@ -65,7 +65,7 @@ Xorbits Inference（Xinference）是一個強大且通用的函式庫，適用�
 - 內建支援 [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1)： [#5588](https://github.com/xorbitsai/inference/pull/5588)
 ### 整合項目
 - [Xagent](https://github.com/xorbitsai/xagent)：企業級 Agent 平台，具規劃、記憶與工具整合。
-- [Dify](https://docs.dify.ai/advanced/model-configuration/xinference)：LLMOps 平台，快速建立可視化與控制的應用。
+- [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference)：LLMOps 平台，快速建立可視化與控制的應用。
 - [FastGPT](https://github.com/labring/FastGPT)：基於 LLM 的知識平台，用於資料處理與模型呼叫。
 - [RAGFlow](https://github.com/infiniflow/ragflow)：用於深度文件理解的開源 RAG 引擎。
 - [MaxKB](https://github.com/1Panel-dev/MaxKB)：具有 RAG 整合的開源知識庫助理。
@@ -81,7 +81,7 @@ Xorbits Inference（Xinference）是一個強大且通用的函式庫，適用�
 
 🌐 分散式部署：方便在多台設備與機器間分散推論工作。
 
-🔌 第三方整合：支援與 [LangChain](https://python.langchain.com/docs/integrations/providers/xinference)、[LlamaIndex]、[Dify]、[Chatbox] 等整合。
+🔌 第三方整合：支援與 [LangChain](https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference)、[LlamaIndex]、[Dify]、[Chatbox] 等整合。
 
 ## 為何選擇 Xinference
 | 功能                                         | Xinference | FastChat | OpenLLM | RayLLM |

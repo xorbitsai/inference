@@ -248,7 +248,7 @@ msgstr ""
 #: ../../source/models/model_abilities/chat.rst:304
 msgid ""
 "`LangChain LLMs: Xinference "
-"<https://python.langchain.com/docs/integrations/llms/xinference>`__"
+"<https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference>`__"
 msgstr ""
 
 #: ../../source/models/model_abilities/chat.rst:306

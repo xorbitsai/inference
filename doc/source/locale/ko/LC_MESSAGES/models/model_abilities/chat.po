@@ -225,7 +225,7 @@ msgstr "네, 각각의 공식 Xinference 문서에서 관련 부분을 참고할
 #: ../../source/models/model_abilities/chat.rst:304
 msgid ""
 "`LangChain LLMs: Xinference "
-"<https://python.langchain.com/docs/integrations/llms/xinference>`__"
+"<https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference>`__"
 msgstr ""
 
 #: ../../source/models/model_abilities/chat.rst:306

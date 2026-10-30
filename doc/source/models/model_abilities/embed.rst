@@ -188,7 +188,7 @@ Does Embeddings API provides integration method for LangChain?
 -----------------------------------------------------------------------------------
 
 Yes, you can refer to the related sections in LangChain's respective official Xinference documentation.
-Here is the link: `Text Embedding Models: Xinference <https://python.langchain.com/docs/integrations/text_embedding/xinference>`_ 
+Here is the link: `Text Embedding Models: Xinference <https://reference.langchain.com/python/langchain-community/embeddings/xinference/XinferenceEmbeddings>`_ 
 
 
 Does Embeddings API support hrbrid model?
