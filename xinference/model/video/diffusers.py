@@ -50,6 +50,57 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _resolve_minimax_h3_lightning_config(
+    model_spec: "VideoModelFamilyV2",
+    lightning_version: Optional[str],
+    lightning_model_path: Optional[str],
+) -> Optional[dict]:
+    if lightning_model_path is None:
+        if lightning_version is not None:
+            raise ValueError(
+                f"Lightning version {lightning_version!r} was specified, "
+                "but no lightning model path was provided."
+            )
+        return None
+
+    version_configs = model_spec.lightning_version_configs or {}
+    version = lightning_version
+    if version is None:
+        filename = os.path.basename(lightning_model_path)
+        template = model_spec.lightning_model_file_name_template
+        if template:
+            matches = [
+                candidate
+                for candidate in version_configs
+                if template.format(lightning_version=candidate) == filename
+            ]
+            if len(matches) == 1:
+                version = matches[0]
+
+    if version not in version_configs:
+        raise ValueError(
+            "Cannot determine the MiniMax-H3 lightning configuration for "
+            f"{lightning_model_path!r}. Specify lightning_version from "
+            f"{list(version_configs)}."
+        )
+
+    config = version_configs[version].copy()
+    config["version"] = version
+    required = ("num_inference_steps", "video_shift", "audio_shift", "lora_alpha")
+    missing = [name for name in required if name not in config]
+    if missing:
+        raise ValueError(
+            f"MiniMax-H3 lightning version {version!r} is missing config: {missing}"
+        )
+    if config["num_inference_steps"] < 1:
+        raise ValueError("MiniMax-H3 lightning num_inference_steps must be positive")
+    if config["video_shift"] <= 0 or config["audio_shift"] <= 0:
+        raise ValueError("MiniMax-H3 lightning scheduler shifts must be positive")
+    if config["lora_alpha"] < 1:
+        raise ValueError("MiniMax-H3 lightning lora_alpha must be positive")
+    return config
+
+
 def _minimax_h3_memory_efficient_lora_forward(self, x, *args, **kwargs):
     """Evaluate a TorchAO LoRA branch directly into the base-layer result."""
     import torch
@@ -205,52 +256,9 @@ class DiffusersVideoModel:
         pipeline.audio_vae.to(onload_device)
 
     def _resolve_minimax_h3_lightning_config(self) -> Optional[dict]:
-        if self._lightning_model_path is None:
-            if self._lightning_version is not None:
-                raise ValueError(
-                    f"Lightning version {self._lightning_version!r} was specified, "
-                    "but no lightning model path was provided."
-                )
-            return None
-
-        version_configs = self._model_spec.lightning_version_configs or {}
-        version = self._lightning_version
-        if version is None:
-            filename = os.path.basename(self._lightning_model_path)
-            template = self._model_spec.lightning_model_file_name_template
-            if template:
-                matches = [
-                    candidate
-                    for candidate in version_configs
-                    if template.format(lightning_version=candidate) == filename
-                ]
-                if len(matches) == 1:
-                    version = matches[0]
-
-        if version not in version_configs:
-            raise ValueError(
-                "Cannot determine the MiniMax-H3 lightning configuration for "
-                f"{self._lightning_model_path!r}. Specify lightning_version from "
-                f"{list(version_configs)}."
-            )
-
-        config = version_configs[version].copy()
-        config["version"] = version
-        required = ("num_inference_steps", "video_shift", "audio_shift", "lora_alpha")
-        missing = [name for name in required if name not in config]
-        if missing:
-            raise ValueError(
-                f"MiniMax-H3 lightning version {version!r} is missing config: {missing}"
-            )
-        if config["num_inference_steps"] < 1:
-            raise ValueError(
-                "MiniMax-H3 lightning num_inference_steps must be positive"
-            )
-        if config["video_shift"] <= 0 or config["audio_shift"] <= 0:
-            raise ValueError("MiniMax-H3 lightning scheduler shifts must be positive")
-        if config["lora_alpha"] < 1:
-            raise ValueError("MiniMax-H3 lightning lora_alpha must be positive")
-        return config
+        return _resolve_minimax_h3_lightning_config(
+            self._model_spec, self._lightning_version, self._lightning_model_path
+        )
 
     @staticmethod
     @contextmanager

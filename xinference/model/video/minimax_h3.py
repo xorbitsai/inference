@@ -31,7 +31,7 @@ from ..image.sglang.core import SGLangDiffusionModel
 from ..image.vllm.core import VLLMDiffusionModel
 from ..utils import resolve_media_seed
 from .core import VideoModelFamilyV2
-from .diffusers import DiffusersVideoModel
+from .diffusers import DiffusersVideoModel, _resolve_minimax_h3_lightning_config
 from .engine_family import VideoEngineModel
 from .native import _NativeVideoModel
 
@@ -49,7 +49,11 @@ async def _run_with_request_files(func, *args, **kwargs):
 
 
 class _MiniMaxH3VideoModel(_NativeVideoModel):
-    supported_abilities = ("text2video", "image2video", "firstlastframe2video")
+    supported_abilities: Tuple[str, ...] = (
+        "text2video",
+        "image2video",
+        "firstlastframe2video",
+    )
 
     def __init__(
         self,
@@ -66,8 +70,8 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
         model_config.update(kwargs)
         # Consume Lightning here; the shared image engine rejects these options.
         super().__init__(model_uid, model_path, model_spec, **model_config)
-        self._lightning_config = (
-            DiffusersVideoModel._resolve_minimax_h3_lightning_config(self)
+        self._lightning_config = _resolve_minimax_h3_lightning_config(
+            model_spec, lightning_version, lightning_model_path
         )
 
     @classmethod

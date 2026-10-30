@@ -19,7 +19,7 @@ import random
 import re
 import sys
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from ....types import LoRA
 from ..utils import handle_image_result, resolve_image_seed_list
@@ -64,7 +64,7 @@ class SGLangDiffusionModel:
     # SGLang 0.5.20 uses a separate scheduler socket for every request.
     # Concurrent calls reach its native dynamic batching queue.
     allow_batch = True
-    supported_abilities = SGLANG_SUPPORTED_ABILITIES
+    supported_abilities: Tuple[str, ...] = SGLANG_SUPPORTED_ABILITIES
 
     def __init__(
         self,
