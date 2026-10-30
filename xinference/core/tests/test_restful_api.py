@@ -1364,6 +1364,155 @@ async def _create_chat_completion_with_mock_model(monkeypatch, payload, desc):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "desc, is_vllm, expected_n",
+    [
+        ({"model_family": "qwen3", "model_engine": "vLLM"}, True, 2),
+        ({"model_family": "qwen3", "model_engine": "llama.cpp"}, False, 2),
+    ],
+)
+async def test_chat_completion_forwards_multiple_choices_to_supported_backends(
+    monkeypatch, desc, is_vllm, expected_n
+):
+    api, model = _build_mock_chat_api(monkeypatch, desc)
+    model.is_vllm_backend = AsyncMock(return_value=is_vllm)
+
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "messages": [{"role": "user", "content": "hi"}],
+                "n": expected_n,
+            }
+        )
+    )
+
+    assert response.status_code == 200
+    assert model.chat.call_args.args[1]["n"] == expected_n
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_rejects_multiple_choices_on_unsupported_backend(
+    monkeypatch,
+):
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_family": "qwen3", "model_engine": "transformers"}
+    )
+    model.is_vllm_backend = AsyncMock(return_value=False)
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {
+                    "model": "test",
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "n": 2,
+                }
+            )
+        )
+
+    assert exc.value.status_code == 400
+    assert "n > 1" in exc.value.detail
+    model.chat.assert_not_called()
+
+
+def _build_mock_completion_api(monkeypatch, desc, is_vllm):
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    model = AsyncMock()
+    model.uid = "test-model"
+    model.generate = AsyncMock(return_value=b"{}")
+    model.is_vllm_backend = AsyncMock(return_value=is_vllm)
+    model.is_transformers_batching_enabled = AsyncMock(return_value=False)
+    supervisor.get_model = AsyncMock(return_value=model)
+    supervisor.describe_model = AsyncMock(return_value=desc)
+    return api, model
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "desc, is_vllm",
+    [
+        ({"model_engine": "vLLM"}, True),
+        ({"model_engine": "llama.cpp"}, False),
+    ],
+)
+async def test_completion_forwards_multiple_choices_to_supported_backends(
+    monkeypatch, desc, is_vllm
+):
+    api, model = _build_mock_completion_api(monkeypatch, desc, is_vllm)
+
+    response = await api.create_completion(
+        _DummyRequest({"model": "test", "prompt": "hi", "n": 2})
+    )
+
+    assert response.status_code == 200
+    assert model.generate.call_args.args[1]["n"] == 2
+
+
+@pytest.mark.asyncio
+async def test_completion_rejects_multiple_choices_on_unsupported_backend(monkeypatch):
+    api, model = _build_mock_completion_api(
+        monkeypatch, {"model_engine": "transformers"}, False
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_completion(
+            _DummyRequest({"model": "test", "prompt": "hi", "n": 2})
+        )
+
+    assert exc.value.status_code == 400
+    assert "n > 1" in exc.value.detail
+    model.generate.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_vllm", [True, False])
+async def test_completion_rejects_multiple_choices_with_stream(monkeypatch, is_vllm):
+    api, model = _build_mock_completion_api(
+        monkeypatch, {"model_engine": "vLLM" if is_vllm else "llama.cpp"}, is_vllm
+    )
+    with pytest.raises(HTTPException, match="streaming") as exc:
+        await api.create_completion(
+            _DummyRequest({"model": "test", "prompt": "hi", "n": 2, "stream": True})
+        )
+    assert exc.value.status_code == 400
+    model.generate.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["stream", "tools"])
+async def test_chat_rejects_multiple_choices_with_stream_or_tools(monkeypatch, field):
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_family": "qwen3", "model_engine": "vLLM"}
+    )
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    payload = {"model": "test", "messages": [{"role": "user", "content": "hi"}], "n": 2}
+    payload[field] = (
+        True if field == "stream" else [{"type": "function", "function": {"name": "f"}}]
+    )
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(_DummyRequest(payload))
+    assert exc.value.status_code == 400
+    assert ("streaming" if field == "stream" else "tools") in exc.value.detail
+    model.chat.assert_not_called()
+
+
+def test_single_choice_allows_stream_and_tools():
+    from ...api.restful_api import RESTfulAPI
+
+    kwargs = {}
+    RESTfulAPI._apply_multiple_choice_count(
+        kwargs, 1, "vLLM", True, stream=True, tools=True
+    )
+    assert "n" not in kwargs
+
+
+@pytest.mark.asyncio
 async def test_qwen38_without_reasoning_effort_does_not_add_template_kwargs(
     monkeypatch,
 ):
