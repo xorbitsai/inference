@@ -17,6 +17,7 @@
 import asyncio
 import itertools
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -565,3 +566,50 @@ async def test_scale_up_uses_resolved_auto_cache_state(engine, enabled):
         await supervisor.add_model_replica("demo")
         assert worker.launches[0]["enable_weight_cache"] is False
     assert worker.launch_args["enable_weight_cache"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_type", ["embedding", "rerank"])
+@pytest.mark.parametrize("cache_kwargs", [{}, {"enable_weight_cache": None}])
+async def test_non_llm_scale_up_does_not_query_weight_retention(
+    model_type, cache_kwargs
+):
+    launch_args = {
+        "model_type": model_type,
+        "model_engine": "vLLM",
+        "n_worker": 1,
+        "n_gpu": None,
+        **cache_kwargs,
+    }
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    worker.get_model_reload_config = AsyncMock(
+        side_effect=ValueError("Requires WeightCachedModel")
+    )
+    supervisor = _make_supervisor([worker], launch_args)
+    await supervisor.add_model_replica("demo")
+    worker.get_model_reload_config.assert_not_called()
+    assert len(worker.launches) == 1
+    assert "enable_weight_cache" not in worker.launches[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+async def test_cross_engine_scale_up_remains_scalable_after_source_removal(engine):
+    launch_args = {
+        "model_type": "LLM",
+        "model_engine": "Transformers",
+        "n_worker": 1,
+        "n_gpu": None,
+    }
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    supervisor = _make_supervisor([worker], launch_args)
+    first = await supervisor.add_model_replica("demo", model_engine=engine)
+    assert first["replica_id"] == 1
+    await supervisor.terminate_model_replica("demo", 0)
+    # The surviving replica now supplies the saved launch args. On a supported
+    # model host Auto would enable retention unless scale-up explicitly opts out.
+    worker.launch_args = dict(worker.launches[0])
+    worker.cache_enabled = worker.launch_args.get("enable_weight_cache") is not False
+    second = await supervisor.add_model_replica("demo")
+    assert second["replica_id"] == 2
+    assert all(args["enable_weight_cache"] is False for args in worker.launches)

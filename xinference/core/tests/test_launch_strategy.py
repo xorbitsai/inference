@@ -872,3 +872,24 @@ async def test_auto_weight_cache_respects_launch_topology(
     assert launches
     expected = None if replica == 1 and (local or n_worker == 1) else False
     assert all(call.get("enable_weight_cache") is expected for call in launches)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_type", ["embedding", "rerank"])
+@pytest.mark.parametrize("cache_kwargs", [{}, {"enable_weight_cache": None}])
+async def test_auto_cache_option_is_not_forwarded_to_non_llm(model_type, cache_kwargs):
+    worker = DummyWorkerRef("worker:9978", model_count=0, launched=[])
+    supervisor = DummySupervisor({worker.address: worker})
+    await supervisor.launch_builtin_model(
+        model_uid="demo-model",
+        model_name="demo",
+        model_type=model_type,
+        model_engine="vLLM",
+        model_size_in_billions=None,
+        model_format="pytorch",
+        quantization=None,
+        n_gpu=1,
+        **cache_kwargs,
+    )
+    assert len(worker.launch_kwargs) == 1
+    assert "enable_weight_cache" not in worker.launch_kwargs[0]

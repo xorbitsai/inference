@@ -60,7 +60,11 @@ for (const initial of [undefined, null, true, false]) {
     document.body.append(container);
     root = createRoot(container);
     const form = createForm();
-    const values: FormValues = { model_engine: 'vLLM', model_type: 'LLM' };
+    const values: FormValues = {
+      model_engine: 'vLLM',
+      model_type: 'LLM',
+      enable_virtual_env: false,
+    };
     if (initial !== undefined) values.enable_weight_cache = initial;
     await act(async () => {
       root!.render(
@@ -89,6 +93,12 @@ for (const initial of [undefined, null, true, false]) {
       const command = generateCommandLineStatement(payload);
       if (mode === 'auto') assert.ok(!command.includes('--enable_weight_cache'));
       else assert.ok(command.includes(`--enable_weight_cache ${mode}`));
+    }
+    for (const mode of ['true', 'false']) {
+      const label = group.querySelector<HTMLButtonElement>(`[value="${mode}"]`)!.closest('label')!;
+      await act(async () => label.click());
+      assert.equal(form.getFieldValue('enable_weight_cache'), mode === 'true');
+      assert.equal(form.getFieldValue('enable_virtual_env'), false);
     }
   });
 }

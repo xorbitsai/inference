@@ -3278,12 +3278,13 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             n_worker = 1
 
         if weight_cache_option is None:
-            if (model_engine or "").lower() in ("vllm", "sglang"):
+            if (model_type or "LLM").lower() == "llm" and (
+                model_engine or ""
+            ).lower() in ("vllm", "sglang"):
                 # Engine/platform checks run in the actual model environment.
                 # A multi-replica launch must disable retention for every replica.
                 if (
-                    (model_type or "LLM").lower() != "llm"
-                    or n_worker != 1
+                    n_worker != 1
                     or replica != 1
                     or (replica_config is not None and len(replica_config) != 1)
                 ):
@@ -5809,13 +5810,13 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         weight_cache_enabled = parse_weight_cache_option(
             launch_args.get("enable_weight_cache", False)
         )
-        if (launch_args.get("model_engine") or "").lower() in ("vllm", "sglang"):
+        if (launch_args.get("model_type") or "LLM").lower() == "llm" and (
+            launch_args.get("model_engine") or ""
+        ).lower() in ("vllm", "sglang"):
             reload_config = await existing_worker_ref.get_model_reload_config(
                 any_replica_uid
             )
             weight_cache_enabled = reload_config["enabled"]
-            # Scaling an uncached model must not auto-enable the new replica.
-            launch_args = {**launch_args, "enable_weight_cache": False}
         if weight_cache_enabled:
             raise ValueError(
                 "Adding replicas to weight-cached models is not supported."
@@ -5891,6 +5892,14 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         modified_args["n_gpu"] = target_n_gpu
         if model_engine is not None:
             modified_args["model_engine"] = model_engine
+        if (modified_args.get("model_type") or "LLM").lower() == "llm" and (
+            modified_args.get("model_engine") or ""
+        ).lower() in ("vllm", "sglang"):
+            # Use the destination engine after applying any override. Every
+            # additional replica must opt out of automatic weight retention.
+            modified_args["enable_weight_cache"] = False
+        else:
+            modified_args.pop("enable_weight_cache", None)
         # Always overwrite gpu_idx so a placement config without explicit GPUs
         # does not inherit an old replica's pinned indexes.
         modified_args["gpu_idx"] = target_gpu_idx
