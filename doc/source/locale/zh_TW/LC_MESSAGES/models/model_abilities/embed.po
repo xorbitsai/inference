@@ -176,11 +176,11 @@ msgid ""
 "Yes, you can refer to the related sections in LangChain's respective "
 "official Xinference documentation. Here is the link: `Text Embedding "
 "Models: Xinference "
-"<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
+"<https://reference.langchain.com/python/langchain-community/embeddings/xinference/XinferenceEmbeddings>`_"
 msgstr ""
 "是的，你可以參考LangChain相關部分的官方Xinference文件。這裡是連結：`Text Embedding Models: "
 "Xinference "
-"<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
+"<https://reference.langchain.com/python/langchain-community/embeddings/xinference/XinferenceEmbeddings>`_"
 
 #: ../../source/models/model_abilities/embed.rst:156
 msgid "Does Embeddings API support hrbrid model?"

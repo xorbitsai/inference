@@ -76,12 +76,12 @@ msgstr ""
 
 #: ../../source/development/contributing_environment.rst:27
 msgid ""
-"`GitHub has instructions <https://help.github.com/set-up-git-redirect>`__ "
+"`GitHub has instructions <https://docs.github.com/en/get-started/git-basics/set-up-git>`__ "
 "for installing git, setting up your SSH key, and configuring git. All these "
 "steps need to be completed before you can work seamlessly between your local"
 " repository and GitHub."
 msgstr ""
-"`GitHub 가이드 <https://help.github.com/set-up-git-redirect>`_ 를 참고하여 git을 "
+"`GitHub 가이드 <https://docs.github.com/en/get-started/git-basics/set-up-git>`_ 를 참고하여 git을 "
 "설치하고, SSH 키를 설정하며, git을 구성할 수 있습니다. 이러한 단계를 완료하여 로컬 저장소와 GitHub가 정상적으로 작동하도록"
 " 해야 하며, 이후 작업이 원활히 진행될 수 있습니다."
 

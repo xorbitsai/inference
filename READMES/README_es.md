@@ -66,7 +66,7 @@ Xorbits Inference (Xinference) es una biblioteca potente y versátil para modelo
 - Soporte integrado para [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1): [#5588](https://github.com/xorbitsai/inference/pull/5588)
 ### Integraciones
 - [Xagent](https://github.com/xorbitsai/xagent): plataforma de agentes enterprise con planificación, memoria e integración de herramientas.
-- [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): plataforma LLMOps para construir aplicaciones rápidamente con visualización y control.
+- [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference): plataforma LLMOps para construir aplicaciones rápidamente con visualización y control.
 - [FastGPT](https://github.com/labring/FastGPT): plataforma de conocimiento basada en LLM para procesamiento de datos y llamadas a modelos.
 - [RAGFlow](https://github.com/infiniflow/ragflow): motor RAG open-source para comprensión profunda de documentos.
 - [MaxKB](https://github.com/1Panel-dev/MaxKB): asistente de base de conocimiento open-source con integración RAG.
@@ -82,7 +82,7 @@ Xorbits Inference (Xinference) es una biblioteca potente y versátil para modelo
 
 🌐 Despliegue distribuido: Facilita la distribución de la inferencia a través de varios dispositivos y máquinas.
 
-🔌 Integraciones de terceros: Integración con [LangChain](https://python.langchain.com/docs/integrations/providers/xinference), [LlamaIndex], [Dify], [Chatbox], etc.
+🔌 Integraciones de terceros: Integración con [LangChain](https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference), [LlamaIndex], [Dify], [Chatbox], etc.
 
 ## Por qué Xinference
 | Función                                      | Xinference | FastChat | OpenLLM | RayLLM |

@@ -144,9 +144,9 @@ msgstr ""
 #: ../../source/examples/index.rst:59
 msgid ""
 "LangChain `Text Embedding Models "
-"<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
+"<https://reference.langchain.com/python/langchain-community/embeddings/xinference/XinferenceEmbeddings>`_"
 " and `LLMs "
-"<https://python.langchain.com/docs/integrations/llms/xinference>`_"
+"<https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference>`_"
 msgstr ""
 
 #: ../../source/examples/index.rst:61

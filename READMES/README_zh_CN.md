@@ -69,7 +69,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 ### 集成
 - [Xagent](https://github.com/xorbitsai/xagent)：企业级 Agent 平台，用于构建和运行具备规划、记忆与工具调用能力的智能体，不再受限于僵化的工作流。
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
-- [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
+- [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
 - [RAGFlow](https://github.com/infiniflow/ragflow): 是一款基于深度文档理解构建的开源 RAG 引擎。
 - [MaxKB](https://github.com/1Panel-dev/MaxKB): MaxKB = Max Knowledge Base，是一款基于大语言模型和 RAG 的开源知识库问答系统，广泛应用于智能客服、企业内部知识库、学术研究与教育等场景。
 
@@ -84,7 +84,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 🌐 **集群计算，分布协同**: 支持分布式部署，通过内置的资源调度器，让不同大小的模型按需调度到不同机器，充分使用集群资源。
 
-🔌 **开放生态，无缝对接**: 与流行的三方库无缝对接，包括 [LangChain](https://python.langchain.com/docs/integrations/providers/xinference)，[LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window)，[Dify](https://docs.dify.ai/advanced/model-configuration/xinference)，以及 [Chatbox](https://chatboxai.app/)。
+🔌 **开放生态，无缝对接**: 与流行的三方库无缝对接，包括 [LangChain](https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference)，[LlamaIndex](https://developers.llamaindex.ai/python/framework/integrations/llm/xinference_local_deployment/)，[Dify](https://marketplace.dify.ai/plugin/langgenius/xinference)，以及 [Chatbox](https://chatboxai.app/)。
 
 ## 为什么选择 Xinference
 | 功能特点                    | Xinference | FastChat | OpenLLM | RayLLM |
