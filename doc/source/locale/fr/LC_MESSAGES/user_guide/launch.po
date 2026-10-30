@@ -785,3 +785,11 @@ msgstr ""
 "rechargement avec cache des poids ne peut pas augmenter la longueur de "
 "contexte actuelle. Déployez un nouveau modèle pour l’augmenter afin de "
 "vérifier à nouveau le checkpoint et les paramètres RoPE."
+
+#: ../../source/user_guide/launch.rst:541
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr ""
+"La valeur par défaut de ``enable_weight_cache`` est passée de ``False`` à la"
+" sélection automatique (``None``)."

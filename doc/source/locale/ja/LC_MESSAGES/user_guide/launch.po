@@ -678,3 +678,9 @@ msgstr ""
 "YaRN "
 "設定が登録されているモデルでは、重みキャッシュを使った再読み込みで現在のコンテキスト長を増やすことはできません。長くするには新しいモデルをデプロイし、チェックポイントと"
 " RoPE 設定を再確認してください。"
+
+#: ../../source/user_guide/launch.rst:541
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr "``enable_weight_cache`` のデフォルト値が ``False`` から自動選択（``None``）に変更されました。"

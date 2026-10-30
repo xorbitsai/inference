@@ -782,3 +782,11 @@ msgstr ""
 "mit Gewichtscache die aktuelle Kontextlänge nicht erhöhen. Stellen Sie ein "
 "neues Modell bereit, um sie zu erhöhen, damit Checkpoint und RoPE-"
 "Einstellungen erneut geprüft werden."
+
+#: ../../source/user_guide/launch.rst:541
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr ""
+"Der Standardwert von ``enable_weight_cache`` wurde von ``False`` auf "
+"automatische Auswahl (``None``) geändert."

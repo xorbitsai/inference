@@ -771,3 +771,11 @@ msgstr ""
 "pesos não pode aumentar o comprimento de contexto atual. Implante um novo "
 "modelo para aumentá-lo, permitindo que o checkpoint e as configurações de "
 "RoPE sejam verificados novamente."
+
+#: ../../source/user_guide/launch.rst:541
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr ""
+"O padrão de ``enable_weight_cache`` mudou de ``False`` para seleção "
+"automática (``None``)."

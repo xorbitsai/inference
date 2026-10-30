@@ -777,3 +777,11 @@ msgstr ""
 "cache dei pesi non può aumentare la lunghezza del contesto attuale. "
 "Distribuire un nuovo modello per aumentarla, in modo che il checkpoint e le "
 "impostazioni RoPE vengano verificati nuovamente."
+
+#: ../../source/user_guide/launch.rst:541
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr ""
+"Il valore predefinito di ``enable_weight_cache`` è cambiato da ``False`` "
+"alla selezione automatica (``None``)."

@@ -773,3 +773,11 @@ msgstr ""
 "de pesos no puede aumentar la longitud de contexto actual. Despliegue un "
 "modelo nuevo para aumentarla y volver a comprobar el checkpoint y los "
 "ajustes de RoPE."
+
+#: ../../source/user_guide/launch.rst:541
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr ""
+"El valor predeterminado de ``enable_weight_cache`` cambió de ``False`` a "
+"selección automática (``None``)."

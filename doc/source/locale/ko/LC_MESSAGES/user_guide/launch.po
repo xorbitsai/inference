@@ -687,3 +687,10 @@ msgid ""
 msgstr ""
 "YaRN 설정이 등록된 모델은 가중치 캐시를 사용하는 다시 로드로 현재 컨텍스트 길이를 늘릴 수 없습니다. 길이를 늘리려면 새 모델을 "
 "배포하여 체크포인트와 RoPE 설정을 다시 확인해야 합니다."
+
+#: ../../source/user_guide/launch.rst:541
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr ""
+"``enable_weight_cache`` 의 기본값이 ``False`` 에서 자동 선택(``None``)으로 변경되었습니다."

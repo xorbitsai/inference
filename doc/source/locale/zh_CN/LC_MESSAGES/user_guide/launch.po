@@ -714,3 +714,9 @@ msgid ""
 msgstr ""
 "对于已登记 YaRN 配置的模型，使用权重缓存重载时不能增加当前上下文长度。如需增加，请重新部署模型，以便再次检查 checkpoint 和 RoPE "
 "设置。"
+
+#: ../../source/user_guide/launch.rst:541
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr "``enable_weight_cache`` 的默认值从 ``False`` 改为自动选择（``None``）。"
