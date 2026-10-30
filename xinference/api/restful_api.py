@@ -1574,16 +1574,14 @@ class RESTfulAPI(CancelMixin):
             os.path.join(lib_location, "ui", "web", "dist"),
         )
         if not mount_frontend(self._app, Path(ui_dist_location)):
-            warnings.warn(
-                f"""
+            warnings.warn(f"""
             The Xinference web UI is not built at expected directory: {ui_dist_location}
             The API keeps serving without the web UI. To enable it, build the
             frontend static export from the repository "frontend/" directory with
             "npm ci && npm run build" (this stages the export at the directory
             above), or set XINFERENCE_FRONTEND_DIST_DIR to an export directory,
             and restart. For frontend development, run "npm run dev" instead.
-            """
-            )
+            """)
 
         config = Config(
             app=self._app,
@@ -2485,6 +2483,13 @@ class RESTfulAPI(CancelMixin):
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
         is_vllm_backend = await model.is_vllm_backend()
+        model_desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
+        RESTfulAPI._apply_multiple_choice_count(
+            kwargs,
+            getattr(body, "n", None),
+            model_desc.get("model_engine"),
+            is_vllm_backend,
+        )
         model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
         if is_vllm_backend:
             kwargs.pop("request_id", None)
@@ -4943,6 +4948,12 @@ class RESTfulAPI(CancelMixin):
             self._apply_qwen38_reasoning_effort(raw_body, raw_kwargs, kwargs)
 
         model_family = desc.get("model_family", "")
+        RESTfulAPI._apply_multiple_choice_count(
+            kwargs,
+            getattr(body, "n", None),
+            desc.get("model_engine"),
+            is_vllm_backend,
+        )
 
         total_call_family = (
             DEEPSEEK_TOOL_CALL_FAMILY
@@ -5100,6 +5111,24 @@ class RESTfulAPI(CancelMixin):
                 raise HTTPException(
                     status_code=500, detail=self._chat_completion_error_detail()
                 )
+
+    @staticmethod
+    def _apply_multiple_choice_count(
+        kwargs: Dict[str, Any],
+        n: Optional[int],
+        model_engine: Optional[str],
+        is_vllm_backend: bool,
+    ) -> None:
+        if n is None or n == 1:
+            return
+        if n < 1:
+            raise HTTPException(status_code=400, detail="n must be at least 1")
+        if not (is_vllm_backend or model_engine in {"llama.cpp", "llama_cpp"}):
+            raise HTTPException(
+                status_code=400,
+                detail="n > 1 is not supported by this model backend",
+            )
+        kwargs["n"] = n
 
     async def recommend_model(self, request: Request) -> JSONResponse:
         from .._compat import ValidationError
