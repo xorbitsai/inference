@@ -1023,7 +1023,7 @@ class MLXModel(LLM, ChatModelMixin):
         ):
             if getattr(self, "_xavier", None) is not None:
                 raise NotImplementedError(
-                    "MLX P/D models do not support constrained output"
+                    "MLX Xavier models do not support constrained output or thinking budgets"
                 )
             from .structured import JSONLogitsProcessor, json_schema
 
@@ -1604,7 +1604,10 @@ class MLXModel(LLM, ChatModelMixin):
         self._context_length = get_context_length_from_config(
             config, context_length=self._model_config.get("context_length")
         )
-        if self._xavier_config and self._xavier_config.get("heterogeneous"):
+        if self._xavier_config and (
+            self._xavier_config.get("heterogeneous")
+            or self._xavier_config.get("shared_prefix")
+        ):
             self._context_length = (
                 self._model_config.get("context_length") or self._context_length
             )
@@ -2085,7 +2088,7 @@ class MLXModel(LLM, ChatModelMixin):
                 or generate_config.get("_mlx_thinking_budget") is not None
             ):
                 raise NotImplementedError(
-                    "MLX P/D models do not support constrained output"
+                    "MLX Xavier models do not support constrained output or thinking budgets"
                 )
             if xavier.role == "prefill":
                 if (

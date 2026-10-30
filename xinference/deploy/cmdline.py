@@ -1041,7 +1041,12 @@ def model_launch(
 
         try:
             configs = [ReplicaConfig.parse_obj(item) for item in _replica_config]
-            validate_pd_replica_configs(configs, model_engine, model_type)
+            validate_pd_replica_configs(
+                configs,
+                model_engine,
+                model_type,
+                allow_shared_cache=bool(kwargs.get("enable_xavier")),
+            )
         except ValueError as e:
             raise click.BadParameter(str(e), param_hint="--replica-config") from e
 

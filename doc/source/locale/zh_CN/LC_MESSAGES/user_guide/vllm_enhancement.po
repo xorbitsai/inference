@@ -62,8 +62,12 @@ msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache s
 msgstr "SGLang >= ``0.5.21`` 可通过 Xavier 的 HiCache 存储后端共享前缀 KV 缓存。启动多个副本时设置 ``model_engine=\"SGLang\"`` 和 ``enable_xavier=True``。初始适配器支持使用全注意力、未量化 FP16 权重且 TP=PP=DP=1 的 Qwen2、Qwen3 和 Llama 文本模型；不支持 LoRA、推测解码、混合注意力和多模态输入。"
 
 #: source/user_guide/vllm_enhancement.rst
-msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang."
-msgstr "``xavier_cache_bytes`` 设置部署的共享 CPU 缓存预算（默认 ``536870912``，即 512 MiB）。每个 SGLang 副本还会分配自己的 GPU 和 HiCache 主机内存池。对于普通副本，缓存淘汰或存储不可用会作为缓存未命中处理。缓存命名空间包含实际权重、分词器、模型配置、KV 几何形状和引擎格式；目前还不能在 vLLM 与 SGLang 之间交换缓存。"
+msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
+msgstr ""
+"``xavier_cache_bytes`` 设置部署的共享 CPU 缓存预算（默认 ``536870912``，即 512 MiB）。每个 "
+"SGLang 副本还会分配自己的 GPU 和 HiCache "
+"主机内存池。对于普通副本，缓存淘汰或存储不可用会作为缓存未命中处理。缓存命名空间包含实际权重、分词器、模型配置、KV "
+"几何形状和引擎格式。跨引擎复用请参见 :ref:`xavier-cross-engine-sharing`。"
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead. For same-engine or cross-engine P/D and per-replica engine settings, see :ref:`user_guide_pd_separation`."
@@ -208,15 +212,15 @@ msgstr "选择部署模式"
 #: ../../source/user_guide/vllm_enhancement.rst:15
 msgid ""
 "Use ordinary replicas to share compatible prefixes while each replica "
-"handles complete requests. Shared prefix caching currently stays within the "
-"same engine. For separate prefill and decode roles, including cross-engine "
-"and CUDA/Metal deployments, use :ref:`user_guide_pd_separation`. P/D "
-"transport and ordinary cache storage have separate configuration and "
-"compatibility limits."
+"handles complete requests. By default, shared prefix caching uses replicas "
+"of the same engine. To mix engines in ordinary replicas, see :ref:`xavier-"
+"cross-engine-sharing`. For separate prefill and decode roles, including "
+"cross-engine and CUDA/Metal deployments, use "
+":ref:`user_guide_pd_separation`. P/D transport and ordinary cache storage "
+"have separate configuration and compatibility limits."
 msgstr ""
-"普通副本各自处理完整请求，同时共享兼容的前缀。前缀共享缓存目前限于同一引擎。若要分别部署 prefill 与 decode 角色，包括跨引擎和 "
-"CUDA/Metal 部署，请参见 :ref:`user_guide_pd_separation`。P/D "
-"传输和普通缓存存储各有独立的配置及兼容性限制。"
+"默认使用同引擎副本共享前缀。独立 prefill/decode 部署请参见 :ref:`user_guide_pd_separation`。 "
+"跨引擎复用请参见 :ref:`xavier-cross-engine-sharing`。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:26
 msgid ""
@@ -314,13 +318,13 @@ msgid ""
 "locally on a miss or unavailable storage; incompatible deployments cannot "
 "share pages. Returned usage reports reused tokens in "
 "``prompt_tokens_details.cached_tokens``. Explicit prefill/decode roles "
-"enable MLX Xavier P/D automatically. Cross-engine cache sharing is not yet "
-"supported."
+"enable MLX Xavier P/D automatically. For cross-engine reuse, use "
+":ref:`xavier-cross-engine-sharing`."
 msgstr ""
 "``xavier_cache_bytes`` 限制共享 CPU 缓存容量，默认 512 MiB。每个副本还拥有各自的模型和 Metal KV "
 "缓存。普通副本在未命中或存储不可用时本地计算；不兼容的部署不能共享缓存页。响应通过 "
 "``prompt_tokens_details.cached_tokens`` 报告复用 token 数。显式设置 prefill/decode "
-"角色会自动启用 MLX Xavier P/D。目前不支持跨引擎缓存共享。"
+"角色会自动启用 MLX Xavier P/D。跨引擎复用请参见 :ref:`xavier-cross-engine-sharing`。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:140
 msgid "Native storage"
@@ -367,3 +371,76 @@ msgstr "``storage_bytes`` 与 ``cpu_bytes`` 共同限制当前 actor 跟踪的�
 #: source/user_guide/vllm_enhancement.rst:212
 msgid "Deployment, schema and cache-salt isolation still apply. vLLM uses a distinct storage namespace per replica rank; SGLang and TRT-LLM replicas share one supervisor-owned storage actor. Other deployments' objects are not discovered, and relaunching does not recover old entries. Cache misses, unavailable reads and timeouts fall back to local prefill. Graceful shutdown drains writes and deletes only this actor's tracked namespaced objects before closing its client. If cleanup fails or the process crashes, remaining objects are subject to Mooncake's eviction policy. Cleanup never explicitly deletes other clients' keys or stops the shared service. A client contributing memory withdraws that segment on close; use ``global_segment_size=0`` with a separate storage pool to avoid this."
 msgstr "部署、schema 和 cache-salt 隔离规则仍然生效。vLLM 为每个副本 rank 使用独立的存储命名空间；SGLang 和 TRT-LLM 的副本则共用一个由 supervisor 管理的存储 actor。不会发现其他部署的对象，重新启动部署也不会恢复旧条目。缓存未命中、读取不可用或超时会回退到本地 prefill。正常关闭时先等待写入结束，再仅删除当前 actor 跟踪的命名空间对象并关闭客户端。清理失败或进程崩溃后，残留对象由 Mooncake 的淘汰策略处理。清理过程不会主动删除其他客户端的键，也不会停止共享服务。贡献内存的客户端关闭时会撤回该内存段；使用独立存储池并设置 ``global_segment_size=0`` 可避免这一影响。"
+
+#: user_guide/vllm_enhancement.rst
+msgid "Cross-engine prefix sharing"
+msgstr "跨引擎前缀共享"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"Ordinary replicas can share cached prefixes across vLLM, SGLang, TRT-LLM and"
+" MLX. Each replica still handles complete requests: a later request on "
+"SGLang can reuse a prefix computed by vLLM, and vice versa. Enable Xavier "
+"and select an engine for each replica; no prefill/decode roles are needed."
+msgstr ""
+"普通副本可以在 vLLM、SGLang、TRT-LLM 和 MLX 之间共享缓存前缀。每个副本仍处理完整请求：SGLang 上的后续请求可以复用 "
+"vLLM 计算的前缀，反向也可以。启用 Xavier 并为各副本选择引擎，无需设置 prefill/decode 角色。"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"All replicas must use identical local checkpoint and tokenizer files, "
+"effective context limits and unquantized full-attention models. "
+"vLLM/SGLang/MLX combinations support FP16 Qwen2, Qwen3 and Llama text "
+"models. A topology containing TRT-LLM requires BF16 dense Qwen3 on every "
+"replica. Use one worker and one device per replica; existing engine version "
+"requirements apply."
+msgstr ""
+"所有副本必须使用相同的本地权重和分词器文件、有效上下文限制，以及未量化的全注意力模型。vLLM/SGLang/MLX 组合支持 FP16 "
+"Qwen2、Qwen3 和 Llama 文本模型。包含 TRT-LLM 时，所有副本都必须使用 BF16 稠密 Qwen3。每个副本使用一个 "
+"Worker 和一个设备；各引擎现有的版本要求仍然适用。"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"For MLX, set its replica's ``engine_config`` to include "
+"``model_format=\"mlx\"`` and its local ``model_path``. Use the original "
+"unconverted checkpoint on the Mac. Engine-specific options belong in "
+"``engine_config``; worker-local paths may also be set there for CUDA "
+"replicas. Configure the same effective context limit for every engine."
+msgstr ""
+"对于 MLX，在该副本的 ``engine_config`` 中设置 ``model_format=\"mlx\"`` 和本地 "
+"``model_path``。Mac 使用未经转换的原始权重。引擎专用选项放在 ``engine_config`` 中，CUDA 副本也可在此设置 "
+"Worker 本地路径。所有引擎应配置相同的有效上下文限制。"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"Xavier stores immutable, complete 64-token pages in a supervisor-owned CPU "
+"cache and transfers them through actor RPC. ``xavier_cache_bytes`` bounds "
+"this shared pool (default: 512 MiB), excluding model weights, engine caches "
+"and in-flight copies. Partial tails and the final prompt token are computed "
+"locally. Misses, eviction and unavailable storage fall back to local "
+"prefill. Incompatible models fail configuration before sharing pages."
+msgstr ""
+"Xavier 在 Supervisor 的 CPU 缓存中保存不可变的完整 64-token 页，并通过 actor RPC "
+"传输。``xavier_cache_bytes`` 限制共享池容量，默认 512 "
+"MiB，不包含模型权重、引擎缓存和传输中的副本。未满页的尾部和最后一个提示 token 在本地计算。缓存未命中、淘汰或存储不可用时回退到本地 "
+"prefill。不兼容的模型在共享前即配置失败。"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"This mode uses the native backend. LMCache/Mooncake storage and retained GPU"
+" history are not supported for cross-engine sharing. Quantization, sharded "
+"KV, LoRA, speculation, multimodal input and hybrid attention remain "
+"unsupported. TRT-LLM retains its existing ``cache_salt`` restriction; vLLM, "
+"SGLang and MLX preserve request-scoped isolation."
+msgstr ""
+"此模式使用 native 后端。跨引擎共享暂不支持 LMCache/Mooncake 存储和保留的 GPU 历史缓存。量化、分片 "
+"KV、LoRA、推测解码、多模态输入和混合注意力仍不受支持。TRT-LLM 保留现有的 ``cache_salt`` 限制；vLLM、SGLang 和 "
+"MLX 保持请求级隔离。"
+
+#: user_guide/vllm_enhancement.rst
+msgid "Measure repeated-prefix TTFT against local prefill on the receiving engine. CPU copies and network transfer can exceed prefill cost for short prefixes. Use cached-token usage to confirm reuse on every engine. The ``imported_pages`` counter reports completed imports only for vLLM and TRT-LLM receivers; SGLang and MLX receivers use cached-token usage instead. Response correctness alone does not prove a cache hit."
+msgstr "针对重复前缀，将 TTFT 与接收引擎的本地 prefill 比较。对于较短前缀，CPU 复制和网络传输开销可能超过 prefill。所有引擎均可通过缓存 token 用量确认复用。``imported_pages`` 计数器仅记录 vLLM 和 TRT-LLM 接收端已完成的导入；SGLang 和 MLX 接收端应查看缓存 token 用量。响应正确本身不能证明缓存命中。"
+
+#: user_guide/vllm_enhancement.rst
+msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."
+msgstr "请求必须使用部署中所有引擎均支持的选项。TRT-LLM 不支持工具、``response_format``、对数概率、``echo`` 和 ``n>1``。MLX Xavier 不支持结构化 ``response_format``、强制工具选择和思考预算。否则，请求能否成功可能取决于被路由到的副本。"

@@ -65,7 +65,7 @@ def configure_cross_engine(model_path, model_config, cache_config):
     cache_config["contract"] = contract.to_dict()
     model_config.update(dtype=dtype, block_size=64)
     # Prefix reuse within P remains native. D owns complete per-request pages.
-    if cache_config["role"] == "decode":
+    if cache_config.get("role") == "decode":
         model_config["enable_prefix_caching"] = False
 
 

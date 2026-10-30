@@ -365,3 +365,28 @@ def test_replica_engine_config_rejects_internal_interpreter(role):
         ValueError, match="Reserved replica engine_config keys: model_python_executable"
     ):
         validate_pd_replica_configs(configs, "vLLM", "LLM")
+
+
+@pytest.mark.parametrize("role", [None, "hybrid"])
+@pytest.mark.parametrize("allow", [False, True])
+def test_ordinary_cuda_engine_paths_and_formats_require_shared_cache(role, allow):
+    configs = [
+        ReplicaConfig(
+            **({"role": role} if role is not None else {}),
+            model_engine=engine,
+            engine_config={"model_path": f"/local/{engine}", "model_format": "pytorch"},
+        )
+        for engine in ("vLLM", "SGLang")
+    ]
+    if allow:
+        assert (
+            validate_pd_replica_configs(configs, "vLLM", "LLM", allow_shared_cache=True)
+            is False
+        )
+        assert [c.engine_config["model_path"] for c in configs] == [
+            "/local/vLLM",
+            "/local/SGLang",
+        ]
+    else:
+        with pytest.raises(ValueError, match="Reserved replica engine_config keys"):
+            validate_pd_replica_configs(configs, "vLLM", "LLM")

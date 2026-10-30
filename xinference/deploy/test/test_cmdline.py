@@ -827,3 +827,27 @@ def test_engine_matches_parameters_like_launch(
         "0_5",
         expected_quantization,
     ] in rows
+
+
+def test_launch_cross_engine_prefix_sharing_requires_xavier(monkeypatch):
+    config = [
+        {"model_engine": engine, "devices": [{"worker_ip": f"worker-{i}:9978"}]}
+        for i, engine in enumerate(("vLLM", "SGLang"))
+    ]
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch,
+        json.dumps(config),
+        "--model-engine",
+        "vLLM",
+        "--enable_xavier",
+        "true",
+        "--replica-config",
+    )
+    assert result.exit_code == 0, result.output
+    assert calls["launch_kwargs"]["enable_xavier"] is True
+    assert calls["launch_kwargs"]["replica_config"] == config
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, json.dumps(config), "--model-engine", "vLLM", "--replica-config"
+    )
+    assert result.exit_code != 0
+    assert "launch_kwargs" not in calls

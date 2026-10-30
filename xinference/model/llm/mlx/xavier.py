@@ -94,11 +94,11 @@ def configure_xavier(model, model_path, model_config, cache_config, n_worker):
         raise ValueError("MLX Xavier requires local safetensors weights")
     dtype = (
         cache_config.get("logical_dtype", "float16")
-        if cache_config.get("heterogeneous")
+        if (cache_config.get("heterogeneous") or cache_config.get("shared_prefix"))
         else "float16"
     )
     if dtype not in ("float16", "bfloat16") or (
-        cache_config.get("heterogeneous")
+        (cache_config.get("heterogeneous") or cache_config.get("shared_prefix"))
         and model_config.get("dtype", "auto") not in (None, "auto", dtype)
     ):
         raise ValueError(f"MLX Xavier requires {dtype} weights and KV")
@@ -107,11 +107,15 @@ def configure_xavier(model, model_path, model_config, cache_config, n_worker):
     # generation never inherits unevaluated operations on its Metal stream.
     mx.eval(model.parameters())
     args = asdict(model.args)
-    if cache_config.get("heterogeneous"):
-        if cache_config.get("role") not in (
-            "prefill",
-            "decode",
-        ) or not cache_config.get("host_handoff"):
+    if cache_config.get("heterogeneous") or cache_config.get("shared_prefix"):
+        if not cache_config.get("shared_prefix") and (
+            cache_config.get("role")
+            not in (
+                "prefill",
+                "decode",
+            )
+            or not cache_config.get("host_handoff")
+        ):
             raise ValueError("Cross-engine MLX Xavier requires a host PD handoff")
         # The shared contract describes checkpoint semantics, not engine-specific
         # defaults. Verify MLX's effective geometry and RoPE before using it.
@@ -200,6 +204,10 @@ class MLXXavierCache:
 
     def keys(self, tokens, cache_salt=None):
         salt = validate_cache_salt(cache_salt)
+        if self.config.get("shared_prefix"):
+            from ..xavier.prefix import prefix_keys
+
+            return prefix_keys(tokens, self.contract.block_size, salt)
         keys = [
             key.digest
             for key in build_prefix_keys(self.contract, tokens, cache_salt=salt or "")
@@ -461,15 +469,23 @@ class MLXXavierCache:
         async def write():
             try:
                 await self.initialize()
+                published = tokens
+                if self.config.get("shared_prefix"):
+                    published = tokens[
+                        : len(tokens)
+                        // self.contract.block_size
+                        * self.contract.block_size
+                    ]
                 if (
-                    len(tokens) + self.contract.block_size - 1
+                    len(published) + self.contract.block_size - 1
                 ) // self.contract.block_size > self._capacity_pages:
                     return
                 start = (
                     cached_tokens // self.contract.block_size * self.contract.block_size
                 )
-                keys = self.keys(tokens, cache_salt)
-                pages = self.encode(cache, tokens, start)
+                start = min(start, len(published))
+                keys = self.keys(published, cache_salt)
+                pages = self.encode(cache, published, start)
                 await self._call(
                     "put",
                     self.contract.fingerprint,

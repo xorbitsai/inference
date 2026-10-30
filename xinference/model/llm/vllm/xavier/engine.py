@@ -107,14 +107,22 @@ class XavierEngine:
 
         transfer_kwargs: Dict[str, Any] = dict(
             kv_connector=(
-                "CrossEngineConnector"
-                if xavier_config.get("heterogeneous")
-                else XAVIER_CONNECTOR
+                "PrefixConnector"
+                if xavier_config.get("shared_prefix")
+                else (
+                    "CrossEngineConnector"
+                    if xavier_config.get("heterogeneous")
+                    else XAVIER_CONNECTOR
+                )
             ),
             kv_connector_module_path=(
-                "xinference.model.llm.vllm.xavier.cross_engine"
-                if xavier_config.get("heterogeneous")
-                else XAVIER_CONNECTOR_MODULE
+                "xinference.model.llm.vllm.xavier.prefix"
+                if xavier_config.get("shared_prefix")
+                else (
+                    "xinference.model.llm.vllm.xavier.cross_engine"
+                    if xavier_config.get("heterogeneous")
+                    else XAVIER_CONNECTOR_MODULE
+                )
             ),
             engine_id=xavier_config.get("engine_id"),
             kv_role=kv_role,
@@ -144,6 +152,12 @@ class XavierEngine:
         stat_loggers: Optional[Any] = None,
         xavier_config: Optional[Dict] = None,
     ) -> "AsyncLLMEngine":
+        if (
+            xavier_config
+            and xavier_config.get("shared_prefix")
+            and version.parse(VLLM_VERSION) < version.parse("0.21.0")
+        ):
+            raise RuntimeError("Cross-engine prefix caching requires vLLM >= 0.21.0")
         if (
             xavier_config
             and xavier_config.get("gpu_cache_bytes") is not None

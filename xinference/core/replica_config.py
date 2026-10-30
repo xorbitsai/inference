@@ -180,6 +180,8 @@ def validate_pd_replica_configs(
     configs: Optional[List[ReplicaConfig]],
     model_engine: Optional[str],
     model_type: Optional[str],
+    *,
+    allow_shared_cache: bool = False,
 ) -> bool:
     """Validate a complete P/D topology before allocating any runtime resources."""
     engines = {
@@ -217,8 +219,15 @@ def validate_pd_replica_configs(
         "transfer_backend_type",
         "xavier_cache_bytes",
         "xavier_gpu_cache_bytes",
+        "xavier_cache_backend",
+        "xavier_cache_backend_config",
     }
-    if "mlx" in engines and len(engines) > 1:
+    roles = {cfg.role for cfg in configs or []}
+    if len(engines) > 1 and (
+        "mlx" in engines
+        or allow_shared_cache
+        and not roles.intersection({"prefill", "decode"})
+    ):
         # CUDA and Metal replicas need their own local checkpoint paths/formats.
         reserved -= {"model_path", "model_format"}
     for cfg in configs or []:
@@ -229,10 +238,18 @@ def validate_pd_replica_configs(
             raise ValueError(
                 f"Reserved replica engine_config keys: {', '.join(sorted(invalid))}"
             )
-    roles = {cfg.role for cfg in configs or []}
     if not roles.intersection({"prefill", "decode"}):
         if any(cfg.model_engine or cfg.engine_config for cfg in configs or []):
-            raise ValueError("Per-replica engine settings require explicit PD roles")
+            if not (
+                allow_shared_cache
+                and len(engines) > 1
+                and engines <= {"vllm", "sglang", "mlx", "trt-llm"}
+                and (model_type or "LLM").lower() == "llm"
+            ):
+                raise ValueError(
+                    "Per-replica engine settings require explicit PD roles "
+                    "or cross-engine Xavier sharing"
+                )
         return False
     if (
         not engines <= {"vllm", "sglang", "mlx", "trt-llm"}

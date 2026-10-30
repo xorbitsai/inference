@@ -797,7 +797,10 @@ class VLLMModel(WeightCachedModel, LLM):
         if (
             value is None
             and self._xavier_config
-            and self._xavier_config.get("heterogeneous")
+            and (
+                self._xavier_config.get("heterogeneous")
+                or self._xavier_config.get("shared_prefix")
+            )
         ):
             return
         self._xavier_config = value  # type: ignore
@@ -1018,7 +1021,10 @@ class VLLMModel(WeightCachedModel, LLM):
             multiprocessing.set_start_method("fork", force=True)
 
         self._device_count = self._get_cuda_count()
-        if self._xavier_config and self._xavier_config.get("heterogeneous"):
+        if self._xavier_config and (
+            self._xavier_config.get("heterogeneous")
+            or self._xavier_config.get("shared_prefix")
+        ):
             from .xavier.cross_engine import configure_cross_engine
 
             configure_cross_engine(

@@ -1432,3 +1432,46 @@ async def test_trt_metal_bf16_host_handoff_round_trip(monkeypatch, trt_prefill, 
     assert stats["imported_tokens"] == length - 1 and stats["completed_requests"] == 1
     assert stats["host_bytes"] == sum(map(len, pages))
     assert stats["gpu_bytes"] == stats["active_handoffs"] == 0
+
+
+@metal
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dtype", ["float16", "bfloat16"])
+async def test_shared_prefix_metal_imports_and_exports_foreign_canonical_pages(dtype):
+    import torch
+
+    from ...xavier.backends.torch.prefix import pack_pages
+    from ...xavier.prefix import prefix_keys
+
+    c = replace(contract(), logical_dtype=dtype)
+    tokens = list(range(129))
+    views = {
+        str(i): torch.arange(2 * 64 * 2 * 8, dtype=torch.int32)
+        .to(torch.int16)
+        .view(getattr(torch, dtype))
+        .reshape(2, 64, 2, 8)
+        for i in range(4)
+    }
+    pages = pack_pages(views, [0, 1], c)
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        actor = await xo.create_actor(
+            XavierBytesCacheActor,
+            4 * c.num_layers * c.layer_nbytes,
+            address=pool.external_address,
+        )
+        await actor.configure(c.to_dict())
+        await actor.put(c.fingerprint, prefix_keys(tokens[:-1], cache_salt="a"), pages)
+        client = MLXXavierCache(
+            c, dict(address=actor.address, uid=actor.uid, shared_prefix=True)
+        )
+        assert await client.fetch(tokens, cache_salt="b") == (None, 0)
+        cache, count = await client.fetch(tokens, cache_salt="a")
+        assert count == 128
+        assert client.encode(cache, tokens[:-1]) == pages
+        write = client.publish(cache, tokens[:-1], cache_salt="b")
+        await client.flush([write])
+        assert (
+            await actor.get(c.fingerprint, prefix_keys(tokens[:-1], cache_salt="b"))
+            == pages
+        )

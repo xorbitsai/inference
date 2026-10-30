@@ -456,3 +456,110 @@ def test_inactive_plugin_does_not_import_or_patch_optional_sglang(monkeypatch):
 
     monkeypatch.setattr(builtins, "__import__", guarded)
     register()
+
+
+@pytest.mark.parametrize("dtype", ["float16", "bfloat16"])
+def test_shared_prefix_reads_foreign_pages_and_publishes_canonical_bytes(
+    storage_class, monkeypatch, dtype
+):
+    from ...xavier.backends.bytes.storage import XavierBytesCacheActor
+    from ...xavier.prefix import prefix_keys
+
+    c = KVCacheContract("a" * 64, "b" * 64, "c" * 64, "d" * 64, 3, 2, 4, 4, dtype)
+    actor = XavierBytesCacheActor(3 * c.num_layers * c.layer_nbytes)
+    namespace = actor.configure(c.to_dict())["namespace"]
+    adapter = storage_class(
+        SimpleNamespace(
+            tp_size=1,
+            pp_size=1,
+            attn_cp_size=1,
+            is_mla_model=False,
+            extra_config={"contract": c.to_dict(), "shared_prefix": True},
+        )
+    )
+    adapter._namespace = namespace
+    adapter.mem_pool_host = HostPool()
+    adapter.mem_pool_host.data = adapter.mem_pool_host.data.to(getattr(torch, dtype))
+    keys = prefix_keys(list(range(8)), 4, "customer-a")
+    # Foreign page: layer-major, then K/V. HiCache uses K/V, then layers.
+    expected = adapter.mem_pool_host.data[:, :, :4].clone()
+    page = (
+        expected.permute(1, 0, 2, 3, 4).contiguous().view(torch.uint8).numpy().tobytes()
+    )
+    actor.put(namespace, keys[:1], [page])
+    adapter._rpc = lambda method, *args: getattr(actor, method)(*args)
+    adapter.mem_pool_host.data.zero_()
+    assert adapter.batch_get_v1(keys, torch.arange(8)) == [True, False]
+    assert torch.equal(adapter.mem_pool_host.data[:, :, :4], expected)
+    assert adapter.batch_set_v1(keys[:1], torch.arange(4)) == [True]
+    assert actor.get(namespace, keys[:1]) == [page]
+    assert adapter.batch_exists(prefix_keys(list(range(8)), 4, "customer-b")) == 0
+    adapter.close()
+
+
+@pytest.mark.parametrize("error", [ConnectionError, TimeoutError])
+@pytest.mark.parametrize("method", ["get", "batch_get", "batch_get_v1"])
+def test_shared_prefix_rpc_failure_returns_misses_and_next_read_recovers(
+    storage_class, contract, error, method
+):
+    adapter = storage_class(
+        SimpleNamespace(
+            tp_size=1,
+            pp_size=1,
+            attn_cp_size=1,
+            is_mla_model=False,
+            extra_config={"contract": contract.to_dict(), "shared_prefix": True},
+        )
+    )
+    adapter._namespace = contract.fingerprint
+    adapter.mem_pool_host = HostPool()
+    adapter.mem_pool_host.data.fill_(-1)
+    untouched = adapter.mem_pool_host.data.clone()
+    page = bytes(contract.num_layers * contract.layer_nbytes)
+    fail_next = True
+
+    def rpc(operation, namespace, keys):
+        nonlocal fail_next
+        assert operation == "get" and namespace == contract.fingerprint
+        if fail_next:
+            fail_next = False
+            raise error("storage unavailable")
+        return [page] * len(keys)
+
+    adapter._rpc = rpc
+    try:
+        if method == "get":
+            assert adapter.get("a") is None
+            assert adapter.get("a") is not None
+        elif method == "batch_get":
+            assert adapter.batch_get(["a", "b"]) == [None, None]
+            assert all(p is not None for p in adapter.batch_get(["a", "b"]))
+        else:
+            indices = torch.arange(2 * contract.block_size)
+            assert adapter.batch_get_v1(["a", "b"], indices) == [False, False]
+            assert torch.equal(adapter.mem_pool_host.data, untouched)
+            assert adapter.batch_get_v1(["a", "b"], indices) == [True, True]
+            assert torch.count_nonzero(adapter.mem_pool_host.data[:, :, :8]) == 0
+    finally:
+        adapter.close()
+
+
+@pytest.mark.parametrize(
+    "dtype,other", [("float16", "bfloat16"), ("bfloat16", "float16")]
+)
+def test_host_page_dtype_error_names_contract_dtype(storage_class, dtype, other):
+    c = KVCacheContract("a" * 64, "b" * 64, "c" * 64, "d" * 64, 3, 2, 4, 4, dtype)
+    adapter = storage_class(
+        SimpleNamespace(
+            tp_size=1,
+            pp_size=1,
+            attn_cp_size=1,
+            is_mla_model=False,
+            extra_config={"contract": c.to_dict(), "shared_prefix": True},
+        )
+    )
+    try:
+        with pytest.raises(ValueError, match=f"requires {dtype} host pages"):
+            adapter.batch_set(["key"], [torch.zeros(1, dtype=getattr(torch, other))])
+    finally:
+        adapter.close()
