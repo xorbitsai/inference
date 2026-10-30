@@ -352,3 +352,170 @@ async def test_trt_imports_foreign_shared_prefix_after_storage_eviction(
         assert await actor.get(contract.fingerprint, keys) == pages
         scheduler.client.close()
         worker.client.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("capacity", [128, 200])
+@pytest.mark.parametrize("local_pages", [0, 32])
+async def test_shared_prefix_gap_stops_admission_before_later_read_batch(
+    connector, monkeypatch, capacity, local_pages
+):
+    from ...xavier.backends.bytes.storage import XavierBytesCacheActor
+    from ...xavier.backends.torch.prefix import pack_pages
+    from ...xavier.prefix import prefix_keys
+    from ..cross_engine import canonical_trt_views
+
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 1, 64, "bfloat16"
+    )
+    tokens = list(range(256 * contract.block_size + 1))
+    keys = prefix_keys(tokens, contract.block_size)
+    source = (
+        torch.arange(257, dtype=torch.bfloat16)[:, None, None, None]
+        .expand(257, 1, 2, 64)
+        .contiguous()
+    )
+    pages = pack_pages(
+        canonical_trt_views(source, contract), list(range(256)), contract
+    )
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        actor = await xo.create_actor(
+            XavierBytesCacheActor,
+            capacity * contract.num_layers * contract.layer_nbytes,
+            address=pool.external_address,
+            uid="gap-prefix",
+        )
+        await actor.configure(contract.to_dict())
+        # Normal 128-page publication batches leave a hole after a retained head.
+        for start in (0, 128):
+            await actor.put(
+                contract.fingerprint,
+                keys[start : start + 128],
+                pages[start : start + 128],
+            )
+        retained_head = capacity - 128
+        assert len(await actor.get(contract.fingerprint, keys[:128])) == retained_head
+        assert len(await actor.get(contract.fingerprint, keys[128:])) == 128
+        monkeypatch.setenv(
+            CONFIG_ENV,
+            json.dumps(
+                dict(
+                    address=actor.address,
+                    uid="gap-prefix",
+                    contract=contract.to_dict(),
+                    shared_prefix=True,
+                )
+            ),
+        )
+        scheduler = await asyncio.to_thread(connector.XavierConnectorScheduler, None)
+        worker = await asyncio.to_thread(connector.XavierConnectorWorker, None)
+        reads = []
+        original_rpc = scheduler.client.rpc
+
+        def rpc(method, *args):
+            if method == "get":
+                reads.append(args[1])
+            return original_rpc(method, *args)
+
+        scheduler.client.rpc = rpc
+        assert (
+            await asyncio.to_thread(scheduler.client.read_prefix, keys)
+            == pages[:retained_head]
+        )
+        assert reads == [keys[:128]]
+        reads.clear()
+        request = SimpleNamespace(request_id=1, get_tokens=lambda beam: tokens)
+        expected_pages = max(retained_head - local_pages, 0)
+        computed = local_pages * contract.block_size
+        assert await asyncio.to_thread(
+            scheduler.get_num_new_matched_tokens, request, computed
+        ) == (expected_pages * contract.block_size, False)
+        assert reads == [keys[local_pages : local_pages + 128]]
+        # Imported pages retain their original logical positions despite shuffled slots.
+        slots = list(reversed(range(257)))
+        scheduler.update_state_after_alloc(request, slots)
+        metadata = scheduler.build_connector_meta(
+            SimpleNamespace(
+                new_requests=[
+                    SimpleNamespace(
+                        request_id=1,
+                        new_block_ids=slots,
+                        computed_position=computed,
+                        num_scheduled_tokens=len(tokens)
+                        - computed
+                        - expected_pages * contract.block_size,
+                    )
+                ]
+            )
+        )
+        imported_slots = slots[local_pages : local_pages + expected_pages]
+        assert [slot for slot, _ in metadata.loads] == imported_slots
+        assert [page for _, page in metadata.loads] == pages[
+            local_pages : local_pages + expected_pages
+        ]
+        worker.register_kv_caches(torch.zeros_like(source))
+        worker.bind_connector_meta(metadata)
+        await asyncio.to_thread(worker.start_load_kv, None)
+        if imported_slots:
+            assert (
+                pack_pages(
+                    canonical_trt_views(worker.pool, contract), imported_slots, contract
+                )
+                == pages[local_pages:retained_head]
+            )
+        untouched = sorted(set(slots) - set(imported_slots))
+        assert torch.count_nonzero(worker.pool[untouched]) == 0
+        scheduler.client.close()
+        worker.client.close()
+
+
+@pytest.mark.parametrize("shared_prefix", [False, True])
+def test_shared_prefix_save_avoids_discarded_native_cpu_copies(
+    connector, monkeypatch, shared_prefix
+):
+    from ...xavier.backends.torch.prefix import pack_pages
+    from ...xavier.prefix import prefix_keys
+    from ..cross_engine import canonical_trt_views
+
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 2, 4, 4, "bfloat16"
+    )
+    native = (
+        torch.arange(3 * 2 * 2 * 32, dtype=torch.int32)
+        .to(torch.bfloat16)
+        .reshape(3, 2, 2, 32)
+    )
+    slots = [2, 0]
+    expected = pack_pages(canonical_trt_views(native, contract), slots, contract)
+    keys = prefix_keys(list(range(8)), 4)
+    published = []
+    worker = connector.XavierConnectorWorker.__new__(connector.XavierConnectorWorker)
+    worker.contract = contract
+    worker.pool = native
+    worker._metadata = connector.XavierMetadata(saves=list(zip(keys, slots)))
+    worker.client = SimpleNamespace(
+        config={"shared_prefix": shared_prefix},
+        namespace=contract.fingerprint,
+        rpc=lambda method, namespace, out_keys, pages: published.append(
+            (out_keys, pages)
+        ),
+    )
+    copies = []
+    original_cpu = torch.Tensor.cpu
+
+    def cpu(tensor, *args, **kwargs):
+        copies.append(tuple(tensor.shape))
+        return original_cpu(tensor, *args, **kwargs)
+
+    monkeypatch.setattr(torch.Tensor, "cpu", cpu)
+    worker.wait_for_save(SimpleNamespace(synchronize=lambda: None))
+    assert len(copies) == (1 if shared_prefix else len(slots))
+    assert published[0][0] == keys
+    if shared_prefix:
+        assert published[0][1] == expected
+    else:
+        assert all(
+            torch.equal(page, native[slot].view(torch.uint8).reshape(-1))
+            for page, slot in zip(published[0][1], slots)
+        )

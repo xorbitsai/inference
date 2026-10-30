@@ -141,7 +141,10 @@ class XavierHiCacheStorage(HiCacheStorage):
                     break
             else:
                 if self._config.get("shared_prefix") and method == "get":
-                    value = [self._from_canonical(page) for page in value]
+                    value = [
+                        self._from_canonical(page) if page is not None else None
+                        for page in value
+                    ]
                     value += [None] * (len(batch) - len(value))
                 result.extend(value)
         return result

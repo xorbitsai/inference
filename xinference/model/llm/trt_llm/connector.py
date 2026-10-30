@@ -134,7 +134,8 @@ class XavierClient:
         pages = []
         try:
             for offset in range(0, len(keys), 128):
-                batch = self.rpc("get", self.namespace, keys[offset : offset + 128])
+                batch_keys = keys[offset : offset + 128]
+                batch = self.rpc("get", self.namespace, batch_keys)
                 for page in batch:
                     if page is None:
                         return pages
@@ -151,6 +152,9 @@ class XavierClient:
                     ):
                         raise ValueError("TRT-LLM Xavier returned invalid KV page data")
                     pages.append(page.clone())
+                # The bytes store ends a response at the first missing page.
+                if len(batch) < len(batch_keys):
+                    break
         except Exception:
             # Nothing has been admitted yet: remote loss can safely be a miss.
             logger.warning(
@@ -429,16 +433,6 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         for offset in range(0, len(metadata.saves), 128):
             batch = metadata.saves[offset : offset + 128]
             keys = [key for key, _ in batch]
-            pages = [
-                self.pool[slot]
-                .detach()
-                .cpu()
-                .contiguous()
-                .view(torch.uint8)
-                .reshape(-1)
-                .clone()
-                for _, slot in batch
-            ]
             if self.client.config.get("shared_prefix"):
                 from ..xavier.backends.torch.prefix import pack_pages
                 from .cross_engine import canonical_trt_views
@@ -448,6 +442,17 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                     [slot for _, slot in batch],
                     self.contract,
                 )
+            else:
+                pages = [
+                    self.pool[slot]
+                    .detach()
+                    .cpu()
+                    .contiguous()
+                    .view(torch.uint8)
+                    .reshape(-1)
+                    .clone()
+                    for _, slot in batch
+                ]
             try:
                 self.client.rpc("put", self.client.namespace, keys, pages)
             except Exception:

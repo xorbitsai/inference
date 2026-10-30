@@ -495,3 +495,50 @@ def test_shared_prefix_reads_foreign_pages_and_publishes_canonical_bytes(
     assert actor.get(namespace, keys[:1]) == [page]
     assert adapter.batch_exists(prefix_keys(list(range(8)), 4, "customer-b")) == 0
     adapter.close()
+
+
+@pytest.mark.parametrize("error", [ConnectionError, TimeoutError])
+@pytest.mark.parametrize("method", ["get", "batch_get", "batch_get_v1"])
+def test_shared_prefix_rpc_failure_returns_misses_and_next_read_recovers(
+    storage_class, contract, error, method
+):
+    adapter = storage_class(
+        SimpleNamespace(
+            tp_size=1,
+            pp_size=1,
+            attn_cp_size=1,
+            is_mla_model=False,
+            extra_config={"contract": contract.to_dict(), "shared_prefix": True},
+        )
+    )
+    adapter._namespace = contract.fingerprint
+    adapter.mem_pool_host = HostPool()
+    adapter.mem_pool_host.data.fill_(-1)
+    untouched = adapter.mem_pool_host.data.clone()
+    page = bytes(contract.num_layers * contract.layer_nbytes)
+    fail_next = True
+
+    def rpc(operation, namespace, keys):
+        nonlocal fail_next
+        assert operation == "get" and namespace == contract.fingerprint
+        if fail_next:
+            fail_next = False
+            raise error("storage unavailable")
+        return [page] * len(keys)
+
+    adapter._rpc = rpc
+    try:
+        if method == "get":
+            assert adapter.get("a") is None
+            assert adapter.get("a") is not None
+        elif method == "batch_get":
+            assert adapter.batch_get(["a", "b"]) == [None, None]
+            assert all(p is not None for p in adapter.batch_get(["a", "b"]))
+        else:
+            indices = torch.arange(2 * contract.block_size)
+            assert adapter.batch_get_v1(["a", "b"], indices) == [False, False]
+            assert torch.equal(adapter.mem_pool_host.data, untouched)
+            assert adapter.batch_get_v1(["a", "b"], indices) == [True, True]
+            assert torch.count_nonzero(adapter.mem_pool_host.data[:, :, :8]) == 0
+    finally:
+        adapter.close()
