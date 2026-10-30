@@ -1,0 +1,37 @@
+[
+  {
+    "version": 2,
+    "model_name": "Unlimited-OCR-2",
+    "model_family": "ocr",
+    "model_ability": ["ocr"],
+    "virtualenv": {
+      "packages": [
+        "transformers==4.52.1 ; #engine# == \"transformers\"",
+        "huggingface-hub==0.36.0 ; #engine# == \"transformers\"",
+        "tokenizers==0.21.4 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchvision# ; #engine# == \"transformers\"",
+        "#system_numpy#",
+        "Pillow>=10.0.1,<=15.0",
+        "addict==2.4.0",
+        "einops==0.8.2",
+        "easydict==1.13"
+      ]
+    },
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "baidu/Unlimited-OCR-2",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "PaddlePaddle/Unlimited-OCR-2",
+            "model_revision": "master"
+          }
+        }
+      }
+    ]
+  }
+]
