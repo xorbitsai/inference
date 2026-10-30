@@ -181,6 +181,7 @@ def _yarn_parameters(family: "LLMFamilyV2", requested: int) -> Dict[str, Any]:
     original = parameters.setdefault(
         "original_max_position_embeddings", family.context_length
     )
+    assert original is not None
     parameters["factor"] = float(math.ceil(requested / original))
     return parameters
 
