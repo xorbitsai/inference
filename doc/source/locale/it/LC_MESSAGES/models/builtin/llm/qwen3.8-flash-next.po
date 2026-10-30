@@ -153,3 +153,6 @@ msgstr ""
 "**Repository dei modelli**:  `Hugging Face <https://huggingface.co/nvidia/Qwen3.8"
 "-Flash-Next-NVFP4>`__, `ModelScope <https://modelscope.cn/models/nv-community/Qwen3.8"
 "-Flash-Next-NVFP4>`__"
+
+msgid "**Engines**: vLLM, SGLang"
+msgstr "**Motori**: vLLM, SGLang"

@@ -144,3 +144,6 @@ msgid ""
 msgstr ""
 "**模型倉庫**:  `Hugging Face <https://huggingface.co/nvidia/Qwen3.8-Flash-Next-NVFP4>`__,"
 " `ModelScope <https://modelscope.cn/models/nv-community/Qwen3.8-Flash-Next-NVFP4>`__"
+
+msgid "**Engines**: vLLM, SGLang"
+msgstr "**推論引擎**: vLLM, SGLang"

@@ -176,8 +176,7 @@ def test_auto_yarn_follows_declared_recipe(name, size, engine, context, factor):
     family = match_llm(name, "pytorch", size, "none", "huggingface")
     original = {"context_length": context}
     config, flag = configure_auto_yarn(family, engine, original)
-    unsupported = name == "qwen3.8-Flash-Next" and engine == "SGLang"
-    if factor is None or unsupported:
+    if factor is None:
         assert config == original
         assert flag is None
     else:
@@ -257,7 +256,7 @@ def test_auto_yarn_limits_only_verified_models_and_engines(engine):
     with pytest.raises(ValueError, match="up to 1000000"):
         configure_auto_yarn(family, engine, {"context_length": 1000001})
     config = {"context_length": 1000000}
-    assert configure_auto_yarn(family, "MLX", config) == (config, None)
+    assert configure_auto_yarn(family, "Transformers", config) == (config, None)
     family.context_length_extension = None
     assert configure_auto_yarn(family, engine, config) == (config, None)
 

@@ -169,7 +169,7 @@
             "max_context_length": { "type": "integer", "minimum": 1 },
             "engines": {
               "type": "array",
-              "items": { "enum": ["vllm", "sglang"] },
+              "items": { "enum": ["vllm", "sglang", "mlx", "llama.cpp"] },
               "minItems": 1,
               "uniqueItems": true
             },

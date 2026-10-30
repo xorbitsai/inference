@@ -170,9 +170,12 @@ Omitting the setting preserves engine defaults.
 .. versionadded:: v4.2.0
    Automatic YaRN context extension for models with a registered recipe.
 
-Qwen3.5, Qwen3.6, and Qwen3.8 have registered automatic YaRN recipes for vLLM and
-SGLang; Qwen3.8-Flash-Next currently supports vLLM only. Selecting a length within
-the native window leaves RoPE unchanged. Selecting a longer length enables YaRN
+Automatic YaRN is available for Qwen3.5, Qwen3.6, and Qwen3.8 through vLLM,
+SGLang, MLX, and llama.cpp where the corresponding model format is registered.
+Qwen3.8-Flash-Next supports vLLM and SGLang; SGLang requires version 0.5.22 or later.
+
+Selecting a length within the native window leaves RoPE unchanged. Selecting a
+longer length enables YaRN
 at model launch, with the scaling factor rounded up from the requested length
 divided by the native length (for example, 524,288 tokens uses a factor of 2 and
 1,000,000 tokens uses a factor of 4 for a 262,144-token model). The required
@@ -182,6 +185,11 @@ Qwen3.8-27B and Qwen3.8-Flash-Next. Explicit RoPE overrides and already-scaled
 checkpoint configurations take precedence. Models without a registered recipe
 retain their existing engine behavior. Changing the selected length requires
 restarting the model; the engine does not switch scaling per request.
+
+MLX supports text and multimodal language models. llama.cpp uses each parallel
+slot's context window to choose the scaling factor; increasing ``n_parallel``
+does not increase that factor. Existing scaling settings in GGUF metadata take
+precedence over automatic settings.
 
 For models with a registered YaRN recipe, weight-cache reload cannot increase
 the current context length. Deploy a new model to increase it so the checkpoint

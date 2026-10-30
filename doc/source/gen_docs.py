@@ -49,7 +49,7 @@ def mock_engine_libraries():
 
     # Create mock sglang module
     sglang_mock = ModuleType('sglang')
-    sglang_mock.__version__ = "0.3.0"
+    sglang_mock.__version__ = "1.0.0"  # Latest version for full feature support
     sglang_mock.__spec__ = ModuleSpec('sglang', None)
     sglang_mock.__file__ = "mock_sglang.py"
 

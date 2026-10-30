@@ -326,32 +326,9 @@ class XllamaCppModel(LLM, ChatModelMixin):
         )
         self.prepare_parse_tool_calls()
 
-        if os.path.isfile(self.model_path):
-            # mostly passed from --model_path
-            model_path = self.model_path
-        else:
-            # handle legacy cache.
-            if (
-                self.model_spec.model_file_name_split_template
-                and self.quantization in self.model_spec.quantization_parts
-            ):
-                part = self.model_spec.quantization_parts[self.quantization]
-                model_path = os.path.join(
-                    self.model_path,
-                    self.model_spec.model_file_name_split_template.format(
-                        quantization=self.quantization, part=part[0]
-                    ),
-                )
-            else:
-                model_path = os.path.join(
-                    self.model_path,
-                    self.model_spec.model_file_name_template.format(
-                        quantization=self.quantization
-                    ),
-                )
-                legacy_model_file_path = os.path.join(self.model_path, "model.bin")
-                if os.path.exists(legacy_model_file_path):
-                    model_path = legacy_model_file_path
+        from ..gguf_model_metadata import resolve_gguf_model_path
+
+        model_path = resolve_gguf_model_path(self.model_path, self.model_spec)
 
         multimodal_projector = self._llamacpp_model_config.get(
             "multimodal_projector", ""
@@ -385,6 +362,13 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 if k in self.DRAFT_OPTION_KEYS:
                     continue
                 try:
+                    if k == "rope_scaling_type" and isinstance(v, str):
+                        from xllamacpp import llama_rope_scaling_type
+
+                        v = getattr(
+                            llama_rope_scaling_type,
+                            "LLAMA_ROPE_SCALING_TYPE_" + v.upper(),
+                        )
                     if "." in k:
                         parts = k.split(".")
                         sub_param = params
@@ -394,6 +378,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     else:
                         setattr(params, k, v)
                 except Exception as e:
+                    if k.startswith(("rope_", "yarn_")):
+                        raise ValueError(f"Failed to apply RoPE parameter {k}") from e
                     logger.error("Failed to set the param %s = %s, error: %s", k, v, e)
             self._apply_draft_model(params, *draft_options)
             n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
