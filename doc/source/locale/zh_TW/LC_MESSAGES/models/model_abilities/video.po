@@ -168,7 +168,7 @@ msgid ""
 "CPU offloading and Block Level Group Offloading cannot be enabled at the "
 "same time, but layerwise casting can be used in combination with either of "
 "them."
-msgstr "CPU 卸載和塊級分組卸載不能同時開啟，但逐層類型轉換可以與其中之一配合使用。"
+msgstr "CPU 卸載和塊級分組卸載不能同時開啟，但逐層資料型別轉換可以與其中之一配合使用。"
 
 #: ../../source/models/model_abilities/video.rst:163
 msgid "CPU offloading"
@@ -188,8 +188,8 @@ msgid ""
 "``--cpu_offload True`` when launching model. For Web UI, add an extra "
 "option, ``cpu_offload`` with value set to ``True``."
 msgstr ""
-"当使用显存小于 24 GB 的 GPU 时，建议在启动模型时添加 ``--cpu_offload True``。对于 Web UI，可添加额外选项 "
-"``cpu_offload``，值设为 ``True``。"
+"使用顯示記憶體小於 24 GB 的 GPU 時，建議在啟動模型時加入 ``--cpu_offload True``。在 Web UI "
+"中，可新增選項 ``cpu_offload``，並將值設為 ``True``。"
 
 #: ../../source/models/model_abilities/video.rst:178
 msgid "Block Level Group Offloading"
@@ -203,7 +203,7 @@ msgid ""
 "offloading, it uses more memory but has less impact on performance."
 msgstr ""
 "塊級分組卸載將模型的多個內部層（如 ``torch.nn.ModuleList`` 或 "
-"``torch.nn.Sequential``）分組，並根據需要在推理過程中將這些分組從 CPU 載入到 GPU。與 CPU "
+"``torch.nn.Sequential``）分組，並根據需要在推論過程中將這些分組從 CPU 載入到 GPU。與 CPU "
 "卸載相比，它使用更多的記憶體，但對效能的影響更小。"
 
 #: ../../source/models/model_abilities/video.rst:184
@@ -226,10 +226,10 @@ msgid ""
 " line; for the Web UI, add an additional option ``use_stream`` with the "
 "value set to ``True``."
 msgstr ""
-"通過啟用 CUDA 串流，我們可以加速分組卸載推理。然而，使用 CUDA 串流需要將模型參數移動到固定記憶體中。這項分配由 PyTorch "
+"通過啟用 CUDA 串流，我們可以加速分組卸載推論。然而，使用 CUDA 串流需要將模型參數移動到固定記憶體中。這項分配由 PyTorch "
 "在後台處理，並可能導致 CPU RAM 使用量顯著增加。如果您的 CPU RAM 至少是模型大小的兩倍，請考慮使用此選項。透過在命令列中加入 "
-"``--use_stream True`` 啟用 CUDA 串流；對於 Web UI，則添加一個額外選項 ``use_stream``，並將值設為 "
-"``True``。"
+"``--use_stream True`` 啟用 CUDA 串流；對於 Web UI，則添加一個額外選項 ``use_stream``，並將值設為"
+" ``True``。"
 
 #: ../../source/models/model_abilities/video.rst:199
 msgid "Applying Layerwise Casting to the Transformer"
@@ -386,8 +386,8 @@ msgid ""
 "Lightning default if left unchanged."
 msgstr ""
 "在 Web UI 中開啟 MiniMax-H3 的啟動對話方塊，展開 **高階設定**，在 **蒸餾版本** 中選擇一個值。將 **蒸餾 Lora"
-" 路徑** 留空即可自動下載所選檢查點。模型啟動後，在影片生成頁面將 **推理步數** 設為表格中的計算次數。生成頁面目前預設使用 25 "
-"步；若未修改，此值會覆寫 Lightning 的預設步數。"
+" 路徑** 留空即可自動下載所選檢查點。模型啟動後，在影片生成頁面將 **Inference steps** （推論步數） "
+"設為表格中的計算次數。生成頁面目前預設使用 25 步；若未修改，此值會覆寫 Lightning 的預設步數。"
 
 #: ../../source/models/model_abilities/video.rst:245
 msgid "For example, launch the 768p four-step version from the command line::"

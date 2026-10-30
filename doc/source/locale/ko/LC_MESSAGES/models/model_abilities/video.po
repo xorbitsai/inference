@@ -398,8 +398,8 @@ msgid ""
 msgstr ""
 "Web UI에서 MiniMax-H3 실행 대화 상자를 열고 **고급 설정** 을 펼친 뒤 **경량화 버전** 을 선택합니다. "
 "**경량화 lora 모델 경로** 를 비워 두면 선택한 체크포인트가 자동으로 다운로드됩니다. 모델 실행 후 비디오 생성 페이지의 "
-"**추론 단계 수** 를 표에 있는 계산 횟수로 설정하세요. 현재 생성 페이지의 초기값은 25단계이며, 변경하지 않으면 "
-"Lightning 기본값을 재정의합니다."
+"**Inference steps** (추론 단계 수) 를 표에 있는 계산 횟수로 설정하세요. 현재 생성 페이지의 초기값은 "
+"25단계이며, 변경하지 않으면 Lightning 기본값을 재정의합니다."
 
 #: ../../source/models/model_abilities/video.rst:245
 msgid "For example, launch the 768p four-step version from the command line::"

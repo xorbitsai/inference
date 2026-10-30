@@ -172,7 +172,7 @@ msgid ""
 "CPU offloading and Block Level Group Offloading cannot be enabled at the "
 "same time, but layerwise casting can be used in combination with either "
 "of them."
-msgstr "CPU 卸载和块级分组卸载不能同时开启，但逐层类型转换可以与其中之一配合使用。"
+msgstr "CPU 卸载和块级分组卸载不能同时开启，但逐层数据类型转换可以与其中之一配合使用。"
 
 #: ../../source/models/model_abilities/video.rst:163
 msgid "CPU offloading"

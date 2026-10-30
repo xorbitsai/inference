@@ -191,8 +191,8 @@ msgid ""
 "``--cpu_offload True`` when launching model. For Web UI, add an extra "
 "option, ``cpu_offload`` with value set to ``True``."
 msgstr ""
-"显存が24GB未満のGPUを使用する場合、モデル起動時に ``--cpu_offload True`` を追加することを推奨します。Web "
-"UIの場合は、追加オプションとして ``cpu_offload`` を追加し、値を ``True`` に設定してください。"
+"VRAM が 24GB 未満の GPU を使用する場合、モデル起動時に ``--cpu_offload True`` "
+"を追加することを推奨します。Web UI では、追加オプション ``cpu_offload`` の値を ``True`` に設定してください。"
 
 #: ../../source/models/model_abilities/video.rst:178
 msgid "Block Level Group Offloading"
@@ -397,8 +397,8 @@ msgid ""
 msgstr ""
 "Web UI で MiniMax-H3 の起動ダイアログを開き、**高度な設定** を展開して **軽量化バージョン** "
 "を選択します。**軽量化LoRAモデルパス** "
-"を空欄にすると、選択したチェックポイントが自動的にダウンロードされます。モデル起動後、動画生成ページの **推論ステップ数** "
-"を表の計算回数に設定してください。生成ページの初期値は現在 25 ステップで、そのままにすると Lightning "
+"を空欄にすると、選択したチェックポイントが自動的にダウンロードされます。モデル起動後、動画生成ページの **Inference steps** "
+"（推論ステップ数） を表の計算回数に設定してください。生成ページの初期値は現在 25 ステップで、そのままにすると Lightning "
 "のデフォルト値が上書きされます。"
 
 #: ../../source/models/model_abilities/video.rst:245

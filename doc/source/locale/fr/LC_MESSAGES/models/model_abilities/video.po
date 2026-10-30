@@ -443,19 +443,19 @@ msgid ""
 "Lightning default if left unchanged."
 msgstr ""
 "Dans l’interface Web, ouvrez la boîte de dialogue de démarrage de "
-"MiniMax-H3, développez **Configuration avancée**, puis sélectionnez une "
-"valeur dans **Versions Lightning**. Laissez **Chemin du modèle "
-"Lightning** vide pour télécharger automatiquement le checkpoint "
-"sélectionné. Après le démarrage du modèle, réglez **Étapes d’inférence** "
-"sur la page de génération vidéo au nombre d’évaluations du tableau. Cette"
-" page utilise actuellement 25 étapes au départ ; si vous conservez cette "
-"valeur, elle remplace la valeur par défaut de Lightning."
+"MiniMax-H3, développez **Advanced Configuration**, puis sélectionnez une "
+"valeur dans **Lightning Versions**. Laissez **Lightning Model Path** vide"
+" pour télécharger automatiquement le checkpoint sélectionné. Après le "
+"démarrage du modèle, réglez **Inference steps** sur la page de génération"
+" vidéo au nombre d’évaluations du tableau. Cette page utilise "
+"actuellement 25 étapes au départ ; si vous conservez cette valeur, elle "
+"remplace la valeur par défaut de Lightning."
 
 #: ../../source/models/model_abilities/video.rst:245
 msgid "For example, launch the 768p four-step version from the command line::"
 msgstr ""
 "Par exemple, démarrez la version 768p en quatre étapes depuis la ligne de"
-" commande ::"
+" commande::"
 
 #: ../../source/models/model_abilities/video.rst:250
 msgid ""
@@ -464,7 +464,7 @@ msgid ""
 msgstr ""
 "Générez ensuite avec quatre étapes d’inférence. MiniMax-H3 produit des "
 "vidéos à 24 FPS fixes ; 124 images donnent une vidéo d’environ cinq "
-"secondes ::"
+"secondes::"
 
 #: ../../source/models/model_abilities/video.rst:266
 msgid ""
@@ -475,7 +475,7 @@ msgstr ""
 "Xinference télécharge le checkpoint Lightning depuis la même plateforme "
 "que celle sélectionnée pour le modèle de base. Hugging Face et ModelScope"
 " sont pris en charge. Pour utiliser un checkpoint déjà téléchargé, "
-"indiquez à la fois son chemin et sa version ::"
+"indiquez à la fois son chemin et sa version::"
 
 #: ../../source/models/model_abilities/video.rst:274
 msgid ""
@@ -574,4 +574,4 @@ msgstr ""
 
 #: ../../source/models/model_abilities/video.rst:364
 msgid "For example, select INT8 with::"
-msgstr "Par exemple, sélectionnez INT8 ::"
+msgstr "Par exemple, sélectionnez INT8::"
