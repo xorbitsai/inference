@@ -2491,6 +2491,7 @@ class RESTfulAPI(CancelMixin):
             getattr(body, "n", None),
             model_desc.get("model_engine"),
             is_vllm_backend,
+            stream=bool(body.stream),
         )
         model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
         if is_vllm_backend:
@@ -4955,6 +4956,8 @@ class RESTfulAPI(CancelMixin):
             getattr(body, "n", None),
             desc.get("model_engine"),
             is_vllm_backend,
+            stream=bool(body.stream),
+            tools=bool(body.tools),
         )
 
         total_call_family = (
@@ -5120,11 +5123,21 @@ class RESTfulAPI(CancelMixin):
         n: Optional[int],
         model_engine: Optional[str],
         is_vllm_backend: bool,
+        stream: bool = False,
+        tools: bool = False,
     ) -> None:
         if n is None or n == 1:
             return
         if n < 1:
             raise HTTPException(status_code=400, detail="n must be at least 1")
+        if stream:
+            raise HTTPException(
+                status_code=400, detail="n > 1 is not supported with streaming"
+            )
+        if tools:
+            raise HTTPException(
+                status_code=400, detail="n > 1 is not supported with tools"
+            )
         if not (is_vllm_backend or model_engine in {"llama.cpp", "llama_cpp"}):
             raise HTTPException(
                 status_code=400,

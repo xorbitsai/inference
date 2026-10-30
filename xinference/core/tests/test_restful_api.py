@@ -1471,6 +1471,48 @@ async def test_completion_rejects_multiple_choices_on_unsupported_backend(monkey
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("is_vllm", [True, False])
+async def test_completion_rejects_multiple_choices_with_stream(monkeypatch, is_vllm):
+    api, model = _build_mock_completion_api(
+        monkeypatch, {"model_engine": "vLLM" if is_vllm else "llama.cpp"}, is_vllm
+    )
+    with pytest.raises(HTTPException, match="streaming") as exc:
+        await api.create_completion(
+            _DummyRequest({"model": "test", "prompt": "hi", "n": 2, "stream": True})
+        )
+    assert exc.value.status_code == 400
+    model.generate.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["stream", "tools"])
+async def test_chat_rejects_multiple_choices_with_stream_or_tools(monkeypatch, field):
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_family": "qwen3", "model_engine": "vLLM"}
+    )
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    payload = {"model": "test", "messages": [{"role": "user", "content": "hi"}], "n": 2}
+    payload[field] = (
+        True if field == "stream" else [{"type": "function", "function": {"name": "f"}}]
+    )
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(_DummyRequest(payload))
+    assert exc.value.status_code == 400
+    assert ("streaming" if field == "stream" else "tools") in exc.value.detail
+    model.chat.assert_not_called()
+
+
+def test_single_choice_allows_stream_and_tools():
+    from ...api.restful_api import RESTfulAPI
+
+    kwargs = {}
+    RESTfulAPI._apply_multiple_choice_count(
+        kwargs, 1, "vLLM", True, stream=True, tools=True
+    )
+    assert "n" not in kwargs
+
+
+@pytest.mark.asyncio
 async def test_qwen38_without_reasoning_effort_does_not_add_template_kwargs(
     monkeypatch,
 ):
