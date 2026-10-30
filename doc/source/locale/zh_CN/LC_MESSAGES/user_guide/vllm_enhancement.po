@@ -62,13 +62,7 @@ msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache s
 msgstr "SGLang >= ``0.5.21`` 可通过 Xavier 的 HiCache 存储后端共享前缀 KV 缓存。启动多个副本时设置 ``model_engine=\"SGLang\"`` 和 ``enable_xavier=True``。初始适配器支持使用全注意力、未量化 FP16 权重且 TP=PP=DP=1 的 Qwen2、Qwen3 和 Llama 文本模型；不支持 LoRA、推测解码、混合注意力和多模态输入。"
 
 #: source/user_guide/vllm_enhancement.rst
-msgid ""
-"``xavier_cache_bytes`` sets the deployment's shared CPU cache budget "
-"(default: ``536870912``, 512 MiB). Each SGLang replica also allocates its "
-"own GPU and HiCache host pools. Eviction or unavailable storage becomes a "
-"cache miss for ordinary replicas. Cache namespaces include the actual "
-"weights, tokenizer, model configuration, KV geometry and engine format; For "
-"cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
+msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
 msgstr ""
 "``xavier_cache_bytes`` 设置部署的共享 CPU 缓存预算（默认 ``536870912``，即 512 MiB）。每个 "
 "SGLang 副本还会分配自己的 GPU 和 HiCache "
@@ -444,14 +438,8 @@ msgstr ""
 "MLX 保持请求级隔离。"
 
 #: user_guide/vllm_enhancement.rst
-msgid ""
-"Measure repeated-prefix TTFT against local prefill on the receiving engine. "
-"CPU copies and network transfer can exceed prefill cost for short prefixes. "
-"Check cached-token usage and completed import counters to establish reuse; "
-"response correctness alone does not prove a cache hit."
-msgstr ""
-"针对重复前缀，将 TTFT 与接收引擎的本地 prefill 比较。对于较短前缀，CPU 复制和网络传输开销可能超过 prefill。通过缓存 "
-"token 用量和已完成的导入计数确认复用；响应正确本身不能证明缓存命中。"
+msgid "Measure repeated-prefix TTFT against local prefill on the receiving engine. CPU copies and network transfer can exceed prefill cost for short prefixes. Use cached-token usage to confirm reuse on every engine. The ``imported_pages`` counter reports completed imports only for vLLM and TRT-LLM receivers; SGLang and MLX receivers use cached-token usage instead. Response correctness alone does not prove a cache hit."
+msgstr "针对重复前缀，将 TTFT 与接收引擎的本地 prefill 比较。对于较短前缀，CPU 复制和网络传输开销可能超过 prefill。所有引擎均可通过缓存 token 用量确认复用。``imported_pages`` 计数器仅记录 vLLM 和 TRT-LLM 接收端已完成的导入；SGLang 和 MLX 接收端应查看缓存 token 用量。响应正确本身不能证明缓存命中。"
 
 #: user_guide/vllm_enhancement.rst
 msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."

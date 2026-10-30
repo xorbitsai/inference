@@ -1414,3 +1414,44 @@ async def test_lmcache_rejects_mixed_ordinary_engines_before_side_effects(
     for worker in workers:
         worker.launch_builtin_model.assert_not_awaited()
         worker.launch_rank0_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid,message",
+    [
+        ("workers", "sharded launch"),
+        ("transport", "NIXL requires explicit"),
+        ("quantized", "unquantized LLM weights"),
+        ("cuda-format", "PyTorch CUDA and MLX Metal weights"),
+        ("metal-format", "PyTorch CUDA and MLX Metal weights"),
+    ],
+)
+async def test_cross_engine_cache_rejects_invalid_launch_without_side_effects(
+    launch_runtime, invalid, message
+):
+    supervisor, workers, actors, _ = launch_runtime
+    supervisor.is_local_deployment = lambda: False
+    kwargs = launch_kwargs()
+    kwargs["enable_xavier"] = True
+    for cfg, engine in zip(kwargs["replica_config"], ("vLLM", "SGLang")):
+        cfg.role = "hybrid"
+        cfg.model_engine = engine
+    if invalid == "workers":
+        kwargs["n_worker"] = 2
+    elif invalid == "transport":
+        kwargs["vllm_transfer_backend_type"] = "nixl"
+    elif invalid == "quantized":
+        kwargs["quantization"] = "4-bit"
+    else:
+        cfg = kwargs["replica_config"][1]
+        cfg.model_engine = "MLX" if invalid == "metal-format" else "SGLang"
+        cfg.engine_config = {
+            "model_format": "pytorch" if invalid == "metal-format" else "ggufv2"
+        }
+    with pytest.raises(ValueError, match=message):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors and not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+        worker.launch_rank0_model.assert_not_awaited()

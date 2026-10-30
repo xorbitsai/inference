@@ -67,13 +67,7 @@ msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache s
 msgstr "SGLang >= ``0.5.21`` peut partager le cache KV de préfixe via le backend de stockage HiCache de Xavier. Lancez plusieurs répliques avec ``model_engine=\"SGLang\"`` et ``enable_xavier=True``. L'adaptateur initial prend en charge les modèles textuels Qwen2, Qwen3 et Llama FP16 non quantifiés, avec attention complète et TP=PP=DP=1 ; LoRA, le décodage spéculatif, l'attention hybride et les entrées multimodales ne sont pas pris en charge."
 
 #: source/user_guide/vllm_enhancement.rst
-msgid ""
-"``xavier_cache_bytes`` sets the deployment's shared CPU cache budget "
-"(default: ``536870912``, 512 MiB). Each SGLang replica also allocates its "
-"own GPU and HiCache host pools. Eviction or unavailable storage becomes a "
-"cache miss for ordinary replicas. Cache namespaces include the actual "
-"weights, tokenizer, model configuration, KV geometry and engine format; For "
-"cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
+msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
 msgstr ""
 "``xavier_cache_bytes`` définit le budget de cache CPU partagé du déploiement"
 " (par défaut : ``536870912``, 512 MiB). Chaque réplique SGLang alloue aussi "
@@ -512,17 +506,8 @@ msgstr ""
 "par requête."
 
 #: user_guide/vllm_enhancement.rst
-msgid ""
-"Measure repeated-prefix TTFT against local prefill on the receiving engine. "
-"CPU copies and network transfer can exceed prefill cost for short prefixes. "
-"Check cached-token usage and completed import counters to establish reuse; "
-"response correctness alone does not prove a cache hit."
-msgstr ""
-"Comparez le TTFT des préfixes répétés au prefill local du moteur récepteur. "
-"Pour les préfixes courts, les copies CPU et le réseau peuvent coûter plus "
-"cher que le prefill. Vérifiez les tokens en cache et les imports terminés "
-"pour établir la réutilisation ; une réponse correcte ne prouve pas un succès"
-" du cache."
+msgid "Measure repeated-prefix TTFT against local prefill on the receiving engine. CPU copies and network transfer can exceed prefill cost for short prefixes. Use cached-token usage to confirm reuse on every engine. The ``imported_pages`` counter reports completed imports only for vLLM and TRT-LLM receivers; SGLang and MLX receivers use cached-token usage instead. Response correctness alone does not prove a cache hit."
+msgstr "Mesurez la TTFT des préfixes répétés par rapport au prefill local sur le moteur récepteur. Pour les préfixes courts, les copies CPU et le transfert réseau peuvent coûter plus cher que le prefill. Utilisez le nombre de tokens réutilisés depuis le cache pour confirmer la réutilisation sur chaque moteur. Le compteur ``imported_pages`` ne rapporte les importations terminées que pour les récepteurs vLLM et TRT-LLM ; les récepteurs SGLang et MLX utilisent le nombre de tokens réutilisés depuis le cache. Une réponse correcte ne prouve pas à elle seule un succès du cache."
 
 #: user_guide/vllm_enhancement.rst
 msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."

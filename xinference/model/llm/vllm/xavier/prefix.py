@@ -17,6 +17,12 @@ from .v1_connector import XavierConnector, XavierConnectorMetadata, XavierKVSche
 logger = logging.getLogger(__name__)
 PREFIX_RPC_TIMEOUT = 1.0
 PREFIX_RPC_BACKOFF = 5.0
+PREFIX_RPC_LAUNCH_TIMEOUT = 30.0
+PREFIX_RPC_MIN_BYTES_PER_SECOND = 8 * 1024**2
+
+
+class _PrefixBackoff(ConnectionError):
+    pass
 
 
 @dataclass
@@ -42,7 +48,21 @@ class PrefixConnector(XavierConnector):
         import asyncio
 
         if time.monotonic() < self._prefix_retry_at:
-            raise ConnectionError("Xavier prefix storage is in backoff")
+            raise _PrefixBackoff("Xavier prefix storage is in backoff")
+
+        # Budget data transfer separately from short control RPCs and launch.
+        payload_bytes = 0
+        if method == "get":
+            payload_bytes = (
+                len(args[1]) * self.contract.num_layers * self.contract.layer_nbytes
+            )
+        elif method == "put":
+            payload_bytes = sum(map(len, args[2]))
+        timeout = (
+            PREFIX_RPC_LAUNCH_TIMEOUT
+            if method == "get_stats"
+            else PREFIX_RPC_TIMEOUT + payload_bytes / PREFIX_RPC_MIN_BYTES_PER_SECOND
+        )
 
         async def invoke():
             if self._prefix_ref is None:
@@ -54,7 +74,7 @@ class PrefixConnector(XavierConnector):
             return await getattr(self._prefix_ref, method)(*args)
 
         try:
-            return await asyncio.wait_for(invoke(), timeout=PREFIX_RPC_TIMEOUT)
+            return await asyncio.wait_for(invoke(), timeout=timeout)
         except Exception:
             self._prefix_ref = None
             self._prefix_retry_at = time.monotonic() + PREFIX_RPC_BACKOFF
@@ -115,18 +135,21 @@ class PrefixConnector(XavierConnector):
         available = (
             max(self._xavier_config["capacity_bytes"] - pending_bytes, 0) // page_bytes
         )
+        selected = keys[start : start + min(available, 4096)]
+        batch_size = max(1, min(128, 32 * 1024**2 // page_bytes))
+        pages = []
         try:
-            pages = (
-                self._rpc(
-                    "get",
-                    self.contract.fingerprint,
-                    keys[start : start + min(available, 4096)],
-                )
-                if available and keys[start:]
-                else []
-            )
-            if any(type(p) is not bytes or len(p) != page_bytes for p in pages):
-                raise ValueError("Invalid shared-prefix KV page")
+            for offset in range(0, len(selected), batch_size):
+                batch_keys = selected[offset : offset + batch_size]
+                batch = self._rpc("get", self.contract.fingerprint, batch_keys)
+                if any(type(p) is not bytes or len(p) != page_bytes for p in batch):
+                    raise ValueError("Invalid shared-prefix KV page")
+                pages.extend(batch)
+                if len(batch) < len(batch_keys):
+                    break
+        except _PrefixBackoff:
+            logger.debug("Xavier prefix lookup skipped during storage backoff")
+            pages = []
         except Exception:
             logger.warning(
                 "Xavier prefix lookup failed; recomputing locally", exc_info=True
@@ -169,6 +192,10 @@ class PrefixConnector(XavierConnector):
             unpack_pages(self._prefix_views, slots, pages, self.contract)
             try:
                 self._rpc("record_import", self.contract.fingerprint, len(pages))
+            except _PrefixBackoff:
+                logger.debug(
+                    "Xavier prefix import counter skipped during storage backoff"
+                )
             except Exception:
                 logger.warning("Could not record Xavier prefix import", exc_info=True)
 
@@ -184,6 +211,9 @@ class PrefixConnector(XavierConnector):
             keys = [f"{key:064x}" for key in request.block_hashes[:count]]
             try:
                 start = self._rpc("exists", self.contract.fingerprint, keys)
+            except _PrefixBackoff:
+                logger.debug("Xavier prefix publication skipped during storage backoff")
+                return
             except Exception:
                 logger.warning("Xavier prefix publication failed", exc_info=True)
                 return
@@ -195,6 +225,11 @@ class PrefixConnector(XavierConnector):
                     self._rpc(
                         "put", self.contract.fingerprint, keys[:end], pages, offset
                     )
+                except _PrefixBackoff:
+                    logger.debug(
+                        "Xavier prefix publication skipped during storage backoff"
+                    )
+                    break
                 except Exception:
                     logger.warning("Xavier prefix publication failed", exc_info=True)
                     break

@@ -383,3 +383,105 @@ def test_waiting_snapshot_invalidates_when_admission_scope_changes(
         assert not client._prefix_pending
     client.request_finished(request, [])
     assert not client._prefix_pending and not client._request_cache_salts
+
+
+@pytest.mark.parametrize("cached", [6, 65])
+def test_large_prefix_reads_are_byte_bounded_and_stop_at_first_gap(
+    shared_connector, cached
+):
+    from dataclasses import replace
+
+    client, _, _ = shared_connector()
+    client.contract = replace(
+        client.contract, num_layers=28, num_kv_heads=8, head_dim=128
+    )
+    client._xavier_config["capacity_bytes"] = 512 * 1024**2
+    page_bytes = client.contract.num_layers * client.contract.layer_nbytes
+    page = bytes(page_bytes)
+    tokens = list(range(65 * 64 + 1))
+    keys = prefix_keys(tokens[:-1])
+    calls = []
+
+    def get(method, namespace, selected):
+        assert method == "get" and namespace == client.contract.fingerprint
+        offset = keys.index(selected[0])
+        assert len(selected) * page_bytes <= 32 * 1024**2
+        calls.append(selected)
+        return [page] * max(0, min(len(selected), cached - offset))
+
+    client._rpc = get
+    request = SimpleNamespace(request_id="large", prompt_token_ids=tokens)
+    assert client.get_num_new_matched_tokens(request, 0) == (cached * 64, False)
+    assert len(calls) == (2 if cached == 6 else 17)
+    assert client._prefix_pending["large"] == (0, [page] * cached)
+
+
+@pytest.mark.parametrize("method", ["get", "put", "get_stats"])
+def test_payload_and_launch_have_time_to_complete_beyond_control_deadline(
+    prefix_module, shared_connector, monkeypatch, method
+):
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    client, _, native = shared_connector()
+    client._rpc = prefix_module.PrefixConnector._rpc.__get__(client)
+    monkeypatch.setattr(prefix_module, "PREFIX_RPC_TIMEOUT", 0.005)
+    page_bytes = client.contract.num_layers * client.contract.layer_nbytes
+    page = bytes(page_bytes)
+
+    # A slow link/initial connection takes longer than a control RPC deadline.
+    async def slow(*args):
+        await asyncio.sleep(0.02)
+        return [page] if method == "get" else []
+
+    ref = SimpleNamespace(configure=slow if method == "get_stats" else AsyncMock())
+    setattr(ref, method, slow)
+    monkeypatch.setattr(prefix_module.xo, "actor_ref", AsyncMock(return_value=ref))
+    if method == "get_stats":
+        client.register_kv_caches(native)
+    else:
+        monkeypatch.setattr(
+            prefix_module, "PREFIX_RPC_MIN_BYTES_PER_SECOND", page_bytes * 10
+        )
+        args = (client.contract.fingerprint, ["0" * 64])
+        if method == "put":
+            args += ([page], 0)
+        assert client._rpc(method, *args) == ([page] if method == "get" else [])
+    assert client._prefix_retry_at == 0
+
+
+def test_storage_backoff_does_not_log_tracebacks_on_each_scheduler_pass(
+    prefix_module, shared_connector, monkeypatch, caplog
+):
+    import asyncio
+    import logging
+    from unittest.mock import AsyncMock
+
+    client, _, _ = shared_connector()
+    client._rpc = prefix_module.PrefixConnector._rpc.__get__(client)
+    monkeypatch.setattr(prefix_module, "PREFIX_RPC_TIMEOUT", 0.005)
+    monkeypatch.setattr(prefix_module, "PREFIX_RPC_MIN_BYTES_PER_SECOND", 10**12)
+
+    async def hung(*args):
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(
+        prefix_module.xo,
+        "actor_ref",
+        AsyncMock(return_value=SimpleNamespace(configure=AsyncMock(), get=hung)),
+    )
+    request = SimpleNamespace(request_id="failed", prompt_token_ids=list(range(65)))
+    store_meta(prefix_module, client, request.prompt_token_ids, [0, 1])
+    with caplog.at_level(logging.DEBUG, logger=prefix_module.logger.name):
+        for _ in range(5):
+            assert client.get_num_new_matched_tokens(request, 0) == (0, False)
+            client.wait_for_save()
+    warnings = [
+        r
+        for r in caplog.records
+        if r.name == prefix_module.logger.name and r.levelno >= logging.WARNING
+    ]
+    assert len(warnings) == 1
+    assert any(
+        r.levelno == logging.DEBUG and "backoff" in r.message for r in caplog.records
+    )

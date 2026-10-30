@@ -494,12 +494,18 @@ def test_shared_prefix_save_avoids_discarded_native_cpu_copies(
     worker.contract = contract
     worker.pool = native
     worker._metadata = connector.XavierMetadata(saves=list(zip(keys, slots)))
+
+    def rpc(method, namespace, out_keys, *args):
+        if method == "exists":
+            return 0
+        pages, *start = args
+        published.append((out_keys, pages))
+
     worker.client = SimpleNamespace(
         config={"shared_prefix": shared_prefix},
         namespace=contract.fingerprint,
-        rpc=lambda method, namespace, out_keys, pages: published.append(
-            (out_keys, pages)
-        ),
+        capacity_bytes=3 * contract.num_layers * contract.layer_nbytes,
+        rpc=rpc,
     )
     copies = []
     original_cpu = torch.Tensor.cpu
@@ -540,7 +546,8 @@ def test_shared_prefix_publication_bounds_bytes_and_contains_pack_failure(
     worker.client = SimpleNamespace(
         config={"shared_prefix": True},
         namespace=contract.fingerprint,
-        rpc=lambda *args: published.append(args),
+        capacity_bytes=3 * contract.num_layers * contract.layer_nbytes,
+        rpc=lambda method, *args: 0 if method == "exists" else published.append(args),
     )
     monkeypatch.setattr(cross_engine, "canonical_trt_views", lambda *args: {})
 
@@ -555,3 +562,138 @@ def test_shared_prefix_publication_bounds_bytes_and_contains_pack_failure(
     worker.wait_for_save(SimpleNamespace(synchronize=lambda: None))
     assert batches == ([[0]] if oom else [[0], [1], [2]])
     assert len(published) == (0 if oom else 3)
+
+
+@pytest.fixture
+def shared_worker(connector, monkeypatch):
+    from ...xavier.backends.bytes.storage import XavierBytesCacheActor
+
+    def create(capacity=6, blocks=7):
+        c = KVCacheContract(
+            "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 1, 64, "bfloat16"
+        )
+        store = XavierBytesCacheActor(capacity * c.num_layers * c.layer_nbytes)
+        store.configure(c.to_dict())
+        client = SimpleNamespace(
+            contract=c,
+            config={"shared_prefix": True},
+            pd_gpu=False,
+            namespace=c.fingerprint,
+            capacity_bytes=store.capacity_bytes,
+            rpc=lambda method, *args: getattr(store, method)(*args),
+        )
+        monkeypatch.setattr(connector, "XavierClient", lambda: client)
+        worker = connector.XavierConnectorWorker(None)
+        native = (
+            torch.arange(blocks, dtype=torch.bfloat16)[:, None, None, None]
+            .expand(blocks, 1, 2, 64)
+            .contiguous()
+        )
+        worker.register_kv_caches(native)
+        return worker, store
+
+    return create
+
+
+@pytest.mark.parametrize("cached", [0, 1, 3])
+def test_burst_shared_prefix_publication_deduplicates_and_skips_cached_pages(
+    connector, shared_worker, monkeypatch, cached
+):
+    from ...xavier.backends.torch import prefix
+    from ..cross_engine import canonical_trt_views
+
+    worker, store = shared_worker()
+    scheduler = connector.XavierConnectorScheduler(None)
+    requests = [
+        SimpleNamespace(request_id=i, get_tokens=lambda beam, tokens=t: tokens)
+        for i, t in enumerate((list(range(129)), list(range(64)) + [7] * 65))
+    ]
+    for request, slots in zip(requests, ([0, 1], [2, 3])):
+        scheduler.update_state_after_alloc(request, slots)
+    meta = scheduler.build_connector_meta(
+        SimpleNamespace(
+            new_requests=[
+                SimpleNamespace(
+                    request_id=i,
+                    new_block_ids=slots,
+                    computed_position=0,
+                    num_scheduled_tokens=129,
+                )
+                for i, slots in enumerate(([0, 1], [2, 3]))
+            ]
+        )
+    )
+    assert len(meta.saves) == 4 and meta.saves[0][0] == meta.saves[2][0]
+    keys = [meta.saves[i][0] for i in (0, 1, 3)]
+    expected = prefix.pack_pages(
+        canonical_trt_views(worker.pool, worker.contract), [0, 1, 3], worker.contract
+    )
+    store.put(worker.client.namespace, keys[:cached], expected[:cached])
+    copied = []
+    pack = prefix.pack_pages
+
+    def capture(views, slots, c):
+        copied.extend(slots)
+        return pack(views, slots, c)
+
+    monkeypatch.setattr(prefix, "pack_pages", capture)
+    worker.bind_connector_meta(meta)
+    worker.wait_for_save(SimpleNamespace(synchronize=lambda: None))
+    assert copied == [0, 1, 3][cached:]
+    assert store.get(worker.client.namespace, keys) == expected
+    # The duplicate key must use the first request's slot, not slot 2.
+    assert store.get(
+        worker.client.namespace, scheduler._keys(list(requests[1].get_tokens(0)))
+    ) == [expected[0], expected[2]]
+    copied.clear()
+    worker.wait_for_save(SimpleNamespace(synchronize=lambda: None))
+    assert not copied
+
+
+def test_trt_batched_prefix_publication_preserves_heads_and_capacity(
+    connector, shared_worker
+):
+    from ...xavier.prefix import prefix_keys
+
+    worker, store = shared_worker(capacity=140, blocks=130)
+    c = worker.contract
+    keys = prefix_keys(list(range(129 * 64)))
+    worker.bind_connector_meta(
+        connector.XavierMetadata(saves=list(zip(keys, range(129))))
+    )
+    worker.wait_for_save(SimpleNamespace(synchronize=lambda: None))
+    assert len(store.get(c.fingerprint, keys)) == 129
+    others = prefix_keys([7] * (20 * 64))
+    store.put(c.fingerprint, others, [bytes(c.num_layers * c.layer_nbytes)] * 20)
+    assert len(store.get(c.fingerprint, keys)) == 120
+    limited, small = shared_worker(capacity=2)
+    limited.bind_connector_meta(
+        connector.XavierMetadata(saves=list(zip(keys[:5], range(5))))
+    )
+    limited.wait_for_save(SimpleNamespace(synchronize=lambda: None))
+    assert len(small.get(c.fingerprint, keys[:5])) == 2
+
+
+@pytest.mark.parametrize("cached", [6, 65])
+def test_trt_large_shared_reads_are_byte_bounded_and_stop_at_a_gap(connector, cached):
+    c = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 28, 8, 128, 64, "bfloat16"
+    )
+    client = connector.XavierClient.__new__(connector.XavierClient)
+    client.contract = c
+    client.config = {"shared_prefix": True}
+    client.namespace = c.fingerprint
+    keys = [f"{i:064x}" for i in range(65)]
+    page_bytes = c.num_layers * c.layer_nbytes
+    page = bytes(page_bytes)
+    reads = []
+
+    def rpc(method, namespace, batch):
+        assert method == "get" and len(batch) * page_bytes <= 32 * 1024**2
+        start = keys.index(batch[0])
+        reads.append(batch)
+        return [page] * max(0, min(len(batch), cached - start))
+
+    client.rpc = rpc
+    assert client.read_prefix(keys) == [page] * cached
+    assert len(reads) == (2 if cached == 6 else 17)

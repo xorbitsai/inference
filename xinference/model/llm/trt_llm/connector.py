@@ -132,9 +132,15 @@ class XavierClient:
 
     def read_prefix(self, keys):
         pages = []
+        page_bytes = self.contract.layer_nbytes * self.contract.num_layers
+        batch_size = (
+            max(1, min(128, 32 * 1024**2 // page_bytes))
+            if self.config.get("shared_prefix")
+            else 128
+        )
         try:
-            for offset in range(0, len(keys), 128):
-                batch_keys = keys[offset : offset + 128]
+            for offset in range(0, len(keys), batch_size):
+                batch_keys = keys[offset : offset + batch_size]
                 batch = self.rpc("get", self.namespace, batch_keys)
                 for page in batch:
                     if page is None:
@@ -437,9 +443,25 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         batch_size = (
             max(1, min(128, 32 * 1024**2 // page_bytes)) if shared_prefix else 128
         )
-        for offset in range(0, len(metadata.saves), batch_size):
-            batch = metadata.saves[offset : offset + batch_size]
-            keys = [key for key, _ in batch]
+        saves = metadata.saves
+        start = 0
+        if shared_prefix:
+            # Request prefixes are causal: keeping their first occurrence also
+            # keeps every head before its suffix, including overlapping requests.
+            slots_by_key = {}
+            for key, slot in saves:
+                slots_by_key.setdefault(key, slot)
+            saves = list(slots_by_key.items())[
+                : min(self.client.capacity_bytes // page_bytes, 4096)
+            ]
+            keys = [key for key, _ in saves]
+            try:
+                start = self.client.rpc("exists", self.client.namespace, keys)
+            except Exception:
+                logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
+                return
+        for offset in range(start, len(saves), batch_size):
+            batch = saves[offset : offset + batch_size]
             try:
                 if shared_prefix:
                     from ..xavier.backends.torch.prefix import pack_pages
@@ -449,6 +471,13 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                         canonical_trt_views(self.pool, self.contract),
                         [slot for _, slot in batch],
                         self.contract,
+                    )
+                    self.client.rpc(
+                        "put",
+                        self.client.namespace,
+                        keys[: offset + len(batch)],
+                        pages,
+                        offset,
                     )
                 else:
                     pages = [
@@ -461,7 +490,9 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                         .clone()
                         for _, slot in batch
                     ]
-                self.client.rpc("put", self.client.namespace, keys, pages)
+                    self.client.rpc(
+                        "put", self.client.namespace, [key for key, _ in batch], pages
+                    )
             except Exception:
                 # Publishing is optional; failure leaves subsequent requests cold.
                 logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
