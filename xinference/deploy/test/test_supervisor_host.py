@@ -307,6 +307,57 @@ async def completed(host, operation):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("stop_fails", [False, True])
+async def test_rejected_controlled_replacement_finishes_even_when_rollback_fails(
+    tmp_path, stop_fails
+):
+    from ...core.supervisor import SupervisorActor
+    from ...core.tests.test_supervisor_control import controlled_owner
+
+    owner, state, _ = controlled_owner()
+    state.phase = "active"
+    owner._controller_control.fence.ready = owner._controller_control.has_served = True
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._controller_control = owner._controller_control
+    pause, resume = AsyncMock(), MagicMock()
+    supervisor.pause_supervisor, supervisor.resume_supervisor = pause, resume
+    supervisor.get_model = AsyncMock(return_value="existing-model")
+    source = SimpleNamespace(
+        process=SimpleNamespace(pid=1),
+        ref=supervisor,
+        executable=sys.executable,
+        environment={},
+        version="4.1.0",
+    )
+    target = SimpleNamespace(process=SimpleNamespace(pid=2), version="4.1.0")
+    host = SupervisorHost({"supervisor_address": "host:1"}, tmp_path, MagicMock())
+    host.active = source
+    host.spawn, host.ready = AsyncMock(return_value=target), AsyncMock()
+    host.stop_child = AsyncMock(
+        side_effect=RuntimeError("cleanup failed") if stop_fails else None
+    )
+    host.gateway = SimpleNamespace(
+        prepare_supervisor_switch=AsyncMock(),
+        release_supervisor=AsyncMock(),
+        select_supervisor=AsyncMock(),
+    )
+    operation = host.create(request_id="blocked")
+    await host.operation_task
+    result = host.handle("supervisor-get", {"operation_id": operation["operation_id"]})
+    assert result["status"] == "failed"
+    assert "handoff_requires_session_transfer" in result["error"]
+    assert result["finished_at"] >= result["created_at"]
+    assert host.handle("supervisor-list", {})[0] == result
+    assert host.active is source
+    assert await supervisor.get_model("model") == "existing-model"
+    host.stop_child.assert_awaited_once_with(target)
+    host.gateway.release_supervisor.assert_awaited_once()
+    host.gateway.select_supervisor.assert_not_awaited()
+    pause.assert_not_awaited()
+    resume.assert_not_called()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("rollback", [False, True])
 async def test_terminal_replica_death_survives_frozen_callback_timeout(
     tmp_path, monkeypatch, rollback, unused_tcp_port_factory

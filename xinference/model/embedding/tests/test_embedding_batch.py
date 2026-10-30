@@ -487,8 +487,13 @@ def test_cache_cleanup_keeps_count_and_token_triggers_while_rate_limiting_gc(
     monkeypatch.setattr(embedding_core, "EMBEDDING_EMPTY_CACHE_COUNT", 3)
     monkeypatch.setattr(embedding_core, "EMBEDDING_EMPTY_CACHE_TOKENS", 10)
     monkeypatch.setattr(embedding_core, "EMBEDDING_GC_INTERVAL", 60)
-    monkeypatch.setattr(embedding_core.time, "monotonic", lambda: clock[0])
-    monkeypatch.setattr(embedding_core.gc, "collect", lambda: events.append("gc"))
+    # Keep process-wide clocks and GC available to concurrent runtime threads.
+    monkeypatch.setattr(
+        embedding_core, "time", SimpleNamespace(monotonic=lambda: clock[0])
+    )
+    monkeypatch.setattr(
+        embedding_core, "gc", SimpleNamespace(collect=lambda: events.append("gc"))
+    )
     monkeypatch.setattr(embedding_core, "empty_cache", lambda: events.append("cache"))
 
     model._clean_cache_if_needed(0)
@@ -511,7 +516,7 @@ def test_gc_interval_zero_restores_collection_on_every_cleanup(monkeypatch):
     collect = Mock()
     release = Mock()
     monkeypatch.setattr(embedding_core, "EMBEDDING_GC_INTERVAL", 0)
-    monkeypatch.setattr(embedding_core.gc, "collect", collect)
+    monkeypatch.setattr(embedding_core, "gc", SimpleNamespace(collect=collect))
     monkeypatch.setattr(embedding_core, "empty_cache", release)
     for _ in range(5):
         model._clean_cache_if_needed(embedding_core.EMBEDDING_EMPTY_CACHE_TOKENS)
@@ -522,7 +527,7 @@ def test_gc_cooldown_is_per_model(monkeypatch):
     collect = Mock()
     release = Mock()
     monkeypatch.setattr(embedding_core, "EMBEDDING_GC_INTERVAL", 60)
-    monkeypatch.setattr(embedding_core.gc, "collect", collect)
+    monkeypatch.setattr(embedding_core, "gc", SimpleNamespace(collect=collect))
     monkeypatch.setattr(embedding_core, "empty_cache", release)
     first, second = _make_stub_model(), _make_stub_model()
     for model in (first, first, second):
@@ -538,8 +543,10 @@ def test_consecutive_large_batches_keep_gc_cooldown_and_release_gpu_cache(
     collect = Mock()
     release = Mock()
     monkeypatch.setattr(embedding_core, "EMBEDDING_GC_INTERVAL", 60)
-    monkeypatch.setattr(embedding_core.time, "monotonic", lambda: 100.0)
-    monkeypatch.setattr(embedding_core.gc, "collect", collect)
+    monkeypatch.setattr(
+        embedding_core, "time", SimpleNamespace(monotonic=lambda: 100.0)
+    )
+    monkeypatch.setattr(embedding_core, "gc", SimpleNamespace(collect=collect))
     monkeypatch.setattr(embedding_core, "empty_cache", release)
     for _ in range(100):
         model._clean_cache_if_needed(embedding_core.EMBEDDING_EMPTY_CACHE_TOKENS)

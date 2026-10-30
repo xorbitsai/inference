@@ -257,9 +257,12 @@ class SupervisorHost:
                 "Supervisor replacement failed during %s", operation["status"]
             )
             if not committed:
-                if target is not None:
-                    await self.stop_child(target)
-                await source.ref.resume_supervisor()
+                try:
+                    if target is not None:
+                        await self.stop_child(target)
+                    await source.ref.resume_supervisor()
+                except Exception:
+                    logger.exception("Supervisor replacement rollback failed")
             operation.update(status="failed", error=str(error), finished_at=time.time())
         finally:
             await self.gateway.release_supervisor()

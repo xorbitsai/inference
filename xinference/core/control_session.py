@@ -73,6 +73,7 @@ READ_ONLY_WORKER_RPCS = frozenset(
         "list_virtual_envs",
         "list_virtual_env_packages",
         "worker_incarnation",
+        "controller_inventory",
         "worker_process_host",
         "model_generation_protocol",
         "worker_handoff_protocol",
@@ -300,7 +301,7 @@ class WorkerControlFence:
             raise ControlSessionRejected("missing_context")
         if command.session != self.session:
             raise ControlSessionRejected("stale_session")
-        if not self.ready:
+        if not self.ready and asyncio.current_task() not in self.lifecycle._tasks:
             raise ControlSessionRejected("fence_pending")
         return command
 

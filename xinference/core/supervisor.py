@@ -251,6 +251,32 @@ class InitialModelLaunch:
 
 
 class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
+    def __getattribute__(self, name):
+        value = super().__getattribute__(name)
+        if not name.startswith("_") and callable(value):
+            control = getattr(self, "_controller_control", None)
+            if control is not None:
+                from .supervisor_control import (
+                    READS,
+                    SERVICE_CALLS,
+                    bind_supervisor_control,
+                )
+                from .supervisor_upgrade import INFERENCE_READS
+
+                if name not in SERVICE_CALLS and (
+                    name not in READS
+                    or (name in INFERENCE_READS and not control.has_served)
+                ):
+                    return bind_supervisor_control(self, name, value)
+        return value
+
+    async def __on_receive__(self, message):
+        if getattr(self, "_controller_control", None) is not None and message[1] != 0:
+            from .control_session import ControlSessionRejected
+
+            raise ControlSessionRejected("unsupported_batch")
+        return await super().__on_receive__(message)
+
     def __init__(
         self,
         service_address=None,
@@ -274,6 +300,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._xavier_source_mapping: Dict[str, List[xo.ActorRefType]] = {}
         self._pd_roles: Dict[str, Dict[int, str]] = {}
         super().__init__()
+        self._controller_control = None
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
         self._worker_status: Dict[str, WorkerStatus] = {}  # type: ignore
         self._extension_worker_resources: Dict[str, Dict[str, Any]] = {}
@@ -1100,6 +1127,21 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._collective_manager_mapping: Dict[  # type: ignore
             str, xo.ActorRefType[CollectiveManager]
         ] = {}
+        from ..extensions import (
+            SupervisorControlAuthorityContext,
+            resolve_supervisor_control_authority,
+        )
+        from .supervisor_control import SupervisorControl, SupervisorControlPort
+
+        authority = resolve_supervisor_control_authority(
+            SupervisorControlAuthorityContext(
+                self.control_address, SupervisorControlPort(self)
+            )
+        )
+        if authority is not None:
+            self._controller_control = SupervisorControl(self, authority)
+            self._control_fence = self._controller_control.fence
+            self._standby = True
         if not self._standby:
             await self.activate_supervisor()
         self._supervisor_prepared = True
@@ -1107,6 +1149,23 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     @property
     def control_address(self) -> str:
         return getattr(self, "_service_address", None) or self.address
+
+    def controller_session_status(self):
+        control = getattr(self, "_controller_control", None)
+        return (
+            {"configured": False}
+            if control is None
+            else {"configured": True, **control.fence.status()}
+        )
+
+    async def supervisor_extension_operation(self, operation, payload):
+        """Dispatch an optional provider operation without prescribing its workflow."""
+        control = getattr(self, "_controller_control", None)
+        if control is None:
+            from .control_session import ControlSessionRejected
+
+            raise ControlSessionRejected("authority_not_configured")
+        return await control.operation(operation, payload)
 
     def supervisor_upgrade_info(self):
         from .. import __version__
@@ -1147,6 +1206,12 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._supervisor_activation_prepared = True
 
     async def activate_supervisor(self):
+        control = getattr(self, "_controller_control", None)
+        if control is not None and not control.ready:
+            return  # Service process can start; management stays fenced.
+        await self._activate_supervisor()
+
+    async def _activate_supervisor(self):
         if getattr(self, "_supervisor_tasks_started", False):
             return
         await self.prepare_supervisor_activation()
@@ -1184,6 +1249,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             )
 
     def _schedule_autostart(self, delay: float = 0.0):
+        control = getattr(self, "_controller_control", None)
+        if control is not None and not control.ready:
+            return
         actor_loop = getattr(self, "_actor_loop", None)
         if actor_loop is not None and actor_loop is not asyncio.get_running_loop():
             actor_loop.call_soon_threadsafe(self._schedule_autostart, delay)
@@ -5053,10 +5121,37 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     async def get_instance_count(self, model_name: str) -> int:
         return await self._status_guard_ref.get_instance_count(model_name)
 
+    async def _control_available(self):
+        control = getattr(self, "_controller_control", None)
+        if control is None:
+            return True
+
+        async def check():
+            from .control_session import ControlSessionRejected
+
+            try:
+                await control.check()
+                return True
+            except ControlSessionRejected:
+                return False
+
+        loop = self._actor_loop
+        if asyncio.get_running_loop() is loop:
+            return await check()
+        future = asyncio.run_coroutine_threadsafe(check(), loop)
+        try:
+            return await asyncio.wrap_future(future)
+        except asyncio.CancelledError:
+            future.cancel()
+            raise
+
     async def _check_dead_nodes(self):
         state = getattr(self, "_upgrade_state", None)
         maintenance = state.maintenance if state is not None else None
         while True:
+            if not await SupervisorActor._control_available(self):
+                await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
+                continue
             if maintenance is not None and not maintenance.begin():
                 await asyncio.sleep(0.1)
                 continue
@@ -5216,6 +5311,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         state = getattr(self, "_upgrade_state", None)
         maintenance = state.maintenance if state is not None else None
         while True:
+            if not await SupervisorActor._control_available(self):
+                await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
+                continue
             if maintenance is not None and not maintenance.begin():
                 await asyncio.sleep(0.1)
                 continue
@@ -6250,8 +6348,17 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         return await worker_ref.get_model_status(replica_model_uid)
 
     @log_async(logger=logger)
-    async def describe_model(self, model_uid: str) -> Dict[str, Any]:
+    async def describe_model(
+        self, model_uid: str, for_recovery: bool = False
+    ) -> Dict[str, Any]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if for_recovery and (
+            replica_info is None or not replica_info.active_replica_ids
+        ):
+            for (known_uid, _), model_name in self._unexpected_down_replicas.items():
+                if known_uid == model_uid:
+                    return {"model_name": model_name}
+
         if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
         if not replica_info.active_replica_ids:
@@ -6646,27 +6753,34 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         return res
 
     async def __pre_destroy__(self) -> None:
-        isolation = getattr(self, "_isolation", None)
-        if isolation is not None:
-            self._isolation = None
-            await asyncio.to_thread(isolation.stop)
-            isolation.loop.close()
-        manager = getattr(self, "_worker_relaunch_manager", None)
-        if manager is not None:
-            await manager.close()
-        # Finish retained-weight operations before tearing down actor state.
-        if self._model_reload_tasks:
-            await asyncio.gather(
-                *list(self._model_reload_tasks.values()), return_exceptions=True
-            )
-        tasks = list(self._worker_metadata_refresh_tasks.values())
-        self._worker_metadata_refresh_tasks.clear()
-        self._worker_metadata_generation.clear()
-        for task in tasks:
-            if not task.done():
-                task.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+        control = getattr(self, "_controller_control", None)
+        if control is not None:
+            control.fence.ready = False
+        try:
+            isolation = getattr(self, "_isolation", None)
+            if isolation is not None:
+                self._isolation = None
+                await asyncio.to_thread(isolation.stop)
+                isolation.loop.close()
+            manager = getattr(self, "_worker_relaunch_manager", None)
+            if manager is not None:
+                await manager.close()
+            # Finish retained-weight operations before tearing down actor state.
+            if self._model_reload_tasks:
+                await asyncio.gather(
+                    *list(self._model_reload_tasks.values()), return_exceptions=True
+                )
+            tasks = list(self._worker_metadata_refresh_tasks.values())
+            self._worker_metadata_refresh_tasks.clear()
+            self._worker_metadata_generation.clear()
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            if control is not None:
+                await control.invoke("close")
 
     def _discard_worker_metadata(self, worker_address: str) -> None:
         self._worker_metadata.pop(worker_address, None)
@@ -6839,6 +6953,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 resources = None
             if set((resources or {}).get("extensions", {})) != expected:
                 raise RuntimeError("Worker and supervisor extensions must match")
+            control = getattr(self, "_controller_control", None)
+            if control is not None:
+                worker_ref = await control.register(worker_ref)
         except Exception:
             # Rejected re-registration must not retain the old process's
             # registration or extension inventory at this address.
@@ -6886,6 +7003,23 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 exc_info=True,
             )
 
+        await SupervisorActor._restore_worker_inventory(
+            self, worker_ref, replica_states, replica_model_uids
+        )
+        logger.debug("Worker %s has been added successfully", worker_address)
+        if metadata_retry_required and self._is_current_worker_metadata_generation(
+            worker_address, worker_ref, metadata_generation
+        ):
+            self._schedule_worker_metadata_retry(
+                worker_address, worker_ref, metadata_generation
+            )
+        self._schedule_autostart()
+
+    async def _restore_worker_inventory(
+        self, worker_ref, replica_states=None, replica_model_uids=None
+    ):
+        """Apply one reported Worker snapshot through normal registration cleanup."""
+        worker_address = worker_ref.address
         normalized = self._normalize_replica_states(
             replica_states=replica_states,
             replica_model_uids=replica_model_uids,
@@ -6915,14 +7049,6 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._rebuild_worker_replica_state(worker_ref, normalized)
         await self._rebuild_worker_status_guard_state(worker_address, normalized)
         await self._reconcile_affected_model_statuses(base_uids_affected)
-        logger.debug("Worker %s has been added successfully", worker_address)
-        if metadata_retry_required and self._is_current_worker_metadata_generation(
-            worker_address, worker_ref, metadata_generation
-        ):
-            self._schedule_worker_metadata_retry(
-                worker_address, worker_ref, metadata_generation
-            )
-        self._schedule_autostart()
 
     def get_worker_resource_policy(self, worker_address: str) -> List[int]:
         from ..extensions import filter_worker_resources

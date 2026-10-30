@@ -96,6 +96,23 @@ class WorkerControlAuthorityContext:
 
 
 @dataclass(frozen=True)
+class SupervisorControlAuthorityContext:
+    """Process-local runtime capabilities for an optional control extension.
+
+    Providers implement an immutable ControllerSession, validate and close.
+    Optional async execute(operation, payload) and worker_registered(ref) hooks
+    own extension behavior. runtime exposes local pause/restore/resume primitives;
+    it is not serializable. Async callbacks run on the actor loop and may
+    overlap; providers synchronize their own services. worker_registered receives
+    one reference, not a complete membership set. Synchronous hooks use a thread
+    pool. An unconfigured hook preserves ordinary behavior.
+    """
+
+    address: str
+    runtime: Any = None
+
+
+@dataclass(frozen=True)
 class ModelCatalogCredentials:
     """An ephemeral catalog token whose repr stays safe in actor call logs."""
 
@@ -236,6 +253,29 @@ def resolve_worker_control_authority(context: WorkerControlAuthorityContext) -> 
     authority = _call_hook(providers[0], "create_worker_control_authority", context)
     if authority is not None and not callable(getattr(authority, "validate", None)):
         raise TypeError("Worker control authority must implement validate")
+    return authority
+
+
+def resolve_supervisor_control_authority(
+    context: SupervisorControlAuthorityContext,
+) -> Any:
+    providers = [
+        e for e in get_extensions() if hasattr(e, "create_supervisor_control_authority")
+    ]
+    if len(providers) > 1:
+        raise ValueError("Multiple Supervisor control authority providers")
+    if not providers:
+        return None
+    authority = _call_hook(providers[0], "create_supervisor_control_authority", context)
+    if authority is not None:
+        from .core.control_session import ControllerSession
+
+        if not isinstance(
+            getattr(authority, "session", None), ControllerSession
+        ) or not all(
+            callable(getattr(authority, name, None)) for name in ("validate", "close")
+        ):
+            raise TypeError("Invalid Supervisor control authority")
     return authority
 
 

@@ -1,3 +1,4 @@
+# CI: linux
 import json
 from datetime import datetime, timedelta, timezone
 from types import MethodType
@@ -976,6 +977,58 @@ async def test_physical_chat_keeps_existing_path(monkeypatch):
     assert response.status_code == 200
     assert response.json()["id"] == "chatcmpl-physical"
     assert supervisor.resolved_model_uids == ["physical-model"]
+
+
+@pytest.mark.asyncio
+async def test_model_listing_preserves_physical_and_virtual_reads_during_control_pause(
+    tmp_path, monkeypatch
+):
+    from unittest.mock import AsyncMock
+
+    from xinference.core.control_session import ControlSessionRejected
+    from xinference.core.tests.test_supervisor_control import controlled_owner
+
+    monkeypatch.setattr(restful_api_module, "XINFERENCE_TOKEN_ROUTER_ENABLED", True)
+    monkeypatch.setattr(
+        "xinference.core.supervisor.XINFERENCE_TOKEN_ROUTER_ENABLED", True
+    )
+    monkeypatch.setattr(
+        "xinference.api.oauth2.advanced.audit.update_model_cache",
+        lambda *args, **kwargs: None,
+    )
+    owner, state, port = controlled_owner()
+    supervisor = make_supervisor(tmp_path)
+    create_enabled_router(supervisor)
+    supervisor.list_models = AsyncMock(
+        return_value={"physical-model": {"model_name": "physical", "model_type": "LLM"}}
+    )
+    supervisor._controller_control = owner._controller_control
+    api = make_rest_api(supervisor)
+    app = FastAPI()
+    app.add_api_route("/v1/models", api.list_models, methods=["GET"])
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # Both reads retain the initial activation gate, including the virtual
+        # read that would be skipped when the physical read fails first.
+        for read in (supervisor.list_models, supervisor.list_virtual_models):
+            with pytest.raises(ControlSessionRejected, match="fence_pending"):
+                await read()
+        assert (await client.get("/v1/models")).status_code == 500
+        await port.pause(1)
+        state.phase = "active"
+        await port.resume()
+        active = await client.get("/v1/models")
+        assert active.status_code == 200
+        assert {model["id"] for model in active.json()["data"]} == {
+            "physical-model",
+            "virtual-model",
+        }
+        await port.pause(1)
+        assert not port.status()["ready"]
+        paused = await client.get("/v1/models")
+        assert paused.status_code == 200
+        assert paused.json() == active.json()
 
 
 @pytest.mark.asyncio
