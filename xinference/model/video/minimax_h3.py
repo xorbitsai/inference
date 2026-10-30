@@ -354,6 +354,10 @@ class VLLMMiniMaxH3Model(_MiniMaxH3VideoModel, VLLMDiffusionModel, VideoEngineMo
             flow_shift=config.pop("flow_shift"),
             audio_flow_shift=config.pop("audio_flow_shift"),
         )
+        if not images:
+            # H3 requires a named ratio even when explicit dimensions determine
+            # the output canvas. Preserve any ratio supplied by the caller.
+            extra.setdefault("aspect_ratio", "16:9")
         payload = {"prompt": prompt, "modalities": ["video"]}
         if images:
             payload["multi_modal_data"] = {"image": images}

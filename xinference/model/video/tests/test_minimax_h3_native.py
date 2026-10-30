@@ -230,8 +230,9 @@ async def test_sglang_concurrent_requests_keep_files_separate(monkeypatch, tmp_p
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["text", "image", "firstlast"])
+@pytest.mark.parametrize("aspect_ratio", [None, "9:16"])
 async def test_vllm_activates_lightning_and_muxes_every_sample(
-    monkeypatch, tmp_path, mode
+    monkeypatch, tmp_path, mode, aspect_ratio
 ):
     model = make_model(VLLMMiniMaxH3Model, "8step_v1.0_bf16")
     monkeypatch.setitem(
@@ -280,15 +281,20 @@ async def test_vllm_activates_lightning_and_muxes_every_sample(
         ]
 
     monkeypatch.setattr(model, "_submit_and_wait", submit)
+    kwargs = {"extra_args": {"aspect_ratio": aspect_ratio}} if aspect_ratio else {}
     if mode == "text":
-        result = await model.text_to_video("prompt", n=2, seed=42)
+        result = await model.text_to_video("prompt", n=2, seed=42, **kwargs)
     elif mode == "image":
-        result = await model.image_to_video(image, "prompt", n=2, seed=42)
+        result = await model.image_to_video(image, "prompt", n=2, seed=42, **kwargs)
     else:
         result = await model.firstlastframe_to_video(
-            image, last, "prompt", n=2, seed=42
+            image, last, "prompt", n=2, seed=42, **kwargs
         )
     payload, params = received[0]
+    if mode == "text" or aspect_ratio:
+        assert params["extra_args"]["aspect_ratio"] == (aspect_ratio or "16:9")
+    else:
+        assert "aspect_ratio" not in params["extra_args"]
     assert params["num_inference_steps"] == 8
     assert params["lora_request"].lora_path == model._lightning_model_path
     assert params["lora_scale"] == 1.0
