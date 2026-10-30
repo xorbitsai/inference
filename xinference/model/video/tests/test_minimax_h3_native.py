@@ -18,6 +18,7 @@ import asyncio
 import base64
 import sys
 import threading
+from dataclasses import field, make_dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -25,6 +26,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from ....core.exceptions import InvalidModelRequestError
 from .. import _install, minimax_h3, native
 from ..core import create_video_model_instance, match_diffusion
 from ..engine_family import VIDEO_ENGINES
@@ -36,6 +38,31 @@ def registry(monkeypatch, tmp_path):
     monkeypatch.setattr(native.platform, "system", lambda: "Linux")
     monkeypatch.setattr(native, "has_cuda_device", lambda: True)
     monkeypatch.setattr(minimax_h3, "XINFERENCE_VIDEO_DIR", str(tmp_path))
+    sampling_fields = (
+        "prompt",
+        "task",
+        "conditions",
+        "target",
+        "num_outputs_per_prompt",
+        "save_output",
+        "output_path",
+        "output_mode",
+        "return_frames",
+        "seed",
+        "num_inference_steps",
+        "flow_shift",
+        "audio_flow_shift",
+    )
+    params_cls = make_dataclass(
+        "MiniMaxH3SamplingParams",
+        [(name, object, field(default=None)) for name in sampling_fields]
+        + [("guidance_scale_2", object, field(default=None, init=False))],
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.multimodal_gen.configs.sample.minimax_h3",
+        SimpleNamespace(MiniMaxH3SamplingParams=params_cls),
+    )
     _install()
     yield
     monkeypatch.undo()
@@ -104,6 +131,8 @@ def test_lightning_schedule_defaults_and_overrides(cls, version):
         model._sampling_config(50, {})
     with pytest.raises(ValueError, match="requires flow_shift"):
         model._sampling_config(None, {"flow_shift": 99})
+    with pytest.raises(InvalidModelRequestError, match="requires audio_flow_shift"):
+        model._sampling_config(None, {"audio_flow_shift": 99})
     assert model._model_spec.default_generate_config["num_frames"] == 124
 
 
@@ -114,23 +143,33 @@ def test_lightning_schedule_defaults_and_overrides(cls, version):
         (VLLMMiniMaxH3Model, minimax_h3.VLLMDiffusionModel, "0.32.0"),
     ],
 )
+@pytest.mark.parametrize(
+    "lightning_version", [None, "4step_v0.1", "8step_v1.0_bf16", "4step_v1.0_768p_bf16"]
+)
 def test_load_configures_the_partition_and_adapter(
-    monkeypatch, cls, parent, package_version
+    monkeypatch, cls, parent, package_version, lightning_version
 ):
     monkeypatch.setattr("importlib.metadata.version", lambda _: package_version)
     calls = []
     monkeypatch.setattr(parent, "load", lambda self: calls.append(dict(self._kwargs)))
-    model = make_model(cls, "4step_v1.0_768p_bf16")
+    model = make_model(cls, lightning_version)
     model.load()
     config = calls[0]
-    assert config["lora_path"] == model._lightning_model_path
+    if lightning_version:
+        assert config["lora_path"] == model._lightning_model_path
+    else:
+        assert "lora_path" not in config
     if cls is SGLangMiniMaxH3Model:
         assert config["model_variant"] == "fl2va"
-        assert config["lora_alpha"] == 128
-        assert config["lora_merge_mode"] == "dynamic"
+        assert config["pipeline_class_name"] == "MiniMaxH3Pipeline"
+        if lightning_version:
+            expected = model._model_spec.lightning_version_configs[lightning_version]
+            assert config["lora_alpha"] == expected["lora_alpha"]
+            assert config["lora_merge_mode"] == "dynamic"
     else:
         assert config["task_type"] == "fl2va"
-        assert config["lora_backend"] == "peft"
+        if lightning_version:
+            assert config["lora_backend"] == "peft"
     assert "group_offload" not in config
     assert "quantization" not in config
 
@@ -153,6 +192,53 @@ def test_vllm_rejects_mismatched_engine_versions(monkeypatch):
         make_model(VLLMMiniMaxH3Model).load()
 
 
+@pytest.mark.parametrize(
+    "cls,key,version",
+    [
+        (SGLangMiniMaxH3Model, "model_variant", "0.5.22"),
+        (VLLMMiniMaxH3Model, "task_type", "0.32.0"),
+    ],
+)
+def test_load_rejects_unsupported_partition(monkeypatch, cls, key, version):
+    monkeypatch.setattr("importlib.metadata.version", lambda _: version)
+    with pytest.raises(ValueError, match=f"require {key}=fl2va"):
+        make_model(cls, **{key: "ref2va"}).load()
+
+
+def test_vllm_rejects_renamed_lightning_checkpoint(monkeypatch):
+    monkeypatch.setattr("importlib.metadata.version", lambda _: "0.32.0")
+    model = make_model(VLLMMiniMaxH3Model, "4step_v0.1")
+    model._lightning_model_path = "/adapters/renamed.safetensors"
+    with pytest.raises(ValueError, match="requires the published filename"):
+        model.load()
+
+
+@pytest.mark.parametrize("cls", [SGLangMiniMaxH3Model, VLLMMiniMaxH3Model])
+@pytest.mark.parametrize(
+    "kwargs,field_name",
+    [
+        ({"width": "960"}, "width and height"),
+        ({"height": {}}, "width and height"),
+        ({"width": True}, "width and height"),
+        ({"height": 768.5}, "width and height"),
+        ({"width": 0}, "width and height"),
+        ({"num_frames": "124"}, "num_frames"),
+        ({"num_frames": False}, "num_frames"),
+        ({"num_frames": 124.5}, "num_frames"),
+        ({"duration": "5"}, "duration"),
+        ({"duration": []}, "duration"),
+        ({"duration": True}, "duration"),
+        ({"duration": float("nan")}, "duration"),
+        ({"duration": float("inf")}, "duration"),
+        ({"duration": 3.9}, "duration"),
+        ({"duration": 15.1}, "duration"),
+    ],
+)
+def test_invalid_sampling_values_are_request_errors(cls, kwargs, field_name):
+    with pytest.raises(InvalidModelRequestError, match=field_name):
+        make_model(cls)._sampling_config(None, kwargs)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["text", "image", "firstlast"])
 async def test_sglang_preserves_h3_fields_and_audio_file(monkeypatch, tmp_path, mode):
@@ -162,7 +248,12 @@ async def test_sglang_preserves_h3_fields_and_audio_file(monkeypatch, tmp_path, 
     last = Image.new("RGB", (32, 32), "blue")
 
     def generate(sampling_params_kwargs):
+        from sglang.multimodal_gen.configs.sample.minimax_h3 import (
+            MiniMaxH3SamplingParams,
+        )
+
         params = sampling_params_kwargs
+        MiniMaxH3SamplingParams(**params)
         calls.append(params)
         assert params["save_output"] is True
         assert params["output_mode"] == "decoded_files"
@@ -177,7 +268,15 @@ async def test_sglang_preserves_h3_fields_and_audio_file(monkeypatch, tmp_path, 
         return SimpleNamespace(output_file_path=str(path))
 
     model._model = SimpleNamespace(generate=generate)
-    kwargs = dict(seed=42, width=960, height=544, num_frames=124, response_format="url")
+    kwargs = dict(
+        seed=42,
+        width=960,
+        height=544,
+        num_frames=124,
+        response_format="url",
+        unsupported_option=True,
+        guidance_scale_2=2,
+    )
     if mode == "text":
         result = await model.text_to_video("prompt", **kwargs)
     elif mode == "image":
@@ -186,8 +285,11 @@ async def test_sglang_preserves_h3_fields_and_audio_file(monkeypatch, tmp_path, 
         result = await model.firstlastframe_to_video(image, last, "prompt", **kwargs)
     params = calls[0]
     assert params["target"] == dict(
-        short_edge=544, aspect_ratio="960:544", duration_seconds=124 / 24
+        short_edge=544,
+        aspect_ratio="16:9" if mode == "text" else "960:544",
+        duration_seconds=124 / 24,
     )
+    assert "unsupported_option" not in params and "guidance_scale_2" not in params
     assert params["num_inference_steps"] == 4
     assert params["flow_shift"] == 6
     assert params["audio_flow_shift"] == 3
@@ -196,6 +298,32 @@ async def test_sglang_preserves_h3_fields_and_audio_file(monkeypatch, tmp_path, 
     )
     assert Path(result["data"][0]["url"]).read_bytes() == b"video-and-stereo-audio"
     assert len(list(tmp_path.iterdir())) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "width,height,ratio",
+    [
+        (1344, 768, "16:9"),
+        (544, 960, "9:16"),
+        (768, 768, "1:1"),
+        (1024, 768, "4:3"),
+        (768, 1024, "3:4"),
+        (1792, 768, "21:9"),
+    ],
+)
+async def test_sglang_text_uses_named_ratio(width, height, ratio):
+    model = make_model(SGLangMiniMaxH3Model)
+
+    def generate(sampling_params_kwargs):
+        assert sampling_params_kwargs["target"]["aspect_ratio"] == ratio
+        assert sampling_params_kwargs["target"]["short_edge"] == min(width, height)
+        path = Path(sampling_params_kwargs["output_path"]) / "joint.mp4"
+        path.write_bytes(b"audio-video")
+        return SimpleNamespace(output_file_path=str(path))
+
+    model._model = SimpleNamespace(generate=generate)
+    await model.text_to_video("prompt", width=width, height=height)
 
 
 @pytest.mark.asyncio
@@ -349,7 +477,11 @@ def test_vllm_rejects_missing_audio(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_cancelled_sglang_keeps_keyframes_until_engine_finishes(tmp_path):
+@pytest.mark.parametrize("cancels", [1, 3])
+@pytest.mark.parametrize("engine_fails", [False, True])
+async def test_cancelled_sglang_keeps_keyframes_until_engine_finishes(
+    tmp_path, cancels, engine_fails
+):
     model = make_model(SGLangMiniMaxH3Model)
     started, release = threading.Event(), threading.Event()
     references = []
@@ -360,6 +492,8 @@ async def test_cancelled_sglang_keeps_keyframes_until_engine_finishes(tmp_path):
         started.set()
         assert release.wait(timeout=5)
         assert references[0].is_file()
+        if engine_fails:
+            raise RuntimeError("engine failed after cancellation")
         path = Path(config["output_path"]) / "joint.mp4"
         path.write_bytes(b"video-and-audio")
         return SimpleNamespace(output_file_path=str(path))
@@ -370,9 +504,12 @@ async def test_cancelled_sglang_keeps_keyframes_until_engine_finishes(tmp_path):
     )
     try:
         assert await asyncio.to_thread(started.wait, 5)
-        request.cancel()
-        await asyncio.sleep(0)
-        assert references[0].exists()
+        for _ in range(cancels):
+            request.cancel()
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            assert not request.done()
+            assert references[0].exists()
     finally:
         release.set()
     with pytest.raises(asyncio.CancelledError):

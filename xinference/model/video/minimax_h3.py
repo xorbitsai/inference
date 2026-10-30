@@ -18,7 +18,8 @@ import os
 import tempfile
 import uuid
 from contextlib import suppress
-from numbers import Integral
+from dataclasses import fields
+from numbers import Integral, Real
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -27,7 +28,7 @@ from PIL import Image
 from ...constants import XINFERENCE_VIDEO_DIR
 from ...core.exceptions import InvalidModelRequestError
 from ...types import VideoList
-from ..image.sglang.core import SGLangDiffusionModel
+from ..image.sglang.core import SGLangDiffusionModel, _filter_kwargs_by_dataclass_fields
 from ..image.vllm.core import VLLMDiffusionModel
 from ..utils import resolve_media_seed
 from .core import VideoModelFamilyV2
@@ -43,9 +44,25 @@ async def _run_with_request_files(func, *args, **kwargs):
     try:
         return await asyncio.shield(task)
     except asyncio.CancelledError:
-        with suppress(Exception):
-            await task
+        while not task.done():
+            with suppress(Exception, asyncio.CancelledError):
+                await asyncio.shield(task)
+        with suppress(Exception, asyncio.CancelledError):
+            task.result()
         raise
+
+
+def _minimax_h3_aspect_ratio(width: int, height: int) -> str:
+    # H3's text task accepts named ratios, including for rounded dimensions.
+    ratios = {
+        "21:9": 21 / 9,
+        "16:9": 16 / 9,
+        "4:3": 4 / 3,
+        "1:1": 1,
+        "3:4": 3 / 4,
+        "9:16": 9 / 16,
+    }
+    return min(ratios, key=lambda ratio: abs(ratios[ratio] - width / height))
 
 
 class _MiniMaxH3VideoModel(_NativeVideoModel):
@@ -135,14 +152,24 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
         # H3 generates a joint soundtrack at a fixed 24 fps.
         config.pop("fps", None)
         width, height = config.pop("width", 1344), config.pop("height", 768)
-        if width <= 0 or height <= 0:
-            raise InvalidModelRequestError("width and height must be positive")
+        if any(
+            isinstance(value, bool) or not isinstance(value, Integral) or value <= 0
+            for value in (width, height)
+        ):
+            raise InvalidModelRequestError("width and height must be positive integers")
         frames = config.pop("num_frames", 124)
+        if isinstance(frames, bool) or not isinstance(frames, Integral) or frames <= 0:
+            raise InvalidModelRequestError("num_frames must be a positive integer")
         # A 15-second request is delivered in H3's 362-frame temporal bucket.
         duration = config.pop(
             "duration", min(frames / 24, 15) if frames <= 362 else frames / 24
         )
-        if not math.isfinite(duration) or not 4 <= duration <= 15:
+        if (
+            isinstance(duration, bool)
+            or not isinstance(duration, Real)
+            or not math.isfinite(duration)
+            or not 4 <= float(duration) <= 15
+        ):
             raise InvalidModelRequestError(
                 "MiniMax-H3 duration must be between 4 and 15 seconds"
             )
@@ -159,8 +186,12 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
         config.setdefault("flow_shift", 12.0)
         config.setdefault("audio_flow_shift", 3.0)
         if self._lightning_config:
+            if steps != self._lightning_config["num_inference_steps"]:
+                raise InvalidModelRequestError(
+                    "This Lightning version requires num_inference_steps="
+                    f"{self._lightning_config['num_inference_steps']}"
+                )
             required = {
-                "num_inference_steps": self._lightning_config["num_inference_steps"],
                 "flow_shift": self._lightning_config["video_shift"],
                 "audio_flow_shift": self._lightning_config["audio_shift"],
             }
@@ -169,13 +200,9 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
                     raise InvalidModelRequestError(
                         f"This Lightning version requires {key}={value}"
                     )
-                if key == "num_inference_steps" and steps != value:
-                    raise InvalidModelRequestError(
-                        f"This Lightning version requires {key}={value}"
-                    )
                 config[key] = value
         config["seed"] = resolve_media_seed(config.get("seed", -1))
-        return width, height, duration, config
+        return width, height, float(duration), config
 
     async def _generate(
         self,
@@ -256,6 +283,7 @@ class SGLangMiniMaxH3Model(
                 "Xinference MiniMax-H3 video endpoints require model_variant=fl2va"
             )
         self._kwargs["model_variant"] = "fl2va"
+        self._kwargs["pipeline_class_name"] = "MiniMaxH3Pipeline"
         if self._lightning_config:
             self._kwargs.update(
                 lora_path=self._lightning_model_path,
@@ -269,6 +297,10 @@ class SGLangMiniMaxH3Model(
     async def _generate_h3(
         self, prompt, n, width, height, duration, config, images, workdir
     ):
+        from sglang.multimodal_gen.configs.sample.minimax_h3 import (
+            MiniMaxH3SamplingParams,
+        )
+
         conditions = []
         for index, image in enumerate(images):
             path = Path(workdir) / f"keyframe-{index}.png"
@@ -287,7 +319,11 @@ class SGLangMiniMaxH3Model(
             conditions=conditions,
             target=dict(
                 short_edge=min(width, height),
-                aspect_ratio=f"{width}:{height}",
+                aspect_ratio=(
+                    f"{width}:{height}"
+                    if images
+                    else _minimax_h3_aspect_ratio(width, height)
+                ),
                 duration_seconds=duration,
             ),
             num_outputs_per_prompt=n,
@@ -296,8 +332,13 @@ class SGLangMiniMaxH3Model(
             output_mode="decoded_files",
             return_frames=False,
         )
-        # The generic image helper filters against SamplingParams and would drop
-        # H3's task, conditions, target and audio scheduler parameters.
+        config = _filter_kwargs_by_dataclass_fields(
+            config, MiniMaxH3SamplingParams, "H3 sampling params"
+        )
+        # H3 also declares fixed fields that its constructor does not accept.
+        for field in fields(MiniMaxH3SamplingParams):
+            if not field.init:
+                config.pop(field.name, None)
         result = await _run_with_request_files(
             self._model.generate, sampling_params_kwargs=config
         )
@@ -324,7 +365,9 @@ class VLLMMiniMaxH3Model(_MiniMaxH3VideoModel, VLLMDiffusionModel, VideoEngineMo
             omni_version < Version("0.32.0")
             or omni_version.release[:2] != vllm_version.release[:2]
         ):
-            raise ImportError("MiniMax-H3 requires matching vllm-omni and vllm 0.32.x")
+            raise ImportError(
+                "MiniMax-H3 requires vllm-omni>=0.32.0 and a matching vllm major.minor"
+            )
         if self._kwargs.get("task_type", "fl2va") != "fl2va":
             raise ValueError(
                 "Xinference MiniMax-H3 video endpoints require task_type=fl2va"
@@ -357,7 +400,7 @@ class VLLMMiniMaxH3Model(_MiniMaxH3VideoModel, VLLMDiffusionModel, VideoEngineMo
         if not images:
             # H3 requires a named ratio even when explicit dimensions determine
             # the output canvas. Preserve any ratio supplied by the caller.
-            extra.setdefault("aspect_ratio", "16:9")
+            extra.setdefault("aspect_ratio", _minimax_h3_aspect_ratio(width, height))
         payload = {"prompt": prompt, "modalities": ["video"]}
         if images:
             payload["multi_modal_data"] = {"image": images}

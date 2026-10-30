@@ -127,13 +127,23 @@ flow shifts automatically. Conflicting per-request step counts or flow shifts
 are rejected. For vLLM, keep the published Diffusers checkpoint filename;
 ComfyUI exports are incompatible.
 
+Native H3 requests require a duration of 4–15 seconds at 24 fps. For a first
+test, use ``width=960``, ``height=544`` and ``num_frames=124`` (about 5 seconds).
+Omit ``num_inference_steps`` to use the selected Lightning schedule, or set it
+to 4 for either 4-step adapter and 8 for the 8-step adapter. The Web UI's generic
+video defaults must be adjusted to these values.
+
+For SGLang, install the system ``ffmpeg`` package before launching H3 and ensure
+both ``ffmpeg`` and ``ffprobe`` are on ``PATH``. The Python packages ``av`` and
+``imageio-ffmpeg`` do not satisfy this requirement.
+
 Configure GPU parallelism and memory options for your hardware. For example,
 on four suitable CUDA GPUs, launch H3 with Lightning using::
 
     xinference launch --model-name MiniMax-H3 --model-type video --model-engine SGLang \
-        --num_gpus 4 --tp_size 2 --ulysses_degree 2 --lightning_version 4step_v0.1
+        --n-gpu 4 --num_gpus 4 --tp_size 2 --ulysses_degree 2 --lightning_version 4step_v0.1
     xinference launch --model-name MiniMax-H3 --model-type video --model-engine vLLM \
-        --num_gpus 4 --usp 4 --vae_patch_parallel_size 4 --vae_parallel_mode tile \
+        --n-gpu 4 --num_gpus 4 --ulysses_degree 4 --vae_patch_parallel_size 4 --vae_parallel_mode tile \
         --vae_use_tiling True --lightning_version 4step_v1.0_768p_bf16
 
 Quickstart

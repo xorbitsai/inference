@@ -41,6 +41,7 @@ from ..engine_family import (
     check_engine_by_model_name_and_engine,
     check_engine_by_model_name_and_engine_with_virtual_env,
 )
+from ..native import _NativeVideoModel
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -64,6 +65,15 @@ def test_builtin_video_models_register_expected_engines():
             expected_engines.append("diffusers")
         if model_name in MLX_VIDEO_MODEL_NAMES:
             expected_engines.append("MLX")
+        if _NativeVideoModel.check_host() is True:
+            expected_engines.extend(
+                engine
+                for engine in ("vLLM", "SGLang")
+                if any(
+                    family.engine == engine
+                    for family in BUILTIN_VIDEO_MODELS[model_name]
+                )
+            )
         assert list(engines) == expected_engines
 
         if "diffusers" in engines:
