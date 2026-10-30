@@ -275,6 +275,21 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             from .control_session import ControlSessionRejected
 
             raise ControlSessionRejected("unsupported_batch")
+        from .control_session import (
+            CONTROL_CONTEXT_KEY,
+            ControlContext,
+            ControlSessionRejected,
+        )
+
+        method, call_method, args, kwargs = message
+        if CONTROL_CONTEXT_KEY in kwargs:
+            control = getattr(self, "_controller_control", None)
+            if control is None:
+                raise ControlSessionRejected("authority_not_configured")
+            kwargs = dict(kwargs)
+            command = ControlContext.from_dict(kwargs.pop(CONTROL_CONTEXT_KEY))
+            async with control.fence.command(command):
+                return await super().__on_receive__((method, call_method, args, kwargs))
         return await super().__on_receive__(message)
 
     def __init__(
@@ -7022,7 +7037,18 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         worker_address: str,
         replica_states: Optional[List[Dict[str, Any]]] = None,
         replica_model_uids: Optional[List[str]] = None,
+        _xinference_control_context=None,
     ):
+        if _xinference_control_context is not None:
+            from .control_session import ControlContext, ControlSessionRejected
+
+            command = ControlContext.from_dict(_xinference_control_context)
+            control = getattr(self, "_controller_control", None)
+            if control is None or command.session != control.session:
+                raise ControlSessionRejected("stale_session")
+            await control.fence._validate(
+                command.session, ("fencing", "reconciling", "active")
+            )
         from .worker import WorkerActor
 
         worker_ref = await xo.actor_ref(
@@ -7118,6 +7144,20 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             replica_states=replica_states,
             replica_model_uids=replica_model_uids,
         )
+
+        control = getattr(self, "_controller_control", None)
+        provider = (
+            getattr(control.authority, "filter_worker_inventory", None)
+            if control
+            else None
+        )
+        if provider is not None:
+            filtered = await provider(worker_ref, normalized)
+            if not isinstance(filtered, list) or any(
+                row not in normalized for row in filtered
+            ):
+                raise ValueError("Inventory provider may only narrow observations")
+            normalized = filtered
 
         # Re-registration reconciliation: a worker restarting and reusing the
         # same address never trips dead-node detection (its fresh heartbeat

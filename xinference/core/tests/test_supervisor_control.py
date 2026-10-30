@@ -431,3 +431,31 @@ async def test_recovery_description_only_keeps_known_unexpected_losses():
     owner._clear_unexpected_down_replicas("counter")
     with pytest.raises(ValueError, match="not found"):
         await owner.describe_model("counter", for_recovery=True)
+
+
+@pytest.mark.asyncio
+async def test_worker_callback_keeps_original_session_after_reinstallation():
+    from ..control_session import SessionBoundSupervisorRef
+
+    fence, authority = setup_fence()
+    first = session()
+    # setup_fence is intentionally synchronous; installation validates authority.
+    authority.owner = first
+    await fence.install(first, 1)
+    target = SimpleNamespace(
+        terminate_model=AsyncMock(), list_models=AsyncMock(return_value={})
+    )
+    ref = SessionBoundSupervisorRef(target, fence)
+    callback = ref.terminate_model
+    successor = session(2)
+    authority.owner = successor
+    await fence.install(successor, 1)
+    with pytest.raises(ControlSessionRejected):
+        await callback("model")
+    target.terminate_model.assert_not_awaited()
+    await ref.terminate_model("model")
+    assert (
+        target.terminate_model.await_args.kwargs[CONTROL_CONTEXT_KEY]["session"]
+        == successor.to_dict()
+    )
+    assert await ref.list_models() == {}

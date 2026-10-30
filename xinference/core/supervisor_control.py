@@ -13,6 +13,7 @@ import math
 import uuid
 from types import MethodType
 
+from .control_invocation import ControlInvocation, invoke_control_hook
 from .control_session import (
     CONTROL_CONTEXT_KEY,
     NATIVE_HANDOFF_RPCS,
@@ -106,8 +107,21 @@ class ControlledWorkerRef:
 
             async def invoke():
                 async with self._control.fence.command(command):
-                    return await method(
-                        *args, **{**kwargs, CONTROL_CONTEXT_KEY: command.to_dict()}
+
+                    async def execute(args=args, kwargs=kwargs):
+                        if CONTROL_CONTEXT_KEY in kwargs:
+                            raise ControlSessionRejected("caller_control_override")
+                        return await method(
+                            *args, **{**kwargs, CONTROL_CONTEXT_KEY: command.to_dict()}
+                        )
+
+                    return await invoke_control_hook(
+                        self._control.authority,
+                        "around_worker_call",
+                        ControlInvocation(
+                            self._ref.address, name, command, args, kwargs
+                        ),
+                        execute,
                     )
 
             return invoke()
@@ -275,6 +289,34 @@ class SupervisorControlPort:
     def settings(self):
         return dict(self._owner._system_settings)
 
+    def catalog(self):
+        from .worker_handoff import CustomModelState
+
+        return CustomModelState.capture(self._owner)
+
+    def workers(self):
+        return list(self._owner._worker_address_to_worker.values())
+
+    def restore_catalog(self, payload):
+        from .worker_handoff import CustomModelState
+
+        CustomModelState.restore(self._owner, payload, replace=True)
+
+    def restore_settings(self, payload):
+        from .system_settings_store import SystemSettings, apply_system_settings
+
+        parsed = SystemSettings.from_dict(payload)
+        self._owner._system_settings = parsed.to_dict()
+        apply_system_settings(parsed)
+
+    async def call(self, method, *args, **kwargs):
+        if not isinstance(method, str) or method.startswith("_"):
+            raise ValueError("Expected a public Supervisor method")
+        control = self._control()
+        async with control.fence.command(control.capture()):
+            value = getattr(self._owner, method)(*args, **kwargs)
+            return await value if inspect.isawaitable(value) else value
+
     def close_admission(self):
         self._control().fence.ready = False
 
@@ -283,6 +325,8 @@ def bind_supervisor_control(owner, name, method):
     control = owner._controller_control
 
     def guarded(self, *args, **kwargs):
+        nested = control.fence.bound_context() is not None
+        supplied = kwargs.pop(CONTROL_CONTEXT_KEY, None)
         if name in BLOCKED:
             raise ControlSessionRejected("handoff_requires_session_transfer")
         # Nested synchronous helpers preserve their ordinary return type.
@@ -292,12 +336,29 @@ def bind_supervisor_control(owner, name, method):
         ):
             control.fence.check_local()
             return method(*args, **kwargs)
-        command = control.capture()
+        command = (
+            control.capture()
+            if supplied is None
+            else ControlContext.from_dict(supplied)
+        )
 
         async def run():
             async with control.fence.command(command):
-                value = method(*args, **kwargs)
-                return await value if inspect.isawaitable(value) else value
+
+                async def execute(args=args, kwargs=kwargs):
+                    value = method(*args, **kwargs)
+                    return await value if inspect.isawaitable(value) else value
+
+                if nested:
+                    return await execute()
+                return await invoke_control_hook(
+                    control.authority,
+                    "around_supervisor_call",
+                    ControlInvocation(
+                        self.control_address, name, command, args, kwargs
+                    ),
+                    execute,
+                )
 
         return run()
 

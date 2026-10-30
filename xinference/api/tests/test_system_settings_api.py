@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -44,10 +46,24 @@ def store(tmp_path):
 @pytest.fixture
 def mock_request(store):
     request = MagicMock()
+    request.app.state.system_settings_provider = None
     request.app.state.system_settings_store = store
     supervisor_ref = AsyncMock()
     request.app.state.api._get_supervisor_ref = AsyncMock(return_value=supervisor_ref)
     return request
+
+
+@pytest.mark.asyncio
+async def test_configured_provider_owns_settings_without_local_persistence(
+    mock_request,
+):
+    provider = AsyncMock(return_value={"hf_token": "masked"})
+    mock_request.app.state.system_settings_provider = provider
+    assert _json_body(await system_settings.get_system_settings(mock_request)) == {
+        "hf_token": "masked"
+    }
+    provider.assert_awaited_once_with("get", None)
+    mock_request.app.state.api._get_supervisor_ref.assert_not_awaited()
 
 
 @pytest.fixture

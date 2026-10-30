@@ -73,9 +73,41 @@ class CustomModelState:
         }
 
     @classmethod
-    def restore(cls, worker, state):
+    def restore(cls, worker, state, *, replace=False):
         from ..model.custom import RegistryManager
 
+        if replace:
+            if not isinstance(state, dict) or set(state) - set(cls.TYPES):
+                raise ValueError("Unsupported custom model catalog")
+            staged = []
+            for kind in cls.TYPES:
+                handlers = getattr(worker, "_custom_register_type_to_cls", {}).get(
+                    "LLM" if kind == "llm" else kind
+                )
+                if handlers is None:
+                    if state.get(kind):
+                        raise ValueError("Unsupported custom model catalog")
+                    continue
+                schema, register, _, _ = handlers
+                models = []
+                for name, payload in state.get(kind, {}).items():
+                    definition = json.loads(payload)
+                    for field in cls.RUNTIME_FIELDS:
+                        definition.pop(field, None)
+                    spec = schema.parse_obj(definition)
+                    if spec.model_name != name:
+                        raise ValueError("Custom model registration identity changed")
+                    if hasattr(spec, "is_builtin"):
+                        spec.is_builtin = False
+                    models.append(spec)
+                staged.append((kind, register, models))
+            for kind, register, models in staged:
+                registry = RegistryManager.get_registry(kind)
+                for existing in list(registry.get_custom_models()):
+                    registry.unregister(existing.model_name, remove_file=False)
+                for spec in models:
+                    register(spec, persist=False)
+            return
         pending = []
         # Validate the entire catalog before changing any target registry.
         for kind, models in state.items():

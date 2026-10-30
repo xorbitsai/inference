@@ -74,6 +74,9 @@ READ_ONLY_WORKER_RPCS = frozenset(
         "list_virtual_env_packages",
         "worker_incarnation",
         "controller_inventory",
+        "control_operation_receipt",
+        "controller_resource_state",
+        "controller_catalog",
         "worker_process_host",
         "model_generation_protocol",
         "worker_handoff_protocol",
@@ -171,8 +174,19 @@ def bind_worker_control_method(owner: Any, name: str, method: Any) -> Any:
 
         async def admitted():
             async with fence.command(current):
-                result = method(*args, **kwargs)
-                return await result if inspect.isawaitable(result) else result
+
+                async def execute(args=args, kwargs=kwargs):
+                    result = method(*args, **kwargs)
+                    return await result if inspect.isawaitable(result) else result
+
+                from .control_invocation import ControlInvocation, invoke_control_hook
+
+                return await invoke_control_hook(
+                    fence.authority,
+                    "around_control_call",
+                    ControlInvocation(self.address, name, current, args, kwargs),
+                    execute,
+                )
 
         return admitted()
 
@@ -188,6 +202,37 @@ class ControlSessionRejected(RuntimeError):
 
     def __reduce__(self):
         return type(self), (self.reason,)
+
+
+class SessionBoundSupervisorRef:
+    """Capture a Worker's original session before a callback can be queued."""
+
+    def __init__(self, ref: Any, fence: "WorkerControlFence"):
+        self._ref, self._fence = ref, fence
+
+    def __reduce__(self):
+        return self._ref.__reduce__()
+
+    def __getattr__(self, name: str) -> Any:
+        from .supervisor_control import READS
+
+        method = getattr(self._ref, name)
+        if name.startswith("_") or name in READS or not callable(method):
+            return method
+        # Initial registration precedes the first session installation.
+        if self._fence.session is None:
+            return method
+        command = self._fence.capture()
+
+        async def invoke(*args, **kwargs):
+            if CONTROL_CONTEXT_KEY in kwargs:
+                raise ControlSessionRejected("context_override")
+            async with self._fence.command(command):
+                return await method(
+                    *args, **kwargs, **{CONTROL_CONTEXT_KEY: command.to_dict()}
+                )
+
+        return invoke
 
 
 def _identifier(value: Any) -> None:

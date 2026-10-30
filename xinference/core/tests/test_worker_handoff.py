@@ -1272,3 +1272,53 @@ async def test_restarted_supervisor_waits_for_retained_models_before_autostart(r
     assert SupervisorActor._autostart_waiting_for_worker(
         owner, {"model_uid": "counter"}
     )
+
+
+def test_catalog_replacement_validates_before_deletion_and_does_not_persist(
+    monkeypatch,
+):
+    import uuid
+
+    from pydantic.v1 import ValidationError
+
+    from ...model.custom import RegistryManager
+    from ...model.embedding.custom import (
+        CustomEmbeddingModelFamilyV2,
+        register_embedding,
+        unregister_embedding,
+    )
+    from ...model.embedding.embed_family import BUILTIN_EMBEDDING_MODELS
+    from ..worker_handoff import CustomModelState
+
+    registry = RegistryManager.get_registry("embedding")
+    original = list(registry.get_custom_models())
+    definition = next(iter(BUILTIN_EMBEDDING_MODELS.values()))[0].dict()
+    name = "replacement-" + uuid.uuid4().hex
+    definition.update(model_name=name, is_builtin=False)
+    spec = CustomEmbeddingModelFamilyV2.parse_obj(definition)
+    owner = SimpleNamespace(
+        _custom_register_type_to_cls={
+            "embedding": (
+                CustomEmbeddingModelFamilyV2,
+                register_embedding,
+                unregister_embedding,
+                None,
+            )
+        }
+    )
+    try:
+        register_embedding(spec, persist=False)
+        before = CustomModelState.capture(owner)
+        with pytest.raises(ValidationError):
+            CustomModelState.restore(owner, {"embedding": {name: "{}"}}, replace=True)
+        assert CustomModelState.capture(owner) == before
+        # A valid replacement removes stale in-memory entries, without files.
+        CustomModelState.restore(owner, {"embedding": {}}, replace=True)
+        assert not registry.get_custom_models()
+        CustomModelState.restore(owner, before, replace=True)
+        assert registry.find_model(name).model_name == name
+    finally:
+        for item in list(registry.get_custom_models()):
+            registry.unregister(item.model_name, remove_file=False)
+        for item in original:
+            register_embedding(item, persist=False)
