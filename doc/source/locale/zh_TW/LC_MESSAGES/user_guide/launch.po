@@ -674,3 +674,11 @@ msgid ""
 "The default for ``enable_weight_cache`` changed from ``False`` to automatic "
 "selection (``None``)."
 msgstr "``enable_weight_cache`` 的預設值從 ``False`` 改為自動選擇（``None``）。"
+
+#: ../../source/user_guide/launch.rst:152
+msgid "Unified context length in the launch API, CLI, and Web UI."
+msgstr "在啟動 API、CLI 和 Web UI 中統一設定上下文長度。"
+
+#: ../../source/user_guide/launch.rst:171
+msgid "Automatic YaRN context extension for models with a registered recipe."
+msgstr "為已登記設定的模型提供自動 YaRN 上下文擴展。"

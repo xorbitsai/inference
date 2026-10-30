@@ -779,3 +779,15 @@ msgid ""
 msgstr ""
 "O padrão de ``enable_weight_cache`` mudou de ``False`` para seleção "
 "automática (``None``)."
+
+#: ../../source/user_guide/launch.rst:152
+msgid "Unified context length in the launch API, CLI, and Web UI."
+msgstr ""
+"Comprimento de contexto unificado na API de inicialização, na CLI e na "
+"interface Web."
+
+#: ../../source/user_guide/launch.rst:171
+msgid "Automatic YaRN context extension for models with a registered recipe."
+msgstr ""
+"Extensão automática de contexto com YaRN para modelos com uma configuração "
+"registrada."

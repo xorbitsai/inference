@@ -148,6 +148,9 @@ lower snake_case. The ``memory_not_verified`` warning is always included.
 Unified LLM context length
 ==========================
 
+.. versionadded:: v4.1.0
+   Unified context length in the launch API, CLI, and Web UI.
+
 Set ``context_length`` in the launch API or use ``--context-length`` in the CLI
 to choose the input plus output token limit per request. In the Web UI, use the
 context slider or enter an exact integer; **Model default** clears the override.
@@ -163,6 +166,9 @@ Transformers and MLX's ``context_length``, and
 llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine
 parameters still work; contradictory unified and native values are rejected.
 Omitting the setting preserves engine defaults.
+
+.. versionadded:: v4.2.0
+   Automatic YaRN context extension for models with a registered recipe.
 
 Qwen3.5, Qwen3.6, and Qwen3.8 have registered automatic YaRN recipes for vLLM and
 SGLang; Qwen3.8-Flash-Next currently supports vLLM only. Selecting a length within

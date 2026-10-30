@@ -694,3 +694,11 @@ msgid ""
 "selection (``None``)."
 msgstr ""
 "``enable_weight_cache`` 의 기본값이 ``False`` 에서 자동 선택(``None``)으로 변경되었습니다."
+
+#: ../../source/user_guide/launch.rst:152
+msgid "Unified context length in the launch API, CLI, and Web UI."
+msgstr "실행 API, CLI 및 Web UI의 통합 컨텍스트 길이 설정."
+
+#: ../../source/user_guide/launch.rst:171
+msgid "Automatic YaRN context extension for models with a registered recipe."
+msgstr "설정이 등록된 모델의 자동 YaRN 컨텍스트 확장."

@@ -684,3 +684,11 @@ msgid ""
 "The default for ``enable_weight_cache`` changed from ``False`` to automatic "
 "selection (``None``)."
 msgstr "``enable_weight_cache`` のデフォルト値が ``False`` から自動選択（``None``）に変更されました。"
+
+#: ../../source/user_guide/launch.rst:152
+msgid "Unified context length in the launch API, CLI, and Web UI."
+msgstr "起動 API、CLI、Web UI での統一コンテキスト長設定。"
+
+#: ../../source/user_guide/launch.rst:171
+msgid "Automatic YaRN context extension for models with a registered recipe."
+msgstr "設定が登録されているモデルでの YaRN によるコンテキスト自動拡張。"
