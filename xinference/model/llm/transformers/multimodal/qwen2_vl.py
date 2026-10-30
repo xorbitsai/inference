@@ -86,6 +86,18 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
                 False,
                 f"Model architectures {model_family.architectures} are not a supported Qwen2/3 VL variant",
             )
+        if (
+            model_spec.model_format == "fp4"
+            and model_family.is_builtin
+            and model_family.has_architecture(
+                "Qwen3_5ForConditionalGeneration", "Qwen3_5MoeForConditionalGeneration"
+            )
+        ):
+            return (
+                False,
+                "Qwen3.5/3.6/3.8 NVFP4 checkpoints require vLLM or SGLang; "
+                "the Transformers FPQuant loader does not support ModelOpt weights",
+            )
         if "vision" not in model_family.model_ability:
             return False, "Qwen2 VL transformer requires vision ability"
         return True

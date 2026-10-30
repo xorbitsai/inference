@@ -721,6 +721,10 @@ const en = {
     contextLengthTip:
       'Maximum input plus output tokens per request. Leave unset to use the model default.',
     contextLengthDefault: 'Model default',
+    contextLengthYarn:
+      'Maximum input plus output tokens per request. Native context: {{native}} tokens; extended maximum: {{max}} tokens. Selecting a longer context automatically enables YaRN at model launch. Leave unset to use the native default.',
+    contextLengthNative:
+      'Maximum input plus output tokens per request. Native context: {{native}} tokens. Automatic YaRN extension is not declared for this model and engine. Leave unset to use the model default.',
     contextLengthUnknown: 'Maximum context is unknown; enter a token limit.',
     contextLengthInvalid: 'Enter a whole number between 1 and {{max}}.',
     advancedConfiguration: 'Advanced Configuration',

@@ -699,6 +699,10 @@ const zhTW = {
     replicaAliasDuplicate: '副本別名不能重複。',
     contextLengthTip: '每個請求的輸入加輸出 tokens 上限。留空使用模型預設值。',
     contextLengthDefault: '模型預設值',
+    contextLengthYarn:
+      '每個請求的輸入加輸出 tokens 上限。原生上下文為 {{native}} tokens，可擴展至 {{max}} tokens。選擇超過原生長度的值，啟動模型時會自動啟用 YaRN。留空使用原生預設值。',
+    contextLengthNative:
+      '每個請求的輸入加輸出 tokens 上限。原生上下文為 {{native}} tokens。目前模型和引擎未宣告自動 YaRN 擴展支援。留空使用模型預設值。',
     contextLengthUnknown: '最大上下文未知，請輸入 token 上限。',
     contextLengthInvalid: '請輸入 1 到 {{max}} 之間的整數。',
     advancedConfiguration: '高階設定',

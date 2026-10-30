@@ -741,6 +741,11 @@ export default function LaunchDialog({
             modelMaximum={
               typeof model?.context_length === 'number' ? model.context_length : undefined
             }
+            extensionMaximum={
+              model?.context_length_extension?.engines.includes(modelEngineValue.toLowerCase())
+                ? model.context_length_extension.max_context_length
+                : undefined
+            }
           />
         ),
       },

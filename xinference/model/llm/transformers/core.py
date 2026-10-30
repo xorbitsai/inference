@@ -1069,6 +1069,16 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                 False,
                 "Transformers chat engine supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
+        if (
+            llm_spec.model_format == "fp4"
+            and llm_family.is_builtin
+            and llm_family.has_architecture("Qwen3_5MoeForCausalLM")
+        ):
+            return (
+                False,
+                "Qwen3.8-Max NVFP4 requires vLLM or SGLang; "
+                "the Transformers FPQuant loader does not support ModelOpt weights",
+            )
         if llm_family.has_architecture("Qwen4ExpForConditionalGeneration"):
             return (
                 False,

@@ -637,3 +637,35 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 0_8 --model-format mlx --quantization ${quantization}
 
+
+Model Spec 40 (fp4, 397 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp4
+- **Model Size (in billions):** 397
+- **Quantizations:** FP4
+- **Engines**: vLLM, SGLang
+- **Model ID:** nvidia/Qwen3.5-397B-A17B-NVFP4
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/nvidia/Qwen3.5-397B-A17B-NVFP4>`__, `ModelScope <https://modelscope.cn/models/nv-community/Qwen3.5-397B-A17B-NVFP4>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format fp4 --quantization ${quantization}
+
+
+Model Spec 41 (fp4, 122 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp4
+- **Model Size (in billions):** 122
+- **Quantizations:** FP4
+- **Engines**: vLLM, SGLang
+- **Model ID:** nvidia/Qwen3.5-122B-A10B-NVFP4
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/nvidia/Qwen3.5-122B-A10B-NVFP4>`__, `ModelScope <https://modelscope.cn/models/nv-community/Qwen3.5-122B-A10B-NVFP4>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format fp4 --quantization ${quantization}
+

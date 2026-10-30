@@ -8,13 +8,23 @@ import type { BaseFormFieldProps } from '@/types/form';
 
 const MAX_CONTEXT_LENGTH = 2 ** 31 - 1;
 
-type ContextInputProps = BaseFormFieldProps<number | ''> & { modelMaximum?: number };
+type ContextInputProps = BaseFormFieldProps<number | ''> & {
+  modelMaximum?: number;
+  extensionMaximum?: number;
+};
 
-function ContextInput({ value, onChange, error, modelMaximum }: ContextInputProps) {
+function ContextInput({
+  value,
+  onChange,
+  error,
+  modelMaximum,
+  extensionMaximum,
+}: ContextInputProps) {
   const { t } = useI18n();
   const knownMaximum =
     Number.isSafeInteger(modelMaximum) && modelMaximum! > 0 ? modelMaximum : undefined;
   const selected = typeof value === 'number' ? value : undefined;
+  const maximum = extensionMaximum || knownMaximum || MAX_CONTEXT_LENGTH;
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
@@ -23,9 +33,9 @@ function ContextInput({ value, onChange, error, modelMaximum }: ContextInputProp
           aria-label={t('launchModel.contextLength')}
           className="w-full accent-primary disabled:opacity-40"
           min={1}
-          max={knownMaximum || MAX_CONTEXT_LENGTH}
+          max={maximum}
           step={1}
-          value={Math.min(selected || knownMaximum || 1, knownMaximum || MAX_CONTEXT_LENGTH)}
+          value={Math.min(selected || knownMaximum || 1, maximum)}
           disabled={!knownMaximum}
           onChange={(event) => onChange?.(Number(event.target.value))}
         />
@@ -34,7 +44,7 @@ function ContextInput({ value, onChange, error, modelMaximum }: ContextInputProp
           aria-label={t('launchModel.contextLength')}
           className="w-32 shrink-0"
           min={1}
-          max={knownMaximum || MAX_CONTEXT_LENGTH}
+          max={maximum}
           step={1}
           value={value ?? ''}
           placeholder={knownMaximum ? String(knownMaximum) : ''}
@@ -59,17 +69,37 @@ function ContextInput({ value, onChange, error, modelMaximum }: ContextInputProp
   );
 }
 
-export default function ContextLengthField({ modelMaximum }: { modelMaximum?: number }) {
+export default function ContextLengthField({
+  modelMaximum,
+  extensionMaximum,
+}: {
+  modelMaximum?: number;
+  extensionMaximum?: number;
+}) {
   const { t } = useI18n();
-  const maximum =
+  const native =
     Number.isSafeInteger(modelMaximum) && modelMaximum! > 0
       ? Math.min(modelMaximum!, MAX_CONTEXT_LENGTH)
       : undefined;
+  const extended =
+    native && Number.isSafeInteger(extensionMaximum) && extensionMaximum! > native
+      ? Math.min(extensionMaximum!, MAX_CONTEXT_LENGTH)
+      : undefined;
+  const maximum = extended || native;
   return (
     <FormField
       name="context_length"
       label={t('launchModel.contextLength')}
-      tooltip={t('launchModel.contextLengthTip')}
+      tooltip={
+        extended && native
+          ? t('launchModel.contextLengthYarn', {
+              native: native.toLocaleString(),
+              max: extended.toLocaleString(),
+            })
+          : native
+            ? t('launchModel.contextLengthNative', { native: native.toLocaleString() })
+            : t('launchModel.contextLengthTip')
+      }
       rules={[
         {
           validator: (value) =>
@@ -81,7 +111,7 @@ export default function ContextLengthField({ modelMaximum }: { modelMaximum?: nu
         },
       ]}
     >
-      <ContextInput modelMaximum={maximum} />
+      <ContextInput modelMaximum={native} extensionMaximum={extended} />
     </FormField>
   );
 }

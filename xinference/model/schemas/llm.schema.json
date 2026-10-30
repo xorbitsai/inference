@@ -163,6 +163,26 @@
           "type": "integer",
           "minimum": 1
         },
+        "context_length_extension": {
+          "type": "object",
+          "properties": {
+            "max_context_length": { "type": "integer", "minimum": 1 },
+            "engines": {
+              "type": "array",
+              "items": { "enum": ["vllm", "sglang"] },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "rope_parameters": { "type": "object" },
+            "rope_parameters_path": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            }
+          },
+          "required": ["max_context_length", "engines", "rope_parameters", "rope_parameters_path"],
+          "additionalProperties": false
+        },
         "model_lang": {
           "type": "array",
           "items": {

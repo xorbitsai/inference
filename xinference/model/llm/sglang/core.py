@@ -1596,17 +1596,13 @@ class SGLANGChatModel(SGLANGModel):
     ) -> Union[bool, Tuple[bool, str]]:
         is_ling3 = llm_family.has_architecture("BailingMoeV3ForCausalLM")
         supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
-        if is_ling3:
+        # Offline ModelOpt checkpoints carry their own quantization config.
+        if is_ling3 or llm_family.has_architecture("Qwen3_5MoeForCausalLM"):
             supported_formats.append("fp4")
         if llm_spec.model_format not in supported_formats:
             return (
                 False,
                 f"SGLang chat engine supports {'/'.join(supported_formats)} formats only",
-            )
-        if llm_spec.model_format == "fp4" and not is_ling3:
-            return (
-                False,
-                "SGLang chat engine does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
             )
         if llm_spec.model_format == "pytorch":
             offline_ling_int4 = is_ling3 and quantization == "Int4"
@@ -1705,15 +1701,15 @@ class SGLANGVisionModel(SGLANGModel):
             return False, "SGLang vision engine requires CUDA GPUs"
         if not cls._is_linux():
             return False, "SGLang vision engine is only supported on Linux"
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
+        if llm_family.has_architecture(
+            "Qwen3_5ForConditionalGeneration", "Qwen3_5MoeForConditionalGeneration"
+        ):
+            supported_formats.append("fp4")
+        if llm_spec.model_format not in supported_formats:
             return (
                 False,
-                "SGLang vision engine supports pytorch/gptq/awq/fp8/bnb formats only",
-            )
-        if llm_spec.model_format == "fp4":
-            return (
-                False,
-                "SGLang vision engine does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
+                f"SGLang vision engine supports {'/'.join(supported_formats)} formats only",
             )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):

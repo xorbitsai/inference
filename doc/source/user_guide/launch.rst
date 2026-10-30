@@ -151,15 +151,31 @@ Unified LLM context length
 Set ``context_length`` in the launch API or use ``--context-length`` in the CLI
 to choose the input plus output token limit per request. In the Web UI, use the
 context slider or enter an exact integer; **Model default** clears the override.
-The slider's upper bound comes from the registered model. Context selections are
-preserved in configuration history and passed to the recommendation API.
+The slider starts at the model's native context length. For models and engines
+with a registered YaRN recipe, its upper bound includes the verified extension
+range. Hover over the question mark beside **Context length** to see the native
+length, extension limit, and whether automatic YaRN is supported by the selected
+engine. Context selections are preserved in configuration history and passed to
+the recommendation API.
 
 The launch layer maps this setting to vLLM's ``max_model_len``, SGLang,
 Transformers and MLX's ``context_length``, and
 llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine
 parameters still work; contradictory unified and native values are rejected.
-Omitting the setting preserves engine defaults. This setting does not extend the
-model's positional embeddings or enable context scaling.
+Omitting the setting preserves engine defaults.
+
+Qwen3.5, Qwen3.6, and Qwen3.8 have registered automatic YaRN recipes for vLLM and
+SGLang; Qwen3.8-Flash-Next currently supports vLLM only. Selecting a length within
+the native window leaves RoPE unchanged. Selecting a longer length enables YaRN
+at model launch, with the scaling factor rounded up from the requested length
+divided by the native length (for example, 524,288 tokens uses a factor of 2 and
+1,000,000 tokens uses a factor of 4 for a 262,144-token model). The required
+environment flag is applied only to the model process. The automatic limit is
+1,010,000 tokens for Qwen3.5, Qwen3.6, and Qwen3.8-Max, and 1,000,000 tokens for
+Qwen3.8-27B and Qwen3.8-Flash-Next. Explicit RoPE overrides and already-scaled
+checkpoint configurations take precedence. Models without a registered recipe
+retain their existing engine behavior. Changing the selected length requires
+restarting the model; the engine does not switch scaling per request.
 
 With an explicit context limit, MLX rejects prompts that leave no room for output
 and caps ``max_tokens`` to the remaining budget. Cached prompt tokens and
@@ -172,6 +188,14 @@ without starting generation.
     xinference launch --model-name qwen3.5 --model-engine vLLM \
       --size-in-billions 9 --model-format awq --quantization Int4 \
       --context-length 32768
+
+To launch Qwen3.8-27B with automatic YaRN extension to one million tokens:
+
+.. code-block:: bash
+
+    xinference launch --model-name qwen3.8 --model-engine vLLM \
+      --size-in-billions 27 --model-format pytorch --quantization none \
+      --context-length 1000000
 
 Recommendations for other model types
 ======================================

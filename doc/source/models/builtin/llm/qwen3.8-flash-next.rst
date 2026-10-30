@@ -45,3 +45,19 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name qwen3.8-Flash-Next --size-in-billions 125 --model-format fp8 --quantization ${quantization}
 
+
+Model Spec 3 (fp4, 125 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp4
+- **Model Size (in billions):** 125
+- **Quantizations:** FP4
+- **Engines**: vLLM
+- **Model ID:** nvidia/Qwen3.8-Flash-Next-NVFP4
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/nvidia/Qwen3.8-Flash-Next-NVFP4>`__, `ModelScope <https://modelscope.cn/models/nv-community/Qwen3.8-Flash-Next-NVFP4>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.8-Flash-Next --size-in-billions 125 --model-format fp4 --quantization ${quantization}
+

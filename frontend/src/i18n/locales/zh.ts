@@ -687,6 +687,10 @@ const zh = {
     replicaAliasDuplicate: '副本别名不能重复。',
     contextLengthTip: '每个请求的输入加输出 tokens 上限。留空使用模型默认值。',
     contextLengthDefault: '模型默认值',
+    contextLengthYarn:
+      '每个请求的输入加输出 tokens 上限。原生上下文为 {{native}} tokens，可扩展至 {{max}} tokens。选择超过原生长度的值，启动模型时会自动启用 YaRN。留空使用原生默认值。',
+    contextLengthNative:
+      '每个请求的输入加输出 tokens 上限。原生上下文为 {{native}} tokens。当前模型和引擎未声明自动 YaRN 扩展支持。留空使用模型默认值。',
     contextLengthUnknown: '最大上下文未知，请输入 token 上限。',
     contextLengthInvalid: '请输入 1 到 {{max}} 之间的整数。',
     advancedConfiguration: '高级配置',

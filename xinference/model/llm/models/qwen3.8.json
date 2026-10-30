@@ -3,6 +3,29 @@
     "model_name": "qwen3.8",
     "model_description": "Built on the architectural foundation of Qwen3.5, Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks. Qwen3.8-27B brings these advances to a compact, deployment-friendly dense model: a native vision-language model that understands images and videos, with flexible thinking control.",
     "context_length": 262144,
+    "context_length_extension": {
+      "max_context_length": 1000000,
+      "engines": [
+        "vllm",
+        "sglang"
+      ],
+      "rope_parameters": {
+        "mrope_interleaved": true,
+        "mrope_section": [
+          11,
+          11,
+          10
+        ],
+        "rope_type": "yarn",
+        "rope_theta": 10000000,
+        "partial_rotary_factor": 0.25,
+        "original_max_position_embeddings": 262144
+      },
+      "rope_parameters_path": [
+        "text_config",
+        "rope_parameters"
+      ]
+    },
     "model_lang": [
       "en",
       "zh"
@@ -301,6 +324,72 @@
                 "intermediate_size": 17408,
                 "num_hidden_layers": 64
               }
+            }
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 27,
+        "model_format": "fp4",
+        "model_src": {
+          "huggingface": {
+            "model_id": "nvidia/Qwen3.8-27B-NVFP4",
+            "quantizations": [
+              "FP4"
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "architecture_type": "hybrid_attention",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 64,
+              "full_attention_interval": 4,
+              "linear_num_key_heads": 16,
+              "linear_num_value_heads": 48,
+              "linear_key_head_dim": 128,
+              "linear_value_head_dim": 128,
+              "linear_conv_kernel_dim": 4,
+              "vision": {
+                "hidden_size": 1152,
+                "intermediate_size": 4304,
+                "num_attention_heads": 16,
+                "spatial_merge_size": 2
+              },
+              "config_source": "https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4/resolve/482ca0f3832238542f8f5295dde86b5f22711d80/config.json",
+              "config_sha256": "71fa01bb64de20971045cd82a82c0ebb25a54e1b0a3f09ef23cf5479e9c54df8"
+            }
+          },
+          "modelscope": {
+            "model_id": "nv-community/Qwen3.8-27B-NVFP4",
+            "quantizations": [
+              "FP4"
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "architecture_type": "hybrid_attention",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 64,
+              "full_attention_interval": 4,
+              "linear_num_key_heads": 16,
+              "linear_num_value_heads": 48,
+              "linear_key_head_dim": 128,
+              "linear_value_head_dim": 128,
+              "linear_conv_kernel_dim": 4,
+              "vision": {
+                "hidden_size": 1152,
+                "intermediate_size": 4304,
+                "num_attention_heads": 16,
+                "spatial_merge_size": 2
+              },
+              "config_source": "https://modelscope.cn/models/nv-community/Qwen3.8-27B-NVFP4/resolve/master/config.json",
+              "config_sha256": "71fa01bb64de20971045cd82a82c0ebb25a54e1b0a3f09ef23cf5479e9c54df8"
             }
           }
         }

@@ -762,3 +762,49 @@ it('accepts legacy recommendation engine context fields without copying them int
   assert.equal(patch.context_length, 32768);
   assert.ok(!('max_model_len' in patch));
 });
+
+it('keeps native defaults, exposes declared YaRN limits, and explains them in the question-mark tooltip', async () => {
+  await render({
+    ...model,
+    context_length: 262144,
+    context_length_extension: { max_context_length: 1000000, engines: ['vllm'] },
+  });
+  await act(async () => form.setFieldValue('model_engine', 'vLLM'));
+  const slider = document.querySelector('input[type="range"]') as HTMLInputElement;
+  assert.equal(slider.max, '1000000');
+  assert.equal(slider.value, '262144');
+  assert.equal(form.getFieldValue('context_length'), undefined);
+
+  const label = Array.from(document.querySelectorAll('label')).find((element) =>
+    element.textContent?.includes('Context length')
+  )!;
+  const trigger = label.querySelector('svg')!.parentElement!;
+  await act(async () => {
+    const event = new window.MouseEvent('pointermove', { bubbles: true });
+    Object.defineProperty(event, 'pointerType', { value: 'mouse' });
+    trigger.dispatchEvent(event);
+  });
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 400)));
+  const tip = document.querySelector('[role="tooltip"]');
+  assert.ok(tip, 'hovering the question mark should show a tooltip');
+  assert.match(tip.textContent || '', /Native context: 262,144/);
+  assert.match(tip.textContent || '', /extended maximum: 1,000,000/);
+  assert.match(tip.textContent || '', /automatically enables YaRN at model launch/);
+
+  await act(async () => form.setFieldValue('context_length', 1000000));
+  assert.equal(slider.value, '1000000');
+  const { transformFormToFetch } = require('../utils') as typeof import('../utils');
+  const payload = transformFormToFetch(form.getFieldsValue());
+  assert.equal(payload.context_length, 1000000);
+  assert.equal(payload.hf_overrides, undefined);
+
+  await act(async () => form.setFieldValue('model_engine', 'Transformers'));
+  assert.equal(slider.max, '262144');
+  await act(async () => {
+    document
+      .querySelector('form')!
+      .dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+  assert.match(document.body.textContent || '', /Enter a whole number between 1 and 262144/);
+  assert.match(document.querySelector('[role="tooltip"]')?.textContent || '', /not declared/);
+});

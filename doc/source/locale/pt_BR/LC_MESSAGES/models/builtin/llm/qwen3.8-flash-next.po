@@ -131,3 +131,24 @@ msgstr ""
 "<https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8>`__, `ModelScope "
 "<https://modelscope.cn/models/Qwen/Qwen3.8-Flash-Next-FP8>`__"
 
+
+msgid "Model Spec 3 (fp4, 125 Billion)"
+msgstr "Especificação do modelo 3 (fp4, 125 bilhões)"
+
+msgid "**Model Format:** fp4"
+msgstr "**Formato do modelo:** fp4"
+
+msgid "**Quantizations:** FP4"
+msgstr "**Quantizações:** FP4"
+
+msgid "**Model ID:** nvidia/Qwen3.8-Flash-Next-NVFP4"
+msgstr "**ID do modelo:** nvidia/Qwen3.8-Flash-Next-NVFP4"
+
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/nvidia/Qwen3.8-Flash-Next-"
+"NVFP4>`__, `ModelScope <https://modelscope.cn/models/nv-community/Qwen3.8-Flash-Next-"
+"NVFP4>`__"
+msgstr ""
+"**Repositórios de modelos**:  `Hugging Face <https://huggingface.co/nvidia/Qwen3.8"
+"-Flash-Next-NVFP4>`__, `ModelScope <https://modelscope.cn/models/nv-community/Qwen3.8"
+"-Flash-Next-NVFP4>`__"

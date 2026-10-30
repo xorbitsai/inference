@@ -5127,6 +5127,24 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 download_hub=download_hub,
                 enable_virtual_env=enable_virtual_env,
             )
+        if model_type.lower() == "llm" and model_engine:
+            from ..model.llm.context_length import configure_auto_yarn
+            from ..model.llm.llm_family import match_llm
+
+            family = match_llm(
+                model_name,
+                model_format,
+                model_size_in_billions,
+                quantization,
+                None if download_hub == "auto" else download_hub,
+            )
+            if family is not None:
+                _, context_env = configure_auto_yarn(
+                    family, model_engine, kwargs, model_path
+                )
+                if context_env:
+                    envs = dict(envs or {})
+                    envs.setdefault(context_env, "1")
         envs = _inject_jina_v3_allocator_env(model_type, model_name, envs, launch_args)
 
         try:
