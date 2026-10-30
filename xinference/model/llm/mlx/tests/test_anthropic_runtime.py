@@ -313,7 +313,7 @@ def test_non_reasoning_models_ignore_anthropic_thinking_budget(engine, markers):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("role", ["prefill", "decode"])
+@pytest.mark.parametrize("role", ["prefill", "decode", None])
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("control", ["json", "tool"])
 async def test_xavier_rejects_openai_constraints_before_handoff(role, stream, control):
@@ -326,7 +326,7 @@ async def test_xavier_rejects_openai_constraints_before_handoff(role, stream, co
         config["response_format"] = {"type": "json_object"}
     else:
         config["tool_choice"] = "required"
-    with pytest.raises(NotImplementedError, match="P/D models do not support"):
+    with pytest.raises(NotImplementedError, match="MLX Xavier models do not support"):
         await model.async_generate("prompt", config)
     model._xavier.fetch.assert_not_called()
     model._xavier.prefill.assert_not_called()

@@ -470,3 +470,7 @@ msgstr ""
 "反復プレフィックスの TTFT を受信側エンジンのローカル prefill と比較してください。短いプレフィックスでは CPU コピーと通信が "
 "prefill より高コストになる場合があります。キャッシュ token "
 "数と完了済みインポート数で再利用を確認してください。正しい応答だけではキャッシュ命中の証明になりません。"
+
+#: user_guide/vllm_enhancement.rst
+msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."
+msgstr "リクエストには、デプロイ内のすべてのエンジンが対応するオプションを使用してください。TRT-LLM はツール、``response_format``、対数確率、``echo``、``n>1`` を拒否します。MLX Xavier は構造化された ``response_format``、ツール選択の強制、思考予算を拒否します。これらを使用すると、リクエストの成否が処理するレプリカに依存する場合があります。"

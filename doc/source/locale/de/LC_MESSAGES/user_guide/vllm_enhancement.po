@@ -521,3 +521,7 @@ msgstr ""
 "Netzwerktransfers teurer sein als Prefill. Belegen Sie die Wiederverwendung "
 "mit zwischengespeicherten Tokens und abgeschlossenen Importen; korrekte "
 "Antworten allein beweisen keinen Cache-Treffer."
+
+#: user_guide/vllm_enhancement.rst
+msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."
+msgstr "Anfragen müssen Optionen verwenden, die alle Engines der Bereitstellung unterstützen. TRT-LLM lehnt Tools, ``response_format``, Log-Wahrscheinlichkeiten, ``echo`` und ``n>1`` ab. MLX Xavier lehnt strukturierte ``response_format``-Ausgaben, erzwungene Tool-Auswahl und Denkbudgets ab. Andernfalls kann der Erfolg davon abhängen, welches Replikat die Anfrage erhält."

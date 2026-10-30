@@ -519,3 +519,39 @@ def test_shared_prefix_save_avoids_discarded_native_cpu_copies(
             torch.equal(page, native[slot].view(torch.uint8).reshape(-1))
             for page, slot in zip(published[0][1], slots)
         )
+
+
+@pytest.mark.parametrize("oom", [False, True])
+def test_shared_prefix_publication_bounds_bytes_and_contains_pack_failure(
+    connector, monkeypatch, oom
+):
+    from ...xavier.backends.torch import prefix
+    from .. import cross_engine
+
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 20, 32, 128, 64, "bfloat16"
+    )
+    worker = connector.XavierConnectorWorker.__new__(connector.XavierConnectorWorker)
+    worker.contract = contract
+    worker.pool = torch.zeros(3)
+    keys = [f"{i:064x}" for i in range(3)]
+    worker._metadata = connector.XavierMetadata(saves=list(zip(keys, range(3))))
+    published, batches = [], []
+    worker.client = SimpleNamespace(
+        config={"shared_prefix": True},
+        namespace=contract.fingerprint,
+        rpc=lambda *args: published.append(args),
+    )
+    monkeypatch.setattr(cross_engine, "canonical_trt_views", lambda *args: {})
+
+    def pack(views, slots, c):
+        batches.append(slots)
+        assert len(slots) * c.num_layers * c.layer_nbytes <= 32 * 1024**2
+        if oom:
+            raise torch.cuda.OutOfMemoryError("snapshot allocation failed")
+        return [b"page"] * len(slots)
+
+    monkeypatch.setattr(prefix, "pack_pages", pack)
+    worker.wait_for_save(SimpleNamespace(synchronize=lambda: None))
+    assert batches == ([[0]] if oom else [[0], [1], [2]])
+    assert len(published) == (0 if oom else 3)

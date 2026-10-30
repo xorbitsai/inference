@@ -1391,3 +1391,26 @@ async def test_cross_engine_ordinary_replicas_use_shared_canonical_store(
     await supervisor.terminate_model("pd")
     assert destroy.await_count == 1
     assert not supervisor._xavier_cache_mapping
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("other", ["SGLang", "TRT-LLM", "MLX"])
+async def test_lmcache_rejects_mixed_ordinary_engines_before_side_effects(
+    launch_runtime, lmcache_launch_options, other
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["enable_xavier"] = True
+    for cfg, engine in zip(kwargs["replica_config"], ("vLLM", other)):
+        cfg.role = "hybrid"
+        cfg.model_engine = engine
+    with pytest.raises(ValueError, match="LMCache backend requires"):
+        await supervisor.launch_builtin_model(
+            **kwargs,
+            xavier_cache_backend="lmcache",
+            xavier_cache_backend_config=lmcache_launch_options,
+        )
+    assert not actors
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+        worker.launch_rank0_model.assert_not_awaited()

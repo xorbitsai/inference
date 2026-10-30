@@ -48,26 +48,40 @@ def test_native_vllm_and_trt_pages_share_bit_exact_canonical_bytes(dtype):
     from ...trt_llm.cross_engine import canonical_trt_views
 
     c = replace(contract(), logical_dtype=dtype)
+    # Every physical coordinate, including the layer, has distinct raw bits.
+    bits = torch.arange(4 * 2 * 2 * 64 * 2 * 8, dtype=torch.int32).to(torch.int16)
+    bits = bits.reshape(4, 2, 2, 64, 2, 8)
     source = {
-        f"model.layers.{i}.self_attn.attn": torch.arange(
-            4 * 2 * 64 * 2 * 8, dtype=torch.int32
-        )
-        .to(torch.int16)
+        f"model.layers.{i}.self_attn.attn": bits[:, i]
+        .contiguous()
         .view(getattr(torch, dtype))
-        .reshape(4, 2, 64, 2, 8)
         for i in range(2)
     }
     views = canonical_vllm_views(source, 4, c)
     pages = pack_pages(views, [2, 0], c)
+    assert pages == [bits[slot].numpy().tobytes() for slot in (2, 0)]
     # TRT's adapter supports BF16; the wire bytes themselves preserve both types.
     trt_contract = replace(c, logical_dtype="bfloat16")
     target = torch.zeros(4, 2, 2, 2 * 64 * 8, dtype=torch.bfloat16)
     trt_views = canonical_trt_views(target, trt_contract)
     unpack_pages(trt_views, [1, 3], pages, trt_contract)
+    # Check native HND memory directly, independently of the TRT adapter views.
+    for src, dst in ((2, 1), (0, 3)):
+        for layer in range(c.num_layers):
+            for kv in (0, 1):
+                expected = (
+                    bits[src, layer, kv].permute(1, 0, 2).contiguous().reshape(-1)
+                )
+                assert torch.equal(target[dst, layer, kv].view(torch.int16), expected)
     assert pack_pages(trt_views, [1, 3], trt_contract) == pages
     restored = {name: torch.zeros_like(cache) for name, cache in source.items()}
     output = canonical_vllm_views(restored, 4, c)
     unpack_pages(output, [0, 2], pages, c)
+    for name, cache in restored.items():
+        for src, dst in ((2, 0), (0, 2)):
+            assert torch.equal(
+                cache[dst].view(torch.int16), source[name][src].view(torch.int16)
+            )
     assert pack_pages(output, [0, 2], c) == pages
     for cache in output.values():
         assert torch.count_nonzero(cache[1]) == 0

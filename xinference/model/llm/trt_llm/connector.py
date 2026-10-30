@@ -430,34 +430,43 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                 # This cancellation must not escape TRT's batch-wide callback.
                 continue
             state.registered = bool(blocks)
-        for offset in range(0, len(metadata.saves), 128):
-            batch = metadata.saves[offset : offset + 128]
+        if not metadata.saves:
+            return
+        shared_prefix = self.client.config.get("shared_prefix")
+        page_bytes = self.contract.num_layers * self.contract.layer_nbytes
+        batch_size = (
+            max(1, min(128, 32 * 1024**2 // page_bytes)) if shared_prefix else 128
+        )
+        for offset in range(0, len(metadata.saves), batch_size):
+            batch = metadata.saves[offset : offset + batch_size]
             keys = [key for key, _ in batch]
-            if self.client.config.get("shared_prefix"):
-                from ..xavier.backends.torch.prefix import pack_pages
-                from .cross_engine import canonical_trt_views
-
-                pages = pack_pages(
-                    canonical_trt_views(self.pool, self.contract),
-                    [slot for _, slot in batch],
-                    self.contract,
-                )
-            else:
-                pages = [
-                    self.pool[slot]
-                    .detach()
-                    .cpu()
-                    .contiguous()
-                    .view(torch.uint8)
-                    .reshape(-1)
-                    .clone()
-                    for _, slot in batch
-                ]
             try:
+                if shared_prefix:
+                    from ..xavier.backends.torch.prefix import pack_pages
+                    from .cross_engine import canonical_trt_views
+
+                    pages = pack_pages(
+                        canonical_trt_views(self.pool, self.contract),
+                        [slot for _, slot in batch],
+                        self.contract,
+                    )
+                else:
+                    pages = [
+                        self.pool[slot]
+                        .detach()
+                        .cpu()
+                        .contiguous()
+                        .view(torch.uint8)
+                        .reshape(-1)
+                        .clone()
+                        for _, slot in batch
+                    ]
                 self.client.rpc("put", self.client.namespace, keys, pages)
             except Exception:
                 # Publishing is optional; failure leaves subsequent requests cold.
                 logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
+                if shared_prefix:
+                    break
 
     def get_finished(self, finished_gen_req_ids, started_loading_req_ids):
         if not self.client.pd_gpu:

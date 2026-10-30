@@ -3,6 +3,7 @@
 """Ordinary vLLM requests exchanging canonical prefix pages with other engines."""
 
 import logging
+import time
 from dataclasses import dataclass, field
 
 import xoscar as xo
@@ -14,6 +15,8 @@ from ...xavier.prefix import prefix_keys
 from .v1_connector import XavierConnector, XavierConnectorMetadata, XavierKVSchema
 
 logger = logging.getLogger(__name__)
+PREFIX_RPC_TIMEOUT = 1.0
+PREFIX_RPC_BACKOFF = 5.0
 
 
 @dataclass
@@ -30,12 +33,16 @@ class PrefixConnector(XavierConnector):
                 "Cross-engine prefix caching requires one full-attention KV group"
             )
         self._prefix_ref = None
+        self._prefix_retry_at = 0.0
         self._prefix_pending = {}
         self._prefix_allocated = {}
         self._prefix_views = {}
 
     async def _prefix_rpc(self, method, *args):
         import asyncio
+
+        if time.monotonic() < self._prefix_retry_at:
+            raise ConnectionError("Xavier prefix storage is in backoff")
 
         async def invoke():
             if self._prefix_ref is None:
@@ -46,7 +53,12 @@ class PrefixConnector(XavierConnector):
                 await self._prefix_ref.configure(self.contract.to_dict())
             return await getattr(self._prefix_ref, method)(*args)
 
-        return await asyncio.wait_for(invoke(), timeout=30)
+        try:
+            return await asyncio.wait_for(invoke(), timeout=PREFIX_RPC_TIMEOUT)
+        except Exception:
+            self._prefix_ref = None
+            self._prefix_retry_at = time.monotonic() + PREFIX_RPC_BACKOFF
+            raise
 
     def _rpc(self, method, *args):
         return self._call(self._prefix_rpc(method, *args))
@@ -76,16 +88,22 @@ class PrefixConnector(XavierConnector):
 
     def get_num_new_matched_tokens(self, request, num_computed_tokens):
         rid = request.request_id
-        self._request_cache_salts[rid] = getattr(request, "cache_salt", None)
-        self._prefix_pending.pop(rid, None)
+        salt = getattr(request, "cache_salt", None)
+        previous_salt = self._request_cache_salts.get(rid)
+        self._request_cache_salts[rid] = salt
         if num_computed_tokens % self._block_size:
+            self._prefix_pending.pop(rid, None)
             return 0, False
+        start = num_computed_tokens // self._block_size
+        pending = self._prefix_pending.get(rid)
+        if pending is not None and pending[0] == start and previous_salt == salt:
+            return len(pending[1]) * self._block_size, False
+        self._prefix_pending.pop(rid, None)
         keys = prefix_keys(
             request.prompt_token_ids[:-1],
             self._block_size,
             getattr(request, "cache_salt", None),
         )
-        start = num_computed_tokens // self._block_size
         page_bytes = self.contract.num_layers * self.contract.layer_nbytes
         pending_bytes = sum(
             len(pages) * page_bytes
@@ -104,7 +122,7 @@ class PrefixConnector(XavierConnector):
                     self.contract.fingerprint,
                     keys[start : start + min(available, 4096)],
                 )
-                if keys[start:]
+                if available and keys[start:]
                 else []
             )
             if any(type(p) is not bytes or len(p) != page_bytes for p in pages):
@@ -158,15 +176,25 @@ class PrefixConnector(XavierConnector):
         for request in self._get_connector_metadata().store_requests:
             page_bytes = self.contract.num_layers * self.contract.layer_nbytes
             batch_size = max(1, min(128, 32 * 1024**2 // page_bytes))
-            for start in range(0, len(request.block_ids), batch_size):
-                slots = request.block_ids[start : start + batch_size]
-                keys = [
-                    f"{key:064x}"
-                    for key in request.block_hashes[start : start + batch_size]
-                ]
+            count = min(
+                len(request.block_ids),
+                self._xavier_config["capacity_bytes"] // page_bytes,
+                4096,
+            )
+            keys = [f"{key:064x}" for key in request.block_hashes[:count]]
+            try:
+                start = self._rpc("exists", self.contract.fingerprint, keys)
+            except Exception:
+                logger.warning("Xavier prefix publication failed", exc_info=True)
+                return
+            for offset in range(start, count, batch_size):
+                end = min(offset + batch_size, count)
+                slots = request.block_ids[offset:end]
                 try:
                     pages = pack_pages(self._prefix_views, slots, self.contract)
-                    self._rpc("put", self.contract.fingerprint, keys, pages)
+                    self._rpc(
+                        "put", self.contract.fingerprint, keys[:end], pages, offset
+                    )
                 except Exception:
                     logger.warning("Xavier prefix publication failed", exc_info=True)
                     break

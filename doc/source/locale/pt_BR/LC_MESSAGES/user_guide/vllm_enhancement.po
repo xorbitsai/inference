@@ -512,3 +512,7 @@ msgstr ""
 "custar mais que o prefill. Confirme a reutilização por tokens em cache e "
 "importações concluídas; uma resposta correta não comprova um acerto de "
 "cache."
+
+#: user_guide/vllm_enhancement.rst
+msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."
+msgstr "As solicitações devem usar opções compatíveis com todos os mecanismos da implantação. O TRT-LLM rejeita ferramentas, ``response_format``, probabilidades logarítmicas, ``echo`` e ``n>1``. O MLX Xavier rejeita ``response_format`` estruturado, escolha forçada de ferramentas e orçamentos de raciocínio. Caso contrário, o sucesso pode depender da réplica que receber a solicitação."

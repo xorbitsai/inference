@@ -203,7 +203,9 @@ class XavierHiCacheStorage(HiCacheStorage):
             page.dtype != getattr(torch, self._contract.logical_dtype)
             for page in values
         ):
-            raise ValueError("Xavier requires FP16 host pages")
+            raise ValueError(
+                f"Xavier requires {self._contract.logical_dtype} host pages"
+            )
         pages = [
             page.detach().cpu().contiguous().view(torch.uint8).reshape(-1).clone()
             for page in values

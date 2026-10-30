@@ -513,3 +513,7 @@ msgstr ""
 "ricevente. Per prefissi brevi, copie CPU e rete possono costare più del "
 "prefill. Verificare i token in cache e le importazioni completate per "
 "dimostrare il riuso; una risposta corretta non dimostra un hit della cache."
+
+#: user_guide/vllm_enhancement.rst
+msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."
+msgstr "Le richieste devono usare opzioni supportate da tutti i motori della distribuzione. TRT-LLM rifiuta strumenti, ``response_format``, probabilità logaritmiche, ``echo`` e ``n>1``. MLX Xavier rifiuta ``response_format`` strutturato, la scelta forzata degli strumenti e i budget di ragionamento. Altrimenti, il successo può dipendere dalla replica che riceve la richiesta."

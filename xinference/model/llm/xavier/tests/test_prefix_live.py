@@ -37,15 +37,29 @@ tokens = tokenizer.encode(prompt, add_special_tokens=False)
 if mode != "public":
     tokens = tokens[:1025]
 if engine_name == "vllm":
+    import os
+    # Trusted test-only callbacks instrument packing inside the worker process.
+    os.environ["VLLM_ALLOW_INSECURE_SERIALIZATION"] = "1"
     from vllm import LLM, SamplingParams
     from vllm.config import KVTransferConfig
     from xinference.model.llm.vllm.xavier.cross_engine import configure_cross_engine
     config = {"max_model_len": 2048, "gpu_memory_utilization": 0.25,
-              "enforce_eager": True, "max_num_seqs": 8}
+              "enforce_eager": True, "max_num_seqs": 8, "max_num_batched_tokens": 256}
     configure_cross_engine(model_path, config, cache)
     engine = LLM(model=model_path, **config, kv_transfer_config=KVTransferConfig(
         kv_connector="PrefixConnector", kv_connector_module_path="xinference.model.llm.vllm.xavier.prefix",
         kv_role="kv_both", kv_connector_extra_config={"xavier_config": cache}))
+    def count_packing(worker):
+        from xinference.model.llm.vllm.xavier import prefix
+        pack = prefix.pack_pages
+        prefix._test_packed_pages = 0
+        def counted(views, slots, contract):
+            prefix._test_packed_pages += len(slots)
+            return pack(views, slots, contract)
+        prefix.pack_pages = counted
+    def packed_pages(worker):
+        from xinference.model.llm.vllm.xavier import prefix
+        return prefix._test_packed_pages
     def generate(salt):
         output = engine.generate({"prompt_token_ids": tokens, "cache_salt": salt},
                                  SamplingParams(temperature=0, max_tokens=16, ignore_eos=True), use_tqdm=False)[0]
@@ -84,6 +98,8 @@ async def stats():
     import xoscar as xo
     return await (await xo.actor_ref(address=address, uid="canonical-prefix")).get_stats()
 try:
+    if engine_name == "vllm":
+        engine.collective_rpc(count_packing, timeout=10)
     before = asyncio.run(stats())
     if mode == "public":
         before_target = before
@@ -101,6 +117,14 @@ try:
     # Allow SGLang's background publication to acknowledge all complete pages.
     time.sleep(1)
     after = asyncio.run(stats())
+    if engine_name == "vllm":
+        packed_before = engine.collective_rpc(packed_pages, timeout=10)
+        repeated = generate(None if mode == "public" else "customer-a")
+        assert repeated["text"] == target["text"]
+        assert engine.collective_rpc(packed_pages, timeout=10) == packed_before, "full hit re-copied GPU pages"
+        expected = (3 if mode != "public" else 1) * ((len(tokens) - 1) // 64)
+        assert sum(packed_before) <= expected, "chunked prefill re-copied earlier pages"
+        print("SHARED_PREFIX_PACKED_PAGES=" + json.dumps(packed_before))
     print("SHARED_PREFIX_RESULT=" + json.dumps(dict(engine=engine_name, baseline=baseline, target=target,
           other=other, before=before, before_target=before_target, after_target=after_target,
           after_other=after_other, after=after)))
@@ -149,30 +173,29 @@ async def test_independent_requests_share_prefix_between_engines(
         results = []
         try:
             for name in (producer, consumer):
-                process = await asyncio.create_subprocess_exec(
-                    os.environ[
-                        f"XINFERENCE_TEST_{name.upper().replace('-', '_')}_PYTHON"
-                    ],
-                    "-c",
-                    SCRIPT,
-                    name,
-                    os.environ["XINFERENCE_TEST_PD_MODEL_PATH"],
-                    actor.address,
-                    "bfloat16" if "trt-llm" in (producer, consumer) else "float16",
-                    "public" if "trt-llm" in (producer, consumer) else "salted",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.STDOUT,
-                )
-                try:
-                    output, _ = await asyncio.wait_for(
-                        process.communicate(), timeout=600
+                log_path = tmp_path / f"{name}.log"
+                with log_path.open("wb") as output:
+                    process = await asyncio.create_subprocess_exec(
+                        os.environ[
+                            f"XINFERENCE_TEST_{name.upper().replace('-', '_')}_PYTHON"
+                        ],
+                        "-c",
+                        SCRIPT,
+                        name,
+                        os.environ["XINFERENCE_TEST_PD_MODEL_PATH"],
+                        actor.address,
+                        "bfloat16" if "trt-llm" in (producer, consumer) else "float16",
+                        "public" if "trt-llm" in (producer, consumer) else "salted",
+                        stdout=output,
+                        stderr=asyncio.subprocess.STDOUT,
                     )
-                finally:
-                    if process.returncode is None:
-                        process.kill()
-                        await process.wait()
-                log = output.decode(errors="replace")
-                (tmp_path / f"{name}.log").write_text(log)
+                    try:
+                        await asyncio.wait_for(process.wait(), timeout=600)
+                    finally:
+                        if process.returncode is None:
+                            process.kill()
+                            await process.wait()
+                log = log_path.read_text(errors="replace")
                 assert process.returncode == 0, log[-12000:]
                 result = json.loads(
                     next(

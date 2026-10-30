@@ -178,6 +178,8 @@ Xavier stores immutable, complete 64-token pages in a supervisor-owned CPU cache
 
 This mode uses the native backend. LMCache/Mooncake storage and retained GPU history are not supported for cross-engine sharing. Quantization, sharded KV, LoRA, speculation, multimodal input and hybrid attention remain unsupported. TRT-LLM retains its existing ``cache_salt`` restriction; vLLM, SGLang and MLX preserve request-scoped isolation.
 
+Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request.
+
 Measure repeated-prefix TTFT against local prefill on the receiving engine. CPU copies and network transfer can exceed prefill cost for short prefixes. Check cached-token usage and completed import counters to establish reuse; response correctness alone does not prove a cache hit.
 
 Storage backends

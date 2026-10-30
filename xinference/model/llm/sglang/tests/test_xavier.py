@@ -542,3 +542,24 @@ def test_shared_prefix_rpc_failure_returns_misses_and_next_read_recovers(
             assert torch.count_nonzero(adapter.mem_pool_host.data[:, :, :8]) == 0
     finally:
         adapter.close()
+
+
+@pytest.mark.parametrize(
+    "dtype,other", [("float16", "bfloat16"), ("bfloat16", "float16")]
+)
+def test_host_page_dtype_error_names_contract_dtype(storage_class, dtype, other):
+    c = KVCacheContract("a" * 64, "b" * 64, "c" * 64, "d" * 64, 3, 2, 4, 4, dtype)
+    adapter = storage_class(
+        SimpleNamespace(
+            tp_size=1,
+            pp_size=1,
+            attn_cp_size=1,
+            is_mla_model=False,
+            extra_config={"contract": c.to_dict(), "shared_prefix": True},
+        )
+    )
+    try:
+        with pytest.raises(ValueError, match=f"requires {dtype} host pages"):
+            adapter.batch_set(["key"], [torch.zeros(1, dtype=getattr(torch, other))])
+    finally:
+        adapter.close()

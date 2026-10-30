@@ -467,3 +467,7 @@ msgstr ""
 "반복 접두사의 TTFT를 수신 엔진의 로컬 prefill과 비교하세요. 짧은 접두사에서는 CPU 복사 및 네트워크 전송 비용이 "
 "prefill보다 클 수 있습니다. 캐시 token 사용량과 완료된 가져오기 횟수로 재사용을 확인하세요. 올바른 응답만으로 캐시 적중을 "
 "증명할 수는 없습니다."
+
+#: user_guide/vllm_enhancement.rst
+msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."
+msgstr "요청은 배포의 모든 엔진이 지원하는 옵션을 사용해야 합니다. TRT-LLM은 도구, ``response_format``, 로그 확률, ``echo``, ``n>1`` 을 거부합니다. MLX Xavier는 구조화된 ``response_format``, 강제 도구 선택 및 사고 예산을 거부합니다. 그렇지 않으면 요청을 받는 복제본에 따라 성공 여부가 달라질 수 있습니다."

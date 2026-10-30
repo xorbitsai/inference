@@ -452,3 +452,7 @@ msgid ""
 msgstr ""
 "针对重复前缀，将 TTFT 与接收引擎的本地 prefill 比较。对于较短前缀，CPU 复制和网络传输开销可能超过 prefill。通过缓存 "
 "token 用量和已完成的导入计数确认复用；响应正确本身不能证明缓存命中。"
+
+#: user_guide/vllm_enhancement.rst
+msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."
+msgstr "请求必须使用部署中所有引擎均支持的选项。TRT-LLM 不支持工具、``response_format``、对数概率、``echo`` 和 ``n>1``。MLX Xavier 不支持结构化 ``response_format``、强制工具选择和思考预算。否则，请求能否成功可能取决于被路由到的副本。"

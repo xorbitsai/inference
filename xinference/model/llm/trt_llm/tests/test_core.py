@@ -803,3 +803,12 @@ async def test_other_async_engines_keep_existing_request_id_admission(
     call = getattr(legacy, "async_" + method).await_args
     assert call.kwargs["request_id"] == "actor-generated"
     assert call.args[1] == {"request_id": "config-id"}
+
+
+def test_trt_rejects_multiple_workers_before_constructing_engine(model, monkeypatch):
+    engine = Mock(side_effect=AssertionError("engine must not be constructed"))
+    monkeypatch.setattr(sys.modules["tensorrt_llm"], "LLM", engine)
+    model._model_config["n_worker"] = 2
+    with pytest.raises(ValueError, match="one worker per replica"):
+        model.load()
+    engine.assert_not_called()
