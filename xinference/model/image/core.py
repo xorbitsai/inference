@@ -116,10 +116,43 @@ def generate_image_description(
     return res
 
 
+def _is_ocr_gguf(
+    model_format: Optional[str],
+    gguf_quantization: Optional[str] = None,
+    gguf_model_path: Optional[str] = None,
+) -> bool:
+    return model_format == "ggufv2" or bool(gguf_quantization or gguf_model_path)
+
+
+def _default_ocr_engine(model_name: str) -> str:
+    from .ocr.ocr_family import OCR_ENGINES
+
+    # Default to transformers, but fall back to the model's sole engine
+    # for models that don't support transformers (e.g. DeepDoc).
+    available_engines = OCR_ENGINES.get(model_name, {})
+    if "transformers" in available_engines or not available_engines:
+        return "transformers"
+    return next(iter(available_engines))
+
+
 def resolve_image_model_engine(
-    model_name: str, model_engine: Optional[str] = None
+    model_name: str,
+    model_engine: Optional[str] = None,
+    model_format: Optional[str] = None,
+    gguf_quantization: Optional[str] = None,
+    gguf_model_path: Optional[str] = None,
 ) -> Optional[str]:
     from .engine_family import IMAGE_ENGINES
+    from .ocr.ocr_family import OCR_ENGINES
+
+    if model_name in OCR_ENGINES:
+        if model_engine:
+            return model_engine
+        # Pick the engine create_image_model_instance would default to, so
+        # the launch's virtualenv markers (`#engine# == ...`) match it.
+        if _is_ocr_gguf(model_format, gguf_quantization, gguf_model_path):
+            return "llama.cpp"
+        return _default_ocr_engine(model_name)
 
     available_engines = IMAGE_ENGINES.get(model_name)
     if not available_engines:
@@ -203,21 +236,16 @@ def create_ocr_model_instance(
     if model_engine is None:
         from .ocr.ocr_family import OCR_ENGINES
 
-        # Default to transformers, but fall back to the model's sole engine
-        # for models that don't support transformers (e.g. DeepDoc).
+        model_engine = _default_ocr_engine(model_spec.model_name)
         available_engines = OCR_ENGINES.get(model_spec.model_name, {})
-        if "transformers" in available_engines or not available_engines:
-            model_engine = "transformers"
-        else:
-            model_engine = next(iter(available_engines))
-            if len(available_engines) > 1:
-                logger.warning(
-                    "Multiple engines available for model %s (%s); "
-                    "defaulting to %s. Pass model_engine to choose explicitly.",
-                    model_spec.model_name,
-                    ", ".join(available_engines),
-                    model_engine,
-                )
+        if model_engine != "transformers" and len(available_engines) > 1:
+            logger.warning(
+                "Multiple engines available for model %s (%s); "
+                "defaulting to %s. Pass model_engine to choose explicitly.",
+                model_spec.model_name,
+                ", ".join(available_engines),
+                model_engine,
+            )
 
     model_format = getattr(model_spec, "model_format", None)
     quantization = getattr(model_spec, "quantization", None)
@@ -314,9 +342,7 @@ def create_image_model_instance(
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
-        ocr_gguf = model_format == "ggufv2" or bool(
-            gguf_quantization or gguf_model_path
-        )
+        ocr_gguf = _is_ocr_gguf(model_format, gguf_quantization, gguf_model_path)
         ocr_engine = model_engine or ("llama.cpp" if ocr_gguf else "transformers")
         model_spec = _select_ocr_model_family(
             model_name,

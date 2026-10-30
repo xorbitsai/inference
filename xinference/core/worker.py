@@ -4964,7 +4964,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         elif model_type.lower() == "image":
             from ..model.image.core import resolve_image_model_engine
 
-            model_engine = resolve_image_model_engine(model_name, model_engine)
+            model_engine = resolve_image_model_engine(
+                model_name,
+                model_engine,
+                model_format=model_format,
+                gguf_quantization=kwargs.get("gguf_quantization"),
+                gguf_model_path=kwargs.get("gguf_model_path"),
+            )
         elif model_type.lower() == "video":
             from ..model.video.core import resolve_video_model_name_and_engine
 
@@ -5100,7 +5106,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         elif model_type.lower() == "image":
             from ..model.image.core import resolve_image_model_engine
 
-            model_engine = resolve_image_model_engine(model_name, model_engine)
+            model_engine = resolve_image_model_engine(
+                model_name,
+                model_engine,
+                model_format=model_format,
+                gguf_quantization=kwargs.get("gguf_quantization"),
+                gguf_model_path=kwargs.get("gguf_model_path"),
+            )
             launch_args["model_engine"] = model_engine
         elif model_type.lower() == "video":
             from ..model.video.core import resolve_video_model_name_and_engine

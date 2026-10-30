@@ -1248,6 +1248,100 @@ async def test_launch_image_resolves_default_engine_before_virtualenv(monkeypatc
     assert captured["model_engine"] == "transformers"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "ocr_engines, model_format, model_engine, launch_kwargs, expected",
+    [
+        ({"transformers": [], "vllm": []}, None, None, {}, "transformers"),
+        ({"transformers": [], "vllm": []}, "pytorch", "vllm", {}, "vllm"),
+        ({"transformers": [], "llama.cpp": []}, "ggufv2", None, {}, "llama.cpp"),
+        (
+            {"transformers": [], "llama.cpp": []},
+            None,
+            None,
+            {"gguf_quantization": "Q4_K_M"},
+            "llama.cpp",
+        ),
+        ({"deepdoc": []}, None, None, {}, "deepdoc"),
+    ],
+)
+async def test_launch_ocr_resolves_default_engine_before_virtualenv(
+    monkeypatch, ocr_engines, model_format, model_engine, launch_kwargs, expected
+):
+    import inspect
+
+    from ...model.image.ocr.ocr_family import OCR_ENGINES
+
+    monkeypatch.setitem(OCR_ENGINES, "test-ocr", ocr_engines)
+    captured = {}
+
+    class EarlyLaunchStop(Exception):
+        pass
+
+    def capture_launch_args(model_type, model_name, envs, launch_args):
+        captured["model_engine"] = launch_args["model_engine"]
+        raise EarlyLaunchStop
+
+    monkeypatch.setattr(
+        "xinference.core.worker._inject_jina_v3_allocator_env", capture_launch_args
+    )
+    launch_builtin_model = inspect.unwrap(WorkerActor.launch_builtin_model)
+
+    with pytest.raises(EarlyLaunchStop):
+        await launch_builtin_model(
+            SimpleNamespace(),
+            model_uid="test-ocr-0",
+            model_name="test-ocr",
+            model_size_in_billions=None,
+            model_format=model_format,
+            quantization=None,
+            model_engine=model_engine,
+            model_type="image",
+            **launch_kwargs,
+        )
+
+    assert captured["model_engine"] == expected
+
+
+@pytest.mark.asyncio
+async def test_cache_ocr_model_resolves_default_engine(monkeypatch):
+    import inspect
+
+    from ...model.image.ocr.ocr_family import OCR_ENGINES
+
+    monkeypatch.setitem(OCR_ENGINES, "test-ocr", {"transformers": [], "llama.cpp": []})
+    captured = {}
+
+    class EarlyCacheStop(Exception):
+        pass
+
+    def capture_payload(payload):
+        captured.update(payload)
+        raise EarlyCacheStop
+
+    monkeypatch.setattr("xinference.core.worker.DownloadInfo", capture_payload)
+    cache_builtin_model = inspect.unwrap(WorkerActor.cache_builtin_model)
+    worker = SimpleNamespace(
+        _check_model_is_valid=lambda *_args: None,
+        _download_artifact_cleanup_lock=asyncio.Lock(),
+        _cache_uid_to_download_info={},
+    )
+
+    with pytest.raises(EarlyCacheStop):
+        await cache_builtin_model(
+            worker,
+            cache_uid="test-ocr-cache",
+            model_name="test-ocr",
+            model_size_in_billions=None,
+            model_format="ggufv2",
+            quantization="Q4_K_M",
+            model_engine=None,
+            model_type="image",
+        )
+
+    assert captured["model_engine"] == "llama.cpp"
+
+
 def test_jina_v3_allocator_env_preserves_user_configuration():
     launch_args = {"envs": None}
     user_envs = {"PYTORCH_CUDA_ALLOC_CONF": "max_split_size_mb:128"}
