@@ -109,15 +109,57 @@ export const transformObjToFormList = (obj: Record<string, any> = {}) => {
   }));
 };
 const legacyCopy = (value: string): boolean => {
+  const activeElement =
+    document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const activeInput =
+    activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement
+      ? activeElement
+      : null;
+  const inputSelection = activeInput
+    ? ([
+        activeInput.selectionStart,
+        activeInput.selectionEnd,
+        activeInput.selectionDirection,
+      ] as const)
+    : null;
+  const selection = document.getSelection();
+  const ranges: Range[] = [];
+  if (selection) {
+    for (let i = 0; i < selection.rangeCount; i++) {
+      ranges.push(selection.getRangeAt(i).cloneRange());
+    }
+  }
   const textarea = document.createElement('textarea');
   textarea.value = value;
-  document.body.appendChild(textarea);
-  textarea.select();
+  textarea.readOnly = true;
+  textarea.tabIndex = -1;
+  textarea.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+  // Keep the fallback inside the active modal so its focus trap cannot steal
+  // the selection before execCommand reads it.
+  const container =
+    activeElement?.closest('[role="dialog"], [role="alertdialog"], dialog') || document.body;
+  container.appendChild(textarea);
 
   try {
-    return document.execCommand('copy');
+    textarea.focus({ preventScroll: true });
+    textarea.select();
+    return typeof document.execCommand === 'function' && document.execCommand('copy');
+  } catch {
+    return false;
   } finally {
-    document.body.removeChild(textarea);
+    textarea.remove();
+    activeElement?.focus({ preventScroll: true });
+    if (selection) {
+      selection.removeAllRanges();
+      for (const range of ranges) selection.addRange(range);
+    }
+    if (activeInput && inputSelection && inputSelection[0] !== null && inputSelection[1] !== null) {
+      activeInput.setSelectionRange(
+        inputSelection[0],
+        inputSelection[1],
+        inputSelection[2] || undefined
+      );
+    }
   }
 };
 
@@ -125,7 +167,7 @@ export const copyToClipboard = async (value: string) => {
   if (!value) return;
 
   try {
-    if (navigator.clipboard) {
+    if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(value);
       toast.success('Copy successful!');
       return;
