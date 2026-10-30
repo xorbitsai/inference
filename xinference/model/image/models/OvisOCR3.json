@@ -1,0 +1,42 @@
+[
+  {
+    "version": 2,
+    "model_name": "OvisOCR3",
+    "model_family": "ocr",
+    "model_description": "OvisOCR3 is a compact 0.8B model for document parsing, general OCR, key information extraction, document figure captioning, and cross-page table reconstruction.",
+    "model_ability": ["ocr"],
+    "virtualenv": {
+      "packages": [
+        "transformers>=5.13.1,<6 ; #engine# == \"transformers\"",
+        "accelerate>=1.1.0,<2 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchvision# ; #engine# == \"transformers\"",
+        "vllm==0.22.1 ; #engine# == \"vllm\"",
+        "transformers>=5.13.1,<6 ; #engine# == \"vllm\"",
+        "sglang==0.5.13 ; #engine# == \"sglang\"",
+        "Pillow>=10.0.1,<=15.0",
+        "#system_numpy#"
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.22.1/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    },
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "ATH-MaaS/OvisOCR3",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "ATH-MaaS/OvisOCR3",
+            "model_revision": "master"
+          }
+        }
+      }
+    ]
+  }
+]
