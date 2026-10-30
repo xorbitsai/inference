@@ -126,11 +126,11 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name deepseek-r1-distill-llama --size-in-billions 8 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 8 (ggufv2, 1_5 Billion)
+Model Spec 8 (ggufv2, 8 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
-- **Model Size (in billions):** 1_5
+- **Model Size (in billions):** 8
 - **Quantizations:** Q2_K, Q2_K_L, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0, F16
 - **Engines**: vLLM, llama.cpp
 - **Model ID:** unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF
@@ -139,7 +139,7 @@ Model Spec 8 (ggufv2, 1_5 Billion)
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-engine ${engine} --model-name deepseek-r1-distill-llama --size-in-billions 1_5 --model-format ggufv2 --quantization ${quantization}
+   xinference launch --model-engine ${engine} --model-name deepseek-r1-distill-llama --size-in-billions 8 --model-format ggufv2 --quantization ${quantization}
 
 
 Model Spec 9 (awq, 70 Billion)
