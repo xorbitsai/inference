@@ -25,7 +25,7 @@ msgstr "视频"
 
 #: ../../source/models/model_abilities/video.rst:7
 msgid "Learn how to generate videos with Xinference."
-msgstr "学习如何使用 Xinference 生成视频"
+msgstr "了解如何使用 Xinference 生成视频。"
 
 #: ../../source/models/model_abilities/video.rst:11
 msgid "Introduction"
@@ -33,25 +33,25 @@ msgstr "介绍"
 
 #: ../../source/models/model_abilities/video.rst:14
 msgid "The Video API provides the ability to interact with videos:"
-msgstr "Video API 提供了和视频交互的方式："
+msgstr "Video API 提供以下视频生成功能："
 
 #: ../../source/models/model_abilities/video.rst:17
 msgid ""
 "The text-to-video endpoint create videos from scratch based on a text "
 "prompt."
-msgstr "Text-to-video 端点将一段文本提示词从头开始创建视频"
+msgstr "文生视频接口根据文本提示词从零生成视频。"
 
 #: ../../source/models/model_abilities/video.rst:18
 msgid ""
 "The image-to-video endpoint create videos from scratch based on an input "
 "image."
-msgstr "Image-to-video 端点将一张图片从头开始创建视频"
+msgstr "图生视频接口根据输入图像从零生成视频。"
 
 #: ../../source/models/model_abilities/video.rst:19
 msgid ""
 "The firstlastframe-to-video endpoint creates videos based on the "
 "transition between a first and a last frame."
-msgstr "firstlastframe-to-video 接口根据首帧和尾帧之间的过渡生成视频。"
+msgstr "首尾帧生视频接口根据首帧与尾帧之间的过渡生成视频。"
 
 #: ../../source/models/model_abilities/video.rst:39
 msgid "Supported models"
@@ -61,7 +61,7 @@ msgstr "支持的模型列表"
 msgid ""
 "The text-to-video API is supported with the following models in "
 "Xinference:"
-msgstr "Text-to-video API 在 Xinference 中支持以下模型："
+msgstr "Xinference 中的文生视频 API 支持以下模型："
 
 #: ../../source/models/model_abilities/video.rst:43
 msgid ":ref:`CogVideoX-2b <models_builtin_cogvideox-2b>`"
@@ -87,7 +87,7 @@ msgstr ""
 msgid ""
 "The image-to-video API is supported with the following models in "
 "Xinference:"
-msgstr "Image-to-video API 在 Xinference 中支持以下模型："
+msgstr "Xinference 中的图生视频 API 支持以下模型："
 
 #: ../../source/models/model_abilities/video.rst:51
 msgid ":ref:`Wan2.1-i2v-14B-480p <models_builtin_wan2.1-i2v-14b-480p>`"
@@ -101,7 +101,7 @@ msgstr ""
 msgid ""
 "The firstlastframe-to-video API is supported with the following models in"
 " Xinference:"
-msgstr "Xinference 中支持以下模型使用 firstlastframe-to-video 接口："
+msgstr "Xinference 中的首尾帧生视频 API 支持以下模型："
 
 #: ../../source/models/model_abilities/video.rst:56
 msgid ":ref:`Wan2.1-flf2v-14B-720p <models_builtin_wan2.1-flf2v-14b-720p>`"
@@ -119,7 +119,7 @@ msgstr "文生视频"
 msgid ""
 "You can try text-to-video API out either via cURL, or Xinference's python"
 " client:"
-msgstr "可以通过 cURL 或 Xinference 的方式尝试使用 text-to-video API"
+msgstr "可以通过 cURL 或 Xinference 的 Python 客户端调用文生视频 API："
 
 #: ../../source/models/model_abilities/video.rst:91
 msgid "Image-to-video"
@@ -129,7 +129,7 @@ msgstr "图生视频"
 msgid ""
 "You can try image-to-video API out either via cURL, or Xinference's "
 "python client:"
-msgstr "可以通过 cURL 或 Xinference 的方式尝试使用 image-to-video API"
+msgstr "可以通过 cURL 或 Xinference 的 Python 客户端调用图生视频 API："
 
 #: ../../source/models/model_abilities/video.rst:118
 msgid "FirstLastFrame-to-video"
@@ -139,11 +139,11 @@ msgstr "首尾帧生视频"
 msgid ""
 "You can try firstlastframe-to-video API out either via cURL, or "
 "Xinference's python client:"
-msgstr "你可以通过 cURL 或 Xinference 的 Python 客户端来体验 firstlastframe-to-video 接口："
+msgstr "可以通过 cURL 或 Xinference 的 Python 客户端调用首尾帧生视频 API："
 
 #: ../../source/models/model_abilities/video.rst:147
 msgid "Memory optimization"
-msgstr "内存优化"
+msgstr "显存优化"
 
 #: ../../source/models/model_abilities/video.rst:149
 msgid ""
@@ -165,7 +165,7 @@ msgstr "CPU 卸载或块级分组卸载。"
 
 #: ../../source/models/model_abilities/video.rst:155
 msgid "Layerwise casting."
-msgstr "逐层类型转换（Layerwise casting）。"
+msgstr "逐层数据类型转换。"
 
 #: ../../source/models/model_abilities/video.rst:159
 msgid ""
@@ -241,7 +241,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/video.rst:199
 msgid "Applying Layerwise Casting to the Transformer"
-msgstr "将逐层类型转换应用于 Transformer"
+msgstr "对 Transformer 应用逐层数据类型转换"
 
 #: ../../source/models/model_abilities/video.rst:201
 msgid ""
@@ -254,16 +254,14 @@ msgid ""
 "cast True`` for command line; for the Web UI, add an additional option ``"
 "layerwise_cast`` with the value set to ``True``."
 msgstr ""
-"逐层类型转换将把每个层的权重降级为 ``torch.float8_e4m3fn``，在层的前向"
-"传播过程中暂时升级为 ``torch.bfloat16``，然后在之后恢复为 ``torch.float8_"
-"e4m3fn``。这种方法将内存需求减少约 50%，同时由于精度折衷，生成的视频质量"
-"会略有下降。通过在命令行中添加 ``--layerwise_cast True`` 来启用逐层"
-"类型转换；对于 Web UI，添加一个额外选项 ``layerwise_cast``，值设为 ``True"
-"``。"
+"逐层数据类型转换会将每层的权重转换为 ``torch.float8_e4m3fn``，在该层的前向计算期间临时转换为 "
+"``torch.bfloat16``，计算完成后再转回 ``torch.float8_e4m3fn``。这种方式可将内存需求降低约 "
+"50%，但由于精度取舍，生成的视频质量可能略有下降。命令行中可添加 ``--layerwise_cast True`` 启用此功能；在 Web "
+"UI 中，添加额外选项 ``layerwise_cast``，并将值设为 ``True``。"
 
 #: ../../source/models/model_abilities/video.rst:208
 msgid "This example will require 20GB of VRAM."
-msgstr "此示例将需要 20GB 的显存。"
+msgstr "此示例需要 20GB 显存。"
 
 #~ msgid "OpenAI-compatible ENDPOINT"
 #~ msgstr "OpenAI 兼容端点"
@@ -271,17 +269,8 @@ msgstr "此示例将需要 20GB 的显存。"
 #~ msgid "API"
 #~ msgstr ""
 
-#~ msgid "Endpoint"
-#~ msgstr "端点"
-
-#~ msgid "Text-to-Video API"
-#~ msgstr "文生视频 API"
-
 #~ msgid "/v1/video/generations"
 #~ msgstr ""
-
-#~ msgid "Image-to-Video API"
-#~ msgstr "图生视频 API"
 
 #~ msgid "/v1/video/generations/image"
 #~ msgstr ""
@@ -289,3 +278,217 @@ msgstr "此示例将需要 20GB 的显存。"
 #: ../../source/models/model_abilities/video.rst
 msgid "On Linux with CUDA, ``Wan2.1-1.3B``, ``Wan2.1-14B`` and ``Wan2.2-A14B`` also support text-to-video with ``SGLang`` (0.5.20 or newer) and ``vLLM`` (vLLM-Omni and vLLM 0.28). Concurrent requests are submitted to the native engine scheduler. Use ``batching_max_size`` and ``batching_delay_ms`` for SGLang, or ``max_num_seqs`` for vLLM. These engine variants do not expose image-to-video or Lightning/GGUF adapters. Diffusers remains the default."
 msgstr "在 Linux CUDA 环境中，``Wan2.1-1.3B``、``Wan2.1-14B`` 和 ``Wan2.2-A14B`` 还支持使用 ``SGLang`` （0.5.20 及更新版本）和 ``vLLM`` （vLLM-Omni 与 vLLM 0.28）进行文生视频。并发请求会提交给引擎原生调度器。SGLang 使用 ``batching_max_size`` 和 ``batching_delay_ms``，vLLM 使用 ``max_num_seqs``。这些引擎变体不提供图生视频或 Lightning/GGUF 适配器。默认引擎仍为 Diffusers。"
+
+
+#: ../../source/models/model_abilities/video.rst:27
+msgid "Endpoint"
+msgstr "端点"
+
+#: ../../source/models/model_abilities/video.rst:29
+msgid "Text-to-Video API"
+msgstr "文生视频 API"
+
+#: ../../source/models/model_abilities/video.rst:32
+msgid "Image-to-Video API"
+msgstr "图生视频 API"
+
+#: ../../source/models/model_abilities/video.rst:35
+msgid "FirstLastFrame-to-Video API"
+msgstr "首尾帧生视频 API"
+
+#: ../../source/models/model_abilities/video.rst:80
+msgid "Video engines"
+msgstr "视频引擎"
+
+#: ../../source/models/model_abilities/video.rst:82
+msgid ""
+"Video runtimes are selected with ``--model-engine``. The ``diffusers`` "
+"engine remains the default for models that expose both runtimes. For "
+"example, launch Wan2.2-A14B with either engine explicitly:"
+msgstr ""
+"使用 ``--model-engine`` 选择视频运行引擎。对于同时提供这两种引擎的模型，默认仍使用 "
+"``diffusers``。例如，可显式指定以下任一引擎启动 Wan2.2-A14B："
+
+#: ../../source/models/model_abilities/video.rst:98
+msgid ""
+"The ``MLX`` engine uses `Blaizzy/mlx-video <https://github.com/Blaizzy"
+"/mlx-video>`_ and is available on Apple Silicon with Python 3.11 or "
+"newer. It supports Wan2.1 T2V, Wan2.2 T2V/I2V/TI2V, and the LTX-2/LTX-2.3"
+" distilled and dev models listed above. The LTX models are MLX-only in "
+"Xinference."
+msgstr ""
+"``MLX`` 引擎使用 `Blaizzy/mlx-video <https://github.com/Blaizzy/mlx-"
+"video>`_，支持搭载 Apple Silicon 的设备，需要 Python 3.11 或更新版本。它支持 Wan2.1 "
+"文生视频、Wan2.2 文生视频/图生视频/文图生视频，以及上面列出的 LTX-2/LTX-2.3 distilled 和 dev 模型。在 "
+"Xinference 中，LTX 模型仅支持 MLX 引擎。"
+
+#: ../../source/models/model_abilities/video.rst:104
+msgid ""
+"Wan2.1's official checkpoints are converted to the native MLX layout on "
+"first load and the converted copy is reused by later launches. This first"
+" launch therefore needs additional time and disk space. Wan2.2 and LTX "
+"use pre-converted checkpoints."
+msgstr ""
+"首次加载 Wan2.1 官方检查点时，会将其转换为 MLX "
+"原生格式，后续启动会复用转换后的副本。因此，首次启动需要额外的时间和磁盘空间。Wan2.2 和 LTX 使用预先转换的检查点。"
+
+#: ../../source/models/model_abilities/video.rst:109
+msgid ""
+"The Web UI obtains the engines supported by each model from the engine "
+"query API and presents them in the launch dialog. Additional video "
+"runtimes can be registered independently without changing the Video API."
+msgstr "Web UI 通过引擎查询 API 获取每个模型支持的引擎，并在启动对话框中显示。还可以独立注册其他视频运行引擎，无需修改 Video API。"
+
+#: ../../source/models/model_abilities/video.rst:202
+msgid "Lightning LoRA acceleration"
+msgstr "Lightning LoRA 加速"
+
+#: ../../source/models/model_abilities/video.rst:204
+msgid ""
+"Lightning LoRA checkpoints distill a video model into fewer denoising "
+"steps. Select a supported version with ``--lightning_version`` when "
+"launching the model; Xinference downloads the LoRA, applies its training "
+"alpha and scheduler shifts, and uses the version's recommended inference-"
+"step count when the request does not override ``num_inference_steps``. "
+"Lightning reduces denoising time, but does not reduce model size or peak "
+"memory; MiniMax-H3's default INT4 quantization and group offload remain "
+"enabled."
+msgstr ""
+"Lightning LoRA 检查点通过蒸馏减少视频模型所需的去噪步数。启动模型时，使用 ``--lightning_version`` "
+"选择支持的版本；Xinference 会下载 LoRA，应用其训练 alpha 和调度器偏移设置，并在请求未覆盖 "
+"``num_inference_steps`` 时采用该版本推荐的推理步数。Lightning "
+"可以缩短去噪时间，但不会减小模型体积或降低峰值内存占用；MiniMax-H3 默认的 INT4 量化和分组卸载仍保持启用。"
+
+#: ../../source/models/model_abilities/video.rst:216
+msgid "Model"
+msgstr "模型"
+
+#: ../../source/models/model_abilities/video.rst:217
+msgid "Lightning version"
+msgstr "Lightning 版本"
+
+#: ../../source/models/model_abilities/video.rst:218
+msgid "Evaluations"
+msgstr "计算次数"
+
+#: ../../source/models/model_abilities/video.rst:219
+msgid "Video shift"
+msgstr "视频偏移（shift）"
+
+#: ../../source/models/model_abilities/video.rst:220
+msgid "Recommended canvas"
+msgstr "推荐画面尺寸"
+
+#: ../../source/models/model_abilities/video.rst:225
+msgid "544p mixed aspect ratios"
+msgstr "544p，支持多种宽高比"
+
+#: ../../source/models/model_abilities/video.rst:237
+msgid ""
+"In the Web UI, open the MiniMax-H3 launch dialog, expand **Advanced "
+"Configuration**, and select a value under **Lightning Versions**. Leave "
+"**Lightning Model Path** empty to download the selected checkpoint "
+"automatically. After the model starts, set **Inference Steps** on the "
+"video generation page to the evaluation count in the table. The "
+"generation page currently starts with 25 steps, which overrides the "
+"Lightning default if left unchanged."
+msgstr ""
+"在 Web UI 中打开 MiniMax-H3 的启动对话框，展开 **高级配置**，在 **蒸馏版本** 中选择一个值。将 **蒸馏 Lora "
+"路径** 留空即可自动下载所选检查点。模型启动后，在视频生成页面将 **推理步数** 设置为表格中的计算次数。生成页面当前默认使用 25 "
+"步；如果不修改，该值会覆盖 Lightning 的默认步数。"
+
+#: ../../source/models/model_abilities/video.rst:245
+msgid "For example, launch the 768p four-step version from the command line::"
+msgstr "例如，通过命令行启动 768p 四步版本::"
+
+#: ../../source/models/model_abilities/video.rst:250
+msgid ""
+"Then generate with four inference steps. MiniMax-H3 outputs at a fixed 24"
+" FPS; 124 frames produce a video of about five seconds::"
+msgstr "然后使用四个推理步生成视频。MiniMax-H3 固定输出 24 FPS；124 帧可生成约五秒的视频::"
+
+#: ../../source/models/model_abilities/video.rst:266
+msgid ""
+"Xinference downloads the Lightning checkpoint from the same hub selected "
+"for the base model. Both Hugging Face and ModelScope are supported. To "
+"use an already downloaded checkpoint, pass both its path and version::"
+msgstr ""
+"Xinference 会从基础模型所选的同一模型仓库下载 Lightning 检查点，支持 Hugging Face 和 "
+"ModelScope。如需使用已下载的检查点，请同时指定其路径和版本::"
+
+#: ../../source/models/model_abilities/video.rst:274
+msgid ""
+"``num_inference_steps`` represents actual transformer evaluations and "
+"remains a per-request override. Match it to the selected Lightning "
+"version: use 4 for a ``4step`` checkpoint and 8 for an ``8step`` "
+"checkpoint. MiniMax-H3's scheduler internally adds the terminal sigma "
+"grid point required to run that number of evaluations."
+msgstr ""
+"``num_inference_steps`` 表示 Transformer 实际执行的前向计算次数，可在每个请求中单独覆盖。请使其与所选 "
+"Lightning 版本一致：``4step`` 检查点使用 4，``8step`` 检查点使用 8。MiniMax-H3 "
+"的调度器会在内部添加末尾的 sigma 网格点，以完成指定次数的计算。"
+
+#: ../../source/models/model_abilities/video.rst:282
+msgid ""
+"The evaluation-count semantics apply to MiniMax-H3 with or without "
+"Lightning. A request for N evaluations now passes N + 1 scheduler grid "
+"points so the terminal sigma does not consume one of the requested "
+"evaluations. Therefore, non-Lightning output may differ from earlier "
+"Xinference versions for the same ``num_inference_steps`` value."
+msgstr ""
+"无论是否启用 Lightning，MiniMax-H3 都使用上述计算次数语义。请求 N 次计算时，现在会向调度器传入 N + 1 "
+"个网格点，避免末尾的 sigma 占用一次请求的计算。因此，即使 ``num_inference_steps`` 相同，未启用 Lightning"
+" 时的输出也可能与旧版 Xinference 不同。"
+
+#: ../../source/models/model_abilities/video.rst:299
+msgid "Weight quantization."
+msgstr "权重量化。"
+
+#: ../../source/models/model_abilities/video.rst:343
+msgid "Weight quantization"
+msgstr "权重量化"
+
+#: ../../source/models/model_abilities/video.rst:345
+msgid ""
+"Some video models support weight-only quantization through the "
+"``--quantization`` option. Quantization lowers both GPU and host memory "
+"usage, with a possible quality and performance trade-off."
+msgstr "部分视频模型支持通过 ``--quantization`` 选项仅量化权重。量化可以降低显存和主机内存占用，但可能影响生成质量和性能。"
+
+#: ../../source/models/model_abilities/video.rst:349
+msgid "MiniMax-H3 supports the following values for ``quantization``:"
+msgstr "MiniMax-H3 的 ``quantization`` 支持以下取值："
+
+#: ../../source/models/model_abilities/video.rst:351
+msgid ""
+"``int4``: the default. Most large linear weights use TorchAO INT4, while "
+"a few BF16 blocks remain on the CPU during loading. Together with block-"
+"level group offloading, this allows the model to load on a 24GB consumer "
+"GPU without additional launch options. CUDA streams are disabled on this "
+"path to avoid an extra pinned host-memory copy."
+msgstr ""
+"``int4``：默认值。大部分大型线性层的权重使用 TorchAO INT4，加载过程中少量 BF16 块保留在 CPU "
+"上。配合块级分组卸载，无需额外启动选项即可在 24GB 消费级 GPU 上加载模型。此路径会禁用 CUDA 流，以避免额外的页锁定主机内存副本。"
+
+#: ../../source/models/model_abilities/video.rst:356
+msgid ""
+"``int8``: use TorchAO INT8 weight-only quantization for higher weight "
+"precision. This requires at least 75GB of available host RAM."
+msgstr "``int8``：使用 TorchAO INT8 仅权重量化，以获得更高的权重精度。至少需要 75GB 可用主机内存。"
+
+#: ../../source/models/model_abilities/video.rst:358
+msgid ""
+"``none`` or ``bf16``: disable weight quantization. With the default "
+"``torch_dtype``, weights are loaded in BF16 and require substantially "
+"more GPU and host memory."
+msgstr "``none`` 或 ``bf16``：禁用权重量化。使用默认 ``torch_dtype`` 时，权重以 BF16 加载，需要更多显存和主机内存。"
+
+#: ../../source/models/model_abilities/video.rst:361
+msgid ""
+"``torchao``: a compatibility alias for ``int8``. Use ``int8`` in new "
+"launch configurations."
+msgstr "``torchao``：``int8`` 的兼容别名。新的启动配置请使用 ``int8``。"
+
+#: ../../source/models/model_abilities/video.rst:364
+msgid "For example, select INT8 with::"
+msgstr "例如，选择 INT8::"

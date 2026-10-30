@@ -1,0 +1,22 @@
+# Korean translations for documentation theme labels.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-09 00:00+0800\n"
+"PO-Revision-Date: 2026-10-09 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language: ko\n"
+"Language-Team: ko\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Collapse Sidebar"
+msgstr "사이드바 접기"
+
+msgid "Expand Sidebar"
+msgstr "사이드바 펼치기"
