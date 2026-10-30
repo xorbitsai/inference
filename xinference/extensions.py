@@ -81,6 +81,22 @@ class LaunchHistoryStoreContext:
 
 
 @dataclass(frozen=True)
+class SupervisorJournalStoreContext:
+    """One Supervisor-owned journal and its immutable optional control session.
+
+    Stores implement synchronous load(default) and save(payload). Both use the
+    existing JSON payload schema. Failed writes must raise before returning;
+    consumers publish in-memory updates only after save succeeds. Providers may
+    enforce write authority and optimistic concurrency without changing payloads.
+    """
+
+    kind: Literal["worker_ownership", "worker_relaunch"]
+    path: str
+    address: str
+    control_session: Any = None
+
+
+@dataclass(frozen=True)
 class WorkerControlAuthorityContext:
     """Worker identity only; an authority must not initialize an auth store.
 
@@ -240,6 +256,23 @@ def resolve_launch_history_store(context: LaunchHistoryStoreContext) -> Any:
     if not providers:
         return None
     return _call_hook(providers[0], "create_launch_history_store", context)
+
+
+def resolve_supervisor_journal_store(context: SupervisorJournalStoreContext) -> Any:
+    """Select one journal provider; only an explicit None selects local files."""
+    providers = [
+        e for e in get_extensions() if hasattr(e, "create_supervisor_journal_store")
+    ]
+    if len(providers) > 1:
+        raise ValueError("Multiple Supervisor journal store providers")
+    if not providers:
+        return None
+    store = _call_hook(providers[0], "create_supervisor_journal_store", context)
+    if store is not None and not all(
+        callable(getattr(store, name, None)) for name in ("load", "save")
+    ):
+        raise TypeError("Supervisor journal store must implement load and save")
+    return store
 
 
 def resolve_worker_control_authority(context: WorkerControlAuthorityContext) -> Any:

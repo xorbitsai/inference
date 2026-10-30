@@ -22,8 +22,9 @@ from typing import Any, Dict, Set
 
 import xoscar as xo
 
+from .supervisor_journal import LocalSupervisorJournal, supervisor_journal
 from .worker_relaunch import SupervisorRelaunchMixin
-from .worker_state import WorkerJournalError, read_worker_journal, write_worker_journal
+from .worker_state import WorkerJournalError
 
 
 async def call_worker_route(
@@ -51,15 +52,20 @@ async def call_worker_route(
 class WorkerOwnership:
     """Keep transfer identities durable without serializing model objects or credentials."""
 
-    def __init__(self, path=None):
+    def __init__(self, path=None, *, store=None):
         self.path = Path(path) if path is not None else None
+        self.store = (
+            store
+            if store is not None
+            else (LocalSupervisorJournal(self.path) if self.path is not None else None)
+        )
         self.incarnations: Dict[str, str] = {}
         self.retired: Dict[str, Set[str]] = {}
         self.pending: dict = {}
         self.completed: dict = {}
         self._locks: dict = {}
-        if self.path is not None:
-            data = read_worker_journal(self.path, {"version": 1})
+        if self.store is not None:
+            data = self.store.load({"version": 1})
             if not isinstance(data, dict) or data.get("version") != 1:
                 raise WorkerJournalError("Unsupported Worker ownership journal")
             self.retired = {
@@ -81,9 +87,8 @@ class WorkerOwnership:
         pending = self.pending if pending is None else pending
         retired = self.retired if retired is None else retired
         completed = self.completed if completed is None else completed
-        if self.path is not None:
-            write_worker_journal(
-                self.path,
+        if self.store is not None:
+            self.store.save(
                 {
                     "version": 1,
                     "pending": {
@@ -194,8 +199,9 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
     def _initialize_worker_ownership(self):
         from ..constants import XINFERENCE_HOME
 
+        path = Path(XINFERENCE_HOME) / "worker-handoffs.json"
         self._worker_ownership = WorkerOwnership(
-            Path(XINFERENCE_HOME) / "worker-handoffs.json"
+            path, store=supervisor_journal(self, "worker_ownership", path)
         )
 
     def _ownership_registry(self):

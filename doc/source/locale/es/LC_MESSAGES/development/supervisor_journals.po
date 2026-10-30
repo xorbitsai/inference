@@ -1,0 +1,19 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Language: es\n"
+"PO-Revision-Date: 2026-10-31 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: Xinference\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Supervisor journal storage"
+msgstr "Almacenamiento de diarios del Supervisor"
+
+msgid "Extensions may implement ``create_supervisor_journal_store(context)`` to select storage for existing Worker ownership and relaunch journals. The context provides ``kind`` (``worker_ownership`` or ``worker_relaunch``), the default file ``path``, the Supervisor actor ``address``, and its optional immutable ``control_session``. Stores implement synchronous ``load(default)`` and ``save(payload)`` using the existing versioned JSON payloads. A save must become durable or raise before returning."
+msgstr "Las extensiones pueden implementar ``create_supervisor_journal_store(context)`` para seleccionar el almacenamiento de los diarios existentes de propiedad y reinicio de Worker. El contexto proporciona ``kind`` (``worker_ownership`` o ``worker_relaunch``), la ruta predeterminada ``path``, la dirección del actor Supervisor ``address`` y su ``control_session`` inmutable opcional. Los almacenes implementan los métodos síncronos ``load(default)`` y ``save(payload)`` usando los datos JSON versionados existentes. Una escritura debe quedar persistida o lanzar una excepción antes de retornar."
+
+msgid "Without a provider, or when it returns ``None``, the existing ``worker-handoffs.json`` and ``worker-relaunches.json`` files remain in use. Multiple providers, invalid stores and provider errors fail explicitly; errors never select a local fallback. Selection follows control-authority initialization. Operators must migrate authoritative records before switching providers. Worker-local execution journals are unchanged."
+msgstr "Sin proveedor, o cuando devuelve ``None``, se siguen usando los archivos existentes ``worker-handoffs.json`` y ``worker-relaunches.json``. Varios proveedores, almacenes inválidos y errores del proveedor fallan explícitamente; los errores nunca activan un almacenamiento local alternativo. La selección ocurre después de inicializar la autoridad de control. Los operadores deben migrar los registros autoritativos antes de cambiar de proveedor. Los diarios locales de ejecución de Worker no cambian."

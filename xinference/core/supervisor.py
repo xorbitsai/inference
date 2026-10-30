@@ -1002,7 +1002,6 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
         get_extensions()
         self._actor_loop = asyncio.get_running_loop()
-        self._initialize_worker_ownership()
         self._uptime = time.time()
         if XINFERENCE_ENABLE_OTEL:
             try:
@@ -1142,6 +1141,15 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             self._controller_control = SupervisorControl(self, authority)
             self._control_fence = self._controller_control.fence
             self._standby = True
+        try:
+            self._initialize_worker_ownership()
+        except BaseException:
+            if self._controller_control is not None:
+                try:
+                    await self._controller_control.invoke("close")
+                except Exception:
+                    logger.error("Supervisor journal startup cleanup failed")
+            raise
         if not self._standby:
             await self.activate_supervisor()
         self._supervisor_prepared = True
