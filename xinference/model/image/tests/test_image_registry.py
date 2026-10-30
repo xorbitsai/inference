@@ -16,14 +16,21 @@
 
 import json
 import os
-from typing import List, Union
+from typing import List, Optional, Type, Union
 from unittest.mock import Mock
 
 import pytest
 
 from xinference._model_catalog import load_model_catalog
 
-from ..core import BUILTIN_IMAGE_MODELS, IMAGE_MODEL_DESCRIPTIONS
+from ..cache_manager import ImageCacheManager
+from ..core import (
+    BUILTIN_IMAGE_MODELS,
+    IMAGE_MODEL_DESCRIPTIONS,
+    create_image_model_instance,
+    match_diffusion,
+)
+from ..engine import DiffusersImageModel
 from ..engine_family import IMAGE_ENGINES
 from ..ocr.ocr_family import OCR_ENGINES
 
@@ -188,3 +195,128 @@ def test_create_image_model_instance_rejects_invalid_controlnet(
         )
     assert str(exc_info.value) == message
     cache.assert_not_called()
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_create_image_model_instance_rejects_invalid_engine_before_cache(
+    monkeypatch: pytest.MonkeyPatch, enable_virtual_env: bool
+) -> None:
+    cache = Mock(side_effect=AssertionError("An invalid engine reached caching"))
+    monkeypatch.setattr(ImageCacheManager, "cache", cache)
+    with pytest.raises(ValueError) as exc_info:
+        create_image_model_instance(
+            "test",
+            "stable-diffusion-v1.5",
+            model_engine="not-an-engine",
+            enable_virtual_env=enable_virtual_env,
+        )
+    assert str(exc_info.value) == (
+        "Image model stable-diffusion-v1.5 cannot be run on engine not-an-engine."
+    )
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "model_name,controlnet,error,message",
+    [
+        pytest.param(
+            "stable-diffusion-v1.5",
+            None,
+            NotImplementedError,
+            "stable-diffusion-v1.5 does not support lightning",
+            id="model-without-lightning",
+        ),
+        pytest.param(
+            "stable-diffusion-v1.5",
+            "canny",
+            NotImplementedError,
+            "stable-diffusion-v1.5 does not support lightning",
+            id="with-controlnet",
+        ),
+        pytest.param(
+            "Qwen-Image",
+            None,
+            ValueError,
+            "Cannot support lightning version not-a-version, available lightning "
+            "version: ['4steps-V1.0-bf16', '4steps-V1.0'",
+            id="unknown-version",
+        ),
+    ],
+)
+def test_create_image_model_instance_rejects_invalid_lightning_before_cache(
+    monkeypatch: pytest.MonkeyPatch,
+    model_name: str,
+    controlnet: Optional[str],
+    error: Type[Exception],
+    message: str,
+) -> None:
+    cache = Mock(side_effect=AssertionError("Invalid lightning reached caching"))
+    monkeypatch.setattr(ImageCacheManager, "cache", cache)
+    monkeypatch.setattr(ImageCacheManager, "cache_lightning", cache)
+    with pytest.raises(error) as exc_info:
+        create_image_model_instance(
+            "test",
+            model_name,
+            lightning_version="not-a-version",
+            controlnet=controlnet,
+            enable_virtual_env=False,
+        )
+    assert str(exc_info.value).startswith(message)
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("lightning_model_path", [None, "/mine/lightning.safetensors"])
+def test_create_image_model_instance_still_caches_the_model_then_lightning(
+    monkeypatch: pytest.MonkeyPatch, lightning_model_path: Optional[str]
+) -> None:
+    calls: List[str] = []
+
+    def fake_cache(manager: ImageCacheManager) -> str:
+        calls.append("model")
+        return "/cache/model"
+
+    def fake_cache_lightning(manager: ImageCacheManager, version: str) -> str:
+        calls.append("lightning " + version)
+        return "/cache/lightning.safetensors"
+
+    monkeypatch.setattr(ImageCacheManager, "cache", fake_cache)
+    monkeypatch.setattr(ImageCacheManager, "cache_lightning", fake_cache_lightning)
+    model = create_image_model_instance(
+        "test",
+        "Qwen-Image",
+        lightning_version="not-a-version" if lightning_model_path else "4steps-V1.0",
+        lightning_model_path=lightning_model_path,
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, DiffusersImageModel)
+    assert model._model_path == "/cache/model"
+    if lightning_model_path:
+        # An explicit path is used as given: the version is not consulted.
+        assert calls == ["model"]
+        assert model._lightning_model_path == lightning_model_path
+    else:
+        assert calls == ["model", "lightning 4steps-V1.0"]
+        assert model._lightning_model_path == "/cache/lightning.safetensors"
+
+
+def test_image_cache_lightning_downloads_the_validated_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    import xinference.model.utils as model_utils
+
+    downloads: List[tuple] = []
+
+    def fake_retry_download(download, _name, _size, model_id, **kwargs):
+        downloads.append((model_id, kwargs["filename"]))
+        return "/downloaded/" + kwargs["filename"]
+
+    monkeypatch.setattr(model_utils, "retry_download", fake_retry_download)
+    monkeypatch.setattr(model_utils, "symlink_local_file", lambda *args: None)
+    cache_manager = ImageCacheManager(match_diffusion("Qwen-Image", "huggingface"))
+    cache_manager._cache_dir = str(tmp_path)
+
+    path = cache_manager.cache_lightning("4steps-V1.0")
+
+    filename = "Qwen-Image-Lightning-4steps-V1.0.safetensors"
+    assert path == str(tmp_path / filename)
+    assert downloads == [("lightx2v/Qwen-Image-Lightning", filename)]
