@@ -1,0 +1,58 @@
+[
+  {
+    "version": 2,
+    "model_name": "MiniCPM-OCR-1.0",
+    "model_family": "ocr",
+    "model_ability": ["ocr"],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "virtualenv": {
+          "packages": [
+            "transformers>=5.21.0,<6 ; #engine# == \"transformers\"",
+            "transformers>=5.21.0,<5.22 ; #engine# == \"vllm\"",
+            "accelerate>=1.1.0,<2 ; #engine# == \"transformers\"",
+            "#system_torch# ; #engine# == \"transformers\"",
+            "#system_torchvision# ; #engine# == \"transformers\"",
+            "vllm @ https://github.com/vllm-project/vllm/archive/4541fcdd837c15345087b45e9aa85f2a28b57883.zip ; #engine# == \"vllm\"",
+            "sglang @ https://github.com/tc-mb/sglang/archive/aaab6bfc3de5354b052f2e96d5e566d70b9f69a2.zip#subdirectory=python ; #engine# == \"sglang\"",
+            "Pillow>=10.0.1,<=15.0",
+            "#system_numpy#"
+          ]
+        },
+        "model_src": {
+          "huggingface": {
+            "model_id": "openbmb/MiniCPM-OCR-1.0",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "OpenBMB/MiniCPM-OCR-1.0",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_file_name_template": "MiniCPM-OCR-1_0-{quantization}.gguf",
+        "multimodal_projector": "mmproj-model-f16-4x.gguf",
+        "virtualenv": {
+          "packages": [
+            "xllamacpp>=2026.10.11870 ; #engine# == \"llama.cpp\""
+          ]
+        },
+        "model_src": {
+          "huggingface": {
+            "model_id": "openbmb/MiniCPM-OCR-1.0-gguf",
+            "model_revision": "main",
+            "quantizations": ["Q8_0", "F16", "Q4_0", "Q4_1", "Q4_K_M", "Q4_K_S", "Q5_0", "Q5_1", "Q5_K_M", "Q5_K_S", "Q6_K"]
+          },
+          "modelscope": {
+            "model_id": "OpenBMB/MiniCPM-OCR-1.0-gguf",
+            "model_revision": "master",
+            "quantizations": ["Q8_0", "F16", "Q4_0", "Q4_1", "Q4_K_M", "Q4_K_S", "Q5_0", "Q5_1", "Q5_K_M", "Q5_K_S", "Q6_K"]
+          }
+        }
+      }
+    ]
+  }
+]
