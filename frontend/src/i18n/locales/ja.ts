@@ -556,8 +556,11 @@ const ja = {
     catalogModelNamePlaceholder: '正確なモデル名、または world ファミリー名',
     catalogUpdated: 'モデルカタログを更新しました。',
     enableWeightCache: '再読み込み用に GPU の重みを保持',
+    weightCacheAuto: '自動',
+    weightCacheEnabled: '有効',
+    weightCacheDisabled: '無効',
     enableWeightCacheTip:
-      'vLLM 0.31.0+ または SGLang 0.5.21+、Linux GPU、単一ワーカーと単一レプリカが必要です。エンジンの再読み込み中も重みを GPU メモリに保持します。',
+      '自動では、モデルの環境と設定が対応する場合に重みを保持し、それ以外は通常どおり起動します。vLLM 0.31.0+ または SGLang 0.5.21+、Linux GPU、単一ワーカーと単一レプリカが必要です。有効を選ぶと対応を必須とし、無効を選ぶと使用しません。',
     recommendSetup: '実行環境の準備が必要な場合があります。',
     recommendMemory: '利用可能なメモリは未検証です。',
     recommendConfiguration: '構成を推奨',

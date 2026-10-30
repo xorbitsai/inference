@@ -375,15 +375,18 @@ msgstr "Modell und Engine"
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:137
 msgid ""
-"Open a running model's detail view and choose **Reconfigure / upgrade model**. Engine "
-"replacement requires **Keep GPU weights for reload** (``enable_weight_cache=true``) at"
-" launch, vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one Worker, one "
-"replica and fixed tensor parallelism."
+"Open a running model's detail view and choose **Reconfigure / upgrade "
+"model**. Engine replacement requires GPU weight retention enabled at launch,"
+" either automatically on a supported configuration or explicitly with "
+"``enable_weight_cache=True``. See :ref:`launch_weight_cache_reload` for "
+"prerequisites and the **Auto**, **Enabled** and **Disabled** settings."
 msgstr ""
-"Öffnen Sie die Detailansicht eines laufenden Modells und wählen Sie **Reconfigure / "
-"upgrade model**. Ein Engine-Austausch erfordert **Keep GPU weights for reload** "
-"(``enable_weight_cache=true``) beim Start, vLLM 0.31.0+ oder SGLang 0.5.21+, Linux mit"
-" CUDA oder ROCm, einen Worker, eine Replik und feste Tensorparallelität."
+"Öffnen Sie die Detailansicht eines laufenden Modells und wählen Sie **Modell"
+" neu konfigurieren / aktualisieren**. Der Austausch der Engine erfordert "
+"beim Start aktivierte GPU-Gewichtspeicherung, entweder automatisch bei einer"
+" unterstützten Konfiguration oder explizit mit ``enable_weight_cache=True``."
+" Voraussetzungen und die Einstellungen **Automatisch**, **Aktiviert** und "
+"**Deaktiviert** finden Sie unter :ref:`launch_weight_cache_reload`."
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:149
 msgid ""
@@ -722,3 +725,11 @@ msgid "Worker-owned crash recovery and pending cache inventory publication acqui
 msgstr "Die Worker-eigene Wiederherstellung nach einem Absturz und die ausstehende Veröffentlichung des Cache-Inventars erhalten für neue Ereignisse eine Zulassung unter einer aktiven Sitzung; bereits zugelassene Vorgänge behalten ihre ursprüngliche Sitzung. OOM-Meldungen aktualisieren nur die Diagnose der aktuellen Modellinstanz und autorisieren keine Verwaltungsbefehle. Eine bereits zugelassene Beendigung bereinigt die ursprüngliche Modellregistrierung, bevor der Drain abgeschlossen wird. Unterbrochene native Fehlerbehandlungen behalten ihre Absicht und werden bei der Installation oder einer späteren Statusmeldung nach Zulassung durch eine aktive Sitzung erneut versucht. Dieser Mechanismus gilt für öffentliche Verwaltungsmethoden; private Python-Hilfsmethoden bleiben intern. Leichte Heartbeats laufen vor der Sitzungsinstallation, während des Drains und nach einem Drain-Timeout weiter; sie registrieren den Worker nicht und setzen keine Wiederherstellung fort. Vollständige Statusmeldungen und ihre Registrierungs- und Wiederherstellungsaufgaben erfordern weiterhin die Zulassung durch eine aktive Sitzung."
 msgid "A Supervisor authority provider can implement ``create_supervisor_control_authority(context)`` with a fixed process session, ``validate`` and ``close``. ``context.runtime`` supplies process-local ``pause(timeout)``, ``restore_worker(ref, replicas, incarnation)`` and ``resume()`` primitives. Optional async ``execute(operation, payload)`` and ``worker_registered(ref)`` hooks delegate extension-owned behavior. The runtime does not select Workers, probe models, confirm membership or orchestrate replacement. Old processes retain their original session. Fixed-session mode rejects native component replacement until session transfer is supported. These mechanisms add no failover command or HA service. Without a provider, normal upgrade behavior is unchanged. The port also provides a settings snapshot. Async provider callbacks execute on the actor loop and may overlap; providers synchronize their own services. A busy pause is rejected before management admission closes. Inference reads are unavailable before the first successful ``resume()``; afterwards, existing routes remain readable through later management pauses. Session-protected startup recovery retries outside the registration lock and retains persisted intent while access is fenced."
 msgstr "Ein Supervisor-Autoritätsanbieter kann ``create_supervisor_control_authority(context)`` mit einer festen Prozesssitzung, ``validate`` und ``close`` implementieren. ``context.runtime`` stellt die prozesslokalen Primitive ``pause(timeout)``, ``restore_worker(ref, replicas, incarnation)`` und ``resume()`` bereit. Optionale asynchrone Hooks ``execute(operation, payload)`` und ``worker_registered(ref)`` delegieren das Verhalten an die Erweiterung. Die Laufzeit wählt keine Worker aus, prüft keine Modelle, bestätigt keine Mitgliedschaft und orchestriert keinen Austausch. Alte Prozesse behalten ihre ursprüngliche Sitzung. Diese Mechanismen fügen weder einen Failover-Befehl noch einen HA-Dienst hinzu. Ohne Anbieter bleibt das normale Upgrade-Verhalten unverändert. Der Port liefert auch einen Einstellungsschnappschuss. Asynchrone Anbieter-Callbacks laufen auf der Actor-Ereignisschleife und können sich überschneiden; Anbieter synchronisieren ihre Dienste selbst. Eine Pause bei laufenden Vorgängen wird abgelehnt, bevor die Zulassung neuer Verwaltungsvorgänge geschlossen wird. Inferenz-Lesezugriffe sind vor dem ersten erfolgreichen ``resume()`` nicht verfügbar; danach bleiben bestehende Routen während späterer Verwaltungspausen lesbar. Der sitzungsgeschützte Startwiederanlauf erfolgt außerhalb der Registrierungssperre und behält gespeicherte Absichten bei verweigertem Zugriff. Der Modus mit fester Sitzung lehnt den nativen Komponentenaustausch ab, bis eine Sitzungsübertragung unterstützt wird."
+
+#: ../../source/user_guide/zero_downtime_upgrade.rst:220
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr ""
+"Der Standardwert von ``enable_weight_cache`` wurde von ``False`` auf "
+"automatische Auswahl (``None``) geändert."

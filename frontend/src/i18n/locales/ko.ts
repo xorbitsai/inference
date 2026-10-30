@@ -555,8 +555,11 @@ const ko = {
     catalogModelNamePlaceholder: '정확한 모델 이름 또는 world 패밀리 이름',
     catalogUpdated: '모델 카탈로그가 업데이트되었습니다.',
     enableWeightCache: '재로드를 위해 GPU 가중치 유지',
+    weightCacheAuto: '자동',
+    weightCacheEnabled: '사용',
+    weightCacheDisabled: '사용 안 함',
     enableWeightCacheTip:
-      'vLLM 0.31.0+ 또는 SGLang 0.5.21+, Linux GPU, 단일 워커 및 단일 복제본이 필요합니다. 엔진 재로드 중에도 가중치를 GPU 메모리에 유지합니다.',
+      '자동 모드에서는 모델 환경과 구성이 지원할 때 가중치를 유지하며, 지원하지 않으면 정상적으로 시작합니다. vLLM 0.31.0+ 또는 SGLang 0.5.21+, Linux GPU, 단일 워커 및 단일 복제본이 필요합니다. 사용을 선택하면 지원 조건을 필수로 검사하고, 사용 안 함을 선택하면 비활성화합니다.',
     recommendSetup: '실행 환경 준비가 필요할 수 있습니다.',
     recommendMemory: '사용 가능한 메모리가 확인되지 않았습니다.',
     recommendConfiguration: '구성 추천',

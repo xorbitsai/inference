@@ -166,13 +166,15 @@ class ModelReloadError(RuntimeError):
         self.restored = restored
 
 
-def parse_weight_cache_option(value: Any) -> bool:
+def parse_weight_cache_option(value: Any) -> Optional[bool]:
+    if value is None:
+        return None
     # CLI extra arguments arrive as strings.
     if isinstance(value, bool):
         return value
     if isinstance(value, str) and value.lower() in ("true", "false"):
         return value.lower() == "true"
-    raise ValueError("enable_weight_cache must be a boolean")
+    raise ValueError("enable_weight_cache must be a boolean or null")
 
 
 def validate_reload_patch(engine: str, patch: Dict[str, Any]) -> None:
@@ -514,67 +516,87 @@ class WeightCachedModel:
         def _get_xinference_executor_backend(self) -> str: ...
 
     def _init_weight_cache(self, config: Any) -> None:
-        self._enable_weight_cache = parse_weight_cache_option(
-            config.pop("enable_weight_cache", False)
+        self._weight_cache_option = parse_weight_cache_option(
+            config.pop("enable_weight_cache", None)
         )
+        self._enable_weight_cache = self._weight_cache_option is True
         self._reload_config = copy.deepcopy(config)
 
+    def _weight_cache_unavailable_reason(self) -> Optional[str]:
+        engine = self._weight_cache_engine
+        config = {**self._reload_config, **self._model_config}
+        import torch
+
+        if engine == "vllm":
+            if getattr(self, "model_spec", None) is not None and (
+                self.model_spec.model_format == "ggufv2"
+            ):
+                return "Weight caching does not support GGUF models"
+            if (
+                getattr(self, "_get_xinference_executor_backend", lambda: "auto")()
+                == "xoscar"
+            ):
+                return "Weight caching requires the native vLLM executor"
+        minimum = "0.31.0" if engine == "vllm" else "0.5.21"
+        if Version(package_version(engine)) < Version(minimum):
+            return f"enable_weight_cache requires {engine}>={minimum}"
+        if sys.platform != "linux" or not torch.cuda.is_available():
+            return "Weight caching requires Linux with CUDA or ROCm"
+        if (
+            self._n_worker != 1
+            or config.get("pipeline_parallel_size", config.get("pp_size", 1)) != 1
+            or config.get("data_parallel_size", config.get("dp_size", 1)) != 1
+            or config.get("nnodes", 1) != 1
+            or getattr(self, "_xavier_config", None) is not None
+            or getattr(self, "_nixl_config", None) is not None
+            or config.get("_xavier_cache_config") is not None
+            or config.get("_nixl_config") is not None
+            or config.get("kv_transfer_config")
+            or config.get("disaggregation_mode", "null") not in ("null", None)
+        ):
+            return "Weight caching currently supports single-worker tensor parallelism"
+        if config.get("enable_sleep_mode") or config.get("cpu_offload_gb", 0):
+            return "Weight caching cannot be combined with weight offloading"
+        if config.get("load_format") == "ipc_cache" or config.get("weight_cache_mode"):
+            return "Xinference manages the weight cache loader automatically"
+        if (
+            getattr(self, "lora_modules", None)
+            or config.get("draft_model_path")
+            or config.get("lora_paths")
+            or config.get("enable_lora")
+            or config.get("speculative_algorithm")
+            or config.get("speculative_config")
+        ):
+            return "Weight caching does not yet support this adapter/draft setup"
+        return None
+
+    def _resolve_weight_cache(self) -> None:
+        # Resolve in the model subprocess, whose engine, device visibility and
+        # environment can differ from the Worker's download environment.
+        if self._weight_cache is not None:
+            return
+        option = getattr(self, "_weight_cache_option", self._enable_weight_cache)
+        if option is False:
+            self._enable_weight_cache = False
+            return
+        reason = self._weight_cache_unavailable_reason()
+        if reason is not None:
+            if option is True:
+                raise ValueError(reason)
+            self._enable_weight_cache = False
+            logger.debug("GPU weight retention disabled: %s", reason)
+            return
+        self._enable_weight_cache = True
+
     def _prepare_weight_cache(self) -> None:
+        if self._weight_cache is None:
+            self._resolve_weight_cache()
         if not self._enable_weight_cache:
             return
         config = self._model_config
         engine = self._weight_cache_engine
         initial = self._weight_cache is None
         if initial:
-            import torch
-
-            if engine == "vllm":
-                if getattr(self, "model_spec", None) is not None and (
-                    self.model_spec.model_format == "ggufv2"
-                ):
-                    raise ValueError("Weight caching does not support GGUF models")
-                if (
-                    getattr(self, "_get_xinference_executor_backend", lambda: "auto")()
-                    == "xoscar"
-                ):
-                    raise ValueError("Weight caching requires the native vLLM executor")
-            minimum = "0.31.0" if engine == "vllm" else "0.5.21"
-            if Version(package_version(engine)) < Version(minimum):
-                raise ValueError(f"enable_weight_cache requires {engine}>={minimum}")
-            if sys.platform != "linux" or not torch.cuda.is_available():
-                raise ValueError("Weight caching requires Linux with CUDA or ROCm")
-            if (
-                self._n_worker != 1
-                or config.get("pipeline_parallel_size", config.get("pp_size", 1)) != 1
-                or config.get("data_parallel_size", config.get("dp_size", 1)) != 1
-                or config.get("nnodes", 1) != 1
-                or getattr(self, "_xavier_config", None) is not None
-                or getattr(self, "_nixl_config", None) is not None
-                or config.get("kv_transfer_config")
-                or config.get("disaggregation_mode", "null") not in ("null", None)
-            ):
-                raise ValueError(
-                    "Weight caching currently supports single-worker tensor parallelism"
-                )
-            if config.get("enable_sleep_mode") or config.get("cpu_offload_gb", 0):
-                raise ValueError(
-                    "Weight caching cannot be combined with weight offloading"
-                )
-            if config.get("load_format") == "ipc_cache" or config.get(
-                "weight_cache_mode"
-            ):
-                raise ValueError(
-                    "Xinference manages the weight cache loader automatically"
-                )
-            if (
-                getattr(self, "lora_modules", None)
-                or config.get("enable_lora")
-                or config.get("speculative_algorithm")
-                or config.get("speculative_config")
-            ):
-                raise ValueError(
-                    "Weight caching does not yet support this adapter/draft setup"
-                )
             daemon_config = copy.deepcopy(config)
             # This is an engine process routing option, not a weight layout.
             daemon_config.pop("distributed_executor_backend", None)

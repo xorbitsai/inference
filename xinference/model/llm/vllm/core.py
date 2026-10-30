@@ -934,6 +934,8 @@ class VLLMModel(WeightCachedModel, LLM):
 
     @property
     def need_create_pools(self) -> bool:
+        if getattr(self, "_weight_cache_option", False) is None:
+            self._resolve_weight_cache()
         return not self._use_native_mp_executor()
 
     def set_pool_addresses(self, pool_addresses: List[str]):

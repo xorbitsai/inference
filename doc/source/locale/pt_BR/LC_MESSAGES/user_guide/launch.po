@@ -388,8 +388,24 @@ msgid "Reconfigure and upgrade running models"
 msgstr "Reconfigurar e atualizar modelos em execução"
 
 #: ../../user_guide/launch.rst:417
-msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
-msgstr "Ative ``enable_weight_cache=true`` ao iniciar o modelo ou selecione **Keep GPU weights for reload** no diálogo de implantação. Requer vLLM 0.31.0+ ou SGLang 0.5.21+, Linux com CUDA ou ROCm, um worker, uma réplica e paralelismo tensorial fixo. O recurso fica desativado por padrão mesmo nas versões compatíveis."
+msgid ""
+"GPU weight retention defaults to automatic selection: supported model "
+"environments and configurations enable it; unsupported configurations start "
+"normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic "
+"selection, set ``True`` to require retention, or ``False`` to disable it. In"
+" the deployment dialog, **Keep GPU weights for reload** offers **Auto**, "
+"**Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang "
+"0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor "
+"parallelism. Models with retained weights cannot add replicas."
+msgstr ""
+"A retenção de pesos na GPU é selecionada automaticamente por padrão: "
+"ambientes e configurações compatíveis a ativam; configurações incompatíveis "
+"iniciam normalmente. Omita ``enable_weight_cache`` ou passe ``None`` para "
+"seleção automática, ``True`` para exigi-la ou ``False`` para desativá-la. No"
+" diálogo de implantação, **Manter pesos na GPU para recarregar** oferece "
+"**Automático**, **Ativado** e **Desativado**. Requer vLLM 0.31.0+ ou SGLang "
+"0.5.21+, Linux com CUDA ou ROCm, um Worker, uma réplica e paralelismo de "
+"tensores fixo. Modelos com pesos retidos não podem adicionar réplicas."
 
 #: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/launch.rst:496
 msgid ""
@@ -663,9 +679,8 @@ msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for
 msgstr "``GET /v1/cache/models`` inclui ``model_type`` e ``model_engine`` para cada modelo em cache. A lista de motores mostra os candidatos descobertos no Worker que possui os arquivos, incluindo sua configuração de ambiente virtual. As versões de cache de rerank e world identificam apenas o nome do modelo, portanto seus candidatos não são verificados em relação ao formato do cache. ``null`` indica metadados desconhecidos ou falha na descoberta; uma lista vazia significa que nenhum motor correspondente pode ser descoberto no momento. Listar os caches não baixa pesos, prepara ambientes nem inicia modelos."
 
 #: ../../user_guide/launch.rst:509 ../../user_guide/launch.rst:514
-msgid "Enable Keep GPU weights for reload before deploying the model."
-msgstr ""
-"Ative «Manter pesos da GPU para recarregamento» antes de implantar o modelo."
+msgid "Configure GPU weight retention before deploying the model."
+msgstr "Configure a retenção de pesos na GPU antes de implantar o modelo."
 
 #: ../../user_guide/launch.rst:516 ../../user_guide/launch.rst:521
 msgid "Open model reconfiguration from Running Models."
@@ -756,3 +771,11 @@ msgstr ""
 "pesos não pode aumentar o comprimento de contexto atual. Implante um novo "
 "modelo para aumentá-lo, permitindo que o checkpoint e as configurações de "
 "RoPE sejam verificados novamente."
+
+#: ../../source/user_guide/launch.rst:541
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr ""
+"O padrão de ``enable_weight_cache`` mudou de ``False`` para seleção "
+"automática (``None``)."

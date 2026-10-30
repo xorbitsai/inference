@@ -116,6 +116,8 @@ export const RadioGroup = React.forwardRef<
     },
     ref,
   ) => {
+    const groupId = React.useId()
+
     return (
       <RadioGroupPrimitive.Root
         ref={ref}
@@ -149,7 +151,7 @@ export const RadioGroup = React.forwardRef<
           return (
             <RadioGroupItem
               key={String(option.value)}
-              id={String(option.value)}
+              id={`${groupId}-${String(option.value)}`}
               value={String(option.value)}
               error={error}
               disabled={disabled || option.disabled}

@@ -19,7 +19,7 @@
     "test:generation-progress": "node --require ./scripts/register-test-typescript.cjs --test src/lib/generation-progress.test.ts src/components/ui/progress-timing.test.tsx",
     "test:log-center": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/log-center/runtime-log-utils.test.ts src/components/pages/log-center/elastic-logs.integration.test.tsx",
     "test:launch-history": "node --test src/components/pages/launch-model/launch-dialog/launch-history-utils.test.mjs && node --require ./scripts/register-test-typescript.cjs --test src/components/pages/launch-model/launch-dialog/launch-history-form.integration.test.tsx",
-    "test:realtime-options": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/launch-model/launch-dialog/realtime-options.integration.test.tsx",
+    "test:realtime-options": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/launch-model/launch-dialog/realtime-options.integration.test.tsx src/components/pages/launch-model/launch-dialog/weight-cache.integration.test.tsx",
     "test:launch-progress": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/running-model/launch-progress.integration.test.tsx src/components/pages/launch-model/launch-dialog/launch-progress.integration.test.tsx",
     "test:model-reload": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/running-model-detail/components/reload-dialog.integration.test.tsx src/components/pages/running-model/reload.integration.test.tsx",
     "test:model-favorites": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/launch-model/model-favorites.integration.test.tsx",

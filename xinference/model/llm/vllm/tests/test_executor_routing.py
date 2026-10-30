@@ -287,3 +287,17 @@ def test_weight_cache_rejects_explicit_xoscar_executor():
     model._enable_weight_cache = True
     with pytest.raises(ValueError, match="native vLLM executor"):
         model._native_mp_route()
+
+
+@pytest.mark.parametrize("available", [True, False])
+def test_auto_cache_selects_executor_before_rank_pools(monkeypatch, available):
+    model = _model(architecture="LlamaForCausalLM", backend="auto")
+    model._init_weight_cache({})
+    monkeypatch.setattr(
+        model,
+        "_weight_cache_unavailable_reason",
+        lambda: None if available else "unsupported engine environment",
+    )
+    assert model.need_create_pools is not available
+    assert model._enable_weight_cache is available
+    assert model._weight_cache is None

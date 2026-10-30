@@ -350,8 +350,20 @@ msgid "Reconfigure and upgrade running models"
 msgstr "重新設定和升級執行中的模型"
 
 #: ../../user_guide/launch.rst:417
-msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
-msgstr "啟動模型時啟用 ``enable_weight_cache=true``，或在部署對話框中選擇 **保留 GPU 權重以支援重載**。此功能需要 vLLM 0.31.0+ 或 SGLang 0.5.21+、Linux CUDA 或 ROCm、單一 worker、單一副本及固定的張量平行度。即使引擎版本符合要求，預設也不啟用。"
+msgid ""
+"GPU weight retention defaults to automatic selection: supported model "
+"environments and configurations enable it; unsupported configurations start "
+"normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic "
+"selection, set ``True`` to require retention, or ``False`` to disable it. In"
+" the deployment dialog, **Keep GPU weights for reload** offers **Auto**, "
+"**Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang "
+"0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor "
+"parallelism. Models with retained weights cannot add replicas."
+msgstr ""
+"GPU 權重保留預設自動選擇：模型環境與設定支援時自動開啟，不支援時正常啟動。省略 ``enable_weight_cache`` 或傳入 "
+"``None`` 表示自動選擇，設為 ``True`` 表示必須開啟，設為 ``False`` 則關閉。部署對話框中的 **保留 GPU "
+"權重以支援重載** 提供 **自動**、**開啟** 和 **關閉** 三種選擇。此功能需要 vLLM 0.31.0+ 或 SGLang "
+"0.5.21+、Linux CUDA 或 ROCm、單一 Worker、單一副本與固定的張量平行度。已保留權重的模型不能新增副本。"
 
 #: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/launch.rst:496
 msgid ""
@@ -580,8 +592,8 @@ msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for
 msgstr "``GET /v1/cache/models`` 為每個快取模型傳回 ``model_type`` 和 ``model_engine``。引擎清單回報檔案所屬 Worker 探索到的候選引擎，並遵循該 Worker 的虛擬環境設定。rerank 和 world 的快取版本僅識別模型名稱，因此這些類型的候選引擎不依快取格式驗證。``null`` 表示中繼資料未知或引擎探索失敗；空清單表示目前未探索到相符的引擎。查詢快取不會下載權重、準備環境或啟動模型。"
 
 #: ../../user_guide/launch.rst:509 ../../user_guide/launch.rst:514
-msgid "Enable Keep GPU weights for reload before deploying the model."
-msgstr "部署模型前啟用「保留 GPU 權重以支援重新載入」。"
+msgid "Configure GPU weight retention before deploying the model."
+msgstr "部署模型前設定 GPU 權重保留。"
 
 #: ../../user_guide/launch.rst:516 ../../user_guide/launch.rst:521
 msgid "Open model reconfiguration from Running Models."
@@ -656,3 +668,9 @@ msgid ""
 msgstr ""
 "對於已登記 YaRN 設定的模型，使用權重快取重新載入時不能增加目前的上下文長度。如需增加，請重新部署模型，以便再次檢查 checkpoint 和 "
 "RoPE 設定。"
+
+#: ../../source/user_guide/launch.rst:541
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr "``enable_weight_cache`` 的預設值從 ``False`` 改為自動選擇（``None``）。"

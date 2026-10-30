@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import itertools
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -89,6 +92,7 @@ class _FakeScaleWorker:
     ):
         self.address = address
         self.launch_args = dict(launch_args)
+        self.cache_enabled = False
         self.model_count = model_count
         self.total = list(total)
         self.models = models or {}
@@ -101,6 +105,9 @@ class _FakeScaleWorker:
 
     async def get_launch_args(self, model_uid: str):
         return dict(self.launch_args)
+
+    async def get_model_reload_config(self, model_uid: str):
+        return {"enabled": self.cache_enabled}
 
     async def get_model_count(self):
         return self.model_count
@@ -536,3 +543,73 @@ async def test_delete_missing_ready_replica_still_rejects():
         await supervisor.terminate_model_replica("demo", 0)
     statuses = await supervisor._status_guard_ref.get_replica_statuses("demo")
     assert [status.replica_id for status in statuses] == [0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_scale_up_uses_resolved_auto_cache_state(engine, enabled):
+    launch_args = {
+        "n_worker": 1,
+        "n_gpu": None,
+        "model_engine": engine,
+        "enable_weight_cache": None,
+    }
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    worker.cache_enabled = enabled
+    supervisor = _make_supervisor([worker], launch_args)
+    if enabled:
+        with pytest.raises(ValueError, match="weight-cached"):
+            await supervisor.add_model_replica("demo")
+        assert not worker.launches
+    else:
+        await supervisor.add_model_replica("demo")
+        assert worker.launches[0]["enable_weight_cache"] is False
+    assert worker.launch_args["enable_weight_cache"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_type", ["embedding", "rerank"])
+@pytest.mark.parametrize("cache_kwargs", [{}, {"enable_weight_cache": None}])
+async def test_non_llm_scale_up_does_not_query_weight_retention(
+    model_type, cache_kwargs
+):
+    launch_args = {
+        "model_type": model_type,
+        "model_engine": "vLLM",
+        "n_worker": 1,
+        "n_gpu": None,
+        **cache_kwargs,
+    }
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    worker.get_model_reload_config = AsyncMock(
+        side_effect=ValueError("Requires WeightCachedModel")
+    )
+    supervisor = _make_supervisor([worker], launch_args)
+    await supervisor.add_model_replica("demo")
+    worker.get_model_reload_config.assert_not_called()
+    assert len(worker.launches) == 1
+    assert "enable_weight_cache" not in worker.launches[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+async def test_cross_engine_scale_up_remains_scalable_after_source_removal(engine):
+    launch_args = {
+        "model_type": "LLM",
+        "model_engine": "Transformers",
+        "n_worker": 1,
+        "n_gpu": None,
+    }
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    supervisor = _make_supervisor([worker], launch_args)
+    first = await supervisor.add_model_replica("demo", model_engine=engine)
+    assert first["replica_id"] == 1
+    await supervisor.terminate_model_replica("demo", 0)
+    # The surviving replica now supplies the saved launch args. On a supported
+    # model host Auto would enable retention unless scale-up explicitly opts out.
+    worker.launch_args = dict(worker.launches[0])
+    worker.cache_enabled = worker.launch_args.get("enable_weight_cache") is not False
+    second = await supervisor.add_model_replica("demo")
+    assert second["replica_id"] == 2
+    assert all(args["enable_weight_cache"] is False for args in worker.launches)

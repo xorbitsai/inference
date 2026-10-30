@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 # http://www.apache.org/licenses/LICENSE-2.0
+# CI: linux
 
 """Opt-in IPC integration test with a local, small unquantized model.
 
@@ -30,7 +31,10 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("engine", ["vllm", "sglang"])
-async def test_gpu_weights_survive_engine_reload(engine):
+@pytest.mark.parametrize(
+    "cache_option", [pytest.param(True, id="enabled"), pytest.param(None, id="auto")]
+)
+async def test_gpu_weights_survive_engine_reload(engine, cache_option):
     import torch
 
     if not torch.cuda.is_available():
@@ -62,7 +66,7 @@ async def test_gpu_weights_survive_engine_reload(engine):
                     "disable_cuda_graph": True,
                 }
             )
-            self._init_weight_cache({"enable_weight_cache": True, **config})
+            self._init_weight_cache({"enable_weight_cache": cache_option, **config})
             self._model_config = config
             self._engine = None
 

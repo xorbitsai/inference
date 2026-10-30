@@ -357,8 +357,22 @@ msgid "Reconfigure and upgrade running models"
 msgstr "실행 중인 모델 재구성 및 업그레이드"
 
 #: ../../user_guide/launch.rst:417
-msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
-msgstr "모델 시작 시 ``enable_weight_cache=true`` 를 지정하거나 배포 창에서 **재로드를 위해 GPU 가중치 유지** 를 선택합니다. vLLM 0.31.0+ 또는 SGLang 0.5.21+, Linux CUDA 또는 ROCm, 단일 워커, 단일 복제본 및 고정된 텐서 병렬도가 필요합니다. 지원 버전에서도 기본적으로 비활성화됩니다."
+msgid ""
+"GPU weight retention defaults to automatic selection: supported model "
+"environments and configurations enable it; unsupported configurations start "
+"normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic "
+"selection, set ``True`` to require retention, or ``False`` to disable it. In"
+" the deployment dialog, **Keep GPU weights for reload** offers **Auto**, "
+"**Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang "
+"0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor "
+"parallelism. Models with retained weights cannot add replicas."
+msgstr ""
+"GPU 가중치 유지는 기본적으로 자동 선택됩니다. 모델 환경과 구성이 지원하면 활성화되며, 지원하지 않으면 정상적으로 시작합니다. 자동 "
+"선택은 ``enable_weight_cache`` 를 생략하거나 ``None`` 을 전달하고, 필수로 사용하려면 ``True``, "
+"비활성화하려면 ``False`` 를 설정합니다. 배포 대화 상자의 **재로드를 위해 GPU 가중치 유지** 에서 **자동**, "
+"**사용**, **사용 안 함** 을 선택할 수 있습니다. vLLM 0.31.0+ 또는 SGLang 0.5.21+, CUDA 또는 "
+"ROCm을 사용하는 Linux, 단일 워커, 단일 복제본 및 고정 텐서 병렬도가 필요합니다. 가중치를 유지하는 모델에는 복제본을 추가할 "
+"수 없습니다."
 
 #: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/launch.rst:496
 msgid ""
@@ -596,8 +610,8 @@ msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for
 msgstr "``GET /v1/cache/models`` 는 캐시된 각 모델의 ``model_type`` 과 ``model_engine`` 을 반환합니다. 엔진 목록은 파일을 소유한 Worker의 가상 환경 설정을 포함한 검색 결과에 따른 후보를 표시합니다. rerank와 world의 캐시 버전은 모델 이름만 식별하므로 이러한 후보는 캐시 형식과 대조하지 않습니다. ``null`` 은 메타데이터를 알 수 없거나 검색에 실패했음을 의미하며, 빈 목록은 현재 일치하는 엔진을 찾지 못했음을 의미합니다. 캐시 목록 조회는 가중치를 다운로드하거나 환경을 준비하거나 모델을 실행하지 않습니다."
 
 #: ../../user_guide/launch.rst:509 ../../user_guide/launch.rst:514
-msgid "Enable Keep GPU weights for reload before deploying the model."
-msgstr "모델을 배포하기 전에 «재로드를 위한 GPU 가중치 유지»를 활성화하세요."
+msgid "Configure GPU weight retention before deploying the model."
+msgstr "모델을 배포하기 전에 GPU 가중치 유지를 설정합니다."
 
 #: ../../user_guide/launch.rst:516 ../../user_guide/launch.rst:521
 msgid "Open model reconfiguration from Running Models."
@@ -673,3 +687,10 @@ msgid ""
 msgstr ""
 "YaRN 설정이 등록된 모델은 가중치 캐시를 사용하는 다시 로드로 현재 컨텍스트 길이를 늘릴 수 없습니다. 길이를 늘리려면 새 모델을 "
 "배포하여 체크포인트와 RoPE 설정을 다시 확인해야 합니다."
+
+#: ../../source/user_guide/launch.rst:541
+msgid ""
+"The default for ``enable_weight_cache`` changed from ``False`` to automatic "
+"selection (``None``)."
+msgstr ""
+"``enable_weight_cache`` 의 기본값이 ``False`` 에서 자동 선택(``None``)으로 변경되었습니다."
