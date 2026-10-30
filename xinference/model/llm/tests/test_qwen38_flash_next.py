@@ -1,3 +1,4 @@
+# CI: linux
 import json
 from pathlib import Path
 
@@ -17,7 +18,7 @@ def test_flash_next_catalog():
     assert family.architectures == ["Qwen4ExpForConditionalGeneration"]
     assert family.context_length == 262144
     assert {"vision", "tools", "reasoning", "hybrid"} <= set(family.model_ability)
-    assert {s.model_format for s in family.model_specs} == {"pytorch", "fp8"}
+    assert {s.model_format for s in family.model_specs} == {"pytorch", "fp8", "fp4"}
     assert all(s.model_size_in_billions == 125 for s in family.model_specs)
     assert all(s.activated_size_in_billions == 6 for s in family.model_specs)
     records = json.loads(
@@ -30,7 +31,7 @@ def test_flash_next_catalog():
     )
 
 
-@pytest.mark.parametrize("fmt", ["pytorch", "fp8"])
+@pytest.mark.parametrize("fmt", ["pytorch", "fp8", "fp4"])
 @pytest.mark.parametrize("virtualenv", [False, True])
 @pytest.mark.parametrize("runtime", ["0.29.0", "0.30.0.dev0", "0.30.0rc1", "0.30.0"])
 @pytest.mark.parametrize("cached", [False, True])

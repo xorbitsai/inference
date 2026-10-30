@@ -290,9 +290,13 @@ def test_factory_applies_auto_yarn(monkeypatch, engine):
     key = "hf_overrides" if engine == "vLLM" else "json_model_override_args"
     overrides = model.config[key] if engine == "vLLM" else json.loads(model.config[key])
     assert overrides["text_config"]["rope_parameters"]["factor"] == 4.0
+    assert model._auto_yarn_env == (
+        "VLLM_ALLOW_LONG_MAX_MODEL_LEN"
+        if engine == "vLLM"
+        else "SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN"
+    )
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "engine,flag",
     [
@@ -302,47 +306,168 @@ def test_factory_applies_auto_yarn(monkeypatch, engine):
 )
 @pytest.mark.parametrize("context", [262144, 1000000])
 @pytest.mark.parametrize("explicit_flag", [None, "0"])
-async def test_worker_sets_yarn_flag_only_in_model_environment(
-    monkeypatch, engine, flag, context, explicit_flag
+def test_worker_persists_resolved_yarn_flag_without_changing_parent_environment(
+    engine, flag, context, explicit_flag
 ):
-    import inspect
     import os
 
-    from xinference.core.worker import WorkerActor
+    from xinference.core.worker import _inject_auto_yarn_env
 
     original_env = {"KEEP": "value"}
     if explicit_flag is not None:
         original_env[flag] = explicit_flag
     parent_flag = os.environ.get(flag)
 
-    class CapturedLaunch(Exception):
-        pass
-
-    def capture(model_type, model_name, envs, launch_args):
-        assert envs.get(flag) == (
-            explicit_flag
-            if explicit_flag is not None
-            else ("1" if context > 262144 else None)
-        )
-        assert envs["KEEP"] == "value"
-        assert launch_args["context_length"] == context
-        assert launch_args["envs"] == original_env
-        assert "hf_overrides" not in launch_args
-        assert "json_model_override_args" not in launch_args
-        raise CapturedLaunch
-
-    monkeypatch.setattr("xinference.core.worker._inject_jina_v3_allocator_env", capture)
-    with pytest.raises(CapturedLaunch):
-        await inspect.unwrap(WorkerActor.launch_builtin_model)(
-            SimpleNamespace(),
-            model_uid="yarn-0",
-            model_name="qwen3.8",
-            model_size_in_billions=27,
-            model_format="pytorch",
-            quantization="none",
-            model_engine=engine,
-            context_length=context,
-            envs=original_env,
-        )
+    launch_args = {"context_length": context, "envs": original_env}
+    model = SimpleNamespace(_auto_yarn_env=flag if context > 262144 else None)
+    envs = _inject_auto_yarn_env(model, original_env, launch_args)
+    assert envs.get(flag) == (
+        explicit_flag
+        if explicit_flag is not None
+        else ("1" if context > 262144 else None)
+    )
+    assert envs["KEEP"] == "value"
+    assert launch_args == {"context_length": context, "envs": envs}
     assert os.environ.get(flag) == parent_flag
     assert "1" not in original_env.values()
+
+
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+@pytest.mark.parametrize("scaled", [False, True])
+def test_downloaded_checkpoint_controls_yarn_overrides_and_environment(
+    monkeypatch, tmp_path, engine, scaled
+):
+    import json
+
+    from xinference.core.worker import _inject_auto_yarn_env
+
+    from .. import llm_family
+    from ..cache_manager import LLMCacheManager
+    from ..core import create_llm_model_instance
+
+    class DummyModel:
+        def __init__(self, uid, family, path, config):
+            self.config = config
+
+    monkeypatch.setattr(
+        llm_family, "check_engine_by_spec_parameters", lambda *a: DummyModel
+    )
+    monkeypatch.setattr(LLMCacheManager, "cache", lambda self: str(tmp_path))
+    (tmp_path / "config.json").write_text(
+        json.dumps(
+            {
+                "text_config": {
+                    "rope_parameters": {"rope_type": "yarn" if scaled else "default"}
+                }
+            }
+        )
+    )
+    args = dict(
+        model_format="pytorch",
+        model_size_in_billions=27,
+        quantization="none",
+        enable_virtual_env=False,
+        context_length=1000001 if scaled else 1000000,
+    )
+    model = create_llm_model_instance("test-0", "qwen3.8", engine, **args)
+    envs = _inject_auto_yarn_env(model, {}, {})
+    override = "hf_overrides" if engine == "vLLM" else "json_model_override_args"
+    assert (override in model.config) is not scaled
+    assert bool(envs) is not scaled
+    if not scaled:
+        with pytest.raises(ValueError, match="up to 1000000"):
+            create_llm_model_instance(
+                "test-0", "qwen3.8", engine, **{**args, "context_length": 1000001}
+            )
+
+
+@pytest.mark.parametrize(
+    "rope",
+    [
+        {"type": "mrope", "mrope_section": [11, 11, 10]},
+        {"rope_type": "default", "mrope_interleaved": True},
+        {"rope_type": "unknown", "factor": 1},
+    ],
+)
+def test_unscaled_checkpoint_still_receives_yarn(tmp_path, rope):
+    import json
+
+    from ..context_length import configure_auto_yarn
+    from ..llm_family import match_llm
+
+    family = match_llm("qwen3.8", "pytorch", 27, "none")
+    (tmp_path / "config.json").write_text(
+        json.dumps({"text_config": {"rope_parameters": rope}})
+    )
+    config, flag = configure_auto_yarn(
+        family, "vllm", {"context_length": 1000000}, str(tmp_path)
+    )
+    assert flag == "VLLM_ALLOW_LONG_MAX_MODEL_LEN"
+    assert config["hf_overrides"]["text_config"]["rope_parameters"]["factor"] == 4
+
+
+@pytest.mark.parametrize(
+    "engine,key", [("vllm", "hf_overrides"), ("sglang", "json_model_override_args")]
+)
+def test_json_overrides_merge_and_invalid_values_fail(engine, key):
+    import json
+
+    from ..context_length import configure_auto_yarn
+    from ..llm_family import match_llm
+
+    family = match_llm("qwen3.8", "pytorch", 27, "none")
+    original = {"context_length": 1000000, key: '{"text_config": {"keep": 1}}'}
+    result, _ = configure_auto_yarn(family, engine, original)
+    overrides = result[key] if engine == "vllm" else json.loads(result[key])
+    assert overrides["text_config"]["keep"] == 1
+    assert overrides["text_config"]["rope_parameters"]["factor"] == 4
+    for invalid in ("not-json", "[]", "null", "1", [1]):
+        with pytest.raises(ValueError, match="JSON object"):
+            configure_auto_yarn(family, engine, {**original, key: invalid})
+    with pytest.raises(ValueError, match="configuration path"):
+        configure_auto_yarn(family, engine, {**original, key: {"text_config": 1}})
+    for manual in (
+        {key: lambda config: config},
+        {"rope_scaling": {"type": "linear", "factor": 4}},
+    ):
+        config = {"context_length": 2000000, **manual}
+        assert configure_auto_yarn(family, engine, config) == (config, None)
+
+
+@pytest.mark.parametrize("original,factor", [(131072, 8), (None, 4)])
+def test_yarn_factor_uses_recipe_original_window(original, factor):
+    from ..context_length import configure_auto_yarn
+    from ..llm_family import match_llm
+
+    family = match_llm("qwen3.8", "pytorch", 27, "none").copy(deep=True)
+    parameters = family.context_length_extension.rope_parameters
+    if original is None:
+        parameters.pop("original_max_position_embeddings")
+    else:
+        parameters["original_max_position_embeddings"] = original
+    result, _ = configure_auto_yarn(family, "vllm", {"context_length": 1000000})
+    rope = result["hf_overrides"]["text_config"]["rope_parameters"]
+    assert rope["factor"] == factor
+    assert rope["original_max_position_embeddings"] * factor >= 1000000
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"engines": []},
+        {"engines": ["vllm", "vllm"]},
+        {"rope_parameters_path": []},
+        {"rope_parameters_path": [""]},
+        {"rope_parameters": {"original_max_position_embeddings": 0}},
+        {"rope_parameters": {"original_max_position_embeddings": "262144"}},
+        {"max_context_length": 262144},
+        {"max_context_length": 131072},
+    ],
+)
+def test_custom_registration_validates_context_extension(patch):
+    from ..llm_family import LLMFamilyV2, match_llm
+
+    family = match_llm("qwen3.8", "pytorch", 27, "none").dict()
+    family["context_length_extension"].update(patch)
+    with pytest.raises(ValueError):
+        LLMFamilyV2.parse_obj(family)

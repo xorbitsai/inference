@@ -655,3 +655,13 @@ msgstr ""
 
 msgid "To launch Qwen3.8-27B with automatic YaRN extension to one million tokens:"
 msgstr "自動 YaRN でコンテキストを 100 万トークンに拡張して Qwen3.8-27B を起動するには："
+
+#: ../user_guide/launch.rst:180
+msgid ""
+"For models with a registered YaRN recipe, weight-cache reload cannot "
+"increase the current context length. Deploy a new model to increase it so "
+"the checkpoint and RoPE settings are checked again."
+msgstr ""
+"YaRN "
+"設定が登録されているモデルでは、重みキャッシュを使った再読み込みで現在のコンテキスト長を増やすことはできません。長くするには新しいモデルをデプロイし、チェックポイントと"
+" RoPE 設定を再確認してください。"

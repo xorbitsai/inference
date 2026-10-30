@@ -177,6 +177,10 @@ checkpoint configurations take precedence. Models without a registered recipe
 retain their existing engine behavior. Changing the selected length requires
 restarting the model; the engine does not switch scaling per request.
 
+For models with a registered YaRN recipe, weight-cache reload cannot increase
+the current context length. Deploy a new model to increase it so the checkpoint
+and RoPE settings are checked again.
+
 With an explicit context limit, MLX rejects prompts that leave no room for output
 and caps ``max_tokens`` to the remaining budget. Cached prompt tokens and
 processed image tokens count toward the input limit. Non-streaming requests that

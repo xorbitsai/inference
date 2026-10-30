@@ -479,6 +479,20 @@ _VRAM_READY_RATIO = 0.90
 _NVML_INIT_TIMEOUT = 10
 
 
+def _inject_auto_yarn_env(
+    model: Any,
+    envs: Optional[Dict[str, str]],
+    launch_args: Dict[str, Any],
+) -> Optional[Dict[str, str]]:
+    """Persist the factory's checkpoint-aware decision for recovery and reload."""
+    context_env = getattr(model, "_auto_yarn_env", None)
+    if context_env:
+        envs = dict(envs or {})
+        envs.setdefault(context_env, "1")
+        launch_args["envs"] = envs
+    return envs
+
+
 def _inject_jina_v3_allocator_env(
     model_type: Optional[str],
     model_name: Optional[str],
@@ -5127,24 +5141,6 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 download_hub=download_hub,
                 enable_virtual_env=enable_virtual_env,
             )
-        if model_type.lower() == "llm" and model_engine:
-            from ..model.llm.context_length import configure_auto_yarn
-            from ..model.llm.llm_family import match_llm
-
-            family = match_llm(
-                model_name,
-                model_format,
-                model_size_in_billions,
-                quantization,
-                None if download_hub == "auto" else download_hub,
-            )
-            if family is not None:
-                _, context_env = configure_auto_yarn(
-                    family, model_engine, kwargs, model_path
-                )
-                if context_env:
-                    envs = dict(envs or {})
-                    envs.setdefault(context_env, "1")
         envs = _inject_jina_v3_allocator_env(model_type, model_name, envs, launch_args)
 
         try:
@@ -5424,6 +5420,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             completion_stage="loading",
                         )
 
+                        context_env = getattr(model, "_auto_yarn_env", None)
+                        if context_env:
+                            envs = _inject_auto_yarn_env(model, envs, launch_args)
+                            assert envs is not None
+                            subpool_alloc_env[context_env] = envs[context_env]
+
                         def check_cancel():
                             # check downloader first, sometimes download finished
                             # cancelled already
@@ -5608,10 +5610,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                 or "CUDA_VISIBLE_DEVICES"
                             )
                             env_value = ",".join(devices)
+                            rank_env = {env_name: env_value}
+                            if context_env:
+                                rank_env[context_env] = subpool_alloc_env[context_env]
                             for device in devices:
                                 coros.append(
                                     self._append_sub_pool_protected(
-                                        env={env_name: env_value},
+                                        env=rank_env.copy(),
                                         start_python=subpool_python_path,
                                         model_uid=model_uid,
                                     )

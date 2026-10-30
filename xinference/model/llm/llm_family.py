@@ -221,6 +221,14 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     class Config:
         extra = "allow"
 
+    @validator("context_length_extension")
+    def validate_context_extension(cls, extension, values):
+        if extension is not None:
+            native = values.get("context_length")
+            if native is None or extension.max_context_length <= native:
+                raise ValueError("max_context_length must exceed context_length")
+        return extension
+
     def _resolve_architectures(self) -> Optional[List[str]]:
         if self.architectures:
             return self.architectures

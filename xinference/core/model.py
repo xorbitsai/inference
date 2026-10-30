@@ -345,6 +345,11 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         super().__init__()
         self._generation_python_executable = model_python_executable
 
+        context_env = getattr(model, "_auto_yarn_env", None)
+        if context_env:
+            # Sharded launches may spawn their pool before the download resolves.
+            os.environ.setdefault(context_env, "1")
+
         from ..model.llm.vllm.core import VLLMModel
 
         self._supervisor_address = supervisor_address

@@ -21,7 +21,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple
 
-from ..._compat import BaseModel, Field
+from ..._compat import BaseModel, Field, validator
 
 if TYPE_CHECKING:
     from .llm_family import LLMFamilyV2
@@ -41,9 +41,24 @@ class ContextLengthExtension(BaseModel):
     """A model's verified YaRN recipe, independent of its native default."""
 
     max_context_length: int = Field(gt=0)
-    engines: List[Literal["vllm", "sglang"]]
+    engines: List[Literal["vllm", "sglang"]] = Field(min_items=1, unique_items=True)
     rope_parameters: Dict[str, Any]
     rope_parameters_path: List[str] = Field(min_items=1)
+
+    @validator("rope_parameters_path", each_item=True)
+    def validate_rope_path(cls, value: str) -> str:
+        if not value:
+            raise ValueError("rope_parameters_path items must not be empty")
+        return value
+
+    @validator("rope_parameters")
+    def validate_original_context(cls, value: Dict[str, Any]) -> Dict[str, Any]:
+        original = value.get("original_max_position_embeddings")
+        if original is not None and (type(original) is not int or original <= 0):
+            raise ValueError(
+                "original_max_position_embeddings must be a positive integer"
+            )
+        return value
 
 
 def _has_rope_override(value: Any, checkpoint: bool = False) -> bool:
@@ -54,8 +69,9 @@ def _has_rope_override(value: Any, checkpoint: bool = False) -> bool:
             if not checkpoint:
                 return True
             if isinstance(item, dict) and (
-                item.get("rope_type", item.get("type", "default")) != "default"
-                or item.get("factor", 1) != 1
+                item.get("rope_type", item.get("type"))
+                in {"yarn", "linear", "dynamic", "longrope", "llama3"}
+                or (type(item.get("factor")) in (int, float) and item["factor"] > 1)
             ):
                 return True
         if isinstance(item, dict) and _has_rope_override(item, checkpoint):
@@ -72,7 +88,7 @@ def configure_auto_yarn(
     """Derive YaRN only for an explicit extended context and a declared recipe.
 
     Return the required model-process environment flag separately, so the worker
-    can set it before spawning the model without changing its own environment.
+    can propagate the resolved decision without changing its own environment.
     Manual RoPE settings, including scaled checkpoint configs, remain authoritative.
     """
     result = dict(config)
@@ -119,7 +135,8 @@ def configure_auto_yarn(
         if not isinstance(target, dict):
             raise ValueError(f"{override_key} has an invalid YaRN configuration path")
     parameters = dict(extension.rope_parameters)
-    parameters["factor"] = float(math.ceil(requested / native))
+    original = parameters.setdefault("original_max_position_embeddings", native)
+    parameters["factor"] = float(math.ceil(requested / original))
     target[extension.rope_parameters_path[-1]] = parameters
     result[override_key] = overrides if engine == "vllm" else json.dumps(overrides)
     flag = (

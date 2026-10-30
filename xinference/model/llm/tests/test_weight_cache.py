@@ -169,6 +169,74 @@ def test_valid_reload_types():
         validate_reload_patch("sglang", {"cuda_graph_max_bs": 16})
 
 
+@pytest.mark.parametrize(
+    "engine,key", [("vllm", "max_model_len"), ("sglang", "context_length")]
+)
+@pytest.mark.parametrize("launched", [None, 262144, 500000, 1000000])
+def test_reload_rejects_context_increases_before_engine_validation(
+    engine, key, launched
+):
+    from ..llm_family import match_llm
+
+    model = WeightCachedModel()
+    model.model_family = match_llm("qwen3.8", "pytorch", 27, "none")
+    model._weight_cache_engine = engine
+    model._reload_config = {key: launched} if launched else {}
+    original = dict(model._reload_config)
+    current = launched or 262144
+    for requested in (current + 1, 2000000):
+        with pytest.raises(ValueError, match="requires a new deployment"):
+            model.validate_reload({key: requested})
+    assert model._reload_config == original
+
+
+@pytest.mark.parametrize(
+    "engine,key,module,argument_class",
+    [
+        ("vllm", "max_model_len", "vllm.engine.arg_utils", "AsyncEngineArgs"),
+        ("sglang", "context_length", "sglang.srt.server_args", "ServerArgs"),
+    ],
+)
+@pytest.mark.parametrize("requested", [500000, 1000000])
+def test_reload_keeps_launch_rope_settings_within_the_current_window(
+    monkeypatch, engine, key, module, argument_class, requested
+):
+    from ..context_length import configure_auto_yarn, map_context_length
+    from ..llm_family import match_llm
+
+    model = WeightCachedModel()
+    model.model_family = match_llm("qwen3.8", "pytorch", 27, "none")
+    model._weight_cache_engine = engine
+    model.model_path = "/models/qwen"
+    model._reload_config, _ = configure_auto_yarn(
+        model.model_family,
+        engine,
+        map_context_length(engine, {"context_length": 1000000}),
+    )
+    model._weight_cache = SimpleNamespace(
+        client_config=lambda: {}, engine_config=lambda cfg: cfg
+    )
+    model._sanitize_model_config = lambda cfg: cfg
+    validated = []
+
+    class EngineArgs:
+        def __init__(self, **kwargs):
+            validated.append(kwargs)
+
+        def create_engine_config(self):
+            pass
+
+    monkeypatch.setitem(
+        sys.modules, module, SimpleNamespace(**{argument_class: EngineArgs})
+    )
+    result = model.validate_reload({key: requested})
+    assert result[key] == requested
+    assert validated[0][key] == requested
+    assert model._reload_config[key] == 1000000
+    rope_key = "hf_overrides" if engine == "vllm" else "json_model_override_args"
+    assert result[rope_key] == model._reload_config[rope_key]
+
+
 def test_reload_error_survives_actor_serialization():
     error = pickle.loads(pickle.dumps(ModelReloadError("oom", restored=True)))
     assert error.restored is True

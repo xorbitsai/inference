@@ -397,6 +397,10 @@ async def test_private_preparation_never_stops_public_engine(
         _ensure_subpool_monitor=AsyncMock(),
     )
 
+    worker._model_uid_to_launch_args["model"]["envs"] = {
+        "SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN": "1"
+    }
+
     async def load():
         if failure == "load":
             raise RuntimeError("Candidate OOM")
@@ -455,6 +459,7 @@ async def test_private_preparation_never_stops_public_engine(
         overrides = worker._append_sub_pool_protected.call_args.kwargs["env"]
         assert "INHERITED_TEST_VARIABLE" not in overrides
         assert overrides["XINFERENCE_MODEL_UID"] == "model"
+        assert overrides["SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN"] == "1"
     anchor.stop.assert_not_called()
 
 
@@ -902,7 +907,15 @@ async def test_snapshot_preserves_replica_uid_and_explicit_interpreter(monkeypat
     from .. import model_generation
     from ..model import ModelGenerationActor
 
-    model = SimpleNamespace(model_family=SimpleNamespace(to_description=lambda: {}))
+    flag = "VLLM_ALLOW_LONG_MAX_MODEL_LEN"
+    monkeypatch.delenv(flag, raising=False)
+    model = SimpleNamespace(
+        model_family=SimpleNamespace(to_description=lambda: {}),
+        _auto_yarn_env=flag,
+    )
     monkeypatch.setattr(model_generation, "build_generation_model", lambda _: model)
     generation = ModelGenerationActor(snapshot, "supervisor", "worker")
     assert generation._metrics_labels["engine"] == "vLLM"
+    import os
+
+    assert os.environ[flag] == "1"
