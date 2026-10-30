@@ -47,6 +47,7 @@ def get_llm_version_infos():
 
 
 class LLM(abc.ABC):
+    _auto_yarn_env: Optional[str] = None
     supports_cache_salt = False
     allow_batch = False
     supports_tool_controls = False
@@ -566,7 +567,7 @@ def create_llm_model_instance(
 
     if model_engine is None:
         raise ValueError("model_engine is required for LLM model")
-    from .context_length import map_context_length
+    from .context_length import configure_auto_yarn, map_context_length
 
     kwargs = map_context_length(model_engine, kwargs)
     llm_family = match_llm(
@@ -607,6 +608,10 @@ def create_llm_model_instance(
     if not model_path:
         cache_manager = LLMCacheManager(llm_family, multimodal_projector)
         model_path = cache_manager.cache()
+
+    kwargs, context_env = configure_auto_yarn(
+        llm_family, model_engine, kwargs, model_path
+    )
 
     # Speculative decoding: download the drafter checkpoint paired with this
     # spec (e.g. Gemma 4 ``*-it-assistant`` for MTP) unless the user points at
@@ -649,4 +654,5 @@ def create_llm_model_instance(
             model = llm_cls(model_uid, llm_family, model_path, kwargs)
     else:
         model = llm_cls(model_uid, llm_family, model_path, kwargs)
+    model._auto_yarn_env = context_env
     return model

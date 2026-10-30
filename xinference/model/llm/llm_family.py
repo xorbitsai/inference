@@ -39,6 +39,7 @@ from ..utils import (
     retry_snapshot_download,
 )
 from . import LLM
+from .context_length import ContextLengthExtension
 from .model_metadata import ModelMetadata
 
 logger = logging.getLogger(__name__)
@@ -184,6 +185,7 @@ class MLXLLMSpecV2(BaseModel):
 class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     version: Literal[2]
     context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
+    context_length_extension: Optional[ContextLengthExtension] = None
     model_name: str
     model_lang: List[str]
     model_ability: List[
@@ -218,6 +220,14 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
 
     class Config:
         extra = "allow"
+
+    @validator("context_length_extension")
+    def validate_context_extension(cls, extension, values):
+        if extension is not None:
+            native = values.get("context_length")
+            if native is None or extension.max_context_length <= native:
+                raise ValueError("max_context_length must exceed context_length")
+        return extension
 
     def _resolve_architectures(self) -> Optional[List[str]]:
         if self.architectures:

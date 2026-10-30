@@ -708,6 +708,10 @@ const ja = {
     contextLengthTip:
       'リクエストごとの入力と出力の合計トークン上限です。未設定の場合はモデルの既定値を使用します。',
     contextLengthDefault: 'モデルの既定値',
+    contextLengthYarn:
+      'リクエストごとの入力と出力の合計トークン上限。標準は {{native}} トークン、拡張上限は {{max}} トークンです。標準を超える長さを選ぶと、モデル起動時に YaRN が自動的に有効になります。未設定の場合は標準値を使用します。',
+    contextLengthNative:
+      'リクエストごとの入力と出力の合計トークン上限。標準は {{native}} トークンです。このモデルとエンジンには自動 YaRN 拡張の対応が宣言されていません。未設定の場合はモデルの標準値を使用します。',
     contextLengthUnknown: '最大コンテキストが不明です。トークン上限を入力してください。',
     contextLengthInvalid: '1 から {{max}} までの整数を入力してください。',
     advancedConfiguration: '高度な設定',

@@ -706,6 +706,10 @@ const ko = {
     contextLengthTip:
       '요청별 입력과 출력의 총 토큰 상한입니다. 비워 두면 모델 기본값을 사용합니다.',
     contextLengthDefault: '모델 기본값',
+    contextLengthYarn:
+      '요청당 입력과 출력의 총 토큰 상한입니다. 기본 컨텍스트는 {{native}} 토큰이며 최대 {{max}} 토큰까지 확장할 수 있습니다. 기본 길이를 초과하면 모델 시작 시 YaRN이 자동으로 활성화됩니다. 비워 두면 기본값을 사용합니다.',
+    contextLengthNative:
+      '요청당 입력과 출력의 총 토큰 상한입니다. 기본 컨텍스트는 {{native}} 토큰입니다. 이 모델과 엔진에는 자동 YaRN 확장 지원이 선언되어 있지 않습니다. 비워 두면 모델 기본값을 사용합니다.',
     contextLengthUnknown: '최대 컨텍스트를 알 수 없습니다. 토큰 상한을 입력하세요.',
     contextLengthInvalid: '1에서 {{max}} 사이의 정수를 입력하세요.',
     advancedConfiguration: '고급 설정',

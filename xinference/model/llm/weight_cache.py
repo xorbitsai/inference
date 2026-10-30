@@ -651,6 +651,22 @@ class WeightCachedModel:
 
     def validate_reload(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         validate_reload_patch(self._weight_cache_engine, patch)
+        from .context_length import CONTEXT_LENGTH_KEYS
+
+        family = getattr(self, "model_family", None)
+        extension = getattr(family, "context_length_extension", None)
+        context_key = CONTEXT_LENGTH_KEYS[self._weight_cache_engine]
+        if (
+            family is not None
+            and extension is not None
+            and self._weight_cache_engine in extension.engines
+        ):
+            current = self._reload_config.get(context_key) or family.context_length
+            if context_key in patch and patch[context_key] > current:
+                raise ValueError(
+                    "Increasing context length for a model with a YaRN recipe "
+                    "requires a new deployment so RoPE settings can be recalculated"
+                )
         config = {**copy.deepcopy(self._reload_config), **copy.deepcopy(patch)}
         parameters = self._reload_parameters()
         if "reasoning_content" in patch and "reasoning_content" not in parameters:

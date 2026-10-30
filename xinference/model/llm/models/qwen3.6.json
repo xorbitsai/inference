@@ -3,6 +3,29 @@
     "model_name": "qwen3.6",
     "model_description": "Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.",
     "context_length": 262144,
+    "context_length_extension": {
+      "max_context_length": 1010000,
+      "engines": [
+        "vllm",
+        "sglang"
+      ],
+      "rope_parameters": {
+        "mrope_interleaved": true,
+        "mrope_section": [
+          11,
+          11,
+          10
+        ],
+        "rope_type": "yarn",
+        "rope_theta": 10000000,
+        "partial_rotary_factor": 0.25,
+        "original_max_position_embeddings": 262144
+      },
+      "rope_parameters_path": [
+        "text_config",
+        "rope_parameters"
+      ]
+    },
     "model_lang": [
       "en",
       "zh"
@@ -2330,6 +2353,145 @@
                 "weights_source": "https://modelscope.cn/models/mlx-community/Qwen3.6-35B-A3B-bf16/resolve/master/model.safetensors.index.json",
                 "weights_sha256": "f86e9c04c11d1574e949f454b3c62b0e5e6ea637c30c62169242649f9691af9e"
               }
+            }
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 27,
+        "model_format": "fp4",
+        "model_src": {
+          "huggingface": {
+            "model_id": "nvidia/Qwen3.6-27B-NVFP4",
+            "quantizations": [
+              "FP4"
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "architecture_type": "hybrid_attention",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 64,
+              "full_attention_interval": 4,
+              "linear_num_key_heads": 16,
+              "linear_num_value_heads": 48,
+              "linear_key_head_dim": 128,
+              "linear_value_head_dim": 128,
+              "linear_conv_kernel_dim": 4,
+              "vision": {
+                "hidden_size": 1152,
+                "intermediate_size": 4304,
+                "num_attention_heads": 16,
+                "spatial_merge_size": 2
+              },
+              "config_source": "https://huggingface.co/nvidia/Qwen3.6-27B-NVFP4/resolve/0893e1606ff3d5f97a441f405d5fc541a6bdf404/config.json",
+              "config_sha256": "c04a19ba293737ad7be4f6e96d6666cb7e479cbe19ecc0c289fad267135b0338"
+            }
+          },
+          "modelscope": {
+            "model_id": "nv-community/Qwen3.6-27B-NVFP4",
+            "quantizations": [
+              "FP4"
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "architecture_type": "hybrid_attention",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 64,
+              "full_attention_interval": 4,
+              "linear_num_key_heads": 16,
+              "linear_num_value_heads": 48,
+              "linear_key_head_dim": 128,
+              "linear_value_head_dim": 128,
+              "linear_conv_kernel_dim": 4,
+              "vision": {
+                "hidden_size": 1152,
+                "intermediate_size": 4304,
+                "num_attention_heads": 16,
+                "spatial_merge_size": 2
+              },
+              "config_source": "https://modelscope.cn/models/nv-community/Qwen3.6-27B-NVFP4/resolve/master/config.json",
+              "config_sha256": "c04a19ba293737ad7be4f6e96d6666cb7e479cbe19ecc0c289fad267135b0338"
+            }
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 35,
+        "activated_size_in_billions": 3,
+        "model_format": "fp4",
+        "model_src": {
+          "huggingface": {
+            "model_id": "nvidia/Qwen3.6-35B-A3B-NVFP4",
+            "quantizations": [
+              "FP4"
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "architecture_type": "hybrid_attention",
+              "hidden_size": 2048,
+              "intermediate_size": 512,
+              "num_hidden_layers": 40,
+              "full_attention_interval": 4,
+              "linear_num_key_heads": 16,
+              "linear_num_value_heads": 32,
+              "linear_key_head_dim": 128,
+              "linear_value_head_dim": 128,
+              "linear_conv_kernel_dim": 4,
+              "num_experts": 256,
+              "num_experts_per_tok": 8,
+              "shared_expert_intermediate_size": 512,
+              "vision": {
+                "hidden_size": 1152,
+                "intermediate_size": 4304,
+                "num_attention_heads": 16,
+                "spatial_merge_size": 2
+              },
+              "config_source": "https://huggingface.co/nvidia/Qwen3.6-35B-A3B-NVFP4/resolve/1355db6a052410cfd62085d94b58866fd0f2c3c5/config.json",
+              "config_sha256": "58aefa1c9eff7989f431d748f2ddec39446cb1fd2a69acc46e285c6a37b0cecc"
+            }
+          },
+          "modelscope": {
+            "model_id": "nv-community/Qwen3.6-35B-A3B-NVFP4",
+            "quantizations": [
+              "FP4"
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "architecture_type": "hybrid_attention",
+              "hidden_size": 2048,
+              "intermediate_size": 512,
+              "num_hidden_layers": 40,
+              "full_attention_interval": 4,
+              "linear_num_key_heads": 16,
+              "linear_num_value_heads": 32,
+              "linear_key_head_dim": 128,
+              "linear_value_head_dim": 128,
+              "linear_conv_kernel_dim": 4,
+              "num_experts": 256,
+              "num_experts_per_tok": 8,
+              "shared_expert_intermediate_size": 512,
+              "vision": {
+                "hidden_size": 1152,
+                "intermediate_size": 4304,
+                "num_attention_heads": 16,
+                "spatial_merge_size": 2
+              },
+              "config_source": "https://modelscope.cn/models/nv-community/Qwen3.6-35B-A3B-NVFP4/resolve/master/config.json",
+              "config_sha256": "58aefa1c9eff7989f431d748f2ddec39446cb1fd2a69acc46e285c6a37b0cecc"
             }
           }
         }

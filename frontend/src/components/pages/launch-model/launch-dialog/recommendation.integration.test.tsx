@@ -762,3 +762,183 @@ it('accepts legacy recommendation engine context fields without copying them int
   assert.equal(patch.context_length, 32768);
   assert.ok(!('max_model_len' in patch));
 });
+
+it('keeps native defaults, exposes declared YaRN limits, and explains them in the question-mark tooltip', async () => {
+  await render({
+    ...model,
+    context_length: 262144,
+    context_length_extension: { max_context_length: 1000000, engines: ['vllm'] },
+  });
+  await act(async () => form.setFieldValue('model_engine', 'vLLM'));
+  const slider = document.querySelector('input[type="range"]') as HTMLInputElement;
+  assert.equal(slider.max, '1000000');
+  assert.equal(slider.value, '262144');
+  assert.equal(form.getFieldValue('context_length'), undefined);
+
+  const label = Array.from(document.querySelectorAll('label')).find((element) =>
+    element.textContent?.includes('Context length')
+  )!;
+  const trigger = label.querySelector('svg')!.parentElement!;
+  await act(async () => {
+    const event = new window.MouseEvent('pointermove', { bubbles: true });
+    Object.defineProperty(event, 'pointerType', { value: 'mouse' });
+    trigger.dispatchEvent(event);
+  });
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 400)));
+  const tip = document.querySelector('[role="tooltip"]');
+  assert.ok(tip, 'hovering the question mark should show a tooltip');
+  assert.match(tip.textContent || '', /Native context: 262,144/);
+  assert.match(tip.textContent || '', /extended maximum: 1,000,000/);
+  assert.match(tip.textContent || '', /automatically enables YaRN at model launch/);
+
+  await act(async () => form.setFieldValue('context_length', 1000000));
+  assert.equal(slider.value, '1000000');
+  const { transformFormToFetch } = require('../utils') as typeof import('../utils');
+  const payload = transformFormToFetch(form.getFieldsValue());
+  assert.equal(payload.context_length, 1000000);
+  assert.equal(payload.hf_overrides, undefined);
+
+  await act(async () => form.setFieldValue('model_engine', 'Transformers'));
+  assert.equal(slider.max, '262144');
+  await act(async () => {
+    document
+      .querySelector('form')!
+      .dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+  assert.match(document.body.textContent || '', /Enter a whole number between 1 and 262144/);
+  assert.match(document.querySelector('[role="tooltip"]')?.textContent || '', /not declared/);
+});
+
+function stubClipboardProperty(target: object, name: string, value: unknown) {
+  const original = Object.getOwnPropertyDescriptor(target, name);
+  Object.defineProperty(target, name, { configurable: true, writable: true, value });
+  return () => {
+    if (original) Object.defineProperty(target, name, original);
+    else Reflect.deleteProperty(target, name);
+  };
+}
+
+for (const clipboardState of ['unavailable', 'denied'] as const) {
+  it(`copies the launch command inside the modal when the Clipboard API is ${clipboardState}`, async (t) => {
+    t.after(
+      stubClipboardProperty(
+        navigator,
+        'clipboard',
+        clipboardState === 'unavailable'
+          ? undefined
+          : {
+              writeText: async () => {
+                throw new Error('Clipboard access denied');
+              },
+            }
+      )
+    );
+    const dialog = document.querySelector('[role="dialog"]')!;
+    let copied = '';
+    t.after(
+      stubClipboardProperty(document, 'execCommand', (command: string) => {
+        assert.equal(command, 'copy');
+        const active = document.activeElement;
+        if (!(active instanceof window.HTMLTextAreaElement) || !dialog.contains(active))
+          return false;
+        copied = active.value.slice(active.selectionStart, active.selectionEnd);
+        return true;
+      })
+    );
+    const copyButton = document.querySelector(
+      'button[aria-label="Copy as Command Line Command"]'
+    ) as HTMLButtonElement;
+    assert.ok(copyButton);
+    copyButton.focus();
+    await act(async () => copyButton.click());
+    const { parseXinferenceCommand } = require('../utils') as typeof import('../utils');
+    assert.match(copied, /^xinference launch /);
+    assert.equal(parseXinferenceCommand(copied).model_engine, 'Transformers');
+    assert.equal(parseXinferenceCommand(copied).model_name, 'demo');
+    assert.equal(document.activeElement, copyButton);
+    assert.equal(dialog.querySelector('textarea'), null);
+    assert.equal(document.body.querySelector(':scope > textarea'), null);
+  });
+}
+
+it('uses the Clipboard API when available without invoking the fallback', async (t) => {
+  let copied = '';
+  t.after(
+    stubClipboardProperty(navigator, 'clipboard', {
+      writeText: async (value: string) => {
+        copied = value;
+      },
+    })
+  );
+  t.after(
+    stubClipboardProperty(document, 'execCommand', () => {
+      throw new Error('The legacy fallback should not run');
+    })
+  );
+  const { copyToClipboard } = require('@/lib/utils') as typeof import('@/lib/utils');
+  await copyToClipboard('modern clipboard');
+  assert.equal(copied, 'modern clipboard');
+});
+
+for (const failure of ['rejected', 'throws', 'unsupported'] as const) {
+  it(`reports a ${failure} fallback without leaving a textarea or losing focus`, async (t) => {
+    t.after(stubClipboardProperty(navigator, 'clipboard', undefined));
+    t.after(
+      stubClipboardProperty(
+        document,
+        'execCommand',
+        failure === 'unsupported'
+          ? undefined
+          : () => {
+              if (failure === 'throws') throw new Error('Copy is blocked');
+              return false;
+            }
+      )
+    );
+    const { toast } = require('sonner') as typeof import('sonner');
+    const errors: unknown[] = [];
+    const successes: unknown[] = [];
+    t.mock.method(toast, 'error', (message: unknown) => {
+      errors.push(message);
+      return 1;
+    });
+    t.mock.method(toast, 'success', (message: unknown) => {
+      successes.push(message);
+      return 1;
+    });
+    const { copyToClipboard } = require('@/lib/utils') as typeof import('@/lib/utils');
+    const focused = document.activeElement;
+    await assert.doesNotReject(copyToClipboard('blocked clipboard'));
+    assert.deepEqual(errors, ['Failed to copy']);
+    assert.deepEqual(successes, []);
+    assert.equal(document.activeElement, focused);
+    assert.equal(document.querySelector('textarea'), null);
+  });
+}
+
+it('copies outside a modal and restores the original input selection', async (t) => {
+  await act(async () => root.render(<div />));
+  const input = document.createElement('input');
+  input.value = 'preserve selection';
+  document.body.append(input);
+  input.focus();
+  input.setSelectionRange(2, 8, 'backward');
+  t.after(stubClipboardProperty(navigator, 'clipboard', undefined));
+  let copied = '';
+  t.after(
+    stubClipboardProperty(document, 'execCommand', () => {
+      const active = document.activeElement;
+      if (!(active instanceof window.HTMLTextAreaElement)) return false;
+      copied = active.value.slice(active.selectionStart, active.selectionEnd);
+      return true;
+    })
+  );
+  const { copyToClipboard } = require('@/lib/utils') as typeof import('@/lib/utils');
+  await copyToClipboard('outside modal');
+  assert.equal(copied, 'outside modal');
+  assert.equal(document.activeElement, input);
+  assert.equal(input.selectionStart, 2);
+  assert.equal(input.selectionEnd, 8);
+  assert.equal(input.selectionDirection, 'backward');
+  assert.equal(document.querySelector('textarea'), null);
+});

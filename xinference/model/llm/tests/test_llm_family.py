@@ -621,7 +621,8 @@ def test_builtin_spark_x2_5_sglang_requires_official_runtime(model_name):
     assert modern_kernel is True
 
 
-def test_builtin_gemma_4_llama_cpp_requires_assistant_architecture():
+@pytest.mark.parametrize("platform", ["darwin", "linux", "win32"])
+def test_builtin_gemma_4_llama_cpp_requires_metal_bf16_compatible_runtime(platform):
     from ....core.utils import (
         filter_virtualenv_packages_by_markers,
         merge_virtual_env_packages,
@@ -637,7 +638,7 @@ def test_builtin_gemma_4_llama_cpp_requires_assistant_architecture():
     )
     packages = merge_virtual_env_packages(packages, None)
     packages = filter_virtualenv_packages_by_markers(
-        packages, "llama.cpp", None, "darwin"
+        packages, "llama.cpp", None, platform
     )
     requirements = {
         requirement.name: requirement
@@ -646,8 +647,11 @@ def test_builtin_gemma_4_llama_cpp_requires_assistant_architecture():
         for requirement in [Requirement(package.split(";", 1)[0].strip())]
     }
 
-    assert requirements["xllamacpp"].specifier.contains("2026.6.9713")
-    assert not requirements["xllamacpp"].specifier.contains("2026.5.9294")
+    assert requirements["xllamacpp"].specifier.contains("2026.10.11870")
+    # Gemma-4 Q4 GGUFs still contain a BF16 projection tensor. Older runtimes
+    # dispatch its Metal kernel even when the default shader language omits it.
+    for unsupported_version in ["2026.5.9294", "2026.6.9713", "2026.7.10068"]:
+        assert not requirements["xllamacpp"].specifier.contains(unsupported_version)
     assert sum(package.startswith("xllamacpp") for package in packages) == 1
 
 

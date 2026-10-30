@@ -26,6 +26,11 @@ export interface ModelSpec {
 export interface CatalogModel {
   [key: string]: unknown;
   model_name: string;
+  context_length?: number;
+  context_length_extension?: {
+    max_context_length: number;
+    engines: string[];
+  } | null;
   model_description: string;
   abilities: string[];
   languages: string[];
