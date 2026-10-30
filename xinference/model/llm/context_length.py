@@ -41,7 +41,9 @@ class ContextLengthExtension(BaseModel):
     """A model's verified YaRN recipe, independent of its native default."""
 
     max_context_length: int = Field(gt=0)
-    engines: List[Literal["vllm", "sglang"]] = Field(min_items=1, unique_items=True)
+    engines: List[Literal["vllm", "sglang", "mlx", "llama.cpp"]] = Field(
+        min_items=1, unique_items=True
+    )
     rope_parameters: Dict[str, Any]
     rope_parameters_path: List[str] = Field(min_items=1)
 
@@ -99,10 +101,37 @@ def configure_auto_yarn(
         return result, None
     key = CONTEXT_LENGTH_KEYS[engine]
     requested = result.get("context_length") or result.get(key)
+    if engine == "llama.cpp" and not result.get("context_length"):
+        slots = result.get("n_parallel", min(8, os.cpu_count() or 1))
+        if type(requested) is int and type(slots) is int and slots > 0:
+            requested //= slots
     if type(requested) is not int or requested <= native:
         return result, None
     # Validate aliases before any launch side effects.
     map_context_length(engine, result)
+    if engine in ("mlx", "llama.cpp"):
+        if _has_rope_override(result) or (
+            engine == "llama.cpp"
+            and any(k.startswith(("rope_", "yarn_")) for k in result)
+        ):
+            return result, None
+        checkpoint = _read_checkpoint_config(family, engine, model_path)
+        if _has_rope_override(checkpoint, checkpoint=True):
+            return result, None
+        parameters = _yarn_parameters(family, requested)
+        if engine == "mlx":
+            # Consumed by the MLX adapter, never written into the cached config.
+            result["_xinference_auto_yarn"] = parameters
+        else:
+            result.update(
+                rope_scaling_type="yarn",
+                rope_freq_scale=1.0 / parameters["factor"],
+                yarn_orig_ctx=parameters["original_max_position_embeddings"],
+                yarn_ext_factor=1.0,
+                yarn_beta_fast=parameters.get("beta_fast", 32.0),
+                yarn_beta_slow=parameters.get("beta_slow", 1.0),
+            )
+        return result, None
     override_key = "hf_overrides" if engine == "vllm" else "json_model_override_args"
     overrides = result.get(override_key) or {}
     if callable(overrides):
@@ -123,20 +152,13 @@ def configure_auto_yarn(
             checkpoint = {}
         if _has_rope_override(checkpoint, checkpoint=True):
             return result, None
-    if requested > extension.max_context_length:
-        raise ValueError(
-            f"{family.model_name} automatic YaRN supports context_length up to "
-            f"{extension.max_context_length}; got {requested}"
-        )
+    parameters = _yarn_parameters(family, requested)
     overrides = deepcopy(overrides)
     target = overrides
     for part in extension.rope_parameters_path[:-1]:
         target = target.setdefault(part, {})
         if not isinstance(target, dict):
             raise ValueError(f"{override_key} has an invalid YaRN configuration path")
-    parameters = dict(extension.rope_parameters)
-    original = parameters.setdefault("original_max_position_embeddings", native)
-    parameters["factor"] = float(math.ceil(requested / original))
     target[extension.rope_parameters_path[-1]] = parameters
     result[override_key] = overrides if engine == "vllm" else json.dumps(overrides)
     flag = (
@@ -145,6 +167,44 @@ def configure_auto_yarn(
         else "SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN"
     )
     return result, flag
+
+
+def _yarn_parameters(family: "LLMFamilyV2", requested: int) -> Dict[str, Any]:
+    extension = family.context_length_extension
+    assert extension is not None
+    if requested > extension.max_context_length:
+        raise ValueError(
+            f"{family.model_name} automatic YaRN supports context_length up to "
+            f"{extension.max_context_length}; got {requested}"
+        )
+    parameters = dict(extension.rope_parameters)
+    original = parameters.setdefault(
+        "original_max_position_embeddings", family.context_length
+    )
+    assert original is not None
+    parameters["factor"] = float(math.ceil(requested / original))
+    return parameters
+
+
+def _read_checkpoint_config(
+    family: "LLMFamilyV2", engine: str, model_path: Optional[str]
+) -> Dict[str, Any]:
+    if not model_path:
+        return {}
+    if engine == "llama.cpp":
+        from .gguf_model_metadata import read_gguf_config, resolve_gguf_model_path
+
+        path = resolve_gguf_model_path(model_path, family.model_specs[0])
+        try:
+            with open(path, "rb") as stream:
+                config, _, _ = read_gguf_config(stream, limit=64 * 1024**2)
+                return config
+        except OSError:
+            return {}
+    try:
+        return json.loads((Path(model_path) / "config.json").read_text())
+    except (OSError, ValueError):
+        return {}
 
 
 class ContextLengthExceeded(ValueError):

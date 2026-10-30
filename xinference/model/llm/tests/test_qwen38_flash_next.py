@@ -94,6 +94,47 @@ def test_flash_next_virtualenv_vllm_requirement():
     assert core._get_virtualenv_vllm_version(_family()) == Version("0.30.0.dev0")
 
 
+@pytest.mark.parametrize("engine", ["SGLang", "vLLM"])
+@pytest.mark.parametrize(
+    "fmt,quant", [("pytorch", "none"), ("fp8", "FP8"), ("fp4", "FP4")]
+)
+def test_flash_next_virtualenv_chat_dependencies(engine, fmt, quant):
+    from packaging.requirements import Requirement
+    from packaging.utils import canonicalize_name
+
+    from xinference.core.utils import (
+        filter_virtualenv_packages_by_markers,
+        merge_virtual_env_packages,
+    )
+    from xinference.core.virtual_env_manager import (
+        expand_engine_dependency_placeholders,
+        get_engine_model_format_virtualenv_packages,
+    )
+    from xinference.model.llm.llm_family import match_llm
+
+    family = match_llm("qwen3.8-Flash-Next", fmt, 125, quant)
+    assert family is not None
+    packages = get_engine_model_format_virtualenv_packages(engine, fmt)
+    packages += family.virtualenv.packages
+    packages = expand_engine_dependency_placeholders(packages, engine)
+    packages = merge_virtual_env_packages(packages, None)
+    prepared = filter_virtualenv_packages_by_markers(
+        packages, engine, "13.0", target_sys_platform="linux"
+    )
+    requirements = {
+        canonicalize_name(req.name): req
+        for req in (Requirement(pkg) for pkg in prepared if not pkg.startswith("#"))
+    }
+    assert {"sglang", "vllm"} & requirements.keys() == {engine.lower()}
+    if engine == "SGLang":
+        assert "qwen-vl-utils" in requirements
+        assert "0.0.9" not in requirements["qwen-vl-utils"].specifier
+        assert "qwen-omni-utils" not in requirements
+    else:
+        assert "qwen-omni-utils" in requirements
+        assert "qwen-vl-utils" not in requirements
+
+
 def test_flash_next_multimodal_and_tool_template():
     template = Environment().from_string(_family().chat_template)
     messages = [

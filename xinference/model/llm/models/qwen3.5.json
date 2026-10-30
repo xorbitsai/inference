@@ -7,7 +7,9 @@
       "max_context_length": 1010000,
       "engines": [
         "vllm",
-        "sglang"
+        "sglang",
+        "mlx",
+        "llama.cpp"
       ],
       "rope_parameters": {
         "mrope_interleaved": true,

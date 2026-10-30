@@ -764,16 +764,36 @@ it('accepts legacy recommendation engine context fields without copying them int
 });
 
 it('keeps native defaults, exposes declared YaRN limits, and explains them in the question-mark tooltip', async () => {
+  const get = request.get;
+  request.get = (async (url: string, config?: { params?: unknown }) => {
+    if (url.startsWith('/v1/engines/')) {
+      return {
+        ...engines,
+        SGLang: engines.vLLM,
+        MLX: [{ model_format: 'mlx', model_size_in_billions: 7, quantizations: ['4bit'] }],
+      };
+    }
+    return get(url, config);
+  }) as typeof request.get;
   await render({
     ...model,
+    model_name: 'qwen3.8',
     context_length: 262144,
-    context_length_extension: { max_context_length: 1000000, engines: ['vllm'] },
+    context_length_extension: {
+      max_context_length: 1000000,
+      engines: ['vllm', 'sglang', 'mlx', 'llama.cpp'],
+    },
   });
   await act(async () => form.setFieldValue('model_engine', 'vLLM'));
   const slider = document.querySelector('input[type="range"]') as HTMLInputElement;
   assert.equal(slider.max, '1000000');
   assert.equal(slider.value, '262144');
   assert.equal(form.getFieldValue('context_length'), undefined);
+  for (const engine of ['SGLang', 'MLX', 'llama.cpp', 'vLLM']) {
+    await act(async () => form.setFieldValue('model_engine', engine));
+    assert.equal(slider.max, '1000000');
+    assert.equal(slider.value, '262144');
+  }
 
   const label = Array.from(document.querySelectorAll('label')).find((element) =>
     element.textContent?.includes('Context length')

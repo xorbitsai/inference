@@ -6,7 +6,8 @@
     "context_length_extension": {
       "max_context_length": 1000000,
       "engines": [
-        "vllm"
+        "vllm",
+        "sglang"
       ],
       "rope_parameters": {
         "mrope_interleaved": true,
@@ -177,6 +178,8 @@
     "virtualenv": {
       "packages": [
         "vllm>=0.30.0.dev0 ; #engine# == \"vllm\"",
+        "sglang>=0.5.22 ; #engine# == \"sglang\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "qwen-omni-utils ; #engine# == \"vllm\""
       ]
