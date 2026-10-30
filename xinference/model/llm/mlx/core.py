@@ -1604,7 +1604,10 @@ class MLXModel(LLM, ChatModelMixin):
         self._context_length = get_context_length_from_config(
             config, context_length=self._model_config.get("context_length")
         )
-        if self._xavier_config and self._xavier_config.get("heterogeneous"):
+        if self._xavier_config and (
+            self._xavier_config.get("heterogeneous")
+            or self._xavier_config.get("shared_prefix")
+        ):
             self._context_length = (
                 self._model_config.get("context_length") or self._context_length
             )

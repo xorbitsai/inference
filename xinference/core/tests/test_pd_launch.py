@@ -1358,3 +1358,36 @@ async def test_lmcache_rejects_sharded_launch_before_worker_launch(launch_runtim
     assert not actors
     for worker in workers:
         worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "engines",
+    [("vLLM", "SGLang"), ("SGLang", "MLX"), ("vLLM", "TRT-LLM"), ("TRT-LLM", "MLX")],
+)
+async def test_cross_engine_ordinary_replicas_use_shared_canonical_store(
+    launch_runtime, engines
+):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs.update(enable_xavier=True, xavier_cache_bytes=123456)
+    for cfg, engine in zip(kwargs["replica_config"], engines):
+        cfg.role = "hybrid"
+        cfg.model_engine = engine
+        cfg.engine_config = {"model_format": "mlx" if engine == "MLX" else "pytorch"}
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == {"XavierBytesCacheActor"}
+    for worker, engine in zip(workers, engines):
+        launch = worker.launch_builtin_model.call_args.kwargs
+        config = launch["_xavier_cache_config"]
+        assert launch["model_engine"] == engine
+        assert config["shared_prefix"] is True
+        assert config["logical_dtype"] == (
+            "bfloat16" if "TRT-LLM" in engines else "float16"
+        )
+        assert "role" not in config
+        assert launch["xavier_config"] is None
+        worker.launch_rank0_model.assert_not_awaited()
+    await supervisor.terminate_model("pd")
+    assert destroy.await_count == 1
+    assert not supervisor._xavier_cache_mapping

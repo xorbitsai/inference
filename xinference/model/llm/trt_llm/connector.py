@@ -70,6 +70,11 @@ class XavierClient:
                 else:
                     self.rpc("configure", self.namespace)
                 self.capacity_bytes = 0
+            elif self.config.get("shared_prefix"):
+                self.namespace = self.rpc("configure", self.contract.to_dict())[
+                    "namespace"
+                ]
+                self.capacity_bytes = self.rpc("get_stats")["capacity_bytes"]
             else:
                 self.namespace = self.rpc(
                     "configure",
@@ -134,6 +139,11 @@ class XavierClient:
                     if page is None:
                         return pages
                     expected = self.contract.layer_nbytes * self.contract.num_layers
+                    if self.config.get("shared_prefix"):
+                        if type(page) is not bytes or len(page) != expected:
+                            raise ValueError("Invalid shared-prefix KV page")
+                        pages.append(page)
+                        continue
                     if (
                         page.dtype != torch.uint8
                         or page.device.type != "cpu"
@@ -186,6 +196,10 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         self._pd_destinations = {}
 
     def _keys(self, tokens):
+        if self.client.config.get("shared_prefix"):
+            from ..xavier.prefix import prefix_keys
+
+            return prefix_keys(tokens, self.contract.block_size)
         return [key.digest for key in build_prefix_keys(self.contract, tokens)]
 
     def get_num_new_matched_tokens(self, request, num_computed_tokens):
@@ -353,11 +367,22 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
             [slot for slot, _ in metadata.loads]
             + [slot for _, slots in metadata.pd_loads for slot in slots]
         )
-        for slot, page in metadata.loads:
-            self.pool[slot].copy_(
-                page.view(self.pool.dtype).reshape(self.pool.shape[1:]),
-                non_blocking=False,
+        if metadata.loads and self.client.config.get("shared_prefix"):
+            from ..xavier.backends.torch.prefix import unpack_pages
+            from .cross_engine import canonical_trt_views
+
+            unpack_pages(
+                canonical_trt_views(self.pool, self.contract),
+                [slot for slot, _ in metadata.loads],
+                [page for _, page in metadata.loads],
+                self.contract,
             )
+        else:
+            for slot, page in metadata.loads:
+                self.pool[slot].copy_(
+                    page.view(self.pool.dtype).reshape(self.pool.shape[1:]),
+                    non_blocking=False,
+                )
         for state, blocks in metadata.pd_loads:
             from .gpu import service
 
@@ -414,6 +439,15 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                 .clone()
                 for _, slot in batch
             ]
+            if self.client.config.get("shared_prefix"):
+                from ..xavier.backends.torch.prefix import pack_pages
+                from .cross_engine import canonical_trt_views
+
+                pages = pack_pages(
+                    canonical_trt_views(self.pool, self.contract),
+                    [slot for _, slot in batch],
+                    self.contract,
+                )
             try:
                 self.client.rpc("put", self.client.namespace, keys, pages)
             except Exception:

@@ -212,7 +212,7 @@ def test_prefix_lookup_leaves_last_token_and_respects_local_hits(connector):
     scheduler._pd_sources = {}
     scheduler._pd_destinations = {}
     scheduler.client = SimpleNamespace(
-        pd_gpu=False, capacity_bytes=4096, read_prefix=read
+        pd_gpu=False, capacity_bytes=4096, read_prefix=read, config={}
     )
     request = SimpleNamespace(request_id=1, get_tokens=lambda beam: list(range(12)))
     assert scheduler.get_num_new_matched_tokens(request, 0) == (8, False)
@@ -275,3 +275,80 @@ def test_config_sets_versioned_native_pool_and_fingerprints(monkeypatch, checkpo
 def test_incompatible_execution_options_are_rejected(checkpoint, options):
     with pytest.raises(ValueError):
         configure_xavier(checkpoint, options, {})
+
+
+@pytest.mark.asyncio
+async def test_trt_imports_foreign_shared_prefix_after_storage_eviction(
+    connector, monkeypatch
+):
+    from ...xavier.backends.bytes.storage import XavierBytesCacheActor
+    from ...xavier.backends.torch.prefix import pack_pages
+    from ...xavier.prefix import prefix_keys
+    from ..cross_engine import canonical_trt_views
+
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 2, 4, 4, "bfloat16"
+    )
+    page_bytes = contract.num_layers * contract.layer_nbytes
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        actor = await xo.create_actor(
+            XavierBytesCacheActor,
+            2 * page_bytes,
+            address=pool.external_address,
+            uid="cross-prefix",
+        )
+        await actor.configure(contract.to_dict())
+        monkeypatch.setenv(
+            CONFIG_ENV,
+            json.dumps(
+                dict(
+                    address=actor.address,
+                    uid="cross-prefix",
+                    contract=contract.to_dict(),
+                    shared_prefix=True,
+                )
+            ),
+        )
+        scheduler = await asyncio.to_thread(connector.XavierConnectorScheduler, None)
+        worker = await asyncio.to_thread(connector.XavierConnectorWorker, None)
+        native = (
+            torch.arange(3 * 2 * 2 * 32, dtype=torch.int32)
+            .to(torch.bfloat16)
+            .reshape(3, 2, 2, 32)
+        )
+        pages = pack_pages(canonical_trt_views(native, contract), [0, 1], contract)
+        keys = prefix_keys(list(range(9)), 4)
+        await actor.put(contract.fingerprint, keys, pages)
+        request = SimpleNamespace(request_id=7, get_tokens=lambda beam: list(range(9)))
+        assert await asyncio.to_thread(
+            scheduler.get_num_new_matched_tokens, request, 0
+        ) == (8, False)
+        await actor.put(contract.fingerprint, prefix_keys([5] * 8, 4), pages)
+        assert await actor.get(contract.fingerprint, keys) == []
+        scheduler.update_state_after_alloc(request, [2, 0, 1])
+        metadata = scheduler.build_connector_meta(
+            SimpleNamespace(
+                new_requests=[
+                    SimpleNamespace(
+                        request_id=7,
+                        new_block_ids=[2, 0, 1],
+                        computed_position=0,
+                        num_scheduled_tokens=1,
+                    )
+                ]
+            )
+        )
+        worker.register_kv_caches(torch.zeros_like(native))
+        worker.bind_connector_meta(metadata)
+        await asyncio.to_thread(worker.start_load_kv, None)
+        assert (
+            pack_pages(canonical_trt_views(worker.pool, contract), [2, 0], contract)
+            == pages
+        )
+        await asyncio.to_thread(
+            worker.wait_for_save, SimpleNamespace(synchronize=lambda: None)
+        )
+        assert await actor.get(contract.fingerprint, keys) == pages
+        scheduler.client.close()
+        worker.client.close()

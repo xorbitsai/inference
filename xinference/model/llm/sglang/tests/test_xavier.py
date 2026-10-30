@@ -456,3 +456,42 @@ def test_inactive_plugin_does_not_import_or_patch_optional_sglang(monkeypatch):
 
     monkeypatch.setattr(builtins, "__import__", guarded)
     register()
+
+
+@pytest.mark.parametrize("dtype", ["float16", "bfloat16"])
+def test_shared_prefix_reads_foreign_pages_and_publishes_canonical_bytes(
+    storage_class, monkeypatch, dtype
+):
+    from ...xavier.backends.bytes.storage import XavierBytesCacheActor
+    from ...xavier.prefix import prefix_keys
+
+    c = KVCacheContract("a" * 64, "b" * 64, "c" * 64, "d" * 64, 3, 2, 4, 4, dtype)
+    actor = XavierBytesCacheActor(3 * c.num_layers * c.layer_nbytes)
+    namespace = actor.configure(c.to_dict())["namespace"]
+    adapter = storage_class(
+        SimpleNamespace(
+            tp_size=1,
+            pp_size=1,
+            attn_cp_size=1,
+            is_mla_model=False,
+            extra_config={"contract": c.to_dict(), "shared_prefix": True},
+        )
+    )
+    adapter._namespace = namespace
+    adapter.mem_pool_host = HostPool()
+    adapter.mem_pool_host.data = adapter.mem_pool_host.data.to(getattr(torch, dtype))
+    keys = prefix_keys(list(range(8)), 4, "customer-a")
+    # Foreign page: layer-major, then K/V. HiCache uses K/V, then layers.
+    expected = adapter.mem_pool_host.data[:, :, :4].clone()
+    page = (
+        expected.permute(1, 0, 2, 3, 4).contiguous().view(torch.uint8).numpy().tobytes()
+    )
+    actor.put(namespace, keys[:1], [page])
+    adapter._rpc = lambda method, *args: getattr(actor, method)(*args)
+    adapter.mem_pool_host.data.zero_()
+    assert adapter.batch_get_v1(keys, torch.arange(8)) == [True, False]
+    assert torch.equal(adapter.mem_pool_host.data[:, :, :4], expected)
+    assert adapter.batch_set_v1(keys[:1], torch.arange(4)) == [True]
+    assert actor.get(namespace, keys[:1]) == [page]
+    assert adapter.batch_exists(prefix_keys(list(range(8)), 4, "customer-b")) == 0
+    adapter.close()

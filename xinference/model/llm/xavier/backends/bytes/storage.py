@@ -25,6 +25,7 @@ class XavierBytesCacheActor(xo.Actor):
             missed_pages=0,
             evicted_pages=0,
             handoff_reads=0,
+            imported_pages=0,
         )
 
     def configure(self, metadata):
@@ -119,6 +120,19 @@ class XavierBytesCacheActor(xo.Actor):
             self._pages.move_to_end(key)
         self._counts["read_pages"] += len(pages)
         return pages
+
+    def exists(self, namespace, keys):
+        self._validate(namespace, keys)
+        for index, key in enumerate(keys):
+            if key not in self._pages:
+                return index
+        return len(keys)
+
+    def record_import(self, namespace, pages):
+        self._validate(namespace, [])
+        if type(pages) is not int or pages <= 0:
+            raise ValueError("Imported page count must be positive")
+        self._counts["imported_pages"] += pages
 
     def prepare_handoff(self, namespace, keys):
         self._validate(namespace, keys)

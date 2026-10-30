@@ -82,7 +82,7 @@ class XavierHiCacheStorage(HiCacheStorage):
         super().register_mem_pool_host(pool)
         contract = self._contract
         if (
-            pool.dtype != torch.float16
+            pool.dtype != getattr(torch, contract.logical_dtype)
             or pool.page_size != contract.block_size
             or pool.layer_num != contract.num_layers
             or pool.head_num != contract.num_kv_heads
@@ -90,6 +90,24 @@ class XavierHiCacheStorage(HiCacheStorage):
             or pool.layout != "layer_first"
         ):
             raise ValueError("SGLang host KV pool differs from Xavier's contract")
+        if self._config.get("shared_prefix"):
+            from sglang.srt.mem_cache.utils import get_storage_hash_str
+
+            from ...xavier.prefix import prefix_keys
+
+            class Tokens(list):
+                extra_key = None
+                cache_salt = "xavier-format-probe"
+
+            tokens = Tokens(range(contract.block_size))
+            if get_storage_hash_str(
+                tokens, page_size=contract.block_size
+            ) != prefix_keys(tokens, contract.block_size, tokens.cache_salt):
+                raise ValueError(
+                    "SGLang storage hashes differ from Xavier's shared-prefix protocol"
+                )
+            self._namespace = self._rpc("configure", contract.to_dict())["namespace"]
+            return
         self._namespace = self._rpc(
             "configure",
             contract.to_dict(),
@@ -107,6 +125,8 @@ class XavierHiCacheStorage(HiCacheStorage):
             batch = keys[offset : offset + 128]
             batch_args = [arg[offset : offset + 128] for arg in args]
             try:
+                if self._config.get("shared_prefix") and method == "put":
+                    batch_args[0] = [self._to_canonical(page) for page in batch_args[0]]
                 value = self._rpc(method, self._namespace, batch, *batch_args)
             except Exception:
                 logger.warning(
@@ -120,13 +140,40 @@ class XavierHiCacheStorage(HiCacheStorage):
                 if value != len(batch):
                     break
             else:
+                if self._config.get("shared_prefix") and method == "get":
+                    value = [self._from_canonical(page) for page in value]
+                    value += [None] * (len(batch) - len(value))
                 result.extend(value)
         return result
+
+    def _to_canonical(self, page):
+        c = self._contract
+        return (
+            page.view(getattr(torch, c.logical_dtype))
+            .reshape(2, c.num_layers, c.block_size, c.num_kv_heads, c.head_dim)
+            .permute(1, 0, 2, 3, 4)
+            .contiguous()
+            .view(torch.uint8)
+            .numpy()
+            .tobytes()
+        )
+
+    def _from_canonical(self, page):
+        c = self._contract
+        if type(page) is not bytes or len(page) != c.layer_nbytes * c.num_layers:
+            raise ValueError("Invalid shared-prefix KV page")
+        return (
+            torch.frombuffer(bytearray(page), dtype=torch.uint8)
+            .reshape(c.num_layers, 2, c.block_size, c.num_kv_heads, c.head_dim, 2)
+            .permute(1, 0, 2, 3, 4, 5)
+            .contiguous()
+            .reshape(-1)
+        )
 
     def get(self, key, target_location=None, target_sizes=None):
         page = self._request("get", [key], [None])[0]
         if page is not None:
-            page = page.view(torch.float16)
+            page = page.view(getattr(torch, self._contract.logical_dtype))
         if page is not None and target_location is not None:
             target_location.copy_(page.reshape(target_location.shape))
         return page
@@ -135,7 +182,11 @@ class XavierHiCacheStorage(HiCacheStorage):
         if target_locations is not None or target_sizes is not None:
             raise ValueError("Xavier storage uses the HiCache v1 host-pool interface")
         return [
-            page.view(torch.float16) if page is not None else None
+            (
+                page.view(getattr(torch, self._contract.logical_dtype))
+                if page is not None
+                else None
+            )
             for page in self._request("get", keys, [None] * len(keys))
         ]
 
@@ -145,7 +196,10 @@ class XavierHiCacheStorage(HiCacheStorage):
     def batch_set(self, keys, values=None, target_locations=None, target_sizes=None):
         if values is None or len(keys) != len(values):
             return False
-        if any(page.dtype != torch.float16 for page in values):
+        if any(
+            page.dtype != getattr(torch, self._contract.logical_dtype)
+            for page in values
+        ):
             raise ValueError("Xavier requires FP16 host pages")
         pages = [
             page.detach().cpu().contiguous().view(torch.uint8).reshape(-1).clone()
@@ -195,7 +249,7 @@ class XavierHiCacheStorage(HiCacheStorage):
         for index, page in zip(offsets, pages):
             if page is not None and not self._closed:
                 self.mem_pool_host.set_from_flat_data_page(
-                    index, page.view(torch.float16)
+                    index, page.view(getattr(torch, self._contract.logical_dtype))
                 )
                 results.append(True)
             else:

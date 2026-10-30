@@ -13,8 +13,8 @@ Choose a deployment mode
 ------------------------
 
 Use ordinary replicas to share compatible prefixes while each replica handles
-complete requests. Shared prefix caching currently stays within the same
-engine. For separate prefill and decode roles, including cross-engine and
+complete requests. By default, shared prefix caching uses replicas of the same
+engine. To mix engines in ordinary replicas, see :ref:`xavier-cross-engine-sharing`. For separate prefill and decode roles, including cross-engine and
 CUDA/Metal deployments, use :ref:`user_guide_pd_separation`. P/D transport and
 ordinary cache storage have separate configuration and compatibility limits.
 
@@ -100,7 +100,7 @@ SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage 
 
 Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16.
 
-``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang.
+``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; For cross-engine reuse, use :ref:`xavier-cross-engine-sharing`.
 
 Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead. For same-engine or cross-engine P/D and per-replica engine settings, see :ref:`user_guide_pd_separation`.
 
@@ -131,7 +131,54 @@ MLX replicas
 
 MLX Xavier requires Apple silicon and ``mlx-lm>=0.31.2``. It supports unquantized, full-attention Qwen2, Qwen3 and Llama text models with one worker per replica. Weights and KV cache use FP16. Quantized weights or KV cache, rotating caches, hybrid attention, multimodal inputs, LoRA and speculative decoding are unsupported.
 
-``xavier_cache_bytes`` bounds the shared CPU cache (default: 512 MiB). Each replica also owns its model and Metal KV cache. Ordinary replicas compute locally on a miss or unavailable storage; incompatible deployments cannot share pages. Returned usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-engine cache sharing is not yet supported.
+``xavier_cache_bytes`` bounds the shared CPU cache (default: 512 MiB). Each replica also owns its model and Metal KV cache. Ordinary replicas compute locally on a miss or unavailable storage; incompatible deployments cannot share pages. Returned usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. Explicit prefill/decode roles enable MLX Xavier P/D automatically. For cross-engine reuse, use :ref:`xavier-cross-engine-sharing`.
+
+.. _xavier-cross-engine-sharing:
+
+Cross-engine prefix sharing
+---------------------------
+
+.. versionadded:: v4.2.0
+
+Ordinary replicas can share cached prefixes across vLLM, SGLang, TRT-LLM and MLX. Each replica still handles complete requests: a later request on SGLang can reuse a prefix computed by vLLM, and vice versa. Enable Xavier and select an engine for each replica; no prefill/decode roles are needed.
+
+.. code-block:: python
+
+   model_uid = client.launch_model(
+       model_uid="shared-prefix",
+       model_name="qwen3",
+       model_size_in_billions="0_6",
+       model_engine="vLLM",
+       model_format="pytorch",
+       quantization="none",
+       replica=2,
+       enable_xavier=True,
+       xavier_cache_bytes=536870912,
+       replica_config=[
+           {
+               "model_engine": "vLLM",
+               "engine_config": {"max_model_len": 4096},
+               "devices": [{"worker_ip": "CUDA_WORKER_ADDRESS", "n_gpu": 1,
+                            "gpu_idx": [0]}],
+           },
+           {
+               "model_engine": "SGLang",
+               "engine_config": {"context_length": 4096},
+               "devices": [{"worker_ip": "CUDA_WORKER_ADDRESS", "n_gpu": 1,
+                            "gpu_idx": [1]}],
+           },
+       ],
+   )
+
+All replicas must use identical local checkpoint and tokenizer files, effective context limits and unquantized full-attention models. vLLM/SGLang/MLX combinations support FP16 Qwen2, Qwen3 and Llama text models. A topology containing TRT-LLM requires BF16 dense Qwen3 on every replica. Use one worker and one device per replica; existing engine version requirements apply.
+
+For MLX, set its replica's ``engine_config`` to include ``model_format="mlx"`` and its local ``model_path``. Use the original unconverted checkpoint on the Mac. Engine-specific options belong in ``engine_config``; worker-local paths may also be set there for CUDA replicas. Configure the same effective context limit for every engine.
+
+Xavier stores immutable, complete 64-token pages in a supervisor-owned CPU cache and transfers them through actor RPC. ``xavier_cache_bytes`` bounds this shared pool (default: 512 MiB), excluding model weights, engine caches and in-flight copies. Partial tails and the final prompt token are computed locally. Misses, eviction and unavailable storage fall back to local prefill. Incompatible models fail configuration before sharing pages.
+
+This mode uses the native backend. LMCache/Mooncake storage and retained GPU history are not supported for cross-engine sharing. Quantization, sharded KV, LoRA, speculation, multimodal input and hybrid attention remain unsupported. TRT-LLM retains its existing ``cache_salt`` restriction; vLLM, SGLang and MLX preserve request-scoped isolation.
+
+Measure repeated-prefix TTFT against local prefill on the receiving engine. CPU copies and network transfer can exceed prefill cost for short prefixes. Check cached-token usage and completed import counters to establish reuse; response correctness alone does not prove a cache hit.
 
 Storage backends
 ----------------

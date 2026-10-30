@@ -115,7 +115,7 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
             "SGLang Xavier requires local model weights and tokenizer assets"
         )
     model_config.setdefault("page_size", 64)
-    if cache_config.get("heterogeneous"):
+    if cache_config.get("heterogeneous") or cache_config.get("shared_prefix"):
         from ...xavier.pd_contract import build_pd_contract
 
         if model_config.get("load_format", "auto") not in ("auto", "safetensors"):

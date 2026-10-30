@@ -3305,7 +3305,10 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             ) = await self._resolve_replica_config(model_uid, replica, replica_config)
 
         pd_enabled = validate_pd_replica_configs(
-            replica_config, model_engine, model_type
+            replica_config,
+            model_engine,
+            model_type,
+            allow_shared_cache=bool(kwargs.get("enable_xavier")),
         )
         transport_backend = kwargs.pop(
             "vllm_transfer_backend_type", kwargs.pop("transfer_backend_type", None)
@@ -3320,6 +3323,11 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             for cfg in replica_config or []
         ]
         heterogeneous_pd = pd_enabled and len(set(replica_engines)) > 1
+        heterogeneous_cache = not pd_enabled and len(set(replica_engines)) > 1
+        if heterogeneous_cache and (n_worker != 1 or transport_backend != "xavier"):
+            raise ValueError(
+                "Cross-engine shared caching requires one worker per replica and Xavier"
+            )
         if (model_engine or "").lower() == "trt-llm" and n_worker != 1:
             raise ValueError("TRT-LLM currently requires one worker per replica")
         host_handoff = heterogeneous_pd and "mlx" in replica_engines
@@ -3384,11 +3392,13 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             and transport_backend == "xavier"
             and (model_engine or "").lower() == "mlx"
             and not heterogeneous_pd
+            and not heterogeneous_cache
         )
         if (
             (requested_xavier or pd_enabled)
             and (model_engine or "").lower() == "mlx"
             and not heterogeneous_pd
+            and not heterogeneous_cache
         ):
             if transport_backend != "xavier":
                 raise ValueError("MLX Xavier requires the xavier transport")
@@ -3408,6 +3418,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             and model_engine is not None
             and model_engine.lower() == "sglang"
             and not heterogeneous_pd
+            and not heterogeneous_cache
         )
         sglang_nixl = (
             pd_enabled
@@ -3421,6 +3432,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             and trt_engine
             and transport_backend == "xavier"
             and not heterogeneous_pd
+            and not heterogeneous_cache
         )
         trt_nixl = pd_enabled and trt_engine and transport_backend == "nixl"
         if trt_xavier or trt_nixl:
@@ -3452,7 +3464,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         )
         if cache_bytes is not None and (
             not (
-                mlx_xavier
+                heterogeneous_cache
+                or mlx_xavier
                 or mlx_prefill
                 or trt_xavier
                 and not pd_enabled
@@ -3469,24 +3482,34 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             raise ValueError(
                 "SGLang Xavier requires the xavier transport and one worker per replica"
             )
-        if sglang_xavier or heterogeneous_pd:
+        if sglang_xavier or heterogeneous_pd or heterogeneous_cache:
             if (
                 model_type not in (None, "LLM")
-                or (not host_handoff and model_format not in (None, "pytorch"))
+                or (
+                    not host_handoff
+                    and not heterogeneous_cache
+                    and model_format not in (None, "pytorch")
+                )
                 or quantization not in (None, "none")
             ):
                 raise ValueError(
-                    "Cross-engine Xavier PD requires unquantized PyTorch LLM weights"
-                    if heterogeneous_pd
-                    else "SGLang Xavier requires unquantized PyTorch LLM weights"
+                    "Cross-engine Xavier sharing requires unquantized LLM weights"
+                    if heterogeneous_cache
+                    else (
+                        "Cross-engine Xavier PD requires unquantized PyTorch LLM weights"
+                        if heterogeneous_pd
+                        else "SGLang Xavier requires unquantized PyTorch LLM weights"
+                    )
                 )
-            if host_handoff:
+            if host_handoff or heterogeneous_cache:
                 for cfg, engine in zip(replica_config or [], replica_engines):
                     replica_format = cfg.engine_config.get("model_format", model_format)
                     allowed_formats = ("mlx",) if engine == "mlx" else (None, "pytorch")
                     if replica_format not in allowed_formats:
                         raise ValueError(
-                            "NVIDIA/MLX PD requires PyTorch NVIDIA and MLX Metal weights"
+                            "Cross-engine sharing requires PyTorch CUDA and MLX Metal weights"
+                            if heterogeneous_cache
+                            else "NVIDIA/MLX PD requires PyTorch NVIDIA and MLX Metal weights"
                         )
         if sglang_xavier:
             kwargs["_xavier_cache_config"] = {
@@ -3503,6 +3526,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             and model_engine is not None
             and model_engine.lower() == "vllm"
             and not heterogeneous_pd
+            and not heterogeneous_cache
         )
         from ..model.llm.xavier.transport import validate_gpu_cache_budget
 
@@ -3644,13 +3668,27 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             replica_path = model_path
             replica_format = model_format
             replica_quantization = quantization
-            if pd_enabled:
+            if pd_enabled or heterogeneous_cache:
                 assert replica_config is not None
                 cfg = replica_config[rank - 1]
                 replica_engine = cfg.model_engine or model_engine
                 replica_kwargs.update(cfg.engine_config)
                 replica_path = replica_kwargs.pop("model_path", model_path)
                 replica_format = replica_kwargs.pop("model_format", model_format)
+            if heterogeneous_cache:
+                if (
+                    replica_engine or ""
+                ).lower() == "mlx" and "trt-llm" in replica_engines:
+                    replica_quantization = "bf16"
+                replica_kwargs["_xavier_cache_config"] = {
+                    "address": self.control_address,
+                    "uid": f"xavier-cache-{model_uid}",
+                    "shared_prefix": True,
+                    "logical_dtype": (
+                        "bfloat16" if "trt-llm" in replica_engines else "float16"
+                    ),
+                    "capacity_bytes": cache_bytes or 512 * 1024**2,
+                }
             if heterogeneous_pd:
                 if (
                     replica_engine or ""
@@ -3775,6 +3813,18 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         async def _launch_model():
             nonlocal download_hub
             try:
+                if heterogeneous_cache:
+                    from ..model.llm.xavier.backends.bytes.storage import (
+                        XavierBytesCacheActor,
+                    )
+
+                    cache_ref = await xo.create_actor(
+                        XavierBytesCacheActor,
+                        capacity_bytes=cache_bytes or 512 * 1024**2,
+                        address=self.control_address,
+                        uid=f"xavier-cache-{model_uid}",
+                    )
+                    self._xavier_cache_mapping[model_uid] = cache_ref
                 if heterogeneous_pd:
                     from ..model.llm.sglang.xavier.directory import XavierPDDirectory
 
