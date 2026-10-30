@@ -85,6 +85,10 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
         self._lightning_model_path = lightning_model_path
         model_config = dict(model_spec.default_model_config or {})
         model_config.update(kwargs)
+        # Saved Diffusers launch settings may be reused when switching engines.
+        # Native engines provide their own offload controls.
+        for key in ("group_offload", "offload_device"):
+            model_config.pop(key, None)
         # Consume Lightning here; the shared image engine rejects these options.
         super().__init__(model_uid, model_path, model_spec, **model_config)
         self._lightning_config = _resolve_minimax_h3_lightning_config(

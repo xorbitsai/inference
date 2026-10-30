@@ -184,7 +184,6 @@ class VLLMDiffusionModel:
         )
         self._model = Omni(
             model=self._model_path,
-            mode=self.generation_mode,
             **self._kwargs,
         )
 

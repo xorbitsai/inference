@@ -115,6 +115,40 @@ def test_registry_factory_and_dependencies(engine, cls):
 
 
 @pytest.mark.parametrize("cls", [SGLangMiniMaxH3Model, VLLMMiniMaxH3Model])
+def test_native_h3_drops_reused_diffusers_offload_options(cls):
+    model = make_model(cls, group_offload=False, offload_device="cuda", num_gpus=1)
+    assert "group_offload" not in model._kwargs
+    assert "offload_device" not in model._kwargs
+    assert model._kwargs["num_gpus"] == 1
+
+
+def test_vllm_h3_load_passes_only_native_engine_options(monkeypatch):
+    monkeypatch.setattr("importlib.metadata.version", lambda _: "0.32.0")
+    calls = []
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm_omni.entrypoints.omni",
+        SimpleNamespace(Omni=lambda **kwargs: calls.append(kwargs) or object()),
+    )
+    model = make_model(
+        VLLMMiniMaxH3Model,
+        "4step_v1.0_768p_bf16",
+        group_offload=False,
+        offload_device="cuda",
+        quantization_config="fp8",
+        num_gpus=1,
+    )
+    model.load()
+    assert len(calls) == 1
+    config = calls[0]
+    assert {"mode", "group_offload", "offload_device"}.isdisjoint(config)
+    assert config["quantization_config"] == "fp8"
+    assert config["task_type"] == "fl2va"
+    assert config["model"] == "/model"
+    assert config["lora_path"] == model._lightning_model_path
+
+
+@pytest.mark.parametrize("cls", [SGLangMiniMaxH3Model, VLLMMiniMaxH3Model])
 @pytest.mark.parametrize(
     "version", ["4step_v0.1", "8step_v1.0_bf16", "4step_v1.0_768p_bf16"]
 )
