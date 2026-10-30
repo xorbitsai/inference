@@ -319,14 +319,16 @@ msgstr "モデルとエンジン"
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:137
 msgid ""
-"Open a running model's detail view and choose **Reconfigure / upgrade model**. Engine "
-"replacement requires **Keep GPU weights for reload** (``enable_weight_cache=true``) at"
-" launch, vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one Worker, one "
-"replica and fixed tensor parallelism."
+"Open a running model's detail view and choose **Reconfigure / upgrade "
+"model**. Engine replacement requires GPU weight retention enabled at launch,"
+" either automatically on a supported configuration or explicitly with "
+"``enable_weight_cache=True``. See :ref:`launch_weight_cache_reload` for "
+"prerequisites and the **Auto**, **Enabled** and **Disabled** settings."
 msgstr ""
-"稼働中のモデルの詳細画面を開き、 **モデルの再設定 / 更新** を選択します。エンジンの置き換えには、起動時に **再読み込み用に GPU の重みを保持** （ "
-"``enable_weight_cache=true`` ）を有効にし、vLLM 0.31.0+ または SGLang 0.5.21+、CUDA または ROCm を備えた"
-" Linux、単一 Worker、単一レプリカ、固定のテンソル並列度を使用する必要があります。"
+"実行中のモデルの詳細画面を開き、**モデルの再設定 / アップグレード** を選びます。エンジンの置換には起動時の GPU "
+"の重みの保持が必要です。対応する設定では自動的に有効になり、``enable_weight_cache=True`` "
+"で明示的に有効にすることもできます。要件と **自動**、**有効**、**無効** の設定は "
+":ref:`launch_weight_cache_reload` を参照してください。"
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:149
 msgid ""

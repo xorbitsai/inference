@@ -556,8 +556,11 @@ const zhTW = {
     catalogModelNamePlaceholder: '準確的模型名稱，或 world 模型族名稱',
     catalogUpdated: '模型目錄已更新。',
     enableWeightCache: '保留 GPU 權重以支援重載',
+    weightCacheAuto: '自動',
+    weightCacheEnabled: '開啟',
+    weightCacheDisabled: '關閉',
     enableWeightCacheTip:
-      '需要 vLLM 0.31.0+ 或 SGLang 0.5.21+、Linux GPU、單一 worker 和單一副本。引擎重載期間權重保留在 GPU 記憶體中。',
+      '預設自動：模型環境與設定支援時保留 GPU 權重，否則正常啟動。需要 vLLM 0.31.0+ 或 SGLang 0.5.21+、Linux GPU、單一 Worker 和單一副本。選擇開啟會強制檢查條件，選擇關閉則不啟用。',
     recommendSetup: '可能需要準備執行環境。',
     recommendMemory: '尚未驗證可用記憶體。',
     recommendConfiguration: '推薦配置',

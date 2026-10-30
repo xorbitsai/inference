@@ -217,7 +217,7 @@ For Docker, use the same host command as the container command. Install or mount
 Model and engine
 ----------------
 
-Open a running model's detail view and choose **Reconfigure / upgrade model**. Engine replacement requires **Keep GPU weights for reload** (``enable_weight_cache=true``) at launch, vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one Worker, one replica and fixed tensor parallelism.
+Open a running model's detail view and choose **Reconfigure / upgrade model**. Engine replacement requires GPU weight retention enabled at launch, either automatically on a supported configuration or explicitly with ``enable_weight_cache=True``. See :ref:`launch_weight_cache_reload` for prerequisites and the **Auto**, **Enabled** and **Disabled** settings.
 
 .. figure:: /_static/reconfigure_in_running.png
    :alt: Open model reconfiguration from Running Models.

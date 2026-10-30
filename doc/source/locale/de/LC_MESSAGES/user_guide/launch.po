@@ -384,8 +384,27 @@ msgid "Reconfigure and upgrade running models"
 msgstr "Laufende Modelle neu konfigurieren und aktualisieren"
 
 #: ../../user_guide/launch.rst:417
-msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
-msgstr "Aktivieren Sie beim Modellstart ``enable_weight_cache=true`` oder wählen Sie **Keep GPU weights for reload** im Bereitstellungsdialog. Erforderlich sind vLLM 0.31.0+ oder SGLang 0.5.21+, Linux mit CUDA oder ROCm, ein Worker, eine Replik und feste Tensorparallelität. Die Funktion ist auch mit unterstützten Engine-Versionen standardmäßig deaktiviert."
+msgid ""
+"GPU weight retention defaults to automatic selection: supported model "
+"environments and configurations enable it; unsupported configurations start "
+"normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic "
+"selection, set ``True`` to require retention, or ``False`` to disable it. In"
+" the deployment dialog, **Keep GPU weights for reload** offers **Auto**, "
+"**Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang "
+"0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor "
+"parallelism. Models with retained weights cannot add replicas."
+msgstr ""
+"Die Speicherung der GPU-Gewichte wird standardmäßig automatisch ausgewählt: "
+"Unterstützte Modellumgebungen und Konfigurationen aktivieren sie; nicht "
+"unterstützte Konfigurationen starten normal. Lassen Sie "
+"``enable_weight_cache`` weg oder übergeben Sie ``None`` für die automatische"
+" Auswahl, ``True`` für eine verpflichtende Aktivierung oder ``False`` zum "
+"Deaktivieren. Im Bereitstellungsdialog bietet **GPU-Gewichte für das "
+"Neuladen behalten** die Optionen **Automatisch**, **Aktiviert** und "
+"**Deaktiviert**. Erforderlich sind vLLM 0.31.0+ oder SGLang 0.5.21+, Linux "
+"mit CUDA oder ROCm, ein Worker, ein Replikat und eine feste "
+"Tensorparallelität. Modelle mit gespeicherten Gewichten können keine "
+"Replikate hinzufügen."
 
 #: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/launch.rst:496
 msgid ""
@@ -668,10 +687,10 @@ msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for
 msgstr "``GET /v1/cache/models`` enthält ``model_type`` und ``model_engine`` für jedes zwischengespeicherte Modell. Die Engine-Liste zeigt die auf dem Worker erkannten Kandidaten an, dem die Dateien gehören, einschließlich seiner Einstellung für virtuelle Umgebungen. Cache-Versionen für rerank und world identifizieren nur den Modellnamen; ihre Kandidaten werden daher nicht gegen ein Cache-Format geprüft. ``null`` bedeutet, dass die Metadaten unbekannt sind oder die Erkennung fehlgeschlagen ist; eine leere Liste bedeutet, dass derzeit keine passende Engine erkannt wird. Das Auflisten lädt keine Gewichte herunter, bereitet keine Umgebungen vor und startet keine Modelle."
 
 #: ../../user_guide/launch.rst:509 ../../user_guide/launch.rst:514
-msgid "Enable Keep GPU weights for reload before deploying the model."
+msgid "Configure GPU weight retention before deploying the model."
 msgstr ""
-"Aktivieren Sie vor der Modellbereitstellung „GPU-Gewichte für das Neuladen "
-"beibehalten“."
+"Konfigurieren Sie die Speicherung der GPU-Gewichte vor der "
+"Modellbereitstellung."
 
 #: ../../user_guide/launch.rst:516 ../../user_guide/launch.rst:521
 msgid "Open model reconfiguration from Running Models."

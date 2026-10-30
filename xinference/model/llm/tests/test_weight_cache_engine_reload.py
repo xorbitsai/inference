@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 # http://www.apache.org/licenses/LICENSE-2.0
+# CI: linux
 
 """Real engine classes, with only upstream engine construction mocked.
 
@@ -171,8 +172,8 @@ async def test_real_model_class_reloads_on_same_instance(
 @pytest.mark.parametrize("unsupported", ["ggufv2", "xoscar"])
 def test_vllm_unsupported_cache_mode_fails_before_preload(monkeypatch, unsupported):
     model = object.__new__(vllm_core.VLLMModel)
-    model._enable_weight_cache = True
     model._model_config = {}
+    model._init_weight_cache({"enable_weight_cache": True})
     model._weight_cache = None
     model.model_spec = SimpleNamespace(model_format=unsupported)
     model._xinference_vllm_executor_backend = (

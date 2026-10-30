@@ -569,8 +569,11 @@ const en = {
     catalogModelNamePlaceholder: 'Exact model name, or world family name',
     catalogUpdated: 'Model catalog updated.',
     enableWeightCache: 'Keep GPU weights for reload',
+    weightCacheAuto: 'Auto',
+    weightCacheEnabled: 'Enabled',
+    weightCacheDisabled: 'Disabled',
     enableWeightCacheTip:
-      'Requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux GPU, one worker and one replica. Weights stay in GPU memory between engine reloads.',
+      'Auto enables weight retention when the model environment and configuration support it; otherwise the model starts normally. Requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux GPU, one worker and one replica. Enable explicitly to require it, or disable to opt out.',
     recommendSetup: 'Environment setup may be required.',
     recommendMemory: 'Available memory has not been verified.',
     recommendConfiguration: 'Recommend configuration',

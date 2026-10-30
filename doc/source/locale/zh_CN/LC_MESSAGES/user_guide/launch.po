@@ -396,8 +396,20 @@ msgid "Reconfigure and upgrade running models"
 msgstr "重新配置和升级运行中的模型"
 
 #: ../../user_guide/launch.rst:417
-msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
-msgstr "启动模型时启用 ``enable_weight_cache=true``，或在部署对话框中选择 **保留 GPU 权重以支持重载**。此功能需要 vLLM 0.31.0+ 或 SGLang 0.5.21+、Linux CUDA 或 ROCm、单 worker、单副本以及固定的张量并行度。即使引擎版本满足要求，默认也不开启。"
+msgid ""
+"GPU weight retention defaults to automatic selection: supported model "
+"environments and configurations enable it; unsupported configurations start "
+"normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic "
+"selection, set ``True`` to require retention, or ``False`` to disable it. In"
+" the deployment dialog, **Keep GPU weights for reload** offers **Auto**, "
+"**Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang "
+"0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor "
+"parallelism. Models with retained weights cannot add replicas."
+msgstr ""
+"GPU 权重保留默认自动选择：模型环境和配置支持时自动开启，不支持时正常启动。省略 ``enable_weight_cache`` 或传入 "
+"``None`` 表示自动选择，设为 ``True`` 表示必须开启，设为 ``False`` 则关闭。部署对话框中的 **保留 GPU "
+"权重以支持重载** 提供 **自动**、**开启** 和 **关闭** 三种选择。此功能需要 vLLM 0.31.0+ 或 SGLang "
+"0.5.21+、Linux CUDA 或 ROCm、单 Worker、单副本以及固定的张量并行度。已保留权重的模型不能追加副本。"
 
 #: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/launch.rst:496
 msgid ""
@@ -626,8 +638,8 @@ msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for
 msgstr "``GET /v1/cache/models`` 为每个缓存模型返回 ``model_type`` 和 ``model_engine``。引擎列表报告文件所属 Worker 发现的候选引擎，并遵循该 Worker 的虚拟环境设置。rerank 和 world 的缓存版本只标识模型名称，因此这些类型的候选引擎不按缓存格式校验。``null`` 表示元数据未知或引擎发现失败；空列表表示当前未发现匹配的引擎。查询缓存不会下载权重、准备环境或启动模型。"
 
 #: ../../user_guide/launch.rst:509 ../../user_guide/launch.rst:514
-msgid "Enable Keep GPU weights for reload before deploying the model."
-msgstr "部署模型前启用「保留 GPU 权重以支持重载」。"
+msgid "Configure GPU weight retention before deploying the model."
+msgstr "部署模型前配置 GPU 权重保留。"
 
 #: ../../user_guide/launch.rst:516 ../../user_guide/launch.rst:521
 msgid "Open model reconfiguration from Running Models."

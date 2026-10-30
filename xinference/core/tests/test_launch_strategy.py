@@ -840,3 +840,35 @@ async def test_terminate_model_replica_updates_active_replica_set():
         "demo-model",
         {"replica": 2, "status": "READY"},
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+@pytest.mark.parametrize("replica,n_worker", [(1, 1), (2, 1), (1, 2)])
+@pytest.mark.parametrize("local", [False, True])
+async def test_auto_weight_cache_respects_launch_topology(
+    engine, replica, n_worker, local
+):
+    workers = [
+        DummyWorkerRef(f"w{i}:1000", model_count=0, launched=[]) for i in range(2)
+    ]
+    supervisor = DummySupervisor({w.address: w for w in workers})
+    supervisor.is_local_deployment = lambda: local
+    await supervisor.launch_builtin_model(
+        model_uid="demo-model",
+        model_name="demo",
+        model_size_in_billions=None,
+        model_format="pytorch",
+        quantization=None,
+        model_engine=engine,
+        model_type="LLM",
+        n_gpu=1,
+        replica=replica,
+        n_worker=n_worker,
+        wait_ready=True,
+        worker_ip=[w.address for w in workers],
+    )
+    launches = [call for worker in workers for call in worker.launch_kwargs]
+    assert launches
+    expected = None if replica == 1 and (local or n_worker == 1) else False
+    assert all(call.get("enable_weight_cache") is expected for call in launches)

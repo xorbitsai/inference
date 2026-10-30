@@ -536,14 +536,14 @@ Reconfigure and upgrade running models
 
 .. versionadded:: v4.0.0
 
-Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions.
+GPU weight retention defaults to automatic selection: supported model environments and configurations enable it; unsupported configurations start normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic selection, set ``True`` to require retention, or ``False`` to disable it. In the deployment dialog, **Keep GPU weights for reload** offers **Auto**, **Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. Models with retained weights cannot add replicas.
 
 .. figure:: /_static/keep_weight_for_reload.png
-   :alt: Enable Keep GPU weights for reload before deploying the model.
+   :alt: Configure GPU weight retention before deploying the model.
    :width: 560px
    :align: center
 
-   Enable Keep GPU weights for reload before deploying the model.
+   Configure GPU weight retention before deploying the model.
 
 .. figure:: /_static/reconfigure_in_running.png
    :alt: Open model reconfiguration from Running Models.

@@ -305,14 +305,15 @@ msgstr "模型和引擎"
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:137
 msgid ""
-"Open a running model's detail view and choose **Reconfigure / upgrade model**. Engine "
-"replacement requires **Keep GPU weights for reload** (``enable_weight_cache=true``) at"
-" launch, vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one Worker, one "
-"replica and fixed tensor parallelism."
+"Open a running model's detail view and choose **Reconfigure / upgrade "
+"model**. Engine replacement requires GPU weight retention enabled at launch,"
+" either automatically on a supported configuration or explicitly with "
+"``enable_weight_cache=True``. See :ref:`launch_weight_cache_reload` for "
+"prerequisites and the **Auto**, **Enabled** and **Disabled** settings."
 msgstr ""
-"打开运行中模型的详情，选择 **重新配置 / 升级模型** 。替换引擎需要在启动时开启 **保留 GPU 权重以支持重载** （ "
-"``enable_weight_cache=true`` ），使用 vLLM 0.31.0+ 或 SGLang 0.5.21+、配备 CUDA 或 ROCm 的 "
-"Linux、单个 Worker、单副本和固定的张量并行度。"
+"打开运行中模型的详情页，选择 **重新配置 / 升级模型**。替换引擎需要在启动时启用 GPU 权重保留，可以在支持的配置下自动开启，也可以显式设置 "
+"``enable_weight_cache=True``。前提条件及 **自动**、**开启** 和 **关闭** 设置见 "
+":ref:`launch_weight_cache_reload`。"
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:149
 msgid ""

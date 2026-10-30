@@ -50,6 +50,27 @@ function FieldLabel({ label, tip }: { label: string; tip: string }) {
   );
 }
 
+function WeightCacheOptions({
+  value,
+  onChange,
+}: {
+  value?: boolean | null | '';
+  onChange?: (value: boolean | null) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <RadioGroup
+      value={value == null || value === '' ? 'auto' : value}
+      options={[
+        { label: t('launchModel.weightCacheAuto'), value: 'auto' },
+        { label: t('launchModel.weightCacheEnabled'), value: true },
+        { label: t('launchModel.weightCacheDisabled'), value: false },
+      ]}
+      onChange={(next) => onChange?.(next === 'auto' ? null : (next as boolean))}
+    />
+  );
+}
+
 function ConfigSection({ title, children }: ConfigSectionProps) {
   return (
     <section className="space-y-2">
@@ -152,8 +173,8 @@ const AdvancedConfig: FC<AdvancedConfigProps> = ({
               label={t('launchModel.enableWeightCache')}
               tip={t('launchModel.enableWeightCacheTip')}
             />
-            <FormField name="enable_weight_cache" valuePropName="checked">
-              <Switch />
+            <FormField name="enable_weight_cache">
+              <WeightCacheOptions />
             </FormField>
           </div>
         )}

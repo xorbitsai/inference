@@ -351,8 +351,21 @@ msgid "Reconfigure and upgrade running models"
 msgstr "実行中モデルの再設定と更新"
 
 #: ../../user_guide/launch.rst:417
-msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
-msgstr "モデル起動時に ``enable_weight_cache=true`` を指定するか、デプロイ画面で **再読み込み用に GPU の重みを保持** を選択します。vLLM 0.31.0+ または SGLang 0.5.21+、Linux CUDA または ROCm、単一ワーカー、単一レプリカ、固定のテンソル並列度が必要です。対応バージョンでも既定では無効です。"
+msgid ""
+"GPU weight retention defaults to automatic selection: supported model "
+"environments and configurations enable it; unsupported configurations start "
+"normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic "
+"selection, set ``True`` to require retention, or ``False`` to disable it. In"
+" the deployment dialog, **Keep GPU weights for reload** offers **Auto**, "
+"**Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang "
+"0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor "
+"parallelism. Models with retained weights cannot add replicas."
+msgstr ""
+"GPU の重みの保持はデフォルトで自動選択されます。モデルの環境と設定が対応していれば有効になり、対応していなければ通常どおり起動します。自動選択には "
+"``enable_weight_cache`` を省略するか ``None`` を指定し、必須にするには ``True``、無効にするには "
+"``False`` を指定します。デプロイ画面の **再読み込み用に GPU の重みを保持** では **自動**、**有効**、**無効** "
+"を選べます。vLLM 0.31.0+ または SGLang 0.5.21+、CUDA または ROCm を利用する "
+"Linux、単一ワーカー、単一レプリカ、固定のテンソル並列度が必要です。重みを保持するモデルにはレプリカを追加できません。"
 
 #: ../../../Users/xuyeqin/.codex/worktrees/worker-handoff/inference/doc/source/user_guide/launch.rst:496
 msgid ""
@@ -587,8 +600,8 @@ msgid "``GET /v1/cache/models`` includes ``model_type`` and ``model_engine`` for
 msgstr "``GET /v1/cache/models`` は各キャッシュ済みモデルの ``model_type`` と ``model_engine`` を返します。エンジン一覧は、ファイルを所有する Worker の仮想環境設定を含む検出結果に基づく候補を示します。rerank と world のキャッシュバージョンはモデル名のみを識別するため、これらの候補はキャッシュ形式との照合を行いません。``null`` はメタデータが不明か検出が失敗したことを示し、空の一覧は現在一致するエンジンが検出されないことを示します。キャッシュの一覧取得では重みのダウンロード、環境の準備、モデルの起動は行いません。"
 
 #: ../../user_guide/launch.rst:509 ../../user_guide/launch.rst:514
-msgid "Enable Keep GPU weights for reload before deploying the model."
-msgstr "モデルのデプロイ前に「再読み込み用に GPU の重みを保持」を有効にします。"
+msgid "Configure GPU weight retention before deploying the model."
+msgstr "モデルをデプロイする前に GPU の重みの保持を設定します。"
 
 #: ../../user_guide/launch.rst:516 ../../user_guide/launch.rst:521
 msgid "Open model reconfiguration from Running Models."

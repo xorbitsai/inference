@@ -1455,7 +1455,8 @@ class Client:
     ) -> Dict[str, Any]:
         """Start an asynchronous parameter reload with the same model UID.
 
-        Engine changes require launch-time ``enable_weight_cache=True``;
+        Engine changes require weight retention enabled at launch (automatic
+        on supported configurations, or ``enable_weight_cache=True``);
         a standalone ``reasoning_content`` update does not. Use
         ``get_model_reload_status`` to wait for ready/error after HTTP 202.
         """

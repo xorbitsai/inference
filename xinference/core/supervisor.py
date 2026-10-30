@@ -3245,7 +3245,10 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         validate_context_length_launch(model_type or "LLM", model_engine, kwargs)
         from ..model.llm.weight_cache import parse_weight_cache_option
 
-        if parse_weight_cache_option(kwargs.get("enable_weight_cache", False)):
+        weight_cache_option = parse_weight_cache_option(
+            kwargs.get("enable_weight_cache")
+        )
+        if weight_cache_option is True:
             if (model_type or "LLM").lower() != "llm":
                 raise ValueError("enable_weight_cache requires an LLM model")
             if (model_engine or "").lower() not in ("vllm", "sglang"):
@@ -3273,6 +3276,20 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             # ignore n_worker > 1 if local deployment
             logger.warning("Local deployment, ignore n_worker(%s)", n_worker)
             n_worker = 1
+
+        if weight_cache_option is None:
+            if (model_engine or "").lower() in ("vllm", "sglang"):
+                # Engine/platform checks run in the actual model environment.
+                # A multi-replica launch must disable retention for every replica.
+                if (
+                    (model_type or "LLM").lower() != "llm"
+                    or n_worker != 1
+                    or replica != 1
+                    or (replica_config is not None and len(replica_config) != 1)
+                ):
+                    kwargs["enable_weight_cache"] = False
+            else:
+                kwargs.pop("enable_weight_cache", None)
 
         if replica_config is not None:
             # replica_config pins each replica to a single worker, so it is
@@ -5789,7 +5806,17 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         # ---- 5. Check scale-up eligibility ---------------------------------------
         from ..model.llm.weight_cache import parse_weight_cache_option
 
-        if parse_weight_cache_option(launch_args.get("enable_weight_cache", False)):
+        weight_cache_enabled = parse_weight_cache_option(
+            launch_args.get("enable_weight_cache", False)
+        )
+        if (launch_args.get("model_engine") or "").lower() in ("vllm", "sglang"):
+            reload_config = await existing_worker_ref.get_model_reload_config(
+                any_replica_uid
+            )
+            weight_cache_enabled = reload_config["enabled"]
+            # Scaling an uncached model must not auto-enable the new replica.
+            launch_args = {**launch_args, "enable_weight_cache": False}
+        if weight_cache_enabled:
             raise ValueError(
                 "Adding replicas to weight-cached models is not supported."
             )

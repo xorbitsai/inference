@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import itertools
 from types import SimpleNamespace
@@ -89,6 +91,7 @@ class _FakeScaleWorker:
     ):
         self.address = address
         self.launch_args = dict(launch_args)
+        self.cache_enabled = False
         self.model_count = model_count
         self.total = list(total)
         self.models = models or {}
@@ -101,6 +104,9 @@ class _FakeScaleWorker:
 
     async def get_launch_args(self, model_uid: str):
         return dict(self.launch_args)
+
+    async def get_model_reload_config(self, model_uid: str):
+        return {"enabled": self.cache_enabled}
 
     async def get_model_count(self):
         return self.model_count
@@ -536,3 +542,26 @@ async def test_delete_missing_ready_replica_still_rejects():
         await supervisor.terminate_model_replica("demo", 0)
     statuses = await supervisor._status_guard_ref.get_replica_statuses("demo")
     assert [status.replica_id for status in statuses] == [0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_scale_up_uses_resolved_auto_cache_state(engine, enabled):
+    launch_args = {
+        "n_worker": 1,
+        "n_gpu": None,
+        "model_engine": engine,
+        "enable_weight_cache": None,
+    }
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    worker.cache_enabled = enabled
+    supervisor = _make_supervisor([worker], launch_args)
+    if enabled:
+        with pytest.raises(ValueError, match="weight-cached"):
+            await supervisor.add_model_replica("demo")
+        assert not worker.launches
+    else:
+        await supervisor.add_model_replica("demo")
+        assert worker.launches[0]["enable_weight_cache"] is False
+    assert worker.launch_args["enable_weight_cache"] is None
