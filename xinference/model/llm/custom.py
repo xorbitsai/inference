@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import threading
 from typing import TYPE_CHECKING, List
 
 from ..custom import ModelRegistry
@@ -34,6 +35,9 @@ class LLMModelRegistry(ModelRegistry):
         from .llm_family import BUILTIN_LLM_FAMILIES
 
         super().__init__()
+        # Engine matching may resolve a custom parent while register() holds
+        # this lock, which re-enters get_custom_models() on the same thread.
+        self.lock = threading.RLock()
         self.models = UD_LLM_FAMILIES
         self.builtin_models = [x.model_name for x in BUILTIN_LLM_FAMILIES]
 

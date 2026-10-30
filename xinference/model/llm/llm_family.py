@@ -237,6 +237,12 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
         for family in BUILTIN_LLM_FAMILIES:
             if family.model_name == self.model_family:
                 return family.architectures
+
+        from .custom import get_user_defined_llm_families
+
+        for family in get_user_defined_llm_families():
+            if family.model_name == self.model_family:
+                return family.architectures
         return None
 
     def has_architecture(self, *architectures: str) -> bool:
