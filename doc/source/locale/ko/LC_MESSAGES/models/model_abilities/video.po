@@ -573,3 +573,11 @@ msgstr ""
 "SGLang에서는 H3를 시작하기 전에 시스템 ``ffmpeg`` 패키지를 설치하고 ``ffmpeg`` 와 ``ffprobe`` 가 모두"
 " ``PATH`` 에 있는지 확인하세요. Python 패키지 ``av`` 와 ``imageio-ffmpeg`` 는 이 요구 사항을 "
 "충족하지 않습니다."
+
+#: ../../source/models/model_abilities/video.rst:140
+msgid ""
+"With vLLM, the Web UI reports denoising progress for native H3. The request "
+"completes after audio/video decoding and encoding."
+msgstr ""
+"vLLM을 사용하면 Web UI에 H3 네이티브 엔진의 노이즈 제거 진행률이 표시됩니다. 오디오와 동영상의 디코딩 및 인코딩이 끝나면 "
+"요청이 완료됩니다."

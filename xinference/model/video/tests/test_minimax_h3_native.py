@@ -128,7 +128,12 @@ def test_vllm_h3_load_passes_only_native_engine_options(monkeypatch):
     monkeypatch.setitem(
         sys.modules,
         "vllm_omni.entrypoints.omni",
-        SimpleNamespace(Omni=lambda **kwargs: calls.append(kwargs) or object()),
+        SimpleNamespace(
+            Omni=lambda **kwargs: calls.append(kwargs)
+            or SimpleNamespace(
+                engine=SimpleNamespace(collective_rpc=lambda *a, **k: None)
+            )
+        ),
     )
     model = make_model(
         VLLMMiniMaxH3Model,
@@ -185,7 +190,14 @@ def test_load_configures_the_partition_and_adapter(
 ):
     monkeypatch.setattr("importlib.metadata.version", lambda _: package_version)
     calls = []
-    monkeypatch.setattr(parent, "load", lambda self: calls.append(dict(self._kwargs)))
+
+    def load(self):
+        calls.append(dict(self._kwargs))
+        self._model = SimpleNamespace(
+            engine=SimpleNamespace(collective_rpc=lambda *a, **k: None)
+        )
+
+    monkeypatch.setattr(parent, "load", load)
     model = make_model(cls, lightning_version)
     model.load()
     config = calls[0]
@@ -391,10 +403,81 @@ async def test_sglang_concurrent_requests_keep_files_separate(monkeypatch, tmp_p
 
 
 @pytest.mark.asyncio
+async def test_vllm_reports_worker_steps_before_encoding(monkeypatch, tmp_path):
+    from ..minimax_h3_progress import PROGRESS_PATH_KEY
+
+    model = make_model(VLLMMiniMaxH3Model)
+    model._progress_enabled = True
+    updates = []
+    progressor = SimpleNamespace(
+        request_id="request", set_progress=lambda value, **kw: updates.append(value)
+    )
+    monkeypatch.setattr(model, "_concurrency_available", lambda: True)
+    monkeypatch.setattr(model, "_build_sampling_params", lambda n, w, h, cfg: cfg)
+
+    async def submit(payload, params):
+        path = Path(params["extra_args"][PROGRESS_PATH_KEY])
+        assert path.parent.parent == tmp_path
+        for value in (0.275, 0.45, 0.625, 0.8):
+            path.write_text(str(value))
+            await asyncio.sleep(0.3)
+        return ["complete"]
+
+    def save(outputs, workdir):
+        assert outputs == ["complete"]
+        assert max(updates) == 0.95
+        path = Path(workdir) / "video.mp4"
+        path.write_bytes(b"audio-video")
+        return [str(path)]
+
+    monkeypatch.setattr(model, "_submit_and_wait", submit)
+    monkeypatch.setattr(model, "_save_outputs", save)
+    await model.text_to_video(
+        "prompt",
+        progressor=progressor,
+        extra_args={PROGRESS_PATH_KEY: "/untrusted/path"},
+    )
+    assert all(value in updates for value in (0.275, 0.45, 0.625, 0.8, 0.95, 1.0))
+    assert updates == sorted(updates)
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.asyncio
+async def test_cancelled_vllm_progress_poll_does_not_leave_a_task(
+    monkeypatch, tmp_path
+):
+    model = make_model(VLLMMiniMaxH3Model)
+    model._progress_enabled = True
+    entered, cancelled = asyncio.Event(), asyncio.Event()
+    monkeypatch.setattr(model, "_concurrency_available", lambda: True)
+    monkeypatch.setattr(model, "_build_sampling_params", lambda n, w, h, cfg: cfg)
+
+    async def submit(*args):
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    monkeypatch.setattr(model, "_submit_and_wait", submit)
+    progressor = SimpleNamespace(
+        request_id="request", set_progress=lambda *a, **k: None
+    )
+    request = asyncio.create_task(model.text_to_video("prompt", progressor=progressor))
+    await asyncio.wait_for(entered.wait(), 5)
+    request.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await request
+    assert cancelled.is_set()
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["text", "image", "firstlast"])
 @pytest.mark.parametrize("aspect_ratio", [None, "9:16"])
+@pytest.mark.parametrize("output_layout", ["primary_video", "legacy"])
 async def test_vllm_activates_lightning_and_muxes_every_sample(
-    monkeypatch, tmp_path, mode, aspect_ratio
+    monkeypatch, tmp_path, mode, aspect_ratio, output_layout
 ):
     model = make_model(VLLMMiniMaxH3Model, "8step_v1.0_bf16")
     monkeypatch.setitem(
@@ -432,14 +515,21 @@ async def test_vllm_activates_lightning_and_muxes_every_sample(
 
     async def submit(payload, params):
         received.append((payload, params))
+        media = {"audio": [audio, audio], "audio_sample_rate": 32000}
+        if output_layout == "legacy":
+            media["video"] = [frames, frames]
         return [
             SimpleNamespace(
-                multimodal_output={
-                    "video": [frames, frames],
-                    "audio": [audio, audio],
-                    "audio_sample_rate": 32000,
-                }
-            )
+                finished=False,
+                images=[],
+                multimodal_output={},
+                custom_output={"_diffusion_request_lifecycle": "started"},
+            ),
+            SimpleNamespace(
+                finished=True,
+                images=[frames, frames] if output_layout == "primary_video" else [],
+                multimodal_output=media,
+            ),
         ]
 
     monkeypatch.setattr(model, "_submit_and_wait", submit)
@@ -498,15 +588,16 @@ async def test_sglang_failure_cleans_up_request_files(monkeypatch, tmp_path, err
     assert not list(tmp_path.iterdir())
 
 
-def test_vllm_rejects_missing_audio(tmp_path, monkeypatch):
+@pytest.mark.parametrize("media", [{}, {"video": [1]}, {"video": [1], "audio": [None]}])
+def test_vllm_rejects_missing_audio(tmp_path, monkeypatch, media):
     monkeypatch.setitem(
         sys.modules,
         "vllm_omni.diffusion.utils.media_utils",
         SimpleNamespace(mux_video_audio_bytes=None),
     )
-    with pytest.raises(RuntimeError, match="incomplete"):
+    with pytest.raises(RuntimeError, match="incomplete|no MiniMax-H3 audio"):
         VLLMMiniMaxH3Model._save_outputs(
-            [SimpleNamespace(multimodal_output={"video": [1]})], str(tmp_path)
+            [SimpleNamespace(finished=True, multimodal_output=media)], str(tmp_path)
         )
 
 

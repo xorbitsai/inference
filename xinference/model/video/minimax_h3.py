@@ -235,7 +235,15 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
                 prefix="h3-", dir=XINFERENCE_VIDEO_DIR
             ) as workdir:
                 outputs = await self._generate_h3(
-                    prompt, n, width, height, duration, config, images, workdir
+                    prompt,
+                    n,
+                    width,
+                    height,
+                    duration,
+                    config,
+                    images,
+                    workdir,
+                    progressor=progressor,
                 )
                 if len(outputs) != n:
                     raise RuntimeError(f"Expected {n} videos, received {len(outputs)}")
@@ -265,6 +273,7 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
         config: Dict[str, Any],
         images: List[Image.Image],
         workdir: str,
+        progressor: Any = None,
     ) -> List[str]:
         raise NotImplementedError
 
@@ -299,7 +308,16 @@ class SGLangMiniMaxH3Model(
         super().load()
 
     async def _generate_h3(
-        self, prompt, n, width, height, duration, config, images, workdir
+        self,
+        prompt,
+        n,
+        width,
+        height,
+        duration,
+        config,
+        images,
+        workdir,
+        progressor=None,
     ):
         from sglang.multimodal_gen.configs.sample.minimax_h3 import (
             MiniMaxH3SamplingParams,
@@ -363,6 +381,8 @@ class VLLMMiniMaxH3Model(_MiniMaxH3VideoModel, VLLMDiffusionModel, VideoEngineMo
 
         from packaging.version import Version
 
+        from .minimax_h3_progress import WORKER_EXTENSION
+
         omni_version = Version(version("vllm-omni"))
         vllm_version = Version(version("vllm"))
         if (
@@ -388,13 +408,43 @@ class VLLMMiniMaxH3Model(_MiniMaxH3VideoModel, VLLMDiffusionModel, VideoEngineMo
             self._kwargs.update(
                 lora_backend="peft", lora_path=self._lightning_model_path
             )
+        self._progress_enabled = not self._kwargs.get("worker_extension_cls") or (
+            self._kwargs["worker_extension_cls"] == WORKER_EXTENSION
+        )
+        if self._progress_enabled:
+            self._kwargs["worker_extension_cls"] = WORKER_EXTENSION
         super().load()
+        if self._progress_enabled:
+            self._model.engine.collective_rpc(
+                "xinference_enable_h3_progress", timeout=30
+            )
 
     async def _generate_h3(
-        self, prompt, n, width, height, duration, config, images, workdir
+        self,
+        prompt,
+        n,
+        width,
+        height,
+        duration,
+        config,
+        images,
+        workdir,
+        progressor=None,
     ):
+        from .minimax_h3_progress import PROGRESS_PATH_KEY
+
         self._raise_if_unavailable()
         extra = dict(config.pop("extra_args", {}))
+        # Only internally allocated request paths may reach the worker hook.
+        extra.pop(PROGRESS_PATH_KEY, None)
+        progress_path = None
+        if (
+            progressor
+            and progressor.request_id
+            and getattr(self, "_progress_enabled", False)
+        ):
+            progress_path = Path(workdir) / "progress.txt"
+            extra[PROGRESS_PATH_KEY] = str(progress_path)
         extra.update(
             task="fl2va" if images else "t2va",
             duration=duration,
@@ -423,7 +473,24 @@ class VLLMMiniMaxH3Model(_MiniMaxH3VideoModel, VLLMDiffusionModel, VideoEngineMo
         params = self._build_sampling_params(n, width, height, config)
         if not self._concurrency_available():
             raise RuntimeError("MiniMax-H3 concurrency requires vllm-omni engine APIs")
-        outputs = await self._submit_and_wait(payload, params)
+        task = asyncio.create_task(self._submit_and_wait(payload, params))
+        try:
+            while progress_path and not task.done():
+                try:
+                    value = float(progress_path.read_text())
+                except (OSError, ValueError):
+                    pass
+                else:
+                    progressor.set_progress(value)
+                await asyncio.wait({task}, timeout=0.25)
+            outputs = await task
+        finally:
+            if not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+        if progress_path:
+            progressor.set_progress(0.95, info="Encoding audio/video")
         return await _run_with_request_files(self._save_outputs, outputs, workdir)
 
     @staticmethod
@@ -434,10 +501,20 @@ class VLLMMiniMaxH3Model(_MiniMaxH3VideoModel, VLLMDiffusionModel, VideoEngineMo
         paths: List[str] = []
         for output in outputs:
             media = getattr(output, "multimodal_output", None) or {}
+            images = getattr(output, "images", None)
+            # vLLM-Omni emits an empty, unfinished request-started notification
+            # before delivering the final joint video/audio result.
+            if not media and not images and not getattr(output, "finished", True):
+                continue
             if "video" not in media:
-                images = getattr(output, "images", None)
-                if images and isinstance(images[0], dict):
-                    media = images[0]
+                if images:
+                    # Omni 0.32 puts video frames in the primary images field
+                    # and keeps the soundtrack in multimodal_output.
+                    media = (
+                        images[0]
+                        if isinstance(images[0], dict)
+                        else dict(media, video=images)
+                    )
             videos, audios = media.get("video"), media.get("audio")
             if videos is None or audios is None or len(videos) != len(audios):
                 raise RuntimeError(

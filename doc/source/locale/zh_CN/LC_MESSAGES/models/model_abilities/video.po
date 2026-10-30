@@ -555,3 +555,9 @@ msgid ""
 msgstr ""
 "使用 SGLang 时，请先安装系统 ``ffmpeg`` 软件包，并确保 ``ffmpeg`` 和 ``ffprobe`` 均在 ``PATH`` "
 "中。Python 软件包 ``av`` 和 ``imageio-ffmpeg`` 不能满足此要求。"
+
+#: ../../source/models/model_abilities/video.rst:140
+msgid ""
+"With vLLM, the Web UI reports denoising progress for native H3. The request "
+"completes after audio/video decoding and encoding."
+msgstr "使用 vLLM 时，Web UI 会显示 H3 原生引擎的去噪进度。音视频解码和编码结束后，请求才会完成。"

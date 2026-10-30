@@ -137,6 +137,9 @@ For SGLang, install the system ``ffmpeg`` package before launching H3 and ensure
 both ``ffmpeg`` and ``ffprobe`` are on ``PATH``. The Python packages ``av`` and
 ``imageio-ffmpeg`` do not satisfy this requirement.
 
+With vLLM, the Web UI reports denoising progress for native H3. The request
+completes after audio/video decoding and encoding.
+
 Configure GPU parallelism and memory options for your hardware. For example,
 on four suitable CUDA GPUs, launch H3 with Lightning using::
 

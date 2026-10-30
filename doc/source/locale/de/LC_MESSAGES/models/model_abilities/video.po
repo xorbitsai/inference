@@ -651,3 +651,12 @@ msgstr ""
 "und stellen Sie sicher, dass ``ffmpeg`` und ``ffprobe`` im ``PATH`` liegen. "
 "Die Python-Pakete ``av`` und ``imageio-ffmpeg`` erfüllen diese Anforderung "
 "nicht."
+
+#: ../../source/models/model_abilities/video.rst:140
+msgid ""
+"With vLLM, the Web UI reports denoising progress for native H3. The request "
+"completes after audio/video decoding and encoding."
+msgstr ""
+"Mit vLLM zeigt die Web-UI den Entrauschungsfortschritt für natives H3 an. "
+"Die Anfrage wird nach der Dekodierung und Kodierung von Audio und Video "
+"abgeschlossen."

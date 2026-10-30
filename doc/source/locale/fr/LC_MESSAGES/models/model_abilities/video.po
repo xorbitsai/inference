@@ -653,3 +653,11 @@ msgstr ""
 "Pour SGLang, installez le paquet système ``ffmpeg`` avant de lancer H3 et "
 "vérifiez que ``ffmpeg`` et ``ffprobe`` sont dans ``PATH``. Les paquets "
 "Python ``av`` et ``imageio-ffmpeg`` ne satisfont pas cette exigence."
+
+#: ../../source/models/model_abilities/video.rst:140
+msgid ""
+"With vLLM, the Web UI reports denoising progress for native H3. The request "
+"completes after audio/video decoding and encoding."
+msgstr ""
+"Avec vLLM, l’interface web affiche la progression du débruitage de H3 natif."
+" La requête se termine après le décodage et l’encodage audio et vidéo."
