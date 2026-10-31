@@ -97,7 +97,7 @@ export type FormContextType = {
 
   unregisterField: (name: FieldName) => void;
 
-  notifyUserChange: () => void;
+  notifyUserChange: (name?: FieldName) => void;
 };
 
 export interface FormFieldProps {

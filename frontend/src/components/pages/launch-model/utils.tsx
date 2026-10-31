@@ -22,6 +22,7 @@ import type {
   ClusterInfoResponse,
 } from '@/types/services';
 import CommonFormList from './launch-dialog/common-form-list';
+import { launchParameterRow, parseLaunchParameterRows } from './typed-launch-params';
 import type {
   CatalogModel,
   EngineIndex,
@@ -285,7 +286,10 @@ function restoreFormListObject(values: FormValues, field: string) {
 
   if (!isRecord(fieldValue)) return;
 
-  const nextValue = transformObjToFormList(fieldValue);
+  const nextValue =
+    field === 'quantization_config'
+      ? Object.entries(fieldValue).map(([key, value]) => launchParameterRow(key, value))
+      : transformObjToFormList(fieldValue);
 
   values[field] = nextValue;
 }
@@ -338,13 +342,7 @@ function transformArrayToOnlyValueFormList(values: FormValues, field: string) {
 function restoreKwargsFormList(values: FormValues) {
   const kwargsValue = values.kwargs;
   const toKwargsFormList = (record: Record<string, unknown>) =>
-    Object.entries(record).map(([key, value]) => ({
-      key,
-      value:
-        isStructuredLaunchParameter(key) && typeof value === 'object'
-          ? JSON.stringify(value)
-          : String(value),
-    }));
+    Object.entries(record).map(([key, value]) => launchParameterRow(key, value));
   const kwargs = isRecord(kwargsValue) ? toKwargsFormList(kwargsValue) : [];
   const extraKwargs: Record<string, unknown> = {};
 
@@ -365,10 +363,14 @@ function restoreKwargsFormList(values: FormValues) {
 
 function applyFormListObject(values: FormValues, field: string, transformValue = true) {
   if (!(field in values)) return;
+  if (field === 'quantization_config' && typeof values[field] === 'string') return;
 
-  const nextValue = getFormListObject(values[field], transformValue);
+  const nextValue =
+    field === 'quantization_config' && Array.isArray(values[field])
+      ? parseLaunchParameterRows(values[field])
+      : getFormListObject(values[field], transformValue);
 
-  if (nextValue) {
+  if (nextValue && (typeof nextValue !== 'object' || Object.keys(nextValue).length > 0)) {
     values[field] = nextValue;
     return;
   }
@@ -378,17 +380,12 @@ function applyFormListObject(values: FormValues, field: string, transformValue =
 function mergeFormListObject(values: FormValues, field: string) {
   if (!(field in values)) return;
 
-  // Structured values must be handled before the shared converter calls String.
-  const nextValue = getFormListObject(values[field], false);
+  const nextValue = parseLaunchParameterRows(values[field]);
 
   delete values[field];
 
   if (nextValue) {
-    for (const [key, value] of Object.entries(nextValue)) {
-      values[key] = isStructuredLaunchParameter(key)
-        ? parseStructuredLaunchParameter(key, value)
-        : transformValueType(value);
-    }
+    Object.assign(values, nextValue);
   }
 }
 
@@ -637,6 +634,7 @@ const commandLineKeyMap: Record<string, string> = {
   reasoning_content: '--reasoning_content',
   lightning_version: '--lightning_version',
   lightning_model_path: '--lightning_model_path',
+  runtime_precision: '--runtime_precision',
 };
 
 const predefinedLaunchKeySet = new Set<string>(ALL_FORM_KEYS);
@@ -1082,7 +1080,9 @@ export function parseXinferenceCommand(command: string) {
     const parameterValue = valueTokens.length === 0 ? true : value;
     params[normalizedKey] = isStructuredLaunchParameter(normalizedKey)
       ? parseStructuredLaunchParameter(normalizedKey, parameterValue)
-      : parameterValue;
+      : predefinedLaunchKeySet.has(normalizedKey)
+        ? parameterValue
+        : transformValueType(parameterValue);
   }
 
   if (

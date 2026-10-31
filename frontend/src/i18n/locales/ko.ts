@@ -549,6 +549,15 @@ const ko = {
     emptyFile: '빈 파일은 업로드할 수 없습니다.',
   },
   launchModel: {
+    runtimePrecision: '실행 정밀도',
+    runtimePrecisionDefault: '엔진 기본값 ({{precision}})',
+    runtimePrecisionCustom: '고급 설정 사용',
+    runtimePrecisionBf16: 'BF16 (양자화 없음)',
+    runtimePrecisionUnsupported:
+      '{{engine}}은(는) {{precision}}을(를) 지원하지 않습니다. 다른 정밀도를 선택하세요.',
+    runtimePrecisionHelp:
+      'DiT와 텍스트 인코더에 적용되며 VAE는 기본 정밀도를 유지합니다. 명시적 선택은 고급 정밀도 설정을 덮어씁니다. FP8 스케일링은 엔진마다 다릅니다.',
+
     updateOneModel: '단일 모델 업데이트',
     updateOneModelDescription:
       '다른 모델을 유지하면서 공유 카탈로그의 단일 모델을 업데이트합니다. 가중치를 다운로드하거나 실행 중인 모델을 다시 시작하지 않습니다.',

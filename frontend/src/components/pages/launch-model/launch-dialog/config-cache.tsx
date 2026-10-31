@@ -42,6 +42,7 @@ interface ConfigCacheProps {
   refreshKey?: number;
   onHistoryRefreshed?: (history: LaunchConfigHistoryItem[]) => void;
   onUserChange?: () => void;
+  onSnapshotApplied?: (values: FormValues) => void;
 }
 
 const normalizeForCompare = (value: unknown): unknown => {
@@ -71,6 +72,7 @@ export default function ConfigCache({
   refreshKey,
   onHistoryRefreshed,
   onUserChange,
+  onSnapshotApplied,
 }: ConfigCacheProps) {
   const { t } = useI18n();
   const { clusterAuth } = useGlobal();
@@ -141,7 +143,9 @@ export default function ConfigCache({
   const handleUseConfigCache = (item: LaunchConfigHistoryItem) => {
     onUserChange?.();
     form.resetFields();
-    form.setFieldsValue(transformFetchToForm(item.data));
+    const values = transformFetchToForm(item.data);
+    onSnapshotApplied?.(values);
+    form.setFieldsValue(values);
     setConfigCacheOpen(false);
   };
 
@@ -155,7 +159,9 @@ export default function ConfigCache({
 
     onUserChange?.();
     form.resetFields();
-    form.setFieldsValue(transformFetchToForm(templateData));
+    const values = transformFetchToForm(templateData);
+    onSnapshotApplied?.(values);
+    form.setFieldsValue(values);
     setConfigCacheOpen(false);
   };
 

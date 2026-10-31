@@ -7,10 +7,7 @@ import { getNamePathString } from '@/lib/form';
 
 import { useFormContext } from './form';
 
-import type {
-  FormListProps,
-  FormListRenderProps,
-} from '@/types/form';
+import type { FormListProps, FormListRenderProps } from '@/types/form';
 
 export function FormList<T = any>({
   name,
@@ -19,16 +16,13 @@ export function FormList<T = any>({
   children,
   renderAction,
   layout = 'vertical',
-  className
+  className,
 }: FormListProps<T>) {
-  const { form, clearFieldState, notifyUserChange } =
-    useFormContext();
+  const { form, clearFieldState, notifyUserChange } = useFormContext();
 
-  const fieldKey =
-    getNamePathString(name);
+  const fieldKey = getNamePathString(name);
 
-  const [, forceUpdate] =
-    React.useState({});
+  const [, forceUpdate] = React.useState({});
 
   React.useEffect(() => {
     return form.subscribe(() => {
@@ -37,8 +31,7 @@ export function FormList<T = any>({
   }, [form]);
 
   React.useEffect(() => {
-    const unmountField =
-      form.mountField(fieldKey);
+    const unmountField = form.mountField(fieldKey);
 
     return () => {
       clearFieldState(fieldKey);
@@ -50,78 +43,51 @@ export function FormList<T = any>({
   const values =
     (form.hasFieldValue(fieldKey)
       ? form.getFieldValue(fieldKey)
-      : form.getInitialFieldValue(fieldKey)) ??
-    [];
+      : form.getInitialFieldValue(fieldKey)) ?? [];
 
-  const fields = values.map(
-    (_: any, index: number) => ({
-      key: `${index}`,
-      name: index,
-    })
-  );
+  const fields = values.map((_: any, index: number) => ({
+    key: `${index}`,
+    name: index,
+  }));
 
-  const add = (
-    defaultValue?: T
-  ) => {
-    form.setFieldValue(name, [
-      ...values,
-      defaultValue,
-    ]);
-    notifyUserChange();
+  const add = (defaultValue?: T) => {
+    form.setFieldValue(name, [...values, defaultValue]);
+    notifyUserChange(name);
   };
 
-  const remove = (
-    index: number
-  ) => {
+  const remove = (index: number) => {
     form.setFieldValue(
       name,
-      values.filter(
-        (
-          _: any,
-          i: number
-        ) => i !== index
-      )
+      values.filter((_: any, i: number) => i !== index)
     );
-    notifyUserChange();
+    notifyUserChange(name);
   };
 
-  const renderProps: FormListRenderProps<T> =
-    {
-      fields,
-      add,
-      remove,
-    };
+  const renderProps: FormListRenderProps<T> = {
+    fields,
+    add,
+    remove,
+  };
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn('space-y-2', className)}>
       {(label || renderAction) && (
         <div
           className={cn(
-            layout ===
-              'horizontal'
+            layout === 'horizontal'
               ? 'flex items-center gap-3'
               : 'flex items-center justify-between'
           )}
         >
-          {label && (
-            <label className="text-sm font-medium">
-              {label}
-            </label>
-          )}
+          {label && <label className="text-sm font-medium">{label}</label>}
 
-          {renderAction?.(
-            renderProps
-          )}
+          {renderAction?.(renderProps)}
         </div>
       )}
 
       {children(renderProps)}
 
-      {extra && (
-        <p className="text-xs text-muted-foreground">
-          {extra}
-        </p>
-      )}
+      {extra && <p className="text-xs text-muted-foreground">{extra}</p>}
     </div>
   );
 }

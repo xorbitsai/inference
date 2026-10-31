@@ -24,7 +24,7 @@ interface FormProps extends Omit<React.ComponentProps<'form'>, 'onSubmit'> {
 
   onFinish?: (values: FormValues) => void;
 
-  onUserChange?: () => void;
+  onUserChange?: (name?: FieldName) => void;
 }
 
 export function Form({
@@ -97,107 +97,85 @@ export function Form({
     });
   }, [form]);
 
-
   const removeFieldState = React.useCallback(
-    <T extends string | boolean,>(
-      state: Record<string, T>,
-      key: string
-    ) => {
+    <T extends string | boolean>(state: Record<string, T>, key: string) => {
       return Object.fromEntries(
-        Object.entries(state).filter(
-          ([name]) =>
-            name !== key &&
-            !name.startsWith(`${key}.`)
-        )
+        Object.entries(state).filter(([name]) => name !== key && !name.startsWith(`${key}.`))
       ) as Record<string, T>;
     },
     []
   );
 
-  const setFieldError = React.useCallback((
-    name: FieldName,
-    error: string
-  ) => {
-    const key =
-      getNamePathString(name);
+  const setFieldError = React.useCallback(
+    (name: FieldName, error: string) => {
+      const key = getNamePathString(name);
 
-    setErrors((prev) => {
-      if (!error) {
-        return removeFieldState(
-          prev,
-          key
-        );
-      }
+      setErrors((prev) => {
+        if (!error) {
+          return removeFieldState(prev, key);
+        }
 
-      return {
-        ...prev,
-        [key]: error,
-      };
-    });
-  }, [removeFieldState]);
+        return {
+          ...prev,
+          [key]: error,
+        };
+      });
+    },
+    [removeFieldState]
+  );
 
-  const setFieldTouched = React.useCallback((
-    name: FieldName,
-    value: boolean
-  ) => {
-    const key =
-      getNamePathString(name);
+  const setFieldTouched = React.useCallback(
+    (name: FieldName, value: boolean) => {
+      const key = getNamePathString(name);
 
-    setTouched((prev) => {
-      if (!value) {
-        return removeFieldState(
-          prev,
-          key
-        );
-      }
+      setTouched((prev) => {
+        if (!value) {
+          return removeFieldState(prev, key);
+        }
 
-      return {
-        ...prev,
-        [key]: value,
-      };
-    });
-  }, [removeFieldState]);
+        return {
+          ...prev,
+          [key]: value,
+        };
+      });
+    },
+    [removeFieldState]
+  );
 
-  const clearFieldState = React.useCallback((
-    name: FieldName
-  ) => {
-    const key =
-      getNamePathString(name);
+  const clearFieldState = React.useCallback(
+    (name: FieldName) => {
+      const key = getNamePathString(name);
 
-    setErrors((prev) =>
-      removeFieldState(prev, key)
-    );
+      setErrors((prev) => removeFieldState(prev, key));
 
-    setTouched((prev) =>
-      removeFieldState(prev, key)
-    );
-  }, [removeFieldState]);
+      setTouched((prev) => removeFieldState(prev, key));
+    },
+    [removeFieldState]
+  );
 
-  const registerField = React.useCallback((
-    name: FieldName,
-    validate: () => string
-  ) => {
-    const key =
-      getNamePathString(name);
-  
-    validatorsRef.current[key] =
-      validate;
+  const registerField = React.useCallback((name: FieldName, validate: () => string) => {
+    const key = getNamePathString(name);
+
+    validatorsRef.current[key] = validate;
   }, []);
 
-  const unregisterField = React.useCallback((
-    name: FieldName
-  ) => {
-    const key =
-      getNamePathString(name);
-  
-    delete validatorsRef.current[key];
+  const unregisterField = React.useCallback(
+    (name: FieldName) => {
+      const key = getNamePathString(name);
 
-    clearFieldState(key);
-  }, [clearFieldState]);
+      delete validatorsRef.current[key];
 
-  const notifyUserChange = React.useCallback(() => {
-    onUserChange?.();
-  }, [onUserChange]);
+      clearFieldState(key);
+    },
+    [clearFieldState]
+  );
+
+  const notifyUserChange = React.useCallback(
+    (name?: FieldName) => {
+      onUserChange?.(name);
+    },
+    [onUserChange]
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

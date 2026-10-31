@@ -19,7 +19,7 @@ import random
 import re
 import threading
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from ....types import LoRA
 from ..utils import handle_image_result, resolve_image_seed_list
@@ -69,7 +69,7 @@ class _RequestWaiter:
 
 
 class VLLMDiffusionModel:
-    supported_abilities = VLLM_SUPPORTED_ABILITIES
+    supported_abilities: Tuple[str, ...] = VLLM_SUPPORTED_ABILITIES
     generation_mode = "text-to-image"
 
     # ModelActor skips its serializing lock when allow_batch is True.
@@ -184,7 +184,6 @@ class VLLMDiffusionModel:
         )
         self._model = Omni(
             model=self._model_path,
-            mode=self.generation_mode,
             **self._kwargs,
         )
 

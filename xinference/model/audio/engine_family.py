@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import importlib.util
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
@@ -157,6 +158,15 @@ def generate_engine_config_by_model_name(model_family: "AudioModelFamilyV2") -> 
                             "model_name": model_name,
                             "model_format": getattr(model_family, "model_format", None),
                             "audio_class": cls,
+                            **(
+                                {
+                                    "default_model_config": copy.deepcopy(
+                                        model_family.default_model_config
+                                    )
+                                }
+                                if getattr(model_family, "default_model_config", None)
+                                else {}
+                            ),
                         }
                     )
                 engines[engine] = engine_params

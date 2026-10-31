@@ -41,6 +41,7 @@ from ..engine_family import (
     check_engine_by_model_name_and_engine,
     check_engine_by_model_name_and_engine_with_virtual_env,
 )
+from ..native import _NativeVideoModel
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -64,6 +65,15 @@ def test_builtin_video_models_register_expected_engines():
             expected_engines.append("diffusers")
         if model_name in MLX_VIDEO_MODEL_NAMES:
             expected_engines.append("MLX")
+        if _NativeVideoModel.check_host() is True:
+            expected_engines.extend(
+                engine
+                for engine in ("vLLM", "SGLang")
+                if any(
+                    family.engine == engine
+                    for family in BUILTIN_VIDEO_MODELS[model_name]
+                )
+            )
         assert list(engines) == expected_engines
 
         if "diffusers" in engines:
@@ -73,6 +83,19 @@ def test_builtin_video_models_register_expected_engines():
                     "model_format": "diffusers",
                     "quantization": "none",
                     "video_class": DiffusersVideoEngineModel,
+                    "default_model_config": next(
+                        family.default_model_config
+                        for family in BUILTIN_VIDEO_MODELS[model_name]
+                        if family.engine == "diffusers"
+                    ),
+                    **(
+                        {
+                            "runtime_precisions": ["bf16", "fp8", "int8", "int4"],
+                            "default_runtime_precision": "int4",
+                        }
+                        if model_name == "MiniMax-H3"
+                        else {}
+                    ),
                 }
             ]
         if "MLX" in engines:
@@ -278,15 +301,21 @@ def test_video_engine_api_returns_diffusers_format():
             "video", "MiniMax-H3", enable_virtual_env=False
         )
 
-    assert params == {
-        "diffusers": [
-            {
-                "model_name": "MiniMax-H3",
-                "model_format": "diffusers",
-                "quantization": "none",
-            }
-        ]
-    }
+    assert set(params) == {"diffusers", "vLLM", "SGLang"}
+    assert params["diffusers"] == [
+        {
+            "model_name": "MiniMax-H3",
+            "model_format": "diffusers",
+            "quantization": "none",
+            "runtime_precisions": ["bf16", "fp8", "int8", "int4"],
+            "default_runtime_precision": "int4",
+            "default_model_config": {
+                "quantization": "int4",
+                "group_offload": True,
+                "torch_dtype": "bfloat16",
+            },
+        }
+    ]
 
 
 def test_video_engine_uses_virtualenv_when_dependency_is_missing():
@@ -300,6 +329,12 @@ def test_video_engine_uses_virtualenv_when_dependency_is_missing():
         )
 
     assert params["diffusers"][0]["virtualenv_required"] is True
+    assert params["diffusers"][0]["runtime_precisions"] == [
+        "bf16",
+        "fp8",
+        "int8",
+        "int4",
+    ]
 
 
 def test_mlx_video_engine_uses_virtualenv_when_dependency_is_missing():
@@ -465,7 +500,7 @@ async def test_video_catalog_groups_hub_variants():
 
     assert len(entries) == 1
     specs = entries[0]["model_specs"]
-    assert {spec["model_engine"] for spec in specs} == {"diffusers"}
+    assert {spec["model_engine"] for spec in specs} == {"diffusers", "vLLM", "SGLang"}
     assert {spec["model_format"] for spec in specs} == {"diffusers"}
     assert {spec["model_hub"] for spec in specs} == {"huggingface", "modelscope"}
 
@@ -511,3 +546,168 @@ def test_video_registry_reload_failure_preserves_live_registries(monkeypatch):
     assert BUILTIN_VIDEO_MODELS == model_snapshot
     assert VIDEO_MODEL_DESCRIPTIONS == description_snapshot
     assert VIDEO_ENGINES == engine_snapshot
+
+
+@pytest.mark.parametrize("engine", ["diffusers", "vLLM", "SGLang"])
+@pytest.mark.parametrize("precision", ["bf16", "fp8", "int8", "int4"])
+def test_h3_runtime_precision_maps_before_engine_construction(engine, precision):
+    from ..precision import apply_runtime_precision
+
+    spec = match_diffusion("MiniMax-H3", "huggingface", model_engine=engine)
+    # Launch histories can carry precision settings from another engine.
+    legacy = {
+        "quantization_config": "int4",
+        "torch_dtype": "float16",
+        "dtype": "float16",
+        "component_quantizations": {"transformer": "int8"},
+        "component_precisions": {"text_encoder": "fp16"},
+        "runtime_precision": precision,
+        "lightning_version": "4step_v1.0_768p_bf16",
+        "cpu_offload": True,
+    }
+    original = legacy.copy()
+    if precision not in spec.runtime_precisions:
+        with pytest.raises(ValueError, match="not supported"):
+            apply_runtime_precision(spec, engine, legacy)
+        return
+    config = apply_runtime_precision(spec, engine, legacy)
+    assert legacy == original
+    assert "runtime_precision" not in config
+    assert config["lightning_version"] == legacy["lightning_version"]
+    assert config["cpu_offload"] is True
+    if engine == "diffusers":
+        assert config["quantization_config"] == precision
+        assert config["torch_dtype"] == "bfloat16"
+        assert "dtype" not in config
+        assert "component_quantizations" not in config
+    elif engine == "vLLM":
+        assert config["quantization_config"] == ("fp8" if precision == "fp8" else None)
+        assert config["dtype"] == "bfloat16"
+        assert "torch_dtype" not in config
+        assert "component_quantizations" not in config
+    else:
+        assert config["component_quantizations"] == (
+            {"transformer": "fp8", "text_encoder": "fp8"} if precision == "fp8" else {}
+        )
+        assert config["pipeline_config"] == {
+            "dit_precision": "bf16",
+            "text_encoder_precisions": ["bf16"],
+        }
+        assert "component_precisions" not in config
+        assert "quantization_config" not in config
+        assert "torch_dtype" not in config
+
+
+@pytest.mark.parametrize("precision", [None, "auto"])
+@pytest.mark.parametrize("engine", ["diffusers", "vLLM", "SGLang"])
+def test_h3_default_precision_preserves_legacy_config(engine, precision):
+    from ..precision import apply_runtime_precision
+
+    spec = match_diffusion("MiniMax-H3", "huggingface", model_engine=engine)
+    legacy = {"quantization_config": {"custom": True}, "torch_dtype": "float16"}
+    config = apply_runtime_precision(
+        spec, engine, dict(legacy, runtime_precision=precision)
+    )
+    assert config == legacy
+
+
+@pytest.mark.parametrize(
+    "engine,precision", [("vLLM", "int4"), ("SGLang", "int8"), ("diffusers", "fp4")]
+)
+def test_invalid_runtime_precision_does_not_download(engine, precision):
+    with patch.object(VideoCacheManager, "cache") as cache:
+        with pytest.raises(ValueError, match="runtime_precision.*not supported"):
+            create_video_model_instance(
+                "uid",
+                "MiniMax-H3",
+                model_engine=engine,
+                download_hub="huggingface",
+                runtime_precision=precision,
+                enable_virtual_env=True,
+            )
+    cache.assert_not_called()
+
+
+def test_factory_consumes_runtime_precision():
+    model = create_video_model_instance(
+        "uid",
+        "MiniMax-H3",
+        model_path="/fake/path",
+        download_hub="huggingface",
+        model_engine="diffusers",
+        runtime_precision="bf16",
+        enable_virtual_env=False,
+    )
+    assert model._kwargs["quantization_config"] == "bf16"
+    assert model._kwargs["torch_dtype"] == "bfloat16"
+    assert "runtime_precision" not in model._kwargs
+
+
+def test_runtime_precision_requires_model_support():
+    with patch.object(VideoCacheManager, "cache") as cache:
+        with pytest.raises(ValueError, match="runtime_precision.*not supported"):
+            create_video_model_instance(
+                "uid",
+                "CogVideoX-2b",
+                model_engine="diffusers",
+                download_hub="huggingface",
+                runtime_precision="fp8",
+                enable_virtual_env=False,
+            )
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("engine", ["diffusers", "vLLM", "SGLang"])
+def test_h3_engine_api_reports_runtime_precisions(engine):
+    try:
+        with patch.object(_NativeVideoModel, "check_host", return_value=True):
+            _install()
+            params = get_engine_params_by_name_with_virtual_env(
+                "video", "MiniMax-H3", enable_virtual_env=True
+            )
+        assert params[engine][0]["runtime_precisions"] == (
+            ["bf16", "fp8", "int8", "int4"]
+            if engine == "diffusers"
+            else ["bf16", "fp8"]
+        )
+        assert params[engine][0]["default_runtime_precision"] == (
+            "int4" if engine == "diffusers" else "bf16"
+        )
+    finally:
+        _install()
+
+
+def test_h3_sglang_precision_preserves_other_pipeline_options():
+    from ..precision import apply_runtime_precision
+
+    spec = match_diffusion("MiniMax-H3", "huggingface", model_engine="SGLang")
+    pipeline = {"vae_tiling": True, "dit_precision": "fp16"}
+    config = apply_runtime_precision(
+        spec,
+        "SGLang",
+        {
+            "runtime_precision": "bf16",
+            "pipeline_config": pipeline,
+        },
+    )
+    assert pipeline == {"vae_tiling": True, "dit_precision": "fp16"}
+    assert config["pipeline_config"] == {
+        "vae_tiling": True,
+        "dit_precision": "bf16",
+        "text_encoder_precisions": ["bf16"],
+    }
+
+
+def test_h3_explicit_precision_rejects_opaque_pipeline_config():
+    from ..precision import apply_runtime_precision
+
+    spec = match_diffusion("MiniMax-H3", "huggingface", model_engine="SGLang")
+    with pytest.raises(ValueError, match="dictionary pipeline_config"):
+        apply_runtime_precision(
+            spec,
+            "SGLang",
+            {
+                "runtime_precision": "bf16",
+                "pipeline_config": "/custom/config.json",
+            },
+        )

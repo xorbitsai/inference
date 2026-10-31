@@ -563,6 +563,15 @@ const en = {
     emptyFile: 'The uploaded file cannot be empty.',
   },
   launchModel: {
+    runtimePrecision: 'Runtime precision',
+    runtimePrecisionDefault: 'Engine default ({{precision}})',
+    runtimePrecisionCustom: 'Advanced configuration',
+    runtimePrecisionBf16: 'BF16 (unquantized)',
+    runtimePrecisionUnsupported:
+      '{{engine}} does not support {{precision}}. Select another precision.',
+    runtimePrecisionHelp:
+      'Applies to DiT and text encoder; VAEs keep native precision. An explicit choice overrides advanced precision settings. FP8 scaling differs by engine.',
+
     updateOneModel: 'Update one model',
     updateOneModelDescription:
       'Update one model in the shared catalog while keeping other models. This does not download weights or restart running models.',

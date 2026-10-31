@@ -103,7 +103,11 @@ class CacheManager:
 
             use_symlinks = cache_config
             if not IS_NEW_HUGGINGFACE_HUB:
-                use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
+                use_symlinks = {
+                    **cache_config,
+                    "local_dir_use_symlinks": True,
+                    "local_dir": cache_dir,
+                }
             download_dir = retry_snapshot_download(
                 hf_download,
                 self._model_family.model_name,

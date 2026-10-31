@@ -538,6 +538,14 @@ const zh = {
     emptyFile: '上传文件不能为空。',
   },
   launchModel: {
+    runtimePrecision: '运行精度',
+    runtimePrecisionDefault: '引擎默认（{{precision}}）',
+    runtimePrecisionCustom: '使用高级配置',
+    runtimePrecisionBf16: 'BF16（不量化）',
+    runtimePrecisionUnsupported: '{{engine}} 不支持 {{precision}}，请选择其他精度。',
+    runtimePrecisionHelp:
+      '作用于 DiT 和文本编码器，VAE 保持原生精度。明确选择精度会覆盖高级精度参数；FP8 缩放方式随引擎实现。',
+
     updateOneModel: '更新单个模型',
     updateOneModelDescription:
       '更新共享目录中的单个模型，保留其他模型。此操作不会下载模型权重或重启运行中的模型。',

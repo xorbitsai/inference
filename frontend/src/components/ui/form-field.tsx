@@ -118,23 +118,16 @@ function FormField({
     [rules, t]
   );
 
-  const validateRef =
-    React.useRef(validate);
+  const validateRef = React.useRef(validate);
 
   React.useEffect(() => {
-    validateRef.current =
-      validate;
+    validateRef.current = validate;
   }, [validate]);
 
   React.useEffect(() => {
-    const unmountField =
-      form.mountField(fieldKey);
+    const unmountField = form.mountField(fieldKey);
 
-    registerField(fieldKey, () =>
-      validateRef.current(
-        form.getFieldValue(fieldKey)
-      )
-    );
+    registerField(fieldKey, () => validateRef.current(form.getFieldValue(fieldKey)));
 
     return () => {
       unregisterField(fieldKey);
@@ -155,9 +148,9 @@ function FormField({
     const rawValue = nextValueOrEvent?.target ? nextValueOrEvent.target.value : nextValueOrEvent;
 
     const nextValue = normalize ? normalize(rawValue) : rawValue;
-    
+
     form.setFieldValue(fieldKey, nextValue);
-    notifyUserChange();
+    notifyUserChange(name);
 
     // Mark as touched after the first interaction
     if (!isTouched) {
@@ -199,7 +192,12 @@ function FormField({
         )}
       >
         {label && (
-          <label className={cn('text-sm font-medium flex items-center gap-1', layout === 'horizontal' && 'shrink-0')}>
+          <label
+            className={cn(
+              'text-sm font-medium flex items-center gap-1',
+              layout === 'horizontal' && 'shrink-0'
+            )}
+          >
             {label}
             {!!tooltip && <InfoTooltip content={tooltip} />}
             {isRequired && <span className="text-destructive">*</span>}

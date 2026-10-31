@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Tuple, Union
 
 from .diffusers import DiffusersVideoModel
 from .engine_family import SUPPORTED_ENGINES, VideoEngineModel
+from .minimax_h3 import SGLangMiniMaxH3Model, VLLMMiniMaxH3Model
 from .mlx_video import MLXVideoModel
 from .native import SGLangVideoModel, VLLMVideoModel
 
@@ -109,5 +110,5 @@ def register_builtin_video_engines() -> None:
     # runtimes, preserving the existing diffusers behavior for Wan models.
     SUPPORTED_ENGINES["diffusers"] = [DiffusersVideoEngineModel]
     SUPPORTED_ENGINES["MLX"] = [MLXVideoEngineModel]
-    SUPPORTED_ENGINES["vLLM"] = [VLLMVideoModel]
-    SUPPORTED_ENGINES["SGLang"] = [SGLangVideoModel]
+    SUPPORTED_ENGINES["vLLM"] = [VLLMVideoModel, VLLMMiniMaxH3Model]
+    SUPPORTED_ENGINES["SGLang"] = [SGLangVideoModel, SGLangMiniMaxH3Model]

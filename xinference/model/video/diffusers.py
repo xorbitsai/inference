@@ -50,6 +50,57 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _resolve_minimax_h3_lightning_config(
+    model_spec: "VideoModelFamilyV2",
+    lightning_version: Optional[str],
+    lightning_model_path: Optional[str],
+) -> Optional[dict]:
+    if lightning_model_path is None:
+        if lightning_version is not None:
+            raise ValueError(
+                f"Lightning version {lightning_version!r} was specified, "
+                "but no lightning model path was provided."
+            )
+        return None
+
+    version_configs = model_spec.lightning_version_configs or {}
+    version = lightning_version
+    if version is None:
+        filename = os.path.basename(lightning_model_path)
+        template = model_spec.lightning_model_file_name_template
+        if template:
+            matches = [
+                candidate
+                for candidate in version_configs
+                if template.format(lightning_version=candidate) == filename
+            ]
+            if len(matches) == 1:
+                version = matches[0]
+
+    if version not in version_configs:
+        raise ValueError(
+            "Cannot determine the MiniMax-H3 lightning configuration for "
+            f"{lightning_model_path!r}. Specify lightning_version from "
+            f"{list(version_configs)}."
+        )
+
+    config = version_configs[version].copy()
+    config["version"] = version
+    required = ("num_inference_steps", "video_shift", "audio_shift", "lora_alpha")
+    missing = [name for name in required if name not in config]
+    if missing:
+        raise ValueError(
+            f"MiniMax-H3 lightning version {version!r} is missing config: {missing}"
+        )
+    if config["num_inference_steps"] < 1:
+        raise ValueError("MiniMax-H3 lightning num_inference_steps must be positive")
+    if config["video_shift"] <= 0 or config["audio_shift"] <= 0:
+        raise ValueError("MiniMax-H3 lightning scheduler shifts must be positive")
+    if config["lora_alpha"] < 1:
+        raise ValueError("MiniMax-H3 lightning lora_alpha must be positive")
+    return config
+
+
 def _minimax_h3_memory_efficient_lora_forward(self, x, *args, **kwargs):
     """Evaluate a TorchAO LoRA branch directly into the base-layer result."""
     import torch
@@ -185,6 +236,7 @@ class DiffusersVideoModel:
             "onload_device": onload_device,
             "offload_device": offload_device,
             "use_stream": kwargs.pop("use_stream", True),
+            "low_cpu_mem_usage": kwargs.pop("low_cpu_mem_usage", False),
         }
         num_blocks_per_group = kwargs.pop("num_blocks_per_group", 1)
 
@@ -205,52 +257,9 @@ class DiffusersVideoModel:
         pipeline.audio_vae.to(onload_device)
 
     def _resolve_minimax_h3_lightning_config(self) -> Optional[dict]:
-        if self._lightning_model_path is None:
-            if self._lightning_version is not None:
-                raise ValueError(
-                    f"Lightning version {self._lightning_version!r} was specified, "
-                    "but no lightning model path was provided."
-                )
-            return None
-
-        version_configs = self._model_spec.lightning_version_configs or {}
-        version = self._lightning_version
-        if version is None:
-            filename = os.path.basename(self._lightning_model_path)
-            template = self._model_spec.lightning_model_file_name_template
-            if template:
-                matches = [
-                    candidate
-                    for candidate in version_configs
-                    if template.format(lightning_version=candidate) == filename
-                ]
-                if len(matches) == 1:
-                    version = matches[0]
-
-        if version not in version_configs:
-            raise ValueError(
-                "Cannot determine the MiniMax-H3 lightning configuration for "
-                f"{self._lightning_model_path!r}. Specify lightning_version from "
-                f"{list(version_configs)}."
-            )
-
-        config = version_configs[version].copy()
-        config["version"] = version
-        required = ("num_inference_steps", "video_shift", "audio_shift", "lora_alpha")
-        missing = [name for name in required if name not in config]
-        if missing:
-            raise ValueError(
-                f"MiniMax-H3 lightning version {version!r} is missing config: {missing}"
-            )
-        if config["num_inference_steps"] < 1:
-            raise ValueError(
-                "MiniMax-H3 lightning num_inference_steps must be positive"
-            )
-        if config["video_shift"] <= 0 or config["audio_shift"] <= 0:
-            raise ValueError("MiniMax-H3 lightning scheduler shifts must be positive")
-        if config["lora_alpha"] < 1:
-            raise ValueError("MiniMax-H3 lightning lora_alpha must be positive")
-        return config
+        return _resolve_minimax_h3_lightning_config(
+            self._model_spec, self._lightning_version, self._lightning_model_path
+        )
 
     @staticmethod
     @contextmanager
@@ -451,6 +460,12 @@ class DiffusersVideoModel:
                 setattr(module, attribute, original)
 
         def make_quant_type():
+            if quantization == "fp8":
+                from torchao.quantization import (
+                    Float8DynamicActivationFloat8WeightConfig,
+                )
+
+                return Float8DynamicActivationFloat8WeightConfig(version=2)
             if quantization == "int4":
                 # The plain INT4 layout requires mslk, which is not published on
                 # PyPI. Use PyTorch's native CUDA packing instead.
@@ -586,8 +601,12 @@ class DiffusersVideoModel:
         self._model = pipeline
 
     def _load_minimax_h3(self, kwargs: dict, torch_dtype):
-        quantization = kwargs.pop("quantization", None)
-        if quantization in ("int4", "int8", "torchao"):
+        # The Video API reserves quantization for checkpoint selection. Use the
+        # same runtime override as vLLM to select online FP8 quantization.
+        quantization = kwargs.pop(
+            "quantization_config", kwargs.pop("quantization", None)
+        )
+        if quantization in ("int4", "int8", "fp8", "torchao"):
             self._load_minimax_h3_quantized(
                 kwargs,
                 torch_dtype,
@@ -598,25 +617,35 @@ class DiffusersVideoModel:
         if quantization not in (None, "none", "bf16"):
             raise ValueError(
                 f"Unsupported MiniMax-H3 quantization: {quantization}. "
-                "Supported values are int4, int8, none, and bf16."
+                "Supported values are int4, int8, fp8, none, and bf16."
             )
 
         from diffusers import ComponentsManager, ModularPipeline
 
-        manager = ComponentsManager()
-        manager.enable_auto_cpu_offload(
-            device=kwargs.pop("onload_device", "cuda"),
-            memory_reserve_margin=kwargs.pop("memory_reserve_margin", "12GB"),
-        )
-        pipeline = ModularPipeline.from_pretrained(
-            self._model_path, components_manager=manager
-        )
+        group_offload = kwargs.pop("group_offload", False)
+        if group_offload:
+            pipeline = ModularPipeline.from_pretrained(self._model_path)
+        else:
+            manager = ComponentsManager()
+            manager.enable_auto_cpu_offload(
+                device=kwargs.pop("onload_device", "cuda"),
+                memory_reserve_margin=kwargs.pop("memory_reserve_margin", "12GB"),
+            )
+            pipeline = ModularPipeline.from_pretrained(
+                self._model_path, components_manager=manager
+            )
         pipeline.load_components(
             workflow="t2va",
             dtype=torch_dtype,
             pretrained_model_name_or_path=self._model_path,
         )
         self._apply_minimax_h3_lightning(pipeline)
+        if group_offload:
+            if kwargs.get("use_stream", True):
+                # Pin groups on demand instead of pinning the entire BF16
+                # checkpoint, which can exceed a shared-memory host's RAM.
+                kwargs.setdefault("low_cpu_mem_usage", True)
+            self._enable_minimax_h3_group_offload(pipeline, kwargs)
         self._model = pipeline
 
     @staticmethod

@@ -29,9 +29,15 @@ interface CommandLineProps {
   canCopyCommandLine: boolean;
   form: FormInstance;
   onUserChange?: () => void;
+  onSnapshotApplied?: (values: Record<string, unknown>) => void;
 }
 
-const CommandLine: FC<CommandLineProps> = ({ canCopyCommandLine, form, onUserChange }) => {
+const CommandLine: FC<CommandLineProps> = ({
+  canCopyCommandLine,
+  form,
+  onUserChange,
+  onSnapshotApplied,
+}) => {
   const [commandLineParsingOpen, setCommandLineParsingOpen] = useState(false);
   const [commandLineParsingValue, setCommandLineParsingValue] = useState('');
   const { t } = useI18n();
@@ -93,6 +99,7 @@ const CommandLine: FC<CommandLineProps> = ({ canCopyCommandLine, form, onUserCha
       // Parsing and conversion finish before this single merged write, so a
       // malformed command never partially overwrites the current form.
       onUserChange?.();
+      onSnapshotApplied?.(formData);
       form.setFieldsValue(formData);
       handleClose();
     } catch (error) {

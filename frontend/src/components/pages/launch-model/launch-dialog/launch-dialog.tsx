@@ -31,7 +31,7 @@ import type {
   ReplicaItem,
   LaunchProgressResponse,
 } from '@/types/services';
-import type { FormValues } from '@/types/form';
+import type { FieldName, FormValues } from '@/types/form';
 import CollapsibleConfig from './advanced-config';
 import ConfigCache from './config-cache';
 import { getLatestModelConfigHistory, saveLaunchConfigHistory } from './launch-history';
@@ -70,6 +70,8 @@ import { shouldApplyPreferredDownloadSource } from './download-source-utils.mjs'
 import { recommendationUnavailable, recommendationWarningKeys } from './recommendation';
 import { useRecommendation } from './use-recommendation';
 import ContextLengthField from './context-length-field';
+import RuntimePrecisionField from './runtime-precision-field';
+import { selectEngineDefaults, useModelDefaults } from './model-defaults';
 import { StructuredLaunchParameterError } from '../structured-launch-params';
 
 interface LaunchDialogProps {
@@ -117,6 +119,7 @@ const DOWNLOAD_ONLY_EXCLUDED_FIELDS = new Set([
   'reasoning_content',
   'cpu_offload',
   'quantization_config',
+  'runtime_precision',
   'num_speculative_tokens',
   'envs',
   'virtual_env_find_links',
@@ -145,11 +148,19 @@ export default function LaunchDialog({
   const [progressDetails, setProgressDetails] = useState<LaunchProgressResponse | null>(null);
   const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
   const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
+  const modelDefaults = useModelDefaults(form);
   const {
     markFormEdited: markLaunchHistoryFormEdited,
     resetFormEdited: resetLaunchHistoryFormEdited,
     handleHistoryRefreshed: handleLaunchHistoryRefreshed,
-  } = useLaunchHistoryForm(form, isOpen, model?.model_name);
+  } = useLaunchHistoryForm(form, isOpen, model?.model_name, modelDefaults.snapshotApplied);
+  const handleFormUserChange = useCallback(
+    (name?: FieldName) => {
+      modelDefaults.userChanged(name);
+      markLaunchHistoryFormEdited();
+    },
+    [modelDefaults, markLaunchHistoryFormEdited]
+  );
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cacheUidRef = useRef<string | undefined>(undefined);
   const isCanceledLaunchRef = useRef(false);
@@ -164,6 +175,12 @@ export default function LaunchDialog({
     ModelType.Audio,
   ].includes(modelType);
   const [modelEngineMap, setModelEngineMap] = useState<ModelEngine>({});
+  const hasRuntimePrecision =
+    modelType === ModelType.Video &&
+    ((Array.isArray(model?.runtime_precisions) && model.runtime_precisions.length > 0) ||
+      Object.values(modelEngineMap).some(
+        (specs) => Array.isArray(specs) && specs.some((spec) => spec.runtime_precisions?.length)
+      ));
   const launchFormValues = useFormValues(form);
   const modelEngineValue = toOptionValue(useWatch('model_engine', form));
   const modelFormatValue = toOptionValue(useWatch('model_format', form));
@@ -199,12 +216,15 @@ export default function LaunchDialog({
     form,
     model?.model_name,
     isOpen && supportsRecommendation && !loading,
-    markLaunchHistoryFormEdited,
+    handleFormUserChange,
     applyRecommendationEngines,
     modelType,
-    (model?.modelSpecs || []).map((spec) => toOptionValue(spec.quantization)).filter(Boolean)
+    (model?.modelSpecs || []).map((spec) => toOptionValue(spec.quantization)).filter(Boolean),
+    modelDefaults.withoutAutomatic
   );
-  const cannotRecommend = recommendationUnavailable(launchFormValues);
+  const cannotRecommend = recommendationUnavailable(
+    modelDefaults.withoutAutomatic(launchFormValues)
+  );
   const recommendationWarnings = recommendation.result
     ? recommendationWarningKeys(recommendation.result)
     : [];
@@ -1460,7 +1480,14 @@ export default function LaunchDialog({
         label: t('launchModel.quantization'),
         disabled: !modelFormatValue,
         fieldProps: { options: quantizationOptions },
-        show: !!quantizationOptions.length,
+        show: !!quantizationOptions.length && !hasRuntimePrecision,
+      },
+      {
+        name: 'runtime_precision',
+        type: 'custom',
+        colSpan: 2,
+        show: hasRuntimePrecision,
+        content: <RuntimePrecisionField form={form} engines={modelEngineMap} />,
       },
       {
         name: 'replica',
@@ -1661,6 +1688,39 @@ export default function LaunchDialog({
     (field) =>
       !isCustomPlacement || !['n_worker', 'n_gpu', 'gpu_idx', 'worker_ip'].includes(field.name)
   );
+  const defaultsSpec = selectEngineDefaults(modelEngineMap, launchFormValues);
+  const defaultFieldsKey = JSON.stringify(
+    currentLaunchFields
+      .filter(
+        (field) =>
+          field.show !== false && (field.type !== 'custom' || field.name === 'runtime_precision')
+      )
+      .map((field) => field.name)
+  );
+  useEffect(() => {
+    if (!isOpen || !defaultsSpec || launchFormValues.model_name !== model?.model_name) return;
+    const scope = JSON.stringify([
+      modelType,
+      model?.model_name,
+      modelEngineValue,
+      modelFormatValue,
+      modelSizeInBillionsKey,
+      quantizationValue,
+    ]);
+    modelDefaults.sync(scope, defaultsSpec, new Set<string>(JSON.parse(defaultFieldsKey)));
+  }, [
+    isOpen,
+    defaultsSpec,
+    launchFormValues,
+    model?.model_name,
+    modelType,
+    modelEngineValue,
+    modelFormatValue,
+    modelSizeInBillionsKey,
+    quantizationValue,
+    modelDefaults,
+    defaultFieldsKey,
+  ]);
   // required fields is filled in
   const isReady = currentLaunchFields
     .filter(isVisibleRequiredLaunchField)
@@ -1950,8 +2010,8 @@ export default function LaunchDialog({
     resetLaunchHistoryFormEdited();
     const latestConfig = getLatestModelConfigHistory(model?.model_name, clusterAuth.auth === true);
 
-    replaceLaunchHistoryFormSnapshot(form, latestConfig);
-  }, [clusterAuth, form, isOpen, model?.model_name, resetLaunchHistoryFormEdited]);
+    replaceLaunchHistoryFormSnapshot(form, latestConfig, modelDefaults.snapshotApplied);
+  }, [clusterAuth, form, isOpen, model?.model_name, resetLaunchHistoryFormEdited, modelDefaults]);
 
   useEffect(() => {
     if (!isOpen || (clusterAuth?.auth && !hasSettingsRead)) return;
@@ -2048,12 +2108,14 @@ export default function LaunchDialog({
                   modelType={modelType}
                   refreshKey={configCacheRefreshKey}
                   onHistoryRefreshed={handleLaunchHistoryRefreshed}
-                  onUserChange={markLaunchHistoryFormEdited}
+                  onSnapshotApplied={modelDefaults.snapshotApplied}
+                  onUserChange={handleFormUserChange}
                 />
                 <CommandLine
                   form={form}
                   canCopyCommandLine={isReady}
-                  onUserChange={markLaunchHistoryFormEdited}
+                  onSnapshotApplied={modelDefaults.snapshotApplied}
+                  onUserChange={handleFormUserChange}
                 />
               </div>
             </div>
@@ -2087,7 +2149,7 @@ export default function LaunchDialog({
             id={formId}
             form={form}
             onFinish={handleLaunch}
-            onUserChange={markLaunchHistoryFormEdited}
+            onUserChange={handleFormUserChange}
             initialValues={initialValues}
             className="grid grid-cols-2 gap-x-4 gap-y-3 space-y-0"
           >

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import type { FormInstance } from '@/types/form';
+import type { FormInstance, FormValues } from '@/types/form';
 import type { ModelEngine } from '@/types/services';
 import request from '@/lib/request';
 import {
@@ -17,7 +17,8 @@ export function useRecommendation(
   markEdited: () => void,
   applyEngines: (engines: ModelEngine, enableVirtualEnv: boolean) => void,
   modelType = 'LLM',
-  audioQuantizations: string[] = []
+  audioQuantizations: string[] = [],
+  prepareValues: (values: FormValues) => FormValues = (values) => values
 ) {
   const generation = useRef(0);
   const [pending, setPending] = useState(false);
@@ -46,7 +47,7 @@ export function useRecommendation(
 
   const recommend = async () => {
     if (!active || !modelName) return;
-    const values = structuredClone(form.getFieldsValue());
+    const values = prepareValues(structuredClone(form.getFieldsValue()));
     const id = ++generation.current;
     setPending(true);
     setResult(null);

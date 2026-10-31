@@ -16,7 +16,7 @@ import asyncio
 import os
 import platform
 import uuid
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 from PIL import Image
 
@@ -53,7 +53,7 @@ def _export_videos(videos: List[Any], fps: int, response_format: str) -> VideoLi
 class _NativeVideoModel:
     engine_name: str
     _model_spec: Any
-    supported_abilities = ("text2video",)
+    supported_abilities: Tuple[str, ...] = ("text2video",)
     engine_model_format = "diffusers"
     engine_quantization = "none"
 

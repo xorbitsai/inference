@@ -294,7 +294,18 @@ describe('Web UI structured parameter submission', () => {
     }) as typeof toast.error;
     request.get = (async (url: string) => {
       if (url.startsWith('/v1/engines/')) {
-        return { PyTorch: [{ model_format: 'pytorch', quantization: 'none' }] };
+        return {
+          PyTorch: [
+            {
+              model_format: 'pytorch',
+              quantization: 'none',
+              default_model_config: {
+                vad_model: 'fsmn-vad',
+                vad_kwargs: { max_single_segment_time: 30000 },
+              },
+            },
+          ],
+        };
       }
       if (url === '/v1/cluster/system_settings') return { download_source: 'auto' };
       if (url === '/v1/launch_history') return serverHistory;
@@ -348,6 +359,18 @@ describe('Web UI structured parameter submission', () => {
   }
 
   it('posts an object to /v1/models and saves object-valued history', async () => {
+    await act(async () => form.setFieldValue('replica', 1));
+    const recommend = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.includes(translations.en.launchModel.recommendConfiguration)
+    );
+    assert.ok(recommend);
+    assert.equal(recommend.disabled, false);
+    assert.ok(
+      [...document.querySelectorAll<HTMLInputElement>('input')].some(
+        (input) => input.value === 'fsmn-vad'
+      )
+    );
+    assert.ok(!document.body.textContent?.includes('Model defaults'));
     await setOptions(JSON_OPTIONS);
     await submit();
     const launches = posts.filter((row) => row.url === '/v1/models');
@@ -355,6 +378,8 @@ describe('Web UI structured parameter submission', () => {
     assert.deepEqual(launches[0].body.realtime_options, OPTIONS);
     assert.equal(launches[0].body.realtime, true);
     assert.equal(launches[0].body.replica, 2);
+    assert.equal(launches[0].body.vad_model, 'fsmn-vad');
+    assert.deepEqual(launches[0].body.vad_kwargs, { max_single_segment_time: 30000 });
     assert.deepEqual(errors, []);
     await act(async () => resolveLaunch({ model_uid: 'nano-ui-options-test' }));
     const saved = readLaunchConfigHistory(false)[0];

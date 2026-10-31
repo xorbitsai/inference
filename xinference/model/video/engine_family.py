@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import importlib.util
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
@@ -222,6 +223,15 @@ def generate_engine_config_by_model_name(
                 "quantization": engine_quantization,
                 "video_class": cls,
             }
+            if getattr(model_family, "default_model_config", None):
+                param["default_model_config"] = copy.deepcopy(
+                    model_family.default_model_config
+                )
+            if model_family.runtime_precisions:
+                param["runtime_precisions"] = model_family.runtime_precisions
+                param["default_runtime_precision"] = (
+                    model_family.default_runtime_precision
+                )
             if not any(
                 existing["model_name"] == model_name
                 and existing["model_format"] == engine_model_format

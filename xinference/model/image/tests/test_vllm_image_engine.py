@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import dataclasses
 import queue
@@ -110,6 +112,27 @@ def test_constructor_rejects_unsupported_features():
         VLLMDiffusionModel("uid", "/path", model_spec=spec, lora_model=[object()])
     with pytest.raises(ValueError, match="Controlnet"):
         VLLMDiffusionModel("uid", "/path", model_spec=spec, controlnet=("canny",))
+
+
+def test_load_lets_omni_detect_the_pipeline(monkeypatch):
+    calls = []
+
+    def omni(**kwargs):
+        calls.append(kwargs)
+        assert "mode" not in kwargs
+        return object()
+
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm_omni.entrypoints.omni",
+        types.SimpleNamespace(Omni=omni),
+    )
+    model = VLLMDiffusionModel(
+        "uid", "/path", model_spec=_get_spec("Z-Image"), max_num_seqs=2
+    )
+    model.load()
+    assert calls == [{"model": "/path", "max_num_seqs": 2}]
+    assert model._model is not None
 
 
 @pytest.fixture

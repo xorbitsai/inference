@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import json
 import sys
 from pathlib import Path
@@ -396,7 +398,17 @@ def test_yue2_engine_discovery_uses_vendored_runtime(monkeypatch):
 
         assert get_engine_params_by_name(
             "audio", "YuE2-3B", enable_virtual_env=False
-        ) == {"PyTorch": [{"model_name": "YuE2-3B", "model_format": None}]}
+        ) == {
+            "PyTorch": [
+                {
+                    "model_name": "YuE2-3B",
+                    "model_format": None,
+                    "default_model_config": BUILTIN_AUDIO_MODELS["YuE2-3B"][
+                        0
+                    ].default_model_config,
+                }
+            ]
+        }
 
     assert "yue2" not in sys.modules
 
