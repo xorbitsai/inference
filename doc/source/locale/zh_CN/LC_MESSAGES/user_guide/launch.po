@@ -790,3 +790,17 @@ msgid ""
 msgstr ""
 "Worker 恢复时使用各副本已提交的配置。模型级自动启动配置仅在所有副本成功后更新。部分失败后，各副本可能暂时使用不同配置；重载元数据通过 "
 "``mixed_parameters`` 列出值不同的参数。"
+
+
+#: user_guide/launch.rst:593
+msgid ""
+"If an unexpected Supervisor restart loses reload state, actor reports cannot"
+" prove which replicas were originally targeted or whether model-wide "
+"automatic-startup settings were committed. Even when the reported replicas "
+"are ready, the reload result is ``status=error`` with "
+"``outcome_unknown=true``. Surviving engines keep serving; inspect current "
+"replica settings before retrying."
+msgstr ""
+"Supervisor 意外重启并丢失重载状态时，仅凭 Actor "
+"报告无法确认原始目标副本集合，以及模型级自动启动配置是否已提交。即使已报告的副本都已就绪，重载结果仍会返回 ``status=error`` 和 "
+"``outcome_unknown=true``。仍存活的引擎继续服务；请检查各副本当前配置后再决定是否重试。"

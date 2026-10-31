@@ -358,7 +358,7 @@ async def test_one_late_rollback_does_not_overwrite_other_replicas_or_desired_co
 
 
 @pytest.mark.asyncio
-async def test_completed_rollout_status_survives_supervisor_cache_loss():
+async def test_ready_actors_do_not_prove_modelwide_commit_after_supervisor_cache_loss():
     owner, _, actors, _ = make_replicas()
     job = await owner.reload_model("test", {"max_num_seqs": 32})
     await owner._model_reload_tasks["test"]
@@ -371,7 +371,9 @@ async def test_completed_rollout_status_survives_supervisor_cache_loss():
         }
     owner._model_reload_status.clear()
     status = await owner.get_model_reload_status("test")
-    assert status["status"] == "ready" and status["weights_reused"]
+    assert status["status"] == "error" and status["outcome_unknown"]
+    assert not status["weights_reused"]
+    assert not status["partial"]
     assert status["completed_replicas"] == 2
 
 
@@ -392,15 +394,106 @@ async def test_reconstructed_status_excludes_new_or_recreated_non_participants(
     actors[1]._reload_status = other_status
     for _ in range(2):
         status = await owner.get_model_reload_status("test")
-        assert status["status"] == "ready" and not status["partial"]
+        assert status["status"] == "error" and status["outcome_unknown"]
+        assert not status["partial"]
         assert status["completed_replicas"] == status["replica_count"] == 1
         assert [row["replica_uid"] for row in status["replicas"]] == uids[:1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("registered", [1, 2])
+@pytest.mark.parametrize(
+    "previous", [{}, {"operation_id": "older", "started_at": 1, "status": "ready"}]
+)
+async def test_supervisor_loss_before_an_admitted_target_runs_never_reports_success(
+    registered, previous
+):
+    owner, workers, actors, uids = make_replicas()
+    actors[1]._reload_status = previous
+    entered = asyncio.Event()
+    replace = workers[0]._replace_model_generation
+
+    async def commit_with_operation(
+        uid, patch, python_executable, operation_id, drain_timeout
+    ):
+        result = await replace(
+            uid, patch, python_executable, operation_id, drain_timeout
+        )
+        actors[0]._reload_status["operation_id"] = operation_id
+        return result
+
+    async def undispatched(*args, **kwargs):
+        entered.set()
+        await asyncio.Event().wait()
+
+    workers[0]._replace_model_generation = commit_with_operation
+    workers[1].reload_model = AsyncMock(side_effect=undispatched)
+    operation = await owner.reload_model("test", {"max_num_seqs": 32})
+    task = owner._model_reload_tasks["test"]
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        recovered, _, _, _ = make_replicas()
+        recovered._model_uid_to_replica_info = owner._model_uid_to_replica_info
+        recovered._replica_model_uid_to_worker = owner._replica_model_uid_to_worker
+        recovered._iter_active_replica_model_uids = lambda model_uid: iter(
+            uids[:registered]
+        )
+        for _ in range(2):
+            status = await recovered.get_model_reload_status("test")
+            assert status["operation_id"] == operation["operation_id"]
+            assert status["status"] == "error" and status["outcome_unknown"]
+            assert not status["partial"] and not status["weights_reused"]
+            assert [row["replica_uid"] for row in status["replicas"]] == uids[:1]
+            assert status["replicas"][0]["status"] == "ready"
+        assert [actor._model._reload_config["max_num_seqs"] for actor in actors] == [
+            32,
+            16,
+        ]
+        assert all(actor._model_state == "ready" for actor in actors)
+        owner._launch_history_store.update_autostart_launch_config.assert_not_called()
+        workers[1].reload_model.assert_awaited_once()
+        assert actors[1]._model.stops == 0
+    finally:
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+
+@pytest.mark.asyncio
+async def test_recovered_inflight_actor_finishes_without_claiming_modelwide_success():
+    owner, _, actors, _ = make_replicas()
+    actors[0]._reload_status = {
+        "operation_id": "interrupted",
+        "started_at": 1,
+        "status": "reloading",
+        "stage": "loading",
+    }
+    assert (await owner.get_model_reload_status("test"))["status"] == "reloading"
+    actors[0]._reload_status.update(status="ready", stage="ready", weights_reused=True)
+    status = await owner.get_model_reload_status("test")
+    assert status["status"] == "error" and status["outcome_unknown"]
+    assert not status["weights_reused"]
 
 
 @pytest.mark.asyncio
 async def test_reconstructed_idle_status_does_not_invent_an_operation():
     owner, _, _, _ = make_replicas()
     assert await owner.get_model_reload_status("test") == {"status": "idle"}
+
+
+@pytest.mark.asyncio
+async def test_recovered_member_restoration_does_not_prove_modelwide_restoration():
+    owner, _, actors, _ = make_replicas()
+    actors[0]._reload_status = {
+        "operation_id": "interrupted",
+        "status": "error",
+        "restored": True,
+        "error": "candidate failed",
+    }
+    status = await owner.get_model_reload_status("test")
+    assert status["status"] == "error" and status["outcome_unknown"]
+    assert status["replicas"][0]["restored"]
+    assert not status["restored"]
 
 
 @pytest.mark.asyncio
@@ -533,5 +626,6 @@ async def test_parser_reload_keeps_operation_identity_on_each_replica():
     )
     owner._model_reload_status.clear()
     status = await owner.get_model_reload_status("test")
-    assert status["status"] == "ready" and status["completed_replicas"] == 2
+    assert status["status"] == "error" and status["outcome_unknown"]
+    assert status["completed_replicas"] == 2
     assert not status["weights_reused"]

@@ -32,8 +32,10 @@ def _update_progress(status: Dict[str, Any], active: bool = False) -> None:
     completed = sum(replica["status"] == "ready" for replica in replicas)
     status["completed_replicas"] = completed
     status["replica_count"] = len(replicas)
-    status["weights_reused"] = completed == len(replicas) and all(
-        replica.get("weights_reused") is True for replica in replicas
+    status["weights_reused"] = (
+        not status.get("outcome_unknown", False)
+        and completed == len(replicas)
+        and all(replica.get("weights_reused") is True for replica in replicas)
     )
     failed = next((r for r in replicas if r["status"] == "error"), None)
     if failed is not None and status["status"] != "cancelled":
@@ -50,7 +52,11 @@ def _update_progress(status: Dict[str, Any], active: bool = False) -> None:
             status["status"] = "error"
         if "restored" in failed:
             # A restored failed replica does not undo already committed replicas.
-            status["restored"] = completed == 0 and failed["restored"]
+            status["restored"] = (
+                not status.get("outcome_unknown", False)
+                and completed == 0
+                and failed["restored"]
+            )
     if status["status"] == "error":
         for replica in replicas:
             if replica["status"] == "queued":
@@ -164,11 +170,9 @@ class ModelReloadMixin:
         )
         status = self._model_reload_status.get(model_uid)
         if status is None:
-            if len(targets) == 1:
-                value = observed[0]
-                return {"status": "idle", **(value if isinstance(value, dict) else {})}
             # Reconstruct what retained ModelActors actually report after a
-            # Supervisor loses its operation cache. Never restart a rollout here.
+            # Supervisor loses its operation cache. They cannot establish the
+            # original target set or the final model-wide persistence commit.
             latest = max(
                 (
                     value
@@ -184,7 +188,12 @@ class ModelReloadMixin:
             )
             if not latest:
                 return {"status": "idle"}
-            status = {"status": "idle", **latest, "replicas": []}
+            status = {
+                "status": "idle",
+                **latest,
+                "replicas": [],
+                "outcome_unknown": True,
+            }
             for (uid, _), value in zip(targets, observed):
                 if (
                     isinstance(value, dict)
@@ -221,7 +230,13 @@ class ModelReloadMixin:
             if current is not None:
                 status["stage"] = current.get("stage", status.get("stage", "loading"))
             elif model_uid not in self._model_reload_tasks:
-                if all(r["status"] == "ready" for r in status["replicas"]):
+                if status.get("outcome_unknown"):
+                    status.update(
+                        status="error",
+                        stage="error",
+                        error="Reload result cannot be confirmed after Supervisor restart. Check current replica settings before retrying.",
+                    )
+                elif all(r["status"] == "ready" for r in status["replicas"]):
                     status.update(status="ready", stage="ready")
                 else:
                     status.update(

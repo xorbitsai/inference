@@ -60,6 +60,7 @@ interface TestReloadStatus {
   stage?: string;
   error?: string;
   restored?: boolean;
+  outcome_unknown?: boolean;
   partial?: boolean;
   completed_replicas?: number;
   replica_count?: number;
@@ -68,6 +69,7 @@ interface TestReloadStatus {
 let initial: TestReloadStatus = { status: 'idle', stage: 'queued' };
 let final: TestReloadStatus = { status: 'ready' };
 let mixedParameters: string[];
+let sequenceLimit = 16;
 const originalGet = request.get,
   originalPost = request.post;
 beforeEach(() => {
@@ -79,6 +81,7 @@ beforeEach(() => {
   posts = [];
   imageLimits = undefined;
   mixedParameters = [];
+  sequenceLimit = 16;
   imageField = 'limit_mm_per_prompt';
   hotParameters = ['reasoning_content'];
   initial = { status: 'idle', stage: 'queued' };
@@ -91,7 +94,7 @@ beforeEach(() => {
         mixed_parameters: mixedParameters,
         model_config: Object.fromEntries(
           Object.entries({
-            max_num_seqs: 16,
+            max_num_seqs: sequenceLimit,
             enforce_eager: false,
             reasoning_content: false,
             ...(imageLimits ? { [imageField]: imageLimits } : {}),
@@ -360,6 +363,140 @@ it('keeps partial rollout results visible when the dialog reopens', async () => 
   assert.match(document.body.textContent || '', /model-rep0/);
   assert.match(document.body.textContent || '', /model-rep1/);
   assert.equal(closed, 0);
+});
+
+it('shows an uncertain recovered outcome even with only one reported participant', async () => {
+  initial = {
+    status: 'error',
+    error: 'Reload result cannot be confirmed after Supervisor restart',
+    outcome_unknown: true,
+    replicas: [{ replica_uid: 'model-rep0', status: 'ready' }],
+  };
+  await render();
+  assert.match(document.querySelector('[role="alert"]')?.textContent || '', /cannot be confirmed/);
+  assert.equal(closed, 0);
+});
+
+for (const changeAnotherField of [false, true]) {
+  it(`refreshes mixed values before allowing a same-dialog revert${changeAnotherField ? ' with another change' : ''}`, async () => {
+    await render();
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="max_num_seqs"]')!;
+    const change = (value: string) => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(
+        input,
+        value
+      );
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    await act(async () => change('32'));
+    await act(async () => applyButton().click());
+    final = {
+      status: 'error',
+      error: 'candidate failed',
+      partial: true,
+      completed_replicas: 1,
+      replica_count: 2,
+      replicas: [
+        { replica_uid: 'model-rep0', status: 'ready' },
+        { replica_uid: 'model-rep1', status: 'error' },
+      ],
+    };
+    const get = request.get;
+    let configReads = 0;
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    request.get = async <T,>(url: string) => {
+      if (url.endsWith('/config')) {
+        configReads++;
+        await pending;
+      }
+      return get<T>(url);
+    };
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+    });
+    assert.equal(configReads, 1);
+    assert.ok(applyButton().disabled, 'The old comparison baseline must remain disabled');
+    assert.ok(input.disabled);
+    await act(async () => {
+      mixedParameters = ['max_num_seqs'];
+      release();
+      await Promise.resolve();
+    });
+    assert.equal(input.value, '32', 'Keep the submitted target available for retry');
+    assert.equal(input.placeholder, 'runningModels.reload.mixed');
+    await act(async () => {
+      change('16');
+      if (changeAnotherField)
+        document.querySelector<HTMLButtonElement>('button[aria-label="enforce_eager"]')!.click();
+    });
+    assert.equal(applyButton().disabled, false);
+    await act(async () => applyButton().click());
+    assert.deepEqual(posts[1].body, {
+      model_config: { max_num_seqs: 16, ...(changeAnotherField ? { enforce_eager: true } : {}) },
+    });
+    assert.equal(closed, 0);
+    assert.equal(refreshed, 0);
+  });
+}
+
+for (const outcomeUnknown of [false, true]) {
+  it(`keeps the submitted target retryable when actor values match but the operation ${outcomeUnknown ? 'is unconfirmed' : 'failed to commit'}`, async () => {
+    await render();
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="max_num_seqs"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(
+        input,
+        '32'
+      );
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => applyButton().click());
+    sequenceLimit = 32;
+    final = {
+      status: 'error',
+      error: 'model-wide commit not confirmed',
+      outcome_unknown: outcomeUnknown,
+      completed_replicas: 2,
+      replica_count: 2,
+      replicas: [
+        { replica_uid: 'model-rep0', status: 'ready' },
+        { replica_uid: 'model-rep1', status: 'ready' },
+      ],
+    };
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+    });
+    assert.equal(input.value, '32');
+    assert.ok(!input.disabled && !applyButton().disabled);
+    await act(async () => applyButton().click());
+    assert.deepEqual(posts[1].body, { model_config: { max_num_seqs: 32 } });
+    assert.equal(closed, 0);
+    assert.equal(refreshed, 0);
+  });
+}
+
+it('keeps submission disabled if partial-result metadata cannot be refreshed', async () => {
+  initial = { status: 'reloading' };
+  final = { status: 'error', partial: true, error: 'candidate failed' };
+  await render();
+  const get = request.get;
+  request.get = async <T,>(url: string) => {
+    if (url.endsWith('/config')) throw new Error('configuration unavailable');
+    return get<T>(url);
+  };
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+  });
+  assert.ok(applyButton().disabled);
+  assert.equal(document.querySelector('input[aria-label="max_num_seqs"]'), null);
+  assert.match(
+    document.querySelector('[role="alert"]')?.textContent || '',
+    /candidate failed.*configuration unavailable/
+  );
+  assert.equal(posts.length, 0);
 });
 
 it('lets a mixed boolean be explicitly set to false on every replica', async () => {

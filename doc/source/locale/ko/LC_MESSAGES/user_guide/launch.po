@@ -767,3 +767,18 @@ msgstr ""
 "Worker 복구는 각 복제본의 커밋된 설정을 사용합니다. 모델 전체의 자동 시작 설정은 모든 복제본이 성공한 뒤에만 변경됩니다. 부분 "
 "실패 후에는 복제본마다 일시적으로 다른 설정을 사용할 수 있으며 재로드 메타데이터의 ``mixed_parameters`` 에 값이 다른 "
 "매개변수가 표시됩니다."
+
+
+#: user_guide/launch.rst:593
+msgid ""
+"If an unexpected Supervisor restart loses reload state, actor reports cannot"
+" prove which replicas were originally targeted or whether model-wide "
+"automatic-startup settings were committed. Even when the reported replicas "
+"are ready, the reload result is ``status=error`` with "
+"``outcome_unknown=true``. Surviving engines keep serving; inspect current "
+"replica settings before retrying."
+msgstr ""
+"예기치 않은 Supervisor 재시작으로 재로드 상태가 손실되면 액터 보고만으로 원래 대상 복제본이나 모델 전체 자동 시작 설정의 커밋"
+" 여부를 확인할 수 없습니다. 보고된 복제본이 준비되었어도 재로드 결과는 ``status=error`` 와 "
+"``outcome_unknown=true`` 입니다. 살아 있는 엔진은 계속 요청을 처리합니다. 재시도 전에 현재 복제본 설정을 "
+"확인하세요."

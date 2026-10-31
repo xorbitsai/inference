@@ -761,3 +761,18 @@ msgstr ""
 "Worker "
 "の復旧には各レプリカで確定した設定を使用します。モデル全体の自動起動設定はすべてのレプリカが成功してから更新されます。一部の失敗後は設定が一時的に異なる場合があり、再読み込みメタデータの"
 " ``mixed_parameters`` に異なるパラメーターを表示します。"
+
+
+#: user_guide/launch.rst:593
+msgid ""
+"If an unexpected Supervisor restart loses reload state, actor reports cannot"
+" prove which replicas were originally targeted or whether model-wide "
+"automatic-startup settings were committed. Even when the reported replicas "
+"are ready, the reload result is ``status=error`` with "
+"``outcome_unknown=true``. Surviving engines keep serving; inspect current "
+"replica settings before retrying."
+msgstr ""
+"Supervisor "
+"の予期しない再起動で再読み込み状態が失われると、アクターの報告だけでは元の対象レプリカやモデル全体の自動起動設定の確定を確認できません。報告されたレプリカが準備完了でも、再読み込み結果は"
+" ``status=error`` と ``outcome_unknown=true`` "
+"になります。動作中のエンジンはサービスを継続します。再試行する前に各レプリカの現在の設定を確認してください。"

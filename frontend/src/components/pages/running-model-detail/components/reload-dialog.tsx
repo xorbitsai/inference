@@ -44,6 +44,7 @@ interface ReloadStatus {
   error?: string;
   restored?: boolean;
   partial?: boolean;
+  outcome_unknown?: boolean;
   completed_replicas?: number;
   replica_count?: number;
   replicas?: { replica_uid: string; status: string; stage?: string; error?: string }[];
@@ -52,6 +53,17 @@ interface ReloadStatus {
 function errorMessage(error: unknown) {
   if (isAxiosError(error)) return error.response?.data?.detail || error.message;
   return error instanceof Error ? error.message : String(error);
+}
+
+function valuesFromConfig(config: ReloadConfig): Record<string, string | boolean> {
+  return Object.fromEntries(
+    Object.entries(config.model_config).map(([key, value]) => [
+      key,
+      typeof value === 'boolean'
+        ? value
+        : String(typeof value === 'object' ? (value.image ?? '') : value),
+    ])
+  );
 }
 
 const PARAMETER_LABELS: Record<string, string> = {
@@ -90,6 +102,7 @@ export function ReloadDialog({
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [python, setPython] = useState('');
+  const [submittedValues, setSubmittedValues] = useState<Record<string, string | boolean>>({});
   const url = `/v1/models/${encodeURIComponent(modelUid)}/reload`;
   const busy = submitting || job?.status === 'reloading';
 
@@ -100,6 +113,7 @@ export function ReloadDialog({
     setJob(null);
     setError('');
     setPython('');
+    setSubmittedValues({});
     Promise.all([
       request.get<ReloadConfig>(`${url}/config`, { suppressGlobalError: true }),
       request.get<ReloadStatus>(url, { suppressGlobalError: true }),
@@ -107,19 +121,11 @@ export function ReloadDialog({
       .then(([metadata, status]) => {
         if (!active) return;
         setConfig(metadata);
-        setValues(
-          Object.fromEntries(
-            Object.entries(metadata.model_config).map(([key, value]) => [
-              key,
-              typeof value === 'boolean'
-                ? value
-                : String(typeof value === 'object' ? (value.image ?? '') : value),
-            ])
-          )
-        );
+        setValues(valuesFromConfig(metadata));
         setJob(
           status.status === 'reloading' ||
-            (status.status === 'error' && (status.replicas?.length || 0) > 1)
+            (status.status === 'error' &&
+              ((status.replicas?.length || 0) > 1 || status.outcome_unknown))
             ? status
             : null
         );
@@ -140,6 +146,24 @@ export function ReloadDialog({
       try {
         const status = await request.get<ReloadStatus>(url, { suppressGlobalError: true });
         if (!active) return;
+        if (status.status === 'error') {
+          // Keep the form busy until the new comparison baseline is available.
+          try {
+            const metadata = await request.get<ReloadConfig>(`${url}/config`, {
+              suppressGlobalError: true,
+            });
+            if (!active) return;
+            setConfig(metadata);
+            setValues({ ...valuesFromConfig(metadata), ...submittedValues });
+          } catch (err) {
+            if (!active) return;
+            // A stale baseline must not become editable when refresh fails.
+            setConfig(null);
+            setJob(status);
+            setError([status.error, errorMessage(err)].filter(Boolean).join(' '));
+            return;
+          }
+        }
         setJob(status);
         setError('');
         if (status.status === 'reloading') {
@@ -160,7 +184,7 @@ export function ReloadDialog({
       active = false;
       clearTimeout(timer);
     };
-  }, [open, job?.status, url, onReady, onOpenChange]);
+  }, [open, job?.status, url, onReady, onOpenChange, submittedValues]);
 
   const engineVersions = [
     ...new Set(
@@ -177,6 +201,8 @@ export function ReloadDialog({
     Object.entries(values)
       .filter(([key, value]) => value !== '' && parameters.some(([name]) => name === key))
       .filter(([key, value]) => {
+        // Submitted targets remain retryable until the whole operation succeeds.
+        if (job?.status === 'error' && key in submittedValues) return true;
         const current = config?.model_config[key];
         return typeof current === 'object'
           ? Number(value) !== current.image
@@ -195,6 +221,7 @@ export function ReloadDialog({
   const submit = async () => {
     setSubmitting(true);
     setError('');
+    setSubmittedValues(Object.fromEntries(Object.keys(patch).map((key) => [key, values[key]])));
     try {
       setJob(
         await request.post<ReloadStatus>(
