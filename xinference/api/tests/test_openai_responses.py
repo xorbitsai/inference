@@ -15,7 +15,10 @@ from xinference.api.protocols.openai_responses import (
     responses_stream_events,
 )
 from xinference.api.restful_api import RESTfulAPI
-from xinference.model.llm.context_length import ContextLengthExceeded
+from xinference.model.llm.context_length import (
+    CONTEXT_LENGTH_EXCEEDED_DETAIL,
+    ContextLengthExceeded,
+)
 
 CODEX_TOOLS = [
     {
@@ -715,7 +718,12 @@ async def test_context_exception_endpoint_classification(
     else:
         error_body = response.json()["error"]
     assert error_body[code_key] == expected
-    assert error_body["message"] == str(error)
+    expected_message = (
+        CONTEXT_LENGTH_EXCEEDED_DETAIL
+        if endpoint == "/v1/messages" and status == 400 and stream is not True
+        else str(error)
+    )
+    assert error_body["message"] == expected_message
 
 
 async def _noop():

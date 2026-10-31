@@ -1109,29 +1109,70 @@ class RESTfulAPI(CancelMixin):
         return response
 
     @staticmethod
-    def handle_request_limit_error(e: Exception, *, sanitize: bool = False):
-        from ..model.llm.context_length import ContextLengthExceeded
+    def _is_context_length_error(e: Exception) -> bool:
+        from ..model.llm.context_length import (
+            ContextLengthExceeded,
+            parse_vllm_prompt_length_error,
+        )
 
         message = str(e)
-        context_error = isinstance(e, ContextLengthExceeded)
-        if sanitize and (
-            isinstance(e, ValueError)
-            or (
-                type(e).__module__ == "vllm.exceptions"
-                and type(e).__name__ == "VLLMValidationError"
-            )
-        ):
-            # Recognize vLLM's native validation type without importing the
-            # optional engine. Match known prompt-length forms, but never echo
-            # worker text (which can contain credentials as well as actor IDs).
-            context_error = context_error or bool(
+        return (
+            isinstance(e, ContextLengthExceeded)
+            or bool(
                 re.search(
-                    r"The (?:decoder|encoder) prompt \(length \d+\) "
-                    r"(?:is longer than|plus the number of requested output tokens "
-                    r"\(at least 1\) is longer than) the maximum model length of \d+\.",
+                    r"Multimodal input uses \d+ tokens, leaving no output capacity "
+                    r"within max_model_len=\d+",
                     message,
                 )
             )
+            or parse_vllm_prompt_length_error(message) is not None
+        )
+
+    @staticmethod
+    def _get_model_operation_error(
+        payload: Any,
+    ) -> Optional[Dict[str, Any]]:
+        from ..model.llm.context_length import (
+            MODEL_OPERATION_ERROR_KEY,
+            MODEL_OPERATION_ERROR_VERSION,
+        )
+
+        if not isinstance(payload, dict) or MODEL_OPERATION_ERROR_KEY not in payload:
+            return None
+        error = payload.get(MODEL_OPERATION_ERROR_KEY)
+        if (
+            not isinstance(error, dict)
+            or error.get("version") != MODEL_OPERATION_ERROR_VERSION
+            or not isinstance(error.get("operation"), str)
+            or not isinstance(error.get("kind"), str)
+        ):
+            return {
+                "version": MODEL_OPERATION_ERROR_VERSION,
+                "operation": "unknown",
+                "kind": "internal_error",
+                "message": "The model returned an invalid operation error response.",
+            }
+        return error
+
+    @staticmethod
+    def handle_request_limit_error(e: Exception, *, sanitize: bool = False):
+        from ..model.llm.context_length import (
+            CONTEXT_LENGTH_EXCEEDED_DETAIL,
+            ContextLengthExceeded,
+        )
+
+        message = str(e)
+        context_error = isinstance(e, ContextLengthExceeded)
+        if sanitize and RESTfulAPI._is_context_length_error(e):
+            context_error = True
+        if sanitize:
+            multimodal_limit = re.search(
+                r"At most \d+ (?:image|video|audio)\(s\) may be provided in one "
+                r"prompt; received \d+\.",
+                message,
+            )
+            if multimodal_limit:
+                raise HTTPException(status_code=400, detail=multimodal_limit.group(0))
         if sanitize and isinstance(e, ValueError):
             if re.search(
                 r"(?:Invalid|Empty) (?:base64 )?data URI"
@@ -1153,11 +1194,7 @@ class RESTfulAPI(CancelMixin):
         if context_error:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "Request exceeds the model's configured context length."
-                    if sanitize
-                    else str(e)
-                ),
+                detail=CONTEXT_LENGTH_EXCEEDED_DETAIL if sanitize else str(e),
             )
         if "Rate limit reached" in message or (
             sanitize and isinstance(e, HTTPException) and e.status_code == 429
@@ -2660,10 +2697,12 @@ class RESTfulAPI(CancelMixin):
         headers: Optional[Dict[str, str]] = None,
         exc: Optional[Exception] = None,
     ) -> JSONResponse:
-        from ..model.llm.context_length import ContextLengthExceeded
+        from ..model.llm.context_length import CONTEXT_LENGTH_EXCEEDED_DETAIL
 
-        if isinstance(exc, ContextLengthExceeded):
+        if exc is not None and cls._is_context_length_error(exc):
             status_code = 400
+            message = CONTEXT_LENGTH_EXCEEDED_DETAIL
+            error_type = "invalid_request_error"
         response_headers = {"request-id": request_id}
         if headers:
             response_headers.update(headers)
@@ -2676,6 +2715,60 @@ class RESTfulAPI(CancelMixin):
                 request_id,
             ),
         )
+
+    @classmethod
+    def _anthropic_model_operation_error(
+        cls, error: Dict[str, Any], request_id: str
+    ) -> JSONResponse:
+        from ..model.llm.context_length import (
+            CONTEXT_LENGTH_EXCEEDED_DETAIL,
+            INVALID_MULTIMODAL_INPUT_DETAIL,
+        )
+
+        kind = error.get("kind")
+        if kind == "context_length_exceeded":
+            return cls._anthropic_error(
+                400,
+                CONTEXT_LENGTH_EXCEEDED_DETAIL,
+                request_id,
+                error_type="invalid_request_error",
+            )
+        if kind == "invalid_multimodal_input":
+            return cls._anthropic_error(
+                400,
+                INVALID_MULTIMODAL_INPUT_DETAIL,
+                request_id,
+                error_type="invalid_request_error",
+            )
+        if kind == "multimodal_limit_exceeded":
+            message = error.get("message")
+            if not isinstance(message, str):
+                message = INVALID_MULTIMODAL_INPUT_DETAIL
+            return cls._anthropic_error(
+                400,
+                message,
+                request_id,
+                error_type="invalid_request_error",
+            )
+        if kind == "unsupported":
+            return cls._anthropic_error(
+                501,
+                "The requested model operation is not supported by this model backend.",
+                request_id,
+            )
+        if kind == "preflight_unavailable":
+            return cls._anthropic_error(
+                503,
+                "Multimodal request preflight is temporarily unavailable.",
+                request_id,
+            )
+        operation = error.get("operation")
+        message = (
+            "Model token counting failed."
+            if operation == "token_count"
+            else "Multimodal request preparation failed."
+        )
+        return cls._anthropic_error(500, message, request_id)
 
     async def count_anthropic_tokens(self, request: Request) -> Response:
         request_id = request.headers.get("x-request-id") or f"req_{uuid.uuid4().hex}"
@@ -2728,6 +2821,11 @@ class RESTfulAPI(CancelMixin):
             prepared = await model.prepare_anthropic_request(canonical.messages, config)
             if isinstance(prepared, (str, bytes)):
                 prepared = json.loads(prepared)
+            operation_error = self._get_model_operation_error(prepared)
+            if operation_error is not None:
+                return self._anthropic_model_operation_error(
+                    operation_error, request_id
+                )
             count = prepared["input_tokens"]
             if count == 0:
                 # Preparation uses zero when counting is unavailable. Preserve
@@ -2737,6 +2835,11 @@ class RESTfulAPI(CancelMixin):
                 )
             if isinstance(count, (str, bytes)):
                 count = json.loads(count)
+            operation_error = self._get_model_operation_error(count)
+            if operation_error is not None:
+                return self._anthropic_model_operation_error(
+                    operation_error, request_id
+                )
             return JSONResponse(
                 {"input_tokens": count}, headers={"request-id": request_id}
             )
@@ -2751,11 +2854,15 @@ class RESTfulAPI(CancelMixin):
                 exc.status_code, str(exc.detail), request_id, headers=exc.headers
             )
         except ValueError as exc:
-            return self._anthropic_error(400, str(exc), request_id)
+            return self._anthropic_error(400, str(exc), request_id, exc=exc)
         except Exception as exc:
             logger.exception("Anthropic token counting failed")
-            status_code = 429 if "Rate limit reached" in str(exc) else 500
-            return self._anthropic_error(status_code, str(exc), request_id)
+            status_code = (
+                400
+                if self._is_context_length_error(exc)
+                else 429 if "Rate limit reached" in str(exc) else 500
+            )
+            return self._anthropic_error(status_code, str(exc), request_id, exc=exc)
 
     async def create_message(self, request: Request) -> Response:
         # Keep Anthropic protocol response IDs backward compatible. The route-level
@@ -2991,6 +3098,11 @@ class RESTfulAPI(CancelMixin):
                 prepared = await model.prepare_anthropic_request(messages, kwargs)
                 if isinstance(prepared, (str, bytes)):
                     prepared = json.loads(prepared)
+                operation_error = self._get_model_operation_error(prepared)
+                if operation_error is not None:
+                    return self._anthropic_model_operation_error(
+                        operation_error, request_id
+                    )
                 messages = prepared["messages"]
                 kwargs = prepared["generate_config"]
                 raw_kwargs = dict(kwargs)
@@ -3004,11 +3116,15 @@ class RESTfulAPI(CancelMixin):
             except NotImplementedError as exc:
                 return self._anthropic_error(501, str(exc), request_id)
             except ValueError as exc:
-                return self._anthropic_error(400, str(exc), request_id)
+                return self._anthropic_error(400, str(exc), request_id, exc=exc)
             except Exception as exc:
                 logger.exception("Anthropic backend preparation failed")
-                status_code = 429 if "Rate limit reached" in str(exc) else 500
-                return self._anthropic_error(status_code, str(exc), request_id)
+                status_code = (
+                    400
+                    if self._is_context_length_error(exc)
+                    else 429 if "Rate limit reached" in str(exc) else 500
+                )
+                return self._anthropic_error(status_code, str(exc), request_id, exc=exc)
         else:
             kwargs.pop("_anthropic_content_metrics", None)
             kwargs.pop("_anthropic_requested_features", None)

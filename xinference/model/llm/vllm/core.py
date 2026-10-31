@@ -66,6 +66,11 @@ from ....types import (
 )
 from ...utils import allow_trust_remote_code
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
+from ..context_length import (
+    ContextLengthExceeded,
+    classify_vllm_context_error,
+    normalize_runtime_positive_int,
+)
 from ..core import chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import cache_model_tokenizer_and_config
 from ..media import materialize_messages_media, media_workspace, validate_messages_media
@@ -175,6 +180,14 @@ class VLLMGenerateConfig(TypedDict, total=False):
     guided_decoding_backend: Optional[str]
     guided_whitespace_pattern: Optional[str]
     ignore_eos: Optional[bool]
+
+
+class VLLMMultimodalPreflightResult(TypedDict):
+    mode: str
+    limits: Optional[Dict[str, int]]
+    input_tokens: Optional[int]
+    max_model_len: Optional[int]
+    effective_max_tokens: Optional[int]
 
 
 try:
@@ -692,9 +705,30 @@ class VLLMModel(WeightCachedModel, LLM):
         )
         tokenizer = await self._get_tokenizer(lora)
         engine_prompt = await self._gen_tokens_prompt(tokenizer, prompt, config)
-        if isinstance(prompt, dict) and prompt.get("multi_modal_data"):
-            from vllm import SamplingParams
+        return await self._count_prompt_tokens(engine_prompt, lora)
 
+    async def _count_prompt_tokens(
+        self, engine_prompt: Dict[str, Any], lora: Any = None
+    ) -> int:
+        """Count expanded media tokens without changing the engine media cache."""
+        if engine_prompt.get("multi_modal_data"):
+            base_input_tokens = len(engine_prompt["prompt_token_ids"])
+            max_model_len = normalize_runtime_positive_int(self._context_length)
+            if max_model_len is not None and base_input_tokens >= max_model_len:
+                logger.debug(
+                    "Base multimodal prompt exhausts the model context: "
+                    "input_tokens=%s max_model_len=%s",
+                    base_input_tokens,
+                    max_model_len,
+                )
+                raise ContextLengthExceeded(
+                    f"Multimodal input uses {base_input_tokens} tokens, leaving "
+                    f"no output capacity within max_model_len={max_model_len}",
+                    input_tokens=base_input_tokens,
+                    max_model_len=max_model_len,
+                    stage="base_prompt_budget",
+                    diagnostic_code="BASE_PROMPT_EXHAUSTS_CONTEXT",
+                )
             processor = getattr(self._engine, "input_processor", None)
             renderer = getattr(processor, "renderer", None)
             mm_processor = getattr(renderer, "mm_processor", None)
@@ -702,6 +736,8 @@ class VLLMModel(WeightCachedModel, LLM):
                 raise NotImplementedError(
                     "This vLLM version does not expose multimodal token counting"
                 )
+            from vllm import SamplingParams
+
             # Counting must not mark media as sent to EngineCore: a subsequent
             # generation would otherwise send only a cache hash whose data was
             # never delivered. Use a cache-free processor copy for this request.
@@ -726,6 +762,146 @@ class VLLMModel(WeightCachedModel, LLM):
             )
             return len(processed.prompt_token_ids)
         return len(engine_prompt["prompt_token_ids"])
+
+    @staticmethod
+    def _count_multimodal_items(messages: List[Dict], item_type: str) -> int:
+        count = 0
+        keys = {item_type, f"{item_type}_url"}
+        for message in messages:
+            content = message.get("content") if isinstance(message, dict) else None
+            if not isinstance(content, list):
+                continue
+            for part in content:
+                if not isinstance(part, dict):
+                    continue
+                part_type = part.get("type")
+                if part_type in keys or any(key in part for key in keys):
+                    count += 1
+        return count
+
+    def _compat_multimodal_limits(self) -> Dict[str, int]:
+        abilities = set(
+            getattr(getattr(self, "model_family", None), "model_ability", []) or []
+        )
+        if "omni" in abilities:
+            return {"image": 2, "video": 2, "audio": 2}
+        limits: Dict[str, int] = {}
+        if "vision" in abilities:
+            limits.update({"image": 2, "video": 2})
+        if "audio" in abilities:
+            limits["audio"] = 2
+        return limits
+
+    @staticmethod
+    def _enforce_multimodal_limits(
+        messages: List[Dict], limits: Optional[Dict[str, int]]
+    ) -> None:
+        for item_type, limit in (limits or {}).items():
+            if type(limit) is not int or limit < 0:
+                continue
+            count = VLLMModel._count_multimodal_items(messages, item_type)
+            if count > limit:
+                raise ValueError(
+                    f"At most {limit} {item_type}(s) may be provided in one prompt; "
+                    f"received {count}."
+                )
+
+    async def async_preflight_multimodal_request(
+        self, messages: List[Dict], config: Optional[Dict] = None
+    ) -> VLLMMultimodalPreflightResult:
+        """Validate one multimodal request against this loaded engine instance."""
+        explicit_limits = self.get_explicit_limit_mm_per_prompt()
+        self._enforce_multimodal_limits(messages, explicit_limits)
+
+        max_model_len = normalize_runtime_positive_int(self._context_length)
+        if max_model_len is None:
+            if explicit_limits is not None:
+                return {
+                    "mode": "explicit_limit",
+                    "limits": dict(explicit_limits),
+                    "input_tokens": None,
+                    "max_model_len": None,
+                    "effective_max_tokens": None,
+                }
+            limits = self._compat_multimodal_limits()
+            self._enforce_multimodal_limits(messages, limits)
+            return {
+                "mode": "compat_fallback",
+                "limits": limits,
+                "input_tokens": None,
+                "max_model_len": None,
+                "effective_max_tokens": None,
+            }
+
+        context_error: Optional[ContextLengthExceeded] = None
+        try:
+            input_tokens = await self.async_count_tokens(messages, config)
+        except NotImplementedError:
+            if explicit_limits is not None:
+                return {
+                    "mode": "explicit_limit",
+                    "limits": dict(explicit_limits),
+                    "input_tokens": None,
+                    "max_model_len": max_model_len,
+                    "effective_max_tokens": None,
+                }
+            limits = self._compat_multimodal_limits()
+            self._enforce_multimodal_limits(messages, limits)
+            return {
+                "mode": "compat_fallback",
+                "limits": limits,
+                "input_tokens": None,
+                "max_model_len": max_model_len,
+                "effective_max_tokens": None,
+            }
+        except Exception as exc:
+            parsed = classify_vllm_context_error(exc, max_model_len)
+            if parsed is None:
+                raise
+            input_tokens, rejected_max_model_len = parsed
+            logger.debug(
+                "vLLM rejected an overlong multimodal prompt during preflight: "
+                "input_tokens=%s max_model_len=%s",
+                input_tokens,
+                rejected_max_model_len,
+            )
+            context_error = ContextLengthExceeded(
+                f"Multimodal input uses {input_tokens} tokens, leaving no output "
+                f"capacity within max_model_len={rejected_max_model_len}",
+                input_tokens=input_tokens,
+                max_model_len=rejected_max_model_len,
+                stage="multimodal_process",
+                diagnostic_code="VLLM_PROMPT_LENGTH_REJECTED",
+            )
+
+        # Raise outside the vLLM exception handler so no optional-engine
+        # exception remains attached to the actor-serialized exception chain.
+        if context_error is not None:
+            raise context_error from None
+
+        remaining = max_model_len - input_tokens
+        if remaining <= 0:
+            raise ContextLengthExceeded(
+                f"Multimodal input uses {input_tokens} tokens, leaving no output "
+                f"capacity within max_model_len={max_model_len}",
+                input_tokens=input_tokens,
+                max_model_len=max_model_len,
+                stage="expanded_prompt_budget",
+                diagnostic_code="EXPANDED_PROMPT_EXHAUSTS_CONTEXT",
+            )
+        requested_max_tokens = (config or {}).get("max_tokens")
+        effective_max_tokens = (
+            min(requested_max_tokens, remaining)
+            if type(requested_max_tokens) is int and requested_max_tokens > 0
+            else remaining
+        )
+        return {
+            "mode": ("explicit_limit" if explicit_limits is not None else "adaptive"),
+            "limits": (dict(explicit_limits) if explicit_limits is not None else None),
+            "input_tokens": input_tokens,
+            "max_model_len": max_model_len,
+            "effective_max_tokens": effective_max_tokens,
+        }
 
     async def _forced_tool_chat(self, messages, config, request_id):
         self._validate_forced_tools(config)
@@ -773,6 +949,7 @@ class VLLMModel(WeightCachedModel, LLM):
             "_nixl_config", None
         )
         self._context_length: Optional[int] = None
+        self._explicit_limit_mm_per_prompt: Optional[Dict[str, int]] = None
         # distributed inference
         self._device_count = None
         self._xinference_vllm_executor_backend = model_config.pop(  # type: ignore
@@ -951,10 +1128,19 @@ class VLLMModel(WeightCachedModel, LLM):
 
     def get_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
         """Return the effective multimodal item limits for request preflight."""
+        explicit = self.get_explicit_limit_mm_per_prompt()
+        if explicit is not None:
+            return explicit
+        return self._compat_multimodal_limits() or None
+
+    def get_explicit_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
+        explicit = getattr(self, "_explicit_limit_mm_per_prompt", None)
+        if explicit is not None:
+            return dict(explicit)
         if not isinstance(self._model_config, dict):
             return None
-        limit = self._model_config.get("limit_mm_per_prompt")
-        return dict(limit) if isinstance(limit, dict) else None
+        configured = self._model_config.get("limit_mm_per_prompt")
+        return dict(configured) if isinstance(configured, dict) else None
 
     def _is_vllm_v1(self) -> bool:
         """
@@ -3308,9 +3494,12 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             prompt_str,
             config,  # type: ignore
         )
-        return TokensPrompt(
+        inputs = TokensPrompt(
             prompt_token_ids=token_ids, multi_modal_data=multi_modal_data
         )
+        if prompt.get("mm_processor_kwargs"):
+            inputs["mm_processor_kwargs"] = prompt["mm_processor_kwargs"]
+        return inputs
 
     def _handle_base64_media(self, messages, temp_dir):
         import base64
@@ -3423,13 +3612,12 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         audios, images, videos, video_kwargs = None, None, None, None
         chat_template_kwargs: Dict[str, Any] = {}
         is_minicpmv47 = model_family == "MiniCPM-V-4.7"
-        processor_kwargs: Dict[str, Any] = {}
+        generate_config = dict(generate_config or {})
+        processor_kwargs: Dict[str, Any] = dict(
+            generate_config.pop("mm_processor_kwargs", None) or {}
+        )
         max_num_frames = 128
         if is_minicpmv47:
-            generate_config = dict(generate_config or {})
-            processor_kwargs = dict(
-                generate_config.pop("mm_processor_kwargs", None) or {}
-            )
             # vLLM processes MiniCPM video frames through the image processor;
             # frame sampling belongs here, not in the image processor kwargs.
             max_num_frames = processor_kwargs.pop("max_num_frames", 128)
