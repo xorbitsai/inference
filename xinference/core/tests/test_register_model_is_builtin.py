@@ -156,3 +156,39 @@ async def test_custom_registration_tags_versions_for_legacy_tracker(
     versions, address = recorded[0]
     assert address == (service_address or "node")
     assert versions["test_is_builtin_llm"][0]["model_type"] == "LLM"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model_name, model_hub",
+    [
+        ("speech_campplus_sv_zh-cn_16k-common", "modelscope"),
+        ("speech_campplus_sv_zh_en_16k-common_advanced", "modelscope"),
+        ("whisper-tiny", "huggingface"),
+    ],
+)
+async def test_worker_get_builtin_audio_registration(model_name: str, model_hub: str):
+    worker = WorkerActor.__new__(WorkerActor)
+    registration = await worker.get_model_registration("audio", model_name)
+
+    assert registration is not None
+    assert registration.model_name == model_name
+    assert registration.model_hub == model_hub
+
+
+@pytest.mark.asyncio
+async def test_worker_listed_builtin_audio_registrations_can_be_described():
+    from ...model.audio import BUILTIN_AUDIO_MODELS
+
+    worker = WorkerActor.__new__(WorkerActor)
+    registrations = await worker.list_model_registrations("audio")
+    builtin_names = {
+        registration["model_name"]
+        for registration in registrations
+        if registration["is_builtin"]
+    }
+    assert builtin_names == set(BUILTIN_AUDIO_MODELS)
+    for model_name in sorted(builtin_names):
+        registration = await worker.get_model_registration("audio", model_name)
+        assert registration is not None, model_name
+        assert registration.model_name == model_name
