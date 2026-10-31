@@ -720,8 +720,11 @@ msgstr ""
 #: ../../source/user_guide/launch.rst:541
 msgid ""
 "The default for ``enable_weight_cache`` changed from ``False`` to automatic "
-"selection (``None``)."
-msgstr "``enable_weight_cache`` 的默认值从 ``False`` 改为自动选择（``None``）。"
+"selection (``None``). Retained-weight models now support multiple replicas, "
+"scale-out and sequential reload."
+msgstr ""
+"``enable_weight_cache`` 的默认值从 ``False`` 改为自动选择（``None``）。 "
+"保留权重的模型现在支持多副本、扩容和逐个副本重载。"
 
 #: ../../source/user_guide/launch.rst:152
 msgid "Unified context length in the launch API, CLI, and Web UI."

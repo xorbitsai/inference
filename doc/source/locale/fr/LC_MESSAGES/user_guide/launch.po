@@ -792,10 +792,13 @@ msgstr ""
 #: ../../source/user_guide/launch.rst:541
 msgid ""
 "The default for ``enable_weight_cache`` changed from ``False`` to automatic "
-"selection (``None``)."
+"selection (``None``). Retained-weight models now support multiple replicas, "
+"scale-out and sequential reload."
 msgstr ""
 "La valeur par défaut de ``enable_weight_cache`` est passée de ``False`` à la"
-" sélection automatique (``None``)."
+" sélection automatique (``None``). Les modèles conservant leurs poids "
+"prennent désormais en charge plusieurs répliques, leur ajout et le "
+"rechargement séquentiel."
 
 #: ../../source/user_guide/launch.rst:152
 msgid "Unified context length in the launch API, CLI, and Web UI."

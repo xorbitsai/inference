@@ -557,9 +557,9 @@ Reconfigure and upgrade running models
 
 .. versionadded:: v4.0.0
 
-.. versionchanged:: 0.4.2
+.. versionchanged:: v4.2.0
 
-   The default for ``enable_weight_cache`` changed from ``False`` to automatic selection (``None``).
+   The default for ``enable_weight_cache`` changed from ``False`` to automatic selection (``None``). Retained-weight models now support multiple replicas, scale-out and sequential reload.
 
 GPU weight retention defaults to automatic selection: supported model environments and configurations enable it; unsupported configurations start normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic selection, set ``True`` to require retention, or ``False`` to disable it. In the deployment dialog, **Keep GPU weights for reload** offers **Auto**, **Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one Worker per replica, and fixed tensor parallelism within each replica. Multiple replicas and scale-out are supported; each replica retains its own weights independently.
 
