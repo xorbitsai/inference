@@ -57,12 +57,23 @@ def apply_runtime_precision(
             dtype="bfloat16",
         )
     else:
+        pipeline_config = config.get("pipeline_config") or {}
+        if not isinstance(pipeline_config, dict):
+            raise ValueError(
+                "An explicit runtime_precision requires a dictionary pipeline_config"
+            )
         config.update(
             component_quantizations=(
                 {"transformer": "fp8", "text_encoder": "fp8"}
                 if precision == "fp8"
                 else {}
             ),
-            component_precisions={"transformer": "bf16", "text_encoder": "bf16"},
+            # H3's native DiT loader rejects component_precisions, even for
+            # BF16. Use its pipeline precision fields instead.
+            pipeline_config={
+                **pipeline_config,
+                "dit_precision": "bf16",
+                "text_encoder_precisions": ["bf16"],
+            },
         )
     return config

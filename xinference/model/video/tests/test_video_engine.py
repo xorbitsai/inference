@@ -579,10 +579,11 @@ def test_h3_runtime_precision_maps_before_engine_construction(engine, precision)
         assert config["component_quantizations"] == (
             {"transformer": "fp8", "text_encoder": "fp8"} if precision == "fp8" else {}
         )
-        assert config["component_precisions"] == {
-            "transformer": "bf16",
-            "text_encoder": "bf16",
+        assert config["pipeline_config"] == {
+            "dit_precision": "bf16",
+            "text_encoder_precisions": ["bf16"],
         }
+        assert "component_precisions" not in config
         assert "quantization_config" not in config
         assert "torch_dtype" not in config
 
@@ -664,3 +665,39 @@ def test_h3_engine_api_reports_runtime_precisions(engine):
         )
     finally:
         _install()
+
+
+def test_h3_sglang_precision_preserves_other_pipeline_options():
+    from ..precision import apply_runtime_precision
+
+    spec = match_diffusion("MiniMax-H3", "huggingface", model_engine="SGLang")
+    pipeline = {"vae_tiling": True, "dit_precision": "fp16"}
+    config = apply_runtime_precision(
+        spec,
+        "SGLang",
+        {
+            "runtime_precision": "bf16",
+            "pipeline_config": pipeline,
+        },
+    )
+    assert pipeline == {"vae_tiling": True, "dit_precision": "fp16"}
+    assert config["pipeline_config"] == {
+        "vae_tiling": True,
+        "dit_precision": "bf16",
+        "text_encoder_precisions": ["bf16"],
+    }
+
+
+def test_h3_explicit_precision_rejects_opaque_pipeline_config():
+    from ..precision import apply_runtime_precision
+
+    spec = match_diffusion("MiniMax-H3", "huggingface", model_engine="SGLang")
+    with pytest.raises(ValueError, match="dictionary pipeline_config"):
+        apply_runtime_precision(
+            spec,
+            "SGLang",
+            {
+                "runtime_precision": "bf16",
+                "pipeline_config": "/custom/config.json",
+            },
+        )

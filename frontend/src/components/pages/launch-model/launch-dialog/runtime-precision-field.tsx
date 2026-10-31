@@ -14,6 +14,7 @@ const PRECISION_KEYS = new Set([
   'torch_dtype',
   'component_quantizations',
   'component_precisions',
+  'pipeline_config',
 ]);
 
 function PrecisionSelect(props: ComponentProps<typeof Select>) {
