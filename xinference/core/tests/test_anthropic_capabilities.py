@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 # CI: linux
 
+import asyncio
 import json
 import pickle
 from types import SimpleNamespace
@@ -40,6 +41,7 @@ def _request(path, payload):
     async def receive():
         nonlocal sent
         if sent:
+            await asyncio.sleep(0)
             return {"type": "http.request", "body": b"", "more_body": False}
         sent = True
         return {"type": "http.request", "body": body, "more_body": False}
@@ -88,6 +90,70 @@ def _operation_error(kind, operation="anthropic_prepare"):
             }
         }
     ).encode()
+
+
+def _anthropic_image():
+    return {
+        "type": "image",
+        "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data": "aW1hZ2U=",
+        },
+    }
+
+
+def _anthropic_pd_api(monkeypatch, *, stream):
+    api, model = _anthropic_api_with_prepare_error(monkeypatch, RuntimeError("unused"))
+
+    async def prepare(messages, config):
+        prepared_config = dict(config)
+        prepared_config["max_tokens"] = 412
+        return json.dumps(
+            {
+                "messages": messages,
+                "generate_config": prepared_config,
+                "input_tokens": 100,
+            }
+        ).encode()
+
+    decode = SimpleNamespace(
+        prepare_anthropic_request=AsyncMock(side_effect=prepare),
+        get_explicit_limit_mm_per_prompt=AsyncMock(return_value=None),
+    )
+    pd_model = PDModelActor("pd")
+    pd_model._decode_replicas = {"decode": decode}
+    model.prepare_anthropic_request.side_effect = pd_model.prepare_anthropic_request
+
+    if stream:
+
+        async def chunks():
+            yield json.dumps(
+                {
+                    "choices": [
+                        {
+                            "delta": {"content": "ok"},
+                            "finish_reason": "stop",
+                        }
+                    ],
+                    "usage": {"prompt_tokens": 100, "completion_tokens": 1},
+                }
+            )
+
+        model.chat.return_value = chunks()
+    else:
+        model.chat.return_value = json.dumps(
+            {
+                "choices": [
+                    {
+                        "message": {"role": "assistant", "content": "ok"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 100, "completion_tokens": 1},
+            }
+        )
+    return api, model, decode
 
 
 @pytest.mark.asyncio
@@ -419,6 +485,69 @@ async def test_pd_multimodal_limit_rpc_failure_fails_closed():
 
     with pytest.raises(RuntimeError, match="private replica failure"):
         await actor.preflight_multimodal_request([], {})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_pd_anthropic_messages_enforces_conservative_multimodal_limit(
+    monkeypatch, stream
+):
+    api, model, decode = _anthropic_pd_api(monkeypatch, stream=stream)
+    image = _anthropic_image()
+
+    response = await api.create_message(
+        _request(
+            "/v1/messages",
+            {
+                "model": "test-model",
+                "max_tokens": 500,
+                "stream": stream,
+                "messages": [{"role": "user", "content": [image, image, image]}],
+            },
+        )
+    )
+
+    assert response.status_code == 400
+    payload = json.loads(response.body)
+    assert payload["error"] == {
+        "type": "invalid_request_error",
+        "message": "At most 2 image(s) may be provided in one prompt; received 3.",
+    }
+    model.chat.assert_not_awaited()
+    decode.prepare_anthropic_request.assert_awaited_once()
+    decode.get_explicit_limit_mm_per_prompt.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_pd_anthropic_messages_preserves_requested_output_budget(
+    monkeypatch, stream
+):
+    api, model, decode = _anthropic_pd_api(monkeypatch, stream=stream)
+    image = _anthropic_image()
+
+    response = await api.create_message(
+        _request(
+            "/v1/messages",
+            {
+                "model": "test-model",
+                "max_tokens": 500,
+                "stream": stream,
+                "messages": [{"role": "user", "content": [image, image]}],
+            },
+        )
+    )
+
+    assert response.status_code == 200
+    call = model.chat.await_args
+    assert call.args[1]["max_tokens"] == 500
+    assert call.kwargs["raw_params"]["max_tokens"] == 500
+    decode.prepare_anthropic_request.assert_awaited_once()
+    decode.get_explicit_limit_mm_per_prompt.assert_awaited_once_with()
+    if stream:
+        await response.body_iterator.aclose()
+        assert response.background is not None
+        await response.background()
 
 
 @pytest.mark.asyncio

@@ -356,40 +356,37 @@ class PDModelActor(xo.StatelessActor):
         # and decode replicas, so keep the conservative compatibility limits.
         return {"image": 2, "video": 2, "audio": 2}
 
-    async def preflight_multimodal_request(
-        self, messages: List[Dict], generate_config: Optional[Dict] = None
-    ) -> Any:
-        # Accurate counting is only safe when counting and generation use the
-        # same loaded engine instance. Current P/D routing cannot guarantee that,
-        # but a representative decode replica can still validate media and
-        # reject deterministic input/context errors before an API stream starts.
-        if not self._decode_replicas:
-            from .model import ModelNotReadyError
+    @staticmethod
+    def _count_multimodal_items(messages: List[Dict], item_type: str) -> int:
+        count = 0
+        keys = {item_type, f"{item_type}_url"}
+        for message in messages:
+            content = message.get("content") if isinstance(message, dict) else None
+            if not isinstance(content, list):
+                continue
+            for part in content:
+                if not isinstance(part, dict):
+                    continue
+                part_type = part.get("type")
+                if part_type in keys or any(key in part for key in keys):
+                    count += 1
+        return count
 
-            raise ModelNotReadyError("No decode replicas available")
+    @classmethod
+    def _enforce_multimodal_limits(
+        cls, messages: List[Dict], limits: Optional[Dict[str, int]]
+    ) -> None:
+        for item_type, limit in (limits or {}).items():
+            if type(limit) is not int or limit < 0:
+                continue
+            count = cls._count_multimodal_items(messages, item_type)
+            if count > limit:
+                raise ValueError(
+                    f"At most {limit} {item_type}(s) may be provided in one prompt; "
+                    f"received {count}."
+                )
 
-        representative = next(iter(self._decode_replicas.values()))
-        representative_result = await actor_call(
-            representative,
-            "preflight_multimodal_request",
-            messages,
-            generate_config,
-        )
-        parsed_representative = representative_result
-        if isinstance(representative_result, (str, bytes)):
-            try:
-                parsed_representative = json.loads(representative_result)
-            except (TypeError, ValueError):
-                # Let the API reject the malformed response as an internal error.
-                return representative_result
-        if not isinstance(parsed_representative, dict):
-            return representative_result
-        if "_xinference_error" in parsed_representative:
-            return representative_result
-
-        # Discard the representative's dynamic token budget. The later P/D
-        # generation may use a different replica, so only the validation result
-        # is portable across the routing decision.
+    async def _get_multimodal_limit_policy(self) -> Dict[str, Any]:
         fallback = {"image": 2, "video": 2, "audio": 2}
         policies: List[Optional[Dict[str, int]]] = []
         try:
@@ -432,6 +429,45 @@ class PDModelActor(xo.StatelessActor):
         return {
             "mode": "explicit_limit" if consistent_explicit else "compat_fallback",
             "limits": limits,
+        }
+
+    async def preflight_multimodal_request(
+        self, messages: List[Dict], generate_config: Optional[Dict] = None
+    ) -> Any:
+        # Accurate counting is only safe when counting and generation use the
+        # same loaded engine instance. Current P/D routing cannot guarantee that,
+        # but a representative decode replica can still validate media and
+        # reject deterministic input/context errors before an API stream starts.
+        if not self._decode_replicas:
+            from .model import ModelNotReadyError
+
+            raise ModelNotReadyError("No decode replicas available")
+
+        representative = next(iter(self._decode_replicas.values()))
+        representative_result = await actor_call(
+            representative,
+            "preflight_multimodal_request",
+            messages,
+            generate_config,
+        )
+        parsed_representative = representative_result
+        if isinstance(representative_result, (str, bytes)):
+            try:
+                parsed_representative = json.loads(representative_result)
+            except (TypeError, ValueError):
+                # Let the API reject the malformed response as an internal error.
+                return representative_result
+        if not isinstance(parsed_representative, dict):
+            return representative_result
+        if "_xinference_error" in parsed_representative:
+            return representative_result
+
+        # Discard the representative's dynamic token budget. The later P/D
+        # generation may use a different replica, so only the validation result
+        # is portable across the routing decision.
+        policy = await self._get_multimodal_limit_policy()
+        return {
+            **policy,
             "input_tokens": None,
             "max_model_len": None,
             "effective_max_tokens": None,
@@ -449,10 +485,47 @@ class PDModelActor(xo.StatelessActor):
             from .model import ModelNotReadyError
 
             raise ModelNotReadyError("No decode replicas available")
+        has_requested_max_tokens = "max_tokens" in generate_config
+        requested_max_tokens = generate_config.get("max_tokens")
         replica = next(iter(self._decode_replicas.values()))
-        return await actor_call(
+        prepared_result = await actor_call(
             replica, "prepare_anthropic_request", messages, generate_config
         )
+        prepared = prepared_result
+        if isinstance(prepared_result, (str, bytes)):
+            try:
+                prepared = json.loads(prepared_result)
+            except (TypeError, ValueError):
+                return prepared_result
+        if not isinstance(prepared, dict) or "_xinference_error" in prepared:
+            return prepared_result
+
+        prepared_messages = prepared.get("messages")
+        if not isinstance(prepared_messages, list):
+            return prepared_result
+        media_counts = {
+            item_type: self._count_multimodal_items(prepared_messages, item_type)
+            for item_type in ("image", "video", "audio")
+        }
+        if any(media_counts.values()):
+            policy = await self._get_multimodal_limit_policy()
+            self._enforce_multimodal_limits(prepared_messages, policy.get("limits"))
+
+            # A representative replica may derive a dynamic output budget while
+            # preparing Anthropic messages. The later P/D generation can select a
+            # different replica, so preserve the caller's original budget instead.
+            prepared_config = prepared.get("generate_config")
+            if isinstance(prepared_config, dict):
+                if has_requested_max_tokens:
+                    prepared_config["max_tokens"] = requested_max_tokens
+                else:
+                    prepared_config.pop("max_tokens", None)
+
+        if isinstance(prepared_result, bytes):
+            return json.dumps(prepared).encode()
+        if isinstance(prepared_result, str):
+            return json.dumps(prepared)
+        return prepared
 
     @log_async(logger=logger)
     async def get_anthropic_capabilities(self):
