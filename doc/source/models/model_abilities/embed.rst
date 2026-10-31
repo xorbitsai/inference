@@ -42,14 +42,15 @@ Embedding engines
 When launching an embedding model, you can pick the serving engine with the
 ``model_engine`` parameter (``--model-engine`` on the command line):
 
-* ``sentence_transformers``: the default engine, available for all embedding
-  models.
+* ``sentence_transformers``: the default engine when the matched model spec
+  is not GGUF.
 * ``vllm``: high-throughput serving for supported model families — currently
   models whose names start with ``bge``, ``gte``, ``text2vec``, ``m3e``,
   ``Qwen3``, ``WeMM``, or ``bce`` (e.g. ``bce-embedding-base_v1``).
 * ``flag``: FlagEmbedding-based engine; also supports hybrid (sparse+dense)
   output, see the FAQ below.
-* ``llama.cpp``: serve GGUF-format embedding models.
+* ``llama.cpp``: serve GGUF-format embedding models; selected by default
+  when the matched model spec is GGUF.
 
 Truncating input
 -------------------

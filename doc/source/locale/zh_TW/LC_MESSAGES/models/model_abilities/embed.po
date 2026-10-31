@@ -96,9 +96,9 @@ msgstr "啟動嵌入模型時，可以透過 ``model_engine`` 參數（命令列
 
 #: ../../source/models/model_abilities/embed.rst:45
 msgid ""
-"``sentence_transformers``: the default engine, available for all "
-"embedding models."
-msgstr "``sentence_transformers``：預設引擎，適用於所有嵌入模型。"
+"``sentence_transformers``: the default engine when the matched model "
+"spec is not GGUF."
+msgstr "``sentence_transformers``：比對到的模型規格不是 GGUF 時的預設引擎。"
 
 #: ../../source/models/model_abilities/embed.rst:47
 msgid ""
@@ -116,8 +116,10 @@ msgid ""
 msgstr "``flag``：以 FlagEmbedding 為基礎的引擎；也支援混合（稀疏＋稠密）輸出，參見下方常見問題。"
 
 #: ../../source/models/model_abilities/embed.rst:52
-msgid "``llama.cpp``: serve GGUF-format embedding models."
-msgstr "``llama.cpp``：提供 GGUF 格式嵌入模型的服務。"
+msgid ""
+"``llama.cpp``: serve GGUF-format embedding models; selected by default "
+"when the matched model spec is GGUF."
+msgstr "``llama.cpp``：提供 GGUF 格式嵌入模型的服務；當比對到的模型規格是 GGUF 時預設選用此引擎。"
 
 #: ../../source/models/model_abilities/embed.rst:55
 msgid "Truncating input"

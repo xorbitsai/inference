@@ -110,11 +110,11 @@ msgstr ""
 
 #: ../../source/models/model_abilities/embed.rst:45
 msgid ""
-"``sentence_transformers``: the default engine, available for all "
-"embedding models."
+"``sentence_transformers``: the default engine when the matched model "
+"spec is not GGUF."
 msgstr ""
-"``sentence_transformers``: el motor predeterminado, disponible para todos"
-" los modelos de embedding."
+"``sentence_transformers``: el motor predeterminado cuando la "
+"especificación de modelo coincidente no está en formato GGUF."
 
 #: ../../source/models/model_abilities/embed.rst:47
 msgid ""
@@ -136,8 +136,13 @@ msgstr ""
 "(dispersa + densa), consulta las preguntas frecuentes más abajo."
 
 #: ../../source/models/model_abilities/embed.rst:52
-msgid "``llama.cpp``: serve GGUF-format embedding models."
-msgstr "``llama.cpp``: sirve modelos de embedding en formato GGUF."
+msgid ""
+"``llama.cpp``: serve GGUF-format embedding models; selected by default "
+"when the matched model spec is GGUF."
+msgstr ""
+"``llama.cpp``: sirve modelos de embedding en formato GGUF; se "
+"selecciona de forma predeterminada cuando la especificación de modelo "
+"coincidente está en formato GGUF."
 
 #: ../../source/models/model_abilities/embed.rst:55
 msgid "Truncating input"

@@ -653,8 +653,13 @@ def create_embedding_model_instance(
 
     if model_engine is None:
         # unlike LLM and for compatibility,
-        # we use sentence_transformers as the default engine for all models
-        model_engine = "sentence_transformers"
+        # we use sentence_transformers as the default engine for all models,
+        # except GGUF specs which can only run on llama.cpp.
+        model_engine = (
+            "llama.cpp"
+            if model_family.model_specs[0].model_format == "ggufv2"
+            else "sentence_transformers"
+        )
 
     from .embed_family import (
         check_engine_by_model_name_and_engine,
