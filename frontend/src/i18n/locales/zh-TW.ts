@@ -550,6 +550,13 @@ const zhTW = {
     emptyFile: '上傳檔案不能為空。',
   },
   launchModel: {
+    modelDefaultConfig: '模型預設設定',
+    modelDefaultConfigHelp: '由目前模型與引擎宣告，載入參數會覆蓋對應的預設值。',
+    modelDefaultCurrentValue: '目前設定：',
+    modelDefaultPrecisionOverride: '已由執行精度選項覆蓋。',
+    modelDefaultCollapse: '收合預設設定',
+    modelDefaultExpand: '查看全部預設設定（{{count}} 項）',
+
     runtimePrecision: '執行精度',
     runtimePrecisionDefault: '引擎預設（{{precision}}）',
     runtimePrecisionCustom: '使用進階設定',

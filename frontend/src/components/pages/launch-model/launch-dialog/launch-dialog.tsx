@@ -71,6 +71,7 @@ import { recommendationUnavailable, recommendationWarningKeys } from './recommen
 import { useRecommendation } from './use-recommendation';
 import ContextLengthField from './context-length-field';
 import RuntimePrecisionField from './runtime-precision-field';
+import ModelDefaultConfig, { selectEngineDefaults } from './model-default-config';
 import { StructuredLaunchParameterError } from '../structured-launch-params';
 
 interface LaunchDialogProps {
@@ -1676,6 +1677,26 @@ export default function LaunchDialog({
     (field) =>
       !isCustomPlacement || !['n_worker', 'n_gpu', 'gpu_idx', 'worker_ip'].includes(field.name)
   );
+  const defaultsSpec = selectEngineDefaults(modelEngineMap, launchFormValues);
+  if (defaultsSpec && Object.keys(defaultsSpec.default_model_config || {}).length > 0) {
+    const selectionFields = new Set([
+      'model_engine',
+      'model_format',
+      'model_size_in_billions',
+      'quantization',
+      'runtime_precision',
+    ]);
+    const selectionEnd = currentLaunchFields.reduce(
+      (last, field, index) => (selectionFields.has(field.name) ? index : last),
+      -1
+    );
+    currentLaunchFields.splice(selectionEnd + 1, 0, {
+      name: 'model_defaults',
+      type: 'custom',
+      colSpan: 2,
+      content: <ModelDefaultConfig form={form} spec={defaultsSpec} />,
+    });
+  }
   // required fields is filled in
   const isReady = currentLaunchFields
     .filter(isVisibleRequiredLaunchField)

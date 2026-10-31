@@ -150,6 +150,7 @@ export type ModelEngineItem = {
   quantizations?: string[];
   runtime_precisions?: string[];
   default_runtime_precision?: string;
+  default_model_config?: Record<string, unknown>;
   /** whether this engine can run a drafter for speculative decoding */
   support_draft_model?: boolean;
 };

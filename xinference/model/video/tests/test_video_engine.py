@@ -83,6 +83,11 @@ def test_builtin_video_models_register_expected_engines():
                     "model_format": "diffusers",
                     "quantization": "none",
                     "video_class": DiffusersVideoEngineModel,
+                    "default_model_config": next(
+                        family.default_model_config
+                        for family in BUILTIN_VIDEO_MODELS[model_name]
+                        if family.engine == "diffusers"
+                    ),
                     **(
                         {
                             "runtime_precisions": ["bf16", "fp8", "int8", "int4"],
@@ -304,6 +309,11 @@ def test_video_engine_api_returns_diffusers_format():
             "quantization": "none",
             "runtime_precisions": ["bf16", "fp8", "int8", "int4"],
             "default_runtime_precision": "int4",
+            "default_model_config": {
+                "quantization": "int4",
+                "group_offload": True,
+                "torch_dtype": "bfloat16",
+            },
         }
     ]
 
