@@ -139,6 +139,33 @@ def _make_stream_stop_chunk(
     }
 
 
+def _annotate_stop_sequence(response: Dict[str, Any], stop_sequences: Any) -> Dict[str, Any]:
+    """Preserve a backend stop marker for Anthropic protocol conversion."""
+    if not isinstance(stop_sequences, list) or not stop_sequences:
+        return response
+    choices = response.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return response
+    choice = choices[0]
+    if not isinstance(choice, dict) or choice.get("finish_reason") != "stop":
+        return response
+    if choice.get("stop_sequence") is not None:
+        return response
+    candidate = choice.get("stop") or choice.get("stopping_word") or response.get("stop")
+    if isinstance(candidate, str) and candidate in stop_sequences:
+        choice["stop_sequence"] = candidate
+        return response
+    text = choice.get("text")
+    if not isinstance(text, str):
+        message = choice.get("message")
+        text = message.get("content") if isinstance(message, dict) else None
+    if isinstance(text, str):
+        matches = [(text.find(stop), stop) for stop in stop_sequences if text.find(stop) >= 0]
+        if matches:
+            choice["stop_sequence"] = min(matches)[1]
+    return response
+
+
 class XllamaCppModel(LLM, ChatModelMixin):
     allow_batch = True
     support_draft_model = True
@@ -440,6 +467,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         _map_repetition_penalty(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
+        stop_sequences = generate_config.get("stop")
         q: queue.Queue = queue.Queue()
 
         def _handle_completion():
@@ -481,6 +509,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
                         raise Exception(_error_message(r.msg))
+                    if isinstance(r, dict):
+                        _annotate_stop_sequence(r, stop_sequences)
                     yield r
 
             return _to_iterator()
@@ -488,6 +518,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
             r = q.get()
             if type(r) is _Error:
                 raise Exception(_error_message(r.msg))
+            if isinstance(r, dict):
+                _annotate_stop_sequence(r, stop_sequences)
             return r
 
     def _normalize_disabled_thinking_reasoning_content(
@@ -556,6 +588,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         _map_repetition_penalty(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
+        stop_sequences = generate_config.get("stop")
 
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
@@ -627,6 +660,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
                             break
                         raise Exception(_error_message(r.msg))
                     last_chunk = r
+                    if isinstance(r, dict):
+                        _annotate_stop_sequence(r, stop_sequences)
                     yield r
 
             return self._to_chat_completion_chunks(
@@ -636,5 +671,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             r = q.get()
             if type(r) is _Error:
                 raise Exception(_error_message(r.msg))
+            if isinstance(r, dict):
+                _annotate_stop_sequence(r, stop_sequences)
             r = self._normalize_disabled_thinking_reasoning_content(r, tools)
             return self._to_chat_completion(r, self.reasoning_parser)
