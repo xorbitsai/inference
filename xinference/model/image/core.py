@@ -226,13 +226,6 @@ def create_ocr_model_instance(
     )
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
-    if not model_path:
-        cache_manager = ImageCacheManager(model_spec)
-        if getattr(model_spec, "model_format", None) == "ggufv2":
-            model_path = cache_manager.cache_ocr_gguf()
-        else:
-            model_path = cache_manager.cache()
-
     if model_engine is None:
         from .ocr.ocr_family import OCR_ENGINES
 
@@ -269,6 +262,13 @@ def create_ocr_model_instance(
             model_format,
             quantization,
         )
+    if not model_path:
+        cache_manager = ImageCacheManager(model_spec)
+        if getattr(model_spec, "model_format", None) == "ggufv2":
+            model_path = cache_manager.cache_ocr_gguf()
+        else:
+            model_path = cache_manager.cache()
+
     # Record the engine actually used (including the default fallback above) on
     # the family object so ``to_description`` can surface it to ``/v1/models``.
     # Copy first to avoid mutating the shared builtin family object.

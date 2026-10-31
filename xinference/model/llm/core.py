@@ -569,7 +569,9 @@ def create_llm_model_instance(
         raise ValueError("model_engine is required for LLM model")
     from .context_length import configure_auto_yarn, map_context_length
 
-    kwargs = map_context_length(model_engine, kwargs)
+    # Validate early, but retain the per-request value while deriving YaRN.
+    # llama.cpp's native n_ctx is the total capacity across all parallel slots.
+    map_context_length(model_engine, kwargs)
     llm_family = match_llm(
         model_name, model_format, model_size_in_billions, quantization, download_hub
     )
@@ -612,6 +614,7 @@ def create_llm_model_instance(
     kwargs, context_env = configure_auto_yarn(
         llm_family, model_engine, kwargs, model_path
     )
+    kwargs = map_context_length(model_engine, kwargs)
 
     # Speculative decoding: download the drafter checkpoint paired with this
     # spec (e.g. Gemma 4 ``*-it-assistant`` for MTP) unless the user points at

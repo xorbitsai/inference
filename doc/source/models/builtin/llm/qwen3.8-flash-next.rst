@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 125 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 125
 - **Quantizations:** none
-- **Engines**: vLLM
+- **Engines**: vLLM, SGLang
 - **Model ID:** Qwen/Qwen3.8-Flash-Next
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.8-Flash-Next>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.8-Flash-Next>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (fp8, 125 Billion)
 - **Model Format:** fp8
 - **Model Size (in billions):** 125
 - **Quantizations:** FP8
-- **Engines**: vLLM
+- **Engines**: vLLM, SGLang
 - **Model ID:** Qwen/Qwen3.8-Flash-Next-FP8
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.8-Flash-Next-FP8>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (fp4, 125 Billion)
 - **Model Format:** fp4
 - **Model Size (in billions):** 125
 - **Quantizations:** FP4
-- **Engines**: vLLM
+- **Engines**: vLLM, SGLang
 - **Model ID:** nvidia/Qwen3.8-Flash-Next-NVFP4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/nvidia/Qwen3.8-Flash-Next-NVFP4>`__, `ModelScope <https://modelscope.cn/models/nv-community/Qwen3.8-Flash-Next-NVFP4>`__
 

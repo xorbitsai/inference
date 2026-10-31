@@ -829,6 +829,56 @@ def test_engine_matches_parameters_like_launch(
     ] in rows
 
 
+@pytest.mark.parametrize(
+    "extra",
+    [
+        [],
+        ["--model-engine", "llama.cpp"],
+        ["--model-engine", "vllm"],
+    ],
+)
+def test_engine_handles_unavailable_entries(monkeypatch, extra):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    engines = {
+        "llama.cpp": [
+            {
+                "model_name": "qwen2.5-instruct",
+                "model_format": "ggufv2",
+                "model_size_in_billions": "0_5",
+                "quantizations": ["Q4_K_M"],
+            }
+        ],
+        "vLLM": "Failed to import vLLM: No module named 'vllm'",
+    }
+    client = SimpleNamespace(
+        query_engine_by_model_name=MagicMock(return_value=engines),
+        _set_token=MagicMock(),
+    )
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", lambda **kwargs: client)
+
+    result = CliRunner().invoke(
+        query_engine_by_model_name,
+        [
+            "--endpoint",
+            "http://127.0.0.1:9997",
+            "--api-key",
+            "test-key",
+            "--model-name",
+            "qwen2.5-instruct",
+            *extra,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output + repr(result.exception)
+    if extra == ["--model-engine", "vllm"]:
+        assert engines["vLLM"] in result.output
+    else:
+        assert "llama.cpp" in result.output
+        assert "Q4_K_M" in result.output
+
+
 def test_launch_cross_engine_prefix_sharing_requires_xavier(monkeypatch):
     config = [
         {"model_engine": engine, "devices": [{"worker_ip": f"worker-{i}:9978"}]}

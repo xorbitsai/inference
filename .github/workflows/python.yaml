@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   lint:
+    needs: [changes]
     # A push event cannot tell whether its branch belongs to a draft PR, so
     # branch CI is driven by pull_request events and push is limited to main.
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
@@ -35,56 +36,102 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
+      - name: Install documentation check dependencies
+        if: ${{ needs.changes.outputs.docs_only == 'true' }}
+        run: |
+          pip install Babel
+          if ! command -v msgfmt >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y gettext
+          fi
+      - name: Check documentation changes and translations
+        if: ${{ needs.changes.outputs.docs_only == 'true' }}
+        env:
+          TEST_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          TEST_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            diff_range="$TEST_BASE_SHA...$TEST_HEAD_SHA"
+          else
+            diff_range="$TEST_BASE_SHA..$TEST_HEAD_SHA"
+          fi
+          git diff --check "$diff_range"
+          git diff --no-renames --name-only -z --diff-filter=ACMR "$diff_range" \
+            -- ':(glob)doc/source/locale/**/*.po' > changed-catalogs.txt
+          while IFS= read -r -d '' catalog; do
+            msgfmt --check --check-format -o /dev/null "$catalog"
+          done < changed-catalogs.txt
+          python doc/build_i18n.py --all
+          # Read the Docs checks render the Sphinx pages independently.
       - name: Install lint and workflow test dependencies
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: pip install pre-commit pytest
       - name: Run pre-commit
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         env:
           TEST_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           TEST_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: pre-commit run --all-files
       - name: Test CI workflow
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         env:
           TEST_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           TEST_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python -m unittest discover -s .github/scripts/tests -v
       - name: Set up Node.js
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         uses: actions/setup-node@v1
         with:
           node-version: 20.19.0
       # ESLint and Prettier must be in `package.json`
       - name: Install Node.js dependencies
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm ci
       - name: ESLint Check
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npx eslint .
       - name: Test live account permissions
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run test:permissions
       - name: Test catalog refresh controls
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run test:catalog-refresh
       - name: Test persistent model favorites
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run test:model-favorites
       - name: Test structured realtime launch options
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run test:realtime-options
       - name: Test model launch visibility and progress
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run test:launch-progress
       - name: Test model and service upgrade controls
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run test:model-reload && npm run test:worker-relaunch && npm run test:service-relaunch && npm run test:software-update
       - name: Test benchmark page
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run test:benchmarks
       - name: Build frontend (static export)
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run build
       - name: Verify static export output
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: |
           test -f frontend/out/index.html
           test -f frontend/out/404.html
           # Dynamic routes must emit __shell__ placeholder pages.
           find frontend/out -name '__shell__*' | grep -q .
       - name: Serve static export from backend
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: |
           pip install fastapi httpx pytest xoscar
           pytest --noconftest -vv \
             xinference/api/tests/test_frontend_static.py \
             xinference/api/tests/test_frontend_static_real_export.py
       - name: Test Worker host as container PID 1
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
         env:
           XINFERENCE_TEST_WORKER_HOST_DOCKER: "1"
         run: |
@@ -102,6 +149,7 @@ jobs:
       metal: ${{ steps.platform.outputs.metal }}
       platform_suite: ${{ steps.platform.outputs.suite }}
       install: ${{ steps.install.outputs.install }}
+      docs_only: ${{ steps.docs.outputs.docs_only }}
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -228,6 +276,30 @@ jobs:
           echo "diff_available=$diff_available" >> "$GITHUB_OUTPUT"
           echo "GPU CI required: $gpu (groups: ${groups:-none})"
 
+      - name: Detect documentation-only changes
+        id: docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          docs_only=false
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] \
+              && [ "${{ steps.gpu.outputs.diff_available }}" = "true" ]; then
+            seen=false
+            docs_only=true
+            while IFS= read -r file; do
+              [ -n "$file" ] || continue
+              seen=true
+              case "$file" in
+                README.md|README_*.md|README-*.md|doc/source/*.rst|doc/source/locale/*.po|doc/source/locale/*.pot) ;;
+                doc/source/_static/*.png|doc/source/_static/*.jpg|doc/source/_static/*.jpeg|doc/source/_static/*.gif|doc/source/_static/*.svg|doc/source/_static/*.webp|doc/source/_static/*.ico|doc/source/_static/*.css) ;;
+                *) docs_only=false; break ;;
+              esac
+            done < changed-files.txt
+            [ "$seen" = "true" ] || docs_only=false
+          fi
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          echo "Documentation-only CI: $docs_only"
+
       - name: Detect platform test changes
         id: platform
         shell: bash
@@ -306,6 +378,7 @@ jobs:
     name: build_test_job (${{ matrix.os }}, ${{ matrix.python-version }}, ${{ matrix.module }})
     runs-on: ${{ matrix.os }}
     needs: [lint, changes]
+    if: ${{ needs.changes.outputs.docs_only != 'true' }}
     env:
       CONDA_ENV: test
       TEST_SUITE: full
@@ -497,6 +570,7 @@ jobs:
             xinference/tests/test_persisted_secret.py
           # Linux engine/P-D regressions and portable MLX mock tests.
           LINUX_TEST_PATHS: >-
+            xinference/client/tests/test_client.py::test_client_error_responses
             xinference/model/llm/tests/test_internvl_prompt.py
             xinference/model/llm/trt_llm/tests
             benchmark/tests/test_benchmark_pd.py

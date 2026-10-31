@@ -12,10 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Bounded GGUF metadata reader for maintenance, stopping before tensor data."""
+"""Bounded GGUF metadata reader, stopping before tensor data."""
 
 import hashlib
+import os
 import struct
+from typing import Any
+
+
+def resolve_gguf_model_path(model_path: str, spec: Any) -> str:
+    """Resolve the same first shard / legacy filename used by the runtime."""
+    if os.path.isfile(model_path):
+        return model_path
+    if (
+        spec.model_file_name_split_template
+        and spec.quantization in spec.quantization_parts
+    ):
+        part = spec.quantization_parts[spec.quantization][0]
+        return os.path.join(
+            model_path,
+            spec.model_file_name_split_template.format(
+                quantization=spec.quantization, part=part
+            ),
+        )
+    legacy = os.path.join(model_path, "model.bin")
+    if os.path.exists(legacy):
+        return legacy
+    return os.path.join(
+        model_path, spec.model_file_name_template.format(quantization=spec.quantization)
+    )
 
 
 def read_gguf_config(stream, limit: int = 16 * 1024**2) -> tuple:
@@ -111,6 +136,17 @@ def read_gguf_config(stream, limit: int = 16 * 1024**2) -> tuple:
     )
     # Unknown/hybrid layouts must not silently look like ordinary dense attention.
     config["model_type"] = architecture
+    rope = {
+        name: fields[prefix + "rope.scaling." + key]
+        for name, key in {
+            "rope_type": "type",
+            "factor": "factor",
+            "original_max_position_embeddings": "original_context_length",
+        }.items()
+        if prefix + "rope.scaling." + key in fields
+    }
+    if rope:
+        config["rope_parameters"] = rope
     if architecture == "clip":
         config["vision_config"] = {
             name: fields["clip.vision." + key]

@@ -62,6 +62,7 @@ def test_qwen_nvfp4_engine_matching(
     monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", True)
     monkeypatch.setattr(vllm_core, "VLLM_VERSION", Version("0.30.0"))
     monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", True)
+    monkeypatch.setattr(sglang_core, "_get_sglang_version", lambda: Version("0.5.22"))
     for model_cls in (vllm_core.VLLMMultiModel, sglang_core.SGLANGVisionModel):
         monkeypatch.setattr(model_cls, "_has_cuda_device", lambda: True)
         monkeypatch.setattr(model_cls, "_is_linux", lambda: True)
@@ -71,9 +72,8 @@ def test_qwen_nvfp4_engine_matching(
         sglang_core.SGLANGChatModel if is_text_only else sglang_core.SGLANGVisionModel
     )
     assert vllm_cls.match_json(family, spec, "FP4") is True
-    # Qwen4Exp remains vLLM-only until SGLang supports that architecture.
     result = sglang_cls.match_json(family, spec, "FP4")
-    assert (result is True) == (model_name != "qwen3.8-Flash-Next")
+    assert result is True
     assert Qwen2VLChatModel.match_json(family, spec, "FP4")[0] is False
     assert PytorchChatModel.match_json(family, spec, "FP4")[0] is False
 

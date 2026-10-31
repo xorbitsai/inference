@@ -7,7 +7,8 @@
       "max_context_length": 1010000,
       "engines": [
         "vllm",
-        "sglang"
+        "sglang",
+        "llama.cpp"
       ],
       "rope_parameters": {
         "rope_type": "yarn",

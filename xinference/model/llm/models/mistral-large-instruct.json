@@ -148,7 +148,7 @@
             ],
             "model_id": "MaziyarPanahi/Mistral-Large-Instruct-2407-GGUF",
             "model_file_name_template": "Mistral-Large-Instruct-2407.{quantization}.gguf",
-            "model_file_name_split_template": "Mixtral-8x22B-Instruct-v0.1.{quantization}-{part}.gguf",
+            "model_file_name_split_template": "Mistral-Large-Instruct-2407.{quantization}.gguf-{part}.gguf",
             "quantization_parts": {
               "Q3_K_L": [
                 "00001-of-00007",
