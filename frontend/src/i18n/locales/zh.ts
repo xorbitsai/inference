@@ -850,6 +850,7 @@ const zh = {
       imageLimit: '每个请求最多图片数',
       default: '引擎默认值',
       apply: '应用',
+      reapply: '重新应用当前显示的配置',
       queued: '重载已排队',
       draining: '等待当前请求完成',
       loading: '正在重建引擎',

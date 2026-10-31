@@ -281,22 +281,61 @@ async def test_late_rollback_after_scale_out_does_not_replace_model_autostart(
 
 
 @pytest.mark.asyncio
-async def test_late_rollback_after_scale_down_updates_remaining_model_autostart():
+@pytest.mark.parametrize("remaining", [0, 1])
+async def test_late_rollback_after_scale_down_updates_remaining_model_autostart(
+    remaining,
+):
     owner, _, actors, uids = make_replicas()
     job = await owner.reload_model("test", {"max_num_seqs": 32})
     await owner._model_reload_tasks["test"]
-    uids.pop()
+    original_uids = uids.copy()
+    uids[:] = [uids[remaining]]
     observed = {
         "operation_id": job["operation_id"],
         "status": "error",
         "restored": True,
         "error": "candidate exited",
     }
-    actors[0]._reload_status = observed
+    actors[remaining]._reload_status = observed
     await owner.restore_model_reload_config(uids[0], {"max_num_seqs": 16}, observed)
     owner._launch_history_store.update_autostart_launch_config.assert_called_with(
         "test", {"max_num_seqs": 16}
     )
+    status = await owner.get_model_reload_status("test")
+    assert status["status"] == "error" and status["partial"]
+    assert status["completed_replicas"] == 1
+    assert [row["replica_uid"] for row in status["replicas"]] == original_uids
+    assert status["replicas"][remaining]["status"] == "error"
+    assert status["replicas"][1 - remaining]["status"] == "ready"
+
+
+@pytest.mark.asyncio
+async def test_generation_commit_preserves_operation_order_for_reconstruction(
+    monkeypatch,
+):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from ...model.llm.reasoning_parser import ReasoningParser
+
+    owner, _, actors, uids = make_replicas()
+    actors[1]._model.reasoning_parser = ReasoningParser(False, "<think>", "</think>")
+    monkeypatch.setattr("xinference.core.model.time.time", lambda: 10)
+    await actors[1].reload({"reasoning_content": True}, 1, "older-parser")
+    monkeypatch.setattr("xinference.core.model_generation.time.time", lambda: 20)
+    anchor = actors[0]
+    anchor._start_generation_retirement = MagicMock()
+    anchor._serving_generation = SimpleNamespace(uid="previous")
+    candidate = SimpleNamespace(uid="candidate", generation_ready=AsyncMock())
+    await anchor.begin_generation_reload("newer-engine")
+    monkeypatch.setattr("xinference.core.model_generation.time.time", lambda: 30)
+    await anchor.commit_model_generation(candidate, "newer-engine", True, "cache")
+    assert anchor.get_reload_status()["started_at"] == 20
+    # The peer has not received the new rollout yet when the Supervisor is lost.
+    status = await owner.get_model_reload_status("test")
+    assert status["operation_id"] == "newer-engine"
+    assert status["status"] == "error" and status["outcome_unknown"]
+    assert [row["replica_uid"] for row in status["replicas"]] == uids[:1]
 
 
 @pytest.mark.asyncio

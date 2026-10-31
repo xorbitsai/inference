@@ -891,6 +891,7 @@ const en = {
       imageLimit: 'Maximum images per request',
       default: 'Engine default',
       apply: 'Apply',
+      reapply: 'Reapply displayed settings',
       queued: 'Reload queued',
       draining: 'Waiting for current requests to finish',
       loading: 'Rebuilding engine',

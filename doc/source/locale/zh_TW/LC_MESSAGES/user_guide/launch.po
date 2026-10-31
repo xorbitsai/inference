@@ -758,3 +758,12 @@ msgstr ""
 "Supervisor 意外重啟並遺失重載狀態時，僅憑 Actor "
 "回報無法確認原始目標副本集合，以及模型層級自動啟動設定是否已提交。即使已回報的副本都已就緒，重載結果仍會傳回 ``status=error`` 和 "
 "``outcome_unknown=true``。仍存活的引擎繼續服務；請檢查各副本目前設定後再決定是否重試。"
+
+#: user_guide/launch.rst:595
+msgid ""
+"For an unconfirmed result, **Reapply displayed settings** in the Web UI "
+"submits the values currently shown, even if unchanged. Blank or mixed fields"
+" are omitted until you set a value."
+msgstr ""
+"結果無法確認時，可在 Web UI 中點擊 "
+"**重新套用目前顯示的設定**，即使沒有修改也會提交目前顯示的值。空白欄位和各副本值不同的欄位，只有在指定值後才會提交。"

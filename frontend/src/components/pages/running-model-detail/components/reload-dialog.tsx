@@ -197,17 +197,9 @@ export function ReloadDialog({
   const parameters = Object.entries(config?.parameters || {}).filter(
     ([key]) => config?.enabled || config?.hot_parameters?.includes(key)
   );
-  const patch = Object.fromEntries(
+  const displayedPatch = Object.fromEntries(
     Object.entries(values)
       .filter(([key, value]) => value !== '' && parameters.some(([name]) => name === key))
-      .filter(([key, value]) => {
-        // Submitted targets remain retryable until the whole operation succeeds.
-        if (job?.status === 'error' && key in submittedValues) return true;
-        const current = config?.model_config[key];
-        return typeof current === 'object'
-          ? Number(value) !== current.image
-          : (typeof value === 'boolean' ? value : Number(value)) !== current;
-      })
       .map(([key, value]) => [
         key,
         config?.parameters[key] === 'image_limits'
@@ -217,16 +209,32 @@ export function ReloadDialog({
             : Number(value),
       ])
   );
+  const patch = Object.fromEntries(
+    Object.entries(displayedPatch).filter(([key, value]) => {
+      // Submitted targets remain retryable until the whole operation succeeds.
+      if (job?.status === 'error' && key in submittedValues) return true;
+      const current = config?.model_config[key];
+      return typeof value === 'object'
+        ? value.image !== (typeof current === 'object' ? current.image : undefined)
+        : value !== current;
+    })
+  );
 
-  const submit = async () => {
+  const submit = async (reapply = false) => {
+    const submittedPatch = reapply ? displayedPatch : patch;
     setSubmitting(true);
     setError('');
-    setSubmittedValues(Object.fromEntries(Object.keys(patch).map((key) => [key, values[key]])));
+    setSubmittedValues(
+      Object.fromEntries(Object.keys(submittedPatch).map((key) => [key, values[key]]))
+    );
     try {
       setJob(
         await request.post<ReloadStatus>(
           url,
-          { model_config: patch, ...(python.trim() ? { python_executable: python.trim() } : {}) },
+          {
+            model_config: submittedPatch,
+            ...(python.trim() ? { python_executable: python.trim() } : {}),
+          },
           { suppressGlobalError: true }
         )
       );
@@ -482,15 +490,24 @@ export function ReloadDialog({
               count: changeCount,
             })}
           </p>
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
             </Button>
+            {job?.outcome_unknown && !Object.keys(submittedValues).length && (
+              <Button
+                variant="outline"
+                disabled={busy || !Object.keys(displayedPatch).length}
+                onClick={() => submit(true)}
+              >
+                {t('runningModels.reload.reapply')}
+              </Button>
+            )}
             <Button
               disabled={
                 !parameters.length || busy || (!Object.keys(patch).length && !python.trim())
               }
-              onClick={submit}
+              onClick={() => submit()}
             >
               {busy && <Loader2 className="size-4 animate-spin" />}
               {t('runningModels.reload.apply')}

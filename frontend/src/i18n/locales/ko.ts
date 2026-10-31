@@ -873,6 +873,7 @@ const ko = {
       imageLimit: '요청당 최대 이미지 수',
       default: '엔진 기본값',
       apply: '적용',
+      reapply: '표시된 설정 다시 적용',
       queued: '재로드 대기 중',
       draining: '현재 요청이 끝날 때까지 대기 중',
       loading: '엔진 재구성 중',

@@ -862,6 +862,7 @@ const zhTW = {
       imageLimit: '每個請求最多圖片數',
       default: '引擎預設值',
       apply: '套用',
+      reapply: '重新套用目前顯示的設定',
       queued: '重載已排入佇列',
       draining: '等待目前請求完成',
       loading: '正在重建引擎',

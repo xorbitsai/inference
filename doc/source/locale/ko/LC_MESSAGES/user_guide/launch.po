@@ -782,3 +782,12 @@ msgstr ""
 " 여부를 확인할 수 없습니다. 보고된 복제본이 준비되었어도 재로드 결과는 ``status=error`` 와 "
 "``outcome_unknown=true`` 입니다. 살아 있는 엔진은 계속 요청을 처리합니다. 재시도 전에 현재 복제본 설정을 "
 "확인하세요."
+
+#: user_guide/launch.rst:595
+msgid ""
+"For an unconfirmed result, **Reapply displayed settings** in the Web UI "
+"submits the values currently shown, even if unchanged. Blank or mixed fields"
+" are omitted until you set a value."
+msgstr ""
+"결과를 확인할 수 없는 경우 Web UI의 **표시된 설정 다시 적용** 은 변경되지 않았더라도 현재 표시된 값을 전송합니다. 비어 "
+"있거나 복제본마다 값이 다른 필드는 값을 지정하기 전까지 제외됩니다."

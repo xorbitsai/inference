@@ -279,8 +279,9 @@ class ModelReloadMixin:
                 config,
             )
             status.update(observed)
-            if replicas:
-                replicas[0].update(observed)
+            row = next((r for r in replicas if r["replica_uid"] == replica_uid), None)
+            if row is not None:
+                row.update(observed)
                 _update_progress(status, active=model_uid in self._model_reload_tasks)
 
     async def reload_model(

@@ -804,3 +804,12 @@ msgstr ""
 "Supervisor 意外重启并丢失重载状态时，仅凭 Actor "
 "报告无法确认原始目标副本集合，以及模型级自动启动配置是否已提交。即使已报告的副本都已就绪，重载结果仍会返回 ``status=error`` 和 "
 "``outcome_unknown=true``。仍存活的引擎继续服务；请检查各副本当前配置后再决定是否重试。"
+
+#: user_guide/launch.rst:595
+msgid ""
+"For an unconfirmed result, **Reapply displayed settings** in the Web UI "
+"submits the values currently shown, even if unchanged. Blank or mixed fields"
+" are omitted until you set a value."
+msgstr ""
+"结果无法确认时，可在 Web UI 中点击 "
+"**重新应用当前显示的配置**，即使没有修改也会提交当前显示的值。空白字段和各副本值不同的字段，只有在指定值后才会提交。"

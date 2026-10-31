@@ -776,3 +776,12 @@ msgstr ""
 "の予期しない再起動で再読み込み状態が失われると、アクターの報告だけでは元の対象レプリカやモデル全体の自動起動設定の確定を確認できません。報告されたレプリカが準備完了でも、再読み込み結果は"
 " ``status=error`` と ``outcome_unknown=true`` "
 "になります。動作中のエンジンはサービスを継続します。再試行する前に各レプリカの現在の設定を確認してください。"
+
+#: user_guide/launch.rst:595
+msgid ""
+"For an unconfirmed result, **Reapply displayed settings** in the Web UI "
+"submits the values currently shown, even if unchanged. Blank or mixed fields"
+" are omitted until you set a value."
+msgstr ""
+"結果を確認できない場合、Web UI の **表示中の設定を再適用** "
+"は、変更されていなくても現在表示されている値を送信します。空欄やレプリカ間で値が異なる項目は、値を設定するまで送信されません。"

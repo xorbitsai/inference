@@ -877,6 +877,7 @@ const ja = {
       imageLimit: 'リクエストあたりの最大画像数',
       default: 'エンジンの既定値',
       apply: '適用',
+      reapply: '表示中の設定を再適用',
       queued: '再読み込み待機中',
       draining: '現在のリクエストの完了を待機中',
       loading: 'エンジンを再構築中',

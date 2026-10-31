@@ -377,6 +377,35 @@ it('shows an uncertain recovered outcome even with only one reported participant
   assert.equal(closed, 0);
 });
 
+for (const mixed of [false, true]) {
+  it(`explicitly reapplies displayed values after reopening an unknown result${mixed ? ' without guessing mixed values' : ''}`, async () => {
+    sequenceLimit = 32;
+    if (mixed) mixedParameters = ['max_num_seqs'];
+    initial = {
+      status: 'error',
+      error: 'Reload result cannot be confirmed after Supervisor restart',
+      outcome_unknown: true,
+      replicas: [{ replica_uid: 'model-rep0', status: 'ready' }],
+    };
+    await render();
+    assert.ok(applyButton().disabled);
+    assert.equal(posts.length, 0, 'Reopening must never automatically replay a reload');
+    const reapply = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'runningModels.reload.reapply'
+    )!;
+    assert.ok(reapply && !reapply.disabled);
+    await act(async () => reapply.click());
+    assert.deepEqual(posts[0].body, {
+      model_config: {
+        ...(!mixed ? { max_num_seqs: 32 } : {}),
+        enforce_eager: false,
+        reasoning_content: false,
+      },
+    });
+    assert.ok(!reapply.isConnected && applyButton().disabled);
+  });
+}
+
 for (const changeAnotherField of [false, true]) {
   it(`refreshes mixed values before allowing a same-dialog revert${changeAnotherField ? ' with another change' : ''}`, async () => {
     await render();
