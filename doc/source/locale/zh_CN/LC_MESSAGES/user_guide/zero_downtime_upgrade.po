@@ -597,3 +597,7 @@ msgstr "已获准的调用支持可选的异步提供者回调：``around_superv
 #: ../source/user_guide/zero_downtime_upgrade.rst:30
 msgid "Providers can opt in to ``controller_inventory(include_services=True)`` for ready specialized replicas, shard identities and coordinator observations. Setting the authority attribute ``include_model_services=True`` includes these replicas in ordinary registration reports as well. The local port supplies ``with_service_address(address, call)``, ``model_services(model_uid)`` and ``restore_model_services(model_uid, services)`` for scoped support-actor placement and reference restoration. An optional async ``model_services_changed(model_uid)`` callback can persist completed routing changes. Default placement and registration behavior are unchanged; these primitives do not select a host or perform recovery."
 msgstr "提供方可选择 ``controller_inventory(include_services=True)``，获取已就绪的专用副本、分片标识和协调 actor 观测。权限提供方设置 ``include_model_services=True`` 后，普通注册报告也会包含这些副本。本地端口提供 ``with_service_address(address, call)``、``model_services(model_uid)`` 和 ``restore_model_services(model_uid, services)``，用于限定调用范围的辅助 actor 放置和引用恢复。可选的异步 ``model_services_changed(model_uid)`` 回调可持久化已完成的路由变更。默认放置与注册行为保持不变；这些原语不选择主机，也不执行恢复。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:32
+msgid "The optional async ``model_service_address(model_uid)`` callback selects a support-actor address for both internal and public launches."
+msgstr "可选的异步 ``model_service_address(model_uid)`` 回调为内部和公开启动选择辅助 actor 地址。"

@@ -626,3 +626,7 @@ msgstr "許可済みの呼び出しには、任意の非同期プロバイダー
 #: ../source/user_guide/zero_downtime_upgrade.rst:30
 msgid "Providers can opt in to ``controller_inventory(include_services=True)`` for ready specialized replicas, shard identities and coordinator observations. Setting the authority attribute ``include_model_services=True`` includes these replicas in ordinary registration reports as well. The local port supplies ``with_service_address(address, call)``, ``model_services(model_uid)`` and ``restore_model_services(model_uid, services)`` for scoped support-actor placement and reference restoration. An optional async ``model_services_changed(model_uid)`` callback can persist completed routing changes. Default placement and registration behavior are unchanged; these primitives do not select a host or perform recovery."
 msgstr "プロバイダーは ``controller_inventory(include_services=True)`` により、準備済みの専用レプリカ、シャード識別子、コーディネーターの観測情報を取得できます。権限プロバイダーに ``include_model_services=True`` を設定すると通常の登録報告にも含まれます。ローカルポートの ``with_service_address(address, call)``、``model_services(model_uid)``、``restore_model_services(model_uid, services)`` は、呼び出しごとの補助 actor 配置と参照の復元を支援します。任意の非同期 ``model_services_changed(model_uid)`` コールバックで完了したルーティング変更を永続化できます。既定の配置と登録動作は変わりません。これらのプリミティブはホスト選択や復旧を実行しません。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:32
+msgid "The optional async ``model_service_address(model_uid)`` callback selects a support-actor address for both internal and public launches."
+msgstr "任意の非同期 ``model_service_address(model_uid)`` コールバックは、内部および公開起動の補助 actor アドレスを選択します。"

@@ -597,3 +597,7 @@ msgstr "已獲准的呼叫支援可選的非同步提供者回呼：``around_sup
 #: ../source/user_guide/zero_downtime_upgrade.rst:30
 msgid "Providers can opt in to ``controller_inventory(include_services=True)`` for ready specialized replicas, shard identities and coordinator observations. Setting the authority attribute ``include_model_services=True`` includes these replicas in ordinary registration reports as well. The local port supplies ``with_service_address(address, call)``, ``model_services(model_uid)`` and ``restore_model_services(model_uid, services)`` for scoped support-actor placement and reference restoration. An optional async ``model_services_changed(model_uid)`` callback can persist completed routing changes. Default placement and registration behavior are unchanged; these primitives do not select a host or perform recovery."
 msgstr "提供者可選用 ``controller_inventory(include_services=True)``，取得已就緒的專用副本、分片識別與協調 actor 觀測。權限提供者設定 ``include_model_services=True`` 後，一般註冊報告也會包含這些副本。本機連接埠提供 ``with_service_address(address, call)``、``model_services(model_uid)`` 與 ``restore_model_services(model_uid, services)``，用於限定呼叫範圍的輔助 actor 配置與參照還原。選用的非同步 ``model_services_changed(model_uid)`` 回呼可持久化已完成的路由變更。預設配置與註冊行為不變；這些原語不選擇主機，也不執行復原。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:32
+msgid "The optional async ``model_service_address(model_uid)`` callback selects a support-actor address for both internal and public launches."
+msgstr "選用的非同步 ``model_service_address(model_uid)`` 回呼為內部與公開啟動選擇輔助 actor 位址。"

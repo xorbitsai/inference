@@ -30,6 +30,8 @@ In local mode, startup still uses an API parent and one shared Supervisor/Worker
 
    Providers can opt in to ``controller_inventory(include_services=True)`` for ready specialized replicas, shard identities and coordinator observations. Setting the authority attribute ``include_model_services=True`` includes these replicas in ordinary registration reports as well. The local port supplies ``with_service_address(address, call)``, ``model_services(model_uid)`` and ``restore_model_services(model_uid, services)`` for scoped support-actor placement and reference restoration. An optional async ``model_services_changed(model_uid)`` callback can persist completed routing changes. Default placement and registration behavior are unchanged; these primitives do not select a host or perform recovery.
 
+   The optional async ``model_service_address(model_uid)`` callback selects a support-actor address for both internal and public launches.
+
 Check and install updates
 -------------------------
 
