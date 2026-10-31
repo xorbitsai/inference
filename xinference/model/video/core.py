@@ -236,6 +236,8 @@ def create_video_model_instance(
         raise ValueError(f"Model {model_name} does not support lightning acceleration")
     if not lightning_model_path and lightning_version:
         VideoCacheManager(model_spec).check_lightning(lightning_version)
+    if not gguf_model_path and gguf_quantization:
+        VideoCacheManager(model_spec).check_gguf(gguf_quantization)
 
     if not model_path:
         cache_manager = VideoCacheManager(model_spec)

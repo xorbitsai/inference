@@ -373,8 +373,8 @@ def create_image_model_instance(
     model_default_config.update(kwargs)
     kwargs = model_default_config
 
-    # Reject an unsupported engine or lightning version before any cache call
-    # below can download.
+    # Reject an unsupported engine, lightning version or GGUF selection before
+    # any cache call below can download.
     from .engine_family import (
         check_engine_by_model_name_and_engine,
         check_engine_by_model_name_and_engine_with_virtual_env,
@@ -405,6 +405,8 @@ def create_image_model_instance(
     cache_manager = ImageCacheManager(model_spec)
     if not lightning_model_path and lightning_version:
         cache_manager.check_lightning(lightning_version)
+    if not gguf_model_path and gguf_quantization:
+        cache_manager.check_gguf(gguf_quantization)
 
     controlnet = kwargs.get("controlnet")
     # Handle controlnet

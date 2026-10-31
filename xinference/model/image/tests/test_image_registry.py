@@ -199,6 +199,88 @@ def test_create_image_model_instance_rejects_invalid_controlnet(
 
 
 @pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize("model_path", [None, "/mine/model"])
+@pytest.mark.parametrize(
+    "model_name,error,message",
+    [
+        pytest.param(
+            "stable-diffusion-v1.5",
+            NotImplementedError,
+            "stable-diffusion-v1.5 does not support GGUF quantization",
+            id="model-without-gguf",
+        ),
+        pytest.param(
+            "Qwen-Image",
+            ValueError,
+            "Cannot support quantization not-a-quantization, available quantizations: "
+            "['F16', 'Q3_K_M', 'Q3_K_S', 'Q4_0', 'Q4_1', 'Q4_K_M', 'Q4_K_S', "
+            "'Q5_0', 'Q5_1', 'Q5_K_M', 'Q5_K_S', 'Q6_K', 'Q8_0']",
+            id="unknown-quantization",
+        ),
+    ],
+)
+def test_create_image_model_instance_rejects_invalid_gguf_before_cache(
+    monkeypatch: pytest.MonkeyPatch,
+    enable_virtual_env: bool,
+    model_path: Optional[str],
+    model_name: str,
+    error: Type[Exception],
+    message: str,
+) -> None:
+    cache = Mock(side_effect=AssertionError("Invalid GGUF selection reached caching"))
+    monkeypatch.setattr(ImageCacheManager, "cache", cache)
+    monkeypatch.setattr(ImageCacheManager, "cache_gguf", cache)
+    with pytest.raises(error) as exc_info:
+        create_image_model_instance(
+            "test",
+            model_name,
+            model_path=model_path,
+            gguf_quantization="not-a-quantization",
+            enable_virtual_env=enable_virtual_env,
+        )
+    assert str(exc_info.value) == message
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize("model_path", [None, "/mine/model"])
+@pytest.mark.parametrize("gguf_model_path", [None, "/mine/model.gguf"])
+def test_create_image_model_instance_still_caches_the_model_then_gguf(
+    monkeypatch: pytest.MonkeyPatch,
+    enable_virtual_env: bool,
+    model_path: Optional[str],
+    gguf_model_path: Optional[str],
+) -> None:
+    calls: List[str] = []
+
+    def fake_cache(manager: ImageCacheManager) -> str:
+        calls.append("model")
+        return "/cache/model"
+
+    def fake_cache_gguf(manager: ImageCacheManager, quantization: str) -> str:
+        calls.append("gguf " + quantization)
+        return "/cache/model.gguf"
+
+    monkeypatch.setattr(ImageCacheManager, "cache", fake_cache)
+    monkeypatch.setattr(ImageCacheManager, "cache_gguf", fake_cache_gguf)
+    model = create_image_model_instance(
+        "test",
+        "stable-diffusion-v1.5" if gguf_model_path else "Qwen-Image",
+        model_path=model_path,
+        gguf_quantization="not-a-quantization" if gguf_model_path else "Q4_0",
+        gguf_model_path=gguf_model_path,
+        enable_virtual_env=enable_virtual_env,
+    )
+    assert isinstance(model, DiffusersImageModel)
+    assert model._model_path == (model_path or "/cache/model")
+    expected_calls = [] if model_path else ["model"]
+    if not gguf_model_path:
+        expected_calls.append("gguf Q4_0")
+    assert calls == expected_calls
+    assert model._gguf_model_path == (gguf_model_path or "/cache/model.gguf")
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
 def test_create_ocr_model_instance_rejects_invalid_engine_before_cache(
     monkeypatch: pytest.MonkeyPatch, enable_virtual_env: bool
 ) -> None:
