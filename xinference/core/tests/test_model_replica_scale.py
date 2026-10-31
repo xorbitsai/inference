@@ -249,13 +249,17 @@ async def test_scale_up_rejects_per_replica_engine_settings_before_any_launch(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("enabled", [True, "true"])
-async def test_weight_cached_model_rejects_scale_up_before_allocation(enabled):
-    launch_args = {"n_worker": 1, "enable_weight_cache": enabled}
+async def test_weight_cached_model_supports_scale_up(enabled):
+    launch_args = {
+        "n_worker": 1,
+        "n_gpu": None,
+        "model_engine": "vLLM",
+        "enable_weight_cache": enabled,
+    }
     worker = _FakeScaleWorker("worker-0:9978", launch_args)
     supervisor = _make_supervisor([worker], launch_args)
-    with pytest.raises(ValueError, match="weight-cached"):
-        await supervisor.add_model_replica("demo")
-    assert worker.launches == []
+    await supervisor.add_model_replica("demo")
+    assert worker.launches[0]["enable_weight_cache"] == enabled
 
 
 @pytest.mark.asyncio
@@ -548,7 +552,7 @@ async def test_delete_missing_ready_replica_still_rejects():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
 @pytest.mark.parametrize("enabled", [True, False])
-async def test_scale_up_uses_resolved_auto_cache_state(engine, enabled):
+async def test_scale_up_preserves_auto_cache_policy(engine, enabled):
     launch_args = {
         "n_worker": 1,
         "n_gpu": None,
@@ -558,13 +562,8 @@ async def test_scale_up_uses_resolved_auto_cache_state(engine, enabled):
     worker = _FakeScaleWorker("worker-0:9978", launch_args)
     worker.cache_enabled = enabled
     supervisor = _make_supervisor([worker], launch_args)
-    if enabled:
-        with pytest.raises(ValueError, match="weight-cached"):
-            await supervisor.add_model_replica("demo")
-        assert not worker.launches
-    else:
-        await supervisor.add_model_replica("demo")
-        assert worker.launches[0]["enable_weight_cache"] is False
+    await supervisor.add_model_replica("demo")
+    assert worker.launches[0]["enable_weight_cache"] is None
     assert worker.launch_args["enable_weight_cache"] is None
 
 
@@ -612,4 +611,4 @@ async def test_cross_engine_scale_up_remains_scalable_after_source_removal(engin
     worker.cache_enabled = worker.launch_args.get("enable_weight_cache") is not False
     second = await supervisor.add_model_replica("demo")
     assert second["replica_id"] == 2
-    assert all(args["enable_weight_cache"] is False for args in worker.launches)
+    assert all(args["enable_weight_cache"] is None for args in worker.launches)

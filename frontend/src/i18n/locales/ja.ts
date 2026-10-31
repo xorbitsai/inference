@@ -569,7 +569,7 @@ const ja = {
     weightCacheEnabled: '有効',
     weightCacheDisabled: '無効',
     enableWeightCacheTip:
-      '自動では、モデルの環境と設定が対応する場合に重みを保持し、それ以外は通常どおり起動します。vLLM 0.31.0+ または SGLang 0.5.21+、Linux GPU、単一ワーカーと単一レプリカが必要です。有効を選ぶと対応を必須とし、無効を選ぶと使用しません。',
+      '自動では、モデルの環境と設定が対応する場合に重みを保持し、それ以外は通常どおり起動します。vLLM 0.31.0+ または SGLang 0.5.21+、Linux GPU が必要で、各レプリカは単一ワーカーに配置します。有効を選ぶと対応を必須とし、無効を選ぶと使用しません。',
     recommendSetup: '実行環境の準備が必要な場合があります。',
     recommendMemory: '利用可能なメモリは未検証です。',
     recommendConfiguration: '構成を推奨',
@@ -862,12 +862,22 @@ const ja = {
     launchFailed: 'モデルの起動に失敗しました。以下のレプリカのエラーを確認してください。',
     reload: {
       title: 'モデルの再設定 / 更新',
-      description: '新しい設定の準備中も現在のエンジンがリクエストを処理します。',
+      description:
+        '新しい設定の準備中もモデルはサービスを継続します。レプリカは一つずつ更新されます。',
+      replicaProgress: '更新済みレプリカ：{{completed}} / {{total}}',
+      mixed: 'レプリカごとに値が異なります',
+      partial:
+        '{{completed}}/{{total}} 個のレプリカが完了し、新しい設定を保持しています。失敗したレプリカを確認してから再試行してください。',
+      ready: '更新済み',
+      error: '失敗',
+      cancelled: 'キャンセル済み',
+      skipped: '未更新',
       disabled: 'エンジンパラメーターを変更するには、起動時に GPU の重み保持を有効にしてください。',
       reasoningHint: '現在のリクエスト完了後に適用され、エンジンは再起動しません。',
       imageLimit: 'リクエストあたりの最大画像数',
       default: 'エンジンの既定値',
       apply: '適用',
+      reapply: '表示中の設定を再適用',
       queued: '再読み込み待機中',
       draining: '現在のリクエストの完了を待機中',
       loading: 'エンジンを再構築中',

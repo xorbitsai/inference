@@ -557,11 +557,11 @@ Reconfigure and upgrade running models
 
 .. versionadded:: v4.0.0
 
-.. versionchanged:: 0.4.2
+.. versionchanged:: v4.2.0
 
-   The default for ``enable_weight_cache`` changed from ``False`` to automatic selection (``None``).
+   The default for ``enable_weight_cache`` changed from ``False`` to automatic selection (``None``). Retained-weight models now support multiple replicas, scale-out and sequential reload.
 
-GPU weight retention defaults to automatic selection: supported model environments and configurations enable it; unsupported configurations start normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic selection, set ``True`` to require retention, or ``False`` to disable it. In the deployment dialog, **Keep GPU weights for reload** offers **Auto**, **Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. Models with retained weights cannot add replicas.
+GPU weight retention defaults to automatic selection: supported model environments and configurations enable it; unsupported configurations start normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic selection, set ``True`` to require retention, or ``False`` to disable it. In the deployment dialog, **Keep GPU weights for reload** offers **Auto**, **Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one Worker per replica, and fixed tensor parallelism within each replica. Multiple replicas and scale-out are supported; each replica retains its own weights independently.
 
 .. figure:: /_static/keep_weight_for_reload.png
    :alt: Configure GPU weight retention before deploying the model.
@@ -585,6 +585,14 @@ GPU weight retention defaults to automatic selection: supported model environmen
    Open Reconfigure / upgrade model from the model's detail view.
 
 With retained weights enabled, Xinference prepares a replacement model process while the current engine keeps serving. The replacement shares compatible cached weights and builds its own KV cache and CUDA graphs. New requests switch only after loading and a health check succeed; existing requests, including streams, finish on their original engine. Failed preparation leaves the current engine serving. The model UID and GPU reservation stay the same. Terminating the model releases its processes and cached weights.
+
+For multiple replicas, reload validates the patch on every replica before changing any engine, then updates replicas one at a time. Status includes ``replicas``, ``completed_replicas`` and ``replica_count``. A failure stops the rollout: later replicas are ``skipped``, successful replicas keep their new settings, and the failed replica reports whether its previous engine was ``restored``. ``partial=true`` indicates that only some replicas completed; retry reload to finish the rollout. The Web UI shows per-replica progress and partial failures. Adding or removing replicas during reload returns HTTP 409; terminating the whole model can cancel the operation.
+
+Worker recovery uses each replica's committed configuration. The model-wide automatic-startup configuration changes only after all replicas succeed. Replicas may temporarily have different settings after a partial failure; reload metadata lists differing values in ``mixed_parameters``.
+
+If an unexpected Supervisor restart loses reload state, actor reports cannot prove which replicas were originally targeted or whether model-wide automatic-startup settings were committed. Even when the reported replicas are ready, the reload result is ``status=error`` with ``outcome_unknown=true``. Surviving engines keep serving; inspect current replica settings before retrying.
+
+For an unconfirmed result, **Reapply displayed settings** in the Web UI submits the values currently shown, even if unchanged. Blank or mixed fields are omitted until you set a value.
 
 ``POST /v1/models/{model_uid}/reload`` accepts a partial ``model_config`` object and optional ``python_executable`` and ``drain_timeout`` fields. It returns HTTP 202 with an ``operation_id``. Poll ``GET /v1/models/{model_uid}/reload`` until ``status`` is ``ready`` or ``error``. On error, ``restored=true`` means the previous engine is serving. Query ``GET /v1/models/{model_uid}/reload/config`` for supported parameters, current values, engine version and Python executable. Invalid patches return HTTP 400; a reload already in progress returns HTTP 409. ``drain_timeout`` controls the wait for parser-only updates (default 300 seconds, maximum 3600); engine replacements never force existing requests to stop.
 
@@ -614,7 +622,7 @@ To change the model environment, set ``python_executable`` to an installed absol
 
 vLLM supports changing ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` and ``enforce_eager``.
 
-For reasoning-capable models, both engines also accept ``reasoning_content`` through the same reload API. This changes only the Xinference reasoning parser and leaves the engine and GPU weights intact. It works without ``enable_weight_cache`` or the minimum engine versions required for weight retention. Existing requests, including streams, finish before the new setting is applied; new requests wait until the parser change is applied. The ``hot_parameters`` field in reload metadata lists these settings; ``enabled`` still indicates launch-time weight retention. Hot updates also require one worker and one replica. ``weights_reused`` is true only when an engine rebuild uses retained weights.
+For reasoning-capable models, both engines also accept ``reasoning_content`` through the same reload API. This changes only the Xinference reasoning parser and leaves the engine and GPU weights intact. It works without ``enable_weight_cache`` or the minimum engine versions required for weight retention. Existing requests, including streams, finish before the new setting is applied; new requests wait until the parser change is applied. The ``hot_parameters`` field in reload metadata lists these settings; ``enabled`` still indicates launch-time weight retention. Hot updates also require one Worker per replica and are applied sequentially across replicas. ``weights_reused`` is true only when an engine rebuild uses retained weights.
 
 For vLLM vision models launched with weight retention, ``limit_mm_per_prompt`` can change a positive image count to another positive count, for example ``{"image": 8}``. Unspecified modality limits are preserved in the engine, recovery and automatic-startup configuration. The engine is rebuilt to apply multimodal memory profiling and cache budgets while reusing the retained weights. Setting the image count to zero or enabling images from an initially disabled encoder is rejected; limits for other modalities cannot change through this operation.
 
@@ -622,7 +630,7 @@ SGLang supports changing ``max_running_requests``, ``max_prefill_tokens``, ``con
 
 For SGLang vision models launched with weight retention, ``limit_mm_data_per_request`` accepts a partial image-count patch, for example ``{"image": 8}``. The engine is rebuilt with retained weights so the new tokenizer process applies the limit. Other modality limits are preserved in the engine, recovery and automatic-startup configuration. An initially unlimited or zero image count can become a positive count because this setting only validates request counts; it does not disable the vision encoder. New image limits must be positive integers. Returning to an unlimited or zero image count requires relaunching the model. With an initial zero image count, Xinference skips SGLang's default image warmup.
 
-Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reconfigure / upgrade model** to edit the supported values and follow progress.
+Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, replicas sharded across Workers, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reconfigure / upgrade model** to edit the supported values and follow progress.
 
 .. code-block:: python
 

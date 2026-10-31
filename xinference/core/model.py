@@ -775,6 +775,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
         config = self._get_weight_cached_model().get_reload_config()
         config["python_executable"] = sys.executable
+        config["supports_reload_operation_id"] = True
         try:
             config["engine_version"] = version(config["engine"])
         except PackageNotFoundError:
@@ -786,20 +787,29 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         config = await asyncio.to_thread(
             self._get_weight_cached_model().validate_reload, model_config
         )
-        self._reload_status: Dict[str, Any] = {}
         return {key: config[key] for key in model_config}
 
     def get_reload_status(self) -> Dict[str, Any]:
         return dict(getattr(self, "_reload_status", {}))
 
-    async def reload(self, model_config: Dict[str, Any], drain_timeout: float) -> bool:
+    async def reload(
+        self,
+        model_config: Dict[str, Any],
+        drain_timeout: float,
+        operation_id: Optional[str] = None,
+    ) -> bool:
         from ..model.llm.weight_cache import ModelReloadError
 
         await self.validate_reload(model_config)
         model = self._get_weight_cached_model()
         self._model_state = "reloading"
         self._reload_admission = asyncio.Event()
-        self._reload_status = {"stage": "draining"}
+        self._reload_status = {
+            "status": "reloading",
+            "stage": "draining",
+            "started_at": time.time(),
+            "operation_id": operation_id,
+        }
         try:
             deadline = time.monotonic() + drain_timeout
             while self._serve_count:
@@ -816,16 +826,20 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             )
         except ModelReloadError as exc:
             self._model_state = "ready" if exc.restored else "error"
-            self._reload_status.update(stage="error", restored=exc.restored)
+            self._reload_status.update(
+                status="error", stage="error", restored=exc.restored, error=str(exc)
+            )
             raise
-        except Exception:
+        except Exception as exc:
             # Validation inside reload happens before engine teardown.
             self._model_state = "ready"
-            self._reload_status.update(stage="error", restored=True)
+            self._reload_status.update(
+                status="error", stage="error", restored=True, error=str(exc)
+            )
             raise
         else:
             self._model_state = "ready"
-            self._reload_status.update(stage="ready")
+            self._reload_status.update(status="ready", stage="ready")
             return not model._is_hot_patch(model_config)
         finally:
             self._reload_admission.set()

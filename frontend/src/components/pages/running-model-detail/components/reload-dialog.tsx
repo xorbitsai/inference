@@ -34,6 +34,8 @@ interface ReloadConfig {
   engine_version?: string;
   python_executable?: string;
   can_upgrade_environment?: boolean;
+  mixed_parameters?: string[];
+  replicas?: { replica_uid: string; engine?: string; engine_version?: string }[];
 }
 interface ReloadStatus {
   operation_id?: string;
@@ -41,11 +43,27 @@ interface ReloadStatus {
   stage?: string;
   error?: string;
   restored?: boolean;
+  partial?: boolean;
+  outcome_unknown?: boolean;
+  completed_replicas?: number;
+  replica_count?: number;
+  replicas?: { replica_uid: string; status: string; stage?: string; error?: string }[];
 }
 
 function errorMessage(error: unknown) {
   if (isAxiosError(error)) return error.response?.data?.detail || error.message;
   return error instanceof Error ? error.message : String(error);
+}
+
+function valuesFromConfig(config: ReloadConfig): Record<string, string | boolean> {
+  return Object.fromEntries(
+    Object.entries(config.model_config).map(([key, value]) => [
+      key,
+      typeof value === 'boolean'
+        ? value
+        : String(typeof value === 'object' ? (value.image ?? '') : value),
+    ])
+  );
 }
 
 const PARAMETER_LABELS: Record<string, string> = {
@@ -84,6 +102,7 @@ export function ReloadDialog({
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [python, setPython] = useState('');
+  const [submittedValues, setSubmittedValues] = useState<Record<string, string | boolean>>({});
   const url = `/v1/models/${encodeURIComponent(modelUid)}/reload`;
   const busy = submitting || job?.status === 'reloading';
 
@@ -94,6 +113,7 @@ export function ReloadDialog({
     setJob(null);
     setError('');
     setPython('');
+    setSubmittedValues({});
     Promise.all([
       request.get<ReloadConfig>(`${url}/config`, { suppressGlobalError: true }),
       request.get<ReloadStatus>(url, { suppressGlobalError: true }),
@@ -101,17 +121,14 @@ export function ReloadDialog({
       .then(([metadata, status]) => {
         if (!active) return;
         setConfig(metadata);
-        setValues(
-          Object.fromEntries(
-            Object.entries(metadata.model_config).map(([key, value]) => [
-              key,
-              typeof value === 'boolean'
-                ? value
-                : String(typeof value === 'object' ? (value.image ?? '') : value),
-            ])
-          )
+        setValues(valuesFromConfig(metadata));
+        setJob(
+          status.status === 'reloading' ||
+            (status.status === 'error' &&
+              ((status.replicas?.length || 0) > 1 || status.outcome_unknown))
+            ? status
+            : null
         );
-        setJob(status.status === 'reloading' ? status : null);
       })
       .catch((err) => {
         if (active) setError(errorMessage(err));
@@ -129,6 +146,24 @@ export function ReloadDialog({
       try {
         const status = await request.get<ReloadStatus>(url, { suppressGlobalError: true });
         if (!active) return;
+        if (status.status === 'error') {
+          // Keep the form busy until the new comparison baseline is available.
+          try {
+            const metadata = await request.get<ReloadConfig>(`${url}/config`, {
+              suppressGlobalError: true,
+            });
+            if (!active) return;
+            setConfig(metadata);
+            setValues({ ...valuesFromConfig(metadata), ...submittedValues });
+          } catch (err) {
+            if (!active) return;
+            // A stale baseline must not become editable when refresh fails.
+            setConfig(null);
+            setJob(status);
+            setError([status.error, errorMessage(err)].filter(Boolean).join(' '));
+            return;
+          }
+        }
         setJob(status);
         setError('');
         if (status.status === 'reloading') {
@@ -149,20 +184,22 @@ export function ReloadDialog({
       active = false;
       clearTimeout(timer);
     };
-  }, [open, job?.status, url, onReady, onOpenChange]);
+  }, [open, job?.status, url, onReady, onOpenChange, submittedValues]);
+
+  const engineVersions = [
+    ...new Set(
+      config?.replicas?.map((replica) =>
+        [replica.engine, replica.engine_version].filter(Boolean).join(' ')
+      ) || (config?.engine_version ? [`${config.engine} ${config.engine_version}`] : [])
+    ),
+  ].filter(Boolean);
 
   const parameters = Object.entries(config?.parameters || {}).filter(
     ([key]) => config?.enabled || config?.hot_parameters?.includes(key)
   );
-  const patch = Object.fromEntries(
+  const displayedPatch = Object.fromEntries(
     Object.entries(values)
       .filter(([key, value]) => value !== '' && parameters.some(([name]) => name === key))
-      .filter(([key, value]) => {
-        const current = config?.model_config[key];
-        return typeof current === 'object'
-          ? Number(value) !== current.image
-          : (typeof value === 'boolean' ? value : Number(value)) !== current;
-      })
       .map(([key, value]) => [
         key,
         config?.parameters[key] === 'image_limits'
@@ -172,15 +209,32 @@ export function ReloadDialog({
             : Number(value),
       ])
   );
+  const patch = Object.fromEntries(
+    Object.entries(displayedPatch).filter(([key, value]) => {
+      // Submitted targets remain retryable until the whole operation succeeds.
+      if (job?.status === 'error' && key in submittedValues) return true;
+      const current = config?.model_config[key];
+      return typeof value === 'object'
+        ? value.image !== (typeof current === 'object' ? current.image : undefined)
+        : value !== current;
+    })
+  );
 
-  const submit = async () => {
+  const submit = async (reapply = false) => {
+    const submittedPatch = reapply ? displayedPatch : patch;
     setSubmitting(true);
     setError('');
+    setSubmittedValues(
+      Object.fromEntries(Object.keys(submittedPatch).map((key) => [key, values[key]]))
+    );
     try {
       setJob(
         await request.post<ReloadStatus>(
           url,
-          { model_config: patch, ...(python.trim() ? { python_executable: python.trim() } : {}) },
+          {
+            model_config: submittedPatch,
+            ...(python.trim() ? { python_executable: python.trim() } : {}),
+          },
           { suppressGlobalError: true }
         )
       );
@@ -218,7 +272,24 @@ export function ReloadDialog({
           <span className="block text-sm font-medium">{label}</span>
           <span className="block break-all font-mono text-[11px] text-muted-foreground">{key}</span>
         </label>
-        {kind === 'bool' ? (
+        {kind === 'bool' && config?.mixed_parameters?.includes(key) ? (
+          <select
+            id={id}
+            aria-label={key}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            disabled={busy}
+            value={typeof values[key] === 'boolean' ? String(values[key]) : ''}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, [key]: event.target.value === 'true' }))
+            }
+          >
+            <option value="" disabled>
+              {t('runningModels.reload.mixed')}
+            </option>
+            <option value="true">True</option>
+            <option value="false">False</option>
+          </select>
+        ) : kind === 'bool' ? (
           <Switch
             id={id}
             aria-label={key}
@@ -235,7 +306,11 @@ export function ReloadDialog({
             min={kind === 'image_limits' ? 1 : undefined}
             step={kind === 'fraction' || kind === 'positive_number' ? 'any' : 1}
             value={String(values[key] ?? '')}
-            placeholder={t('runningModels.reload.default')}
+            placeholder={t(
+              config?.mixed_parameters?.includes(key)
+                ? 'runningModels.reload.mixed'
+                : 'runningModels.reload.default'
+            )}
             disabled={busy}
             onChange={(event) => setValues((prev) => ({ ...prev, [key]: event.target.value }))}
           />
@@ -264,11 +339,11 @@ export function ReloadDialog({
           </DialogDescription>
           {config && (
             <div className="flex flex-wrap items-center gap-2">
-              {config.engine_version && (
-                <Badge variant="secondary" className="font-normal">
-                  {config.engine} {config.engine_version}
+              {engineVersions.map((engine) => (
+                <Badge key={engine} variant="secondary" className="font-normal">
+                  {engine}
                 </Badge>
-              )}
+              ))}
               {config.enabled && (
                 <Badge variant="outline" className="gap-1.5 border-primary/20 text-primary">
                   <Check />
@@ -352,6 +427,36 @@ export function ReloadDialog({
               </div>
             </details>
           )}
+          {(job?.replicas?.length || 0) > 1 && (
+            <section
+              className="space-y-3 rounded-xl border p-4"
+              aria-label={t('runningModels.reload.replicaProgress')}
+            >
+              <p className="text-sm font-medium" aria-live="polite">
+                {t('runningModels.reload.replicaProgress', {
+                  completed: job?.completed_replicas || 0,
+                  total: job?.replica_count || job?.replicas?.length || 0,
+                })}
+              </p>
+              {job?.replicas?.map((replica) => (
+                <div
+                  key={replica.replica_uid}
+                  className="flex items-center justify-between gap-3 text-xs"
+                >
+                  <span className="min-w-0 truncate font-mono" title={replica.replica_uid}>
+                    {replica.replica_uid}
+                  </span>
+                  <span
+                    className={
+                      replica.status === 'error' ? 'text-destructive' : 'text-muted-foreground'
+                    }
+                  >
+                    {t(`runningModels.reload.${replica.stage || replica.status}`)}
+                  </span>
+                </div>
+              ))}
+            </section>
+          )}
           {job?.status === 'reloading' && (
             <div
               role="status"
@@ -369,6 +474,11 @@ export function ReloadDialog({
               <AlertCircle className="mt-0.5 size-4 shrink-0" />
               <p className="min-w-0 break-words leading-6 [overflow-wrap:anywhere]">
                 {error || job?.error}
+                {job?.partial &&
+                  ` ${t('runningModels.reload.partial', {
+                    completed: job.completed_replicas || 0,
+                    total: job.replica_count || 0,
+                  })}`}
                 {job?.restored && ` ${t('runningModels.reload.restored')}`}
               </p>
             </div>
@@ -380,15 +490,24 @@ export function ReloadDialog({
               count: changeCount,
             })}
           </p>
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
             </Button>
+            {job?.outcome_unknown && !Object.keys(submittedValues).length && (
+              <Button
+                variant="outline"
+                disabled={busy || !Object.keys(displayedPatch).length}
+                onClick={() => submit(true)}
+              >
+                {t('runningModels.reload.reapply')}
+              </Button>
+            )}
             <Button
               disabled={
                 !parameters.length || busy || (!Object.keys(patch).length && !python.trim())
               }
-              onClick={submit}
+              onClick={() => submit()}
             >
               {busy && <Loader2 className="size-4 animate-spin" />}
               {t('runningModels.reload.apply')}

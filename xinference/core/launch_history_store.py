@@ -456,7 +456,11 @@ class LaunchHistoryStore:
                     data = json.loads(row["data"])
                     # Never promote a legacy public key to trusted state.
                     data.pop("model_python_executable", None)
-                    data.update(config)
+                    for key, value in config.items():
+                        if isinstance(value, dict) and isinstance(data.get(key), dict):
+                            data[key] = {**data[key], **value}
+                        else:
+                            data[key] = value
                     data.pop("model_python_executable", None)
                     if "model_python_executable" in config:
                         executable = config["model_python_executable"]

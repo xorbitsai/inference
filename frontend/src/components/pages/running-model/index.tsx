@@ -672,7 +672,7 @@ const RunningModel = () => {
       !tokenRouterModel &&
       activeModelReady &&
       ['vllm', 'sglang'].includes((activeModel.model_engine || '').toLowerCase()) &&
-      activeModel.replica === 1 &&
+      activeModel.model_type === 'LLM' &&
       (activeModel.n_worker || 1) === 1;
 
     return (

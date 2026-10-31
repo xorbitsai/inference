@@ -223,10 +223,47 @@ async def test_failed_job_reports_restoration_and_does_not_persist(fail_restore)
     await supervisor._model_reload_tasks["test"]
     status = await supervisor.get_model_reload_status("test")
     assert status["status"] == "error"
+    assert status["error"] == status["replicas"][0]["error"]
     assert status["restored"] is not fail_restore
     assert actor._model_state == ("error" if fail_restore else "ready")
     assert worker._model_uid_to_launch_args["test-replica"]["max_num_seqs"] == 16
     worker._persist_launch_args.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_generic_reload_failure_preserves_actor_error_detail():
+    actor = make_actor()
+    actor._model.reload = MagicMock(side_effect=RuntimeError("parser update failed"))
+    with pytest.raises(RuntimeError, match="parser update failed"):
+        await actor.reload({"max_num_seqs": 32}, 300, operation_id="one")
+    assert actor.get_reload_status()["error"] == "parser update failed"
+    assert actor.get_reload_status()["restored"]
+    assert actor._model_state == "ready" and actor._reload_admission.is_set()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "capability", ["supports_reload_operation_id", "reload_operation_id", None]
+)
+async def test_parser_reload_capability_supports_current_and_retained_actors(
+    capability,
+):
+    actor = make_actor()
+    assert actor.get_reload_config()["supports_reload_operation_id"] is True
+    _, worker = make_pipeline(actor)
+    ref = worker._model_uid_to_model["test-replica"]
+    ref.get_reload_config = AsyncMock(
+        return_value={capability: True} if capability else {}
+    )
+    ref.reload = AsyncMock(return_value=False)
+    await worker.reload_model(
+        "test-replica", {"reasoning_content": True}, 300, operation_id="one"
+    )
+    ref.reload.assert_awaited_once_with(
+        {"reasoning_content": True},
+        300,
+        **({"operation_id": "one"} if capability else {}),
+    )
 
 
 @pytest.mark.asyncio
@@ -244,7 +281,6 @@ async def test_requests_rejected_during_reload():
 @pytest.mark.parametrize(
     "overrides",
     [
-        {"replica": 2},
         {"n_worker": 2},
         {"model_engine": "Transformers"},
         {"model_type": "embedding"},

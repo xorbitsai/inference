@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 
 import json
 from types import SimpleNamespace
@@ -19,6 +20,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from fastapi import HTTPException
 
+from ...core.exceptions import ModelReloadInProgress
 from ..restful_api import RESTfulAPI
 
 
@@ -129,3 +131,22 @@ async def test_terminate_last_replica_evicts_api_cache(replica_api, monkeypatch)
     assert json.loads(response.body) == {"remaining_replicas": 0}
     assert "demo" not in replica_api._uid_to_model_name
     evict_model_cache.assert_called_once_with("demo")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["add", "remove"])
+async def test_resize_during_reload_returns_conflict(replica_api, operation):
+    supervisor = AsyncMock()
+    supervisor.add_model_replicas.side_effect = ModelReloadInProgress(
+        "reload in progress"
+    )
+    supervisor.terminate_model_replica.side_effect = ModelReloadInProgress(
+        "reload in progress"
+    )
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    with pytest.raises(HTTPException) as exc:
+        if operation == "add":
+            await replica_api.add_model_replica("demo")
+        else:
+            await replica_api.terminate_model_replica("demo", 0)
+    assert exc.value.status_code == 409

@@ -47,3 +47,7 @@ class ModelCatalogUpdateError(RuntimeError):
 
 class ModelCatalogUnavailableError(ModelCatalogUpdateError):
     """No workers are available to refresh the model catalog."""
+
+
+class ModelReloadInProgress(RuntimeError):
+    """A model-wide reload has admitted its replica snapshot."""

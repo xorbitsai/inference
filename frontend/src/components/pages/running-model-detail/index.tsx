@@ -252,7 +252,7 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
             />
           )}
           {['vllm', 'sglang'].includes((model?.model_engine || '').toLowerCase()) &&
-            model?.replica === 1 &&
+            (model?.model_type || 'LLM') === 'LLM' &&
             (model?.n_worker || 1) === 1 && (
               <Button variant="outline" onClick={() => setReloadOpen(true)}>
                 {t('runningModels.reload.title')}

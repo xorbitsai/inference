@@ -323,12 +323,16 @@ msgid ""
 "model**. Engine replacement requires GPU weight retention enabled at launch,"
 " either automatically on a supported configuration or explicitly with "
 "``enable_weight_cache=True``. See :ref:`launch_weight_cache_reload` for "
-"prerequisites and the **Auto**, **Enabled** and **Disabled** settings."
+"prerequisites and the **Auto**, **Enabled** and **Disabled** settings. "
+"Multiple replicas are supported: each keeps its own weight cache, and model "
+"reload updates them sequentially. See the linked guide for partial failures,"
+" retries and scale-out."
 msgstr ""
 "実行中のモデルの詳細画面を開き、**モデルの再設定 / アップグレード** を選びます。エンジンの置換には起動時の GPU "
 "の重みの保持が必要です。対応する設定では自動的に有効になり、``enable_weight_cache=True`` "
 "で明示的に有効にすることもできます。要件と **自動**、**有効**、**無効** の設定は "
-":ref:`launch_weight_cache_reload` を参照してください。"
+":ref:`launch_weight_cache_reload` を参照してください。 "
+"複数レプリカに対応し、各レプリカが独立した重みキャッシュを保持して順番に更新されます。部分的な失敗、再試行、レプリカ追加についてはリンク先のガイドを参照してください。"
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:149
 msgid ""
@@ -616,8 +620,11 @@ msgstr "Supervisor 権限プロバイダーは ``create_supervisor_control_autho
 #: ../../source/user_guide/zero_downtime_upgrade.rst:220
 msgid ""
 "The default for ``enable_weight_cache`` changed from ``False`` to automatic "
-"selection (``None``)."
-msgstr "``enable_weight_cache`` のデフォルト値が ``False`` から自動選択（``None``）に変更されました。"
+"selection (``None``). Retained-weight models now support multiple replicas, "
+"scale-out and sequential reload."
+msgstr ""
+"``enable_weight_cache`` のデフォルト値が ``False`` から自動選択（``None``）に変更されました。 "
+"重みを保持するモデルで、複数レプリカ、レプリカの追加、順次再読み込みに対応しました。"
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:28
 msgid "Admitted calls can use optional asynchronous provider callbacks: ``around_supervisor_call(invocation, call)``, ``around_worker_call(invocation, call)`` and ``around_control_call(invocation, call)``. The immutable invocation describes the target, method, original control context and arguments. Await ``call()`` to execute; argument overrides preserve that context. The runtime supplies no receipts or replay policy. Worker callbacks also retain their original session when the Supervisor reference changes. Read-only ``controller_resource_state``, ``controller_catalog`` and ``control_operation_receipt`` expose observations or provider evidence; unavailable receipts raise. The local port can capture or replace catalogs and settings, list Worker references and invoke a public Supervisor method. Catalog replacement validates definitions first and does not rewrite registration files."

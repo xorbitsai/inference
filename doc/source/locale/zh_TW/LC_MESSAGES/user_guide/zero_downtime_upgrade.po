@@ -308,11 +308,15 @@ msgid ""
 "model**. Engine replacement requires GPU weight retention enabled at launch,"
 " either automatically on a supported configuration or explicitly with "
 "``enable_weight_cache=True``. See :ref:`launch_weight_cache_reload` for "
-"prerequisites and the **Auto**, **Enabled** and **Disabled** settings."
+"prerequisites and the **Auto**, **Enabled** and **Disabled** settings. "
+"Multiple replicas are supported: each keeps its own weight cache, and model "
+"reload updates them sequentially. See the linked guide for partial failures,"
+" retries and scale-out."
 msgstr ""
 "開啟執行中模型的詳細頁面，選擇 **重新設定 / 升級模型**。替換引擎需要在啟動時啟用 GPU 權重保留，可在支援的設定下自動開啟，或明確設定 "
 "``enable_weight_cache=True``。前提條件及 **自動**、**開啟** 和 **關閉** 設定請參閱 "
-":ref:`launch_weight_cache_reload`。"
+":ref:`launch_weight_cache_reload`。 "
+"支援多副本：每個副本獨立保留權重快取，重載時逐個更新。部分失敗、重試和擴充行為請參閱上述指南。"
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:149
 msgid ""
@@ -587,8 +591,11 @@ msgstr "Supervisor 權威提供者可實作 ``create_supervisor_control_authorit
 #: ../../source/user_guide/zero_downtime_upgrade.rst:220
 msgid ""
 "The default for ``enable_weight_cache`` changed from ``False`` to automatic "
-"selection (``None``)."
-msgstr "``enable_weight_cache`` 的預設值從 ``False`` 改為自動選擇（``None``）。"
+"selection (``None``). Retained-weight models now support multiple replicas, "
+"scale-out and sequential reload."
+msgstr ""
+"``enable_weight_cache`` 的預設值從 ``False`` 改為自動選擇（``None``）。 "
+"保留權重的模型現在支援多副本、擴充與逐個副本重載。"
 
 #: ../source/user_guide/zero_downtime_upgrade.rst:28
 msgid "Admitted calls can use optional asynchronous provider callbacks: ``around_supervisor_call(invocation, call)``, ``around_worker_call(invocation, call)`` and ``around_control_call(invocation, call)``. The immutable invocation describes the target, method, original control context and arguments. Await ``call()`` to execute; argument overrides preserve that context. The runtime supplies no receipts or replay policy. Worker callbacks also retain their original session when the Supervisor reference changes. Read-only ``controller_resource_state``, ``controller_catalog`` and ``control_operation_receipt`` expose observations or provider evidence; unavailable receipts raise. The local port can capture or replace catalogs and settings, list Worker references and invoke a public Supervisor method. Catalog replacement validates definitions first and does not rewrite registration files."
