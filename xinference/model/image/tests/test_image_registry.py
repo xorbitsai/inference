@@ -28,6 +28,7 @@ from ..core import (
     BUILTIN_IMAGE_MODELS,
     IMAGE_MODEL_DESCRIPTIONS,
     create_image_model_instance,
+    create_ocr_model_instance,
     match_diffusion,
 )
 from ..engine import DiffusersImageModel
@@ -195,6 +196,59 @@ def test_create_image_model_instance_rejects_invalid_controlnet(
         )
     assert str(exc_info.value) == message
     cache.assert_not_called()
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_create_ocr_model_instance_rejects_invalid_engine_before_cache(
+    monkeypatch: pytest.MonkeyPatch, enable_virtual_env: bool
+) -> None:
+    cache = Mock(side_effect=AssertionError("An invalid OCR engine reached caching"))
+    monkeypatch.setattr(ImageCacheManager, "cache", cache)
+    monkeypatch.setattr(ImageCacheManager, "cache_ocr_gguf", cache)
+    with pytest.raises(ValueError) as exc_info:
+        create_ocr_model_instance(
+            "test",
+            match_diffusion("GOT-OCR2_0", "huggingface"),
+            model_engine="not-an-engine",
+            enable_virtual_env=enable_virtual_env,
+        )
+    assert str(exc_info.value) == (
+        "Model GOT-OCR2_0 cannot be run on engine not-an-engine."
+    )
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize("model_engine", [None, "transformers"])
+@pytest.mark.parametrize("model_path", [None, "/mine/ocr"])
+def test_create_ocr_model_instance_caches_only_without_model_path(
+    monkeypatch: pytest.MonkeyPatch,
+    enable_virtual_env: bool,
+    model_engine: Optional[str],
+    model_path: Optional[str],
+) -> None:
+    from ..ocr.got_ocr2 import GotOCR2Model
+
+    cache = Mock(return_value="/cache/ocr")
+    gguf_cache = Mock(side_effect=AssertionError("Unexpected GGUF caching"))
+    monkeypatch.setattr(ImageCacheManager, "cache", cache)
+    monkeypatch.setattr(ImageCacheManager, "cache_ocr_gguf", gguf_cache)
+    model = create_ocr_model_instance(
+        "test",
+        match_diffusion("GOT-OCR2_0", "huggingface"),
+        model_engine=model_engine,
+        model_path=model_path,
+        enable_virtual_env=enable_virtual_env,
+    )
+    assert isinstance(model, GotOCR2Model)
+    assert model._model_path == (model_path or "/cache/ocr")
+    assert model.model_family is not None
+    assert model.model_family.model_engine == "transformers"
+    if model_path:
+        cache.assert_not_called()
+    else:
+        cache.assert_called_once_with()
+    gguf_cache.assert_not_called()
 
 
 @pytest.mark.parametrize("enable_virtual_env", [False, True])
