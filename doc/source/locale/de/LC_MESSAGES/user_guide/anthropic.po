@@ -469,3 +469,40 @@ msgstr "Die Grenzen gelten getrennt für automatisches Caching und explizites Ch
 #: user_guide/anthropic.rst:65
 msgid "SGLang P/D decode replicas support text token counting; image token counting returns HTTP 501."
 msgstr "SGLang-P/D-Dekodierreplikate unterstützen die Tokenzählung für Text; die Tokenzählung für Bilder liefert HTTP 501."
+
+# Request-adaptive multimodal budgeting (2026-10-29).
+#: user_guide/anthropic.rst:65
+msgid ""
+"For compatible vLLM multimodal runtimes, token counting uses the actual "
+"media processor and an isolated media cache. Message generation uses the "
+"same request-level count to constrain output tokens to the remaining "
+"configured context. Runtimes that cannot count expanded media tokens "
+"safely retain the compatibility item limits described below."
+msgstr ""
+
+#: user_guide/anthropic.rst:96
+msgid ""
+"For vLLM models, an explicit ``limit_mm_per_prompt`` launch setting is an"
+" administrator policy and always takes priority. For example, "
+"``{\"image\": 8, \"video\": 0}`` allows at most eight images and disables"
+" video for the complete request. Without an explicit limit, compatible "
+"runtimes use the actual expanded multimodal token count and configured "
+"``max_model_len``. Older or custom runtimes that cannot count media "
+"tokens safely fall back to at most two items per supported modality. "
+"Passing these checks does not bypass vLLM's native model, media, cache, "
+"scheduler, GPU memory, or other constraints. Xinference does not "
+"automatically resize images, reduce video frames, remove history, or "
+"split an over-budget request."
+msgstr ""
+
+# P/D adaptive-budget scope clarification (2026-10-31).
+#: user_guide/anthropic.rst:71
+msgid ""
+"Adaptive token budgeting does not currently apply to vLLM prefill/decode "
+"(P/D) deployments because preflight and generation may use different "
+"replicas. P/D preflight still validates the request on a representative "
+"decode replica, but discards its dynamic token budget. Without an explicit "
+"limit, P/D deployments retain the conservative limit of two items per "
+"supported modality; explicit limits are combined using the conservative "
+"per-modality minimum reported by the decode replicas."
+msgstr ""

@@ -250,7 +250,12 @@ class LLM(abc.ABC):
 
         abilities = set(getattr(self.model_family, "model_ability", []) or [])
         engine = type(self).__module__.split(".")[-2]
-        raw_limit = getattr(self, "_model_config", {}).get("limit_mm_per_prompt")
+        explicit_limit = getattr(self, "_explicit_limit_mm_per_prompt", None)
+        raw_limit = (
+            explicit_limit
+            if explicit_limit is not None
+            else getattr(self, "_model_config", {}).get("limit_mm_per_prompt")
+        )
         max_images = raw_limit.get("image") if isinstance(raw_limit, dict) else None
         reasoning = (
             "reasoning" in abilities

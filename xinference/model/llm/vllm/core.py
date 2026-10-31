@@ -115,6 +115,9 @@ if TYPE_CHECKING:
             ExecutorBase = Any  # type: ignore
 
 
+VLLMMultimodalLimit = Union[int, Dict[str, Any]]
+
+
 class VLLMModelConfig(TypedDict, total=False):
     xinference_vllm_executor_backend: str
     tokenizer_mode: Optional[str]
@@ -131,7 +134,7 @@ class VLLMModelConfig(TypedDict, total=False):
     max_num_seqs: int
     quantization: Optional[str]
     max_model_len: Optional[int]
-    limit_mm_per_prompt: Optional[Dict[str, int]]
+    limit_mm_per_prompt: Optional[Dict[str, VLLMMultimodalLimit]]
     guided_decoding_backend: Optional[str]
     scheduling_policy: Optional[str]
     reasoning_content: bool
@@ -641,9 +644,24 @@ class VLLMModel(WeightCachedModel, LLM):
         self._validate_forced_tools(config)
         self._apply_thinking_budget(dict(config))
         prepared = super().prepare_anthropic_request(messages, config)
+        prepared_config = prepared["generate_config"]
+        has_media = any(
+            self._count_multimodal_items(prepared["messages"], item_type)
+            for item_type in ("image", "video", "audio")
+        )
+        if has_media:
+            preflight = await self.async_preflight_multimodal_request(
+                prepared["messages"], prepared_config
+            )
+            effective_max_tokens = preflight.get("effective_max_tokens")
+            if effective_max_tokens is not None:
+                prepared_config["max_tokens"] = effective_max_tokens
+            if preflight.get("input_tokens") is not None:
+                prepared["input_tokens"] = preflight["input_tokens"]
+                return prepared
         try:
             prepared["input_tokens"] = await self.async_count_tokens(
-                prepared["messages"], prepared["generate_config"]
+                prepared["messages"], prepared_config
             )
         except NotImplementedError:
             pass
@@ -692,6 +710,8 @@ class VLLMModel(WeightCachedModel, LLM):
         messages = copy.deepcopy(messages)
         if is_forced_tool_choice(config):
             messages, config = prepare_forced_tools(messages, config)
+        else:
+            self._normalize_tool_choice_for_prompt(config)
         prompt, _tools, context, config = await prepare_inputs(messages, config)
         config = config or {}
         prompt = self._prepare_structured_reasoning_prompt(prompt, config, context)
@@ -706,6 +726,13 @@ class VLLMModel(WeightCachedModel, LLM):
         tokenizer = await self._get_tokenizer(lora)
         engine_prompt = await self._gen_tokens_prompt(tokenizer, prompt, config)
         return await self._count_prompt_tokens(engine_prompt, lora)
+
+    @staticmethod
+    def _normalize_tool_choice_for_prompt(config: Dict[str, Any]) -> None:
+        """Match generation-time tool selection before rendering a prompt."""
+        choice = config.pop("tool_choice", None)
+        if choice == "none":
+            config.pop("tools", None)
 
     async def _count_prompt_tokens(
         self, engine_prompt: Dict[str, Any], lora: Any = None
@@ -812,7 +839,7 @@ class VLLMModel(WeightCachedModel, LLM):
         self, messages: List[Dict], config: Optional[Dict] = None
     ) -> VLLMMultimodalPreflightResult:
         """Validate one multimodal request against this loaded engine instance."""
-        explicit_limits = self.get_explicit_limit_mm_per_prompt()
+        explicit_limits = getattr(self, "_explicit_limit_mm_per_prompt", None)
         self._enforce_multimodal_limits(messages, explicit_limits)
 
         max_model_len = normalize_runtime_positive_int(
@@ -1139,12 +1166,7 @@ class VLLMModel(WeightCachedModel, LLM):
 
     def get_explicit_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
         explicit = getattr(self, "_explicit_limit_mm_per_prompt", None)
-        if explicit is not None:
-            return dict(explicit)
-        if not isinstance(self._model_config, dict):
-            return None
-        configured = self._model_config.get("limit_mm_per_prompt")
-        return dict(configured) if isinstance(configured, dict) else None
+        return dict(explicit) if explicit is not None else None
 
     def _is_vllm_v1(self) -> bool:
         """
@@ -3185,9 +3207,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             return await self._forced_tool_chat(messages, generate_config, request_id)
         plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
-        choice = generate_config.pop("tool_choice", None)
-        if choice == "none":
-            generate_config.pop("tools", None)
+        self._normalize_tool_choice_for_prompt(generate_config)
         full_prompt, tools, chat_template_kwargs, generate_config = (
             await self._prepare_chat_inputs(messages, generate_config)
         )
@@ -3424,42 +3444,64 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
+        had_explicit_limit = bool(
+            isinstance(model_config, dict)
+            and "limit_mm_per_prompt" in model_config
+            and model_config.get("limit_mm_per_prompt") is not None
+        )
         model_config = super()._sanitize_model_config(model_config)
-        if VLLM_VERSION >= version.parse("0.5.5"):
+        parsed_limit: Optional[Dict[str, VLLMMultimodalLimit]] = None
+        parsed_counts: Optional[Dict[str, int]] = None
+        if had_explicit_limit:
             raw_limit = model_config.get("limit_mm_per_prompt")
-            if raw_limit:
-                parsed_limit: Dict[str, int]
+            try:
                 if isinstance(raw_limit, dict):
-                    parsed_limit = raw_limit
+                    candidate = raw_limit
                 else:
-                    try:
-                        if isinstance(raw_limit, list):
-                            # Web UI may split the JSON string into multiple list items.
-                            raw_value = ",".join(
-                                str(item).strip() for item in raw_limit
-                            )
-                        else:
-                            raw_value = str(raw_limit)
-                        parsed_limit = json.loads(raw_value)
-                    except Exception as e:  # noqa: BLE001
-                        logger.warning(
-                            "Failed to parse limit_mm_per_prompt %r, fallback to default: %s",
-                            raw_limit,
-                            e,
+                    if isinstance(raw_limit, list):
+                        # Web UI may split the JSON string into multiple list items.
+                        raw_value = ",".join(str(item).strip() for item in raw_limit)
+                    else:
+                        raw_value = str(raw_limit)
+                    candidate = json.loads(raw_value)
+                if not isinstance(candidate, dict):
+                    raise ValueError("expected an object")
+                parsed_counts = {}
+                for key, value in candidate.items():
+                    if not isinstance(key, str):
+                        raise ValueError("expected string modality names")
+                    if type(value) is int:
+                        count_value: Any = value
+                    elif isinstance(value, dict):
+                        count_value = value.get("count")
+                    else:
+                        count_value = None
+                    if type(count_value) is not int or count_value < 0:
+                        raise ValueError(
+                            "expected non-negative integer limits or objects "
+                            "with a non-negative integer count"
                         )
-                        parsed_limit = {}
-                model_config["limit_mm_per_prompt"] = parsed_limit
-            if not model_config.get("limit_mm_per_prompt"):
-                if "omni" in self.model_family.model_ability:
-                    model_config["limit_mm_per_prompt"] = {
-                        "image": 2,
-                        "video": 2,
-                        "audio": 2,
-                    }
-                elif "vision" in self.model_family.model_ability:
-                    model_config["limit_mm_per_prompt"] = {"image": 2, "video": 2}
-                elif "audio" in self.model_family.model_ability:
-                    model_config["limit_mm_per_prompt"] = {"audio": 2}
+                    parsed_counts[key] = cast(int, count_value)
+                parsed_limit = copy.deepcopy(candidate)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "Failed to parse limit_mm_per_prompt %r; using compatibility "
+                    "fallback for request preflight: %s",
+                    raw_limit,
+                    e,
+                )
+                had_explicit_limit = False
+
+        self._explicit_limit_mm_per_prompt = (
+            parsed_counts if had_explicit_limit else None
+        )
+        if parsed_limit is not None and VLLM_VERSION >= version.parse("0.5.5"):
+            model_config["limit_mm_per_prompt"] = parsed_limit
+        else:
+            # Without an administrator limit, do not impose Xinference's former
+            # two-item default on the engine. Request preflight applies that value
+            # only when this loaded runtime cannot count expanded media tokens.
+            model_config.pop("limit_mm_per_prompt", None)
         return model_config
 
     def _sanitize_chat_config(
@@ -3789,9 +3831,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             return await self._forced_tool_chat(messages, generate_config, request_id)
         plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
-        choice = generate_config.pop("tool_choice", None)
-        if choice == "none":
-            generate_config.pop("tools", None)
+        self._normalize_tool_choice_for_prompt(generate_config)
         inputs, tools, chat_template_kwargs, generate_config = (
             await self._prepare_chat_inputs(messages, generate_config)
         )

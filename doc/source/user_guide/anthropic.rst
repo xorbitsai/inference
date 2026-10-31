@@ -62,6 +62,20 @@ template and tokenizer, including tool definitions and images where supported.
 Both routes use the same model permissions and Xinference API key as message
 generation.
 
+For compatible vLLM multimodal runtimes, token counting uses the actual media
+processor and an isolated media cache. Message generation uses the same
+request-level count to constrain output tokens to the remaining configured
+context. Runtimes that cannot count expanded media tokens safely retain the
+compatibility item limits described below.
+
+Adaptive token budgeting does not currently apply to vLLM prefill/decode (P/D)
+deployments because preflight and generation may use different replicas. P/D
+preflight still validates the request on a representative decode replica, but
+discards its dynamic token budget. Without an explicit limit, P/D deployments
+retain the conservative limit of two items per supported modality; explicit
+limits are combined using the conservative per-modality minimum reported by
+the decode replicas.
+
 SGLang P/D decode replicas support text token counting; image token counting
 returns HTTP 501.
 
@@ -87,11 +101,16 @@ tool-result images and PDF pages together. A lower deployment limit still
 applies. Exceeding either limit returns HTTP 400 before generation, including
 for streaming requests.
 
-Xinference's vLLM vision models default to two images per prompt. The limit
-includes images in conversation history and tool results, so successive
-single-image messages can also exceed it. Set ``limit_mm_per_prompt`` when
-launching the model, for example ``{"image": 8, "video": 0}``, to allow more
-images within the model's context length and available GPU memory.
+For vLLM models, an explicit ``limit_mm_per_prompt`` launch setting is an
+administrator policy and always takes priority. For example,
+``{"image": 8, "video": 0}`` allows at most eight images and disables video
+for the complete request. Without an explicit limit, compatible runtimes use
+the actual expanded multimodal token count and configured ``max_model_len``.
+Older or custom runtimes that cannot count media tokens safely fall back to at
+most two items per supported modality. Passing these checks does not bypass
+vLLM's native model, media, cache, scheduler, GPU memory, or other constraints.
+Xinference does not automatically resize images, reduce video frames, remove
+history, or split an over-budget request.
 
 PDF limits apply to the entire request: at most 20 pages and 20 million
 rendered pixels. Decoded PDF bytes and rendered PNG bytes each use
