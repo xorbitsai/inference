@@ -110,11 +110,11 @@ msgstr ""
 
 #: ../../source/models/model_abilities/embed.rst:45
 msgid ""
-"``sentence_transformers``: the default engine, available for all "
-"embedding models."
+"``sentence_transformers``: the default engine when the matched model "
+"spec is not GGUF."
 msgstr ""
-"``sentence_transformers`` : le moteur par défaut, disponible pour tous "
-"les modèles d'embedding."
+"``sentence_transformers`` : le moteur par défaut lorsque la "
+"spécification de modèle correspondante n'est pas au format GGUF."
 
 #: ../../source/models/model_abilities/embed.rst:47
 msgid ""
@@ -136,8 +136,13 @@ msgstr ""
 "la sortie hybride (sparse+dense), voir la FAQ ci-dessous."
 
 #: ../../source/models/model_abilities/embed.rst:52
-msgid "``llama.cpp``: serve GGUF-format embedding models."
-msgstr "``llama.cpp`` : servir des modèles d'embedding au format GGUF."
+msgid ""
+"``llama.cpp``: serve GGUF-format embedding models; selected by default "
+"when the matched model spec is GGUF."
+msgstr ""
+"``llama.cpp`` : servir des modèles d'embedding au format GGUF ; "
+"sélectionné par défaut lorsque la spécification de modèle correspondante "
+"est au format GGUF."
 
 #: ../../source/models/model_abilities/embed.rst:55
 msgid "Truncating input"

@@ -97,9 +97,9 @@ msgstr ""
 
 #: ../../source/models/model_abilities/embed.rst:45
 msgid ""
-"``sentence_transformers``: the default engine, available for all "
-"embedding models."
-msgstr "``sentence_transformers``：デフォルトのエンジンで、すべての埋め込みモデルで利用できます。"
+"``sentence_transformers``: the default engine when the matched model "
+"spec is not GGUF."
+msgstr "``sentence_transformers``：一致したモデル仕様が GGUF ではない場合のデフォルトエンジンです。"
 
 #: ../../source/models/model_abilities/embed.rst:47
 msgid ""
@@ -120,8 +120,12 @@ msgstr ""
 "を参照してください。"
 
 #: ../../source/models/model_abilities/embed.rst:52
-msgid "``llama.cpp``: serve GGUF-format embedding models."
-msgstr "``llama.cpp``：GGUF フォーマットの埋め込みモデルを提供します。"
+msgid ""
+"``llama.cpp``: serve GGUF-format embedding models; selected by default "
+"when the matched model spec is GGUF."
+msgstr ""
+"``llama.cpp``：GGUF フォーマットの埋め込みモデルを提供します。一致したモデル仕様が GGUF "
+"の場合にデフォルトで選択されます。"
 
 #: ../../source/models/model_abilities/embed.rst:55
 msgid "Truncating input"

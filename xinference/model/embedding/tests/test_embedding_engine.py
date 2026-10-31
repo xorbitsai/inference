@@ -22,6 +22,7 @@ import pytest
 from ..cache_manager import EmbeddingCacheManager
 from ..core import create_embedding_model_instance
 from ..embed_family import EMBEDDING_ENGINES
+from ..llama_cpp.core import XllamaCppEmbeddingModel
 from ..sentence_transformers.core import SentenceTransformerEmbeddingModel
 from ..vllm.core import VLLMEmbeddingModel
 
@@ -87,3 +88,55 @@ def test_virtualenv_marker_engine_is_still_accepted_and_cached():
         )
     cache.assert_called_once_with()
     assert isinstance(model, VLLMEmbeddingModel)
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize(
+    "model_format,quantization,model_engine,expected_engine",
+    [
+        ("ggufv2", "Q8_0", None, "llama.cpp"),
+        (None, "Q8_0", None, "llama.cpp"),
+        ("pytorch", None, None, "sentence_transformers"),
+        (None, None, None, "sentence_transformers"),
+        ("ggufv2", "Q8_0", "llama.cpp", "llama.cpp"),
+        ("pytorch", None, "vllm", "vllm"),
+    ],
+)
+def test_embedding_engine_uses_matched_spec_default(
+    model_format, quantization, model_engine, expected_engine, enable_virtual_env
+):
+    model_name = "Qwen3-Embedding-0.6B"
+    classes = {
+        "llama.cpp": XllamaCppEmbeddingModel,
+        "sentence_transformers": SentenceTransformerEmbeddingModel,
+        "vllm": VLLMEmbeddingModel,
+    }
+    # Register the engines without requiring their optional runtime libraries.
+    engines = {
+        engine: [
+            {
+                "model_name": model_name,
+                "model_format": "ggufv2" if engine == "llama.cpp" else "pytorch",
+                "quantization": "Q8_0" if engine == "llama.cpp" else "none",
+                "embedding_class": cls,
+            }
+        ]
+        for engine, cls in classes.items()
+    }
+    with (
+        patch.dict(EMBEDDING_ENGINES, {model_name: engines}),
+        patch.object(
+            EmbeddingCacheManager, "cache", return_value="/cache/model"
+        ) as cache,
+    ):
+        model = create_embedding_model_instance(
+            "uid",
+            model_name,
+            model_engine,
+            model_format=model_format,
+            quantization=quantization,
+            enable_virtual_env=enable_virtual_env,
+        )
+    cache.assert_called_once_with()
+    assert isinstance(model, classes[expected_engine])
+    assert model.model_family.model_engine == expected_engine
