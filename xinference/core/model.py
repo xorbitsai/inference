@@ -604,6 +604,34 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             return None
         return self._model.get_limit_mm_per_prompt()
 
+    def get_explicit_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
+        from ..model.llm.vllm.core import VLLMModel
+
+        if not isinstance(self._model, VLLMModel):
+            return None
+        return self._model.get_explicit_limit_mm_per_prompt()
+
+    @request_limit
+    @log_async(logger=logger)
+    async def preflight_multimodal_request(
+        self, messages: List[Dict], generate_config: Optional[Dict] = None
+    ) -> Union[Dict[str, Any], bytes]:
+        from ..model.llm.vllm.core import VLLMModel
+
+        self._require_ready()
+        try:
+            if not isinstance(self._model, VLLMModel):
+                raise NotImplementedError(
+                    "Multimodal request preflight is only available for vLLM models"
+                )
+            return await self._call_wrapper_json(
+                self._model.async_preflight_multimodal_request,
+                messages,
+                generate_config,
+            )
+        except Exception as exc:
+            return self._safe_model_operation_error(exc, "multimodal_preflight")
+
     def get_sglang_pd_bootstrap(self) -> dict:
         from ..model.llm.sglang.core import SGLANGModel
 
@@ -1154,6 +1182,33 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def _call_wrapper_json(self, fn: Callable, *args, **kwargs):
         return await self._call_wrapper("json", fn, *args, **kwargs)
 
+    @staticmethod
+    def _safe_model_operation_error(exc: Exception, operation: str) -> bytes:
+        from ..model.llm.context_length import (
+            MODEL_OPERATION_ERROR_KEY,
+            MODEL_OPERATION_ERROR_VERSION,
+            build_model_operation_error,
+        )
+
+        logger.warning(
+            "Model operation %s failed; returning a safe actor response.",
+            operation,
+            exc_info=(type(exc), exc, exc.__traceback__),
+        )
+        try:
+            payload = build_model_operation_error(exc, operation)
+        except Exception:
+            logger.exception("Failed to classify the model operation error safely")
+            payload = {
+                MODEL_OPERATION_ERROR_KEY: {
+                    "version": MODEL_OPERATION_ERROR_VERSION,
+                    "operation": operation,
+                    "kind": "internal_error",
+                    "message": "The requested model operation failed.",
+                }
+            }
+        return json_dumps(payload)
+
     async def _call_wrapper_binary(self, fn: Callable, *args, **kwargs):
         return await self._call_wrapper("binary", fn, *args, **kwargs)
 
@@ -1509,11 +1564,14 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self, messages: List[Dict], generate_config: Optional[Dict] = None
     ):
         self._require_ready()
-        return await self._call_wrapper_json(
-            getattr(self._model, "async_count_tokens", self._model.count_tokens),
-            messages,
-            generate_config,
-        )
+        try:
+            return await self._call_wrapper_json(
+                getattr(self._model, "async_count_tokens", self._model.count_tokens),
+                messages,
+                generate_config,
+            )
+        except Exception as exc:
+            return self._safe_model_operation_error(exc, "token_count")
 
     @request_limit
     @log_async(logger=logger)
@@ -1521,15 +1579,18 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self, messages: List[Dict], generate_config: Dict
     ):
         self._require_ready()
-        return await self._call_wrapper_json(
-            getattr(
-                self._model,
-                "async_prepare_anthropic_request",
-                self._model.prepare_anthropic_request,
-            ),
-            messages,
-            generate_config,
-        )
+        try:
+            return await self._call_wrapper_json(
+                getattr(
+                    self._model,
+                    "async_prepare_anthropic_request",
+                    self._model.prepare_anthropic_request,
+                ),
+                messages,
+                generate_config,
+            )
+        except Exception as exc:
+            return self._safe_model_operation_error(exc, "anthropic_prepare")
 
     @log_async(logger=logger)
     async def get_anthropic_capabilities(self):

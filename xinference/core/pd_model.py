@@ -352,9 +352,90 @@ class PDModelActor(xo.StatelessActor):
         return True
 
     async def get_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
-        # P/D limits depend on the replicas selected during scheduling.
-        # Let those replicas validate the request against their live limits.
-        return None
+        # P/D scheduling does not bind this API-side call to the later prefill
+        # and decode replicas, so keep the conservative compatibility limits.
+        return {"image": 2, "video": 2, "audio": 2}
+
+    async def preflight_multimodal_request(
+        self, messages: List[Dict], generate_config: Optional[Dict] = None
+    ) -> Any:
+        # Accurate counting is only safe when counting and generation use the
+        # same loaded engine instance. Current P/D routing cannot guarantee that,
+        # but a representative decode replica can still validate media and
+        # reject deterministic input/context errors before an API stream starts.
+        if not self._decode_replicas:
+            from .model import ModelNotReadyError
+
+            raise ModelNotReadyError("No decode replicas available")
+
+        representative = next(iter(self._decode_replicas.values()))
+        representative_result = await actor_call(
+            representative,
+            "preflight_multimodal_request",
+            messages,
+            generate_config,
+        )
+        parsed_representative = representative_result
+        if isinstance(representative_result, (str, bytes)):
+            try:
+                parsed_representative = json.loads(representative_result)
+            except (TypeError, ValueError):
+                # Let the API reject the malformed response as an internal error.
+                return representative_result
+        if not isinstance(parsed_representative, dict):
+            return representative_result
+        if "_xinference_error" in parsed_representative:
+            return representative_result
+
+        # Discard the representative's dynamic token budget. The later P/D
+        # generation may use a different replica, so only the validation result
+        # is portable across the routing decision.
+        fallback = {"image": 2, "video": 2, "audio": 2}
+        policies: List[Optional[Dict[str, int]]] = []
+        try:
+            for replica in self._decode_replicas.values():
+                policy = await actor_call(replica, "get_explicit_limit_mm_per_prompt")
+                policies.append(policy if isinstance(policy, dict) else None)
+        except Exception:
+            logger.error(
+                "Failed to read P/D multimodal deployment limits; rejecting "
+                "the request before generation.",
+                exc_info=True,
+            )
+            raise
+
+        limits = dict(fallback)
+        explicit_modalities = {
+            modality for policy in policies if policy is not None for modality in policy
+        }
+        for modality in explicit_modalities:
+            candidates = [
+                policy.get(modality, fallback.get(modality, 2))
+                for policy in policies
+                if policy is not None
+            ]
+            candidates.extend(
+                fallback.get(modality, 2) for policy in policies if policy is None
+            )
+            if candidates:
+                limits[modality] = min(candidates)
+        consistent_explicit = bool(
+            policies
+            and policies[0] is not None
+            and all(policy == policies[0] for policy in policies[1:])
+        )
+        if explicit_modalities and not consistent_explicit:
+            logger.warning(
+                "P/D replicas report inconsistent multimodal deployment limits; "
+                "using the conservative per-modality minimum."
+            )
+        return {
+            "mode": "explicit_limit" if consistent_explicit else "compat_fallback",
+            "limits": limits,
+            "input_tokens": None,
+            "max_model_len": None,
+            "effective_max_tokens": None,
+        }
 
     @log_async(logger=logger)
     async def prepare_anthropic_request(
