@@ -6928,6 +6928,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         return await self._model_uid_to_model[model_uid].get_reload_status()
 
     async def validate_model_reload(self, model_uid: str, config: Dict[str, Any]):
+        if model_uid in self.__dict__.get("_model_reload_active", set()):
+            raise RuntimeError("This model already has a reload in progress")
         return await self._model_uid_to_model[model_uid].validate_reload(config)
 
     async def _replace_model_generation(
@@ -6986,7 +6988,14 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             else:
                 # Parser-only updates do not need another engine. New calls
                 # wait at admission while existing requests drain.
-                weights_reused = await model_ref.reload(config, drain_timeout)
+                metadata = await model_ref.get_reload_config()
+                if operation_id is not None and metadata.get("reload_operation_id"):
+                    weights_reused = await model_ref.reload(
+                        config, drain_timeout, operation_id=operation_id
+                    )
+                else:
+                    # ModelActors retained from an older release use two args.
+                    weights_reused = await model_ref.reload(config, drain_timeout)
             if self._model_uid_to_model.get(model_uid) is not model_ref:
                 raise ModelReloadError(
                     "Model was terminated or recovered during reload"

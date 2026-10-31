@@ -34,6 +34,8 @@ interface ReloadConfig {
   engine_version?: string;
   python_executable?: string;
   can_upgrade_environment?: boolean;
+  mixed_parameters?: string[];
+  replicas?: { replica_uid: string; engine?: string; engine_version?: string }[];
 }
 interface ReloadStatus {
   operation_id?: string;
@@ -41,6 +43,10 @@ interface ReloadStatus {
   stage?: string;
   error?: string;
   restored?: boolean;
+  partial?: boolean;
+  completed_replicas?: number;
+  replica_count?: number;
+  replicas?: { replica_uid: string; status: string; stage?: string; error?: string }[];
 }
 
 function errorMessage(error: unknown) {
@@ -111,7 +117,12 @@ export function ReloadDialog({
             ])
           )
         );
-        setJob(status.status === 'reloading' ? status : null);
+        setJob(
+          status.status === 'reloading' ||
+            (status.status === 'error' && (status.replicas?.length || 0) > 1)
+            ? status
+            : null
+        );
       })
       .catch((err) => {
         if (active) setError(errorMessage(err));
@@ -150,6 +161,14 @@ export function ReloadDialog({
       clearTimeout(timer);
     };
   }, [open, job?.status, url, onReady, onOpenChange]);
+
+  const engineVersions = [
+    ...new Set(
+      config?.replicas?.map((replica) =>
+        [replica.engine, replica.engine_version].filter(Boolean).join(' ')
+      ) || (config?.engine_version ? [`${config.engine} ${config.engine_version}`] : [])
+    ),
+  ].filter(Boolean);
 
   const parameters = Object.entries(config?.parameters || {}).filter(
     ([key]) => config?.enabled || config?.hot_parameters?.includes(key)
@@ -218,7 +237,24 @@ export function ReloadDialog({
           <span className="block text-sm font-medium">{label}</span>
           <span className="block break-all font-mono text-[11px] text-muted-foreground">{key}</span>
         </label>
-        {kind === 'bool' ? (
+        {kind === 'bool' && config?.mixed_parameters?.includes(key) ? (
+          <select
+            id={id}
+            aria-label={key}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            disabled={busy}
+            value={typeof values[key] === 'boolean' ? String(values[key]) : ''}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, [key]: event.target.value === 'true' }))
+            }
+          >
+            <option value="" disabled>
+              {t('runningModels.reload.mixed')}
+            </option>
+            <option value="true">True</option>
+            <option value="false">False</option>
+          </select>
+        ) : kind === 'bool' ? (
           <Switch
             id={id}
             aria-label={key}
@@ -235,7 +271,11 @@ export function ReloadDialog({
             min={kind === 'image_limits' ? 1 : undefined}
             step={kind === 'fraction' || kind === 'positive_number' ? 'any' : 1}
             value={String(values[key] ?? '')}
-            placeholder={t('runningModels.reload.default')}
+            placeholder={t(
+              config?.mixed_parameters?.includes(key)
+                ? 'runningModels.reload.mixed'
+                : 'runningModels.reload.default'
+            )}
             disabled={busy}
             onChange={(event) => setValues((prev) => ({ ...prev, [key]: event.target.value }))}
           />
@@ -264,11 +304,11 @@ export function ReloadDialog({
           </DialogDescription>
           {config && (
             <div className="flex flex-wrap items-center gap-2">
-              {config.engine_version && (
-                <Badge variant="secondary" className="font-normal">
-                  {config.engine} {config.engine_version}
+              {engineVersions.map((engine) => (
+                <Badge key={engine} variant="secondary" className="font-normal">
+                  {engine}
                 </Badge>
-              )}
+              ))}
               {config.enabled && (
                 <Badge variant="outline" className="gap-1.5 border-primary/20 text-primary">
                   <Check />
@@ -352,6 +392,36 @@ export function ReloadDialog({
               </div>
             </details>
           )}
+          {(job?.replicas?.length || 0) > 1 && (
+            <section
+              className="space-y-3 rounded-xl border p-4"
+              aria-label={t('runningModels.reload.replicaProgress')}
+            >
+              <p className="text-sm font-medium" aria-live="polite">
+                {t('runningModels.reload.replicaProgress', {
+                  completed: job?.completed_replicas || 0,
+                  total: job?.replica_count || job?.replicas?.length || 0,
+                })}
+              </p>
+              {job?.replicas?.map((replica) => (
+                <div
+                  key={replica.replica_uid}
+                  className="flex items-center justify-between gap-3 text-xs"
+                >
+                  <span className="min-w-0 truncate font-mono" title={replica.replica_uid}>
+                    {replica.replica_uid}
+                  </span>
+                  <span
+                    className={
+                      replica.status === 'error' ? 'text-destructive' : 'text-muted-foreground'
+                    }
+                  >
+                    {t(`runningModels.reload.${replica.stage || replica.status}`)}
+                  </span>
+                </div>
+              ))}
+            </section>
+          )}
           {job?.status === 'reloading' && (
             <div
               role="status"
@@ -369,6 +439,11 @@ export function ReloadDialog({
               <AlertCircle className="mt-0.5 size-4 shrink-0" />
               <p className="min-w-0 break-words leading-6 [overflow-wrap:anywhere]">
                 {error || job?.error}
+                {job?.partial &&
+                  ` ${t('runningModels.reload.partial', {
+                    completed: job.completed_replicas || 0,
+                    total: job.replica_count || 0,
+                  })}`}
                 {job?.restored && ` ${t('runningModels.reload.restored')}`}
               </p>
             </div>

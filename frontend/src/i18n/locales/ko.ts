@@ -568,7 +568,7 @@ const ko = {
     weightCacheEnabled: '사용',
     weightCacheDisabled: '사용 안 함',
     enableWeightCacheTip:
-      '자동 모드에서는 모델 환경과 구성이 지원할 때 가중치를 유지하며, 지원하지 않으면 정상적으로 시작합니다. vLLM 0.31.0+ 또는 SGLang 0.5.21+, Linux GPU, 단일 워커 및 단일 복제본이 필요합니다. 사용을 선택하면 지원 조건을 필수로 검사하고, 사용 안 함을 선택하면 비활성화합니다.',
+      '자동 모드에서는 모델 환경과 구성이 지원할 때 가중치를 유지하며, 지원하지 않으면 정상적으로 시작합니다. vLLM 0.31.0+ 또는 SGLang 0.5.21+, Linux GPU가 필요하며 각 복제본은 단일 워커에 배치합니다. 사용을 선택하면 지원 조건을 필수로 검사하고, 사용 안 함을 선택하면 비활성화합니다.',
     recommendSetup: '실행 환경 준비가 필요할 수 있습니다.',
     recommendMemory: '사용 가능한 메모리가 확인되지 않았습니다.',
     recommendConfiguration: '구성 추천',
@@ -858,7 +858,16 @@ const ko = {
     launchFailed: '모델 시작에 실패했습니다. 아래 복제본 오류를 확인하세요.',
     reload: {
       title: '모델 재설정 / 업그레이드',
-      description: '새 구성을 준비하는 동안 현재 엔진이 요청을 계속 처리합니다.',
+      description:
+        '새 구성을 준비하는 동안 모델은 계속 서비스합니다. 복제본은 하나씩 업데이트됩니다.',
+      replicaProgress: '업데이트된 복제본: {{completed}} / {{total}}',
+      mixed: '복제본마다 값이 다릅니다',
+      partial:
+        '{{completed}}/{{total}}개 복제본이 완료되어 새 설정을 유지합니다. 실패한 복제본을 확인한 후 다시 시도하세요.',
+      ready: '업데이트됨',
+      error: '실패',
+      cancelled: '취소됨',
+      skipped: '업데이트 안 됨',
       disabled: '엔진 매개변수를 변경하려면 시작 시 GPU 가중치 유지를 활성화하세요.',
       reasoningHint: '현재 요청이 완료된 후 적용되며 엔진을 다시 시작하지 않습니다.',
       imageLimit: '요청당 최대 이미지 수',

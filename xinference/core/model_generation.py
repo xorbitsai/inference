@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import sys
+import time
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
@@ -203,6 +204,7 @@ class ModelGenerationMixin:
     ) -> None:
         self._reload_status = {
             "operation_id": operation_id,
+            "started_at": time.time(),
             "status": "reloading",
             "stage": (
                 "draining" if self.__dict__.get("_retiring_generations") else "loading"

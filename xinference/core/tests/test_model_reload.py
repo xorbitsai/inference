@@ -244,7 +244,6 @@ async def test_requests_rejected_during_reload():
 @pytest.mark.parametrize(
     "overrides",
     [
-        {"replica": 2},
         {"n_worker": 2},
         {"model_engine": "Transformers"},
         {"model_type": "embedding"},

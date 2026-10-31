@@ -82,6 +82,7 @@ from .download_task_store import (
 from .exceptions import ModelNotReadyError
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
+from .model_reload import ModelReloadMixin
 from .replica_config import (
     ReplicaConfig,
     normalize_replica_configs,
@@ -257,7 +258,7 @@ def model_service_address(owner):
     return selected_address(owner)
 
 
-class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
+class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActor):
     def __getattribute__(self, name):
         value = super().__getattribute__(name)
         if not name.startswith("_") and callable(value):
@@ -3287,14 +3288,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 raise ValueError("enable_weight_cache requires an LLM model")
             if (model_engine or "").lower() not in ("vllm", "sglang"):
                 raise ValueError("enable_weight_cache requires vLLM or SGLang")
-            if (
-                n_worker != 1
-                or replica != 1
-                or (replica_config is not None and len(replica_config) != 1)
-            ):
-                raise ValueError(
-                    "enable_weight_cache currently requires one worker and one replica"
-                )
+            if n_worker != 1:
+                raise ValueError("enable_weight_cache requires one worker per replica")
         if (model_type or "").lower() == "audio":
             from ..model.audio.core import resolve_audio_model_name_and_engine
 
@@ -3316,12 +3311,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 model_engine or ""
             ).lower() in ("vllm", "sglang"):
                 # Engine/platform checks run in the actual model environment.
-                # A multi-replica launch must disable retention for every replica.
-                if (
-                    n_worker != 1
-                    or replica != 1
-                    or (replica_config is not None and len(replica_config) != 1)
-                ):
+                # Each replica owns an independent cache on its own worker.
+                if n_worker != 1:
                     kwargs["enable_weight_cache"] = False
             else:
                 kwargs.pop("enable_weight_cache", None)
@@ -5469,159 +5460,6 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     maintenance.end()
             await asyncio.sleep(XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS)
 
-    def _get_reload_target(self, model_uid: str):
-        if model_uid not in self._model_uid_to_replica_info:
-            raise ValueError(f"Model not found: {model_uid}")
-        replicas = list(self._iter_active_replica_model_uids(model_uid))
-        if len(replicas) != 1:
-            raise ValueError("Parameter reload currently requires one replica")
-        replica_uid = replicas[0]
-        workers = self._replica_model_uid_to_worker.get(replica_uid)
-        if not isinstance(workers, (list, tuple)):
-            workers = [workers]
-        if len(workers) != 1 or workers[0] is None:
-            raise ValueError("Parameter reload currently requires one worker")
-        return replica_uid, workers[0]
-
-    async def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
-        replica_uid, worker = self._get_reload_target(model_uid)
-        return await worker.get_model_reload_config(replica_uid)
-
-    async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
-        replica_uid, worker = self._get_reload_target(model_uid)
-        status = dict(self._model_reload_status.get(model_uid, {"status": "idle"}))
-        try:
-            observed = await worker.get_model_reload_status(replica_uid)
-        except Exception:
-            if status["status"] == "reloading":
-                raise
-        else:
-            if observed and (
-                status["status"] == "idle"
-                or observed.get("operation_id") in (None, status.get("operation_id"))
-            ):
-                status.update(observed)
-        return status
-
-    async def restore_model_reload_config(
-        self, replica_uid: str, config: Dict[str, Any], observed: Dict[str, Any]
-    ) -> None:
-        model_uid, _ = parse_replica_model_uid(replica_uid)
-        status = self._model_reload_status.get(model_uid, {})
-        if status.get("operation_id") not in (None, observed.get("operation_id")):
-            return
-        async with self._autostart_store_lock:
-            if self._model_reload_status.get(model_uid, {}).get("operation_id") not in (
-                None,
-                observed.get("operation_id"),
-            ):
-                return
-            await asyncio.to_thread(
-                self._launch_history_store.update_autostart_launch_config,
-                model_uid,
-                config,
-            )
-            status.update(observed)
-
-    async def reload_model(
-        self,
-        model_uid: str,
-        config: Dict[str, Any],
-        drain_timeout: float = 300,
-        python_executable: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        import uuid
-
-        if model_uid in self._model_reload_tasks:
-            raise RuntimeError("This model already has a reload in progress")
-        async with self._get_model_replica_lock(model_uid):
-            if model_uid in self._model_reload_tasks:
-                raise RuntimeError("This model already has a reload in progress")
-            replica_uid, worker = self._get_reload_target(model_uid)
-            # Preflight runs before scheduling any operation that stops serving.
-            normalized = (
-                await worker.validate_model_reload(replica_uid, config)
-                if config
-                else {}
-            )
-            if normalized is not None:
-                config = normalized
-            status = {
-                "operation_id": str(uuid.uuid4()),
-                "model_uid": model_uid,
-                "status": "reloading",
-                "stage": "queued",
-                "started_at": time.time(),
-                "weights_reused": False,
-            }
-            self._model_reload_status[model_uid] = status
-
-            async def run() -> None:
-                try:
-                    if self._get_reload_target(model_uid) != (replica_uid, worker):
-                        raise ValueError("Model placement changed before reload")
-                    from ..model.llm.weight_cache import HOT_RELOAD_FIELDS
-
-                    status["stage"] = (
-                        "draining"
-                        if python_executable is None
-                        and set(config) <= HOT_RELOAD_FIELDS.keys()
-                        else "loading"
-                    )
-                    status["weights_reused"] = (
-                        await worker.reload_model(
-                            replica_uid,
-                            config,
-                            drain_timeout,
-                            python_executable=python_executable,
-                            operation_id=status["operation_id"],
-                        )
-                    ) is True
-                    async with self._autostart_store_lock:
-                        if not status.get("restored"):
-                            await asyncio.to_thread(
-                                self._launch_history_store.update_autostart_launch_config,
-                                model_uid,
-                                {
-                                    **config,
-                                    **(
-                                        {"model_python_executable": python_executable}
-                                        if python_executable is not None
-                                        else {}
-                                    ),
-                                },
-                            )
-                except asyncio.CancelledError:
-                    status.update(status="cancelled", stage="cancelled")
-                    raise
-                except Exception as exc:
-                    status.update(status="error", stage="error", error=str(exc))
-                    try:
-                        observed = await worker.get_model_reload_status(replica_uid)
-                        if observed.get("operation_id") in (
-                            None,
-                            status["operation_id"],
-                        ):
-                            if "restored" in observed:
-                                status["restored"] = observed["restored"]
-                    except Exception:
-                        pass
-                    logger.exception("Reload of %s failed", model_uid)
-                else:
-                    if not status.get("restored"):
-                        status.update(status="ready", stage="ready")
-                finally:
-                    status["finished_at"] = time.time()
-                    if (
-                        self._model_reload_tasks.get(model_uid)
-                        is asyncio.current_task()
-                    ):
-                        self._model_reload_tasks.pop(model_uid, None)
-                    self._invalidate_list_models_debounce_cache()
-
-            self._model_reload_tasks[model_uid] = asyncio.create_task(run())
-            return dict(status)
-
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
         async with self._get_model_replica_lock(model_uid):
@@ -5873,6 +5711,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         Returns a dict with ``replica_id``, ``replica_model_uid``, and
         ``worker_address`` for the caller.
         """
+        self._check_model_reload_idle(model_uid)
         # ---- 1. Look up the model ------------------------------------------------
         if model_uid in self._initial_model_launches:
             raise ValueError("Initial launch must finish before adding replicas")
@@ -5919,22 +5758,6 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             )
 
         # ---- 5. Check scale-up eligibility ---------------------------------------
-        from ..model.llm.weight_cache import parse_weight_cache_option
-
-        weight_cache_enabled = parse_weight_cache_option(
-            launch_args.get("enable_weight_cache", False)
-        )
-        if (launch_args.get("model_type") or "LLM").lower() == "llm" and (
-            launch_args.get("model_engine") or ""
-        ).lower() in ("vllm", "sglang"):
-            reload_config = await existing_worker_ref.get_model_reload_config(
-                any_replica_uid
-            )
-            weight_cache_enabled = reload_config["enabled"]
-        if weight_cache_enabled:
-            raise ValueError(
-                "Adding replicas to weight-cached models is not supported."
-            )
         if launch_args.get("xavier_config"):
             raise ValueError(
                 "Adding replicas to Xavier-distributed models is not supported."
@@ -6009,9 +5832,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         if (modified_args.get("model_type") or "LLM").lower() == "llm" and (
             modified_args.get("model_engine") or ""
         ).lower() in ("vllm", "sglang"):
-            # Use the destination engine after applying any override. Every
-            # additional replica must opt out of automatic weight retention.
-            modified_args["enable_weight_cache"] = False
+            # Retention is local to a replica. Preserve an explicit choice;
+            # otherwise the destination resolves Auto in its own environment.
+            modified_args.setdefault("enable_weight_cache", None)
         else:
             modified_args.pop("enable_weight_cache", None)
         # Always overwrite gpu_idx so a placement config without explicit GPUs
@@ -6149,6 +5972,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     async def _terminate_model_replica(
         self, model_uid: str, replica_id: int, suppress_exception: bool = False
     ) -> int:
+        self._check_model_reload_idle(model_uid)
         if model_uid in self._pd_model_mapping:
             raise ValueError(
                 "PD topology cannot be resized in place; terminate and relaunch the model"

@@ -35,7 +35,12 @@ const { createRoot } = require('react-dom/client') as typeof import('react-dom/c
 
 require('@/contexts/i18n-context');
 require.cache[require.resolve('@/contexts/i18n-context')]!.exports = {
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) =>
+      params && (key.endsWith('.replicaProgress') || key.endsWith('.partial'))
+        ? `${key} ${params?.completed}/${params?.total}`
+        : key,
+  }),
 };
 const request = require('@/lib/request').default as typeof import('@/lib/request').default;
 const { ReloadDialog } = require('./reload-dialog') as typeof import('./reload-dialog');
@@ -50,11 +55,19 @@ let imageLimits: Record<string, number> | undefined;
 let hotParameters: string[];
 let imageField: string;
 let canUpgradeEnvironment: boolean;
-let initial: { status: string; stage?: string; error?: string; restored?: boolean } = {
-  status: 'idle',
-  stage: 'queued',
-};
-let final: { status: string; error?: string; restored?: boolean } = { status: 'ready' };
+interface TestReloadStatus {
+  status: string;
+  stage?: string;
+  error?: string;
+  restored?: boolean;
+  partial?: boolean;
+  completed_replicas?: number;
+  replica_count?: number;
+  replicas?: { replica_uid: string; status: string; stage?: string }[];
+}
+let initial: TestReloadStatus = { status: 'idle', stage: 'queued' };
+let final: TestReloadStatus = { status: 'ready' };
+let mixedParameters: string[];
 const originalGet = request.get,
   originalPost = request.post;
 beforeEach(() => {
@@ -65,6 +78,7 @@ beforeEach(() => {
   refreshed = 0;
   posts = [];
   imageLimits = undefined;
+  mixedParameters = [];
   imageField = 'limit_mm_per_prompt';
   hotParameters = ['reasoning_content'];
   initial = { status: 'idle', stage: 'queued' };
@@ -74,12 +88,15 @@ beforeEach(() => {
       return {
         enabled,
         can_upgrade_environment: canUpgradeEnvironment,
-        model_config: {
-          max_num_seqs: 16,
-          enforce_eager: false,
-          reasoning_content: false,
-          ...(imageLimits ? { [imageField]: imageLimits } : {}),
-        },
+        mixed_parameters: mixedParameters,
+        model_config: Object.fromEntries(
+          Object.entries({
+            max_num_seqs: 16,
+            enforce_eager: false,
+            reasoning_content: false,
+            ...(imageLimits ? { [imageField]: imageLimits } : {}),
+          }).filter(([key]) => !mixedParameters.includes(key))
+        ),
         hot_parameters: hotParameters,
         parameters: {
           max_num_seqs: 'positive_int',
@@ -300,4 +317,62 @@ it('does not present an earlier failed operation as a new dialog error', async (
   assert.equal(document.querySelector('[role="alert"]'), null);
   assert.equal(document.querySelector('[role="status"]'), null);
   assert.equal(posts.length, 0);
+});
+
+it('shows the progress of a rolling replica reload', async () => {
+  initial = {
+    status: 'reloading',
+    stage: 'loading',
+    completed_replicas: 1,
+    replica_count: 2,
+    replicas: [
+      { replica_uid: 'model-rep0', status: 'ready', stage: 'ready' },
+      { replica_uid: 'model-rep1', status: 'reloading', stage: 'loading' },
+    ],
+  };
+  await render();
+  const progress = document.querySelector(
+    'section[aria-label="runningModels.reload.replicaProgress"]'
+  )!;
+  assert.match(progress.textContent || '', /1\/2/);
+  assert.match(progress.textContent || '', /model-rep0.*runningModels.reload.ready/);
+  assert.match(progress.textContent || '', /model-rep1.*runningModels.reload.loading/);
+  assert.ok(applyButton().disabled);
+});
+
+it('keeps partial rollout results visible when the dialog reopens', async () => {
+  initial = {
+    status: 'error',
+    error: 'candidate failed',
+    partial: true,
+    completed_replicas: 1,
+    replica_count: 2,
+    replicas: [
+      { replica_uid: 'model-rep0', status: 'ready', stage: 'ready' },
+      { replica_uid: 'model-rep1', status: 'error', stage: 'error' },
+    ],
+  };
+  await render();
+  assert.match(
+    document.querySelector('[role="alert"]')?.textContent || '',
+    /candidate failed.*runningModels.reload.partial 1\/2/
+  );
+  assert.match(document.body.textContent || '', /model-rep0/);
+  assert.match(document.body.textContent || '', /model-rep1/);
+  assert.equal(closed, 0);
+});
+
+it('lets a mixed boolean be explicitly set to false on every replica', async () => {
+  mixedParameters = ['enforce_eager', 'max_num_seqs'];
+  await render();
+  const numeric = document.querySelector<HTMLInputElement>('input[aria-label="max_num_seqs"]')!;
+  assert.equal(numeric.placeholder, 'runningModels.reload.mixed');
+  const choice = document.querySelector<HTMLSelectElement>('select[aria-label="enforce_eager"]')!;
+  assert.equal(choice.value, '');
+  await act(async () => {
+    choice.value = 'false';
+    choice.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await act(async () => applyButton().click());
+  assert.deepEqual(posts[0].body, { model_config: { enforce_eager: false } });
 });

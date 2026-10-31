@@ -93,6 +93,7 @@ from ..core.exceptions import (
     InvalidAudioInputError,
     InvalidModelRequestError,
     ModelNotReadyError,
+    ModelReloadInProgress,
 )
 from ..core.http_protocol import create_hardened_http_protocol
 from ..core.replica_config import ReplicaConfig
@@ -2286,6 +2287,8 @@ class RESTfulAPI(CancelMixin):
             return JSONResponse(content={"replica": replica, "replicas": results})
         except HTTPException:
             raise
+        except ModelReloadInProgress as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -2319,6 +2322,8 @@ class RESTfulAPI(CancelMixin):
 
                 evict_model_cache(model_uid)
             return JSONResponse(content={"remaining_replicas": remaining_replicas})
+        except ModelReloadInProgress as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))

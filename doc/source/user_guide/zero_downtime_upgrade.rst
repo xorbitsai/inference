@@ -235,7 +235,7 @@ Model and engine
 
    The default for ``enable_weight_cache`` changed from ``False`` to automatic selection (``None``).
 
-Open a running model's detail view and choose **Reconfigure / upgrade model**. Engine replacement requires GPU weight retention enabled at launch, either automatically on a supported configuration or explicitly with ``enable_weight_cache=True``. See :ref:`launch_weight_cache_reload` for prerequisites and the **Auto**, **Enabled** and **Disabled** settings.
+Open a running model's detail view and choose **Reconfigure / upgrade model**. Engine replacement requires GPU weight retention enabled at launch, either automatically on a supported configuration or explicitly with ``enable_weight_cache=True``. See :ref:`launch_weight_cache_reload` for prerequisites and the **Auto**, **Enabled** and **Disabled** settings. Multiple replicas are supported: each keeps its own weight cache, and model reload updates them sequentially. See the linked guide for partial failures, retries and scale-out.
 
 .. figure:: /_static/reconfigure_in_running.png
    :alt: Open model reconfiguration from Running Models.

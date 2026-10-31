@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from xinference.core.launch_strategy import IdleFirstLaunchStrategy
+from xinference.core.model_reload import ModelReloadMixin
 from xinference.core.utils import assign_replica_gpu, build_replica_model_uid
 
 
@@ -92,12 +93,13 @@ class DummyStatusGuard:
         return self.replica_counts[model_uid]
 
 
-class DummySupervisor:
+class DummySupervisor(ModelReloadMixin):
     def __init__(self, workers):
         from xinference.core.supervisor import SupervisorActor
 
         self._worker_address_to_worker = workers
         self._model_uid_to_replica_info = {}
+        self._model_reload_tasks = {}
         self._replica_model_uid_to_worker = {}
         self._replica_model_uid_to_worker_shards = {}
         self._initial_model_launches = {}
@@ -767,7 +769,7 @@ async def test_terminate_model_replica_updates_active_replica_set():
         async def terminate_model(self, model_uid: str):
             self.terminated.append(model_uid)
 
-    class DummySupervisor:
+    class DummySupervisor(ModelReloadMixin):
         terminate_model_replica = SupervisorActor.terminate_model_replica
         _terminate_model_replica = SupervisorActor._terminate_model_replica
         _get_model_replica_lock = SupervisorActor._get_model_replica_lock
@@ -782,6 +784,7 @@ async def test_terminate_model_replica_updates_active_replica_set():
         )
 
         def __init__(self):
+            self._model_reload_tasks = {}
             self._model_replica_locks = {}
             self._model_uid_to_replica_info = {
                 "demo-model": ReplicaInfo(
@@ -870,7 +873,7 @@ async def test_auto_weight_cache_respects_launch_topology(
     )
     launches = [call for worker in workers for call in worker.launch_kwargs]
     assert launches
-    expected = None if replica == 1 and (local or n_worker == 1) else False
+    expected = None if local or n_worker == 1 else False
     assert all(call.get("enable_weight_cache") is expected for call in launches)
 
 
@@ -893,3 +896,24 @@ async def test_auto_cache_option_is_not_forwarded_to_non_llm(model_type, cache_k
     )
     assert len(worker.launch_kwargs) == 1
     assert "enable_weight_cache" not in worker.launch_kwargs[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("policy", [True, False, None])
+async def test_multiple_replicas_preserve_explicit_cache_policy(policy):
+    worker = DummyWorkerRef("worker:9978", model_count=0, launched=[])
+    supervisor = DummySupervisor({worker.address: worker})
+    await supervisor.launch_builtin_model(
+        model_uid="demo-model",
+        model_name="demo",
+        model_type="LLM",
+        model_engine="vLLM",
+        model_size_in_billions=None,
+        model_format="pytorch",
+        quantization=None,
+        n_gpu=1,
+        replica=2,
+        enable_weight_cache=policy,
+    )
+    assert len(worker.launch_kwargs) == 2
+    assert all(args["enable_weight_cache"] is policy for args in worker.launch_kwargs)

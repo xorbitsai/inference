@@ -582,7 +582,7 @@ const en = {
     weightCacheEnabled: 'Enabled',
     weightCacheDisabled: 'Disabled',
     enableWeightCacheTip:
-      'Auto enables weight retention when the model environment and configuration support it; otherwise the model starts normally. Requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux GPU, one worker and one replica. Enable explicitly to require it, or disable to opt out.',
+      'Auto enables weight retention when the model environment and configuration support it; otherwise the model starts normally. Requires vLLM 0.31.0+ or SGLang 0.5.21+ and Linux GPU, with each replica on one worker. Enable explicitly to require it, or disable to opt out.',
     recommendSetup: 'Environment setup may be required.',
     recommendMemory: 'Available memory has not been verified.',
     recommendConfiguration: 'Recommend configuration',
@@ -876,7 +876,16 @@ const en = {
     launchFailed: 'Model launch failed. Check the replica errors below.',
     reload: {
       title: 'Reconfigure / upgrade model',
-      description: 'Your model keeps serving while the new configuration is prepared.',
+      description:
+        'Your model keeps serving while the new configuration is prepared. Replicas update one at a time.',
+      replicaProgress: 'Replicas updated: {{completed}} / {{total}}',
+      mixed: 'Values differ between replicas',
+      partial:
+        '{{completed}}/{{total}} replicas completed and keep their new settings. Check the failed replica before retrying.',
+      ready: 'Updated',
+      error: 'Failed',
+      cancelled: 'Cancelled',
+      skipped: 'Not updated',
       disabled: 'Engine parameter changes require GPU weight retention at launch.',
       reasoningHint: 'Applies after current requests finish, without restarting the engine.',
       imageLimit: 'Maximum images per request',

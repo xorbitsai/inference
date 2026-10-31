@@ -150,7 +150,11 @@ it('reconfigures the selected model from Running Models without navigating to ch
   ]);
 });
 
-for (const overrides of [{ model_engine: 'Transformers' }, { replica: 2 }, { n_worker: 2 }]) {
+for (const overrides of [
+  { model_engine: 'Transformers' },
+  { model_type: 'embedding' },
+  { n_worker: 2 },
+]) {
   it(`hides reconfiguration for unsupported model setup ${JSON.stringify(overrides)}`, async () => {
     Object.assign(model, overrides);
     await act(async () => root.render(<RunningModel />));
@@ -179,4 +183,12 @@ it('keeps reload polling scheduled when the list rerenders', async (context) => 
   await act(async () => context.mock.timers.tick(200));
   assert.equal(statusReads, 2);
   assert.equal(document.querySelector('[role="dialog"]'), null);
+});
+
+it('offers reconfiguration for a multi-replica model', async () => {
+  model.replica = 3;
+  await act(async () => root.render(<RunningModel />));
+  assert.ok(reconfigureButton());
+  await act(async () => reconfigureButton()!.click());
+  assert.ok(requests.includes('/v1/models/model%2Fone/reload/config'));
 });
