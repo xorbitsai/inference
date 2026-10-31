@@ -1391,3 +1391,87 @@ def test_failed_catalog_replacement_restores_registrations_and_engines(
             registry.unregister(item.model_name, remove_file=False)
         for item in original:
             register_embedding(item, persist=False)
+
+
+@pytest.mark.parametrize("change", ["image", "ocr_to_image", "image_to_ocr", "audio"])
+def test_successful_catalog_replacement_removes_previous_engines(change):
+    from ...model.audio import BUILTIN_AUDIO_MODELS
+    from ...model.audio.custom import (
+        CustomAudioModelFamilyV2,
+        register_audio,
+        unregister_audio,
+    )
+    from ...model.audio.engine import PyTorchF5TTSAudioModel
+    from ...model.audio.engine_family import AUDIO_ENGINES
+    from ...model.audio.engine_family import (
+        check_engine_by_model_name_and_engine as audio_engine,
+    )
+    from ...model.custom import RegistryManager
+    from ...model.image.core import BUILTIN_IMAGE_MODELS
+    from ...model.image.custom import (
+        CustomImageModelFamilyV2,
+        register_image,
+        unregister_image,
+    )
+    from ...model.image.engine import Fibo2DiffusersImageModel
+    from ...model.image.engine_family import IMAGE_ENGINES
+    from ...model.image.engine_family import (
+        check_engine_by_model_name_and_engine as image_engine,
+    )
+    from ...model.image.ocr.ocr_family import OCR_ENGINES
+    from ..worker_handoff import CustomModelState
+
+    kind = "audio" if change == "audio" else "image"
+    schema, register, unregister = (
+        (CustomAudioModelFamilyV2, register_audio, unregister_audio)
+        if kind == "audio"
+        else (CustomImageModelFamilyV2, register_image, unregister_image)
+    )
+    catalog = BUILTIN_AUDIO_MODELS if kind == "audio" else BUILTIN_IMAGE_MODELS
+    source, target = {
+        "image": ("stable-diffusion-xl-base-1.0", "Fibo-2.0-dev"),
+        "ocr_to_image": ("PaddleOCR-VL", "Fibo-2.0-dev"),
+        "image_to_ocr": ("stable-diffusion-xl-base-1.0", "PaddleOCR-VL"),
+        "audio": ("Kokoro-82M", "F5-TTS"),
+    }[change]
+    name = "PaddleOCR-VL-replacement-" + uuid.uuid4().hex
+    registry = RegistryManager.get_registry(kind)
+    original = registry.get_custom_models()
+    tables = [
+        (table, copy.deepcopy(table))
+        for table in (IMAGE_ENGINES, OCR_ENGINES, AUDIO_ENGINES)
+    ]
+    owner = SimpleNamespace(
+        _custom_register_type_to_cls={kind: (schema, register, unregister, None)}
+    )
+    old = catalog[source][0].dict()
+    new = catalog[target][0].dict()
+    for definition in (old, new):
+        definition.update(model_name=name, is_builtin=False)
+    try:
+        register(schema.parse_obj(old), persist=False)
+        CustomModelState.restore(owner, {kind: {name: json.dumps(new)}}, replace=True)
+        assert registry.find_model(name).model_family == new["model_family"]
+        if change == "audio":
+            assert audio_engine("PyTorch", name) is PyTorchF5TTSAudioModel
+        elif change == "image_to_ocr":
+            assert name not in IMAGE_ENGINES
+            assert name in OCR_ENGINES
+        else:
+            assert (
+                image_engine("diffusers", name, "diffusers", "none")
+                is Fibo2DiffusersImageModel
+            )
+            assert name not in OCR_ENGINES
+        CustomModelState.restore(owner, {kind: {}}, replace=True)
+        assert (
+            name not in IMAGE_ENGINES
+            and name not in OCR_ENGINES
+            and name not in AUDIO_ENGINES
+        )
+    finally:
+        with registry.lock:
+            registry.models[:] = original
+        for table, entries in tables:
+            table.clear()
+            table.update(entries)

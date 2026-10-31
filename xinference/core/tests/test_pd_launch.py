@@ -70,6 +70,83 @@ def launch_kwargs():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "uid,collision", [("chosen", False), (None, False), (None, True)]
+)
+async def test_service_placement_receives_final_model_uid(
+    launch_runtime, uid, collision
+):
+    from types import SimpleNamespace
+
+    from ..supervisor_control import SupervisorControl
+    from .test_control_session import session
+
+    supervisor, workers, _, _ = launch_runtime
+    selected = []
+
+    async def choose(model_uid):
+        assert isinstance(model_uid, str) and model_uid
+        selected.append(model_uid)
+        return workers[0].address
+
+    authority = SimpleNamespace(
+        session=session(), validate=AsyncMock(), model_service_address=choose
+    )
+    control = SupervisorControl(supervisor, authority)
+    control.fence.ready = control.has_served = True
+    supervisor._controller_control = control
+    for worker in workers:
+        worker.get_model_count = AsyncMock(return_value=0)
+        worker.get_gpu_allocation_status = AsyncMock(return_value={})
+    if collision:
+        supervisor._model_uid_to_replica_info["test"] = object()
+    kwargs = launch_kwargs()
+    kwargs.pop("replica_config")
+    kwargs.update(model_uid=uid, replica=1)
+    result = await supervisor.launch_builtin_model(**kwargs)
+    if uid is not None:
+        assert result == uid
+    elif collision:
+        assert result.startswith("test-")
+    else:
+        assert result == "test"
+    assert selected == [result]
+    launches = [
+        worker.launch_builtin_model.await_args.kwargs
+        for worker in workers
+        if worker.launch_builtin_model.await_count
+    ]
+    assert len(launches) == 1
+    assert launches[0]["model_uid"] == result + "-rep0"
+
+
+@pytest.mark.asyncio
+async def test_invalid_uid_is_rejected_before_service_placement(launch_runtime):
+    from types import SimpleNamespace
+
+    from ..supervisor_control import SupervisorControl
+    from .test_control_session import session
+
+    supervisor, workers, actors, _ = launch_runtime
+    authority = SimpleNamespace(
+        session=session(),
+        validate=AsyncMock(),
+        model_service_address=AsyncMock(return_value=workers[0].address),
+    )
+    control = SupervisorControl(supervisor, authority)
+    control.fence.ready = control.has_served = True
+    supervisor._controller_control = control
+    kwargs = launch_kwargs()
+    kwargs["model_uid"] = "invalid-rep0"
+    with pytest.raises(ValueError, match="model UID is invalid"):
+        await supervisor.launch_builtin_model(**kwargs)
+    authority.model_service_address.assert_not_awaited()
+    assert not actors
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("pd", [False, True])
 @pytest.mark.parametrize("quantization", [None, "none", "fp16", "bf16"])
 async def test_mlx_xavier_launch_and_cleanup(launch_runtime, pd, quantization):

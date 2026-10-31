@@ -134,6 +134,11 @@ class CustomModelState:
                     registry = RegistryManager.get_registry(kind)
                     for existing in registry.get_custom_models():
                         registry.unregister(existing.model_name, remove_file=False)
+                        for table in {
+                            "image": (IMAGE_ENGINES, OCR_ENGINES),
+                            "audio": (AUDIO_ENGINES,),
+                        }.get(kind, ()):
+                            table.pop(existing.model_name, None)
                     for spec in models:
                         register(spec, persist=False)
             except BaseException:

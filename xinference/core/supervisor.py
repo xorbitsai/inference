@@ -3365,9 +3365,6 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 **kwargs,
             )
 
-        service_address = await SupervisorActor._resolve_model_service_address(
-            self, model_uid
-        )
         is_local_deployment = self.is_local_deployment()
         target_worker_refs = (
             []
@@ -3402,6 +3399,16 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
+
+        if not is_valid_model_uid(model_uid):
+            raise ValueError(
+                "The model UID is invalid. Please specify the model UID by "
+                "0 < length <= 100, not ending with the reserved replica "
+                "suffix '-rep<number>'."
+            )
+        service_address = await SupervisorActor._resolve_model_service_address(
+            self, model_uid
+        )
 
         # Resolve per-replica placement (replica_config) BEFORE any side effects
         # below (xavier actor creation, replica_info, instance_info) so that a
@@ -4309,13 +4316,6 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     model_uid, {"status": LaunchStatus.ERROR.name}
                 )
                 raise
-
-        if not is_valid_model_uid(model_uid):
-            raise ValueError(
-                "The model UID is invalid. Please specify the model UID by "
-                "0 < length <= 100, not ending with the reserved replica "
-                "suffix '-rep<number>'."
-            )
 
         if request_limits is not None and request_limits < 0:
             raise ValueError(
