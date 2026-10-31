@@ -231,6 +231,8 @@
     "virtualenv": {
       "packages": [
         "sglang[diffusion]>=0.5.22,<0.6 ; #engine# == \"SGLang\"",
+        "numpy<2.3 ; #engine# == \"SGLang\"",
+        "pandas<3 ; #engine# == \"SGLang\"",
         "av",
         "imageio",
         "imageio-ffmpeg"

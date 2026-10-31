@@ -112,6 +112,9 @@ def test_registry_factory_and_dependencies(engine, cls):
     assert spec.model_id == "MiniMax/MiniMax-H3"
     assert spec.lightning_model_id == "lightx2v/Minimax-h3-Turbo"
     assert any(engine in p for p in spec.virtualenv.packages)
+    if engine == "SGLang":
+        assert any(p.startswith("numpy<2.3") for p in spec.virtualenv.packages)
+        assert any(p.startswith("pandas<3") for p in spec.virtualenv.packages)
 
 
 @pytest.mark.parametrize("cls", [SGLangMiniMaxH3Model, VLLMMiniMaxH3Model])
