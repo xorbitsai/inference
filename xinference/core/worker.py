@@ -2301,7 +2301,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     )
 
                     bound_ref = supervisor_ref
-                    if self._control_fence is not None:
+                    fence = getattr(self, "_control_fence", None)
+                    if fence is not None:
                         try:
                             control_status = await _bounded_control_report(
                                 self,
@@ -2318,9 +2319,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         ):
                             from .control_session import SessionBoundSupervisorRef
 
-                            bound_ref = SessionBoundSupervisorRef(
-                                supervisor_ref, self._control_fence
-                            )
+                            bound_ref = SessionBoundSupervisorRef(supervisor_ref, fence)
                     if supervisor_address != self._supervisor_address:
                         raise RuntimeError(
                             "Supervisor address changed during initialization"
