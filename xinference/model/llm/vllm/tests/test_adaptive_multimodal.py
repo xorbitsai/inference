@@ -34,6 +34,14 @@ def model(monkeypatch):
     return instance
 
 
+def test_unset_limit_is_not_forwarded_to_engine(model):
+    config = model._sanitize_model_config({})
+
+    assert "limit_mm_per_prompt" not in config
+    assert model._explicit_limit_mm_per_prompt is None
+    assert model.get_limit_mm_per_prompt() == {"image": 2, "video": 2}
+
+
 @pytest.mark.parametrize(
     "message, expected",
     [
@@ -129,6 +137,35 @@ def test_classify_vllm_context_error_checks_worker_local_exception_chain():
     wrapper.__cause__ = engine_error
 
     assert classify_vllm_context_error(wrapper) == (263175, 262144)
+
+
+@pytest.mark.parametrize(
+    "limits",
+    [
+        {"image": 4, "video": 2},
+        '{"image": 4, "video": 2}',
+        ['{"image": 4', '"video": 2}'],
+        {"image": 0},
+        {},
+    ],
+)
+def test_explicit_limits_are_preserved(model, limits):
+    config = model._sanitize_model_config({"limit_mm_per_prompt": limits})
+
+    expected = limits if isinstance(limits, dict) else {"image": 4, "video": 2}
+    assert config["limit_mm_per_prompt"] == expected
+    assert model.get_limit_mm_per_prompt() == expected
+
+
+@pytest.mark.parametrize(
+    "limits", ["not-json", {"image": -1}, {"image": True}, ["not-json"]]
+)
+def test_invalid_explicit_limit_uses_compatibility_fallback(model, limits):
+    config = model._sanitize_model_config({"limit_mm_per_prompt": limits})
+
+    assert "limit_mm_per_prompt" not in config
+    assert model._explicit_limit_mm_per_prompt is None
+    assert model.get_limit_mm_per_prompt() == {"image": 2, "video": 2}
 
 
 @pytest.mark.asyncio

@@ -117,10 +117,25 @@ Uploading base 64 encoded images
     print(response.choices[0])
 
 
-Limiting Images Per Prompt
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Multimodal Request Limits and Context Budget
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For vision models using the VLLM backend, you can use the ``limit_mm_per_prompt`` parameter to limit the number of images that can be processed in each conversation turn. This helps control memory usage and improve performance.
+For multimodal models using the vLLM backend, Xinference evaluates media
+across the complete request, including conversation history and tool results.
+When the loaded vLLM runtime can reliably expand the request with the model's
+actual chat template, tokenizer, and media processor, Xinference calculates the
+real input token count before generation. The output token limit is reduced to
+the remaining ``max_model_len`` capacity when necessary. If the input already
+exhausts the configured context, both streaming and non-streaming requests
+return HTTP 400 before generation starts.
+
+This adaptive check does not resize images, reduce video frames, remove history,
+or split a request. vLLM still enforces its native model, modality, pixel, frame,
+cache, scheduler, GPU memory, and other runtime constraints.
+
+Use ``limit_mm_per_prompt`` to set an administrator-defined item limit. An
+explicit limit always takes priority over adaptive budgeting and applies to the
+whole request, not only the latest conversation turn.
 
 .. code-block:: python
 
@@ -129,7 +144,7 @@ For vision models using the VLLM backend, you can use the ``limit_mm_per_prompt`
     
     client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
     
-    # Launch model and set maximum 4 images per conversation turn
+    # Launch model and set a maximum of 4 images per complete request
     model_uid = client.launch_model(
         model_name="qwen2.5-vl-instruct",
         model_engine="vLLM",
@@ -158,15 +173,22 @@ For Web UI, you can set the ``limit_mm_per_prompt`` parameter in the launch form
 
     <img class="align-center" alt="actor" src="../../_static/limit_mm_per_prompt.png" style="background-color: transparent", width="95%">
 
-This parameter provides the following benefits:
+The value is a per-modality mapping. For example:
 
-* **image**: Sets the maximum number of images allowed per conversation turn
-* Helps prevent memory overflow, especially when processing multiple images
-* Improves model inference stability and performance
-* Applies to all VLLM-based vision models
+* ``image`` limits all images in the request, including history and tool results.
+* ``video`` and ``audio`` can be limited independently for models that support them.
+* A value of ``0`` disables that modality for the deployment.
+* The limit is a deployment policy; passing the count check does not bypass
+  vLLM's native resource validation.
+
+If no explicit limit is configured and reliable runtime token counting is not
+available, Xinference uses a compatibility fallback of at most two items per
+supported modality. This conservative fallback covers older vLLM releases and
+custom processors whose expanded media tokens cannot be counted safely.
 
 .. note::
-   The ``limit_mm_per_prompt`` parameter only takes effect when using the VLLM backend. If your model uses other backends, this parameter will be ignored.
+   The ``limit_mm_per_prompt`` parameter only takes effect when using the vLLM
+   backend. If your model uses another backend, this parameter is ignored.
 
 
 Audio

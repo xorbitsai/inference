@@ -641,9 +641,24 @@ class VLLMModel(WeightCachedModel, LLM):
         self._validate_forced_tools(config)
         self._apply_thinking_budget(dict(config))
         prepared = super().prepare_anthropic_request(messages, config)
+        prepared_config = prepared["generate_config"]
+        has_media = any(
+            self._count_multimodal_items(prepared["messages"], item_type)
+            for item_type in ("image", "video", "audio")
+        )
+        if has_media:
+            preflight = await self.async_preflight_multimodal_request(
+                prepared["messages"], prepared_config
+            )
+            effective_max_tokens = preflight.get("effective_max_tokens")
+            if effective_max_tokens is not None:
+                prepared_config["max_tokens"] = effective_max_tokens
+            if preflight.get("input_tokens") is not None:
+                prepared["input_tokens"] = preflight["input_tokens"]
+                return prepared
         try:
             prepared["input_tokens"] = await self.async_count_tokens(
-                prepared["messages"], prepared["generate_config"]
+                prepared["messages"], prepared_config
             )
         except NotImplementedError:
             pass
@@ -812,7 +827,7 @@ class VLLMModel(WeightCachedModel, LLM):
         self, messages: List[Dict], config: Optional[Dict] = None
     ) -> VLLMMultimodalPreflightResult:
         """Validate one multimodal request against this loaded engine instance."""
-        explicit_limits = self.get_explicit_limit_mm_per_prompt()
+        explicit_limits = getattr(self, "_explicit_limit_mm_per_prompt", None)
         self._enforce_multimodal_limits(messages, explicit_limits)
 
         max_model_len = normalize_runtime_positive_int(
@@ -1139,12 +1154,7 @@ class VLLMModel(WeightCachedModel, LLM):
 
     def get_explicit_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
         explicit = getattr(self, "_explicit_limit_mm_per_prompt", None)
-        if explicit is not None:
-            return dict(explicit)
-        if not isinstance(self._model_config, dict):
-            return None
-        configured = self._model_config.get("limit_mm_per_prompt")
-        return dict(configured) if isinstance(configured, dict) else None
+        return dict(explicit) if explicit is not None else None
 
     def _is_vllm_v1(self) -> bool:
         """
@@ -3424,42 +3434,50 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
+        had_explicit_limit = bool(
+            isinstance(model_config, dict)
+            and "limit_mm_per_prompt" in model_config
+            and model_config.get("limit_mm_per_prompt") is not None
+        )
         model_config = super()._sanitize_model_config(model_config)
-        if VLLM_VERSION >= version.parse("0.5.5"):
+        parsed_limit: Optional[Dict[str, int]] = None
+        if had_explicit_limit:
             raw_limit = model_config.get("limit_mm_per_prompt")
-            if raw_limit:
-                parsed_limit: Dict[str, int]
+            try:
                 if isinstance(raw_limit, dict):
-                    parsed_limit = raw_limit
+                    candidate = raw_limit
                 else:
-                    try:
-                        if isinstance(raw_limit, list):
-                            # Web UI may split the JSON string into multiple list items.
-                            raw_value = ",".join(
-                                str(item).strip() for item in raw_limit
-                            )
-                        else:
-                            raw_value = str(raw_limit)
-                        parsed_limit = json.loads(raw_value)
-                    except Exception as e:  # noqa: BLE001
-                        logger.warning(
-                            "Failed to parse limit_mm_per_prompt %r, fallback to default: %s",
-                            raw_limit,
-                            e,
-                        )
-                        parsed_limit = {}
-                model_config["limit_mm_per_prompt"] = parsed_limit
-            if not model_config.get("limit_mm_per_prompt"):
-                if "omni" in self.model_family.model_ability:
-                    model_config["limit_mm_per_prompt"] = {
-                        "image": 2,
-                        "video": 2,
-                        "audio": 2,
-                    }
-                elif "vision" in self.model_family.model_ability:
-                    model_config["limit_mm_per_prompt"] = {"image": 2, "video": 2}
-                elif "audio" in self.model_family.model_ability:
-                    model_config["limit_mm_per_prompt"] = {"audio": 2}
+                    if isinstance(raw_limit, list):
+                        # Web UI may split the JSON string into multiple list items.
+                        raw_value = ",".join(str(item).strip() for item in raw_limit)
+                    else:
+                        raw_value = str(raw_limit)
+                    candidate = json.loads(raw_value)
+                if not isinstance(candidate, dict) or any(
+                    not isinstance(key, str) or type(value) is not int or value < 0
+                    for key, value in candidate.items()
+                ):
+                    raise ValueError("expected an object of non-negative integers")
+                parsed_limit = dict(candidate)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "Failed to parse limit_mm_per_prompt %r; using compatibility "
+                    "fallback for request preflight: %s",
+                    raw_limit,
+                    e,
+                )
+                had_explicit_limit = False
+
+        self._explicit_limit_mm_per_prompt = (
+            parsed_limit if had_explicit_limit else None
+        )
+        if parsed_limit is not None and VLLM_VERSION >= version.parse("0.5.5"):
+            model_config["limit_mm_per_prompt"] = parsed_limit
+        else:
+            # Without an administrator limit, do not impose Xinference's former
+            # two-item default on the engine. Request preflight applies that value
+            # only when this loaded runtime cannot count expanded media tokens.
+            model_config.pop("limit_mm_per_prompt", None)
         return model_config
 
     def _sanitize_chat_config(

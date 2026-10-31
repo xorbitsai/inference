@@ -161,6 +161,33 @@ from .utils import get_request_route_path, require_model
 
 logger = logging.getLogger(__name__)
 
+_MULTIMODAL_PREFLIGHT_OPERATIONS = frozenset(
+    {"multimodal_preflight", "anthropic_prepare", "token_count"}
+)
+_MULTIMODAL_PREFLIGHT_KINDS = frozenset(
+    {
+        "context_length_exceeded",
+        "invalid_multimodal_input",
+        "multimodal_limit_exceeded",
+        "unsupported",
+        "preflight_unavailable",
+        "internal_error",
+    }
+)
+_MULTIMODAL_PREFLIGHT_STAGES = frozenset(
+    {"base_prompt_budget", "multimodal_process", "expanded_prompt_budget"}
+)
+_MULTIMODAL_PREFLIGHT_DIAGNOSTIC_CODES = frozenset(
+    {
+        "BASE_PROMPT_EXHAUSTS_CONTEXT",
+        "EXPANDED_PROMPT_EXHAUSTS_CONTEXT",
+        "VLLM_PROMPT_LENGTH_REJECTED",
+        "VLLM_MM_PROCESS_REJECTED",
+        "MM_PREFLIGHT_INTERNAL_ERROR",
+    }
+)
+_ENGINE_ERROR_TYPE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]{0,127}$")
+
 
 def _parse_kwargs(kwargs: Optional[str]) -> Dict[str, Any]:
     if kwargs is None:
@@ -1153,6 +1180,91 @@ class RESTfulAPI(CancelMixin):
                 "message": "The model returned an invalid operation error response.",
             }
         return error
+
+    @staticmethod
+    def _compat_multimodal_preflight() -> Dict[str, Any]:
+        return {
+            "mode": "compat_fallback",
+            "limits": {"image": 2, "video": 2, "audio": 2},
+            "input_tokens": None,
+            "max_model_len": None,
+            "effective_max_tokens": None,
+        }
+
+    @staticmethod
+    def _handle_structured_preflight_error(
+        error: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        from ..model.llm.context_length import (
+            CONTEXT_LENGTH_EXCEEDED_DETAIL,
+            INVALID_MULTIMODAL_INPUT_DETAIL,
+            normalize_runtime_positive_int,
+        )
+
+        def _enum(value: Any, allowed: frozenset) -> str:
+            return value if isinstance(value, str) and value in allowed else "unknown"
+
+        operation = _enum(error.get("operation"), _MULTIMODAL_PREFLIGHT_OPERATIONS)
+        kind = _enum(error.get("kind"), _MULTIMODAL_PREFLIGHT_KINDS)
+        stage = _enum(error.get("stage"), _MULTIMODAL_PREFLIGHT_STAGES)
+        diagnostic_code = _enum(
+            error.get("diagnostic_code"),
+            _MULTIMODAL_PREFLIGHT_DIAGNOSTIC_CODES,
+        )
+        engine_error_type = error.get("engine_error_type")
+        if not isinstance(
+            engine_error_type, str
+        ) or not _ENGINE_ERROR_TYPE_RE.fullmatch(engine_error_type):
+            engine_error_type = "unknown"
+        input_tokens = normalize_runtime_positive_int(error.get("input_tokens"))
+        max_model_len = normalize_runtime_positive_int(error.get("max_model_len"))
+        log_level = (
+            logging.INFO
+            if kind in {"context_length_exceeded", "multimodal_limit_exceeded"}
+            else (
+                logging.WARNING
+                if kind
+                in {
+                    "invalid_multimodal_input",
+                    "unsupported",
+                    "preflight_unavailable",
+                }
+                else logging.ERROR
+            )
+        )
+        logger.log(
+            log_level,
+            "Multimodal preflight result: operation=%s kind=%s stage=%s "
+            "diagnostic_code=%s engine_error_type=%s input_tokens=%s "
+            "max_model_len=%s",
+            operation,
+            kind,
+            stage,
+            diagnostic_code,
+            engine_error_type,
+            input_tokens,
+            max_model_len,
+        )
+        if kind == "context_length_exceeded":
+            raise HTTPException(status_code=400, detail=CONTEXT_LENGTH_EXCEEDED_DETAIL)
+        if kind == "invalid_multimodal_input":
+            raise HTTPException(status_code=400, detail=INVALID_MULTIMODAL_INPUT_DETAIL)
+        if kind == "multimodal_limit_exceeded":
+            detail = error.get("message")
+            if not isinstance(detail, str):
+                detail = INVALID_MULTIMODAL_INPUT_DETAIL
+            raise HTTPException(status_code=400, detail=detail)
+        if kind == "unsupported":
+            return RESTfulAPI._compat_multimodal_preflight()
+        if kind == "preflight_unavailable":
+            raise HTTPException(
+                status_code=503,
+                detail="Multimodal request preflight is temporarily unavailable.",
+            )
+        raise HTTPException(
+            status_code=500,
+            detail="Multimodal request preflight failed.",
+        )
 
     @staticmethod
     def handle_request_limit_error(e: Exception, *, sanitize: bool = False):
@@ -5111,22 +5223,70 @@ class RESTfulAPI(CancelMixin):
             except MessageRoleOrderError as ve:
                 raise HTTPException(status_code=400, detail=str(ve))
 
-        limits = None
-        if is_vllm_backend and any(
-            self._count_multimodal_items(messages, item_type)
+        media_counts = {
+            item_type: self._count_multimodal_items(messages, item_type)
             for item_type in ("image", "video", "audio")
-        ):
+        }
+        preflight = None
+        if is_vllm_backend and any(media_counts.values()):
             try:
-                limits = await model.get_limit_mm_per_prompt()
-            except Exception:
-                logger.debug(
-                    "Cannot read multimodal limits; defer validation to the worker.",
+                raw_preflight = await model.preflight_multimodal_request(
+                    messages, kwargs
+                )
+                if isinstance(raw_preflight, (str, bytes)):
+                    try:
+                        raw_preflight = json.loads(raw_preflight)
+                    except (TypeError, ValueError):
+                        logger.error(
+                            "Model returned an invalid multimodal preflight response."
+                        )
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Multimodal request preflight failed.",
+                        )
+                if not isinstance(raw_preflight, dict):
+                    logger.error(
+                        "Model returned a non-object multimodal preflight response."
+                    )
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Multimodal request preflight failed.",
+                    )
+                operation_error = self._get_model_operation_error(raw_preflight)
+                if operation_error is not None:
+                    preflight = self._handle_structured_preflight_error(operation_error)
+                else:
+                    preflight = raw_preflight
+            except HTTPException:
+                raise
+            except Exception as exc:
+                try:
+                    self.handle_request_limit_error(exc, sanitize=True)
+                except HTTPException:
+                    raise
+                if isinstance(exc, ValueError) or (
+                    type(exc).__module__ == "vllm.exceptions"
+                    and type(exc).__name__ == "VLLMValidationError"
+                ):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Invalid multimodal input or processing parameters.",
+                    )
+                logger.error(
+                    "Multimodal preflight is temporarily unavailable; rejecting "
+                    "the request before generation.",
                     exc_info=True,
                 )
+                raise HTTPException(
+                    status_code=503,
+                    detail="Multimodal request preflight is temporarily unavailable.",
+                )
+
+        limits = preflight.get("limits") if isinstance(preflight, dict) else None
         for item_type, limit in (limits if isinstance(limits, dict) else {}).items():
             if type(limit) is not int or limit < 0:
                 continue
-            count = self._count_multimodal_items(messages, item_type)
+            count = media_counts.get(item_type, 0)
             if count > limit:
                 raise HTTPException(
                     status_code=400,
@@ -5134,6 +5294,27 @@ class RESTfulAPI(CancelMixin):
                         f"At most {limit} {item_type}(s) may be provided in one prompt; "
                         f"received {count}."
                     ),
+                )
+        if isinstance(preflight, dict):
+            effective_max_tokens = preflight.get("effective_max_tokens")
+            if type(effective_max_tokens) is int and effective_max_tokens > 0:
+                requested_max_tokens = kwargs.get("max_tokens")
+                if type(requested_max_tokens) is int and requested_max_tokens > 0:
+                    effective_max_tokens = min(
+                        requested_max_tokens, effective_max_tokens
+                    )
+                kwargs["max_tokens"] = effective_max_tokens
+                raw_kwargs["max_tokens"] = effective_max_tokens
+                logger.debug(
+                    "vLLM multimodal preflight mode=%s input_tokens=%s "
+                    "max_model_len=%s requested_max_tokens=%s "
+                    "effective_max_tokens=%s counts=%s",
+                    preflight.get("mode"),
+                    preflight.get("input_tokens"),
+                    preflight.get("max_model_len"),
+                    requested_max_tokens,
+                    effective_max_tokens,
+                    media_counts,
                 )
 
         if "skip_special_tokens" in raw_kwargs and is_vllm_backend:

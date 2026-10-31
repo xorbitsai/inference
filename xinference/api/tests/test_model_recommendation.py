@@ -159,6 +159,7 @@ async def test_context_overflow_is_a_client_error(
         _get_model_last_error=AsyncMock(side_effect=lambda uid, error: error),
         _is_qwen38_description=lambda desc: False,
         _apply_cache_salt=RESTfulAPI._apply_cache_salt,
+        _count_multimodal_items=RESTfulAPI._count_multimodal_items,
         handle_request_limit_error=RESTfulAPI.handle_request_limit_error,
         _chat_completion_error_detail=RESTfulAPI._chat_completion_error_detail,
     )
