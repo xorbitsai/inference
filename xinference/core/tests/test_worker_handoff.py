@@ -14,9 +14,11 @@
 
 import asyncio
 import contextlib
+import copy
 import json
 import os
 import sys
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1317,6 +1319,73 @@ def test_catalog_replacement_validates_before_deletion_and_does_not_persist(
         assert not registry.get_custom_models()
         CustomModelState.restore(owner, before, replace=True)
         assert registry.find_model(name).model_name == name
+    finally:
+        for item in list(registry.get_custom_models()):
+            registry.unregister(item.model_name, remove_file=False)
+        for item in original:
+            register_embedding(item, persist=False)
+
+
+@pytest.mark.parametrize("failure", ["uri", "engine"])
+def test_failed_catalog_replacement_restores_registrations_and_engines(
+    tmp_path, monkeypatch, failure
+):
+    from ...model import embedding
+    from ...model.custom import RegistryManager
+    from ...model.embedding.custom import (
+        CustomEmbeddingModelFamilyV2,
+        register_embedding,
+        unregister_embedding,
+    )
+    from ...model.embedding.embed_family import (
+        BUILTIN_EMBEDDING_MODELS,
+        EMBEDDING_ENGINES,
+    )
+    from ..worker_handoff import CustomModelState
+
+    registry = RegistryManager.get_registry("embedding")
+    original = list(registry.get_custom_models())
+    definition = next(iter(BUILTIN_EMBEDDING_MODELS.values()))[0].dict()
+    prefix = "replacement-" + uuid.uuid4().hex
+    definition.update(model_name=prefix, is_builtin=False)
+    owner = SimpleNamespace(
+        _custom_register_type_to_cls={
+            "embedding": (
+                CustomEmbeddingModelFamilyV2,
+                register_embedding,
+                unregister_embedding,
+                None,
+            )
+        }
+    )
+    try:
+        register_embedding(CustomEmbeddingModelFamilyV2.parse_obj(definition), False)
+        before = CustomModelState.capture(owner)
+        engines = copy.deepcopy(EMBEDDING_ENGINES)
+        replacement = {}
+        for suffix in ("first", "rejected"):
+            model = copy.deepcopy(definition)
+            model["model_name"] = prefix + "-" + suffix
+            if failure == "uri" and suffix == "rejected":
+                model["model_specs"][0]["model_uri"] = (tmp_path / "missing").as_uri()
+            replacement[model["model_name"]] = json.dumps(model)
+        if failure == "engine":
+            generate = embedding.generate_engine_config_by_model_name
+
+            def reject_after_generation(spec):
+                generate(spec)
+                if spec.model_name.endswith("-rejected"):
+                    raise ValueError("Engine registration rejected")
+
+            monkeypatch.setattr(
+                embedding,
+                "generate_engine_config_by_model_name",
+                reject_after_generation,
+            )
+        with pytest.raises(ValueError):
+            CustomModelState.restore(owner, {"embedding": replacement}, replace=True)
+        assert CustomModelState.capture(owner) == before
+        assert EMBEDDING_ENGINES == engines
     finally:
         for item in list(registry.get_custom_models()):
             registry.unregister(item.model_name, remove_file=False)

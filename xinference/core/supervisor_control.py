@@ -8,6 +8,7 @@ Extensions own workflow ordering; this module supplies only local primitives.
 """
 
 import asyncio
+import contextlib
 import inspect
 import math
 import uuid
@@ -39,6 +40,19 @@ MODEL_SERVICE_FIELDS = (
 _service_host: ContextVar[Optional[Tuple[Any, str]]] = ContextVar(
     "xinference_model_service_host", default=None
 )
+_supervisor_calls: ContextVar[tuple] = ContextVar("supervisor_calls", default=())
+
+
+@contextlib.contextmanager
+def _supervisor_call_scope(control):
+    """Mark nested business helpers separately from transport admission."""
+    token = _supervisor_calls.set(
+        (*_supervisor_calls.get(), (control, asyncio.current_task()))
+    )
+    try:
+        yield
+    finally:
+        _supervisor_calls.reset(token)
 
 
 def model_service_address(owner):
@@ -342,8 +356,9 @@ class SupervisorControlPort:
             raise ValueError("Expected a public Supervisor method")
         control = self._control()
         async with control.fence.command(control.capture()):
-            value = getattr(self._owner, method)(*args, **kwargs)
-            return await value if inspect.isawaitable(value) else value
+            with _supervisor_call_scope(control):
+                value = getattr(self._owner, method)(*args, **kwargs)
+                return await value if inspect.isawaitable(value) else value
 
     async def with_service_address(self, address, call):
         if not isinstance(address, str) or not address:
@@ -381,15 +396,16 @@ def bind_supervisor_control(owner, name, method):
     control = owner._controller_control
 
     def guarded(self, *args, **kwargs):
-        nested = control.fence.bound_context() is not None
+        # Remote dispatch may hold the fence before resolving the outer method.
+        nested = (
+            control.fence.bound_context() is not None
+            and (control, asyncio.current_task()) in _supervisor_calls.get()
+        )
         supplied = kwargs.pop(CONTROL_CONTEXT_KEY, None)
         if name in BLOCKED:
             raise ControlSessionRejected("handoff_requires_session_transfer")
         # Nested synchronous helpers preserve their ordinary return type.
-        if (
-            control.fence.bound_context() is not None
-            and not inspect.iscoroutinefunction(method)
-        ):
+        if nested and not inspect.iscoroutinefunction(method):
             control.fence.check_local()
             return method(*args, **kwargs)
         command = (
@@ -405,16 +421,17 @@ def bind_supervisor_control(owner, name, method):
                     value = method(*args, **kwargs)
                     return await value if inspect.isawaitable(value) else value
 
-                if nested:
-                    return await execute()
-                return await invoke_control_hook(
-                    control.authority,
-                    "around_supervisor_call",
-                    ControlInvocation(
-                        self.control_address, name, command, args, kwargs
-                    ),
-                    execute,
-                )
+                with _supervisor_call_scope(control):
+                    if nested:
+                        return await execute()
+                    return await invoke_control_hook(
+                        control.authority,
+                        "around_supervisor_call",
+                        ControlInvocation(
+                            self.control_address, name, command, args, kwargs
+                        ),
+                        execute,
+                    )
 
         return run()
 

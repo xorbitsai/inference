@@ -32,6 +32,141 @@ class Provider:
         pass
 
 
+class InterceptedSupervisor(SupervisorActor):
+    def __init__(self):
+        xo.StatelessActor.__init__(self)
+        state = SimpleNamespace(owner=session(), phase="active", failed=False)
+        authority = Provider(state, state.owner)
+        authority.around_supervisor_call = self._intercept
+        self._controller_control = SupervisorControl(self, authority)
+        self._controller_control.fence.ready = True
+        self._controller_control.has_served = True
+        self.events = []
+
+    async def __post_create__(self):
+        pass
+
+    async def __pre_destroy__(self):
+        pass
+
+    async def _intercept(self, invocation, call):
+        self.events.append(("entry", invocation.method, invocation.command.to_dict()))
+        try:
+            result = await call()
+        except Exception:
+            self.events.append(("error", invocation.method))
+            raise
+        self.events.append(("complete", invocation.method))
+        return result
+
+    def nested_cleanup(self, uid):
+        return uid
+
+    async def mark_replica_dead(self, uid):
+        assert self.nested_cleanup(uid) == uid
+        if uid == "fail":
+            raise ValueError("Callback failed")
+        return uid
+
+    def get_status(self):
+        return self.events
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("transport", ["local", "remote", "port"])
+@pytest.mark.parametrize("uid", ["model-rep0", "fail"])
+async def test_supervisor_intercepts_worker_callbacks_once(transport, uid):
+    from xoscar.core import LocalActorRef
+
+    from ..control_session import SessionBoundSupervisorRef
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        ref = await xo.create_actor(
+            InterceptedSupervisor, address=pool.external_address, uid="supervisor"
+        )
+        fence, authority = setup_fence()
+        await fence.install(authority.owner, 1)
+        original = command(authority.owner, "worker-callback")
+        actor = pool._actors[ref.uid]
+        if transport == "port":
+            call = SupervisorControlPort(actor).call("mark_replica_dead", uid)
+        else:
+            target = (
+                xo.ActorRef(ref.address, ref.uid)
+                if transport == "remote"
+                else LocalActorRef(actor)
+            )
+            with fence.local_scope(original):
+                call = SessionBoundSupervisorRef(target, fence).mark_replica_dead(uid)
+        if uid == "fail":
+            with pytest.raises(ValueError, match="Callback failed"):
+                await call
+        else:
+            assert await call == uid
+        events = await ref.get_status()
+        if transport == "port":
+            assert events == []
+        else:
+            assert events == [
+                ("entry", "mark_replica_dead", original.to_dict()),
+                ("error" if uid == "fail" else "complete", "mark_replica_dead"),
+            ]
+    finally:
+        await pool.stop()
+
+
+@pytest.mark.asyncio
+async def test_persistent_monitor_does_not_inherit_launch_hook_suppression():
+    from ..control_invocation import ControlInvocation, invoke_control_hook
+
+    seen = []
+    wake = asyncio.Event()
+    monitor = None
+    authority = SimpleNamespace()
+    first = ControlInvocation(
+        "worker:1234", "launch_builtin_model", command(session()), (), {}
+    )
+    second = ControlInvocation(
+        "worker:1234", "launch_builtin_model", command(session(), "recovery"), (), {}
+    )
+
+    async def intercept(invocation, call):
+        seen.append(invocation.command.operation_id)
+        return await call()
+
+    authority.around_control_call = intercept
+
+    async def recover():
+        await wake.wait()
+        return await invoke_control_hook(
+            authority,
+            "around_control_call",
+            second,
+            AsyncMock(return_value="recovered"),
+        )
+
+    async def launch():
+        nonlocal monitor
+        monitor = asyncio.create_task(recover())
+        return await invoke_control_hook(
+            authority, "around_control_call", first, AsyncMock(return_value="launched")
+        )
+
+    try:
+        assert (
+            await invoke_control_hook(authority, "around_control_call", first, launch)
+            == "launched"
+        )
+        wake.set()
+        assert await monitor == "recovered"
+        assert seen == ["operation", "recovery"]
+    finally:
+        if monitor is not None:
+            monitor.cancel()
+            await asyncio.gather(monitor, return_exceptions=True)
+
+
 @pytest.mark.asyncio
 async def test_worker_proxy_captures_original_session_and_never_borrows_successor():
     old = session()

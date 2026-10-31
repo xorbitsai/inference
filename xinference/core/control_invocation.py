@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 """Optional process-local interception of an already admitted control call."""
 
+import asyncio
 import inspect
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -29,7 +30,14 @@ async def invoke_control_hook(
         return await call()
     if not inspect.iscoroutinefunction(callback):
         raise TypeError("Control invocation callbacks must be asynchronous")
-    key = (id(authority), hook, invocation.target, invocation.method)
+    # Background tasks inherit ContextVars, but each new task owns its calls.
+    key = (
+        id(authority),
+        hook,
+        invocation.target,
+        invocation.method,
+        asyncio.current_task(),
+    )
     if key in _active.get():
         return await call()
     token = _active.set((*_active.get(), key))

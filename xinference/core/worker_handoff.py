@@ -101,12 +101,49 @@ class CustomModelState:
                         spec.is_builtin = False
                     models.append(spec)
                 staged.append((kind, register, models))
-            for kind, register, models in staged:
-                registry = RegistryManager.get_registry(kind)
-                for existing in list(registry.get_custom_models()):
-                    registry.unregister(existing.model_name, remove_file=False)
-                for spec in models:
-                    register(spec, persist=False)
+            from ..model.audio.engine_family import AUDIO_ENGINES
+            from ..model.embedding.embed_family import EMBEDDING_ENGINES
+            from ..model.image.engine_family import IMAGE_ENGINES
+            from ..model.image.ocr.ocr_family import OCR_ENGINES
+            from ..model.llm.llm_family import LLM_ENGINES
+            from ..model.rerank.rerank_family import RERANK_ENGINES
+
+            # register() also validates local URIs and updates derived engine
+            # tables. Restore their prior state directly if any type rejects,
+            # without revalidating old paths or touching registration files.
+            previous = [
+                (
+                    RegistryManager.get_registry(kind),
+                    RegistryManager.get_registry(kind).get_custom_models(),
+                )
+                for kind, _, _ in staged
+            ]
+            engines = [
+                (table, copy.deepcopy(table))
+                for table in (
+                    LLM_ENGINES,
+                    EMBEDDING_ENGINES,
+                    RERANK_ENGINES,
+                    IMAGE_ENGINES,
+                    OCR_ENGINES,
+                    AUDIO_ENGINES,
+                )
+            ]
+            try:
+                for kind, register, models in staged:
+                    registry = RegistryManager.get_registry(kind)
+                    for existing in registry.get_custom_models():
+                        registry.unregister(existing.model_name, remove_file=False)
+                    for spec in models:
+                        register(spec, persist=False)
+            except BaseException:
+                for registry, models in previous:
+                    with registry.lock:
+                        registry.models[:] = models
+                for table, entries in engines:
+                    table.clear()
+                    table.update(entries)
+                raise
             return
         pending = []
         # Validate the entire catalog before changing any target registry.
