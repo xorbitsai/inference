@@ -578,7 +578,12 @@ def create_llm_model_instance(
     # llama.cpp's native n_ctx is the total capacity across all parallel slots.
     map_context_length(model_engine, kwargs)
     llm_family = match_llm(
-        model_name, model_format, model_size_in_billions, quantization, download_hub
+        model_name,
+        model_format,
+        model_size_in_billions,
+        quantization,
+        download_hub,
+        model_path,
     )
 
     if not llm_family:
