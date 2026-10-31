@@ -236,6 +236,7 @@ class DiffusersVideoModel:
             "onload_device": onload_device,
             "offload_device": offload_device,
             "use_stream": kwargs.pop("use_stream", True),
+            "low_cpu_mem_usage": kwargs.pop("low_cpu_mem_usage", False),
         }
         num_blocks_per_group = kwargs.pop("num_blocks_per_group", 1)
 
@@ -621,20 +622,30 @@ class DiffusersVideoModel:
 
         from diffusers import ComponentsManager, ModularPipeline
 
-        manager = ComponentsManager()
-        manager.enable_auto_cpu_offload(
-            device=kwargs.pop("onload_device", "cuda"),
-            memory_reserve_margin=kwargs.pop("memory_reserve_margin", "12GB"),
-        )
-        pipeline = ModularPipeline.from_pretrained(
-            self._model_path, components_manager=manager
-        )
+        group_offload = kwargs.pop("group_offload", False)
+        if group_offload:
+            pipeline = ModularPipeline.from_pretrained(self._model_path)
+        else:
+            manager = ComponentsManager()
+            manager.enable_auto_cpu_offload(
+                device=kwargs.pop("onload_device", "cuda"),
+                memory_reserve_margin=kwargs.pop("memory_reserve_margin", "12GB"),
+            )
+            pipeline = ModularPipeline.from_pretrained(
+                self._model_path, components_manager=manager
+            )
         pipeline.load_components(
             workflow="t2va",
             dtype=torch_dtype,
             pretrained_model_name_or_path=self._model_path,
         )
         self._apply_minimax_h3_lightning(pipeline)
+        if group_offload:
+            if kwargs.get("use_stream", True):
+                # Pin groups on demand instead of pinning the entire BF16
+                # checkpoint, which can exceed a shared-memory host's RAM.
+                kwargs.setdefault("low_cpu_mem_usage", True)
+            self._enable_minimax_h3_group_offload(pipeline, kwargs)
         self._model = pipeline
 
     @staticmethod

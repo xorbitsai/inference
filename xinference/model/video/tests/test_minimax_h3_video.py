@@ -486,7 +486,8 @@ def test_minimax_h3_memory_efficient_lora_forward_accumulates_in_place(
     torch.testing.assert_close(actual, expected)
 
 
-def test_minimax_h3_loads_modular_pipeline(monkeypatch):
+@pytest.mark.parametrize("group_offload", [False, True])
+def test_minimax_h3_loads_modular_pipeline(monkeypatch, group_offload):
     calls = {}
 
     class FakeComponentsManager:
@@ -506,6 +507,11 @@ def test_minimax_h3_loads_modular_pipeline(monkeypatch):
     fake_diffusers.ComponentsManager = FakeComponentsManager
     fake_diffusers.ModularPipeline = FakePipeline
     monkeypatch.setitem(sys.modules, "diffusers", fake_diffusers)
+    monkeypatch.setattr(
+        DiffusersVideoModel,
+        "_enable_minimax_h3_group_offload",
+        lambda self, pipeline, kwargs: calls.update(group_offload=(pipeline, kwargs)),
+    )
 
     model = DiffusersVideoModel(
         "mock",
@@ -513,16 +519,27 @@ def test_minimax_h3_loads_modular_pipeline(monkeypatch):
         _model_spec(),
         quantization="none",
         onload_device="cuda:1",
+        group_offload=group_offload,
     )
     model.load()
 
-    assert calls["offload"] == {
-        "device": "cuda:1",
-        "memory_reserve_margin": "12GB",
-    }
+    if group_offload:
+        assert "offload" not in calls
+        pipeline, options = calls["group_offload"]
+        assert pipeline is model._model
+        assert options["onload_device"] == "cuda:1"
+        assert options["low_cpu_mem_usage"] is True
+    else:
+        assert "group_offload" not in calls
+        assert calls["offload"] == {
+            "device": "cuda:1",
+            "memory_reserve_margin": "12GB",
+        }
     model_path, from_pretrained_kwargs = calls["from_pretrained"]
     assert model_path == "/tmp/minimax-h3"
-    assert list(from_pretrained_kwargs) == ["components_manager"]
+    assert list(from_pretrained_kwargs) == (
+        [] if group_offload else ["components_manager"]
+    )
     assert isinstance(model._model, FakePipeline)
     assert calls["load_components"]["workflow"] == "t2va"
     assert (
@@ -726,6 +743,36 @@ def test_minimax_h3_torchao_quantization(monkeypatch, quantization):
         "vae",
         "audio_vae",
     }
+
+
+def test_minimax_h3_group_offload_low_cpu_memory(monkeypatch):
+    calls = {}
+    hooks = types.ModuleType("diffusers.hooks")
+    hooks.apply_group_offloading = lambda model, **kwargs: calls.update(text=kwargs)
+    monkeypatch.setitem(sys.modules, "diffusers.hooks", hooks)
+
+    class Component:
+        def requires_grad_(self, value):
+            pass
+
+        def enable_group_offload(self, **kwargs):
+            calls["transformer"] = kwargs
+
+        def to(self, device):
+            return self
+
+    pipeline = types.SimpleNamespace(
+        transformer=Component(),
+        text_encoder=Component(),
+        vae=Component(),
+        audio_vae=Component(),
+    )
+    DiffusersVideoModel._enable_minimax_h3_group_offload(
+        pipeline, {"use_stream": True, "low_cpu_mem_usage": True}
+    )
+    for name in ("transformer", "text"):
+        assert calls[name]["use_stream"] is True
+        assert calls[name]["low_cpu_mem_usage"] is True
 
 
 def test_minimax_h3_forwards_workflows_and_muxes_audio(monkeypatch, tmp_path):

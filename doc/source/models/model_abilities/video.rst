@@ -125,8 +125,12 @@ For online FP8 quantization of H3, pass ``quantization_config="fp8"`` to
 Diffusers or vLLM. For SGLang, pass
 ``component_quantizations={"transformer": "fp8", "text_encoder": "fp8"}``.
 This selects FP8 weights with dynamically quantized FP8 activations for
-supported DiT and text encoder linear layers, while keeping the VAEs in BF16.
+supported DiT and text encoder linear layers, while leaving the VAEs unquantized.
 FP8 requires compatible GPU hardware and kernels.
+
+For an unquantized H3 Diffusers baseline, set ``quantization_config="bf16"``.
+The ``group_offload`` option applies to both quantized and unquantized H3 models.
+With streaming offload, ``low_cpu_mem_usage=True`` pins CPU weights on demand.
 
 Both native H3 engines accept the LightX2V ``lightning_version`` values listed
 below. Xinference loads the adapter and selects its step count and video/audio
