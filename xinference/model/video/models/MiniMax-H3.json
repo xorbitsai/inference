@@ -93,7 +93,14 @@
       }
     },
     "updated_at": 1793376000,
-    "featured": true
+    "featured": true,
+    "runtime_precisions": [
+      "bf16",
+      "fp8",
+      "int8",
+      "int4"
+    ],
+    "default_runtime_precision": "int4"
   },
   {
     "version": 2,
@@ -172,7 +179,12 @@
       }
     },
     "updated_at": 1793376000,
-    "featured": true
+    "featured": true,
+    "runtime_precisions": [
+      "bf16",
+      "fp8"
+    ],
+    "default_runtime_precision": "bf16"
   },
   {
     "version": 2,
@@ -253,6 +265,11 @@
       }
     },
     "updated_at": 1793376000,
-    "featured": true
+    "featured": true,
+    "runtime_precisions": [
+      "bf16",
+      "fp8"
+    ],
+    "default_runtime_precision": "bf16"
   }
 ]

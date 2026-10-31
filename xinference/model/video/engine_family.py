@@ -222,6 +222,11 @@ def generate_engine_config_by_model_name(
                 "quantization": engine_quantization,
                 "video_class": cls,
             }
+            if model_family.runtime_precisions:
+                param["runtime_precisions"] = model_family.runtime_precisions
+                param["default_runtime_precision"] = (
+                    model_family.default_runtime_precision
+                )
             if not any(
                 existing["model_name"] == model_name
                 and existing["model_format"] == engine_model_format

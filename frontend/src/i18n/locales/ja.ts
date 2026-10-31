@@ -550,6 +550,15 @@ const ja = {
     emptyFile: '空のファイルはアップロードできません。',
   },
   launchModel: {
+    runtimePrecision: '実行精度',
+    runtimePrecisionDefault: 'エンジンの既定値（{{precision}}）',
+    runtimePrecisionCustom: '詳細設定を使用',
+    runtimePrecisionBf16: 'BF16（非量子化）',
+    runtimePrecisionUnsupported:
+      '{{engine}} は {{precision}} に対応していません。別の精度を選択してください。',
+    runtimePrecisionHelp:
+      'DiT とテキストエンコーダーに適用し、VAE はネイティブ精度を維持します。明示的な選択は詳細設定の精度を上書きします。FP8 のスケーリングはエンジンにより異なります。',
+
     updateOneModel: '単一モデルを更新',
     updateOneModelDescription:
       '共有カタログの単一モデルを更新し、他のモデルを保持します。重みのダウンロードや実行中モデルの再起動は行いません。',

@@ -121,6 +121,16 @@ uses the root FL2VA components; SGLang and vLLM share the native ``FL2VA/``
 checkpoint. Each layout is about 134 GiB in BF16 before runtime quantization.
 Lightning weights are downloaded separately.
 
+The H3 launch dialog offers a shared runtime precision selector, also available
+as ``runtime_precision`` in launch requests: ``bf16`` and ``fp8`` on all three
+engines, plus ``int8`` and ``int4`` on Diffusers. An explicit choice overrides
+engine-specific precision parameters for the DiT and text encoder; VAEs retain
+their native precision. FP8 uses each engine's native scaling implementation
+and is not an identical quantization scheme across engines. Omitting this
+option or selecting ``auto`` preserves advanced parameters and engine defaults
+(INT4 on Diffusers, BF16 on SGLang and vLLM). Switching engines retains an
+explicit precision choice and rejects unsupported values.
+
 For online FP8 quantization of H3, pass ``quantization_config="fp8"`` to
 Diffusers or vLLM. For SGLang, pass
 ``component_quantizations={"transformer": "fp8", "text_encoder": "fp8"}``.

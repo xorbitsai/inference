@@ -47,6 +47,8 @@ class VideoModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     engine: Optional[str]
     model_engine: Optional[str] = None
     model_format: Optional[str]
+    runtime_precisions: Optional[List[str]] = None
+    default_runtime_precision: Optional[str] = None
     cache_name: Optional[str]
     gguf_model_id: Optional[str]
     gguf_quantizations: Optional[List[str]]
@@ -197,6 +199,10 @@ def create_video_model_instance(
         model_name, model_engine, use_default_engine=True
     )
     model_spec = match_diffusion(model_name, download_hub, model_engine=model_engine)
+
+    from .precision import apply_runtime_precision
+
+    kwargs = apply_runtime_precision(model_spec, model_engine, kwargs)
 
     if model_engine is None:
         available_engines = VIDEO_ENGINES.get(model_name, {})

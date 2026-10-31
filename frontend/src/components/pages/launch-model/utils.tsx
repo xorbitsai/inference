@@ -637,6 +637,7 @@ const commandLineKeyMap: Record<string, string> = {
   reasoning_content: '--reasoning_content',
   lightning_version: '--lightning_version',
   lightning_model_path: '--lightning_model_path',
+  runtime_precision: '--runtime_precision',
 };
 
 const predefinedLaunchKeySet = new Set<string>(ALL_FORM_KEYS);

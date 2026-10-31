@@ -70,6 +70,7 @@ import { shouldApplyPreferredDownloadSource } from './download-source-utils.mjs'
 import { recommendationUnavailable, recommendationWarningKeys } from './recommendation';
 import { useRecommendation } from './use-recommendation';
 import ContextLengthField from './context-length-field';
+import RuntimePrecisionField from './runtime-precision-field';
 import { StructuredLaunchParameterError } from '../structured-launch-params';
 
 interface LaunchDialogProps {
@@ -117,6 +118,7 @@ const DOWNLOAD_ONLY_EXCLUDED_FIELDS = new Set([
   'reasoning_content',
   'cpu_offload',
   'quantization_config',
+  'runtime_precision',
   'num_speculative_tokens',
   'envs',
   'virtual_env_find_links',
@@ -164,6 +166,12 @@ export default function LaunchDialog({
     ModelType.Audio,
   ].includes(modelType);
   const [modelEngineMap, setModelEngineMap] = useState<ModelEngine>({});
+  const hasRuntimePrecision =
+    modelType === ModelType.Video &&
+    ((Array.isArray(model?.runtime_precisions) && model.runtime_precisions.length > 0) ||
+      Object.values(modelEngineMap).some(
+        (specs) => Array.isArray(specs) && specs.some((spec) => spec.runtime_precisions?.length)
+      ));
   const launchFormValues = useFormValues(form);
   const modelEngineValue = toOptionValue(useWatch('model_engine', form));
   const modelFormatValue = toOptionValue(useWatch('model_format', form));
@@ -1460,7 +1468,14 @@ export default function LaunchDialog({
         label: t('launchModel.quantization'),
         disabled: !modelFormatValue,
         fieldProps: { options: quantizationOptions },
-        show: !!quantizationOptions.length,
+        show: !!quantizationOptions.length && !hasRuntimePrecision,
+      },
+      {
+        name: 'runtime_precision',
+        type: 'custom',
+        colSpan: 2,
+        show: hasRuntimePrecision,
+        content: <RuntimePrecisionField form={form} engines={modelEngineMap} />,
       },
       {
         name: 'replica',
