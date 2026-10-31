@@ -1,3 +1,5 @@
+# CI: linux
+
 from xinference.model.llm.transformers.utils import _find_stop_sequence
 
 

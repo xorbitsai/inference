@@ -139,7 +139,9 @@ def _make_stream_stop_chunk(
     }
 
 
-def _annotate_stop_sequence(response: Dict[str, Any], stop_sequences: Any) -> Dict[str, Any]:
+def _annotate_stop_sequence(
+    response: Dict[str, Any], stop_sequences: Any
+) -> Dict[str, Any]:
     """Preserve a backend stop marker for Anthropic protocol conversion."""
     if not isinstance(stop_sequences, list) or not stop_sequences:
         return response
@@ -151,7 +153,9 @@ def _annotate_stop_sequence(response: Dict[str, Any], stop_sequences: Any) -> Di
         return response
     if choice.get("stop_sequence") is not None:
         return response
-    candidate = choice.get("stop") or choice.get("stopping_word") or response.get("stop")
+    candidate = (
+        choice.get("stop") or choice.get("stopping_word") or response.get("stop")
+    )
     if isinstance(candidate, str) and candidate in stop_sequences:
         choice["stop_sequence"] = candidate
         return response
@@ -160,7 +164,9 @@ def _annotate_stop_sequence(response: Dict[str, Any], stop_sequences: Any) -> Di
         message = choice.get("message")
         text = message.get("content") if isinstance(message, dict) else None
     if isinstance(text, str):
-        matches = [(text.find(stop), stop) for stop in stop_sequences if text.find(stop) >= 0]
+        matches = [
+            (text.find(stop), stop) for stop in stop_sequences if text.find(stop) >= 0
+        ]
         if matches:
             choice["stop_sequence"] = min(matches)[1]
     return response

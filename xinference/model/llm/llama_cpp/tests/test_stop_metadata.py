@@ -1,3 +1,5 @@
+# CI: linux
+
 from xinference.model.llm.llama_cpp.core import _annotate_stop_sequence
 
 
