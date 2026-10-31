@@ -3871,6 +3871,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 for f in families:
                     if f.model_hub == "huggingface":
                         return f
+                if families:
+                    return families[0]
 
             # Check user-defined audio models
             for f in get_user_defined_audios():
