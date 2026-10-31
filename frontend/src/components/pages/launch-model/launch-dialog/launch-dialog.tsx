@@ -31,7 +31,7 @@ import type {
   ReplicaItem,
   LaunchProgressResponse,
 } from '@/types/services';
-import type { FormValues } from '@/types/form';
+import type { FieldName, FormValues } from '@/types/form';
 import CollapsibleConfig from './advanced-config';
 import ConfigCache from './config-cache';
 import { getLatestModelConfigHistory, saveLaunchConfigHistory } from './launch-history';
@@ -71,7 +71,7 @@ import { recommendationUnavailable, recommendationWarningKeys } from './recommen
 import { useRecommendation } from './use-recommendation';
 import ContextLengthField from './context-length-field';
 import RuntimePrecisionField from './runtime-precision-field';
-import ModelDefaultConfig, { selectEngineDefaults } from './model-default-config';
+import { selectEngineDefaults, useModelDefaults } from './model-defaults';
 import { StructuredLaunchParameterError } from '../structured-launch-params';
 
 interface LaunchDialogProps {
@@ -148,11 +148,19 @@ export default function LaunchDialog({
   const [progressDetails, setProgressDetails] = useState<LaunchProgressResponse | null>(null);
   const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
   const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
+  const modelDefaults = useModelDefaults(form);
   const {
     markFormEdited: markLaunchHistoryFormEdited,
     resetFormEdited: resetLaunchHistoryFormEdited,
     handleHistoryRefreshed: handleLaunchHistoryRefreshed,
-  } = useLaunchHistoryForm(form, isOpen, model?.model_name);
+  } = useLaunchHistoryForm(form, isOpen, model?.model_name, modelDefaults.snapshotApplied);
+  const handleFormUserChange = useCallback(
+    (name?: FieldName) => {
+      modelDefaults.userChanged(name);
+      markLaunchHistoryFormEdited();
+    },
+    [modelDefaults, markLaunchHistoryFormEdited]
+  );
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cacheUidRef = useRef<string | undefined>(undefined);
   const isCanceledLaunchRef = useRef(false);
@@ -208,12 +216,15 @@ export default function LaunchDialog({
     form,
     model?.model_name,
     isOpen && supportsRecommendation && !loading,
-    markLaunchHistoryFormEdited,
+    handleFormUserChange,
     applyRecommendationEngines,
     modelType,
-    (model?.modelSpecs || []).map((spec) => toOptionValue(spec.quantization)).filter(Boolean)
+    (model?.modelSpecs || []).map((spec) => toOptionValue(spec.quantization)).filter(Boolean),
+    modelDefaults.withoutAutomatic
   );
-  const cannotRecommend = recommendationUnavailable(launchFormValues);
+  const cannotRecommend = recommendationUnavailable(
+    modelDefaults.withoutAutomatic(launchFormValues)
+  );
   const recommendationWarnings = recommendation.result
     ? recommendationWarningKeys(recommendation.result)
     : [];
@@ -1678,25 +1689,38 @@ export default function LaunchDialog({
       !isCustomPlacement || !['n_worker', 'n_gpu', 'gpu_idx', 'worker_ip'].includes(field.name)
   );
   const defaultsSpec = selectEngineDefaults(modelEngineMap, launchFormValues);
-  if (defaultsSpec && Object.keys(defaultsSpec.default_model_config || {}).length > 0) {
-    const selectionFields = new Set([
-      'model_engine',
-      'model_format',
-      'model_size_in_billions',
-      'quantization',
-      'runtime_precision',
+  const defaultFieldsKey = JSON.stringify(
+    currentLaunchFields
+      .filter(
+        (field) =>
+          field.show !== false && (field.type !== 'custom' || field.name === 'runtime_precision')
+      )
+      .map((field) => field.name)
+  );
+  useEffect(() => {
+    if (!isOpen || !defaultsSpec || launchFormValues.model_name !== model?.model_name) return;
+    const scope = JSON.stringify([
+      modelType,
+      model?.model_name,
+      modelEngineValue,
+      modelFormatValue,
+      modelSizeInBillionsKey,
+      quantizationValue,
     ]);
-    const selectionEnd = currentLaunchFields.reduce(
-      (last, field, index) => (selectionFields.has(field.name) ? index : last),
-      -1
-    );
-    currentLaunchFields.splice(selectionEnd + 1, 0, {
-      name: 'model_defaults',
-      type: 'custom',
-      colSpan: 2,
-      content: <ModelDefaultConfig form={form} spec={defaultsSpec} />,
-    });
-  }
+    modelDefaults.sync(scope, defaultsSpec, new Set<string>(JSON.parse(defaultFieldsKey)));
+  }, [
+    isOpen,
+    defaultsSpec,
+    launchFormValues,
+    model?.model_name,
+    modelType,
+    modelEngineValue,
+    modelFormatValue,
+    modelSizeInBillionsKey,
+    quantizationValue,
+    modelDefaults,
+    defaultFieldsKey,
+  ]);
   // required fields is filled in
   const isReady = currentLaunchFields
     .filter(isVisibleRequiredLaunchField)
@@ -1986,8 +2010,8 @@ export default function LaunchDialog({
     resetLaunchHistoryFormEdited();
     const latestConfig = getLatestModelConfigHistory(model?.model_name, clusterAuth.auth === true);
 
-    replaceLaunchHistoryFormSnapshot(form, latestConfig);
-  }, [clusterAuth, form, isOpen, model?.model_name, resetLaunchHistoryFormEdited]);
+    replaceLaunchHistoryFormSnapshot(form, latestConfig, modelDefaults.snapshotApplied);
+  }, [clusterAuth, form, isOpen, model?.model_name, resetLaunchHistoryFormEdited, modelDefaults]);
 
   useEffect(() => {
     if (!isOpen || (clusterAuth?.auth && !hasSettingsRead)) return;
@@ -2084,12 +2108,14 @@ export default function LaunchDialog({
                   modelType={modelType}
                   refreshKey={configCacheRefreshKey}
                   onHistoryRefreshed={handleLaunchHistoryRefreshed}
-                  onUserChange={markLaunchHistoryFormEdited}
+                  onSnapshotApplied={modelDefaults.snapshotApplied}
+                  onUserChange={handleFormUserChange}
                 />
                 <CommandLine
                   form={form}
                   canCopyCommandLine={isReady}
-                  onUserChange={markLaunchHistoryFormEdited}
+                  onSnapshotApplied={modelDefaults.snapshotApplied}
+                  onUserChange={handleFormUserChange}
                 />
               </div>
             </div>
@@ -2123,7 +2149,7 @@ export default function LaunchDialog({
             id={formId}
             form={form}
             onFinish={handleLaunch}
-            onUserChange={markLaunchHistoryFormEdited}
+            onUserChange={handleFormUserChange}
             initialValues={initialValues}
             className="grid grid-cols-2 gap-x-4 gap-y-3 space-y-0"
           >

@@ -359,7 +359,18 @@ describe('Web UI structured parameter submission', () => {
   }
 
   it('posts an object to /v1/models and saves object-valued history', async () => {
-    assert.ok(document.body.textContent?.includes('vad_model'));
+    await act(async () => form.setFieldValue('replica', 1));
+    const recommend = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.includes(translations.en.launchModel.recommendConfiguration)
+    );
+    assert.ok(recommend);
+    assert.equal(recommend.disabled, false);
+    assert.ok(
+      [...document.querySelectorAll<HTMLInputElement>('input')].some(
+        (input) => input.value === 'fsmn-vad'
+      )
+    );
+    assert.ok(!document.body.textContent?.includes('Model defaults'));
     await setOptions(JSON_OPTIONS);
     await submit();
     const launches = posts.filter((row) => row.url === '/v1/models');
@@ -367,7 +378,8 @@ describe('Web UI structured parameter submission', () => {
     assert.deepEqual(launches[0].body.realtime_options, OPTIONS);
     assert.equal(launches[0].body.realtime, true);
     assert.equal(launches[0].body.replica, 2);
-    assert.equal('vad_model' in launches[0].body, false);
+    assert.equal(launches[0].body.vad_model, 'fsmn-vad');
+    assert.deepEqual(launches[0].body.vad_kwargs, { max_single_segment_time: 30000 });
     assert.deepEqual(errors, []);
     await act(async () => resolveLaunch({ model_uid: 'nano-ui-options-test' }));
     const saved = readLaunchConfigHistory(false)[0];

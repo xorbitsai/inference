@@ -538,13 +538,6 @@ const zh = {
     emptyFile: '上传文件不能为空。',
   },
   launchModel: {
-    modelDefaultConfig: '模型默认配置',
-    modelDefaultConfigHelp: '由当前模型与引擎声明，加载参数会覆盖相应默认值。',
-    modelDefaultCurrentValue: '当前设置：',
-    modelDefaultPrecisionOverride: '已由运行精度选项覆盖。',
-    modelDefaultCollapse: '收起默认配置',
-    modelDefaultExpand: '查看全部默认配置（{{count}} 项）',
-
     runtimePrecision: '运行精度',
     runtimePrecisionDefault: '引擎默认（{{precision}}）',
     runtimePrecisionCustom: '使用高级配置',

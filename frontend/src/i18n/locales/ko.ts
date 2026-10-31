@@ -549,14 +549,6 @@ const ko = {
     emptyFile: '빈 파일은 업로드할 수 없습니다.',
   },
   launchModel: {
-    modelDefaultConfig: '모델 기본 설정',
-    modelDefaultConfigHelp:
-      '선택한 모델과 엔진에서 선언한 기본값입니다. 실행 설정이 해당 기본값을 덮어씁니다.',
-    modelDefaultCurrentValue: '현재 설정:',
-    modelDefaultPrecisionOverride: '실행 정밀도 선택으로 덮어썼습니다.',
-    modelDefaultCollapse: '기본 설정 접기',
-    modelDefaultExpand: '모든 기본 설정 보기 ({{count}}개)',
-
     runtimePrecision: '실행 정밀도',
     runtimePrecisionDefault: '엔진 기본값 ({{precision}})',
     runtimePrecisionCustom: '고급 설정 사용',

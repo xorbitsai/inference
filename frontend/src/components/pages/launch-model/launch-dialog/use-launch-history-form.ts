@@ -8,15 +8,23 @@ import { selectLatestModelLaunchHistory } from './launch-history-utils.mjs';
 
 export function replaceLaunchHistoryFormSnapshot(
   form: FormInstance,
-  item?: LaunchConfigHistoryItem
+  item?: LaunchConfigHistoryItem,
+  onSnapshotApplied?: (values: Record<string, unknown>) => void
 ) {
   form.resetFields();
   if (item) {
-    form.setFieldsValue(transformFetchToForm(item.data));
+    const values = transformFetchToForm(item.data);
+    onSnapshotApplied?.(values);
+    form.setFieldsValue(values);
   }
 }
 
-export function useLaunchHistoryForm(form: FormInstance, isOpen: boolean, modelName?: string) {
+export function useLaunchHistoryForm(
+  form: FormInstance,
+  isOpen: boolean,
+  modelName?: string,
+  onSnapshotApplied?: (values: Record<string, unknown>) => void
+) {
   const formEditedRef = useRef(false);
 
   const markFormEdited = useCallback(() => {
@@ -37,10 +45,10 @@ export function useLaunchHistoryForm(form: FormInstance, isOpen: boolean, modelN
         formEditedRef.current
       );
       if (latestConfig) {
-        replaceLaunchHistoryFormSnapshot(form, latestConfig);
+        replaceLaunchHistoryFormSnapshot(form, latestConfig, onSnapshotApplied);
       }
     },
-    [form, isOpen, modelName]
+    [form, isOpen, modelName, onSnapshotApplied]
   );
 
   return {

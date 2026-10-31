@@ -550,14 +550,6 @@ const ja = {
     emptyFile: '空のファイルはアップロードできません。',
   },
   launchModel: {
-    modelDefaultConfig: 'モデルの既定設定',
-    modelDefaultConfigHelp:
-      '選択したモデルとエンジンが宣言した既定値です。起動設定は対応する既定値を上書きします。',
-    modelDefaultCurrentValue: '現在の設定：',
-    modelDefaultPrecisionOverride: '実行精度の選択で上書きされています。',
-    modelDefaultCollapse: '表示を減らす',
-    modelDefaultExpand: 'すべての既定設定を表示（{{count}} 件）',
-
     runtimePrecision: '実行精度',
     runtimePrecisionDefault: 'エンジンの既定値（{{precision}}）',
     runtimePrecisionCustom: '詳細設定を使用',

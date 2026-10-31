@@ -563,14 +563,6 @@ const en = {
     emptyFile: 'The uploaded file cannot be empty.',
   },
   launchModel: {
-    modelDefaultConfig: 'Model defaults',
-    modelDefaultConfigHelp:
-      'Declared by the selected model and engine. Launch settings override the corresponding defaults.',
-    modelDefaultCurrentValue: 'Current setting:',
-    modelDefaultPrecisionOverride: 'Overridden by the runtime precision selection.',
-    modelDefaultCollapse: 'Show fewer defaults',
-    modelDefaultExpand: 'Show all defaults ({{count}})',
-
     runtimePrecision: 'Runtime precision',
     runtimePrecisionDefault: 'Engine default ({{precision}})',
     runtimePrecisionCustom: 'Advanced configuration',
