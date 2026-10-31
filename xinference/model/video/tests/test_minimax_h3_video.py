@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
+
 import sys
 import types
 from pathlib import Path
@@ -528,7 +530,8 @@ def test_minimax_h3_loads_modular_pipeline(monkeypatch):
     )
 
 
-def test_minimax_h3_defaults_to_int4_and_group_offload(monkeypatch):
+@pytest.mark.parametrize("quantization", ["int4", "int8", "fp8"])
+def test_minimax_h3_torchao_quantization(monkeypatch, quantization):
     import torch
 
     calls = {}
@@ -538,6 +541,9 @@ def test_minimax_h3_defaults_to_int4_and_group_offload(monkeypatch):
             self.kwargs = kwargs
 
     class FakeInt4WeightOnlyConfig(FakeInt8WeightOnlyConfig):
+        pass
+
+    class FakeFloat8DynamicActivationFloat8WeightConfig(FakeInt8WeightOnlyConfig):
         pass
 
     class FakeQuantizationConfig:
@@ -622,6 +628,9 @@ def test_minimax_h3_defaults_to_int4_and_group_offload(monkeypatch):
     fake_torchao_quantization = types.ModuleType("torchao.quantization")
     fake_torchao_quantization.Int4WeightOnlyConfig = FakeInt4WeightOnlyConfig
     fake_torchao_quantization.Int8WeightOnlyConfig = FakeInt8WeightOnlyConfig
+    fake_torchao_quantization.Float8DynamicActivationFloat8WeightConfig = (
+        FakeFloat8DynamicActivationFloat8WeightConfig
+    )
     fake_torchao.quantization = fake_torchao_quantization
     monkeypatch.setitem(sys.modules, "diffusers", fake_diffusers)
     monkeypatch.setitem(sys.modules, "diffusers.hooks", fake_hooks)
@@ -636,35 +645,58 @@ def test_minimax_h3_defaults_to_int4_and_group_offload(monkeypatch):
     monkeypatch.setitem(sys.modules, "torchao", fake_torchao)
     monkeypatch.setitem(sys.modules, "torchao.quantization", fake_torchao_quantization)
 
-    model = DiffusersVideoModel("mock", "/tmp/minimax-h3", _model_spec())
+    options = (
+        {}
+        if quantization == "int4"
+        else {"quantization_config": quantization, "group_offload": False}
+    )
+    model = DiffusersVideoModel("mock", "/tmp/minimax-h3", _model_spec(), **options)
     model.load()
 
     transformer_path, transformer_kwargs = calls["transformer_from_pretrained"]
     assert transformer_path == "/tmp/minimax-h3"
     assert transformer_kwargs["dtype"] == torch.bfloat16
     assert transformer_kwargs["low_cpu_mem_usage"] is True
-    assert transformer_kwargs["device_map"][""] == torch.device("cuda")
-    assert transformer_kwargs["device_map"]["token_refiner"] == "cpu"
-    assert transformer_kwargs["device_map"]["transformer_blocks.46"] == "cpu"
-    assert transformer_kwargs["device_map"]["transformer_blocks.49"] == "cpu"
-    assert "transformer_blocks.45" not in transformer_kwargs["device_map"]
-    assert transformer_kwargs["quantization_config"].quant_type.kwargs == {
-        "group_size": 128,
-        "int4_packing_format": "tile_packed_to_4d",
-        "version": 2,
-    }
+    if quantization == "int4":
+        assert transformer_kwargs["device_map"][""] == torch.device("cuda")
+        assert transformer_kwargs["device_map"]["token_refiner"] == "cpu"
+        assert transformer_kwargs["device_map"]["transformer_blocks.46"] == "cpu"
+        assert transformer_kwargs["device_map"]["transformer_blocks.49"] == "cpu"
+        assert "transformer_blocks.45" not in transformer_kwargs["device_map"]
+    else:
+        assert "device_map" not in transformer_kwargs
     assert "proj_in" in transformer_kwargs["quantization_config"].modules_to_not_convert
 
     text_encoder_kwargs = calls["text_encoder_from_pretrained"][1]
     assert text_encoder_kwargs["dtype"] == torch.bfloat16
     assert text_encoder_kwargs["low_cpu_mem_usage"] is True
-    assert text_encoder_kwargs["device_map"] == {
-        "": torch.device("cuda"),
-        "model.visual": "cpu",
-        "model.language_model.embed_tokens": "cpu",
-        "model.language_model.norm": "cpu",
-        "lm_head": "cpu",
-    }
+    if quantization == "int4":
+        assert text_encoder_kwargs["device_map"] == {
+            "": torch.device("cuda"),
+            "model.visual": "cpu",
+            "model.language_model.embed_tokens": "cpu",
+            "model.language_model.norm": "cpu",
+            "lm_head": "cpu",
+        }
+    else:
+        assert "device_map" not in text_encoder_kwargs
+    expected_type = {
+        "int4": FakeInt4WeightOnlyConfig,
+        "int8": FakeInt8WeightOnlyConfig,
+        "fp8": FakeFloat8DynamicActivationFloat8WeightConfig,
+    }[quantization]
+    for component_kwargs in (transformer_kwargs, text_encoder_kwargs):
+        quant_type = component_kwargs["quantization_config"].quant_type
+        assert type(quant_type) is expected_type
+        assert quant_type.kwargs == (
+            {
+                "group_size": 128,
+                "int4_packing_format": "tile_packed_to_4d",
+                "version": 2,
+            }
+            if quantization == "int4"
+            else {"version": 2}
+        )
     assert (
         "model.visual"
         in text_encoder_kwargs["quantization_config"].modules_to_not_convert
@@ -673,10 +705,14 @@ def test_minimax_h3_defaults_to_int4_and_group_offload(monkeypatch):
     assert (
         calls["load_components"]["pretrained_model_name_or_path"] == "/tmp/minimax-h3"
     )
-    assert calls["transformer_group_offload"]["offload_type"] == "block_level"
-    assert calls["transformer_group_offload"]["num_blocks_per_group"] == 1
-    assert calls["transformer_group_offload"]["use_stream"] is False
-    assert calls["text_encoder_group_offload"][0].name == "text_encoder.model"
+    if quantization == "int4":
+        assert calls["transformer_group_offload"]["offload_type"] == "block_level"
+        assert calls["transformer_group_offload"]["num_blocks_per_group"] == 1
+        assert calls["transformer_group_offload"]["use_stream"] is False
+        assert calls["text_encoder_group_offload"][0].name == "text_encoder.model"
+    else:
+        assert "transformer_group_offload" not in calls
+        assert "text_encoder_group_offload" not in calls
     assert fake_diffusers_modeling_utils.dispatch_model is original_diffusers_dispatch
     assert (
         fake_transformers_modeling_utils.accelerate_dispatch

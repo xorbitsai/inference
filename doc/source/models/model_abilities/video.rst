@@ -121,6 +121,13 @@ uses the root FL2VA components; SGLang and vLLM share the native ``FL2VA/``
 checkpoint. Each layout is about 134 GiB in BF16 before runtime quantization.
 Lightning weights are downloaded separately.
 
+For online FP8 quantization of H3, pass ``quantization_config="fp8"`` to
+Diffusers or vLLM. For SGLang, pass
+``component_quantizations={"transformer": "fp8", "text_encoder": "fp8"}``.
+This selects FP8 weights with dynamically quantized FP8 activations for
+supported DiT and text encoder linear layers, while keeping the VAEs in BF16.
+FP8 requires compatible GPU hardware and kernels.
+
 Both native H3 engines accept the LightX2V ``lightning_version`` values listed
 below. Xinference loads the adapter and selects its step count and video/audio
 flow shifts automatically. Conflicting per-request step counts or flow shifts

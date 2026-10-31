@@ -459,6 +459,12 @@ class DiffusersVideoModel:
                 setattr(module, attribute, original)
 
         def make_quant_type():
+            if quantization == "fp8":
+                from torchao.quantization import (
+                    Float8DynamicActivationFloat8WeightConfig,
+                )
+
+                return Float8DynamicActivationFloat8WeightConfig(version=2)
             if quantization == "int4":
                 # The plain INT4 layout requires mslk, which is not published on
                 # PyPI. Use PyTorch's native CUDA packing instead.
@@ -594,8 +600,12 @@ class DiffusersVideoModel:
         self._model = pipeline
 
     def _load_minimax_h3(self, kwargs: dict, torch_dtype):
-        quantization = kwargs.pop("quantization", None)
-        if quantization in ("int4", "int8", "torchao"):
+        # The Video API reserves quantization for checkpoint selection. Use the
+        # same runtime override as vLLM to select online FP8 quantization.
+        quantization = kwargs.pop(
+            "quantization_config", kwargs.pop("quantization", None)
+        )
+        if quantization in ("int4", "int8", "fp8", "torchao"):
             self._load_minimax_h3_quantized(
                 kwargs,
                 torch_dtype,
@@ -606,7 +616,7 @@ class DiffusersVideoModel:
         if quantization not in (None, "none", "bf16"):
             raise ValueError(
                 f"Unsupported MiniMax-H3 quantization: {quantization}. "
-                "Supported values are int4, int8, none, and bf16."
+                "Supported values are int4, int8, fp8, none, and bf16."
             )
 
         from diffusers import ComponentsManager, ModularPipeline
