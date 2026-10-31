@@ -27,6 +27,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 import orjson
 from packaging.markers import Marker
 from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
 
 from .._compat import BaseModel
 from ..cache_isolation import redact_cache_salt
@@ -489,16 +490,20 @@ def merge_virtual_env_packages(
     def get_key(package: str) -> str:
         pkg_name = package.split(";", 1)[0].strip()
         if pkg_name.startswith("#system_") and pkg_name.endswith("#"):
-            return pkg_name[len("#system_") : -1].lower()
+            return canonicalize_name(pkg_name[len("#system_") : -1])
         if pkg_name.startswith("#"):
             return pkg_name
         try:
-            return Requirement(package).name.lower()
+            return canonicalize_name(Requirement(package).name)
         except Exception:
             # fallback: strip version/url markers best effort
             for sep in ["@", "==", ">=", "<=", "~=", "!=", "[", " "]:
                 if sep in pkg_name:
-                    return pkg_name.split(sep, 1)[0].strip().lower()
+                    pkg_name = pkg_name.split(sep, 1)[0].strip()
+                    break
+            # Only project names can be canonicalized; opaque references stay distinct.
+            if re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", pkg_name):
+                return canonicalize_name(pkg_name)
             return pkg_name.lower()
 
     def get_engine_condition(package: str) -> Optional[str]:
@@ -589,7 +594,7 @@ def normalize_sglang_kernel_packages(
     def _requirement_name(package: str) -> Optional[str]:
         head = package.split(";", 1)[0].strip()
         try:
-            return Requirement(head).name.lower().replace("_", "-")
+            return canonicalize_name(Requirement(head).name)
         except Exception:
             # Bare wheel URLs are not valid ``Requirement`` instances.  The
             # legacy CUDA 13 engine dependency uses exactly this form.

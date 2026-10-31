@@ -375,6 +375,78 @@ def test_merge_virtual_env_packages_handles_engine_variants_and_default_override
     ]
 
 
+@pytest.mark.parametrize(
+    "base_package, extra_package",
+    [
+        ("huggingface-hub<1", "HuggingFace_Hub==1.0.0"),
+        ("HuggingFace_Hub<1", "huggingface-hub==1.0.0"),
+        ("huggingface.hub<1", "huggingface_hub==1.0.0"),
+        ("#system_huggingface-hub#", "HuggingFace_Hub==1.0.0"),
+        (
+            "#system_HuggingFace.Hub# ; sys_platform == 'linux'",
+            "huggingface_hub==1.0.0",
+        ),
+        ("HuggingFace.Hub[cli]<1", "huggingface_hub[cli]==1.0.0"),
+        (
+            'HuggingFace_Hub[cli]<1 ; #engine# == "transformers"',
+            "huggingface-hub==1.0.0",
+        ),
+    ],
+)
+def test_merge_virtual_env_packages_user_override_canonicalizes_name(
+    base_package, extra_package
+):
+    base_packages = ["torch", base_package, "numpy"]
+
+    assert merge_virtual_env_packages(base_packages, [extra_package]) == [
+        "torch",
+        extra_package,
+        "numpy",
+    ]
+
+
+@pytest.mark.parametrize("requirement", ["HuggingFace_Hub==0.36", "HuggingFace_Hub"])
+@pytest.mark.parametrize("marker", ["#engine#", "#model_engine#"])
+def test_merge_virtual_env_packages_canonical_names_preserve_engine_conditions(
+    requirement, marker
+):
+    base_packages = [
+        "huggingface-hub<1",
+        f'{requirement} ; {marker} == "transformers"',
+        f'huggingface.hub[cli]<1 ; {marker} == "sglang"',
+        "torch",
+    ]
+
+    assert merge_virtual_env_packages(base_packages, None) == base_packages[1:]
+    assert merge_virtual_env_packages(base_packages, ["HUGGINGFACE-HUB==1.0.0"]) == [
+        "HUGGINGFACE-HUB==1.0.0",
+        "torch",
+    ]
+
+
+@pytest.mark.parametrize("as_extra", [False, True], ids=["defaults", "extra"])
+def test_merge_virtual_env_packages_preserves_distinct_wheel_urls(as_extra):
+    wheel_urls = [
+        "https://example.invalid/wheels/alpha-1.0-py3-none-any.whl",
+        "https://example.invalid/wheels/alpha_1-0-py3-none-any.whl",
+    ]
+    base_packages = wheel_urls[:1] if as_extra else wheel_urls
+    extra_packages = wheel_urls[1:] if as_extra else None
+
+    assert merge_virtual_env_packages(base_packages, extra_packages) == wheel_urls
+
+
+def test_normalize_sglang_kernel_packages_after_dotted_override():
+    packages = merge_virtual_env_packages(
+        ["sgl_kernel", "sglang-kernel==0.4.2"], ["sglang.kernel==0.4.2"]
+    )
+
+    assert normalize_sglang_kernel_packages(packages) == (
+        ["sglang.kernel==0.4.2"],
+        True,
+    )
+
+
 def test_normalize_sglang_kernel_packages_for_modern_recipe():
     legacy_wheel = (
         "https://github.com/sgl-project/whl/releases/download/v0.3.21/"
