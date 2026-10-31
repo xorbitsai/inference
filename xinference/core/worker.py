@@ -1233,12 +1233,15 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         fence = self._control_fence
         result = await fence.install(parsed, timeout)
         if custom_models is not None:
-            await fence._validate(parsed, ("fencing", "reconciling", "active"))
-            if fence.session != parsed or not fence.ready:
-                raise ControlSessionRejected("stale_session")
             from .worker_handoff import CustomModelState
 
-            CustomModelState.restore(self, custom_models, replace=True)
+            with fence.local_scope(ControlContext(parsed, uuid.uuid4().hex)):
+                fence.check_local()
+                async with fence.lifecycle.operation():
+                    await fence._validate(parsed, ("fencing", "reconciling", "active"))
+                    if fence.session != parsed or not fence.ready:
+                        raise ControlSessionRejected("stale_session")
+                    CustomModelState.restore(self, custom_models, replace=True)
         if supervisor_address is not None:
             await fence._validate(parsed, ("fencing", "reconciling", "active"))
             if fence.session != parsed or not fence.ready:

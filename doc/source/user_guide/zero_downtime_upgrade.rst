@@ -34,6 +34,10 @@ In local mode, startup still uses an API parent and one shared Supervisor/Worker
 
    Optional ``create_model_service(actor_class, args, kwargs, address, uid)`` and ``destroy_model_service(ref)`` callbacks can delegate actor lifetime to Worker ``create_runtime_actor`` and ``destroy_runtime_actor`` management calls, which participate in session admission and draining. Without callbacks, ordinary actor creation and destruction remain unchanged.
 
+   Interceptors describe admitted method calls, not a single overall operation. Child-task cleanup and Worker recovery helpers may produce additional calls with the original command; distinguish them by target and method. Use ``call(args=..., kwargs=...)`` for explicit argument overrides. The top-level keyword mapping is copied; nested payloads are not deep copies. Actor lifetime callbacks preserve native lifetimes and original exceptions. Cleanup notification failures are logged without aborting termination.
+
+   ``restore_worker(..., coordinators=...)`` accepts a list or tuple of ``-rank0`` UIDs, validated before registry mutation. Async ``filter_worker_inventory(ref, replicas)`` may only narrow observations; errors or its ten-second timeout reject registration before publication. Catalog replacement participates in management admission and draining; providers serialize snapshot selection with catalog writes. API extensions may set async ``app.state.system_settings_provider(operation, data)`` for ``get``, ``save`` and ``reset``. It owns persistence and token masking; ``ValueError`` from ``save`` returns HTTP 422.
+
 Check and install updates
 -------------------------
 

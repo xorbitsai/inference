@@ -216,7 +216,7 @@ class SupervisorControl:
             await self.invoke("worker_registered", ref, timeout=60)
         return self.worker(ref)
 
-    async def invoke(self, name, *args, timeout=10):
+    async def invoke(self, name, *args, timeout=10, preserve_errors=False):
         method = getattr(self.authority, name)
         try:
             if inspect.iscoroutinefunction(method):
@@ -225,6 +225,8 @@ class SupervisorControl:
         except ControlSessionRejected:
             raise
         except Exception:
+            if preserve_errors:
+                raise
             raise ControlSessionRejected("authority_unavailable") from None
 
     async def operation(self, operation, payload):
@@ -294,6 +296,11 @@ class SupervisorControlPort:
         control.prepared = True
 
     async def restore_worker(self, ref, replicas, incarnation, coordinators=()):
+        if not isinstance(coordinators, (list, tuple)) or any(
+            not isinstance(uid, str) or not uid.endswith("-rank0")
+            for uid in coordinators
+        ):
+            raise ValueError("Invalid coordinator identity")
         control = self._control()
         await control.fence._validate(
             control.session, ("fencing", "reconciling", "active")
@@ -302,12 +309,13 @@ class SupervisorControlPort:
             raise ControlSessionRejected("control_not_paused")
         ref = control.worker(ref)
         owner = self._owner
+        replicas = await owner._filter_worker_inventory(ref, replicas)
         owner._worker_address_to_worker[ref.address] = ref
         owner._ownership_registry().incarnations[ref.address] = incarnation
-        await owner._restore_worker_inventory(ref, replica_states=replicas)
+        await owner._restore_worker_inventory(
+            ref, replica_states=replicas, apply_filter=False
+        )
         for uid in coordinators:
-            if not isinstance(uid, str) or not uid.endswith("-rank0"):
-                raise ValueError("Invalid coordinator identity")
             owner._replica_model_uid_to_worker[uid] = ref
 
     async def resume(self):
@@ -408,11 +416,14 @@ def bind_supervisor_control(owner, name, method):
         if nested and not inspect.iscoroutinefunction(method):
             control.fence.check_local()
             return method(*args, **kwargs)
-        command = (
-            control.capture()
-            if supplied is None
-            else ControlContext.from_dict(supplied)
-        )
+        try:
+            command = (
+                control.capture()
+                if supplied is None
+                else ControlContext.from_dict(supplied)
+            )
+        except (TypeError, ValueError):
+            raise ControlSessionRejected("invalid_context") from None
 
         async def run():
             async with control.fence.command(command):

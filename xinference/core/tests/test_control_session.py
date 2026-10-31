@@ -47,6 +47,64 @@ from ..worker import ModelStatus, WorkerActor
 from .test_worker_handoff import CounterModel, HandoffSupervisor, HandoffWorker
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("successor", [False, True])
+async def test_catalog_refresh_is_admitted_until_validation_finishes(
+    monkeypatch, successor
+):
+    from ..worker_handoff import CustomModelState
+
+    fence, authority = setup_fence()
+    worker = WorkerActor("supervisor:1234", None, SimpleNamespace(), [])
+    worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+    first = authority.owner
+    await worker.install_controller_session(first.to_dict())
+    entered, release = asyncio.Event(), asyncio.Event()
+    restored = []
+    validate = fence._validate
+    checks = 0
+
+    async def held(owner, phases):
+        nonlocal checks
+        checks += 1
+        if checks == 2:
+            assert asyncio.current_task() in fence.lifecycle._tasks
+            entered.set()
+            await release.wait()
+        await validate(owner, phases)
+
+    def restore(owner, models, **kwargs):
+        assert fence.ready and asyncio.current_task() in fence.lifecycle._tasks
+        restored.append(models)
+
+    monkeypatch.setattr(fence, "_validate", held)
+    monkeypatch.setattr(CustomModelState, "restore", restore)
+    refresh = asyncio.create_task(
+        worker.install_controller_session(first.to_dict(), custom_models={})
+    )
+    install = None
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        if successor:
+            authority.owner = second = session(2)
+            install = asyncio.create_task(fence.install(second, 1))
+            await asyncio.sleep(0.01)
+            assert not install.done() and not fence.ready
+        release.set()
+        if successor:
+            with pytest.raises(ControlSessionRejected):
+                await refresh
+            assert (await install)["ready"]
+            assert not restored
+        else:
+            assert (await refresh)["ready"] and restored == [{}]
+    finally:
+        release.set()
+        await asyncio.gather(
+            refresh, *([install] if install else []), return_exceptions=True
+        )
+
+
 def session(term=1, **changes):
     return replace(
         ControllerSession("cluster", "candidate", f"boot-{term}", term), **changes

@@ -21,6 +21,9 @@ class ControlInvocation:
     args: tuple
     kwargs: dict
 
+    def __post_init__(self):
+        object.__setattr__(self, "kwargs", dict(self.kwargs))
+
 
 async def invoke_control_hook(
     authority: Any, hook: str, invocation: ControlInvocation, call: Callable

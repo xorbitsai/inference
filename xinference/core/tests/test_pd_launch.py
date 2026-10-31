@@ -71,6 +71,63 @@ def launch_kwargs():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    "operation", ["terminate", "rollback", "dead_replica", "dead_worker"]
+)
+@pytest.mark.parametrize("timeout", [False, True])
+async def test_failed_service_notification_does_not_abort_cleanup(
+    launch_runtime, operation, timeout, caplog
+):
+    from types import SimpleNamespace
+
+    from ..supervisor_control import SupervisorControl
+    from .test_control_session import session
+    from .test_supervisor_control import short_provider_deadline
+
+    supervisor, workers, _, _ = launch_runtime
+    if operation != "rollback":
+        await supervisor.launch_builtin_model(**launch_kwargs())
+    else:
+        workers[1].wait_for_load.side_effect = RuntimeError("original launch failed")
+
+    async def notify(uid):
+        if timeout:
+            await asyncio.Event().wait()
+        raise RuntimeError("provider failure")
+
+    authority = SimpleNamespace(
+        session=session(), validate=AsyncMock(), model_services_changed=notify
+    )
+    control = SupervisorControl(supervisor, authority)
+    control.fence.ready = control.has_served = True
+    supervisor._controller_control = control
+    short_provider_deadline(control)
+    if operation == "rollback":
+        with pytest.raises(RuntimeError, match="original launch failed"):
+            await supervisor.launch_builtin_model(**launch_kwargs())
+        expected = "ERROR"
+    elif operation == "terminate":
+        await supervisor.terminate_model("pd", suppress_exception=True)
+        expected = None
+    elif operation == "dead_replica":
+        await supervisor.mark_replica_dead("pd-rep0")
+        await supervisor.mark_replica_dead("pd-rep1")
+        expected = "TERMINATED"
+    else:
+        for worker in workers:
+            await supervisor.remove_worker(worker.address)
+            assert worker.address not in supervisor._worker_address_to_worker
+        expected = "TERMINATED"
+    assert not supervisor._model_uid_to_replica_info
+    if expected is not None:
+        assert any(
+            call.args[1].get("status") == expected
+            for call in supervisor._status_guard_ref.update_instance_info.await_args_list
+        )
+    assert "Failed to report model service cleanup" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     "uid,collision", [("chosen", False), (None, False), (None, True)]
 )
 async def test_service_placement_receives_final_model_uid(

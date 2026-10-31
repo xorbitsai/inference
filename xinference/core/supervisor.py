@@ -14,6 +14,7 @@
 
 import asyncio
 import functools
+import inspect
 import itertools
 import os
 import signal
@@ -288,12 +289,15 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         )
 
         method, call_method, args, kwargs = message
-        if CONTROL_CONTEXT_KEY in kwargs:
+        if kwargs and CONTROL_CONTEXT_KEY in kwargs:
             control = getattr(self, "_controller_control", None)
             if control is None:
                 raise ControlSessionRejected("authority_not_configured")
             kwargs = dict(kwargs)
-            command = ControlContext.from_dict(kwargs.pop(CONTROL_CONTEXT_KEY))
+            try:
+                command = ControlContext.from_dict(kwargs.pop(CONTROL_CONTEXT_KEY))
+            except (TypeError, ValueError):
+                raise ControlSessionRejected("invalid_context") from None
             async with control.fence.command(command):
                 return await super().__on_receive__((method, call_method, args, kwargs))
         return await super().__on_receive__(message)
@@ -6233,7 +6237,14 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             getattr(control.authority, "create_model_service", None)
         ):
             return await control.invoke(
-                "create_model_service", actor_class, args, kwargs, address, uid
+                "create_model_service",
+                actor_class,
+                args,
+                kwargs,
+                address,
+                uid,
+                timeout=None,
+                preserve_errors=True,
             )
         return await xo.create_actor(
             actor_class, *args, **kwargs, address=address, uid=uid
@@ -6244,7 +6255,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         if control is not None and callable(
             getattr(control.authority, "destroy_model_service", None)
         ):
-            return await control.invoke("destroy_model_service", ref)
+            return await control.invoke(
+                "destroy_model_service", ref, timeout=None, preserve_errors=True
+            )
         return await xo.destroy_actor(ref)
 
     async def _resolve_model_service_address(self, model_uid):
@@ -6365,7 +6378,14 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     e,
                 )
 
-        await SupervisorActor._notify_model_services_changed(self, model_uid)
+        try:
+            await SupervisorActor._notify_model_services_changed(self, model_uid)
+        except Exception:
+            logger.warning(
+                "Failed to report model service cleanup for %s",
+                model_uid,
+                exc_info=True,
+            )
 
     async def mark_replica_dead(self, replica_model_uid: str) -> None:
         """Called back by worker after its local recover_sub_pool exhausts
@@ -7114,13 +7134,18 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         if _xinference_control_context is not None:
             from .control_session import ControlContext, ControlSessionRejected
 
-            command = ControlContext.from_dict(_xinference_control_context)
+            try:
+                command = ControlContext.from_dict(_xinference_control_context)
+            except (TypeError, ValueError):
+                raise ControlSessionRejected("invalid_context") from None
             control = getattr(self, "_controller_control", None)
             if control is None or command.session != control.session:
                 raise ControlSessionRejected("stale_session")
-            await control.fence._validate(
-                command.session, ("fencing", "reconciling", "active")
-            )
+            async with control.fence.command(command):
+                # worker_message already holds the per-Worker registration lock.
+                return await inspect.unwrap(SupervisorActor.add_worker)(
+                    self, worker_address, replica_states, replica_model_uids
+                )
         from .worker import WorkerActor
 
         worker_ref = await xo.actor_ref(
@@ -7148,6 +7173,12 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             control = getattr(self, "_controller_control", None)
             if control is not None:
                 worker_ref = await control.register(worker_ref)
+            replica_states = self._normalize_replica_states(
+                replica_states=replica_states, replica_model_uids=replica_model_uids
+            )
+            replica_states = await SupervisorActor._filter_worker_inventory(
+                self, worker_ref, replica_states
+            )
         except Exception:
             # Rejected re-registration must not retain the old process's
             # registration or extension inventory at this address.
@@ -7196,7 +7227,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             )
 
         await SupervisorActor._restore_worker_inventory(
-            self, worker_ref, replica_states, replica_model_uids
+            self, worker_ref, replica_states=replica_states, apply_filter=False
         )
         logger.debug("Worker %s has been added successfully", worker_address)
         if metadata_retry_required and self._is_current_worker_metadata_generation(
@@ -7207,16 +7238,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             )
         self._schedule_autostart()
 
-    async def _restore_worker_inventory(
-        self, worker_ref, replica_states=None, replica_model_uids=None
-    ):
-        """Apply one reported Worker snapshot through normal registration cleanup."""
-        worker_address = worker_ref.address
-        normalized = self._normalize_replica_states(
-            replica_states=replica_states,
-            replica_model_uids=replica_model_uids,
-        )
-
+    async def _filter_worker_inventory(self, worker_ref, normalized):
         control = getattr(self, "_controller_control", None)
         provider = (
             getattr(control.authority, "filter_worker_inventory", None)
@@ -7224,12 +7246,33 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             else None
         )
         if provider is not None:
-            filtered = await provider(worker_ref, normalized)
+            filtered = await control.invoke(
+                "filter_worker_inventory", worker_ref, normalized
+            )
             if not isinstance(filtered, list) or any(
                 row not in normalized for row in filtered
             ):
                 raise ValueError("Inventory provider may only narrow observations")
             normalized = filtered
+        return normalized
+
+    async def _restore_worker_inventory(
+        self,
+        worker_ref,
+        replica_states=None,
+        replica_model_uids=None,
+        *,
+        apply_filter=True,
+    ):
+        """Apply one reported Worker snapshot through normal registration cleanup."""
+        worker_address = worker_ref.address
+        normalized = self._normalize_replica_states(
+            replica_states=replica_states, replica_model_uids=replica_model_uids
+        )
+        if apply_filter:
+            normalized = await SupervisorActor._filter_worker_inventory(
+                self, worker_ref, normalized
+            )
 
         # Re-registration reconciliation: a worker restarting and reusing the
         # same address never trips dead-node detection (its fresh heartbeat

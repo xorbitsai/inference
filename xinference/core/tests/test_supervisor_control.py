@@ -226,6 +226,8 @@ def controlled_owner():
         _worker_address_to_worker={},
         _ownership_registry=Mock(return_value=SimpleNamespace(incarnations={})),
         _restore_worker_inventory=AsyncMock(),
+        _filter_worker_inventory=AsyncMock(side_effect=lambda ref, rows: rows),
+        _replica_model_uid_to_worker={},
         _system_settings={"example": True},
     )
     owner._controller_control = SupervisorControl(owner, Provider(state, state.owner))
@@ -686,3 +688,246 @@ async def test_runtime_actor_mutations_keep_worker_session_admission(monkeypatch
     with pytest.raises(ControlSessionRejected):
         await worker.destroy_runtime_actor("service", **{CONTROL_CONTEXT_KEY: original})
     lookup.assert_not_awaited()
+
+
+def short_provider_deadline(control):
+    invoke = control.invoke
+
+    async def shortened(name, *args, **kwargs):
+        kwargs.setdefault("timeout", 0.001)
+        return await invoke(name, *args, **kwargs)
+
+    control.invoke = shortened
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["create", "destroy"])
+async def test_service_actor_callbacks_preserve_errors_and_native_lifetime(operation):
+    owner, _, _ = controlled_owner()
+    control = owner._controller_control
+    short_provider_deadline(control)
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def callback(*args):
+        entered.set()
+        await release.wait()
+        return "actor-result"
+
+    setattr(control.authority, operation + "_model_service", callback)
+
+    async def run():
+        if operation == "create":
+            return await SupervisorActor._create_model_service_actor(
+                owner, object, address="worker:1234", uid="service"
+            )
+        return await SupervisorActor._destroy_model_service_actor(owner, "ref")
+
+    task = asyncio.create_task(run())
+    try:
+        await entered.wait()
+        await asyncio.sleep(0.01)
+        assert not task.done()
+        release.set()
+        assert await task == "actor-result"
+        setattr(
+            control.authority,
+            operation + "_model_service",
+            AsyncMock(side_effect=ValueError("actor failure")),
+        )
+        with pytest.raises(ValueError, match="actor failure"):
+            await run()
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["error", "timeout", "invalid"])
+async def test_inventory_filter_failure_does_not_publish_worker(monkeypatch, failure):
+    monkeypatch.setattr(extensions, "get_extensions", lambda: ())
+    ref = SimpleNamespace(
+        address="worker:1234",
+        uid=b"worker",
+        get_extension_resources=AsyncMock(return_value={"extensions": {}}),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=ref))
+    owner = SupervisorActor()
+    state = SimpleNamespace(owner=session(), phase="active", failed=False)
+    authority = Provider(state, state.owner)
+    if failure == "timeout":
+
+        async def filter_inventory(*args):
+            await asyncio.Event().wait()
+
+        authority.filter_worker_inventory = filter_inventory
+    else:
+        authority.filter_worker_inventory = AsyncMock(
+            side_effect=ValueError("provider detail") if failure == "error" else None,
+            return_value=[{"replica_model_uid": "invented"}],
+        )
+    owner._controller_control = SupervisorControl(owner, authority)
+    short_provider_deadline(owner._controller_control)
+    owner._worker_address_to_worker[ref.address] = object()
+    owner._extension_worker_resources[ref.address] = {"old": True}
+    owner._worker_metadata[ref.address] = {"old": True}
+    error = ValueError if failure == "invalid" else ControlSessionRejected
+    with pytest.raises(error):
+        await owner.add_worker(ref.address, replica_states=[])
+    assert ref.address not in owner._worker_address_to_worker
+    assert ref.address not in owner._extension_worker_resources
+    assert ref.address not in owner._worker_metadata
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("coordinators", ["model-rank0", None, ["bad"], [1]])
+async def test_coordinator_validation_precedes_registry_mutation(coordinators):
+    owner, _, port = controlled_owner()
+    await port.pause(1)
+    with pytest.raises(ValueError, match="coordinator"):
+        await port.restore_worker(
+            SimpleNamespace(address="worker:1234", uid=b"worker"),
+            [],
+            "boot",
+            coordinators,
+        )
+    assert not owner._worker_address_to_worker
+    assert not owner._ownership_registry().incarnations
+    owner._filter_worker_inventory.assert_not_awaited()
+    owner._restore_worker_inventory.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_coordinator_restore_applies_validated_references():
+    owner, _, port = controlled_owner()
+    await port.pause(1)
+    ref = SimpleNamespace(address="worker:1234", uid=b"worker")
+    await port.restore_worker(ref, [], "boot", ["model-rank0"])
+    assert owner._replica_model_uid_to_worker["model-rank0"].address == ref.address
+    owner._restore_worker_inventory.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("transport", ["local", "remote"])
+async def test_invalid_supervisor_context_has_stable_diagnostic(transport):
+    from xoscar.core import LocalActorRef
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        ref = await xo.create_actor(
+            InterceptedSupervisor, address=pool.external_address, uid="supervisor"
+        )
+        target = LocalActorRef(pool._actors[ref.uid]) if transport == "local" else ref
+        with pytest.raises(ControlSessionRejected, match="invalid_context"):
+            await target.mark_replica_dead(
+                "model-rep0", **{CONTROL_CONTEXT_KEY: {"version": 99}}
+            )
+        assert await ref.get_status() == []
+    finally:
+        await pool.stop()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("transport", ["local", "remote"])
+@pytest.mark.parametrize("phase", ["fencing", "reconciling"])
+async def test_worker_registration_metadata_requires_active_phase(
+    transport, phase, tmp_path
+):
+    from xoscar.core import LocalActorRef
+
+    from ..worker_registry import WorkerOwnership
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        ref = await xo.create_actor(
+            InterceptedSupervisor, address=pool.external_address, uid="supervisor"
+        )
+        actor = pool._actors[ref.uid]
+        actor._worker_ownership = WorkerOwnership(str(tmp_path / "ownership.json"))
+        actor._worker_address_to_worker = {}
+        actor._controller_control.authority.state.phase = phase
+        target = LocalActorRef(actor) if transport == "local" else ref
+        with pytest.raises(ControlSessionRejected):
+            await target.add_worker(
+                "worker:1234", **{CONTROL_CONTEXT_KEY: command(session()).to_dict()}
+            )
+        assert actor._worker_address_to_worker == {}
+    finally:
+        await pool.stop()
+
+
+class BatchSupervisor(SupervisorActor):
+    def __init__(self):
+        xo.StatelessActor.__init__(self)
+        self._controller_control = None
+
+    @xo.extensible
+    def echo(self, value):
+        return value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid", [False, True])
+async def test_active_local_registration_retains_one_admitted_call(
+    monkeypatch, tmp_path, invalid
+):
+    from ..worker_registry import WorkerOwnership
+
+    monkeypatch.setattr(extensions, "get_extensions", lambda: ())
+    worker = SimpleNamespace(
+        address="worker:1234",
+        uid=b"worker",
+        get_extension_resources=AsyncMock(return_value={"extensions": {}}),
+        update_system_settings=AsyncMock(),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=worker))
+    owner = SupervisorActor()
+    owner.address = "supervisor:1234"
+    owner._worker_ownership = WorkerOwnership(str(tmp_path / "ownership.json"))
+    owner._refresh_worker_metadata = AsyncMock(return_value=True)
+    owner._schedule_autostart = Mock()
+    owner._status_guard_ref = None
+    state = SimpleNamespace(owner=session(), phase="active", failed=False)
+    authority = Provider(state, state.owner)
+    authority.worker_registered = AsyncMock()
+    authority.filter_worker_inventory = AsyncMock(return_value=[])
+    owner._controller_control = SupervisorControl(owner, authority)
+    owner._controller_control.fence.ready = True
+    payload = {"version": 99} if invalid else command(state.owner).to_dict()
+    call = owner.add_worker(worker.address, **{CONTROL_CONTEXT_KEY: payload})
+    if invalid:
+        with pytest.raises(ControlSessionRejected, match="invalid_context"):
+            await call
+        worker.get_extension_resources.assert_not_awaited()
+    else:
+        await asyncio.wait_for(call, 1)
+        assert worker.address in owner._worker_address_to_worker
+        authority.worker_registered.assert_awaited_once()
+        authority.filter_worker_inventory.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_unconfigured_supervisor_accepts_batch_without_kwargs():
+    actor = BatchSupervisor()
+    assert await actor.__on_receive__(("echo", 1, ([(1,), (2,)], None), None)) == [1, 2]
+
+
+@pytest.mark.asyncio
+async def test_invocation_kwargs_snapshot_does_not_mutate_default_call():
+    from ..control_invocation import ControlInvocation, invoke_control_hook
+
+    kwargs = {"original": 1}
+    invocation = ControlInvocation(
+        "worker:1234", "method", command(session()), (), kwargs
+    )
+
+    async def callback(invocation, call):
+        invocation.kwargs["extra"] = 2
+        return await call()
+
+    assert await invoke_control_hook(
+        SimpleNamespace(hook=callback),
+        "hook",
+        invocation,
+        AsyncMock(side_effect=lambda: dict(kwargs)),
+    ) == {"original": 1}
+    assert kwargs == {"original": 1}
