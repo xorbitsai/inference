@@ -11,7 +11,9 @@ import asyncio
 import inspect
 import math
 import uuid
+from contextvars import ContextVar
 from types import MethodType
+from typing import Any, Optional, Tuple
 
 from .control_invocation import ControlInvocation, invoke_control_hook
 from .control_session import (
@@ -25,6 +27,28 @@ from .control_session import (
 )
 from .lifecycle import WorkerLifecycle, WorkerPhase
 from .supervisor_upgrade import INFERENCE_READS, LIVENESS_CALLS
+
+MODEL_SERVICE_FIELDS = (
+    "_pd_model_mapping",
+    "_pd_roles",
+    "_xavier_cache_mapping",
+    "_xavier_source_mapping",
+    "_block_tracker_mapping",
+    "_collective_manager_mapping",
+)
+_service_host: ContextVar[Optional[Tuple[Any, str]]] = ContextVar(
+    "xinference_model_service_host", default=None
+)
+
+
+def model_service_address(owner):
+    current = _service_host.get()
+    return (
+        current[1]
+        if current is not None and current[0] is owner
+        else owner.control_address
+    )
+
 
 READS = (
     INFERENCE_READS
@@ -255,7 +279,7 @@ class SupervisorControlPort:
         await self._owner._upgrade_state.pause()
         control.prepared = True
 
-    async def restore_worker(self, ref, replicas, incarnation):
+    async def restore_worker(self, ref, replicas, incarnation, coordinators=()):
         control = self._control()
         await control.fence._validate(
             control.session, ("fencing", "reconciling", "active")
@@ -267,6 +291,10 @@ class SupervisorControlPort:
         owner._worker_address_to_worker[ref.address] = ref
         owner._ownership_registry().incarnations[ref.address] = incarnation
         await owner._restore_worker_inventory(ref, replica_states=replicas)
+        for uid in coordinators:
+            if not isinstance(uid, str) or not uid.endswith("-rank0"):
+                raise ValueError("Invalid coordinator identity")
+            owner._replica_model_uid_to_worker[uid] = ref
 
     async def resume(self):
         control = self._control()
@@ -316,6 +344,34 @@ class SupervisorControlPort:
         async with control.fence.command(control.capture()):
             value = getattr(self._owner, method)(*args, **kwargs)
             return await value if inspect.isawaitable(value) else value
+
+    async def with_service_address(self, address, call):
+        if not isinstance(address, str) or not address:
+            raise ValueError("Expected an actor address")
+        token = _service_host.set((self._owner, address))
+        try:
+            return await call()
+        finally:
+            _service_host.reset(token)
+
+    def service_address(self):
+        return model_service_address(self._owner)
+
+    def model_services(self, model_uid):
+        return {
+            name: getattr(self._owner, name, {}).get(model_uid)
+            for name in MODEL_SERVICE_FIELDS
+        }
+
+    def restore_model_services(self, model_uid, services):
+        if not isinstance(services, dict) or set(services) - set(MODEL_SERVICE_FIELDS):
+            raise ValueError("Invalid model service state")
+        for name, value in services.items():
+            mapping = getattr(self._owner, name)
+            if value is None:
+                mapping.pop(model_uid, None)
+            else:
+                mapping[model_uid] = value
 
     def close_admission(self):
         self._control().fence.ready = False

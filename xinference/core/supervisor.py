@@ -250,6 +250,12 @@ class InitialModelLaunch:
     cancelling: bool = False
 
 
+def model_service_address(owner):
+    from .supervisor_control import model_service_address as selected_address
+
+    return selected_address(owner)
+
+
 class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     def __getattribute__(self, name):
         value = super().__getattribute__(name)
@@ -3518,7 +3524,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             ):
                 raise ValueError("MLX Xavier requires unquantized MLX text weights")
             kwargs["_xavier_cache_config"] = {
-                "address": self.control_address,
+                "address": model_service_address(self),
                 "uid": f"xavier-cache-{model_uid}",
             }
         sglang_xavier = (
@@ -3558,7 +3564,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             raise ValueError("TRT-LLM native NIXL cannot also enable Xavier")
         if trt_xavier:
             kwargs["_xavier_cache_config"] = {
-                "address": self.control_address,
+                "address": model_service_address(self),
                 "uid": f"xavier-cache-{model_uid}",
             }
         if sglang_nixl and (requested_xavier or n_worker != 1):
@@ -3622,7 +3628,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         )
         if sglang_xavier:
             kwargs["_xavier_cache_config"] = {
-                "address": self.control_address,
+                "address": model_service_address(self),
                 "uid": f"xavier-cache-{model_uid}",
             }
         if shared_cache_backend and (sglang_xavier or trt_xavier):
@@ -3790,7 +3796,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 ).lower() == "mlx" and "trt-llm" in replica_engines:
                     replica_quantization = "bf16"
                 replica_kwargs["_xavier_cache_config"] = {
-                    "address": self.control_address,
+                    "address": model_service_address(self),
                     "uid": f"xavier-cache-{model_uid}",
                     "shared_prefix": True,
                     "logical_dtype": (
@@ -3809,7 +3815,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 from ..model.llm.xavier.transport import get_transport_host
 
                 replica_kwargs["_xavier_cache_config"] = {
-                    "address": self.control_address,
+                    "address": model_service_address(self),
                     "uid": f"xavier-cache-{model_uid}",
                     "role": replica_config[rank - 1].role,
                     "rank": rank,
@@ -3930,7 +3936,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     cache_ref = await xo.create_actor(
                         XavierBytesCacheActor,
                         capacity_bytes=cache_bytes or 512 * 1024**2,
-                        address=self.control_address,
+                        address=model_service_address(self),
                         uid=f"xavier-cache-{model_uid}",
                     )
                     self._xavier_cache_mapping[model_uid] = cache_ref
@@ -3939,7 +3945,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
                     cache_ref = await xo.create_actor(
                         XavierPDDirectory,
-                        address=self.control_address,
+                        address=model_service_address(self),
                         uid=f"xavier-cache-{model_uid}",
                     )
                     if not hasattr(self, "_xavier_cache_mapping"):
@@ -3954,7 +3960,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         cache_ref = await xo.create_actor(
                             XavierBytesCacheActor,
                             capacity_bytes=cache_bytes or 512 * 1024 * 1024,
-                            address=self.control_address,
+                            address=model_service_address(self),
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
                     elif pd_enabled:
@@ -3964,7 +3970,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
                         cache_ref = await xo.create_actor(
                             XavierPDDirectory,
-                            address=self.control_address,
+                            address=model_service_address(self),
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
                     else:
@@ -3984,7 +3990,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                                 if shared_cache_backend
                                 else {}
                             ),
-                            address=self.control_address,
+                            address=model_service_address(self),
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
                     self._xavier_cache_mapping[model_uid] = cache_ref
@@ -3994,12 +4000,12 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
                     self._block_tracker_mapping[model_uid] = await xo.create_actor(
                         BlockTracker,
-                        address=self.control_address,
+                        address=model_service_address(self),
                         uid=f"{BlockTracker.default_uid()}-{model_uid}",
                     )
                     self._collective_manager_mapping[model_uid] = await xo.create_actor(
                         CollectiveManager,
-                        address=self.control_address,
+                        address=model_service_address(self),
                         model_uid=model_uid,
                         uid=f"{CollectiveManager.default_uid()}-{model_uid}",
                     )
@@ -4256,7 +4262,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         ),
                         handoff_mode="host" if host_handoff else "gpu",
                         mlx_prefill=mlx_prefill,
-                        address=self.control_address,
+                        address=model_service_address(self),
                         uid=f"{model_uid}-{PDModelActor.default_uid()}",
                     )
                     # Track the actor before registration so rollback can destroy it.
@@ -4275,6 +4281,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     self._pd_roles[model_uid] = {
                         idx: cfg.role for idx, cfg in enumerate(replica_config)
                     }
+                await SupervisorActor._notify_model_services_changed(self, model_uid)
             except (Exception, asyncio.CancelledError):
                 if self._initial_model_launches[model_uid].cancelling:
                     # The cancellation coordinator owns rollback until every
@@ -6202,6 +6209,13 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
         return 0
 
+    async def _notify_model_services_changed(self, model_uid):
+        control = getattr(self, "_controller_control", None)
+        if control is not None and callable(
+            getattr(control.authority, "model_services_changed", None)
+        ):
+            await control.invoke("model_services_changed", model_uid)
+
     async def _cleanup_distributed_actors(
         self, model_uid: str, terminate_rank0_on_worker: bool = True
     ) -> None:
@@ -6294,6 +6308,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     model_uid,
                     e,
                 )
+
+        await SupervisorActor._notify_model_services_changed(self, model_uid)
 
     async def mark_replica_dead(self, replica_model_uid: str) -> None:
         """Called back by worker after its local recover_sub_pool exhausts

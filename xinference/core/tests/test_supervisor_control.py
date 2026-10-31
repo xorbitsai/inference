@@ -459,3 +459,71 @@ async def test_worker_callback_keeps_original_session_after_reinstallation():
         == successor.to_dict()
     )
     assert await ref.list_models() == {}
+
+
+@pytest.mark.asyncio
+async def test_service_placement_is_process_local_and_scoped_per_launch():
+    from ..supervisor_control import model_service_address
+
+    owner, _, port = controlled_owner()
+    owner.control_address = "default:1234"
+    started, proceed = asyncio.Event(), asyncio.Event()
+
+    async def selected():
+        assert model_service_address(owner) == "worker:1234"
+        started.set()
+        await proceed.wait()
+        assert model_service_address(owner) == "worker:1234"
+
+    task = asyncio.create_task(port.with_service_address("worker:1234", selected))
+    await started.wait()
+    assert model_service_address(owner) == owner.control_address
+    proceed.set()
+    await task
+    assert model_service_address(owner) == owner.control_address
+
+
+def test_model_service_port_restores_reference_graph_without_orchestrating():
+    from ..supervisor_control import MODEL_SERVICE_FIELDS
+
+    owner, _, port = controlled_owner()
+    for name in MODEL_SERVICE_FIELDS:
+        setattr(owner, name, {})
+    ref = SimpleNamespace(address="worker:1234", uid=b"pd-model")
+    port.restore_model_services(
+        "model", {"_pd_model_mapping": ref, "_pd_roles": {0: "prefill", 1: "decode"}}
+    )
+    assert port.model_services("model")["_pd_model_mapping"] is ref
+    assert port.model_services("model")["_pd_roles"][0] == "prefill"
+    with pytest.raises(ValueError):
+        port.restore_model_services("model", {"arbitrary_private_state": {}})
+
+
+def test_service_inventory_includes_pd_shards_and_rank_zero_only_on_request():
+    from ..worker import ModelStatus
+
+    worker = WorkerActor("supervisor:1234", None, SimpleNamespace(), [])
+    worker._model_uid_to_model_spec = {
+        "pd-rep0": {"model_name": "pd"},
+        "shards-rep0": {"model_name": "shards"},
+    }
+    worker._model_uid_to_launch_args = {
+        "pd-rep0": {"_nixl_config": {"role": "prefill"}},
+        "shards-rep0": {"n_worker": 2, "shard": 1},
+    }
+    worker._model_uid_to_model = {
+        uid: object() for uid in ("pd-rep0", "shards-rep0", "pd-rank0")
+    }
+    worker._model_uid_to_model_status = {
+        uid: ModelStatus(model_state="ready") for uid in worker._model_uid_to_model_spec
+    }
+    legacy = worker.controller_inventory()
+    assert set(legacy["unsupported"]) == {"pd-rep0", "shards-rep0"}
+    assert "coordinators" not in legacy
+    actual = worker.controller_inventory(include_services=True)
+    assert not actual["unsupported"]
+    assert actual["coordinators"] == ["pd-rank0"]
+    assert {row["replica_model_uid"] for row in actual["replicas"]} == {
+        "pd-rep0",
+        "shards-rep0",
+    }

@@ -28,6 +28,8 @@ In local mode, startup still uses an API parent and one shared Supervisor/Worker
 
    Admitted calls can use optional asynchronous provider callbacks: ``around_supervisor_call(invocation, call)``, ``around_worker_call(invocation, call)`` and ``around_control_call(invocation, call)``. The immutable invocation describes the target, method, original control context and arguments. Await ``call()`` to execute; argument overrides preserve that context. The runtime supplies no receipts or replay policy. Worker callbacks also retain their original session when the Supervisor reference changes. Read-only ``controller_resource_state``, ``controller_catalog`` and ``control_operation_receipt`` expose observations or provider evidence; unavailable receipts raise. The local port can capture or replace catalogs and settings, list Worker references and invoke a public Supervisor method. Catalog replacement validates definitions first and does not rewrite registration files.
 
+   Providers can opt in to ``controller_inventory(include_services=True)`` for ready specialized replicas, shard identities and coordinator observations. Setting the authority attribute ``include_model_services=True`` includes these replicas in ordinary registration reports as well. The local port supplies ``with_service_address(address, call)``, ``model_services(model_uid)`` and ``restore_model_services(model_uid, services)`` for scoped support-actor placement and reference restoration. An optional async ``model_services_changed(model_uid)`` callback can persist completed routing changes. Default placement and registration behavior are unchanged; these primitives do not select a host or perform recovery.
+
 Check and install updates
 -------------------------
 

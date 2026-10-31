@@ -1300,23 +1300,30 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
         return CustomModelState.capture(self)
 
-    def controller_inventory(self):
+    def controller_inventory(self, include_services=False):
         """Live facts for controlled reconciliation, never an execution replay."""
-        replicas = self._get_running_replica_states()
+        replicas = (
+            self._get_running_replica_states(include_services=True)
+            if include_services
+            else self._get_running_replica_states()
+        )
         unsupported = [
             uid
             for uid, args in self._model_uid_to_launch_args.items()
-            if args.get("_nixl_config")
-            or args.get("_xavier_cache_config")
-            or args.get("xavier_config")
-            or args.get("n_worker", 1) != 1
+            if not include_services
+            and (
+                args.get("_nixl_config")
+                or args.get("_xavier_cache_config")
+                or args.get("xavier_config")
+                or args.get("n_worker", 1) != 1
+            )
         ]
         unsupported.extend(
             uid
             for uid, status in self._model_uid_to_model_status.items()
             if uid in self._model_uid_to_model and status.model_state != "ready"
         )
-        return {
+        result = {
             "version": 1,
             "incarnation": self._incarnation,
             "replicas": replicas,
@@ -1328,6 +1335,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 else {}
             ),
         }
+        if include_services:
+            result["coordinators"] = sorted(
+                uid for uid in self._model_uid_to_model if uid.endswith("-rank0")
+            )
+        return result
 
     async def _recover_sub_pool_event(self, address):
         fence = self._control_fence
@@ -2528,14 +2540,21 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             )
         self._supervisor_address = refreshed_address
 
-    def _get_running_replica_states(self) -> List[Dict[str, Any]]:
+    def _get_running_replica_states(
+        self, *, include_services=False
+    ) -> List[Dict[str, Any]]:
+        fence = getattr(self, "_control_fence", None)
+        include_services = include_services or bool(
+            fence is not None
+            and getattr(fence.authority, "include_model_services", False) is True
+        )
         replica_states: List[Dict[str, Any]] = []
         for replica_model_uid in sorted(self._model_uid_to_model_spec):
             launch_args = self._model_uid_to_launch_args.get(replica_model_uid, {})
             model_spec = self._model_uid_to_model_spec.get(replica_model_uid, {})
             origin_uid, _ = parse_replica_model_uid(replica_model_uid)
             xavier_config = launch_args.get("xavier_config")
-            if (
+            if not include_services and (
                 xavier_config is not None
                 or launch_args.get("_nixl_config")
                 or launch_args.get("_xavier_cache_config", {}).get("role")
