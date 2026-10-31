@@ -115,6 +115,9 @@ if TYPE_CHECKING:
             ExecutorBase = Any  # type: ignore
 
 
+VLLMMultimodalLimit = Union[int, Dict[str, Any]]
+
+
 class VLLMModelConfig(TypedDict, total=False):
     xinference_vllm_executor_backend: str
     tokenizer_mode: Optional[str]
@@ -131,7 +134,7 @@ class VLLMModelConfig(TypedDict, total=False):
     max_num_seqs: int
     quantization: Optional[str]
     max_model_len: Optional[int]
-    limit_mm_per_prompt: Optional[Dict[str, int]]
+    limit_mm_per_prompt: Optional[Dict[str, VLLMMultimodalLimit]]
     guided_decoding_backend: Optional[str]
     scheduling_policy: Optional[str]
     reasoning_content: bool
@@ -707,6 +710,8 @@ class VLLMModel(WeightCachedModel, LLM):
         messages = copy.deepcopy(messages)
         if is_forced_tool_choice(config):
             messages, config = prepare_forced_tools(messages, config)
+        else:
+            self._normalize_tool_choice_for_prompt(config)
         prompt, _tools, context, config = await prepare_inputs(messages, config)
         config = config or {}
         prompt = self._prepare_structured_reasoning_prompt(prompt, config, context)
@@ -721,6 +726,13 @@ class VLLMModel(WeightCachedModel, LLM):
         tokenizer = await self._get_tokenizer(lora)
         engine_prompt = await self._gen_tokens_prompt(tokenizer, prompt, config)
         return await self._count_prompt_tokens(engine_prompt, lora)
+
+    @staticmethod
+    def _normalize_tool_choice_for_prompt(config: Dict[str, Any]) -> None:
+        """Match generation-time tool selection before rendering a prompt."""
+        choice = config.pop("tool_choice", None)
+        if choice == "none":
+            config.pop("tools", None)
 
     async def _count_prompt_tokens(
         self, engine_prompt: Dict[str, Any], lora: Any = None
@@ -3195,9 +3207,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             return await self._forced_tool_chat(messages, generate_config, request_id)
         plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
-        choice = generate_config.pop("tool_choice", None)
-        if choice == "none":
-            generate_config.pop("tools", None)
+        self._normalize_tool_choice_for_prompt(generate_config)
         full_prompt, tools, chat_template_kwargs, generate_config = (
             await self._prepare_chat_inputs(messages, generate_config)
         )
@@ -3440,7 +3450,8 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             and model_config.get("limit_mm_per_prompt") is not None
         )
         model_config = super()._sanitize_model_config(model_config)
-        parsed_limit: Optional[Dict[str, int]] = None
+        parsed_limit: Optional[Dict[str, VLLMMultimodalLimit]] = None
+        parsed_counts: Optional[Dict[str, int]] = None
         if had_explicit_limit:
             raw_limit = model_config.get("limit_mm_per_prompt")
             try:
@@ -3453,12 +3464,25 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     else:
                         raw_value = str(raw_limit)
                     candidate = json.loads(raw_value)
-                if not isinstance(candidate, dict) or any(
-                    not isinstance(key, str) or type(value) is not int or value < 0
-                    for key, value in candidate.items()
-                ):
-                    raise ValueError("expected an object of non-negative integers")
-                parsed_limit = dict(candidate)
+                if not isinstance(candidate, dict):
+                    raise ValueError("expected an object")
+                parsed_counts = {}
+                for key, value in candidate.items():
+                    if not isinstance(key, str):
+                        raise ValueError("expected string modality names")
+                    if type(value) is int:
+                        count_value: Any = value
+                    elif isinstance(value, dict):
+                        count_value = value.get("count")
+                    else:
+                        count_value = None
+                    if type(count_value) is not int or count_value < 0:
+                        raise ValueError(
+                            "expected non-negative integer limits or objects "
+                            "with a non-negative integer count"
+                        )
+                    parsed_counts[key] = cast(int, count_value)
+                parsed_limit = copy.deepcopy(candidate)
             except Exception as e:  # noqa: BLE001
                 logger.warning(
                     "Failed to parse limit_mm_per_prompt %r; using compatibility "
@@ -3469,7 +3493,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 had_explicit_limit = False
 
         self._explicit_limit_mm_per_prompt = (
-            parsed_limit if had_explicit_limit else None
+            parsed_counts if had_explicit_limit else None
         )
         if parsed_limit is not None and VLLM_VERSION >= version.parse("0.5.5"):
             model_config["limit_mm_per_prompt"] = parsed_limit
@@ -3807,9 +3831,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             return await self._forced_tool_chat(messages, generate_config, request_id)
         plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
-        choice = generate_config.pop("tool_choice", None)
-        if choice == "none":
-            generate_config.pop("tools", None)
+        self._normalize_tool_choice_for_prompt(generate_config)
         inputs, tools, chat_template_kwargs, generate_config = (
             await self._prepare_chat_inputs(messages, generate_config)
         )

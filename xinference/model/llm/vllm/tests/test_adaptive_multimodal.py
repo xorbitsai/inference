@@ -140,25 +140,48 @@ def test_classify_vllm_context_error_checks_worker_local_exception_chain():
 
 
 @pytest.mark.parametrize(
-    "limits",
+    "limits, engine_limits, preflight_limits",
     [
-        {"image": 4, "video": 2},
-        '{"image": 4, "video": 2}',
-        ['{"image": 4', '"video": 2}'],
-        {"image": 0},
-        {},
+        ({"image": 4, "video": 2}, {"image": 4, "video": 2}, {"image": 4, "video": 2}),
+        (
+            '{"image":{"count":5,"width":512,"height":512},"video":{"count":0}}',
+            {
+                "image": {"count": 5, "width": 512, "height": 512},
+                "video": {"count": 0},
+            },
+            {"image": 5, "video": 0},
+        ),
+        (
+            ['{"image": 4', '"video": {"count": 2, "num_frames": 8}}'],
+            {"image": 4, "video": {"count": 2, "num_frames": 8}},
+            {"image": 4, "video": 2},
+        ),
+        (
+            {"image": {"count": 0, "width": 256}},
+            {"image": {"count": 0, "width": 256}},
+            {"image": 0},
+        ),
+        ({}, {}, {}),
     ],
 )
-def test_explicit_limits_are_preserved(model, limits):
+def test_explicit_limits_are_preserved(model, limits, engine_limits, preflight_limits):
     config = model._sanitize_model_config({"limit_mm_per_prompt": limits})
 
-    expected = limits if isinstance(limits, dict) else {"image": 4, "video": 2}
-    assert config["limit_mm_per_prompt"] == expected
-    assert model.get_limit_mm_per_prompt() == expected
+    assert config["limit_mm_per_prompt"] == engine_limits
+    assert model.get_limit_mm_per_prompt() == preflight_limits
 
 
 @pytest.mark.parametrize(
-    "limits", ["not-json", {"image": -1}, {"image": True}, ["not-json"]]
+    "limits",
+    [
+        "not-json",
+        {"image": -1},
+        {"image": True},
+        {"image": {"count": -1}},
+        {"image": {"count": False}},
+        {"image": {"width": 512}},
+        ["not-json"],
+    ],
 )
 def test_invalid_explicit_limit_uses_compatibility_fallback(model, limits):
     config = model._sanitize_model_config({"limit_mm_per_prompt": limits})
@@ -166,6 +189,48 @@ def test_invalid_explicit_limit_uses_compatibility_fallback(model, limits):
     assert "limit_mm_per_prompt" not in config
     assert model._explicit_limit_mm_per_prompt is None
     assert model.get_limit_mm_per_prompt() == {"image": 2, "video": 2}
+
+
+@pytest.mark.asyncio
+async def test_count_tokens_omits_tools_disabled_by_tool_choice(model):
+    observed = {}
+
+    async def prepare_inputs(messages, config):
+        observed["config"] = copy.deepcopy(config)
+        prompt = {
+            "prompt": "without disabled tools",
+            "multi_modal_data": {"image": [object()]},
+        }
+        return prompt, [], {}, config
+
+    model._prepare_chat_inputs = prepare_inputs
+    model._get_tokenizer = AsyncMock(return_value=object())
+    model._gen_tokens_prompt = AsyncMock(
+        return_value={
+            "prompt_token_ids": list(range(100)),
+            "multi_modal_data": {"image": [object()]},
+        }
+    )
+    model._count_prompt_tokens = AsyncMock(return_value=100)
+    config = {
+        "tool_choice": "none",
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "large_unused_tool",
+                    "description": "unused " * 1000,
+                    "parameters": {"type": "object"},
+                },
+            }
+        ],
+    }
+
+    assert await model.async_count_tokens([], config) == 100
+    assert "tool_choice" not in observed["config"]
+    assert "tools" not in observed["config"]
+    assert "tool_choice" in config
+    assert "tools" in config
 
 
 @pytest.mark.asyncio
@@ -228,6 +293,31 @@ async def test_explicit_limit_wins_before_token_count(model):
             {"max_tokens": 8},
         )
 
+    model.async_count_tokens.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_structured_zero_count_disables_modality_before_token_count(model):
+    model._model_config = model._sanitize_model_config(
+        {"limit_mm_per_prompt": {"image": {"count": 0, "width": 512, "height": 512}}}
+    )
+    model._context_length = 32
+    model.async_count_tokens = AsyncMock(return_value=4)
+
+    with pytest.raises(ValueError, match=r"At most 0 image\(s\).+received 1"):
+        await model.async_preflight_multimodal_request(
+            [
+                {
+                    "role": "user",
+                    "content": [{"type": "image", "image": "unused"}],
+                }
+            ],
+            {"max_tokens": 8},
+        )
+
+    assert model._model_config["limit_mm_per_prompt"] == {
+        "image": {"count": 0, "width": 512, "height": 512}
+    }
     model.async_count_tokens.assert_not_awaited()
 
 

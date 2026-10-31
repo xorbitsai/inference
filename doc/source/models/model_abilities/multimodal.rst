@@ -129,6 +129,14 @@ the remaining ``max_model_len`` capacity when necessary. If the input already
 exhausts the configured context, both streaming and non-streaming requests
 return HTTP 400 before generation starts.
 
+Adaptive token budgeting currently applies to ordinary vLLM deployments, not
+prefill/decode (P/D) deployments. P/D routing can select a different replica
+for generation than for preflight, so Xinference discards the representative
+replica's dynamic token budget. Without an explicit administrator limit, P/D
+deployments retain the conservative limit of two items per supported modality.
+When decode replicas report explicit limits, Xinference applies their
+conservative per-modality minimum.
+
 This adaptive check does not resize images, reduce video frames, remove history,
 or split a request. vLLM still enforces its native model, modality, pixel, frame,
 cache, scheduler, GPU memory, and other runtime constraints.

@@ -435,3 +435,15 @@ msgid ""
 "automatically resize images, reduce video frames, remove history, or "
 "split an over-budget request."
 msgstr ""
+
+# P/D adaptive-budget scope clarification (2026-10-31).
+#: user_guide/anthropic.rst:71
+msgid ""
+"Adaptive token budgeting does not currently apply to vLLM prefill/decode "
+"(P/D) deployments because preflight and generation may use different "
+"replicas. P/D preflight still validates the request on a representative "
+"decode replica, but discards its dynamic token budget. Without an explicit "
+"limit, P/D deployments retain the conservative limit of two items per "
+"supported modality; explicit limits are combined using the conservative "
+"per-modality minimum reported by the decode replicas."
+msgstr ""

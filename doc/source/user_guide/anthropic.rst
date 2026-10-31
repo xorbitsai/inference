@@ -68,6 +68,14 @@ request-level count to constrain output tokens to the remaining configured
 context. Runtimes that cannot count expanded media tokens safely retain the
 compatibility item limits described below.
 
+Adaptive token budgeting does not currently apply to vLLM prefill/decode (P/D)
+deployments because preflight and generation may use different replicas. P/D
+preflight still validates the request on a representative decode replica, but
+discards its dynamic token budget. Without an explicit limit, P/D deployments
+retain the conservative limit of two items per supported modality; explicit
+limits are combined using the conservative per-modality minimum reported by
+the decode replicas.
+
 SGLang P/D decode replicas support text token counting; image token counting
 returns HTTP 501.
 

@@ -1844,6 +1844,139 @@ async def test_chat_completion_applies_multimodal_token_budget_before_stream(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stream", [False, True])
+async def test_chat_completion_preflight_omits_tools_disabled_by_none(
+    monkeypatch, stream
+):
+    from ...model.llm.vllm import core as vllm_core
+
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "qwen3"})
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    backend = object.__new__(vllm_core.VLLMMultiModel)
+    backend._context_length = 512
+    backend._explicit_limit_mm_per_prompt = None
+    backend.model_family = SimpleNamespace(model_ability=["vision"])
+    backend.lora_requests = []
+    rendered_configs = []
+
+    async def prepare_inputs(messages, config):
+        rendered_configs.append(dict(config))
+        prompt = "with disabled tools" if config.get("tools") else "without tools"
+        return (
+            {"prompt": prompt, "multi_modal_data": {"image": [object()]}},
+            [],
+            {},
+            config,
+        )
+
+    async def gen_tokens_prompt(tokenizer, prompt, config):
+        count = 1230 if prompt["prompt"] == "with disabled tools" else 100
+        return {
+            "prompt_token_ids": list(range(count)),
+            "multi_modal_data": prompt["multi_modal_data"],
+        }
+
+    async def count_prompt_tokens(engine_prompt, lora=None):
+        return len(engine_prompt["prompt_token_ids"])
+
+    backend._prepare_chat_inputs = prepare_inputs
+    backend._get_tokenizer = AsyncMock(return_value=object())
+    backend._gen_tokens_prompt = gen_tokens_prompt
+    backend._count_prompt_tokens = count_prompt_tokens
+    model.preflight_multimodal_request.side_effect = (
+        backend.async_preflight_multimodal_request
+    )
+    if stream:
+
+        async def chunks():
+            yield "{}"
+
+        model.chat.return_value = chunks()
+
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "stream": stream,
+                "max_tokens": 128,
+                "tool_choice": "none",
+                "tools": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "large_unused_tool",
+                            "description": "unused " * 1000,
+                            "parameters": {"type": "object"},
+                        },
+                    }
+                ],
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [{"type": "image", "image": "unused"}],
+                    }
+                ],
+            }
+        )
+    )
+
+    assert response.status_code == 200
+    if stream:
+        assert await anext(response.body_iterator) == "{}"
+        await response.body_iterator.aclose()
+    assert rendered_configs
+    assert "tool_choice" not in rendered_configs[0]
+    assert "tools" not in rendered_configs[0]
+    model.chat.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_pd_chat_completion_uses_conservative_default_multimodal_limit(
+    monkeypatch, stream
+):
+    from ..pd_model import PDModelActor
+
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "other"})
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    decode = SimpleNamespace(
+        preflight_multimodal_request=AsyncMock(
+            return_value={
+                "mode": "adaptive",
+                "limits": None,
+                "input_tokens": 10,
+                "max_model_len": 4096,
+                "effective_max_tokens": 1024,
+            }
+        ),
+        get_explicit_limit_mm_per_prompt=AsyncMock(return_value=None),
+    )
+    pd_model = PDModelActor("pd")
+    pd_model._decode_replicas = {"decode": decode}
+    model.preflight_multimodal_request.side_effect = (
+        pd_model.preflight_multimodal_request
+    )
+    image = {"type": "image", "image": "unused"}
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {
+                    "model": "test",
+                    "stream": stream,
+                    "messages": [{"role": "user", "content": [image, image, image]}],
+                }
+            )
+        )
+
+    assert exc.value.status_code == 400
+    assert "At most 2 image(s)" in exc.value.detail
+    model.chat.assert_not_awaited()
+    decode.preflight_multimodal_request.assert_awaited_once()
+    decode.get_explicit_limit_mm_per_prompt.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
 async def test_chat_completion_rejects_multimodal_context_before_stream(
     monkeypatch, stream
 ):
