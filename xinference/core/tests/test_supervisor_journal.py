@@ -12,6 +12,7 @@ import pytest
 from xinference import extensions
 
 from ..control_session import ControllerSession
+from ..supervisor import SupervisorActor
 from ..supervisor_journal import supervisor_journal
 from ..worker_registry import SupervisorHandoffMixin, WorkerOwnership
 from ..worker_relaunch import WorkerRelaunchManager
@@ -26,6 +27,67 @@ class MemoryStore:
 
     def save(self, payload):
         self.payload = copy.deepcopy(payload)
+
+
+@pytest.mark.asyncio
+async def test_startup_loads_ownership_before_support_actor_awaits(
+    monkeypatch, tmp_path
+):
+    store = MemoryStore()
+    WorkerOwnership(store=store).checkpoint(retired={"worker:1234": {"old-boot"}})
+    monkeypatch.setattr(
+        extensions,
+        "get_extensions",
+        lambda: (
+            SimpleNamespace(
+                name="test", create_supervisor_journal_store=lambda ctx: store
+            ),
+        ),
+    )
+    monkeypatch.setattr("xinference.core.supervisor.XINFERENCE_ENABLE_OTEL", False)
+    owner = SupervisorActor()
+    owner.address = "supervisor:1234"
+
+    async def first_support_actor(*args, **kwargs):
+        registry = owner._ownership_registry()
+        with pytest.raises(RuntimeError, match="ownership was transferred"):
+            registry.check("worker:1234", "old-boot", registration=True)
+        assert owner._ownership_registry() is registry
+        raise RuntimeError("stop after startup check")
+
+    monkeypatch.setattr(
+        "xinference.core.supervisor.xo.create_actor", first_support_actor
+    )
+    with pytest.raises(RuntimeError, match="stop after startup check"):
+        await owner.__post_create__()
+
+
+def test_provider_read_error_uses_worker_journal_failure_contract(
+    tmp_path, monkeypatch
+):
+    from ..worker_state import WorkerJournalError
+
+    provider = MemoryStore()
+    provider.load = Mock(side_effect=RuntimeError("provider connection detail"))
+    monkeypatch.setattr(
+        extensions,
+        "get_extensions",
+        lambda: (
+            SimpleNamespace(
+                name="test", create_supervisor_journal_store=lambda ctx: provider
+            ),
+        ),
+    )
+    store = supervisor_journal(
+        SimpleNamespace(address="supervisor:1234"),
+        "worker_relaunch",
+        tmp_path / "unused.json",
+    )
+    with pytest.raises(
+        WorkerJournalError, match="Supervisor journal load failed"
+    ) as error:
+        WorkerRelaunchManager(None, tmp_path / "unused.json", store=store)
+    assert "provider connection detail" not in str(error.value)
 
 
 def test_factory_gets_session_and_default_remains_local(tmp_path, monkeypatch):

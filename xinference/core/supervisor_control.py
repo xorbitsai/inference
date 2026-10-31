@@ -309,6 +309,9 @@ class SupervisorControlPort:
             raise ControlSessionRejected("control_not_paused")
         ref = control.worker(ref)
         owner = self._owner
+        from .supervisor import SupervisorActor
+
+        replicas = SupervisorActor._normalize_replica_states(replica_states=replicas)
         replicas = await owner._filter_worker_inventory(ref, replicas)
         owner._worker_address_to_worker[ref.address] = ref
         owner._ownership_registry().incarnations[ref.address] = incarnation

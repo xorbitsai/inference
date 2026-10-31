@@ -1235,13 +1235,17 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         if custom_models is not None:
             from .worker_handoff import CustomModelState
 
-            with fence.local_scope(ControlContext(parsed, uuid.uuid4().hex)):
-                fence.check_local()
-                async with fence.lifecycle.operation():
-                    await fence._validate(parsed, ("fencing", "reconciling", "active"))
-                    if fence.session != parsed or not fence.ready:
-                        raise ControlSessionRejected("stale_session")
-                    CustomModelState.restore(self, custom_models, replace=True)
+            try:
+                # install() has validated this session. Do not yield between its
+                # ready publication and synchronous catalog replacement.
+                with fence.local_scope(ControlContext(parsed, uuid.uuid4().hex)):
+                    fence.check_local()
+                    with fence.lifecycle.sync_operation():
+                        CustomModelState.restore(self, custom_models, replace=True)
+            except BaseException:
+                if fence.session == parsed:
+                    fence.ready = False
+                raise
         if supervisor_address is not None:
             await fence._validate(parsed, ("fencing", "reconciling", "active"))
             if fence.session != parsed or not fence.ready:
@@ -1316,11 +1320,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     def controller_inventory(self, include_services=False):
         """Live facts for controlled reconciliation, never an execution replay."""
-        replicas = (
-            self._get_running_replica_states(include_services=True)
-            if include_services
-            else self._get_running_replica_states()
+        fence = getattr(self, "_control_fence", None)
+        include_services = include_services or bool(
+            fence is not None
+            and getattr(fence.authority, "include_model_services", False) is True
         )
+        replicas = self._get_running_replica_states(include_services=include_services)
         unsupported = [
             uid
             for uid, args in self._model_uid_to_launch_args.items()

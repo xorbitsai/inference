@@ -664,6 +664,10 @@ def test_service_inventory_includes_pd_shards_and_rank_zero_only_on_request():
         "pd-rep0",
         "shards-rep0",
     }
+    fence, _ = setup_fence()
+    fence.authority.include_model_services = True
+    worker._control_fence = fence
+    assert worker.controller_inventory() == actual
 
 
 @pytest.mark.asyncio
@@ -804,6 +808,16 @@ async def test_coordinator_restore_applies_validated_references():
     await port.restore_worker(ref, [], "boot", ["model-rank0"])
     assert owner._replica_model_uid_to_worker["model-rank0"].address == ref.address
     owner._restore_worker_inventory.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_restore_worker_normalizes_missing_replicas_before_filtering():
+    owner, _, port = controlled_owner()
+    await port.pause(1)
+    ref = SimpleNamespace(address="worker:1234", uid=b"worker")
+    await port.restore_worker(ref, None, "boot")
+    assert owner._filter_worker_inventory.await_args.args[1] == []
+    assert owner._restore_worker_inventory.await_args.kwargs["replica_states"] == []
 
 
 @pytest.mark.asyncio

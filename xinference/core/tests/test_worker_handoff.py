@@ -1276,7 +1276,7 @@ async def test_restarted_supervisor_waits_for_retained_models_before_autostart(r
     )
 
 
-def test_catalog_replacement_validates_before_deletion_and_does_not_persist(
+def test_catalog_replacement_validates_before_deletion(
     monkeypatch,
 ):
     import uuid

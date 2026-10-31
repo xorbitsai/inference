@@ -1038,6 +1038,31 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     "Failed to initialise supervisor OpenTelemetry worker metrics. Continuing without supervisor OTEL metrics."
                 )
         logger.info(f"Xinference supervisor {self.control_address} started")
+        from ..extensions import (
+            SupervisorControlAuthorityContext,
+            resolve_supervisor_control_authority,
+        )
+        from .supervisor_control import SupervisorControl, SupervisorControlPort
+
+        authority = resolve_supervisor_control_authority(
+            SupervisorControlAuthorityContext(
+                self.control_address, SupervisorControlPort(self)
+            )
+        )
+        if authority is not None:
+            self._controller_control = SupervisorControl(self, authority)
+            self._control_fence = self._controller_control.fence
+            self._standby = True
+        try:
+            self._initialize_worker_ownership()
+        except BaseException:
+            if self._controller_control is not None:
+                try:
+                    await self._controller_control.invoke("close")
+                except Exception:
+                    logger.error("Supervisor journal startup cleanup failed")
+            raise
+
         from .cache_tracker import CacheTrackerActor
         from .event import EventCollectorActor
         from .progress_tracker import ProgressTrackerActor
@@ -1151,30 +1176,6 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._collective_manager_mapping: Dict[  # type: ignore
             str, xo.ActorRefType[CollectiveManager]
         ] = {}
-        from ..extensions import (
-            SupervisorControlAuthorityContext,
-            resolve_supervisor_control_authority,
-        )
-        from .supervisor_control import SupervisorControl, SupervisorControlPort
-
-        authority = resolve_supervisor_control_authority(
-            SupervisorControlAuthorityContext(
-                self.control_address, SupervisorControlPort(self)
-            )
-        )
-        if authority is not None:
-            self._controller_control = SupervisorControl(self, authority)
-            self._control_fence = self._controller_control.fence
-            self._standby = True
-        try:
-            self._initialize_worker_ownership()
-        except BaseException:
-            if self._controller_control is not None:
-                try:
-                    await self._controller_control.invoke("close")
-                except Exception:
-                    logger.error("Supervisor journal startup cleanup failed")
-            raise
         if not self._standby:
             await self.activate_supervisor()
         self._supervisor_prepared = True

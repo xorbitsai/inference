@@ -10,7 +10,7 @@ from ..extensions import (
     _require_sync_result,
     resolve_supervisor_journal_store,
 )
-from .worker_state import read_worker_journal, write_worker_journal
+from .worker_state import WorkerJournalError, read_worker_journal, write_worker_journal
 
 
 class LocalSupervisorJournal:
@@ -29,9 +29,13 @@ class _ProviderJournal:
         self.provider = provider
 
     def load(self, default: dict) -> dict:
-        return _require_sync_result(
-            self.provider.load(default), "Supervisor journal load"
-        )
+        try:
+            payload = self.provider.load(default)
+        except WorkerJournalError:
+            raise
+        except Exception:
+            raise WorkerJournalError("Supervisor journal load failed") from None
+        return _require_sync_result(payload, "Supervisor journal load")
 
     def save(self, payload: dict) -> None:
         _require_sync_result(self.provider.save(payload), "Supervisor journal save")
