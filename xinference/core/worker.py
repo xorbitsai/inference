@@ -114,7 +114,7 @@ from .control_session import (
     run_worker_control_callback,
 )
 from .event import Event, EventCollectorActor, EventType
-from .exceptions import ModelNotReadyError
+from .exceptions import ModelNotReadyError, ModelReloadInProgress
 from .lifecycle import (
     WorkerLifecycle,
     WorkerPhase,
@@ -6929,7 +6929,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     async def validate_model_reload(self, model_uid: str, config: Dict[str, Any]):
         if model_uid in self.__dict__.get("_model_reload_active", set()):
-            raise RuntimeError("This model already has a reload in progress")
+            raise ModelReloadInProgress("This model already has a reload in progress")
         return await self._model_uid_to_model[model_uid].validate_reload(config)
 
     async def _replace_model_generation(
@@ -6970,7 +6970,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         model_ref = self._model_uid_to_model[model_uid]
         active = self.__dict__.setdefault("_model_reload_active", set())
         if model_uid in active:
-            raise RuntimeError("This model already has a reload in progress")
+            raise ModelReloadInProgress("This model already has a reload in progress")
         active.add(model_uid)
         try:
             replacing = (
@@ -6989,7 +6989,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 # Parser-only updates do not need another engine. New calls
                 # wait at admission while existing requests drain.
                 metadata = await model_ref.get_reload_config()
-                if operation_id is not None and metadata.get("reload_operation_id"):
+                if operation_id is not None and metadata.get(
+                    "supports_reload_operation_id",
+                    metadata.get("reload_operation_id", False),
+                ):
                     weights_reused = await model_ref.reload(
                         config, drain_timeout, operation_id=operation_id
                     )

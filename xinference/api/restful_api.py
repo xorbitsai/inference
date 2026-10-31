@@ -1975,6 +1975,8 @@ class RESTfulAPI(CancelMixin):
                 request.state, "authenticated_api_key", None
             )
         result = dict(result)
+        result.pop("supports_reload_operation_id", None)
+        result.pop("reload_operation_id", None)
         result["can_upgrade_environment"] = allowed
         if not allowed:
             result.pop("python_executable", None)

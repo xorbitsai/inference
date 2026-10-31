@@ -183,6 +183,9 @@ async def test_reload_metadata_only_discloses_interpreter_to_admin(admin):
     supervisor.get_model_reload_config.return_value["python_executable"] = (
         "/private/python"
     )
+    supervisor.get_model_reload_config.return_value.update(
+        supports_reload_operation_id=True, reload_operation_id=True
+    )
     api._advanced_auth_service = AsyncMock(
         return_value={"permissions": ["admin"] if admin else ["models:list"]}
     )
@@ -193,6 +196,8 @@ async def test_reload_metadata_only_discloses_interpreter_to_admin(admin):
     metadata = json.loads(response.body)
     assert ("python_executable" in metadata) is admin
     assert metadata["can_upgrade_environment"] is admin
+    assert "supports_reload_operation_id" not in metadata
+    assert "reload_operation_id" not in metadata
 
 
 @pytest.mark.asyncio

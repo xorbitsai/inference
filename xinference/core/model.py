@@ -747,7 +747,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
         config = self._get_weight_cached_model().get_reload_config()
         config["python_executable"] = sys.executable
-        config["reload_operation_id"] = True
+        config["supports_reload_operation_id"] = True
         try:
             config["engine_version"] = version(config["engine"])
         except PackageNotFoundError:
@@ -802,10 +802,12 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 status="error", stage="error", restored=exc.restored, error=str(exc)
             )
             raise
-        except Exception:
+        except Exception as exc:
             # Validation inside reload happens before engine teardown.
             self._model_state = "ready"
-            self._reload_status.update(status="error", stage="error", restored=True)
+            self._reload_status.update(
+                status="error", stage="error", restored=True, error=str(exc)
+            )
             raise
         else:
             self._model_state = "ready"

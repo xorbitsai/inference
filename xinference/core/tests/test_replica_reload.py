@@ -55,7 +55,7 @@ async def test_all_replicas_preflight_before_any_engine_changes():
 
 
 @pytest.mark.asyncio
-async def test_reload_is_sequential_and_fences_scale_but_allows_force_termination():
+async def test_reload_is_sequential_and_fences_scale():
     owner, workers, actors, uids = make_replicas()
     entered, release = asyncio.Event(), asyncio.Event()
     replace = workers[0]._replace_model_generation
@@ -220,6 +220,122 @@ async def test_normalized_replica_limits_and_model_autostart_preserve_other_moda
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "backend,field",
+    [("vllm", "limit_mm_per_prompt"), ("sglang", "limit_mm_data_per_request")],
+)
+@pytest.mark.parametrize(
+    "stored", [None, '{"image": 2, "video": 2, "audio": 1}', ["legacy"]]
+)
+async def test_replica_reload_persists_normalized_defaults_when_autostart_limits_are_not_a_dict(
+    monkeypatch, tmp_path, backend, field, stored
+):
+    from ...model.llm.tests.test_runtime_settings import make_vision_model
+
+    owner, workers, actors, uids = make_replicas()
+    launch = {"model_uid": "test", "model_name": "vision", "replica": 2}
+    if stored is not None:
+        launch[field] = stored
+    store = LaunchHistoryStore(str(tmp_path / "history.db"))
+    store.upsert_autostart({"launch": launch}, "owner")
+    owner._launch_history_store = store
+    for actor in actors:
+        actor._model = make_vision_model(monkeypatch, backend)
+        actor._model._reload_config[field] = {"image": 2, "video": 2, "audio": 1}
+    await owner.reload_model("test", {field: {"image": 8}})
+    await owner._model_reload_tasks["test"]
+    expected = {"image": 8, "video": 2, "audio": 1}
+    assert (await owner.get_model_reload_status("test"))["status"] == "ready"
+    assert store.list_autostart()[0]["launch"][field] == expected
+    assert all(
+        worker._model_uid_to_launch_args[uid][field] == expected
+        for worker, uid in zip(workers, uids)
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lose_status", [False, True])
+async def test_late_rollback_after_scale_out_does_not_replace_model_autostart(
+    lose_status,
+):
+    owner, _, actors, uids = make_replicas()
+    owner._iter_active_replica_model_uids = lambda model_uid: iter(uids[:1])
+    job = await owner.reload_model("test", {"max_num_seqs": 32})
+    await owner._model_reload_tasks["test"]
+    owner._iter_active_replica_model_uids = lambda model_uid: iter(uids)
+    actors[1]._model._reload_config["max_num_seqs"] = 32
+    if lose_status:
+        owner._model_reload_status.clear()
+    observed = {
+        "operation_id": job["operation_id"],
+        "status": "error",
+        "restored": True,
+        "error": "candidate exited",
+    }
+    actors[0]._reload_status = observed
+    await owner.restore_model_reload_config(uids[0], {"max_num_seqs": 16}, observed)
+    owner._launch_history_store.update_autostart_launch_config.assert_called_once_with(
+        "test", {"max_num_seqs": 32}
+    )
+    assert actors[1]._model._reload_config["max_num_seqs"] == 32
+
+
+@pytest.mark.asyncio
+async def test_late_rollback_after_scale_down_updates_remaining_model_autostart():
+    owner, _, actors, uids = make_replicas()
+    job = await owner.reload_model("test", {"max_num_seqs": 32})
+    await owner._model_reload_tasks["test"]
+    uids.pop()
+    observed = {
+        "operation_id": job["operation_id"],
+        "status": "error",
+        "restored": True,
+        "error": "candidate exited",
+    }
+    actors[0]._reload_status = observed
+    await owner.restore_model_reload_config(uids[0], {"max_num_seqs": 16}, observed)
+    owner._launch_history_store.update_autostart_launch_config.assert_called_with(
+        "test", {"max_num_seqs": 16}
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("after_commit", [False, True])
+async def test_placement_change_preserves_committed_rows_and_skips_untouched_replicas(
+    after_commit,
+):
+    owner, workers, actors, uids = make_replicas()
+    first_uid = uids[0]
+    if after_commit:
+        replace = workers[0]._replace_model_generation
+
+        async def move_after_replace(*args, **kwargs):
+            result = await replace(*args, **kwargs)
+            uids.pop(0)
+            return result
+
+        workers[0]._replace_model_generation = move_after_replace
+    await owner.reload_model("test", {"max_num_seqs": 32})
+    task = owner._model_reload_tasks["test"]
+    if not after_commit:
+        uids.pop(0)
+    await task
+    status = await owner.get_model_reload_status("test")
+    assert status["status"] == "error" and "placement changed" in status["error"]
+    assert [row["status"] for row in status["replicas"]] == [
+        "ready" if after_commit else "skipped",
+        "skipped",
+    ]
+    assert status["completed_replicas"] == int(after_commit)
+    assert status["partial"] is after_commit
+    assert workers[0]._model_uid_to_launch_args[first_uid]["max_num_seqs"] == (
+        32 if after_commit else 16
+    )
+    assert actors[1]._model.stops == 0
+    owner._launch_history_store.update_autostart_launch_config.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_one_late_rollback_does_not_overwrite_other_replicas_or_desired_config():
     owner, _, actors, uids = make_replicas()
     job = await owner.reload_model("test", {"max_num_seqs": 32})
@@ -260,7 +376,35 @@ async def test_completed_rollout_status_survives_supervisor_cache_loss():
 
 
 @pytest.mark.asyncio
-async def test_incomplete_rollout_after_supervisor_cache_loss_reports_partial_error():
+@pytest.mark.parametrize(
+    "other_status", [{}, {"operation_id": "older", "started_at": 1, "status": "ready"}]
+)
+async def test_reconstructed_status_excludes_new_or_recreated_non_participants(
+    other_status,
+):
+    owner, _, actors, uids = make_replicas()
+    actors[0]._reload_status = {
+        "operation_id": "latest",
+        "started_at": 2,
+        "status": "ready",
+        "weights_reused": True,
+    }
+    actors[1]._reload_status = other_status
+    for _ in range(2):
+        status = await owner.get_model_reload_status("test")
+        assert status["status"] == "ready" and not status["partial"]
+        assert status["completed_replicas"] == status["replica_count"] == 1
+        assert [row["replica_uid"] for row in status["replicas"]] == uids[:1]
+
+
+@pytest.mark.asyncio
+async def test_reconstructed_idle_status_does_not_invent_an_operation():
+    owner, _, _, _ = make_replicas()
+    assert await owner.get_model_reload_status("test") == {"status": "idle"}
+
+
+@pytest.mark.asyncio
+async def test_failed_rollout_after_supervisor_cache_loss_reports_partial_error():
     owner, _, actors, _ = make_replicas()
     actors[0]._reload_status = {
         "operation_id": "interrupted",
@@ -268,6 +412,14 @@ async def test_incomplete_rollout_after_supervisor_cache_loss_reports_partial_er
         "status": "ready",
         "stage": "ready",
         "weights_reused": True,
+    }
+    actors[1]._reload_status = {
+        "operation_id": "interrupted",
+        "started_at": 1,
+        "status": "error",
+        "stage": "error",
+        "restored": True,
+        "error": "Reload interrupted",
     }
     status = await owner.get_model_reload_status("test")
     assert status["status"] == "error" and status["partial"]
@@ -307,6 +459,12 @@ async def test_force_termination_cancels_rollout_before_later_replicas_start():
     await asyncio.wait_for(owner.terminate_model("test"), 1)
     with pytest.raises(asyncio.CancelledError):
         await task
+    status = await owner.get_model_reload_status("test")
+    assert status["status"] == "cancelled"
+    assert [member["status"] for member in status["replicas"]] == [
+        "cancelled",
+        "cancelled",
+    ]
     workers[1]._replace_model_generation.assert_not_called()
     owner._terminate_model.assert_awaited_once()
 
@@ -316,7 +474,9 @@ async def test_worker_preflight_rejects_an_existing_reload_without_resetting_sta
     _, workers, actors, uids = make_replicas()
     workers[0]._model_reload_active = {uids[0]}
     actors[0]._reload_status = {"operation_id": "active", "status": "reloading"}
-    with pytest.raises(RuntimeError, match="reload in progress"):
+    from ..exceptions import ModelReloadInProgress
+
+    with pytest.raises(ModelReloadInProgress, match="reload in progress"):
         await workers[0].validate_model_reload(uids[0], {"max_num_seqs": 32})
     assert actors[0]._reload_status["operation_id"] == "active"
 

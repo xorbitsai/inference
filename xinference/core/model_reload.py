@@ -37,9 +37,14 @@ def _update_progress(status: Dict[str, Any], active: bool = False) -> None:
     )
     failed = next((r for r in replicas if r["status"] == "error"), None)
     if failed is not None and status["status"] != "cancelled":
+        error = failed.get("error", "Reload failed")
         status.update(
             stage="error",
-            error=f"Replica {failed['replica_uid']}: {failed.get('error', 'Reload failed')}",
+            error=(
+                f"Replica {failed['replica_uid']}: {error}"
+                if len(replicas) > 1
+                else error
+            ),
         )
         if not active:
             status["status"] = "error"
@@ -177,23 +182,24 @@ class ModelReloadMixin:
                 key=lambda value: value.get("started_at", 0),
                 default={},
             )
+            if not latest:
+                return {"status": "idle"}
             status = {"status": "idle", **latest, "replicas": []}
             for (uid, _), value in zip(targets, observed):
-                row = {"replica_uid": uid, "status": "queued", "stage": "queued"}
-                if isinstance(value, dict) and value.get("operation_id") == latest.get(
-                    "operation_id"
+                if (
+                    isinstance(value, dict)
+                    and value
+                    and value.get("operation_id") == latest.get("operation_id")
                 ):
-                    row.update(value)
-                status["replicas"].append(row)
-            if latest:
-                status["status"] = "reloading"
-                if not latest.get("operation_id"):
-                    status.update(
-                        status="error",
-                        stage="error",
-                        error="Cannot reconstruct a reload operation from legacy replica statuses",
-                    )
-                self._model_reload_status[model_uid] = status
+                    status["replicas"].append({"replica_uid": uid, **value})
+            status["status"] = "reloading"
+            if not latest.get("operation_id"):
+                status.update(
+                    status="error",
+                    stage="error",
+                    error="Cannot reconstruct a reload operation from legacy replica statuses",
+                )
+            self._model_reload_status[model_uid] = status
         if "replicas" not in status:
             # Retained statuses from a previous Supervisor used the flat schema.
             status["replicas"] = [{"replica_uid": targets[0][0], **status}]
@@ -240,7 +246,7 @@ class ModelReloadMixin:
             ):
                 return
             replicas = status.get("replicas", [])
-            if len(replicas) > 1:
+            if len(self._get_reload_targets(model_uid)) > 1:
                 row = next(
                     (r for r in replicas if r["replica_uid"] == replica_uid), None
                 )
@@ -301,10 +307,12 @@ class ModelReloadMixin:
             self._model_reload_status[model_uid] = status
 
             async def run() -> None:
-                from ..model.llm.weight_cache import HOT_RELOAD_FIELDS
+                from ..model.llm.weight_cache import (
+                    HOT_RELOAD_FIELDS,
+                    IMAGE_LIMIT_FIELDS,
+                )
 
                 row = status["replicas"][0]
-                persisting = False
                 try:
                     for (uid, worker), patch, row in zip(
                         targets, patches, status["replicas"]
@@ -335,14 +343,14 @@ class ModelReloadMixin:
                                 operation_id=status["operation_id"],
                             )
                         ) is True
-                        if self._get_reload_targets(model_uid) != targets:
-                            raise ValueError("Model placement changed during reload")
                         if row["status"] == "error":
                             break
                         row.update(
                             status="ready", stage="ready", finished_at=time.time()
                         )
                         _update_progress(status, active=True)
+                        if self._get_reload_targets(model_uid) != targets:
+                            raise ValueError("Model placement changed during reload")
                     if all(
                         member["status"] == "ready" for member in status["replicas"]
                     ):
@@ -351,8 +359,22 @@ class ModelReloadMixin:
                                 member["status"] == "ready"
                                 for member in status["replicas"]
                             ):
-                                persisting = True
-                                committed = patches[0] if len(targets) == 1 else config
+                                committed = (
+                                    patches[0]
+                                    if len(targets) == 1
+                                    else copy.deepcopy(config)
+                                )
+                                if len(targets) > 1:
+                                    for field in IMAGE_LIMIT_FIELDS.values():
+                                        if field in config:
+                                            # Preserve common runtime defaults even
+                                            # when the launch omitted the limits.
+                                            committed[field] = {
+                                                **_common_values(
+                                                    [patch[field] for patch in patches]
+                                                ),
+                                                **config[field],
+                                            }
                                 await asyncio.to_thread(
                                     self._launch_history_store.update_autostart_launch_config,
                                     model_uid,
@@ -379,11 +401,8 @@ class ModelReloadMixin:
                             member.update(status="cancelled", stage="cancelled")
                     raise
                 except Exception as exc:
-                    if persisting:
-                        status.update(status="error", stage="error", error=str(exc))
-                    else:
+                    if row["status"] == "reloading":
                         row.update(status="error", stage="error", error=str(exc))
-                    if not persisting:
                         if hasattr(exc, "restored"):
                             row["restored"] = exc.restored
                         try:
@@ -398,6 +417,10 @@ class ModelReloadMixin:
                                     row["restored"] = observed["restored"]
                         except Exception:
                             pass
+                    else:
+                        # Placement/persistence errors do not undo a committed
+                        # replica or imply that an untouched one was attempted.
+                        status.update(status="error", stage="error", error=str(exc))
                     _update_progress(status, active=True)
                     logger.exception(
                         "Reload of %s failed at %s", model_uid, row["replica_uid"]
