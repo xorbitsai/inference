@@ -36,6 +36,45 @@ from ..cmdline import (
 )
 
 
+@pytest.mark.parametrize(
+    "endpoint", ["http://localhost:9997", "http://localhost:9997/proxy/path"]
+)
+@pytest.mark.parametrize("login_suffix", ["", "/"])
+def test_login_token_uses_normalized_endpoint(
+    monkeypatch, tmp_path, endpoint, login_suffix
+):
+    import hashlib
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    client = SimpleNamespace(
+        _cluster_authed=True,
+        login=MagicMock(),
+        _get_token=lambda: "stored-token",
+    )
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", lambda base_url: client)
+    monkeypatch.setattr(cmdline_module, "XINFERENCE_AUTH_DIR", str(tmp_path))
+
+    result = CliRunner().invoke(
+        cmdline_module.cluster_login,
+        [
+            "--endpoint",
+            endpoint + login_suffix,
+            "--username",
+            "user",
+            "--password",
+            "pw",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output + repr(result.exception)
+    client.login.assert_called_once_with("user", "pw")
+    token_path = tmp_path / hashlib.sha256(endpoint.encode("utf-8")).hexdigest()
+    assert token_path.read_text() == "stored-token"
+    for lookup_endpoint in (endpoint, endpoint + "/"):
+        assert cmdline_module.get_stored_token(lookup_endpoint) == "stored-token"
+
+
 @pytest.mark.parametrize("stream", [True, False])
 @pytest.mark.parametrize("model_uid", [None, "my_model_uid"])
 @pytest.mark.platform_slow

@@ -20,6 +20,7 @@ import requests
 from ..common import (
     convert_float_to_int_or_str,
     encode_world_reference,
+    normalize_endpoint,
     streaming_response_iterator,
 )
 
@@ -1170,7 +1171,7 @@ class RESTfulFlexibleModelHandle(RESTfulModelHandle):
 
 class Client:
     def __init__(self, base_url, api_key: Optional[str] = None):
-        self.base_url = base_url
+        self.base_url = normalize_endpoint(base_url)
         self._headers: Dict[str, str] = {}
         self._cluster_authed = False
         self.session = requests.Session()
