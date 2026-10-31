@@ -8,11 +8,15 @@ Extensions own workflow ordering; this module supplies only local primitives.
 """
 
 import asyncio
+import contextlib
 import inspect
 import math
 import uuid
+from contextvars import ContextVar
 from types import MethodType
+from typing import Any, Optional, Tuple
 
+from .control_invocation import ControlInvocation, invoke_control_hook
 from .control_session import (
     CONTROL_CONTEXT_KEY,
     NATIVE_HANDOFF_RPCS,
@@ -24,6 +28,41 @@ from .control_session import (
 )
 from .lifecycle import WorkerLifecycle, WorkerPhase
 from .supervisor_upgrade import INFERENCE_READS, LIVENESS_CALLS
+
+MODEL_SERVICE_FIELDS = (
+    "_pd_model_mapping",
+    "_pd_roles",
+    "_xavier_cache_mapping",
+    "_xavier_source_mapping",
+    "_block_tracker_mapping",
+    "_collective_manager_mapping",
+)
+_service_host: ContextVar[Optional[Tuple[Any, str]]] = ContextVar(
+    "xinference_model_service_host", default=None
+)
+_supervisor_calls: ContextVar[tuple] = ContextVar("supervisor_calls", default=())
+
+
+@contextlib.contextmanager
+def _supervisor_call_scope(control):
+    """Mark nested business helpers separately from transport admission."""
+    token = _supervisor_calls.set(
+        (*_supervisor_calls.get(), (control, asyncio.current_task()))
+    )
+    try:
+        yield
+    finally:
+        _supervisor_calls.reset(token)
+
+
+def model_service_address(owner):
+    current = _service_host.get()
+    return (
+        current[1]
+        if current is not None and current[0] is owner
+        else owner.control_address
+    )
+
 
 READS = (
     INFERENCE_READS
@@ -106,8 +145,21 @@ class ControlledWorkerRef:
 
             async def invoke():
                 async with self._control.fence.command(command):
-                    return await method(
-                        *args, **{**kwargs, CONTROL_CONTEXT_KEY: command.to_dict()}
+
+                    async def execute(args=args, kwargs=kwargs):
+                        if CONTROL_CONTEXT_KEY in kwargs:
+                            raise ControlSessionRejected("caller_control_override")
+                        return await method(
+                            *args, **{**kwargs, CONTROL_CONTEXT_KEY: command.to_dict()}
+                        )
+
+                    return await invoke_control_hook(
+                        self._control.authority,
+                        "around_worker_call",
+                        ControlInvocation(
+                            self._ref.address, name, command, args, kwargs
+                        ),
+                        execute,
                     )
 
             return invoke()
@@ -164,7 +216,7 @@ class SupervisorControl:
             await self.invoke("worker_registered", ref, timeout=60)
         return self.worker(ref)
 
-    async def invoke(self, name, *args, timeout=10):
+    async def invoke(self, name, *args, timeout=10, preserve_errors=False):
         method = getattr(self.authority, name)
         try:
             if inspect.iscoroutinefunction(method):
@@ -173,6 +225,8 @@ class SupervisorControl:
         except ControlSessionRejected:
             raise
         except Exception:
+            if preserve_errors:
+                raise
             raise ControlSessionRejected("authority_unavailable") from None
 
     async def operation(self, operation, payload):
@@ -241,7 +295,12 @@ class SupervisorControlPort:
         await self._owner._upgrade_state.pause()
         control.prepared = True
 
-    async def restore_worker(self, ref, replicas, incarnation):
+    async def restore_worker(self, ref, replicas, incarnation, coordinators=()):
+        if not isinstance(coordinators, (list, tuple)) or any(
+            not isinstance(uid, str) or not uid.endswith("-rank0")
+            for uid in coordinators
+        ):
+            raise ValueError("Invalid coordinator identity")
         control = self._control()
         await control.fence._validate(
             control.session, ("fencing", "reconciling", "active")
@@ -250,9 +309,17 @@ class SupervisorControlPort:
             raise ControlSessionRejected("control_not_paused")
         ref = control.worker(ref)
         owner = self._owner
+        from .supervisor import SupervisorActor
+
+        replicas = SupervisorActor._normalize_replica_states(replica_states=replicas)
+        replicas = await owner._filter_worker_inventory(ref, replicas)
         owner._worker_address_to_worker[ref.address] = ref
         owner._ownership_registry().incarnations[ref.address] = incarnation
-        await owner._restore_worker_inventory(ref, replica_states=replicas)
+        await owner._restore_worker_inventory(
+            ref, replica_states=replicas, apply_filter=False
+        )
+        for uid in coordinators:
+            owner._replica_model_uid_to_worker[uid] = ref
 
     async def resume(self):
         control = self._control()
@@ -275,6 +342,63 @@ class SupervisorControlPort:
     def settings(self):
         return dict(self._owner._system_settings)
 
+    def catalog(self):
+        from .worker_handoff import CustomModelState
+
+        return CustomModelState.capture(self._owner)
+
+    def workers(self):
+        return list(self._owner._worker_address_to_worker.values())
+
+    def restore_catalog(self, payload):
+        from .worker_handoff import CustomModelState
+
+        CustomModelState.restore(self._owner, payload, replace=True)
+
+    def restore_settings(self, payload):
+        from .system_settings_store import SystemSettings, apply_system_settings
+
+        parsed = SystemSettings.from_dict(payload)
+        self._owner._system_settings = parsed.to_dict()
+        apply_system_settings(parsed)
+
+    async def call(self, method, *args, **kwargs):
+        if not isinstance(method, str) or method.startswith("_"):
+            raise ValueError("Expected a public Supervisor method")
+        control = self._control()
+        async with control.fence.command(control.capture()):
+            with _supervisor_call_scope(control):
+                value = getattr(self._owner, method)(*args, **kwargs)
+                return await value if inspect.isawaitable(value) else value
+
+    async def with_service_address(self, address, call):
+        if not isinstance(address, str) or not address:
+            raise ValueError("Expected an actor address")
+        token = _service_host.set((self._owner, address))
+        try:
+            return await call()
+        finally:
+            _service_host.reset(token)
+
+    def service_address(self):
+        return model_service_address(self._owner)
+
+    def model_services(self, model_uid):
+        return {
+            name: getattr(self._owner, name, {}).get(model_uid)
+            for name in MODEL_SERVICE_FIELDS
+        }
+
+    def restore_model_services(self, model_uid, services):
+        if not isinstance(services, dict) or set(services) - set(MODEL_SERVICE_FIELDS):
+            raise ValueError("Invalid model service state")
+        for name, value in services.items():
+            mapping = getattr(self._owner, name)
+            if value is None:
+                mapping.pop(model_uid, None)
+            else:
+                mapping[model_uid] = value
+
     def close_admission(self):
         self._control().fence.ready = False
 
@@ -283,21 +407,45 @@ def bind_supervisor_control(owner, name, method):
     control = owner._controller_control
 
     def guarded(self, *args, **kwargs):
+        # Remote dispatch may hold the fence before resolving the outer method.
+        nested = (
+            control.fence.bound_context() is not None
+            and (control, asyncio.current_task()) in _supervisor_calls.get()
+        )
+        supplied = kwargs.pop(CONTROL_CONTEXT_KEY, None)
         if name in BLOCKED:
             raise ControlSessionRejected("handoff_requires_session_transfer")
         # Nested synchronous helpers preserve their ordinary return type.
-        if (
-            control.fence.bound_context() is not None
-            and not inspect.iscoroutinefunction(method)
-        ):
+        if nested and not inspect.iscoroutinefunction(method):
             control.fence.check_local()
             return method(*args, **kwargs)
-        command = control.capture()
+        try:
+            command = (
+                control.capture()
+                if supplied is None
+                else ControlContext.from_dict(supplied)
+            )
+        except (TypeError, ValueError):
+            raise ControlSessionRejected("invalid_context") from None
 
         async def run():
             async with control.fence.command(command):
-                value = method(*args, **kwargs)
-                return await value if inspect.isawaitable(value) else value
+
+                async def execute(args=args, kwargs=kwargs):
+                    value = method(*args, **kwargs)
+                    return await value if inspect.isawaitable(value) else value
+
+                with _supervisor_call_scope(control):
+                    if nested:
+                        return await execute()
+                    return await invoke_control_hook(
+                        control.authority,
+                        "around_supervisor_call",
+                        ControlInvocation(
+                            self.control_address, name, command, args, kwargs
+                        ),
+                        execute,
+                    )
 
         return run()
 

@@ -47,6 +47,57 @@ from ..worker import ModelStatus, WorkerActor
 from .test_worker_handoff import CounterModel, HandoffSupervisor, HandoffWorker
 
 
+@pytest.mark.asyncio
+async def test_catalog_replacement_does_not_yield_after_ready_publication(monkeypatch):
+    from ..worker_handoff import CustomModelState
+
+    fence, authority = setup_fence()
+    worker = WorkerActor("supervisor:1234", None, SimpleNamespace(), [])
+    worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+    restored, exposed = [], []
+    validate = fence._validate
+
+    async def observed(owner, phases):
+        await validate(owner, phases)
+        if fence.ready:
+            # A validation await after readiness would let queued commands see
+            # the catalog before its replacement.
+            await asyncio.sleep(0)
+            exposed.append(bool(restored))
+
+    def restore(owner, models, **kwargs):
+        assert fence.ready and asyncio.current_task() in fence.lifecycle._tasks
+        restored.append(models)
+
+    monkeypatch.setattr(fence, "_validate", observed)
+    monkeypatch.setattr(CustomModelState, "restore", restore)
+    assert (
+        await worker.install_controller_session(
+            authority.owner.to_dict(), custom_models={}
+        )
+    )["ready"]
+    assert restored == [{}]
+    assert all(exposed)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("same_session", [False, True])
+async def test_failed_catalog_install_closes_admission(same_session):
+    fence, authority = setup_fence()
+    worker = WorkerActor("supervisor:1234", None, SimpleNamespace(), [])
+    worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+    if same_session:
+        await worker.install_controller_session(authority.owner.to_dict())
+    with pytest.raises(ValueError, match="custom model catalog"):
+        await worker.install_controller_session(
+            authority.owner.to_dict(), custom_models={"unknown": {}}
+        )
+    assert not worker.controller_session_status()["ready"]
+    with pytest.raises(ControlSessionRejected, match="fence_pending"):
+        async with fence.command(command(authority.owner)):
+            pytest.fail("A failed catalog install must close command admission")
+
+
 def session(term=1, **changes):
     return replace(
         ControllerSession("cluster", "candidate", f"boot-{term}", term), **changes

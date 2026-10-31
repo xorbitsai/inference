@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -44,10 +46,54 @@ def store(tmp_path):
 @pytest.fixture
 def mock_request(store):
     request = MagicMock()
+    request.app.state.system_settings_provider = None
     request.app.state.system_settings_store = store
     supervisor_ref = AsyncMock()
     request.app.state.api._get_supervisor_ref = AsyncMock(return_value=supervisor_ref)
     return request
+
+
+@pytest.mark.asyncio
+async def test_configured_provider_owns_settings_without_local_persistence(
+    mock_request,
+):
+    provider = AsyncMock(return_value={"hf_token": "masked"})
+    mock_request.app.state.system_settings_provider = provider
+    assert _json_body(await system_settings.get_system_settings(mock_request)) == {
+        "hf_token": "masked"
+    }
+    provider.assert_awaited_once_with("get", None)
+    mock_request.app.state.api._get_supervisor_ref.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["save", "reset", "invalid_save"])
+async def test_settings_provider_write_and_validation_contract(
+    mock_request, store, operation
+):
+    from fastapi import HTTPException
+
+    before = store.get().to_dict()
+    provider = AsyncMock(return_value={"hf_token": "masked"})
+    mock_request.app.state.system_settings_provider = provider
+    body = system_settings.SystemSettingsPayload(**store.get_public())
+    if operation == "invalid_save":
+        provider.side_effect = ValueError("invalid provider settings")
+        with pytest.raises(HTTPException) as error:
+            await system_settings.update_system_settings(mock_request, body)
+        assert error.value.status_code == 422
+    elif operation == "save":
+        assert _json_body(
+            await system_settings.update_system_settings(mock_request, body)
+        ) == {"hf_token": "masked"}
+        provider.assert_awaited_once_with("save", body.dict())
+    else:
+        assert _json_body(
+            await system_settings.reset_system_settings(mock_request)
+        ) == {"hf_token": "masked"}
+        provider.assert_awaited_once_with("reset", None)
+    assert store.get().to_dict() == before
+    mock_request.app.state.api._get_supervisor_ref.assert_not_awaited()
 
 
 @pytest.fixture

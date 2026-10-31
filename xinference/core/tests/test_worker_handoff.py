@@ -14,9 +14,11 @@
 
 import asyncio
 import contextlib
+import copy
 import json
 import os
 import sys
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1272,3 +1274,289 @@ async def test_restarted_supervisor_waits_for_retained_models_before_autostart(r
     assert SupervisorActor._autostart_waiting_for_worker(
         owner, {"model_uid": "counter"}
     )
+
+
+def test_catalog_replacement_validates_before_deletion(
+    monkeypatch,
+):
+    import uuid
+
+    from pydantic.v1 import ValidationError
+
+    from ...model.custom import RegistryManager
+    from ...model.embedding.custom import (
+        CustomEmbeddingModelFamilyV2,
+        register_embedding,
+        unregister_embedding,
+    )
+    from ...model.embedding.embed_family import BUILTIN_EMBEDDING_MODELS
+    from ..worker_handoff import CustomModelState
+
+    registry = RegistryManager.get_registry("embedding")
+    original = list(registry.get_custom_models())
+    definition = next(iter(BUILTIN_EMBEDDING_MODELS.values()))[0].dict()
+    name = "replacement-" + uuid.uuid4().hex
+    definition.update(model_name=name, is_builtin=False)
+    spec = CustomEmbeddingModelFamilyV2.parse_obj(definition)
+    owner = SimpleNamespace(
+        _custom_register_type_to_cls={
+            "embedding": (
+                CustomEmbeddingModelFamilyV2,
+                register_embedding,
+                unregister_embedding,
+                None,
+            )
+        }
+    )
+    try:
+        register_embedding(spec, persist=False)
+        before = CustomModelState.capture(owner)
+        with pytest.raises(ValidationError):
+            CustomModelState.restore(owner, {"embedding": {name: "{}"}}, replace=True)
+        assert CustomModelState.capture(owner) == before
+        # A valid replacement removes stale in-memory entries, without files.
+        CustomModelState.restore(owner, {"embedding": {}}, replace=True)
+        assert not registry.get_custom_models()
+        CustomModelState.restore(owner, before, replace=True)
+        assert registry.find_model(name).model_name == name
+    finally:
+        for item in list(registry.get_custom_models()):
+            registry.unregister(item.model_name, remove_file=False)
+        for item in original:
+            register_embedding(item, persist=False)
+
+
+@pytest.mark.parametrize("failure", ["uri", "engine"])
+def test_failed_catalog_replacement_restores_registrations_and_engines(
+    tmp_path, monkeypatch, failure
+):
+    from ...model import embedding
+    from ...model.custom import RegistryManager
+    from ...model.embedding.custom import (
+        CustomEmbeddingModelFamilyV2,
+        register_embedding,
+        unregister_embedding,
+    )
+    from ...model.embedding.embed_family import (
+        BUILTIN_EMBEDDING_MODELS,
+        EMBEDDING_ENGINES,
+    )
+    from ..worker_handoff import CustomModelState
+
+    registry = RegistryManager.get_registry("embedding")
+    original = list(registry.get_custom_models())
+    definition = next(iter(BUILTIN_EMBEDDING_MODELS.values()))[0].dict()
+    prefix = "replacement-" + uuid.uuid4().hex
+    definition.update(model_name=prefix, is_builtin=False)
+    owner = SimpleNamespace(
+        _custom_register_type_to_cls={
+            "embedding": (
+                CustomEmbeddingModelFamilyV2,
+                register_embedding,
+                unregister_embedding,
+                None,
+            )
+        }
+    )
+    try:
+        register_embedding(CustomEmbeddingModelFamilyV2.parse_obj(definition), False)
+        before = CustomModelState.capture(owner)
+        engines = copy.deepcopy(EMBEDDING_ENGINES)
+        replacement = {}
+        for suffix in ("first", "rejected"):
+            model = copy.deepcopy(definition)
+            model["model_name"] = prefix + "-" + suffix
+            if failure == "uri" and suffix == "rejected":
+                model["model_specs"][0]["model_uri"] = (tmp_path / "missing").as_uri()
+            replacement[model["model_name"]] = json.dumps(model)
+        if failure == "engine":
+            generate = embedding.generate_engine_config_by_model_name
+
+            def reject_after_generation(spec):
+                generate(spec)
+                if spec.model_name.endswith("-rejected"):
+                    raise ValueError("Engine registration rejected")
+
+            monkeypatch.setattr(
+                embedding,
+                "generate_engine_config_by_model_name",
+                reject_after_generation,
+            )
+        with pytest.raises(ValueError):
+            CustomModelState.restore(owner, {"embedding": replacement}, replace=True)
+        assert CustomModelState.capture(owner) == before
+        assert EMBEDDING_ENGINES == engines
+    finally:
+        for item in list(registry.get_custom_models()):
+            registry.unregister(item.model_name, remove_file=False)
+        for item in original:
+            register_embedding(item, persist=False)
+
+
+@pytest.mark.parametrize("rebuild_failure", [False, True])
+def test_llm_catalog_replacement_matches_child_after_parent_is_installed(
+    monkeypatch, rebuild_failure
+):
+    from ...model import llm
+    from ...model.custom import RegistryManager
+    from ...model.llm.custom import register_llm, unregister_llm
+    from ...model.llm.llm_family import (
+        LLM_ENGINES,
+        CustomLLMFamilyV2,
+        check_engine_by_spec_parameters,
+    )
+    from ...model.llm.transformers.chatglm import ChatglmPytorchChatModel
+    from ..worker_handoff import CustomModelState
+
+    prefix = "replacement-" + uuid.uuid4().hex
+    parent = CustomLLMFamilyV2(
+        version=2,
+        model_name=prefix + "-parent",
+        model_lang=["en"],
+        model_ability=["chat"],
+        architectures=["GlmForCausalLM"],
+        model_specs=[
+            {
+                "model_format": "pytorch",
+                "model_size_in_billions": 1,
+                "quantization": "none",
+                "model_id": "example/model",
+            }
+        ],
+    )
+    child = parent.copy(deep=True)
+    child.model_name, child.model_family, child.architectures = (
+        prefix + "-child",
+        parent.model_name,
+        None,
+    )
+    registry = RegistryManager.get_registry("llm")
+    previous = registry.get_custom_models()
+    engines = copy.deepcopy(LLM_ENGINES)
+    owner = SimpleNamespace(
+        _custom_register_type_to_cls={
+            "LLM": (CustomLLMFamilyV2, register_llm, unregister_llm, None)
+        }
+    )
+    generate = llm.generate_engine_config_by_model_family
+
+    def rematch(model, *args, **kwargs):
+        if (
+            rebuild_failure
+            and model.model_name == child.model_name
+            and registry.find_model(parent.model_name) is not None
+        ):
+            raise RuntimeError("rebuild failed")
+        return generate(model, *args, **kwargs)
+
+    try:
+        register_llm(parent, persist=False)
+        register_llm(child, persist=False)
+        before = CustomModelState.capture(owner)
+        before_engines = copy.deepcopy(LLM_ENGINES)
+        monkeypatch.setattr(llm, "generate_engine_config_by_model_family", rematch)
+        replacement = {
+            "llm": {child.model_name: child.json(), parent.model_name: parent.json()}
+        }
+        if rebuild_failure:
+            with pytest.raises(RuntimeError, match="rebuild failed"):
+                CustomModelState.restore(owner, replacement, replace=True)
+            assert CustomModelState.capture(owner) == before
+            assert LLM_ENGINES == before_engines
+        else:
+            CustomModelState.restore(owner, replacement, replace=True)
+        assert (
+            check_engine_by_spec_parameters(
+                "Transformers", child.model_name, "pytorch", 1, "none"
+            )
+            is ChatglmPytorchChatModel
+        )
+    finally:
+        with registry.lock:
+            registry.models[:] = previous
+        LLM_ENGINES.clear()
+        LLM_ENGINES.update(engines)
+
+
+@pytest.mark.parametrize("change", ["image", "ocr_to_image", "image_to_ocr", "audio"])
+def test_successful_catalog_replacement_removes_previous_engines(change):
+    from ...model.audio import BUILTIN_AUDIO_MODELS
+    from ...model.audio.custom import (
+        CustomAudioModelFamilyV2,
+        register_audio,
+        unregister_audio,
+    )
+    from ...model.audio.engine import PyTorchF5TTSAudioModel
+    from ...model.audio.engine_family import AUDIO_ENGINES
+    from ...model.audio.engine_family import (
+        check_engine_by_model_name_and_engine as audio_engine,
+    )
+    from ...model.custom import RegistryManager
+    from ...model.image.core import BUILTIN_IMAGE_MODELS
+    from ...model.image.custom import (
+        CustomImageModelFamilyV2,
+        register_image,
+        unregister_image,
+    )
+    from ...model.image.engine import Fibo2DiffusersImageModel
+    from ...model.image.engine_family import IMAGE_ENGINES
+    from ...model.image.engine_family import (
+        check_engine_by_model_name_and_engine as image_engine,
+    )
+    from ...model.image.ocr.ocr_family import OCR_ENGINES
+    from ..worker_handoff import CustomModelState
+
+    kind = "audio" if change == "audio" else "image"
+    schema, register, unregister = (
+        (CustomAudioModelFamilyV2, register_audio, unregister_audio)
+        if kind == "audio"
+        else (CustomImageModelFamilyV2, register_image, unregister_image)
+    )
+    catalog = BUILTIN_AUDIO_MODELS if kind == "audio" else BUILTIN_IMAGE_MODELS
+    source, target = {
+        "image": ("stable-diffusion-xl-base-1.0", "Fibo-2.0-dev"),
+        "ocr_to_image": ("PaddleOCR-VL", "Fibo-2.0-dev"),
+        "image_to_ocr": ("stable-diffusion-xl-base-1.0", "PaddleOCR-VL"),
+        "audio": ("Kokoro-82M", "F5-TTS"),
+    }[change]
+    name = "PaddleOCR-VL-replacement-" + uuid.uuid4().hex
+    registry = RegistryManager.get_registry(kind)
+    original = registry.get_custom_models()
+    tables = [
+        (table, copy.deepcopy(table))
+        for table in (IMAGE_ENGINES, OCR_ENGINES, AUDIO_ENGINES)
+    ]
+    owner = SimpleNamespace(
+        _custom_register_type_to_cls={kind: (schema, register, unregister, None)}
+    )
+    old = catalog[source][0].dict()
+    new = catalog[target][0].dict()
+    for definition in (old, new):
+        definition.update(model_name=name, is_builtin=False)
+    try:
+        register(schema.parse_obj(old), persist=False)
+        CustomModelState.restore(owner, {kind: {name: json.dumps(new)}}, replace=True)
+        assert registry.find_model(name).model_family == new["model_family"]
+        if change == "audio":
+            assert audio_engine("PyTorch", name) is PyTorchF5TTSAudioModel
+        elif change == "image_to_ocr":
+            assert name not in IMAGE_ENGINES
+            assert name in OCR_ENGINES
+        else:
+            assert (
+                image_engine("diffusers", name, "diffusers", "none")
+                is Fibo2DiffusersImageModel
+            )
+            assert name not in OCR_ENGINES
+        CustomModelState.restore(owner, {kind: {}}, replace=True)
+        assert (
+            name not in IMAGE_ENGINES
+            and name not in OCR_ENGINES
+            and name not in AUDIO_ENGINES
+        )
+    finally:
+        with registry.lock:
+            registry.models[:] = original
+        for table, entries in tables:
+            table.clear()
+            table.update(entries)

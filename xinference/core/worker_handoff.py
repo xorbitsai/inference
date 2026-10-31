@@ -73,9 +73,91 @@ class CustomModelState:
         }
 
     @classmethod
-    def restore(cls, worker, state):
+    def restore(cls, worker, state, *, replace=False):
         from ..model.custom import RegistryManager
 
+        if replace:
+            if not isinstance(state, dict) or set(state) - set(cls.TYPES):
+                raise ValueError("Unsupported custom model catalog")
+            staged = []
+            for kind in cls.TYPES:
+                handlers = getattr(worker, "_custom_register_type_to_cls", {}).get(
+                    "LLM" if kind == "llm" else kind
+                )
+                if handlers is None:
+                    if state.get(kind):
+                        raise ValueError("Unsupported custom model catalog")
+                    continue
+                schema, register, _, _ = handlers
+                models = []
+                for name, payload in state.get(kind, {}).items():
+                    definition = json.loads(payload)
+                    for field in cls.RUNTIME_FIELDS:
+                        definition.pop(field, None)
+                    spec = schema.parse_obj(definition)
+                    if spec.model_name != name:
+                        raise ValueError("Custom model registration identity changed")
+                    if hasattr(spec, "is_builtin"):
+                        spec.is_builtin = False
+                    models.append(spec)
+                staged.append((kind, register, models))
+            from ..model.audio.engine_family import AUDIO_ENGINES
+            from ..model.embedding.embed_family import EMBEDDING_ENGINES
+            from ..model.image.engine_family import IMAGE_ENGINES
+            from ..model.image.ocr.ocr_family import OCR_ENGINES
+            from ..model.llm.llm_family import LLM_ENGINES
+            from ..model.rerank.rerank_family import RERANK_ENGINES
+
+            # register() also validates local URIs and updates derived engine
+            # tables. Restore their prior state directly if any type rejects,
+            # without revalidating old paths or touching registration files.
+            previous = [
+                (
+                    RegistryManager.get_registry(kind),
+                    RegistryManager.get_registry(kind).get_custom_models(),
+                )
+                for kind, _, _ in staged
+            ]
+            engines = [
+                (table, copy.deepcopy(table))
+                for table in (
+                    LLM_ENGINES,
+                    EMBEDDING_ENGINES,
+                    RERANK_ENGINES,
+                    IMAGE_ENGINES,
+                    OCR_ENGINES,
+                    AUDIO_ENGINES,
+                )
+            ]
+            try:
+                for kind, register, models in staged:
+                    registry = RegistryManager.get_registry(kind)
+                    for existing in registry.get_custom_models():
+                        registry.unregister(existing.model_name, remove_file=False)
+                        for table in {
+                            "image": (IMAGE_ENGINES, OCR_ENGINES),
+                            "audio": (AUDIO_ENGINES,),
+                        }.get(kind, ()):
+                            table.pop(existing.model_name, None)
+                    for spec in models:
+                        register(spec, persist=False)
+                    if kind == "llm":
+                        from ..model.llm import generate_engine_config_by_model_family
+
+                        # Matching inherited architectures needs the full catalog,
+                        # including custom parents that may follow their children.
+                        for spec in models:
+                            LLM_ENGINES.pop(spec.model_name, None)
+                            generate_engine_config_by_model_family(spec)
+            except BaseException:
+                for registry, models in previous:
+                    with registry.lock:
+                        registry.models[:] = models
+                for table, entries in engines:
+                    table.clear()
+                    table.update(entries)
+                raise
+            return
         pending = []
         # Validate the entire catalog before changing any target registry.
         for kind, models in state.items():

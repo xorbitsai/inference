@@ -1,0 +1,19 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Language: pt_BR\n"
+"PO-Revision-Date: 2026-10-31 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: Xinference\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Supervisor journal storage"
+msgstr "Armazenamento de diários do Supervisor"
+
+msgid "Extensions may implement ``create_supervisor_journal_store(context)`` to select storage for existing Worker ownership and relaunch journals. The context provides ``kind`` (``worker_ownership`` or ``worker_relaunch``), the default file ``path``, the Supervisor actor ``address``, and its optional immutable ``control_session``. Stores implement synchronous ``load(default)`` and ``save(payload)`` using the existing versioned JSON payloads. A save must become durable or raise before returning."
+msgstr "As extensões podem implementar ``create_supervisor_journal_store(context)`` para selecionar o armazenamento dos diários existentes de propriedade e reinicialização de Worker. O contexto fornece ``kind`` (``worker_ownership`` ou ``worker_relaunch``), o caminho padrão ``path``, o endereço do ator Supervisor ``address`` e sua ``control_session`` imutável opcional. Os armazenamentos implementam os métodos síncronos ``load(default)`` e ``save(payload)`` usando os dados JSON versionados existentes. Uma gravação deve ser persistida ou gerar uma exceção antes de retornar."
+
+msgid "Without a provider, or when it returns ``None``, the existing ``worker-handoffs.json`` and ``worker-relaunches.json`` files remain in use. Multiple providers, invalid stores and provider errors fail explicitly; errors never select a local fallback. Selection follows control-authority initialization. Operators must migrate authoritative records before switching providers. Worker-local execution journals are unchanged."
+msgstr "Sem um provedor, ou quando ele retorna ``None``, os arquivos existentes ``worker-handoffs.json`` e ``worker-relaunches.json`` continuam em uso. Vários provedores, armazenamentos inválidos e erros do provedor falham explicitamente; os erros nunca ativam uma alternativa local. A seleção ocorre após a inicialização da autoridade de controle. Os operadores devem migrar os registros autoritativos antes de trocar de provedor. Os diários locais de execução de Worker permanecem inalterados."

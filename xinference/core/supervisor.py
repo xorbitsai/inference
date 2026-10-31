@@ -14,6 +14,7 @@
 
 import asyncio
 import functools
+import inspect
 import itertools
 import os
 import signal
@@ -250,6 +251,12 @@ class InitialModelLaunch:
     cancelling: bool = False
 
 
+def model_service_address(owner):
+    from .supervisor_control import model_service_address as selected_address
+
+    return selected_address(owner)
+
+
 class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
     def __getattribute__(self, name):
         value = super().__getattribute__(name)
@@ -275,6 +282,24 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             from .control_session import ControlSessionRejected
 
             raise ControlSessionRejected("unsupported_batch")
+        from .control_session import (
+            CONTROL_CONTEXT_KEY,
+            ControlContext,
+            ControlSessionRejected,
+        )
+
+        method, call_method, args, kwargs = message
+        if kwargs and CONTROL_CONTEXT_KEY in kwargs:
+            control = getattr(self, "_controller_control", None)
+            if control is None:
+                raise ControlSessionRejected("authority_not_configured")
+            kwargs = dict(kwargs)
+            try:
+                command = ControlContext.from_dict(kwargs.pop(CONTROL_CONTEXT_KEY))
+            except (TypeError, ValueError):
+                raise ControlSessionRejected("invalid_context") from None
+            async with control.fence.command(command):
+                return await super().__on_receive__((method, call_method, args, kwargs))
         return await super().__on_receive__(message)
 
     def __init__(
@@ -1002,7 +1027,6 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
         get_extensions()
         self._actor_loop = asyncio.get_running_loop()
-        self._initialize_worker_ownership()
         self._uptime = time.time()
         if XINFERENCE_ENABLE_OTEL:
             try:
@@ -1014,6 +1038,31 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     "Failed to initialise supervisor OpenTelemetry worker metrics. Continuing without supervisor OTEL metrics."
                 )
         logger.info(f"Xinference supervisor {self.control_address} started")
+        from ..extensions import (
+            SupervisorControlAuthorityContext,
+            resolve_supervisor_control_authority,
+        )
+        from .supervisor_control import SupervisorControl, SupervisorControlPort
+
+        authority = resolve_supervisor_control_authority(
+            SupervisorControlAuthorityContext(
+                self.control_address, SupervisorControlPort(self)
+            )
+        )
+        if authority is not None:
+            self._controller_control = SupervisorControl(self, authority)
+            self._control_fence = self._controller_control.fence
+            self._standby = True
+        try:
+            self._initialize_worker_ownership()
+        except BaseException:
+            if self._controller_control is not None:
+                try:
+                    await self._controller_control.invoke("close")
+                except Exception:
+                    logger.error("Supervisor journal startup cleanup failed")
+            raise
+
         from .cache_tracker import CacheTrackerActor
         from .event import EventCollectorActor
         from .progress_tracker import ProgressTrackerActor
@@ -1127,21 +1176,6 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._collective_manager_mapping: Dict[  # type: ignore
             str, xo.ActorRefType[CollectiveManager]
         ] = {}
-        from ..extensions import (
-            SupervisorControlAuthorityContext,
-            resolve_supervisor_control_authority,
-        )
-        from .supervisor_control import SupervisorControl, SupervisorControlPort
-
-        authority = resolve_supervisor_control_authority(
-            SupervisorControlAuthorityContext(
-                self.control_address, SupervisorControlPort(self)
-            )
-        )
-        if authority is not None:
-            self._controller_control = SupervisorControl(self, authority)
-            self._control_fence = self._controller_control.fence
-            self._standby = True
         if not self._standby:
             await self.activate_supervisor()
         self._supervisor_prepared = True
@@ -3371,6 +3405,14 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
 
+        if not is_valid_model_uid(model_uid):
+            raise ValueError(
+                "The model UID is invalid. Please specify the model UID by "
+                "0 < length <= 100, not ending with the reserved replica "
+                "suffix '-rep<number>'."
+            )
+        service_address = None
+
         # Resolve per-replica placement (replica_config) BEFORE any side effects
         # below (xavier actor creation, replica_info, instance_info) so that a
         # bad config fails cleanly with no leaked actors or partial state.
@@ -3495,7 +3537,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             ):
                 raise ValueError("MLX Xavier requires unquantized MLX text weights")
             kwargs["_xavier_cache_config"] = {
-                "address": self.control_address,
+                "address": (service_address or model_service_address(self)),
                 "uid": f"xavier-cache-{model_uid}",
             }
         sglang_xavier = (
@@ -3535,7 +3577,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             raise ValueError("TRT-LLM native NIXL cannot also enable Xavier")
         if trt_xavier:
             kwargs["_xavier_cache_config"] = {
-                "address": self.control_address,
+                "address": (service_address or model_service_address(self)),
                 "uid": f"xavier-cache-{model_uid}",
             }
         if sglang_nixl and (requested_xavier or n_worker != 1):
@@ -3599,7 +3641,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         )
         if sglang_xavier:
             kwargs["_xavier_cache_config"] = {
-                "address": self.control_address,
+                "address": (service_address or model_service_address(self)),
                 "uid": f"xavier-cache-{model_uid}",
             }
         if shared_cache_backend and (sglang_xavier or trt_xavier):
@@ -3767,7 +3809,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 ).lower() == "mlx" and "trt-llm" in replica_engines:
                     replica_quantization = "bf16"
                 replica_kwargs["_xavier_cache_config"] = {
-                    "address": self.control_address,
+                    "address": (service_address or model_service_address(self)),
                     "uid": f"xavier-cache-{model_uid}",
                     "shared_prefix": True,
                     "logical_dtype": (
@@ -3786,7 +3828,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 from ..model.llm.xavier.transport import get_transport_host
 
                 replica_kwargs["_xavier_cache_config"] = {
-                    "address": self.control_address,
+                    "address": (service_address or model_service_address(self)),
                     "uid": f"xavier-cache-{model_uid}",
                     "role": replica_config[rank - 1].role,
                     "rank": rank,
@@ -3834,7 +3876,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     from ..model.llm.xavier.backends.bytes.pd import XavierHostPDSource
 
                     source_uid = f"xavier-host-pd-{model_uid}-{rank}"
-                    source = await xo.create_actor(
+                    source = await SupervisorActor._create_model_service_actor(
+                        self,
                         XavierHostPDSource,
                         self._xavier_cache_mapping[model_uid],
                         rank,
@@ -3904,19 +3947,21 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         XavierBytesCacheActor,
                     )
 
-                    cache_ref = await xo.create_actor(
+                    cache_ref = await SupervisorActor._create_model_service_actor(
+                        self,
                         XavierBytesCacheActor,
                         capacity_bytes=cache_bytes or 512 * 1024**2,
-                        address=self.control_address,
+                        address=(service_address or model_service_address(self)),
                         uid=f"xavier-cache-{model_uid}",
                     )
                     self._xavier_cache_mapping[model_uid] = cache_ref
                 if heterogeneous_pd:
                     from ..model.llm.sglang.xavier.directory import XavierPDDirectory
 
-                    cache_ref = await xo.create_actor(
+                    cache_ref = await SupervisorActor._create_model_service_actor(
+                        self,
                         XavierPDDirectory,
-                        address=self.control_address,
+                        address=(service_address or model_service_address(self)),
                         uid=f"xavier-cache-{model_uid}",
                     )
                     if not hasattr(self, "_xavier_cache_mapping"):
@@ -3928,10 +3973,11 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                             XavierBytesCacheActor,
                         )
 
-                        cache_ref = await xo.create_actor(
+                        cache_ref = await SupervisorActor._create_model_service_actor(
+                            self,
                             XavierBytesCacheActor,
                             capacity_bytes=cache_bytes or 512 * 1024 * 1024,
-                            address=self.control_address,
+                            address=(service_address or model_service_address(self)),
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
                     elif pd_enabled:
@@ -3939,9 +3985,10 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                             XavierPDDirectory,
                         )
 
-                        cache_ref = await xo.create_actor(
+                        cache_ref = await SupervisorActor._create_model_service_actor(
+                            self,
                             XavierPDDirectory,
-                            address=self.control_address,
+                            address=(service_address or model_service_address(self)),
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
                     else:
@@ -3949,7 +3996,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                             XavierCacheActor,
                         )
 
-                        cache_ref = await xo.create_actor(
+                        cache_ref = await SupervisorActor._create_model_service_actor(
+                            self,
                             XavierCacheActor,
                             capacity_bytes=(
                                 cache_backend_config["cpu_bytes"]
@@ -3961,7 +4009,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                                 if shared_cache_backend
                                 else {}
                             ),
-                            address=self.control_address,
+                            address=(service_address or model_service_address(self)),
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
                     self._xavier_cache_mapping[model_uid] = cache_ref
@@ -3969,16 +4017,22 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     from ..model.llm.xavier.block_tracker import BlockTracker
                     from ..model.llm.xavier.collective_manager import CollectiveManager
 
-                    self._block_tracker_mapping[model_uid] = await xo.create_actor(
-                        BlockTracker,
-                        address=self.control_address,
-                        uid=f"{BlockTracker.default_uid()}-{model_uid}",
+                    self._block_tracker_mapping[model_uid] = (
+                        await SupervisorActor._create_model_service_actor(
+                            self,
+                            BlockTracker,
+                            address=(service_address or model_service_address(self)),
+                            uid=f"{BlockTracker.default_uid()}-{model_uid}",
+                        )
                     )
-                    self._collective_manager_mapping[model_uid] = await xo.create_actor(
-                        CollectiveManager,
-                        address=self.control_address,
-                        model_uid=model_uid,
-                        uid=f"{CollectiveManager.default_uid()}-{model_uid}",
+                    self._collective_manager_mapping[model_uid] = (
+                        await SupervisorActor._create_model_service_actor(
+                            self,
+                            CollectiveManager,
+                            address=(service_address or model_service_address(self)),
+                            model_uid=model_uid,
+                            uid=f"{CollectiveManager.default_uid()}-{model_uid}",
+                        )
                     )
                 strategy = None
                 use_gpu = not (n_gpu is None or (isinstance(n_gpu, int) and n_gpu <= 0))
@@ -4224,7 +4278,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 if pd_enabled:
                     from .pd_model import PDModelActor
 
-                    pd_ref = await xo.create_actor(
+                    pd_ref = await SupervisorActor._create_model_service_actor(
+                        self,
                         PDModelActor,
                         model_uid,
                         transport_backend=transport_backend,
@@ -4233,7 +4288,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         ),
                         handoff_mode="host" if host_handoff else "gpu",
                         mlx_prefill=mlx_prefill,
-                        address=self.control_address,
+                        address=(service_address or model_service_address(self)),
                         uid=f"{model_uid}-{PDModelActor.default_uid()}",
                     )
                     # Track the actor before registration so rollback can destroy it.
@@ -4252,6 +4307,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     self._pd_roles[model_uid] = {
                         idx: cfg.role for idx, cfg in enumerate(replica_config)
                     }
+                await SupervisorActor._notify_model_services_changed(self, model_uid)
             except (Exception, asyncio.CancelledError):
                 if self._initial_model_launches[model_uid].cancelling:
                     # The cancellation coordinator owns rollback until every
@@ -4264,13 +4320,6 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 )
                 raise
 
-        if not is_valid_model_uid(model_uid):
-            raise ValueError(
-                "The model UID is invalid. Please specify the model UID by "
-                "0 < length <= 100, not ending with the reserved replica "
-                "suffix '-rep<number>'."
-            )
-
         if request_limits is not None and request_limits < 0:
             raise ValueError(
                 "The `request_limits` parameter must be greater or equal than 0."
@@ -4282,7 +4331,22 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         ):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
         # Set replica info first for exception handler to terminate model.
-        self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
+        replica_info = self._build_replica_info(replica)
+        self._model_uid_to_replica_info[model_uid] = replica_info
+        try:
+            service_address = await SupervisorActor._resolve_model_service_address(
+                self, model_uid
+            )
+        except BaseException:
+            if self._model_uid_to_replica_info.get(model_uid) is replica_info:
+                self._model_uid_to_replica_info.pop(model_uid)
+            raise
+        if self._model_uid_to_replica_info.get(model_uid) is not replica_info:
+            raise ValueError(f"Model launch reservation was removed, uid: {model_uid}")
+        if "_xavier_cache_config" in kwargs:
+            kwargs["_xavier_cache_config"]["address"] = (
+                service_address or model_service_address(self)
+            )
         if pd_enabled:
             self._pd_model_mapping[model_uid] = None
         # Redeploy clears any stale unexpected-termination markers for this uid.
@@ -6179,6 +6243,55 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
         return 0
 
+    async def _create_model_service_actor(
+        self, actor_class, *args, address, uid, **kwargs
+    ):
+        control = getattr(self, "_controller_control", None)
+        if control is not None and callable(
+            getattr(control.authority, "create_model_service", None)
+        ):
+            return await control.invoke(
+                "create_model_service",
+                actor_class,
+                args,
+                kwargs,
+                address,
+                uid,
+                timeout=None,
+                preserve_errors=True,
+            )
+        return await xo.create_actor(
+            actor_class, *args, **kwargs, address=address, uid=uid
+        )
+
+    async def _destroy_model_service_actor(self, ref):
+        control = getattr(self, "_controller_control", None)
+        if control is not None and callable(
+            getattr(control.authority, "destroy_model_service", None)
+        ):
+            return await control.invoke(
+                "destroy_model_service", ref, timeout=None, preserve_errors=True
+            )
+        return await xo.destroy_actor(ref)
+
+    async def _resolve_model_service_address(self, model_uid):
+        control = getattr(self, "_controller_control", None)
+        if control is None or not callable(
+            getattr(control.authority, "model_service_address", None)
+        ):
+            return None
+        address = await control.invoke("model_service_address", model_uid)
+        if not isinstance(address, str) or not address:
+            raise ValueError("Expected a model service actor address")
+        return address
+
+    async def _notify_model_services_changed(self, model_uid):
+        control = getattr(self, "_controller_control", None)
+        if control is not None and callable(
+            getattr(control.authority, "model_services_changed", None)
+        ):
+            await control.invoke("model_services_changed", model_uid)
+
     async def _cleanup_distributed_actors(
         self, model_uid: str, terminate_rank0_on_worker: bool = True
     ) -> None:
@@ -6212,21 +6325,24 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._pd_roles.pop(model_uid, None)
         if pd_ref is not None:
             try:
-                await xo.destroy_actor(pd_ref)
+                await SupervisorActor._destroy_model_service_actor(self, pd_ref)
             except Exception:
                 logger.debug(
                     "Failed to destroy PD router for %s", model_uid, exc_info=True
                 )
         for source in self._xavier_source_mapping.pop(model_uid, []):
             try:
-                await xo.wait_for(xo.destroy_actor(source), timeout=5)
+                await xo.wait_for(
+                    SupervisorActor._destroy_model_service_actor(self, source),
+                    timeout=5,
+                )
             except Exception:
                 logger.warning(
                     "Destroy Xavier host source failed for %s", model_uid, exc_info=True
                 )
         if cache_ref is not None:
             try:
-                await xo.destroy_actor(cache_ref)
+                await SupervisorActor._destroy_model_service_actor(self, cache_ref)
             except Exception:
                 logger.warning(
                     "Destroy Xavier cache failed for %s", model_uid, exc_info=True
@@ -6253,7 +6369,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
         if collective_manager_ref is not None:
             try:
-                await xo.destroy_actor(collective_manager_ref)
+                await SupervisorActor._destroy_model_service_actor(
+                    self, collective_manager_ref
+                )
             except Exception as e:
                 logger.debug(
                     "Destroy collective_manager_ref failed, model uid: %s, error: %s",
@@ -6264,13 +6382,24 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         block_tracker_ref = self._block_tracker_mapping.pop(model_uid, None)
         if block_tracker_ref is not None:
             try:
-                await xo.destroy_actor(block_tracker_ref)
+                await SupervisorActor._destroy_model_service_actor(
+                    self, block_tracker_ref
+                )
             except Exception as e:
                 logger.debug(
                     "Destroy block_tracker_ref failed, model uid: %s, error: %s",
                     model_uid,
                     e,
                 )
+
+        try:
+            await SupervisorActor._notify_model_services_changed(self, model_uid)
+        except Exception:
+            logger.warning(
+                "Failed to report model service cleanup for %s",
+                model_uid,
+                exc_info=True,
+            )
 
     async def mark_replica_dead(self, replica_model_uid: str) -> None:
         """Called back by worker after its local recover_sub_pool exhausts
@@ -7014,7 +7143,23 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         worker_address: str,
         replica_states: Optional[List[Dict[str, Any]]] = None,
         replica_model_uids: Optional[List[str]] = None,
+        _xinference_control_context=None,
     ):
+        if _xinference_control_context is not None:
+            from .control_session import ControlContext, ControlSessionRejected
+
+            try:
+                command = ControlContext.from_dict(_xinference_control_context)
+            except (TypeError, ValueError):
+                raise ControlSessionRejected("invalid_context") from None
+            control = getattr(self, "_controller_control", None)
+            if control is None or command.session != control.session:
+                raise ControlSessionRejected("stale_session")
+            async with control.fence.command(command):
+                # worker_message already holds the per-Worker registration lock.
+                return await inspect.unwrap(SupervisorActor.add_worker)(
+                    self, worker_address, replica_states, replica_model_uids
+                )
         from .worker import WorkerActor
 
         worker_ref = await xo.actor_ref(
@@ -7042,6 +7187,12 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             control = getattr(self, "_controller_control", None)
             if control is not None:
                 worker_ref = await control.register(worker_ref)
+            replica_states = self._normalize_replica_states(
+                replica_states=replica_states, replica_model_uids=replica_model_uids
+            )
+            replica_states = await SupervisorActor._filter_worker_inventory(
+                self, worker_ref, replica_states
+            )
         except Exception:
             # Rejected re-registration must not retain the old process's
             # registration or extension inventory at this address.
@@ -7090,7 +7241,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             )
 
         await SupervisorActor._restore_worker_inventory(
-            self, worker_ref, replica_states, replica_model_uids
+            self, worker_ref, replica_states=replica_states, apply_filter=False
         )
         logger.debug("Worker %s has been added successfully", worker_address)
         if metadata_retry_required and self._is_current_worker_metadata_generation(
@@ -7101,15 +7252,41 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
             )
         self._schedule_autostart()
 
+    async def _filter_worker_inventory(self, worker_ref, normalized):
+        control = getattr(self, "_controller_control", None)
+        provider = (
+            getattr(control.authority, "filter_worker_inventory", None)
+            if control
+            else None
+        )
+        if provider is not None:
+            filtered = await control.invoke(
+                "filter_worker_inventory", worker_ref, normalized
+            )
+            if not isinstance(filtered, list) or any(
+                row not in normalized for row in filtered
+            ):
+                raise ValueError("Inventory provider may only narrow observations")
+            normalized = filtered
+        return normalized
+
     async def _restore_worker_inventory(
-        self, worker_ref, replica_states=None, replica_model_uids=None
+        self,
+        worker_ref,
+        replica_states=None,
+        replica_model_uids=None,
+        *,
+        apply_filter=True,
     ):
         """Apply one reported Worker snapshot through normal registration cleanup."""
         worker_address = worker_ref.address
         normalized = self._normalize_replica_states(
-            replica_states=replica_states,
-            replica_model_uids=replica_model_uids,
+            replica_states=replica_states, replica_model_uids=replica_model_uids
         )
+        if apply_filter:
+            normalized = await SupervisorActor._filter_worker_inventory(
+                self, worker_ref, normalized
+            )
 
         # Re-registration reconciliation: a worker restarting and reusing the
         # same address never trips dead-node detection (its fresh heartbeat

@@ -589,3 +589,31 @@ msgid ""
 "The default for ``enable_weight_cache`` changed from ``False`` to automatic "
 "selection (``None``)."
 msgstr "``enable_weight_cache`` 的預設值從 ``False`` 改為自動選擇（``None``）。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:28
+msgid "Admitted calls can use optional asynchronous provider callbacks: ``around_supervisor_call(invocation, call)``, ``around_worker_call(invocation, call)`` and ``around_control_call(invocation, call)``. The immutable invocation describes the target, method, original control context and arguments. Await ``call()`` to execute; argument overrides preserve that context. The runtime supplies no receipts or replay policy. Worker callbacks also retain their original session when the Supervisor reference changes. Read-only ``controller_resource_state``, ``controller_catalog`` and ``control_operation_receipt`` expose observations or provider evidence; unavailable receipts raise. The local port can capture or replace catalogs and settings, list Worker references and invoke a public Supervisor method. Catalog replacement validates definitions first and does not rewrite registration files."
+msgstr "已獲准的呼叫支援可選的非同步提供者回呼：``around_supervisor_call(invocation, call)``、``around_worker_call(invocation, call)`` 和 ``around_control_call(invocation, call)``。不可變呼叫物件包含目標、方法、原始控制上下文及參數。等待 ``call()`` 執行呼叫；覆寫參數仍保留該上下文。執行階段不提供執行回執或重播策略。Supervisor 參照改變後，Worker 回呼仍保留原始工作階段。唯讀的 ``controller_resource_state``、``controller_catalog`` 和 ``control_operation_receipt`` 傳回觀測值或提供者證據；回執不可用時會報錯。本機連接埠支援讀取或取代目錄與設定、列出 Worker 參照及呼叫 Supervisor 的公開方法。取代目錄先驗證定義，且不改寫註冊檔案。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:30
+msgid "Providers can opt in to ``controller_inventory(include_services=True)`` for ready specialized replicas, shard identities and coordinator observations. Setting the authority attribute ``include_model_services=True`` includes these replicas in ordinary registration reports as well. The local port supplies ``with_service_address(address, call)``, ``model_services(model_uid)`` and ``restore_model_services(model_uid, services)`` for scoped support-actor placement and reference restoration. An optional async ``model_services_changed(model_uid)`` callback can persist completed routing changes. Default placement and registration behavior are unchanged; these primitives do not select a host or perform recovery."
+msgstr "提供者可選用 ``controller_inventory(include_services=True)``，取得已就緒的專用副本、分片識別與協調 actor 觀測。權限提供者設定 ``include_model_services=True`` 後，一般註冊報告也會包含這些副本。本機連接埠提供 ``with_service_address(address, call)``、``model_services(model_uid)`` 與 ``restore_model_services(model_uid, services)``，用於限定呼叫範圍的輔助 actor 配置與參照還原。選用的非同步 ``model_services_changed(model_uid)`` 回呼可持久化已完成的路由變更。預設配置與註冊行為不變；這些原語不選擇主機，也不執行復原。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:32
+msgid "The optional async ``model_service_address(model_uid)`` callback selects a support-actor address for both internal and public launches."
+msgstr "選用的非同步 ``model_service_address(model_uid)`` 回呼為內部與公開啟動選擇輔助 actor 位址。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:34
+msgid "Optional ``create_model_service(actor_class, args, kwargs, address, uid)`` and ``destroy_model_service(ref)`` callbacks can delegate actor lifetime to Worker ``create_runtime_actor`` and ``destroy_runtime_actor`` management calls, which participate in session admission and draining. Without callbacks, ordinary actor creation and destruction remain unchanged."
+msgstr "選用的 ``create_model_service(actor_class, args, kwargs, address, uid)`` 與 ``destroy_model_service(ref)`` 回呼可將 actor 生命週期委派給 Worker 的 ``create_runtime_actor`` 與 ``destroy_runtime_actor`` 管理呼叫，納入工作階段准入與排空。沒有回呼時，一般 actor 建立與銷毀行為不變。"
+
+
+msgid "Interceptors describe admitted method calls, not a single overall operation. Child-task cleanup and Worker recovery helpers may produce additional calls with the original command; distinguish them by target and method. Use ``call(args=..., kwargs=...)`` for explicit argument overrides. The top-level keyword mapping is copied; nested payloads are not deep copies. Actor lifetime callbacks preserve native lifetimes and original exceptions. Cleanup notification failures are logged without aborting termination."
+msgstr "攔截器描述已准入的方法呼叫，而非一次完整操作。子任務清理和 Worker 復原輔助方法可能攜帶原始命令產生額外呼叫，應透過目標和方法區分。使用 ``call(args=..., kwargs=...)`` 明確覆寫參數。僅複製頂層關鍵字映射，巢狀資料不會深層複製。actor 生命週期回呼保留原生生命週期和原始例外。清理通知失敗只記錄日誌，不中斷終止。"
+
+
+msgid "``restore_worker(..., coordinators=...)`` accepts a list or tuple of ``-rank0`` UIDs, validated before registry mutation. Async ``filter_worker_inventory(ref, replicas)`` may only narrow observations; errors or its ten-second timeout reject registration before publication. Worker catalog replacement participates in management admission and draining; providers serialize snapshot selection with catalog writes. API extensions may set async ``app.state.system_settings_provider(operation, data)`` for ``get``, ``save`` and ``reset``. It owns persistence and token masking; ``ValueError`` from ``save`` returns HTTP 422."
+msgstr "``restore_worker(..., coordinators=...)`` 接受 ``-rank0`` UID 的串列或元組，並在修改登錄前驗證。非同步 ``filter_worker_inventory(ref, replicas)`` 只能縮小觀測範圍；例外或十秒逾時會在發布登錄前拒絕登錄。Worker 目錄替換受管理准入和 drain 追蹤；提供者應將快照選擇與目錄寫入序列化。API 擴充可設定非同步 ``app.state.system_settings_provider(operation, data)``，處理 ``get``、``save`` 和 ``reset``，並負責持久化及 token 遮罩；``save`` 拋出 ``ValueError`` 時回傳 HTTP 422。"
+
+
+msgid "Providers must await ``call()`` directly in the callback task; task-spawning wrappers such as ``asyncio.wait_for`` and ``asyncio.shield`` are unsupported. Local port restore methods require provider-owned ordering while management is paused. Explicit coordinator UIDs are selected by the caller separately from replica filtering, because a Worker may host only a coordinator."
+msgstr "提供者必須在回呼所在任務中直接 await ``call()``；不支援 ``asyncio.wait_for``、``asyncio.shield`` 等建立任務的包裝。管理操作暫停期間，本機連接埠的還原方法由提供者負責排序。呼叫方應獨立於副本篩選選擇明確的 coordinator UID，因為 Worker 可能只承載 coordinator。"

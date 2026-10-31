@@ -18,7 +18,8 @@ from typing import Dict, Optional
 import xoscar as xo
 from xoscar.utils import get_next_port
 
-from .worker_state import WorkerJournalError, read_worker_journal, write_worker_journal
+from .supervisor_journal import LocalSupervisorJournal, supervisor_journal
+from .worker_state import WorkerJournalError
 
 TERMINAL = {"succeeded", "failed"}
 STATUSES = {"installing", "migrating", "starting", "transferring", "pending", *TERMINAL}
@@ -38,12 +39,13 @@ def validate_relaunch_options(python_executable=None, request_id=None):
 
 
 class WorkerRelaunchManager:
-    def __init__(self, supervisor, path: Optional[Path] = None):
+    def __init__(self, supervisor, path: Optional[Path] = None, *, store=None):
         from ..constants import XINFERENCE_HOME
 
         self.supervisor = supervisor
         self.path = path or Path(XINFERENCE_HOME) / "worker-relaunches.json"
-        payload = read_worker_journal(self.path, {"version": 1, "operations": {}})
+        self.store = store if store is not None else LocalSupervisorJournal(self.path)
+        payload = self.store.load({"version": 1, "operations": {}})
         if (
             not isinstance(payload, dict)
             or payload.get("version") != 1
@@ -70,7 +72,7 @@ class WorkerRelaunchManager:
         self.tasks: Dict[str, asyncio.Task] = {}
 
     def _commit(self, records):
-        write_worker_journal(self.path, {"version": 1, "operations": records})
+        self.store.save({"version": 1, "operations": records})
         self.records = records
 
     def update(self, operation_id, **fields):
@@ -543,7 +545,12 @@ class SupervisorRelaunchMixin:
     def _relaunch_manager(self):
         manager = getattr(self, "_worker_relaunch_manager", None)
         if manager is None:
-            self._worker_relaunch_manager = manager = WorkerRelaunchManager(self)
+            from ..constants import XINFERENCE_HOME
+
+            path = Path(XINFERENCE_HOME) / "worker-relaunches.json"
+            self._worker_relaunch_manager = manager = WorkerRelaunchManager(
+                self, path, store=supervisor_journal(self, "worker_relaunch", path)
+            )
             manager.resume()
         return manager
 

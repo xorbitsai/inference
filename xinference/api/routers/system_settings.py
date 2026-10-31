@@ -43,6 +43,9 @@ async def _apply_system_settings_to_cluster(request: Request) -> None:
 async def _settings_operation(request: Request, operation: str, data=None):
     from ...deploy.api_host import API_HOST_ENV, host_request
 
+    provider = getattr(request.app.state, "system_settings_provider", None)
+    if provider is not None:
+        return await provider(operation, data)
     if os.environ.get(API_HOST_ENV):
         # The stable host owns both the startup baseline and mutable settings,
         # including updates that finish on an old generation during drain.

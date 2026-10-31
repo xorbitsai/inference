@@ -16,6 +16,7 @@ import asyncio
 import errno
 import hashlib
 import hmac
+import inspect
 import json
 import logging
 import os
@@ -1134,10 +1135,67 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         async with fence.command(command):
             if method in NATIVE_HANDOFF_RPCS:
                 raise ControlSessionRejected("handoff_requires_session_transfer")
-            return await super().__on_receive__(cleaned)
+            from .control_invocation import ControlInvocation, invoke_control_hook
+
+            parent = super()
+
+            async def execute(args=args, kwargs=kwargs):
+                if CONTROL_CONTEXT_KEY in kwargs:
+                    raise ControlSessionRejected("caller_control_override")
+                return await parent.__on_receive__((method, call_method, args, kwargs))
+
+            return await invoke_control_hook(
+                fence.authority,
+                "around_control_call",
+                ControlInvocation(self.address, method, command, args, kwargs),
+                execute,
+            )
+
+    def controller_resource_state(self, model_uid):
+        """Current resource references, including unfinished allocation/cleanup."""
+        status = self._model_uid_to_model_status.get(model_uid)
+        tracked = any(
+            model_uid in getattr(self, name, {})
+            for name in (
+                "_model_uid_to_model",
+                "_model_uid_to_model_spec",
+                "_model_uid_to_pid",
+                "_model_uid_to_subpool_pids",
+                "_model_uid_to_subpool_addresses",
+                "_model_uid_to_addr",
+                "_model_uid_launching_guard",
+            )
+        )
+        tracked = tracked or any(
+            model_uid in uids for uids in self._gpu_to_model_uids.values()
+        )
+        tracked = tracked or any(
+            any(uid == model_uid for uid, _ in uids)
+            for uids in self._user_specified_gpu_to_model_uids.values()
+        )
+        return {
+            "version": 1,
+            "incarnation": self._incarnation,
+            "resource": model_uid,
+            "present": model_uid in self._model_uid_to_model,
+            "ready": bool(status and status.model_state == "ready"),
+            "empty": not tracked,
+            "pid": self._model_uid_to_pid.get(model_uid),
+        }
+
+    async def control_operation_receipt(self, operation_id):
+        fence = self._control_fence
+        provider = (
+            getattr(fence.authority, "operation_receipt", None) if fence else None
+        )
+        if not callable(provider):
+            raise ControlSessionRejected("operation_receipt_unavailable")
+        if inspect.iscoroutinefunction(provider):
+            return await asyncio.wait_for(provider(operation_id), 10)
+        return await asyncio.wait_for(asyncio.to_thread(provider, operation_id), 10)
 
     async def install_controller_session(
-        self, session, timeout=30, supervisor_address=None
+        self, session, timeout=30, supervisor_address=None, custom_models=None
     ):
         """Close old admission and acknowledge only after management is idle.
 
@@ -1164,14 +1222,30 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             ):
                 raise ValueError("Expected a Supervisor actor host:port address")
         return await finish_before_cancelling(
-            self._install_controller_session(parsed, timeout, supervisor_address)
+            self._install_controller_session(
+                parsed, timeout, supervisor_address, custom_models
+            )
         )
 
     async def _install_controller_session(
-        self, parsed, timeout, supervisor_address=None
+        self, parsed, timeout, supervisor_address=None, custom_models=None
     ):
         fence = self._control_fence
         result = await fence.install(parsed, timeout)
+        if custom_models is not None:
+            from .worker_handoff import CustomModelState
+
+            try:
+                # install() has validated this session. Do not yield between its
+                # ready publication and synchronous catalog replacement.
+                with fence.local_scope(ControlContext(parsed, uuid.uuid4().hex)):
+                    fence.check_local()
+                    with fence.lifecycle.sync_operation():
+                        CustomModelState.restore(self, custom_models, replace=True)
+            except BaseException:
+                if fence.session == parsed:
+                    fence.ready = False
+                raise
         if supervisor_address is not None:
             await fence._validate(parsed, ("fencing", "reconciling", "active"))
             if fence.session != parsed or not fence.ready:
@@ -1228,29 +1302,63 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             return {"version": 1, "configured": False}
         return {"configured": True, **fence.status()}
 
-    def controller_inventory(self):
+    @management_operation
+    async def create_runtime_actor(self, actor_class, args, kwargs, uid):
+        return await xo.create_actor(
+            actor_class, *args, **kwargs, address=self.address, uid=uid
+        )
+
+    @management_operation
+    async def destroy_runtime_actor(self, uid):
+        ref = await xo.actor_ref(address=self.address, uid=uid)
+        await xo.destroy_actor(ref)
+
+    def controller_catalog(self):
+        from .worker_handoff import CustomModelState
+
+        return CustomModelState.capture(self)
+
+    def controller_inventory(self, include_services=False):
         """Live facts for controlled reconciliation, never an execution replay."""
-        replicas = self._get_running_replica_states()
+        fence = getattr(self, "_control_fence", None)
+        include_services = include_services or bool(
+            fence is not None
+            and getattr(fence.authority, "include_model_services", False) is True
+        )
+        replicas = self._get_running_replica_states(include_services=include_services)
         unsupported = [
             uid
             for uid, args in self._model_uid_to_launch_args.items()
-            if args.get("_nixl_config")
-            or args.get("_xavier_cache_config")
-            or args.get("xavier_config")
-            or args.get("n_worker", 1) != 1
+            if not include_services
+            and (
+                args.get("_nixl_config")
+                or args.get("_xavier_cache_config")
+                or args.get("xavier_config")
+                or args.get("n_worker", 1) != 1
+            )
         ]
         unsupported.extend(
             uid
             for uid, status in self._model_uid_to_model_status.items()
             if uid in self._model_uid_to_model and status.model_state != "ready"
         )
-        return {
+        result = {
             "version": 1,
             "incarnation": self._incarnation,
             "replicas": replicas,
             "models": list(self._model_uid_to_model_spec),
             "unsupported": sorted(set(unsupported)),
+            "control_capabilities": (
+                dict(getattr(self._control_fence.authority, "capabilities", {}))
+                if self._control_fence
+                else {}
+            ),
         }
+        if include_services:
+            result["coordinators"] = sorted(
+                uid for uid in self._model_uid_to_model if uid.endswith("-rank0")
+            )
+        return result
 
     async def _recover_sub_pool_event(self, address):
         fence = self._control_fence
@@ -2223,9 +2331,34 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         isinstance(protocol, int) and protocol >= 1
                     )
 
+                    bound_ref = supervisor_ref
+                    fence = getattr(self, "_control_fence", None)
+                    if fence is not None:
+                        try:
+                            control_status = await _bounded_control_report(
+                                self,
+                                "controller_session_status",
+                                lambda: supervisor_ref.controller_session_status(),
+                                XINFERENCE_TCP_REQUEST_TIMEOUT,
+                            )
+                        except AttributeError as error:
+                            if "controller_session_status" not in str(error):
+                                raise
+                            control_status = None
+                        if isinstance(control_status, dict) and control_status.get(
+                            "configured"
+                        ):
+                            from .control_session import SessionBoundSupervisorRef
+
+                            bound_ref = SessionBoundSupervisorRef(supervisor_ref, fence)
+                    if supervisor_address != self._supervisor_address:
+                        raise RuntimeError(
+                            "Supervisor address changed during initialization"
+                        )
+
                     with self._supervisor_ref_lock:
                         if self._supervisor_ref is None:
-                            self._supervisor_ref = supervisor_ref
+                            self._supervisor_ref = bound_ref
                             self._supervisor_ref_address = supervisor_address
                             self._supervisor_ref_generation += 1
                         elif not add_worker or self._registered:
@@ -2426,14 +2559,21 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             )
         self._supervisor_address = refreshed_address
 
-    def _get_running_replica_states(self) -> List[Dict[str, Any]]:
+    def _get_running_replica_states(
+        self, *, include_services=False
+    ) -> List[Dict[str, Any]]:
+        fence = getattr(self, "_control_fence", None)
+        include_services = include_services or bool(
+            fence is not None
+            and getattr(fence.authority, "include_model_services", False) is True
+        )
         replica_states: List[Dict[str, Any]] = []
         for replica_model_uid in sorted(self._model_uid_to_model_spec):
             launch_args = self._model_uid_to_launch_args.get(replica_model_uid, {})
             model_spec = self._model_uid_to_model_spec.get(replica_model_uid, {})
             origin_uid, _ = parse_replica_model_uid(replica_model_uid)
             xavier_config = launch_args.get("xavier_config")
-            if (
+            if not include_services and (
                 xavier_config is not None
                 or launch_args.get("_nixl_config")
                 or launch_args.get("_xavier_cache_config", {}).get("role")

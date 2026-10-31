@@ -32,6 +32,141 @@ class Provider:
         pass
 
 
+class InterceptedSupervisor(SupervisorActor):
+    def __init__(self):
+        xo.StatelessActor.__init__(self)
+        state = SimpleNamespace(owner=session(), phase="active", failed=False)
+        authority = Provider(state, state.owner)
+        authority.around_supervisor_call = self._intercept
+        self._controller_control = SupervisorControl(self, authority)
+        self._controller_control.fence.ready = True
+        self._controller_control.has_served = True
+        self.events = []
+
+    async def __post_create__(self):
+        pass
+
+    async def __pre_destroy__(self):
+        pass
+
+    async def _intercept(self, invocation, call):
+        self.events.append(("entry", invocation.method, invocation.command.to_dict()))
+        try:
+            result = await call()
+        except Exception:
+            self.events.append(("error", invocation.method))
+            raise
+        self.events.append(("complete", invocation.method))
+        return result
+
+    def nested_cleanup(self, uid):
+        return uid
+
+    async def mark_replica_dead(self, uid):
+        assert self.nested_cleanup(uid) == uid
+        if uid == "fail":
+            raise ValueError("Callback failed")
+        return uid
+
+    def get_status(self):
+        return self.events
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("transport", ["local", "remote", "port"])
+@pytest.mark.parametrize("uid", ["model-rep0", "fail"])
+async def test_supervisor_intercepts_worker_callbacks_once(transport, uid):
+    from xoscar.core import LocalActorRef
+
+    from ..control_session import SessionBoundSupervisorRef
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        ref = await xo.create_actor(
+            InterceptedSupervisor, address=pool.external_address, uid="supervisor"
+        )
+        fence, authority = setup_fence()
+        await fence.install(authority.owner, 1)
+        original = command(authority.owner, "worker-callback")
+        actor = pool._actors[ref.uid]
+        if transport == "port":
+            call = SupervisorControlPort(actor).call("mark_replica_dead", uid)
+        else:
+            target = (
+                xo.ActorRef(ref.address, ref.uid)
+                if transport == "remote"
+                else LocalActorRef(actor)
+            )
+            with fence.local_scope(original):
+                call = SessionBoundSupervisorRef(target, fence).mark_replica_dead(uid)
+        if uid == "fail":
+            with pytest.raises(ValueError, match="Callback failed"):
+                await call
+        else:
+            assert await call == uid
+        events = await ref.get_status()
+        if transport == "port":
+            assert events == []
+        else:
+            assert events == [
+                ("entry", "mark_replica_dead", original.to_dict()),
+                ("error" if uid == "fail" else "complete", "mark_replica_dead"),
+            ]
+    finally:
+        await pool.stop()
+
+
+@pytest.mark.asyncio
+async def test_persistent_monitor_does_not_inherit_launch_hook_suppression():
+    from ..control_invocation import ControlInvocation, invoke_control_hook
+
+    seen = []
+    wake = asyncio.Event()
+    monitor = None
+    authority = SimpleNamespace()
+    first = ControlInvocation(
+        "worker:1234", "launch_builtin_model", command(session()), (), {}
+    )
+    second = ControlInvocation(
+        "worker:1234", "launch_builtin_model", command(session(), "recovery"), (), {}
+    )
+
+    async def intercept(invocation, call):
+        seen.append(invocation.command.operation_id)
+        return await call()
+
+    authority.around_control_call = intercept
+
+    async def recover():
+        await wake.wait()
+        return await invoke_control_hook(
+            authority,
+            "around_control_call",
+            second,
+            AsyncMock(return_value="recovered"),
+        )
+
+    async def launch():
+        nonlocal monitor
+        monitor = asyncio.create_task(recover())
+        return await invoke_control_hook(
+            authority, "around_control_call", first, AsyncMock(return_value="launched")
+        )
+
+    try:
+        assert (
+            await invoke_control_hook(authority, "around_control_call", first, launch)
+            == "launched"
+        )
+        wake.set()
+        assert await monitor == "recovered"
+        assert seen == ["operation", "recovery"]
+    finally:
+        if monitor is not None:
+            monitor.cancel()
+            await asyncio.gather(monitor, return_exceptions=True)
+
+
 @pytest.mark.asyncio
 async def test_worker_proxy_captures_original_session_and_never_borrows_successor():
     old = session()
@@ -91,6 +226,8 @@ def controlled_owner():
         _worker_address_to_worker={},
         _ownership_registry=Mock(return_value=SimpleNamespace(incarnations={})),
         _restore_worker_inventory=AsyncMock(),
+        _filter_worker_inventory=AsyncMock(side_effect=lambda ref, rows: rows),
+        _replica_model_uid_to_worker={},
         _system_settings={"example": True},
     )
     owner._controller_control = SupervisorControl(owner, Provider(state, state.owner))
@@ -431,3 +568,380 @@ async def test_recovery_description_only_keeps_known_unexpected_losses():
     owner._clear_unexpected_down_replicas("counter")
     with pytest.raises(ValueError, match="not found"):
         await owner.describe_model("counter", for_recovery=True)
+
+
+@pytest.mark.asyncio
+async def test_worker_callback_keeps_original_session_after_reinstallation():
+    from ..control_session import SessionBoundSupervisorRef
+
+    fence, authority = setup_fence()
+    first = session()
+    # setup_fence is intentionally synchronous; installation validates authority.
+    authority.owner = first
+    await fence.install(first, 1)
+    target = SimpleNamespace(
+        terminate_model=AsyncMock(), list_models=AsyncMock(return_value={})
+    )
+    ref = SessionBoundSupervisorRef(target, fence)
+    callback = ref.terminate_model
+    successor = session(2)
+    authority.owner = successor
+    await fence.install(successor, 1)
+    with pytest.raises(ControlSessionRejected):
+        await callback("model")
+    target.terminate_model.assert_not_awaited()
+    await ref.terminate_model("model")
+    assert (
+        target.terminate_model.await_args.kwargs[CONTROL_CONTEXT_KEY]["session"]
+        == successor.to_dict()
+    )
+    assert await ref.list_models() == {}
+
+
+@pytest.mark.asyncio
+async def test_service_placement_is_process_local_and_scoped_per_launch():
+    from ..supervisor_control import model_service_address
+
+    owner, _, port = controlled_owner()
+    owner.control_address = "default:1234"
+    started, proceed = asyncio.Event(), asyncio.Event()
+
+    async def selected():
+        assert model_service_address(owner) == "worker:1234"
+        started.set()
+        await proceed.wait()
+        assert model_service_address(owner) == "worker:1234"
+
+    task = asyncio.create_task(port.with_service_address("worker:1234", selected))
+    await started.wait()
+    assert model_service_address(owner) == owner.control_address
+    proceed.set()
+    await task
+    assert model_service_address(owner) == owner.control_address
+
+
+def test_model_service_port_restores_reference_graph_without_orchestrating():
+    from ..supervisor_control import MODEL_SERVICE_FIELDS
+
+    owner, _, port = controlled_owner()
+    for name in MODEL_SERVICE_FIELDS:
+        setattr(owner, name, {})
+    ref = SimpleNamespace(address="worker:1234", uid=b"pd-model")
+    port.restore_model_services(
+        "model", {"_pd_model_mapping": ref, "_pd_roles": {0: "prefill", 1: "decode"}}
+    )
+    assert port.model_services("model")["_pd_model_mapping"] is ref
+    assert port.model_services("model")["_pd_roles"][0] == "prefill"
+    with pytest.raises(ValueError):
+        port.restore_model_services("model", {"arbitrary_private_state": {}})
+
+
+def test_service_inventory_includes_pd_shards_and_rank_zero_only_on_request():
+    from ..worker import ModelStatus
+
+    worker = WorkerActor("supervisor:1234", None, SimpleNamespace(), [])
+    worker._model_uid_to_model_spec = {
+        "pd-rep0": {"model_name": "pd"},
+        "shards-rep0": {"model_name": "shards"},
+    }
+    worker._model_uid_to_launch_args = {
+        "pd-rep0": {"_nixl_config": {"role": "prefill"}},
+        "shards-rep0": {"n_worker": 2, "shard": 1},
+    }
+    worker._model_uid_to_model = {
+        uid: object() for uid in ("pd-rep0", "shards-rep0", "pd-rank0")
+    }
+    worker._model_uid_to_model_status = {
+        uid: ModelStatus(model_state="ready") for uid in worker._model_uid_to_model_spec
+    }
+    legacy = worker.controller_inventory()
+    assert set(legacy["unsupported"]) == {"pd-rep0", "shards-rep0"}
+    assert "coordinators" not in legacy
+    actual = worker.controller_inventory(include_services=True)
+    assert not actual["unsupported"]
+    assert actual["coordinators"] == ["pd-rank0"]
+    assert {row["replica_model_uid"] for row in actual["replicas"]} == {
+        "pd-rep0",
+        "shards-rep0",
+    }
+    fence, _ = setup_fence()
+    fence.authority.include_model_services = True
+    worker._control_fence = fence
+    assert worker.controller_inventory() == actual
+
+
+@pytest.mark.asyncio
+async def test_runtime_actor_mutations_keep_worker_session_admission(monkeypatch):
+    fence, authority = setup_fence()
+    await fence.install(authority.owner, 1)
+    worker = WorkerActor("supervisor:1234", None, SimpleNamespace(), [])
+    worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+    create = AsyncMock(return_value="created")
+    lookup = AsyncMock()
+    monkeypatch.setattr(xo, "create_actor", create)
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    original = command(authority.owner).to_dict()
+    assert (
+        await worker.create_runtime_actor(
+            object, (), {}, "service", **{CONTROL_CONTEXT_KEY: original}
+        )
+        == "created"
+    )
+    create.assert_awaited_once()
+    authority.owner = session(2)
+    with pytest.raises(ControlSessionRejected):
+        await worker.destroy_runtime_actor("service", **{CONTROL_CONTEXT_KEY: original})
+    lookup.assert_not_awaited()
+
+
+def short_provider_deadline(control):
+    invoke = control.invoke
+
+    async def shortened(name, *args, **kwargs):
+        kwargs.setdefault("timeout", 0.001)
+        return await invoke(name, *args, **kwargs)
+
+    control.invoke = shortened
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["create", "destroy"])
+async def test_service_actor_callbacks_preserve_errors_and_native_lifetime(operation):
+    owner, _, _ = controlled_owner()
+    control = owner._controller_control
+    short_provider_deadline(control)
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def callback(*args):
+        entered.set()
+        await release.wait()
+        return "actor-result"
+
+    setattr(control.authority, operation + "_model_service", callback)
+
+    async def run():
+        if operation == "create":
+            return await SupervisorActor._create_model_service_actor(
+                owner, object, address="worker:1234", uid="service"
+            )
+        return await SupervisorActor._destroy_model_service_actor(owner, "ref")
+
+    task = asyncio.create_task(run())
+    try:
+        await entered.wait()
+        await asyncio.sleep(0.01)
+        assert not task.done()
+        release.set()
+        assert await task == "actor-result"
+        setattr(
+            control.authority,
+            operation + "_model_service",
+            AsyncMock(side_effect=ValueError("actor failure")),
+        )
+        with pytest.raises(ValueError, match="actor failure"):
+            await run()
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["error", "timeout", "invalid"])
+async def test_inventory_filter_failure_does_not_publish_worker(monkeypatch, failure):
+    monkeypatch.setattr(extensions, "get_extensions", lambda: ())
+    ref = SimpleNamespace(
+        address="worker:1234",
+        uid=b"worker",
+        get_extension_resources=AsyncMock(return_value={"extensions": {}}),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=ref))
+    owner = SupervisorActor()
+    state = SimpleNamespace(owner=session(), phase="active", failed=False)
+    authority = Provider(state, state.owner)
+    if failure == "timeout":
+
+        async def filter_inventory(*args):
+            await asyncio.Event().wait()
+
+        authority.filter_worker_inventory = filter_inventory
+    else:
+        authority.filter_worker_inventory = AsyncMock(
+            side_effect=ValueError("provider detail") if failure == "error" else None,
+            return_value=[{"replica_model_uid": "invented"}],
+        )
+    owner._controller_control = SupervisorControl(owner, authority)
+    short_provider_deadline(owner._controller_control)
+    owner._worker_address_to_worker[ref.address] = object()
+    owner._extension_worker_resources[ref.address] = {"old": True}
+    owner._worker_metadata[ref.address] = {"old": True}
+    error = ValueError if failure == "invalid" else ControlSessionRejected
+    with pytest.raises(error):
+        await owner.add_worker(ref.address, replica_states=[])
+    assert ref.address not in owner._worker_address_to_worker
+    assert ref.address not in owner._extension_worker_resources
+    assert ref.address not in owner._worker_metadata
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("coordinators", ["model-rank0", None, ["bad"], [1]])
+async def test_coordinator_validation_precedes_registry_mutation(coordinators):
+    owner, _, port = controlled_owner()
+    await port.pause(1)
+    with pytest.raises(ValueError, match="coordinator"):
+        await port.restore_worker(
+            SimpleNamespace(address="worker:1234", uid=b"worker"),
+            [],
+            "boot",
+            coordinators,
+        )
+    assert not owner._worker_address_to_worker
+    assert not owner._ownership_registry().incarnations
+    owner._filter_worker_inventory.assert_not_awaited()
+    owner._restore_worker_inventory.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_coordinator_restore_applies_validated_references():
+    owner, _, port = controlled_owner()
+    await port.pause(1)
+    ref = SimpleNamespace(address="worker:1234", uid=b"worker")
+    await port.restore_worker(ref, [], "boot", ["model-rank0"])
+    assert owner._replica_model_uid_to_worker["model-rank0"].address == ref.address
+    owner._restore_worker_inventory.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_restore_worker_normalizes_missing_replicas_before_filtering():
+    owner, _, port = controlled_owner()
+    await port.pause(1)
+    ref = SimpleNamespace(address="worker:1234", uid=b"worker")
+    await port.restore_worker(ref, None, "boot")
+    assert owner._filter_worker_inventory.await_args.args[1] == []
+    assert owner._restore_worker_inventory.await_args.kwargs["replica_states"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("transport", ["local", "remote"])
+async def test_invalid_supervisor_context_has_stable_diagnostic(transport):
+    from xoscar.core import LocalActorRef
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        ref = await xo.create_actor(
+            InterceptedSupervisor, address=pool.external_address, uid="supervisor"
+        )
+        target = LocalActorRef(pool._actors[ref.uid]) if transport == "local" else ref
+        with pytest.raises(ControlSessionRejected, match="invalid_context"):
+            await target.mark_replica_dead(
+                "model-rep0", **{CONTROL_CONTEXT_KEY: {"version": 99}}
+            )
+        assert await ref.get_status() == []
+    finally:
+        await pool.stop()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("transport", ["local", "remote"])
+@pytest.mark.parametrize("phase", ["fencing", "reconciling"])
+async def test_worker_registration_metadata_requires_active_phase(
+    transport, phase, tmp_path
+):
+    from xoscar.core import LocalActorRef
+
+    from ..worker_registry import WorkerOwnership
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        ref = await xo.create_actor(
+            InterceptedSupervisor, address=pool.external_address, uid="supervisor"
+        )
+        actor = pool._actors[ref.uid]
+        actor._worker_ownership = WorkerOwnership(str(tmp_path / "ownership.json"))
+        actor._worker_address_to_worker = {}
+        actor._controller_control.authority.state.phase = phase
+        target = LocalActorRef(actor) if transport == "local" else ref
+        with pytest.raises(ControlSessionRejected):
+            await target.add_worker(
+                "worker:1234", **{CONTROL_CONTEXT_KEY: command(session()).to_dict()}
+            )
+        assert actor._worker_address_to_worker == {}
+    finally:
+        await pool.stop()
+
+
+class BatchSupervisor(SupervisorActor):
+    def __init__(self):
+        xo.StatelessActor.__init__(self)
+        self._controller_control = None
+
+    @xo.extensible
+    def echo(self, value):
+        return value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid", [False, True])
+async def test_active_local_registration_retains_one_admitted_call(
+    monkeypatch, tmp_path, invalid
+):
+    from ..worker_registry import WorkerOwnership
+
+    monkeypatch.setattr(extensions, "get_extensions", lambda: ())
+    worker = SimpleNamespace(
+        address="worker:1234",
+        uid=b"worker",
+        get_extension_resources=AsyncMock(return_value={"extensions": {}}),
+        update_system_settings=AsyncMock(),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=worker))
+    owner = SupervisorActor()
+    owner.address = "supervisor:1234"
+    owner._worker_ownership = WorkerOwnership(str(tmp_path / "ownership.json"))
+    owner._refresh_worker_metadata = AsyncMock(return_value=True)
+    owner._schedule_autostart = Mock()
+    owner._status_guard_ref = None
+    state = SimpleNamespace(owner=session(), phase="active", failed=False)
+    authority = Provider(state, state.owner)
+    authority.worker_registered = AsyncMock()
+    authority.filter_worker_inventory = AsyncMock(return_value=[])
+    owner._controller_control = SupervisorControl(owner, authority)
+    owner._controller_control.fence.ready = True
+    payload = {"version": 99} if invalid else command(state.owner).to_dict()
+    call = owner.add_worker(worker.address, **{CONTROL_CONTEXT_KEY: payload})
+    if invalid:
+        with pytest.raises(ControlSessionRejected, match="invalid_context"):
+            await call
+        worker.get_extension_resources.assert_not_awaited()
+    else:
+        await asyncio.wait_for(call, 1)
+        assert worker.address in owner._worker_address_to_worker
+        authority.worker_registered.assert_awaited_once()
+        authority.filter_worker_inventory.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_unconfigured_supervisor_accepts_batch_without_kwargs():
+    actor = BatchSupervisor()
+    assert await actor.__on_receive__(("echo", 1, ([(1,), (2,)], None), None)) == [1, 2]
+
+
+@pytest.mark.asyncio
+async def test_invocation_kwargs_snapshot_does_not_mutate_default_call():
+    from ..control_invocation import ControlInvocation, invoke_control_hook
+
+    kwargs = {"original": 1}
+    invocation = ControlInvocation(
+        "worker:1234", "method", command(session()), (), kwargs
+    )
+
+    async def callback(invocation, call):
+        invocation.kwargs["extra"] = 2
+        return await call()
+
+    assert await invoke_control_hook(
+        SimpleNamespace(hook=callback),
+        "hook",
+        invocation,
+        AsyncMock(side_effect=lambda: dict(kwargs)),
+    ) == {"original": 1}
+    assert kwargs == {"original": 1}
