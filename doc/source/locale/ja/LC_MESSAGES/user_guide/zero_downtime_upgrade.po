@@ -630,3 +630,7 @@ msgstr "プロバイダーは ``controller_inventory(include_services=True)`` �
 #: ../source/user_guide/zero_downtime_upgrade.rst:32
 msgid "The optional async ``model_service_address(model_uid)`` callback selects a support-actor address for both internal and public launches."
 msgstr "任意の非同期 ``model_service_address(model_uid)`` コールバックは、内部および公開起動の補助 actor アドレスを選択します。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:34
+msgid "Optional ``create_model_service(actor_class, args, kwargs, address, uid)`` and ``destroy_model_service(ref)`` callbacks can delegate actor lifetime to Worker ``create_runtime_actor`` and ``destroy_runtime_actor`` management calls, which participate in session admission and draining. Without callbacks, ordinary actor creation and destruction remain unchanged."
+msgstr "任意の ``create_model_service(actor_class, args, kwargs, address, uid)`` と ``destroy_model_service(ref)`` コールバックは、セッション許可とドレインに従う Worker の ``create_runtime_actor`` と ``destroy_runtime_actor`` 管理呼び出しに actor の寿命を委譲できます。コールバックがなければ通常の作成と破棄は変わりません。"

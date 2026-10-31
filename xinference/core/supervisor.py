@@ -3866,7 +3866,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     from ..model.llm.xavier.backends.bytes.pd import XavierHostPDSource
 
                     source_uid = f"xavier-host-pd-{model_uid}-{rank}"
-                    source = await xo.create_actor(
+                    source = await SupervisorActor._create_model_service_actor(
+                        self,
                         XavierHostPDSource,
                         self._xavier_cache_mapping[model_uid],
                         rank,
@@ -3936,7 +3937,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                         XavierBytesCacheActor,
                     )
 
-                    cache_ref = await xo.create_actor(
+                    cache_ref = await SupervisorActor._create_model_service_actor(
+                        self,
                         XavierBytesCacheActor,
                         capacity_bytes=cache_bytes or 512 * 1024**2,
                         address=(service_address or model_service_address(self)),
@@ -3946,7 +3948,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 if heterogeneous_pd:
                     from ..model.llm.sglang.xavier.directory import XavierPDDirectory
 
-                    cache_ref = await xo.create_actor(
+                    cache_ref = await SupervisorActor._create_model_service_actor(
+                        self,
                         XavierPDDirectory,
                         address=(service_address or model_service_address(self)),
                         uid=f"xavier-cache-{model_uid}",
@@ -3960,7 +3963,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                             XavierBytesCacheActor,
                         )
 
-                        cache_ref = await xo.create_actor(
+                        cache_ref = await SupervisorActor._create_model_service_actor(
+                            self,
                             XavierBytesCacheActor,
                             capacity_bytes=cache_bytes or 512 * 1024 * 1024,
                             address=(service_address or model_service_address(self)),
@@ -3971,7 +3975,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                             XavierPDDirectory,
                         )
 
-                        cache_ref = await xo.create_actor(
+                        cache_ref = await SupervisorActor._create_model_service_actor(
+                            self,
                             XavierPDDirectory,
                             address=(service_address or model_service_address(self)),
                             uid=kwargs["_xavier_cache_config"]["uid"],
@@ -3981,7 +3986,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                             XavierCacheActor,
                         )
 
-                        cache_ref = await xo.create_actor(
+                        cache_ref = await SupervisorActor._create_model_service_actor(
+                            self,
                             XavierCacheActor,
                             capacity_bytes=(
                                 cache_backend_config["cpu_bytes"]
@@ -4001,16 +4007,22 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                     from ..model.llm.xavier.block_tracker import BlockTracker
                     from ..model.llm.xavier.collective_manager import CollectiveManager
 
-                    self._block_tracker_mapping[model_uid] = await xo.create_actor(
-                        BlockTracker,
-                        address=(service_address or model_service_address(self)),
-                        uid=f"{BlockTracker.default_uid()}-{model_uid}",
+                    self._block_tracker_mapping[model_uid] = (
+                        await SupervisorActor._create_model_service_actor(
+                            self,
+                            BlockTracker,
+                            address=(service_address or model_service_address(self)),
+                            uid=f"{BlockTracker.default_uid()}-{model_uid}",
+                        )
                     )
-                    self._collective_manager_mapping[model_uid] = await xo.create_actor(
-                        CollectiveManager,
-                        address=(service_address or model_service_address(self)),
-                        model_uid=model_uid,
-                        uid=f"{CollectiveManager.default_uid()}-{model_uid}",
+                    self._collective_manager_mapping[model_uid] = (
+                        await SupervisorActor._create_model_service_actor(
+                            self,
+                            CollectiveManager,
+                            address=(service_address or model_service_address(self)),
+                            model_uid=model_uid,
+                            uid=f"{CollectiveManager.default_uid()}-{model_uid}",
+                        )
                     )
                 strategy = None
                 use_gpu = not (n_gpu is None or (isinstance(n_gpu, int) and n_gpu <= 0))
@@ -4256,7 +4268,8 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 if pd_enabled:
                     from .pd_model import PDModelActor
 
-                    pd_ref = await xo.create_actor(
+                    pd_ref = await SupervisorActor._create_model_service_actor(
+                        self,
                         PDModelActor,
                         model_uid,
                         transport_backend=transport_backend,
@@ -6212,6 +6225,28 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
 
         return 0
 
+    async def _create_model_service_actor(
+        self, actor_class, *args, address, uid, **kwargs
+    ):
+        control = getattr(self, "_controller_control", None)
+        if control is not None and callable(
+            getattr(control.authority, "create_model_service", None)
+        ):
+            return await control.invoke(
+                "create_model_service", actor_class, args, kwargs, address, uid
+            )
+        return await xo.create_actor(
+            actor_class, *args, **kwargs, address=address, uid=uid
+        )
+
+    async def _destroy_model_service_actor(self, ref):
+        control = getattr(self, "_controller_control", None)
+        if control is not None and callable(
+            getattr(control.authority, "destroy_model_service", None)
+        ):
+            return await control.invoke("destroy_model_service", ref)
+        return await xo.destroy_actor(ref)
+
     async def _resolve_model_service_address(self, model_uid):
         control = getattr(self, "_controller_control", None)
         if control is None or not callable(
@@ -6263,21 +6298,24 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         self._pd_roles.pop(model_uid, None)
         if pd_ref is not None:
             try:
-                await xo.destroy_actor(pd_ref)
+                await SupervisorActor._destroy_model_service_actor(self, pd_ref)
             except Exception:
                 logger.debug(
                     "Failed to destroy PD router for %s", model_uid, exc_info=True
                 )
         for source in self._xavier_source_mapping.pop(model_uid, []):
             try:
-                await xo.wait_for(xo.destroy_actor(source), timeout=5)
+                await xo.wait_for(
+                    SupervisorActor._destroy_model_service_actor(self, source),
+                    timeout=5,
+                )
             except Exception:
                 logger.warning(
                     "Destroy Xavier host source failed for %s", model_uid, exc_info=True
                 )
         if cache_ref is not None:
             try:
-                await xo.destroy_actor(cache_ref)
+                await SupervisorActor._destroy_model_service_actor(self, cache_ref)
             except Exception:
                 logger.warning(
                     "Destroy Xavier cache failed for %s", model_uid, exc_info=True
@@ -6304,7 +6342,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
         if collective_manager_ref is not None:
             try:
-                await xo.destroy_actor(collective_manager_ref)
+                await SupervisorActor._destroy_model_service_actor(
+                    self, collective_manager_ref
+                )
             except Exception as e:
                 logger.debug(
                     "Destroy collective_manager_ref failed, model uid: %s, error: %s",
@@ -6315,7 +6355,9 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         block_tracker_ref = self._block_tracker_mapping.pop(model_uid, None)
         if block_tracker_ref is not None:
             try:
-                await xo.destroy_actor(block_tracker_ref)
+                await SupervisorActor._destroy_model_service_actor(
+                    self, block_tracker_ref
+                )
             except Exception as e:
                 logger.debug(
                     "Destroy block_tracker_ref failed, model uid: %s, error: %s",

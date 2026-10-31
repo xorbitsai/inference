@@ -601,3 +601,7 @@ msgstr "提供方可选择 ``controller_inventory(include_services=True)``，获
 #: ../source/user_guide/zero_downtime_upgrade.rst:32
 msgid "The optional async ``model_service_address(model_uid)`` callback selects a support-actor address for both internal and public launches."
 msgstr "可选的异步 ``model_service_address(model_uid)`` 回调为内部和公开启动选择辅助 actor 地址。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:34
+msgid "Optional ``create_model_service(actor_class, args, kwargs, address, uid)`` and ``destroy_model_service(ref)`` callbacks can delegate actor lifetime to Worker ``create_runtime_actor`` and ``destroy_runtime_actor`` management calls, which participate in session admission and draining. Without callbacks, ordinary actor creation and destruction remain unchanged."
+msgstr "可选的 ``create_model_service(actor_class, args, kwargs, address, uid)`` 和 ``destroy_model_service(ref)`` 回调可将 actor 生命周期委托给 Worker 的 ``create_runtime_actor`` 和 ``destroy_runtime_actor`` 管理调用，纳入会话准入与排空。没有回调时，普通 actor 创建和销毁行为保持不变。"

@@ -735,3 +735,7 @@ msgstr "I provider possono usare ``controller_inventory(include_services=True)``
 #: ../source/user_guide/zero_downtime_upgrade.rst:32
 msgid "The optional async ``model_service_address(model_uid)`` callback selects a support-actor address for both internal and public launches."
 msgstr "Il callback asincrono facoltativo ``model_service_address(model_uid)`` seleziona l’indirizzo degli attori ausiliari per avvii interni e pubblici."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:34
+msgid "Optional ``create_model_service(actor_class, args, kwargs, address, uid)`` and ``destroy_model_service(ref)`` callbacks can delegate actor lifetime to Worker ``create_runtime_actor`` and ``destroy_runtime_actor`` management calls, which participate in session admission and draining. Without callbacks, ordinary actor creation and destruction remain unchanged."
+msgstr "I callback facoltativi ``create_model_service(actor_class, args, kwargs, address, uid)`` e ``destroy_model_service(ref)`` possono delegare il ciclo di vita alle chiamate Worker ``create_runtime_actor`` e ``destroy_runtime_actor``, soggette ad ammissione della sessione e drenaggio. Senza callback, creazione e distruzione ordinarie restano invariate."

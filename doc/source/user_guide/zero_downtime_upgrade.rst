@@ -32,6 +32,8 @@ In local mode, startup still uses an API parent and one shared Supervisor/Worker
 
    The optional async ``model_service_address(model_uid)`` callback selects a support-actor address for both internal and public launches.
 
+   Optional ``create_model_service(actor_class, args, kwargs, address, uid)`` and ``destroy_model_service(ref)`` callbacks can delegate actor lifetime to Worker ``create_runtime_actor`` and ``destroy_runtime_actor`` management calls, which participate in session admission and draining. Without callbacks, ordinary actor creation and destruction remain unchanged.
+
 Check and install updates
 -------------------------
 

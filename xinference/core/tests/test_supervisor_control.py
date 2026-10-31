@@ -527,3 +527,27 @@ def test_service_inventory_includes_pd_shards_and_rank_zero_only_on_request():
         "pd-rep0",
         "shards-rep0",
     }
+
+
+@pytest.mark.asyncio
+async def test_runtime_actor_mutations_keep_worker_session_admission(monkeypatch):
+    fence, authority = setup_fence()
+    await fence.install(authority.owner, 1)
+    worker = WorkerActor("supervisor:1234", None, SimpleNamespace(), [])
+    worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+    create = AsyncMock(return_value="created")
+    lookup = AsyncMock()
+    monkeypatch.setattr(xo, "create_actor", create)
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    original = command(authority.owner).to_dict()
+    assert (
+        await worker.create_runtime_actor(
+            object, (), {}, "service", **{CONTROL_CONTEXT_KEY: original}
+        )
+        == "created"
+    )
+    create.assert_awaited_once()
+    authority.owner = session(2)
+    with pytest.raises(ControlSessionRejected):
+        await worker.destroy_runtime_actor("service", **{CONTROL_CONTEXT_KEY: original})
+    lookup.assert_not_awaited()

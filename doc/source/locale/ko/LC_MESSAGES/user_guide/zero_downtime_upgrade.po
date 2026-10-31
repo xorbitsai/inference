@@ -626,3 +626,7 @@ msgstr "제공자는 ``controller_inventory(include_services=True)`` 로 준비�
 #: ../source/user_guide/zero_downtime_upgrade.rst:32
 msgid "The optional async ``model_service_address(model_uid)`` callback selects a support-actor address for both internal and public launches."
 msgstr "선택적인 비동기 ``model_service_address(model_uid)`` 콜백은 내부 및 공개 실행의 보조 actor 주소를 선택합니다."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:34
+msgid "Optional ``create_model_service(actor_class, args, kwargs, address, uid)`` and ``destroy_model_service(ref)`` callbacks can delegate actor lifetime to Worker ``create_runtime_actor`` and ``destroy_runtime_actor`` management calls, which participate in session admission and draining. Without callbacks, ordinary actor creation and destruction remain unchanged."
+msgstr "선택적인 ``create_model_service(actor_class, args, kwargs, address, uid)`` 및 ``destroy_model_service(ref)`` 콜백은 actor 수명을 세션 허용과 드레이닝에 참여하는 Worker의 ``create_runtime_actor`` 및 ``destroy_runtime_actor`` 관리 호출에 위임할 수 있습니다. 콜백이 없으면 기존 actor 생성과 제거 동작은 유지됩니다."

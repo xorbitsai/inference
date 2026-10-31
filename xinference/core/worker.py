@@ -1295,6 +1295,17 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             return {"version": 1, "configured": False}
         return {"configured": True, **fence.status()}
 
+    @management_operation
+    async def create_runtime_actor(self, actor_class, args, kwargs, uid):
+        return await xo.create_actor(
+            actor_class, *args, **kwargs, address=self.address, uid=uid
+        )
+
+    @management_operation
+    async def destroy_runtime_actor(self, uid):
+        ref = await xo.actor_ref(address=self.address, uid=uid)
+        await xo.destroy_actor(ref)
+
     def controller_catalog(self):
         from .worker_handoff import CustomModelState
 
