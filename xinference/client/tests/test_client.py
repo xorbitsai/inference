@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import Mock
 
 import psutil
 import pytest
@@ -26,6 +29,7 @@ from ..restful.restful_client import Client as RESTfulClient
 from ..restful.restful_client import (
     RESTfulChatModelHandle,
     RESTfulEmbeddingModelHandle,
+    RESTfulRerankModelHandle,
     _get_error_string,
 )
 
@@ -387,6 +391,55 @@ def test_client_error():
     r._content = json.dumps({"detail": "Test error"}).encode("utf-8")
     err = _get_error_string(r)
     assert "Test error" == err
+
+
+@pytest.mark.parametrize(
+    "body, detail",
+    [
+        pytest.param(b"<html>Bad Gateway</html>", None, id="html"),
+        pytest.param(b"", None, id="empty"),
+        pytest.param(b'{"error": "Bad Gateway"}', None, id="missing-detail"),
+        pytest.param(b'{"detail": "Test error"}', "Test error", id="detail"),
+    ],
+)
+@pytest.mark.parametrize(
+    "operation, prefix",
+    [
+        ("rerank", "Failed to rerank documents, detail: "),
+        ("vllm_models", "Failed to fetch VLLM models. detail: "),
+        ("login", "Failed to login, detail: "),
+    ],
+)
+def test_client_error_responses(monkeypatch, body, detail, operation, prefix):
+    response = requests.Response()
+    response.status_code = 502
+    response.reason = "Bad Gateway"
+    response.url = "http://localhost:9997/test"
+    response._content = body
+    session = Mock(spec=requests.Session)
+    session.get.return_value = response
+    session.post.return_value = response
+    monkeypatch.setattr(requests, "Session", lambda: session)
+    monkeypatch.setattr(
+        RESTfulClient, "_check_cluster_authenticated", lambda self: None
+    )
+
+    if operation == "rerank":
+        client = RESTfulRerankModelHandle("test-model", "http://localhost:9997", {})
+        args = (["document"], "query")
+    else:
+        client = RESTfulClient("http://localhost:9997")
+        client._cluster_authed = True
+        args = ("user", "password") if operation == "login" else ()
+
+    try:
+        with pytest.raises(RuntimeError) as exc:
+            getattr(client, operation)(*args)
+        if detail is None:
+            detail = "502 Server Error: Bad Gateway for url: http://localhost:9997/test"
+        assert str(exc.value) == prefix + detail
+    finally:
+        client.close()
 
 
 def test_client_custom_embedding_model(setup):

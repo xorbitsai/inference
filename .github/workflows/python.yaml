@@ -570,6 +570,7 @@ jobs:
             xinference/tests/test_persisted_secret.py
           # Linux engine/P-D regressions and portable MLX mock tests.
           LINUX_TEST_PATHS: >-
+            xinference/client/tests/test_client.py::test_client_error_responses
             xinference/model/llm/tests/test_internvl_prompt.py
             xinference/model/llm/trt_llm/tests
             benchmark/tests/test_benchmark_pd.py

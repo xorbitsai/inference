@@ -1373,10 +1373,8 @@ class AsyncClient:
         url = f"{self.base_url}/v1/models/vllm-supported"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
-            response_data = await response.json()
-            await _release_response(response)
             raise RuntimeError(
-                f"Failed to get cluster information, detail: {response_data['detail']}"
+                f"Failed to get cluster information, detail: {await _get_error_string(response)}"
             )
 
         try:
@@ -1395,10 +1393,8 @@ class AsyncClient:
 
         response = await self.session.post(url, json=payload)
         if response.status != 200:
-            response_data = await response.json()
-            await _release_response(response)
             raise RuntimeError(
-                f"Failed to get cluster information, detail: {response_data['detail']}"
+                f"Failed to get cluster information, detail: {await _get_error_string(response)}"
             )
 
         response_data = await response.json()

@@ -216,7 +216,7 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
         response = self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to rerank documents, detail: {response.json()['detail']}"
+                f"Failed to rerank documents, detail: {_get_error_string(response)}"
             )
         response_data = response.json()
         return response_data
@@ -1221,7 +1221,7 @@ class Client:
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to fetch VLLM models. detail: {response.json()['detail']}"
+                f"Failed to fetch VLLM models. detail: {_get_error_string(response)}"
             )
 
         try:
@@ -1238,7 +1238,9 @@ class Client:
 
         response = self.session.post(url, json=payload)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to login, detail: {response.json()['detail']}")
+            raise RuntimeError(
+                f"Failed to login, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         # Only bearer token for now
