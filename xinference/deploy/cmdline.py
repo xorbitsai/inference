@@ -1859,6 +1859,11 @@ def query_engine_by_model_name(
     engines = [model_engine] if model_engine is not None else list(llm_engines.keys())
     for engine in engines:
         params = llm_engines[engine]
+        if isinstance(params, str):
+            if model_engine is not None:
+                print(params, file=sys.stderr)
+                return
+            continue
         for param in params:
             if (model_format is None or model_format == param["model_format"]) and (
                 model_size_in_billions is None
