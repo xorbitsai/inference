@@ -208,6 +208,7 @@ def test_load_configures_the_partition_and_adapter(
     if cls is SGLangMiniMaxH3Model:
         assert config["model_variant"] == "fl2va"
         assert config["pipeline_class_name"] == "MiniMaxH3Pipeline"
+        assert config["backend"] == "sglang"
         if lightning_version:
             expected = model._model_spec.lightning_version_configs[lightning_version]
             assert config["lora_alpha"] == expected["lora_alpha"]

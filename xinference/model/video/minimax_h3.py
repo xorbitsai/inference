@@ -297,6 +297,10 @@ class SGLangMiniMaxH3Model(
             )
         self._kwargs["model_variant"] = "fl2va"
         self._kwargs["pipeline_class_name"] = "MiniMaxH3Pipeline"
+        # The native FL2VA cache also contains the root Diffusers model index.
+        # AUTO can resolve that index to a generic Diffusers configuration,
+        # even with an explicit native pipeline class.
+        self._kwargs["backend"] = "sglang"
         if self._lightning_config:
             self._kwargs.update(
                 lora_path=self._lightning_model_path,
