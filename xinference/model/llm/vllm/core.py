@@ -713,7 +713,9 @@ class VLLMModel(WeightCachedModel, LLM):
         """Count expanded media tokens without changing the engine media cache."""
         if engine_prompt.get("multi_modal_data"):
             base_input_tokens = len(engine_prompt["prompt_token_ids"])
-            max_model_len = normalize_runtime_positive_int(self._context_length)
+            max_model_len = normalize_runtime_positive_int(
+                getattr(self, "_context_length", None)
+            )
             if max_model_len is not None and base_input_tokens >= max_model_len:
                 logger.debug(
                     "Base multimodal prompt exhausts the model context: "
@@ -813,7 +815,9 @@ class VLLMModel(WeightCachedModel, LLM):
         explicit_limits = self.get_explicit_limit_mm_per_prompt()
         self._enforce_multimodal_limits(messages, explicit_limits)
 
-        max_model_len = normalize_runtime_positive_int(self._context_length)
+        max_model_len = normalize_runtime_positive_int(
+            getattr(self, "_context_length", None)
+        )
         if max_model_len is None:
             if explicit_limits is not None:
                 return {
