@@ -178,6 +178,143 @@ async def test_service_placement_receives_final_model_uid(
 
 
 @pytest.mark.asyncio
+async def test_concurrent_automatic_uids_are_reserved_before_service_placement(
+    launch_runtime,
+):
+    from types import SimpleNamespace
+
+    from ..supervisor_control import SupervisorControl
+    from .test_control_session import session
+
+    supervisor, workers, _, _ = launch_runtime
+    entered, release = asyncio.Event(), asyncio.Event()
+    selected = []
+
+    async def choose(uid):
+        selected.append(uid)
+        if len(selected) == 2:
+            entered.set()
+        await release.wait()
+        return workers[0].address
+
+    authority = SimpleNamespace(
+        session=session(), validate=AsyncMock(), model_service_address=choose
+    )
+    control = SupervisorControl(supervisor, authority)
+    control.fence.ready = control.has_served = True
+    supervisor._controller_control = control
+    for worker in workers:
+        worker.get_model_count = AsyncMock(return_value=0)
+        worker.get_gpu_allocation_status = AsyncMock(return_value={})
+    kwargs = launch_kwargs()
+    kwargs.update(model_uid=None, replica=1, replica_config=None)
+    tasks = [
+        asyncio.create_task(supervisor.launch_builtin_model(**kwargs)) for _ in range(2)
+    ]
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        assert len(set(selected)) == 2
+        release.set()
+        results = await asyncio.gather(*tasks)
+        assert set(results) == set(selected)
+        launched = {
+            call.kwargs["model_uid"]
+            for worker in workers
+            for call in worker.launch_builtin_model.await_args_list
+        }
+        assert launched == {uid + "-rep0" for uid in results}
+    finally:
+        release.set()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["exception", "invalid", "cancel", "preflight"])
+async def test_service_placement_failure_releases_uid(launch_runtime, failure):
+    from types import SimpleNamespace
+
+    from ..control_session import ControlSessionRejected
+    from ..supervisor_control import SupervisorControl
+    from .test_control_session import session
+
+    supervisor, workers, actors, _ = launch_runtime
+    entered = asyncio.Event()
+
+    async def choose(uid):
+        entered.set()
+        if failure == "cancel":
+            await asyncio.Event().wait()
+        if failure == "exception":
+            raise RuntimeError("placement failed")
+        return None
+
+    authority = SimpleNamespace(
+        session=session(), validate=AsyncMock(), model_service_address=choose
+    )
+    control = SupervisorControl(supervisor, authority)
+    control.fence.ready = control.has_served = True
+    supervisor._controller_control = control
+    kwargs = launch_kwargs()
+    kwargs.update(model_uid=None, replica=1, replica_config=None)
+    if failure == "preflight":
+        kwargs["request_limits"] = -1
+    task = asyncio.create_task(supervisor.launch_builtin_model(**kwargs))
+    try:
+        if failure == "cancel":
+            await asyncio.wait_for(entered.wait(), 1)
+            task.cancel()
+        error = {
+            "exception": ControlSessionRejected,
+            "cancel": asyncio.CancelledError,
+        }.get(failure, ValueError)
+        with pytest.raises(error):
+            await task
+        assert not supervisor._model_uid_to_replica_info
+        assert not supervisor._initial_model_launches and not actors
+        for worker in workers:
+            worker.launch_builtin_model.assert_not_awaited()
+        authority.model_service_address = AsyncMock(return_value=workers[0].address)
+        for worker in workers:
+            worker.get_model_count = AsyncMock(return_value=0)
+            worker.get_gpu_allocation_status = AsyncMock(return_value={})
+        kwargs.pop("request_limits", None)
+        assert await supervisor.launch_builtin_model(**kwargs) == "test"
+    finally:
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_reserved_service_placement_updates_cache_config(launch_runtime):
+    from types import SimpleNamespace
+
+    from ..supervisor_control import SupervisorControl
+    from .test_control_session import session
+
+    supervisor, workers, actors, _ = launch_runtime
+    authority = SimpleNamespace(
+        session=session(),
+        validate=AsyncMock(),
+        model_service_address=AsyncMock(return_value=workers[1].address),
+    )
+    control = SupervisorControl(supervisor, authority)
+    control.fence.ready = control.has_served = True
+    supervisor._controller_control = control
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine="MLX", model_format="mlx", quantization=None)
+    await supervisor.launch_builtin_model(**kwargs)
+    assert actors["XavierBytesCacheActor"].address == workers[1].address
+    for worker in workers:
+        assert (
+            worker.launch_builtin_model.await_args.kwargs["_xavier_cache_config"][
+                "address"
+            ]
+            == workers[1].address
+        )
+
+
+@pytest.mark.asyncio
 async def test_invalid_uid_is_rejected_before_service_placement(launch_runtime):
     from types import SimpleNamespace
 

@@ -3410,9 +3410,7 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
                 "0 < length <= 100, not ending with the reserved replica "
                 "suffix '-rep<number>'."
             )
-        service_address = await SupervisorActor._resolve_model_service_address(
-            self, model_uid
-        )
+        service_address = None
 
         # Resolve per-replica placement (replica_config) BEFORE any side effects
         # below (xavier actor creation, replica_info, instance_info) so that a
@@ -4332,7 +4330,22 @@ class SupervisorActor(SupervisorHandoffMixin, xo.StatelessActor):
         ):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
         # Set replica info first for exception handler to terminate model.
-        self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
+        replica_info = self._build_replica_info(replica)
+        self._model_uid_to_replica_info[model_uid] = replica_info
+        try:
+            service_address = await SupervisorActor._resolve_model_service_address(
+                self, model_uid
+            )
+        except BaseException:
+            if self._model_uid_to_replica_info.get(model_uid) is replica_info:
+                self._model_uid_to_replica_info.pop(model_uid)
+            raise
+        if self._model_uid_to_replica_info.get(model_uid) is not replica_info:
+            raise ValueError(f"Model launch reservation was removed, uid: {model_uid}")
+        if "_xavier_cache_config" in kwargs:
+            kwargs["_xavier_cache_config"]["address"] = (
+                service_address or model_service_address(self)
+            )
         if pd_enabled:
             self._pd_model_mapping[model_uid] = None
         # Redeploy clears any stale unexpected-termination markers for this uid.

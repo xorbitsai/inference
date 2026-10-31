@@ -1393,6 +1393,91 @@ def test_failed_catalog_replacement_restores_registrations_and_engines(
             register_embedding(item, persist=False)
 
 
+@pytest.mark.parametrize("rebuild_failure", [False, True])
+def test_llm_catalog_replacement_matches_child_after_parent_is_installed(
+    monkeypatch, rebuild_failure
+):
+    from ...model import llm
+    from ...model.custom import RegistryManager
+    from ...model.llm.custom import register_llm, unregister_llm
+    from ...model.llm.llm_family import (
+        LLM_ENGINES,
+        CustomLLMFamilyV2,
+        check_engine_by_spec_parameters,
+    )
+    from ...model.llm.transformers.chatglm import ChatglmPytorchChatModel
+    from ..worker_handoff import CustomModelState
+
+    prefix = "replacement-" + uuid.uuid4().hex
+    parent = CustomLLMFamilyV2(
+        version=2,
+        model_name=prefix + "-parent",
+        model_lang=["en"],
+        model_ability=["chat"],
+        architectures=["GlmForCausalLM"],
+        model_specs=[
+            {
+                "model_format": "pytorch",
+                "model_size_in_billions": 1,
+                "quantization": "none",
+                "model_id": "example/model",
+            }
+        ],
+    )
+    child = parent.copy(deep=True)
+    child.model_name, child.model_family, child.architectures = (
+        prefix + "-child",
+        parent.model_name,
+        None,
+    )
+    registry = RegistryManager.get_registry("llm")
+    previous = registry.get_custom_models()
+    engines = copy.deepcopy(LLM_ENGINES)
+    owner = SimpleNamespace(
+        _custom_register_type_to_cls={
+            "LLM": (CustomLLMFamilyV2, register_llm, unregister_llm, None)
+        }
+    )
+    generate = llm.generate_engine_config_by_model_family
+
+    def rematch(model, *args, **kwargs):
+        if (
+            rebuild_failure
+            and model.model_name == child.model_name
+            and registry.find_model(parent.model_name) is not None
+        ):
+            raise RuntimeError("rebuild failed")
+        return generate(model, *args, **kwargs)
+
+    try:
+        register_llm(parent, persist=False)
+        register_llm(child, persist=False)
+        before = CustomModelState.capture(owner)
+        before_engines = copy.deepcopy(LLM_ENGINES)
+        monkeypatch.setattr(llm, "generate_engine_config_by_model_family", rematch)
+        replacement = {
+            "llm": {child.model_name: child.json(), parent.model_name: parent.json()}
+        }
+        if rebuild_failure:
+            with pytest.raises(RuntimeError, match="rebuild failed"):
+                CustomModelState.restore(owner, replacement, replace=True)
+            assert CustomModelState.capture(owner) == before
+            assert LLM_ENGINES == before_engines
+        else:
+            CustomModelState.restore(owner, replacement, replace=True)
+        assert (
+            check_engine_by_spec_parameters(
+                "Transformers", child.model_name, "pytorch", 1, "none"
+            )
+            is ChatglmPytorchChatModel
+        )
+    finally:
+        with registry.lock:
+            registry.models[:] = previous
+        LLM_ENGINES.clear()
+        LLM_ENGINES.update(engines)
+
+
 @pytest.mark.parametrize("change", ["image", "ocr_to_image", "image_to_ocr", "audio"])
 def test_successful_catalog_replacement_removes_previous_engines(change):
     from ...model.audio import BUILTIN_AUDIO_MODELS

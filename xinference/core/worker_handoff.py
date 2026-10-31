@@ -141,6 +141,14 @@ class CustomModelState:
                             table.pop(existing.model_name, None)
                     for spec in models:
                         register(spec, persist=False)
+                    if kind == "llm":
+                        from ..model.llm import generate_engine_config_by_model_family
+
+                        # Matching inherited architectures needs the full catalog,
+                        # including custom parents that may follow their children.
+                        for spec in models:
+                            LLM_ENGINES.pop(spec.model_name, None)
+                            generate_engine_config_by_model_family(spec)
             except BaseException:
                 for registry, models in previous:
                     with registry.lock:
