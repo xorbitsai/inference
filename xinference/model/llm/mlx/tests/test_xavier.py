@@ -3,6 +3,7 @@
 import asyncio
 import importlib
 import json
+import os
 import platform
 from dataclasses import replace
 from types import SimpleNamespace
@@ -158,6 +159,7 @@ def model(model_type="qwen2"):
 async def test_pd_prefill_restores_l2_history_after_live_cache_is_recreated(
     monkeypatch, host
 ):
+    """Optionally use a Linux actor at XINFERENCE_TEST_MLX_HISTORY_ADDRESS."""
     import mlx.core as mx
     from mlx_lm.models.cache import make_prompt_cache
 
@@ -167,14 +169,21 @@ async def test_pd_prefill_restores_l2_history_after_live_cache_is_recreated(
     from ...xavier.history import XavierHistoryProxy
     from ...xavier.tests.utils import mock_lmcache_backend
 
-    backend, _ = mock_lmcache_backend(monkeypatch, cpu_bytes=32768)
+    external = os.environ.get("XINFERENCE_TEST_MLX_HISTORY_ADDRESS")
+    backend = None
+    if not external:
+        backend, _ = mock_lmcache_backend(monkeypatch, cpu_bytes=32768)
     m, c = model(), contract()
     tokens = [i % 128 for i in range(130)]
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
     async with pool:
-        store = await xo.create_actor(
-            XavierHistoryCacheActor, backend, address=pool.external_address
-        )
+        if external:
+            store = await xo.actor_ref(address=external, uid="mlx-history-live")
+            await asyncio.wait_for(store.get_stats(), 5)
+        else:
+            store = await xo.create_actor(
+                XavierHistoryCacheActor, backend, address=pool.external_address
+            )
         proxy = await xo.create_actor(
             XavierHistoryProxy,
             dict(address=store.address, uid=store.uid),
@@ -182,7 +191,12 @@ async def test_pd_prefill_restores_l2_history_after_live_cache_is_recreated(
             address=pool.external_address,
         )
         history = dict(address=proxy.address, uid=proxy.uid, shared_prefix=True)
-        for index, salt in enumerate(["customer-a", "customer-a", "customer-b"]):
+        from uuid import uuid4
+
+        scope = uuid4().hex if external else ""
+        for index, salt in enumerate(
+            [scope + "customer-a", scope + "customer-a", scope + "customer-b"]
+        ):
             # Recreate the live cache: a warm hit must come from LMCache, not P/D.
             live = await xo.create_actor(
                 XavierBytesCacheActor, address=pool.external_address
@@ -256,6 +270,8 @@ async def test_pd_prefill_restores_l2_history_after_live_cache_is_recreated(
                     float(mx.max(mx.abs(actual.astype(mx.float32) - expected))) < 0.02
                 )
             await proxy.flush()
+            if external:
+                await store.force_disk_reads()
             await xo.destroy_actor(live)
         stats = await store.get_stats()
         assert stats["backend_stats"]["l2_hits"] >= 2
