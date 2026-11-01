@@ -78,7 +78,7 @@
         "qwen-omni-utils ; #engine# == \"vllm\""
       ]
     },
-    "featured": true,
-    "updated_at": 1786099285
+    "featured": false,
+    "updated_at": 1793553196
   }
 ]

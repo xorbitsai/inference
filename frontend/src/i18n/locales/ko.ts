@@ -622,6 +622,8 @@ const ko = {
     manageCachedModels: '캐시 모델 관리',
     manageVirtualEnvironments: '가상 환경 관리',
     favorite: '즐겨찾기',
+    featuredModel: '추천',
+    featuredModelDescription: 'Xinference가 추천하는 모델로, 모델 목록에 우선 표시됩니다.',
     importFavorites: '브라우저 즐겨찾기 가져오기',
     importFavoritesHint: '이 브라우저에 저장된 즐겨찾기를 현재 계정으로 가져옵니다.',
     importFavoritesSharedHint:

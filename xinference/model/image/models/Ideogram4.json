@@ -37,7 +37,7 @@
       "no_build_isolation": true,
       "index_strategy": "unsafe-best-match"
     },
-    "featured": false,
-    "updated_at": 1787016251
+    "featured": true,
+    "updated_at": 1793553196
   }
 ]

@@ -53,8 +53,8 @@
         "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
       }
     },
-    "updated_at": 1769418353,
-    "featured": true,
+    "updated_at": 1793553196,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",

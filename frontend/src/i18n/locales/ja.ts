@@ -623,6 +623,9 @@ const ja = {
     manageCachedModels: 'キャッシュモデル管理',
     manageVirtualEnvironments: '仮想環境を管理',
     favorite: 'お気に入り',
+    featuredModel: 'おすすめ',
+    featuredModelDescription:
+      'Xinference がおすすめするモデルです。モデル一覧で優先的に表示されます。',
     importFavorites: 'ブラウザーのお気に入りをインポート',
     importFavoritesHint: 'このブラウザーに保存したお気に入りを現在のアカウントにインポートします。',
     importFavoritesSharedHint:

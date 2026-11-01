@@ -92,7 +92,7 @@
         "#system_numpy# ; #engine# == \"vLLM\""
       ]
     },
-    "featured": true,
-    "updated_at": 1790075295
+    "featured": false,
+    "updated_at": 1793553196
   }
 ]

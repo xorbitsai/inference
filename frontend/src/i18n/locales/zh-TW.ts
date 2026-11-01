@@ -620,6 +620,8 @@ const zhTW = {
     manageCachedModels: '管理快取模型',
     manageVirtualEnvironments: '管理虛擬環境',
     favorite: '收藏',
+    featuredModel: '推薦',
+    featuredModelDescription: 'Xinference 推薦的模型，在模型清單中優先顯示。',
     importFavorites: '匯入瀏覽器收藏',
     importFavoritesHint: '將此瀏覽器儲存的收藏匯入目前帳號。',
     importFavoritesSharedHint: '將此瀏覽器儲存的收藏匯入所有訪客共用的收藏。',
