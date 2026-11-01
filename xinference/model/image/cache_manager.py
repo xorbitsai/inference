@@ -75,6 +75,23 @@ class ImageCacheManager(CacheManager):
                 raise ValueError(f"Unsupported model hub: {family.model_hub}")
         return os.path.join(cache_dir, model_filename)
 
+    def check_gguf(self, quantization: str) -> str:
+        """Return the GGUF file name for a supported quantization, else raise."""
+        from .core import ImageModelFamilyV2
+
+        assert isinstance(self._model_family, ImageModelFamilyV2)
+        filename_template = self._model_family.gguf_model_file_name_template
+        if not filename_template:
+            raise NotImplementedError(
+                f"{self._model_family.model_name} does not support GGUF quantization"
+            )
+        if quantization not in (self._model_family.gguf_quantizations or []):
+            raise ValueError(
+                f"Cannot support quantization {quantization}, "
+                f"available quantizations: {self._model_family.gguf_quantizations}"
+            )
+        return filename_template.format(quantization=quantization)
+
     def cache_gguf(self, quantization: Optional[str] = None):
         from ..utils import IS_NEW_HUGGINGFACE_HUB, retry_download, symlink_local_file
         from .core import ImageModelFamilyV2
@@ -85,17 +102,7 @@ class ImageCacheManager(CacheManager):
         assert isinstance(self._model_family, ImageModelFamilyV2)
         cache_dir = self.get_cache_dir()
 
-        if not self._model_family.gguf_model_file_name_template:
-            raise NotImplementedError(
-                f"{self._model_family.model_name} does not support GGUF quantization"
-            )
-        if quantization not in (self._model_family.gguf_quantizations or []):
-            raise ValueError(
-                f"Cannot support quantization {quantization}, "
-                f"available quantizations: {self._model_family.gguf_quantizations}"
-            )
-
-        filename = self._model_family.gguf_model_file_name_template.format(quantization=quantization)  # type: ignore
+        filename = self.check_gguf(quantization)
         full_path = os.path.join(cache_dir, filename)
 
         if self._model_family.model_hub == "huggingface":

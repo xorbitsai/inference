@@ -14,6 +14,7 @@
 
 # CI: linux
 
+from typing import List, Optional, Type
 from unittest.mock import Mock, patch
 
 import pytest
@@ -165,6 +166,88 @@ def test_invalid_video_engine_is_rejected_before_download():
                 enable_virtual_env=False,
             )
     cache.assert_not_called()
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize("model_path", [None, "/mine/model"])
+@pytest.mark.parametrize(
+    "model_name,error,message",
+    [
+        pytest.param(
+            "MiniMax-H3",
+            NotImplementedError,
+            "MiniMax-H3 does not support GGUF quantization",
+            id="model-without-gguf",
+        ),
+        pytest.param(
+            "HunyuanVideo",
+            ValueError,
+            "Cannot support quantization not-a-quantization, available quantizations: "
+            "['BF16', 'Q3_K_M', 'Q3_K_S', 'Q4_0', 'Q4_1', 'Q4_K_M', 'Q4_K_S', "
+            "'Q5_0', 'Q5_1', 'Q5_K_M', 'Q5_K_S', 'Q6_K', 'Q8_0']",
+            id="unknown-quantization",
+        ),
+    ],
+)
+def test_invalid_video_gguf_is_rejected_before_cache(
+    monkeypatch: pytest.MonkeyPatch,
+    enable_virtual_env: bool,
+    model_path: Optional[str],
+    model_name: str,
+    error: Type[Exception],
+    message: str,
+) -> None:
+    cache = Mock(side_effect=AssertionError("Invalid GGUF selection reached caching"))
+    monkeypatch.setattr(VideoCacheManager, "cache", cache)
+    monkeypatch.setattr(VideoCacheManager, "cache_gguf", cache)
+    with pytest.raises(error) as exc_info:
+        create_video_model_instance(
+            "uid",
+            model_name,
+            model_path=model_path,
+            gguf_quantization="not-a-quantization",
+            enable_virtual_env=enable_virtual_env,
+        )
+    assert str(exc_info.value) == message
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize("model_path", [None, "/mine/model"])
+@pytest.mark.parametrize("gguf_model_path", [None, "/mine/model.gguf"])
+def test_video_still_caches_the_model_then_gguf(
+    monkeypatch: pytest.MonkeyPatch,
+    enable_virtual_env: bool,
+    model_path: Optional[str],
+    gguf_model_path: Optional[str],
+) -> None:
+    calls: List[str] = []
+
+    def fake_cache(manager: VideoCacheManager) -> str:
+        calls.append("model")
+        return "/cache/model"
+
+    def fake_cache_gguf(manager: VideoCacheManager, quantization: str) -> str:
+        calls.append("gguf " + quantization)
+        return "/cache/model.gguf"
+
+    monkeypatch.setattr(VideoCacheManager, "cache", fake_cache)
+    monkeypatch.setattr(VideoCacheManager, "cache_gguf", fake_cache_gguf)
+    model = create_video_model_instance(
+        "uid",
+        "MiniMax-H3" if gguf_model_path else "HunyuanVideo",
+        model_path=model_path,
+        gguf_quantization="not-a-quantization" if gguf_model_path else "Q4_0",
+        gguf_model_path=gguf_model_path,
+        enable_virtual_env=enable_virtual_env,
+    )
+    assert isinstance(model, DiffusersVideoEngineModel)
+    assert model._model_path == (model_path or "/cache/model")
+    expected_calls = [] if model_path else ["model"]
+    if not gguf_model_path:
+        expected_calls.append("gguf Q4_0")
+    assert calls == expected_calls
+    assert model._gguf_model_path == (gguf_model_path or "/cache/model.gguf")
 
 
 @pytest.mark.parametrize(
