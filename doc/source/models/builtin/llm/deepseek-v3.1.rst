@@ -30,23 +30,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name Deepseek-V3.1 --size-in-billions 671 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 2 (gptq, 671 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** gptq
-- **Model Size (in billions):** 671
-- **Quantizations:** Int4
-- **Engines**: vLLM, Transformers, SGLang
-- **Model ID:** cpatonn/DeepSeek-V3.1-GPTQ-4bit
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/cpatonn/DeepSeek-V3.1-GPTQ-4bit>`__, `ModelScope <https://modelscope.cn/models/cpatonn/DeepSeek-V3.1-GPTQ-4bit>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-engine ${engine} --model-name Deepseek-V3.1 --size-in-billions 671 --model-format gptq --quantization ${quantization}
-
-
-Model Spec 3 (awq, 671 Billion)
+Model Spec 2 (awq, 671 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -62,7 +46,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name Deepseek-V3.1 --size-in-billions 671 --model-format awq --quantization ${quantization}
 
 
-Model Spec 4 (mlx, 671 Billion)
+Model Spec 3 (mlx, 671 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx

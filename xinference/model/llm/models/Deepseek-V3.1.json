@@ -57,25 +57,6 @@
         }
       },
       {
-        "model_format": "gptq",
-        "model_size_in_billions": 671,
-        "activated_size_in_billions": 37,
-        "model_src": {
-          "huggingface": {
-            "quantizations": [
-              "Int4"
-            ],
-            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
-          },
-          "modelscope": {
-            "quantizations": [
-              "Int4"
-            ],
-            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
-          }
-        }
-      },
-      {
         "model_format": "awq",
         "model_size_in_billions": 671,
         "activated_size_in_billions": 37,

@@ -22,7 +22,7 @@ Model Spec 1 (pytorch, 32 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Skywork/Skywork-OR1-32B-Preview
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Skywork/Skywork-OR1-32B-Preview>`__, `ModelScope <https://modelscope.cn/models/Skywork/Skywork-OR1-32B-Preview>`__
+- **Model Hubs**:  `ModelScope <https://modelscope.cn/models/Skywork/Skywork-OR1-32B-Preview>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -54,7 +54,7 @@ Model Spec 3 (pytorch, 7 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Skywork/Skywork-OR1-7B-Preview
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Skywork/Skywork-OR1-7B-Preview>`__, `ModelScope <https://modelscope.cn/models/Skywork/Skywork-OR1-7B-Preview>`__
+- **Model Hubs**:  `ModelScope <https://modelscope.cn/models/Skywork/Skywork-OR1-7B-Preview>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

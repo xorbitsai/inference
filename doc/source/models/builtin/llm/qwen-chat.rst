@@ -53,8 +53,8 @@ Model Spec 3 (pytorch, 1_8 Billion)
 - **Model Size (in billions):** 1_8
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers, SGLang
-- **Model ID:** Qwen/Qwen-1_8B-Chat
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen-1_8B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen-1_8B-Chat>`__
+- **Model ID:** qwen/Qwen-1_8B-Chat
+- **Model Hubs**:  `ModelScope <https://modelscope.cn/models/qwen/Qwen-1_8B-Chat>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
