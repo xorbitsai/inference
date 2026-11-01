@@ -35,7 +35,7 @@ Model Spec 2 (ggufv2, 7 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
-- **Quantizations:** Q4_0, Q8_0
+- **Quantizations:** q4_0, q8_0
 - **Engines**: llama.cpp
 - **Model ID:** SeaLLMs/SeaLLM-7B-v2-gguf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/SeaLLMs/SeaLLM-7B-v2-gguf>`__
