@@ -51,7 +51,7 @@ Model Spec 3 (ggufv2, 671 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 671
-- **Quantizations:** Q2_K_L, Q2_K_XS, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0
+- **Quantizations:** Q2_K_L, Q2_K_XS, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K
 - **Engines**: vLLM, llama.cpp
 - **Model ID:** unsloth/DeepSeek-V3-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/DeepSeek-V3-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/DeepSeek-V3-GGUF>`__
@@ -62,7 +62,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name deepseek-v3 --size-in-billions 671 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 4 (mlx, 671 Billion)
+Model Spec 4 (ggufv2, 671 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 671
+- **Quantizations:** Q8_0
+- **Engines**: vLLM, llama.cpp
+- **Model ID:** unsloth/DeepSeek-V3-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/DeepSeek-V3-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/DeepSeek-V3-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name deepseek-v3 --size-in-billions 671 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 5 (mlx, 671 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
