@@ -320,9 +320,22 @@ class ChatModelMixin:
             extensions=["jinja2.ext.loopcontrols"],
         )
         jinja_env.globals["raise_exception"] = raise_exception
+
         # Model templates use the Transformers filter's json.dumps options,
         # including ensure_ascii, which Jinja's built-in filter does not accept.
-        jinja_env.filters["tojson"] = json.dumps
+        # Like Transformers, keep non-ASCII text unless a template asks otherwise.
+        def tojson(
+            x, ensure_ascii=False, indent=None, separators=None, sort_keys=False
+        ):
+            return json.dumps(
+                x,
+                ensure_ascii=ensure_ascii,
+                indent=indent,
+                separators=separators,
+                sort_keys=sort_keys,
+            )
+
+        jinja_env.filters["tojson"] = tojson
         return jinja_env.from_string(chat_template)
 
     @staticmethod
