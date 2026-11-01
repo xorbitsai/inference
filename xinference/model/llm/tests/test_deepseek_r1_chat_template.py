@@ -220,3 +220,82 @@ def test_anthropic_text_and_tool_use_history_keeps_the_call(model_name, render):
         "<｜tool▁calls▁end｜><｜end▁of▁sentence｜>"
     ) in prompt
     assert "RESULT_42" in prompt
+
+
+# The R1 template joins later tool outputs directly; the Distill one puts each
+# on a new line.
+OUTPUT_SEP = {"deepseek-r1": "", "deepseek-r1-distill-qwen": "\n"}
+
+
+def _output_markup(i):
+    return f"<｜tool▁output▁begin｜>OUT_{i}<｜tool▁output▁end｜>"
+
+
+@pytest.mark.parametrize("model_name", FAMILIES)
+@pytest.mark.parametrize("render", ["raw", "tokenizer"])
+def test_sequential_tool_rounds_each_open_and_close_their_groups(model_name, render):
+    sep = OUTPUT_SEP[model_name]
+    prompt = _render_with(
+        render,
+        model_name,
+        [
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": "LOOKING", "tool_calls": [_call(1)]},
+            {"role": "tool", "tool_call_id": "call_1", "content": "OUT_1"},
+            {"role": "assistant", "content": None, "tool_calls": [_call(2), _call(3)]},
+            {"role": "tool", "tool_call_id": "call_2", "content": "OUT_2"},
+            {"role": "tool", "tool_call_id": "call_3", "content": "OUT_3"},
+            {"role": "assistant", "content": "", "tool_calls": [_call(4)]},
+            {"role": "tool", "tool_call_id": "call_4", "content": "OUT_4"},
+            {"role": "assistant", "content": "DONE"},
+            {"role": "user", "content": "again"},
+        ],
+    )
+
+    # Like the final answer, a later round continues right after
+    # <｜tool▁outputs▁end｜> instead of opening a new assistant turn.
+    assert prompt == (
+        "<｜User｜>Q<｜Assistant｜>LOOKING<｜tool▁calls▁begin｜>"
+        + _call_markup(1)
+        + "<｜tool▁calls▁end｜><｜end▁of▁sentence｜>"
+        "<｜tool▁outputs▁begin｜>" + _output_markup(1) + "<｜tool▁outputs▁end｜>"
+        "<｜tool▁calls▁begin｜>"
+        + _call_markup(2)
+        + "\n"
+        + _call_markup(3)
+        + "<｜tool▁calls▁end｜><｜end▁of▁sentence｜>"
+        "<｜tool▁outputs▁begin｜>"
+        + _output_markup(2)
+        + sep
+        + _output_markup(3)
+        + "<｜tool▁outputs▁end｜>"
+        "<｜tool▁calls▁begin｜>"
+        + _call_markup(4)
+        + "<｜tool▁calls▁end｜><｜end▁of▁sentence｜>"
+        "<｜tool▁outputs▁begin｜>" + _output_markup(4) + "<｜tool▁outputs▁end｜>"
+        "DONE<｜end▁of▁sentence｜><｜User｜>again<｜Assistant｜><think>\n"
+    )
+
+
+@pytest.mark.parametrize("model_name", FAMILIES)
+@pytest.mark.parametrize("render", ["raw", "tokenizer"])
+def test_user_turn_after_tool_results_closes_the_output_group(model_name, render):
+    prompt = _render_with(
+        render,
+        model_name,
+        [
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": None, "tool_calls": [_call(1)]},
+            {"role": "tool", "tool_call_id": "call_1", "content": "OUT_1"},
+            {"role": "user", "content": "again"},
+        ],
+    )
+
+    assert prompt == (
+        "<｜User｜>Q<｜Assistant｜><｜tool▁calls▁begin｜>"
+        + _call_markup(1)
+        + "<｜tool▁calls▁end｜><｜end▁of▁sentence｜>"
+        "<｜tool▁outputs▁begin｜>"
+        + _output_markup(1)
+        + "<｜tool▁outputs▁end｜><｜User｜>again<｜Assistant｜><think>\n"
+    )
