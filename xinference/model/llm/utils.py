@@ -1766,16 +1766,20 @@ def generate_completion_chunk(
     total_tokens: int,
     has_choice: bool = True,
     has_content: bool = True,
+    stop_sequence: Optional[str] = None,
 ):
     choices = []
     if has_choice:
-        choices.append(
+        choice = (
             CompletionChoice(
                 text=chunk_text, index=0, logprobs=None, finish_reason=finish_reason
             )
             if has_content
             else CompletionChoice(index=0, logprobs=None, finish_reason=finish_reason)
         )
+        if stop_sequence is not None:
+            choice["stop_sequence"] = stop_sequence
+        choices.append(choice)
     return CompletionChunk(
         id=chunk_id,
         object="text_completion",
