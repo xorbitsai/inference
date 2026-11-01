@@ -150,7 +150,7 @@ class XavierHistoryProxy(xo.StatelessActor):
                     continue
                 target = await self._target()
                 found = await asyncio.wait_for(
-                    target.exists(namespace, keys), self.read_timeout
+                    target.verified_prefix(namespace, keys), self.read_timeout
                 )
                 if found < start:
                     # The caller's live prefix need not exist in history. Its

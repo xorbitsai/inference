@@ -82,5 +82,17 @@ class XavierHistoryCacheActor(XavierCacheActor):
             result.append(page.numpy().tobytes())
         return result
 
+    async def verified_prefix(self, namespace: str, keys: list[str]) -> int:
+        # The LMCache directory is optimistic. Only the background writer needs
+        # to confirm residency before skipping publication; reuse the bounded
+        # read path to reconcile L2 eviction without transferring payloads by RPC.
+        candidates = self.exists(namespace, keys)
+        if not candidates:
+            return 0
+        pages = await super().get(namespace, keys[:candidates])
+        return next(
+            (index for index, page in enumerate(pages) if page is None), len(pages)
+        )
+
     def get_stats(self):
         return {**super().get_stats(), "namespace": self._wire_namespace}

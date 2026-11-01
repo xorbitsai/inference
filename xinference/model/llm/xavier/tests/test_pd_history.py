@@ -73,6 +73,14 @@ async def test_real_history_actor_proxy_roundtrip_through_disk(tmp_path):
                 == []
             )
             assert (await store.get_stats())["backend_stats"]["l2_hits"] == 2
+            await store.evict_l2_pages()
+            assert await fresh.exists(c.fingerprint, keys) == 2
+            # No history get reconciles the stale directory before publication.
+            assert await fresh.put(c.fingerprint, keys, pages) == [True, True]
+            await fresh.flush()
+            await store.force_disk_reads()
+            assert await fresh.get(c.fingerprint, keys) == pages
+            assert (await store.get_stats())["backend_stats"]["l2_hits"] == 4
         finally:
             for ref in reversed(refs):
                 await xo.destroy_actor(ref)
@@ -153,9 +161,17 @@ async def test_history_proxy_put_does_not_wait_for_l2_and_bounds_queued_copies(
     async def put(*args):
         return store.put(*args)
 
+    async def verified_prefix(*args):
+        await gate.wait()
+        return await store.verified_prefix(*args)
+
     proxy = XavierHistoryProxy({}, c.num_layers * c.layer_nbytes)
     proxy._ref = SimpleNamespace(
-        configure=configure, exists=exists, put=put, get=store.get
+        configure=configure,
+        exists=exists,
+        verified_prefix=verified_prefix,
+        put=put,
+        get=store.get,
     )
     await proxy.configure(c.to_dict())
     keys = prefix_keys(list(range(129)))
@@ -194,7 +210,7 @@ async def history_proxy(monkeypatch):
     proxy._ref = SimpleNamespace(
         **{
             method: AsyncMock(side_effect=getattr(store, method))
-            for method in ("configure", "exists", "get", "put")
+            for method in ("configure", "exists", "verified_prefix", "get", "put")
         }
     )
     await proxy.configure(c.to_dict())
@@ -206,21 +222,39 @@ async def history_proxy(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_history_proxy_revalidates_evicted_pages_and_republishes(history_proxy):
+@pytest.mark.parametrize("eviction", ["directory", "all-l2", "head-l2", "tail-l2"])
+async def test_history_proxy_revalidates_evicted_pages_and_republishes(
+    history_proxy, eviction
+):
     proxy, store, c = history_proxy
     keys = prefix_keys(list(range(129)))
-    pages = [bytes(c.num_layers * c.layer_nbytes)] * 2
+    pages = [bytes([i + 1]) * c.num_layers * c.layer_nbytes for i in range(2)]
     store._store._directory_capacity = 2
     proxy.put(c.fingerprint, keys, pages)
     await proxy.flush()
     assert await proxy.exists(c.fingerprint, keys) == 2
-    store.put(c.fingerprint, prefix_keys([9] * 129), pages)
-    assert await proxy.exists(c.fingerprint, keys) == 0
-    assert await proxy.get(c.fingerprint, keys) == []
+    if eviction == "directory":
+        store.put(c.fingerprint, prefix_keys([9] * 129), pages)
+        assert store.exists(c.fingerprint, keys) == 0
+    else:
+        storage_keys = store._keys(c.fingerprint, keys)
+        removed = (
+            storage_keys
+            if eviction == "all-l2"
+            else storage_keys[:1] if eviction == "head-l2" else storage_keys[1:]
+        )
+        for key in removed:
+            del store._store._storage.pages[key]
+        # Independent L2 eviction deliberately leaves the optimistic directory.
+        assert store.exists(c.fingerprint, keys) == 2
     assert proxy.pending_prefix(c.fingerprint, keys) == 0
+    # A full engine-local hit can publish without first fetching history.
+    proxy._ref.get.assert_not_awaited()
     proxy.put(c.fingerprint, keys, pages)
     await proxy.flush()
+    proxy._ref.get.assert_not_awaited()
     assert await proxy.get(c.fingerprint, keys) == pages
+    assert not store._store.ready and not store._store.leases
 
 
 @pytest.mark.asyncio
@@ -264,11 +298,11 @@ async def test_history_proxy_read_backoff_does_not_drop_writes(
         # Hold an already queued write while the separate read fails.
         gate = asyncio.Event()
 
-        async def exists(*args):
+        async def verified_prefix(*args):
             await gate.wait()
-            return store.exists(*args)
+            return await store.verified_prefix(*args)
 
-        proxy._ref.exists.side_effect = exists
+        proxy._ref.verified_prefix.side_effect = verified_prefix
         proxy.put(c.fingerprint, keys[:1], [page])
     assert await getattr(proxy, method)(c.fingerprint, keys) == (
         0 if method == "exists" else []
@@ -343,7 +377,9 @@ async def test_history_write_failure_drops_only_history_and_allows_prefill(monke
         raise ConnectionError("L2 is unavailable")
 
     proxy = XavierHistoryProxy({}, 4 * c.num_layers * c.layer_nbytes)
-    proxy._ref = SimpleNamespace(configure=configure, exists=unavailable)
+    proxy._ref = SimpleNamespace(
+        configure=configure, exists=unavailable, verified_prefix=unavailable
+    )
     await proxy.configure(c.to_dict())
     keys = prefix_keys(list(range(129)))
     page = bytes(c.num_layers * c.layer_nbytes)

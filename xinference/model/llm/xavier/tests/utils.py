@@ -76,6 +76,14 @@ class DiskCacheActor(XavierCacheActor):
 
 
 class DiskHistoryCacheActor(XavierHistoryCacheActor):
+    async def evict_l2_pages(self):
+        """Leave Xavier's directory stale after evicting this actor's objects."""
+        await self.force_disk_reads()
+        storage = self._store._storage
+        keys = [storage._key(key) for key in self._store._known]
+        for _, adapter in storage.manager.l2_adapters():
+            adapter.delete(keys)
+
     async def force_disk_reads(self):
         await DiskCacheActor.force_disk_reads(self)
         # A store can finish just before LMCache releases its final L1 lock.
