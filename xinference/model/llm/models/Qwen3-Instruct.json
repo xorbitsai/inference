@@ -1375,7 +1375,7 @@
         "model_src": {
           "huggingface": {
             "quantizations": [
-              "BF16",
+              "F16",
               "IQ4_NL",
               "IQ4_XS",
               "Q2_K",
@@ -1407,7 +1407,7 @@
           },
           "modelscope": {
             "quantizations": [
-              "BF16",
+              "F16",
               "IQ4_NL",
               "IQ4_XS",
               "Q2_K",
