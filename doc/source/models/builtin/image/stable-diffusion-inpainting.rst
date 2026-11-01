@@ -12,7 +12,7 @@ stable-diffusion-inpainting
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** runwayml/stable-diffusion-inpainting
+- **Model ID:** stable-diffusion-v1-5/stable-diffusion-inpainting
 
 Execute the following command to launch the model::
 
