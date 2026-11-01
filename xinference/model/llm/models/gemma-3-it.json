@@ -75,7 +75,7 @@
               "4bit",
               "6bit",
               "8bit",
-              "fp16"
+              "bf16"
             ],
             "model_id": "mlx-community/gemma-3-4b-it-{quantization}"
           },
@@ -84,7 +84,7 @@
               "4bit",
               "6bit",
               "8bit",
-              "fp16"
+              "bf16"
             ],
             "model_id": "mlx-community/gemma-3-4b-it-{quantization}"
           }
@@ -99,7 +99,7 @@
               "4bit",
               "6bit",
               "8bit",
-              "fp16"
+              "bf16"
             ],
             "model_id": "mlx-community/gemma-3-12b-it-{quantization}"
           },
@@ -108,7 +108,7 @@
               "4bit",
               "6bit",
               "8bit",
-              "fp16"
+              "bf16"
             ],
             "model_id": "mlx-community/gemma-3-12b-it-{quantization}"
           }
@@ -123,7 +123,7 @@
               "4bit",
               "6bit",
               "8bit",
-              "fp16"
+              "bf16"
             ],
             "model_id": "mlx-community/gemma-3-27b-it-{quantization}"
           },
@@ -132,7 +132,7 @@
               "4bit",
               "6bit",
               "8bit",
-              "fp16"
+              "bf16"
             ],
             "model_id": "mlx-community/gemma-3-27b-it-{quantization}"
           }
