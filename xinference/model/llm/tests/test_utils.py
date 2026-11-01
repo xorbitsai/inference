@@ -3929,6 +3929,82 @@ def test_llama3_tool_history_renders_arguments_as_an_object():
         assert '{"name": "get_weather", "parameters": {"city": "Paris"}}' in prompt
 
 
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "Deepseek-V3.1",
+        "DianJin-R1",
+        "HuatuoGPT-o1-Qwen2.5",
+        "InternVL3",
+        "KAT-V1",
+        "Ovis2",
+        "QwQ-32B-Preview",
+        "QwQ-32B",
+        "XiYanSQL-QwenCoder-2504",
+        "fin-r1",
+        "gpt-oss",
+        "qwen1.5-chat",
+        "qwen1.5-moe-chat",
+        "qwen2-instruct",
+        "qwen2-moe-instruct",
+        "qwen2.5-coder-instruct",
+        "qwen2.5-instruct-1m",
+        "qwen2.5-instruct",
+        "vibethinker",
+    ],
+)
+def test_tojson_tool_history_renders_arguments_as_an_object(model_name):
+    # These templates serialize history arguments with `tool_call.arguments |
+    # tojson` (or `tool['function']['arguments']|tojson`) and no string check,
+    # so OpenAI's JSON-string arguments were rendered as a quoted string.
+    from tokenizers import Tokenizer, models, pre_tokenizers
+    from transformers import PreTrainedTokenizerFast
+
+    from .. import BUILTIN_LLM_FAMILIES
+
+    messages = [
+        {"role": "user", "content": "weather?"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city": "Paris"}',
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "c1",
+            "name": "get_weather",
+            "content": '{"temp":25}',
+        },
+    ]
+    fam = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name)
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name=fam.model_name,
+        model_ability=fam.model_ability,
+        chat_template=fam.chat_template,
+    )
+    tokenizer = None
+    if model_name == "gpt-oss":
+        # gpt-oss calls strftime_now, which only apply_chat_template provides.
+        backend = Tokenizer(models.WordLevel({"[UNK]": 0}, unk_token="[UNK]"))
+        backend.pre_tokenizer = pre_tokenizers.Whitespace()
+        tokenizer = PreTrainedTokenizerFast(tokenizer_object=backend, unk_token="[UNK]")
+    prompt = mixin.get_full_context(
+        messages, chat_template=fam.chat_template, tokenizer=tokenizer
+    )
+    assert '{"city": "Paris"}' in prompt
+    assert '\\"city\\"' not in prompt
+
+
 def test_spark_x2_5_get_full_context_handles_string_arguments():
     # Regression for Spark's official template, which rejects OpenAI's JSON
     # string arguments before rendering tool-call continuation history.
