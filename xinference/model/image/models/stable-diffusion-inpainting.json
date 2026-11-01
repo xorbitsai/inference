@@ -8,8 +8,8 @@
     ],
     "model_src": {
       "huggingface": {
-        "model_id": "runwayml/stable-diffusion-inpainting",
-        "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d"
+        "model_id": "stable-diffusion-v1-5/stable-diffusion-inpainting",
+        "model_revision": "8a4288a76071f7280aedbdb3253bdb9e9d5d84bb"
       }
     },
     "updated_at": 1769418367,

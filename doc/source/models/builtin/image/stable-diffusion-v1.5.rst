@@ -12,7 +12,7 @@ stable-diffusion-v1.5
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** runwayml/stable-diffusion-v1-5
+- **Model ID:** stable-diffusion-v1-5/stable-diffusion-v1-5
 
 Execute the following command to launch the model::
 
