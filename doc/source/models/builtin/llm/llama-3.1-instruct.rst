@@ -198,7 +198,7 @@ Model Spec 12 (ggufv2, 8 Billion)
 - **Quantizations:** Q3_K_L, IQ4_XS, Q4_K_M, Q5_K_M, Q6_K, Q8_0
 - **Engines**: vLLM, llama.cpp
 - **Model ID:** lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-8B-Instruct-GGUF>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF>`__, `ModelScope <https://modelscope.cn/models/lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

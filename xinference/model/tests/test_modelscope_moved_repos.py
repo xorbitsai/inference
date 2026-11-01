@@ -74,3 +74,22 @@ def test_no_modelscope_source_points_at_a_moved_repo():
 
 def test_moved_specs_point_at_the_new_modelscope_repo():
     assert sorted(set(MOVED.values()) - _modelscope_ids()) == []
+
+
+def test_llama_3_1_8b_gguf_uses_the_repo_with_the_files_on_modelscope():
+    # LLM-Research/Meta-Llama-3.1-8B-Instruct-GGUF only has lower-case q2_k
+    # and hf-q3_k_m files; ModelScope mirrors the Hugging Face source repo.
+    path = os.path.join(MODEL_ROOT, "llm", "models", "llama-3.1-instruct.json")
+    with open(path, encoding="utf-8") as f:
+        families = json.load(f)
+    ids = {
+        hub: src["model_id"]
+        for family in families
+        for spec in family["model_specs"]
+        if spec["model_format"] == "ggufv2" and spec["model_size_in_billions"] == 8
+        for hub, src in spec["model_src"].items()
+    }
+    assert ids == {
+        "huggingface": "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
+        "modelscope": "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
+    }
