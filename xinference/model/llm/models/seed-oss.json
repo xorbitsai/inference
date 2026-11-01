@@ -39,7 +39,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "ByteDance-Seed/Seed-OSS-36B-Instruct"
+            "model_id": "bytedance-community/Seed-OSS-36B-Instruct"
           }
         }
       },

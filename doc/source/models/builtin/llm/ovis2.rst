@@ -22,7 +22,7 @@ Model Spec 1 (pytorch, 1 Billion)
 - **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** AIDC-AI/Ovis2-1B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-1B>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Ovis2-1B>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-1B>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Ovis2-1B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -38,7 +38,7 @@ Model Spec 2 (pytorch, 2 Billion)
 - **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** AIDC-AI/Ovis2-2B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-2B>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Ovis2-2B>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-2B>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Ovis2-2B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -54,7 +54,7 @@ Model Spec 3 (pytorch, 4 Billion)
 - **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** AIDC-AI/Ovis2-4B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-4B>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Ovis2-4B>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-4B>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Ovis2-4B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -70,7 +70,7 @@ Model Spec 4 (pytorch, 8 Billion)
 - **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** AIDC-AI/Ovis2-8B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-8B>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Ovis2-8B>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-8B>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Ovis2-8B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -86,7 +86,7 @@ Model Spec 5 (pytorch, 16 Billion)
 - **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** AIDC-AI/Ovis2-16B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-16B>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Ovis2-16B>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-16B>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Ovis2-16B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -102,7 +102,7 @@ Model Spec 6 (pytorch, 34 Billion)
 - **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** AIDC-AI/Ovis2-34B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-34B>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Ovis2-34B>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-34B>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Ovis2-34B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -118,7 +118,7 @@ Model Spec 7 (gptq, 2 Billion)
 - **Quantizations:** Int4
 - **Engines**: Transformers
 - **Model ID:** AIDC-AI/Ovis2-2B-GPTQ-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-2B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Ovis2-2B-GPTQ-{quantization}>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-2B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Ovis2-2B-GPTQ-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -134,7 +134,7 @@ Model Spec 8 (gptq, 4 Billion)
 - **Quantizations:** Int4
 - **Engines**: Transformers
 - **Model ID:** AIDC-AI/Ovis2-4B-GPTQ-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-4B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Ovis2-4B-GPTQ-{quantization}>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-4B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Ovis2-4B-GPTQ-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -150,7 +150,7 @@ Model Spec 9 (gptq, 8 Billion)
 - **Quantizations:** Int4
 - **Engines**: Transformers
 - **Model ID:** AIDC-AI/Ovis2-8B-GPTQ-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-8B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Ovis2-8B-GPTQ-{quantization}>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-8B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Ovis2-8B-GPTQ-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -166,7 +166,7 @@ Model Spec 10 (gptq, 16 Billion)
 - **Quantizations:** Int4
 - **Engines**: Transformers
 - **Model ID:** AIDC-AI/Ovis2-16B-GPTQ-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-16B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Ovis2-16B-GPTQ-{quantization}>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-16B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Ovis2-16B-GPTQ-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -182,7 +182,7 @@ Model Spec 11 (gptq, 34 Billion)
 - **Quantizations:** Int4, Int8
 - **Engines**: Transformers
 - **Model ID:** AIDC-AI/Ovis2-34B-GPTQ-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-34B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Ovis2-34B-GPTQ-{quantization}>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Ovis2-34B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Ovis2-34B-GPTQ-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
