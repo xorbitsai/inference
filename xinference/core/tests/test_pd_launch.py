@@ -41,6 +41,9 @@ async def launch_runtime(monkeypatch):
     async def create_actor(cls, *args, **kwargs):
         ref = AsyncMock(address=kwargs["address"], uid=kwargs["uid"])
         ref.constructor_kwargs = kwargs
+        ref.constructor_args = args
+        if cls.__name__ in ("XavierHistoryCacheActor", "XavierHistoryProxy"):
+            ref.uid = kwargs["uid"].encode()
         actors[cls.__name__] = ref
         return ref
 
@@ -1543,7 +1546,7 @@ async def test_lmcache_backend_launch_config(launch_runtime, lmcache_launch_opti
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "invalid", ["disabled", "pd", "gpu", "cpu", "unsupported", "mlx", "single"]
+    "invalid", ["disabled", "gpu", "cpu", "unsupported", "mlx", "single"]
 )
 async def test_lmcache_backend_rejects_unsupported_launch_before_side_effects(
     launch_runtime, invalid
@@ -1553,10 +1556,7 @@ async def test_lmcache_backend_rejects_unsupported_launch_before_side_effects(
     kwargs["enable_xavier"] = invalid != "disabled"
     for replica in kwargs["replica_config"]:
         replica.role = "hybrid"
-    if invalid == "pd":
-        kwargs["replica_config"][0].role = "prefill"
-        kwargs["replica_config"][1].role = "decode"
-    elif invalid == "gpu":
+    if invalid == "gpu":
         kwargs["xavier_gpu_cache_bytes"] = 0
     elif invalid == "cpu":
         kwargs["xavier_cache_bytes"] = 8192
@@ -1726,3 +1726,116 @@ async def test_cross_engine_cache_rejects_invalid_launch_without_side_effects(
     for worker in workers:
         worker.launch_builtin_model.assert_not_awaited()
         worker.launch_rank0_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("prefill", ["vLLM", "SGLang", "TRT-LLM", "MLX"])
+@pytest.mark.parametrize("decode", ["vLLM", "SGLang", "TRT-LLM", "MLX"])
+async def test_pd_history_attaches_only_to_prefill_and_cleans_up(
+    launch_runtime, prefill, decode
+):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    for cfg, engine in zip(kwargs["replica_config"], [prefill, decode]):
+        cfg.model_engine = engine
+        if engine == "MLX" and prefill != decode:
+            cfg.engine_config = {"model_format": "mlx"}
+    if prefill == decode == "MLX":
+        kwargs["model_format"] = "mlx"
+    if prefill == "MLX":
+        kwargs["xavier_cache_bytes"] = 16384
+    if (prefill, decode) != ("MLX", "MLX"):
+        kwargs["xavier_gpu_cache_bytes"] = 0
+    options = {"cpu_bytes": 8192, "disk_path": "/cache", "disk_bytes": 32768}
+    await supervisor.launch_builtin_model(
+        **kwargs, xavier_cache_backend="lmcache", xavier_cache_backend_config=options
+    )
+    store, proxy = actors["XavierHistoryCacheActor"], actors["XavierHistoryProxy"]
+    assert store.constructor_args[0]["config"] == {**options, "read_timeout": 30.0}
+    assert store.constructor_args[0]["namespace"]
+    assert proxy.address == workers[0].address
+    assert proxy.constructor_args == (
+        {"address": store.address, "uid": store.uid},
+        8192,
+    )
+    assert store.address == (
+        workers[0].address
+        if prefill != "MLX"
+        else workers[1].address if decode != "MLX" else supervisor.address
+    )
+    p, d = [w.launch_builtin_model.call_args.kwargs for w in workers]
+    assert p["_xavier_cache_config"]["prefix_cache"] == dict(
+        address=proxy.address,
+        uid="xavier-history-proxy-pd-1",
+        capacity_bytes=8192,
+        shared_prefix=True,
+        write_behind=True,
+        read_timeout=30.0,
+    )
+    assert "prefix_cache" not in d["_xavier_cache_config"]
+    for launch in (p, d):
+        assert launch["xavier_config"] is None
+        assert "cache_backend" not in launch["_xavier_cache_config"]
+    if prefill == "MLX":
+        live = actors[
+            "XavierBytesCacheActor" if decode == "MLX" else "XavierHostPDSource"
+        ]
+        assert live.constructor_kwargs["capacity_bytes"] == 16384
+    if [prefill, decode] != ["MLX", "MLX"]:
+        assert "XavierPDDirectory" in actors
+        assert p["_xavier_cache_config"]["heterogeneous"]
+    else:
+        assert "XavierBytesCacheActor" in actors
+    await supervisor.terminate_model("pd")
+    destroyed = [call.args[0] for call in destroy.await_args_list]
+    assert destroyed.index(proxy) < destroyed.index(store)
+    assert not supervisor._xavier_history_mapping
+    assert not supervisor._xavier_cache_mapping
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang", "TRT-LLM"])
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"transfer_backend_type": "nixl"},
+        {"xavier_gpu_cache_bytes": 1024},
+        {"xavier_cache_bytes": 8192},
+    ],
+)
+async def test_pd_history_rejects_incompatible_launch_before_side_effects(
+    launch_runtime, engine, invalid
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = {**launch_kwargs(), "model_engine": engine, **invalid}
+    with pytest.raises(ValueError, match="LMCache backend requires"):
+        await supervisor.launch_builtin_model(
+            **kwargs,
+            xavier_cache_backend="lmcache",
+            xavier_cache_backend_config={"disk_path": "/cache", "disk_bytes": 32768},
+        )
+    assert not actors and not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+        worker.launch_rank0_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_pd_history_rolls_back_actors_when_prefill_launch_fails(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    workers[0].wait_for_load.side_effect = RuntimeError("P failed")
+    with pytest.raises(RuntimeError, match="P failed"):
+        await supervisor.launch_builtin_model(
+            **launch_kwargs(),
+            xavier_cache_backend="lmcache",
+            xavier_cache_backend_config={
+                "cpu_bytes": 8192,
+                "disk_path": "/cache",
+                "disk_bytes": 32768,
+            },
+        )
+    assert not supervisor._xavier_history_mapping
+    assert not supervisor._xavier_cache_mapping
+    destroyed = [call.args[0] for call in destroy.await_args_list]
+    assert actors["XavierHistoryProxy"] in destroyed
+    assert actors["XavierHistoryCacheActor"] in destroyed

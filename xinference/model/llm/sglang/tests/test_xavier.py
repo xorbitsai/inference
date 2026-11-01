@@ -563,3 +563,30 @@ def test_host_page_dtype_error_names_contract_dtype(storage_class, dtype, other)
             adapter.batch_set(["key"], [torch.zeros(1, dtype=getattr(torch, other))])
     finally:
         adapter.close()
+
+
+@pytest.mark.parametrize("role", ["prefill", "decode"])
+def test_pd_history_keeps_gpu_transport_and_enables_only_p_hicache(model_path, role):
+    model_config = {}
+    cache_config = dict(
+        address="pd:1",
+        uid="pd",
+        role=role,
+        heterogeneous=True,
+        prefix_cache=dict(
+            address="worker:1", uid="history", shared_prefix=True, write_behind=True
+        ),
+    )
+    if role == "decode":
+        with pytest.raises(ValueError, match="Only the prefill"):
+            configure_xavier(str(model_path), model_config, cache_config)
+        return
+    configure_xavier(str(model_path), model_config, cache_config)
+    assert model_config["disaggregation_mode"] == "prefill"
+    assert model_config["disaggregation_transfer_backend"] == "xavier"
+    assert model_config["enable_hierarchical_cache"]
+    assert not model_config["disaggregation_decode_enable_radix_cache"]
+    history = json.loads(model_config["hicache_storage_backend_extra_config"])
+    assert history["address"] == "worker:1" and history["uid"] == "history"
+    assert history["shared_prefix"] and "role" not in history
+    assert history["contract"] == cache_config["contract"]

@@ -197,9 +197,9 @@ msgstr "``cpu_bytes`` 限制每個 LMCache 執行個體的 DRAM 集區（預設 
 msgid "``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per storage instance; a timed-out or cancelled job still releases its LMCache read locks. Reads exceeding the transient capacity return a bounded prefix or fall back to local prefill. Compare TTFT and read latency against prefill cost for your workload."
 msgstr "``read_timeout`` 限制快取查找的等待秒數（預設 30）。快取遺失、無法使用或讀取逾時會退回本機 prefill。每個儲存執行個體最多執行一個 LMCache 預先擷取工作；逾時或取消後，工作仍會釋放 LMCache 讀取鎖定。超過暫時容量的讀取會傳回有界前綴或退回本機 prefill。請依工作負載比較 TTFT、讀取延遲和 prefill 成本。"
 
-#: source/user_guide/vllm_enhancement.rst:61
-msgid "For filesystem storage, the LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
-msgstr "對於檔案系統儲存，LMCache 後端要求同一引擎的多個一般副本，並保留該引擎現有的 Xavier 模型、dtype 和平行處理限制。不支援 P/D 角色、舊版 vLLM V0 或 MLX；P/D KV 交接仍由獨立的傳輸路徑負責。請使用後端 ``cpu_bytes``，而非 native 的 ``xavier_cache_bytes`` 或 ``xavier_gpu_cache_bytes`` 預算。後端選擇不會啟用跨引擎快取共用，也不會改變現有 cache-salt 行為。每個部署的每個儲存執行個體擁有獨立命名空間和目錄；重新啟動不會還原舊項目。正常關閉會刪除該目錄；程序當機後，請在確認不再使用時清理遺留的部署目錄。"
+#: source/user_guide/vllm_enhancement.rst
+msgid "For ordinary replicas, the LMCache backend requires multiple replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits; legacy vLLM V0 and ordinary MLX replicas are unsupported. For P/D roles, see :ref:`xavier-pd-lmcache`. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not change cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
+msgstr "對於一般副本，LMCache 後端要求同一引擎的多個副本，並保留該引擎現有的 Xavier 模型、dtype 和平行處理限制；舊版 vLLM V0 和一般 MLX 副本不受支援。P/D 角色請參閱 :ref:`xavier-pd-lmcache`。請使用後端 ``cpu_bytes``，而非 native 的 ``xavier_cache_bytes`` 或 ``xavier_gpu_cache_bytes`` 預算。後端選擇不會改變 cache-salt 行為。每個部署的每個儲存執行個體擁有獨立命名空間和目錄；重新啟動不會還原舊項目。正常關閉會刪除該目錄；程序當機後，請在確認不再使用時清理遺留的部署目錄。"
 
 #: source/user_guide/vllm_enhancement.rst:34
 msgid "LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas."
@@ -356,9 +356,9 @@ msgstr "此適配器的 TRT-LLM 尚不支援 ``cache_salt``。"
 msgid "Mooncake Store"
 msgstr "Mooncake Store"
 
-#: source/user_guide/vllm_enhancement.rst:189
-msgid "Set ``l2_backend=\"mooncake\"`` in ``xavier_cache_backend_config`` to use LMCache's Mooncake Store adapter. The default ``l2_backend=\"filesystem\"`` preserves the disk configuration above. This selects storage for ordinary prefix-cache reuse; P/D transport and supported engine/model combinations remain the same."
-msgstr "在 ``xavier_cache_backend_config`` 中設定 ``l2_backend=\"mooncake\"``，即可使用 LMCache 的 Mooncake Store 介面卡。預設的 ``l2_backend=\"filesystem\"`` 保留上方磁碟設定。此選項用於一般前綴快取重用的儲存，P/D 傳輸方式及支援的引擎與模型組合維持一致。"
+#: source/user_guide/vllm_enhancement.rst
+msgid "Set ``l2_backend=\"mooncake\"`` in ``xavier_cache_backend_config`` to use LMCache's Mooncake Store adapter. The default ``l2_backend=\"filesystem\"`` preserves the disk configuration above. This selects storage for ordinary prefix-cache reuse or P-side history; P/D transport and supported engine/model combinations remain the same."
+msgstr "在 ``xavier_cache_backend_config`` 中設定 ``l2_backend=\"mooncake\"``，即可使用 LMCache 的 Mooncake Store 介面卡。預設的 ``l2_backend=\"filesystem\"`` 保留上方磁碟設定。此選項用於一般前綴快取重用或 P 端歷史快取的儲存，P/D 傳輸方式及支援的引擎與模型組合維持一致。"
 
 #: source/user_guide/vllm_enhancement.rst:191
 msgid "The storage environment needs LMCache built with ``BUILD_MOONCAKE=1`` and compatible Mooncake SDK headers and libraries. Start the Mooncake master, metadata service and storage pool first. Use a reachable ``local_hostname`` without a port; Mooncake allocates a distinct port for each storage actor. Replace the endpoints in this TCP example with reachable service addresses, and pass the object as ``xavier_cache_backend_config``:"
@@ -444,3 +444,50 @@ msgstr "針對重複前綴，將 TTFT 與接收引擎的本機 prefill 比較。
 #: user_guide/vllm_enhancement.rst
 msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."
 msgstr "請求必須使用部署中所有引擎皆支援的選項。TRT-LLM 不支援工具、``response_format``、對數機率、``echo`` 和 ``n>1``。MLX Xavier 不支援結構化 ``response_format``、強制工具選擇和思考預算。否則，請求能否成功可能取決於被路由到的副本。"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "LMCache history for P/D"
+msgstr "P/D 的 LMCache 歷史快取"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "Select ``xavier_cache_backend=\"lmcache\"`` and pass the backend configuration above when launching Xavier P/D roles. Prefill can run on vLLM, SGLang, TRT-LLM or MLX, including cross-engine deployments. Decode keeps the existing Xavier handoff and does not access LMCache. Native NIXL deployments cannot use this option."
+msgstr "啟動 Xavier P/D 角色時，選擇 ``xavier_cache_backend=\"lmcache\"`` 並傳入上方後端設定。Prefill 可使用 vLLM、SGLang、TRT-LLM 或 MLX，也支援跨引擎部署。Decode 沿用現有 Xavier 交接，不存取 LMCache。原生 NIXL 部署不能使用此選項。"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "P restores compatible historical prefix pages before computing the remaining prompt. Owned CPU snapshots enter a worker-local write queue bounded by ``cpu_bytes`` per P replica; LMCache writes run in the background. A full queue or failed write drops optional history. Missing or failed reads compute locally, while live P/D transfer failures still raise errors. CPU snapshot packing and local enqueueing remain part of prefill latency; asynchronous writes do not remove those costs."
+msgstr "P 在計算剩餘提示詞前還原相容的歷史前綴頁。擁有獨立記憶體的 CPU 快照進入 worker 本機寫入佇列，每個 P 副本的佇列受 ``cpu_bytes`` 限制；LMCache 在背景寫入。佇列已滿或寫入失敗時捨棄選用的歷史快取。讀取缺失或失敗時在本機計算，live P/D 傳輸失敗仍會報錯。CPU 快照打包和本機入列仍屬於 prefill 延遲，非同步寫入不會消除這些成本。"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "One shared LMCache history store runs on the first CUDA worker; install ``xinference[xavier-lmcache]`` in that worker's environment. All-MLX groups require a Linux model-service host for the store. Each P replica adds a bounded CPU write queue and owned read buffers; SGLang also allocates its native HiCache host pool. Include these allocations in addition to the LMCache memory budgets above. Disk paths belong to the storage host."
+msgstr "共用 LMCache 歷史儲存執行於第一個 CUDA worker；請在該 worker 環境安裝 ``xinference[xavier-lmcache]``。全 MLX 部署需要 Linux 模型服務主機承載儲存。每個 P 副本額外使用有界 CPU 寫入佇列和獨立讀取緩衝區；SGLang 也會配置原生 HiCache 主機記憶體池。除上述 LMCache 記憶體預算外，還須計入這些配置。磁碟路徑屬於儲存主機。"
+
+#: user_guide/vllm_enhancement.rst:248
+msgid ""
+"This option uses the canonical P/D model contract and its model, dtype, "
+"single-device and 64-token page restrictions, even for same-engine CUDA "
+"groups. CUDA P/D also uses the canonical request path, which rejects "
+"logprobs and structured outputs (``guided_*``, ``structured_outputs``, "
+"``json_schema`` and JSON ``response_format``). See "
+":ref:`user_guide_pd_separation`. Engine-local prefix reuse remains available"
+" on vLLM, SGLang and MLX P. TRT-LLM isolates native prefix reuse per request"
+" and uses LMCache for historical reuse. Different cache salts remain "
+"isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. "
+"Historical entries are scoped to the deployment and are not recovered after "
+"relaunch."
+msgstr ""
+"此選項使用標準化的 P/D 模型契約及其模型、dtype、單裝置和 64-token 頁限制，同引擎 CUDA 部署也遵循這些限制。CUDA P/D "
+"也使用標準化的請求路徑，不支援 logprobs "
+"和結構化輸出（``guided_*``、``structured_outputs``、``json_schema`` 及 JSON "
+"``response_format``）。請參閱 :ref:`user_guide_pd_separation`。vLLM、SGLang 和 MLX 的"
+" P 仍可重用引擎本機前綴快取。TRT-LLM 依請求隔離原生前綴重用，透過 LMCache 重用歷史前綴。不同 cache salt "
+"保持隔離；TRT-LLM 仍拒絕 ``cache_salt``。歷史項目限於目前部署，重新啟動後不會還原。"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "For MLX prefill, ``xavier_cache_bytes`` still bounds live host handoff pages independently of LMCache. CUDA P/D may omit ``xavier_gpu_cache_bytes`` or set it to ``0``; retained Xavier GPU history is disabled with this backend."
+msgstr "對於 MLX prefill，``xavier_cache_bytes`` 仍獨立於 LMCache 限制 live 主機交接頁的容量。CUDA P/D 可以省略 ``xavier_gpu_cache_bytes`` 或將其設為 ``0``；此後端不保留 Xavier GPU 歷史快取。"
+
+#: user_guide/vllm_enhancement.rst:250
+msgid ""
+"On vLLM P, each scheduler-side history RPC has a one-second deadline; "
+"``read_timeout`` bounds the proxy's storage work."
+msgstr "在 vLLM P 上，排程器端每次歷史快取 RPC 的逾時為一秒；``read_timeout`` 限制代理存取儲存的等待時間。"

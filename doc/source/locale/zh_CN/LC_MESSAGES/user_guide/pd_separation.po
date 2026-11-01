@@ -330,8 +330,8 @@ msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIX
 msgstr "SGLang Xavier P/D 通过 Xavier 的 NIXL 传输在 GPU 之间直接传递 KV。Prefill 和 decode 使用 SGLang 原生 P/D 生命周期并行运行。源和目标 GPU 槽位保留所有权，直到传输完成；decode 还会接收 prefill 采样的第一个 token。支持流式和非流式响应。传输失败会报错。"
 
 #: source/user_guide/pd_separation.rst
-msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
-msgstr "SGLang GPU P/D 不使用 ``xavier_cache_bytes`` 或 CPU HiCache。尚不支持保留 Xavier GPU 历史缓存；可以省略 ``xavier_gpu_cache_bytes`` 或将其设为 ``0``。Worker 重启后需重新启动部署。请针对实际负载，对比普通副本和原生 SGLang P/D 的 TTFT 与吞吐量。"
+msgid "By default, SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Optional P-side LMCache history enables native HiCache on P only; see :ref:`xavier-pd-lmcache`. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
+msgstr "默认情况下，SGLang GPU P/D 不使用 ``xavier_cache_bytes`` 或 CPU HiCache。可选的 P 侧 LMCache 历史缓存仅在 P 启用原生 HiCache，参见 :ref:`xavier-pd-lmcache`。尚不支持保留 Xavier GPU 历史缓存；可以省略 ``xavier_gpu_cache_bytes`` 或将其设为 ``0``。Worker 重启后需重新启动部署。请针对实际负载，对比普通副本和原生 SGLang P/D 的 TTFT 与吞吐量。"
 
 #: source/user_guide/pd_separation.rst
 msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
@@ -456,17 +456,9 @@ msgstr ""
 "导入最后一个 prompt token 之前的 KV，计算该 token 后采样输出。引擎算子可能产生小幅数值差异。vLLM decode 要求至少两个"
 " prompt token。"
 
-#: user_guide/pd_separation.rst
-msgid ""
-"Cross-engine P/D does not support CPU fallback, retained Xavier history, "
-"logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs"
-" or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do"
-" not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native "
-"NIXL comparisons use the same engine on both roles."
-msgstr ""
-"跨引擎 P/D 不支持 CPU 回退、Xavier 历史缓存、logprobs、结构化采样、LoRA、推测解码、多模态输入或混合注意力。省略 "
-"``xavier_gpu_cache_bytes`` 或设为 ``0``，不要设置 ``xavier_cache_bytes``。worker "
-"重启后需要重新部署。原生 NIXL 对照在两个角色上使用相同引擎。"
+#: source/user_guide/pd_separation.rst
+msgid "Cross-engine P/D does not support CPU fallback, retained Xavier GPU history, logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native NIXL comparisons use the same engine on both roles."
+msgstr "跨引擎 P/D 不支持 CPU 回退、Xavier GPU 历史缓存、logprobs、结构化采样、LoRA、推测解码、多模态输入或混合注意力。省略 ``xavier_gpu_cache_bytes`` 或设为 ``0``，不要设置 ``xavier_cache_bytes``。worker 重启后需要重新部署。原生 NIXL 对照在两个角色上使用相同引擎。"
 
 #: user_guide/pd_separation.rst
 msgid "NVIDIA and MLX cross-engine P/D"
@@ -574,9 +566,9 @@ msgstr ""
 "同引擎 P/D 部署先选择引擎，再选择下方该引擎的原生 NIXL 或 Xavier 后端。vLLM、SGLang 和 TRT-LLM "
 "均支持这两种方式，默认使用 Xavier。MLX 仅支持 Xavier。异构引擎部署使用 Xavier，后文单独介绍。"
 
-#: source/user_guide/pd_separation.rst:16
-msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. LMCache support was added in v4.1.0. See :ref:`user_guide_vllm_enhancement` for storage configuration."
-msgstr "原生 NIXL 使用引擎自身的 P/D 连接器。Xavier 的 GPU 传输也使用 NIXL，由 Xavier 管理缓存交接。``xavier_cache_backend`` 设置（``native`` 或 ``lmcache``）选择普通前缀缓存共享的存储后端，与 P/D 传输分别配置。 LMCache 支持在 v4.1.0 中新增。 存储配置请参见 :ref:`user_guide_vllm_enhancement`。"
+#: source/user_guide/pd_separation.rst
+msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects prefix-cache storage separately from P/D transport. Starting in v4.2.0, LMCache can provide optional historical prefix reuse on P for all four engines; D continues to use Xavier handoff. See :ref:`xavier-pd-lmcache` for configuration and limits."
+msgstr "原生 NIXL 使用引擎自身的 P/D 连接器。Xavier 的 GPU 传输也使用 NIXL，由 Xavier 管理缓存交接。``xavier_cache_backend`` 设置（``native`` 或 ``lmcache``）选择前缀缓存存储，与 P/D 传输分别配置。从 v4.2.0 起，LMCache 可为四种引擎的 P 提供可选的历史前缀复用，D 继续使用 Xavier 交接。配置和限制参见 :ref:`xavier-pd-lmcache`。"
 
 #: source/user_guide/pd_separation.rst:22
 msgid "Python client"

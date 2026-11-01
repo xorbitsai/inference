@@ -337,8 +337,8 @@ msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIX
 msgstr "SGLang Xavier P/D は Xavier の NIXL トランスポートで GPU 間に KV を直接転送します。Prefill と decode は SGLang ネイティブの P/D ライフサイクルで並行実行されます。転送完了まで送信元と送信先の GPU スロットの所有権を保持し、decode は prefill がサンプリングした最初のトークンも受け取ります。ストリーミングと非ストリーミングに対応し、転送失敗はエラーになります。"
 
 #: source/user_guide/pd_separation.rst
-msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
-msgstr "SGLang GPU P/D は ``xavier_cache_bytes`` や CPU HiCache を使用しません。Xavier GPU 履歴キャッシュの保持は未対応で、``xavier_gpu_cache_bytes`` は省略するか ``0`` に設定してください。worker の再起動後はデプロイを再起動してください。実際の負荷で通常のレプリカとネイティブ SGLang P/D に対する TTFT とスループットを測定してください。"
+msgid "By default, SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Optional P-side LMCache history enables native HiCache on P only; see :ref:`xavier-pd-lmcache`. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
+msgstr "通常、SGLang GPU P/D は ``xavier_cache_bytes`` や CPU HiCache を使用しません。任意の P 側 LMCache 履歴を使うと P のみでネイティブ HiCache を有効にします。:ref:`xavier-pd-lmcache` を参照してください。Xavier GPU 履歴キャッシュの保持は未対応で、``xavier_gpu_cache_bytes`` は省略するか ``0`` に設定してください。worker の再起動後はデプロイを再起動してください。実際の負荷で通常のレプリカとネイティブ SGLang P/D に対する TTFT とスループットを測定してください。"
 
 #: source/user_guide/pd_separation.rst
 msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
@@ -471,18 +471,9 @@ msgstr ""
 "を計算して出力をサンプリングします。エンジンのカーネルによって小さな数値差が生じる場合があります。vLLM decode には最低 2 個の "
 "prompt token が必要です。"
 
-#: user_guide/pd_separation.rst
-msgid ""
-"Cross-engine P/D does not support CPU fallback, retained Xavier history, "
-"logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs"
-" or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do"
-" not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native "
-"NIXL comparisons use the same engine on both roles."
-msgstr ""
-"エンジン間 P/D は CPU フォールバック、Xavier "
-"履歴、logprobs、構造化サンプリング、LoRA、投機的デコード、マルチモーダル入力、ハイブリッド注意をサポートしません。``xavier_gpu_cache_bytes``"
-" は省略するか ``0`` にし、``xavier_cache_bytes`` は設定しないでください。ワーカー再起動後は再デプロイします。ネイティブ "
-"NIXL の比較では両役割に同一エンジンを使います。"
+#: source/user_guide/pd_separation.rst
+msgid "Cross-engine P/D does not support CPU fallback, retained Xavier GPU history, logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native NIXL comparisons use the same engine on both roles."
+msgstr "エンジン間 P/D は CPU フォールバック、Xavier GPU 履歴、logprobs、構造化サンプリング、LoRA、投機的デコード、マルチモーダル入力、ハイブリッド注意をサポートしません。``xavier_gpu_cache_bytes`` は省略するか ``0`` にし、``xavier_cache_bytes`` は設定しないでください。ワーカー再起動後は再デプロイします。ネイティブ NIXL の比較では両役割に同一エンジンを使います。"
 
 #: user_guide/pd_separation.rst
 msgid "NVIDIA and MLX cross-engine P/D"
@@ -598,9 +589,9 @@ msgstr ""
 "バックエンドを選択します。vLLM、SGLang、TRT-LLM は両方に対応し、デフォルトは Xavier です。MLX は Xavier "
 "のみに対応します。異種エンジンの構成では Xavier を使用し、別のセクションで説明します。"
 
-#: source/user_guide/pd_separation.rst:16
-msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. LMCache support was added in v4.1.0. See :ref:`user_guide_vllm_enhancement` for storage configuration."
-msgstr "ネイティブ NIXL はエンジン自身の P/D コネクターを使用します。Xavier の GPU 転送も NIXL を使用し、受け渡しは Xavier が管理します。``xavier_cache_backend`` 設定（``native`` または ``lmcache``）は通常のプレフィックスキャッシュ共有用ストレージを選択する設定で、P/D 転送とは別に設定します。 LMCache のサポートは v4.1.0 で追加されました。 ストレージ設定は :ref:`user_guide_vllm_enhancement` を参照してください。"
+#: source/user_guide/pd_separation.rst
+msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects prefix-cache storage separately from P/D transport. Starting in v4.2.0, LMCache can provide optional historical prefix reuse on P for all four engines; D continues to use Xavier handoff. See :ref:`xavier-pd-lmcache` for configuration and limits."
+msgstr "ネイティブ NIXL はエンジン自身の P/D コネクターを使用します。Xavier の GPU 転送も NIXL を使い、引き渡しは Xavier が管理します。``xavier_cache_backend``（``native`` または ``lmcache``）は P/D 転送とは別にプレフィックスキャッシュのストレージを選択します。v4.2.0 以降、LMCache は全4エンジンの P に任意の履歴プレフィックス再利用を提供でき、D は Xavier の引き渡しを使い続けます。設定と制限は :ref:`xavier-pd-lmcache` を参照してください。"
 
 #: source/user_guide/pd_separation.rst:22
 msgid "Python client"

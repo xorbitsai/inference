@@ -76,6 +76,7 @@ class CrossEngineMetadata(KVConnectorMetadata):
     loads: list[tuple[str, int, list[int]]] = field(default_factory=list)
     errors: dict[str, str] = field(default_factory=dict)
     pending_aborts: dict[str, int] = field(default_factory=dict)
+    prefix_meta: object = None
 
 
 class CrossEngineConnector(XavierConnector):
@@ -95,6 +96,19 @@ class CrossEngineConnector(XavierConnector):
         self._cross_allocated = {}
         self._cross_prepare_errors = {}
         self._pending_aborts = {}
+        self._prefix_history = None
+        if self._is_producer and self._xavier_config.get("prefix_cache"):
+            from .prefix import PrefixConnector
+
+            self._prefix_history = PrefixConnector(
+                vllm_config,
+                role,
+                kv_cache_config,
+                cache_config={
+                    **self._xavier_config["prefix_cache"],
+                    "contract": self.contract.to_dict(),
+                },
+            )
 
     async def directory(self):
         if self._directory is None:
@@ -159,6 +173,8 @@ class CrossEngineConnector(XavierConnector):
     def register_kv_caches(self, kv_caches):
         super().register_kv_caches(kv_caches)
         self._call(self._ensure_gpu_cache_mapping())
+        if self._prefix_history is not None:
+            self._prefix_history.register_kv_caches(kv_caches)
 
     async def _prepare(self, request):
         params = request.kv_transfer_params or {}
@@ -177,6 +193,10 @@ class CrossEngineConnector(XavierConnector):
         return room
 
     def get_num_new_matched_tokens(self, request, num_computed_tokens):
+        if self._prefix_history is not None:
+            return self._prefix_history.get_num_new_matched_tokens(
+                request, num_computed_tokens
+            )
         if not self._is_consumer:
             return 0, False
         params = request.kv_transfer_params or {}
@@ -202,6 +222,11 @@ class CrossEngineConnector(XavierConnector):
         return tokens, bool(tokens)
 
     def update_state_after_alloc(self, request, blocks, num_external_tokens):
+        if self._prefix_history is not None:
+            self._prefix_history.update_state_after_alloc(
+                request, blocks, num_external_tokens
+            )
+            return
         if request.request_id not in self._cross_requests or not num_external_tokens:
             return
         ids = blocks.get_block_ids()
@@ -219,6 +244,10 @@ class CrossEngineConnector(XavierConnector):
         )
         self._direct_sends = set()
         self._pending_aborts = {}
+        if self._prefix_history is not None:
+            meta.prefix_meta = self._prefix_history.build_connector_meta(
+                scheduler_output
+            )
         for request_id, (room, destinations) in self._cross_allocated.items():
             meta.loads.append((request_id, room, destinations))
             if request_id in self._cross_prepare_errors:
@@ -228,6 +257,9 @@ class CrossEngineConnector(XavierConnector):
 
     def start_load_kv(self, forward_context, **kwargs):
         meta = self._get_connector_metadata()
+        if meta.prefix_meta is not None:
+            self._prefix_history._get_connector_metadata = lambda: meta.prefix_meta
+            self._prefix_history.start_load_kv(forward_context, **kwargs)
         self._direct_sends.update(meta.direct_sends)
         self._pending_aborts.update(meta.pending_aborts)
         for request_id, room, destinations in meta.loads:
@@ -261,8 +293,16 @@ class CrossEngineConnector(XavierConnector):
     def wait_for_save(self):
         if self._is_producer and self._get_connector_metadata().direct_store:
             torch.cuda.synchronize()
+        meta = self._get_connector_metadata()
+        if meta.prefix_meta is not None:
+            self._prefix_history._get_connector_metadata = lambda: meta.prefix_meta
+            # The worker-local proxy acknowledges an owned, bounded CPU
+            # snapshot. Its independent actor performs LMCache I/O afterwards.
+            self._prefix_history.wait_for_save()
 
     def request_finished(self, request, block_ids):
+        if self._prefix_history is not None:
+            self._prefix_history.request_finished(request, block_ids)
         self._cross_requests.pop(request.request_id, None)
         self._cross_prepare_errors.pop(request.request_id, None)
         if self._is_producer and (request.kv_transfer_params or {}).get(
@@ -338,6 +378,8 @@ class CrossEngineConnector(XavierConnector):
         return self.request_finished(request, list(block_ids[0]))
 
     def shutdown(self):
+        if self._prefix_history is not None:
+            self._prefix_history.shutdown()
         if self._loop is None:
             return
 

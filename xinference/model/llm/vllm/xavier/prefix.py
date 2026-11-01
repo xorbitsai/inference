@@ -31,8 +31,15 @@ class PrefixMetadata(XavierConnectorMetadata):
 
 
 class PrefixConnector(XavierConnector):
-    def __init__(self, vllm_config, role, kv_cache_config):
+    def __init__(self, vllm_config, role, kv_cache_config, *, cache_config=None):
         super().__init__(vllm_config, role, kv_cache_config)
+        if cache_config is not None:
+            # A P-side history adapter shares engine slots, not PD transport
+            # state or GPU-history ownership, with its enclosing connector.
+            self._xavier_config = dict(cache_config)
+            self._direct_handoff = False
+            self._gpu_budget = None
+            self._history_enabled = False
         self.contract = KVCacheContract.from_dict(self._xavier_config["contract"])
         if len(kv_cache_config.kv_cache_groups) != 1 or self._has_recurrent_cache:
             raise ValueError(
@@ -40,6 +47,7 @@ class PrefixConnector(XavierConnector):
             )
         self._prefix_ref = None
         self._prefix_retry_at = 0.0
+        self._prefix_read_retry_at = 0.0
         self._prefix_pending = {}
         self._prefix_allocated = {}
         self._prefix_views = {}
@@ -47,7 +55,9 @@ class PrefixConnector(XavierConnector):
     async def _prefix_rpc(self, method, *args):
         import asyncio
 
-        if time.monotonic() < self._prefix_retry_at:
+        history_read = method == "get" and self._xavier_config.get("write_behind")
+        retry_at = self._prefix_read_retry_at if history_read else self._prefix_retry_at
+        if time.monotonic() < retry_at:
             raise _PrefixBackoff("Xavier prefix storage is in backoff")
 
         # Budget data transfer separately from short control RPCs and launch.
@@ -64,6 +74,11 @@ class PrefixConnector(XavierConnector):
             else PREFIX_RPC_TIMEOUT + payload_bytes / PREFIX_RPC_MIN_BYTES_PER_SECOND
         )
 
+        if history_read:
+            # This runs synchronously on the P scheduler. The proxy owns the
+            # longer storage deadline; a slow history lookup must fail fast here.
+            timeout = PREFIX_RPC_TIMEOUT
+
         async def invoke():
             if self._prefix_ref is None:
                 self._prefix_ref = await xo.actor_ref(
@@ -77,7 +92,10 @@ class PrefixConnector(XavierConnector):
             return await asyncio.wait_for(invoke(), timeout=timeout)
         except Exception:
             self._prefix_ref = None
-            self._prefix_retry_at = time.monotonic() + PREFIX_RPC_BACKOFF
+            if history_read:
+                self._prefix_read_retry_at = time.monotonic() + PREFIX_RPC_BACKOFF
+            else:
+                self._prefix_retry_at = time.monotonic() + PREFIX_RPC_BACKOFF
             raise
 
     def _rpc(self, method, *args):
@@ -210,7 +228,15 @@ class PrefixConnector(XavierConnector):
             )
             keys = [f"{key:064x}" for key in request.block_hashes[:count]]
             try:
-                start = self._rpc("exists", self.contract.fingerprint, keys)
+                start = self._rpc(
+                    (
+                        "pending_prefix"
+                        if self._xavier_config.get("write_behind")
+                        else "exists"
+                    ),
+                    self.contract.fingerprint,
+                    keys,
+                )
             except _PrefixBackoff:
                 logger.debug("Xavier prefix publication skipped during storage backoff")
                 return

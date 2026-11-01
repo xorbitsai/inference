@@ -162,9 +162,11 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
             "SGLang Xavier casts this BF16 checkpoint to FP16; weights and KV use FP16"
         )
     model_config["dtype"] = dtype
+    prefix_cache = cache_config.get("prefix_cache")
     if cache_config.get("role"):
-        if model_config.get("enable_hierarchical_cache") or any(
-            name.startswith("hicache_") for name in model_config
+        if not prefix_cache and (
+            model_config.get("enable_hierarchical_cache")
+            or any(name.startswith("hicache_") for name in model_config)
         ):
             raise ValueError("SGLang Xavier GPU PD cannot be combined with CPU HiCache")
         if cache_config["role"] not in ("prefill", "decode"):
@@ -176,7 +178,10 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
         model_config["disaggregation_mode"] = cache_config["role"]
         model_config["disaggregation_transfer_backend"] = "xavier"
         model_config["enable_cache_report"] = True
-        return
+        if not prefix_cache:
+            return
+        if cache_config["role"] != "prefill":
+            raise ValueError("Only the prefill role can use LMCache history")
     model_config["enable_hierarchical_cache"] = True
     model_config["hicache_mem_layout"] = "layer_first"
     model_config.setdefault("hicache_write_policy", "write_through")
@@ -191,6 +196,6 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
             "interface_v1": True,
             "prefetch_threshold": contract.block_size,
             "contract": contract.to_dict(),
-            **cache_config,
+            **(prefix_cache or cache_config),
         }
     )

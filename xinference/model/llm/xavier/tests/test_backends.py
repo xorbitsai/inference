@@ -225,12 +225,19 @@ def _require_real_lmcache():
 async def _wait_for_disk_writes(store, path, count):
     deadline = asyncio.get_running_loop().time() + 10
     while True:
-        controllers = store._storage.manager.report_status()[
-            "store_controllers"
-        ].values()
-        if len(list(path.rglob("*.data"))) >= count and all(
-            status["pending_keys_count"] == 0 and status["in_flight_task_count"] == 0
-            for status in controllers
+        status = store._storage.manager.report_status()
+        controllers = status["store_controllers"].values()
+        if (
+            len(list(path.rglob("*.data"))) >= count
+            and all(
+                status["pending_keys_count"] == 0
+                and status["in_flight_task_count"] == 0
+                for status in controllers
+            )
+            and all(
+                manager["read_locked_count"] == manager["write_locked_count"] == 0
+                for manager in status["l1_managers"].values()
+            )
         ):
             return
         assert asyncio.get_running_loop().time() < deadline, "Disk writes did not drain"

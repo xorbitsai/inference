@@ -324,6 +324,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self._pd_model_mapping: Dict[str, Any] = {}
         self._xavier_cache_mapping: Dict[str, xo.ActorRefType] = {}
         self._xavier_source_mapping: Dict[str, List[xo.ActorRefType]] = {}
+        self._xavier_history_mapping: Dict[str, List[xo.ActorRefType]] = {}
         self._pd_roles: Dict[str, Dict[int, str]] = {}
         super().__init__()
         self._controller_control = None
@@ -3472,22 +3473,37 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             kwargs.pop("xavier_cache_backend_config", None),
         )
         requested_xavier = bool(kwargs.pop("enable_xavier", False))
+        pd_history = pd_enabled and cache_backend == "lmcache"
+        pd_mlx_prefill = pd_enabled and any(
+            cfg.role == "prefill" and engine == "mlx"
+            for cfg, engine in zip(replica_config or [], replica_engines)
+        )
         if cache_backend != "native" and (
-            not requested_xavier
+            not (requested_xavier or pd_enabled)
             or replica <= 1
-            or pd_enabled
-            or (model_engine or "").lower() not in {"vllm", "sglang", "trt-llm"}
+            or not pd_enabled
+            and (model_engine or "").lower() not in {"vllm", "sglang", "trt-llm"}
             or model_type not in (None, "LLM")
-            or any(engine != (model_engine or "").lower() for engine in replica_engines)
+            or not pd_enabled
+            and any(
+                engine != (model_engine or "").lower() for engine in replica_engines
+            )
             or transport_backend != "xavier"
             or kwargs.get("xavier_gpu_cache_bytes") is not None
+            and not (pd_history and kwargs["xavier_gpu_cache_bytes"] == 0)
             or kwargs.get("xavier_cache_bytes") is not None
+            and not pd_mlx_prefill
         ):
             raise ValueError(
                 "The LMCache backend requires enable_xavier with multiple ordinary "
-                "vLLM V1, SGLang or TRT-LLM replicas, no P/D roles, "
-                "and backend cpu_bytes instead of native cache budgets"
+                "vLLM V1, SGLang or TRT-LLM replicas, or Xavier P/D roles, "
+                "and backend cpu_bytes for history instead of native cache budgets"
             )
+        if pd_history and set(replica_engines) != {"mlx"}:
+            # The existing canonical GPU/host handoff works for homogeneous
+            # groups too, and lets P's independent history use portable pages.
+            heterogeneous_pd = True
+            host_handoff = "mlx" in replica_engines
         cache_namespace = gen_random_string(32) if cache_backend != "native" else None
         shared_cache_backend = (
             {
@@ -3576,11 +3592,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 "SGLang native NIXL requires one worker per replica without enable_xavier"
             )
         cache_bytes = kwargs.pop("xavier_cache_bytes", None)
-        mlx_prefill = host_handoff and any(
-            cfg.role == "prefill"
-            and (cfg.model_engine or model_engine or "").lower() == "mlx"
-            for cfg in (replica_config or [])
-        )
+        mlx_prefill = host_handoff and pd_mlx_prefill
         if cache_bytes is not None and (
             not (
                 heterogeneous_cache
@@ -3859,6 +3871,28 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         worker_ref.address
                     )
             try:
+                if pd_history and cfg.role == "prefill":
+                    from ..model.llm.xavier.history import XavierHistoryProxy
+
+                    history = self._xavier_history_mapping[model_uid][0]
+                    proxy = await SupervisorActor._create_model_service_actor(
+                        self,
+                        XavierHistoryProxy,
+                        {"address": history.address, "uid": history.uid},
+                        cache_backend_config["cpu_bytes"],
+                        read_timeout=cache_backend_config["read_timeout"],
+                        address=worker_ref.address,
+                        uid=f"xavier-history-proxy-{model_uid}-{rank}",
+                    )
+                    self._xavier_history_mapping[model_uid].append(proxy)
+                    replica_kwargs["_xavier_cache_config"]["prefix_cache"] = {
+                        "address": proxy.address,
+                        "uid": f"xavier-history-proxy-{model_uid}-{rank}",
+                        "capacity_bytes": cache_backend_config["cpu_bytes"],
+                        "shared_prefix": True,
+                        "write_behind": True,
+                        "read_timeout": cache_backend_config["read_timeout"],
+                    }
                 if (
                     heterogeneous_pd
                     and (replica_engine or "").lower() == "mlx"
@@ -3933,6 +3967,31 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         async def _launch_model():
             nonlocal download_hub
             try:
+                if pd_history:
+                    from ..model.llm.xavier.backends.bytes.history import (
+                        XavierHistoryCacheActor,
+                    )
+
+                    history = await SupervisorActor._create_model_service_actor(
+                        self,
+                        XavierHistoryCacheActor,
+                        shared_cache_backend,
+                        # CUDA workers host LMCache on Linux, including when the
+                        # supervisor/P replica runs on a Mac. All-MLX groups
+                        # require a Linux model-service host for LMCache.
+                        address=next(
+                            (
+                                target[0].address
+                                for target, engine in zip(
+                                    resolved_targets or [], replica_engines
+                                )
+                                if engine != "mlx"
+                            ),
+                            service_address or model_service_address(self),
+                        ),
+                        uid=f"xavier-history-{model_uid}",
+                    )
+                    self._xavier_history_mapping[model_uid] = [history]
                 if heterogeneous_cache:
                     from ..model.llm.xavier.backends.bytes.storage import (
                         XavierBytesCacheActor,
@@ -6163,6 +6222,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             except Exception:
                 logger.warning(
                     "Destroy Xavier host source failed for %s", model_uid, exc_info=True
+                )
+        # Proxies own immutable CPU copies only. Drain them before closing the
+        # optional L2 store; live PD sources have their own completion protocol.
+        for history in reversed(self._xavier_history_mapping.pop(model_uid, [])):
+            try:
+                await SupervisorActor._destroy_model_service_actor(self, history)
+            except Exception:
+                logger.warning(
+                    "Destroy Xavier history failed for %s", model_uid, exc_info=True
                 )
         if cache_ref is not None:
             try:

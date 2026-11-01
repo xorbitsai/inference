@@ -372,8 +372,8 @@ msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIX
 msgstr "SGLang Xavier P/D transfiere KV directamente entre GPU mediante el transporte NIXL de Xavier. Prefill y decode se ejecutan simultáneamente con el ciclo P/D nativo de SGLang. Los slots GPU de origen y destino mantienen su reserva hasta completar la transferencia; decode también recibe el primer token muestreado por prefill. Se admiten respuestas con y sin streaming. Los fallos de transferencia generan errores."
 
 #: source/user_guide/pd_separation.rst
-msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
-msgstr "SGLang GPU P/D no usa ``xavier_cache_bytes`` ni CPU HiCache. Aún no se admite conservar un historial GPU de Xavier; omita ``xavier_gpu_cache_bytes`` o establézcalo en ``0``. Reinicie el despliegue tras reiniciar un worker. Compare TTFT y rendimiento con réplicas normales y P/D nativo de SGLang para su carga."
+msgid "By default, SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Optional P-side LMCache history enables native HiCache on P only; see :ref:`xavier-pd-lmcache`. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
+msgstr "Por defecto, SGLang GPU P/D no usa ``xavier_cache_bytes`` ni CPU HiCache. El historial LMCache opcional activa HiCache nativo solo en P; véase :ref:`xavier-pd-lmcache`.  Aún no se admite conservar un historial GPU de Xavier; omita ``xavier_gpu_cache_bytes`` o establézcalo en ``0``. Reinicie el despliegue tras reiniciar un worker. Compare TTFT y rendimiento con réplicas normales y P/D nativo de SGLang para su carga."
 
 #: source/user_guide/pd_separation.rst
 msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
@@ -524,20 +524,9 @@ msgstr ""
 "salida. Los kernels pueden producir pequeñas diferencias numéricas. vLLM "
 "decode requiere al menos dos tokens de prompt."
 
-#: user_guide/pd_separation.rst
-msgid ""
-"Cross-engine P/D does not support CPU fallback, retained Xavier history, "
-"logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs"
-" or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do"
-" not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native "
-"NIXL comparisons use the same engine on both roles."
-msgstr ""
-"El P/D entre motores no admite retorno a CPU, historial Xavier, logprobs, "
-"muestreo estructurado, LoRA, decodificación especulativa, entradas "
-"multimodales ni atención híbrida. Omita ``xavier_gpu_cache_bytes`` o "
-"establézcalo en ``0``; no configure ``xavier_cache_bytes``. Vuelva a "
-"desplegar después de reiniciar un worker. Las comparaciones NIXL nativas "
-"usan el mismo motor en ambos roles."
+#: source/user_guide/pd_separation.rst
+msgid "Cross-engine P/D does not support CPU fallback, retained Xavier GPU history, logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native NIXL comparisons use the same engine on both roles."
+msgstr "El P/D entre motores no admite retorno a CPU, historial GPU Xavier, logprobs, muestreo estructurado, LoRA, decodificación especulativa, entradas multimodales ni atención híbrida. Omita ``xavier_gpu_cache_bytes`` o establézcalo en ``0``; no configure ``xavier_cache_bytes``. Vuelva a desplegar después de reiniciar un worker. Las comparaciones NIXL nativas usan el mismo motor en ambos roles."
 
 #: user_guide/pd_separation.rst
 msgid "NVIDIA and MLX cross-engine P/D"
@@ -664,9 +653,9 @@ msgstr ""
 "admiten ambos; Xavier es el predeterminado. MLX solo admite Xavier. Los "
 "despliegues entre motores usan Xavier y se describen por separado."
 
-#: source/user_guide/pd_separation.rst:16
-msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects storage for ordinary prefix-cache sharing, separately from P/D transport. LMCache support was added in v4.1.0. See :ref:`user_guide_vllm_enhancement` for storage configuration."
-msgstr "NIXL nativo utiliza el conector P/D del propio motor. El transporte GPU de Xavier también utiliza NIXL, con Xavier gestionando la transferencia. La opción ``xavier_cache_backend`` (``native`` o ``lmcache``) selecciona el almacenamiento para compartir cachés de prefijos ordinarias, por separado del transporte P/D. La compatibilidad con LMCache se añadió en v4.1.0. Consulte :ref:`user_guide_vllm_enhancement` para configurar el almacenamiento."
+#: source/user_guide/pd_separation.rst
+msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects prefix-cache storage separately from P/D transport. Starting in v4.2.0, LMCache can provide optional historical prefix reuse on P for all four engines; D continues to use Xavier handoff. See :ref:`xavier-pd-lmcache` for configuration and limits."
+msgstr "NIXL nativo usa el conector P/D del motor. El transporte GPU de Xavier también usa NIXL, con Xavier gestionando la entrega. ``xavier_cache_backend`` (``native`` o ``lmcache``) elige el almacenamiento de prefijos por separado del transporte P/D. A partir de v4.2.0, LMCache permite reutilizar opcionalmente prefijos históricos en P para los cuatro motores; D mantiene la entrega Xavier. Configuración y límites: :ref:`xavier-pd-lmcache`."
 
 #: source/user_guide/pd_separation.rst:22
 msgid "Python client"
