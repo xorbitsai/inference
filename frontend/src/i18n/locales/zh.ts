@@ -608,6 +608,8 @@ const zh = {
     manageCachedModels: '管理缓存模型',
     manageVirtualEnvironments: '管理虚拟环境',
     favorite: '收藏',
+    featuredModel: '推荐',
+    featuredModelDescription: 'Xinference 推荐的模型，在模型列表中优先展示。',
     importFavorites: '导入浏览器收藏',
     importFavoritesHint: '将此浏览器保存的收藏导入当前账号。',
     importFavoritesSharedHint: '将此浏览器保存的收藏导入所有访问者共用的收藏。',

@@ -786,3 +786,24 @@ msgstr "chat, visione, chiamate a strumenti, ragionamento, modalità di pensiero
 #: ../../models/builtin/llm/index.rst
 msgid "We introduce DeepSeek-V4.1-Flash-1017, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively."
 msgstr ""
+
+#: ../source/models/builtin/llm/index.rst:509
+msgid ":ref:`minimax-m3.1-flash <models_llm_minimax-m3.1-flash>`"
+msgstr ":ref:`minimax-m3.1-flash <models_llm_minimax-m3.1-flash>`"
+
+#: ../source/models/builtin/llm/index.rst:509
+msgid ""
+"MiniMax-M3.1-Flash is a native multimodal Mixture-of-Experts model with 428B total "
+"parameters, 23B activated parameters and a 1M-token context window. It uses sparse "
+"attention throughout and quantization-aware training with MXFP8 dense layers and "
+"NVFP4 experts."
+msgstr ""
+"MiniMax-M3.1-Flash è un modello multimodale nativo a miscela di esperti con 428 "
+"miliardi di parametri totali, 23 miliardi di parametri attivati e una finestra di "
+"contesto di un milione di token. Utilizza attenzione sparsa in tutti gli strati e "
+"addestramento consapevole della quantizzazione con strati densi MXFP8 ed esperti "
+"NVFP4."
+
+#: ../source/models/builtin/llm/index.rst:509
+msgid "chat, vision, tools, reasoning"
+msgstr "chat, vision, tools, reasoning"

@@ -1,0 +1,89 @@
+# ko translations for Xinference.
+# Copyright (C) 2026 Xinference Holdings Pte. Ltd
+# This file is distributed under the same license as Xinference.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-02 00:00+0000\n"
+"PO-Revision-Date: 2026-11-02 00:00+0000\n"
+"Last-Translator: Xinference contributors\n"
+"Language: ko\n"
+"Language-Team: ko <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:5
+msgid "MiniMax-M3.1-Flash"
+msgstr "MiniMax-M3.1-Flash"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:7
+msgid "**Context Length:** 1048576"
+msgstr "**컨텍스트 길이:** 1048576"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:8
+msgid "**Model Name:** MiniMax-M3.1-Flash"
+msgstr "**모델 이름:** MiniMax-M3.1-Flash"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:9
+msgid "**Languages:** en, zh"
+msgstr "**언어:** en, zh"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:10
+msgid "**Abilities:** chat, vision, tools, reasoning"
+msgstr "**기능:** chat, vision, tools, reasoning"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:11
+msgid ""
+"**Description:** MiniMax-M3.1-Flash is a native multimodal Mixture-of-Experts model "
+"with 428B total parameters, 23B activated parameters and a 1M-token context window. "
+"It uses sparse attention throughout and quantization-aware training with MXFP8 dense "
+"layers and NVFP4 experts."
+msgstr ""
+"**설명:** MiniMax-M3.1-Flash는 총 4,280억 개의 매개변수, 230억 개의 활성 매개변수 및 100만 토큰의 컨텍스트 창을 갖춘 "
+"네이티브 멀티모달 전문가 혼합 모델입니다. 모든 계층에 희소 어텐션을 사용하며, MXFP8 밀집 계층과 NVFP4 전문가를 사용한 양자화 인식 학습을 "
+"적용합니다."
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:14
+msgid "Specifications"
+msgstr "사양"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:18
+msgid "Model Spec 1 (fp8, 428 Billion)"
+msgstr "모델 사양 1 (fp8, 4,280억 매개변수)"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:20
+msgid "**Model Format:** fp8"
+msgstr "**모델 형식:** fp8"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:21
+msgid "**Model Size (in billions):** 428"
+msgstr "**모델 크기 (10억 매개변수 단위):** 428"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:22
+msgid "**Quantizations:** mxfp8"
+msgstr "**양자화 방식:** mxfp8"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:23
+msgid "**Engines**: vLLM"
+msgstr "**엔진**: vLLM"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:24
+msgid "**Model ID:** MiniMaxAI/MiniMax-M3.1-Flash"
+msgstr "**모델 ID:** MiniMaxAI/MiniMax-M3.1-Flash"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:25
+msgid ""
+"**Model Hubs**:  `Hugging Face "
+"<https://huggingface.co/MiniMaxAI/MiniMax-M3.1-Flash>`__"
+msgstr "**모델 저장소**:  `Hugging Face <https://huggingface.co/MiniMaxAI/MiniMax-M3.1-Flash>`__"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:27
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options listed "
+"above::"
+msgstr "다음 명령으로 모델을 실행하세요. ``${quantization}``을 위에 나열된 양자화 방식 중 하나로 바꾸세요::"

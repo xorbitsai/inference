@@ -2,7 +2,7 @@
 
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ExternalLink, Info, Loader2, Rocket, Search, Star, Trash2 } from 'lucide-react';
+import { ExternalLink, Info, Loader2, Rocket, Search, Sparkles, Star, Trash2 } from 'lucide-react';
 import request from '@/lib/request';
 import PageContainer from '@/components/ui/page-container';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { RadioGroup } from '@/components/ui/radio-group';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { cn } from '@/lib/utils';
@@ -353,6 +354,17 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-1.5 ">
+          {!isCustomRoute && model.featured && (
+            <InfoTooltip content={t('launchModel.featuredModelDescription')}>
+              <span
+                tabIndex={0}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-700 outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-300"
+              >
+                <Sparkles className="size-3" aria-hidden="true" />
+                {t('launchModel.featuredModel')}
+              </span>
+            </InfoTooltip>
+          )}
           {tags.map((tag) => (
             <span
               key={tag}

@@ -466,6 +466,55 @@ it('moves from custom registrations to the refreshed built-in category', async (
   assert.deepEqual(navigated, ['/launch-model/llm']);
 });
 
+it('labels featured models independently of favorites and explains the badge on focus', async () => {
+  authenticated = false;
+  catalog = [
+    { model_name: 'ordinary', is_builtin: true },
+    { model_name: 'favorite-only', is_builtin: true, featured: false },
+    { model_name: 'recommended', is_builtin: true, featured: true },
+  ];
+  const beforeGet = request.get;
+  request.get = async <T,>(url: string) =>
+    (url === '/v1/model_favorites' ? ['favorite-only'] : await beforeGet<T>(url)) as T;
+  await act(async () =>
+    root.render(<LaunchModel routeType={ModelType.LLM} initialCustomType={ModelType.LLM} />)
+  );
+  const cards = [...host.querySelectorAll('h3')].map(
+    (heading) => heading.parentElement!.parentElement!
+  );
+  assert.deepEqual(
+    cards.map((card) => card.querySelector('h3')!.textContent),
+    ['recommended', 'favorite-only', 'ordinary']
+  );
+  const badge = cards[0].querySelector<HTMLSpanElement>('span[tabindex="0"]')!;
+  assert.equal(badge.textContent, 'launchModel.featuredModel');
+  assert.equal(
+    cards[0].querySelector('[aria-label="Favorite model"]')!.getAttribute('aria-pressed'),
+    'false'
+  );
+  assert.equal(
+    cards[1].querySelector('[aria-label="Favorite model"]')!.getAttribute('aria-pressed'),
+    'true'
+  );
+  for (const card of cards.slice(1)) {
+    assert.ok(!card.textContent!.includes('launchModel.featuredModel'));
+  }
+  await act(async () => badge.focus());
+  assert.equal(
+    document.querySelector('[role="tooltip"]')?.textContent,
+    'launchModel.featuredModelDescription'
+  );
+});
+
+it('keeps featured badges off custom registrations', async () => {
+  catalog = [{ model_name: 'custom', is_builtin: false, featured: true }];
+  await act(async () =>
+    root.render(<LaunchModel routeType={ModelType.Custom} initialCustomType={ModelType.LLM} />)
+  );
+  assert.equal(host.querySelector('h3')?.textContent, 'custom');
+  assert.ok(!host.textContent!.includes('launchModel.featuredModel'));
+});
+
 it('connects the catalog star to the current account favorites API', async () => {
   window.sessionStorage.setItem(
     'token',

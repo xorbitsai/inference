@@ -1,0 +1,95 @@
+# de translations for Xinference.
+# Copyright (C) 2026 Xinference Holdings Pte. Ltd
+# This file is distributed under the same license as Xinference.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-02 00:00+0000\n"
+"PO-Revision-Date: 2026-11-02 00:00+0000\n"
+"Last-Translator: Xinference contributors\n"
+"Language: de\n"
+"Language-Team: de <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:5
+msgid "MiniMax-M3.1-Flash"
+msgstr "MiniMax-M3.1-Flash"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:7
+msgid "**Context Length:** 1048576"
+msgstr "**Kontextlänge:** 1048576"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:8
+msgid "**Model Name:** MiniMax-M3.1-Flash"
+msgstr "**Modellname:** MiniMax-M3.1-Flash"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:9
+msgid "**Languages:** en, zh"
+msgstr "**Sprachen:** en, zh"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:10
+msgid "**Abilities:** chat, vision, tools, reasoning"
+msgstr "**Fähigkeiten:** chat, vision, tools, reasoning"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:11
+msgid ""
+"**Description:** MiniMax-M3.1-Flash is a native multimodal Mixture-of-Experts model "
+"with 428B total parameters, 23B activated parameters and a 1M-token context window. "
+"It uses sparse attention throughout and quantization-aware training with MXFP8 dense "
+"layers and NVFP4 experts."
+msgstr ""
+"**Beschreibung:** MiniMax-M3.1-Flash ist ein natives multimodales Mixture-of-Experts-"
+"Modell mit insgesamt 428 Milliarden Parametern, 23 Milliarden aktivierten Parametern "
+"und einem Kontextfenster von einer Million Tokens. Es verwendet in allen Schichten "
+"Sparse Attention und quantisierungsbewusstes Training mit dichten MXFP8-Schichten und"
+" NVFP4-Experten."
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:14
+msgid "Specifications"
+msgstr "Spezifikationen"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:18
+msgid "Model Spec 1 (fp8, 428 Billion)"
+msgstr "Modellspezifikation 1 (fp8, 428 Milliarden)"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:20
+msgid "**Model Format:** fp8"
+msgstr "**Modellformat:** fp8"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:21
+msgid "**Model Size (in billions):** 428"
+msgstr "**Modellgröße (in Milliarden):** 428"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:22
+msgid "**Quantizations:** mxfp8"
+msgstr "**Quantisierungen:** mxfp8"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:23
+msgid "**Engines**: vLLM"
+msgstr "**Engines**: vLLM"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:24
+msgid "**Model ID:** MiniMaxAI/MiniMax-M3.1-Flash"
+msgstr "**Modell-ID:** MiniMaxAI/MiniMax-M3.1-Flash"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:25
+msgid ""
+"**Model Hubs**:  `Hugging Face "
+"<https://huggingface.co/MiniMaxAI/MiniMax-M3.1-Flash>`__"
+msgstr ""
+"**Modellquellen**:  `Hugging Face "
+"<https://huggingface.co/MiniMaxAI/MiniMax-M3.1-Flash>`__"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:27
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options listed "
+"above::"
+msgstr ""
+"Führen Sie den folgenden Befehl aus, um das Modell zu starten. Ersetzen Sie "
+"``${quantization}`` durch eine der oben aufgeführten Quantisierungsmethoden::"

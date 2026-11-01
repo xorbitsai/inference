@@ -636,6 +636,8 @@ const en = {
     manageCachedModels: 'Manage Cached Models',
     manageVirtualEnvironments: 'Manage Virtual Environments',
     favorite: 'Favorite',
+    featuredModel: 'Featured',
+    featuredModelDescription: 'Recommended by Xinference and prioritized in the model list.',
     importFavorites: 'Import browser favorites',
     importFavoritesHint: 'Import favorites saved in this browser into the current account.',
     importFavoritesSharedHint:

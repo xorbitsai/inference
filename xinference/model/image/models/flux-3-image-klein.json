@@ -44,6 +44,8 @@
         "#system_numpy#"
       ],
       "no_build_isolation": true
-    }
+    },
+    "featured": true,
+    "updated_at": 1793553196
   }
 ]

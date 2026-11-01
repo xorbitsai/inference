@@ -126,7 +126,7 @@
         "transformers>=5.15.0 ; #engine# == \"vllm\" or #engine# == \"Transformers\""
       ]
     },
-    "featured": false,
-    "updated_at": 1791693366
+    "featured": true,
+    "updated_at": 1793553196
   }
 ]

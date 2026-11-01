@@ -1,0 +1,88 @@
+# zh_CN translations for Xinference.
+# Copyright (C) 2026 Xinference Holdings Pte. Ltd
+# This file is distributed under the same license as Xinference.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-02 00:00+0000\n"
+"PO-Revision-Date: 2026-11-02 00:00+0000\n"
+"Last-Translator: Xinference contributors\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:5
+msgid "MiniMax-M3.1-Flash"
+msgstr "MiniMax-M3.1-Flash"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:7
+msgid "**Context Length:** 1048576"
+msgstr "**上下文长度:** 1048576"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:8
+msgid "**Model Name:** MiniMax-M3.1-Flash"
+msgstr "**模型名称:** MiniMax-M3.1-Flash"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:9
+msgid "**Languages:** en, zh"
+msgstr "**语言:** en, zh"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:10
+msgid "**Abilities:** chat, vision, tools, reasoning"
+msgstr "**能力:** chat, vision, tools, reasoning"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:11
+msgid ""
+"**Description:** MiniMax-M3.1-Flash is a native multimodal Mixture-of-Experts model "
+"with 428B total parameters, 23B activated parameters and a 1M-token context window. "
+"It uses sparse attention throughout and quantization-aware training with MXFP8 dense "
+"layers and NVFP4 experts."
+msgstr ""
+"**描述:** MiniMax-M3.1-Flash 是原生多模态混合专家模型，总参数量为 4280 亿，激活参数量为 230 亿，上下文窗口为 100 万 "
+"token。它在所有层中使用稀疏注意力，并采用量化感知训练，包含 MXFP8 稠密层和 NVFP4 专家。"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:14
+msgid "Specifications"
+msgstr "规格"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:18
+msgid "Model Spec 1 (fp8, 428 Billion)"
+msgstr "模型规格 1（fp8，4280 亿参数）"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:20
+msgid "**Model Format:** fp8"
+msgstr "**模型格式:** fp8"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:21
+msgid "**Model Size (in billions):** 428"
+msgstr "**模型大小（以十亿参数为单位）:** 428"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:22
+msgid "**Quantizations:** mxfp8"
+msgstr "**量化方式:** mxfp8"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:23
+msgid "**Engines**: vLLM"
+msgstr "**引擎**: vLLM"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:24
+msgid "**Model ID:** MiniMaxAI/MiniMax-M3.1-Flash"
+msgstr "**模型 ID:** MiniMaxAI/MiniMax-M3.1-Flash"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:25
+msgid ""
+"**Model Hubs**:  `Hugging Face "
+"<https://huggingface.co/MiniMaxAI/MiniMax-M3.1-Flash>`__"
+msgstr "**模型仓库**:  `Hugging Face <https://huggingface.co/MiniMaxAI/MiniMax-M3.1-Flash>`__"
+
+#: ../source/models/builtin/llm/minimax-m3.1-flash.rst:27
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options listed "
+"above::"
+msgstr "执行以下命令启动模型，请将 ``${quantization}`` 替换为上方列出的量化方式之一::"
