@@ -29,7 +29,7 @@ from ..._compat import (
     load_str_bytes,
     validator,
 )
-from ...constants import XINFERENCE_CACHE_DIR
+from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_ENV_MODEL_SRC
 from ..core import VirtualEnvSettings
 from ..utils import (
     ModelInstanceInfoMixin,
@@ -591,6 +591,7 @@ def match_llm(
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
+    model_path: Optional[str] = None,
 ) -> Optional[LLMFamilyV2]:
     """
     Find an LLM family, spec, and quantization that satisfy given criteria.
@@ -635,6 +636,24 @@ def match_llm(
                 model_specs = _get_model_specs(
                     family.model_specs, download_hub
                 ) + _get_model_specs(family.model_specs, "huggingface")
+        elif model_path:
+            # Preserve source preference without probing for local weights.
+            preferred_hub = "huggingface"
+            if os.environ.get(XINFERENCE_ENV_MODEL_SRC) != "auto":
+                if download_from_modelscope():
+                    preferred_hub = "modelscope"
+                elif download_from_openmind_hub():
+                    preferred_hub = "openmind_hub"
+                elif download_from_csghub():
+                    preferred_hub = "csghub"
+            model_specs = _get_model_specs(family.model_specs, preferred_hub)
+            if preferred_hub != "huggingface":
+                model_specs += _get_model_specs(family.model_specs, "huggingface")
+            model_specs += [
+                spec
+                for spec in family.model_specs
+                if spec.model_hub not in (preferred_hub, "huggingface")
+            ]
         else:
             if download_from_modelscope():
                 model_specs = _get_model_specs(

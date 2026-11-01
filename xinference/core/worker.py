@@ -6243,6 +6243,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 payload.get("model_size_in_billions"),
                 quantization,
                 download_hub,
+                payload.get("model_path"),
             )
             if family is None:
                 raise ValueError(f"Model {model_name} is no longer registered")

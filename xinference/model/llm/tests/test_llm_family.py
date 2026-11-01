@@ -806,6 +806,216 @@ def test_match_llm():
         os.environ.pop(XINFERENCE_ENV_MODEL_SRC)
 
 
+@pytest.fixture(
+    params=["Ornith-1.5-35B-A3B", "Ornith-1.5-397B", "custom-modelscope-local"]
+)
+def modelscope_only_local_family(request, monkeypatch):
+    from ...custom import RegistryManager
+    from ..custom import register_llm
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    monkeypatch.setenv(XINFERENCE_ENV_MODEL_SRC, "huggingface")
+    if request.param != "custom-modelscope-local":
+        yield next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == request.param)
+        return
+
+    family = CustomLLMFamilyV2(
+        version=2,
+        context_length=2048,
+        model_name=request.param,
+        model_family="qwen2.5-instruct",
+        model_lang=["en"],
+        model_ability=["chat"],
+        model_specs=[
+            PytorchLLMSpecV2(
+                model_format="pytorch",
+                model_size_in_billions=1,
+                quantization="none",
+                model_hub="modelscope",
+                model_id="test/local-modelscope",
+            )
+        ],
+    )
+    register_llm(family, persist=False)
+    try:
+        yield family
+    finally:
+        RegistryManager.get_registry("llm").unregister(
+            family.model_name, remove_file=False
+        )
+
+
+@pytest.fixture
+def local_llm_factory(monkeypatch):
+    from ...core import create_model_instance
+    from .. import llm_family
+
+    check_virtual_env = llm_family.check_engine_by_spec_parameters_with_virtual_env
+
+    class LocalModel:
+        def __init__(self, uid, family, path, config):
+            self.model_family = family
+            self.model_path = path
+
+    def select_engine(*args, **kwargs):
+        if "llm_family" in kwargs:
+            assert kwargs["llm_family"].model_name == args[1]
+            assert len(kwargs["llm_family"].model_specs) == 1
+            assert check_virtual_env(*args, **kwargs) is not None
+        return LocalModel
+
+    def no_download(*args, **kwargs):
+        pytest.fail("Local model matching must not detect a hub or download weights")
+
+    monkeypatch.setattr(llm_family, "check_engine_by_spec_parameters", select_engine)
+    monkeypatch.setattr(
+        llm_family, "check_engine_by_spec_parameters_with_virtual_env", select_engine
+    )
+    monkeypatch.setattr(CacheManager, "cache", no_download)
+    monkeypatch.setattr("xinference.model.utils.auto_detect_download_hub", no_download)
+    return create_model_instance
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize(
+    "local_path,download_hub,expected_hub",
+    [
+        (True, None, "modelscope"),
+        (None, None, None),
+        ("", None, None),
+        (True, "huggingface", None),
+        (True, "modelscope", "modelscope"),
+    ],
+)
+def test_local_model_path_modelscope_only_launch(
+    modelscope_only_local_family,
+    local_llm_factory,
+    tmp_path,
+    enable_virtual_env,
+    local_path,
+    download_hub,
+    expected_hub,
+):
+    family = modelscope_only_local_family
+    spec = family.model_specs[0]
+    kwargs = dict(
+        model_uid="local-model",
+        model_type="LLM",
+        model_name=family.model_name,
+        model_engine="Transformers",
+        model_format=spec.model_format,
+        model_size_in_billions=spec.model_size_in_billions,
+        quantization=spec.quantization,
+        download_hub=download_hub,
+        model_path=str(tmp_path) if local_path is True else local_path,
+        enable_virtual_env=enable_virtual_env,
+    )
+    if expected_hub is None:
+        with pytest.raises(ValueError, match="Model not found"):
+            local_llm_factory(**kwargs)
+    else:
+        model = local_llm_factory(**kwargs)
+        assert model.model_family.model_name == family.model_name
+        assert model.model_family.model_specs[0].model_hub == expected_hub
+        assert model.model_path == str(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "model_src", [None, "huggingface", "modelscope", "openmind_hub", "csghub", "auto"]
+)
+def test_local_model_path_preserves_source_preference(
+    monkeypatch, tmp_path, local_llm_factory, model_src
+):
+    from .. import llm_family
+
+    if model_src is None:
+        monkeypatch.delenv(XINFERENCE_ENV_MODEL_SRC, raising=False)
+    else:
+        monkeypatch.setenv(XINFERENCE_ENV_MODEL_SRC, model_src)
+    monkeypatch.setattr(
+        "xinference.model.utils.is_locale_chinese_simplified", lambda: False
+    )
+    family = llm_family.get_llm_family_by_name("qwen2.5-instruct").copy(deep=True)
+    # Source preference must hold even when other hubs are registered first.
+    family.model_specs.sort(key=lambda spec: spec.model_hub == "huggingface")
+    monkeypatch.setattr(llm_family, "BUILTIN_LLM_FAMILIES", [family])
+    model = local_llm_factory(
+        "local-model",
+        "LLM",
+        "qwen2.5-instruct",
+        "Transformers",
+        "pytorch",
+        "0_5",
+        "none",
+        model_path=str(tmp_path),
+        enable_virtual_env=True,
+    )
+    expected_hub = "modelscope" if model_src == "modelscope" else "huggingface"
+    assert model.model_family.model_specs[0].model_hub == expected_hub
+    # Non-local matching still follows the environment.
+    if model_src in ("huggingface", "modelscope"):
+        family = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none")
+        assert family.model_specs[0].model_hub == model_src
+
+
+def test_local_model_path_preserves_modelscope_gguf_filename(
+    monkeypatch, tmp_path, local_llm_factory
+):
+    from ..gguf_model_metadata import resolve_gguf_model_path
+
+    monkeypatch.setenv(XINFERENCE_ENV_MODEL_SRC, "modelscope")
+    model_file = tmp_path / "ggml-model-Q2_K.gguf"
+    model_file.touch()
+    model = local_llm_factory(
+        "local-model",
+        "LLM",
+        "tiny-llama",
+        "llama.cpp",
+        "ggufv2",
+        1,
+        "Q2_K",
+        model_path=str(tmp_path),
+        enable_virtual_env=False,
+    )
+    spec = model.model_family.model_specs[0]
+    assert resolve_gguf_model_path(str(tmp_path), spec) == str(model_file)
+    assert spec.model_hub == "modelscope"
+
+
+@pytest.mark.parametrize("download_hub", [None, "huggingface", "modelscope"])
+def test_local_model_path_repository_lookup(
+    modelscope_only_local_family, tmp_path, download_hub
+):
+    from ....core.worker import WorkerActor
+
+    family = modelscope_only_local_family
+    spec = family.model_specs[0]
+    payload = dict(
+        model_name=family.model_name,
+        model_format=spec.model_format,
+        model_size_in_billions=spec.model_size_in_billions,
+        quantization=spec.quantization,
+        model_path=str(tmp_path),
+        download_hub=download_hub,
+    )
+    if download_hub == "huggingface":
+        with pytest.raises(ValueError, match="no longer registered"):
+            WorkerActor._resolve_model_download_repositories(payload)
+    else:
+        assert WorkerActor._resolve_model_download_repositories(payload) == []
+
+
+def test_local_model_path_unknown_family(tmp_path, local_llm_factory):
+    with pytest.raises(ValueError, match="Model not found, name: unknown-local-model"):
+        local_llm_factory(
+            "local-model",
+            "LLM",
+            "unknown-local-model",
+            "Transformers",
+            model_path=str(tmp_path),
+        )
+
+
 @pytest.mark.parametrize(
     "model_name,expected_architecture,expected_formats",
     [
