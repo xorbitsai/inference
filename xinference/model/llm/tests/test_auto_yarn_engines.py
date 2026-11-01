@@ -15,7 +15,7 @@ from ..llm_family import BUILTIN_LLM_FAMILIES, match_llm
 @pytest.mark.parametrize("slots", [1, 2, 8])
 @pytest.mark.parametrize("unified", [True, False])
 def test_llama_yarn_uses_per_slot_window(slots, unified):
-    family = match_llm("qwen3.8", "ggufv2", 27, "Q4_K_M")
+    family = match_llm("qwen3.8", "ggufv2", 27, "UD-Q4_K_M")
     config = {"n_parallel": slots}
     config["context_length" if unified else "n_ctx"] = (
         524289 if unified else 524289 * slots
@@ -29,7 +29,7 @@ def test_llama_yarn_uses_per_slot_window(slots, unified):
 
 
 @pytest.mark.parametrize(
-    "engine,fmt,quant", [("MLX", "mlx", "4bit"), ("llama.cpp", "ggufv2", "Q4_K_M")]
+    "engine,fmt,quant", [("MLX", "mlx", "4bit"), ("llama.cpp", "ggufv2", "UD-Q4_K_M")]
 )
 @pytest.mark.parametrize("context", [None, 262144, 1000000, 1000001])
 def test_additional_engines_obey_native_default_and_extension_limit(
@@ -92,7 +92,7 @@ def test_gguf_checkpoint_scaling_is_read_before_automatic_override(tmp_path, sca
         fields["qwen35.rope.scaling.factor"] = 8
     path = tmp_path / "model.gguf"
     path.write_bytes(gguf_header(fields))
-    family = match_llm("qwen3.8", "ggufv2", 27, "Q4_K_M")
+    family = match_llm("qwen3.8", "ggufv2", 27, "UD-Q4_K_M")
     config = {"context_length": 2000000 if scaling else 1000000, "n_parallel": 2}
     result, flag = configure_auto_yarn(family, "llama.cpp", config, str(path))
     assert flag is None
@@ -105,13 +105,13 @@ def test_gguf_checkpoint_scaling_is_read_before_automatic_override(tmp_path, sca
 def test_gguf_invalid_metadata_does_not_silently_receive_rope_overrides(tmp_path):
     path = tmp_path / "model.gguf"
     path.write_bytes(b"not a valid checkpoint")
-    family = match_llm("qwen3.8", "ggufv2", 27, "Q4_K_M")
+    family = match_llm("qwen3.8", "ggufv2", 27, "UD-Q4_K_M")
     with pytest.raises(ValueError, match="GGUF"):
         configure_auto_yarn(family, "llama.cpp", {"context_length": 1000000}, str(path))
 
 
 @pytest.mark.parametrize(
-    "engine,fmt,quant", [("MLX", "mlx", "4bit"), ("llama.cpp", "ggufv2", "Q4_K_M")]
+    "engine,fmt,quant", [("MLX", "mlx", "4bit"), ("llama.cpp", "ggufv2", "UD-Q4_K_M")]
 )
 def test_factory_applies_extension_before_mapping_slots(
     monkeypatch, engine, fmt, quant
@@ -215,7 +215,7 @@ def test_llama_automatic_yarn_reaches_native_parameters(monkeypatch, tmp_path):
     from ..context_length import map_context_length
     from ..llama_cpp.core import XllamaCppModel
 
-    family = match_llm("qwen3.8", "ggufv2", 27, "Q4_K_M")
+    family = match_llm("qwen3.8", "ggufv2", 27, "UD-Q4_K_M")
     path = tmp_path / "model.gguf"
     path.touch()
     config, _ = configure_auto_yarn(
