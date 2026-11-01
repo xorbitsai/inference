@@ -115,7 +115,7 @@ Model Spec 7 (ggufv2, 7 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
-- **Quantizations:** Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
+- **Quantizations:** Q3_K_L, Q3_K_M, Q3_K_S, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0
 - **Engines**: vLLM, llama.cpp
 - **Model ID:** LoneStriker/deepseek-coder-7b-instruct-v1.5-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/LoneStriker/deepseek-coder-7b-instruct-v1.5-GGUF>`__
