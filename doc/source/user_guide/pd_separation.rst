@@ -15,7 +15,7 @@ Choose an engine and backend
 
 For same-engine P/D, choose the engine first, then its Native NIXL or Xavier backend below. vLLM, SGLang and TRT-LLM support both; Xavier is the default. MLX supports Xavier only. Cross-engine deployments use Xavier and are described separately.
 
-Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects prefix-cache storage separately from P/D transport. LMCache can provide optional historical prefix reuse on P for all four engines; D continues to use Xavier handoff. See :ref:`xavier-pd-lmcache` for configuration and limits.
+Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects prefix-cache storage separately from P/D transport. Starting in v4.2.0, LMCache can provide optional historical prefix reuse on P for all four engines; D continues to use Xavier handoff. See :ref:`xavier-pd-lmcache` for configuration and limits.
 
 Launch
 ------

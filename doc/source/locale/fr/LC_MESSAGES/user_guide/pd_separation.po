@@ -665,8 +665,8 @@ msgstr ""
 "Xavier et sont décrits séparément."
 
 #: source/user_guide/pd_separation.rst
-msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects prefix-cache storage separately from P/D transport. LMCache can provide optional historical prefix reuse on P for all four engines; D continues to use Xavier handoff. See :ref:`xavier-pd-lmcache` for configuration and limits."
-msgstr "NIXL natif utilise le connecteur P/D du moteur. Le transport GPU de Xavier utilise aussi NIXL, Xavier gérant le transfert. ``xavier_cache_backend`` (``native`` ou ``lmcache``) sélectionne le stockage des préfixes indépendamment du transport P/D. LMCache permet une réutilisation facultative des préfixes historiques sur P pour les quatre moteurs ; D conserve le transfert Xavier. Configuration et limites : :ref:`xavier-pd-lmcache`."
+msgid "Native NIXL uses the engine's own P/D connector. Xavier's GPU transport also uses NIXL, with Xavier managing the handoff. The ``xavier_cache_backend`` setting (``native`` or ``lmcache``) selects prefix-cache storage separately from P/D transport. Starting in v4.2.0, LMCache can provide optional historical prefix reuse on P for all four engines; D continues to use Xavier handoff. See :ref:`xavier-pd-lmcache` for configuration and limits."
+msgstr "NIXL natif utilise le connecteur P/D du moteur. Le transport GPU de Xavier utilise aussi NIXL, Xavier gérant le transfert. ``xavier_cache_backend`` (``native`` ou ``lmcache``) sélectionne le stockage des préfixes indépendamment du transport P/D. À partir de v4.2.0, LMCache permet une réutilisation facultative des préfixes historiques sur P pour les quatre moteurs ; D conserve le transfert Xavier. Configuration et limites : :ref:`xavier-pd-lmcache`."
 
 #: source/user_guide/pd_separation.rst:22
 msgid "Python client"

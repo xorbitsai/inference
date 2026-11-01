@@ -235,6 +235,8 @@ For ordinary replicas, the LMCache backend requires multiple replicas of the sam
 LMCache history for P/D
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. versionadded:: v4.2.0
+
 Select ``xavier_cache_backend="lmcache"`` and pass the backend configuration above when launching Xavier P/D roles. Prefill can run on vLLM, SGLang, TRT-LLM or MLX, including cross-engine deployments. Decode keeps the existing Xavier handoff and does not access LMCache. Native NIXL deployments cannot use this option.
 
 P restores compatible historical prefix pages before computing the remaining prompt. Owned CPU snapshots enter a worker-local write queue bounded by ``cpu_bytes`` per P replica; LMCache writes run in the background. A full queue or failed write drops optional history. Missing or failed reads compute locally, while live P/D transfer failures still raise errors. CPU snapshot packing and local enqueueing remain part of prefill latency; asynchronous writes do not remove those costs.
