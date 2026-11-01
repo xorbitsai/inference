@@ -1718,12 +1718,6 @@ class SGLANGVisionModel(SGLANGModel):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_family.model_name == "MiniMax-M3.1-Flash":
-            return (
-                False,
-                "MiniMax-M3.1-Flash requires unreleased SGLang support; "
-                "use vLLM >= 0.33.0",
-            )
         if not cls._has_cuda_device():
             return False, "SGLang vision engine requires CUDA GPUs"
         if not cls._is_linux():

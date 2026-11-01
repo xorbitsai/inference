@@ -128,7 +128,6 @@ class VLLMModelConfig(TypedDict, total=False):
     node_rank: int
     distributed_executor_backend: str
     block_size: int
-    disable_hybrid_kv_cache_manager: bool
     swap_space: NotRequired[int]  # GiB
     gpu_memory_utilization: float
     max_num_batched_tokens: int
@@ -1927,14 +1926,7 @@ class VLLMModel(WeightCachedModel, LLM):
             model_config.setdefault("master_addr", master_addr)  # type: ignore
             model_config.setdefault("master_port", get_next_port())  # type: ignore
         is_deepseek_v4 = "DeepseekV4ForCausalLM" in architectures
-        is_minimax_m31 = self.model_family.model_name == "MiniMax-M3.1-Flash"
-        if is_minimax_m31:
-            # M3.1 uses MSA sparse attention in every layer. Its vLLM recipe
-            # requires 128-token blocks and the uniform KV-cache manager.
-            default_block_size = 128
-            model_config.setdefault("disable_hybrid_kv_cache_manager", True)
-            model_config.setdefault("enable_thinking", True)
-        elif is_deepseek_v4:
+        if is_deepseek_v4:
             default_block_size = 128 if is_npu_available() else 256
         else:
             default_block_size = 16
@@ -3354,15 +3346,6 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
         supported_architectures = list(VLLM_SUPPORTED_MULTI_MODEL_LIST)
         effective_version = _get_effective_vllm_version_for_family(llm_family)
-        if (
-            llm_family.model_name == "MiniMax-M3.1-Flash"
-            and effective_version < version.parse("0.33.0")
-        ):
-            return (
-                False,
-                "MiniMax-M3.1-Flash requires vLLM >= 0.33.0; "
-                f"found {effective_version}",
-            )
         if llm_family.has_architecture("Qwen4ExpForConditionalGeneration"):
             if effective_version < version.parse("0.30.0.dev0"):
                 return (

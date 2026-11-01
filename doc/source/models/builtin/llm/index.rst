@@ -506,11 +506,6 @@ The following is a list of built-in LLM in Xinference:
      - 1048576
      - MiniMax-M3 is a native multimodal model with 1M context. It has ~428B parameters and ~23B activated parameters.
 
-   * - :ref:`minimax-m3.1-flash <models_llm_minimax-m3.1-flash>`
-     - chat, vision, tools, reasoning
-     - 1048576
-     - MiniMax-M3.1-Flash is a native multimodal Mixture-of-Experts model with 428B total parameters, 23B activated parameters and a 1M-token context window. It uses sparse attention throughout and quantization-aware training with MXFP8 dense layers and NVFP4 experts.
-
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
      - 8192
@@ -1072,8 +1067,6 @@ The following is a list of built-in LLM in Xinference:
   
    minimax-m3
   
-   minimax-m3.1-flash
-
    mistral-instruct-v0.1
   
    mistral-instruct-v0.2
