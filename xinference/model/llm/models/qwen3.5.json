@@ -1461,7 +1461,6 @@
             "model_file_name_split_template": "Qwen3.5-122B-A10B-{quantization}-{part}.gguf",
             "quantizations": [
               "UD-IQ1_M",
-              "UD-IQ1_S",
               "UD-IQ2_M",
               "UD-IQ2_XXS",
               "UD-IQ3_S",
@@ -1602,33 +1601,6 @@
                 "weights_source": "https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/51eab4d59d53f573fb9206cb3ce613f1d0aa392b/Qwen3.5-122B-A10B-UD-IQ1_M.gguf",
                 "weights_sha256": "0ab6f58ad24d22b4c1dee220142aef9efa797c551e0ef622e108f565a0b4f613"
               },
-              "UD-IQ1_S": {
-                "vocab_size": 248320,
-                "num_attention_heads": 32,
-                "num_key_value_heads": 2,
-                "head_dim": 256,
-                "config_source": "https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/51eab4d59d53f573fb9206cb3ce613f1d0aa392b/config.json",
-                "config_sha256": "22ae8b715b4fe37bdd67d61282ab932c207aa0141ea000d5377715a5f386b272",
-                "architecture_type": "hybrid_attention",
-                "hidden_size": 3072,
-                "intermediate_size": 1024,
-                "num_hidden_layers": 48,
-                "full_attention_interval": 4,
-                "linear_num_key_heads": 16,
-                "linear_num_value_heads": 64,
-                "linear_key_head_dim": 128,
-                "linear_value_head_dim": 128,
-                "linear_conv_kernel_dim": 4,
-                "num_experts": 256,
-                "num_experts_per_tok": 8,
-                "shared_expert_intermediate_size": 1024,
-                "vision": {
-                  "hidden_size": 1152,
-                  "intermediate_size": 4304,
-                  "num_attention_heads": 16,
-                  "spatial_merge_size": 2
-                }
-              },
               "UD-IQ2_M": {
                 "vocab_size": 248320,
                 "num_attention_heads": 32,
@@ -1757,7 +1729,6 @@
             "model_file_name_split_template": "Qwen3.5-122B-A10B-{quantization}-{part}.gguf",
             "quantizations": [
               "UD-IQ1_M",
-              "UD-IQ1_S",
               "UD-IQ2_XXS",
               "UD-IQ3_XXS"
             ],
@@ -1889,33 +1860,6 @@
                 "weights_bytes": 36026933152,
                 "weights_source": "https://modelscope.cn/models/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/master/Qwen3.5-122B-A10B-UD-IQ1_M.gguf",
                 "weights_sha256": "0ab6f58ad24d22b4c1dee220142aef9efa797c551e0ef622e108f565a0b4f613"
-              },
-              "UD-IQ1_S": {
-                "vocab_size": 248320,
-                "num_attention_heads": 32,
-                "num_key_value_heads": 2,
-                "head_dim": 256,
-                "config_source": "https://modelscope.cn/models/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/master/config.json",
-                "config_sha256": "22ae8b715b4fe37bdd67d61282ab932c207aa0141ea000d5377715a5f386b272",
-                "architecture_type": "hybrid_attention",
-                "hidden_size": 3072,
-                "intermediate_size": 1024,
-                "num_hidden_layers": 48,
-                "full_attention_interval": 4,
-                "linear_num_key_heads": 16,
-                "linear_num_value_heads": 64,
-                "linear_key_head_dim": 128,
-                "linear_value_head_dim": 128,
-                "linear_conv_kernel_dim": 4,
-                "num_experts": 256,
-                "num_experts_per_tok": 8,
-                "shared_expert_intermediate_size": 1024,
-                "vision": {
-                  "hidden_size": 1152,
-                  "intermediate_size": 4304,
-                  "num_attention_heads": 16,
-                  "spatial_merge_size": 2
-                }
               },
               "UD-IQ2_XXS": {
                 "vocab_size": 248320,
@@ -2635,7 +2579,6 @@
               "Q5_K_S",
               "Q6_K",
               "Q8_0",
-              "UD-IQ1_M",
               "UD-IQ2_M",
               "UD-IQ2_XXS",
               "UD-IQ3_S",
@@ -2932,33 +2875,6 @@
                 "weights_bytes": 38689445184,
                 "weights_source": "https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/bc014a17be43adabd7066b7a86075ff935c6a4e2/Qwen3.5-35B-A3B-Q8_0.gguf",
                 "weights_sha256": "dd519332c7c2cf6acb97906c284dcfc87fedc2e242bc37d60ab5847b60114501"
-              },
-              "UD-IQ1_M": {
-                "vocab_size": 248320,
-                "num_attention_heads": 16,
-                "num_key_value_heads": 2,
-                "head_dim": 256,
-                "config_source": "https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/bc014a17be43adabd7066b7a86075ff935c6a4e2/config.json",
-                "config_sha256": "828c229801ef1fb269c67b0012fed4c5694b8d14edf2c3f933159a50b295766f",
-                "architecture_type": "hybrid_attention",
-                "hidden_size": 2048,
-                "intermediate_size": 512,
-                "num_hidden_layers": 40,
-                "full_attention_interval": 4,
-                "linear_num_key_heads": 16,
-                "linear_num_value_heads": 32,
-                "linear_key_head_dim": 128,
-                "linear_value_head_dim": 128,
-                "linear_conv_kernel_dim": 4,
-                "num_experts": 256,
-                "num_experts_per_tok": 8,
-                "shared_expert_intermediate_size": 512,
-                "vision": {
-                  "hidden_size": 1152,
-                  "intermediate_size": 4304,
-                  "num_attention_heads": 16,
-                  "spatial_merge_size": 2
-                }
               },
               "UD-IQ2_M": {
                 "vocab_size": 248320,
@@ -3396,7 +3312,6 @@
               "Q5_K_S",
               "Q6_K",
               "Q8_0",
-              "UD-IQ1_M",
               "UD-IQ2_M",
               "UD-IQ2_XXS",
               "UD-IQ3_S",
@@ -3693,33 +3608,6 @@
                 "weights_bytes": 38689445184,
                 "weights_source": "https://modelscope.cn/models/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/master/Qwen3.5-35B-A3B-Q8_0.gguf",
                 "weights_sha256": "dd519332c7c2cf6acb97906c284dcfc87fedc2e242bc37d60ab5847b60114501"
-              },
-              "UD-IQ1_M": {
-                "vocab_size": 248320,
-                "num_attention_heads": 16,
-                "num_key_value_heads": 2,
-                "head_dim": 256,
-                "config_source": "https://modelscope.cn/models/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/master/config.json",
-                "config_sha256": "828c229801ef1fb269c67b0012fed4c5694b8d14edf2c3f933159a50b295766f",
-                "architecture_type": "hybrid_attention",
-                "hidden_size": 2048,
-                "intermediate_size": 512,
-                "num_hidden_layers": 40,
-                "full_attention_interval": 4,
-                "linear_num_key_heads": 16,
-                "linear_num_value_heads": 32,
-                "linear_key_head_dim": 128,
-                "linear_value_head_dim": 128,
-                "linear_conv_kernel_dim": 4,
-                "num_experts": 256,
-                "num_experts_per_tok": 8,
-                "shared_expert_intermediate_size": 512,
-                "vision": {
-                  "hidden_size": 1152,
-                  "intermediate_size": 4304,
-                  "num_attention_heads": 16,
-                  "spatial_merge_size": 2
-                }
               },
               "UD-IQ2_M": {
                 "vocab_size": 248320,
