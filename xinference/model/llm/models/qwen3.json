@@ -3030,7 +3030,7 @@
               "4bit",
               "8bit"
             ],
-            "model_id": "mlx-community/Qwen/Qwen3-235B-A22B-{quantization}"
+            "model_id": "mlx-community/Qwen3-235B-A22B-{quantization}"
           },
           "modelscope": {
             "quantizations": [

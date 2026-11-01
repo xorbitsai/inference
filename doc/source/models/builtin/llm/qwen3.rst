@@ -757,8 +757,8 @@ Model Spec 47 (mlx, 235 Billion)
 - **Model Size (in billions):** 235
 - **Quantizations:** 3bit, 4bit, 8bit
 - **Engines**: MLX
-- **Model ID:** mlx-community/Qwen/Qwen3-235B-A22B-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen/Qwen3-235B-A22B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3-235B-A22B-{quantization}>`__
+- **Model ID:** mlx-community/Qwen3-235B-A22B-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3-235B-A22B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3-235B-A22B-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
