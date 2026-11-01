@@ -22,6 +22,7 @@ from ..common import (
     async_streaming_response_iterator,
     convert_float_to_int_or_str,
     encode_world_reference,
+    normalize_endpoint,
 )
 
 if TYPE_CHECKING:
@@ -1318,7 +1319,7 @@ class AsyncRESTfulFlexibleModelHandle(AsyncRESTfulModelHandle):
 
 class AsyncClient:
     def __init__(self, base_url, api_key: Optional[str] = None):
-        self.base_url = base_url
+        self.base_url = normalize_endpoint(base_url)
         self._headers: Dict[str, str] = {}
         self._cluster_authed = False
         self.timeout = aiohttp.ClientTimeout(total=1800)

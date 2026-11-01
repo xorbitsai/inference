@@ -18,6 +18,10 @@ import os
 from typing import Any, AsyncIterator, Iterator, Union
 
 
+def normalize_endpoint(endpoint: str) -> str:
+    return endpoint.rstrip("/")
+
+
 def encode_world_reference(reference: Union[str, bytes], media_type: str) -> str:
     if isinstance(reference, str) and not os.path.isfile(reference):
         return reference

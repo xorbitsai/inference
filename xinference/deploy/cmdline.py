@@ -28,6 +28,7 @@ from xoscar.utils import get_next_port
 
 from .. import __version__
 from ..client import RESTfulClient
+from ..client.common import normalize_endpoint
 from ..client.restful.restful_client import (
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
@@ -76,7 +77,7 @@ def get_hash_endpoint(endpoint: str) -> str:
     import hashlib
 
     m = hashlib.sha256()
-    m.update(bytes(endpoint, "utf-8"))
+    m.update(bytes(normalize_endpoint(endpoint), "utf-8"))
     return m.hexdigest()
 
 
