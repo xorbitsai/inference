@@ -1,7 +1,7 @@
 [
   {
     "version": 2,
-    "context_length": 1024000,
+    "context_length": 131072,
     "model_name": "mistral-nemo-instruct",
     "model_lang": [
       "en",
