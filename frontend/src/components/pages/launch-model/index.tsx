@@ -388,7 +388,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
               className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
             >
               <ExternalLink className="size-3.5" />
-              Details
+              {t('runningModels.detail.modelDetails')}
             </button>
           )}
           <Button
@@ -399,7 +399,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
             }}
           >
             <Rocket />
-            Launch
+            {t('launchModel.launch')}
           </Button>
         </div>
       </div>
@@ -504,7 +504,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
           {loading ? (
             <div className="flex min-h-72 items-center justify-center text-muted-foreground">
               <Loader2 className="mr-2 size-5 animate-spin" />
-              Loading models...
+              {t('runningModels.loadingModels')}
             </div>
           ) : visibleModels.length ? (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -513,9 +513,9 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
           ) : (
             <div className="flex min-h-72 flex-col items-center justify-center rounded-lg border border-dashed border-border text-center">
               <Info className="mb-3 size-8 text-muted-foreground" />
-              <p className="font-medium">No models found</p>
+              <p className="font-medium">{t('runningModels.noModelsFound')}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Try changing your search or filters.
+                {t('runningModels.tryChangingSearchKeywords')}
               </p>
             </div>
           )}

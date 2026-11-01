@@ -34,7 +34,7 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
 import { getAccessToken, removeAuthTokens } from '@/lib/auth-storage';
 import { ChangePasswordDialog } from '@/components/pages/login/change-password-dialog';
-import { navigationExtensions } from '@/lib/ui-extensions';
+import { navigationExtensions, navigationGroupExtensions } from '@/lib/ui-extensions';
 import { cn, decodeJwtPayload } from '@/lib/utils';
 import { getBrandingFromEnv } from '@/lib/branding';
 import {
@@ -364,16 +364,28 @@ export function Sidebar() {
       },
     ];
 
-    const extensionGroup = groups.find((group) => group.id === 'system');
-    extensionGroup?.items.push(
-      ...navigationExtensions.map((item) => ({
+    for (const extension of navigationGroupExtensions) {
+      if (groups.some((group) => group.id === extension.id)) continue;
+      const before = groups.findIndex((group) => group.id === (extension.before ?? 'resources'));
+      groups.splice(before < 0 ? groups.length : before, 0, {
+        id: extension.id,
+        name: extension.labels?.[locale] ?? extension.label,
+        items: [],
+      });
+    }
+
+    for (const item of navigationExtensions) {
+      const group =
+        groups.find((group) => group.id === (item.group ?? 'system')) ??
+        groups.find((group) => group.id === 'system');
+      group?.items.push({
         path: item.path,
-        name: item.label,
-        Icon: Box,
+        name: item.labels?.[locale] ?? item.label,
+        Icon: item.Icon ?? Box,
         Extra: ChevronRight,
         show: !item.adminOnly || clusterAuth?.auth === false || isAdmin,
-      }))
-    );
+      });
+    }
 
     return groups
       .map((group) => ({
