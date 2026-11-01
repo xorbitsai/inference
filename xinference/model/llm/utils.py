@@ -331,16 +331,24 @@ class ChatModelMixin:
         # Detect templates that iterate tool-call arguments as a mapping.
         # Content-driven (not name-driven) so future models copying this
         # template style are covered automatically.
-        return chat_template is not None and (
-            "tool_call.arguments|items" in chat_template
+        if chat_template is None:
+            return False
+        # Templates spell the same filter or assignment with or without spaces
+        # (``arguments | items``), so match on a copy without them.
+        compact = re.sub(r"\s*([|=])\s*", r"\1", chat_template)
+        return (
+            "tool_call.arguments|items" in compact
             or (
-                "_args = tc.arguments" in chat_template
-                and "_args.items()" in chat_template
+                (
+                    "_args=tc.arguments" in compact
+                    or "_args=tool_call.arguments" in compact
+                )
+                and "_args.items()" in compact
             )
             or "tool_call.function.arguments is not mapping" in chat_template
             or (
-                "args_dict = tool_call.arguments" in chat_template
-                and "args_dict.items()" in chat_template
+                "args_dict=tool_call.arguments" in compact
+                and "args_dict.items()" in compact
             )
         )
 

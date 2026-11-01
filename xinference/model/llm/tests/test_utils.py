@@ -3831,6 +3831,104 @@ def test_qwen3_family_get_full_context_handles_string_arguments():
         ), f"{name}: _normalize_tool_call_arguments_to_dict mutated input"
 
 
+def test_minimax_and_seed_oss_get_full_context_handle_string_arguments():
+    # MiniMax-M2* / M3 bind the arguments first (`_args = tool_call.arguments`,
+    # then `_args.items()`) and Seed-OSS writes `tool_call.arguments | items`.
+    # Without dict arguments both raise on OpenAI's JSON-string arguments.
+    from .. import BUILTIN_LLM_FAMILIES
+
+    expected = {
+        "MiniMax-M2": '<parameter name="city">北京</parameter>',
+        "MiniMax-M2.5": '<parameter name="city">北京</parameter>',
+        "MiniMax-M2.7": '<parameter name="city">北京</parameter>',
+        "MiniMax-M3": "<city>北京",
+        "seed-oss": "<parameter=city>北京</parameter>",
+    }
+    families = {
+        f.model_name: f for f in BUILTIN_LLM_FAMILIES if f.model_name in expected
+    }
+    assert set(families) == set(expected)
+
+    messages = [
+        {"role": "user", "content": "北京天气？"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "get_weather", "arguments": '{"city":"北京"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": '{"temp":25}'},
+    ]
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                },
+            },
+        }
+    ]
+
+    for name, markup in expected.items():
+        fam = families[name]
+        mixin = ChatModelMixin()
+        mixin.model_family = SimpleNamespace(
+            model_name=fam.model_name,
+            model_ability=fam.model_ability,
+            chat_template=fam.chat_template,
+        )
+        prompt = mixin.get_full_context(
+            messages, chat_template=fam.chat_template, tokenizer=None, tools=tools
+        )
+        assert markup in prompt, f"{name}: argument not rendered"
+
+
+def test_llama3_tool_history_renders_arguments_as_an_object():
+    # Llama 3.1 iterates `tool_call.arguments | items` for built-in tools, and
+    # renders other calls with `tool_call.arguments | tojson`, which
+    # double-encodes a JSON-string argument.
+    from .. import BUILTIN_LLM_FAMILIES
+
+    messages = [
+        {"role": "user", "content": "weather?"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city": "Paris"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": '{"temp":25}'},
+    ]
+    for name in ("llama-3.1-instruct", "llama-3.3-instruct"):
+        fam = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == name)
+        mixin = ChatModelMixin()
+        mixin.model_family = SimpleNamespace(
+            model_name=fam.model_name,
+            model_ability=fam.model_ability,
+            chat_template=fam.chat_template,
+        )
+        prompt = mixin.get_full_context(
+            messages, chat_template=fam.chat_template, tokenizer=None
+        )
+        assert '{"name": "get_weather", "parameters": {"city": "Paris"}}' in prompt
+
+
 def test_spark_x2_5_get_full_context_handles_string_arguments():
     # Regression for Spark's official template, which rejects OpenAI's JSON
     # string arguments before rendering tool-call continuation history.
