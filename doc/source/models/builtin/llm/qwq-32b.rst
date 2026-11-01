@@ -67,7 +67,23 @@ Model Spec 4 (ggufv2, 32 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 32
-- **Quantizations:** BF16, IQ4_NL, IQ4_XS, Q2_K, Q2_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q5_K_M, Q6_K, UD-IQ1_M, UD-IQ1_S, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_XXS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_XL, UD-Q8_K_XL, Q8_0
+- **Quantizations:** BF16, IQ4_NL, IQ4_XS, Q2_K, Q2_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q5_K_M, Q6_K, UD-IQ1_M, UD-IQ1_S, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_XXS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_XL, UD-Q8_K_XL
+- **Engines**: vLLM, llama.cpp
+- **Model ID:** unsloth/QwQ-32B-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/QwQ-32B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/QwQ-32B-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name QwQ-32B --size-in-billions 32 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 5 (ggufv2, 32 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 32
+- **Quantizations:** Q8_0
 - **Engines**: vLLM, llama.cpp
 - **Model ID:** unsloth/QwQ-32B-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/QwQ-32B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/QwQ-32B-GGUF>`__
