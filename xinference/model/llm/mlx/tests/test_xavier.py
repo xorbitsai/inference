@@ -233,6 +233,7 @@ async def test_pd_prefill_restores_l2_history_after_live_cache_is_recreated(
                     source_uid="source",
                 )
             p = MLXXavierCache(c, config)
+            before = await proxy.get_stats()
             if not host:
                 await p.initialize()
             source = AsyncMock()
@@ -276,7 +277,13 @@ async def test_pd_prefill_restores_l2_history_after_live_cache_is_recreated(
                 )
                 assert d._history is None
                 cache, reused = await d.fetch(tokens, transfer, cache_salt=salt)
-            assert p.prefill_cached_tokens == (128 if index == 1 else 0)
+            after = await proxy.get_stats()
+            assert after["imported_pages"] - before["imported_pages"] == (
+                2 if index == 1 else 0
+            )
+            assert after["enqueued_pages"] - before["enqueued_pages"] == (
+                0 if index == 1 else 2
+            )
             expected = m(mx.array(tokens)[None], cache=make_prompt_cache(m))[:, -1]
             if host:
                 assert source.publish.call_args.args[3] == int(

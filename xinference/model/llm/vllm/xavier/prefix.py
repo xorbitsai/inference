@@ -47,6 +47,7 @@ class PrefixConnector(XavierConnector):
             )
         self._prefix_ref = None
         self._prefix_retry_at = 0.0
+        self._prefix_read_retry_at = 0.0
         self._prefix_pending = {}
         self._prefix_allocated = {}
         self._prefix_views = {}
@@ -54,7 +55,9 @@ class PrefixConnector(XavierConnector):
     async def _prefix_rpc(self, method, *args):
         import asyncio
 
-        if time.monotonic() < self._prefix_retry_at:
+        history_read = method == "get" and self._xavier_config.get("write_behind")
+        retry_at = self._prefix_read_retry_at if history_read else self._prefix_retry_at
+        if time.monotonic() < retry_at:
             raise _PrefixBackoff("Xavier prefix storage is in backoff")
 
         # Budget data transfer separately from short control RPCs and launch.
@@ -71,8 +74,10 @@ class PrefixConnector(XavierConnector):
             else PREFIX_RPC_TIMEOUT + payload_bytes / PREFIX_RPC_MIN_BYTES_PER_SECOND
         )
 
-        if method == "get" and self._xavier_config.get("write_behind"):
-            timeout = max(timeout, self._xavier_config.get("read_timeout", 30) + 1)
+        if history_read:
+            # This runs synchronously on the P scheduler. The proxy owns the
+            # longer storage deadline; a slow history lookup must fail fast here.
+            timeout = PREFIX_RPC_TIMEOUT
 
         async def invoke():
             if self._prefix_ref is None:
@@ -87,7 +92,10 @@ class PrefixConnector(XavierConnector):
             return await asyncio.wait_for(invoke(), timeout=timeout)
         except Exception:
             self._prefix_ref = None
-            self._prefix_retry_at = time.monotonic() + PREFIX_RPC_BACKOFF
+            if history_read:
+                self._prefix_read_retry_at = time.monotonic() + PREFIX_RPC_BACKOFF
+            else:
+                self._prefix_retry_at = time.monotonic() + PREFIX_RPC_BACKOFF
             raise
 
     def _rpc(self, method, *args):
@@ -222,7 +230,7 @@ class PrefixConnector(XavierConnector):
             try:
                 start = self._rpc(
                     (
-                        "exists_local"
+                        "pending_prefix"
                         if self._xavier_config.get("write_behind")
                         else "exists"
                     ),

@@ -4,6 +4,7 @@
 import sys
 from types import SimpleNamespace
 
+import pytest
 import torch
 
 from ....xavier.backends.bytes.storage import XavierBytesCacheActor
@@ -55,7 +56,7 @@ def test_prefill_history_imports_before_forward_and_preserves_live_pd(
 
     def rpc(method, *args):
         calls.append(method)
-        return getattr(store, "exists" if method == "exists_local" else method)(*args)
+        return getattr(store, "exists" if method == "pending_prefix" else method)(*args)
 
     history._rpc = rpc
     native = {
@@ -101,7 +102,42 @@ def test_prefill_history_imports_before_forward_and_preserves_live_pd(
     assert store.get_stats()["imported_pages"] == 1
     monkeypatch.setattr(torch.cuda, "synchronize", lambda: None)
     p.wait_for_save()
-    assert "exists_local" in calls and "exists" not in calls
+    assert "pending_prefix" in calls and "exists" not in calls
     assert p.request_finished(request, [2, 0, 3]) == (False, None)
     assert not history._prefix_pending and not history._prefix_allocated
     p.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_history_lookup_does_not_wait_for_storage_deadline(
+    prefix_module, monkeypatch
+):
+    import asyncio
+    import time
+    from unittest.mock import AsyncMock
+
+    c = contract()
+    client = object.__new__(prefix_module.PrefixConnector)
+    client.contract = c
+    client._xavier_config = dict(write_behind=True, read_timeout=30)
+    client._prefix_retry_at = 0
+    client._prefix_read_retry_at = 0
+    cancelled = asyncio.Event()
+
+    async def stalled(*args):
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    client._prefix_ref = SimpleNamespace(get=AsyncMock(side_effect=stalled))
+    monkeypatch.setattr(prefix_module, "PREFIX_RPC_TIMEOUT", 0.01)
+    with pytest.raises(asyncio.TimeoutError):
+        await asyncio.wait_for(
+            client._prefix_rpc("get", c.fingerprint, prefix_keys(list(range(129)))),
+            0.5,
+        )
+    assert cancelled.is_set()
+    assert client._prefix_read_retry_at > time.monotonic()
+    client._prefix_ref = SimpleNamespace(pending_prefix=AsyncMock(return_value=0))
+    assert await client._prefix_rpc("pending_prefix", c.fingerprint, []) == 0

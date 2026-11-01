@@ -219,10 +219,7 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         self._pd_destinations = {}
 
     def _keys(self, tokens):
-        if (
-            self.client.config.get("shared_prefix")
-            or getattr(self, "_history", None) is not None
-        ):
+        if self.client.config.get("shared_prefix") or self._history is not None:
             from ..xavier.prefix import prefix_keys
 
             return prefix_keys(tokens, self.contract.block_size)
@@ -239,7 +236,7 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
             if state.role == "prefill":
                 self._pd_sources[request_id] = state
                 state.engine_request_id = request_id
-                if getattr(self, "_history", None) is not None:
+                if self._history is not None:
                     return self._match_prefix(
                         request, num_computed_tokens, self._history
                     )
@@ -278,10 +275,7 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
             (
                 []
                 if state is not None
-                and not (
-                    state.role == "prefill"
-                    and getattr(self, "_history", None) is not None
-                )
+                and not (state.role == "prefill" and self._history is not None)
                 else self._keys(list(request.get_tokens(0)))
             ),
             list(block_ids),
@@ -316,7 +310,7 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
                     raise ValueError("TRT-LLM allocated too few P/D KV blocks")
                 if state.role == "prefill":
                     metadata.pd_saves.append((state, blocks[: state.num_pages]))
-                    if getattr(self, "_history", None) is not None:
+                    if self._history is not None:
                         imported = 0
                         if pending is not None:
                             start, pages = pending
@@ -438,8 +432,7 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
             + [slot for _, slots in metadata.pd_loads for slot in slots]
         )
         if metadata.loads and (
-            self.client.config.get("shared_prefix")
-            or getattr(self, "_history", None) is not None
+            self.client.config.get("shared_prefix") or self._history is not None
         ):
             from ..xavier.backends.torch.prefix import unpack_pages
             from .cross_engine import canonical_trt_views
@@ -467,7 +460,7 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         if metadata.loads:
             # Copy completion, not a lookup, is the evidence for imported KV.
             try:
-                cache_client = getattr(self, "_history", None) or self.client
+                cache_client = self._history or self.client
                 cache_client.rpc(
                     "record_import", cache_client.namespace, len(metadata.loads)
                 )
@@ -502,7 +495,7 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
             state.registered = bool(blocks)
         if not metadata.saves:
             return
-        cache_client = getattr(self, "_history", None) or self.client
+        cache_client = self._history or self.client
         shared_prefix = cache_client.config.get("shared_prefix")
         page_bytes = self.contract.num_layers * self.contract.layer_nbytes
         batch_size = (
@@ -522,11 +515,7 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
             keys = [key for key, _ in saves]
             try:
                 start = cache_client.rpc(
-                    (
-                        "exists_local"
-                        if getattr(self, "_history", None) is not None
-                        else "exists"
-                    ),
+                    ("pending_prefix" if self._history is not None else "exists"),
                     cache_client.namespace,
                     keys,
                 )

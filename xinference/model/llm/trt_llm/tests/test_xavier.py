@@ -64,7 +64,7 @@ def test_pd_prefill_imports_history_and_still_pins_live_gpu_pages(
 
     def rpc(method, *args):
         calls.append((method, args))
-        if method == "exists_local":
+        if method == "pending_prefix":
             return 0
         if method == "exists":
             raise AssertionError("Publication must not wait for remote LMCache")
@@ -266,6 +266,7 @@ async def test_two_instances_restore_owned_prefix_after_eviction(
 
 def test_bad_page_slots_cannot_address_another_requests_last_page(connector):
     worker = connector.XavierConnectorWorker.__new__(connector.XavierConnectorWorker)
+    worker._history = None
     worker.pool = torch.zeros(2, 1, 2, 8, dtype=torch.float16)
     worker.bind_connector_meta(
         connector.XavierMetadata(loads=[(-1, torch.zeros(32, dtype=torch.uint8))])
@@ -279,6 +280,7 @@ def test_prefix_lookup_leaves_last_token_and_respects_local_hits(connector):
     scheduler = connector.XavierConnectorScheduler.__new__(
         connector.XavierConnectorScheduler
     )
+    scheduler._history = None
     scheduler.contract = KVCacheContract(
         "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 1, 4, "float16"
     )
@@ -573,6 +575,7 @@ def test_shared_prefix_save_avoids_discarded_native_cpu_copies(
     keys = prefix_keys(list(range(8)), 4)
     published = []
     worker = connector.XavierConnectorWorker.__new__(connector.XavierConnectorWorker)
+    worker._history = None
     worker.contract = contract
     worker.pool = native
     worker._metadata = connector.XavierMetadata(saves=list(zip(keys, slots)))
@@ -620,6 +623,7 @@ def test_shared_prefix_publication_bounds_bytes_and_contains_pack_failure(
         "a" * 64, "b" * 64, "c" * 64, "d" * 64, 20, 32, 128, 64, "bfloat16"
     )
     worker = connector.XavierConnectorWorker.__new__(connector.XavierConnectorWorker)
+    worker._history = None
     worker.contract = contract
     worker.pool = torch.zeros(3)
     keys = [f"{i:064x}" for i in range(3)]

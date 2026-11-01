@@ -423,8 +423,10 @@ class SupervisorUpgradeState:
             raise RuntimeError(
                 "Worker coordinator inventory changed while preparing Supervisor"
             )
+        # Protocol-v1 Supervisors predating P-side history omit this new field.
+        routes = {"_xavier_history_mapping": {}, **snapshot["routes"]}
         for name in ROUTING_FIELDS:
-            setattr(owner, name, snapshot["routes"][name])
+            setattr(owner, name, routes[name])
         owner._token_router_registry._instances = snapshot["router_instances"]
         self._router_snapshot_time = snapshot["captured_at"]
         owner._system_settings = snapshot["system_settings"]

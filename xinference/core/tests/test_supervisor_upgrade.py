@@ -440,6 +440,27 @@ async def restored_supervisor(supervisor_snapshot):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_restore_preserves_history_or_defaults_missing_v1_route(
+    supervisor_snapshot, legacy
+):
+    source, _ = supervisor_snapshot
+    source._xavier_history_mapping = {"pd": [MagicMock(address="history:1234")]}
+    snapshot = source.get_supervisor_snapshot()
+    if legacy:
+        del snapshot["routes"]["_xavier_history_mapping"]
+    target = SupervisorActor(service_address="public:9999", standby=True)
+    try:
+        await target.restore_supervisor(snapshot)
+        assert target._xavier_history_mapping == (
+            {} if legacy else source._xavier_history_mapping
+        )
+        assert target._worker_status == source._worker_status
+    finally:
+        await target.__pre_destroy__()
+
+
+@pytest.mark.asyncio
 async def test_local_mode_survives_role_separation(supervisor_snapshot):
     source, worker = supervisor_snapshot
     source._local_deployment = True

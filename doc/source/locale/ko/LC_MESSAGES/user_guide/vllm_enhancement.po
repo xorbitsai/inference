@@ -475,10 +475,36 @@ msgstr "P는 호환되는 이력 접두사 페이지를 복원한 뒤 나머지 
 msgid "One shared LMCache history store runs on the first CUDA worker; install ``xinference[xavier-lmcache]`` in that worker's environment. All-MLX groups require a Linux model-service host for the store. Each P replica adds a bounded CPU write queue and owned read buffers; SGLang also allocates its native HiCache host pool. Include these allocations in addition to the LMCache memory budgets above. Disk paths belong to the storage host."
 msgstr "공유 LMCache 이력 스토어는 첫 번째 CUDA worker에서 실행됩니다. 해당 worker 환경에 ``xinference[xavier-lmcache]`` 를 설치하세요. MLX만 있는 배포는 스토어를 위한 Linux 모델 서비스 호스트가 필요합니다. 각 P 복제본에는 제한된 CPU 쓰기 큐와 독립적인 읽기 버퍼가 추가되며 SGLang은 네이티브 HiCache 호스트 풀도 할당합니다. 위 LMCache 메모리 예산 외에 이 할당도 계산하세요. 디스크 경로는 스토리지 호스트 기준입니다."
 
-#: source/user_guide/vllm_enhancement.rst
-msgid "This option uses the canonical P/D model contract and its model, dtype, single-device and 64-token page restrictions, even for same-engine CUDA groups. See :ref:`user_guide_pd_separation`. Engine-local prefix caching remains available on P. Different cache salts remain isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. Historical entries are scoped to the deployment and are not recovered after relaunch."
-msgstr "이 옵션은 표준 P/D 모델 계약과 모델, dtype, 단일 장치 및 64-token 페이지 제한을 사용하며 같은 엔진의 CUDA 그룹에도 적용됩니다. :ref:`user_guide_pd_separation` 을 참조하세요. P의 엔진 로컬 접두사 캐시는 계속 사용할 수 있습니다. 서로 다른 cache salt는 격리되며 TRT-LLM은 계속 ``cache_salt`` 를 거부합니다. 이력 항목은 배포 범위에 한정되며 다시 시작해도 복원되지 않습니다."
+#: user_guide/vllm_enhancement.rst:248
+msgid ""
+"This option uses the canonical P/D model contract and its model, dtype, "
+"single-device and 64-token page restrictions, even for same-engine CUDA "
+"groups. CUDA P/D also uses the canonical request path, which rejects "
+"logprobs and structured outputs (``guided_*``, ``structured_outputs``, "
+"``json_schema`` and JSON ``response_format``). See "
+":ref:`user_guide_pd_separation`. Engine-local prefix reuse remains available"
+" on vLLM, SGLang and MLX P. TRT-LLM isolates native prefix reuse per request"
+" and uses LMCache for historical reuse. Different cache salts remain "
+"isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. "
+"Historical entries are scoped to the deployment and are not recovered after "
+"relaunch."
+msgstr ""
+"이 옵션은 동일 엔진 CUDA 그룹에도 표준 P/D 모델 계약과 모델, dtype, 단일 장치 및 64토큰 페이지 제한을 적용합니다. "
+"CUDA P/D는 표준 요청 경로도 사용하며 logprobs 및 구조화된 출력(``guided_*``, "
+"``structured_outputs``, ``json_schema``, JSON ``response_format``)을 지원하지 "
+"않습니다. :ref:`user_guide_pd_separation` 을 참조하세요. vLLM, SGLang 및 MLX의 P에서는 엔진 "
+"로컬 접두사 재사용을 계속 사용할 수 있습니다. TRT-LLM은 네이티브 접두사 재사용을 요청별로 격리하며 이력 재사용에는 "
+"LMCache를 사용합니다. 서로 다른 cache salt는 격리되며 TRT-LLM이 ``cache_salt`` 를 거부하는 기존 동작은"
+" 유지됩니다. 이력 항목은 배포에 한정되며 재시작 후 복구되지 않습니다."
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "For MLX prefill, ``xavier_cache_bytes`` still bounds live host handoff pages independently of LMCache. CUDA P/D may omit ``xavier_gpu_cache_bytes`` or set it to ``0``; retained Xavier GPU history is disabled with this backend."
 msgstr "MLX prefill의 ``xavier_cache_bytes`` 는 LMCache와 별도로 live 호스트 전달 페이지를 제한합니다. CUDA P/D는 ``xavier_gpu_cache_bytes`` 를 생략하거나 ``0`` 으로 설정할 수 있으며 이 백엔드에서는 Xavier GPU 이력을 보존하지 않습니다."
+
+#: user_guide/vllm_enhancement.rst:250
+msgid ""
+"On vLLM P, each scheduler-side history RPC has a one-second deadline; "
+"``read_timeout`` bounds the proxy's storage work."
+msgstr ""
+"vLLM P에서는 스케줄러 측 각 이력 RPC의 제한 시간이 1초입니다. ``read_timeout`` 은 프록시의 스토리지 작업 대기 "
+"시간을 제한합니다."

@@ -40,6 +40,7 @@ def decode(cross_module, tokens):
     instance._direct_handoff = True
     instance._cross_prepare_errors = {}
     instance._pending_aborts = {}
+    instance._prefix_history = None
     instance._call = lambda coro: coro
     instance._prepare = lambda request: 123
     request = SimpleNamespace(

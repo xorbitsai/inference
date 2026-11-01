@@ -6225,9 +6225,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
         # Proxies own immutable CPU copies only. Drain them before closing the
         # optional L2 store; live PD sources have their own completion protocol.
-        for history in reversed(
-            getattr(self, "_xavier_history_mapping", {}).pop(model_uid, [])
-        ):
+        for history in reversed(self._xavier_history_mapping.pop(model_uid, [])):
             try:
                 await SupervisorActor._destroy_model_service_actor(self, history)
             except Exception:

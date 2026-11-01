@@ -29,10 +29,19 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "prefill,decode", [("vllm", "sglang"), ("sglang", "vllm"), ("trt-llm", "vllm")]
+    "prefill,decode,restore_prefill",
+    [
+        ("vllm", "sglang", "vllm"),
+        ("sglang", "vllm", "sglang"),
+        ("trt-llm", "vllm", "trt-llm"),
+        ("vllm", "vllm", "sglang"),
+        ("sglang", "vllm", "vllm"),
+        ("trt-llm", "vllm", "vllm"),
+        ("vllm", "vllm", "trt-llm"),
+    ],
 )
 async def test_live_pd_restores_history_after_engines_restart(
-    tmp_path, prefill, decode
+    tmp_path, prefill, decode, restore_prefill
 ):
     pythons = json.loads(os.environ["XINFERENCE_TEST_PD_HISTORY_PYTHONS"])
     gpus = os.environ["XINFERENCE_TEST_PD_HISTORY_GPUS"].split(",")
@@ -56,6 +65,7 @@ async def test_live_pd_restores_history_after_engines_restart(
         try:
             reports = []
             for cycle in range(2):
+                p_engine = restore_prefill if cycle else prefill
                 root = tmp_path / str(cycle)
                 root.mkdir()
                 directory = await xo.create_actor(
@@ -78,7 +88,7 @@ async def test_live_pd_restores_history_after_engines_restart(
                             model=os.environ["XINFERENCE_TEST_PD_MODEL_PATH"],
                             logical_dtype=(
                                 "bfloat16"
-                                if "trt-llm" in (prefill, decode)
+                                if "trt-llm" in (prefill, decode, restore_prefill)
                                 else "float16"
                             ),
                             baseline_texts=(
@@ -140,7 +150,7 @@ async def test_live_pd_restores_history_after_engines_restart(
                 try:
                     await start("decode", decode, gpus[1])
                     await wait("ready")
-                    await start("prefill", prefill, gpus[0])
+                    await start("prefill", p_engine, gpus[0])
                     await wait("decode.done")
                     await wait("prefill.done")
                     (root / "release").touch()
@@ -173,7 +183,7 @@ async def test_live_pd_restores_history_after_engines_restart(
                     assert pd["active_handoffs"] == remaining
                     assert stats["enqueued_pages"] > 0 or stats["imported_pages"] > 0
                     if cycle:
-                        if prefill == "sglang":
+                        if p_engine == "sglang":
                             # SGLang's storage adapter copies into its host pool;
                             # native usage reports the subsequent GPU reuse.
                             assert stats["read_pages"] > 0
@@ -189,7 +199,10 @@ async def test_live_pd_restores_history_after_engines_restart(
                                     "cached_tokens"
                                 ]
 
-                            assert cached(warm[4]) > cached(cold[4])
+                            if prefill == restore_prefill:
+                                assert cached(warm[4]) > cached(cold[4])
+                            else:
+                                assert cached(warm[4]) >= 128
                         else:
                             assert stats["imported_pages"] > 0
                         assert (await store.get_stats())["backend_stats"][

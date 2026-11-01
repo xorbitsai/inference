@@ -245,7 +245,9 @@ One shared LMCache history store runs on the first CUDA worker; install ``xinfer
 
 For MLX prefill, ``xavier_cache_bytes`` still bounds live host handoff pages independently of LMCache. CUDA P/D may omit ``xavier_gpu_cache_bytes`` or set it to ``0``; retained Xavier GPU history is disabled with this backend.
 
-This option uses the canonical P/D model contract and its model, dtype, single-device and 64-token page restrictions, even for same-engine CUDA groups. See :ref:`user_guide_pd_separation`. Engine-local prefix caching remains available on P. Different cache salts remain isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. Historical entries are scoped to the deployment and are not recovered after relaunch.
+This option uses the canonical P/D model contract and its model, dtype, single-device and 64-token page restrictions, even for same-engine CUDA groups. CUDA P/D also uses the canonical request path, which rejects logprobs and structured outputs (``guided_*``, ``structured_outputs``, ``json_schema`` and JSON ``response_format``). See :ref:`user_guide_pd_separation`. Engine-local prefix reuse remains available on vLLM, SGLang and MLX P. TRT-LLM isolates native prefix reuse per request and uses LMCache for historical reuse. Different cache salts remain isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. Historical entries are scoped to the deployment and are not recovered after relaunch.
+
+On vLLM P, each scheduler-side history RPC has a one-second deadline; ``read_timeout`` bounds the proxy's storage work.
 
 Mooncake Store
 ^^^^^^^^^^^^^^

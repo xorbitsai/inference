@@ -4,8 +4,9 @@
 
 import asyncio
 import logging
+import re
 import time
-from collections import OrderedDict, deque
+from collections import Counter, deque
 from typing import Optional
 
 import xoscar as xo
@@ -23,11 +24,12 @@ class XavierHistoryProxy(xo.StatelessActor):
         self.read_timeout = read_timeout
         self._ref = None
         self._contract: Optional[KVCacheContract] = None
-        self._known: OrderedDict[str, None] = OrderedDict()
+        self._pending: Counter[str] = Counter()
         self._queue: deque = deque()
         self._pending_bytes = 0
         self._writer = None
-        self._retry_at = 0.0
+        self._read_retry_at = 0.0
+        self._write_retry_at = 0.0
         self._closed = False
         self._counts = dict(
             enqueued_pages=0,
@@ -64,61 +66,48 @@ class XavierHistoryProxy(xo.StatelessActor):
         if not isinstance(keys, (list, tuple)) or len(keys) > 4096:
             raise ValueError("Invalid Xavier history page keys")
         if any(
-            not isinstance(key, str)
-            or len(key) != 64
-            or any(c not in "0123456789abcdef" for c in key)
+            not isinstance(key, str) or re.fullmatch(r"[0-9a-f]{64}", key) is None
             for key in keys
         ) or len(set(keys)) != len(keys):
             raise ValueError("Invalid Xavier history page keys")
 
-    def _remember(self, keys):
-        for key in reversed(keys):
-            self._known[key] = None
-            self._known.move_to_end(key)
-        while len(self._known) > self._capacity_pages:
-            self._known.popitem(last=False)
-
-    def exists_local(self, namespace, keys):
+    def pending_prefix(self, namespace, keys):
+        # This only deduplicates in-flight publication. LMCache can evict pages
+        # independently, so a completed write is never a local residency hint.
         self._validate(namespace, keys)
-        local = len(keys)
         for index, key in enumerate(keys):
-            if key not in self._known:
-                local = index
-                break
-        return local
+            if key not in self._pending:
+                return index
+        return len(keys)
 
     async def exists(self, namespace, keys):
-        local = self.exists_local(namespace, keys)
-        if local == len(keys) or self._closed or time.monotonic() < self._retry_at:
-            return local
+        self._validate(namespace, keys)
+        if self._closed or time.monotonic() < self._read_retry_at:
+            return 0
         try:
             found = await asyncio.wait_for(
                 (await self._target()).exists(namespace, keys),
                 min(self.read_timeout, 1.0),
             )
         except Exception:
-            self._retry_at = time.monotonic() + 5
-            return local
-        self._remember(keys[:found])
-        return max(local, found)
+            self._read_retry_at = time.monotonic() + 5
+            return 0
+        return found
 
     async def get(self, namespace, keys):
         self._validate(namespace, keys)
-        if self._closed or time.monotonic() < self._retry_at:
+        if self._closed or time.monotonic() < self._read_retry_at:
             return []
         try:
             pages = await asyncio.wait_for(
                 (await self._target()).get(namespace, keys), self.read_timeout
             )
         except Exception:
-            self._retry_at = time.monotonic() + 5
+            self._read_retry_at = time.monotonic() + 5
             logger.warning(
                 "Xavier history lookup failed; computing locally", exc_info=True
             )
             return []
-        for key in keys[len(pages) :]:
-            self._known.pop(key, None)
-        self._remember(keys[: len(pages)])
         self._counts["read_pages"] += len(pages)
         return pages
 
@@ -139,7 +128,7 @@ class XavierHistoryProxy(xo.StatelessActor):
         nbytes = len(pages) * self._page_bytes
         if (
             self._closed
-            or time.monotonic() < self._retry_at
+            or time.monotonic() < self._write_retry_at
             or self._pending_bytes + nbytes > self.capacity_bytes
         ):
             self._counts["dropped_pages"] += len(pages)
@@ -147,7 +136,7 @@ class XavierHistoryProxy(xo.StatelessActor):
         self._queue.append((namespace, list(keys), tuple(pages), start, nbytes))
         self._pending_bytes += nbytes
         self._counts["enqueued_pages"] += len(pages)
-        self._remember(keys)
+        self._pending.update(keys[start:])
         if self._writer is None or self._writer.done():
             self._writer = asyncio.create_task(self._write())
         return [True] * len(keys)
@@ -155,36 +144,41 @@ class XavierHistoryProxy(xo.StatelessActor):
     async def _write(self):
         while self._queue:
             namespace, keys, pages, start, nbytes = self._queue.popleft()
-            if time.monotonic() < self._retry_at:
-                for key in keys[start:]:
-                    self._known.pop(key, None)
-                self._counts["dropped_pages"] += len(pages)
-                self._pending_bytes -= nbytes
-                continue
             try:
+                if time.monotonic() < self._write_retry_at:
+                    self._counts["dropped_pages"] += len(pages)
+                    continue
                 target = await self._target()
                 found = await asyncio.wait_for(
                     target.exists(namespace, keys), self.read_timeout
                 )
-                begin = max(start, found)
+                if found < start:
+                    # The caller's live prefix need not exist in history. Its
+                    # suffix would be unreadable until the missing head is sent.
+                    self._counts["dropped_pages"] += len(pages)
+                    continue
+                begin = found
+                if begin == len(keys):
+                    continue
                 result = await asyncio.wait_for(
                     target.put(namespace, keys, list(pages[begin - start :]), begin),
                     self.read_timeout,
                 )
                 if not all(result):
                     raise RuntimeError("Xavier history store rejected pages")
-                self._remember(list(dict.fromkeys(keys[:found] + keys[start:])))
-                self._counts["written_pages"] += len(pages)
+                self._counts["written_pages"] += len(keys) - begin
             except Exception:
-                for key in keys[start:]:
-                    self._known.pop(key, None)
                 self._counts["dropped_pages"] += len(pages)
-                if time.monotonic() >= self._retry_at:
+                if time.monotonic() >= self._write_retry_at:
                     logger.warning(
                         "Xavier history write failed; live P/D continues", exc_info=True
                     )
-                self._retry_at = time.monotonic() + 5
+                self._write_retry_at = time.monotonic() + 5
             finally:
+                for key in keys[start:]:
+                    self._pending[key] -= 1
+                    if not self._pending[key]:
+                        del self._pending[key]
                 self._pending_bytes -= nbytes
 
     async def flush(self):
@@ -210,8 +204,12 @@ class XavierHistoryProxy(xo.StatelessActor):
         try:
             await asyncio.wait_for(self.flush(), self.read_timeout + 1)
         except Exception:
-            if self._writer is not None:
+            pass
+        finally:
+            if self._writer is not None and not self._writer.done():
                 self._writer.cancel()
                 await asyncio.gather(self._writer, return_exceptions=True)
+            self._writer = None
             self._queue.clear()
+            self._pending.clear()
             self._pending_bytes = 0

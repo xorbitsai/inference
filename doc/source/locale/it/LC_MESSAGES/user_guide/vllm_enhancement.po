@@ -520,10 +520,40 @@ msgstr "P ripristina pagine storiche di prefissi compatibili prima di calcolare 
 msgid "One shared LMCache history store runs on the first CUDA worker; install ``xinference[xavier-lmcache]`` in that worker's environment. All-MLX groups require a Linux model-service host for the store. Each P replica adds a bounded CPU write queue and owned read buffers; SGLang also allocates its native HiCache host pool. Include these allocations in addition to the LMCache memory budgets above. Disk paths belong to the storage host."
 msgstr "Uno store condiviso della cronologia LMCache viene eseguito sul primo worker CUDA; installare ``xinference[xavier-lmcache]`` nel suo ambiente. I gruppi solo MLX richiedono un host Linux di servizi dei modelli per lo store. Ogni replica P aggiunge una coda CPU limitata e buffer di lettura propri; SGLang alloca anche il pool host HiCache nativo. Considerare queste allocazioni oltre ai budget LMCache indicati sopra. I percorsi del disco si riferiscono all’host di storage."
 
-#: source/user_guide/vllm_enhancement.rst
-msgid "This option uses the canonical P/D model contract and its model, dtype, single-device and 64-token page restrictions, even for same-engine CUDA groups. See :ref:`user_guide_pd_separation`. Engine-local prefix caching remains available on P. Different cache salts remain isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. Historical entries are scoped to the deployment and are not recovered after relaunch."
-msgstr "Questa opzione usa il contratto canonico dei modelli P/D e i relativi limiti di modello, dtype, singolo dispositivo e pagine da 64 token, anche per gruppi CUDA dello stesso motore. Vedere :ref:`user_guide_pd_separation`. La cache dei prefissi locale al motore resta disponibile su P. Cache salt diversi restano isolati; TRT-LLM continua a rifiutare ``cache_salt``. Le voci storiche appartengono al deployment e non vengono recuperate dopo il riavvio."
+#: user_guide/vllm_enhancement.rst:248
+msgid ""
+"This option uses the canonical P/D model contract and its model, dtype, "
+"single-device and 64-token page restrictions, even for same-engine CUDA "
+"groups. CUDA P/D also uses the canonical request path, which rejects "
+"logprobs and structured outputs (``guided_*``, ``structured_outputs``, "
+"``json_schema`` and JSON ``response_format``). See "
+":ref:`user_guide_pd_separation`. Engine-local prefix reuse remains available"
+" on vLLM, SGLang and MLX P. TRT-LLM isolates native prefix reuse per request"
+" and uses LMCache for historical reuse. Different cache salts remain "
+"isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. "
+"Historical entries are scoped to the deployment and are not recovered after "
+"relaunch."
+msgstr ""
+"Questa opzione usa il contratto P/D canonico con i relativi limiti di "
+"modello, dtype, singolo dispositivo e pagine da 64 token, anche per gruppi "
+"CUDA dello stesso motore. CUDA P/D usa anche il percorso di richiesta "
+"canonico, che rifiuta logprobs e output strutturati (``guided_*``, "
+"``structured_outputs``, ``json_schema`` e ``response_format`` JSON). Vedere "
+":ref:`user_guide_pd_separation`. Il riuso locale dei prefissi resta "
+"disponibile su P con vLLM, SGLang e MLX. TRT-LLM isola il riuso nativo per "
+"richiesta e usa LMCache per riutilizzare prefissi storici. Cache salt "
+"diversi restano isolati; il rifiuto esistente di ``cache_salt`` in TRT-LLM "
+"resta invariato. Le voci storiche sono limitate al deployment e non vengono "
+"recuperate dopo il riavvio."
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "For MLX prefill, ``xavier_cache_bytes`` still bounds live host handoff pages independently of LMCache. CUDA P/D may omit ``xavier_gpu_cache_bytes`` or set it to ``0``; retained Xavier GPU history is disabled with this backend."
 msgstr "Per prefill MLX, ``xavier_cache_bytes`` limita ancora le pagine host del passaggio attivo, indipendentemente da LMCache. CUDA P/D può omettere ``xavier_gpu_cache_bytes`` o impostarlo a ``0``; questo backend non conserva la cronologia GPU Xavier."
+
+#: user_guide/vllm_enhancement.rst:250
+msgid ""
+"On vLLM P, each scheduler-side history RPC has a one-second deadline; "
+"``read_timeout`` bounds the proxy's storage work."
+msgstr ""
+"Su vLLM P, ogni RPC della cronologia lato scheduler ha un limite di un "
+"secondo; ``read_timeout`` limita il lavoro di archiviazione del proxy."

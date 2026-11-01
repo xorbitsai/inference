@@ -174,13 +174,16 @@ class MLXXavierCache:
         self._capacity_pages = 0
         self._writes: set = set()
         self.imported_tokens = 0
-        self.prefill_cached_tokens = 0
         self._history = (
             MLXXavierCache(contract, config["prefix_cache"])
             if self.role == "prefill" and config.get("prefix_cache")
             else None
         )
         self._history_lock = asyncio.Lock()
+
+    def _history_batch_size(self):
+        page_bytes = self.contract.num_layers * self.contract.layer_nbytes
+        return max(1, min(128, 32 * 1024**2 // page_bytes))
 
     async def _fetch_history(self, tokens, cache_salt=None, cache=None, cached=0):
         if self._history is None or cached % self.contract.block_size:
@@ -196,8 +199,7 @@ class MLXXavierCache:
                 keys = prefix_keys(tokens[:-1], self.contract.block_size, cache_salt)
                 start = cached // self.contract.block_size
                 selected = keys[start : start + history._capacity_pages]
-                page_bytes = self.contract.num_layers * self.contract.layer_nbytes
-                batch_size = max(1, min(128, 32 * 1024**2 // page_bytes))
+                batch_size = self._history_batch_size()
                 pages = []
                 for offset in range(0, len(selected), batch_size):
                     batch_keys = selected[offset : offset + batch_size]
@@ -245,8 +247,7 @@ class MLXXavierCache:
         try:
             keys = prefix_keys(tokens[:-1], self.contract.block_size, cache_salt)
             end = min(len(keys), history._capacity_pages)
-            page_bytes = self.contract.num_layers * self.contract.layer_nbytes
-            batch_size = max(1, min(128, 32 * 1024**2 // page_bytes))
+            batch_size = self._history_batch_size()
             for offset in range(start, end, batch_size):
                 count = min(batch_size, end - offset)
                 await history._call(
@@ -626,7 +627,6 @@ class MLXXavierCache:
                 timeout=transfer_timeout(),
             )
             cache, cached = await self._fetch_history(tokens, cache_salt)
-            self.prefill_cached_tokens = cached
             batch = PromptProcessingBatch(
                 model,
                 [0],
@@ -663,7 +663,10 @@ class MLXXavierCache:
             await source.publish(
                 room, self.contract.to_dict(), pages, first_token, len(tokens)
             )
-            await self._publish_history(tokens, pages, cache_salt=cache_salt)
+            history_start = cached // self.contract.block_size
+            await self._publish_history(
+                tokens, pages[history_start:], history_start, cache_salt
+            )
             # CPU ownership now belongs to the source actor. Native engine slots
             # may only be committed after the consumer completes its import.
             del pages, batch
@@ -682,7 +685,6 @@ class MLXXavierCache:
         from mlx_lm.models.cache import make_prompt_cache
 
         cache_salt = validate_cache_salt((generate_config or {}).get("cache_salt"))
-        self.prefill_cached_tokens = 0
         if self.config.get("heterogeneous"):
             return await self._prefill_host(
                 model, tokens, prefix_length, transfer, generate_config or {}
@@ -722,7 +724,6 @@ class MLXXavierCache:
             cache, cached = await self.fetch(tokens, cache_salt=cache_salt)
             native_cached = cached
             cache, cached = await self._fetch_history(tokens, cache_salt, cache, cached)
-            self.prefill_cached_tokens = cached
             cache = cache if cache is not None else make_prompt_cache(model)
             # Use the same batched cache/mask and prompt segment boundaries as
             # ordinary MLX generation. Scalar KVCache prefill uses a different

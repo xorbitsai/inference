@@ -193,7 +193,7 @@ class CrossEngineConnector(XavierConnector):
         return room
 
     def get_num_new_matched_tokens(self, request, num_computed_tokens):
-        if getattr(self, "_prefix_history", None) is not None:
+        if self._prefix_history is not None:
             return self._prefix_history.get_num_new_matched_tokens(
                 request, num_computed_tokens
             )
@@ -222,7 +222,7 @@ class CrossEngineConnector(XavierConnector):
         return tokens, bool(tokens)
 
     def update_state_after_alloc(self, request, blocks, num_external_tokens):
-        if getattr(self, "_prefix_history", None) is not None:
+        if self._prefix_history is not None:
             self._prefix_history.update_state_after_alloc(
                 request, blocks, num_external_tokens
             )
@@ -244,7 +244,7 @@ class CrossEngineConnector(XavierConnector):
         )
         self._direct_sends = set()
         self._pending_aborts = {}
-        if getattr(self, "_prefix_history", None) is not None:
+        if self._prefix_history is not None:
             meta.prefix_meta = self._prefix_history.build_connector_meta(
                 scheduler_output
             )
@@ -301,7 +301,7 @@ class CrossEngineConnector(XavierConnector):
             self._prefix_history.wait_for_save()
 
     def request_finished(self, request, block_ids):
-        if getattr(self, "_prefix_history", None) is not None:
+        if self._prefix_history is not None:
             self._prefix_history.request_finished(request, block_ids)
         self._cross_requests.pop(request.request_id, None)
         self._cross_prepare_errors.pop(request.request_id, None)
@@ -378,7 +378,7 @@ class CrossEngineConnector(XavierConnector):
         return self.request_finished(request, list(block_ids[0]))
 
     def shutdown(self):
-        if getattr(self, "_prefix_history", None) is not None:
+        if self._prefix_history is not None:
             self._prefix_history.shutdown()
         if self._loop is None:
             return

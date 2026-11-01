@@ -1794,6 +1794,33 @@ async def test_pd_history_attaches_only_to_prefill_and_cleans_up(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang", "TRT-LLM"])
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"transfer_backend_type": "nixl"},
+        {"xavier_gpu_cache_bytes": 1024},
+        {"xavier_cache_bytes": 8192},
+    ],
+)
+async def test_pd_history_rejects_incompatible_launch_before_side_effects(
+    launch_runtime, engine, invalid
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = {**launch_kwargs(), "model_engine": engine, **invalid}
+    with pytest.raises(ValueError, match="LMCache backend requires"):
+        await supervisor.launch_builtin_model(
+            **kwargs,
+            xavier_cache_backend="lmcache",
+            xavier_cache_backend_config={"disk_path": "/cache", "disk_bytes": 32768},
+        )
+    assert not actors and not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+        worker.launch_rank0_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_pd_history_rolls_back_actors_when_prefill_launch_fails(launch_runtime):
     supervisor, workers, actors, destroy = launch_runtime
     workers[0].wait_for_load.side_effect = RuntimeError("P failed")

@@ -461,10 +461,33 @@ msgstr "P 在计算剩余提示词前恢复兼容的历史前缀页。拥有独�
 msgid "One shared LMCache history store runs on the first CUDA worker; install ``xinference[xavier-lmcache]`` in that worker's environment. All-MLX groups require a Linux model-service host for the store. Each P replica adds a bounded CPU write queue and owned read buffers; SGLang also allocates its native HiCache host pool. Include these allocations in addition to the LMCache memory budgets above. Disk paths belong to the storage host."
 msgstr "共享 LMCache 历史存储运行在第一个 CUDA worker 上；请在该 worker 环境安装 ``xinference[xavier-lmcache]``。全 MLX 部署需要 Linux 模型服务主机承载存储。每个 P 副本额外使用有界 CPU 写入队列和独立的读取缓冲区；SGLang 还分配原生 HiCache 主机内存池。除上述 LMCache 内存预算外，还需计入这些内存。磁盘路径属于存储主机。"
 
-#: source/user_guide/vllm_enhancement.rst
-msgid "This option uses the canonical P/D model contract and its model, dtype, single-device and 64-token page restrictions, even for same-engine CUDA groups. See :ref:`user_guide_pd_separation`. Engine-local prefix caching remains available on P. Different cache salts remain isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. Historical entries are scoped to the deployment and are not recovered after relaunch."
-msgstr "此选项使用规范化的 P/D 模型契约及其模型、dtype、单设备和 64-token 页限制，同引擎 CUDA 部署也遵循这些限制。参见 :ref:`user_guide_pd_separation`。P 上仍可使用引擎本地前缀缓存。不同 cache salt 保持隔离；TRT-LLM 仍拒绝 ``cache_salt``。历史条目限于当前部署，重新启动后不会恢复。"
+#: user_guide/vllm_enhancement.rst:248
+msgid ""
+"This option uses the canonical P/D model contract and its model, dtype, "
+"single-device and 64-token page restrictions, even for same-engine CUDA "
+"groups. CUDA P/D also uses the canonical request path, which rejects "
+"logprobs and structured outputs (``guided_*``, ``structured_outputs``, "
+"``json_schema`` and JSON ``response_format``). See "
+":ref:`user_guide_pd_separation`. Engine-local prefix reuse remains available"
+" on vLLM, SGLang and MLX P. TRT-LLM isolates native prefix reuse per request"
+" and uses LMCache for historical reuse. Different cache salts remain "
+"isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. "
+"Historical entries are scoped to the deployment and are not recovered after "
+"relaunch."
+msgstr ""
+"此选项使用规范化的 P/D 模型契约及其模型、dtype、单设备和 64-token 页限制，同引擎 CUDA 部署也遵循这些限制。CUDA P/D "
+"还使用规范化的请求路径，不支持 logprobs "
+"和结构化输出（``guided_*``、``structured_outputs``、``json_schema`` 以及 JSON "
+"``response_format``）。参见 :ref:`user_guide_pd_separation`。vLLM、SGLang 和 MLX 的 "
+"P 仍可复用引擎本地前缀缓存。TRT-LLM 按请求隔离原生前缀复用，通过 LMCache 复用历史前缀。不同 cache salt 保持隔离；TRT-"
+"LLM 仍拒绝 ``cache_salt``。历史条目限于当前部署，重新启动后不会恢复。"
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "For MLX prefill, ``xavier_cache_bytes`` still bounds live host handoff pages independently of LMCache. CUDA P/D may omit ``xavier_gpu_cache_bytes`` or set it to ``0``; retained Xavier GPU history is disabled with this backend."
 msgstr "对于 MLX prefill，``xavier_cache_bytes`` 仍独立于 LMCache 限制 live 主机交接页的容量。CUDA P/D 可以省略 ``xavier_gpu_cache_bytes`` 或将其设为 ``0``；此后端不保留 Xavier GPU 历史缓存。"
+
+#: user_guide/vllm_enhancement.rst:250
+msgid ""
+"On vLLM P, each scheduler-side history RPC has a one-second deadline; "
+"``read_timeout`` bounds the proxy's storage work."
+msgstr "在 vLLM P 上，调度器侧每次历史缓存 RPC 的超时为一秒；``read_timeout`` 限制代理访问存储的等待时间。"
