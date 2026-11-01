@@ -3,6 +3,7 @@
 """Canonical, historical prefix pages in LMCache, separate from live P/D KV."""
 
 import re
+from typing import Optional
 
 import torch
 
@@ -17,10 +18,10 @@ class XavierHistoryCacheActor(XavierCacheActor):
         if cache_backend.get("name") != "lmcache":
             raise ValueError("Xavier P/D history requires the LMCache backend")
         super().__init__(cache_backend["config"]["cpu_bytes"], cache_backend)
-        self._contract = None
-        self._wire_namespace = None
+        self._wire_namespace: Optional[str] = None
 
-    def configure(self, contract: dict) -> dict:
+    # The bytes RPC returns capabilities rather than the native Torch namespace.
+    def configure(self, contract: dict) -> dict:  # type: ignore[override]
         metadata = KVCacheContract.from_dict(contract)
         super().configure(
             contract,
@@ -31,8 +32,8 @@ class XavierHistoryCacheActor(XavierCacheActor):
                 "version": 1,
             },
         )
-        self._contract = metadata
         self._wire_namespace = metadata.fingerprint
+        assert self._store is not None
         return {
             "namespace": self._wire_namespace,
             "capacity_pages": self._store.capacity,

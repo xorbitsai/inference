@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 from collections import OrderedDict, deque
+from typing import Optional
 
 import xoscar as xo
 
@@ -21,7 +22,7 @@ class XavierHistoryProxy(xo.StatelessActor):
         self.capacity_bytes = capacity_bytes
         self.read_timeout = read_timeout
         self._ref = None
-        self._contract = None
+        self._contract: Optional[KVCacheContract] = None
         self._known: OrderedDict[str, None] = OrderedDict()
         self._queue: deque = deque()
         self._pending_bytes = 0
