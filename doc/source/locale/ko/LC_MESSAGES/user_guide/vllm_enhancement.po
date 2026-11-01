@@ -478,3 +478,7 @@ msgstr "공유 LMCache 이력 스토어는 첫 번째 CUDA worker에서 실행�
 #: source/user_guide/vllm_enhancement.rst
 msgid "This option uses the canonical P/D model contract and its model, dtype, single-device and 64-token page restrictions, even for same-engine CUDA groups. See :ref:`user_guide_pd_separation`. Engine-local prefix caching remains available on P. Different cache salts remain isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. Historical entries are scoped to the deployment and are not recovered after relaunch."
 msgstr "이 옵션은 표준 P/D 모델 계약과 모델, dtype, 단일 장치 및 64-token 페이지 제한을 사용하며 같은 엔진의 CUDA 그룹에도 적용됩니다. :ref:`user_guide_pd_separation` 을 참조하세요. P의 엔진 로컬 접두사 캐시는 계속 사용할 수 있습니다. 서로 다른 cache salt는 격리되며 TRT-LLM은 계속 ``cache_salt`` 를 거부합니다. 이력 항목은 배포 범위에 한정되며 다시 시작해도 복원되지 않습니다."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "For MLX prefill, ``xavier_cache_bytes`` still bounds live host handoff pages independently of LMCache. CUDA P/D may omit ``xavier_gpu_cache_bytes`` or set it to ``0``; retained Xavier GPU history is disabled with this backend."
+msgstr "MLX prefill의 ``xavier_cache_bytes`` 는 LMCache와 별도로 live 호스트 전달 페이지를 제한합니다. CUDA P/D는 ``xavier_gpu_cache_bytes`` 를 생략하거나 ``0`` 으로 설정할 수 있으며 이 백엔드에서는 Xavier GPU 이력을 보존하지 않습니다."

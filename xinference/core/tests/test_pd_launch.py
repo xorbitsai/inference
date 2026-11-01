@@ -1742,6 +1742,10 @@ async def test_pd_history_attaches_only_to_prefill_and_cleans_up(
             cfg.engine_config = {"model_format": "mlx"}
     if prefill == decode == "MLX":
         kwargs["model_format"] = "mlx"
+    if prefill == "MLX":
+        kwargs["xavier_cache_bytes"] = 16384
+    if (prefill, decode) != ("MLX", "MLX"):
+        kwargs["xavier_gpu_cache_bytes"] = 0
     options = {"cpu_bytes": 8192, "disk_path": "/cache", "disk_bytes": 32768}
     await supervisor.launch_builtin_model(
         **kwargs, xavier_cache_backend="lmcache", xavier_cache_backend_config=options
@@ -1772,6 +1776,11 @@ async def test_pd_history_attaches_only_to_prefill_and_cleans_up(
     for launch in (p, d):
         assert launch["xavier_config"] is None
         assert "cache_backend" not in launch["_xavier_cache_config"]
+    if prefill == "MLX":
+        live = actors[
+            "XavierBytesCacheActor" if decode == "MLX" else "XavierHostPDSource"
+        ]
+        assert live.constructor_kwargs["capacity_bytes"] == 16384
     if [prefill, decode] != ["MLX", "MLX"]:
         assert "XavierPDDirectory" in actors
         assert p["_xavier_cache_config"]["heterogeneous"]

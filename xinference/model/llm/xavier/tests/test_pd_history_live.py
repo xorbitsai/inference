@@ -76,6 +76,21 @@ async def test_live_pd_restores_history_after_engines_restart(
                         dict(
                             address=pool.external_address,
                             model=os.environ["XINFERENCE_TEST_PD_MODEL_PATH"],
+                            logical_dtype=(
+                                "bfloat16"
+                                if "trt-llm" in (prefill, decode)
+                                else "float16"
+                            ),
+                            baseline_texts=(
+                                [
+                                    record["baseline"]
+                                    for record in json.loads(
+                                        (tmp_path / "0" / "results.json").read_text()
+                                    )[::2]
+                                ]
+                                if cycle
+                                else None
+                            ),
                             history=dict(
                                 address=proxy.address,
                                 uid=f"history-proxy-{cycle}",
@@ -143,10 +158,40 @@ async def test_live_pd_restores_history_after_engines_restart(
                         )
                     )
                     assert pd["completed_requests"] == 6 and pd["gpu_bytes"] > 0
-                    assert pd["host_bytes"] == pd["active_handoffs"] == 0
+                    assert pd["host_bytes"] == 0
+                    remaining = 0
+                    for room in range(100, 106):
+                        try:
+                            await directory.request_info(room)
+                        except RuntimeError as error:
+                            assert "unavailable" in str(error)
+                            continue
+                        # Completed metadata can outlive the final P scheduler
+                        # poll until the deployment directory is destroyed.
+                        assert await directory.check(room)
+                        remaining += 1
+                    assert pd["active_handoffs"] == remaining
                     assert stats["enqueued_pages"] > 0 or stats["imported_pages"] > 0
                     if cycle:
-                        assert stats["imported_pages"] > 0
+                        if prefill == "sglang":
+                            # SGLang's storage adapter copies into its host pool;
+                            # native usage reports the subsequent GPU reuse.
+                            assert stats["read_pages"] > 0
+                            cold = json.loads(
+                                (tmp_path / "0" / "prefill-results.json").read_text()
+                            )
+                            warm = json.loads(
+                                (root / "prefill-results.json").read_text()
+                            )
+
+                            def cached(record):
+                                return record["usage"]["prompt_tokens_details"][
+                                    "cached_tokens"
+                                ]
+
+                            assert cached(warm[4]) > cached(cold[4])
+                        else:
+                            assert stats["imported_pages"] > 0
                         assert (await store.get_stats())["backend_stats"][
                             "l2_hits"
                         ] > reports[0]["storage"]["backend_stats"]["l2_hits"]

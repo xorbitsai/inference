@@ -524,3 +524,7 @@ msgstr "Un almacén LMCache de historial compartido se ejecuta en el primer work
 #: source/user_guide/vllm_enhancement.rst
 msgid "This option uses the canonical P/D model contract and its model, dtype, single-device and 64-token page restrictions, even for same-engine CUDA groups. See :ref:`user_guide_pd_separation`. Engine-local prefix caching remains available on P. Different cache salts remain isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. Historical entries are scoped to the deployment and are not recovered after relaunch."
 msgstr "Esta opción usa el contrato canónico de modelos P/D y sus restricciones de modelo, dtype, dispositivo único y páginas de 64 tokens, incluso en grupos CUDA del mismo motor. Véase :ref:`user_guide_pd_separation`. La caché de prefijos local del motor sigue disponible en P. Los distintos cache salts siguen aislados; TRT-LLM continúa rechazando ``cache_salt``. El historial pertenece al despliegue y no se recupera tras reiniciarlo."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "For MLX prefill, ``xavier_cache_bytes`` still bounds live host handoff pages independently of LMCache. CUDA P/D may omit ``xavier_gpu_cache_bytes`` or set it to ``0``; retained Xavier GPU history is disabled with this backend."
+msgstr "Para prefill MLX, ``xavier_cache_bytes`` sigue limitando las páginas de entrega activa en el host, independientemente de LMCache. CUDA P/D puede omitir ``xavier_gpu_cache_bytes`` o establecerlo en ``0``; este backend no conserva historial GPU Xavier."

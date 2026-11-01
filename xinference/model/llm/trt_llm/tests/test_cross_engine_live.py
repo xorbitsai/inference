@@ -55,6 +55,8 @@ async def main():
                       mem_fraction_static=.3, max_total_tokens=2048, page_size=64,
                       chunked_prefill_size=-1, triton_attention_reduce_in_fp32=False)
     config['enable_thinking'] = False
+    dtype = args.get('logical_dtype', 'bfloat16')
+    config['dtype'] = dtype
     family = match_llm('qwen3', 'pytorch', '0_6', 'none')
     prompts = ['The capital of France is Paris. '*n for n in (1, 9, 24)]
     options = dict(max_tokens=16, temperature=0, ignore_eos=True, stop=[], stop_token_ids=[])
@@ -63,12 +65,14 @@ async def main():
         if pd:
             cfg['_xavier_cache_config'] = dict(address=args['address'], uid='trt-cross-live',
                 role=role, rank=1 if role=='prefill' else 2, host='127.0.0.1',
-                heterogeneous=True, logical_dtype='bfloat16', gpu_cache_bytes=0)
+                heterogeneous=True, logical_dtype=dtype, gpu_cache_bytes=0)
             if role == 'prefill' and args.get('history'):
                 cfg['_xavier_cache_config']['prefix_cache'] = args['history']
         return Model('live', family, args['model'], cfg)
     baseline = []
-    if role == 'decode':
+    if role == 'decode' and args.get('baseline_texts'):
+        baseline = [dict(choices=[dict(text=text)]) for text in args['baseline_texts']]
+    elif role == 'decode':
         model = create(False)
         try:
             model.load()
@@ -104,6 +108,9 @@ async def main():
                     assert text == expected, (engine, text, expected)
                     (root/(name+'.done')).touch()
                 else:
+                    if args.get('history'):
+                        report.append(dict(prompt=prompt, stream=stream, usage=output.get('usage', {})))
+                        (root/'prefill-results.json').write_text(json.dumps(report, indent=2))
                     await wait(name+'.done')
                     if engine == 'trt-llm': await model.release_pd_request(request_id)
         (root/(role+'.done')).touch()

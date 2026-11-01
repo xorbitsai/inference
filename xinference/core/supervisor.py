@@ -3474,6 +3474,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
         requested_xavier = bool(kwargs.pop("enable_xavier", False))
         pd_history = pd_enabled and cache_backend == "lmcache"
+        pd_mlx_prefill = pd_enabled and any(
+            cfg.role == "prefill" and engine == "mlx"
+            for cfg, engine in zip(replica_config or [], replica_engines)
+        )
         if cache_backend != "native" and (
             not (requested_xavier or pd_enabled)
             or replica <= 1
@@ -3486,12 +3490,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
             or transport_backend != "xavier"
             or kwargs.get("xavier_gpu_cache_bytes") is not None
+            and not (pd_history and kwargs["xavier_gpu_cache_bytes"] == 0)
             or kwargs.get("xavier_cache_bytes") is not None
+            and not pd_mlx_prefill
         ):
             raise ValueError(
                 "The LMCache backend requires enable_xavier with multiple ordinary "
                 "vLLM V1, SGLang or TRT-LLM replicas, or Xavier P/D roles, "
-                "and backend cpu_bytes instead of native cache budgets"
+                "and backend cpu_bytes for history instead of native cache budgets"
             )
         if pd_history and set(replica_engines) != {"mlx"}:
             # The existing canonical GPU/host handoff works for homogeneous
@@ -3586,11 +3592,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 "SGLang native NIXL requires one worker per replica without enable_xavier"
             )
         cache_bytes = kwargs.pop("xavier_cache_bytes", None)
-        mlx_prefill = host_handoff and any(
-            cfg.role == "prefill"
-            and (cfg.model_engine or model_engine or "").lower() == "mlx"
-            for cfg in (replica_config or [])
-        )
+        mlx_prefill = host_handoff and pd_mlx_prefill
         if cache_bytes is not None and (
             not (
                 heterogeneous_cache
