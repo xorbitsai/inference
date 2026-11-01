@@ -26,9 +26,25 @@ for (const key of Reflect.ownKeys(dom.window)) {
 }
 dom.window.HTMLElement.prototype.scrollIntoView = () => {};
 const { createRoot } = require('react-dom/client') as typeof import('react-dom/client');
+const chinese = require('@/i18n/locales/zh').default as Record<string, unknown>;
+let translateChinese = false;
 require('@/contexts/i18n-context');
 require.cache[require.resolve('@/contexts/i18n-context')]!.exports = {
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    t: (key: string) => {
+      if (!translateChinese) return key;
+      const value = key
+        .split('.')
+        .reduce<unknown>(
+          (value, part) =>
+            typeof value === 'object' && value !== null
+              ? (value as Record<string, unknown>)[part]
+              : undefined,
+          chinese
+        );
+      return typeof value === 'string' ? value : key;
+    },
+  }),
 };
 let permissions: string[] | null;
 let authenticated: boolean;
@@ -84,6 +100,7 @@ const originalPost = request.post,
   originalGet = request.get,
   originalSuccess = toast.success;
 beforeEach(() => {
+  translateChinese = false;
   permissions = ['models:register'];
   authenticated = true;
   ready = true;
@@ -317,6 +334,16 @@ it('allows public no-auth refresh and ignores completion after a category change
   assert.deepEqual(refreshed, []);
   assert.equal(successes, 0);
   assert.ok(!singleButton().disabled);
+});
+
+it('renders catalog actions from the Chinese dictionary', async () => {
+  translateChinese = true;
+  await act(async () =>
+    root.render(<LaunchModel routeType={ModelType.LLM} initialCustomType={ModelType.LLM} />)
+  );
+  const labels = [...host.querySelectorAll('button')].map((button) => button.textContent?.trim());
+  assert.ok(labels.includes('模型详情'));
+  assert.ok(labels.includes('启动'));
 });
 
 for (const single of [false, true]) {
