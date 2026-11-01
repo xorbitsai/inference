@@ -790,7 +790,7 @@ Model Spec 49 (mlx, 72 Billion)
 - **Quantizations:** none
 - **Engines**: MLX
 - **Model ID:** mlx-community/Qwen2.5-72B-Instruct-bf16
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-72B-Instruct-bf16>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-32B-Instruct-MLX-2bit>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-72B-Instruct-bf16>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-72B-Instruct-MLX-2bit>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
