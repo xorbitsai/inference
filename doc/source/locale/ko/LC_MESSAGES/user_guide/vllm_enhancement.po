@@ -204,9 +204,9 @@ msgstr "``cpu_bytes`` 는 각 LMCache 인스턴스의 DRAM 풀을 제한합니�
 msgid "``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per storage instance; a timed-out or cancelled job still releases its LMCache read locks. Reads exceeding the transient capacity return a bounded prefix or fall back to local prefill. Compare TTFT and read latency against prefill cost for your workload."
 msgstr "``read_timeout`` 은 캐시 조회 대기 시간을 초 단위로 제한합니다(기본 30). 누락, 사용 불가 또는 읽기 시간 초과 시 로컬 prefill로 돌아갑니다. 저장소 인스턴스당 LMCache 미리 가져오기 작업은 최대 하나입니다. 시간 초과되거나 취소된 작업도 읽기 잠금을 해제합니다. 임시 용량을 넘는 읽기는 제한된 접두사를 반환하거나 로컬 prefill로 돌아갑니다. 워크로드에 맞게 TTFT, 읽기 지연과 prefill 비용을 비교하세요."
 
-#: source/user_guide/vllm_enhancement.rst:61
-msgid "For filesystem storage, the LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
-msgstr "파일 시스템 스토리지의 경우: LMCache 백엔드는 같은 엔진의 일반 복제본 여러 개를 요구하며 기존 Xavier 모델, dtype, 병렬 처리 제한을 유지합니다. P/D 역할, 레거시 vLLM V0, MLX는 지원하지 않으며 P/D KV 전달은 별도 전송 경로가 담당합니다. native의 ``xavier_cache_bytes`` 또는 ``xavier_gpu_cache_bytes`` 대신 백엔드 ``cpu_bytes`` 를 사용하세요. 백엔드 선택은 엔진 간 캐시 공유를 활성화하거나 기존 cache-salt 동작을 바꾸지 않습니다. 배포와 저장소 인스턴스마다 별도 네임스페이스와 디렉터리를 사용하며 재시작 시 이전 항목을 복원하지 않습니다. 정상 종료 시 디렉터리를 삭제합니다. 프로세스 충돌 후에는 더 이상 사용하지 않는 배포 디렉터리를 정리하세요."
+#: source/user_guide/vllm_enhancement.rst
+msgid "For ordinary replicas, the LMCache backend requires multiple replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits; legacy vLLM V0 and ordinary MLX replicas are unsupported. For P/D roles, see :ref:`xavier-pd-lmcache`. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not change cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
+msgstr "일반 복제본의 경우 LMCache 백엔드는 같은 엔진의 여러 복제본을 요구하며 기존 Xavier 모델, dtype, 병렬 처리 제한을 유지합니다. 레거시 vLLM V0와 일반 MLX 복제본은 지원하지 않습니다. P/D 역할은 :ref:`xavier-pd-lmcache` 를 참조하세요. native의 ``xavier_cache_bytes`` 또는 ``xavier_gpu_cache_bytes`` 대신 백엔드 ``cpu_bytes`` 를 사용하세요. 백엔드 선택은 cache-salt 동작을 바꾸지 않습니다. 배포와 저장소 인스턴스마다 별도 네임스페이스와 디렉터리를 사용하며 재시작 시 이전 항목을 복원하지 않습니다. 정상 종료 시 디렉터리를 삭제합니다. 프로세스 충돌 후에는 더 이상 사용하지 않는 배포 디렉터리를 정리하세요."
 
 #: source/user_guide/vllm_enhancement.rst:34
 msgid "LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas."
@@ -368,9 +368,9 @@ msgstr "이 어댑터의 TRT-LLM은 ``cache_salt`` 를 지원하지 않습니다
 msgid "Mooncake Store"
 msgstr "Mooncake Store"
 
-#: source/user_guide/vllm_enhancement.rst:189
-msgid "Set ``l2_backend=\"mooncake\"`` in ``xavier_cache_backend_config`` to use LMCache's Mooncake Store adapter. The default ``l2_backend=\"filesystem\"`` preserves the disk configuration above. This selects storage for ordinary prefix-cache reuse; P/D transport and supported engine/model combinations remain the same."
-msgstr "``xavier_cache_backend_config`` 에 ``l2_backend=\"mooncake\"`` 를 설정하면 LMCache의 Mooncake Store 어댑터를 사용합니다. 기본값 ``l2_backend=\"filesystem\"`` 은 위의 디스크 구성을 유지합니다. 이 옵션은 일반 접두사 캐시 재사용용 스토리지를 선택하며 P/D 전송 및 지원 엔진과 모델 조합은 동일합니다."
+#: source/user_guide/vllm_enhancement.rst
+msgid "Set ``l2_backend=\"mooncake\"`` in ``xavier_cache_backend_config`` to use LMCache's Mooncake Store adapter. The default ``l2_backend=\"filesystem\"`` preserves the disk configuration above. This selects storage for ordinary prefix-cache reuse or P-side history; P/D transport and supported engine/model combinations remain the same."
+msgstr "``xavier_cache_backend_config`` 에 ``l2_backend=\"mooncake\"`` 를 설정하면 LMCache의 Mooncake Store 어댑터를 사용합니다. 기본값 ``l2_backend=\"filesystem\"`` 은 위의 디스크 구성을 유지합니다. 이 옵션은 일반 접두사 캐시 재사용 또는 P 측 이력용 스토리지를 선택하며 P/D 전송 및 지원 엔진과 모델 조합은 동일합니다."
 
 #: source/user_guide/vllm_enhancement.rst:191
 msgid "The storage environment needs LMCache built with ``BUILD_MOONCAKE=1`` and compatible Mooncake SDK headers and libraries. Start the Mooncake master, metadata service and storage pool first. Use a reachable ``local_hostname`` without a port; Mooncake allocates a distinct port for each storage actor. Replace the endpoints in this TCP example with reachable service addresses, and pass the object as ``xavier_cache_backend_config``:"
@@ -458,3 +458,23 @@ msgstr "수신 엔진의 로컬 prefill과 비교하여 반복 접두사의 TTFT
 #: user_guide/vllm_enhancement.rst
 msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."
 msgstr "요청은 배포의 모든 엔진이 지원하는 옵션을 사용해야 합니다. TRT-LLM은 도구, ``response_format``, 로그 확률, ``echo``, ``n>1`` 을 거부합니다. MLX Xavier는 구조화된 ``response_format``, 강제 도구 선택 및 사고 예산을 거부합니다. 그렇지 않으면 요청을 받는 복제본에 따라 성공 여부가 달라질 수 있습니다."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "LMCache history for P/D"
+msgstr "P/D용 LMCache 이력 캐시"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "Select ``xavier_cache_backend=\"lmcache\"`` and pass the backend configuration above when launching Xavier P/D roles. Prefill can run on vLLM, SGLang, TRT-LLM or MLX, including cross-engine deployments. Decode keeps the existing Xavier handoff and does not access LMCache. Native NIXL deployments cannot use this option."
+msgstr "Xavier P/D 역할을 시작할 때 ``xavier_cache_backend=\"lmcache\"`` 와 위의 백엔드 구성을 전달하세요. Prefill은 vLLM, SGLang, TRT-LLM 또는 MLX에서 실행할 수 있으며 엔진 간 배포도 지원합니다. Decode는 기존 Xavier 전달을 사용하며 LMCache에 접근하지 않습니다. 네이티브 NIXL 배포에서는 이 옵션을 사용할 수 없습니다."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "P restores compatible historical prefix pages before computing the remaining prompt. Owned CPU snapshots enter a worker-local write queue bounded by ``cpu_bytes`` per P replica; LMCache writes run in the background. A full queue or failed write drops optional history. Missing or failed reads compute locally, while live P/D transfer failures still raise errors. CPU snapshot packing and local enqueueing remain part of prefill latency; asynchronous writes do not remove those costs."
+msgstr "P는 호환되는 이력 접두사 페이지를 복원한 뒤 나머지 프롬프트를 계산합니다. 독립적으로 소유한 CPU 스냅샷은 worker 로컬 쓰기 큐에 들어가며 각 P 복제본의 큐는 ``cpu_bytes`` 로 제한됩니다. LMCache 쓰기는 백그라운드에서 실행됩니다. 큐가 가득 차거나 쓰기가 실패하면 선택적 이력을 버립니다. 읽기 누락이나 실패 시 로컬에서 계산하지만 live P/D 전송 실패는 여전히 오류입니다. CPU 스냅샷 패킹과 로컬 큐 삽입은 prefill 지연에 포함되며 비동기 쓰기도 이 비용을 없애지 않습니다."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "One shared LMCache history store runs on the first CUDA worker; install ``xinference[xavier-lmcache]`` in that worker's environment. All-MLX groups require a Linux model-service host for the store. Each P replica adds a bounded CPU write queue and owned read buffers; SGLang also allocates its native HiCache host pool. Include these allocations in addition to the LMCache memory budgets above. Disk paths belong to the storage host."
+msgstr "공유 LMCache 이력 스토어는 첫 번째 CUDA worker에서 실행됩니다. 해당 worker 환경에 ``xinference[xavier-lmcache]`` 를 설치하세요. MLX만 있는 배포는 스토어를 위한 Linux 모델 서비스 호스트가 필요합니다. 각 P 복제본에는 제한된 CPU 쓰기 큐와 독립적인 읽기 버퍼가 추가되며 SGLang은 네이티브 HiCache 호스트 풀도 할당합니다. 위 LMCache 메모리 예산 외에 이 할당도 계산하세요. 디스크 경로는 스토리지 호스트 기준입니다."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "This option uses the canonical P/D model contract and its model, dtype, single-device and 64-token page restrictions, even for same-engine CUDA groups. See :ref:`user_guide_pd_separation`. Engine-local prefix caching remains available on P. Different cache salts remain isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. Historical entries are scoped to the deployment and are not recovered after relaunch."
+msgstr "이 옵션은 표준 P/D 모델 계약과 모델, dtype, 단일 장치 및 64-token 페이지 제한을 사용하며 같은 엔진의 CUDA 그룹에도 적용됩니다. :ref:`user_guide_pd_separation` 을 참조하세요. P의 엔진 로컬 접두사 캐시는 계속 사용할 수 있습니다. 서로 다른 cache salt는 격리되며 TRT-LLM은 계속 ``cache_salt`` 를 거부합니다. 이력 항목은 배포 범위에 한정되며 다시 시작해도 복원되지 않습니다."

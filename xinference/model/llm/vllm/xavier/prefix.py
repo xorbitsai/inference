@@ -31,8 +31,15 @@ class PrefixMetadata(XavierConnectorMetadata):
 
 
 class PrefixConnector(XavierConnector):
-    def __init__(self, vllm_config, role, kv_cache_config):
+    def __init__(self, vllm_config, role, kv_cache_config, *, cache_config=None):
         super().__init__(vllm_config, role, kv_cache_config)
+        if cache_config is not None:
+            # A P-side history adapter shares engine slots, not PD transport
+            # state or GPU-history ownership, with its enclosing connector.
+            self._xavier_config = dict(cache_config)
+            self._direct_handoff = False
+            self._gpu_budget = None
+            self._history_enabled = False
         self.contract = KVCacheContract.from_dict(self._xavier_config["contract"])
         if len(kv_cache_config.kv_cache_groups) != 1 or self._has_recurrent_cache:
             raise ValueError(
@@ -63,6 +70,9 @@ class PrefixConnector(XavierConnector):
             if method == "get_stats"
             else PREFIX_RPC_TIMEOUT + payload_bytes / PREFIX_RPC_MIN_BYTES_PER_SECOND
         )
+
+        if method == "get" and self._xavier_config.get("write_behind"):
+            timeout = max(timeout, self._xavier_config.get("read_timeout", 30) + 1)
 
         async def invoke():
             if self._prefix_ref is None:
@@ -210,7 +220,15 @@ class PrefixConnector(XavierConnector):
             )
             keys = [f"{key:064x}" for key in request.block_hashes[:count]]
             try:
-                start = self._rpc("exists", self.contract.fingerprint, keys)
+                start = self._rpc(
+                    (
+                        "exists_local"
+                        if self._xavier_config.get("write_behind")
+                        else "exists"
+                    ),
+                    self.contract.fingerprint,
+                    keys,
+                )
             except _PrefixBackoff:
                 logger.debug("Xavier prefix publication skipped during storage backoff")
                 return

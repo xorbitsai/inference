@@ -64,6 +64,8 @@ async def main():
             cfg['_xavier_cache_config'] = dict(address=args['address'], uid='trt-cross-live',
                 role=role, rank=1 if role=='prefill' else 2, host='127.0.0.1',
                 heterogeneous=True, logical_dtype='bfloat16', gpu_cache_bytes=0)
+            if role == 'prefill' and args.get('history'):
+                cfg['_xavier_cache_config']['prefix_cache'] = args['history']
         return Model('live', family, args['model'], cfg)
     baseline = []
     if role == 'decode':

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 from ..backends import lmcache
+from ..backends.bytes.history import XavierHistoryCacheActor
 from ..backends.torch.storage import XavierCacheActor
 
 
@@ -72,6 +73,22 @@ class DiskCacheActor(XavierCacheActor):
             ), "Disk writes did not drain"
             await asyncio.sleep(0.05)
         storage.manager.clear()
+
+
+class DiskHistoryCacheActor(XavierHistoryCacheActor):
+    async def force_disk_reads(self):
+        await DiskCacheActor.force_disk_reads(self)
+        # A store can finish just before LMCache releases its final L1 lock.
+        # Wait for actual eviction so L2 evidence excludes remaining L1 hits.
+        manager = self._store._storage.manager
+        deadline = asyncio.get_running_loop().time() + 10
+        while any(
+            s["total_object_count"]
+            for s in manager.report_status()["l1_managers"].values()
+        ):
+            assert asyncio.get_running_loop().time() < deadline
+            await asyncio.sleep(0.05)
+            manager.clear()
 
 
 def mooncake_backend_config(cpu_bytes=64 << 20):

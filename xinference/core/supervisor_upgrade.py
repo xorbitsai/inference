@@ -203,6 +203,7 @@ ROUTING_FIELDS = (
     "_pd_roles",
     "_xavier_cache_mapping",
     "_xavier_source_mapping",
+    "_xavier_history_mapping",
     "_block_tracker_mapping",
     "_collective_manager_mapping",
     "_model_reload_status",
