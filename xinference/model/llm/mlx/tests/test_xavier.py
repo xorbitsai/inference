@@ -33,6 +33,26 @@ def contract():
     )
 
 
+@pytest.mark.asyncio
+async def test_pd_history_configuration_fails_before_ready_without_write_retry():
+    client = MLXXavierCache(
+        contract(), dict(role="prefill", prefix_cache={"shared_prefix": True})
+    )
+    client._ensure_configured = AsyncMock()
+    history = client._history
+    history.initialize = AsyncMock(side_effect=ValueError("history contract mismatch"))
+    with pytest.raises(ValueError, match="history contract mismatch"):
+        await client.initialize()
+    # A failed lookup/initialization cannot trigger another remote configuration
+    # round trip while publishing optional history on the live P/D path.
+    history._call = AsyncMock(
+        side_effect=AssertionError("unconfigured history must not write")
+    )
+    await client._publish_history(list(range(129)), [b"", b""])
+    history.initialize.assert_awaited_once()
+    history._call.assert_not_called()
+
+
 @pytest.mark.parametrize("length", [1, 63, 64, 65, 128, 130])
 def test_salt_isolates_complete_and_partial_pages(length):
     client = MLXXavierCache(contract(), {})
@@ -213,6 +233,8 @@ async def test_pd_prefill_restores_l2_history_after_live_cache_is_recreated(
                     source_uid="source",
                 )
             p = MLXXavierCache(c, config)
+            if not host:
+                await p.initialize()
             source = AsyncMock()
             if host:
                 original_ref = xo.actor_ref

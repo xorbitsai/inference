@@ -237,13 +237,12 @@ class MLXXavierCache:
             return cache, cached
 
     async def _publish_history(self, tokens, pages, start=0, cache_salt=None):
-        if self._history is None:
+        if self._history is None or not self._history._configured:
             return
         from ..xavier.prefix import prefix_keys
 
         history = self._history
         try:
-            await history.initialize()
             keys = prefix_keys(tokens[:-1], self.contract.block_size, cache_salt)
             end = min(len(keys), history._capacity_pages)
             page_bytes = self.contract.num_layers * self.contract.layer_nbytes
@@ -282,6 +281,8 @@ class MLXXavierCache:
 
     async def initialize(self):
         await asyncio.wait_for(self._ensure_configured(), timeout=30)
+        if self._history is not None:
+            await self._history.initialize()
 
     async def _call(self, method, *args, timeout=30):
         async def invoke():
