@@ -49,7 +49,7 @@
               "4bit",
               "6bit",
               "8bit",
-              "fp16"
+              "bf16"
             ],
             "model_id": "mlx-community/gemma-3-1b-it-{quantization}",
             "model_metadata_by_quantization": {
@@ -93,7 +93,7 @@
               "4bit",
               "6bit",
               "8bit",
-              "fp16"
+              "bf16"
             ],
             "model_id": "mlx-community/gemma-3-1b-it-{quantization}",
             "model_metadata_by_quantization": {
