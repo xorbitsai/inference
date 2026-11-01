@@ -305,27 +305,6 @@
       },
       {
         "model_format": "mlx",
-        "model_size_in_billions": 235,
-        "activated_size_in_billions": 22,
-        "model_src": {
-          "huggingface": {
-            "quantizations": [
-              "4bit",
-              "8bit"
-            ],
-            "model_id": "mlx-community/Qwen3-VL-235B-A22B-Thinking-{quantization}"
-          },
-          "modelscope": {
-            "quantizations": [
-              "4bit",
-              "8bit"
-            ],
-            "model_id": "mlx-community/Qwen3-VL-235B-A22B-Thinking-{quantization}"
-          }
-        }
-      },
-      {
-        "model_format": "mlx",
         "model_size_in_billions": 30,
         "activated_size_in_billions": 3,
         "model_src": {
