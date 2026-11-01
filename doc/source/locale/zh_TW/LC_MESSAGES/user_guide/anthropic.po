@@ -407,6 +407,8 @@ msgid ""
 "configured context. Runtimes that cannot count expanded media tokens "
 "safely retain the compatibility item limits described below."
 msgstr ""
+"對於相容的 vLLM 多模態執行環境，token 計數使用實際的媒體處理器和隔離的媒體快取。訊息生成使用相同的請求層級計數，將輸出 token "
+"數限制在已設定上下文的剩餘容量內。無法安全統計媒體展開後 token 數的執行環境，仍採用下文所述的相容性數量限制。"
 
 #: user_guide/anthropic.rst:96
 msgid ""
@@ -422,6 +424,11 @@ msgid ""
 "automatically resize images, reduce video frames, remove history, or "
 "split an over-budget request."
 msgstr ""
+"對於 vLLM 模型，啟動時明確設定的 ``limit_mm_per_prompt`` 屬於管理員策略，一律優先生效。例如，``{\"image\": "
+"8, \"video\": 0}`` 表示整個請求最多允許八張圖片，並停用影片。未明確設定上限時，相容的執行環境使用實際展開後的多模態 token "
+"數和設定的 ``max_model_len`` 進行檢查。無法安全統計媒體 token "
+"數的舊版或自訂執行環境，會退回每種支援的模態最多兩個媒體項目的限制。通過這些檢查並不代表可以繞過 vLLM 本身的模型、媒體、快取、排程器、GPU "
+"記憶體或其他限制。Xinference 不會自動縮放圖片、減少影片影格、移除歷史紀錄或拆分超出預算的請求。"
 
 # P/D adaptive-budget scope clarification (2026-10-31).
 #: user_guide/anthropic.rst:71
@@ -434,3 +441,6 @@ msgid ""
 "supported modality; explicit limits are combined using the conservative "
 "per-modality minimum reported by the decode replicas."
 msgstr ""
+"自適應 token 預算目前不適用於 vLLM 預填充/解碼（P/D）部署，因為預先檢查和生成可能使用不同的副本。P/D "
+"預先檢查仍會在一個具代表性的解碼副本上驗證請求，但會捨棄其動態 token 預算。未明確設定上限時，P/D "
+"部署仍採用每種支援的模態最多兩個媒體項目的保守限制；明確設定的上限則依各解碼副本回報的每種模態最小值合併。"

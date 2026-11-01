@@ -407,6 +407,8 @@ msgid ""
 "configured context. Runtimes that cannot count expanded media tokens "
 "safely retain the compatibility item limits described below."
 msgstr ""
+"对于兼容的 vLLM 多模态运行时，token 计数使用实际的媒体处理器和隔离的媒体缓存。消息生成使用相同的请求级计数，将输出 token "
+"数限制在已配置上下文的剩余容量内。无法安全统计媒体展开后 token 数的运行时，仍采用下文所述的兼容性数量限制。"
 
 #: user_guide/anthropic.rst:96
 msgid ""
@@ -422,6 +424,11 @@ msgid ""
 "automatically resize images, reduce video frames, remove history, or "
 "split an over-budget request."
 msgstr ""
+"对于 vLLM 模型，启动时显式设置的 ``limit_mm_per_prompt`` 属于管理员策略，始终优先生效。例如，``{\"image\": "
+"8, \"video\": 0}`` 表示整个请求最多允许八张图片，并禁用视频。未显式设置上限时，兼容的运行时使用实际展开后的多模态 token "
+"数和配置的 ``max_model_len`` 进行检查。无法安全统计媒体 token "
+"数的旧版或自定义运行时，会回退为每种受支持的模态最多两个媒体项。通过这些检查并不意味着可以绕过 vLLM 自身的模型、媒体、缓存、调度器、GPU "
+"显存或其他约束。Xinference 不会自动缩放图片、减少视频帧、移除历史记录或拆分超出预算的请求。"
 
 # P/D adaptive-budget scope clarification (2026-10-31).
 #: user_guide/anthropic.rst:71
@@ -434,3 +441,6 @@ msgid ""
 "supported modality; explicit limits are combined using the conservative "
 "per-modality minimum reported by the decode replicas."
 msgstr ""
+"自适应 token 预算目前不适用于 vLLM 预填充/解码（P/D）部署，因为预检和生成可能使用不同的副本。P/D "
+"预检仍会在一个有代表性的解码副本上验证请求，但会丢弃其动态 token 预算。未显式设置上限时，P/D "
+"部署仍采用每种受支持的模态最多两个媒体项的保守限制；显式上限则按各解码副本报告的每种模态的最小值合并。"
