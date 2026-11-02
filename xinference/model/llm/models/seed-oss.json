@@ -333,8 +333,8 @@
       "<seed:pad>",
       "<seed:eos>"
     ],
-    "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>",
+    "reasoning_start_tag": "<seed:think>",
+    "reasoning_end_tag": "</seed:think>",
     "updated_at": 1769418591,
     "featured": false,
     "architectures": [
