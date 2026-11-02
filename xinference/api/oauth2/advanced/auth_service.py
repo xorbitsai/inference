@@ -236,6 +236,24 @@ class AdvancedAuthService:
         except JWTError:
             return None
 
+    def _is_expired_access_token(self, token: str) -> bool:
+        """Recognize natural session expiry only after verifying the signature."""
+        try:
+            payload = jwt.decode(
+                token,
+                self._jwt_secret_key,
+                algorithms=[JWT_ALGORITHM],
+                options={"verify_exp": False},
+            )
+        except JWTError:
+            return False
+        expires_at = payload.get("exp")
+        return (
+            payload.get("type") == "access"
+            and isinstance(expires_at, (int, float))
+            and expires_at < time.time()
+        )
+
     def refresh_access_token(self, refresh_token: str) -> Optional[Dict[str, str]]:
         token_hash = sha256_hex(refresh_token)
         rt = self._db.get_refresh_token(token_hash)
@@ -441,6 +459,29 @@ class AdvancedAuthService:
 
     # --- FastAPI dependency (callable) ---
 
+    def _can_recover_ip_ban(
+        self, request: Request, security_scopes: SecurityScopes, token: Optional[str]
+    ) -> bool:
+        """Allow an authenticated admin to open and use security settings."""
+        path = get_request_route_path(request)
+        is_security_route = security_scopes.scopes == ["admin"] and path.startswith(
+            "/v1/admin/security/"
+        )
+        # The UI needs live account permissions before it can show the page.
+        is_account_info = request.method == "GET" and path == "/v1/auth/me"
+        if not token or not (is_security_route or is_account_info):
+            return False
+        payload = self.verify_access_token(token)
+        if not payload or not payload.get("user_id"):
+            return False
+        user = self._db.get_user_by_id(payload["user_id"])
+        return bool(
+            user
+            and user["enabled"]
+            and not user.get("must_change_password")
+            and "admin" in _normalize_scopes(user.get("permissions", []))
+        )
+
     @staticmethod
     def _is_own_password_change(request: Request, user_id: int) -> bool:
         """True only for ``PUT /v1/admin/users/{user_id}/password`` targeting
@@ -545,11 +586,18 @@ class AdvancedAuthService:
             client_ip
             and self._rate_limiter
             and self._rate_limiter.is_ip_banned(client_ip)
+            and not self._can_recover_ip_ban(request, security_scopes, token)
         ):
             _audit("ip_banned")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Too many failed attempts. IP temporarily banned.",
+                headers={
+                    "X-Xinference-Error-Code": "ip_banned",
+                    "Retry-After": str(
+                        max(1, self._rate_limiter.get_ip_ban_remaining(client_ip))
+                    ),
+                },
             )
 
         if not token:
@@ -639,6 +687,17 @@ class AdvancedAuthService:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="Too many failed attempts for this key.",
+                    headers={
+                        "X-Xinference-Error-Code": "key_banned",
+                        "Retry-After": str(
+                            max(
+                                1,
+                                self._rate_limiter.get_key_ban_remaining(
+                                    client_ip, api_key_entry.key_id
+                                ),
+                            )
+                        ),
+                    },
                 )
 
             _API_KEY_ALLOWED_SCOPES = {"models:read", "models:list"}
@@ -706,7 +765,13 @@ class AdvancedAuthService:
         payload = self.verify_access_token(token)
         if not payload:
             _audit("invalid_token", auth_type="jwt")
-            if client_ip and self._rate_limiter:
+            # A page can send many concurrent requests when its session expires.
+            # Still reject the token, but do not turn normal expiry into an IP ban.
+            if (
+                client_ip
+                and self._rate_limiter
+                and not self._is_expired_access_token(token)
+            ):
                 self._rate_limiter.record_invalid_key(client_ip)
             raise credentials_exception
 

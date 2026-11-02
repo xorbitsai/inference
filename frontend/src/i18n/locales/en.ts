@@ -1815,6 +1815,11 @@ const en = {
     threadsUnit: 'threads',
   },
   securitySettings: {
+    ipBannedMessage:
+      'Your IP is temporarily blocked after repeated authentication failures. Contact an administrator, or sign in as an administrator and unblock it under System Management → Security Settings.',
+    keyBannedMessage:
+      'This API key is temporarily blocked for your IP. Contact an administrator to unblock it in Security Settings.',
+    banRetryAfter: 'Try again in {{seconds}} seconds.',
     pageDescription:
       'Configure failed-request rate limits and manage currently banned IPs and API keys.',
     rateLimitConfig: 'Rate Limit Policy',

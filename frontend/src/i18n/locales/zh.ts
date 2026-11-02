@@ -1776,6 +1776,10 @@ const zh = {
     threadsUnit: '线程',
   },
   securitySettings: {
+    ipBannedMessage:
+      '当前 IP 因多次鉴权失败被临时封禁。请联系管理员，或使用管理员账号登录后，在“系统管理 → 安全设置”中解除封禁。',
+    keyBannedMessage: '当前 API Key 在此 IP 下被临时封禁。请联系管理员在“安全设置”中解除封禁。',
+    banRetryAfter: '请在 {{seconds}} 秒后重试。',
     pageDescription: '配置失败请求限流策略，并处理当前被封禁的 IP 与 API Key。',
     rateLimitConfig: '限流策略',
     rateLimitDesc: '分别设置 IP 层和 API Key 层的失败阈值、统计窗口和封禁时长。',

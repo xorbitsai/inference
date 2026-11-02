@@ -1619,6 +1619,11 @@ const ko = {
     threadsUnit: '스레드',
   },
   securitySettings: {
+    ipBannedMessage:
+      '인증 실패가 반복되어 현재 IP가 일시적으로 차단되었습니다. 관리자에게 문의하거나 관리자 계정으로 로그인한 후 시스템 관리 → 보안 설정에서 차단을 해제하세요.',
+    keyBannedMessage:
+      '현재 IP에서 이 API 키가 일시적으로 차단되었습니다. 관리자에게 보안 설정에서 차단을 해제하도록 요청하세요.',
+    banRetryAfter: '{{seconds}}초 후에 다시 시도하세요.',
     pageDescription: '실패 요청 제한 정책을 설정하고 현재 차단된 IP 및 API Key를 관리합니다.',
     rateLimitConfig: '요청 제한 정책',
     rateLimitDesc: 'IP 계층과 API Key 계층의 실패 임계값, 집계 기간, 차단 시간을 설정합니다.',

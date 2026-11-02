@@ -217,3 +217,37 @@ msgstr "请求体通过 ``GET /v1/cluster/model-requests/{request_id}/body`` 单
 #: ../../source/user_guide/audit_security.rst:80
 msgid "The read-only alias is a routing convenience, not a field-level security boundary. Browser clients should access logs only through the Xinference API, and Elasticsearch credentials should not be exposed to users who are not allowed to read captured request bodies."
 msgstr "只读别名只是为了方便路由，并不提供字段级安全隔离。浏览器客户端应仅通过 Xinference API 访问日志；不得向无权读取已记录请求体的用户暴露 Elasticsearch 凭据。"
+
+#: ../../source/user_guide/audit_security.rst:101
+msgid ""
+"Invalid JWTs also count toward the IP threshold. A correctly signed access "
+"token that has expired still receives ``401 Unauthorized``, but does not "
+"increment this counter. Refresh the session or sign in again."
+msgstr ""
+"无效 JWT 也会计入 IP 阈值。签名正确但已过期的访问令牌仍返回 ``401 Unauthorized``，但不会增加此计数。请刷新会话或重新登录。"
+
+#: ../../source/user_guide/audit_security.rst:105
+msgid ""
+"Ban responses include ``X-Xinference-Error-Code`` (``ip_banned`` or "
+"``key_banned``) and ``Retry-After`` (remaining seconds), while preserving "
+"the existing ``detail`` message. Other ``429`` responses can indicate model "
+"rate limits rather than an authentication ban."
+msgstr ""
+"封禁响应包含 ``X-Xinference-Error-Code``（``ip_banned`` 或 ``key_banned``）和 ``Retry-"
+"After``（剩余秒数），同时保留原有的 ``detail`` 消息。其他 ``429`` 响应可能表示模型限流，而非鉴权封禁。"
+
+#: ../../source/user_guide/audit_security.rst:128
+msgid ""
+"If your own IP is banned, sign in as an administrator and open **System "
+"Management → Security Settings** to lift the ban. An enabled administrator "
+"with a valid, current access token can reach ``/v1/admin/security/*`` and "
+"read their account permissions at ``GET /v1/auth/me`` from a banned IP; "
+"other protected endpoints remain blocked until the ban is lifted. On older "
+"releases that also block security settings, use an administrator connection "
+"from another unblocked source IP or wait for the ban to expire."
+msgstr ""
+"如果您自己的 IP 被封禁，请使用管理员账号登录，并打开 **系统管理 → 安全设置** "
+"解除封禁。已启用且持有有效、未被撤销的访问令牌的管理员，可以从被封禁的 IP 访问 ``/v1/admin/security/*``，并通过 ``GET"
+" /v1/auth/me`` "
+"读取自己的账号权限；其他受保护接口会继续被阻止，直到解除封禁。对于连安全设置也会拦截的旧版本，请让管理员通过另一个未被封禁的来源 IP "
+"连接，或等待封禁到期。"

@@ -98,6 +98,15 @@ Failed API-key authentication attempts are rate-limited on two levels:
   ``XINFERENCE_RATE_LIMIT_KEY_WINDOW_SECONDS`` (default 300), for
   ``XINFERENCE_RATE_LIMIT_KEY_BAN_SECONDS`` (default 3600).
 
+Invalid JWTs also count toward the IP threshold. A correctly signed access
+token that has expired still receives ``401 Unauthorized``, but does not
+increment this counter. Refresh the session or sign in again.
+
+Ban responses include ``X-Xinference-Error-Code`` (``ip_banned`` or
+``key_banned``) and ``Retry-After`` (remaining seconds), while preserving the
+existing ``detail`` message. Other ``429`` responses can indicate model rate
+limits rather than an authentication ban.
+
 Individual API keys can override the key-level limits with the
 ``rate_limit_max_failures`` / ``rate_limit_window_seconds`` /
 ``rate_limit_ban_seconds`` fields when creating or updating the key.
@@ -115,3 +124,11 @@ The equivalent REST endpoints live under ``/v1/admin/security/*`` (e.g.
 ``GET``/``PUT /v1/admin/security/rate-limit``,
 ``GET /v1/admin/security/banned-ips``,
 ``POST /v1/admin/security/unban-ip``) and require the ``admin`` permission.
+
+If your own IP is banned, sign in as an administrator and open **System
+Management → Security Settings** to lift the ban. An enabled administrator
+with a valid, current access token can reach ``/v1/admin/security/*`` and read
+their account permissions at ``GET /v1/auth/me`` from a banned IP; other
+protected endpoints remain blocked until the ban is lifted.
+On older releases that also block security settings, use an administrator
+connection from another unblocked source IP or wait for the ban to expire.

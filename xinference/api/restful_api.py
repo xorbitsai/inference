@@ -1573,6 +1573,7 @@ class RESTfulAPI(CancelMixin):
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
+            expose_headers=["X-Xinference-Error-Code", "Retry-After"],
         )
 
         async def ip_restriction_middleware(request: Request, call_next):

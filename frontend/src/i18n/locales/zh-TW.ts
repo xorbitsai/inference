@@ -1625,6 +1625,10 @@ const zhTW = {
     threadsUnit: '執行緒',
   },
   securitySettings: {
+    ipBannedMessage:
+      '目前的 IP 因多次驗證失敗而被暫時封鎖。請聯絡管理員，或使用管理員帳號登入後，在「系統管理 → 安全設定」中解除封鎖。',
+    keyBannedMessage: '目前的 API Key 在此 IP 下被暫時封鎖。請聯絡管理員在「安全設定」中解除封鎖。',
+    banRetryAfter: '請在 {{seconds}} 秒後重試。',
     pageDescription: '設定失敗請求限流策略，並處理目前被封禁的 IP 與 API Key。',
     rateLimitConfig: '限流策略',
     rateLimitDesc: '分別設定 IP 層和 API Key 層的失敗閾值、統計視窗和封禁時長。',
