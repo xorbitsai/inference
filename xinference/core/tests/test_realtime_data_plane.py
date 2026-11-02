@@ -534,3 +534,83 @@ async def test_native_async_adapter_admits_concurrent_requests(monkeypatch):
         release.set()
         await asyncio.gather(*tasks, return_exceptions=True)
         await actor._realtime_runtime.stop()
+
+
+@pytest.mark.parametrize("destroy", [False, True])
+@pytest.mark.parametrize("active_file", [False, True])
+async def test_native_async_actor_teardown_reaches_abort_and_engine_shutdown(
+    destroy, active_file
+):
+    from types import SimpleNamespace
+
+    from ...model.audio.native_async import NativeAsyncAudioModel
+
+    started, released, aborting, abort_ack = [asyncio.Event() for _ in range(4)]
+    shutdowns = []
+
+    async def generate(**kwargs):
+        started.set()
+        yield b"first"
+        await released.wait()
+
+    async def abort(request_id):
+        aborting.set()
+        await abort_ack.wait()
+        released.set()
+
+    def shutdown():
+        if active_file:
+            assert abort_ack.is_set()
+        shutdowns.append(True)
+
+    model = NativeAsyncAudioModel("native", ".", FakeModel().model_family)
+
+    async def load():
+        model._engine = SimpleNamespace(
+            generate=generate, abort=abort, shutdown=shutdown
+        )
+
+    model._load = load
+    model.get_realtime_capabilities = lambda: {"tasks": {"audio.transcription": {}}}
+    actor = ModelActor("127.0.0.1:1", "127.0.0.1:2", model, "native-0")
+    actor.record_metrics = AsyncMock()
+    await actor.load()
+    await actor.wait_for_load()
+    assert actor._lock is None and actor._realtime_runtime is not None
+
+    async def consume():
+        async for _ in model._generate({}):
+            pass
+
+    request = asyncio.create_task(consume()) if active_file else None
+    stopper = None
+    try:
+        if request:
+            await asyncio.wait_for(started.wait(), 1)
+        stopper = asyncio.create_task(
+            actor.__pre_destroy__() if destroy else actor.stop()
+        )
+        if request:
+            await asyncio.wait_for(aborting.wait(), 1)
+            assert not stopper.done() and not shutdowns
+            with pytest.raises(RuntimeError):
+                actor._require_ready()
+            with pytest.raises(RuntimeError, match="not ready"):
+                await anext(model._generate({}))
+        abort_ack.set()
+        await asyncio.wait_for(stopper, 2)
+        if request:
+            await asyncio.wait_for(request, 1)
+        assert shutdowns == [True] and model._engine is None
+        assert actor._realtime_runtime is None and not model._requests
+        if not destroy:
+            await actor.__pre_destroy__()
+            assert shutdowns == [True]
+    finally:
+        abort_ack.set()
+        released.set()
+        await asyncio.gather(
+            *(task for task in (request, stopper) if task), return_exceptions=True
+        )
+        if actor._realtime_runtime is not None:
+            await actor._realtime_runtime.stop()

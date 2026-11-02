@@ -320,11 +320,14 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             await runtime.stop()
             if streams:
                 await _await_owned_task(asyncio.gather(*(s.done for s in streams)))
-            # File inference uses the same lock and may still own native work
-            # after its client disconnects. Drain it before unloading weights.
-            assert self._lock is not None
-            async with self._lock:
-                pass
+            # Serialized adapters retain their file-inference lease until native
+            # work ends. Native async adapters instead abort tracked requests
+            # in stop(), after the draining state has fenced new admission.
+            if self._lock is not None:
+                async with self._lock:
+                    pass
+            else:
+                assert getattr(self._model, "realtime_native_async", False)
             self._realtime_runtime = None
 
     def __init__(

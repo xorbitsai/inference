@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import re
 from collections import deque
 from contextlib import aclosing, suppress
 from types import SimpleNamespace
@@ -29,6 +30,53 @@ from ..realtime import RealtimeSession
 from .native_async import NativeAsyncAudioModel, settle_request
 
 PCM_FORMAT = {"encoding": "pcm_s16le", "sample_rate": 16000, "channels": 1}
+# Qwen3-ASR's language contract differs from Whisper's language table.
+QWEN_LANGUAGES = dict(
+    zh="Chinese",
+    en="English",
+    yue="Cantonese",
+    ar="Arabic",
+    de="German",
+    fr="French",
+    es="Spanish",
+    pt="Portuguese",
+    id="Indonesian",
+    it="Italian",
+    ko="Korean",
+    ru="Russian",
+    th="Thai",
+    vi="Vietnamese",
+    ja="Japanese",
+    tr="Turkish",
+    hi="Hindi",
+    ms="Malay",
+    nl="Dutch",
+    sv="Swedish",
+    da="Danish",
+    fi="Finnish",
+    pl="Polish",
+    cs="Czech",
+    fil="Filipino",
+    fa="Persian",
+    el="Greek",
+    ro="Romanian",
+    hu="Hungarian",
+    mk="Macedonian",
+    tl="Filipino",
+)
+
+
+def transcription_language(language):
+    if language is None:
+        return None
+    if isinstance(language, str):
+        normalized = language.strip().lower()
+        if normalized == "auto":
+            return None
+        for code, name in QWEN_LANGUAGES.items():
+            if normalized in (code, name.lower()):
+                return name
+    raise ValueError("Unsupported transcription language")
 
 
 class VLLMQwen3ASRModel(NativeAsyncAudioModel):
@@ -36,9 +84,19 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
         # Preserve the SDK adapter's existing batching knobs while moving
         # inference into the native scheduler. Alignment wasn't exposed by
         # this adapter's transcription API, so don't load unused weights.
-        batch_size = kwargs.pop(
-            "request_batch_size", kwargs.pop("max_inference_batch_size", None)
-        )
+        batch_size = kwargs.pop("batch_size", None)
+        request_batch_size = kwargs.pop("request_batch_size", None)
+        sdk_batch_size = kwargs.pop("max_inference_batch_size", None)
+        if batch_size is None:
+            batch_size = request_batch_size
+        # -1 disabled SDK list chunking; native scheduling still needs a
+        # positive concurrency limit and does not use SDK batch chunks.
+        if (
+            batch_size is None
+            and sdk_batch_size is not None
+            and int(sdk_batch_size) > 0
+        ):
+            batch_size = int(sdk_batch_size)
         if batch_size is not None:
             kwargs.setdefault("max_num_seqs", batch_size)
         for name in (
@@ -49,7 +107,7 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
             "torch_dtype",
         ):
             kwargs.pop(name, None)
-        self._max_tokens = kwargs.pop("max_new_tokens", 512)
+        self._max_tokens = kwargs.pop("max_new_tokens", 4096)
         if type(self._max_tokens) is not int or not 1 <= self._max_tokens <= 8192:
             raise ValueError("max_new_tokens must be 1..8192")
         self._options = kwargs.pop("realtime_options", {})
@@ -124,17 +182,10 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
             raise ValueError("Realtime ASR engine is not ready")
         return VLLMASRSession(self, config, runtime)
 
-    async def transcribe_audio(self, audio, language=None, prompt=None):
+    async def _transcribe(self, audio, language, prompt, max_tokens):
         from vllm import SamplingParams
 
-        if language == "auto":
-            language = None
-        if (
-            language is not None
-            and language not in self._asr_class.supported_languages
-            and language not in self._asr_class.supported_languages.values()
-        ):
-            raise ValueError("Unsupported transcription language")
+        language = transcription_language(language)
         params = SimpleNamespace(
             audio=audio,
             model_config=self._engine.model_config,
@@ -147,18 +198,30 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
             self._asr_class.get_generation_prompt, params
         )
         result = ""
+        finish_reason = None
         async with aclosing(
             self._generate(
                 engine_prompt,
-                sampling_params=SamplingParams(
-                    temperature=0, max_tokens=self._max_tokens
-                ),
+                sampling_params=SamplingParams(temperature=0, max_tokens=max_tokens),
             )
         ) as outputs:
             async for output in outputs:
                 if output.outputs:
                     result = output.outputs[0].text
-        return self._asr_class.post_process_output(result).strip()
+                    finish_reason = getattr(output.outputs[0], "finish_reason", None)
+        if finish_reason == "length":
+            raise RuntimeError(
+                "Transcription exceeded its token budget; result is incomplete"
+            )
+        detected = re.match(r"\s*language\s+([^<\n]+)<asr_text>", result)
+        detected_language = detected.group(1).strip() if detected else language
+        return self._asr_class.post_process_output(result).strip(), detected_language
+
+    async def transcribe_audio(self, audio, language=None, prompt=None):
+        text, _ = await self._transcribe(
+            audio, language, prompt, min(self._max_tokens, 512)
+        )
+        return text
 
     def transcriptions(self, *args, **kwargs):
         raise RuntimeError("Use the asynchronous transcription entrypoint")
@@ -201,11 +264,21 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
             return samples
 
         samples = await asyncio.to_thread(decode)
-        text = await self.transcribe_audio(samples, language, prompt)
-        result = {"text": text}
+        texts, languages = [], []
+        # Keep native audio prompts bounded while preserving every file chunk.
+        for start in range(0, len(samples), 30 * 16000):
+            text, detected_language = await self._transcribe(
+                samples[start : start + 30 * 16000], language, prompt, self._max_tokens
+            )
+            texts.append(text)
+            if detected_language and detected_language not in languages:
+                languages.append(detected_language)
+        result: Dict[str, Any] = {"text": " ".join(text for text in texts if text)}
         if response_format == "verbose_json":
             result.update(
-                task="transcribe", language=language, duration=len(samples) / 16000
+                task="transcribe",
+                language=",".join(languages),
+                duration=len(samples) / 16000,
             )
         return result
 

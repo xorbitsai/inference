@@ -462,9 +462,141 @@ async def test_file_transcription_resamples_with_declared_audio_dependencies():
         wav.setframerate(24000)
         wav.writeframes(np.ones(2400, dtype="<i2").tobytes())
     model = asr_model()
+    model._transcribe = AsyncMock(return_value=("Hello world", "English"))
     result = await model.async_transcriptions(
         audio.getvalue(), language="en", response_format="verbose_json"
     )
-    samples = model.transcribe_audio.call_args.args[0]
+    samples = model._transcribe.call_args.args[0]
     assert samples.size == 1600 and samples.dtype == np.float32
     assert result["text"] == "Hello world" and result["duration"] == 0.1
+
+
+@pytest.mark.parametrize(
+    "options,expected",
+    [
+        ({"batch_size": 2}, 2),
+        ({"max_inference_batch_size": -1}, 16),
+        ({"batch_size": 2, "max_inference_batch_size": -1}, 2),
+        ({"batch_size": 2, "request_batch_size": 3, "max_inference_batch_size": 4}, 2),
+        ({"request_batch_size": 3, "max_inference_batch_size": 4}, 3),
+        ({"batch_size": 2, "max_num_seqs": 5}, 5),
+    ],
+)
+async def test_legacy_batch_options_do_not_reach_engine_load(
+    native_modules, monkeypatch, options, expected
+):
+    engine_args = []
+
+    def args(**kwargs):
+        assert set(kwargs) == {"model", "max_num_seqs"}
+        engine_args.append(kwargs)
+        return kwargs
+
+    sys.modules["vllm"].AsyncEngineArgs = args
+    monkeypatch.setitem(sys.modules, "silero_vad", NS(load_silero_vad=lambda **_: None))
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm.model_executor.models.qwen3_asr",
+        NS(Qwen3ASRForConditionalGeneration=NS()),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm.v1.engine.async_llm",
+        NS(AsyncLLM=NS(from_engine_args=lambda value: NS())),
+    )
+    model = VLLMQwen3ASRModel("asr", ".", NS(), **options)
+    await model._load()
+    assert model.realtime_max_sessions == expected
+    assert engine_args == [{"model": ".", "max_num_seqs": expected}]
+
+
+def native_asr(outputs):
+    model = VLLMQwen3ASRModel("asr", ".", NS())
+    calls = []
+
+    async def generate(*, prompt, sampling_params, **kwargs):
+        calls.append((prompt, sampling_params))
+        text, reason = outputs[len(calls) - 1]
+        yield NS(outputs=[NS(text=text, finish_reason=reason)])
+
+    model._engine = NS(generate=generate, model_config=object(), abort=AsyncMock())
+    model._asr_class = NS(
+        get_generation_prompt=lambda params: params,
+        post_process_output=lambda text: text.rsplit("<asr_text>", 1)[-1],
+    )
+    return model, calls
+
+
+def wav_bytes(samples=1600):
+    import io
+    import wave
+
+    data = io.BytesIO()
+    with wave.open(data, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(16000)
+        wav.writeframes(np.zeros(samples, dtype="<i2").tobytes())
+    return data.getvalue()
+
+
+@pytest.mark.parametrize("language", ["Cantonese", "Filipino", "yue", "fil"])
+async def test_qwen_languages_in_file_and_realtime(native_modules, language):
+    model, calls = native_asr([("hello", "stop"), ("hello", "stop")])
+    canonical = "Cantonese" if language in {"Cantonese", "yue"} else "Filipino"
+    result = await model.async_transcriptions(
+        wav_bytes(), language=language, response_format="verbose_json"
+    )
+    assert result["text"] == "hello" and result["language"] == canonical
+    session = VLLMASRSession(model, config(language=language), Runtime())
+    session._jobs.put_nowait((np.zeros(1600), 0, 1600, True))
+    session._jobs.put_nowait(None)
+    await session._decode_jobs()
+    assert session._sentences[0]["text"] == "hello"
+    assert [prompt.language for prompt, _ in calls] == [canonical, canonical]
+    assert [params.max_tokens for _, params in calls] == [4096, 512]
+
+
+@pytest.mark.parametrize("language", [None, "auto"])
+async def test_file_preserves_detected_language_and_file_token_budget(
+    native_modules, language
+):
+    text = "word " * 600
+    model, calls = native_asr([("language English<asr_text>" + text, "stop")])
+    result = await model.async_transcriptions(
+        wav_bytes(), language=language, response_format="verbose_json"
+    )
+    assert result["language"] == "English" and result["text"] == text.strip()
+    assert calls[0][1].max_tokens == 4096
+
+
+async def test_file_merges_all_bounded_audio_chunks(native_modules):
+    model, calls = native_asr(
+        [
+            ("language English<asr_text>first", "stop"),
+            ("language Chinese<asr_text>second", "stop"),
+            ("language English<asr_text>tail", "stop"),
+        ]
+    )
+    result = await model.async_transcriptions(
+        wav_bytes(65 * 16000), response_format="verbose_json"
+    )
+    assert result == {
+        "text": "first second tail",
+        "task": "transcribe",
+        "language": "English,Chinese",
+        "duration": 65,
+    }
+    assert [prompt.audio.size for prompt, _ in calls] == [480000, 480000, 80000]
+
+
+@pytest.mark.parametrize("file", [False, True])
+async def test_length_termination_never_returns_a_complete_transcript(
+    native_modules, file
+):
+    model, _ = native_asr([("truncated prefix", "length")])
+    with pytest.raises(RuntimeError, match="incomplete"):
+        if file:
+            await model.async_transcriptions(wav_bytes())
+        else:
+            await model.transcribe_audio(np.zeros(1600))
