@@ -82,7 +82,11 @@ def transcription_language(language):
 
 def join_transcripts(texts):
     result = ""
-    cjk = r"[\u3000-\u30ff\u3400-\u9fff\uf900-\ufaff]"
+    # Include fullwidth punctuation without classifying fullwidth Latin as CJK.
+    cjk = (
+        r"[\u3000-\u30ff\u3400-\u9fff\uf900-\ufaff"
+        r"\uff01-\uff0f\uff1a-\uff20\uff3b-\uff40\uff5b-\uff65]"
+    )
     for text in texts:
         if not text:
             continue

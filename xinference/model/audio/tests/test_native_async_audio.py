@@ -318,6 +318,11 @@ async def test_tts_streams_delta_audio_lists_before_completion(native_modules):
         (["你好", "世界"], "你好世界"),
         (["最初。", "次です。"], "最初。次です。"),
         (["Hello", "world"], "Hello world"),
+        (["你好！", "世界"], "你好！世界"),
+        (["你好，", "世界"], "你好，世界"),
+        (["最初！", "次です。"], "最初！次です。"),
+        (["Hello！", "world"], "Hello！ world"),
+        (["Ｈｅｌｌｏ！", "ｗｏｒｌｄ"], "Ｈｅｌｌｏ！ ｗｏｒｌｄ"),
     ],
 )
 async def test_file_and_realtime_join_cjk_without_extra_spaces(
