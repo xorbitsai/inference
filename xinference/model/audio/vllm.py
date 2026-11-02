@@ -183,13 +183,19 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
             )
 
         def decode():
-            import librosa
             import soundfile as sf
 
             samples, rate = sf.read(io.BytesIO(audio), dtype="float32", always_2d=True)
             samples = samples.mean(axis=1)
             if rate != 16000:
-                samples = librosa.resample(samples, orig_sr=rate, target_sr=16000)
+                from math import gcd
+
+                from scipy.signal import resample_poly
+
+                divisor = gcd(rate, 16000)
+                samples = resample_poly(
+                    samples, 16000 // divisor, rate // divisor
+                ).astype(np.float32, copy=False)
             if not samples.size:
                 raise ValueError("Empty audio")
             return samples

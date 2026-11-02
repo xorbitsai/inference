@@ -447,3 +447,24 @@ def test_existing_vllm_asr_batching_options_remain_accepted():
     assert (
         "forced_aligner" not in model._kwargs and "batch_interval" not in model._kwargs
     )
+
+
+async def test_file_transcription_resamples_with_declared_audio_dependencies():
+    import io
+    import wave
+
+    pytest.importorskip("soundfile")
+    pytest.importorskip("scipy")
+    audio = io.BytesIO()
+    with wave.open(audio, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(24000)
+        wav.writeframes(np.ones(2400, dtype="<i2").tobytes())
+    model = asr_model()
+    result = await model.async_transcriptions(
+        audio.getvalue(), language="en", response_format="verbose_json"
+    )
+    samples = model.transcribe_audio.call_args.args[0]
+    assert samples.size == 1600 and samples.dtype == np.float32
+    assert result["text"] == "Hello world" and result["duration"] == 0.1
