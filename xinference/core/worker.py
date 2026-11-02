@@ -4750,11 +4750,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             (virtual_env_index_url and virtual_env_index_url.strip())
             or virtual_env_extra_index_urls
         )
-        if (
-            model_engine
-            and model_engine.lower() == "llama.cpp"
-            and not requested_indexes
-        ):
+        if model_engine and model_engine.lower() == "llama.cpp":
             from .virtual_env_manager import get_xllamacpp_cuda_index_url
 
             xllamacpp_index_url = get_xllamacpp_cuda_index_url(cuda_version)
@@ -4776,16 +4772,19 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     xllamacpp_index_url,
                 )
             elif xllamacpp_index_url and cuda_device_available:
-                logger.info(
-                    "Detected CUDA %s, installing GPU build of xllamacpp "
-                    "exclusively from %s",
-                    cuda_version,
-                    xllamacpp_index_url,
-                )
-                settings.index_url = xllamacpp_index_url
-                settings.extra_index_url = None
-                settings.find_links = None
-                settings.index_strategy = None
+                if not requested_indexes:
+                    logger.info(
+                        "Detected CUDA %s, installing GPU build of xllamacpp "
+                        "exclusively from %s",
+                        cuda_version,
+                        xllamacpp_index_url,
+                    )
+                    settings.index_url = xllamacpp_index_url
+                    settings.extra_index_url = None
+                    settings.find_links = None
+                    settings.index_strategy = None
+                # Explicit sources control resolution, but must not bypass
+                # replacing a satisfying CPU wheel on a usable CUDA worker.
                 # A CPU build of xllamacpp may already satisfy the
                 # "xllamacpp>=..." requirement (e.g. inherited from the parent
                 # env, or installed on a previous CPU-only launch). Because the
