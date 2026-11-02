@@ -162,7 +162,7 @@ async def test_asr_vad_partial_endpoint_and_exact_final_tail():
     assert result[-1]["sentences"][1]["start"] == 256
     assert result[-1]["sentences"][1]["end"] == 416
     assert model.transcribe_audio.call_args.args[0].size == 2561
-    assert model.transcribe_audio.call_args.args[1] == "en"
+    assert model.transcribe_audio.call_args.args[1] == "English"
     await session.close("completed")
 
 
@@ -269,6 +269,7 @@ async def test_asr_native_prompt_contract(native_modules):
 
 def tts_model():
     model = VLLMOmniTTSModel("tts", ".", NS())
+    model._samples_per_token = 1920
     model._config = NS(
         spk_id={"ryan": 0}, codec_language_id={"english": 1}, spk_is_dialect={}
     )
@@ -284,7 +285,7 @@ def audio_output(audio, rate=24000):
     return NS(request_output=NS(multimodal_output={"audio": audio, "sr": rate}))
 
 
-async def test_tts_streams_before_completion_and_deduplicates(native_modules):
+async def test_tts_streams_delta_audio_lists_before_completion(native_modules):
     model = tts_model()
     engine = Engine()
     engine.default_sampling_params_list = model._engine.default_sampling_params_list
@@ -296,7 +297,7 @@ async def test_tts_streams_before_completion_and_deduplicates(native_modules):
         seen.append(kwargs)
         yield audio_output([first])
         await engine.release.wait()
-        yield audio_output([first, second])
+        yield audio_output([second])
 
     engine.generate = generate
     stream = await model.async_speech("Hello", "ryan", "pcm", stream=True, seed=7)
@@ -309,6 +310,126 @@ async def test_tts_streams_before_completion_and_deduplicates(native_modules):
     assert seen[0]["sampling_params_list"][0].output_kind == "delta"
     assert engine.default_sampling_params_list[0].seed == 42
     assert not model._requests
+
+
+@pytest.mark.parametrize(
+    "parts,expected",
+    [
+        (["你好", "世界"], "你好世界"),
+        (["最初。", "次です。"], "最初。次です。"),
+        (["Hello", "world"], "Hello world"),
+    ],
+)
+async def test_file_and_realtime_join_cjk_without_extra_spaces(
+    native_modules, parts, expected
+):
+    model, _ = native_asr([(text, "stop") for text in parts])
+    result = await model.async_transcriptions(wav_bytes(30 * 16000 + 1))
+    assert result["text"] == expected
+    session = VLLMASRSession(model, config(), Runtime())
+    session._sentences = [{"text": text} for text in parts]
+    assert session._snapshot(final=True)["text"] == expected
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("reason", ["length", "abort"])
+async def test_tts_incomplete_termination_raises(native_modules, stream, reason):
+    model = tts_model()
+    model._engine.abort = AsyncMock()
+
+    async def generate(**kwargs):
+        yield audio_output(np.array([0.1]))
+        yield NS(outputs=[NS(finish_reason=reason)])
+
+    model._engine.generate = generate
+    with pytest.raises(RuntimeError, match="incomplete"):
+        result = await model.async_speech("Hello", response_format="pcm", stream=stream)
+        if stream:
+            assert await anext(result)
+            await anext(result)
+    assert not model._requests
+
+
+@pytest.mark.parametrize("stream", [False, True])
+async def test_tts_detects_talker_limit_despite_decoder_stop(native_modules, stream):
+    model = tts_model()
+    model._engine.abort = AsyncMock()
+
+    async def generate(**kwargs):
+        yield audio_output(np.zeros(1920))
+        output = audio_output(np.zeros(1920))
+        output.request_output.outputs = [NS(finish_reason="stop")]
+        yield output
+
+    model._engine.generate = generate
+    with pytest.raises(RuntimeError, match="budget exhausted"):
+        result = await model.async_speech(
+            "Longer input", response_format="pcm", stream=stream, max_new_tokens=2
+        )
+        if stream:
+            assert len(await anext(result)) == 3840
+            await anext(result)
+    assert not model._requests
+
+
+async def test_tts_eos_token_at_budget_boundary_is_complete(native_modules):
+    model = tts_model()
+
+    async def generate(**kwargs):
+        yield audio_output(np.zeros(1920))
+        yield NS(outputs=[NS(finish_reason="stop")])
+
+    model._engine.generate = generate
+    assert (
+        len(await model.async_speech("Short", response_format="pcm", max_new_tokens=2))
+        == 3840
+    )
+
+
+@pytest.mark.parametrize("format", ["wav", "mp3", "flac", "ogg"])
+async def test_tts_file_formats_do_not_require_torchaudio(
+    native_modules, monkeypatch, format
+):
+    import io
+
+    import soundfile as sf
+
+    monkeypatch.setitem(sys.modules, "torchaudio", None)
+    monkeypatch.setitem(sys.modules, "torchcodec", None)
+    model = tts_model()
+
+    async def generate(**kwargs):
+        yield audio_output(np.zeros(24000))
+
+    model._engine.generate = generate
+    result = await model.async_speech("Hello", response_format=format)
+    samples, rate = sf.read(io.BytesIO(result))
+    assert rate == 24000 and len(samples) == 24000
+
+
+async def test_stop_shuts_engine_down_even_when_abort_fails():
+    model = NativeAsyncAudioModel("test", ".", NS())
+    engine = model._engine = NS(
+        abort=AsyncMock(side_effect=RuntimeError("abort failed")),
+        shutdown=AsyncMock(),
+    )
+    model._requests.add("active")
+    with pytest.raises(RuntimeError, match="abort failed"):
+        await model._stop()
+    engine.shutdown.assert_awaited_once()
+    assert model._engine is None and model._stopping
+
+
+def test_realtime_rejects_unsupported_language_before_start():
+    with pytest.raises(RealtimeError) as exc:
+        VLLMASRSession(asr_model(), config(language="not-a-language"), Runtime())
+    assert exc.value.code == "invalid_config"
+
+
+@pytest.mark.parametrize("value", [True, False])
+def test_realtime_launch_flag_has_a_clear_validation_error(value):
+    with pytest.raises(ValueError, match="realtime_options"):
+        VLLMQwen3ASRModel("asr", ".", NS(), realtime=value)
 
 
 @pytest.mark.parametrize(

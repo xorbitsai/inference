@@ -535,6 +535,19 @@ def _invoke_launch_with_replica_config(monkeypatch, replica_config, *extra_args)
     return result, calls
 
 
+@pytest.mark.parametrize(
+    "flags,expected",
+    [([], None), (["--enable-virtual-env"], True), (["--disable-virtual-env"], False)],
+)
+def test_launch_virtual_env_tristate(monkeypatch, flags, expected):
+    replica_config = [{"devices": [{"worker_ip": "worker-0:9978"}]}]
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, json.dumps(replica_config), *flags, "--replica-config"
+    )
+    assert result.exit_code == 0, result.output
+    assert calls["launch_kwargs"]["enable_virtual_env"] is expected
+
+
 @pytest.mark.parametrize("option", ["--replica-config", "--replica_config"])
 def test_launch_replica_config_is_passed_to_client(monkeypatch, option):
     replica_config = [

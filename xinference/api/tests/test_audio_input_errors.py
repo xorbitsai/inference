@@ -156,6 +156,54 @@ class _API:
         raise AssertionError("client input errors must not be reported as model errors")
 
 
+async def test_speech_cleanup_releases_admission_when_remote_close_fails():
+    from unittest.mock import AsyncMock
+
+    model = SimpleNamespace(decrease_serve_count=AsyncMock())
+    iterator = SimpleNamespace(
+        aclose=AsyncMock(side_effect=RuntimeError("abort failed"))
+    )
+    with pytest.raises(RuntimeError, match="abort failed"):
+        await restful_api_module._close_speech_stream(model, iterator)
+    model.decrease_serve_count.assert_awaited_once()
+
+
+@pytest.mark.parametrize("invalid", ["undecodable", "empty", "language"])
+async def test_native_file_transcription_input_errors_are_400(monkeypatch, invalid):
+    import io
+    import wave
+
+    from ...model.audio.vllm import VLLMQwen3ASRModel
+
+    data = io.BytesIO()
+    with wave.open(data, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(16000)
+        wav.writeframes(b"" if invalid == "empty" else b"\0" * 3200)
+    content = b"invalid audio" if invalid == "undecodable" else data.getvalue()
+    model = VLLMQwen3ASRModel("asr", ".", SimpleNamespace())
+    actor = SimpleNamespace(transcriptions=model.async_transcriptions)
+    monkeypatch.setattr(
+        restful_api_module,
+        "require_model",
+        lambda *args: asyncio.sleep(0, result=actor),
+    )
+    with pytest.raises(HTTPException) as exc:
+        await RESTfulAPI.create_transcriptions(
+            _API(),
+            _Request(FormData()),
+            model="asr",
+            file=_UploadFile(content),
+            language="unsupported" if invalid == "language" else None,
+            prompt=None,
+            response_format="json",
+            temperature=0,
+            kwargs=None,
+        )
+    assert exc.value.status_code == 400
+
+
 @pytest.fixture
 def invalid_audio_api(monkeypatch):
     model_ref = _AudioModelRef()
@@ -456,6 +504,7 @@ async def test_native_tts_default_voice_at_http_boundary(monkeypatch, voice):
         yield SimpleNamespace(multimodal_output={"audio": np.array([0.1]), "sr": 24000})
 
     model = VLLMOmniTTSModel("tts", ".", SimpleNamespace())
+    model._samples_per_token = 1920
     model._engine = SimpleNamespace(
         default_sampling_params_list=[SimpleNamespace(output_kind="cumulative")],
         generate=generate,

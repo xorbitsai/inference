@@ -189,3 +189,13 @@ msgstr ""
 "启用语音控件前，查询 ``GET /v1/models/{model_uid}/audio/capabilities``。接口返回已加载适配器的流式与 "
 "VAD 支持情况，以及支持的 TTS 格式、采样率和音色 ID。不支持的适配器返回空对象。 ``formats`` 和 ``sample_rates``"
 " 描述流式输出；``file_formats`` 列出非流式输出格式。"
+
+#: user_guide/realtime.rst:90
+msgid ""
+"For ASR, ``max_num_seqs`` must be 1–128 (default 16); ``language=auto`` "
+"enables automatic detection. Native engine construction currently blocks the"
+" model Actor loop during loading; RPCs to that replica resume after "
+"initialization."
+msgstr ""
+"ASR 的 ``max_num_seqs`` 必须为 1–128（默认 16）；``language=auto`` "
+"启用语言自动检测。原生引擎的构造目前会在加载期间阻塞模型 Actor 的事件循环；该副本的 RPC 会在初始化完成后恢复。"

@@ -25,6 +25,7 @@ from typing import Any, Dict
 
 import numpy as np
 
+from ...core.exceptions import InvalidAudioInputError
 from ...core.realtime.protocol import RealtimeError
 from ..realtime import RealtimeSession
 from .native_async import NativeAsyncAudioModel, settle_request
@@ -76,11 +77,30 @@ def transcription_language(language):
         for code, name in QWEN_LANGUAGES.items():
             if normalized in (code, name.lower()):
                 return name
-    raise ValueError("Unsupported transcription language")
+    raise InvalidAudioInputError("Unsupported transcription language")
+
+
+def join_transcripts(texts):
+    result = ""
+    cjk = r"[\u3000-\u30ff\u3400-\u9fff\uf900-\ufaff]"
+    for text in texts:
+        if not text:
+            continue
+        separator = (
+            ""
+            if not result or (re.search(cjk + r"$", result) and re.match(cjk, text))
+            else " "
+        )
+        result += separator + text
+    return result
 
 
 class VLLMQwen3ASRModel(NativeAsyncAudioModel):
     def __init__(self, *args, **kwargs):
+        if "realtime" in kwargs:
+            raise ValueError(
+                "Qwen3-ASR does not use the realtime launch flag; configure realtime_options instead"
+            )
         # Preserve the SDK adapter's existing batching knobs while moving
         # inference into the native scheduler. Alignment wasn't exposed by
         # this adapter's transcription API, so don't load unused weights.
@@ -246,7 +266,14 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
         def decode():
             import soundfile as sf
 
-            samples, rate = sf.read(io.BytesIO(audio), dtype="float32", always_2d=True)
+            try:
+                samples, rate = sf.read(
+                    io.BytesIO(audio), dtype="float32", always_2d=True
+                )
+            except (ValueError, RuntimeError) as exc:
+                raise InvalidAudioInputError(
+                    "Invalid audio file: cannot decode audio"
+                ) from exc
             samples = samples.mean(axis=1)
             if rate != 16000:
                 from math import gcd
@@ -258,9 +285,10 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
                     samples, 16000 // divisor, rate // divisor
                 ).astype(np.float32, copy=False)
             if not samples.size:
-                raise ValueError("Empty audio")
+                raise InvalidAudioInputError("Empty audio")
             return samples
 
+        transcription_language(language)
         samples = await asyncio.to_thread(decode)
         texts, languages = [], []
         # Keep native audio prompts bounded while preserving every file chunk.
@@ -271,7 +299,7 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
             texts.append(text)
             if detected_language and detected_language not in languages:
                 languages.append(detected_language)
-        result: Dict[str, Any] = {"text": " ".join(text for text in texts if text)}
+        result: Dict[str, Any] = {"text": join_transcripts(texts)}
         if response_format == "verbose_json":
             result.update(
                 task="transcribe",
@@ -293,6 +321,12 @@ class VLLMASRSession(RealtimeSession):
         hotwords = parameters.get("hotwords", [])
         if not isinstance(self.language, str) or not 1 <= len(self.language) <= 32:
             raise RealtimeError("invalid_config", "Invalid language")
+        try:
+            self.language = transcription_language(self.language)
+        except ValueError as exc:
+            raise RealtimeError(
+                "invalid_config", "Unsupported transcription language"
+            ) from exc
         if (
             not isinstance(hotwords, list)
             or len(hotwords) > 100
@@ -325,7 +359,7 @@ class VLLMASRSession(RealtimeSession):
             "duration_ms": self._total // 16,
         }
         if final:
-            result["text"] = " ".join(item["text"] for item in self._sentences)
+            result["text"] = join_transcripts(item["text"] for item in self._sentences)
         return result
 
     async def _decode(self):

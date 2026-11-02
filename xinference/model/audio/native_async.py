@@ -109,12 +109,16 @@ class NativeAsyncAudioModel:
         self._stopping = True
         if self._engine is None:
             return
-        for request_id in tuple(self._requests):
-            await self._abort(request_id)
-        result = self._engine.shutdown()
-        if inspect.isawaitable(result):
-            await result
-        self._engine = None
+        try:
+            for request_id in tuple(self._requests):
+                await self._abort(request_id)
+        finally:
+            try:
+                result = self._engine.shutdown()
+                if inspect.isawaitable(result):
+                    await result
+            finally:
+                self._engine = None
 
     def stop(self) -> None:
         if self._loop is not None and self._loop.is_running():

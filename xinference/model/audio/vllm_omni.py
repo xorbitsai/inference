@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import io
+import json
 from contextlib import aclosing
+from pathlib import Path
 
 import numpy as np
 
@@ -37,6 +40,12 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         options.setdefault("max_num_seqs", 16)
         self._tokenizer = AutoTokenizer.from_pretrained(self._model_path)
         self._config = Qwen3TTSConfig.from_pretrained(self._model_path).talker_config
+        codec = json.loads(
+            (Path(self._model_path) / "speech_tokenizer/config.json").read_text()
+        )
+        self._samples_per_token = codec["decode_upsample_rate"]
+        if type(self._samples_per_token) is not int or self._samples_per_token <= 0:
+            raise ValueError("Invalid speech tokenizer decode_upsample_rate")
         self._estimate_prompt = (
             Qwen3TTSPromptEmbedsBuilder.estimate_prompt_len_from_additional_information
         )
@@ -59,9 +68,7 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         raise RuntimeError("Use the asynchronous speech entrypoint")
 
     def _prompt(self, text, voice, language, instruct, max_tokens):
-        if voice is None:
-            voice = ""
-        if not isinstance(voice, str) or (
+        if (voice is not None and not isinstance(voice, str)) or (
             language is not None and not isinstance(language, str)
         ):
             raise ValueError("voice and language must be strings")
@@ -132,6 +139,7 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         for item in params:
             item.output_kind = RequestOutputKind.DELTA
         params[0].max_tokens = max_tokens
+        params[0].min_tokens = min(getattr(params[0], "min_tokens", 0), max_tokens)
         if seed is not None:
             params[0].seed = seed
         chunks = self._audio_chunks(prompt, params)
@@ -144,20 +152,19 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
             return pcm
 
         def encode():
-            import torch
+            import soundfile as sf
 
-            from .utils import audio_to_bytes
-
-            samples = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768
-            return audio_to_bytes(
-                response_format, 24000, torch.from_numpy(samples).unsqueeze(0)
+            output = io.BytesIO()
+            sf.write(
+                output, np.frombuffer(pcm, dtype="<i2"), 24000, format=response_format
             )
+            return output.getvalue()
 
         return await asyncio.to_thread(encode)
 
     async def _audio_chunks(self, prompt, params):
-        seen = 0
         any_audio = False
+        samples = 0
         async with aclosing(
             self._generate(
                 prompt, sampling_params_list=params, output_modalities=["audio"]
@@ -165,6 +172,13 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         ) as outputs:
             async for result in outputs:
                 output = getattr(result, "request_output", result)
+                if any(
+                    getattr(item, "finish_reason", None) in {"length", "abort"}
+                    for item in getattr(output, "outputs", [])
+                ):
+                    raise RuntimeError(
+                        "Speech generation did not complete; output is incomplete"
+                    )
                 audio = getattr(output, "multimodal_output", None)
                 if not audio:
                     for item in getattr(output, "outputs", []):
@@ -182,13 +196,9 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
                 if int(rate) != 24000:
                     raise RuntimeError("Qwen3-TTS returned an unexpected sample rate")
                 values = audio[key]
-                if isinstance(values, list):
-                    if len(values) < seen:
-                        raise RuntimeError("Cumulative audio output was truncated")
-                    chunks = values[seen:]
-                    seen = len(values)
-                else:
-                    chunks = [values]
+                # vllm-omni 0.32 drains modality data after each DELTA emission
+                # (outputs/output_processor.py); lists contain only new chunks.
+                chunks = values if isinstance(values, list) else [values]
                 for chunk in chunks:
                     if hasattr(chunk, "detach"):
                         chunk = chunk.detach().float().cpu().numpy()
@@ -201,6 +211,14 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
                         raise RuntimeError("Qwen3-TTS returned invalid mono audio")
                     chunk = chunk.reshape(-1)
                     if chunk.size:
+                        samples += chunk.size
+                        # AsyncOmni 0.32 may report decoder 'stop' when the
+                        # talker hit its budget. Each codec frame consumes one
+                        # talker token; normal EOS consumes a token without audio.
+                        if samples >= params[0].max_tokens * self._samples_per_token:
+                            raise RuntimeError(
+                                "Speech token budget exhausted; output is incomplete"
+                            )
                         any_audio = True
                         yield (np.clip(chunk, -1, 1) * 32767).astype("<i2").tobytes()
         if not any_audio:

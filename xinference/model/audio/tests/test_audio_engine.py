@@ -281,6 +281,17 @@ def test_native_audio_engine_scope(linux_cuda_engines):
     assert "vLLM" not in AUDIO_ENGINES["Qwen3-TTS-12Hz-1.7B-VoiceDesign"]
 
 
+@pytest.mark.parametrize("size", ["0.6B", "1.7B"])
+def test_customvoice_preserves_pytorch_default(linux_cuda_engines, size):
+    name = f"Qwen3-TTS-12Hz-{size}-CustomVoice"
+    assert next(iter(AUDIO_ENGINES[name])) == "PyTorch"
+    assert resolve_audio_model_name_and_engine(name, "vLLM") == (name, "vLLM")
+    model = create_audio_model_instance(
+        "uid", name, model_path="/fake/path", enable_virtual_env=False
+    )
+    assert type(model).__name__ == "PyTorchQwen3TTSAudioModel"
+
+
 def test_vllm_engine_not_matched_without_cuda():
     engine_mod = __import__(
         VLLMQwen3ASRAudioModel.__module__, fromlist=["has_cuda_device"]

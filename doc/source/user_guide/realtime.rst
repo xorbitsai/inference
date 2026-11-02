@@ -87,6 +87,8 @@ Launch Qwen3-ASR with ``vLLM``. Each connection owns a Silero VAD state and utte
 
 ASR defaults to 16 concurrent sessions per replica. ``XINFERENCE_REALTIME_MAX_SESSIONS`` overrides admission capacity; ``max_num_seqs`` configures native engine scheduling. Concurrent file and WebSocket decodes enter the same AsyncLLM scheduler without a Python inference lock. Cancelling one session aborts only its request and retains its slot until abort settles. Measure throughput, latency and accuracy on the target GPU before choosing production limits.
 
+For ASR, ``max_num_seqs`` must be 1–128 (default 16); ``language=auto`` enables automatic detection. Native engine construction currently blocks the model Actor loop during loading; RPCs to that replica resume after initialization.
+
 Launch Qwen3-TTS CustomVoice with ``vLLM`` for native AsyncOmni batching and streaming. Both 0.6B and 1.7B CustomVoice models are supported; Base and VoiceDesign are excluded. Streaming requires ``stream=true`` and ``response_format=pcm`` and returns mono 24 kHz PCM16 little-endian chunks. The default speaker is ``ryan`` and the default language is English. Close the response to cancel generation.
 
 .. code-block:: python

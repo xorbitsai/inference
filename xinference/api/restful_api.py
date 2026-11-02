@@ -551,8 +551,10 @@ async def _close_speech_stream(model, iterator) -> None:
     """Keep speech admission until remote native abort acknowledgement."""
 
     async def close():
-        await _close_async_iterator(iterator)
-        await _release_model_stream(model, iterator)
+        try:
+            await _close_async_iterator(iterator)
+        finally:
+            await _release_model_stream(model, iterator)
 
     cleanup = asyncio.create_task(close())
     cancellation = None

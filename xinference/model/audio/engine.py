@@ -494,7 +494,6 @@ def register_builtin_audio_engines() -> None:
         TransformersQwen3ASRAudioModel,
         TransformersWhisperAudioModel,
     ]
-    SUPPORTED_ENGINES["vLLM"] = [VLLMQwen3ASRAudioModel, VLLMQwen3TTSAudioModel]
     SUPPORTED_ENGINES["PyTorch"] = [
         PyTorchAceStepAudioModel,
         PyTorchYuE2AudioModel,
@@ -509,6 +508,7 @@ def register_builtin_audio_engines() -> None:
         PyTorchMeloTTSAudioModel,
         PyTorchVoxCPMAudioModel,
     ]
+    SUPPORTED_ENGINES["vLLM"] = [VLLMQwen3ASRAudioModel, VLLMQwen3TTSAudioModel]
     SUPPORTED_ENGINES["MLX"] = [
         MLXWhisperAudioModel,
         MLXF5TTSAudioModel,
