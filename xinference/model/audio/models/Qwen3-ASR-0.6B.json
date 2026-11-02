@@ -26,9 +26,10 @@
     "version": 2,
     "virtualenv": {
       "packages": [
-        "qwen-asr",
-        "qwen-asr[vllm] ; #engine# == \"vLLM\"",
-        "#system_torch#",
+        "qwen-asr ; #engine# == \"transformers\"",
+        "vllm[audio]==0.32.0 ; #engine# == \"vLLM\"",
+        "silero-vad[onnx-cpu]>=6.2.3 ; #engine# == \"vLLM\"",
+        "#system_torch# ; #engine# == \"transformers\"",
         "#system_numpy#",
         "#system_pandas#"
       ]

@@ -35,8 +35,11 @@
     "version": 2,
     "virtualenv": {
       "packages": [
-        "qwen-tts",
-        "#system_torch#",
+        "qwen-tts ; #engine# == \"PyTorch\"",
+        "vllm[audio]==0.32.0 ; #engine# == \"vLLM\"",
+        "vllm-omni==0.32.0 ; #engine# == \"vLLM\"",
+        "soundfile>=0.13.1 ; #engine# == \"vLLM\"",
+        "#system_torch# ; #engine# == \"PyTorch\"",
         "#system_numpy#",
         "#system_pandas#"
       ]

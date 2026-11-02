@@ -60,6 +60,7 @@ from ..engine import (
     TransformersQwen3ASRAudioModel,
     TransformersWhisperAudioModel,
     VLLMQwen3ASRAudioModel,
+    VLLMQwen3TTSAudioModel,
 )
 from ..engine import platform as engine_platform
 from ..engine import register_builtin_audio_engines
@@ -253,12 +254,42 @@ def test_audio_engine_families_registered():
 
 def test_qwen3_asr_vllm_engine_on_linux_cuda(linux_cuda_engines):
     for model_name in ("Qwen3-ASR-0.6B", "Qwen3-ASR-1.7B"):
-        assert sorted(AUDIO_ENGINES[model_name]) == ["transformers", "vLLM"]
+        assert sorted(AUDIO_ENGINES[model_name]) == [
+            "transformers",
+            "vLLM",
+        ]
         cls = check_engine_by_model_name_and_engine("vLLM", model_name)
         assert cls is VLLMQwen3ASRAudioModel
         # engine name is case-insensitive
         cls = check_engine_by_model_name_and_engine("vllm", model_name)
         assert cls is VLLMQwen3ASRAudioModel
+
+
+def test_native_audio_engine_scope(linux_cuda_engines):
+    for name in ("Qwen3-ASR-0.6B", "Qwen3-ASR-1.7B"):
+        assert (
+            check_engine_by_model_name_and_engine("vLLM", name)
+            is VLLMQwen3ASRAudioModel
+        )
+    for size in ("0.6B", "1.7B"):
+        name = f"Qwen3-TTS-12Hz-{size}-CustomVoice"
+        assert (
+            check_engine_by_model_name_and_engine("vLLM", name)
+            is VLLMQwen3TTSAudioModel
+        )
+        assert "vLLM" not in AUDIO_ENGINES[f"Qwen3-TTS-12Hz-{size}-Base"]
+    assert "vLLM" not in AUDIO_ENGINES["Qwen3-TTS-12Hz-1.7B-VoiceDesign"]
+
+
+@pytest.mark.parametrize("size", ["0.6B", "1.7B"])
+def test_customvoice_preserves_pytorch_default(linux_cuda_engines, size):
+    name = f"Qwen3-TTS-12Hz-{size}-CustomVoice"
+    assert next(iter(AUDIO_ENGINES[name])) == "PyTorch"
+    assert resolve_audio_model_name_and_engine(name, "vLLM") == (name, "vLLM")
+    model = create_audio_model_instance(
+        "uid", name, model_path="/fake/path", enable_virtual_env=False
+    )
+    assert type(model).__name__ == "PyTorchQwen3TTSAudioModel"
 
 
 def test_vllm_engine_not_matched_without_cuda():
@@ -984,8 +1015,8 @@ def test_builtin_specs_have_vllm_virtualenv_marker():
         )
         packages = spec.virtualenv.packages if spec.virtualenv else []
         assert any(
-            "qwen-asr[vllm]" in pkg and '#engine# == "vLLM"' in pkg for pkg in packages
-        ), f"{model_name} misses qwen-asr[vllm] virtualenv marker"
+            "vllm[audio]" in pkg and '#engine# == "vLLM"' in pkg for pkg in packages
+        ), f"{model_name} misses native vLLM virtualenv marker"
 
 
 @pytest.mark.parametrize("hub_version", ["0.36.0", "1.5.0"])
@@ -1018,3 +1049,21 @@ def test_f5_tts_mlx_keeps_host_hub_version(apple_mlx_engines, monkeypatch, hub_v
     assert len(hub) == 1
     assert str(hub[0].specifier) == f"=={hub_version}"
     assert "2.0.0" not in hub[0].specifier
+
+
+def test_native_audio_dependencies_do_not_pin_system_torch():
+    from ....core.utils import filter_virtualenv_packages_by_markers
+
+    for size in ("0.6B", "1.7B"):
+        for name, engine, old_engine, sdk in (
+            (f"Qwen3-ASR-{size}", "vLLM", "transformers", "qwen-asr"),
+            (f"Qwen3-TTS-12Hz-{size}-CustomVoice", "vLLM", "PyTorch", "qwen-tts"),
+        ):
+            packages = _get_spec(name).virtualenv.packages
+            native = filter_virtualenv_packages_by_markers(packages, engine, "12.8")
+            assert "vllm[audio]==0.32.0" in native
+            assert "#system_torch#" not in native
+            assert not any(package.startswith(sdk) for package in native)
+            old = filter_virtualenv_packages_by_markers(packages, old_engine, "12.8")
+            assert sdk in old and "#system_torch#" in old
+            assert not any(package.startswith("vllm") for package in old)

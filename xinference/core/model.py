@@ -22,6 +22,7 @@ import threading
 import time
 import types
 import uuid
+from contextlib import suppress
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -320,11 +321,14 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             await runtime.stop()
             if streams:
                 await _await_owned_task(asyncio.gather(*(s.done for s in streams)))
-            # File inference uses the same lock and may still own native work
-            # after its client disconnects. Drain it before unloading weights.
-            assert self._lock is not None
-            async with self._lock:
-                pass
+            # Serialized adapters retain their file-inference lease until native
+            # work ends. Native async adapters instead abort tracked requests
+            # in stop(), after the draining state has fenced new admission.
+            if self._lock is not None:
+                async with self._lock:
+                    pass
+            else:
+                assert getattr(self._model, "realtime_native_async", False)
             self._realtime_runtime = None
 
     def __init__(
@@ -398,6 +402,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             ),
         }
         self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._native_stream_next: Dict[str, asyncio.Task] = {}
         self._model_state = "registering"
         # model across workers
         self._n_worker = n_worker
@@ -445,6 +450,35 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     def __getattr__(self, attr: str):
         return getattr(self._model, attr)
+
+    async def __xoscar_next__(self, generator_uid: str):
+        if not getattr(self._model, "realtime_native_async", False):
+            return await super().__xoscar_next__(generator_uid)
+        if generator_uid in self._native_stream_next:
+            raise RuntimeError("Concurrent reads of one native audio stream")
+        task = asyncio.create_task(super().__xoscar_next__(generator_uid))
+        self._native_stream_next[generator_uid] = task
+        try:
+            return await task
+        finally:
+            self._native_stream_next.pop(generator_uid, None)
+
+    async def __xoscar_destroy_generator__(self, generator_uid: str):
+        if not getattr(self._model, "realtime_native_async", False):
+            return await super().__xoscar_destroy_generator__(generator_uid)
+        caller = asyncio.current_task()
+
+        async def close():
+            pending = self._native_stream_next.get(generator_uid)
+            if pending is not None and pending is not caller:
+                pending.cancel()
+                with suppress(asyncio.CancelledError, Exception):
+                    await pending
+            generator = self._generators.pop(generator_uid, None)
+            if inspect.isasyncgen(generator):
+                await generator.aclose()
+
+        await _await_owned_task(asyncio.create_task(close()))
 
     @rpc_context
     async def decrease_serve_count(self):
@@ -701,7 +735,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         capabilities = getattr(self._model, "get_realtime_capabilities", None)
         if capabilities is None or not capabilities().get("tasks"):
             return
-        if self._lock is None:
+        if self._lock is None and not getattr(
+            self._model, "realtime_native_async", False
+        ):
             raise ValueError("Realtime adapters require serialized inference")
         from urllib.parse import urlsplit
 
@@ -709,7 +745,12 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         from .realtime.runtime import RealtimeRuntime
 
         base_uid, _ = parse_replica_model_uid(self._replica_model_uid or "")
-        max_sessions = int(os.environ.get("XINFERENCE_REALTIME_MAX_SESSIONS", "1"))
+        max_sessions = int(
+            os.environ.get(
+                "XINFERENCE_REALTIME_MAX_SESSIONS",
+                str(getattr(self._model, "realtime_max_sessions", 1)),
+            )
+        )
         if not 1 <= max_sessions <= 128:
             raise ValueError("XINFERENCE_REALTIME_MAX_SESSIONS must be in [1, 128]")
         runtime = RealtimeRuntime(
@@ -747,6 +788,23 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 "unsupported_task", "Model has no realtime input adapter"
             )
         return self._realtime_runtime.issue_ticket(subject, task)
+
+    def get_audio_capabilities(self) -> Dict[str, Any]:
+        """Describe the loaded adapter, rather than inferring from its UID."""
+        self._require_ready()
+        result: Dict[str, Any] = {}
+        realtime: Dict[str, Any] = getattr(
+            self._model, "get_realtime_capabilities", lambda: {}
+        )()
+        transcription = realtime.get("tasks", {}).get("audio.transcription")
+        if transcription:
+            result["asr"] = {"streaming": True, **transcription}
+        speech: Dict[str, Any] = getattr(
+            self._model, "get_speech_capabilities", lambda: {}
+        )()
+        if speech:
+            result["tts"] = speech
+        return result
 
     def get_realtime_status(self) -> Dict[str, Any]:
         """Low-frequency control-plane observation, not result polling."""
@@ -1025,7 +1083,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             async for v in gen:
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
-                final_usage = v.get("usage", None)
+                final_usage = v.get("usage", None) if isinstance(v, dict) else None
                 if output_type == "json":
                     v = await asyncio.to_thread(json.dumps, v, ensure_ascii=False)
                     v = dict(data=v)  # noqa: F821
@@ -1037,6 +1095,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         except OutOfMemoryError as ex:
             await self._handle_oom_error(ex)
         finally:
+            if getattr(self._model, "realtime_native_async", False):
+                # Closing an Actor stream while suspended at yield must abort
+                # the native request before the API releases its admission slot.
+                await _await_owned_task(asyncio.create_task(gen.aclose()))
             coros = []
             if time_to_first_token is not None:
                 coros.append(
@@ -1245,8 +1307,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             return await _await_owned_task(thread_task)
 
         self._add_running_task(kwargs.get("request_id"))
-        if getattr(self, "_realtime_runtime", None) is not None:
-            assert self._lock is not None
+        if (
+            getattr(self, "_realtime_runtime", None) is not None
+            and self._lock is not None
+        ):
             await self._lock.acquire()
             transferred = False
             try:
