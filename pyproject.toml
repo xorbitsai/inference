@@ -37,7 +37,7 @@ dependencies = [
     "psutil>=5.9.0",
     "torch",
     "pillow",
-    "click<8.2.0",
+    "click>=8.1,<9",
     "tqdm>=4.27",
     "tabulate",
     "requests",

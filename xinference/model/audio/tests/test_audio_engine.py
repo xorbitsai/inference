@@ -61,7 +61,6 @@ from ..engine import (
     TransformersWhisperAudioModel,
     VLLMQwen3ASRAudioModel,
     VLLMQwen3TTSAudioModel,
-    VLLMRealtimeQwen3ASRAudioModel,
 )
 from ..engine import platform as engine_platform
 from ..engine import register_builtin_audio_engines
@@ -258,7 +257,6 @@ def test_qwen3_asr_vllm_engine_on_linux_cuda(linux_cuda_engines):
         assert sorted(AUDIO_ENGINES[model_name]) == [
             "transformers",
             "vLLM",
-            "vLLM-Realtime",
         ]
         cls = check_engine_by_model_name_and_engine("vLLM", model_name)
         assert cls is VLLMQwen3ASRAudioModel
@@ -270,8 +268,8 @@ def test_qwen3_asr_vllm_engine_on_linux_cuda(linux_cuda_engines):
 def test_native_audio_engine_scope(linux_cuda_engines):
     for name in ("Qwen3-ASR-0.6B", "Qwen3-ASR-1.7B"):
         assert (
-            check_engine_by_model_name_and_engine("vLLM-Realtime", name)
-            is VLLMRealtimeQwen3ASRAudioModel
+            check_engine_by_model_name_and_engine("vLLM", name)
+            is VLLMQwen3ASRAudioModel
         )
     for size in ("0.6B", "1.7B"):
         name = f"Qwen3-TTS-12Hz-{size}-CustomVoice"
@@ -1006,8 +1004,8 @@ def test_builtin_specs_have_vllm_virtualenv_marker():
         )
         packages = spec.virtualenv.packages if spec.virtualenv else []
         assert any(
-            "qwen-asr[vllm]" in pkg and '#engine# == "vLLM"' in pkg for pkg in packages
-        ), f"{model_name} misses qwen-asr[vllm] virtualenv marker"
+            "vllm[audio]" in pkg and '#engine# == "vLLM"' in pkg for pkg in packages
+        ), f"{model_name} misses native vLLM virtualenv marker"
 
 
 @pytest.mark.parametrize("hub_version", ["0.36.0", "1.5.0"])
@@ -1047,7 +1045,7 @@ def test_native_audio_dependencies_do_not_pin_system_torch():
 
     for size in ("0.6B", "1.7B"):
         for name, engine, old_engine, sdk in (
-            (f"Qwen3-ASR-{size}", "vLLM-Realtime", "transformers", "qwen-asr"),
+            (f"Qwen3-ASR-{size}", "vLLM", "transformers", "qwen-asr"),
             (f"Qwen3-TTS-12Hz-{size}-CustomVoice", "vLLM", "PyTorch", "qwen-tts"),
         ):
             packages = _get_spec(name).virtualenv.packages

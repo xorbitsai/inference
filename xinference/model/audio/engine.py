@@ -36,7 +36,6 @@ from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
 from .vllm import VLLMQwen3ASRModel
 from .vllm_omni import VLLMOmniTTSModel
-from .vllm_realtime import VLLMRealtimeASRModel
 from .voxcpm import VoxCPMModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
@@ -105,7 +104,7 @@ class TransformersQwen3ASRAudioModel(Qwen3ASRModel, AudioEngineModel):
 
 
 class VLLMQwen3ASRAudioModel(VLLMQwen3ASRModel, AudioEngineModel):
-    required_libs = ("qwen_asr", "vllm")
+    required_libs = ("vllm", "silero_vad", "onnxruntime")
 
     @classmethod
     def match(cls, model_family: "AudioModelFamilyV2") -> bool:
@@ -113,23 +112,7 @@ class VLLMQwen3ASRAudioModel(VLLMQwen3ASRModel, AudioEngineModel):
             return False
         if not has_cuda_device():
             return False
-        return model_family.model_family == "qwen3_asr"
-
-    @classmethod
-    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
-        return model_family.model_family == "qwen3_asr"
-
-
-class VLLMRealtimeQwen3ASRAudioModel(VLLMRealtimeASRModel, AudioEngineModel):
-    required_libs = ("vllm", "silero_vad", "onnxruntime")
-
-    @classmethod
-    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
-        return (
-            platform.system() == "Linux"
-            and has_cuda_device()
-            and cls.is_model_family_supported(model_family)
-        )
+        return cls.is_model_family_supported(model_family)
 
     @classmethod
     def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
@@ -512,7 +495,6 @@ def register_builtin_audio_engines() -> None:
         TransformersWhisperAudioModel,
     ]
     SUPPORTED_ENGINES["vLLM"] = [VLLMQwen3ASRAudioModel, VLLMQwen3TTSAudioModel]
-    SUPPORTED_ENGINES["vLLM-Realtime"] = [VLLMRealtimeQwen3ASRAudioModel]
     SUPPORTED_ENGINES["PyTorch"] = [
         PyTorchAceStepAudioModel,
         PyTorchYuE2AudioModel,

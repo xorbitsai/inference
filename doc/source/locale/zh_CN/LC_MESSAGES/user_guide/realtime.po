@@ -139,13 +139,13 @@ msgstr ""
 
 #: user_guide/realtime.rst:75
 msgid ""
-"Launch Qwen3-ASR with ``vLLM-Realtime``. Each connection owns a Silero VAD "
+"Launch Qwen3-ASR with ``vLLM``. Each connection owns a Silero VAD "
 "state and utterance buffer; English is the default session language. Use the"
 " WebSocket protocol above with ``language=en``. Partial results re-decode "
 "utterance snapshots; this is segmental transcription, not incremental "
 "acoustic encoding. Both 0.6B and 1.7B models are supported."
 msgstr ""
-"使用 ``vLLM-Realtime`` 启动 Qwen3-ASR。每个连接独立维护 Silero VAD "
+"使用 ``vLLM`` 启动 Qwen3-ASR。每个连接独立维护 Silero VAD "
 "状态和语句缓冲区，默认会话语言为英语。使用上述 WebSocket 协议并设置 "
 "``language=en``。部分结果通过重新识别语句快照生成；这是分段转写，不是增量声学编码。支持 0.6B 和 1.7B 两个模型。"
 
@@ -176,3 +176,14 @@ msgstr ""
 "CustomVoice，不支持 Base 和 VoiceDesign。流式请求必须设置 ``stream=true`` 和 "
 "``response_format=pcm``，返回单声道 24 kHz PCM16 小端音频块。默认说话人为 "
 "``ryan``，默认语言为英语。关闭响应即可取消生成。"
+
+#: user_guide/realtime.rst:73
+#, python-brace-format
+msgid ""
+"Query ``GET /v1/models/{model_uid}/audio/capabilities`` before enabling "
+"voice controls. It reports the loaded adapter’s streaming and VAD support, "
+"supported TTS formats, sample rates and voice IDs. Unsupported adapters "
+"return an empty object."
+msgstr ""
+"启用语音控件前，查询 ``GET /v1/models/{model_uid}/audio/capabilities``。接口返回已加载适配器的流式与 "
+"VAD 支持情况，以及支持的 TTS 格式、采样率和音色 ID。不支持的适配器返回空对象。"

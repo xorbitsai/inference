@@ -27,11 +27,9 @@
     "virtualenv": {
       "packages": [
         "qwen-asr ; #engine# == \"transformers\"",
-        "qwen-asr[vllm] ; #engine# == \"vLLM\"",
-        "vllm[audio]==0.32.0 ; #engine# == \"vLLM-Realtime\"",
-        "silero-vad[onnx-cpu]>=6.2.3 ; #engine# == \"vLLM-Realtime\"",
+        "vllm[audio]==0.32.0 ; #engine# == \"vLLM\"",
+        "silero-vad[onnx-cpu]>=6.2.3 ; #engine# == \"vLLM\"",
         "#system_torch# ; #engine# == \"transformers\"",
-        "#system_torch# ; #engine# == \"vLLM\"",
         "#system_numpy#",
         "#system_pandas#"
       ]

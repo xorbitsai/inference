@@ -755,6 +755,23 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             )
         return self._realtime_runtime.issue_ticket(subject, task)
 
+    def get_audio_capabilities(self) -> Dict[str, Any]:
+        """Describe the loaded adapter, rather than inferring from its UID."""
+        self._require_ready()
+        result: Dict[str, Any] = {}
+        realtime: Dict[str, Any] = getattr(
+            self._model, "get_realtime_capabilities", lambda: {}
+        )()
+        transcription = realtime.get("tasks", {}).get("audio.transcription")
+        if transcription:
+            result["asr"] = {"streaming": True, **transcription}
+        speech: Dict[str, Any] = getattr(
+            self._model, "get_speech_capabilities", lambda: {}
+        )()
+        if speech:
+            result["tts"] = speech
+        return result
+
     def get_realtime_status(self) -> Dict[str, Any]:
         """Low-frequency control-plane observation, not result polling."""
         runtime = self._realtime_runtime

@@ -42,6 +42,18 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         )
         self._engine = AsyncOmni(model=self._model_path, **options)
 
+    def get_speech_capabilities(self):
+        if self._engine is None or self._stopping:
+            return {}
+        return {
+            "streaming": True,
+            "formats": ["pcm"],
+            "sample_rates": [24000],
+            "voices": [
+                {"voice_id": name, "name": name} for name in self._config.spk_id
+            ],
+        }
+
     def speech(self, *args, **kwargs):
         raise RuntimeError("Use the asynchronous speech entrypoint")
 

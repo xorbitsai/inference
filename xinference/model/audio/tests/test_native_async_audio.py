@@ -16,8 +16,8 @@ import pytest
 
 from ....core.realtime.protocol import RealtimeError, RealtimeLimits
 from ..native_async import NativeAsyncAudioModel
+from ..vllm import PCM_FORMAT, VLLMASRSession, VLLMQwen3ASRModel
 from ..vllm_omni import VLLMOmniTTSModel
-from ..vllm_realtime import PCM_FORMAT, VLLMASRSession, VLLMRealtimeASRModel
 
 
 class Engine:
@@ -109,7 +109,7 @@ class Runtime:
 
 
 def asr_model(**options):
-    model = VLLMRealtimeASRModel("asr", ".", NS(), realtime_options=options)
+    model = VLLMQwen3ASRModel("asr", ".", NS(), realtime_options=options)
     # A stateful detector: nonzero PCM is speech. Real Silero is lazy/GPU-free.
     detectors = []
 
@@ -232,7 +232,7 @@ async def test_asr_odd_final_pcm_and_invalid_options():
         {"realtime_options": {"silence_ms": "512"}},
     ):
         with pytest.raises(ValueError):
-            VLLMRealtimeASRModel("a", ".", NS(), **options)
+            VLLMQwen3ASRModel("a", ".", NS(), **options)
     with pytest.raises(RealtimeError):
         VLLMASRSession(model, config(hotwords="not a list"), Runtime())
 
@@ -258,7 +258,7 @@ async def test_asr_native_prompt_contract(native_modules):
         post_process_output=lambda text: text,
     )
     # Restore the method replaced by the session fixture.
-    model.transcribe_audio = VLLMRealtimeASRModel.transcribe_audio.__get__(model)
+    model.transcribe_audio = VLLMQwen3ASRModel.transcribe_audio.__get__(model)
     assert await model.transcribe_audio(np.zeros(800), "en") == "hello world"
     with pytest.raises(ValueError, match="Unsupported transcription language"):
         await model.transcribe_audio(np.zeros(800), "invalid")
@@ -416,3 +416,34 @@ async def test_stop_racing_client_close_shares_abort_ack():
     await asyncio.wait_for(asyncio.gather(stopping, closing), 1)
     assert len(engine.aborted) == 1 and shutdown == [True]
     assert not model._requests and not model._aborts
+
+
+def test_loaded_audio_capabilities_come_from_adapter():
+    from ....core.model import ModelActor
+
+    model = tts_model()
+    model.model_family = NS(to_description=lambda: {"model_type": "audio"})
+    actor = ModelActor("127.0.0.1:1", "127.0.0.1:2", model, "tts-0")
+    actor._model_state = "ready"
+    caps = actor.get_audio_capabilities()
+    assert caps["tts"]["streaming"] is True
+    assert caps["tts"]["sample_rates"] == [24000]
+    assert caps["tts"]["voices"] == [{"voice_id": "ryan", "name": "ryan"}]
+    model._stopping = True
+    assert actor.get_audio_capabilities() == {}
+
+
+def test_existing_vllm_asr_batching_options_remain_accepted():
+    model = VLLMQwen3ASRModel(
+        "asr",
+        ".",
+        NS(),
+        max_inference_batch_size=2,
+        max_new_tokens=256,
+        forced_aligner="unused",
+        batch_interval=0.01,
+    )
+    assert model.realtime_max_sessions == 2 and model._max_tokens == 256
+    assert (
+        "forced_aligner" not in model._kwargs and "batch_interval" not in model._kwargs
+    )
