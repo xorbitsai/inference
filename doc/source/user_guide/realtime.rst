@@ -70,7 +70,7 @@ Optimization is disabled by default. This is a candidate configuration, not a la
 Qwen3 audio with native batching
 --------------------------------
 
-Query ``GET /v1/models/{model_uid}/audio/capabilities`` before enabling voice controls. It reports the loaded adapter’s streaming and VAD support, supported TTS formats, sample rates and voice IDs. Unsupported adapters return an empty object.
+Query ``GET /v1/models/{model_uid}/audio/capabilities`` before enabling voice controls. It reports the loaded adapter’s streaming and VAD support, supported TTS formats, sample rates and voice IDs. Unsupported adapters return an empty object. ``formats`` and ``sample_rates`` describe streaming output; ``file_formats`` lists non-streaming output formats.
 
 Use Linux with CUDA and Python 3.11–3.13. In the model environment, install ``vllm[audio]==0.32.0`` and ``silero-vad[onnx-cpu]`` for ASR; TTS additionally requires ``vllm-omni==0.32.0``. Engine-specific virtualenv packages are included in the built-in model specs.
 

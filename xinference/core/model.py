@@ -22,6 +22,7 @@ import threading
 import time
 import types
 import uuid
+from contextlib import suppress
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -401,6 +402,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             ),
         }
         self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._native_stream_next: Dict[str, asyncio.Task] = {}
         self._model_state = "registering"
         # model across workers
         self._n_worker = n_worker
@@ -448,6 +450,35 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     def __getattr__(self, attr: str):
         return getattr(self._model, attr)
+
+    async def __xoscar_next__(self, generator_uid: str):
+        if not getattr(self._model, "realtime_native_async", False):
+            return await super().__xoscar_next__(generator_uid)
+        if generator_uid in self._native_stream_next:
+            raise RuntimeError("Concurrent reads of one native audio stream")
+        task = asyncio.create_task(super().__xoscar_next__(generator_uid))
+        self._native_stream_next[generator_uid] = task
+        try:
+            return await task
+        finally:
+            self._native_stream_next.pop(generator_uid, None)
+
+    async def __xoscar_destroy_generator__(self, generator_uid: str):
+        if not getattr(self._model, "realtime_native_async", False):
+            return await super().__xoscar_destroy_generator__(generator_uid)
+        caller = asyncio.current_task()
+
+        async def close():
+            pending = self._native_stream_next.get(generator_uid)
+            if pending is not None and pending is not caller:
+                pending.cancel()
+                with suppress(asyncio.CancelledError, Exception):
+                    await pending
+            generator = self._generators.pop(generator_uid, None)
+            if inspect.isasyncgen(generator):
+                await generator.aclose()
+
+        await _await_owned_task(asyncio.create_task(close()))
 
     @rpc_context
     async def decrease_serve_count(self):

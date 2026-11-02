@@ -48,6 +48,7 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         return {
             "streaming": True,
             "formats": ["pcm"],
+            "file_formats": ["pcm", "wav", "mp3", "flac", "ogg"],
             "sample_rates": [24000],
             "voices": [
                 {"voice_id": name, "name": name} for name in self._config.spk_id
@@ -58,6 +59,8 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         raise RuntimeError("Use the asynchronous speech entrypoint")
 
     def _prompt(self, text, voice, language, instruct, max_tokens):
+        if voice is None:
+            voice = ""
         if not isinstance(voice, str) or (
             language is not None and not isinstance(language, str)
         ):

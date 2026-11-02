@@ -87,8 +87,10 @@ class NativeAsyncAudioModel:
             generator = engine.generate(prompt=prompt, request_id=request_id, **kwargs)
             async for output in generator:
                 if self._stopping:
-                    return
+                    raise RuntimeError("Audio generation interrupted during shutdown")
                 yield output
+            if self._stopping:
+                raise RuntimeError("Audio generation interrupted during shutdown")
             completed = True
         finally:
             try:

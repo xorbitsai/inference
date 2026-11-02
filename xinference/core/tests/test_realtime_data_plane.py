@@ -600,7 +600,8 @@ async def test_native_async_actor_teardown_reaches_abort_and_engine_shutdown(
         abort_ack.set()
         await asyncio.wait_for(stopper, 2)
         if request:
-            await asyncio.wait_for(request, 1)
+            with pytest.raises(RuntimeError, match="interrupted"):
+                await asyncio.wait_for(request, 1)
         assert shutdowns == [True] and model._engine is None
         assert actor._realtime_runtime is None and not model._requests
         if not destroy:

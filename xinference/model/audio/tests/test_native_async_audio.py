@@ -591,12 +591,60 @@ async def test_file_merges_all_bounded_audio_chunks(native_modules):
 
 
 @pytest.mark.parametrize("file", [False, True])
-async def test_length_termination_never_returns_a_complete_transcript(
-    native_modules, file
+@pytest.mark.parametrize("reason", ["length", "abort"])
+async def test_incomplete_termination_never_returns_a_complete_transcript(
+    native_modules, file, reason
 ):
-    model, _ = native_asr([("truncated prefix", "length")])
+    model, _ = native_asr([("truncated prefix", reason)])
     with pytest.raises(RuntimeError, match="incomplete"):
         if file:
             await model.async_transcriptions(wav_bytes())
         else:
             await model.transcribe_audio(np.zeros(1600))
+
+
+@pytest.mark.parametrize("terminal_output", [False, True])
+async def test_file_shutdown_after_partial_never_returns_success(
+    native_modules, terminal_output
+):
+    model, _ = native_asr([])
+    partial, release, aborting, ack = [asyncio.Event() for _ in range(4)]
+
+    async def generate(**kwargs):
+        yield NS(outputs=[NS(text="partial prefix", finish_reason=None)])
+        partial.set()
+        await release.wait()
+        if terminal_output:
+            yield NS(outputs=[NS(text="partial prefix", finish_reason="abort")])
+
+    async def abort(request_id):
+        aborting.set()
+        release.set()
+        await ack.wait()
+
+    model._engine.generate = generate
+    model._engine.abort = abort
+    model._engine.shutdown = lambda: None
+    request = asyncio.create_task(model.async_transcriptions(wav_bytes()))
+    stop = None
+    try:
+        await asyncio.wait_for(partial.wait(), 1)
+        stop = asyncio.create_task(model._stop())
+        await asyncio.wait_for(aborting.wait(), 1)
+        assert not request.done() and not stop.done()
+        ack.set()
+        with pytest.raises(RuntimeError, match="interrupted"):
+            await asyncio.wait_for(request, 1)
+        await stop
+    finally:
+        ack.set()
+        release.set()
+        await asyncio.gather(
+            *(task for task in (request, stop) if task), return_exceptions=True
+        )
+
+
+def test_tts_discovery_distinguishes_stream_and_file_formats():
+    capabilities = tts_model().get_speech_capabilities()
+    assert capabilities["formats"] == ["pcm"]
+    assert set(capabilities["file_formats"]) == {"pcm", "wav", "mp3", "flac", "ogg"}

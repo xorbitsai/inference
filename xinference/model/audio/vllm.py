@@ -209,10 +209,8 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
                 if output.outputs:
                     result = output.outputs[0].text
                     finish_reason = getattr(output.outputs[0], "finish_reason", None)
-        if finish_reason == "length":
-            raise RuntimeError(
-                "Transcription exceeded its token budget; result is incomplete"
-            )
+        if finish_reason in {"length", "abort"}:
+            raise RuntimeError("Transcription did not complete; result is incomplete")
         detected = re.match(r"\s*language\s+([^<\n]+)<asr_text>", result)
         detected_language = detected.group(1).strip() if detected else language
         return self._asr_class.post_process_output(result).strip(), detected_language
