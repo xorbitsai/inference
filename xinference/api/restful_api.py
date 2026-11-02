@@ -153,6 +153,7 @@ from .schemas import (
 )
 from .streaming_outcome import (
     FailureOrigin,
+    StreamState,
     get_stream_outcome_reporter,
     observe_stream,
     report_client_disconnect,
@@ -569,6 +570,26 @@ async def _close_speech_stream(model, iterator) -> None:
                     raise
     if cancellation is not None:
         raise cancellation
+
+
+def _guard_speech_stream_failure(request: Request, response: Response) -> Response:
+    """Do not let BaseHTTPMiddleware finalize failed PCM as a successful body."""
+    iterator = getattr(response, "body_iterator", None)
+    if request.url.path != "/v1/audio/speech" or iterator is None:
+        return response
+    if not response.headers.get("content-type", "").startswith(
+        "application/octet-stream"
+    ):
+        return response
+
+    async def body():
+        async for chunk in iterator:
+            yield chunk
+        if get_stream_outcome_reporter(request).outcome.state is StreamState.FAILED:
+            raise RuntimeError("Speech stream did not complete")
+
+    setattr(response, "body_iterator", body())
+    return response
 
 
 def _request_credential(request: Request) -> str:
@@ -1613,7 +1634,8 @@ class RESTfulAPI(CancelMixin):
             async def check_ip(inner_request):
                 return await ip_restriction_middleware(inner_request, call_next)
 
-            return await self._audit_middleware(request, check_ip)
+            response = await self._audit_middleware(request, check_ip)
+            return _guard_speech_stream_failure(request, response)
 
         # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
         if XINFERENCE_ENABLE_OTEL:

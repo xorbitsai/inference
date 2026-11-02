@@ -168,6 +168,65 @@ async def test_speech_cleanup_releases_admission_when_remote_close_fails():
     model.decrease_serve_count.assert_awaited_once()
 
 
+@pytest.mark.parametrize("fails", [False, True])
+async def test_pcm_failure_cannot_be_finalized_by_http_middleware(fails):
+    from fastapi import FastAPI, Request
+    from sse_starlette import EventSourceResponse
+
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def middleware(request: Request, call_next):
+        response = await call_next(request)
+        return restful_api_module._guard_speech_stream_failure(request, response)
+
+    @app.post("/v1/audio/speech")
+    async def speech(request: Request):
+        async def audio():
+            yield b"first audio"
+            if fails:
+                error = RuntimeError("incomplete audio")
+                restful_api_module.report_stream_failure(
+                    request, error, restful_api_module.FailureOrigin.MODEL_GENERATOR
+                )
+                raise error
+
+        return EventSourceResponse(audio(), media_type="application/octet-stream")
+
+    messages = []
+
+    async def send(message):
+        messages.append(message)
+
+    async def receive():
+        await asyncio.Event().wait()
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "path": "/v1/audio/speech",
+        "raw_path": b"/v1/audio/speech",
+        "query_string": b"",
+        "scheme": "http",
+        "server": ("test", 80),
+        "client": ("test", 123),
+        "headers": [],
+    }
+    if fails:
+        with pytest.raises(Exception):
+            await app(scope, receive, send)
+    else:
+        await app(scope, receive, send)
+    assert any(message.get("body") == b"first audio" for message in messages)
+    finalized = any(
+        message["type"] == "http.response.body" and not message.get("more_body", False)
+        for message in messages
+    )
+    assert finalized is not fails
+
+
 @pytest.mark.parametrize("invalid", ["undecodable", "empty", "language"])
 async def test_native_file_transcription_input_errors_are_400(monkeypatch, invalid):
     import io
