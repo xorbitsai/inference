@@ -53,7 +53,7 @@ def test_wemm_builtin_specs_have_both_sources_and_revisions():
             "quantizations": ["none"],
         }
         assert sources["modelscope"] == {
-            "model_id": f"Tencent-Hunyuan/{name}",
+            "model_id": f"tencent-community/{name}",
             "model_revision": "master",
             "quantizations": ["none"],
         }
