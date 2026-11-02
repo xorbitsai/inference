@@ -4544,6 +4544,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         architectures: Optional[List[str]] = None,
         model_format: Optional[str] = None,
         virtual_env_find_links: Optional[List[str]] = None,
+        virtual_env_index_url: Optional[str] = None,
+        virtual_env_extra_index_urls: Optional[List[str]] = None,
         model_uid: Optional[str] = None,
         reserve_usage: Optional[Callable[[str, str, str, bool], None]] = None,
         release_usage: Optional[Callable[[str, Optional[str]], None]] = None,
@@ -4607,6 +4609,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             for k, v in pip_config.items():
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
+
+        from .virtual_env_manager import apply_requested_virtualenv_indexes
+
+        apply_requested_virtualenv_indexes(
+            settings, virtual_env_index_url, virtual_env_extra_index_urls
+        )
 
         if virtual_env_find_links is not None:
             requested_find_links = validate_virtual_env_find_links(
@@ -5395,6 +5403,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
         virtual_env_find_links: Optional[List[str]] = None,
+        virtual_env_index_url: Optional[str] = None,
+        virtual_env_extra_index_urls: Optional[List[str]] = None,
         **kwargs,
     ):
         n_worker = normalize_n_worker(n_worker)
@@ -5810,6 +5820,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                         model, model_format
                                     ),
                                     virtual_env_find_links=virtual_env_find_links,
+                                    virtual_env_index_url=virtual_env_index_url,
+                                    virtual_env_extra_index_urls=virtual_env_extra_index_urls,
                                     model_uid=model_uid,
                                     reserve_usage=self._reserve_virtual_env_usage,
                                     release_usage=self._release_virtual_env_usage,

@@ -768,6 +768,8 @@ const zhTW = {
     virtualEnvConfig: '虛擬空間設定',
     modelVirtualEnv: '模型虛擬空間',
     virtualEnvPackage: '虛擬空間安裝包',
+    virtualEnvIndexUrl: 'Package index URL (uv pip)',
+    virtualEnvExtraIndexUrls: 'Extra package indexes (uv pip)',
     virtualEnvFindLinks: '本地 Wheel 目錄',
     envVariable: '環境變數',
     envVariableConfig: '環境變數設定',
