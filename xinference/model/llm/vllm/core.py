@@ -3322,14 +3322,22 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 "vLLM multimodal engine supports pytorch/gptq/awq/fp4/fp8/bnb formats only",
             )
         if llm_spec.model_format == "pytorch":
-            # The official 35B-A3B INT4 checkpoint is already quantized with
-            # compressed-tensors; let vLLM detect its on-disk configuration.
+            # These offline INT4 checkpoints use compressed-tensors; let vLLM
+            # detect their on-disk quantization configuration.
             offline_minicpmv47_int4 = (
                 llm_family.has_architecture("MiniCPMV4_7ForConditionalGeneration")
                 and quantization == "Int4"
                 and str(llm_spec.model_size_in_billions) == "35"
             )
-            if quantization not in (None, "none") and not offline_minicpmv47_int4:
+            offline_qwen38_int4 = (
+                llm_family.model_name == "qwen3.8"
+                and llm_family.has_architecture("Qwen3_5ForConditionalGeneration")
+                and str(llm_spec.model_size_in_billions) == "27"
+                and quantization == "Int4"
+            )
+            if quantization not in (None, "none") and not (
+                offline_minicpmv47_int4 or offline_qwen38_int4
+            ):
                 return (
                     False,
                     "pytorch format with quantization is not supported for vLLM multimodal",

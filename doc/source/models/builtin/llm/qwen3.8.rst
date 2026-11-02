@@ -93,3 +93,19 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name qwen3.8 --size-in-billions 27 --model-format fp4 --quantization ${quantization}
 
+
+Model Spec 6 (pytorch, 27 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 27
+- **Quantizations:** Int4
+- **Engines**: vLLM, Transformers
+- **Model ID:** RedHatAI/Qwen3.8-27B-INT4
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/RedHatAI/Qwen3.8-27B-INT4>`__, `ModelScope <https://modelscope.cn/models/RedHatAI/Qwen3.8-27B-INT4>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.8 --size-in-billions 27 --model-format pytorch --quantization ${quantization}
+
