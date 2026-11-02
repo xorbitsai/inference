@@ -4746,7 +4746,15 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # with no required runtime dependencies, so an exclusive index does not
         # break resolution.
         force_reinstall_xllamacpp = False
-        if model_engine and model_engine.lower() == "llama.cpp":
+        requested_indexes = bool(
+            (virtual_env_index_url and virtual_env_index_url.strip())
+            or virtual_env_extra_index_urls
+        )
+        if (
+            model_engine
+            and model_engine.lower() == "llama.cpp"
+            and not requested_indexes
+        ):
             from .virtual_env_manager import get_xllamacpp_cuda_index_url
 
             xllamacpp_index_url = get_xllamacpp_cuda_index_url(cuda_version)
@@ -4802,6 +4810,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 critical_specs,
             )
             packages = packages + critical_specs
+
+        # Engine/CUDA filtering may remove incompatible model defaults. Restore
+        # explicit request sources so these never silently disappear.
+        apply_requested_virtualenv_indexes(
+            settings, virtual_env_index_url, virtual_env_extra_index_urls
+        )
 
         if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
             if not settings.index_url:

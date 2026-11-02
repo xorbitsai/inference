@@ -488,6 +488,15 @@ export function transformFormToFetch(values: FormValues) {
   transformOnlyValueFormListToArray(nextValues, 'virtual_env_packages');
   transformOnlyValueFormListToArray(nextValues, 'virtual_env_find_links');
   transformOnlyValueFormListToArray(nextValues, 'virtual_env_extra_index_urls');
+  if (typeof nextValues.virtual_env_index_url === 'string') {
+    const indexUrl = nextValues.virtual_env_index_url.trim();
+    if (indexUrl) {
+      nextValues.virtual_env_index_url = indexUrl;
+    } else {
+      delete nextValues.virtual_env_index_url;
+    }
+  }
+
   deleteNestedEmptyArrayField(nextValues, 'peft_model_config', 'lora_list');
 
   if (nextValues?.enable_virtual_env === 'unset') {

@@ -1942,9 +1942,10 @@ def apply_flashinfer_aot_post_install(
 def apply_requested_virtualenv_indexes(settings, index_url=None, extra_index_urls=None):
     """Apply request-local package sources without changing process environment."""
     if index_url is not None:
-        if not isinstance(index_url, str) or not index_url.strip():
+        if not isinstance(index_url, str):
             raise ValueError("virtual_env_index_url must be a non-empty string")
-        settings.index_url = index_url.strip()
+        if index_url.strip():
+            settings.index_url = index_url.strip()
     if extra_index_urls is not None:
         if not isinstance(extra_index_urls, list) or any(
             not isinstance(url, str) or not url.strip() for url in extra_index_urls
@@ -1952,6 +1953,8 @@ def apply_requested_virtualenv_indexes(settings, index_url=None, extra_index_url
             raise ValueError(
                 "virtual_env_extra_index_urls must be a list of non-empty strings"
             )
+        if not extra_index_urls:
+            return
         existing = settings.extra_index_url or []
         if isinstance(existing, str):
             existing = [existing]
