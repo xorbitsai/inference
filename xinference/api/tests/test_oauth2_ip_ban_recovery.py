@@ -9,6 +9,7 @@ from fastapi import FastAPI, Security
 from fastapi.testclient import TestClient
 from jose import jwt
 
+from xinference.api.oauth2.advanced import rate_limiter
 from xinference.api.oauth2.advanced.auth_service import (
     JWT_ALGORITHM,
     AdvancedAuthService,
@@ -181,3 +182,33 @@ def test_key_ban_has_a_distinct_error_code(setup):
     assert response.status_code == 429
     assert response.headers["x-xinference-error-code"] == "key_banned"
     assert int(response.headers["retry-after"]) > 0
+
+
+@pytest.mark.parametrize("ban_kind", ["ip", "key"])
+@pytest.mark.parametrize("elapsed, expected", [(0.1, 60), (1.0, 59), (59.9, 1)])
+def test_retry_after_covers_the_remaining_ban(
+    setup, monkeypatch, ban_kind, elapsed, expected
+):
+    auth, client, user_id, token = setup
+    clock = SimpleNamespace(now=1000.0)
+    monkeypatch.setattr(rate_limiter, "time", SimpleNamespace(time=lambda: clock.now))
+    if ban_kind == "ip":
+        auth._rate_limiter.update_ip_config(ban_seconds=60)
+        _ban_ip(auth)
+    else:
+        created = auth.create_api_key_for_user(user_id=user_id, name="retry-key")
+        token = created["key"]
+        key_id = auth.db.list_api_keys()[0]["id"]
+        auth._rate_limiter.update_key_config(ban_seconds=60)
+        for _ in range(auth._rate_limiter._key_config.max_failures):
+            auth._rate_limiter.record_key_failure(CLIENT_IP, key_id)
+
+    clock.now += elapsed
+    response = client.get("/protected", headers=_headers(token))
+    assert response.status_code == 429
+    assert response.headers["x-xinference-error-code"] == f"{ban_kind}_banned"
+    assert int(response.headers["retry-after"]) == expected
+
+    # A client following the advertised delay must not hit the same ban again.
+    clock.now += int(response.headers["retry-after"])
+    assert client.get("/protected", headers=_headers(token)).status_code == 200
