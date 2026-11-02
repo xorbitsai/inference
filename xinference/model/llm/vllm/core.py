@@ -3300,6 +3300,23 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
 
 class VLLMMultiModel(VLLMModel, ChatModelMixin):
+    def _weight_cache_unavailable_reason(self) -> Optional[str]:
+        reason = super()._weight_cache_unavailable_reason()
+        if reason is not None:
+            return reason
+        if (
+            self.model_spec.model_id == "RedHatAI/Qwen3.8-27B-INT4"
+            and self.model_spec.model_format == "pytorch"
+            and self.model_spec.quantization == "Int4"
+        ):
+            from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors import (
+                CompressedTensorsLinearMethod,
+            )
+
+            if not CompressedTensorsLinearMethod.supports_pre_processed_weights:
+                return "Qwen3.8 INT4 does not support vLLM IPC weight caching"
+        return None
+
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str

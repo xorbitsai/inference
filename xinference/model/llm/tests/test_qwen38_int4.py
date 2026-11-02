@@ -14,6 +14,8 @@
 
 # CI: linux
 
+import sys
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -21,6 +23,7 @@ from packaging.version import Version
 
 from ..llm_family import check_engine_by_spec_parameters_with_virtual_env, match_llm
 from ..vllm import core as vllm_core
+from ..weight_cache import WeightCachedModel
 
 
 @pytest.fixture(params=["huggingface", "modelscope"])
@@ -93,6 +96,45 @@ def test_qwen38_int4_preserves_checkpoint_quantizer(int4_family, monkeypatch, tm
     config = model._sanitize_model_config({"max_model_len": 131072})
     assert config["quantization"] is None
     assert config["max_model_len"] == 131072
+
+
+@pytest.mark.parametrize("supported", [False, True])
+@pytest.mark.parametrize("option", [None, True])
+def test_qwen38_int4_weight_cache_capability(
+    int4_family, monkeypatch, supported, option
+):
+    monkeypatch.setattr(
+        WeightCachedModel, "_weight_cache_unavailable_reason", lambda self: None
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors",
+        SimpleNamespace(
+            CompressedTensorsLinearMethod=SimpleNamespace(
+                supports_pre_processed_weights=supported
+            )
+        ),
+    )
+    model = object.__new__(vllm_core.VLLMMultiModel)
+    model.model_spec = int4_family.model_specs[0]
+    model._weight_cache_option = option
+    if option is True and not supported:
+        with pytest.raises(ValueError, match="IPC weight caching"):
+            model._resolve_weight_cache()
+    else:
+        model._resolve_weight_cache()
+        assert model._enable_weight_cache is supported
+
+
+def test_qwen38_weight_cache_keeps_other_checkpoints(monkeypatch):
+    monkeypatch.setattr(
+        WeightCachedModel, "_weight_cache_unavailable_reason", lambda self: None
+    )
+    model = object.__new__(vllm_core.VLLMMultiModel)
+    model.model_spec = match_llm(
+        "qwen3.8", "pytorch", 27, "none", "huggingface"
+    ).model_specs[0]
+    assert model._weight_cache_unavailable_reason() is None
 
 
 @pytest.mark.parametrize("has_gpu,is_linux", [(False, True), (True, False)])
