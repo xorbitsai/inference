@@ -1,9 +1,11 @@
+# CI: linux
 import pytest
 
 from ..deepseek_v3_1_tool_parser import DeepseekV3_1ToolParser
 from ..deepseek_v3_2_tool_parser import DeepseekV3_2ToolParser
 from ..deepseek_v4_tool_parser import DeepseekV4ToolParser
 from ..glm5_tool_parser import Glm5ToolParser
+from ..seed_oss_tool_parser import SeedOssToolParser
 
 # Plain text that keeps ending a chunk on "<" or on a longer prefix of a tool
 # call tag ("<tool", "<function_calls", "<｜", ...) without ever opening one.
@@ -35,6 +37,11 @@ PARSERS = {
         Glm5ToolParser,
         "<tool_call>get_weather<arg_key>location</arg_key>"
         "<arg_value>Beijing</arg_value></tool_call>",
+    ),
+    "seed-oss": (
+        SeedOssToolParser,
+        "<seed:tool_call>\n<function=get_weather>\n"
+        "<parameter=location>Beijing</parameter>\n</function>\n</seed:tool_call>",
     ),
 }
 

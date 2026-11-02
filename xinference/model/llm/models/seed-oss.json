@@ -336,6 +336,7 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "updated_at": 1769418591,
+    "tool_parser": "seed-oss",
     "featured": false,
     "architectures": [
       "SeedOssForCausalLM"
