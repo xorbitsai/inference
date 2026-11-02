@@ -24,9 +24,8 @@ def resolve_gguf_model_path(model_path: str, spec: Any) -> str:
     """Resolve the same first shard / legacy filename used by the runtime."""
     if os.path.isfile(model_path):
         return model_path
-    if (
-        spec.model_file_name_split_template
-        and spec.quantization in spec.quantization_parts
+    if spec.model_file_name_split_template and spec.quantization in (
+        spec.quantization_parts or {}
     ):
         part = spec.quantization_parts[spec.quantization][0]
         return os.path.join(

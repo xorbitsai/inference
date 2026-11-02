@@ -157,6 +157,24 @@ class LLMCacheManager(CacheManager):
                 f"`{{draft_quantization}}`: {exc!r}"
             )
 
+    def get_cache_status(self):
+        cache_dir = self.get_cache_dir()
+        if not os.path.exists(cache_dir):
+            return False
+        if (
+            self._model_format != "ggufv2"
+            or self._model_uri is not None
+            or self._use_draft_model
+        ):
+            return True
+        # The directory name does not depend on the file a spec names, so a
+        # directory cached under an older spec can lack the file the loader opens.
+        from .gguf_model_metadata import resolve_gguf_model_path
+
+        return os.path.exists(
+            resolve_gguf_model_path(cache_dir, self._llm_family.model_specs[0])
+        )
+
     def _gguf_file_names(self):
         """File list for a gguf download: the drafter is a single file."""
         from ..utils import generate_model_file_names_with_quantization_parts
