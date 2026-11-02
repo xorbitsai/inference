@@ -101,7 +101,8 @@
             "PyTorch",
             "MLX",
             "transformers",
-            "diffusers"
+            "diffusers",
+            "SGLang-Omni"
           ]
         },
         "model_format": {

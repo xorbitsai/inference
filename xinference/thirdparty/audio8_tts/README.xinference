@@ -1,0 +1,14 @@
+Audio8 TTS SGLang Omni adapter
+============================
+
+Source: https://github.com/Edge0-AI/Audio8_TTS
+Revision: 4eb54a69113eedc65677cbc09a30aee809bb39ee
+Path: sglang_omni/adapter/sglang_omni/models/audio8_tts
+License: Apache-2.0 (see LICENSE and NOTICE).
+
+Local change: relocate adapter imports and pipeline factory paths from
+sglang_omni.models.audio8_tts to xinference.thirdparty.audio8_tts.
+The adapter does not modify the installed SGLang Omni package.
+
+The TTS engine factory also accepts an explicit stream_enabled override so
+Xinference can disable SSE queues independently of upstream environment settings.

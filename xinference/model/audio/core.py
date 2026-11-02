@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
 from .ace_step import AceStepModel, is_ace_step_python_supported
+from .audio8_tts import Audio8TTSModel
 from .auk import AukModel
 from .breeze_tts import BreezeTTS2Model
 from .chattts import ChatTTSModel
@@ -254,6 +255,7 @@ def create_audio_model_instance(
     **kwargs,
 ) -> Union[
     AceStepModel,
+    Audio8TTSModel,
     AukModel,
     BreezeTTS2Model,
     WhisperModel,
@@ -370,6 +372,7 @@ def create_audio_model_instance(
 
     model: Union[
         AceStepModel,
+        Audio8TTSModel,
         AukModel,
         BreezeTTS2Model,
         WhisperModel,
@@ -397,7 +400,9 @@ def create_audio_model_instance(
         MLXAudioSTTModel,
         MLXAudioTTSModel,
     ]
-    if model_spec.model_family == "AuK":
+    if model_spec.model_family == "audio8_tts":
+        model = Audio8TTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "AuK":
         model = AukModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Breeze-TTS-2":
         model = BreezeTTS2Model(model_uid, model_path, model_spec, **kwargs)

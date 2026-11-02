@@ -4717,7 +4717,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     u for u in existing_urls if u not in system_cuda_urls
                 ]
 
-        if not is_cuda_compatible(settings.extra_index_url, cuda_version):
+        # Omni pins its own CUDA runtime; newer drivers can run its older CUDA
+        # wheels. Other engines retain the existing exact-version policy.
+        if not is_cuda_compatible(
+            settings.extra_index_url,
+            cuda_version,
+            allow_older_cuda=(model_engine or "").lower() == "sglang-omni",
+        ):
             logger.debug(
                 f"[DEBUG] CUDA version mismatch: cuda_version={cuda_version}, extra_index_url={settings.extra_index_url}, clearing extra_index_url and index_strategy"
             )
