@@ -8,7 +8,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "tools"
     ],
     "model_description": "Qwen2.5-1M is the long-context version of the Qwen2.5 series models, supporting a context length of up to 1M tokens.",
     "model_specs": [
@@ -98,6 +99,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
+    "tool_parser": "qwen",
     "updated_at": 1769418568,
     "featured": false,
     "architectures": [
