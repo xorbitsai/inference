@@ -139,6 +139,58 @@ def _make_stream_stop_chunk(
     }
 
 
+def _annotate_stop_sequence(
+    response: Dict[str, Any],
+    stop_sequences: Any,
+    matched_stop_sequence: Optional[str] = None,
+) -> Optional[str]:
+    """Annotate a stop choice and carry early stream metadata forward."""
+    if not isinstance(stop_sequences, list) or not stop_sequences:
+        return matched_stop_sequence
+
+    verbose = response.pop("__verbose", None)
+    candidates: List[Any] = []
+    if isinstance(verbose, dict):
+        candidates.append(verbose.get("stopping_word"))
+    candidates.extend(
+        response.get(key) for key in ("stopping_word", "stop_sequence", "stop")
+    )
+    choices = response.get("choices")
+    choice = choices[0] if isinstance(choices, list) and choices else None
+    if isinstance(choice, dict):
+        candidates.extend(
+            choice.get(key) for key in ("stop_sequence", "stopping_word", "stop")
+        )
+
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate in stop_sequences:
+            matched_stop_sequence = candidate
+            break
+
+    if not isinstance(choice, dict) or choice.get("finish_reason") != "stop":
+        return matched_stop_sequence
+    if choice.get("stop_sequence") is not None:
+        return matched_stop_sequence
+    if matched_stop_sequence is not None:
+        choice["stop_sequence"] = matched_stop_sequence
+        return matched_stop_sequence
+
+    text = choice.get("text")
+    if not isinstance(text, str):
+        message = choice.get("message")
+        text = message.get("content") if isinstance(message, dict) else None
+    if isinstance(text, str):
+        matches = [
+            (text.find(stop), stop)
+            for stop in stop_sequences
+            if isinstance(stop, str) and text.find(stop) >= 0
+        ]
+        if matches:
+            matched_stop_sequence = min(matches)[1]
+            choice["stop_sequence"] = matched_stop_sequence
+    return matched_stop_sequence
+
+
 class XllamaCppModel(LLM, ChatModelMixin):
     allow_batch = True
     support_draft_model = True
@@ -440,6 +492,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
         _map_repetition_penalty(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
+        stop_sequences = generate_config.get("stop")
+        capture_stop_sequence = isinstance(stop_sequences, list) and bool(
+            stop_sequences
+        )
         q: queue.Queue = queue.Queue()
 
         def _handle_completion():
@@ -448,6 +504,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
             data.pop("logits_processor", None)
             data.pop("suffix", None)
             data.pop("best_of", None)
+            if capture_stop_sequence:
+                data["verbose"] = True
             data.update(
                 {
                     "prompt": prompt,
@@ -476,11 +534,17 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self._executor.submit(_handle_completion)
 
         if stream:
+            matched_stop_sequence = None
 
             def _to_iterator():
+                nonlocal matched_stop_sequence
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
                         raise Exception(_error_message(r.msg))
+                    if isinstance(r, dict):
+                        matched_stop_sequence = _annotate_stop_sequence(
+                            r, stop_sequences, matched_stop_sequence
+                        )
                     yield r
 
             return _to_iterator()
@@ -488,6 +552,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
             r = q.get()
             if type(r) is _Error:
                 raise Exception(_error_message(r.msg))
+            if isinstance(r, dict):
+                _annotate_stop_sequence(r, stop_sequences)
             return r
 
     def _normalize_disabled_thinking_reasoning_content(
@@ -556,6 +622,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
         _map_repetition_penalty(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
+        stop_sequences = generate_config.get("stop")
+        capture_stop_sequence = isinstance(stop_sequences, list) and bool(
+            stop_sequences
+        )
 
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
@@ -574,6 +644,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
             data.pop("logits_processor", None)
             data.pop("suffix", None)
             data.pop("best_of", None)
+            if capture_stop_sequence:
+                data["verbose"] = True
             data.update(
                 {
                     "messages": messages,
@@ -606,8 +678,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self._executor.submit(_handle_chat_completion)
 
         if stream:
+            matched_stop_sequence = None
 
             def _to_iterator():
+                nonlocal matched_stop_sequence
                 last_chunk = None
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
@@ -627,6 +701,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
                             break
                         raise Exception(_error_message(r.msg))
                     last_chunk = r
+                    if isinstance(r, dict):
+                        matched_stop_sequence = _annotate_stop_sequence(
+                            r, stop_sequences, matched_stop_sequence
+                        )
                     yield r
 
             return self._to_chat_completion_chunks(
@@ -636,5 +714,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             r = q.get()
             if type(r) is _Error:
                 raise Exception(_error_message(r.msg))
+            if isinstance(r, dict):
+                _annotate_stop_sequence(r, stop_sequences)
             r = self._normalize_disabled_thinking_reasoning_content(r, tools)
             return self._to_chat_completion(r, self.reasoning_parser)

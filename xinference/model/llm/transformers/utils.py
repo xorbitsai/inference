@@ -140,10 +140,13 @@ def _get_completion(
     model_uid: str,
     r: InferenceRequest,
     completion_tokens: int,
+    stop_sequence: Optional[str] = None,
 ):
     completion_choice = CompletionChoice(
         text=output, index=0, logprobs=None, finish_reason=finish_reason
     )
+    if stop_sequence is not None:
+        completion_choice["stop_sequence"] = stop_sequence
 
     completion_chunk = CompletionChunk(
         id=chunk_id,
@@ -166,6 +169,12 @@ def _get_completion(
         usage=completion_usage,
     )
     return completion
+
+
+def _find_stop_sequence(text: str, stop_strings: List[str]) -> Optional[str]:
+    """Return the earliest stop string present in decoded output."""
+    matches = [(text.find(stop), stop) for stop in stop_strings if text.find(stop) >= 0]
+    return min(matches)[1] if matches else None
 
 
 def _get_pad_param(seq_len_idx: int, pad_len: int) -> Tuple:
@@ -376,6 +385,7 @@ def _batch_inference_one_step_internal(
 
     past_key_values = valid_req_list[0].kv_cache
     stop_token_mapping: Dict[InferenceRequest, int] = {}
+    stop_sequence_mapping: Dict[InferenceRequest, str] = {}
     output_mapping: Dict[InferenceRequest, str] = {}
     # here, only decode phase, just run some rounds
     for _i in range(decode_round):
@@ -435,14 +445,12 @@ def _batch_inference_one_step_internal(
                     )
                     if isinstance(stop_str, str):
                         stop_str = [stop_str]
-                    stop_pos = len(output)
-                    for stop in stop_str:
-                        pos = output.find(stop)
-                        if pos != -1:
-                            stop_pos = min(stop_pos, pos)
-                    if stop_pos < len(output):
+                    matched_stop = _find_stop_sequence(output, stop_str)
+                    if matched_stop is not None:
+                        stop_pos = output.find(matched_stop)
                         output = output[:stop_pos]
                         output_mapping[r] = output
+                        stop_sequence_mapping[r] = matched_stop
                         stopped = True
                         finish_reason = "stop"
 
@@ -501,6 +509,7 @@ def _batch_inference_one_step_internal(
                             completion_tokens=r.visible_new_tokens_count,
                             total_tokens=len(r.prompt_tokens)
                             + r.visible_new_tokens_count,
+                            stop_sequence=stop_sequence_mapping.get(r),
                         )
                         r.completion.append(completion_chunk)
                         r.completion.append(eos_flag)
@@ -553,6 +562,7 @@ def _batch_inference_one_step_internal(
                         model_uid,
                         r,
                         visible_token_count,
+                        stop_sequence_mapping.get(r),
                     )
                     r.completion = [completion]
 
