@@ -291,7 +291,7 @@ Model Spec 18 (ggufv2, 4 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 4
-- **Quantizations:** BF16, IQ4_NL, IQ4_XS, Q2_K, Q2_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, UD-IQ1_M, UD-IQ1_S, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_XXS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_XL, UD-Q8_K_XL
+- **Quantizations:** F16, IQ4_NL, IQ4_XS, Q2_K, Q2_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, UD-IQ1_M, UD-IQ1_S, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_XXS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_XL, UD-Q8_K_XL
 - **Engines**: vLLM, llama.cpp
 - **Model ID:** unsloth/Qwen3-4B-Instruct-2507-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Qwen3-4B-Instruct-2507-GGUF>`__
