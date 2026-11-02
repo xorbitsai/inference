@@ -213,7 +213,7 @@ def test_create_image_model_instance_rejects_invalid_controlnet(
             "Qwen-Image",
             ValueError,
             "Cannot support quantization not-a-quantization, available quantizations: "
-            "['F16', 'Q3_K_M', 'Q3_K_S', 'Q4_0', 'Q4_1', 'Q4_K_M', 'Q4_K_S', "
+            "['BF16', 'Q3_K_M', 'Q3_K_S', 'Q4_0', 'Q4_1', 'Q4_K_M', 'Q4_K_S', "
             "'Q5_0', 'Q5_1', 'Q5_K_M', 'Q5_K_S', 'Q6_K', 'Q8_0']",
             id="unknown-quantization",
         ),
