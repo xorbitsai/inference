@@ -502,3 +502,35 @@ async def test_stop_then_destroy_drains_real_actor_realtime_session():
             # Same ordering as WorkerActor.terminate_model(), using the actual
             # destruction hook rather than calling only __pre_destroy__ directly.
             await xo.destroy_actor(actor)
+
+
+async def test_native_async_adapter_admits_concurrent_requests(monkeypatch):
+    model = FakeModel()
+    model.allow_batch = model.realtime_native_async = True
+    model.realtime_max_sessions = 16
+    actor = ModelActor("127.0.0.1:1", "127.0.0.1:2", model, "fake-0")
+    monkeypatch.delenv("XINFERENCE_REALTIME_MAX_SESSIONS", raising=False)
+    actor.record_metrics = AsyncMock()
+    await actor.wait_for_load()
+    assert actor._lock is None
+    assert actor._realtime_runtime.limits.max_sessions == 16
+    entered = asyncio.Queue()
+    release = asyncio.Event()
+
+    async def decode(value):
+        await entered.put(value)
+        await release.wait()
+        return value
+
+    tasks = [asyncio.create_task(actor._call_wrapper_binary(decode, i)) for i in (1, 2)]
+    try:
+        assert {
+            await asyncio.wait_for(entered.get(), 1),
+            await asyncio.wait_for(entered.get(), 1),
+        } == {1, 2}
+        release.set()
+        assert await asyncio.gather(*tasks) == [1, 2]
+    finally:
+        release.set()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await actor._realtime_runtime.stop()
