@@ -212,3 +212,38 @@ msgstr ""
 #: ../../source/user_guide/audit_security.rst:80
 msgid "The read-only alias is a routing convenience, not a field-level security boundary. Browser clients should access logs only through the Xinference API, and Elasticsearch credentials should not be exposed to users who are not allowed to read captured request bodies."
 msgstr ""
+
+#: ../../source/user_guide/audit_security.rst:101
+msgid ""
+"Invalid JWTs also count toward the IP threshold. A correctly signed access "
+"token that has expired still receives ``401 Unauthorized``, but does not "
+"increment this counter. Refresh the session or sign in again."
+msgstr ""
+"無效的 JWT 也會計入 IP 閾值。簽章正確但已過期的存取權杖仍會收到 ``401 "
+"Unauthorized``，但不會增加此計數。請重新整理工作階段或重新登入。"
+
+#: ../../source/user_guide/audit_security.rst:105
+msgid ""
+"Ban responses include ``X-Xinference-Error-Code`` (``ip_banned`` or "
+"``key_banned``) and ``Retry-After`` (remaining seconds), while preserving "
+"the existing ``detail`` message. Other ``429`` responses can indicate model "
+"rate limits rather than an authentication ban."
+msgstr ""
+"封鎖回應包含 ``X-Xinference-Error-Code``（``ip_banned`` 或 ``key_banned``）和 ``Retry-"
+"After``（剩餘秒數），並保留原有的 ``detail`` 訊息。其他 ``429`` 回應可能表示模型流量限制，而非驗證封鎖。"
+
+#: ../../source/user_guide/audit_security.rst:128
+msgid ""
+"If your own IP is banned, sign in as an administrator and open **System "
+"Management → Security Settings** to lift the ban. An enabled administrator "
+"with a valid, current access token can reach ``/v1/admin/security/*`` and "
+"read their account permissions at ``GET /v1/auth/me`` from a banned IP; "
+"other protected endpoints remain blocked until the ban is lifted. On older "
+"releases that also block security settings, use an administrator connection "
+"from another unblocked source IP or wait for the ban to expire."
+msgstr ""
+"如果您自己的 IP 被封鎖，請以管理員帳號登入，並開啟 **系統管理 → 安全設定** "
+"解除封鎖。已啟用且持有有效、未被撤銷的存取權杖的管理員，可以從被封鎖的 IP 存取 ``/v1/admin/security/*``，並透過 ``GET"
+" /v1/auth/me`` "
+"讀取自己的帳號權限；其他受保護的端點會繼續被阻擋，直到解除封鎖。對於連安全設定也會阻擋的舊版本，請讓管理員從另一個未被封鎖的來源 IP "
+"連線，或等待封鎖到期。"

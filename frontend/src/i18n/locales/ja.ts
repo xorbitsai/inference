@@ -1630,6 +1630,11 @@ const ja = {
     threadsUnit: 'スレッド',
   },
   securitySettings: {
+    ipBannedMessage:
+      '認証の失敗が繰り返されたため、この IP は一時的にブロックされています。管理者に連絡するか、管理者としてログインし、「システム管理 → セキュリティ設定」でブロックを解除してください。',
+    keyBannedMessage:
+      'この API キーは、この IP で一時的にブロックされています。管理者に連絡し、「セキュリティ設定」でブロックを解除してください。',
+    banRetryAfter: '{{seconds}} 秒後に再試行してください。',
     pageDescription:
       '失敗リクエストの制限を設定し、現在ブロックされている IP と API キーを管理します。',
     rateLimitConfig: 'レート制限ポリシー',
