@@ -6,7 +6,11 @@ import aiohttp
 import pytest
 import requests
 
-from ..common import async_streaming_response_iterator, streaming_response_iterator
+from ..common import (
+    async_streaming_response_iterator,
+    is_http_url,
+    streaming_response_iterator,
+)
 from ..restful.async_restful_client import AsyncClient
 from ..restful.restful_client import Client
 
@@ -18,6 +22,22 @@ _ENDPOINTS = [
     ("http://localhost:9997/proxy/path/", "http://localhost:9997/proxy/path"),
     ("http://localhost:9997/proxy/path//", "http://localhost:9997/proxy/path"),
 ]
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("http://example.com/a.png", True),
+        ("HTTPS://example.com/a.png", True),
+        ("a.png", False),
+        ("/tmp/a.png", False),
+        ("C:\\images\\a.png", False),
+        ("file:///tmp/a.png", False),
+        ("ftp://example.com/a.png", False),
+    ],
+)
+def test_is_http_url(value, expected):
+    assert is_http_url(value) is expected
 
 
 @pytest.mark.parametrize("endpoint, base_url", _ENDPOINTS)

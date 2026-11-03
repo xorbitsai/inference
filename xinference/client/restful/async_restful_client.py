@@ -22,6 +22,7 @@ from ..common import (
     async_streaming_response_iterator,
     convert_float_to_int_or_str,
     encode_world_reference,
+    is_http_url,
     normalize_endpoint,
 )
 
@@ -417,6 +418,17 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
         await _release_response(response)
         return response_data
 
+    async def _download_if_url(self, image: Any) -> Any:
+        """Download an http(s) URL; paths, bytes and file objects pass through."""
+        if not (isinstance(image, str) and is_http_url(image)):
+            return image
+        # No auth headers: the Xinference credentials must not reach the image host.
+        response = await self.session.get(image)
+        response.raise_for_status()
+        content = await response.read()
+        await _release_response(response)
+        return content
+
     async def image_edit(
         self,
         images: Union[Union[str, bytes], List[Union[str, bytes]]],
@@ -477,6 +489,12 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
         )
         """
         url = f"{self._base_url}/v1/images/edits"
+        # The route takes uploaded files only, so URLs are downloaded here.
+        if isinstance(images, list):
+            images = [await self._download_if_url(image) for image in images]
+        else:
+            images = await self._download_if_url(images)
+        mask = await self._download_if_url(mask)
         params = {
             "model": self._model_uid,
             "prompt": prompt,

@@ -22,6 +22,10 @@ def normalize_endpoint(endpoint: str) -> str:
     return endpoint.rstrip("/")
 
 
+def is_http_url(value: str) -> bool:
+    return value.lower().startswith(("http://", "https://"))
+
+
 def encode_world_reference(reference: Union[str, bytes], media_type: str) -> str:
     if isinstance(reference, str) and not os.path.isfile(reference):
         return reference

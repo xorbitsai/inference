@@ -20,6 +20,7 @@ import requests
 from ..common import (
     convert_float_to_int_or_str,
     encode_world_reference,
+    is_http_url,
     normalize_endpoint,
     streaming_response_iterator,
 )
@@ -349,6 +350,15 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def _download_if_url(self, image: Any) -> Any:
+        """Download an http(s) URL; paths, bytes and file objects pass through."""
+        if not (isinstance(image, str) and is_http_url(image)):
+            return image
+        # No auth headers: the Xinference credentials must not reach the image host.
+        response = self.session.get(image)
+        response.raise_for_status()
+        return response.content
+
     def image_edit(
         self,
         images: Union[Union[str, bytes], List[Union[str, bytes]]],
@@ -409,6 +419,12 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         )
         """
         url = f"{self._base_url}/v1/images/edits"
+        # The route takes uploaded files only, so URLs are downloaded here.
+        if isinstance(images, list):
+            images = [self._download_if_url(image) for image in images]
+        else:
+            images = self._download_if_url(images)
+        mask = self._download_if_url(mask)
         params = {
             "model": self._model_uid,
             "prompt": prompt,
