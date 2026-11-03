@@ -4493,13 +4493,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         else:
             available_workers = self._resolve_worker_addresses(worker_ip)
 
+        # Validation of n_worker, intercept if it is greater than the available workers.
+        if n_worker > len(available_workers):  # type: ignore
+            raise ValueError(
+                "n_worker cannot be larger than the number of available workers."
+            )
+
         async def _launch_model():
             nonlocal download_hub, model_type
-            # Validation of n_worker, intercept if it is greater than the available workers.
-            if n_worker > len(available_workers):
-                raise ValueError(
-                    "n_worker cannot be larger than the number of available workers."
-                )
             pending_shards: Dict[str, List[xo.ActorRefType["WorkerActor"]]] = {}
             try:
                 # Pre-check: ensure no replica uid already exists before
