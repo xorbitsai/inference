@@ -474,6 +474,24 @@ class PDModelActor(xo.StatelessActor):
         }
 
     @log_async(logger=logger)
+    async def prepare_reasoning_request(self, generate_config: Dict):
+        if not self._decode_replicas:
+            from .model import ModelNotReadyError
+
+            raise ModelNotReadyError("No decode replicas available")
+        # Every possible decoder must support the requested budget. Native
+        # sampling fields are applied again by the selected decoder at generation.
+        for replica in self._decode_replicas.values():
+            result = await actor_call(
+                replica, "prepare_reasoning_request", generate_config
+            )
+            if isinstance(result, (str, bytes)):
+                result = json.loads(result)
+            if not isinstance(result, dict) or "error" in result:
+                return result
+        return copy.deepcopy(generate_config)
+
+    @log_async(logger=logger)
     async def prepare_anthropic_request(
         self, messages: List[Dict], generate_config: Dict
     ):

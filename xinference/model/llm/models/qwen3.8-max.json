@@ -1,6 +1,7 @@
 [
   {
     "model_name": "qwen3.8-max",
+    "reasoning_effort": {"values": ["low", "medium", "xhigh"]},
     "model_description": "Qwen3.8-2.4T-A95B is a text-only Mixture-of-Experts model with 2.4 trillion total parameters and 95 billion activated parameters, designed for coding, research, professional work, and long-horizon agentic tasks.",
     "context_length": 262144,
     "context_length_extension": {

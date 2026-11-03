@@ -243,6 +243,16 @@
             "type": "string"
           }
         },
+        "reasoning_effort": {
+          "type": "object",
+          "properties": {
+            "values": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
+            "integer_range": {"type": "array", "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}], "minItems": 2, "maxItems": 2},
+            "aliases": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}}
+          },
+          "required": ["values"],
+          "additionalProperties": false
+        },
         "reasoning_start_tag": {
           "type": "string",
           "minLength": 1

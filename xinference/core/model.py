@@ -1653,6 +1653,24 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     @request_limit
     @log_async(logger=logger)
+    async def prepare_reasoning_request(self, generate_config: Dict):
+        self._require_ready()
+        try:
+            return await self._call_wrapper_json(
+                self._model.prepare_reasoning_request, generate_config
+            )
+        except (ValueError, NotImplementedError) as exc:
+            return json_dumps(
+                {
+                    "error": {
+                        "status": 501 if isinstance(exc, NotImplementedError) else 400,
+                        "message": str(exc),
+                    }
+                }
+            )
+
+    @request_limit
+    @log_async(logger=logger)
     async def prepare_anthropic_request(
         self, messages: List[Dict], generate_config: Dict
     ):

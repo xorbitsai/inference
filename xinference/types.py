@@ -495,6 +495,9 @@ class CreateChatCompletion(  # type: ignore
 ):
     cache_salt: Optional[str] = None
     mm_processor_kwargs: Optional[Dict[str, Any]] = None
+    # Validate model-specific values before generation, without coercing numbers or booleans.
+    reasoning_effort: Optional[Any] = None
+    thinking_budget: Optional[Any] = None
 
 
 class LoRA:

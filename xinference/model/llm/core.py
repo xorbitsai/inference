@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Uni
 
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
+from .reasoning_controls import normalize_reasoning_controls
 from .reasoning_parser import KimiK3ReasoningParser, ReasoningParser
 from .tool_parsers import TOOL_PARSERS
 
@@ -103,11 +104,49 @@ class LLM(abc.ABC):
             prompt = prepare_prompt(prompt, config)
         return len(tokenizer.encode(prompt))
 
+    def _reasoning_effort_capability(self):
+        resolver = getattr(self.model_family, "get_reasoning_effort", None)
+        return (
+            resolver()
+            if resolver
+            else getattr(self.model_family, "reasoning_effort", None)
+        )
+
+    def prepare_reasoning_request(self, config: Dict) -> Dict:
+        """Preflight explicit OpenAI thinking budgets before opening a stream."""
+        config = normalize_reasoning_controls(
+            config, self._reasoning_effort_capability()
+        )
+        context = config.get("chat_template_kwargs") or {}
+        if context.get("thinking_budget") is None:
+            return config
+        parser = self.reasoning_parser
+        apply_budget = getattr(self, "_apply_thinking_budget", None)
+        if apply_budget is None or parser is None or not parser.reasoning_end_tag:
+            raise NotImplementedError(
+                "Thinking budgets require a supported engine and reasoning markers"
+            )
+        from .tool_controls import is_forced_tool_choice
+
+        if is_forced_tool_choice(config):
+            raise ValueError("Forced tool choice is incompatible with manual thinking")
+        if (config.get("response_format") or {}).get("type") in {
+            "json_object",
+            "json_schema",
+        }:
+            raise NotImplementedError(
+                "OpenAI thinking budgets cannot be combined with structured output"
+            )
+        apply_budget(config)
+        return config
+
     def prepare_anthropic_request(
         self, messages: List[Dict], config: Dict
     ) -> Dict[str, Any]:
         """Validate backend capabilities before starting an Anthropic response."""
-        config = copy.deepcopy(config)
+        config = normalize_reasoning_controls(
+            config, self._reasoning_effort_capability()
+        )
         from ...api.protocols.anthropic_capabilities import plan_anthropic_compatibility
 
         requested_features = frozenset(config.pop("_anthropic_requested_features", []))
@@ -205,31 +244,7 @@ class LLM(abc.ABC):
             config.pop("_anthropic_cache_control", None)
         if has_images and "vision" not in self.model_family.model_ability:
             raise ValueError("Image input requires a model with vision support")
-        # Effort is a soft preference. Engines without a native effort API use
-        # explicit prompt guidance, without forcing thinking on non-thinking runs.
-        effort = config.pop("reasoning_effort", None)
         prepared = copy.deepcopy(messages)
-        if effort and effort != "medium":
-            guidance = {
-                "low": "Use brief reasoning and prioritize a direct answer.",
-                "high": "Reason carefully and check your work before answering.",
-                "xhigh": "Use thorough reasoning and check difficult edge cases.",
-                "max": "Use the reasoning needed to solve the task thoroughly.",
-            }[effort]
-            if prepared and prepared[0].get("role") == "system":
-                prepared[0]["content"] = prepared[0]["content"] + "\n" + guidance
-            else:
-                prepared.insert(0, {"role": "system", "content": guidance})
-            if cache_control_applied and cache_control is not None:
-                for checkpoint in [
-                    cache_control,
-                    *cache_control.get("breakpoints", []),
-                ]:
-                    prefix = checkpoint["messages"]
-                    if prefix and prefix[0].get("role") == "system":
-                        prefix[0]["content"] += "\n" + guidance
-                    else:
-                        prefix.insert(0, {"role": "system", "content": guidance})
         try:
             input_tokens = self.count_tokens(prepared, config)
         except NotImplementedError:
@@ -276,6 +291,11 @@ class LLM(abc.ABC):
                 else SupportLevel.UNSUPPORTED
             ),
             reasoning=(SupportLevel.NATIVE if reasoning else SupportLevel.UNSUPPORTED),
+            reasoning_effort=(
+                SupportLevel.NATIVE
+                if self._reasoning_effort_capability()
+                else SupportLevel.UNSUPPORTED
+            ),
             adaptive_thinking=(
                 SupportLevel.TRANSLATED if reasoning else SupportLevel.UNSUPPORTED
             ),

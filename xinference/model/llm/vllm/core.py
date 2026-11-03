@@ -668,6 +668,10 @@ class VLLMModel(WeightCachedModel, LLM):
         return prepared
 
     def _apply_thinking_budget(self, config: Dict) -> None:
+        if (config.get("_pd_kv_transfer_params") or {}).get("do_remote_decode"):
+            # Prefill uses the same prompt but generates only a handoff token.
+            config.pop("thinking_token_budget", None)
+            return
         context = self._get_chat_template_kwargs_from_generate_config(config, self.reasoning_parser) or {}  # type: ignore[attr-defined]
         budget = context.get("thinking_budget")
         if budget is None or not context.get("enable_thinking"):
@@ -2049,10 +2053,7 @@ class VLLMModel(WeightCachedModel, LLM):
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
         sanitized.setdefault("top_k", generate_config.get("top_k", -1))
-        if (
-            generate_config.get("_anthropic_request")
-            and generate_config.get("thinking_token_budget") is not None
-        ):
+        if generate_config.get("thinking_token_budget") is not None:
             sanitized["thinking_token_budget"] = generate_config[
                 "thinking_token_budget"
             ]
@@ -2478,7 +2479,7 @@ class VLLMModel(WeightCachedModel, LLM):
             generate_config["skip_special_tokens"] = False
 
         anthropic = bool((generate_config or {}).get("_anthropic_request"))
-        if anthropic and generate_config is not None:
+        if generate_config is not None:
             self._apply_thinking_budget(generate_config)
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
         if cache_salt is not None and not use_native_cache_salt:
