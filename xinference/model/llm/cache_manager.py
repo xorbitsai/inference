@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import hashlib
+import json
 import logging
 import os
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ..cache_manager import CacheManager
 
@@ -24,6 +26,35 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+# Where the cache directory of a user-registered model was downloaded from is kept
+# next to the model directories, never inside one, so that no file of a repository
+# can pass for it or be displaced by it.
+SOURCE_RECORD_DIR = ".model-sources"
+
+
+def _source_of(spec, quantization: Optional[str] = None) -> Dict[str, Any]:
+    model_id = spec.model_id
+    if model_id and "{" in model_id:
+        # Match the selected spec's expansion, including PyTorch's default.
+        # An invalid template is match_llm's error if that spec is selected.
+        with contextlib.suppress(
+            AttributeError, IndexError, KeyError, TypeError, ValueError
+        ):
+            model_id = model_id.format(
+                quantization=spec.quantization if quantization is None else quantization
+            )
+    return {
+        "model_hub": spec.model_hub,
+        "model_id": model_id,
+        "model_revision": spec.model_revision,
+    }
+
+
+def _describe_source(source: Dict[str, Any]) -> str:
+    revision = source.get("model_revision")
+    description = f"{source.get('model_hub')}:{source.get('model_id')}"
+    return f"{description}@{revision}" if revision else description
 
 
 class LLMCacheManager(CacheManager):
@@ -174,6 +205,103 @@ class LLMCacheManager(CacheManager):
         return os.path.exists(
             resolve_gguf_model_path(cache_dir, self._llm_family.model_specs[0])
         )
+
+    def _declared_sources(self) -> Optional[List[Dict[str, Any]]]:
+        """The downloads a user registration declares for this cache directory.
+
+        None for a model that is not user-registered: built-in specs name a
+        different repository per hub for one directory, so only registrations
+        are tied to the source they were downloaded from.
+        """
+        from .custom import get_user_defined_llm_families
+
+        for family in get_user_defined_llm_families():
+            if family.model_name == self._model_name:
+                return [
+                    _source_of(spec, quantization)
+                    for spec in family.model_specs
+                    if spec.model_uri is None
+                    and self.get_cache_dir_for_spec(self._model_name, spec)
+                    == self._cache_dir
+                    # match_llm also uses "none" for an omitted PyTorch quantization.
+                    for quantization in (
+                        (spec.quantization, "none")
+                        if spec.model_format == "pytorch"
+                        else (spec.quantization,)
+                    )
+                ]
+        return None
+
+    def _source_record_path(self) -> str:
+        return os.path.join(
+            self._v2_cache_dir_prefix,
+            SOURCE_RECORD_DIR,
+            os.path.basename(self._cache_dir) + ".json",
+        )
+
+    def _check_source(self, may_record: bool) -> None:
+        """Tie the cache directory of a user-registered model to its source.
+
+        Unregistering a custom model leaves its downloaded directory behind. When
+        the same name is registered again for another repository or revision,
+        reusing the directory would serve the old files, so it is reused only for
+        a source the registration still declares. Nothing is deleted or moved: only
+        its owner can tell whether the old files are still wanted.
+
+        Record new hub downloads before they start. Missing records are accepted
+        for compatibility with older caches, including when a record was removed
+        manually. Unreadable or invalid records do not authorize reuse.
+        """
+        declared = None if self._use_draft_model else self._declared_sources()
+        if declared is None:
+            return  # a drafter, or a model that is not user-registered
+        if not os.path.lexists(self._cache_dir):
+            if may_record:
+                self._record_source()
+            return
+        if os.path.islink(self._cache_dir):
+            return  # a link to the user's own model_uri directory
+        record_path = self._source_record_path()
+        try:
+            with open(record_path, encoding="utf-8") as fd:
+                recorded = json.load(fd)
+        except FileNotFoundError:
+            return  # cached before sources were recorded
+        except (OSError, ValueError):
+            recorded = None
+        if recorded in declared:
+            return
+        if not isinstance(recorded, dict) or "model_hub" not in recorded:
+            raise ValueError(
+                f"The record of where the cache directory {self._cache_dir} of model "
+                f"{self._model_name} came from, {record_path}, cannot be read or is "
+                f"invalid, so its files cannot be checked against the registration. "
+                f"Remove the directory if the old files are no longer needed, or "
+                f"remove the record to use the directory as it is."
+            )
+        current = (
+            "a local model_uri"
+            if self._model_uri is not None
+            else _describe_source(_source_of(self._llm_family.model_specs[0]))
+        )
+        raise ValueError(
+            f"Model {self._model_name} is registered with {current}, but its cache "
+            f"directory {self._cache_dir} holds files downloaded from "
+            f"{_describe_source(recorded)}. Remove that directory if the old files "
+            f"are no longer needed, or register the model under another name."
+        )
+
+    def _record_source(self) -> None:
+        record_path = self._source_record_path()
+        os.makedirs(os.path.dirname(record_path), exist_ok=True)
+        temp_path = f"{record_path}.{os.getpid()}.tmp"
+        try:
+            with open(temp_path, "w", encoding="utf-8") as fd:
+                json.dump(_source_of(self._llm_family.model_specs[0]), fd)
+            os.replace(temp_path, record_path)
+        finally:
+            with contextlib.suppress(OSError):
+                os.remove(temp_path)
 
     def _gguf_file_names(self):
         """File list for a gguf download: the drafter is a single file."""
@@ -452,6 +580,7 @@ class LLMCacheManager(CacheManager):
 
     def cache(self) -> str:
         if self._model_uri is not None:
+            self._check_source(may_record=False)
             return self.cache_uri()
         # SDK downloads share a repository-level temporary directory even
         # across quantizations/revisions. Serialize cache checks and downloads
@@ -459,9 +588,18 @@ class LLMCacheManager(CacheManager):
         from filelock import FileLock
 
         key = hashlib.sha256(f"{self._model_hub}:{self._model_id}".encode()).hexdigest()
+        cache_key = hashlib.sha256(
+            os.path.normcase(os.path.abspath(self._cache_dir)).encode()
+        ).hexdigest()
         lock_dir = os.path.join(self._v2_cache_dir_prefix, ".download-locks")
         os.makedirs(lock_dir, exist_ok=True)
-        with FileLock(os.path.join(lock_dir, key + ".lock")):
+        # Different repositories can share a destination. Keep its record and
+        # cache-status check serialized through the entire download as well.
+        with (
+            FileLock(os.path.join(lock_dir, key + ".lock")),
+            FileLock(os.path.join(lock_dir, f"cache-{cache_key}.lock")),
+        ):
+            self._check_source(may_record=True)
             if self._model_hub == "huggingface":
                 return self.cache_from_huggingface()
             elif self._model_hub == "modelscope":

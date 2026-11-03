@@ -688,6 +688,394 @@ def test_cache_from_uri_local():
     os.remove("model.bin")
 
 
+@pytest.fixture
+def fake_hub(tmp_path, monkeypatch):
+    """A cache under tmp_path, and a huggingface_hub whose downloads are small.
+
+    A download writes README.md (repository id and revision) and the files in
+    `shipped[repo_id]`, then fails if the repository is in `interrupted`;
+    `downloads` lists (repo_id, revision). Registrations are undone.
+    """
+    import huggingface_hub
+
+    from .... import constants
+    from ...cache_manager import CacheManager as BaseCacheManager
+    from ...custom import RegistryManager
+    from ..custom import get_user_defined_llm_families
+
+    monkeypatch.setattr(constants, "XINFERENCE_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path / "model"))
+    monkeypatch.setattr(BaseCacheManager, "is_initialized", False)
+    hub = SimpleNamespace(downloads=[], shipped={}, interrupted=set())
+
+    def snapshot_download(repo_id, revision=None, local_dir=None, **kwargs):
+        hub.downloads.append((repo_id, revision))
+        snapshot = local_dir or str(tmp_path / "hub" / f"{repo_id}-{revision}")
+        os.makedirs(snapshot, exist_ok=True)
+        files = {"README.md": f"{repo_id}@{revision}", **hub.shipped.get(repo_id, {})}
+        for name, content in files.items():
+            with open(os.path.join(snapshot, name), "w") as fd:
+                fd.write(content)
+        if repo_id in hub.interrupted:
+            raise ConnectionError("connection lost")
+        return snapshot
+
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", snapshot_download)
+    before = {family.model_name for family in get_user_defined_llm_families()}
+    yield hub
+    for family in get_user_defined_llm_families():
+        if family.model_name not in before:
+            RegistryManager.get_registry("llm").unregister(
+                family.model_name, raise_error=False, remove_file=False
+            )
+
+
+def _hub_family(name, *sources):
+    """A custom family with one pytorch spec per (model_id, model_revision, model_hub)."""
+    return CustomLLMFamilyV2(
+        version=2,
+        context_length=2048,
+        model_name=name,
+        model_family="my-family",
+        model_lang=["en"],
+        model_ability=["generate"],
+        model_specs=[
+            PytorchLLMSpecV2(
+                model_format="pytorch",
+                model_size_in_billions=1,
+                quantization="none",
+                model_id=model_id,
+                model_revision=revision,
+                model_hub=hub,
+            )
+            for model_id, revision, hub in sources
+        ],
+    )
+
+
+def _register(name, *sources):
+    from ..custom import register_llm
+
+    register_llm(_hub_family(name, *sources), persist=False)
+
+
+def _reregister(name, *sources):
+    from ..custom import unregister_llm
+
+    unregister_llm(name)  # the downloaded directory stays on disk
+    _register(name, *sources)
+
+
+def _launch_cache(name, hub="huggingface"):
+    # what create_llm_model_instance asks the cache manager for
+    return CacheManager(match_llm(name, "pytorch", 1, "none", hub)).cache()
+
+
+def _readme(path):
+    with open(os.path.join(path, "README.md")) as fd:
+        return fd.read()
+
+
+SOURCE_A = ("org/model-a", None, "huggingface")
+
+
+@pytest.mark.parametrize(
+    "new_source",
+    [("org/model-b", None, "huggingface"), ("org/model-a", "v2", "huggingface")],
+    ids=["other-repository", "other-revision"],
+)
+def test_reregistered_custom_llm_does_not_serve_the_files_of_its_old_source(
+    fake_hub, new_source
+):
+    _register("my-llm", SOURCE_A)
+    old_dir = _launch_cache("my-llm")
+    assert _readme(old_dir) == "org/model-a@None"
+
+    _reregister("my-llm", new_source)
+    with pytest.raises(ValueError, match="my-llm.*org/model-a"):
+        _launch_cache("my-llm")
+    # nothing was fetched into the old directory, and nothing was deleted
+    assert fake_hub.downloads == [("org/model-a", None)]
+    assert _readme(old_dir) == "org/model-a@None"
+
+    # a name without a cache is fetched from the new source
+    _register("my-other-llm", new_source)
+    assert _readme(_launch_cache("my-other-llm")) == "%s@%s" % new_source[:2]
+
+
+def test_reregistered_custom_llm_with_the_same_source_reuses_its_cache(fake_hub):
+    _register("my-llm", SOURCE_A)
+    cache_dir = _launch_cache("my-llm")
+    _reregister("my-llm", SOURCE_A)
+    assert _launch_cache("my-llm") == cache_dir
+    assert fake_hub.downloads == [("org/model-a", None)]
+
+
+def test_custom_llm_cache_without_a_record_is_reused_whatever_files_it_holds(fake_hub):
+    # cached before sources were recorded; a repository's own file that is named
+    # like a record (here an empty object) is just one of its files
+    _register("my-llm", ("org/model-b", None, "huggingface"))
+    matched = match_llm("my-llm", "pytorch", 1, "none", "huggingface")
+    cache_dir = CacheManager(matched).get_cache_dir()
+    os.makedirs(cache_dir)
+    shipped = {"README.md": "org/model-a@None", "__model_source.json": "{}"}
+    for name, content in shipped.items():
+        with open(os.path.join(cache_dir, name), "w") as fd:
+            fd.write(content)
+    assert _readme(_launch_cache("my-llm")) == "org/model-a@None"
+    assert fake_hub.downloads == []
+
+
+def test_custom_llm_model_uri_is_not_served_a_downloaded_directory(fake_hub, tmp_path):
+    from ..custom import register_llm, unregister_llm
+
+    _register("my-llm", SOURCE_A)
+    old_dir = _launch_cache("my-llm")
+    unregister_llm("my-llm")
+
+    mine = tmp_path / "mine"
+    os.makedirs(mine)
+    with open(mine / "README.md", "w") as fd:
+        fd.write("mine")
+    family = _hub_family("my-llm", (None, None, "huggingface"))
+    family.model_specs[0].model_uri = str(mine)
+    register_llm(family, persist=False)
+    with pytest.raises(ValueError, match="my-llm.*org/model-a"):
+        _launch_cache("my-llm")
+    assert _readme(old_dir) == "org/model-a@None"
+
+
+@pytest.mark.parametrize(
+    "quantization,requested_quantization",
+    [("none", "none"), ("4-bit", None), ("4-bit", "4-bit")],
+)
+def test_custom_llm_hub_variants_share_the_download_after_the_registration_is_restored(
+    fake_hub, monkeypatch, quantization, requested_quantization
+):
+    import sys
+    import types
+
+    from ..custom import register_llm, unregister_llm
+
+    def no_download(*args, **kwargs):
+        pytest.fail("the files are already cached")
+
+    for name, attributes in {
+        "modelscope": {},
+        "modelscope.hub": {},
+        "modelscope.hub.file_download": {"model_file_download": no_download},
+        "modelscope.hub.snapshot_download": {"snapshot_download": no_download},
+    }.items():
+        module = types.ModuleType(name)
+        vars(module).update(attributes)
+        monkeypatch.setitem(sys.modules, name, module)
+
+    # one registration, one directory, two hubs; the ids are templates. A third
+    # entry whose template cannot be expanded must not stand in the way
+    variants = (
+        ("org/model-{quantization}", None, "huggingface"),
+        ("org-ms/model-{quantization}", None, "modelscope"),
+        ("org/{unknown}", None, "csghub"),
+    )
+
+    def register_variants():
+        family = _hub_family("my-llm", *variants)
+        for spec in family.model_specs:
+            spec.quantization = quantization
+        register_llm(family, persist=False)
+
+    def launch(hub):
+        return CacheManager(
+            match_llm("my-llm", "pytorch", 1, requested_quantization, hub)
+        ).cache()
+
+    register_variants()
+    cache_dir = launch("huggingface")  # match_llm expands only the selected entry
+    assert launch("modelscope") == cache_dir
+
+    # Restored as registered: the unselected entry is a template again.
+    unregister_llm("my-llm")
+    register_variants()
+    assert launch("modelscope") == cache_dir
+    expected_quantization = requested_quantization or "none"
+    assert fake_hub.downloads == [(f"org/model-{expected_quantization}", None)]
+
+
+@pytest.mark.parametrize("partial_directory", [False, True])
+def test_custom_llm_hub_variants_share_one_download_while_cache_is_incomplete(
+    fake_hub, monkeypatch, partial_directory
+):
+    import json
+    import threading
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError
+
+    _register("my-llm", SOURCE_A, ("org-ms/model-a", None, "modelscope"))
+    first = CacheManager(match_llm("my-llm", "pytorch", 1, "none", "huggingface"))
+    second = CacheManager(match_llm("my-llm", "pytorch", 1, "none", "modelscope"))
+    cache_dir = first.get_cache_dir()
+    downloading = threading.Event()
+    second_started = threading.Event()
+    finish_download = threading.Event()
+    downloads = []
+
+    def cache_from_hub(manager):
+        if manager.get_cache_status():
+            return cache_dir
+        downloads.append(manager._model_hub)
+        if manager is first:
+            if partial_directory:
+                os.makedirs(cache_dir)
+                with open(os.path.join(cache_dir, "README.md"), "w") as fd:
+                    fd.write("incomplete")
+            downloading.set()
+            assert finish_download.wait(5)
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(os.path.join(cache_dir, "README.md"), "w") as fd:
+            fd.write(manager._model_id)
+        return cache_dir
+
+    monkeypatch.setattr(CacheManager, "cache_from_huggingface", cache_from_hub)
+    monkeypatch.setattr(CacheManager, "cache_from_modelscope", cache_from_hub)
+
+    def launch_second():
+        second_started.set()
+        return second.cache()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first_result = pool.submit(first.cache)
+        try:
+            assert downloading.wait(5)
+            second_result = pool.submit(launch_second)
+            assert second_started.wait(5)
+            # Another hub must wait both before creation and while files arrive.
+            with pytest.raises(TimeoutError):
+                second_result.result(timeout=0.2)
+        finally:
+            finish_download.set()
+        assert first_result.result(timeout=5) == cache_dir
+        assert second_result.result(timeout=5) == cache_dir
+
+    assert downloads == ["huggingface"]
+    assert _readme(cache_dir) == "org/model-a"
+    with open(first._source_record_path(), encoding="utf-8") as fd:
+        assert json.load(fd) == {
+            "model_hub": "huggingface",
+            "model_id": "org/model-a",
+            "model_revision": None,
+        }
+
+
+def test_built_in_and_drafter_caches_are_not_recorded(fake_hub):
+    from ..custom import register_llm
+
+    built_in = CacheManager(
+        match_llm("qwen2.5-instruct", "pytorch", "0_5", "none", "huggingface")
+    )
+    built_in.cache()
+    family = _hub_family("my-llm", SOURCE_A)
+    family.model_specs[0].draft_model_id = "org/drafter"
+    register_llm(family, persist=False)
+    matched = match_llm("my-llm", "pytorch", 1, "none", "huggingface")
+    drafter = CacheManager(matched, use_draft_model=True)
+    assert _readme(drafter.cache()) == "org/drafter@None"
+    # reused on the next launch: the drafter's repository is not the model's source
+    assert drafter.cache() == drafter.get_cache_dir()
+    for manager in (built_in, drafter):
+        assert not os.path.exists(manager._source_record_path())
+    assert fake_hub.downloads[1:] == [("org/drafter", None)]
+
+
+def test_failed_provenance_write_never_leaves_a_download_without_a_record(
+    fake_hub, monkeypatch
+):
+    import json
+
+    from .. import cache_manager
+
+    def refuse(*args, **kwargs):
+        raise OSError("disk full")
+
+    _register("my-llm", SOURCE_A)
+    with monkeypatch.context() as broken:
+        broken.setattr(
+            cache_manager, "json", SimpleNamespace(load=json.load, dump=refuse)
+        )
+        with pytest.raises(OSError, match="disk full"):
+            _launch_cache("my-llm")
+    assert fake_hub.downloads == []  # nothing was downloaded
+
+    # so there is nothing that could be served under another source later
+    _reregister("my-llm", ("org/model-b", None, "huggingface"))
+    assert _readme(_launch_cache("my-llm")) == "org/model-b@None"
+    assert fake_hub.downloads == [("org/model-b", None)]
+
+
+def test_interrupted_download_cannot_be_reused_for_another_source(
+    fake_hub, monkeypatch
+):
+    from ... import utils
+
+    # the huggingface_hub < 0.23 branch downloads straight into the cache directory
+    monkeypatch.setattr(utils, "IS_NEW_HUGGINGFACE_HUB", False)
+    monkeypatch.setattr(utils, "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS", 1)
+    fake_hub.interrupted.add("org/model-a")
+    _register("my-llm", SOURCE_A)
+    with pytest.raises(RuntimeError, match="after multiple retries"):
+        _launch_cache("my-llm")  # leaves the files that arrived
+
+    _reregister("my-llm", ("org/model-b", None, "huggingface"))
+    with pytest.raises(ValueError, match="my-llm.*org/model-a"):
+        _launch_cache("my-llm")
+    assert fake_hub.downloads == [("org/model-a", None)]
+
+
+@pytest.mark.parametrize(
+    "damage", ["{", "{}", None], ids=["malformed", "not-a-source", "unreadable"]
+)
+def test_unreadable_or_invalid_provenance_is_not_taken_for_a_cache_from_before_records(
+    fake_hub, damage
+):
+    _register("my-llm", SOURCE_A)
+    manager = CacheManager(match_llm("my-llm", "pytorch", 1, "none", "huggingface"))
+    cache_dir = manager.cache()
+    record_path = manager._source_record_path()
+    os.remove(record_path)
+    if damage is None:
+        os.makedirs(record_path)  # a directory where the record should be
+    else:
+        with open(record_path, "w") as fd:
+            fd.write(damage)
+
+    # not even the source it was downloaded from can be confirmed any more
+    _reregister("my-llm", SOURCE_A)
+    with pytest.raises(ValueError, match="cannot be read or is invalid"):
+        _launch_cache("my-llm")
+    assert fake_hub.downloads == [("org/model-a", None)]
+    assert _readme(cache_dir) == "org/model-a@None"
+
+
+def test_repository_file_named_like_a_record_is_neither_trusted_nor_displaced(fake_hub):
+    import json
+
+    # a repository that ships "__model_source.json", here claiming to be model-b
+    claim = {
+        "model_hub": "huggingface",
+        "model_id": "org/model-b",
+        "model_revision": None,
+    }
+    fake_hub.shipped["org/model-a"] = {"__model_source.json": json.dumps(claim)}
+    _register("my-llm", SOURCE_A)
+    cache_dir = _launch_cache("my-llm")
+    with open(os.path.join(cache_dir, "__model_source.json")) as fd:
+        assert json.load(fd) == claim  # still the repository's file
+
+    _reregister("my-llm", ("org/model-b", None, "huggingface"))
+    with pytest.raises(
+        ValueError, match="holds files downloaded from huggingface:org/model-a"
+    ):
+        _launch_cache("my-llm")
+
+
 def test_custom_llm():
     from ..custom import get_user_defined_llm_families, register_llm, unregister_llm
 

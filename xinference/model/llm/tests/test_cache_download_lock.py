@@ -24,6 +24,9 @@ def test_replica_downloads_share_repository_lock(tmp_path):
         manager._model_uri = None
         manager._model_hub = "modelscope"
         manager._model_id = "org/shared-model"
+        manager._model_name = "shared-model"
+        manager._use_draft_model = False
+        manager._cache_dir = str(tmp_path / "cache-dir")
         manager._v2_cache_dir_prefix = str(tmp_path)
         manager.cache_from_modelscope = cache_from_hub
         start.wait(timeout=5)
