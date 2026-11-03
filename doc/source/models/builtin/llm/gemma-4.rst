@@ -179,7 +179,7 @@ Model Spec 11 (ggufv2, 26 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 26
-- **Quantizations:** MXFP4_MOE, Q8_0, UD-IQ2_M, UD-IQ3_S, UD-IQ3_XXS, UD-IQ4_NL, UD-IQ4_XS, UD-Q2_K_XL, UD-Q3_K_M, UD-Q3_K_S, UD-Q3_K_XL, UD-Q4_K_M, UD-Q4_K_S, UD-Q4_K_XL, UD-Q5_K_M, UD-Q5_K_S, UD-Q5_K_XL, UD-Q6_K, UD-Q6_K_XL, UD-Q8_K_XL
+- **Quantizations:** MXFP4_MOE, Q8_0, UD-IQ2_M, UD-IQ3_S, UD-IQ3_XXS, UD-IQ4_NL, UD-IQ4_XS, UD-Q2_K_XL, UD-Q3_K_M, UD-Q3_K_XL, UD-Q4_K_M, UD-Q4_K_S, UD-Q4_K_XL, UD-Q5_K_M, UD-Q5_K_S, UD-Q5_K_XL, UD-Q6_K, UD-Q6_K_XL, UD-Q8_K_XL
 - **Engines**: llama.cpp
 - **Model ID:** unsloth/gemma-4-26B-A4B-it-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/gemma-4-26B-A4B-it-GGUF>`__
