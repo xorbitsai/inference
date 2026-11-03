@@ -1482,6 +1482,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             enable_virtual_env=payload.pop("enable_virtual_env", None),
             virtual_env_packages=payload.pop("virtual_env_packages", None),
             virtual_env_find_links=payload.pop("virtual_env_find_links", None),
+            virtual_env_index_url=payload.pop("virtual_env_index_url", None),
+            virtual_env_extra_index_urls=payload.pop(
+                "virtual_env_extra_index_urls", None
+            ),
             envs=payload.pop("envs", None),
             **payload,
         )
@@ -3273,6 +3277,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
         virtual_env_find_links: Optional[List[str]] = None,
+        virtual_env_index_url: Optional[str] = None,
+        virtual_env_extra_index_urls: Optional[List[str]] = None,
         **kwargs,
     ) -> str:
         n_worker = normalize_n_worker(n_worker)
@@ -3358,6 +3364,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 enable_virtual_env=enable_virtual_env,
                 virtual_env_packages=virtual_env_packages,
                 virtual_env_find_links=virtual_env_find_links,
+                virtual_env_index_url=virtual_env_index_url,
+                virtual_env_extra_index_urls=virtual_env_extra_index_urls,
                 envs=envs,
                 **kwargs,
             )
@@ -3934,6 +3942,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     enable_virtual_env=enable_virtual_env,
                     virtual_env_packages=virtual_env_packages,
                     virtual_env_find_links=virtual_env_find_links,
+                    virtual_env_index_url=virtual_env_index_url,
+                    virtual_env_extra_index_urls=virtual_env_extra_index_urls,
                     envs=envs,
                     xavier_config=xavier_config,
                     **replica_kwargs,
@@ -4455,6 +4465,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
         virtual_env_find_links: Optional[List[str]] = None,
+        virtual_env_index_url: Optional[str] = None,
+        virtual_env_extra_index_urls: Optional[List[str]] = None,
         **kwargs,
     ):
         n_worker = normalize_n_worker(n_worker)
@@ -4568,6 +4580,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                             enable_virtual_env=enable_virtual_env,
                             virtual_env_packages=virtual_env_packages,
                             virtual_env_find_links=virtual_env_find_links,
+                            virtual_env_index_url=virtual_env_index_url,
+                            virtual_env_extra_index_urls=virtual_env_extra_index_urls,
                             envs=envs,
                             shard=i_worker,
                             n_worker=n_worker,

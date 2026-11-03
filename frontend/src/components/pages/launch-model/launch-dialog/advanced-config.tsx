@@ -162,6 +162,19 @@ const AdvancedConfig: FC<AdvancedConfigProps> = ({
         </div>
 
         <div className="p-2">
+          <label className="text-sm font-medium">{t('launchModel.virtualEnvIndexUrl')}</label>
+          <FormField name="virtual_env_index_url">
+            <Input placeholder="https://pypi.org/simple" />
+          </FormField>
+        </div>
+        <div className="p-2">
+          <CommonFormList
+            name="virtual_env_extra_index_urls"
+            label={t('launchModel.virtualEnvExtraIndexUrls')}
+            onlyValue
+          />
+        </div>
+        <div className="p-2">
           <CommonFormList name="envs" label={t('launchModel.envVariable')} />
         </div>
       </ConfigSection>

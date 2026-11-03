@@ -793,6 +793,8 @@ const en = {
     virtualEnvConfig: 'Virtual Environments Config',
     modelVirtualEnv: 'Model Virtual Environments',
     virtualEnvPackage: 'Virtual Environment Packages',
+    virtualEnvIndexUrl: 'Package index URL (uv pip)',
+    virtualEnvExtraIndexUrls: 'Extra package indexes (uv pip)',
     virtualEnvFindLinks: 'Local Wheel Directories',
     envVariable: 'Environment Variables',
     envVariableConfig: 'Environment Variable Config',

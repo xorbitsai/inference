@@ -756,6 +756,8 @@ const zh = {
     virtualEnvConfig: '虚拟空间配置',
     modelVirtualEnv: '模型虚拟空间',
     virtualEnvPackage: '虚拟空间安装包',
+    virtualEnvIndexUrl: '主安装源（uv pip）',
+    virtualEnvExtraIndexUrls: '额外安装源（uv pip）',
     virtualEnvFindLinks: '本地 Wheel 目录',
     envVariable: '环境变量',
     envVariableConfig: '环境变量配置',

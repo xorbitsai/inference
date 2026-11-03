@@ -959,6 +959,8 @@ def remove_cache(
     type=(str, str),
     help="Environment variables in KEY VALUE format. Can be used multiple times.",
 )
+@click.option("--virtual-env-index-url", type=str, default=None)
+@click.option("--virtual-env-extra-index-url", multiple=True, type=str)
 @click.pass_context
 def model_launch(
     ctx,
@@ -988,6 +990,8 @@ def model_launch(
     enable_virtual_env: Optional[bool],
     virtual_env_package: Optional[Tuple[str]],
     virtual_env_find_link: Optional[Tuple[str]],
+    virtual_env_index_url: Optional[str],
+    virtual_env_extra_index_url: Tuple[str, ...],
     env: Optional[Tuple[Tuple[str, str]]],
 ):
     kwargs = {}
@@ -1157,6 +1161,10 @@ def model_launch(
         enable_thinking=enable_thinking,
         enable_virtual_env=enable_virtual_env,
         virtual_env_packages=list(virtual_env_package) if virtual_env_package else None,
+        virtual_env_index_url=virtual_env_index_url,
+        virtual_env_extra_index_urls=(
+            list(virtual_env_extra_index_url) if virtual_env_extra_index_url else None
+        ),
         virtual_env_find_links=(
             list(virtual_env_find_link) if virtual_env_find_link else None
         ),

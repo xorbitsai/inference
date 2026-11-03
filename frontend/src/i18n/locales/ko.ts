@@ -777,6 +777,8 @@ const ko = {
     virtualEnvConfig: '가상 환경 설정',
     modelVirtualEnv: '모델 가상 환경',
     virtualEnvPackage: '가상 환경 패키지',
+    virtualEnvIndexUrl: 'Package index URL (uv pip)',
+    virtualEnvExtraIndexUrls: 'Extra package indexes (uv pip)',
     virtualEnvFindLinks: '로컬 Wheel 디렉터리',
     envVariable: '환경 변수',
     envVariableConfig: '환경 변수 설정',

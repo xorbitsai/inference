@@ -482,6 +482,7 @@ def _run_prepare_virtual_env(
     cuda_available=True,
     model_engine="llama.cpp",
     packages=("xllamacpp>=0.2.6",),
+    **source_options,
 ):
     """
     Drive WorkerActor._prepare_virtual_env for the llama.cpp engine and report
@@ -541,6 +542,7 @@ def _run_prepare_virtual_env(
             model_engine=model_engine,
             model_name="qwen3",
             architectures=None,
+            **source_options,
         )
     return result
 
@@ -1521,3 +1523,57 @@ def test_log_sync_sanitizes_and_truncates_request_id(caplog):
     assert "\n" not in request_id
     assert records[0].getMessage().startswith(f"[request {request_id}] Enter")
     assert records[1].xinference_fields["request_id"] == request_id
+
+
+@pytest.mark.parametrize("index", [None, "", "   "])
+def test_prepare_empty_index_keeps_worker_default(index):
+    result = _run_prepare_virtual_env(
+        cuda_version=None,
+        inherited_index_url="https://worker.example/simple",
+        cuda_available=False,
+        virtual_env_index_url=index,
+        virtual_env_extra_index_urls=[],
+    )
+    assert result["conf"]["index_url"] == "https://worker.example/simple"
+
+
+def test_prepare_explicit_indexes_survive_cuda_and_llamacpp():
+    result = _run_prepare_virtual_env(
+        cuda_version="12.8",
+        inherited_index_url="https://worker.example/simple",
+        virtual_env_index_url="https://request.example/simple",
+        virtual_env_extra_index_urls=["https://request.example/cu130"],
+    )
+    assert result["conf"]["index_url"] == "https://request.example/simple"
+    assert result["conf"]["extra_index_url"] == ["https://request.example/cu130"]
+
+
+@pytest.mark.parametrize(
+    "source_key",
+    [
+        "virtual_env_index_url",
+        "virtual_env_extra_index_urls",
+    ],
+)
+def test_prepare_llamacpp_explicit_gpu_index_replaces_satisfying_cpu(source_key):
+    from unittest import mock
+
+    gpu_index = "https://xorbitsai.github.io/xllamacpp/whl/cu128"
+    source = gpu_index if source_key == "virtual_env_index_url" else [gpu_index]
+    # The parent CPU distribution already satisfies xllamacpp>=0.2.6.
+    # Source selection must still disable xoscar's satisfied-package filter.
+    with mock.patch("importlib.metadata.version", return_value="0.2.6"):
+        result = _run_prepare_virtual_env(
+            cuda_version="12.8",
+            inherited_index_url=None,
+            skip_installed=True,
+            cuda_available=True,
+            **{source_key: source},
+        )
+    assert result["uninstalled"] == ["xllamacpp"]
+    assert result["conf"]["skip_installed"] is False
+    conf_key = (
+        "index_url" if source_key == "virtual_env_index_url" else "extra_index_url"
+    )
+    assert result["conf"][conf_key] == source
+    assert any("xllamacpp" in package for package in result["packages"])
