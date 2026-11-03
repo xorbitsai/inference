@@ -83,7 +83,7 @@ Model Spec 5 (ggufv2, 397 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 397
-- **Quantizations:** UD-TQ1_0
+- **Quantizations:** BF16, MXFP4_MOE, Q3_K_M, Q3_K_S, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, UD-IQ1_M, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_S, UD-IQ3_XXS, UD-IQ4_NL, UD-IQ4_XS, UD-Q3_K_M, UD-Q3_K_S, UD-Q3_K_XL, UD-Q4_K_M, UD-Q4_K_S, UD-Q4_K_XL, UD-Q5_K_M, UD-Q5_K_S, UD-Q5_K_XL, UD-Q6_K, UD-Q6_K_XL, UD-Q8_K_XL
 - **Engines**: llama.cpp
 - **Model ID:** unsloth/Qwen3.5-397B-A17B-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Qwen3.5-397B-A17B-GGUF>`__
