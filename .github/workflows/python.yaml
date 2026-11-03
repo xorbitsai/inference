@@ -110,6 +110,9 @@ jobs:
       - name: Test model and service upgrade controls
         if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run test:model-reload && npm run test:worker-relaunch && npm run test:service-relaunch && npm run test:software-update && npm run test:sidebar
+      - name: Test capability-aware chat reasoning controls
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
+        run: cd frontend && npm run test:chat-reasoning
       - name: Test benchmark page
         if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run test:benchmarks

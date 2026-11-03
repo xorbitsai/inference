@@ -27,7 +27,7 @@ class AnthropicBackendCapabilities:
     parallel_tools: SupportLevel = SupportLevel.UNSUPPORTED
     reasoning: SupportLevel = SupportLevel.UNSUPPORTED
     adaptive_thinking: SupportLevel = SupportLevel.UNSUPPORTED
-    reasoning_effort: SupportLevel = SupportLevel.DEGRADED
+    reasoning_effort: SupportLevel = SupportLevel.UNSUPPORTED
     structured_output: SupportLevel = SupportLevel.UNSUPPORTED
     prompt_cache: SupportLevel = SupportLevel.DEGRADED
     context_management: SupportLevel = SupportLevel.EMULATED

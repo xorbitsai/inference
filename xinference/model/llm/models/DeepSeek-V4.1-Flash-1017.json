@@ -1,6 +1,7 @@
 [
   {
     "model_name": "DeepSeek-V4.1-Flash-1017",
+    "reasoning_effort": {"values": ["none", "low", "high", "max"], "integer_range": [1, 100], "aliases": {"low": 50, "high": 75, "max": 100}},
     "model_description": "We introduce DeepSeek-V4.1-Flash-1017, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively.",
     "context_length": 1048576,
     "model_lang": [

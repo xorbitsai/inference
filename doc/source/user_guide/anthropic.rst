@@ -120,8 +120,14 @@ once per request, and model access is checked before fetching or rendering conte
 Thinking
 --------
 
-Adaptive thinking enables the model's reasoning mode. The ``effort`` option
-maps to prompt guidance, with ``medium`` preserving the default prompt.
+Adaptive thinking enables the model's reasoning mode. ``output_config.effort``
+accepts only the strings ``low``, ``medium``, ``high``, ``xhigh``, and ``max``.
+Each value must also be declared by the model; declared aliases are forwarded
+to the native reasoning-effort control. Integer values and other model-specific
+strings are accepted only by the OpenAI-compatible API. Models
+without declared support return HTTP 501; unsupported effort values return
+HTTP 400. Xinference does not add generic reasoning instructions. See
+:ref:`chat` for model-specific effort and independent token-budget controls.
 Explicit thinking responses carry Xinference signatures, which can be replayed
 with the same model UID and signing key; configure
 ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers.

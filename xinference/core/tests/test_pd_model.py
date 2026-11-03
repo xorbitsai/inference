@@ -1159,3 +1159,46 @@ async def test_cross_engine_router_releases_trt_source_owner(
     prefill.release_trt_pd_request.assert_awaited_once()
     assert prefill.release_trt_pd_request.call_args.args == ("trt",)
     assert not actor._trt_prefill_requests and not actor._request_set
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unsupported", [False, True])
+async def test_reasoning_budget_preflight_checks_all_decoders(router, unsupported):
+    actor, prefill, decode = router
+    config = {
+        "chat_template_kwargs": {"enable_thinking": True, "thinking_budget": 1024},
+        "max_tokens": 2048,
+    }
+    decode.prepare_reasoning_request = AsyncMock(
+        return_value={**config, "thinking_token_budget": 1024}
+    )
+    other = MagicMock()
+    error = {"error": {"status": 501, "message": "unsupported budget"}}
+    other.prepare_reasoning_request = AsyncMock(
+        return_value=json.dumps(error if unsupported else config).encode()
+    )
+    await actor.add_decode_actor("d2", other)
+    result = await actor.prepare_reasoning_request(config)
+    assert result == (error if unsupported else config)
+    decode.prepare_reasoning_request.assert_awaited_once()
+    other.prepare_reasoning_request.assert_awaited_once()
+    assert "thinking_token_budget" not in config
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("supported", [True, False])
+async def test_reasoning_capability_requires_all_decoders(router, supported):
+    actor, _, decode = router
+    decode.get_reasoning_capabilities = AsyncMock(
+        return_value=b'{"supports_thinking_budget": true}'
+    )
+    second = SimpleNamespace(
+        get_reasoning_capabilities=AsyncMock(
+            return_value={"supports_thinking_budget": supported}
+        )
+    )
+    await actor.add_decode_actor("d2", second)
+    assert await actor.get_reasoning_capabilities() == {
+        "supports_thinking_budget": supported
+    }
+    assert decode.get_reasoning_capabilities.await_count == 1

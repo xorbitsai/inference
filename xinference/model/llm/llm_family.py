@@ -41,6 +41,7 @@ from ..utils import (
 from . import LLM
 from .context_length import ContextLengthExtension
 from .model_metadata import ModelMetadata
+from .reasoning_controls import ReasoningEffortConfig
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +215,7 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
     tool_parser: Optional[str]
+    reasoning_effort: Optional[ReasoningEffortConfig] = None
     # Provenance: True only for bundled built-in models; user-registered /
     # custom models keep it False. Gates implicit trust_remote_code (CWE-94).
     is_builtin: bool = False
@@ -259,8 +261,18 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
             return False
         return any(arch in supported_architectures for arch in resolved)
 
+    def get_reasoning_effort(self) -> Optional[ReasoningEffortConfig]:
+        if self.reasoning_effort is not None:
+            return self.reasoning_effort
+        if self.model_family:
+            for family in BUILTIN_LLM_FAMILIES:
+                if family.model_name == self.model_family:
+                    return family.reasoning_effort
+        return None
+
     def to_description(self):
         spec = self.model_specs[0]
+        effort = self.get_reasoning_effort()
         return {
             "model_type": "LLM",
             "address": getattr(self, "address", None),
@@ -268,6 +280,7 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "model_name": self.model_name,
             "model_lang": self.model_lang,
             "model_ability": self.model_ability,
+            "reasoning_effort": effort.dict() if effort else None,
             "model_description": self.model_description,
             "model_format": spec.model_format,
             "model_size_in_billions": spec.model_size_in_billions,

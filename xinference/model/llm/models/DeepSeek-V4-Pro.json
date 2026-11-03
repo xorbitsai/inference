@@ -1,6 +1,7 @@
 [
   {
     "model_name": "DeepSeek-V4-Pro",
+    "reasoning_effort": {"values": ["high", "max"]},
     "model_description": "We present a preview version of DeepSeek-V4 series, including two strong Mixture-of-Experts (MoE) language models — DeepSeek-V4-Pro with 1.6T parameters (49B activated) and DeepSeek-V4-Flash with 284B parameters (13B activated) — both supporting a context length of one million tokens.",
     "context_length": 163840,
     "model_lang": [

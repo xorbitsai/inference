@@ -544,7 +544,9 @@ def test_invalid_schema_fails_and_default_effort_preserves_prompt():
     model.reasoning_parser = None
     model._tokenizer = None
     messages = [{"role": "user", "content": "hello"}]
-    prepared = model.prepare_anthropic_request(messages, {"reasoning_effort": "medium"})
+    with pytest.raises(NotImplementedError, match="native reasoning_effort"):
+        model.prepare_anthropic_request(messages, {"reasoning_effort": "medium"})
+    prepared = model.prepare_anthropic_request(messages, {})
     assert prepared["messages"] == messages
     assert messages == [{"role": "user", "content": "hello"}]
     with pytest.raises(ValueError, match="JSON schema object"):
@@ -749,14 +751,19 @@ def test_openai_controls_normalize_format_and_string_kwargs(cls, format_type):
     )
 
 
-def test_openai_thinking_budget_is_ignored():
+def test_openai_thinking_budget_is_validated():
     model = control_model()
-    _, config = model._prepare_chat_controls(
-        {"chat_template_kwargs": {"enable_thinking": True, "thinking_budget": "unused"}}
-    )
-    assert "_mlx_thinking_budget" not in config
-    with pytest.raises(ValueError, match="positive integer"):
-        model._prepare_chat_controls(config, anthropic=True)
+    for anthropic in (False, True):
+        with pytest.raises(ValueError, match="positive integer"):
+            model._prepare_chat_controls(
+                {
+                    "chat_template_kwargs": {
+                        "enable_thinking": True,
+                        "thinking_budget": "unused",
+                    }
+                },
+                anthropic=anthropic,
+            )
 
 
 @pytest.mark.parametrize(

@@ -798,8 +798,6 @@ class RESTfulAPI(CancelMixin):
     # Add new class attributes
     _allowed_ip_list: Optional[List[ipaddress.IPv4Network]] = None
     _cluster_metrics_task: Optional[asyncio.Task[None]] = None
-    QWEN38_REASONING_EFFORTS = {"xhigh", "medium", "low"}
-    QWEN38_REASONING_MODEL_NAMES = {"qwen3.8", "qwen3.8-max", "qwen3.8-Flash-Next"}
 
     @asynccontextmanager
     async def _lifespan(self, _app: FastAPI) -> AsyncIterator[None]:
@@ -5056,66 +5054,6 @@ class RESTfulAPI(CancelMixin):
             return dict(value)
         return {}
 
-    @classmethod
-    def _is_qwen38_description(cls, desc: dict) -> bool:
-        return (
-            desc.get("model_name") in cls.QWEN38_REASONING_MODEL_NAMES
-            or desc.get("model_family") in cls.QWEN38_REASONING_MODEL_NAMES
-        )
-
-    @classmethod
-    def _apply_qwen38_reasoning_effort(
-        cls, raw_body: dict, raw_kwargs: dict, kwargs: dict
-    ) -> None:
-        has_top_level_effort = "reasoning_effort" in raw_body
-        top_level_effort = raw_body.get("reasoning_effort")
-        chat_template_kwargs = cls._coerce_chat_template_kwargs(
-            raw_kwargs.get("chat_template_kwargs")
-        )
-        has_template_effort = "reasoning_effort" in chat_template_kwargs
-        template_effort = chat_template_kwargs.get("reasoning_effort")
-
-        if not has_top_level_effort and not has_template_effort:
-            return
-
-        if has_template_effort and template_effort not in cls.QWEN38_REASONING_EFFORTS:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Invalid chat_template_kwargs.reasoning_effort for qwen3.8. "
-                    "Supported values are xhigh, medium, and low."
-                ),
-            )
-
-        if not has_top_level_effort:
-            return
-
-        if top_level_effort not in cls.QWEN38_REASONING_EFFORTS:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Invalid reasoning_effort for qwen3.8. Supported values are "
-                    "xhigh, medium, and low. Use chat_template_kwargs.enable_thinking "
-                    "to disable thinking."
-                ),
-            )
-
-        if has_template_effort and template_effort != top_level_effort:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Conflicting reasoning_effort values for qwen3.8. Provide either "
-                    "top-level reasoning_effort or matching "
-                    "chat_template_kwargs.reasoning_effort."
-                ),
-            )
-
-        chat_template_kwargs["reasoning_effort"] = top_level_effort
-        raw_kwargs.pop("reasoning_effort", None)
-        kwargs.pop("reasoning_effort", None)
-        raw_kwargs["chat_template_kwargs"] = chat_template_kwargs
-        kwargs["chat_template_kwargs"] = chat_template_kwargs
-
     async def create_chat_completion(self, request: Request) -> Response:
         raw_body = await request.json()
         # Resolve/validate the raw salt after authorization, allowing provider overrides.
@@ -5207,6 +5145,17 @@ class RESTfulAPI(CancelMixin):
                     status_code=503,
                     headers={"Retry-After": "1"},
                 )
+            from ..router.tokenizer import (
+                TokenizationError,
+                normalize_chat_template_kwargs,
+            )
+
+            try:
+                template_kwargs = normalize_chat_template_kwargs(raw_body)
+            except TokenizationError as exc:
+                raise HTTPException(400, str(exc)) from exc
+            if template_kwargs:
+                raw_body["chat_template_kwargs"] = template_kwargs
             return await self._proxy_token_router_chat_completion(
                 request, raw_body, token_router_runtime
             )
@@ -5240,6 +5189,11 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        from ..model.llm.reasoning_controls import (
+            ReasoningEffortConfig,
+            has_reasoning_controls,
+            normalize_reasoning_controls,
+        )
         from ..model.llm.utils import (
             DEEPSEEK_TOOL_CALL_FAMILY,
             GEMMA_TOOL_CALL_FAMILY,
@@ -5251,8 +5205,29 @@ class RESTfulAPI(CancelMixin):
             QWEN_TOOL_CALL_FAMILY,
         )
 
-        if self._is_qwen38_description(desc):
-            self._apply_qwen38_reasoning_effort(raw_body, raw_kwargs, kwargs)
+        try:
+            controls_requested = has_reasoning_controls(raw_kwargs)
+            if controls_requested:
+                capability = desc.get("reasoning_effort")
+                control_config = dict(kwargs)
+                for key in (
+                    "reasoning_effort",
+                    "thinking_budget",
+                    "chat_template_kwargs",
+                ):
+                    if key in raw_kwargs:
+                        control_config[key] = raw_kwargs[key]
+                kwargs = normalize_reasoning_controls(
+                    control_config,
+                    ReasoningEffortConfig.parse_obj(capability) if capability else None,
+                )
+                raw_kwargs.pop("reasoning_effort", None)
+                raw_kwargs.pop("thinking_budget", None)
+                raw_kwargs["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
+        except NotImplementedError as exc:
+            raise HTTPException(501, str(exc))
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(400, str(exc))
 
         model_family = desc.get("model_family", "")
         RESTfulAPI._apply_multiple_choice_count(
@@ -5392,6 +5367,43 @@ class RESTfulAPI(CancelMixin):
                     effective_max_tokens,
                     media_counts,
                 )
+
+        if (
+            controls_requested
+            and (kwargs.get("chat_template_kwargs") or {}).get("thinking_budget")
+            is not None
+        ):
+            try:
+                prepared = await model.prepare_reasoning_request(kwargs)
+                if isinstance(prepared, (str, bytes)):
+                    prepared = json.loads(prepared)
+                if not isinstance(prepared, dict):
+                    raise ValueError("Invalid reasoning preflight response")
+                if "error" in prepared:
+                    error = prepared["error"]
+                    if (
+                        not isinstance(error, dict)
+                        or error.get("status") not in {400, 501}
+                        or not isinstance(error.get("message"), str)
+                    ):
+                        raise ValueError("Invalid reasoning preflight error")
+                    raise HTTPException(error["status"], error["message"])
+            except HTTPException:
+                raise
+            except ModelNotReadyError as exc:
+                raise HTTPException(
+                    503,
+                    "Model is loading, please retry later",
+                    headers={"Retry-After": "30"},
+                ) from exc
+            except Exception as exc:
+                self.handle_request_limit_error(exc, sanitize=True)
+                logger.exception("Reasoning request preflight failed")
+                raise HTTPException(
+                    503, "Reasoning request preflight is temporarily unavailable"
+                ) from exc
+            kwargs = prepared
+            raw_kwargs["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
 
         if "skip_special_tokens" in raw_kwargs and is_vllm_backend:
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]

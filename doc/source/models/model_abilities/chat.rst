@@ -142,6 +142,71 @@ We can try Chat API out either via cURL, OpenAI Client, or Xinference's python c
     }
 
 
+Reasoning effort and thinking budgets
+-------------------------------------
+
+For models with declared native support, OpenAI-compatible chat requests accept
+``reasoning_effort``. Xinference forwards it to the model's official template or
+encoder without adding generic system instructions. Supported values are exposed
+in the model description's ``reasoning_effort`` metadata. A ``reasoning`` ability
+alone does not imply effort support.
+
+The Web UI's chat settings show effort controls only for models with declared
+support. Numeric effort is available when the model declares an integer range.
+The thinking-token budget appears only when all serving decoders report
+runtime support. Leave a control at its default to omit the parameter; when
+setting a token budget, choose a larger positive output-token limit. The model
+details API exposes runtime budget support as ``supports_thinking_budget``.
+
+GLM-5.3 accepts ``low``, ``high``, and ``max``; it has no ``medium`` level.
+DeepSeek-V4.1-Flash-1017 accepts integers from 1 to 100, or ``low`` (50),
+``high`` (75), and ``max`` (100). These numbers express effort, not token counts.
+Undeclared effort support returns HTTP 501. Invalid values or conflicting
+request-level and template-level values return HTTP 400.
+
+.. code-block:: python
+
+   client.chat.completions.create(
+       model="YOUR_GLM_5_3_MODEL_UID",
+       messages=[{"role": "user", "content": "Solve this problem."}],
+       reasoning_effort="high",
+       max_completion_tokens=8192,
+   )
+
+An independent Xinference extension, ``thinking_budget``, limits thinking tokens
+on compatible vLLM, SGLang, and MLX runtimes. Send it through the OpenAI SDK's
+``extra_body`` or as ``chat_template_kwargs.thinking_budget``. It must be a
+positive integer smaller than ``max_completion_tokens`` (or ``max_tokens``),
+and enables thinking. Reaching the budget closes thinking and leaves the
+remaining output allowance for the answer. Unsupported runtimes return HTTP 501
+before streaming starts. SGLang requires ``enable_strict_thinking=True``.
+MLX Xavier, forced tool choice, and structured output cannot be combined with
+OpenAI thinking budgets.
+
+.. code-block:: python
+
+   client.chat.completions.create(
+       model="YOUR_REASONING_MODEL_UID",
+       messages=[{"role": "user", "content": "Solve this problem."}],
+       max_completion_tokens=8192,
+       extra_body={"thinking_budget": 2048},
+   )
+
+Custom model registrations can declare ``reasoning_effort`` with a ``values``
+list, an optional inclusive ``integer_range``, and optional numeric ``aliases``.
+Only declare values consumed by the actual template or encoder. Models derived
+from a registered ``model_family`` inherit its declaration unless they supply
+their own.
+
+.. code-block:: json
+
+   "reasoning_effort": {
+     "values": ["low", "high", "max"],
+     "integer_range": [1, 100],
+     "aliases": {"low": 50, "high": 75, "max": 100}
+   }
+
+
 Hybrid Thinking Models
 ----------------------
 

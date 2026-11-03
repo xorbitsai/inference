@@ -1,6 +1,7 @@
 [
   {
     "model_name": "qwen3.8-Flash-Next",
+    "reasoning_effort": {"values": ["low", "medium", "xhigh"]},
     "model_description": "Qwen3.8-Flash-Next is a native vision-language Mixture-of-Experts model with 125B main-model parameters, 6B activated per token, and an additional 51B n-gram embedding table. Its Qwen4 experimental architecture combines Gated DeltaNet, Qwen Sparse Attention, gated residuals, and flexible thinking control.",
     "context_length": 262144,
     "context_length_extension": {
