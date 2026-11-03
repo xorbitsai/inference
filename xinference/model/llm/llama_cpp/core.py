@@ -338,11 +338,16 @@ class XllamaCppModel(LLM, ChatModelMixin):
         elif os.path.isabs(multimodal_projector):
             mmproj = multimodal_projector
         else:
-            # ``model_path`` resolves to the model *file*; the projector lives
-            # alongside it, so resolve it against the model's directory. Joining
-            # onto ``self.model_path`` directly would yield ".../model.gguf/mmproj"
-            # (a nonexistent path) whenever --model-path points at a single file.
-            mmproj = os.path.join(os.path.dirname(model_path), multimodal_projector)
+            # A single-file --model-path keeps the projector alongside the file;
+            # joining onto it directly would yield ".../model.gguf/mmproj". A cache
+            # directory keeps the projector at its root, even when the model's
+            # shards sit in a per-quantization subdirectory.
+            projector_dir = (
+                os.path.dirname(model_path)
+                if os.path.isfile(self.model_path)
+                else self.model_path
+            )
+            mmproj = os.path.join(projector_dir, multimodal_projector)
 
         try:
             params = CommonParams()
