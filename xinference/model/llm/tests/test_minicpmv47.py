@@ -249,12 +249,15 @@ def test_vllm_nightly_gate(virtualenv_worker, monkeypatch, installed_version, ac
         assert "PR #58674" in result[1]
 
 
-def test_int4_requires_quantization_metadata(virtualenv_worker):
-    family = match_llm("MiniCPM-V-4.7", "pytorch", 35, "Int4", "huggingface")
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+def test_int4_requires_quantization_metadata(virtualenv_worker, hub):
+    registered = match_llm("MiniCPM-V-4.7", "pytorch", 35, "Int4", hub)
+    family = registered.copy(deep=True)
     spec = family.model_specs[0]
     assert spec.quantization_method == "compressed-tensors"
     spec.quantization_method = None
     assert vllm_core.VLLMMultiModel.match_json(family, spec, "Int4")[0] is False
+    assert registered.model_specs[0].quantization_method == "compressed-tensors"
 
 
 def test_fp8_uses_checkpoint_quantizer(monkeypatch, tmp_path):
