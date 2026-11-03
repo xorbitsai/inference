@@ -1193,14 +1193,14 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             return
         context = (
             self._get_chat_template_kwargs_from_generate_config(
-                config, self.reasoning_parser
+                config, getattr(self, "reasoning_parser", None)
             )
             or {}
         )
         budget = context.get("thinking_budget")
         if budget is None or not context.get("enable_thinking"):
             return
-        parser = self.reasoning_parser
+        parser = getattr(self, "reasoning_parser", None)
         if parser is None or not (
             parser.reasoning_start_tag or parser.reasoning_end_tag
         ):
