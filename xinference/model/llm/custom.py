@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 import threading
 from typing import TYPE_CHECKING, List
 
@@ -40,6 +41,30 @@ class LLMModelRegistry(ModelRegistry):
         self.lock = threading.RLock()
         self.models = UD_LLM_FAMILIES
         self.builtin_models = [x.model_name for x in BUILTIN_LLM_FAMILIES]
+
+    def check_cache_identity(self, llm_family: "LLMFamilyV2"):
+        from .cache_manager import LLMCacheManager
+        from .llm_family import BUILTIN_LLM_FAMILIES
+
+        # The cache directory replaces "." with "_" in the model name, so
+        # "qwen2_5-instruct" would be served the files cached for the built-in
+        # "qwen2.5-instruct". Compare the directories themselves: specs of one
+        # family (e.g. its Hugging Face and ModelScope entries) share one by design.
+        def cache_dirs(family: "LLMFamilyV2"):
+            return {
+                LLMCacheManager.get_cache_dir_for_spec(family.model_name, spec)
+                for spec in family.model_specs
+            }
+
+        wanted = cache_dirs(llm_family)
+        for family in [*BUILTIN_LLM_FAMILIES, *self.models]:
+            shared = wanted & cache_dirs(family)
+            if shared:
+                raise ValueError(
+                    f"Model name conflicts with existing model {family.model_name}: "
+                    f"{llm_family.model_name} would use the same cache directory, "
+                    f"{os.path.basename(min(shared))}."
+                )
 
     def add_ud_model(self, model_spec):
         from . import generate_engine_config_by_model_family

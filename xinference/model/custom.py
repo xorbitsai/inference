@@ -53,6 +53,9 @@ class ModelRegistry:
         if model_uri and not is_valid_model_uri(model_uri):
             raise ValueError(f"Invalid model URI {model_uri}.")
 
+    def check_cache_identity(self, model_spec: "CacheableModelSpec"):
+        """Raise ValueError if the model would share a cache with another model."""
+
     def add_ud_model(self, model_spec):
         self.models.append(model_spec)
 
@@ -74,6 +77,7 @@ class ModelRegistry:
                         f"Model name conflicts with existing model {model_spec.model_name}"
                     )
 
+            self.check_cache_identity(model_spec)
             self.add_ud_model(model_spec)
 
         if persist:
