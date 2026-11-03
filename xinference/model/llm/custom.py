@@ -15,7 +15,7 @@
 import logging
 import os
 import threading
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, cast
 
 from ..custom import ModelRegistry
 
@@ -57,7 +57,7 @@ class LLMModelRegistry(ModelRegistry):
             }
 
         wanted = cache_dirs(llm_family)
-        for family in [*BUILTIN_LLM_FAMILIES, *self.models]:
+        for family in [*BUILTIN_LLM_FAMILIES, *cast(List["LLMFamilyV2"], self.models)]:
             shared = wanted & cache_dirs(family)
             if shared:
                 raise ValueError(
