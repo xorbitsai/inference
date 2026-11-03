@@ -53,7 +53,7 @@
         },
         "quantization_method": {
           "type": "string",
-          "minLength": 1,
+          "enum": ["compressed-tensors"],
           "description": "Quantization method recorded in an offline-quantized checkpoint's config.json."
         },
         "model_format": {
@@ -105,7 +105,7 @@
       "properties": {
         "quantization_method": {
           "type": "string",
-          "minLength": 1,
+          "enum": ["compressed-tensors"],
           "description": "Overrides the spec-level offline quantization method for this source."
         },
         "multimodal_projectors": {

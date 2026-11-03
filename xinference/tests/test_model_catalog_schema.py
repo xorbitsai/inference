@@ -100,7 +100,14 @@ def test_checkpoint_quantization_method_schema(tmp_path, source_level):
     owner = spec["model_src"]["huggingface"] if source_level else spec
     owner["quantization_method"] = "compressed-tensors"
     validate(tmp_path, "llm", [record])
-    for invalid in (None, "", 4, ["compressed-tensors"]):
+    for invalid in (
+        None,
+        "",
+        "compressed_tensors",
+        "unknown",
+        4,
+        ["compressed-tensors"],
+    ):
         owner["quantization_method"] = invalid
         with pytest.raises(ValueError, match="quantization_method"):
             validate(tmp_path, "llm", [record])

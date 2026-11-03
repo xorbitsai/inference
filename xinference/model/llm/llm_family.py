@@ -121,7 +121,7 @@ class PytorchLLMSpecV2(BaseModel):
     quantization: str
     # Method recorded in an offline-quantized checkpoint's config.json.
     # Unset for runtime quantization of an unquantized checkpoint.
-    quantization_method: Optional[str] = None
+    quantization_method: Optional[Literal["compressed-tensors"]] = None
     model_id: Optional[str]
     model_hub: str = "huggingface"
     model_uri: Optional[str]

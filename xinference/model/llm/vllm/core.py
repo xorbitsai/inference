@@ -72,7 +72,7 @@ from ..context_length import (
     normalize_runtime_positive_int,
 )
 from ..core import chat_context_var, get_model_speculative_tokens_default
-from ..llm_family import cache_model_tokenizer_and_config
+from ..llm_family import PytorchLLMSpecV2, cache_model_tokenizer_and_config
 from ..media import materialize_messages_media, media_workspace, validate_messages_media
 from ..tool_controls import (
     convert_forced_completion,
@@ -2122,13 +2122,12 @@ class VLLMModel(WeightCachedModel, LLM):
 
     @staticmethod
     def _supports_pytorch_quantization(
-        llm_spec: "LLMSpecV1", quantization: Optional[str]
+        llm_spec: PytorchLLMSpecV2,
     ) -> bool:
         # Precision labels alone do not distinguish checkpoint quantization
         # from quantizing an unquantized model at load time.
-        return quantization in (None, "none") or (
-            getattr(llm_spec, "quantization_method", None) == "compressed-tensors"
-            and quantization == llm_spec.quantization
+        return llm_spec.quantization == "none" or (
+            llm_spec.quantization_method == "compressed-tensors"
         )
 
     def _weight_cache_unavailable_reason(self) -> Optional[str]:
@@ -2139,12 +2138,21 @@ class VLLMModel(WeightCachedModel, LLM):
             getattr(self.model_spec, "quantization_method", None)
             == "compressed-tensors"
         ):
-            from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors import (
-                CompressedTensorsLinearMethod,
-            )
+            try:
+                from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors import (
+                    CompressedTensorsLinearMethod,
+                )
+                from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors_moe import (
+                    CompressedTensorsMoEMethod,
+                )
+            except ImportError:
+                return "Cannot verify vLLM compressed-tensors IPC weight support"
 
-            if not CompressedTensorsLinearMethod.supports_pre_processed_weights:
-                return "vLLM's compressed-tensors loader does not support preprocessed IPC weights"
+            # Be conservative for the whole quantizer: linear support alone
+            # cannot establish support for checkpoints containing fused MoE.
+            for method in (CompressedTensorsLinearMethod, CompressedTensorsMoEMethod):
+                if getattr(method, "supports_pre_processed_weights", False) is not True:
+                    return "vLLM's compressed-tensors loader does not support preprocessed IPC weights for both linear and MoE methods"
         return None
 
     @classmethod
@@ -2173,10 +2181,10 @@ class VLLMModel(WeightCachedModel, LLM):
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]:
             return False, "vLLM supports pytorch/gptq/awq/fp4/fp8/bnb formats only"
         if llm_spec.model_format == "pytorch":
-            if not cls._supports_pytorch_quantization(llm_spec, quantization):
+            if not cls._supports_pytorch_quantization(llm_spec):
                 return (
                     False,
-                    "pytorch format with quantization is not supported by vLLM",
+                    "pytorch format with quantization requires quantization_method='compressed-tensors' for an offline-quantized checkpoint",
                 )
         if llm_spec.model_format == "awq":
             if "4" not in quantization:
@@ -3080,10 +3088,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             ):
                 return False, "Ling-3.0 requires vLLM >= 0.28.0"
         if llm_spec.model_format == "pytorch":
-            if not cls._supports_pytorch_quantization(llm_spec, quantization):
+            if not cls._supports_pytorch_quantization(llm_spec):
                 return (
                     False,
-                    "pytorch format with quantization is not supported in vLLM chat",
+                    "pytorch format with quantization requires quantization_method='compressed-tensors' for an offline-quantized checkpoint",
                 )
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):
@@ -3346,10 +3354,10 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 "vLLM multimodal engine supports pytorch/gptq/awq/fp4/fp8/bnb formats only",
             )
         if llm_spec.model_format == "pytorch":
-            if not cls._supports_pytorch_quantization(llm_spec, quantization):
+            if not cls._supports_pytorch_quantization(llm_spec):
                 return (
                     False,
-                    "pytorch format with quantization is not supported for vLLM multimodal",
+                    "pytorch format with quantization requires quantization_method='compressed-tensors' for an offline-quantized checkpoint",
                 )
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):

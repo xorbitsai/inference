@@ -472,6 +472,7 @@
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
+        "compressed-tensors>=0.15.0 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "mlx-vlm>=0.6.13 ; #engine# == \"MLX\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",

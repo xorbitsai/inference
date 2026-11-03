@@ -19,6 +19,8 @@ from unittest.mock import Mock
 import pytest
 from packaging.version import Version
 
+from ....core.utils import filter_virtualenv_packages_by_markers
+from ....core.virtual_env_manager import expand_engine_dependency_placeholders
 from ..llm_family import check_engine_by_spec_parameters_with_virtual_env, match_llm
 from ..vllm import core as vllm_core
 
@@ -68,12 +70,16 @@ def test_qwen38_int4_requires_quantization_metadata(int4_family, vllm_worker):
     assert "pytorch format with quantization" in result[1]
 
 
-def test_qwen38_int4_does_not_enable_other_quantizations(int4_family, vllm_worker):
-    result = vllm_core.VLLMMultiModel.match_json(
-        int4_family, int4_family.model_specs[0], "8-bit"
+@pytest.mark.parametrize(
+    "engine", ["Transformers", "vllm", "sglang", "MLX", "llama.cpp"]
+)
+def test_qwen38_checkpoint_quantizer_dependency(int4_family, engine):
+    packages = expand_engine_dependency_placeholders(
+        int4_family.virtualenv.packages, engine
     )
-    assert result[0] is False
-    assert "pytorch format with quantization" in result[1]
+    packages = filter_virtualenv_packages_by_markers(packages, engine, None)
+    expected = ["compressed-tensors>=0.15.0"] if engine == "Transformers" else []
+    assert [p for p in packages if p.startswith("compressed-tensors")] == expected
 
 
 @pytest.mark.parametrize("engine_version", ["0.21.0", "0.32.0"])
