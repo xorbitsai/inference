@@ -718,6 +718,7 @@ async def test_add_model_replica_sends_empty_json_body():
     client = AsyncRESTfulClient.__new__(AsyncRESTfulClient)
     client.base_url = "http://localhost:9997"
     client._headers = {}
+    client._cluster_authed = False
     client.session = _DummyAsyncSession()
 
     await client.add_model_replica("demo")
@@ -730,6 +731,7 @@ async def test_add_model_replica_sends_placement_config():
     client = AsyncRESTfulClient.__new__(AsyncRESTfulClient)
     client.base_url = "http://localhost:9997"
     client._headers = {}
+    client._cluster_authed = False
     client.session = _DummyAsyncSession()
     replica_config = {
         "replica_uid": "secondary",
@@ -746,6 +748,7 @@ async def test_add_model_replica_sends_scale_overrides():
     client = AsyncRESTfulClient.__new__(AsyncRESTfulClient)
     client.base_url = "http://localhost:9997"
     client._headers = {}
+    client._cluster_authed = False
     client.session = _DummyAsyncSession()
 
     await client.add_model_replica("demo", replica=3, model_engine="vllm", n_gpu=1)
