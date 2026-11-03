@@ -341,7 +341,9 @@ class ChatModelMixin:
     @staticmethod
     @functools.lru_cache(maxsize=64)
     def _chat_template_needs_dict_arguments(chat_template: Optional[str]) -> bool:
-        # Detect templates that iterate tool-call arguments as a mapping.
+        # Detect templates that iterate tool-call arguments as a mapping, or
+        # serialize them with `tojson` without first checking for a string
+        # (which double-encodes OpenAI's JSON-string arguments).
         # Content-driven (not name-driven) so future models copying this
         # template style are covered automatically.
         if chat_template is None:
@@ -362,6 +364,15 @@ class ChatModelMixin:
             or (
                 "args_dict=tool_call.arguments" in compact
                 and "args_dict.items()" in compact
+            )
+            or (
+                re.search(r"(?:tool_call\.arguments|\['arguments'\])\|tojson", compact)
+                is not None
+                and re.search(
+                    r"arguments(?:'\])?\s+is\s+(?:not\s+)?(?:string|mapping)",
+                    chat_template,
+                )
+                is None
             )
         )
 
