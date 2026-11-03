@@ -469,7 +469,7 @@ The following is a list of built-in LLM in Xinference:
    * - :ref:`minicpm-v-4.7 <models_llm_minicpm-v-4.7>`
      - chat, vision, hybrid
      - 262144
-     - MiniCPM-V 4.7 supports single-image, multi-image, and video understanding with canvas M-RoPE and 4x/16x visual compression. It provides 1B dense and 35B-A3B MoE variants. Transformers requires >=5.18.0; vLLM requires the nightly containing PR #58674. SGLang support currently requires an upstream fork with conflicting dependency pins and is not enabled. GGUF and llama.cpp support is not enabled.
+     - MiniCPM-V 4.7 supports single-image, multi-image, and video understanding with canvas M-RoPE and 4x/16x visual compression. It provides 1B dense and 35B-A3B MoE variants. Transformers requires >=5.18.0; vLLM requires the nightly containing PR #58674. SGLang requires >=0.5.23 and supports text and image inputs. GGUF and llama.cpp support is not enabled.
 
    * - :ref:`minicpm3-4b <models_llm_minicpm3-4b>`
      - chat
