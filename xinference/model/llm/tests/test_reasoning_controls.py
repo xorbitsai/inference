@@ -219,3 +219,23 @@ def test_effort_capabilities_are_version_specific():
     with pytest.raises(ValueError):
         old.normalize("low", "reasoning_effort")
     assert updated.normalize("low", "reasoning_effort") == "low"
+
+
+def test_runtime_budget_capability_checks_mlx_without_generating():
+    from ..mlx.core import MLXChatModel
+    from ..reasoning_parser import ReasoningParser
+
+    model = object.__new__(MLXChatModel)
+    model.model_family = family("glm-5.3")
+    model.reasoning_parser = ReasoningParser(
+        reasoning_start_tag="<think>", reasoning_end_tag="</think>"
+    )
+    model._tokenizer = SimpleNamespace(
+        encode=lambda text, **kw: list(text.encode()), eos_token_id=0
+    )
+    assert model.get_reasoning_capabilities() == {"supports_thinking_budget": True}
+    model._xavier = object()
+    assert model.get_reasoning_capabilities() == {"supports_thinking_budget": False}
+    model._xavier = None
+    model.reasoning_parser = None
+    assert model.get_reasoning_capabilities() == {"supports_thinking_budget": False}

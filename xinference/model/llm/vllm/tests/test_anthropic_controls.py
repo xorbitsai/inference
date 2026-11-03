@@ -88,6 +88,10 @@ def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported):
     else:
         instance._apply_thinking_budget(config)
         assert config["thinking_token_budget"] == 1024
+    instance.model_family = SimpleNamespace(reasoning_effort=None)
+    assert instance.get_reasoning_capabilities()["supports_thinking_budget"] is (
+        unsupported is None
+    )
 
 
 @pytest.mark.parametrize("anthropic", [False, True])

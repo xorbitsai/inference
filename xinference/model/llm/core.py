@@ -112,6 +112,14 @@ class LLM(abc.ABC):
             else getattr(self.model_family, "reasoning_effort", None)
         )
 
+    def get_reasoning_capabilities(self) -> Dict[str, bool]:
+        # Reuse request validation without generating tokens or retaining config.
+        try:
+            self.prepare_reasoning_request({"thinking_budget": 1, "max_tokens": 2})
+        except (NotImplementedError, ValueError):
+            return {"supports_thinking_budget": False}
+        return {"supports_thinking_budget": True}
+
     def prepare_reasoning_request(self, config: Dict) -> Dict:
         """Preflight explicit OpenAI thinking budgets before opening a stream."""
         config = normalize_reasoning_controls(

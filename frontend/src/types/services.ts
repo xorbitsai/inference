@@ -272,7 +272,15 @@ export interface RunningModelItem {
   gpu_memory?: Record<string, Record<string, number>>;
 }
 
+export interface ReasoningEffortCapability {
+  values: string[];
+  integer_range?: [number, number] | null;
+  aliases?: Record<string, number>;
+}
+
 export interface RunningModelDetail {
+  reasoning_effort?: ReasoningEffortCapability | null;
+  supports_thinking_budget?: boolean;
   n_worker?: number;
   model_type: string;
   address: string;

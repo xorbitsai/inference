@@ -1651,6 +1651,13 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         except Exception as exc:
             return self._safe_model_operation_error(exc, "token_count")
 
+    @log_async(logger=logger)
+    async def get_reasoning_capabilities(self):
+        self._require_ready()
+        if not hasattr(self._model, "get_reasoning_capabilities"):
+            return {"supports_thinking_budget": False}
+        return await self._call_wrapper_json(self._model.get_reasoning_capabilities)
+
     @request_limit
     @log_async(logger=logger)
     async def prepare_reasoning_request(self, generate_config: Dict):

@@ -1183,3 +1183,22 @@ async def test_reasoning_budget_preflight_checks_all_decoders(router, unsupporte
     decode.prepare_reasoning_request.assert_awaited_once()
     other.prepare_reasoning_request.assert_awaited_once()
     assert "thinking_token_budget" not in config
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("supported", [True, False])
+async def test_reasoning_capability_requires_all_decoders(router, supported):
+    actor, _, decode = router
+    decode.get_reasoning_capabilities = AsyncMock(
+        return_value=b'{"supports_thinking_budget": true}'
+    )
+    second = SimpleNamespace(
+        get_reasoning_capabilities=AsyncMock(
+            return_value={"supports_thinking_budget": supported}
+        )
+    )
+    await actor.add_decode_actor("d2", second)
+    assert await actor.get_reasoning_capabilities() == {
+        "supports_thinking_budget": supported
+    }
+    assert decode.get_reasoning_capabilities.await_count == 1

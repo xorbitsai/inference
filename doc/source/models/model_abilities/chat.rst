@@ -151,6 +151,13 @@ encoder without adding generic system instructions. Supported values are exposed
 in the model description's ``reasoning_effort`` metadata. A ``reasoning`` ability
 alone does not imply effort support.
 
+The Web UI's chat settings show effort controls only for models with declared
+support. Numeric effort is available when the model declares an integer range.
+The thinking-token budget appears only when all serving decoders report
+runtime support. Leave a control at its default to omit the parameter; when
+setting a token budget, choose a larger positive output-token limit. The model
+details API exposes runtime budget support as ``supports_thinking_budget``.
+
 GLM-5.3 accepts ``low``, ``high``, and ``max``; it has no ``medium`` level.
 DeepSeek-V4.1-Flash-1017 accepts integers from 1 to 100, or ``low`` (50),
 ``high`` (75), and ``max`` (100). These numbers express effort, not token counts.

@@ -16,6 +16,7 @@ import asyncio
 import functools
 import inspect
 import itertools
+import json
 import os
 import signal
 import time
@@ -7567,7 +7568,58 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             config = self._token_router_store.get_by_virtual_model_uid(model_uid)
             if config is not None and config.get("enabled"):
                 return self._build_token_router_model_info(config)
-        return await self.describe_model(model_uid)
+        description = await self.describe_model(model_uid)
+        if description.get("model_type") == "LLM":
+            description["supports_thinking_budget"] = (
+                await self._supports_thinking_budget(model_uid)
+            )
+        return description
+
+    async def _supports_thinking_budget(self, model_uid: str) -> bool:
+        async def probe(model: Any) -> bool:
+            result = await actor_call(model, "get_reasoning_capabilities")
+            if isinstance(result, (str, bytes)):
+                result = json.loads(result)
+            return (
+                isinstance(result, dict)
+                and result.get("supports_thinking_budget") is True
+            )
+
+        async def probe_replica(replica_uid: str) -> bool:
+            worker = self._replica_model_uid_to_worker.get(replica_uid)
+            if isinstance(worker, (list, tuple)):
+                worker = worker[0] if worker else None
+            if worker is None:
+                return False
+            model = await call_worker_route(
+                self, replica_uid, worker, "get_model", model_uid=replica_uid
+            )
+            return await probe(model)
+
+        try:
+            if model_uid in self._pd_model_mapping:
+                return await asyncio.wait_for(
+                    probe(self._pd_model_mapping[model_uid]), timeout=3
+                )
+            results = await asyncio.wait_for(
+                asyncio.gather(
+                    *(
+                        probe_replica(uid)
+                        for uid in self._iter_active_replica_model_uids(model_uid)
+                    ),
+                    return_exceptions=True,
+                ),
+                timeout=3,
+            )
+            return bool(results) and all(result is True for result in results)
+        except Exception:
+            # Older/unavailable workers must not prevent the details page loading.
+            logger.debug(
+                "Reasoning capabilities are unavailable for %s",
+                model_uid,
+                exc_info=True,
+            )
+            return False
 
     async def resolve_token_router_runtime(
         self, virtual_model_uid: str

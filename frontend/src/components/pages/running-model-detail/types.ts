@@ -60,6 +60,8 @@ export interface CapabilityConfig {
 }
 
 export interface ChatSettings {
+  reasoning_effort?: string | number;
+  thinking_budget?: number;
   max_tokens: number;
   temperature: number;
   stream: boolean;
