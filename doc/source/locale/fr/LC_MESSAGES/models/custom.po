@@ -552,5 +552,5 @@ msgstr "Désenregistrer un modèle personnalisé par code."
 #~ msgstr ""
 
 #: ../../source/models/custom.rst:305
-msgid "``quantization_method``: An optional field in ``model_specs`` for an already quantized checkpoint's method, such as ``compressed-tensors``. vLLM detects the checkpoint's quantization configuration when loading. Omit this field when quantization is performed at runtime."
-msgstr "``quantization_method`` : champ facultatif de ``model_specs`` indiquant la méthode d’un point de contrôle déjà quantifié, par exemple ``compressed-tensors``. vLLM détecte sa configuration de quantification au chargement. Omettez ce champ lorsque la quantification est effectuée à l’exécution."
+msgid "``quantization_method``: An optional field in ``model_specs`` for an already quantized checkpoint's method; currently only ``compressed-tensors`` is supported. vLLM detects the checkpoint's quantization configuration when loading. Omit this field when quantization is performed at runtime."
+msgstr "``quantization_method`` : champ facultatif de ``model_specs`` indiquant la méthode d’un point de contrôle déjà quantifié ; actuellement, seul ``compressed-tensors`` est pris en charge. vLLM détecte sa configuration de quantification au chargement. Omettez ce champ lorsque la quantification est effectuée à l’exécution."

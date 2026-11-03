@@ -99,6 +99,11 @@ from .utils import vllm_check
 
 logger = logging.getLogger(__name__)
 
+_PYTORCH_QUANTIZATION_UNSUPPORTED_REASON = (
+    "pytorch format with quantization requires "
+    "quantization_method='compressed-tensors' for an offline-quantized checkpoint"
+)
+
 if TYPE_CHECKING:
     from vllm.outputs import RequestOutput
 
@@ -2182,10 +2187,7 @@ class VLLMModel(WeightCachedModel, LLM):
             return False, "vLLM supports pytorch/gptq/awq/fp4/fp8/bnb formats only"
         if llm_spec.model_format == "pytorch":
             if not cls._supports_pytorch_quantization(llm_spec):
-                return (
-                    False,
-                    "pytorch format with quantization requires quantization_method='compressed-tensors' for an offline-quantized checkpoint",
-                )
+                return False, _PYTORCH_QUANTIZATION_UNSUPPORTED_REASON
         if llm_spec.model_format == "awq":
             if "4" not in quantization:
                 return False, "vLLM only supports 4-bit AWQ weights"
@@ -3089,10 +3091,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 return False, "Ling-3.0 requires vLLM >= 0.28.0"
         if llm_spec.model_format == "pytorch":
             if not cls._supports_pytorch_quantization(llm_spec):
-                return (
-                    False,
-                    "pytorch format with quantization requires quantization_method='compressed-tensors' for an offline-quantized checkpoint",
-                )
+                return False, _PYTORCH_QUANTIZATION_UNSUPPORTED_REASON
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):
                 return False, "awq quantization must be 4 or 8 bit for vLLM chat"
@@ -3355,10 +3354,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             )
         if llm_spec.model_format == "pytorch":
             if not cls._supports_pytorch_quantization(llm_spec):
-                return (
-                    False,
-                    "pytorch format with quantization requires quantization_method='compressed-tensors' for an offline-quantized checkpoint",
-                )
+                return False, _PYTORCH_QUANTIZATION_UNSUPPORTED_REASON
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):
                 return False, "awq quantization must be 4 or 8 bit for vLLM multimodal"
