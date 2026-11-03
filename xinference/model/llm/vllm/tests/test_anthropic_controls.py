@@ -53,7 +53,10 @@ def completion(text, finish_reason="stop"):
 
 
 @pytest.mark.parametrize("unsupported", [None, "sampling", "markers", "disabled"])
-def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported):
+@pytest.mark.parametrize(
+    "model_class", [core.VLLMModel, core.VLLMChatModel, core.VLLMMultiModel]
+)
+def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported, model_class):
     from ...reasoning_parser import ReasoningParser
 
     def sampling(*, thinking_token_budget=None):
@@ -66,7 +69,7 @@ def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported):
             SamplingParams=(lambda: None) if unsupported == "sampling" else sampling
         ),
     )
-    instance = object.__new__(core.VLLMChatModel)
+    instance = object.__new__(model_class)
     instance.reasoning_parser = ReasoningParser(
         reasoning_start_tag="<think>", reasoning_end_tag="</think>"
     )

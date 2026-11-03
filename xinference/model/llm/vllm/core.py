@@ -672,11 +672,16 @@ class VLLMModel(WeightCachedModel, LLM):
             # Prefill uses the same prompt but generates only a handoff token.
             config.pop("thinking_token_budget", None)
             return
-        context = self._get_chat_template_kwargs_from_generate_config(config, self.reasoning_parser) or {}  # type: ignore[attr-defined]
+        parser = getattr(self, "reasoning_parser", None)
+        context = (
+            ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+                config, parser
+            )
+            or {}
+        )
         budget = context.get("thinking_budget")
         if budget is None or not context.get("enable_thinking"):
             return
-        parser = self.reasoning_parser
         if parser is None or not (
             parser.reasoning_start_tag or parser.reasoning_end_tag
         ):
