@@ -306,3 +306,11 @@ msgstr "3.0 より前のバージョンからアップグレードする場合�
 #: getting_started/release_notes.rst
 msgid "Detailed version notes"
 msgstr "各バージョンの詳細なリリースノート"
+
+#: ../../source/getting_started/release_notes.rst:6
+msgid "Unreleased"
+msgstr "未リリース"
+
+#: ../../source/getting_started/release_notes.rst:9
+msgid "Custom PyTorch Int4 registrations for compressed-tensors checkpoints, including Ling-3.0 and MiniCPM-V-4.7, now require ``\"quantization_method\": \"compressed-tensors\"`` in the corresponding ``model_specs`` entry to select vLLM. The Web UI registration form does not expose this field yet. Add it to the model JSON and register the file through the CLI (shown below) or the Python client; see :ref:`models_custom`."
+msgstr "Ling-3.0 や MiniCPM-V-4.7 などの compressed-tensors チェックポイントをカスタム PyTorch Int4 モデルとして登録する場合、vLLM を選択するには、対応する ``model_specs`` エントリに ``\"quantization_method\": \"compressed-tensors\"`` が必要になりました。Web UI の登録フォームには、このフィールドがまだありません。モデルの JSON に追加し、以下の CLI または Python クライアントでファイルを登録してください。:ref:`models_custom` を参照してください。"

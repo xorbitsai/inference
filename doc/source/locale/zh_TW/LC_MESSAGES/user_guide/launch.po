@@ -767,3 +767,7 @@ msgid ""
 msgstr ""
 "結果無法確認時，可在 Web UI 中點擊 "
 "**重新套用目前顯示的設定**，即使沒有修改也會提交目前顯示的值。空白欄位和各副本值不同的欄位，只有在指定值後才會提交。"
+
+#: ../../source/user_guide/launch.rst:566
+msgid "Checkpoints declaring ``quantization_method=\"compressed-tensors\"`` use native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch."
+msgstr "宣告 ``quantization_method=\"compressed-tensors\"`` 的檢查點，在 vLLM 的 compressed-tensors 載入器不支援預處理 IPC 權重時使用原生權重載入。自動權重保留會略過此設定；明確啟用權重保留則拒絕啟動。"

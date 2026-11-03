@@ -368,7 +368,8 @@
               "intermediate_size": 512
             }
           }
-        }
+        },
+        "quantization_method": "compressed-tensors"
       },
       {
         "model_format": "fp8",

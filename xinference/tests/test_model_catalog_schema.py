@@ -1,5 +1,7 @@
 """Catalog authoring checks run without importing model engines or Xinference."""
 
+# CI: linux
+
 import copy
 import importlib.util
 import json
@@ -89,6 +91,26 @@ def test_model_metadata_schema(tmp_path, source_level, invalid):
     metadata.update(invalid)
     with pytest.raises(ValueError, match="model_metadata"):
         validate(tmp_path, "llm", [record])
+
+
+@pytest.mark.parametrize("source_level", [False, True])
+def test_checkpoint_quantization_method_schema(tmp_path, source_level):
+    record = model_record("llm")
+    spec = record["model_specs"][0]
+    owner = spec["model_src"]["huggingface"] if source_level else spec
+    owner["quantization_method"] = "compressed-tensors"
+    validate(tmp_path, "llm", [record])
+    for invalid in (
+        None,
+        "",
+        "compressed_tensors",
+        "unknown",
+        4,
+        ["compressed-tensors"],
+    ):
+        owner["quantization_method"] = invalid
+        with pytest.raises(ValueError, match="quantization_method"):
+            validate(tmp_path, "llm", [record])
 
 
 @pytest.mark.parametrize("path", sorted((MODEL_ROOT / "schemas").glob("*.json")))

@@ -120,6 +120,9 @@ class PytorchLLMSpecV2(BaseModel):
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
     quantization: str
+    # Method recorded in an offline-quantized checkpoint's config.json.
+    # Unset for runtime quantization of an unquantized checkpoint.
+    quantization_method: Optional[Literal["compressed-tensors"]] = None
     model_id: Optional[str]
     model_hub: str = "huggingface"
     model_uri: Optional[str]

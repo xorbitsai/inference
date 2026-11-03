@@ -785,3 +785,7 @@ msgid ""
 msgstr ""
 "結果を確認できない場合、Web UI の **表示中の設定を再適用** "
 "は、変更されていなくても現在表示されている値を送信します。空欄やレプリカ間で値が異なる項目は、値を設定するまで送信されません。"
+
+#: ../../source/user_guide/launch.rst:566
+msgid "Checkpoints declaring ``quantization_method=\"compressed-tensors\"`` use native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch."
+msgstr "``quantization_method=\"compressed-tensors\"`` を宣言したチェックポイントでは、vLLM の compressed-tensors ローダーが前処理済み IPC 重みに対応していない場合、通常の重み読み込みを使用します。自動重み保持ではこの構成をスキップし、保持を明示的に有効にすると起動を拒否します。"

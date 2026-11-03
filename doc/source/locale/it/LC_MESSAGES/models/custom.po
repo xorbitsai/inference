@@ -548,3 +548,7 @@ msgstr "Disconnetti il modello personalizzato tramite codice."
 
 #~ msgid "``architectures`` and other model metadata (when available)"
 #~ msgstr ""
+
+#: ../../source/models/custom.rst:305
+msgid "``quantization_method``: An optional field in ``model_specs`` for an already quantized checkpoint's method; currently only ``compressed-tensors`` is supported. vLLM detects the checkpoint's quantization configuration when loading. Omit this field when quantization is performed at runtime."
+msgstr "``quantization_method``: campo facoltativo in ``model_specs`` per il metodo di un checkpoint già quantizzato; attualmente è supportato solo ``compressed-tensors``. vLLM rileva la configurazione di quantizzazione del checkpoint durante il caricamento. Omettere questo campo quando la quantizzazione viene eseguita a runtime."

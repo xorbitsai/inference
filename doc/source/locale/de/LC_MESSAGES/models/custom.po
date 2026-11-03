@@ -557,3 +557,7 @@ msgstr "Abmelden eines benutzerdefinierten Modells mittels Code"
 
 #~ msgid "``architectures`` and other model metadata (when available)"
 #~ msgstr ""
+
+#: ../../source/models/custom.rst:305
+msgid "``quantization_method``: An optional field in ``model_specs`` for an already quantized checkpoint's method; currently only ``compressed-tensors`` is supported. vLLM detects the checkpoint's quantization configuration when loading. Omit this field when quantization is performed at runtime."
+msgstr "``quantization_method``: Ein optionales Feld in ``model_specs`` für die Methode eines bereits quantisierten Checkpoints; derzeit wird nur ``compressed-tensors`` unterstützt. vLLM erkennt die Quantisierungskonfiguration des Checkpoints beim Laden. Lassen Sie dieses Feld weg, wenn die Quantisierung zur Laufzeit erfolgt."
