@@ -5145,6 +5145,17 @@ class RESTfulAPI(CancelMixin):
                     status_code=503,
                     headers={"Retry-After": "1"},
                 )
+            from ..router.tokenizer import (
+                TokenizationError,
+                normalize_chat_template_kwargs,
+            )
+
+            try:
+                template_kwargs = normalize_chat_template_kwargs(raw_body)
+            except TokenizationError as exc:
+                raise HTTPException(400, str(exc)) from exc
+            if template_kwargs:
+                raw_body["chat_template_kwargs"] = template_kwargs
             return await self._proxy_token_router_chat_completion(
                 request, raw_body, token_router_runtime
             )

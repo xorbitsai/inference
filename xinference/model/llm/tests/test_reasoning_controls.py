@@ -2,6 +2,7 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 import copy
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -16,7 +17,8 @@ def family(name):
 
 
 @pytest.mark.parametrize(
-    "value,expected", [(1, 1), (100, 100), ("low", 50), ("high", 75), ("max", 100)]
+    "value,expected",
+    [(1, 1), (100, 100), ("none", "none"), ("low", 50), ("high", 75), ("max", 100)],
 )
 def test_deepseek_native_effort(value, expected):
     capability = family("DeepSeek-V4.1-Flash-1017").get_reasoning_effort()
@@ -138,6 +140,54 @@ def test_budget_preflight_checks_backend_and_options():
     model.reasoning_parser = None
     with pytest.raises(NotImplementedError, match="reasoning markers"):
         model.prepare_reasoning_request({"thinking_budget": 10})
+
+
+@pytest.mark.parametrize(
+    "constraint",
+    [
+        {"guided_json": {"type": "object"}},
+        {"guided_json": {}},
+        {"guided_regex": "[a-z]+"},
+        {"guided_choice": ["yes", "no"]},
+        {"guided_grammar": 'root ::= "yes"'},
+        {"guided_json_object": True},
+    ],
+)
+def test_budget_rejects_guided_constraints_before_decoding(constraint):
+    model = SimpleNamespace(
+        _reasoning_effort_capability=lambda: None,
+        reasoning_parser=SimpleNamespace(reasoning_end_tag="</think>"),
+        _apply_thinking_budget=Mock(),
+    )
+    with pytest.raises(NotImplementedError, match="structured output"):
+        LLM.prepare_reasoning_request(
+            model, {"thinking_budget": 10, "max_tokens": 30, **constraint}
+        )
+    model._apply_thinking_budget.assert_not_called()
+    assert LLM.prepare_reasoning_request(model, constraint) == constraint
+
+
+def test_budget_accepts_inactive_guided_options():
+    model = SimpleNamespace(
+        _reasoning_effort_capability=lambda: None,
+        reasoning_parser=SimpleNamespace(reasoning_end_tag="</think>"),
+        _apply_thinking_budget=Mock(),
+    )
+    config = LLM.prepare_reasoning_request(
+        model,
+        {
+            "thinking_budget": 10,
+            "max_tokens": 30,
+            "guided_json": None,
+            "guided_json_object": False,
+            "guided_regex": None,
+            "guided_choice": [],
+            "guided_grammar": "",
+            "guided_decoding_backend": "xgrammar",
+            "guided_whitespace_pattern": "[ ]*",
+        },
+    )
+    model._apply_thinking_budget.assert_called_once_with(config)
 
 
 def test_anthropic_effort_is_native_and_preserves_system_prompt():

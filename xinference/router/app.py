@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hmac
-import json
 import logging
 import time
 import uuid
@@ -39,7 +38,7 @@ from .metrics import RouterMetrics
 from .process_metrics import ProcessMetricsCollector
 from .runtime import RouterDisabled, RouterRuntime, RuntimeSnapshot
 from .tokenization import TokenizationWorkerUnavailable
-from .tokenizer import TokenizationError, normalize_thinking_alias
+from .tokenizer import TokenizationError, normalize_chat_template_kwargs
 
 logger = logging.getLogger("xinference.router")
 
@@ -115,23 +114,10 @@ def _payload_thinking(payload: dict) -> bool:
     Invalid ``chat_template_kwargs`` are left for the tokenizer to report as a
     malformed request.
     """
-    template_kwargs = payload.get("chat_template_kwargs") or {}
-    if isinstance(template_kwargs, str):
-        try:
-            template_kwargs = json.loads(template_kwargs)
-        except json.JSONDecodeError:
-            return False
-    if not isinstance(template_kwargs, dict):
+    try:
+        normalized = normalize_chat_template_kwargs(payload)
+    except TokenizationError:
         return False
-
-    normalized = normalize_thinking_alias(template_kwargs)
-    value = payload.get("enable_thinking")
-    if value is None:
-        extra_body = payload.get("extra_body")
-        if isinstance(extra_body, dict):
-            value = extra_body.get("enable_thinking")
-    if isinstance(value, bool):
-        normalized["enable_thinking"] = value
     return bool(normalized.get("enable_thinking", False))
 
 

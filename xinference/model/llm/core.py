@@ -138,10 +138,23 @@ class LLM(abc.ABC):
 
         if is_forced_tool_choice(config):
             raise ValueError("Forced tool choice is incompatible with manual thinking")
-        if (config.get("response_format") or {}).get("type") in {
-            "json_object",
-            "json_schema",
-        }:
+        if (
+            (config.get("response_format") or {}).get("type")
+            in {
+                "json_object",
+                "json_schema",
+            }
+            or config.get("guided_json") is not None
+            or any(
+                config.get(key)
+                for key in (
+                    "guided_regex",
+                    "guided_choice",
+                    "guided_grammar",
+                    "guided_json_object",
+                )
+            )
+        ):
             raise NotImplementedError(
                 "OpenAI thinking budgets cannot be combined with structured output"
             )
