@@ -563,7 +563,7 @@ Reconfigure and upgrade running models
 
 GPU weight retention defaults to automatic selection: supported model environments and configurations enable it; unsupported configurations start normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic selection, set ``True`` to require retention, or ``False`` to disable it. In the deployment dialog, **Keep GPU weights for reload** offers **Auto**, **Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one Worker per replica, and fixed tensor parallelism within each replica. Multiple replicas and scale-out are supported; each replica retains its own weights independently.
 
-Qwen3.8 INT4 uses native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch.
+Checkpoints declaring ``quantization_method="compressed-tensors"`` use native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch.
 
 .. figure:: /_static/keep_weight_for_reload.png
    :alt: Configure GPU weight retention before deploying the model.

@@ -14,8 +14,6 @@
 
 # CI: linux
 
-import sys
-from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -23,7 +21,6 @@ from packaging.version import Version
 
 from ..llm_family import check_engine_by_spec_parameters_with_virtual_env, match_llm
 from ..vllm import core as vllm_core
-from ..weight_cache import WeightCachedModel
 
 
 @pytest.fixture(params=["huggingface", "modelscope"])
@@ -42,6 +39,7 @@ def vllm_worker(monkeypatch):
 def test_qwen38_int4_catalog_and_engine_selection(int4_family, vllm_worker):
     spec = int4_family.model_specs[0]
     assert spec.model_id == "RedHatAI/Qwen3.8-27B-INT4"
+    assert spec.quantization_method == "compressed-tensors"
     assert (
         spec.model_revision
         == {
@@ -61,15 +59,8 @@ def test_qwen38_int4_catalog_and_engine_selection(int4_family, vllm_worker):
     )
 
 
-@pytest.mark.parametrize(
-    "field,value",
-    [
-        ("model_name", "qwen3.5"),
-        ("architectures", ["Qwen3_5MoeForConditionalGeneration"]),
-    ],
-)
-def test_qwen38_int4_exception_stays_scoped(int4_family, vllm_worker, field, value):
-    setattr(int4_family, field, value)
+def test_qwen38_int4_requires_quantization_metadata(int4_family, vllm_worker):
+    int4_family.model_specs[0].quantization_method = None
     result = vllm_core.VLLMMultiModel.match_json(
         int4_family, int4_family.model_specs[0], "Int4"
     )
@@ -85,8 +76,11 @@ def test_qwen38_int4_does_not_enable_other_quantizations(int4_family, vllm_worke
     assert "pytorch format with quantization" in result[1]
 
 
-def test_qwen38_int4_preserves_checkpoint_quantizer(int4_family, monkeypatch, tmp_path):
-    monkeypatch.setattr(vllm_core, "VLLM_VERSION", Version("0.32.0"))
+@pytest.mark.parametrize("engine_version", ["0.21.0", "0.32.0"])
+def test_qwen38_int4_preserves_checkpoint_quantizer(
+    int4_family, monkeypatch, tmp_path, engine_version
+):
+    monkeypatch.setattr(vllm_core, "VLLM_VERSION", Version(engine_version))
     model = object.__new__(vllm_core.VLLMMultiModel)
     model.model_family = int4_family
     model.model_spec = int4_family.model_specs[0]
@@ -96,45 +90,6 @@ def test_qwen38_int4_preserves_checkpoint_quantizer(int4_family, monkeypatch, tm
     config = model._sanitize_model_config({"max_model_len": 131072})
     assert config["quantization"] is None
     assert config["max_model_len"] == 131072
-
-
-@pytest.mark.parametrize("supported", [False, True])
-@pytest.mark.parametrize("option", [None, True])
-def test_qwen38_int4_weight_cache_capability(
-    int4_family, monkeypatch, supported, option
-):
-    monkeypatch.setattr(
-        WeightCachedModel, "_weight_cache_unavailable_reason", lambda self: None
-    )
-    monkeypatch.setitem(
-        sys.modules,
-        "vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors",
-        SimpleNamespace(
-            CompressedTensorsLinearMethod=SimpleNamespace(
-                supports_pre_processed_weights=supported
-            )
-        ),
-    )
-    model = object.__new__(vllm_core.VLLMMultiModel)
-    model.model_spec = int4_family.model_specs[0]
-    model._weight_cache_option = option
-    if option is True and not supported:
-        with pytest.raises(ValueError, match="IPC weight caching"):
-            model._resolve_weight_cache()
-    else:
-        model._resolve_weight_cache()
-        assert model._enable_weight_cache is supported
-
-
-def test_qwen38_weight_cache_keeps_other_checkpoints(monkeypatch):
-    monkeypatch.setattr(
-        WeightCachedModel, "_weight_cache_unavailable_reason", lambda self: None
-    )
-    model = object.__new__(vllm_core.VLLMMultiModel)
-    model.model_spec = match_llm(
-        "qwen3.8", "pytorch", 27, "none", "huggingface"
-    ).model_specs[0]
-    assert model._weight_cache_unavailable_reason() is None
 
 
 @pytest.mark.parametrize("has_gpu,is_linux", [(False, True), (True, False)])

@@ -2120,6 +2120,33 @@ class VLLMModel(WeightCachedModel, LLM):
 
         return sanitized
 
+    @staticmethod
+    def _supports_pytorch_quantization(
+        llm_spec: "LLMSpecV1", quantization: Optional[str]
+    ) -> bool:
+        # Precision labels alone do not distinguish checkpoint quantization
+        # from quantizing an unquantized model at load time.
+        return quantization in (None, "none") or (
+            getattr(llm_spec, "quantization_method", None) == "compressed-tensors"
+            and quantization == llm_spec.quantization
+        )
+
+    def _weight_cache_unavailable_reason(self) -> Optional[str]:
+        reason = super()._weight_cache_unavailable_reason()
+        if reason is not None:
+            return reason
+        if (
+            getattr(self.model_spec, "quantization_method", None)
+            == "compressed-tensors"
+        ):
+            from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors import (
+                CompressedTensorsLinearMethod,
+            )
+
+            if not CompressedTensorsLinearMethod.supports_pre_processed_weights:
+                return "vLLM's compressed-tensors loader does not support preprocessed IPC weights"
+        return None
+
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         try:
@@ -2146,7 +2173,7 @@ class VLLMModel(WeightCachedModel, LLM):
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]:
             return False, "vLLM supports pytorch/gptq/awq/fp4/fp8/bnb formats only"
         if llm_spec.model_format == "pytorch":
-            if quantization not in (None, "none"):
+            if not cls._supports_pytorch_quantization(llm_spec, quantization):
                 return (
                     False,
                     "pytorch format with quantization is not supported by vLLM",
@@ -3053,10 +3080,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             ):
                 return False, "Ling-3.0 requires vLLM >= 0.28.0"
         if llm_spec.model_format == "pytorch":
-            # The official INT4 checkpoint uses compressed-tensors; vLLM
-            # infers its quantization method from the checkpoint configuration.
-            offline_ling_int4 = is_ling3 and quantization == "Int4"
-            if quantization not in (None, "none") and not offline_ling_int4:
+            if not cls._supports_pytorch_quantization(llm_spec, quantization):
                 return (
                     False,
                     "pytorch format with quantization is not supported in vLLM chat",
@@ -3300,23 +3324,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
 
 class VLLMMultiModel(VLLMModel, ChatModelMixin):
-    def _weight_cache_unavailable_reason(self) -> Optional[str]:
-        reason = super()._weight_cache_unavailable_reason()
-        if reason is not None:
-            return reason
-        if (
-            self.model_spec.model_id == "RedHatAI/Qwen3.8-27B-INT4"
-            and self.model_spec.model_format == "pytorch"
-            and self.model_spec.quantization == "Int4"
-        ):
-            from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors import (
-                CompressedTensorsLinearMethod,
-            )
-
-            if not CompressedTensorsLinearMethod.supports_pre_processed_weights:
-                return "Qwen3.8 INT4 does not support vLLM IPC weight caching"
-        return None
-
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
@@ -3339,22 +3346,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 "vLLM multimodal engine supports pytorch/gptq/awq/fp4/fp8/bnb formats only",
             )
         if llm_spec.model_format == "pytorch":
-            # These offline INT4 checkpoints use compressed-tensors; let vLLM
-            # detect their on-disk quantization configuration.
-            offline_minicpmv47_int4 = (
-                llm_family.has_architecture("MiniCPMV4_7ForConditionalGeneration")
-                and quantization == "Int4"
-                and str(llm_spec.model_size_in_billions) == "35"
-            )
-            offline_qwen38_int4 = (
-                llm_family.model_name == "qwen3.8"
-                and llm_family.has_architecture("Qwen3_5ForConditionalGeneration")
-                and str(llm_spec.model_size_in_billions) == "27"
-                and quantization == "Int4"
-            )
-            if quantization not in (None, "none") and not (
-                offline_minicpmv47_int4 or offline_qwen38_int4
-            ):
+            if not cls._supports_pytorch_quantization(llm_spec, quantization):
                 return (
                     False,
                     "pytorch format with quantization is not supported for vLLM multimodal",

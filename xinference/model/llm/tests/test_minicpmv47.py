@@ -249,13 +249,11 @@ def test_vllm_nightly_gate(virtualenv_worker, monkeypatch, installed_version, ac
         assert "PR #58674" in result[1]
 
 
-def test_int4_exception_is_scoped(virtualenv_worker):
+def test_int4_requires_quantization_metadata(virtualenv_worker):
     family = match_llm("MiniCPM-V-4.7", "pytorch", 35, "Int4", "huggingface")
     spec = family.model_specs[0]
-    family.architectures = ["MiniCPMV4_6ForConditionalGeneration"]
-    assert vllm_core.VLLMMultiModel.match_json(family, spec, "Int4")[0] is False
-    family.architectures = ["MiniCPMV4_7ForConditionalGeneration"]
-    spec.model_size_in_billions = 1
+    assert spec.quantization_method == "compressed-tensors"
+    spec.quantization_method = None
     assert vllm_core.VLLMMultiModel.match_json(family, spec, "Int4")[0] is False
 
 

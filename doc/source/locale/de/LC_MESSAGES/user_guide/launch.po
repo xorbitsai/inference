@@ -912,5 +912,7 @@ msgstr ""
 "anwenden** in der Weboberfläche die aktuell angezeigten Werte, auch wenn sie"
 " unverändert sind. Leere Felder und Felder mit unterschiedlichen "
 "Replikatwerten werden ausgelassen, bis Sie einen Wert festlegen."
-msgid "Qwen3.8 INT4 uses native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch."
-msgstr "Qwen3.8 INT4 lädt Gewichte nativ, wenn der compressed-tensors-Loader von vLLM keine vorverarbeiteten IPC-Gewichte unterstützt. Die automatische Beibehaltung überspringt diese Konfiguration; bei explizit aktivierter Beibehaltung wird der Start abgelehnt."
+
+#: ../../source/user_guide/launch.rst:566
+msgid "Checkpoints declaring ``quantization_method=\"compressed-tensors\"`` use native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch."
+msgstr "Checkpoints mit ``quantization_method=\"compressed-tensors\"`` verwenden das native Laden der Gewichte, wenn der compressed-tensors-Loader von vLLM keine vorverarbeiteten IPC-Gewichte unterstützt. Die automatische Vorhaltung überspringt diese Konfiguration; bei expliziter Aktivierung wird der Start abgelehnt."

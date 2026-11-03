@@ -462,7 +462,8 @@
               "config_sha256": "5498b42f9ea96d2669709c177e29122997ce14786a7530fe1ea1b340e535776c"
             }
           }
-        }
+        },
+        "quantization_method": "compressed-tensors"
       }
     ],
     "version": 2,

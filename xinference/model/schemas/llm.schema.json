@@ -51,6 +51,11 @@
         "model_metadata": {
           "$ref": "#/$defs/modelMetadata"
         },
+        "quantization_method": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Quantization method recorded in an offline-quantized checkpoint's config.json."
+        },
         "model_format": {
           "type": "string",
           "enum": [
@@ -98,6 +103,11 @@
         }
       ],
       "properties": {
+        "quantization_method": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Overrides the spec-level offline quantization method for this source."
+        },
         "multimodal_projectors": {
           "type": "array",
           "items": {
