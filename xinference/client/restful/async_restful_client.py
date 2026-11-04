@@ -1351,28 +1351,36 @@ class AsyncRESTfulFlexibleModelHandle(AsyncRESTfulModelHandle):
 class AsyncClient:
     def __init__(self, base_url, api_key: Optional[str] = None):
         self.base_url = normalize_endpoint(base_url)
+        self._api_key = api_key
         self._headers: Dict[str, str] = {}
-        self._cluster_authed = False
+        # None until the first request has probed the cluster (_ensure_initialized).
+        self._cluster_authed: Optional[bool] = None
+        self._init_task: Optional["asyncio.Task[Optional[Exception]]"] = None
         self.timeout = aiohttp.ClientTimeout(total=1800)
         self._session_loop = asyncio.get_running_loop()
         self.session = aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(force_close=True), timeout=self.timeout
         )
-        self._check_cluster_authenticated()
-        if api_key is not None and self._cluster_authed:
-            self._headers["Authorization"] = f"Bearer {api_key}"
 
     async def close(self):
-        """Close the AsyncClient session."""
-        if self.session:
-            await self.session.close()
-            self.session = None
+        """Stop initialization and close the AsyncClient session."""
+        init_task = getattr(self, "_init_task", None)
+        try:
+            if init_task is not None:
+                if not init_task.done():
+                    init_task.cancel()
+                await asyncio.gather(init_task, return_exceptions=True)
+        finally:
+            self._init_task = None
+            if self.session:
+                await self.session.close()
+                self.session = None
 
     def __del__(self):
         _schedule_session_close(self)
 
     def _set_token(self, token: Optional[str]):
-        if not self._cluster_authed or token is None:
+        if self._cluster_authed is False or token is None:
             return
         self._headers["Authorization"] = f"Bearer {token}"
 
@@ -1383,25 +1391,56 @@ class AsyncClient:
             else None
         )
 
-    def _check_cluster_authenticated(self):
-        import requests
-
-        session = requests.Session()
+    async def _check_cluster_authenticated(self) -> bool:
         url = f"{self.base_url}/v1/cluster/auth"
-        response = session.get(url)
+        response = await self.session.get(url)
         # compatible with old version of xinference
-        if response.status_code == 404:
-            self._cluster_authed = False
-        else:
-            if response.status_code != 200:
-                response_data = response.json()
-                raise RuntimeError(
-                    f"Failed to get cluster information, detail: {response_data['detail']}"
-                )
-            response_data = response.json()
-            self._cluster_authed = bool(response_data["auth"])
+        if response.status == 404:
+            await _release_response(response)
+            return False
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to get cluster information, detail: {await _get_error_string(response)}"
+            )
+        response_data = await response.json()
+        await _release_response(response)
+        return bool(response_data["auth"])
+
+    async def _ensure_initialized(self) -> None:
+        """Probe the cluster before the first request, without blocking the loop.
+
+        Concurrent first requests await one probe task and get its result or its
+        error. The task is shielded, so cancelling one request does not cancel the
+        probe for the others. A failed probe is not remembered: the next request
+        starts a new one.
+        """
+        if self._cluster_authed is not None:
+            return
+        if self._init_task is None or self._init_task.done():
+            self._init_task = asyncio.create_task(self._initialize())
+        error = await asyncio.shield(self._init_task)
+        if error is not None:
+            raise error
+
+    async def _initialize(self) -> Optional[Exception]:
+        # Returns the probe's error instead of raising it: if every caller was
+        # cancelled, nobody would retrieve a raised one and asyncio logs that.
+        # The result is stored only after the probe and the API key were handled.
+        try:
+            authed = await self._check_cluster_authenticated()
+            if not authed:
+                # A token set before the probe only applies to an auth cluster.
+                self._headers.pop("Authorization", None)
+            elif self._api_key is not None:
+                # A token set before the probe is newer than the API key.
+                self._headers.setdefault("Authorization", f"Bearer {self._api_key}")
+            self._cluster_authed = authed
+            return None
+        except Exception as error:
+            return error
 
     async def vllm_models(self) -> Dict[str, Any]:
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/vllm-supported"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -1417,6 +1456,7 @@ class AsyncClient:
             raise RuntimeError(f"Error parsing JSON response: {e}")
 
     async def login(self, username: str, password: str):
+        await self._ensure_initialized()
         if not self._cluster_authed:
             return
         url = f"{self.base_url}/token"
@@ -1446,6 +1486,7 @@ class AsyncClient:
 
         """
 
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models"
 
         response = await self.session.get(url, headers=self._headers)
@@ -1551,6 +1592,7 @@ class AsyncClient:
 
         """
 
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models"
 
         # convert float to int or string since the RESTful API does not accept float.
@@ -1602,6 +1644,7 @@ class AsyncClient:
         return response_data["model_uid"]
 
     async def get_autostart_config(self) -> Dict:
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/autostart/models"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -1613,6 +1656,7 @@ class AsyncClient:
         return response_data
 
     async def get_autostart_model_summary(self) -> Dict:
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/autostart/models/summary"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -1624,6 +1668,7 @@ class AsyncClient:
         return response_data
 
     async def upsert_autostart_model(self, entry: Dict) -> Dict:
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/autostart/models"
         response = await self.session.post(url, json=entry, headers=self._headers)
         if response.status != 200:
@@ -1635,6 +1680,7 @@ class AsyncClient:
         return response_data
 
     async def remove_autostart_model(self, model_uid: str) -> Dict:
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/autostart/models/{quote(model_uid, safe='')}"
         response = await self.session.delete(url, headers=self._headers)
         if response.status != 200:
@@ -1659,6 +1705,7 @@ class AsyncClient:
         a standalone ``reasoning_content`` update does not. Use
         ``get_model_reload_status`` to wait for ready/error after HTTP 202.
         """
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"
         payload = {"model_config": model_config, "drain_timeout": drain_timeout}
         if python_executable is not None:
@@ -1678,6 +1725,7 @@ class AsyncClient:
 
     async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
         """Return the latest reload operation, including its stage and error."""
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -1690,6 +1738,7 @@ class AsyncClient:
 
     async def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
         """Return editable parameters, their types and current explicit values."""
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload/config"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -1716,6 +1765,7 @@ class AsyncClient:
 
         """
 
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/{model_uid}"
 
         response = await self.session.delete(url, headers=self._headers)
@@ -1763,6 +1813,7 @@ class AsyncClient:
             A single-replica result, or ``{"replica": int, "replicas": list}``
             when more than one replica is requested.
         """
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/{model_uid}/replicas"
         payload: Dict[str, Any] = {}
         if replica_config is not None:
@@ -1785,6 +1836,7 @@ class AsyncClient:
     async def terminate_model_replica(self, model_uid: str, replica_id: int) -> int:
         """Terminate a specific replica of a running model."""
 
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/{model_uid}/replicas/{replica_id}"
 
         response = await self.session.delete(url, headers=self._headers)
@@ -1816,6 +1868,7 @@ class AsyncClient:
         RuntimeError
             Report failure to get the wanted model with given model_uid. Provide details of failure through error message.
         """
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/{model_uid}/progress"
 
         response = await self.session.get(url, headers=self._headers)
@@ -1841,6 +1894,7 @@ class AsyncClient:
         RuntimeError
             Report failure to get the wanted model with given model_uid. Provide details of failure through error message.
         """
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/{model_uid}/cancel"
 
         response = await self.session.post(url, headers=self._headers)
@@ -1851,6 +1905,7 @@ class AsyncClient:
         await _release_response(response)
 
     async def get_instance_info(self, model_name: str, model_uid: str):
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/instances"
         response = await self.session.get(
             url,
@@ -1864,6 +1919,7 @@ class AsyncClient:
         return response_data
 
     async def _get_supervisor_internal_address(self):
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/address"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -1896,6 +1952,7 @@ class AsyncClient:
 
         """
 
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/{model_uid}"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -1988,6 +2045,7 @@ class AsyncClient:
 
         """
 
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/{model_uid}"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -2024,6 +2082,7 @@ class AsyncClient:
         RuntimeError
             Report failure to register the custom model. Provide details of failure through error message.
         """
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/model_registrations/{model_type}"
         request_body = {"model": model, "worker_ip": worker_ip, "persist": persist}
         response = await self.session.post(
@@ -2054,6 +2113,7 @@ class AsyncClient:
         RuntimeError
             Report failure to unregister the custom model. Provide details of failure through error message.
         """
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
         response = await self.session.delete(url, headers=self._headers)
         if response.status != 200:
@@ -2085,6 +2145,7 @@ class AsyncClient:
             Report failure to list model registration. Provide details of failure through error message.
 
         """
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/model_registrations/{model_type}"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -2119,6 +2180,7 @@ class AsyncClient:
             Raised when the request fails, including the reason for the failure.
         """
 
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/cache/models"
         params = {
             "model_name": model_name,
@@ -2151,6 +2213,7 @@ class AsyncClient:
         Dict[str, Dict[str,str]]]
             Dictionary with keys "model_name" and values model_file_location.
         """
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/cache/models/files"
         params = {
             "model_version": model_version,
@@ -2183,6 +2246,7 @@ class AsyncClient:
         str
             The response of the server.
         """
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/cache/models"
         params = {
             "model_version": model_version,
@@ -2217,6 +2281,7 @@ class AsyncClient:
         List[Dict[str, Any]]
             The collection of registered models on the server.
         """
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -2248,6 +2313,7 @@ class AsyncClient:
         Dict[str, List[Dict[str, Any]]]
             The supported engine parameters of registered models on the server.
         """
+        await self._ensure_initialized()
         if not model_type:
             url = f"{self.base_url}/v1/engines/{model_name}"
         else:
@@ -2287,6 +2353,7 @@ class AsyncClient:
         Dict
             Return empty dict.
         """
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
         response = await self.session.post(
             url, headers=self._headers, json={"block_duration": block_duration}
@@ -2301,6 +2368,7 @@ class AsyncClient:
         return response_data
 
     async def get_workers_info(self):
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/workers"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -2318,6 +2386,7 @@ class AsyncClient:
         request_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Relaunch a Worker and return its asynchronous operation status."""
+        await self._ensure_initialized()
         response = await self.session.post(
             f"{self.base_url}/v1/workers/{quote(worker_address, safe='')}/relaunch",
             json={"python_executable": python_executable, "request_id": request_id},
@@ -2332,6 +2401,7 @@ class AsyncClient:
         return result
 
     async def get_worker_relaunch(self, operation_id: str) -> Dict[str, Any]:
+        await self._ensure_initialized()
         response = await self.session.get(
             f"{self.base_url}/v1/worker-relaunches/{quote(operation_id, safe='')}",
             headers=self._headers,
@@ -2345,6 +2415,7 @@ class AsyncClient:
         return result
 
     async def list_worker_relaunches(self) -> List[Dict[str, Any]]:
+        await self._ensure_initialized()
         response = await self.session.get(
             f"{self.base_url}/v1/worker-relaunches", headers=self._headers
         )
@@ -2357,6 +2428,7 @@ class AsyncClient:
         return result
 
     async def get_supervisor_info(self):
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/supervisor"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -2368,6 +2440,7 @@ class AsyncClient:
         return response_json
 
     async def get_progress(self, request_id: str):
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/requests/{request_id}/progress"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
@@ -2379,6 +2452,7 @@ class AsyncClient:
         return response_json
 
     async def abort_cluster(self):
+        await self._ensure_initialized()
         url = f"{self.base_url}/v1/clusters"
         response = await self.session.delete(url, headers=self._headers)
         if response.status != 200:
