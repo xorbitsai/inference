@@ -8085,9 +8085,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         rep_model_uid = launch_args.get("model_uid")
         origin_uid, _ = parse_replica_model_uid(rep_model_uid)
         xavier_config: Optional[Dict[str, Any]] = launch_args.get("xavier_config", None)
-        is_xavier: bool = xavier_config is not None
+        uses_xavier_collective = xavier_config is not None and (
+            not xavier_config.get("cpu_prefix_cache")
+            or xavier_config.get("gpu_cache_bytes") is not None
+        )
         supervisor_ref = await self.get_supervisor_ref(add_worker=False)
-        if is_xavier:
+        if uses_xavier_collective:
             rank = xavier_config.get("rank")
             await supervisor_ref.call_collective_manager(
                 origin_uid, "unregister_rank", rank
@@ -8106,7 +8109,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 )
                 await directory.unregister_peer(cache_config["rank"])
         subpool_address = await self.launch_builtin_model(**launch_args)
-        if is_xavier:
+        if uses_xavier_collective:
             model_ref = self._model_uid_to_model[rep_model_uid]
             await model_ref.start_transfer_for_vllm([])
             rank = xavier_config.get("rank")
@@ -8121,7 +8124,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # already awaited model_ref.load(), so wait_for_load is near-instant here.
         await self.wait_for_load(rep_model_uid)
         if (
-            (is_xavier and xavier_config.get("role") in ("prefill", "decode"))
+            (
+                uses_xavier_collective
+                and xavier_config.get("role") in ("prefill", "decode")
+            )
             or launch_args.get("_nixl_config")
             or launch_args.get("_xavier_cache_config", {}).get("role")
             in ("prefill", "decode")

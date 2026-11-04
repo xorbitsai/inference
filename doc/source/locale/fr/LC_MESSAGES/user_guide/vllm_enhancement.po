@@ -90,8 +90,8 @@ msgid "MLX replicas"
 msgstr "Répliques MLX"
 
 #: source/user_guide/vllm_enhancement.rst:18
-msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
-msgstr "Pour les modèles utilisant uniquement des couches d’attention sur vLLM V1, Xavier conserve le paramètre ``enforce_eager`` du modèle, permettant l’exécution avec CUDA Graph. Définissez ``enforce_eager=True`` au lancement du modèle pour utiliser l’exécution eager. Les modèles récurrents continuent d’utiliser l’exécution eager par défaut."
+msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent handoff uses eager execution by default. Ordinary hybrid attention replicas preserve vLLM's ``enforce_eager`` setting."
+msgstr "Pour les modèles utilisant uniquement des couches d’attention sur vLLM V1, Xavier conserve le paramètre ``enforce_eager`` du modèle, permettant l’exécution avec CUDA Graph. Définissez ``enforce_eager=True`` au lancement du modèle pour utiliser l’exécution eager. Le transfert de l’état récurrent utilise l’exécution eager par défaut. Les répliques ordinaires à attention hybride conservent le paramètre ``enforce_eager`` de vLLM."
 
 #: ../../source/user_guide/vllm_enhancement.rst:52
 msgid "Request-scoped cache isolation"
@@ -566,3 +566,19 @@ msgid ""
 msgstr ""
 "Sur vLLM P, chaque RPC d’historique côté ordonnanceur a un délai d’une "
 "seconde ; ``read_timeout`` limite le travail de stockage du proxy."
+
+#: ../../source/user_guide/vllm_enhancement.rst:88
+msgid "Hybrid attention replicas"
+msgstr "Répliques à attention hybride"
+
+#: ../../source/user_guide/vllm_enhancement.rst:91
+msgid "For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True``. For CPU-only sharing, set a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode=\"align\"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding."
+msgstr "Pour les modèles à attention hybride comme Qwen3.5, les répliques vLLM ordinaires peuvent partager les KV d’attention et l’état récurrent avec vLLM >= ``0.32.0``. Lancez plusieurs répliques avec ``enable_xavier=True``. Pour un partage exclusivement sur CPU, attribuez une valeur positive à ``xavier_cache_bytes``. Pour les checkpoints multimodaux, utilisez ``language_model_only=True``. Ce mode utilise ``mamba_cache_mode=\"align\"`` et exige le cache de préfixes ainsi qu’un seul GPU par réplique, sans LoRA ni décodage spéculatif."
+
+#: ../../source/user_guide/vllm_enhancement.rst:93
+msgid "``xavier_cache_bytes`` sets the shared CPU cache capacity and the CPU staging capacity of each replica. Size the budget for the prefix you want to reuse, including recurrent state. A cache miss or failed import triggers local prefill."
+msgstr "``xavier_cache_bytes`` fixe la capacité du cache CPU partagé et du tampon CPU de chaque réplique. Dimensionnez ce budget pour le préfixe à réutiliser, état récurrent compris. En cas de cache manquant ou d’échec de l’importation, le préremplissage s’effectue localement."
+
+#: ../../source/user_guide/vllm_enhancement.rst:95
+msgid "Set ``xavier_gpu_cache_bytes=0`` to share aligned prefixes directly from resident GPU cache blocks. Add ``xavier_cache_bytes`` to enable CPU fallback. Direct GPU sharing requires NVIDIA GPUs, ``xoscar[nixl]>=0.11.1`` and ``async_scheduling=False``."
+msgstr "Utilisez ``xavier_gpu_cache_bytes=0`` pour partager des préfixes alignés directement depuis les blocs de cache résidents sur GPU. Ajoutez ``xavier_cache_bytes`` pour activer le repli sur CPU. Le partage direct exige des GPU NVIDIA, ``xoscar[nixl]>=0.11.1`` et ``async_scheduling=False``."
