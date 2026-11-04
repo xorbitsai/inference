@@ -16,6 +16,7 @@
 import os
 import shutil
 import tempfile
+from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -759,22 +760,29 @@ def test_persistent_custom_llm():
 
 @pytest.fixture
 def isolated_cache_home(tmp_path, monkeypatch):
-    """Cache and persisted registrations under tmp_path; registrations are undone."""
+    return _isolate_cache_home(tmp_path, monkeypatch)
+
+
+def _isolate_cache_home(tmp_path, monkeypatch):
+    """Cache, persisted registrations and LLM registry that exist for this test only."""
     from .... import constants
+    from ... import llm
     from ...cache_manager import CacheManager as BaseCacheManager
     from ...custom import RegistryManager
-    from ..custom import get_user_defined_llm_families
+    from .. import custom, llm_family
 
     monkeypatch.setattr(constants, "XINFERENCE_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path / "model"))
     monkeypatch.setattr(BaseCacheManager, "is_initialized", False)
-    before = {family.model_name for family in get_user_defined_llm_families()}
-    yield tmp_path
-    for family in get_user_defined_llm_families():
-        if family.model_name not in before:
-            RegistryManager.get_registry("llm").unregister(
-                family.model_name, raise_error=False, remove_file=False
-            )
+    # An empty registry and engine table: none of the models registered at
+    # startup are visible, and what the test registers is gone with them.
+    engines = {}
+    monkeypatch.setattr(llm, "LLM_ENGINES", engines)
+    monkeypatch.setattr(llm_family, "LLM_ENGINES", engines)
+    monkeypatch.setattr(custom, "UD_LLM_FAMILIES", [])
+    registry = custom.LLMModelRegistry()
+    monkeypatch.setattr(RegistryManager, "_instances", {"llm": registry})
+    return tmp_path
 
 
 def _weights_dir(path, marker):
@@ -915,6 +923,124 @@ def test_startup_skips_a_persisted_registration_with_a_colliding_cache_directory
     assert "my-qwen" in names
     assert "qwen2_5-instruct" not in names
     assert (persisted / "qwen2_5-instruct.json").exists()
+
+
+@pytest.mark.parametrize("ignores_case", [True, False])
+def test_custom_llm_named_like_a_builtin_up_to_case(
+    isolated_cache_home, monkeypatch, ignores_case
+):
+    from .. import custom
+    from ..custom import get_user_defined_llm_families, register_llm
+
+    # stands in for the cache volume, so the result does not depend on the host
+    monkeypatch.setattr(custom, "_volume_ignores_case", lambda path: ignores_case)
+    builtin = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none", "huggingface")
+    assert builtin is not None
+    mine = _weights_dir(isolated_cache_home / "mine", "CUSTOM_WEIGHTS")
+    twin = _custom_family("Qwen2_5-instruct", _pytorch_spec(model_uri=mine))
+    builtin_name = os.path.basename(CacheManager(builtin).get_cache_dir())
+    twin_name = os.path.basename(CacheManager(twin).get_cache_dir())
+    assert twin_name != builtin_name and twin_name.lower() == builtin_name
+
+    if ignores_case:  # one directory on such a volume
+        with pytest.raises(ValueError, match="qwen2.5-instruct.*cache directory"):
+            register_llm(twin, persist=True)
+        assert twin not in get_user_defined_llm_families()
+    else:
+        register_llm(twin, persist=False)
+        assert twin in get_user_defined_llm_families()
+
+
+def test_volume_case_probe_matches_what_the_volume_does(tmp_path):
+    from ..custom import _volume_ignores_case
+
+    # The ground truth concerns entries inside tmp_path, not its own name.
+    (tmp_path / "Probe").mkdir()
+    try:
+        (tmp_path / "pROBE").mkdir()
+        expected = False
+    except FileExistsError:
+        expected = True
+
+    for name in ("Probe", "Missing"):
+        assert _volume_ignores_case(str(tmp_path / name)) is expected
+
+
+@pytest.mark.parametrize("ignores_case", [True, False])
+def test_volume_case_probe_uses_the_cache_parent(tmp_path, ignores_case):
+    from .. import custom
+
+    parent = str(tmp_path / "v2")
+    probe = os.path.join(parent, "Probe")
+    alternate = os.path.join(parent, "pROBE")
+    stat = os.stat_result((0, 1, 1, 0, 0, 0, 0, 0, 0, 0))
+
+    def lstat(path):
+        if path == probe or (ignores_case and path == alternate):
+            return stat
+        raise FileNotFoundError(path)
+
+    # Model a mount, symlink target or NTFS directory whose rules differ
+    # from the directory containing its name.
+    with patch.object(custom, "os", wraps=os) as filesystem:
+        filesystem.path.isdir.side_effect = lambda path: path == parent or (
+            not ignores_case and path == str(tmp_path / "V2")
+        )
+        filesystem.path.samefile.return_value = True
+        filesystem.scandir.return_value = nullcontext(
+            [SimpleNamespace(name="Probe", path=probe)]
+        )
+        filesystem.lstat.side_effect = lstat
+        assert (
+            custom._volume_ignores_case(os.path.join(parent, "Missing")) is ignores_case
+        )
+        filesystem.scandir.assert_called_once_with(parent)
+
+
+def test_volume_case_probe_missing_or_unobservable_parent(tmp_path):
+    from ..custom import _volume_ignores_case
+
+    assert _volume_ignores_case(str(tmp_path / "Missing")) is True
+    (tmp_path / "1234").mkdir()
+    assert _volume_ignores_case(str(tmp_path / "Missing")) is True
+    assert _volume_ignores_case(str(tmp_path / "missing" / "Missing")) is True
+
+
+@pytest.mark.parametrize("operation", ["scandir", "lstat"])
+def test_volume_case_probe_errors_are_conservative(tmp_path, operation):
+    from .. import custom
+
+    (tmp_path / "Probe").mkdir()
+    with patch.object(custom, "os", wraps=os) as filesystem:
+        getattr(filesystem, operation).side_effect = PermissionError("denied")
+        assert custom._volume_ignores_case(str(tmp_path / "Missing")) is True
+
+
+def test_models_registered_before_the_fixture_do_not_reach_the_test(
+    isolated_cache_home, monkeypatch
+):
+    from ... import llm
+    from ...custom import RegistryManager
+    from .. import custom, llm_family
+    from ..custom import get_user_defined_llm_families, register_llm
+
+    # Seed a disposable outer registry, never the developer's startup registry.
+    family = _custom_family("registered-at-startup", _pytorch_spec(model_id="org/m"))
+    register_llm(family, persist=False)
+    registry = RegistryManager.get_registry("llm")
+    engines = llm.LLM_ENGINES
+    with monkeypatch.context() as isolated:
+        _isolate_cache_home(isolated_cache_home, isolated)
+        assert get_user_defined_llm_families() == []
+        same_name = _custom_family(family.model_name, _pytorch_spec("1"))
+        register_llm(same_name, persist=False)
+        assert get_user_defined_llm_families() == [same_name]
+
+    assert RegistryManager.get_registry("llm") is registry
+    assert custom.UD_LLM_FAMILIES is registry.models
+    assert llm.LLM_ENGINES is engines
+    assert llm_family.LLM_ENGINES is engines
+    assert get_user_defined_llm_families() == [family]
 
 
 def test_is_locale_chinese_simplified():

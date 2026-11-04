@@ -29,6 +29,34 @@ logger = logging.getLogger(__name__)
 UD_LLM_FAMILIES: List["LLMFamilyV2"] = []
 
 
+def _volume_ignores_case(path: str) -> bool:
+    """Conservatively check case aliases inside the cache entry's parent.
+
+    Looking up the parent's own name tests the directory above it, which may
+    have different case rules. Inspect an ASCII entry inside the parent
+    instead, without following that entry's symlink. If the parent is missing,
+    empty, unreadable or has no suitable entry, assume case aliases collide.
+    """
+    parent = os.path.dirname(os.path.abspath(path))
+    try:
+        with os.scandir(parent) as entries:
+            for entry in entries:
+                swapped = entry.name.swapcase()
+                if not entry.name.isascii() or swapped == entry.name:
+                    continue
+                original = os.lstat(entry.path)
+                try:
+                    alternate = os.lstat(os.path.join(parent, swapped))
+                except FileNotFoundError:
+                    # A disappearing original is not evidence of sensitivity.
+                    os.lstat(entry.path)
+                    return False
+                return os.path.samestat(original, alternate)
+    except OSError:
+        pass
+    return True
+
+
 class LLMModelRegistry(ModelRegistry):
     model_type = "llm"
 
@@ -57,8 +85,18 @@ class LLMModelRegistry(ModelRegistry):
             }
 
         wanted = cache_dirs(llm_family)
+        if not wanted:
+            return
+        # Keep case-only variants apart only when the cache parent supplies
+        # evidence that its entries are case-sensitive.
+        ignores_case = _volume_ignores_case(min(wanted))
+
+        def key(path: str) -> str:
+            return path.casefold() if ignores_case else path
+
+        wanted_keys = {key(path) for path in wanted}
         for family in [*BUILTIN_LLM_FAMILIES, *cast(List["LLMFamilyV2"], self.models)]:
-            shared = wanted & cache_dirs(family)
+            shared = {path for path in cache_dirs(family) if key(path) in wanted_keys}
             if shared:
                 raise ValueError(
                     f"Model name conflicts with existing model {family.model_name}: "
