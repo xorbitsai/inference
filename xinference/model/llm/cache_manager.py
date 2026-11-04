@@ -256,8 +256,11 @@ class LLMCacheManager(CacheManager):
         elif not need_merge:
             # Keep the runtime's legacy model.bin fallback.
             file_names = [
-                resolve_gguf_model_path(
-                    self._cache_dir, self._llm_family.model_specs[0]
+                os.path.relpath(
+                    resolve_gguf_model_path(
+                        self._cache_dir, self._llm_family.model_specs[0]
+                    ),
+                    self._cache_dir,
                 )
             ]
             if self._multimodal_projector:
@@ -315,8 +318,8 @@ class LLMCacheManager(CacheManager):
         GGUF directory can exist, with or without a record, while the download of
         the selected file is still needed. Missing records and files without an
         entry are accepted for compatibility with older caches, including when a
-        record was removed manually. Unreadable or invalid records do not
-        authorize reuse.
+        record was removed manually, except when completing a split GGUF download.
+        Unreadable or invalid records do not authorize reuse.
         """
         self._reuse_existing_gguf_files = False
         declared = None if self._use_draft_model else self._declared_sources()
@@ -336,18 +339,16 @@ class LLMCacheManager(CacheManager):
         files = self._source_files(downloading)
         source = _source_of(self._llm_family.model_specs[0])
 
-        def refers_to_selected_file(key: str) -> bool:
-            if WHOLE_DIRECTORY in files or key == WHOLE_DIRECTORY or key in files:
+        def refers_to_file(key: str, name: str) -> bool:
+            if name == WHOLE_DIRECTORY or key == WHOLE_DIRECTORY or key == name:
                 return True
             # Account for aliases and case-insensitive filesystems without
             # conflating distinct files on a case-sensitive volume.
-            for name in files:
-                with contextlib.suppress(OSError):
-                    if os.path.samefile(
-                        os.path.join(self._cache_dir, key),
-                        os.path.join(self._cache_dir, name),
-                    ):
-                        return True
+            with contextlib.suppress(OSError):
+                return os.path.samefile(
+                    os.path.join(self._cache_dir, key),
+                    os.path.join(self._cache_dir, name),
+                )
             return False
 
         # A missing main file does not authorize replacing another recorded
@@ -357,12 +358,25 @@ class LLMCacheManager(CacheManager):
             (
                 value
                 for key, value in records.items()
-                if refers_to_selected_file(key) and value not in allowed
+                if any(refers_to_file(key, name) for name in files)
+                and value not in allowed
             ),
             None,
         )
         if recorded is None:
             if downloading and may_record:
+                if self._model_format == "ggufv2" and self._gguf_file_names()[2]:
+                    for name in files:
+                        if os.path.exists(
+                            os.path.join(self._cache_dir, name)
+                        ) and not any(refers_to_file(key, name) for key in records):
+                            raise ValueError(
+                                f"Cannot complete split GGUF model {self._model_name}: "
+                                f"cached file {name} has no source record. Remove the "
+                                f"cache directory {self._cache_dir} if the old files "
+                                f"are no longer needed, or register the model under "
+                                f"another name."
+                            )
                 additions = {
                     name: source
                     for name in files

@@ -1369,6 +1369,99 @@ def test_interrupted_gguf_download_cannot_be_reused_for_another_source(
         assert fake_hub.downloads == [("org/model-a", None), ("org/model-b", None)]
 
 
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize(
+    "recorded_source,record_name",
+    [
+        (None, "model-2-of-2.gguf"),
+        ("org/model-a", "model-2-of-2.gguf"),
+        ("org/model-b", "model-2-of-2.gguf"),
+        ("org/model-a", "recorded-shard.gguf"),
+        ("org/model-b", "recorded-shard.gguf"),
+    ],
+    ids=[
+        "legacy",
+        "other-source",
+        "selected-source",
+        "other-source-alias",
+        "selected-source-alias",
+    ],
+)
+def test_split_gguf_completion_reuses_only_shards_recorded_for_selected_source(
+    fake_hub, hub, recorded_source, record_name
+):
+    import json
+
+    family = _gguf_family("my-llm", (hub, "org/model-b", "model.gguf"))
+    family.model_specs[0].model_file_name_split_template = "model-{part}.gguf"
+    family.model_specs[0].quantization_parts = {"q4": ["1-of-2", "2-of-2"]}
+    _register_gguf("my-llm", family=family)
+    manager = _gguf_manager("my-llm", hub)
+    cache_dir = manager.get_cache_dir()
+    os.makedirs(cache_dir)
+    shard = "model-2-of-2.gguf"
+    content = f"{recorded_source or 'org/model-a'}@None"
+    with open(os.path.join(cache_dir, shard), "w") as fd:
+        fd.write(content)
+    if record_name != shard:
+        os.link(os.path.join(cache_dir, shard), os.path.join(cache_dir, record_name))
+    if recorded_source:
+        manager._record_source({record_name: _source(hub, recorded_source)})
+
+    if recorded_source == "org/model-b":
+        assert _launch_gguf("my-llm", hub) == cache_dir
+        assert fake_hub.downloads == [("org/model-b", None)]
+        for name in ("model-1-of-2.gguf", shard, "model.gguf"):
+            assert _readme(cache_dir, name) == "org/model-b@None"
+    else:
+        # Do not combine a new first shard with a second shard from A.
+        message = (
+            f"downloaded from {hub}:org/model-a"
+            if recorded_source
+            else "split GGUF.*no source record"
+        )
+        with pytest.raises(ValueError, match=message):
+            _launch_gguf("my-llm", hub)
+        assert fake_hub.downloads == []
+        assert not os.path.exists(os.path.join(cache_dir, "model-1-of-2.gguf"))
+        if recorded_source:
+            with open(manager._source_record_path(), encoding="utf-8") as fd:
+                assert json.load(fd) == {record_name: _source(hub, recorded_source)}
+        else:
+            assert not os.path.exists(manager._source_record_path())
+    assert _readme(cache_dir, shard) == content
+
+
+@pytest.mark.parametrize("relative_home", [False, True], ids=["absolute", "relative"])
+def test_gguf_reregistration_checks_source_with_relative_cache_root(
+    fake_hub, tmp_path, monkeypatch, relative_home
+):
+    import json
+
+    from .... import constants
+
+    monkeypatch.chdir(tmp_path)
+    home = "home" if relative_home else str(tmp_path / "home")
+    monkeypatch.setenv("XINFERENCE_HOME", home)
+    monkeypatch.setattr(constants, "XINFERENCE_HOME", home)
+    monkeypatch.setattr(constants, "XINFERENCE_CACHE_DIR", os.path.join(home, "cache"))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", os.path.join(home, "model"))
+    _register_gguf("my-llm", ("huggingface", "org/model-a", "model.gguf"))
+    cache_dir = _launch_gguf("my-llm", "huggingface")
+    assert os.path.isabs(cache_dir) is not relative_home
+    with open(_gguf_manager("my-llm")._source_record_path(), encoding="utf-8") as fd:
+        assert json.load(fd) == {"model.gguf": _source("huggingface", "org/model-a")}
+    assert _launch_gguf("my-llm", "huggingface") == cache_dir
+
+    _register_gguf("my-llm", ("huggingface", "org/model-b", "model.gguf"))
+    with pytest.raises(
+        ValueError, match="my-llm.*downloaded from huggingface:org/model-a"
+    ):
+        _launch_gguf("my-llm", "huggingface")
+    assert fake_hub.downloads == [("org/model-a", None)]
+    assert _readme(cache_dir, "model.gguf") == "org/model-a@None"
+
+
 @pytest.mark.parametrize("selected_file", [None, "model.gguf", "model-2-of-2.gguf"])
 def test_split_gguf_is_tied_to_the_file_the_runtime_opens(fake_hub, selected_file):
     import json
