@@ -446,7 +446,7 @@ jobs:
           pip install -e ".[dev]"
           pip install "xllamacpp>=0.2.0"
           if [ "$OS" == "ubuntu-latest" ]; then
-            pip install soundfile
+            pip install "soundfile>=0.13.1"
           fi
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
@@ -581,6 +581,7 @@ jobs:
             benchmark/tests/test_analyze_pd_profile.py
             xinference/model/audio/tests/test_audio_batching.py
             xinference/model/audio/tests/test_cosyvoice_security.py
+            xinference/model/audio/tests/test_audio8_tts.py
             xinference/model/audio/tests/test_kokoro.py::test_kokoro_dependencies_exclude_broken_preshed
             xinference/model/audio/tests/test_funasr_realtime.py
             xinference/model/audio/tests/test_funasr_realtime_probe.py
