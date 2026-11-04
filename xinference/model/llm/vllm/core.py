@@ -555,6 +555,7 @@ class VLLMModel(WeightCachedModel, LLM):
     _weight_cache_engine = "vllm"
     allow_batch = True
     support_draft_model = True
+    support_split_gguf = False
     supports_tool_controls = True
 
     def _use_legacy_constraints(

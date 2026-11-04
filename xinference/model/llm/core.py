@@ -53,6 +53,8 @@ class LLM(abc.ABC):
     supports_tool_controls = False
     # whether the engine can run speculative decoding with a paired drafter
     support_draft_model = False
+    # whether the engine can load a GGUF quantization uploaded as split files
+    support_split_gguf = True
 
     def __init__(
         self,
@@ -565,6 +567,7 @@ def create_llm_model_instance(
 ) -> LLM:
     from .cache_manager import LLMCacheManager
     from .llm_family import (
+        LlamaCppLLMSpecV2,
         check_engine_by_spec_parameters,
         check_engine_by_spec_parameters_with_virtual_env,
         match_llm,
@@ -618,6 +621,18 @@ def create_llm_model_instance(
 
     multimodal_projector = kwargs.get("multimodal_projector")
     if not model_path:
+        spec = llm_family.model_specs[0]
+        if (
+            isinstance(spec, LlamaCppLLMSpecV2)
+            and spec.quantization in (spec.quantization_parts or {})
+            and not llm_cls.support_split_gguf
+        ):
+            # Fail before downloading shards that the engine cannot load.
+            raise ValueError(
+                f"Engine {model_engine} does not support the split GGUF files of "
+                f"model {model_name} {spec.quantization}. Please merge them first "
+                "and provide `model_path` with the merged file."
+            )
         cache_manager = LLMCacheManager(llm_family, multimodal_projector)
         model_path = cache_manager.cache()
 
