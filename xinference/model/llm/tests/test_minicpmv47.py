@@ -176,6 +176,58 @@ def test_virtualenv_requirements(engine, expected):
         assert "qwen-vl-utils" in prepared
         assert "transformers>=5.18.0" in prepared
         assert "bitsandbytes>=0.45.0" in prepared
+        assert "flash-attn-4>=4.0.0b18" in prepared
+    else:
+        assert not any(package.startswith("flash-attn-4") for package in prepared)
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize("size,model_format,quantization,suffix", VARIANTS)
+def test_sglang_checkpoint_loader(
+    monkeypatch, hub, size, model_format, quantization, suffix
+):
+    family = match_llm("MiniCPM-V-4.7", model_format, size, quantization, hub)
+    model = SGLANGVisionModel("minicpm-sglang-test", family, "/models/test", {})
+    monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
+    config = model._sanitize_model_config({})
+    if model_format == "bnb":
+        assert config["load_format"] == "bitsandbytes"
+    else:
+        assert "load_format" not in config
+    assert "quantization" not in config
+
+
+def test_sglang_bnb_preserves_explicit_loader(monkeypatch):
+    family = match_llm("MiniCPM-V-4.7", "bnb", 1, "4-bit", "huggingface")
+    model = SGLANGVisionModel("minicpm-sglang-test", family, "/models/test", {})
+    monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
+    assert (
+        model._sanitize_model_config({"load_format": "dummy"})["load_format"] == "dummy"
+    )
+
+
+def test_sglang_worker_preserves_prerelease_requirement(tmp_path):
+    from ....core.worker import WorkerActor
+
+    family = match_llm("MiniCPM-V-4.7", "pytorch", 1, "none", "huggingface")
+    settings = family.virtualenv.copy(deep=True)
+    settings.inherit_pip_config = False
+    manager = SimpleNamespace(
+        env_path=str(tmp_path / "3.12"),
+        install_packages=Mock(side_effect=RuntimeError("capture-dependencies")),
+    )
+    with pytest.raises(RuntimeError, match="capture-dependencies"):
+        WorkerActor._prepare_virtual_env(
+            manager,
+            settings,
+            None,
+            model_engine="SGLang",
+            model_name=family.model_name,
+            architectures=family.architectures,
+            model_format="pytorch",
+        )
+    packages = manager.install_packages.call_args.args[0]
+    assert "flash-attn-4>=4.0.0b18" in packages
 
 
 @pytest.mark.parametrize("size", [1, 35])

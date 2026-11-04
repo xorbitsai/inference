@@ -446,6 +446,7 @@
         "qwen-omni-utils>=0.0.9 ; #engine# == \"vllm\"",
         "audioread ; #engine# == \"vllm\"",
         "sglang>=0.5.23 ; #engine# == \"sglang\"",
+        "flash-attn-4>=4.0.0b18 ; #engine# == \"sglang\"",
         "qwen-vl-utils ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"Transformers\" or #engine# == \"vllm\""
       ],

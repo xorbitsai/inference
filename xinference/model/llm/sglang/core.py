@@ -83,6 +83,7 @@ class SGLANGModelConfig(TypedDict, total=False):
     mamba_scheduler_strategy: str
     mamba_track_interval: int
     tokenizer_mode: str
+    load_format: str
     trust_remote_code: bool
     tp_size: int
     mem_fraction_static: float
@@ -539,6 +540,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             model_config.setdefault("mamba_track_interval", 64)
         if self.model_family.has_architecture("MiniCPMV4_7ForConditionalGeneration"):
             model_config.setdefault("mamba_scheduler_strategy", "extra_buffer")
+            if self.model_spec.model_format == "bnb":
+                # This loader attaches the bnb_quant_state needed for 4-bit weights.
+                model_config.setdefault("load_format", "bitsandbytes")
             # Native processors also work for quantized snapshots whose
             # auto_map references remote processor files they do not include.
             model_config.setdefault("trust_remote_code", False)
