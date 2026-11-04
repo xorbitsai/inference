@@ -1039,7 +1039,22 @@ async def _replay(messages, thinking, tools=None, tokenizer=None, generation=Tru
     config = {"chat_template_kwargs": kwargs}
     if tools:
         config["tools"] = tools
-    prompt, *_ = await model._prepare_chat_inputs(copy.deepcopy(messages), config)
+    rendered = []
+    if tokenizer is not None:
+        apply_chat_template = tokenizer.apply_chat_template
+
+        def render(*args, **kwargs):
+            rendered.append(apply_chat_template(*args, **kwargs))
+            return rendered[-1]
+
+        tokenizer.apply_chat_template = render
+    try:
+        prompt, *_ = await model._prepare_chat_inputs(copy.deepcopy(messages), config)
+    finally:
+        if tokenizer is not None:
+            tokenizer.apply_chat_template = apply_chat_template
+    if tokenizer is not None:
+        assert rendered == [prompt]
     return prompt
 
 
@@ -1091,6 +1106,92 @@ async def test_v32_replay_renders_alike_with_a_transformers_tokenizer(thinking):
     # Rendered by the tokenizer, not by the raw-template fallback.
     assert rendered == [prompt]
     assert prompt == await _replay(messages, thinking, tools=tools)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("thinking", [False, True])
+@pytest.mark.parametrize("use_tokenizer", [False, True])
+@pytest.mark.parametrize("rounds", [1, 2])
+async def test_v32_parallel_results_follow_call_ids_in_each_round(
+    thinking, use_tokenizer, rounds
+):
+    messages = [_ASKING]
+    expected = _ASK + ("<think>" if thinking else "</think>")
+    for index in range(rounds):
+        calls = copy.deepcopy([_GET_WEATHER, _GET_TIME])
+        for call, name in zip(calls, ("a", "b")):
+            call["id"] = f"call_{name}_{index}" if index else f"call_{name}"
+        weather, time = ("SUNNY", "NOON") if not index else ("RAINY", "MIDNIGHT")
+        messages.extend(
+            [
+                _assistant(*calls),
+                {"role": "tool", "tool_call_id": calls[1]["id"], "content": time},
+                {"role": "tool", "tool_call_id": calls[0]["id"], "content": weather},
+            ]
+        )
+        expected += ("</think>" if thinking else "") + _BOTH_BLOCK
+        expected += (
+            f"\n\n<function_results>\n<result>{weather}</result>\n<result>{time}</result>"
+            "\n</function_results>\n\n" + ("<think>" if thinking else "</think>")
+        )
+    tokenizer = _stub_tokenizer() if use_tokenizer else None
+    assert await _replay(messages, thinking, tokenizer=tokenizer) == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("thinking", [False, True])
+@pytest.mark.parametrize("use_tokenizer", [False, True])
+@pytest.mark.parametrize("reasoning_content", [False, True])
+@pytest.mark.parametrize("current_turn", [False, True])
+@pytest.mark.parametrize(
+    "reasoning, answer",
+    [
+        ("Need a live report.", "Let me check."),
+        ("Need a live report.", "The literal </think> is quoted."),
+        ("", "The literal </think> is quoted."),
+    ],
+)
+async def test_v32_inline_reasoning_round_trips_the_vllm_assistant_message(
+    thinking, use_tokenizer, reasoning_content, current_turn, reasoning, answer
+):
+    family = _catalog_model("DeepSeek-V3.2").model_family
+    model = VLLMChatModel("round-trip", family, "unused", {})
+    model.prepare_parse_tool_calls()
+    model.prepare_parse_reasoning_content(reasoning_content)
+    text = f"{reasoning}</think>{answer}"
+    text += _function_calls("get_weather").replace("杭州", "Paris")
+    # Use vLLM's returned message verbatim, including its generated call ID.
+    completion = contextvars.Context().run(
+        model._post_process_completion,
+        family,
+        model.model_uid,
+        {"choices": [{"text": text}]},
+        _TOOLS,
+    )
+    assistant = completion["choices"][0]["message"]
+    assert assistant["content"] == (
+        answer if reasoning_content else f"{reasoning}</think>{answer}"
+    )
+    assert assistant.get("reasoning_content") == (
+        reasoning if reasoning_content else None
+    )
+    result = {
+        "role": "tool",
+        "tool_call_id": assistant["tool_calls"][0]["id"],
+        "content": "sunny",
+    }
+    messages = [_ASKING, assistant, result]
+    in_turn = thinking and current_turn
+    expected = _ASK + (f"<think>{reasoning}</think>" if in_turn else "</think>")
+    expected += answer + _WEATHER_BLOCK + _SUNNY
+    expected += "<think>" if in_turn else "</think>"
+    if not current_turn:
+        messages.append({"role": "user", "content": "Again"})
+        expected += "<｜User｜>Again<｜Assistant｜>" + (
+            "<think>" if thinking else "</think>"
+        )
+    tokenizer = _stub_tokenizer() if use_tokenizer else None
+    assert await _replay(messages, thinking, tokenizer=tokenizer) == expected
 
 
 @pytest.mark.asyncio
