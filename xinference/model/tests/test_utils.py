@@ -1177,6 +1177,10 @@ def test_resolve_download_hub(monkeypatch, _reset_auto_hub_cache):
 
     # a local model path means no download, so no detection
     assert model_utils.resolve_download_hub(None, "/path/to/model") is None
+    assert model_utils.resolve_download_hub("auto", "/path/to/model") is None
+
+    # an empty path still downloads, so "auto" still needs a hub
+    assert model_utils.resolve_download_hub("auto", "") == "modelscope"
 
     # a pinned XINFERENCE_MODEL_SRC resolves to that concrete hub
     monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")

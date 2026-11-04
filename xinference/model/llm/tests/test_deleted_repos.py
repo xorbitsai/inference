@@ -167,12 +167,8 @@ def empty_cache(monkeypatch, tmp_path):
     monkeypatch.setattr(constants, "XINFERENCE_CACHE_DIR", str(tmp_path))
 
 
-@pytest.mark.parametrize("model_src", [None, "auto", "huggingface"])
-@pytest.mark.parametrize("name,size", ONLY_ON_OTHER_HUBS)
-def test_default_launch_reuses_the_cache_of_a_variant_on_another_hub(
-    monkeypatch, empty_cache, default_hub_is_huggingface, model_src, name, size
-):
-    from ...core import create_model_instance
+@pytest.fixture
+def stub_engine_without_downloads(monkeypatch):
     from .. import llm_family
 
     class Engine:
@@ -181,14 +177,29 @@ def test_default_launch_reuses_the_cache_of_a_variant_on_another_hub(
             self.model_path = path
 
     def no_download(*args, **kwargs):
-        pytest.fail("A cached variant must not be downloaded again")
+        pytest.fail("This launch must not download anything")
 
-    _set_model_src(monkeypatch, model_src)
     monkeypatch.setattr(
         llm_family, "check_engine_by_spec_parameters", lambda *args: Engine
     )
     monkeypatch.setattr("xinference.model.utils.retry_download", no_download)
     monkeypatch.setattr("xinference.model.utils.retry_snapshot_download", no_download)
+
+
+@pytest.mark.parametrize("model_src", [None, "auto", "huggingface"])
+@pytest.mark.parametrize("name,size", ONLY_ON_OTHER_HUBS)
+def test_default_launch_reuses_the_cache_of_a_variant_on_another_hub(
+    monkeypatch,
+    empty_cache,
+    default_hub_is_huggingface,
+    stub_engine_without_downloads,
+    model_src,
+    name,
+    size,
+):
+    from ...core import create_model_instance
+
+    _set_model_src(monkeypatch, model_src)
     cache_dir = _cache_variant(name, size)
 
     model = create_model_instance(
@@ -204,6 +215,42 @@ def test_default_launch_reuses_the_cache_of_a_variant_on_another_hub(
 
     assert model.model_path == cache_dir
     assert model.model_family.model_specs[0].model_hub == "modelscope"
+
+
+@pytest.mark.parametrize("model_src", [None, "auto", "huggingface"])
+@pytest.mark.parametrize("name,size", ONLY_ON_OTHER_HUBS)
+def test_auto_launch_from_a_local_path_uses_that_path(
+    monkeypatch,
+    empty_cache,
+    default_hub_is_huggingface,
+    stub_engine_without_downloads,
+    tmp_path,
+    model_src,
+    name,
+    size,
+):
+    from ...core import create_model_instance
+
+    _set_model_src(monkeypatch, model_src)
+    local_path = tmp_path / "weights"
+    local_path.mkdir()
+
+    model = create_model_instance(
+        "uid",
+        "LLM",
+        name,
+        "Transformers",
+        "pytorch",
+        size,
+        "none",
+        download_hub="auto",
+        model_path=str(local_path),
+        enable_virtual_env=False,
+    )
+
+    assert model.model_path == str(local_path)
+    assert model.model_family.model_specs[0].model_hub == "modelscope"
+    assert os.listdir(tmp_path) == ["weights"]
 
 
 @pytest.mark.parametrize("name,size", ONLY_ON_OTHER_HUBS)

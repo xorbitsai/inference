@@ -883,6 +883,7 @@ def local_llm_factory(monkeypatch):
         (True, None, "modelscope"),
         (None, None, None),
         ("", None, None),
+        (True, "auto", "modelscope"),
         (True, "huggingface", None),
         (True, "modelscope", "modelscope"),
     ],
