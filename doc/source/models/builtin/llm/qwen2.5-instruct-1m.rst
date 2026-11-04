@@ -7,7 +7,7 @@ qwen2.5-instruct-1m
 - **Context Length:** 1010000
 - **Model Name:** qwen2.5-instruct-1m
 - **Languages:** en, zh
-- **Abilities:** chat
+- **Abilities:** chat, tools
 - **Description:** Qwen2.5-1M is the long-context version of the Qwen2.5 series models, supporting a context length of up to 1M tokens.
 
 Specifications
