@@ -14,6 +14,7 @@
 
 import logging
 import os
+import tempfile
 import threading
 from typing import TYPE_CHECKING, List, cast
 
@@ -30,31 +31,51 @@ UD_LLM_FAMILIES: List["LLMFamilyV2"] = []
 
 
 def _volume_ignores_case(path: str) -> bool:
-    """Conservatively check case aliases inside the cache entry's parent.
+    """Check case aliases inside the cache parent, conservatively on errors.
 
-    Looking up the parent's own name tests the directory above it, which may
-    have different case rules. Inspect an ASCII entry inside the parent
-    instead, without following that entry's symlink. If the parent is missing,
-    empty, unreadable or has no suitable entry, assume case aliases collide.
+    Use existing entries when possible. Otherwise create the parent and a
+    temporary probe inside it: looking up the parent's own name could test
+    another filesystem or directory's case rules.
     """
     parent = os.path.dirname(os.path.abspath(path))
+
+    def entry_ignores_case(name: str) -> bool:
+        original_path = os.path.join(parent, name)
+        original = os.lstat(original_path)
+        try:
+            alternate = os.lstat(os.path.join(parent, name.swapcase()))
+        except FileNotFoundError:
+            # A disappearing original is not evidence of sensitivity.
+            os.lstat(original_path)
+            return False
+        return os.path.samestat(original, alternate)
+
     try:
         with os.scandir(parent) as entries:
-            for entry in entries:
-                swapped = entry.name.swapcase()
-                if not entry.name.isascii() or swapped == entry.name:
-                    continue
-                original = os.lstat(entry.path)
-                try:
-                    alternate = os.lstat(os.path.join(parent, swapped))
-                except FileNotFoundError:
-                    # A disappearing original is not evidence of sensitivity.
-                    os.lstat(entry.path)
-                    return False
-                return os.path.samestat(original, alternate)
+            names = {entry.name for entry in entries}
+        for name in names:
+            if not name.isascii() or name.swapcase() == name:
+                continue
+            if name.swapcase() in names:
+                # Distinct entries prove sensitivity, even if hard-linked.
+                return False
+            return entry_ignores_case(name)
     except OSError:
         pass
-    return True
+
+    try:
+        os.makedirs(parent, exist_ok=True)
+        probe = tempfile.mkdtemp(prefix=".xinference-CaseProbe-", dir=parent)
+        try:
+            return entry_ignores_case(os.path.basename(probe))
+        finally:
+            # Remove only our entry; the cache manager also needs the parent.
+            os.rmdir(probe)
+    except OSError as exc:
+        logger.debug(
+            "Cannot probe case sensitivity of cache parent %s: %s", parent, exc
+        )
+        return True
 
 
 class LLMModelRegistry(ModelRegistry):

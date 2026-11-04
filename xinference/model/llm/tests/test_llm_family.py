@@ -951,6 +951,70 @@ def test_custom_llm_named_like_a_builtin_up_to_case(
         assert twin in get_user_defined_llm_families()
 
 
+@pytest.mark.parametrize("remove_parent", [False, True], ids=["empty", "missing"])
+def test_startup_reloads_a_case_distinct_registration_after_cache_cleanup(
+    isolated_cache_home, monkeypatch, remove_parent
+):
+    from .. import register_custom_model
+    from ..custom import get_user_defined_llm_families, register_llm
+
+    parent = isolated_cache_home / "cache" / "v2"
+    parent.mkdir(parents=True)
+    if _directory_ignores_case(parent):
+        pytest.skip("This regression requires a case-sensitive cache directory")
+
+    builtin = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none", "huggingface")
+    assert builtin is not None
+    twin = _custom_family("Qwen2_5-instruct", _pytorch_spec(model_id="org/custom"))
+    builtin_dir = CacheManager.get_cache_dir_for_spec(
+        builtin.model_name, builtin.model_specs[0]
+    )
+    twin_dir = CacheManager.get_cache_dir_for_spec(twin.model_name, twin.model_specs[0])
+    assert builtin_dir != twin_dir and builtin_dir.casefold() == twin_dir.casefold()
+    _weights_dir(builtin_dir, "BUILTIN_WEIGHTS")
+    _weights_dir(twin_dir, "CUSTOM_WEIGHTS")
+    assert not os.path.samefile(builtin_dir, twin_dir)
+
+    register_llm(twin, persist=True)
+    persisted = isolated_cache_home / "model" / "v2" / "llm" / f"{twin.model_name}.json"
+    definition = persisted.read_text()
+
+    # Establish that the persisted definition reloads while both caches exist.
+    _isolate_cache_home(isolated_cache_home, monkeypatch)
+    register_custom_model()
+    assert get_user_defined_llm_families() == [twin]
+
+    shutil.rmtree(builtin_dir)
+    shutil.rmtree(twin_dir)
+    assert list(parent.iterdir()) == []
+    if remove_parent:
+        parent.rmdir()
+    assert parent.exists() == (not remove_parent)
+
+    # A fresh startup must load the same JSON without either model's cache.
+    _isolate_cache_home(isolated_cache_home, monkeypatch)
+    register_custom_model()
+    assert get_user_defined_llm_families() == [twin]
+    assert persisted.read_text() == definition
+    assert list(parent.iterdir()) == []
+
+
+def _directory_ignores_case(path) -> bool:
+    """Ground truth from two exclusive mkdir calls, independent of the probe."""
+    original = path / "Probe"
+    alternate = path / "pROBE"
+    original.mkdir()
+    try:
+        try:
+            alternate.mkdir()
+        except FileExistsError:
+            return True
+        alternate.rmdir()
+        return False
+    finally:
+        original.rmdir()
+
+
 def test_volume_case_probe_matches_what_the_volume_does(tmp_path):
     from ..custom import _volume_ignores_case
 
@@ -995,25 +1059,121 @@ def test_volume_case_probe_uses_the_cache_parent(tmp_path, ignores_case):
             custom._volume_ignores_case(os.path.join(parent, "Missing")) is ignores_case
         )
         filesystem.scandir.assert_called_once_with(parent)
+        filesystem.makedirs.assert_not_called()
 
 
-def test_volume_case_probe_missing_or_unobservable_parent(tmp_path):
+@pytest.mark.parametrize("state", ["empty", "missing", "no-case-entry"])
+def test_volume_case_probe_without_a_usable_entry(tmp_path, state):
     from ..custom import _volume_ignores_case
 
-    assert _volume_ignores_case(str(tmp_path / "Missing")) is True
-    (tmp_path / "1234").mkdir()
-    assert _volume_ignores_case(str(tmp_path / "Missing")) is True
-    assert _volume_ignores_case(str(tmp_path / "missing" / "Missing")) is True
+    parent = tmp_path / "v2"
+    if state != "missing":
+        parent.mkdir()
+    if state == "no-case-entry":
+        (parent / "1234").mkdir()
+    before = {"1234"} if state == "no-case-entry" else set()
+
+    observed = _volume_ignores_case(str(parent / "Missing"))
+    assert {entry.name for entry in parent.iterdir()} == before
+    assert observed is _directory_ignores_case(parent)
 
 
-@pytest.mark.parametrize("operation", ["scandir", "lstat"])
+def test_volume_case_probe_can_write_without_listing(tmp_path):
+    from .. import custom
+
+    expected = _directory_ignores_case(tmp_path)
+    with patch.object(custom, "os", wraps=os) as filesystem:
+        filesystem.scandir.side_effect = PermissionError("denied")
+        assert custom._volume_ignores_case(str(tmp_path / "Missing")) is expected
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("operation", ["makedirs", "mkdtemp", "lstat", "rmdir"])
 def test_volume_case_probe_errors_are_conservative(tmp_path, operation):
     from .. import custom
 
-    (tmp_path / "Probe").mkdir()
-    with patch.object(custom, "os", wraps=os) as filesystem:
-        getattr(filesystem, operation).side_effect = PermissionError("denied")
+    with (
+        patch.object(custom, "os", wraps=os) as filesystem,
+        patch.object(custom, "tempfile", wraps=tempfile) as temporary,
+    ):
+        owner = temporary if operation == "mkdtemp" else filesystem
+        getattr(owner, operation).side_effect = PermissionError("denied")
         assert custom._volume_ignores_case(str(tmp_path / "Missing")) is True
+        if operation in ("lstat", "rmdir"):
+            filesystem.rmdir.assert_called_once()
+
+    remaining = list(tmp_path.iterdir())
+    if operation == "rmdir":
+        # The simulated cleanup failure leaves only the directory we own.
+        assert len(remaining) == 1
+        assert remaining[0].name.startswith(".xinference-CaseProbe-")
+        remaining[0].rmdir()
+    else:
+        assert remaining == []
+
+
+def test_volume_case_probe_disappearing_entry_is_not_case_evidence(tmp_path):
+    from .. import custom
+
+    probe = str(tmp_path / "Probe")
+    stat = os.stat_result((0, 1, 1, 0, 0, 0, 0, 0, 0, 0))
+    with (
+        patch.object(custom, "os", wraps=os) as filesystem,
+        patch.object(custom.tempfile, "mkdtemp", side_effect=PermissionError("denied")),
+    ):
+        filesystem.scandir.return_value = nullcontext(
+            [SimpleNamespace(name="Probe", path=probe)]
+        )
+        filesystem.lstat.side_effect = [stat, FileNotFoundError(), FileNotFoundError()]
+        assert custom._volume_ignores_case(str(tmp_path / "Missing")) is True
+        assert filesystem.lstat.call_count == 3
+
+
+def test_volume_case_probe_distinguishes_hard_linked_entries(tmp_path):
+    from .. import custom
+
+    stat = os.stat_result((0, 1, 1, 0, 0, 0, 0, 0, 0, 0))
+    with patch.object(custom, "os", wraps=os) as filesystem:
+        filesystem.scandir.return_value = nullcontext(
+            [
+                SimpleNamespace(name=name, path=str(tmp_path / name))
+                for name in ("Probe", "pROBE")
+            ]
+        )
+        filesystem.lstat.return_value = stat
+        assert custom._volume_ignores_case(str(tmp_path / "Missing")) is False
+        filesystem.makedirs.assert_not_called()
+
+
+def test_unknown_cache_case_rules_reject_new_and_persisted_aliases(
+    isolated_cache_home, monkeypatch
+):
+    from .. import custom, register_custom_model
+    from ..custom import get_user_defined_llm_families, register_llm
+
+    def denied(*args, **kwargs):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(custom.tempfile, "mkdtemp", denied)
+    twin = _custom_family("Qwen2_5-instruct", _pytorch_spec(model_id="org/custom"))
+    persisted = isolated_cache_home / "model" / "v2" / "llm" / f"{twin.model_name}.json"
+    with pytest.raises(ValueError, match="qwen2.5-instruct.*cache directory"):
+        register_llm(twin, persist=True)
+    assert get_user_defined_llm_families() == []
+    assert not persisted.exists()
+
+    # An existing JSON is not proof that case-only paths are distinct here.
+    persisted.parent.mkdir(parents=True)
+    persisted.write_text(twin.json())
+    definition = persisted.read_text()
+    with pytest.warns(UserWarning, match="Qwen2_5-instruct.json has error.*cache"):
+        register_custom_model()
+    assert get_user_defined_llm_families() == []
+    assert persisted.read_text() == definition
+
+    independent = _custom_family("my-qwen", _pytorch_spec(model_id="org/custom"))
+    register_llm(independent, persist=False)
+    assert get_user_defined_llm_families() == [independent]
 
 
 def test_models_registered_before_the_fixture_do_not_reach_the_test(
