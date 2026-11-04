@@ -1644,13 +1644,22 @@ class VLLMModel(WeightCachedModel, LLM):
                 for family in BUILTIN_LLM_FAMILIES
                 if family.model_name == self.model_family.model_name
             ).copy()
-            non_quant_spec = next(
+            non_quant_specs = [
                 spec
                 for spec in family.model_specs
                 if spec.quantization == "none"
                 and spec.model_size_in_billions
                 == self.model_spec.model_size_in_billions
-                and spec.model_hub == self.model_spec.model_hub
+            ]
+            # The hub of the GGUF spec may not have this variant, and another
+            # hub's copy of the same size serves the same tokenizer and config.
+            non_quant_spec = next(
+                (
+                    spec
+                    for spec in non_quant_specs
+                    if spec.model_hub == self.model_spec.model_hub
+                ),
+                non_quant_specs[0],
             )
             family.model_specs = [non_quant_spec]
             path = cache_model_tokenizer_and_config(family)

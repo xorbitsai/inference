@@ -253,9 +253,31 @@ def test_local_launch_of_a_variant_on_another_hub_uses_the_supplied_path(
     assert os.listdir(tmp_path) == ["weights"]
 
 
-@pytest.mark.parametrize("detected_hub", ["modelscope", "huggingface"])
-def test_auto_launch_of_a_local_gguf_takes_its_tokenizer_from_the_detected_hub(
-    monkeypatch, empty_cache, stub_engine_without_downloads, tmp_path, detected_hub
+@pytest.mark.parametrize(
+    "name,size,quantization,download_hub,detected_hub,tokenizer_hub",
+    [
+        ("qwen2.5-instruct", 7, "q4_k_m", "auto", "modelscope", "modelscope"),
+        ("qwen2.5-instruct", 7, "q4_k_m", "auto", "huggingface", "huggingface"),
+        # Skywork's GGUF files are on Hugging Face, its PyTorch repos only on ModelScope.
+        ("skywork-or1-preview", 7, "Q4_K_M", "auto", "huggingface", "modelscope"),
+        ("skywork-or1-preview", 32, "Q4_K_M", "auto", "huggingface", "modelscope"),
+        ("skywork-or1-preview", 7, "Q4_K_M", "huggingface", None, "modelscope"),
+        ("skywork-or1-preview", 32, "Q4_K_M", "huggingface", None, "modelscope"),
+        ("skywork-or1-preview", 7, "Q4_K_M", "modelscope", None, "modelscope"),
+        ("skywork-or1-preview", 32, "Q4_K_M", "modelscope", None, "modelscope"),
+    ],
+)
+def test_a_local_gguf_takes_its_tokenizer_from_the_selected_hub_first(
+    monkeypatch,
+    empty_cache,
+    stub_engine_without_downloads,
+    tmp_path,
+    name,
+    size,
+    quantization,
+    download_hub,
+    detected_hub,
+    tokenizer_hub,
 ):
     from ...core import create_model_instance
     from .. import llm_family
@@ -284,19 +306,22 @@ def test_auto_launch_of_a_local_gguf_takes_its_tokenizer_from_the_detected_hub(
     model = create_model_instance(
         "uid",
         "LLM",
-        "qwen2.5-instruct",
+        name,
         "vLLM",
         "ggufv2",
-        7,
-        "q4_k_m",
-        download_hub="auto",
+        size,
+        quantization,
+        download_hub=download_hub,
         model_path=str(gguf_file),
         enable_virtual_env=False,
     )
     model._preprocess_load_gguf()
 
     assert model.model_path == str(gguf_file)
-    assert [spec.model_hub for spec in tokenizer_specs] == [detected_hub]
+    assert [
+        (spec.model_hub, spec.model_size_in_billions, spec.quantization)
+        for spec in tokenizer_specs
+    ] == [(tokenizer_hub, size, "none")]
     assert model._model_config["tokenizer"] == "tokenizer-dir"
     assert model._model_config["hf_config_path"] == "tokenizer-dir"
 
