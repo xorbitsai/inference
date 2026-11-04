@@ -18,7 +18,9 @@ import http.server
 import inspect
 import json
 import threading
+import time
 
+import aiohttp
 import pytest
 
 from ..restful import async_restful_client as client_module
@@ -179,7 +181,7 @@ class _FakeCluster:
                     self.reply(200, {"data": []})
                     return
                 if cluster.probe_gate is not None:
-                    cluster.gate_was_open.append(cluster.probe_gate.wait(timeout=2))
+                    cluster.gate_was_open.append(cluster.probe_gate.wait(timeout=10))
                 if cluster.probe_failures:
                     self.reply(cluster.probe_failures.pop(0), {"detail": "boom"})
                 else:
@@ -203,9 +205,13 @@ class _FakeCluster:
 @pytest.fixture
 def cluster():
     fake = _FakeCluster()
-    yield fake
-    fake.server.shutdown()
-    fake.server.server_close()
+    try:
+        yield fake
+    finally:
+        if fake.probe_gate is not None:
+            fake.probe_gate.set()
+        fake.server.shutdown()
+        fake.server.server_close()
 
 
 async def test_constructor_sends_no_request(cluster):
@@ -303,14 +309,16 @@ async def test_failed_probe_surfaces_on_the_first_call_and_a_retry_succeeds(clus
 
 async def test_concurrent_calls_all_see_a_failed_probe(cluster):
     cluster.auth = True
-    cluster.probe_failures = [500, 500]
+    cluster.probe_failures = [500]
     client = client_module.AsyncClient(cluster.url, api_key="secret")
     try:
         results = await asyncio.gather(
             client.list_models(), client.list_models(), return_exceptions=True
         )
         assert [type(result) for result in results] == [RuntimeError] * 2
-        assert "/v1/models" not in cluster.paths
+        assert str(results[0]) == str(results[1]) != ""
+        # One probe answered both callers; nothing else was sent.
+        assert cluster.paths == ["/v1/cluster/auth"]
         assert await client.list_models() == {}
     finally:
         await client.close()
@@ -318,27 +326,188 @@ async def test_concurrent_calls_all_see_a_failed_probe(cluster):
     assert cluster.requests[-1] == ("/v1/models", "Bearer secret")
 
 
-async def test_cancelled_first_call_leaves_the_client_uninitialised(cluster):
+async def _until(condition, seconds=5):
+    deadline = time.monotonic() + seconds
+    while not condition():
+        assert time.monotonic() < deadline, "timed out waiting for the test condition"
+        await asyncio.sleep(0.01)
+
+
+async def _client_with_timeout(url, total, **kwargs):
+    """An AsyncClient whose transport gives up on a request after `total` seconds."""
+    client = client_module.AsyncClient(url, **kwargs)
+    await client.session.close()
+    client.session = aiohttp.ClientSession(
+        connector=aiohttp.TCPConnector(force_close=True),
+        timeout=aiohttp.ClientTimeout(total=total),
+    )
+    return client
+
+
+async def test_concurrent_first_calls_share_a_stalled_probe_and_fail_together(cluster):
+    cluster.probe_gate = threading.Event()  # /v1/cluster/auth never answers in time
+    client = await _client_with_timeout(cluster.url, 0.5)
+    try:
+        results = await asyncio.wait_for(
+            asyncio.gather(
+                *(client.list_models() for _ in range(4)), return_exceptions=True
+            ),
+            timeout=10,
+        )
+    finally:
+        cluster.probe_gate.set()
+        await client.close()
+
+    assert all(isinstance(result, asyncio.TimeoutError) for result in results)
+    # One transport failure is delivered to every waiter, without relying on
+    # how quickly a loaded runner schedules them after the timeout.
+    assert all(result is results[0] for result in results)
+    assert cluster.paths == ["/v1/cluster/auth"]
+
+
+async def test_call_after_a_failed_shared_probe_probes_again_and_succeeds(cluster):
+    cluster.auth = True
+    cluster.probe_gate = threading.Event()
+    client = await _client_with_timeout(cluster.url, 0.5, api_key="secret")
+    try:
+        results = await asyncio.gather(
+            client.list_models(), client.list_models(), return_exceptions=True
+        )
+        assert all(isinstance(result, asyncio.TimeoutError) for result in results)
+        cluster.probe_gate.set()  # the cluster answers from now on
+        # The successful retry should not depend on a subsecond CI round trip.
+        await client.session.close()
+        client.session = aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(force_close=True), timeout=client.timeout
+        )
+        assert await asyncio.wait_for(client.list_models(), timeout=10) == {}
+    finally:
+        cluster.probe_gate.set()
+        await client.close()
+
+    assert cluster.paths == ["/v1/cluster/auth", "/v1/cluster/auth", "/v1/models"]
+    assert cluster.requests[-1] == ("/v1/models", "Bearer secret")
+
+
+@pytest.mark.parametrize("cancelled", [0, 2], ids=["first", "last"])
+async def test_cancelling_one_waiter_leaves_the_others_waiting_and_served(
+    cluster, cancelled
+):
+    cluster.auth = True
+    cluster.probe_gate = threading.Event()  # keeps the probe in flight
+    client = client_module.AsyncClient(cluster.url, api_key="secret")
+    try:
+        calls = [asyncio.ensure_future(client.list_models()) for _ in range(3)]
+        await _until(lambda: cluster.requests)
+        calls[cancelled].cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await calls[cancelled]
+        others = [call for index, call in enumerate(calls) if index != cancelled]
+        assert calls[cancelled].cancelled()
+        assert not any(call.done() for call in others)  # still waiting for the probe
+        # A call that arrives now joins the probe that is still in flight.
+        others.append(asyncio.ensure_future(client.list_models()))
+        await asyncio.sleep(0)  # let the late caller join the in-flight probe
+        cluster.probe_gate.set()
+        assert await asyncio.gather(*others) == [{}, {}, {}]
+    finally:
+        cluster.probe_gate.set()
+        await client.close()
+
+    assert cluster.paths.count("/v1/cluster/auth") == 1
+    assert [auth for path, auth in cluster.requests if path == "/v1/models"] == [
+        "Bearer secret"
+    ] * 3
+
+
+async def test_probe_failing_after_every_caller_was_cancelled_logs_nothing(cluster):
+    loop = asyncio.get_running_loop()
+    reports = []
+    previous_handler = loop.get_exception_handler()
+    loop.set_exception_handler(lambda loop, context: reports.append(context))
+    cluster.probe_gate = threading.Event()
+    cluster.probe_failures = [500]
+    client = client_module.AsyncClient(cluster.url)
+    try:
+        call = asyncio.ensure_future(client.list_models())
+        await _until(lambda: cluster.requests)
+        call.cancel()
+        await asyncio.gather(call, return_exceptions=True)
+        cluster.probe_gate.set()
+        await _until(lambda: not cluster.probe_failures)  # the cluster answered 500
+        probe = getattr(client, "_init_task", None)
+        if probe is not None:
+            await _until(probe.done)
+        # Python 3.10 reports an unretrieved error only when the task is freed.
+        client._init_task = None
+        del probe
+        gc.collect()
+        await asyncio.sleep(0)
+        assert reports == []
+        assert await client.list_models() == {}  # the failure is not remembered
+    finally:
+        try:
+            await client.close()
+        finally:
+            loop.set_exception_handler(previous_handler)
+
+
+async def test_cancelled_only_caller_does_not_cancel_the_probe(cluster):
     cluster.auth = True
     cluster.probe_gate = threading.Event()  # keeps the first probe waiting
     client = client_module.AsyncClient(cluster.url, api_key="secret")
     try:
         first = asyncio.ensure_future(client.list_models())
-        for _ in range(500):
-            if cluster.requests:
-                break
-            await asyncio.sleep(0.01)
+        await _until(lambda: cluster.requests)
         assert cluster.paths == ["/v1/cluster/auth"]
         first.cancel()
         with pytest.raises(asyncio.CancelledError):
             await first
         cluster.probe_gate.set()
+        await _until(lambda: client._cluster_authed is True)
         assert await client.list_models() == {}
     finally:
         await client.close()
 
-    assert cluster.paths == ["/v1/cluster/auth", "/v1/cluster/auth", "/v1/models"]
+    # The next call used the probe that was already in flight.
+    assert cluster.paths == ["/v1/cluster/auth", "/v1/models"]
     assert cluster.requests[-1] == ("/v1/models", "Bearer secret")
+
+
+async def test_close_cancels_and_awaits_a_connecting_probe(monkeypatch):
+    client = client_module.AsyncClient("http://127.0.0.1:1")
+    entered = asyncio.Event()
+    exited = asyncio.Event()
+
+    async def connect(*args, **kwargs):
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            exited.set()
+
+    # Suspend before a socket exists: closing the session alone cannot stop it.
+    monkeypatch.setattr(client.session.connector, "_create_connection", connect)
+    call = asyncio.create_task(client.list_models())
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=5)
+        probe = client._init_task
+        await asyncio.wait_for(client.close(), timeout=5)
+        assert probe is not None
+        assert probe.done()
+        assert probe.cancelled()
+        assert exited.is_set()
+        assert client.session is None
+        with pytest.raises(asyncio.CancelledError):
+            await call
+    finally:
+        call.cancel()
+        probe = getattr(client, "_init_task", None)
+        if probe is not None:
+            probe.cancel()
+            await asyncio.gather(probe, return_exceptions=True)
+        await asyncio.gather(call, return_exceptions=True)
+        await client.close()
 
 
 @pytest.mark.parametrize(
@@ -378,7 +547,13 @@ async def test_login_as_the_first_call_sees_an_auth_enabled_cluster(cluster):
         for name, member in inspect.getmembers(
             client_module.AsyncClient, inspect.iscoroutinefunction
         )
-        if name not in {"close", "_check_cluster_authenticated", "_ensure_initialized"}
+        if name
+        not in {
+            "close",
+            "_check_cluster_authenticated",
+            "_ensure_initialized",
+            "_initialize",
+        }
     ],
 )
 async def test_every_request_method_initialises_the_client_first(method):

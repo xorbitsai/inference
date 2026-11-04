@@ -1324,7 +1324,7 @@ class AsyncClient:
         self._headers: Dict[str, str] = {}
         # None until the first request has probed the cluster (_ensure_initialized).
         self._cluster_authed: Optional[bool] = None
-        self._init_lock = asyncio.Lock()
+        self._init_task: Optional["asyncio.Task[Optional[Exception]]"] = None
         self.timeout = aiohttp.ClientTimeout(total=1800)
         self._session_loop = asyncio.get_running_loop()
         self.session = aiohttp.ClientSession(
@@ -1332,10 +1332,18 @@ class AsyncClient:
         )
 
     async def close(self):
-        """Close the AsyncClient session."""
-        if self.session:
-            await self.session.close()
-            self.session = None
+        """Stop initialization and close the AsyncClient session."""
+        init_task = getattr(self, "_init_task", None)
+        try:
+            if init_task is not None:
+                if not init_task.done():
+                    init_task.cancel()
+                await asyncio.gather(init_task, return_exceptions=True)
+        finally:
+            self._init_task = None
+            if self.session:
+                await self.session.close()
+                self.session = None
 
     def __del__(self):
         _schedule_session_close(self)
@@ -1370,22 +1378,35 @@ class AsyncClient:
     async def _ensure_initialized(self) -> None:
         """Probe the cluster before the first request, without blocking the loop.
 
-        Concurrent first requests share a successful probe. The result is stored
-        only after the probe and API key were handled. Failed or cancelled probes
-        leave the client uninitialised, so waiting callers retry in turn.
+        Concurrent first requests await one probe task and get its result or its
+        error. The task is shielded, so cancelling one request does not cancel the
+        probe for the others. A failed probe is not remembered: the next request
+        starts a new one.
         """
         if self._cluster_authed is not None:
             return
-        async with self._init_lock:
-            if self._cluster_authed is None:
-                authed = await self._check_cluster_authenticated()
-                if not authed:
-                    # A token set before the probe only applies to an auth cluster.
-                    self._headers.pop("Authorization", None)
-                elif self._api_key is not None:
-                    # A token set before the probe is newer than the API key.
-                    self._headers.setdefault("Authorization", f"Bearer {self._api_key}")
-                self._cluster_authed = authed
+        if self._init_task is None or self._init_task.done():
+            self._init_task = asyncio.create_task(self._initialize())
+        error = await asyncio.shield(self._init_task)
+        if error is not None:
+            raise error
+
+    async def _initialize(self) -> Optional[Exception]:
+        # Returns the probe's error instead of raising it: if every caller was
+        # cancelled, nobody would retrieve a raised one and asyncio logs that.
+        # The result is stored only after the probe and the API key were handled.
+        try:
+            authed = await self._check_cluster_authenticated()
+            if not authed:
+                # A token set before the probe only applies to an auth cluster.
+                self._headers.pop("Authorization", None)
+            elif self._api_key is not None:
+                # A token set before the probe is newer than the API key.
+                self._headers.setdefault("Authorization", f"Bearer {self._api_key}")
+            self._cluster_authed = authed
+            return None
+        except Exception as error:
+            return error
 
     async def vllm_models(self) -> Dict[str, Any]:
         await self._ensure_initialized()
