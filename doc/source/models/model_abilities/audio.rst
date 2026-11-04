@@ -421,6 +421,11 @@ Both engines accept ``max_new_tokens`` (default 1024), ``temperature`` (0.8),
 accepts ``seed``. Xinference currently returns complete audio for both engines;
 Omni SSE streaming is not exposed. Realistic has no official ONNX export.
 
+``top_k`` must be a positive integer for either engine. MP3, WAV, FLAC and
+16-bit little-endian PCM output use SoundFile, including on Linux ARM64,
+without requiring TorchCodec. Other formats use the TorchAudio encoder and
+require a compatible TorchCodec installation with TorchAudio 2.9 or newer.
+
 Custom Audio8 models and explicit ``model_path`` values require
 ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup for either
 engine, because these loaders execute Python code from the model snapshot.

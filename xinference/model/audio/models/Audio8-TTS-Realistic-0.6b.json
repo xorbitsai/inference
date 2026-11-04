@@ -53,7 +53,7 @@
         "numpy>=1.26",
         "huggingface-hub>=0.36,<1.0",
         "safetensors>=0.4",
-        "soundfile>=0.12",
+        "soundfile>=0.13.1",
         "tqdm>=4.66",
         "#system_torch# ; #engine# == \"transformers\"",
         "#system_torchaudio# ; #engine# == \"transformers\"",

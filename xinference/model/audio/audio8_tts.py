@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import logging
 import os
 import tempfile
@@ -125,8 +126,12 @@ class Audio8TTSModel:
             0 < options["top_p"] <= 1
         ):
             raise InvalidModelRequestError("top_p must be in (0, 1].")
-        if not isinstance(options["top_k"], int) or options["top_k"] < 0:
-            raise InvalidModelRequestError("top_k must be a non-negative integer.")
+        if (
+            not isinstance(options["top_k"], int)
+            or isinstance(options["top_k"], bool)
+            or options["top_k"] <= 0
+        ):
+            raise InvalidModelRequestError("top_k must be a positive integer.")
         if not isinstance(options["do_sample"], bool):
             raise InvalidModelRequestError("do_sample must be a boolean.")
         from ..utils import resolve_media_seed
@@ -166,6 +171,27 @@ class Audio8TTSModel:
         audio = waveforms[0, : int(lengths[0])].detach().float().cpu().unsqueeze(0)
         return audio, int(self._model.config.codec_sample_rate)
 
+    @staticmethod
+    def _encode_audio(response_format: str, sample_rate: int, audio) -> bytes:
+        fmt = response_format.lower()
+        if fmt not in {"mp3", "wav", "flac", "pcm"}:
+            from .utils import audio_to_bytes
+
+            return audio_to_bytes(response_format, sample_rate, audio)
+
+        # The bundled SoundFile encoder avoids TorchCodec's Torch ABI and
+        # platform wheel requirements for the common speech response formats.
+        import soundfile
+
+        options = {"format": fmt.upper()}
+        if fmt == "pcm":
+            options.update(format="RAW", subtype="PCM_16", endian="LITTLE")
+        with io.BytesIO() as output:
+            soundfile.write(
+                output, audio.detach().float().cpu().numpy().T, sample_rate, **options
+            )
+            return output.getvalue()
+
     def speech(
         self,
         input: str,
@@ -175,8 +201,6 @@ class Audio8TTSModel:
         stream: bool = False,
         **kwargs,
     ):
-        from .utils import audio_to_bytes
-
         if stream:
             raise InvalidModelRequestError(
                 "Audio8-TTS does not support streaming in Xinference."
@@ -231,4 +255,4 @@ class Audio8TTSModel:
             audio, sample_rate = self._generate(
                 input.strip(), reference_path, transcript, options
             )
-        return audio_to_bytes(response_format, sample_rate, audio)
+        return self._encode_audio(response_format, sample_rate, audio)

@@ -14,6 +14,7 @@
 
 # CI: linux
 
+import io
 import json
 import sys
 from pathlib import Path
@@ -25,6 +26,7 @@ import pytest
 import torch
 
 from .... import constants
+from ....core.exceptions import InvalidModelRequestError
 from ....core.utils import (
     apply_engine_virtualenv_settings,
     filter_virtualenv_packages_by_markers,
@@ -347,7 +349,7 @@ def loaded_model(monkeypatch, tmp_path):
         ),
         config=SimpleNamespace(codec_sample_rate=44100),
     )
-    monkeypatch.setattr(utils, "audio_to_bytes", encode)
+    monkeypatch.setattr(model, "_encode_audio", encode)
     return model, calls
 
 
@@ -404,6 +406,76 @@ def test_reference_cleanup_on_error(loaded_model):
     assert not calls["reference_path"].exists()
 
 
+@pytest.mark.parametrize("model_class", [Audio8TTSModel, SGLangOmniAudio8TTSModel])
+@pytest.mark.parametrize("response_format", [None, "wav", "flac", "pcm"])
+def test_speech_really_encodes_without_torchcodec(
+    monkeypatch, tmp_path, model_class, response_format
+):
+    import soundfile
+
+    monkeypatch.setitem(sys.modules, "torchcodec", None)
+    monkeypatch.setitem(sys.modules, "torchcodec.encoders", None)
+    sample_rate = 44100
+    samples = 0.2 * torch.sin(2 * torch.pi * 440 * torch.arange(11025) / sample_rate)
+    model = model_class("audio8", str(tmp_path), match_audio(MODEL, "huggingface"))
+    generate = Mock(return_value=(samples.unsqueeze(0), sample_rate))
+    monkeypatch.setattr(model, "_generate", generate)
+    kwargs = {} if response_format is None else {"response_format": response_format}
+    encoded = model.speech("Hello", None, **kwargs)
+    assert isinstance(encoded, bytes) and encoded
+    read_options = (
+        {
+            "format": "RAW",
+            "subtype": "PCM_16",
+            "endian": "LITTLE",
+            "channels": 1,
+            "samplerate": sample_rate,
+        }
+        if response_format == "pcm"
+        else {}
+    )
+    with soundfile.SoundFile(io.BytesIO(encoded), **read_options) as audio:
+        assert audio.samplerate == sample_rate
+        assert audio.channels == 1
+        if response_format is None:
+            assert audio.format == "MP3"
+        decoded = audio.read(dtype="float32")
+    assert len(decoded) >= len(samples)
+    assert np.sqrt(np.mean(decoded**2)) > 0.01
+    if response_format is not None:
+        np.testing.assert_allclose(decoded, samples.numpy(), atol=1 / 32768)
+    generate.assert_called_once()
+
+
+@pytest.mark.parametrize("model_class", [Audio8TTSModel, SGLangOmniAudio8TTSModel])
+@pytest.mark.parametrize("top_k", [0, -1, False, True, 1.5])
+def test_top_k_must_be_positive_before_generation(
+    monkeypatch, tmp_path, model_class, top_k
+):
+    model = model_class("audio8", str(tmp_path), match_audio(MODEL, "huggingface"))
+    generate = Mock(side_effect=AssertionError("backend must not run"))
+    monkeypatch.setattr(model, "_generate", generate)
+    with pytest.raises(
+        InvalidModelRequestError, match="top_k must be a positive integer"
+    ):
+        model.speech("Hello", None, top_k=top_k)
+    generate.assert_not_called()
+
+
+@pytest.mark.parametrize("model_class", [Audio8TTSModel, SGLangOmniAudio8TTSModel])
+def test_top_k_one_is_forwarded_unchanged(model_class, tmp_path):
+    model = model_class("audio8", str(tmp_path), match_audio(MODEL, "huggingface"))
+    assert model._generation_options({"top_k": 1})["top_k"] == 1
+
+
+def test_other_formats_keep_existing_encoder(monkeypatch):
+    encode = Mock(return_value=b"encoded-aac")
+    monkeypatch.setattr(utils, "audio_to_bytes", encode)
+    audio = torch.zeros((1, 4410))
+    assert Audio8TTSModel._encode_audio("aac", 44100, audio) == b"encoded-aac"
+    encode.assert_called_once_with("aac", 44100, audio)
+
+
 @pytest.mark.parametrize(
     "kwargs,error",
     [
@@ -433,7 +505,9 @@ def test_sglang_loop_request_and_stop(monkeypatch, tmp_path):
     monkeypatch.setattr(audio8_tts_sglang, "_check_transformers_version", lambda: None)
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(
-        utils, "audio_to_bytes", lambda fmt, rate, audio: (fmt, rate, audio.numpy())
+        Audio8TTSModel,
+        "_encode_audio",
+        staticmethod(lambda fmt, rate, audio: (fmt, rate, audio.numpy())),
     )
     requests = []
 
