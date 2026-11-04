@@ -236,5 +236,5 @@ msgid "For a model with ordinary chat replicas, send the same optional ``routing
 msgstr "模型使用一般聊天副本時，可在同一工作階段的每個請求中傳送相同的 ``routing_key``。Xinference 會優先使用該模型、憑證與路由鍵上次選取的副本。副本無法使用或已達設定的請求上限時，Xinference 會嘗試其他副本。未提供路由鍵的請求會輪流分配。路由鍵必須是長度不超過 128 個字元的非空白字串，只用於選取副本。快取隔離由快取設定決定。"
 
 #: ../../source/user_guide/client_api.rst:110
-msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client."
-msgstr "使用 OpenAI 用戶端時，在 ``extra_body`` 中設定 ``routing_key``。使用 Xinference 用戶端時，在 ``generate_config`` 中設定。"
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
+msgstr "使用 OpenAI 用戶端時，在 ``extra_body`` 中設定 ``routing_key``。使用 Xinference 用戶端時，在 ``generate_config`` 中設定。 對於支援此功能的模型，``GET /v1/models/{model_uid}`` 的回應包含 ``supports_chat_session_affinity: true``。"

@@ -241,5 +241,5 @@ msgid "For a model with ordinary chat replicas, send the same optional ``routing
 msgstr "通常のチャットレプリカを持つモデルでは、セッション内の各リクエストに同じ任意の ``routing_key`` を指定します。Xinference は、モデル、認証情報、キーの組み合わせに対して前回選択したレプリカを優先します。レプリカが利用できない場合や設定されたリクエスト上限に達した場合は、別のレプリカを試します。キーを指定しないリクエストはラウンドロビンで振り分けます。キーは空白以外の文字を含む 128 文字以下の文字列で、キャッシュの分離には影響しません。"
 
 #: ../../source/user_guide/client_api.rst:110
-msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client."
-msgstr "OpenAI クライアントでは ``extra_body`` に、Xinference クライアントでは ``generate_config`` に ``routing_key`` を設定します。"
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
+msgstr "OpenAI クライアントでは ``extra_body`` に、Xinference クライアントでは ``generate_config`` に ``routing_key`` を設定します。 対応モデルでは、``GET /v1/models/{model_uid}`` のレスポンスに ``supports_chat_session_affinity: true`` が含まれます。"

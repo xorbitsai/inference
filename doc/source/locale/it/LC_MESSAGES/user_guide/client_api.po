@@ -260,5 +260,5 @@ msgid "For a model with ordinary chat replicas, send the same optional ``routing
 msgstr "Per un modello con repliche di chat ordinarie, inviare lo stesso valore facoltativo di ``routing_key`` per ogni richiesta di una sessione. Xinference preferisce l’ultima replica selezionata per quel modello, quella credenziale e quella chiave. Se la replica non è disponibile o ha raggiunto il limite di richieste configurato, Xinference ne prova un’altra. Le richieste senza chiave vengono distribuite a rotazione. La chiave deve contenere al massimo 128 caratteri, di cui almeno uno diverso da uno spazio bianco, e non controlla l’isolamento della cache."
 
 #: ../../source/user_guide/client_api.rst:110
-msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client."
-msgstr "Impostare ``routing_key`` in ``extra_body`` con il client OpenAI o in ``generate_config`` con il client Xinference."
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
+msgstr "Impostare ``routing_key`` in ``extra_body`` con il client OpenAI o in ``generate_config`` con il client Xinference. Per i modelli compatibili, la risposta di ``GET /v1/models/{model_uid}`` include ``supports_chat_session_affinity: true``."

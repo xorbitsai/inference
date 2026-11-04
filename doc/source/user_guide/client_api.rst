@@ -107,7 +107,7 @@ Chat replica affinity
 
 For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation.
 
-Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client.
+Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature.
 
 OpenAI Client Tool Calls
 ========================

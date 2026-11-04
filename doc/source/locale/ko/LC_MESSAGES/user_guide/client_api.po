@@ -261,5 +261,5 @@ msgid "For a model with ordinary chat replicas, send the same optional ``routing
 msgstr "일반 채팅 복제본을 사용하는 모델에서는 같은 세션의 모든 요청에 동일한 선택적 ``routing_key`` 값을 보냅니다. Xinference는 모델, 인증 정보, 키 조합에 대해 마지막으로 선택한 복제본을 우선 사용합니다. 해당 복제본을 사용할 수 없거나 설정된 요청 한도에 도달하면 다른 복제본을 시도합니다. 키가 없는 요청은 라운드 로빈으로 분배합니다. 키는 공백이 아닌 문자를 하나 이상 포함하는 최대 128자의 문자열이며 캐시 격리를 제어하지 않습니다."
 
 #: ../../source/user_guide/client_api.rst:110
-msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client."
-msgstr "OpenAI 클라이언트에서는 ``extra_body`` 필드에, Xinference 클라이언트에서는 ``generate_config`` 필드에 ``routing_key`` 값을 설정합니다."
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
+msgstr "OpenAI 클라이언트에서는 ``extra_body`` 필드에, Xinference 클라이언트에서는 ``generate_config`` 필드에 ``routing_key`` 값을 설정합니다. 이 기능을 지원하는 모델의 경우 ``GET /v1/models/{model_uid}`` 응답에 ``supports_chat_session_affinity: true`` 값이 포함됩니다."

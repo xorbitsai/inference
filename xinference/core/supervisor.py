@@ -7678,6 +7678,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             description["supports_thinking_budget"] = (
                 await self._supports_thinking_budget(model_uid)
             )
+            if (
+                "chat" in description.get("model_ability", [])
+                and model_uid not in self._pd_model_mapping
+            ):
+                description["supports_chat_session_affinity"] = True
         return description
 
     async def _supports_thinking_budget(self, model_uid: str) -> bool:
