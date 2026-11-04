@@ -18,6 +18,7 @@ from urllib.parse import quote
 import requests
 
 from ..common import (
+    IMAGE_DOWNLOAD_TIMEOUT,
     convert_float_to_int_or_str,
     encode_world_reference,
     is_http_url,
@@ -355,9 +356,14 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         if not (isinstance(image, str) and is_http_url(image)):
             return image
         # No auth headers: the Xinference credentials must not reach the image host.
-        response = self.session.get(image)
-        response.raise_for_status()
-        return response.content
+        try:
+            response = self.session.get(image, timeout=IMAGE_DOWNLOAD_TIMEOUT)
+            response.raise_for_status()
+            return response.content
+        except requests.RequestException as error:
+            raise RuntimeError(
+                f"Failed to download an image for editing, detail: {error}"
+            ) from error
 
     def image_edit(
         self,

@@ -19,6 +19,7 @@ from urllib.parse import quote
 import aiohttp
 
 from ..common import (
+    IMAGE_DOWNLOAD_TIMEOUT,
     async_streaming_response_iterator,
     convert_float_to_int_or_str,
     encode_world_reference,
@@ -423,11 +424,23 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
         if not (isinstance(image, str) and is_http_url(image)):
             return image
         # No auth headers: the Xinference credentials must not reach the image host.
-        response = await self.session.get(image)
-        response.raise_for_status()
-        content = await response.read()
-        await _release_response(response)
-        return content
+        # A request timeout replaces the session's, so carry its total over.
+        timeout = aiohttp.ClientTimeout(
+            total=self.session.timeout.total,
+            sock_connect=IMAGE_DOWNLOAD_TIMEOUT[0],
+            sock_read=IMAGE_DOWNLOAD_TIMEOUT[1],
+        )
+        try:
+            response = await self.session.get(image, timeout=timeout)
+            try:
+                response.raise_for_status()
+                return await response.read()
+            finally:
+                await _release_response(response)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as error:
+            raise RuntimeError(
+                f"Failed to download an image for editing, detail: {error}"
+            ) from error
 
     async def image_edit(
         self,

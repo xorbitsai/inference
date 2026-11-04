@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import io
 import json
+import threading
+import time
 from contextlib import asynccontextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -148,10 +152,11 @@ async def test_async_image_edit_keeps_paths_bytes_and_file_objects(tmp_path):
 
 async def test_async_image_edit_failed_download_uploads_nothing():
     async with _edit_server() as server:
-        with pytest.raises(aiohttp.ClientResponseError) as error:
+        with pytest.raises(RuntimeError, match="Failed to download an image") as error:
             await server.handle.image_edit(server.url + "/missing.png", "a cat")
 
-    assert error.value.status == 404
+    assert isinstance(error.value.__cause__, aiohttp.ClientResponseError)
+    assert error.value.__cause__.status == 404
     assert server.edits == []
 
 
@@ -239,7 +244,191 @@ def test_sync_image_edit_keeps_paths_bytes_and_file_objects(tmp_path):
 def test_sync_image_edit_failed_download_uploads_nothing():
     server = _sync_edit_handle()
 
-    with pytest.raises(requests.HTTPError):
+    with pytest.raises(RuntimeError, match="Failed to download an image") as error:
         server.handle.image_edit("https://example.com/missing.png", "a cat")
 
+    assert isinstance(error.value.__cause__, requests.HTTPError)
     assert server.uploads == []
+
+
+_STALL_SECONDS = 4
+
+
+@pytest.fixture
+def host():
+    """Loopback image host. /ok.png answers at once; /stall.png sends its headers
+    and the first byte of the body, then stays quiet. Edit uploads are recorded."""
+    state = SimpleNamespace(
+        uploads=[], stalled=threading.Event(), release=threading.Event()
+    )
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def reply(self, body, content_type, length=None):
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(length or len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            if self.path != "/stall.png":
+                return self.reply(b"image", "image/png")
+            self.reply(b"x", "image/png", length=1000)
+            state.stalled.set()
+            state.release.wait(_STALL_SECONDS)
+
+        def do_POST(self):
+            state.uploads.append(self.path)
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            self.reply(b'{"data": []}', "application/json")
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    state.url = f"http://127.0.0.1:{server.server_address[1]}"
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
+    )
+    thread.start()
+    try:
+        yield state
+    finally:
+        state.release.set()
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def _shrink(timeout):
+    """Cap a finite bound at 0.3 s so the stall tests take a fraction of a second.
+    None (no bound) stays None, so a call without a bound still waits."""
+    if isinstance(timeout, tuple):
+        return tuple(_shrink(bound) for bound in timeout)
+    return None if timeout is None else min(timeout, 0.3)
+
+
+class _RecordingAdapter(requests.adapters.HTTPAdapter):
+    """Records the timeout each request reaches the adapter with, then shrinks it."""
+
+    def __init__(self, seen):
+        super().__init__()
+        self.seen = seen
+
+    def send(self, request, stream=False, timeout=None, **kwargs):
+        self.seen.append((request.method, timeout))
+        return super().send(request, stream=stream, timeout=_shrink(timeout), **kwargs)
+
+
+class _RecordingSession:
+    """Wraps the handle's aiohttp session: records the timeout each request is
+    sent with, then shrinks it."""
+
+    def __init__(self, session, seen):
+        self._session = session
+        self._seen = seen
+
+    def __getattr__(self, name):
+        return getattr(self._session, name)
+
+    def _send(self, method, url, kwargs):
+        timeout = kwargs.get("timeout")
+        self._seen.append((method, timeout))
+        if timeout is not None:
+            kwargs["timeout"] = aiohttp.ClientTimeout(
+                total=timeout.total,
+                sock_connect=_shrink(timeout.sock_connect),
+                sock_read=_shrink(timeout.sock_read),
+            )
+        return getattr(self._session, method.lower())(url, **kwargs)
+
+    def get(self, url, **kwargs):
+        return self._send("GET", url, kwargs)
+
+    def post(self, url, **kwargs):
+        return self._send("POST", url, kwargs)
+
+
+# Where the stalled URL sits in the call: the image, a list entry, or the mask.
+_STALLS = {
+    "image": lambda ok, stall: {"images": stall},
+    "list_entry": lambda ok, stall: {"images": [ok, stall]},
+    "mask": lambda ok, stall: {"images": ok, "mask": stall},
+}
+
+
+def test_sync_image_edit_bounds_each_download_but_not_the_edit_request(host):
+    seen: list = []
+    handle = RESTfulImageModelHandle("sd", host.url, {})
+    handle.session.mount("http://", _RecordingAdapter(seen))
+    try:
+        handle.image_edit(host.url + "/ok.png", "a cat", mask=host.url + "/ok.png")
+    finally:
+        handle.close()
+
+    assert [method for method, _ in seen] == ["GET", "GET", "POST"]
+    for _, timeout in seen[:2]:  # the image, then the mask
+        assert isinstance(timeout, tuple), f"download timeout: {timeout!r}"
+        connect, read = timeout
+        assert 0 < connect <= 60 and 0 < read <= 60
+    # Generation can take minutes: the edit request keeps waiting for its answer.
+    assert seen[2][1] is None
+
+
+@pytest.mark.parametrize("where", _STALLS)
+def test_sync_image_edit_stalled_download_fails_without_uploading(host, where):
+    handle = RESTfulImageModelHandle("sd", host.url, {})
+    handle.session.mount("http://", _RecordingAdapter([]))
+    kwargs = _STALLS[where](host.url + "/ok.png", host.url + "/stall.png")
+    started = time.monotonic()
+    try:
+        with pytest.raises(RuntimeError, match="Failed to download an image") as error:
+            handle.image_edit(prompt="a cat", **kwargs)
+        assert isinstance(error.value.__cause__, requests.RequestException)
+    finally:
+        handle.close()
+    elapsed = time.monotonic() - started
+
+    assert host.stalled.is_set()  # the client got as far as the stalled body
+    assert elapsed < _STALL_SECONDS / 2, f"waited {elapsed:.1f}s on a stalled download"
+    assert host.uploads == []
+
+
+async def test_async_image_edit_bounds_each_download_but_not_the_edit_request(host):
+    seen: list = []
+    handle = AsyncRESTfulImageModelHandle("sd", host.url, {})
+    handle.session = _RecordingSession(handle.session, seen)
+    try:
+        await handle.image_edit(
+            host.url + "/ok.png", "a cat", mask=host.url + "/ok.png"
+        )
+    finally:
+        await handle.close()
+
+    assert [method for method, _ in seen] == ["GET", "GET", "POST"]
+    for _, timeout in seen[:2]:  # the image, then the mask
+        assert timeout is not None, "download carries no timeout of its own"
+        assert 0 < timeout.sock_connect <= 60 and 0 < timeout.sock_read <= 60
+        # The session's overall bound stays in force next to the new ones.
+        assert timeout.total == handle.timeout.total
+    # Generation can take minutes: the edit request keeps waiting for its answer.
+    assert seen[2][1] is None
+
+
+@pytest.mark.parametrize("where", _STALLS)
+async def test_async_image_edit_stalled_download_fails_without_uploading(host, where):
+    handle = AsyncRESTfulImageModelHandle("sd", host.url, {})
+    handle.session = _RecordingSession(handle.session, [])
+    kwargs = _STALLS[where](host.url + "/ok.png", host.url + "/stall.png")
+    started = time.monotonic()
+    try:
+        with pytest.raises(RuntimeError, match="Failed to download an image") as error:
+            await handle.image_edit(prompt="a cat", **kwargs)
+        assert isinstance(error.value.__cause__, asyncio.TimeoutError)
+    finally:
+        await handle.close()
+    elapsed = time.monotonic() - started
+
+    assert host.stalled.is_set()  # the client got as far as the stalled body
+    assert elapsed < _STALL_SECONDS / 2, f"waited {elapsed:.1f}s on a stalled download"
+    assert host.uploads == []
