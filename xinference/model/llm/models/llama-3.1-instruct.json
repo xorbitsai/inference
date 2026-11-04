@@ -458,7 +458,7 @@
               "Q6_K",
               "Q8_0"
             ],
-            "model_id": "LLM-Research/Meta-Llama-3.1-8B-Instruct-GGUF",
+            "model_id": "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
             "model_file_name_template": "Meta-Llama-3.1-8B-Instruct-{quantization}.gguf"
           }
         }

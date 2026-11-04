@@ -22,7 +22,7 @@ Model Spec 1 (pytorch, 1_5 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** SeaLLMs/SeaLLMs-v3-1.5B-Chat
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/SeaLLMs/SeaLLMs-v3-1.5B-Chat>`__, `ModelScope <https://modelscope.cn/models/SeaLLMs/SeaLLMs-v3-1.5B-Chat>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/SeaLLMs/SeaLLMs-v3-1.5B-Chat>`__, `ModelScope <https://modelscope.cn/models/QwenCollection/SeaLLMs-v3-1.5B-Chat>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -38,7 +38,7 @@ Model Spec 2 (pytorch, 7 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** SeaLLMs/SeaLLMs-v3-7B-Chat
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/SeaLLMs/SeaLLMs-v3-7B-Chat>`__, `ModelScope <https://modelscope.cn/models/SeaLLMs/SeaLLMs-v3-7B-Chat>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/SeaLLMs/SeaLLMs-v3-7B-Chat>`__, `ModelScope <https://modelscope.cn/models/QwenCollection/SeaLLMs-v3-7B-Chat>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

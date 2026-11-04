@@ -14,7 +14,7 @@ Specifications
 - **Dimensions:** 2048
 - **Max Tokens:** 262144
 - **Model ID:** tencent/WeMM-Embedding-2B
-- **Model Hubs**: `Hugging Face <https://huggingface.co/tencent/WeMM-Embedding-2B>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/WeMM-Embedding-2B>`__
+- **Model Hubs**: `Hugging Face <https://huggingface.co/tencent/WeMM-Embedding-2B>`__, `ModelScope <https://modelscope.cn/models/tencent-community/WeMM-Embedding-2B>`__
 
 Execute the following command to launch the model::
 
