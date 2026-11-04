@@ -20,6 +20,8 @@ from ..llm_family import (
     check_engine_by_spec_parameters,
     check_engine_by_spec_parameters_with_virtual_env,
 )
+from ..transformers.chatglm import ChatglmPytorchChatModel
+from ..transformers.core import PytorchChatModel, PytorchModel
 from ..transformers.deepseek_v2 import DeepSeekV2PytorchChatModel
 from ..transformers.multimodal.deepseek_vl2 import DeepSeekVL2ChatModel
 from ..transformers.multimodal.glm4_1v import Glm4_1VModel
@@ -28,15 +30,20 @@ from ..transformers.multimodal.glm4v import Glm4VModel
 # DeepSeek-V2 and DeepSeek-VL2 share DeepseekV2ForCausalLM, so the text class must
 # leave the vision family to its own class. glm-4v declares ChatGLMModel, which
 # Glm4VModel serves; the newer GLM-4.1V/4.5V families have their own class.
+# codegeex4 also declares ChatGLMModel but is text-only, so it uses the default chat class.
 ROUTES = [
     ("deepseek-vl2", DeepSeekVL2ChatModel),
     ("glm-4v", Glm4VModel),
+    ("codegeex4", PytorchChatModel),
     # Families that were already routed to these classes.
     ("deepseek-v2-chat", DeepSeekV2PytorchChatModel),
     ("deepseek-v2-chat-0628", DeepSeekV2PytorchChatModel),
     ("deepseek-v2.5", DeepSeekV2PytorchChatModel),
     ("glm-4.1v-thinking", Glm4_1VModel),
     ("glm-4.5v", Glm4_1VModel),
+    ("glm4-chat", ChatglmPytorchChatModel),
+    ("qwen2.5-instruct", PytorchChatModel),
+    ("Yi", PytorchModel),
 ]
 
 
@@ -85,6 +92,13 @@ def test_transformers_launch_selects_dedicated_class(name, expected, virtual_env
         # A text-only ChatGLMModel family is not a GLM-4V family.
         (Glm4VModel, "codegeex4", False),
         (Glm4_1VModel, "glm-4v", False),
+        # The default chat class takes the text-only family, but still leaves the
+        # vision family and the families with a custom class to those classes.
+        (PytorchChatModel, "codegeex4", True),
+        (PytorchChatModel, "glm-4v", False),
+        (PytorchChatModel, "glm-4.1v-thinking", False),
+        (PytorchChatModel, "deepseek-v2.5", False),
+        (PytorchChatModel, "glm4-chat", False),
     ],
 )
 def test_match_json_keeps_shared_architectures_apart(model_cls, name, accepted):
@@ -94,3 +108,48 @@ def test_match_json_keeps_shared_architectures_apart(model_cls, name, accepted):
     for spec in specs:
         result = model_cls.match_json(family, spec, spec.quantization)
         assert (result is True) is accepted
+
+
+@pytest.mark.parametrize(
+    "name,abilities,accepted",
+    [
+        ("codegeex4", ["generate"], True),
+        ("glm-4v", ["generate", "vision"], False),
+        ("deepseek-v2.5", ["generate"], False),
+    ],
+)
+def test_default_generate_class_uses_the_same_boundary(name, abilities, accepted):
+    family = _family(name).copy(update={"model_ability": abilities})
+    for spec in _pytorch_specs(family):
+        result = PytorchModel.match_json(family, spec, spec.quantization)
+        assert (result is True) is accepted
+
+
+@pytest.mark.parametrize(
+    "parent,accepted",
+    [("codegeex4", True), ("glm-4v", False), ("deepseek-v2.5", False)],
+)
+def test_user_registered_family_inherits_the_parent_boundary(parent, accepted):
+    # A registered family without architectures of its own resolves its parent's.
+    family = _family(parent).copy(
+        update={
+            "model_name": f"my-{parent}",
+            "model_family": parent,
+            "architectures": None,
+        }
+    )
+    spec = _pytorch_specs(family)[0]
+    result = PytorchChatModel.match_json(family, spec, spec.quantization)
+    assert (result is True) is accepted
+
+
+def test_family_without_architectures_keeps_the_default_chat_class():
+    family = _family("codegeex4").copy(
+        update={
+            "model_name": "no-architectures",
+            "model_family": None,
+            "architectures": None,
+        }
+    )
+    spec = _pytorch_specs(family)[0]
+    assert PytorchChatModel.match_json(family, spec, spec.quantization) is True

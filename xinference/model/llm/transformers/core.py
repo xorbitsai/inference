@@ -65,18 +65,23 @@ logger = logging.getLogger(__name__)
 
 # !!!!! Do not add model_name to this list; register architectures via `register_non_default_model` instead!
 NON_DEFAULT_MODEL_LIST: List[str] = []
+# (architecture, ability) pairs registered for one ability only.
+NON_DEFAULT_ABILITY_MODEL_LIST: List[Tuple[str, str]] = []
 
 
 # Define the decorator to support multiple names registration
-def register_non_default_model(*architectures: str):
+def register_non_default_model(*architectures: str, ability: Optional[str] = None):
     """
     Decorator for registering non-default model architectures.
 
     Args:
         *architectures (str): One or more architecture names to be treated as non-default.
+        ability (Optional[str]): Treat the architectures as non-default only for families
+            with this ability. Families that share them without it keep the default classes.
 
     Returns:
-        A decorator function that adds the provided model names to the NON_DEFAULT_MODEL_LIST.
+        A decorator function that adds the provided model names to the NON_DEFAULT_MODEL_LIST,
+        or, with an ability, to the NON_DEFAULT_ABILITY_MODEL_LIST.
     """
 
     def decorator(cls):
@@ -90,11 +95,24 @@ def register_non_default_model(*architectures: str):
             The original class after registering the model names.
         """
         for name in architectures:
-            if name not in NON_DEFAULT_MODEL_LIST:
+            if ability is not None:
+                if (name, ability) not in NON_DEFAULT_ABILITY_MODEL_LIST:
+                    NON_DEFAULT_ABILITY_MODEL_LIST.append((name, ability))
+            elif name not in NON_DEFAULT_MODEL_LIST:
                 NON_DEFAULT_MODEL_LIST.append(name)
         return cls
 
     return decorator
+
+
+def _requires_custom_implementation(llm_family: "LLMFamilyV2") -> bool:
+    """Whether a registered custom class serves this family, so the default classes skip it."""
+    if llm_family.matches_supported_architectures(NON_DEFAULT_MODEL_LIST):
+        return True
+    return any(
+        ability in llm_family.model_ability and llm_family.has_architecture(name)
+        for name, ability in NON_DEFAULT_ABILITY_MODEL_LIST
+    )
 
 
 class PytorchModel(LLM):
@@ -572,7 +590,7 @@ class PytorchModel(LLM):
                 False,
                 "Transformers engine supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
-        if llm_family.matches_supported_architectures(NON_DEFAULT_MODEL_LIST):
+        if _requires_custom_implementation(llm_family):
             return (
                 False,
                 f"Model architectures {llm_family.architectures} require a custom transformer implementation",
@@ -1089,7 +1107,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                 False,
                 "Kimi-K3 requires a dedicated multimodal Transformers adapter",
             )
-        if llm_family.matches_supported_architectures(NON_DEFAULT_MODEL_LIST):
+        if _requires_custom_implementation(llm_family):
             return (
                 False,
                 f"Model architectures {llm_family.architectures} require a custom transformer implementation",

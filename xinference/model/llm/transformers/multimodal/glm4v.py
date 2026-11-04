@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 @register_batching_multimodal_models("glm-4v")
 @register_transformer
-@register_non_default_model("ChatGLMModel")
+@register_non_default_model("ChatGLMModel", ability="vision")
 class Glm4VModel(PytorchMultiModalModel):
     GLM4V_ARCHITECTURES = {"ChatGLMModel"}
 
