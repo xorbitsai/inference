@@ -8,7 +8,7 @@ MiniCPM-V-4.7
 - **Model Name:** MiniCPM-V-4.7
 - **Languages:** en, zh
 - **Abilities:** chat, vision, hybrid
-- **Description:** MiniCPM-V 4.7 supports single-image, multi-image, and video understanding with canvas M-RoPE and 4x/16x visual compression. It provides 1B dense and 35B-A3B MoE variants. Transformers requires >=5.18.0; vLLM requires the nightly containing PR #58674. SGLang requires >=0.5.23 and supports text and image inputs. GGUF and llama.cpp support is not enabled.
+- **Description:** MiniCPM-V 4.7 supports single-image, multi-image, and video understanding with canvas M-RoPE and 4x/16x visual compression. It provides 1B dense and 35B-A3B MoE variants. Transformers requires >=5.18.0; vLLM requires the nightly containing PR #58674. SGLang requires >=0.5.23 and Python 3.11-3.13 for text and image inputs; its 1B BNB checkpoint is not supported. GGUF and llama.cpp support is not enabled.
 
 Specifications
 ^^^^^^^^^^^^^^
@@ -68,7 +68,7 @@ Model Spec 4 (bnb, 1 Billion)
 - **Model Format:** bnb
 - **Model Size (in billions):** 1
 - **Quantizations:** 4-bit
-- **Engines**: vLLM, Transformers, SGLang
+- **Engines**: vLLM, Transformers
 - **Model ID:** openbmb/MiniCPM-V-4.7-1B-int4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-int4>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.7-1B-int4>`__
 

@@ -81,9 +81,9 @@ logger = logging.getLogger(__name__)
 class SGLANGModelConfig(TypedDict, total=False):
     page_size: int
     mamba_scheduler_strategy: str
+    mamba_radix_cache_strategy: str
     mamba_track_interval: int
     tokenizer_mode: str
-    load_format: str
     trust_remote_code: bool
     tp_size: int
     mem_fraction_static: float
@@ -214,6 +214,24 @@ def _get_sglang_version() -> Optional[Version]:
         return None
 
 
+def _minicpmv47_compatibility_error(
+    llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1"
+) -> Optional[str]:
+    if not llm_family.has_architecture("MiniCPMV4_7ForConditionalGeneration"):
+        return None
+    if not (3, 11) <= sys.version_info[:2] < (3, 14):
+        return (
+            "MiniCPM-V-4.7 SGLang requires Python 3.11-3.13; "
+            f"found {sys.version_info[0]}.{sys.version_info[1]}"
+        )
+    if llm_spec.model_format == "bnb":
+        return (
+            "MiniCPM-V-4.7 BNB checkpoints are not supported by SGLang: "
+            "quantization-state names do not match the native model"
+        )
+    return None
+
+
 class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     supports_cache_salt = True
     _weight_cache_engine = "sglang"
@@ -229,6 +247,11 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         model_config: Optional[SGLANGModelConfig],
     ):
         super().__init__(model_uid, model_family, model_path)
+        compatibility_error = _minicpmv47_compatibility_error(
+            self.model_family, self.model_spec
+        )
+        if compatibility_error:
+            raise ValueError(compatibility_error)
         self._model_config = model_config
         self._engine = None
         self._address = model_config.pop("address", None)  # type: ignore
@@ -539,10 +562,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             model_config.setdefault("mamba_scheduler_strategy", "extra_buffer")
             model_config.setdefault("mamba_track_interval", 64)
         if self.model_family.has_architecture("MiniCPMV4_7ForConditionalGeneration"):
-            model_config.setdefault("mamba_scheduler_strategy", "extra_buffer")
-            if self.model_spec.model_format == "bnb":
-                # This loader attaches the bnb_quant_state needed for 4-bit weights.
-                model_config.setdefault("load_format", "bitsandbytes")
+            model_config.setdefault("mamba_radix_cache_strategy", "extra_buffer")
             # Native processors also work for quantized snapshots whose
             # auto_map references remote processor files they do not include.
             model_config.setdefault("trust_remote_code", False)
@@ -1741,6 +1761,9 @@ class SGLANGVisionModel(SGLANGModel):
         is_minicpmv47 = llm_family.has_architecture(
             "MiniCPMV4_7ForConditionalGeneration"
         )
+        compatibility_error = _minicpmv47_compatibility_error(llm_family, llm_spec)
+        if compatibility_error:
+            return False, compatibility_error
         if is_minicpmv47 and not _virtual_env_allows_missing_sglang():
             installed = _get_sglang_version()
             if installed is None or installed < MINICPMV47_MIN_SGLANG_VERSION:

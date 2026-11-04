@@ -376,8 +376,8 @@ def _force_virtualenv_engine_params(
     - For virtualenv-enabled launches, use match_json to filter specs per engine.
       Only engines with matching specs are included - architecture compatibility
       is still enforced even with virtualenv.
-      If the engine is sglang and no specs match, fall back to vLLM's match_json
-      to reuse its compatibility logic.
+      For architectures not known to SGLang, fall back to vLLM's match_json.
+      Native SGLang compatibility restrictions remain authoritative.
     - For non-virtualenv launches, keep strict matching and only include engines
       with compatible specs.
 
@@ -414,6 +414,24 @@ def _force_virtualenv_engine_params(
                         break
 
             if not matched_specs and engine_name.lower() == "sglang":
+                from .llm.sglang.core import (
+                    SGLANG_SUPPORTED_CHAT_MODELS,
+                    SGLANG_SUPPORTED_MODELS,
+                    SGLANG_SUPPORTED_VISION_MODEL_LIST,
+                )
+
+                matches_architectures = getattr(
+                    family, "matches_supported_architectures", None
+                )
+                if callable(matches_architectures) and matches_architectures(
+                    SGLANG_SUPPORTED_MODELS
+                    + SGLANG_SUPPORTED_CHAT_MODELS
+                    + SGLANG_SUPPORTED_VISION_MODEL_LIST
+                ):
+                    engine_params.pop(engine_name, None)
+                    available_params.pop(engine_name, None)
+                    match_status[engine_name] = False
+                    continue
                 vllm_classes: Optional[List[Type[Any]]] = None
                 for candidate_name, candidate_classes in supported_engines.items():
                     if candidate_name.lower() == "vllm":

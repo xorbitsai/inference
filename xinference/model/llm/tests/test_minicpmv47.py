@@ -101,6 +101,11 @@ def test_official_checkpoints_and_engine_selection(
         ("vLLM", vllm_core.VLLMMultiModel),
         ("SGLang", SGLANGVisionModel),
     ):
+        if engine == "SGLang" and model_format == "bnb":
+            assert SGLANGVisionModel.match_json(family, spec, quantization)[0] is False
+            with pytest.raises(ValueError, match="BNB"):
+                SGLANGVisionModel("unsupported-bnb", family, "/models/test", {})
+            continue
         assert (
             check_engine_by_spec_parameters_with_virtual_env(
                 engine,
@@ -131,7 +136,11 @@ def test_virtualenv_engine_discovery(virtualenv_worker):
             (int(entry["model_size_in_billions"]), entry["model_format"], quantization)
             for entry in params[engine]
             for quantization in entry["quantizations"]
-        } == {(size, fmt, quant) for size, fmt, quant, _ in VARIANTS}
+        } == {
+            (size, fmt, quant)
+            for size, fmt, quant, _ in VARIANTS
+            if engine != "SGLang" or fmt != "bnb"
+        }
     assert not isinstance(params.get("llama.cpp"), list)
     assert "MiniCPM-V-4.7" not in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
 
@@ -175,7 +184,7 @@ def test_virtualenv_requirements(engine, expected):
     if engine == "sglang":
         assert "qwen-vl-utils" in prepared
         assert "transformers>=5.18.0" in prepared
-        assert "bitsandbytes>=0.45.0" in prepared
+        assert "bitsandbytes>=0.45.0" not in prepared
         assert "flash-attn-4>=4.0.0b18" in prepared
     else:
         assert not any(package.startswith("flash-attn-4") for package in prepared)
@@ -187,23 +196,23 @@ def test_sglang_checkpoint_loader(
     monkeypatch, hub, size, model_format, quantization, suffix
 ):
     family = match_llm("MiniCPM-V-4.7", model_format, size, quantization, hub)
+    if model_format == "bnb":
+        with pytest.raises(ValueError, match="BNB"):
+            SGLANGVisionModel("unsupported-bnb", family, "/models/test", {})
+        return
     model = SGLANGVisionModel("minicpm-sglang-test", family, "/models/test", {})
     monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
     config = model._sanitize_model_config({})
-    if model_format == "bnb":
-        assert config["load_format"] == "bitsandbytes"
-    else:
-        assert "load_format" not in config
+    assert "load_format" not in config
     assert "quantization" not in config
 
 
-def test_sglang_bnb_preserves_explicit_loader(monkeypatch):
+def test_sglang_bnb_cannot_override_unsupported_checkpoint():
     family = match_llm("MiniCPM-V-4.7", "bnb", 1, "4-bit", "huggingface")
-    model = SGLANGVisionModel("minicpm-sglang-test", family, "/models/test", {})
-    monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
-    assert (
-        model._sanitize_model_config({"load_format": "dummy"})["load_format"] == "dummy"
-    )
+    with pytest.raises(ValueError, match="BNB"):
+        SGLANGVisionModel(
+            "unsupported-bnb", family, "/models/test", {"load_format": "bitsandbytes"}
+        )
 
 
 def test_sglang_worker_preserves_prerelease_requirement(tmp_path):
@@ -236,15 +245,98 @@ def test_sglang_model_defaults(monkeypatch, size):
     model = SGLANGVisionModel("minicpm-sglang-test", family, "/models/test", {})
     monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
     config = model._sanitize_model_config({})
-    assert config["mamba_scheduler_strategy"] == "extra_buffer"
+    assert config["mamba_radix_cache_strategy"] == "extra_buffer"
+    assert "mamba_scheduler_strategy" not in config
     assert config["trust_remote_code"] is False
     assert "quantization" not in config
     assert (
-        model._sanitize_model_config({"mamba_scheduler_strategy": "no_buffer"})[
-            "mamba_scheduler_strategy"
+        model._sanitize_model_config({"mamba_radix_cache_strategy": "no_buffer"})[
+            "mamba_radix_cache_strategy"
         ]
         == "no_buffer"
     )
+
+
+@pytest.mark.parametrize("version", [(3, 10), (3, 11), (3, 12), (3, 13), (3, 14)])
+@pytest.mark.parametrize("virtualenv", [False, True])
+def test_sglang_python_range(virtualenv_worker, monkeypatch, version, virtualenv):
+    monkeypatch.setattr(sglang_core, "sys", SimpleNamespace(version_info=version))
+    monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", True)
+    monkeypatch.setattr(sglang_core, "_get_sglang_version", lambda: Version("0.5.23"))
+    monkeypatch.setattr(
+        sglang_core.SGLANGModel, "check_lib", classmethod(lambda cls: True)
+    )
+    monkeypatch.setattr(
+        sglang_core, "_virtual_env_allows_missing_sglang", lambda: virtualenv
+    )
+    family = match_llm("MiniCPM-V-4.7", "pytorch", 1, "none", "huggingface")
+    supported = (3, 11) <= version < (3, 14)
+    result = SGLANGVisionModel.match_json(family, family.model_specs[0], "none")
+    assert (result is True) is supported
+    params = get_engine_params_by_name_with_virtual_env(
+        "LLM", family.model_name, enable_virtual_env=virtualenv
+    )
+    assert isinstance(params.get("SGLang"), list) is supported
+    if supported:
+        SGLANGVisionModel("supported-python", family, "/models/test", {})
+    else:
+        assert "Python 3.11-3.13" in result[1]
+        with pytest.raises(ValueError, match="Python 3.11-3.13"):
+            SGLANGVisionModel("unsupported-python", family, "/models/test", {})
+
+
+@pytest.mark.parametrize(
+    "version,model_format,quantization",
+    [
+        ((3, 10), "pytorch", "none"),
+        ((3, 14), "pytorch", "none"),
+        ((3, 12), "bnb", "4-bit"),
+    ],
+)
+def test_sglang_native_constraints_override_cached_discovery(
+    virtualenv_worker, monkeypatch, version, model_format, quantization
+):
+    from ...utils import _force_virtualenv_engine_params
+
+    monkeypatch.setattr(sglang_core, "sys", SimpleNamespace(version_info=version))
+    family = match_llm("MiniCPM-V-4.7", model_format, 1, quantization, "huggingface")
+    engine_params = {"SGLang": [{"cached": True}]}
+    available_params = {"SGLang": [{"cached": True}]}
+    status = _force_virtualenv_engine_params(
+        family,
+        {"SGLang": [SGLANGVisionModel], "vLLM": [vllm_core.VLLMMultiModel]},
+        {"sglang"},
+        engine_params,
+        available_params,
+        True,
+    )
+    assert status["SGLang"] is False
+    assert "SGLang" not in engine_params
+    assert "SGLang" not in available_params
+
+
+def test_sglang_legacy_discovery_fallback_for_unknown_architecture(virtualenv_worker):
+    from ...utils import _force_virtualenv_engine_params
+
+    family = match_llm("MiniCPM-V-4.7", "pytorch", 1, "none", "huggingface")
+    family.architectures = ["UnknownForConditionalGeneration"]
+
+    class UpstreamEngine:
+        @staticmethod
+        def match_json(*args):
+            return True
+
+    engine_params, available_params = {}, {}
+    status = _force_virtualenv_engine_params(
+        family,
+        {"SGLang": [SGLANGVisionModel], "vLLM": [UpstreamEngine]},
+        {"sglang"},
+        engine_params,
+        available_params,
+        True,
+    )
+    assert status["SGLang"] is True
+    assert isinstance(engine_params["SGLang"], list)
 
 
 @pytest.mark.parametrize(
