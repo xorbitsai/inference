@@ -1015,6 +1015,25 @@ class MLXModel(LLM, ChatModelMixin):
             generate_config["max_tokens"] = max_tokens  # type: ignore
         return generate_config
 
+    def prepare_reasoning_request(self, config: Dict) -> Dict:
+        config = super().prepare_reasoning_request(config)
+        if config.get("_mlx_thinking_budget") is not None:
+            if getattr(self, "_xavier", None) is not None:
+                raise NotImplementedError(
+                    "MLX Xavier models do not support thinking budgets"
+                )
+            if (
+                isinstance(self, MLXVisionModel)
+                and "logits_processors"
+                not in inspect.signature(
+                    _ensure_mlx_vlm_thread_local_stream().generate_step
+                ).parameters
+            ):
+                raise NotImplementedError(
+                    "Installed mlx-vlm does not support thinking budgets"
+                )
+        return config
+
     def prepare_anthropic_request(
         self, messages: List[Dict], config: Dict
     ) -> Dict[str, Any]:
@@ -1106,6 +1125,10 @@ class MLXModel(LLM, ChatModelMixin):
         return prompt
 
     def _apply_thinking_budget(self, config: Dict) -> None:
+        if (config.get("_pd_kv_transfer_params") or {}).get("do_remote_decode"):
+            # Prefill uses the same prompt but generates only a handoff token.
+            config.pop("_mlx_thinking_budget", None)
+            return
         context = (
             self._get_chat_template_kwargs_from_generate_config(
                 config, self.reasoning_parser
@@ -1113,11 +1136,7 @@ class MLXModel(LLM, ChatModelMixin):
             or {}
         )
         budget = context.get("thinking_budget")
-        if (
-            not context.get("_anthropic_request")
-            or budget is None
-            or not context.get("enable_thinking")
-        ):
+        if budget is None or not context.get("enable_thinking"):
             return
         parser = self.reasoning_parser
         if parser is None or not (

@@ -167,17 +167,14 @@ def test_flash_next_multimodal_and_tool_template():
     assert prompt.endswith("<|im_start|>assistant\n<think>\n")
 
 
-@pytest.mark.parametrize("field", ["model_name", "model_family"])
 @pytest.mark.parametrize("effort", ["low", "medium", "xhigh"])
-def test_flash_next_api_reasoning_effort(field, effort):
-    from xinference.api.restful_api import RESTfulAPI
+def test_flash_next_api_reasoning_effort(effort):
+    from xinference.model.llm.reasoning_controls import normalize_reasoning_controls
     from xinference.model.llm.utils import ChatModelMixin
 
-    assert RESTfulAPI._is_qwen38_description({field: _family().model_name})
-    body = {"reasoning_effort": effort}
-    raw_kwargs = {"reasoning_effort": effort}
-    kwargs = dict(raw_kwargs)
-    RESTfulAPI._apply_qwen38_reasoning_effort(body, raw_kwargs, kwargs)
+    kwargs = normalize_reasoning_controls(
+        {"reasoning_effort": effort}, _family().get_reasoning_effort()
+    )
     assert "reasoning_effort" not in kwargs
     assert kwargs["chat_template_kwargs"]["reasoning_effort"] == effort
     prompt = ChatModelMixin()._build_from_raw_template(
@@ -202,13 +199,10 @@ def test_flash_next_api_reasoning_effort(field, effort):
     ],
 )
 def test_flash_next_api_rejects_invalid_reasoning_effort(body):
-    from fastapi import HTTPException
+    from xinference.model.llm.reasoning_controls import normalize_reasoning_controls
 
-    from xinference.api.restful_api import RESTfulAPI
-
-    with pytest.raises(HTTPException) as exc:
-        RESTfulAPI._apply_qwen38_reasoning_effort(body, dict(body), dict(body))
-    assert exc.value.status_code == 400
+    with pytest.raises(ValueError):
+        normalize_reasoning_controls(body, _family().get_reasoning_effort())
 
 
 def test_flash_next_does_not_offer_generic_transformers():

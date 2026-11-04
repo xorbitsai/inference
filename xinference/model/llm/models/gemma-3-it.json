@@ -364,6 +364,13 @@
               "hidden_size": 5376,
               "intermediate_size": 21504,
               "num_hidden_layers": 62
+            },
+            "model_file_name_split_template": "google_gemma-3-27b-it-{quantization}/google_gemma-3-27b-it-{quantization}-{part}.gguf",
+            "quantization_parts": {
+              "bf16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
             }
           },
           "modelscope": {
@@ -401,6 +408,13 @@
               "hidden_size": 5376,
               "intermediate_size": 21504,
               "num_hidden_layers": 62
+            },
+            "model_file_name_split_template": "google_gemma-3-27b-it-{quantization}/google_gemma-3-27b-it-{quantization}-{part}.gguf",
+            "quantization_parts": {
+              "bf16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
             }
           }
         }

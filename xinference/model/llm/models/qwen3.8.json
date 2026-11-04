@@ -1,6 +1,7 @@
 [
   {
     "model_name": "qwen3.8",
+    "reasoning_effort": {"values": ["low", "medium", "xhigh"]},
     "model_description": "Built on the architectural foundation of Qwen3.5, Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks. Qwen3.8-27B brings these advances to a compact, deployment-friendly dense model: a native vision-language model that understands images and videos, with flexible thinking control.",
     "context_length": 262144,
     "context_length_extension": {
@@ -134,25 +135,21 @@
             "model_file_name_split_template": "{quantization}/Qwen3.8-27B-{quantization}-{part}.gguf",
             "quantizations": [
               "BF16",
-              "IQ4_NL",
-              "IQ4_XS",
-              "Q3_K_M",
-              "Q3_K_S",
               "Q4_0",
               "Q4_1",
-              "Q4_K_M",
-              "Q4_K_S",
-              "Q5_K_M",
-              "Q5_K_S",
-              "Q6_K",
               "Q8_0",
-              "UD-IQ2_M",
               "UD-IQ2_XXS",
               "UD-IQ3_XXS",
+              "UD-IQ4_XS",
               "UD-Q2_K_XL",
               "UD-Q3_K_XL",
+              "UD-Q4_K_M",
+              "UD-Q4_K_S",
               "UD-Q4_K_XL",
+              "UD-Q5_K_M",
+              "UD-Q5_K_S",
               "UD-Q5_K_XL",
+              "UD-Q6_K",
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
@@ -185,25 +182,21 @@
             "model_file_name_split_template": "{quantization}/Qwen3.8-27B-{quantization}-{part}.gguf",
             "quantizations": [
               "BF16",
-              "IQ4_NL",
-              "IQ4_XS",
-              "Q3_K_M",
-              "Q3_K_S",
               "Q4_0",
               "Q4_1",
-              "Q4_K_M",
-              "Q4_K_S",
-              "Q5_K_M",
-              "Q5_K_S",
-              "Q6_K",
               "Q8_0",
-              "UD-IQ2_M",
               "UD-IQ2_XXS",
               "UD-IQ3_XXS",
+              "UD-IQ4_XS",
               "UD-Q2_K_XL",
               "UD-Q3_K_XL",
+              "UD-Q4_K_M",
+              "UD-Q4_K_S",
               "UD-Q4_K_XL",
+              "UD-Q5_K_M",
+              "UD-Q5_K_S",
               "UD-Q5_K_XL",
+              "UD-Q6_K",
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
@@ -395,6 +388,75 @@
             }
           }
         }
+      },
+      {
+        "model_size_in_billions": 27,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "RedHatAI/Qwen3.8-27B-INT4",
+            "model_revision": "91bd022d5b49442a868bc35008f6c21e1860edfa",
+            "quantizations": [
+              "Int4"
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "architecture_type": "hybrid_attention",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 64,
+              "full_attention_interval": 4,
+              "linear_num_key_heads": 16,
+              "linear_num_value_heads": 48,
+              "linear_key_head_dim": 128,
+              "linear_value_head_dim": 128,
+              "linear_conv_kernel_dim": 4,
+              "vision": {
+                "hidden_size": 1152,
+                "intermediate_size": 4304,
+                "num_attention_heads": 16,
+                "spatial_merge_size": 2
+              },
+              "config_source": "https://huggingface.co/RedHatAI/Qwen3.8-27B-INT4/resolve/91bd022d5b49442a868bc35008f6c21e1860edfa/config.json",
+              "config_sha256": "5498b42f9ea96d2669709c177e29122997ce14786a7530fe1ea1b340e535776c"
+            }
+          },
+          "modelscope": {
+            "model_id": "RedHatAI/Qwen3.8-27B-INT4",
+            "model_revision": "20f1f091755dab5ff431fc545bc4245caf31f722",
+            "quantizations": [
+              "Int4"
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "architecture_type": "hybrid_attention",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 64,
+              "full_attention_interval": 4,
+              "linear_num_key_heads": 16,
+              "linear_num_value_heads": 48,
+              "linear_key_head_dim": 128,
+              "linear_value_head_dim": 128,
+              "linear_conv_kernel_dim": 4,
+              "vision": {
+                "hidden_size": 1152,
+                "intermediate_size": 4304,
+                "num_attention_heads": 16,
+                "spatial_merge_size": 2
+              },
+              "config_source": "https://modelscope.cn/models/RedHatAI/Qwen3.8-27B-INT4/resolve/20f1f091755dab5ff431fc545bc4245caf31f722/config.json",
+              "config_sha256": "5498b42f9ea96d2669709c177e29122997ce14786a7530fe1ea1b340e535776c"
+            }
+          }
+        },
+        "quantization_method": "compressed-tensors"
       }
     ],
     "version": 2,
@@ -403,6 +465,7 @@
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
+        "compressed-tensors>=0.15.0 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "mlx-vlm>=0.6.13 ; #engine# == \"MLX\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",

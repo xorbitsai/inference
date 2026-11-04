@@ -3,6 +3,20 @@
 Release Notes
 =============
 
+Unreleased
+----------
+
+Custom PyTorch Int4 registrations for compressed-tensors checkpoints, including
+Ling-3.0 and MiniCPM-V-4.7, now require
+``"quantization_method": "compressed-tensors"`` in the corresponding
+``model_specs`` entry to select vLLM. The Web UI registration form does not expose
+this field yet. Add it to the model JSON and register the file through the CLI
+(shown below) or the Python client; see :ref:`models_custom`.
+
+.. code-block:: bash
+
+   xinference register --model-type LLM --file model.json --persist
+
 .. _release_4_0_overview:
 
 Xinference 4.0 overview

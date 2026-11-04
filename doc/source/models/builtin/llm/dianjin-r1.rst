@@ -22,7 +22,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** DianJin/DianJin-R1-7B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/DianJin/DianJin-R1-7B>`__, `ModelScope <https://modelscope.cn/models/DianJin/DianJin-R1-7B>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/DianJin/DianJin-R1-7B>`__, `ModelScope <https://modelscope.cn/models/tongyi_dianjin/DianJin-R1-7B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -38,7 +38,7 @@ Model Spec 2 (pytorch, 32 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** DianJin/DianJin-R1-32B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/DianJin/DianJin-R1-32B>`__, `ModelScope <https://modelscope.cn/models/DianJin/DianJin-R1-32B>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/DianJin/DianJin-R1-32B>`__, `ModelScope <https://modelscope.cn/models/tongyi_dianjin/DianJin-R1-32B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

@@ -22,6 +22,7 @@ class DirectRequest:
     request_id: str
     layer_blocks: dict[str, set[int]]
     deadline: float
+    shared: bool = False
     claimed: bool = False
     reading: bool = False
     released: bool = False
@@ -73,7 +74,14 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
         self.finished_sending.clear()
 
     def register_direct(
-        self, ticket, request_id, blocks, hashes=None, *, lease_timeout: float = 120
+        self,
+        ticket,
+        request_id,
+        blocks,
+        hashes=None,
+        *,
+        lease_timeout: float = 120,
+        shared: bool = False,
     ):
         if self.closing or ticket in self.direct_requests:
             raise ValueError("Invalid direct handoff registration")
@@ -101,6 +109,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
             layer_blocks,
             time.monotonic() + lease_timeout,
             hashes=dict(zip(blocks, hashes or [])),
+            shared=shared,
         )
         self.metrics["direct_registered"] += 1
 
@@ -139,9 +148,17 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
             if self._schedule_history(ticket, state):
                 return
             state.indices.clear()
-            self.finished_sending.add(state.request_id)
+            if not state.shared:
+                self.finished_sending.add(state.request_id)
             del self.direct_requests[ticket]
             self.metrics["direct_finished"] += 1
+
+    async def revoke_shared_prefix(self, ticket):
+        self.release_direct(ticket)
+        # No future slab can read a released ticket. Wait for any gather
+        # that already passed validation before permitting slot reuse.
+        async with self.send_lock:
+            pass
 
     def poll_direct(self):
         for ticket in list(self.direct_requests):
@@ -195,6 +212,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
             finally:
                 # Failed/cancelled gathers may still read engine slots. A
                 # completed gather has already drained those reads; copy_to
+
                 # owns only the slab and drains its transfer before returning.
                 if not gather_fenced:
                     await asyncio.to_thread(torch.cuda.synchronize, self.device)
@@ -212,7 +230,6 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
             failed = True
             raise
         finally:
-
             results = await asyncio.gather(
                 *(
                     self.actor.release_remote_direct_gpu_v1(rank, ticket)

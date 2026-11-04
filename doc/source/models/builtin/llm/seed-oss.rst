@@ -22,7 +22,7 @@ Model Spec 1 (pytorch, 36 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers
 - **Model ID:** ByteDance-Seed/Seed-OSS-36B-Instruct
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/ByteDance-Seed/Seed-OSS-36B-Instruct>`__, `ModelScope <https://modelscope.cn/models/ByteDance-Seed/Seed-OSS-36B-Instruct>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/ByteDance-Seed/Seed-OSS-36B-Instruct>`__, `ModelScope <https://modelscope.cn/models/bytedance-community/Seed-OSS-36B-Instruct>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

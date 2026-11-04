@@ -139,9 +139,7 @@
               "Q4_K_S",
               "Q5_0",
               "Q5_K_M",
-              "Q5_K_S",
-              "Q6_K",
-              "Q8_0"
+              "Q5_K_S"
             ],
             "model_id": "TheBloke/deepseek-llm-67b-chat-GGUF",
             "model_file_name_template": "deepseek-llm-67b-chat.{quantization}.gguf",

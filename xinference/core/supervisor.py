@@ -16,6 +16,7 @@ import asyncio
 import functools
 import inspect
 import itertools
+import json
 import os
 import signal
 import time
@@ -1482,6 +1483,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             enable_virtual_env=payload.pop("enable_virtual_env", None),
             virtual_env_packages=payload.pop("virtual_env_packages", None),
             virtual_env_find_links=payload.pop("virtual_env_find_links", None),
+            virtual_env_index_url=payload.pop("virtual_env_index_url", None),
+            virtual_env_extra_index_urls=payload.pop(
+                "virtual_env_extra_index_urls", None
+            ),
             envs=payload.pop("envs", None),
             **payload,
         )
@@ -3273,6 +3278,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
         virtual_env_find_links: Optional[List[str]] = None,
+        virtual_env_index_url: Optional[str] = None,
+        virtual_env_extra_index_urls: Optional[List[str]] = None,
         **kwargs,
     ) -> str:
         n_worker = normalize_n_worker(n_worker)
@@ -3358,6 +3365,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 enable_virtual_env=enable_virtual_env,
                 virtual_env_packages=virtual_env_packages,
                 virtual_env_find_links=virtual_env_find_links,
+                virtual_env_index_url=virtual_env_index_url,
+                virtual_env_extra_index_urls=virtual_env_extra_index_urls,
                 envs=envs,
                 **kwargs,
             )
@@ -3591,11 +3600,23 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             raise ValueError(
                 "SGLang native NIXL requires one worker per replica without enable_xavier"
             )
+        enable_xavier: bool = (
+            (requested_xavier or pd_enabled)
+            and transport_backend == "xavier"
+            and model_engine is not None
+            and model_engine.lower() == "vllm"
+            and not heterogeneous_pd
+            and not heterogeneous_cache
+        )
         cache_bytes = kwargs.pop("xavier_cache_bytes", None)
+        vllm_cpu_prefix = (
+            enable_xavier and not pd_enabled and replica > 1 and cache_bytes is not None
+        )
         mlx_prefill = host_handoff and pd_mlx_prefill
         if cache_bytes is not None and (
             not (
                 heterogeneous_cache
+                or vllm_cpu_prefix
                 or mlx_xavier
                 or mlx_prefill
                 or trt_xavier
@@ -3607,7 +3628,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             or cache_bytes <= 0
         ):
             raise ValueError(
-                "xavier_cache_bytes requires MLX Xavier or SGLang/TRT-LLM shared CPU caching and a positive integer"
+                "xavier_cache_bytes requires Xavier shared CPU caching and a positive integer"
             )
         if sglang_xavier and n_worker != 1:
             raise ValueError(
@@ -3651,14 +3672,6 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             kwargs["_xavier_cache_config"]["read_timeout"] = cache_backend_config[
                 "read_timeout"
             ]
-        enable_xavier: bool = (
-            (requested_xavier or pd_enabled)
-            and transport_backend == "xavier"
-            and model_engine is not None
-            and model_engine.lower() == "vllm"
-            and not heterogeneous_pd
-            and not heterogeneous_cache
-        )
         from ..model.llm.xavier.transport import validate_gpu_cache_budget
 
         gpu_cache_bytes = validate_gpu_cache_budget(
@@ -3680,6 +3693,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 if heterogeneous_pd
                 else f"{model_engine} Xavier GPU PD does not yet support retained GPU history"
             )
+        if vllm_cpu_prefix and gpu_cache_bytes not in (None, 0):
+            raise ValueError(
+                "vLLM hybrid CPU caching can only be combined with xavier_gpu_cache_bytes=0"
+            )
         if pd_enabled and enable_xavier and gpu_cache_bytes is None:
             gpu_cache_bytes = 256 * 1024 * 1024
         store_address = None
@@ -3688,7 +3705,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if enable_xavier and replica <= 1:
             logger.warning("Enabling xavier when replica<=1 is meaningless.")
             enable_xavier = False
-        if enable_xavier:
+        use_xavier_collective = enable_xavier and (
+            not vllm_cpu_prefix or gpu_cache_bytes == 0
+        )
+        if use_xavier_collective:
             world_size = replica + 1
 
         model_size = str(model_size_in_billions) if model_size_in_billions else ""
@@ -3721,7 +3741,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             # CREATING status below. Xavier rank 0 is the coordinator and does
             # not allocate replica GPUs.
             replica_gpu_idx = target_gpu_idx
-            if replica_gpu_idx is None and not (enable_xavier and rank == 0):
+            if replica_gpu_idx is None and not (use_xavier_collective and rank == 0):
                 replica_gpu_idx = assign_replica_gpu(
                     _replica_model_uid, replica, gpu_idx
                 )
@@ -3760,9 +3780,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     "store_address": store_address,
                     "store_port": store_port,
                 }
-                if enable_xavier
+                if use_xavier_collective
                 else None
             )
+
+            if vllm_cpu_prefix:
+                cache_ref = self._xavier_cache_mapping[model_uid]
+                xavier_config = xavier_config or {}
+                xavier_config["cpu_prefix_cache"] = {
+                    "address": cache_ref.address,
+                    "uid": cache_ref.uid,
+                    "capacity_bytes": cache_bytes,
+                }
 
             if xavier_config is not None and cache_backend != "native":
                 xavier_config["cache_backend"] = {
@@ -3771,7 +3800,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     "namespace": f"{cache_namespace}-{rank}",
                 }
 
-            if enable_xavier and rank == 0:
+            if use_xavier_collective and rank == 0:
                 self._initial_model_launches[model_uid].workers[_replica_model_uid] = [
                     worker_ref
                 ]
@@ -3934,6 +3963,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     enable_virtual_env=enable_virtual_env,
                     virtual_env_packages=virtual_env_packages,
                     virtual_env_find_links=virtual_env_find_links,
+                    virtual_env_index_url=virtual_env_index_url,
+                    virtual_env_extra_index_urls=virtual_env_extra_index_urls,
                     envs=envs,
                     xavier_config=xavier_config,
                     **replica_kwargs,
@@ -3992,7 +4023,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         uid=f"xavier-history-{model_uid}",
                     )
                     self._xavier_history_mapping[model_uid] = [history]
-                if heterogeneous_cache:
+                if heterogeneous_cache or vllm_cpu_prefix:
                     from ..model.llm.xavier.backends.bytes.storage import (
                         XavierBytesCacheActor,
                     )
@@ -4063,7 +4094,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
                     self._xavier_cache_mapping[model_uid] = cache_ref
-                if enable_xavier:
+                if use_xavier_collective:
                     from ..model.llm.xavier.block_tracker import BlockTracker
                     from ..model.llm.xavier.collective_manager import CollectiveManager
 
@@ -4243,7 +4274,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     target_gpu_idx,
                     target_n_gpu,
                 ) in placements:
-                    if enable_xavier and _idx == 0:
+                    if use_xavier_collective and _idx == 0:
                         """
                         Start the rank 0 model actor on the worker that holds the rank 1 replica,
                         solely for constructing the collective communication world.
@@ -4281,7 +4312,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 rank_addresses = []
 
                 # Add rank0 if it exists (Xavier case)
-                if enable_xavier:
+                if use_xavier_collective:
                     rank0_metadata = task_metadata[0]
                     worker_refs.append((rank0_metadata[0], rank0_metadata[1]))
                     rank_addresses.append(rank0_metadata[4])
@@ -4304,7 +4335,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 # For xavier, start all the vllm instances first,
                 # and then start the transfer component,
                 # because the transfer actor needs all the rank addresses used for collective communication
-                if enable_xavier:
+                if use_xavier_collective:
                     logger.debug(f"Init transfer component for xavier...")
                     collective_manager_ref = self._collective_manager_mapping[model_uid]
                     tasks = []
@@ -4455,6 +4486,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
         virtual_env_find_links: Optional[List[str]] = None,
+        virtual_env_index_url: Optional[str] = None,
+        virtual_env_extra_index_urls: Optional[List[str]] = None,
         **kwargs,
     ):
         n_worker = normalize_n_worker(n_worker)
@@ -4568,6 +4601,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                             enable_virtual_env=enable_virtual_env,
                             virtual_env_packages=virtual_env_packages,
                             virtual_env_find_links=virtual_env_find_links,
+                            virtual_env_index_url=virtual_env_index_url,
+                            virtual_env_extra_index_urls=virtual_env_extra_index_urls,
                             envs=envs,
                             shard=i_worker,
                             n_worker=n_worker,
@@ -7553,7 +7588,58 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             config = self._token_router_store.get_by_virtual_model_uid(model_uid)
             if config is not None and config.get("enabled"):
                 return self._build_token_router_model_info(config)
-        return await self.describe_model(model_uid)
+        description = await self.describe_model(model_uid)
+        if description.get("model_type") == "LLM":
+            description["supports_thinking_budget"] = (
+                await self._supports_thinking_budget(model_uid)
+            )
+        return description
+
+    async def _supports_thinking_budget(self, model_uid: str) -> bool:
+        async def probe(model: Any) -> bool:
+            result = await actor_call(model, "get_reasoning_capabilities")
+            if isinstance(result, (str, bytes)):
+                result = json.loads(result)
+            return (
+                isinstance(result, dict)
+                and result.get("supports_thinking_budget") is True
+            )
+
+        async def probe_replica(replica_uid: str) -> bool:
+            worker = self._replica_model_uid_to_worker.get(replica_uid)
+            if isinstance(worker, (list, tuple)):
+                worker = worker[0] if worker else None
+            if worker is None:
+                return False
+            model = await call_worker_route(
+                self, replica_uid, worker, "get_model", model_uid=replica_uid
+            )
+            return await probe(model)
+
+        try:
+            if model_uid in self._pd_model_mapping:
+                return await asyncio.wait_for(
+                    probe(self._pd_model_mapping[model_uid]), timeout=3
+                )
+            results = await asyncio.wait_for(
+                asyncio.gather(
+                    *(
+                        probe_replica(uid)
+                        for uid in self._iter_active_replica_model_uids(model_uid)
+                    ),
+                    return_exceptions=True,
+                ),
+                timeout=3,
+            )
+            return bool(results) and all(result is True for result in results)
+        except Exception:
+            # Older/unavailable workers must not prevent the details page loading.
+            logger.debug(
+                "Reasoning capabilities are unavailable for %s",
+                model_uid,
+                exc_info=True,
+            )
+            return False
 
     async def resolve_token_router_runtime(
         self, virtual_model_uid: str

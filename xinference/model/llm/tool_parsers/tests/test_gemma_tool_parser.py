@@ -1,3 +1,5 @@
+# CI: linux
+
 import pytest
 
 from ..gemma_tool_parser import GemmaToolParser
@@ -89,6 +91,29 @@ def test_string_values_may_look_like_arguments(parser):
 
     assert result == [
         (None, "note", {"text": "a,b:c and a backslash \\ plus a\nnewline"})
+    ]
+
+
+def test_keys_with_non_ascii_dots_or_spaces(parser):
+    # Keys were quoted only when they matched [A-Za-z0-9_-], so any other
+    # property name made the whole call fall back to text.
+    output = (
+        "<|tool_call>call:f"
+        '{城市:<|"|>北京<|"|>,user.name:<|"|>a<|"|>,max tokens:5,'
+        "nested:{内层 键:[1,{a.b:null}]}}"
+        "<tool_call|>"
+    )
+    assert parser.extract_tool_calls(output) == [
+        (
+            None,
+            "f",
+            {
+                "城市": "北京",
+                "user.name": "a",
+                "max tokens": 5,
+                "nested": {"内层 键": [1, {"a.b": None}]},
+            },
+        )
     ]
 
 

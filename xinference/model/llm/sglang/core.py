@@ -1187,16 +1187,20 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         return len(tokenizer.encode(prompt))
 
     def _apply_thinking_budget(self, config: Dict) -> None:
+        if (config.get("_pd_kv_transfer_params") or {}).get("do_remote_decode"):
+            # Prefill uses the same prompt but generates only a handoff token.
+            config.pop("max_thinking_tokens", None)
+            return
         context = (
             self._get_chat_template_kwargs_from_generate_config(
-                config, self.reasoning_parser
+                config, getattr(self, "reasoning_parser", None)
             )
             or {}
         )
         budget = context.get("thinking_budget")
         if budget is None or not context.get("enable_thinking"):
             return
-        parser = self.reasoning_parser
+        parser = getattr(self, "reasoning_parser", None)
         if parser is None or not (
             parser.reasoning_start_tag or parser.reasoning_end_tag
         ):
@@ -1262,8 +1266,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         config = dict(generate_config or {})
         anthropic = config.get("_anthropic_request", False)
-        if anthropic:
-            self._apply_thinking_budget(config)
+        self._apply_thinking_budget(config)
         if anthropic and is_forced_tool_choice(config):
             return await self._forced_tool_chat(messages, config, request_id)
         plain_json = bool(

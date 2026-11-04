@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import sys
 import types
 from pathlib import Path
@@ -53,7 +55,7 @@ def test_wemm_builtin_specs_have_both_sources_and_revisions():
             "quantizations": ["none"],
         }
         assert sources["modelscope"] == {
-            "model_id": f"Tencent-Hunyuan/{name}",
+            "model_id": f"tencent-community/{name}",
             "model_revision": "master",
             "quantizations": ["none"],
         }

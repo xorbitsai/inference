@@ -4544,6 +4544,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         architectures: Optional[List[str]] = None,
         model_format: Optional[str] = None,
         virtual_env_find_links: Optional[List[str]] = None,
+        virtual_env_index_url: Optional[str] = None,
+        virtual_env_extra_index_urls: Optional[List[str]] = None,
         model_uid: Optional[str] = None,
         reserve_usage: Optional[Callable[[str, str, str, bool], None]] = None,
         release_usage: Optional[Callable[[str, Optional[str]], None]] = None,
@@ -4607,6 +4609,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             for k, v in pip_config.items():
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
+
+        from .virtual_env_manager import apply_requested_virtualenv_indexes
+
+        apply_requested_virtualenv_indexes(
+            settings, virtual_env_index_url, virtual_env_extra_index_urls
+        )
 
         if virtual_env_find_links is not None:
             requested_find_links = validate_virtual_env_find_links(
@@ -4738,6 +4746,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # with no required runtime dependencies, so an exclusive index does not
         # break resolution.
         force_reinstall_xllamacpp = False
+        requested_indexes = bool(
+            (virtual_env_index_url and virtual_env_index_url.strip())
+            or virtual_env_extra_index_urls
+        )
         if model_engine and model_engine.lower() == "llama.cpp":
             from .virtual_env_manager import get_xllamacpp_cuda_index_url
 
@@ -4760,16 +4772,19 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     xllamacpp_index_url,
                 )
             elif xllamacpp_index_url and cuda_device_available:
-                logger.info(
-                    "Detected CUDA %s, installing GPU build of xllamacpp "
-                    "exclusively from %s",
-                    cuda_version,
-                    xllamacpp_index_url,
-                )
-                settings.index_url = xllamacpp_index_url
-                settings.extra_index_url = None
-                settings.find_links = None
-                settings.index_strategy = None
+                if not requested_indexes:
+                    logger.info(
+                        "Detected CUDA %s, installing GPU build of xllamacpp "
+                        "exclusively from %s",
+                        cuda_version,
+                        xllamacpp_index_url,
+                    )
+                    settings.index_url = xllamacpp_index_url
+                    settings.extra_index_url = None
+                    settings.find_links = None
+                    settings.index_strategy = None
+                # Explicit sources control resolution, but must not bypass
+                # replacing a satisfying CPU wheel on a usable CUDA worker.
                 # A CPU build of xllamacpp may already satisfy the
                 # "xllamacpp>=..." requirement (e.g. inherited from the parent
                 # env, or installed on a previous CPU-only launch). Because the
@@ -4794,6 +4809,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 critical_specs,
             )
             packages = packages + critical_specs
+
+        # Engine/CUDA filtering may remove incompatible model defaults. Restore
+        # explicit request sources so these never silently disappear.
+        apply_requested_virtualenv_indexes(
+            settings, virtual_env_index_url, virtual_env_extra_index_urls
+        )
 
         if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
             if not settings.index_url:
@@ -5395,6 +5416,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
         virtual_env_find_links: Optional[List[str]] = None,
+        virtual_env_index_url: Optional[str] = None,
+        virtual_env_extra_index_urls: Optional[List[str]] = None,
         **kwargs,
     ):
         n_worker = normalize_n_worker(n_worker)
@@ -5810,6 +5833,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                         model, model_format
                                     ),
                                     virtual_env_find_links=virtual_env_find_links,
+                                    virtual_env_index_url=virtual_env_index_url,
+                                    virtual_env_extra_index_urls=virtual_env_extra_index_urls,
                                     model_uid=model_uid,
                                     reserve_usage=self._reserve_virtual_env_usage,
                                     release_usage=self._release_virtual_env_usage,
@@ -8060,9 +8085,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         rep_model_uid = launch_args.get("model_uid")
         origin_uid, _ = parse_replica_model_uid(rep_model_uid)
         xavier_config: Optional[Dict[str, Any]] = launch_args.get("xavier_config", None)
-        is_xavier: bool = xavier_config is not None
+        uses_xavier_collective = xavier_config is not None and (
+            not xavier_config.get("cpu_prefix_cache")
+            or xavier_config.get("gpu_cache_bytes") is not None
+        )
         supervisor_ref = await self.get_supervisor_ref(add_worker=False)
-        if is_xavier:
+        if uses_xavier_collective:
             rank = xavier_config.get("rank")
             await supervisor_ref.call_collective_manager(
                 origin_uid, "unregister_rank", rank
@@ -8081,7 +8109,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 )
                 await directory.unregister_peer(cache_config["rank"])
         subpool_address = await self.launch_builtin_model(**launch_args)
-        if is_xavier:
+        if uses_xavier_collective:
             model_ref = self._model_uid_to_model[rep_model_uid]
             await model_ref.start_transfer_for_vllm([])
             rank = xavier_config.get("rank")
@@ -8096,7 +8124,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # already awaited model_ref.load(), so wait_for_load is near-instant here.
         await self.wait_for_load(rep_model_uid)
         if (
-            (is_xavier and xavier_config.get("role") in ("prefill", "decode"))
+            (
+                uses_xavier_collective
+                and xavier_config.get("role") in ("prefill", "decode")
+            )
             or launch_args.get("_nixl_config")
             or launch_args.get("_xavier_cache_config", {}).get("role")
             in ("prefill", "decode")

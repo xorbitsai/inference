@@ -3,6 +3,7 @@
     "version": 2,
     "context_length": 262144,
     "model_name": "Hy-MT2-30B-A3B",
+    "reasoning_effort": {"values": ["no_think", "low", "high"]},
     "model_lang": [
       "en",
       "zh"

@@ -53,7 +53,10 @@ def completion(text, finish_reason="stop"):
 
 
 @pytest.mark.parametrize("unsupported", [None, "sampling", "markers", "disabled"])
-def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported):
+@pytest.mark.parametrize(
+    "model_class", [core.VLLMModel, core.VLLMChatModel, core.VLLMMultiModel]
+)
+def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported, model_class):
     from ...reasoning_parser import ReasoningParser
 
     def sampling(*, thinking_token_budget=None):
@@ -66,7 +69,7 @@ def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported):
             SamplingParams=(lambda: None) if unsupported == "sampling" else sampling
         ),
     )
-    instance = object.__new__(core.VLLMChatModel)
+    instance = object.__new__(model_class)
     instance.reasoning_parser = ReasoningParser(
         reasoning_start_tag="<think>", reasoning_end_tag="</think>"
     )
@@ -88,16 +91,20 @@ def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported):
     else:
         instance._apply_thinking_budget(config)
         assert config["thinking_token_budget"] == 1024
+    instance.model_family = SimpleNamespace(reasoning_effort=None)
+    assert instance.get_reasoning_capabilities()["supports_thinking_budget"] is (
+        unsupported is None
+    )
 
 
 @pytest.mark.parametrize("anthropic", [False, True])
-def test_native_budget_forwarding_is_anthropic_only(monkeypatch, anthropic):
+def test_native_budget_forwarding_for_both_protocols(monkeypatch, anthropic):
     from packaging.version import Version
 
     monkeypatch.setattr(core, "VLLM_VERSION", Version("0.28.0"))
     config = {"thinking_token_budget": 16, "_anthropic_request": anthropic}
     sanitized = core.VLLMModel._sanitize_generate_config(config)
-    assert sanitized.get("thinking_token_budget") == (16 if anthropic else None)
+    assert sanitized.get("thinking_token_budget") == 16
 
 
 @pytest.mark.asyncio

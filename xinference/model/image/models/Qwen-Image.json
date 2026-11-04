@@ -14,7 +14,7 @@
         "model_revision": "4516c4d3058302ff35cd86c62ffa645d039fefad",
         "gguf_model_id": "city96/Qwen-Image-gguf",
         "gguf_quantizations": [
-          "F16",
+          "BF16",
           "Q3_K_M",
           "Q3_K_S",
           "Q4_0",
@@ -44,7 +44,7 @@
         "model_revision": "master",
         "gguf_model_id": "city96/Qwen-Image-gguf",
         "gguf_quantizations": [
-          "F16",
+          "BF16",
           "Q3_K_M",
           "Q3_K_S",
           "Q4_0",

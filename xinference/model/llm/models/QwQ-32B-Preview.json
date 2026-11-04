@@ -8,7 +8,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "tools"
     ],
     "model_description": "QwQ-32B-Preview is an experimental research model developed by the Qwen Team, focused on advancing AI reasoning capabilities.",
     "model_specs": [
@@ -228,6 +229,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
+    "tool_parser": "qwen",
     "updated_at": 1769418488,
     "featured": false,
     "architectures": [

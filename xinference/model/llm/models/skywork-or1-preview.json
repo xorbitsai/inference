@@ -247,8 +247,6 @@
           "huggingface": {
             "quantizations": [
               "IQ2_M",
-              "IQ2_S",
-              "IQ2_XS",
               "IQ3_M",
               "IQ3_XS",
               "IQ3_XXS",
@@ -288,8 +286,6 @@
           "modelscope": {
             "quantizations": [
               "IQ2_M",
-              "IQ2_S",
-              "IQ2_XS",
               "IQ3_M",
               "IQ3_XS",
               "IQ3_XXS",

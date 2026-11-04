@@ -72,7 +72,7 @@ from ..context_length import (
     normalize_runtime_positive_int,
 )
 from ..core import chat_context_var, get_model_speculative_tokens_default
-from ..llm_family import cache_model_tokenizer_and_config
+from ..llm_family import PytorchLLMSpecV2, cache_model_tokenizer_and_config
 from ..media import materialize_messages_media, media_workspace, validate_messages_media
 from ..tool_controls import (
     convert_forced_completion,
@@ -98,6 +98,11 @@ from ..weight_cache import WeightCachedModel
 from .utils import vllm_check
 
 logger = logging.getLogger(__name__)
+
+_PYTORCH_QUANTIZATION_UNSUPPORTED_REASON = (
+    "pytorch format with quantization requires "
+    "quantization_method='compressed-tensors' for an offline-quantized checkpoint"
+)
 
 if TYPE_CHECKING:
     from vllm.outputs import RequestOutput
@@ -555,6 +560,7 @@ class VLLMModel(WeightCachedModel, LLM):
     _weight_cache_engine = "vllm"
     allow_batch = True
     support_draft_model = True
+    support_split_gguf = False
     supports_tool_controls = True
 
     def _use_legacy_constraints(
@@ -668,11 +674,20 @@ class VLLMModel(WeightCachedModel, LLM):
         return prepared
 
     def _apply_thinking_budget(self, config: Dict) -> None:
-        context = self._get_chat_template_kwargs_from_generate_config(config, self.reasoning_parser) or {}  # type: ignore[attr-defined]
+        if (config.get("_pd_kv_transfer_params") or {}).get("do_remote_decode"):
+            # Prefill uses the same prompt but generates only a handoff token.
+            config.pop("thinking_token_budget", None)
+            return
+        parser = getattr(self, "reasoning_parser", None)
+        context = (
+            ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+                config, parser
+            )
+            or {}
+        )
         budget = context.get("thinking_budget")
         if budget is None or not context.get("enable_thinking"):
             return
-        parser = self.reasoning_parser
         if parser is None or not (
             parser.reasoning_start_tag or parser.reasoning_end_tag
         ):
@@ -2049,10 +2064,7 @@ class VLLMModel(WeightCachedModel, LLM):
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
         sanitized.setdefault("top_k", generate_config.get("top_k", -1))
-        if (
-            generate_config.get("_anthropic_request")
-            and generate_config.get("thinking_token_budget") is not None
-        ):
+        if generate_config.get("thinking_token_budget") is not None:
             sanitized["thinking_token_budget"] = generate_config[
                 "thinking_token_budget"
             ]
@@ -2120,6 +2132,41 @@ class VLLMModel(WeightCachedModel, LLM):
 
         return sanitized
 
+    @staticmethod
+    def _supports_pytorch_quantization(
+        llm_spec: PytorchLLMSpecV2,
+    ) -> bool:
+        # Precision labels alone do not distinguish checkpoint quantization
+        # from quantizing an unquantized model at load time.
+        return llm_spec.quantization == "none" or (
+            llm_spec.quantization_method == "compressed-tensors"
+        )
+
+    def _weight_cache_unavailable_reason(self) -> Optional[str]:
+        reason = super()._weight_cache_unavailable_reason()
+        if reason is not None:
+            return reason
+        if (
+            getattr(self.model_spec, "quantization_method", None)
+            == "compressed-tensors"
+        ):
+            try:
+                from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors import (
+                    CompressedTensorsLinearMethod,
+                )
+                from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors_moe import (
+                    CompressedTensorsMoEMethod,
+                )
+            except ImportError:
+                return "Cannot verify vLLM compressed-tensors IPC weight support"
+
+            # Be conservative for the whole quantizer: linear support alone
+            # cannot establish support for checkpoints containing fused MoE.
+            for method in (CompressedTensorsLinearMethod, CompressedTensorsMoEMethod):
+                if getattr(method, "supports_pre_processed_weights", False) is not True:
+                    return "vLLM's compressed-tensors loader does not support preprocessed IPC weights for both linear and MoE methods"
+        return None
+
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         try:
@@ -2146,11 +2193,8 @@ class VLLMModel(WeightCachedModel, LLM):
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]:
             return False, "vLLM supports pytorch/gptq/awq/fp4/fp8/bnb formats only"
         if llm_spec.model_format == "pytorch":
-            if quantization not in (None, "none"):
-                return (
-                    False,
-                    "pytorch format with quantization is not supported by vLLM",
-                )
+            if not cls._supports_pytorch_quantization(llm_spec):
+                return False, _PYTORCH_QUANTIZATION_UNSUPPORTED_REASON
         if llm_spec.model_format == "awq":
             if "4" not in quantization:
                 return False, "vLLM only supports 4-bit AWQ weights"
@@ -2478,7 +2522,7 @@ class VLLMModel(WeightCachedModel, LLM):
             generate_config["skip_special_tokens"] = False
 
         anthropic = bool((generate_config or {}).get("_anthropic_request"))
-        if anthropic and generate_config is not None:
+        if generate_config is not None:
             self._apply_thinking_budget(generate_config)
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
         if cache_salt is not None and not use_native_cache_salt:
@@ -3053,14 +3097,8 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             ):
                 return False, "Ling-3.0 requires vLLM >= 0.28.0"
         if llm_spec.model_format == "pytorch":
-            # The official INT4 checkpoint uses compressed-tensors; vLLM
-            # infers its quantization method from the checkpoint configuration.
-            offline_ling_int4 = is_ling3 and quantization == "Int4"
-            if quantization not in (None, "none") and not offline_ling_int4:
-                return (
-                    False,
-                    "pytorch format with quantization is not supported in vLLM chat",
-                )
+            if not cls._supports_pytorch_quantization(llm_spec):
+                return False, _PYTORCH_QUANTIZATION_UNSUPPORTED_REASON
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):
                 return False, "awq quantization must be 4 or 8 bit for vLLM chat"
@@ -3322,18 +3360,8 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 "vLLM multimodal engine supports pytorch/gptq/awq/fp4/fp8/bnb formats only",
             )
         if llm_spec.model_format == "pytorch":
-            # The official 35B-A3B INT4 checkpoint is already quantized with
-            # compressed-tensors; let vLLM detect its on-disk configuration.
-            offline_minicpmv47_int4 = (
-                llm_family.has_architecture("MiniCPMV4_7ForConditionalGeneration")
-                and quantization == "Int4"
-                and str(llm_spec.model_size_in_billions) == "35"
-            )
-            if quantization not in (None, "none") and not offline_minicpmv47_int4:
-                return (
-                    False,
-                    "pytorch format with quantization is not supported for vLLM multimodal",
-                )
+            if not cls._supports_pytorch_quantization(llm_spec):
+                return False, _PYTORCH_QUANTIZATION_UNSUPPORTED_REASON
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):
                 return False, "awq quantization must be 4 or 8 bit for vLLM multimodal"

@@ -104,9 +104,10 @@ async def test_direct_handoff_preserves_bits_and_uses_no_snapshots(
 
 
 @pytest.mark.asyncio
-async def test_release_during_read_waits_for_copy_and_fence(monkeypatch):
+@pytest.mark.parametrize("shared", [False, True])
+async def test_release_during_read_waits_for_copy_and_fence(monkeypatch, shared):
     source = direct_runtime(monkeypatch)
-    source.register_direct("ticket", "producer", [1])
+    source.register_direct("ticket", "producer", [1], shared=shared)
     entered, release = asyncio.Event(), asyncio.Event()
     calls = []
 
@@ -126,14 +127,23 @@ async def test_release_during_read_waits_for_copy_and_fence(monkeypatch):
     )
     await asyncio.wait_for(entered.wait(), 2)
     state = source.direct_requests["ticket"]
-    source.release_direct("ticket")
+    if shared:
+        revoke = asyncio.create_task(source.revoke_shared_prefix("ticket"))
+        await asyncio.sleep(0)
+        assert not revoke.done()
+        assert source._live_direct("ticket") is None
+    else:
+        source.release_direct("ticket")
     assert state.indices
     assert not source.poll_direct()
     release.set()
     await task
+    if shared:
+        await revoke
+        assert not source.direct_requests
     assert calls == ["fence", "copy"]
     assert not state.indices
-    assert source.poll_direct() == {"producer"}
+    assert source.poll_direct() == (set() if shared else {"producer"})
 
 
 @pytest.mark.asyncio

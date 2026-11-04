@@ -526,3 +526,7 @@ msgstr "Cerrar sesión del modelo personalizado mediante código."
 
 #~ msgid "``architectures`` and other model metadata (when available)"
 #~ msgstr ""
+
+#: ../../source/models/custom.rst:305
+msgid "``quantization_method``: An optional field in ``model_specs`` for an already quantized checkpoint's method; currently only ``compressed-tensors`` is supported. vLLM detects the checkpoint's quantization configuration when loading. Omit this field when quantization is performed at runtime."
+msgstr "``quantization_method``: Campo opcional de ``model_specs`` para el método de un punto de control ya cuantizado; actualmente solo se admite ``compressed-tensors``. vLLM detecta su configuración de cuantización al cargarlo. Omita este campo cuando la cuantización se realice en tiempo de ejecución."

@@ -148,7 +148,8 @@
               "num_hidden_layers": 24
             }
           }
-        }
+        },
+        "quantization_method": "compressed-tensors"
       }
     ],
     "architectures": [

@@ -104,11 +104,17 @@ def test_vllm_version_gate(family, monkeypatch, engine_version, virtualenv, expe
     assert (result is True) == expected
 
 
-def test_int4_exception_does_not_change_other_models(family, monkeypatch):
-    family.architectures = ["LlamaForCausalLM"]
-    result = vllm_core.VLLMChatModel.match_json(family, family.model_specs[0], "Int4")
+def test_vllm_int4_requires_declared_checkpoint_quantizer(monkeypatch):
+    family = match_llm("Ling-3.0-flash", "pytorch", 124, "Int4", "huggingface").copy(
+        deep=True
+    )
+    spec = family.model_specs[0]
+    monkeypatch.setattr(vllm_core, "_virtual_env_allows_missing_vllm", lambda: True)
+    assert vllm_core.VLLMChatModel.match_json(family, spec, spec.quantization) is True
+    spec.quantization_method = None
+    result = vllm_core.VLLMChatModel.match_json(family, spec, spec.quantization)
     assert result[0] is False
-    assert "pytorch format with quantization" in result[1]
+    assert "quantization_method" in result[1]
 
 
 def test_sglang_ling_defaults_and_exceptions(family, monkeypatch):

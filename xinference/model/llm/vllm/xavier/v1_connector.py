@@ -156,6 +156,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         vllm_config: "VllmConfig",
         role: KVConnectorRole,
         kv_cache_config: "KVCacheConfig",
+        *,
+        shared_recurrent_prefix: bool = False,
     ):
         super().__init__(
             vllm_config=vllm_config,
@@ -173,7 +175,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             if hasattr(group.kv_cache_spec, "mamba_cache_mode")
         }
         self._has_recurrent_cache = bool(self._recurrent_groups)
-        if self._has_recurrent_cache:
+        self._shared_recurrent_prefix = shared_recurrent_prefix
+        if self._has_recurrent_cache and not shared_recurrent_prefix:
             if getattr(
                 vllm_config.cache_config, "enable_prefix_caching", False
             ) or getattr(
@@ -225,7 +228,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             raise ValueError(
                 "Direct handoff requires P/D roles, GPU transport and one KV group"
             )
-        if self._has_recurrent_cache and not self._direct_handoff:
+        if self._has_recurrent_cache and not (
+            self._direct_handoff or shared_recurrent_prefix
+        ):
             raise ValueError(
                 "Xavier recurrent caches require prefill/decode GPU handoff"
             )
@@ -495,7 +500,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         }
 
         self._kv_schema = XavierKVSchema(self._block_size, schema, self._cache_dtype)
-        self._cpu_export_block_bytes = self._cache_export_block_bytes()
+        if not self._has_recurrent_cache:
+            self._cpu_export_block_bytes = self._cache_export_block_bytes()
         cache_groups = {
             layer_name: self._get_layer_group_id(layer_name)
             for layer_name in self._registered_kv_caches
@@ -1978,7 +1984,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 await transfer.map_gpu_caches_v1(
                     descriptors,
                     0 if self._has_recurrent_cache else self._gpu_budget,
-                    direct_handoff=self._direct_handoff,
+                    direct_handoff=(
+                        self._direct_handoff or self._shared_recurrent_prefix
+                    ),
                 )
                 self._gpu_cache_mapped = True
         return transfer

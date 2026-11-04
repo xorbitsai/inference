@@ -33,7 +33,11 @@ class GemmaToolParser(ToolParser):
 
     @staticmethod
     def _quote_keys(text: str) -> str:
-        pattern = re.compile(r"(?P<prefix>[{,])\s*(?P<key>[A-Za-z0-9_\-]+)\s*:")
+        # Gemma writes property names as-is, so a key may hold any character
+        # except the structural ones, e.g. "城市", "user.name" or "max tokens".
+        pattern = re.compile(
+            r'(?P<prefix>[{,])\s*(?P<key>[^\s{}\[\],:"][^{}\[\],:"]*?)\s*:'
+        )
 
         def repl(match: re.Match) -> str:
             prefix = match.group("prefix")

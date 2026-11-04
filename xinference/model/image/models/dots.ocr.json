@@ -22,7 +22,7 @@
         "model_revision": "ba670c5dcf03ff4e02015558c95b4042f5dce069"
       },
       "modelscope": {
-        "model_id": "rednote-hilab/dots.ocr",
+        "model_id": "dots-studio/dots.ocr",
         "model_revision": "master"
       }
     }

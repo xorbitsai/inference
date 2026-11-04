@@ -88,8 +88,8 @@ msgid "MLX replicas"
 msgstr "Repliche MLX"
 
 #: source/user_guide/vllm_enhancement.rst:18
-msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
-msgstr "Per i modelli che usano solo attention su vLLM V1, Xavier mantiene l’impostazione ``enforce_eager`` del modello, consentendo l’esecuzione con CUDA Graph. Impostare ``enforce_eager=True`` all’avvio del modello per usare l’esecuzione eager. I modelli ricorrenti continuano a usare l’esecuzione eager per impostazione predefinita."
+msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent handoff uses eager execution by default. Ordinary hybrid attention replicas preserve vLLM's ``enforce_eager`` setting."
+msgstr "Per i modelli che usano solo attention su vLLM V1, Xavier mantiene l’impostazione ``enforce_eager`` del modello, consentendo l’esecuzione con CUDA Graph. Impostare ``enforce_eager=True`` all’avvio del modello per usare l’esecuzione eager. Il trasferimento dello stato ricorrente usa l’esecuzione eager per impostazione predefinita. Le repliche ordinarie con attenzione ibrida mantengono l’impostazione ``enforce_eager`` di vLLM."
 
 #: ../../source/user_guide/vllm_enhancement.rst:52
 msgid "Request-scoped cache isolation"
@@ -557,3 +557,19 @@ msgid ""
 msgstr ""
 "Su vLLM P, ogni RPC della cronologia lato scheduler ha un limite di un "
 "secondo; ``read_timeout`` limita il lavoro di archiviazione del proxy."
+
+#: ../../source/user_guide/vllm_enhancement.rst:88
+msgid "Hybrid attention replicas"
+msgstr "Repliche con attenzione ibrida"
+
+#: ../../source/user_guide/vllm_enhancement.rst:91
+msgid "For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True``. For CPU-only sharing, set a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode=\"align\"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding."
+msgstr "Per modelli con attenzione ibrida come Qwen3.5, le repliche vLLM ordinarie possono condividere la cache KV dell’attenzione e lo stato ricorrente con vLLM >= ``0.32.0``. Avvia più repliche con ``enable_xavier=True``. Per condividere la cache solo su CPU, imposta un valore positivo per ``xavier_cache_bytes``. Per i checkpoint multimodali usa ``language_model_only=True``. Questa modalità usa ``mamba_cache_mode=\"align\"`` e richiede la cache dei prefissi e una GPU per replica, senza LoRA o decodifica speculativa."
+
+#: ../../source/user_guide/vllm_enhancement.rst:93
+msgid "``xavier_cache_bytes`` sets the shared CPU cache capacity and the CPU staging capacity of each replica. Size the budget for the prefix you want to reuse, including recurrent state. A cache miss or failed import triggers local prefill."
+msgstr "``xavier_cache_bytes`` imposta la capacità della cache CPU condivisa e quella del buffer CPU di ogni replica. Dimensiona il budget per il prefisso da riutilizzare, incluso lo stato ricorrente. In caso di cache miss o di errore di importazione, il prefill viene eseguito localmente."
+
+#: ../../source/user_guide/vllm_enhancement.rst:95
+msgid "Set ``xavier_gpu_cache_bytes=0`` to share aligned prefixes directly from resident GPU cache blocks. Add ``xavier_cache_bytes`` to enable CPU fallback. Direct GPU sharing requires NVIDIA GPUs, ``xoscar[nixl]>=0.11.1`` and ``async_scheduling=False``."
+msgstr "Usa ``xavier_gpu_cache_bytes=0`` per condividere i prefissi allineati direttamente dai blocchi di cache residenti sulla GPU. Aggiungi ``xavier_cache_bytes`` per abilitare il fallback su CPU. La condivisione diretta richiede GPU NVIDIA, ``xoscar[nixl]>=0.11.1`` e ``async_scheduling=False``."

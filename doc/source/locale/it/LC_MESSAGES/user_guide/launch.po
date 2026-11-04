@@ -909,3 +909,7 @@ msgstr ""
 "nell’interfaccia Web invia i valori attualmente mostrati, anche se "
 "invariati. I campi vuoti o con valori diversi tra repliche vengono omessi "
 "finché non si imposta un valore."
+
+#: ../../source/user_guide/launch.rst:566
+msgid "Checkpoints declaring ``quantization_method=\"compressed-tensors\"`` use native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch."
+msgstr "I checkpoint che dichiarano ``quantization_method=\"compressed-tensors\"`` usano il caricamento nativo dei pesi quando il caricatore compressed-tensors di vLLM non supporta i pesi IPC preelaborati. La conservazione automatica ignora questa configurazione; la sua attivazione esplicita impedisce l’avvio."
