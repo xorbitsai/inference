@@ -690,44 +690,83 @@ def test_cache_from_uri_local():
 
 @pytest.fixture
 def fake_hub(tmp_path, monkeypatch):
-    """A cache under tmp_path, and a huggingface_hub whose downloads are small.
+    return _isolated_hub(tmp_path, monkeypatch)
 
-    A download writes README.md (repository id and revision) and the files in
-    `shipped[repo_id]`, then fails if the repository is in `interrupted`;
-    `downloads` lists (repo_id, revision). Registrations are undone.
+
+def _isolated_hub(tmp_path, monkeypatch):
+    """A cache, LLM registry and engine table for one test, and small downloads.
+
+    Models registered at startup are not visible and what the test registers is
+    gone with it. A snapshot download writes README.md (repository id and
+    revision) and the files in `shipped[repo_id]`; a file download writes that
+    file, holding the repository id and revision. Either fails after writing if
+    the repository is in `interrupted`; `downloads` lists (repo_id, revision).
     """
+    import sys
+    import types
+
     import huggingface_hub
 
     from .... import constants
+    from ... import llm
     from ...cache_manager import CacheManager as BaseCacheManager
     from ...custom import RegistryManager
-    from ..custom import get_user_defined_llm_families
+    from .. import custom, llm_family
+    from ..llama_cpp.core import XllamaCppModel
 
     monkeypatch.setattr(constants, "XINFERENCE_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path / "model"))
     monkeypatch.setattr(BaseCacheManager, "is_initialized", False)
+    # An empty registry, family list and engine table: none of the models
+    # registered at startup are visible, and what the test registers goes away.
+    engines = {}
+    monkeypatch.setattr(llm, "LLM_ENGINES", engines)
+    monkeypatch.setattr(llm_family, "LLM_ENGINES", engines)
+    monkeypatch.setattr(custom, "UD_LLM_FAMILIES", [])
+    registry = custom.LLMModelRegistry()
+    monkeypatch.setattr(RegistryManager, "_instances", {"llm": registry})
+    # llama.cpp is listed for a registration only if xllamacpp is installed;
+    # these tests build the engine object but never load it.
+    monkeypatch.setattr(XllamaCppModel, "check_lib", classmethod(lambda cls: True))
     hub = SimpleNamespace(downloads=[], shipped={}, interrupted=set())
 
-    def snapshot_download(repo_id, revision=None, local_dir=None, **kwargs):
+    def download(repo_id, revision, local_dir, files):
         hub.downloads.append((repo_id, revision))
-        snapshot = local_dir or str(tmp_path / "hub" / f"{repo_id}-{revision}")
-        os.makedirs(snapshot, exist_ok=True)
-        files = {"README.md": f"{repo_id}@{revision}", **hub.shipped.get(repo_id, {})}
+        root = local_dir or str(tmp_path / "hub" / f"{repo_id}-{revision}")
         for name, content in files.items():
-            with open(os.path.join(snapshot, name), "w") as fd:
+            os.makedirs(os.path.dirname(os.path.join(root, name)), exist_ok=True)
+            with open(os.path.join(root, name), "w") as fd:
                 fd.write(content)
         if repo_id in hub.interrupted:
             raise ConnectionError("connection lost")
-        return snapshot
+        return root
+
+    def snapshot_download(repo_id, revision=None, local_dir=None, **kwargs):
+        files = {"README.md": f"{repo_id}@{revision}", **hub.shipped.get(repo_id, {})}
+        return download(repo_id, revision, local_dir, files)
+
+    def file_download(repo_id, name, revision, local_dir):
+        root = download(repo_id, revision, local_dir, {name: f"{repo_id}@{revision}"})
+        return os.path.join(root, name)
+
+    def hf_hub_download(repo_id, filename=None, revision=None, local_dir=None, **kw):
+        return file_download(repo_id, filename, revision, local_dir)
+
+    def model_file_download(model_id, file_path, revision=None, **kwargs):
+        return file_download(model_id, file_path, revision, None)
 
     monkeypatch.setattr(huggingface_hub, "snapshot_download", snapshot_download)
-    before = {family.model_name for family in get_user_defined_llm_families()}
-    yield hub
-    for family in get_user_defined_llm_families():
-        if family.model_name not in before:
-            RegistryManager.get_registry("llm").unregister(
-                family.model_name, raise_error=False, remove_file=False
-            )
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", hf_hub_download)
+    for name, attributes in {
+        "modelscope": {},
+        "modelscope.hub": {},
+        "modelscope.hub.file_download": {"model_file_download": model_file_download},
+        "modelscope.hub.snapshot_download": {"snapshot_download": snapshot_download},
+    }.items():
+        module = types.ModuleType(name)
+        vars(module).update(attributes)
+        monkeypatch.setitem(sys.modules, name, module)
+    return hub
 
 
 def _hub_family(name, *sources):
@@ -771,8 +810,8 @@ def _launch_cache(name, hub="huggingface"):
     return CacheManager(match_llm(name, "pytorch", 1, "none", hub)).cache()
 
 
-def _readme(path):
-    with open(os.path.join(path, "README.md")) as fd:
+def _readme(path, name="README.md"):
+    with open(os.path.join(path, name)) as fd:
         return fd.read()
 
 
@@ -958,10 +997,13 @@ def test_custom_llm_hub_variants_share_one_download_while_cache_is_incomplete(
     assert downloads == ["huggingface"]
     assert _readme(cache_dir) == "org/model-a"
     with open(first._source_record_path(), encoding="utf-8") as fd:
+        # a snapshot is one unit: the record names its source for the whole directory
         assert json.load(fd) == {
-            "model_hub": "huggingface",
-            "model_id": "org/model-a",
-            "model_revision": None,
+            ".": {
+                "model_hub": "huggingface",
+                "model_id": "org/model-a",
+                "model_revision": None,
+            }
         }
 
 
@@ -1074,6 +1116,341 @@ def test_repository_file_named_like_a_record_is_neither_trusted_nor_displaced(fa
         ValueError, match="holds files downloaded from huggingface:org/model-a"
     ):
         _launch_cache("my-llm")
+
+
+def _gguf_family(name, *sources):
+    """A custom family with one GGUF spec per (model_hub, model_id, file name).
+
+    The specs share a cache directory: same name, format, size and quantization.
+    """
+    return CustomLLMFamilyV2(
+        version=2,
+        context_length=2048,
+        model_name=name,
+        model_family="my-family",
+        model_lang=["en"],
+        model_ability=["generate"],
+        model_specs=[
+            LlamaCppLLMSpecV2(
+                model_format="ggufv2",
+                model_size_in_billions=1,
+                quantization="q4",
+                model_id=model_id,
+                model_hub=hub,
+                model_file_name_template=file_name,
+            )
+            for hub, model_id, file_name in sources
+        ],
+    )
+
+
+def _register_gguf(name, *sources, family=None):
+    """Register the family, replacing an earlier registration of the name.
+
+    The directory downloaded for the earlier registration stays on disk.
+    """
+    from ..custom import get_user_defined_llm_families, register_llm, unregister_llm
+
+    if name in {f.model_name for f in get_user_defined_llm_families()}:
+        unregister_llm(name)
+    register_llm(family or _gguf_family(name, *sources), persist=False)
+
+
+def _launch_gguf(name, hub, **kwargs):
+    """A launch through the real entry point: engine selection, then the cache manager."""
+    from ...core import create_model_instance
+
+    model = create_model_instance(
+        f"{name}-1-0",
+        "LLM",
+        name,
+        "llama.cpp",
+        "ggufv2",
+        1,
+        "q4",
+        download_hub=hub,
+        enable_virtual_env=False,
+        **kwargs,
+    )
+    return model.model_path
+
+
+def _gguf_manager(name, hub="huggingface"):
+    return CacheManager(match_llm(name, "ggufv2", 1, "q4", hub))
+
+
+def _source(hub, model_id, model_revision=None):
+    return {"model_hub": hub, "model_id": model_id, "model_revision": model_revision}
+
+
+GGUF_A = ("huggingface", "org/model-a", "a.gguf")
+GGUF_B = ("modelscope", "org-ms/model-b", "b.gguf")
+
+
+@pytest.mark.parametrize(
+    "file_name,reused_name",
+    [
+        ("model.gguf", "model.gguf"),
+        ("q4/model.gguf", "q4/model.gguf"),
+        ("model.gguf", "MODEL.GGUF"),
+    ],
+)
+def test_gguf_added_to_an_unrecorded_directory_is_not_served_to_another_source(
+    fake_hub, file_name, reused_name
+):
+    import json
+
+    _register_gguf("my-llm", ("huggingface", "org/model-a", file_name))
+    cache_dir = _gguf_manager("my-llm").get_cache_dir()
+    os.makedirs(cache_dir)
+    with open(os.path.join(cache_dir, "old.gguf"), "w") as fd:
+        fd.write("legacy")
+    with open(os.path.join(cache_dir, "mmproj.gguf"), "w") as fd:
+        fd.write("legacy projector")
+    assert (
+        _launch_gguf("my-llm", "huggingface", multimodal_projector="mmproj.gguf")
+        == cache_dir
+    )
+    assert _readme(cache_dir, "mmproj.gguf") == "legacy projector"
+    assert _readme(cache_dir, file_name) == "org/model-a@None"
+    with open(_gguf_manager("my-llm")._source_record_path(), encoding="utf-8") as fd:
+        assert json.load(fd) == {file_name: _source("huggingface", "org/model-a")}
+    if not os.path.exists(os.path.join(cache_dir, reused_name)):
+        pytest.skip("the cache volume distinguishes filename case")
+
+    _register_gguf("my-llm", ("huggingface", "org/model-b", reused_name))
+    with pytest.raises(
+        ValueError, match="my-llm.*downloaded from huggingface:org/model-a"
+    ):
+        _launch_gguf("my-llm", "huggingface")
+    assert fake_hub.downloads == [("org/model-a", None)]
+    assert _readme(cache_dir, file_name) == "org/model-a@None"
+
+    # The download did not claim the legacy file.
+    _register_gguf("my-llm", ("huggingface", "org/model-b", "old.gguf"))
+    assert _launch_gguf("my-llm", "huggingface") == cache_dir
+    assert fake_hub.downloads == [("org/model-a", None)]
+
+
+def test_gguf_file_is_accepted_when_only_the_hub_it_came_from_is_registered(fake_hub):
+    import json
+
+    _register_gguf("my-llm", GGUF_A, GGUF_B)
+    cache_dir = _launch_gguf("my-llm", "huggingface")
+    assert _launch_gguf("my-llm", "modelscope") == cache_dir
+    assert fake_hub.downloads == [("org/model-a", None), ("org-ms/model-b", None)]
+    assert _readme(cache_dir, "a.gguf") == "org/model-a@None"
+    assert _readme(cache_dir, "b.gguf") == "org-ms/model-b@None"
+    with open(_gguf_manager("my-llm")._source_record_path(), encoding="utf-8") as fd:
+        assert json.load(fd) == {
+            "a.gguf": _source("huggingface", "org/model-a"),
+            "b.gguf": _source("modelscope", "org-ms/model-b"),
+        }
+
+    _register_gguf("my-llm", GGUF_B)
+    assert _launch_gguf("my-llm", "modelscope") == cache_dir
+    assert len(fake_hub.downloads) == 2
+
+    _register_gguf("my-llm", ("modelscope", "org-ms/model-c", "b.gguf"))
+    with pytest.raises(ValueError, match="downloaded from modelscope:org-ms/model-b"):
+        _launch_gguf("my-llm", "modelscope")
+    assert len(fake_hub.downloads) == 2
+
+
+@pytest.mark.parametrize("cached_main", [False, True])
+def test_gguf_projector_source_is_checked_before_reuse_or_download(
+    fake_hub, cached_main
+):
+    _register_gguf("my-llm", GGUF_A, GGUF_B)
+    cache_dir = _launch_gguf(
+        "my-llm", "huggingface", multimodal_projector="mmproj.gguf"
+    )
+    assert (
+        _launch_gguf("my-llm", "huggingface", multimodal_projector="mmproj.gguf")
+        == cache_dir
+    )
+    if cached_main:
+        _launch_gguf("my-llm", "modelscope")
+        _register_gguf("my-llm", GGUF_B)
+    # A missing main file must not authorize overwriting A's projector,
+    # even while both sources remain declared.
+    before = list(fake_hub.downloads)
+    with pytest.raises(ValueError, match="downloaded from huggingface:org/model-a"):
+        _launch_gguf("my-llm", "modelscope", multimodal_projector="mmproj.gguf")
+    assert fake_hub.downloads == before
+    assert _readme(cache_dir, "mmproj.gguf") == "org/model-a@None"
+
+
+def test_gguf_model_uri_is_not_served_a_downloaded_directory(fake_hub, tmp_path):
+    _register_gguf("my-llm", GGUF_A)
+    cache_dir = _launch_gguf("my-llm", "huggingface")
+
+    mine = tmp_path / "mine"
+    os.makedirs(mine)
+    with open(mine / "c.gguf", "w") as fd:
+        fd.write("mine")
+    family = _gguf_family("my-llm", ("huggingface", None, "c.gguf"))
+    family.model_specs[0].model_uri = str(mine)
+    _register_gguf("my-llm", family=family)
+    # The directory would be served whole, whether or not it holds c.gguf.
+    with pytest.raises(
+        ValueError, match="local model_uri.*downloaded from huggingface:org/model-a"
+    ):
+        _launch_gguf("my-llm", "huggingface")
+    assert _readme(cache_dir, "a.gguf") == "org/model-a@None"
+
+
+def test_gguf_cache_without_a_record_is_reused(fake_hub):
+    # cached before sources were recorded, as far as the selected file goes
+    _register_gguf("my-llm", ("huggingface", "org/model-b", "model.gguf"))
+    cache_dir = _gguf_manager("my-llm").get_cache_dir()
+    os.makedirs(cache_dir)
+    with open(os.path.join(cache_dir, "model.gguf"), "w") as fd:
+        fd.write("legacy")
+    assert _launch_gguf("my-llm", "huggingface") == cache_dir
+    assert _readme(cache_dir, "model.gguf") == "legacy"
+    assert fake_hub.downloads == []
+    assert not os.path.exists(_gguf_manager("my-llm")._source_record_path())
+
+
+def test_removed_gguf_cache_is_recorded_afresh(fake_hub):
+    import json
+
+    _register_gguf("my-llm", GGUF_A, GGUF_B)
+    cache_dir = _launch_gguf("my-llm", "huggingface")
+    _launch_gguf("my-llm", "modelscope")
+    shutil.rmtree(cache_dir)  # the record stays behind
+
+    _register_gguf("my-llm", ("huggingface", "org/model-c", "a.gguf"))
+    assert (
+        _readme(_launch_gguf("my-llm", "huggingface"), "a.gguf") == "org/model-c@None"
+    )
+    with open(_gguf_manager("my-llm")._source_record_path(), encoding="utf-8") as fd:
+        assert json.load(fd) == {"a.gguf": _source("huggingface", "org/model-c")}
+
+
+@pytest.mark.parametrize("legacy_directory", [False, True])
+@pytest.mark.parametrize("leaves_file", [False, True])
+def test_interrupted_gguf_download_cannot_be_reused_for_another_source(
+    fake_hub, monkeypatch, legacy_directory, leaves_file
+):
+    import huggingface_hub
+
+    from ... import utils
+
+    # the huggingface_hub < 0.23 branch downloads straight into the cache directory
+    monkeypatch.setattr(utils, "IS_NEW_HUGGINGFACE_HUB", False)
+    monkeypatch.setattr(utils, "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS", 1)
+    fake_hub.interrupted.add("org/model-a")
+    _register_gguf("my-llm", ("huggingface", "org/model-a", "model.gguf"))
+    if legacy_directory:
+        os.makedirs(_gguf_manager("my-llm").get_cache_dir())
+
+    def fail_before_writing(repo_id, **kwargs):
+        fake_hub.downloads.append((repo_id, kwargs.get("revision")))
+        raise ConnectionError("connection lost")
+
+    with monkeypatch.context() as interrupted:
+        if not leaves_file:
+            interrupted.setattr(huggingface_hub, "hf_hub_download", fail_before_writing)
+        with pytest.raises(RuntimeError, match="after multiple retries"):
+            _launch_gguf("my-llm", "huggingface")
+
+    _register_gguf("my-llm", ("huggingface", "org/model-b", "model.gguf"))
+    if leaves_file:
+        with pytest.raises(
+            ValueError, match="my-llm.*downloaded from huggingface:org/model-a"
+        ):
+            _launch_gguf("my-llm", "huggingface")
+        assert fake_hub.downloads == [("org/model-a", None)]
+    else:
+        cache_dir = _launch_gguf("my-llm", "huggingface")
+        assert _readme(cache_dir, "model.gguf") == "org/model-b@None"
+        assert fake_hub.downloads == [("org/model-a", None), ("org/model-b", None)]
+
+
+@pytest.mark.parametrize("selected_file", [None, "model.gguf", "model-2-of-2.gguf"])
+def test_split_gguf_is_tied_to_the_file_the_runtime_opens(fake_hub, selected_file):
+    import json
+
+    def split_family(model_id):
+        family = _gguf_family("my-llm", ("huggingface", model_id, "model.gguf"))
+        spec = family.model_specs[0]
+        spec.model_file_name_split_template = "model-{part}.gguf"
+        spec.quantization_parts = {"q4": ["1-of-2", "2-of-2"]}
+        return family
+
+    _register_gguf("my-llm", family=split_family("org/model-a"))
+    cache_dir = _launch_gguf("my-llm", "huggingface")
+    assert fake_hub.downloads == [("org/model-a", None)] * 2  # one per part
+    with open(_gguf_manager("my-llm")._source_record_path(), encoding="utf-8") as fd:
+        assert json.load(fd) == {
+            name: _source("huggingface", "org/model-a")
+            for name in ("model-1-of-2.gguf", "model-2-of-2.gguf", "model.gguf")
+        }
+
+    _register_gguf("my-llm", family=split_family("org/model-a"))
+    assert _launch_gguf("my-llm", "huggingface") == cache_dir
+    assert len(fake_hub.downloads) == 2
+    family = (
+        split_family("org/model-b")
+        if selected_file is None
+        else _gguf_family("my-llm", ("huggingface", "org/model-b", selected_file))
+    )
+    _register_gguf("my-llm", family=family)
+    with pytest.raises(
+        ValueError, match="my-llm.*downloaded from huggingface:org/model-a"
+    ):
+        _launch_gguf("my-llm", "huggingface")
+    assert len(fake_hub.downloads) == 2
+
+
+def test_unreadable_provenance_blocks_a_gguf_download_into_the_directory(fake_hub):
+    _register_gguf("my-llm", GGUF_A, GGUF_B)
+    cache_dir = _launch_gguf("my-llm", "huggingface")
+    with open(_gguf_manager("my-llm")._source_record_path(), "w") as fd:
+        fd.write("{")
+
+    # b.gguf would be added to a directory whose record cannot be updated
+    with pytest.raises(ValueError, match="cannot be read or is invalid"):
+        _launch_gguf("my-llm", "modelscope")
+    assert fake_hub.downloads == [("org/model-a", None)]
+    assert not os.path.exists(os.path.join(cache_dir, "b.gguf"))
+
+
+def test_models_registered_before_the_fixture_do_not_reach_the_tests(
+    tmp_path, monkeypatch
+):
+    from ... import llm
+    from ...custom import RegistryManager
+    from .. import custom, llm_family
+    from ..custom import get_user_defined_llm_families
+
+    # A disposable registry stands in for the one the server fills at startup
+    # (never the developer's own), holding a valid registration of my-llm.
+    with monkeypatch.context() as startup:
+        _isolated_hub(tmp_path / "startup", startup)
+        _register("my-llm", SOURCE_A)
+        registry, engines = RegistryManager.get_registry("llm"), llm.LLM_ENGINES
+        assert list(engines) == ["my-llm"]
+
+        with monkeypatch.context() as isolated:
+            hub = _isolated_hub(tmp_path / "isolated", isolated)
+            assert get_user_defined_llm_families() == []
+            assert llm.LLM_ENGINES == {}
+            assert llm_family.LLM_ENGINES is llm.LLM_ENGINES
+            # the same name registers without a duplicate-name error
+            _register("my-llm", SOURCE_A)
+            assert _readme(_launch_cache("my-llm")) == "org/model-a@None"
+            assert hub.downloads == [("org/model-a", None)]
+            assert list(llm.LLM_ENGINES) == ["my-llm"]
+
+        # the outer registry, family list and engine table are back, untouched
+        assert RegistryManager.get_registry("llm") is registry
+        assert custom.UD_LLM_FAMILIES is registry.models
+        assert llm.LLM_ENGINES is engines and llm_family.LLM_ENGINES is engines
+        assert [f.model_name for f in get_user_defined_llm_families()] == ["my-llm"]
+        assert list(engines) == ["my-llm"]
 
 
 def test_custom_llm():
