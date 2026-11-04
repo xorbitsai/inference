@@ -491,3 +491,15 @@ msgid ""
 "On vLLM P, each scheduler-side history RPC has a one-second deadline; "
 "``read_timeout`` bounds the proxy's storage work."
 msgstr "在 vLLM P 上，调度器侧每次历史缓存 RPC 的超时为一秒；``read_timeout`` 限制代理访问存储的等待时间。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:88
+msgid "Hybrid attention replicas"
+msgstr "混合注意力模型副本"
+
+#: ../../source/user_guide/vllm_enhancement.rst:91
+msgid "For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True`` and a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode=\"align\"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding."
+msgstr "对于 Qwen3.5 等混合注意力模型，vLLM >= ``0.32.0`` 的普通副本可共享注意力 KV 和循环状态。启动多个副本时，设置 ``enable_xavier=True`` 和正整数 ``xavier_cache_bytes``。多模态检查点需设置 ``language_model_only=True``。此模式使用 ``mamba_cache_mode=\"align\"``，要求开启前缀缓存、每个副本使用一张 GPU，并禁用 LoRA 和推测解码。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:93
+msgid "``xavier_cache_bytes`` sets the shared CPU cache capacity and the CPU staging capacity of each replica. Size the budget for the prefix you want to reuse, including recurrent state. A cache miss or failed import triggers local prefill."
+msgstr "``xavier_cache_bytes`` 同时设置共享 CPU 缓存和各副本 CPU 暂存区的容量。请按需要复用的前缀及其循环状态确定预算。缓存未命中或导入失败时，副本会在本地预填充。"

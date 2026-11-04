@@ -512,3 +512,15 @@ msgid ""
 msgstr ""
 "vLLM P では、スケジューラー側の各履歴 RPC の期限は 1 秒です。``read_timeout`` "
 "はプロキシのストレージ処理の待機時間を制限します。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:88
+msgid "Hybrid attention replicas"
+msgstr "ハイブリッドアテンションのレプリカ"
+
+#: ../../source/user_guide/vllm_enhancement.rst:91
+msgid "For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True`` and a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode=\"align\"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding."
+msgstr "Qwen3.5 のようなハイブリッドアテンションモデルでは、vLLM >= ``0.32.0`` の通常レプリカ間でアテンション KV とリカレント状態を共有できます。``enable_xavier=True`` と正の ``xavier_cache_bytes`` を指定して複数のレプリカを起動します。マルチモーダルチェックポイントでは ``language_model_only=True`` を指定します。この機能は ``mamba_cache_mode=\"align\"`` を使用し、プレフィックスキャッシュとレプリカごとに 1 基の GPU が必要です。LoRA と投機的デコードは使用できません。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:93
+msgid "``xavier_cache_bytes`` sets the shared CPU cache capacity and the CPU staging capacity of each replica. Size the budget for the prefix you want to reuse, including recurrent state. A cache miss or failed import triggers local prefill."
+msgstr "``xavier_cache_bytes`` は共有 CPU キャッシュと各レプリカの CPU ステージング領域の容量を設定します。リカレント状態も含め、再利用したいプレフィックスに合わせて容量を指定します。キャッシュミスやインポート失敗時はローカルでプリフィルを実行します。"

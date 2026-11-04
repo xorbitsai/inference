@@ -1,5 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+# CI: linux
 import pytest
 
 from ..backends.bytes.storage import XavierBytesCacheActor
@@ -144,3 +145,18 @@ def test_immutable_pages_expired_lease_and_empty_prefix():
     assert actor.get_handoff(namespace, [], ticket) == []
     actor.release_handoff(ticket)
     assert actor.get_stats()["handoff_reads"] == 1
+
+
+def test_engine_specific_pages_check_layout_and_find_sparse_keys():
+    actor = XavierBytesCacheActor(16)
+    namespace = "layout-a"
+    actor.configure_pages(namespace, 8)
+    actor.configure_pages(namespace, 8)
+    keys = ["1" * 64, "2" * 64, "3" * 64]
+    assert actor.put(namespace, keys[1:], [b"abcdefgh", b"12345678"]) == [True, True]
+    assert actor.contains(namespace, keys) == [False, True, True]
+    assert actor.get(namespace, keys[1:]) == [b"abcdefgh", b"12345678"]
+    with pytest.raises(ValueError, match="namespace"):
+        actor.configure_pages("layout-b", 8)
+    with pytest.raises(ValueError, match="namespace"):
+        actor.configure_pages(namespace, 4)

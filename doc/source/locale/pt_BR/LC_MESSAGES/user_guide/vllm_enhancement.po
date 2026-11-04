@@ -555,3 +555,15 @@ msgid ""
 msgstr ""
 "Em vLLM P, cada RPC de histórico no escalonador tem prazo de um segundo; "
 "``read_timeout`` limita o trabalho de armazenamento do proxy."
+
+#: ../../source/user_guide/vllm_enhancement.rst:88
+msgid "Hybrid attention replicas"
+msgstr "Réplicas com atenção híbrida"
+
+#: ../../source/user_guide/vllm_enhancement.rst:91
+msgid "For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True`` and a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode=\"align\"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding."
+msgstr "Em modelos com atenção híbrida, como o Qwen3.5, réplicas comuns do vLLM podem compartilhar o KV de atenção e o estado recorrente com vLLM >= ``0.32.0``. Inicie várias réplicas com ``enable_xavier=True`` e um valor positivo para ``xavier_cache_bytes``. Use ``language_model_only=True`` para checkpoints multimodais. Esse modo usa ``mamba_cache_mode=\"align\"`` e requer cache de prefixos e uma GPU por réplica, sem LoRA nem decodificação especulativa."
+
+#: ../../source/user_guide/vllm_enhancement.rst:93
+msgid "``xavier_cache_bytes`` sets the shared CPU cache capacity and the CPU staging capacity of each replica. Size the budget for the prefix you want to reuse, including recurrent state. A cache miss or failed import triggers local prefill."
+msgstr "``xavier_cache_bytes`` define a capacidade do cache compartilhado na CPU e a do buffer na CPU de cada réplica. Dimensione a capacidade para o prefixo a reutilizar, incluindo o estado recorrente. Se o prefixo não estiver no cache ou a importação falhar, o prefill será feito localmente."

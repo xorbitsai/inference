@@ -85,6 +85,13 @@ The vLLM GPU transfer path requires NVIDIA GPUs.
 
    Retained vLLM GPU history, configured with ``xavier_gpu_cache_bytes``.
 
+Hybrid attention replicas
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True`` and a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode="align"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding.
+
+``xavier_cache_bytes`` sets the shared CPU cache capacity and the CPU staging capacity of each replica. Size the budget for the prefix you want to reuse, including recurrent state. A cache miss or failed import triggers local prefill.
+
 Legacy V0 adapter
 ^^^^^^^^^^^^^^^^^
 
