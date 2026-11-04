@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Type, Union
 
 from typing_extensions import Annotated, Literal
 
@@ -620,6 +620,21 @@ def match_llm(
     ) -> List["LLMSpecV1"]:
         return [x for x in _model_specs if x.model_hub == hub]
 
+    def _with_cached_specs_on_other_hubs(
+        _family: "LLMFamilyV2", _model_specs: List["LLMSpecV1"]
+    ) -> Iterator["LLMSpecV1"]:
+        from .cache_manager import LLMCacheManager
+
+        yield from _model_specs
+        # Hubs share a cache path, so weights that are already cached stay usable
+        # even when the selected hub does not host this variant.
+        listed_hubs = {spec.model_hub for spec in _model_specs}
+        for spec in _family.model_specs:
+            if spec.model_hub not in listed_hubs and os.path.exists(
+                LLMCacheManager.get_cache_dir_for_spec(_family.model_name, spec)
+            ):
+                yield spec
+
     # priority: download_hub > download_from_modelscope() and download_from_csghub()
     # set base model
     families = BUILTIN_LLM_FAMILIES + user_defined_llm_families
@@ -670,7 +685,7 @@ def match_llm(
             else:
                 model_specs = _get_model_specs(family.model_specs, "huggingface")
 
-        for spec in model_specs:
+        for spec in _with_cached_specs_on_other_hubs(family, model_specs):
             # check model_format and model_size_in_billions
             if (
                 model_format

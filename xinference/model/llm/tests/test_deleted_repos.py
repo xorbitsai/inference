@@ -17,6 +17,10 @@ import glob
 import json
 import os
 
+import pytest
+
+from ....constants import XINFERENCE_ENV_MODEL_SRC
+
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
 
 # Repos that no longer exist on Hugging Face. The last three are still on
@@ -28,6 +32,30 @@ DELETED = {
     "Skywork/Skywork-OR1-32B-Preview",
     "Skywork/Skywork-OR1-7B-Preview",
 }
+
+# PyTorch variants that lost their Hugging Face source and stay on other hubs.
+ONLY_ON_OTHER_HUBS = [
+    ("qwen-chat", "1_8"),
+    ("skywork-or1-preview", 7),
+    ("skywork-or1-preview", 32),
+]
+
+
+@pytest.fixture
+def default_hub_is_huggingface(monkeypatch):
+    monkeypatch.setattr(
+        "xinference.model.utils.is_locale_chinese_simplified", lambda: False
+    )
+    monkeypatch.setattr(
+        "xinference.model.utils.auto_detect_download_hub", lambda: "huggingface"
+    )
+
+
+def _set_model_src(monkeypatch, model_src):
+    if model_src is None:
+        monkeypatch.delenv(XINFERENCE_ENV_MODEL_SRC, raising=False)
+    else:
+        monkeypatch.setenv(XINFERENCE_ENV_MODEL_SRC, model_src)
 
 
 def test_no_spec_points_at_a_deleted_repo():
@@ -116,3 +144,117 @@ def test_every_builtin_variant_gets_a_cache_version_entry():
             if version not in recorded
         ]
     assert missing == []
+
+
+def _cache_variant(name, size):
+    from ..cache_manager import LLMCacheManager
+    from ..llm_family import get_llm_family_by_name
+
+    spec = next(
+        s
+        for s in get_llm_family_by_name(name).model_specs
+        if s.model_format == "pytorch" and str(s.model_size_in_billions) == str(size)
+    )
+    cache_dir = LLMCacheManager.get_cache_dir_for_spec(name, spec)
+    os.makedirs(cache_dir)
+    return cache_dir
+
+
+@pytest.fixture
+def empty_cache(monkeypatch, tmp_path):
+    from .... import constants
+
+    monkeypatch.setattr(constants, "XINFERENCE_CACHE_DIR", str(tmp_path))
+
+
+@pytest.mark.parametrize("model_src", [None, "auto", "huggingface"])
+@pytest.mark.parametrize("name,size", ONLY_ON_OTHER_HUBS)
+def test_default_launch_reuses_the_cache_of_a_variant_on_another_hub(
+    monkeypatch, empty_cache, default_hub_is_huggingface, model_src, name, size
+):
+    from ...core import create_model_instance
+    from .. import llm_family
+
+    class Engine:
+        def __init__(self, uid, family, path, config):
+            self.model_family = family
+            self.model_path = path
+
+    def no_download(*args, **kwargs):
+        pytest.fail("A cached variant must not be downloaded again")
+
+    _set_model_src(monkeypatch, model_src)
+    monkeypatch.setattr(
+        llm_family, "check_engine_by_spec_parameters", lambda *args: Engine
+    )
+    monkeypatch.setattr("xinference.model.utils.retry_download", no_download)
+    monkeypatch.setattr("xinference.model.utils.retry_snapshot_download", no_download)
+    cache_dir = _cache_variant(name, size)
+
+    model = create_model_instance(
+        "uid",
+        "LLM",
+        name,
+        "Transformers",
+        "pytorch",
+        size,
+        "none",
+        enable_virtual_env=False,
+    )
+
+    assert model.model_path == cache_dir
+    assert model.model_family.model_specs[0].model_hub == "modelscope"
+
+
+@pytest.mark.parametrize("name,size", ONLY_ON_OTHER_HUBS)
+def test_a_cold_cache_does_not_download_from_a_hub_nobody_selected(
+    monkeypatch, empty_cache, default_hub_is_huggingface, name, size
+):
+    from ...core import create_model_instance
+    from ..llm_family import match_llm
+
+    _set_model_src(monkeypatch, None)
+    assert match_llm(name, "pytorch", size, "none") is None
+    assert match_llm(name, "pytorch", size, "none", "huggingface") is None
+    with pytest.raises(ValueError, match="Model not found"):
+        create_model_instance(
+            "uid", "LLM", name, "Transformers", "pytorch", size, "none"
+        )
+
+    selected = match_llm(name, "pytorch", size, "none", "modelscope")
+    assert selected.model_specs[0].model_hub == "modelscope"
+
+
+def test_the_selected_hub_wins_over_a_cached_copy(
+    monkeypatch, empty_cache, default_hub_is_huggingface
+):
+    from ..llm_family import match_llm
+
+    _set_model_src(monkeypatch, None)
+    _cache_variant("qwen-chat", 7)
+
+    selected = match_llm("qwen-chat", "pytorch", 7, "none")
+    assert selected.model_specs[0].model_hub == "huggingface"
+    assert match_llm("qwen-chat").model_specs[0].model_hub == "huggingface"
+
+
+@pytest.mark.parametrize("name,size", ONLY_ON_OTHER_HUBS)
+def test_download_from_another_hub_is_listed_and_deletable(name, size):
+    from ....core.cache_tracker import CacheTrackerActor
+    from ..core import generate_llm_version_info
+    from ..llm_family import get_llm_family_by_name
+    from ..utils import get_model_version
+
+    tracker = CacheTrackerActor.__new__(CacheTrackerActor)
+    tracker._model_name_to_version_info = {}
+    tracker.record_model_version(
+        generate_llm_version_info(get_llm_family_by_name(name)), "worker"
+    )
+    version = get_model_version(name, "pytorch", size, "none")
+
+    tracker.update_cache_status("worker", name, version, "/cache/path")
+
+    assert version in {
+        v["model_version"] for v in tracker.list_cached_models("worker", name)
+    }
+    assert tracker.list_deletable_models(version, "worker") == "/cache/path"
