@@ -13,9 +13,11 @@
 # limitations under the License.
 
 # CI: linux
+import asyncio
 import json
 import re
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -289,3 +291,73 @@ def test_template_format_round_trips_through_the_parser():
     assert SeedOssToolParser().extract_tool_calls(prompt[start:end]) == [
         (None, "get_weather", {"location": "Beijing"})
     ]
+
+
+def _stub_tokenizer():
+    from tokenizers import Tokenizer, models, pre_tokenizers
+    from transformers import PreTrainedTokenizerFast
+
+    tokenizer = Tokenizer(models.WordLevel({"[UNK]": 0}, unk_token="[UNK]"))
+    tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+    return PreTrainedTokenizerFast(tokenizer_object=tokenizer, unk_token="[UNK]")
+
+
+def _prompt(render, tools):
+    messages = [{"role": "user", "content": "hi"}]
+    chat_template = _family().chat_template
+    if render == "vllm":
+        from ...vllm.core import VLLMChatModel
+
+        model = VLLMChatModel.__new__(VLLMChatModel)
+        model.model_family = _family()
+        model.reasoning_parser = None
+        model.lora_requests = []
+        model._get_tokenizer = AsyncMock(return_value=_stub_tokenizer())
+        return asyncio.run(model._prepare_chat_inputs(messages, {"tools": tools}))[0]
+    if render == "raw":
+        mixin = ChatModelMixin()
+        mixin.tool_parser = None
+        mixin.model_family = _family()
+        return mixin.get_full_context(messages, chat_template, tools=tools)
+    # Call apply_chat_template directly: get_full_context falls back to the raw
+    # template when tokenizer rendering raises, which would hide a failure.
+    return _stub_tokenizer().apply_chat_template(
+        messages,
+        tools=tools,
+        chat_template=chat_template,
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+
+
+@pytest.mark.parametrize("render", ["vllm", "raw", "tokenizer"])
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {},
+        {"parameters": {"type": "object"}},
+        {"parameters": None},
+        {"parameters": {"type": "object", "properties": None}},
+        {"description": None},
+    ],
+)
+def test_a_tool_without_arguments_is_listed(render, fields):
+    tools = [{"type": "function", "function": {"name": "get_time", **fields}}]
+
+    assert 'Function:def get_time():    """        """' in _prompt(render, tools)
+
+
+@pytest.mark.parametrize("render", ["vllm", "raw", "tokenizer"])
+@pytest.mark.parametrize("required,marker", [(["city"], "必填"), (None, "选填")])
+def test_a_tool_with_arguments_marks_the_required_ones(render, required, marker):
+    parameters = {
+        "type": "object",
+        "properties": {"city": {"type": "string", "description": "A city"}},
+        "required": required,
+    }
+    tools = [{"type": "function", "function": {"name": "f", "parameters": parameters}}]
+
+    prompt = _prompt(render, tools)
+
+    assert "Function:def f(city: str):" in prompt
+    assert f"- city (str) [{marker}]: A city" in prompt
