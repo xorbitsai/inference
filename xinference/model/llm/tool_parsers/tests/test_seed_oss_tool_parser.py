@@ -14,13 +14,18 @@
 
 # CI: linux
 import json
+import re
 from types import SimpleNamespace
 
+import pytest
+
+from ...core import LLM
 from ...llm_family import BUILTIN_LLM_FAMILIES
 from ...utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
 from .. import TOOL_PARSERS
 from ..abstract_tool_parser import request_tools_var
 from ..seed_oss_tool_parser import SeedOssToolParser
+from .test_streaming_partial_markers import _splits, _stream
 
 TOOLS = [
     {
@@ -84,6 +89,166 @@ def test_output_without_a_tool_call_stays_text():
 def test_unfinished_tool_call_stays_text():
     text = "<seed:tool_call>\n<function=get_weather>\n<parameter=location>Bei"
     assert SeedOssToolParser().extract_tool_calls(text) == [(text, None, None)]
+
+
+def _model(reasoning_content):
+    model = ChatModelMixin()
+    model.tool_parser = SeedOssToolParser()
+    model.reasoning_parser = None
+    if reasoning_content is not None:
+        family = SimpleNamespace(model_family=_family())
+        LLM.prepare_parse_reasoning_content(family, reasoning_content)
+        model.reasoning_parser = family.reasoning_parser
+    model.model_family = None
+    model.model_uid = "test-model"
+    return model
+
+
+def _completion_fields(choice):
+    return {
+        "id": "test",
+        "object": "text_completion",
+        "created": 0,
+        "model": "test-model",
+        "choices": [{"index": 0, **choice}],
+    }
+
+
+async def _complete(model, text, finish_reason):
+    result = model._post_process_completion(
+        None,
+        "test-model",
+        _completion_fields({"text": text, "finish_reason": finish_reason}),
+        tools=TOOLS,
+    )
+    choice = result["choices"][0]
+    calls = [
+        (call["function"]["name"], json.loads(call["function"]["arguments"]))
+        for call in choice["message"]["tool_calls"]
+    ]
+    return choice["message"]["content"], calls, choice["finish_reason"]
+
+
+async def _stream_response(model, text, finish_reason):
+    async def chunks():
+        # The reasoning tags are single tokens, so they arrive whole.
+        for part in re.split(r"(</?seed:think>)", text):
+            size = len(part) if "seed:think" in part else 7
+            for start in range(0, len(part), size or 1):
+                piece = part[start : start + size]
+                yield _completion_fields({"text": piece, "finish_reason": None})
+        yield _completion_fields({"text": "", "finish_reason": finish_reason})
+
+    content, calls, reason = "", [], None
+    async for chunk in model._async_to_tool_completion_chunks(chunks(), tools=TOOLS):
+        for choice in chunk["choices"]:
+            content += choice["delta"].get("content") or ""
+            calls += [
+                (call["function"]["name"], json.loads(call["function"]["arguments"]))
+                for call in choice["delta"].get("tool_calls") or []
+            ]
+            reason = choice["finish_reason"] or reason
+    return content, calls, reason
+
+
+RESPONSE_MODES = [_complete, _stream_response]
+QUOTED_CALL = "<seed:think>Maybe" + _call("get_weather", location="Paris")
+TRUNCATED_CALL = (
+    "<seed:tool_call>\n<function=get_weather>\n"
+    "<parameter=location>Beijing</parameter>\n</function>\n"
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reasoning_content", [None, False, True])
+@pytest.mark.parametrize("respond", RESPONSE_MODES)
+async def test_a_call_quoted_in_reasoning_is_not_emitted(respond, reasoning_content):
+    text = QUOTED_CALL + "</seed:think>It is sunny."
+    content, calls, finish_reason = await respond(
+        _model(reasoning_content), text, "stop"
+    )
+    assert calls == []
+    assert finish_reason == "stop"
+    assert content.endswith("It is sunny.")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reasoning_content", [None, False, True])
+@pytest.mark.parametrize("respond", RESPONSE_MODES)
+async def test_only_a_call_after_reasoning_is_emitted(respond, reasoning_content):
+    text = QUOTED_CALL + "</seed:think>" + _call("get_weather", location="Beijing")
+    _, calls, finish_reason = await respond(_model(reasoning_content), text, "stop")
+    assert calls == [("get_weather", {"location": "Beijing"})]
+    assert finish_reason == "tool_calls"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reasoning_content", [None, False, True])
+@pytest.mark.parametrize("respond", RESPONSE_MODES)
+async def test_output_cut_off_in_reasoning_keeps_length(respond, reasoning_content):
+    _, calls, finish_reason = await respond(
+        _model(reasoning_content), QUOTED_CALL, "length"
+    )
+    assert calls == []
+    assert finish_reason == "length"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reasoning_content", [None, False, True])
+@pytest.mark.parametrize("respond", RESPONSE_MODES)
+@pytest.mark.parametrize(
+    "text",
+    [
+        TRUNCATED_CALL,
+        "<seed:think>Checking.</seed:think>" + TRUNCATED_CALL,
+    ],
+    ids=["no-reasoning", "after-reasoning"],
+)
+async def test_call_cut_off_before_its_closing_tag_keeps_length(
+    text, respond, reasoning_content
+):
+    _, calls, finish_reason = await respond(_model(reasoning_content), text, "length")
+    assert calls == []
+    assert finish_reason == "length"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("respond", RESPONSE_MODES)
+async def test_a_call_from_output_without_reasoning_is_emitted(respond):
+    # thinking_budget=0 closes reasoning in the prompt, so the output has no tag.
+    text = _call("get_weather", location="Beijing")
+    content, calls, finish_reason = await respond(_model(False), text, "stop")
+    assert calls == [("get_weather", {"location": "Beijing"})]
+    assert finish_reason == "tool_calls"
+    assert "seed:think" not in content
+
+
+def test_every_chunk_split_keeps_reasoning_out_of_tool_calls():
+    reasoning = QUOTED_CALL + "</seed:think>"
+    text = reasoning + "Now." + _call("get_weather", location="Beijing")
+    for chunks in _splits(text):
+        assert _stream(SeedOssToolParser(), chunks) == (
+            reasoning + "Now.\n",
+            [("get_weather", {"location": "Beijing"})],
+        )
+
+
+def test_a_call_may_quote_the_reasoning_tag_in_an_argument():
+    token = request_tools_var.set(TOOLS)
+    try:
+        text = _call("get_weather", location="<seed:think>") + "Done."
+        assert SeedOssToolParser().extract_tool_calls(text) == [
+            ("\n", None, None),
+            (None, "get_weather", {"location": "<seed:think>"}),
+            ("Done.", None, None),
+        ]
+        for chunks in _splits(text):
+            assert _stream(SeedOssToolParser(), chunks) == (
+                "\nDone.",
+                [("get_weather", {"location": "<seed:think>"})],
+            )
+    finally:
+        request_tools_var.reset(token)
 
 
 def test_template_format_round_trips_through_the_parser():
