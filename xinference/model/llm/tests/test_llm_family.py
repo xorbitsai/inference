@@ -16,6 +16,7 @@
 import os
 import shutil
 import tempfile
+from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -755,6 +756,451 @@ def test_persistent_custom_llm():
     assert f"{family.model_name}.json" not in os.listdir(
         os.path.join(XINFERENCE_MODEL_DIR, "v2", "llm")
     )
+
+
+@pytest.fixture
+def isolated_cache_home(tmp_path, monkeypatch):
+    return _isolate_cache_home(tmp_path, monkeypatch)
+
+
+def _isolate_cache_home(tmp_path, monkeypatch):
+    """Cache, persisted registrations and LLM registry that exist for this test only."""
+    from .... import constants
+    from ... import llm
+    from ...cache_manager import CacheManager as BaseCacheManager
+    from ...custom import RegistryManager
+    from .. import custom, llm_family
+
+    monkeypatch.setattr(constants, "XINFERENCE_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path / "model"))
+    monkeypatch.setattr(BaseCacheManager, "is_initialized", False)
+    # An empty registry and engine table: none of the models registered at
+    # startup are visible, and what the test registers is gone with them.
+    engines = {}
+    monkeypatch.setattr(llm, "LLM_ENGINES", engines)
+    monkeypatch.setattr(llm_family, "LLM_ENGINES", engines)
+    monkeypatch.setattr(custom, "UD_LLM_FAMILIES", [])
+    registry = custom.LLMModelRegistry()
+    monkeypatch.setattr(RegistryManager, "_instances", {"llm": registry})
+    return tmp_path
+
+
+def _weights_dir(path, marker):
+    os.makedirs(path)
+    for name in ("config.json", marker):
+        with open(os.path.join(path, name), "w") as fd:
+            fd.write(name)
+    return str(path)
+
+
+def _pytorch_spec(size="0_5", quantization="none", **source):
+    return PytorchLLMSpecV2(
+        model_format="pytorch",
+        model_size_in_billions=size,
+        quantization=quantization,
+        **source,
+    )
+
+
+def _custom_family(name, *specs):
+    return CustomLLMFamilyV2(
+        version=2,
+        context_length=2048,
+        model_name=name,
+        model_family="my-family",
+        model_lang=["en"],
+        model_ability=["generate"],
+        model_specs=list(specs),
+    )
+
+
+def test_custom_llm_cannot_share_the_cache_directory_of_a_builtin(isolated_cache_home):
+    from ..custom import get_user_defined_llm_families, register_llm
+
+    builtin = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none", "huggingface")
+    assert builtin is not None
+    builtin_dir = CacheManager(builtin).get_cache_dir()
+    _weights_dir(builtin_dir, "BUILTIN_WEIGHTS")  # as left by a download
+    mine = _weights_dir(isolated_cache_home / "mine", "CUSTOM_WEIGHTS")
+
+    # "." and "_" give the same directory name, so this is the built-in's cache
+    twin = _custom_family("qwen2_5-instruct", _pytorch_spec(model_uri=mine))
+    assert CacheManager(twin).get_cache_dir() == builtin_dir
+
+    with pytest.raises(ValueError, match="qwen2.5-instruct.*cache directory"):
+        register_llm(twin, persist=True)
+    assert twin not in get_user_defined_llm_families()
+    assert not os.path.exists(
+        isolated_cache_home / "model" / "v2" / "llm" / "qwen2_5-instruct.json"
+    )
+    # the built-in is still served from its own files
+    assert "BUILTIN_WEIGHTS" in os.listdir(CacheManager(builtin).cache())
+
+
+@pytest.mark.parametrize("model_format", ["pytorch", "ggufv2", "mlx"])
+def test_custom_twin_of_a_builtin_spec_is_refused_in_every_format(
+    isolated_cache_home, model_format
+):
+    from ..custom import register_llm
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    mine = _weights_dir(isolated_cache_home / "mine", "CUSTOM_WEIGHTS")
+    family, spec = next(
+        (family, spec)
+        for family in BUILTIN_LLM_FAMILIES
+        if "." in family.model_name
+        for spec in family.model_specs
+        if spec.model_format == model_format
+    )
+    twin = _custom_family(
+        family.model_name.replace(".", "_"),
+        spec.copy(update={"model_id": None, "model_uri": mine}),
+    )
+    with pytest.raises(ValueError, match="cache directory"):
+        register_llm(twin, persist=False)
+
+
+def test_custom_llm_with_its_own_cache_directory_keeps_its_own_weights(
+    isolated_cache_home,
+):
+    from ..custom import register_llm
+
+    builtin = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none", "huggingface")
+    builtin_dir = CacheManager(builtin).get_cache_dir()
+    _weights_dir(builtin_dir, "BUILTIN_WEIGHTS")
+    mine = _weights_dir(isolated_cache_home / "mine", "CUSTOM_WEIGHTS")
+
+    # the same twin name, but a size no built-in spec has: another directory
+    twin = _custom_family("qwen2_5-instruct", _pytorch_spec("0_6", model_uri=mine))
+    register_llm(twin, persist=False)
+    register_llm(_custom_family("my-qwen", _pytorch_spec(model_uri=mine)), False)
+    matched = match_llm("qwen2_5-instruct", "pytorch", "0_6", "none", "huggingface")
+    assert CacheManager(matched).get_cache_dir() != builtin_dir
+    assert "CUSTOM_WEIGHTS" in os.listdir(CacheManager(matched).cache())
+    assert "BUILTIN_WEIGHTS" in os.listdir(CacheManager(builtin).cache())
+
+    # one registration may list the same weights on two hubs: one directory
+    hubs = _custom_family(
+        "my-two-hubs",
+        _pytorch_spec(model_id="org/my-model", model_hub="huggingface"),
+        _pytorch_spec(model_id="org/my-model", model_hub="modelscope"),
+    )
+    register_llm(hubs, persist=False)
+    # a family without specs names no directory
+    register_llm(_custom_family("my-no-specs"), persist=False)
+
+
+def test_custom_llms_register_unless_their_cache_directories_coincide(
+    isolated_cache_home,
+):
+    from ..custom import register_llm
+
+    mine = _weights_dir(isolated_cache_home / "mine", "CUSTOM_WEIGHTS")
+    register_llm(_custom_family("my.model", _pytorch_spec(model_uri=mine)), False)
+    with pytest.raises(ValueError, match="my.model.*cache directory"):
+        register_llm(_custom_family("my_model", _pytorch_spec(model_uri=mine)), False)
+    # not the same format, size and quantization: not the same directory
+    other = _custom_family("my_model", _pytorch_spec("1", "4-bit", model_uri=mine))
+    register_llm(other, persist=False)
+
+
+def test_startup_skips_a_persisted_registration_with_a_colliding_cache_directory(
+    isolated_cache_home,
+):
+    from .. import register_custom_model
+    from ..custom import get_user_defined_llm_families
+
+    mine = _weights_dir(isolated_cache_home / "mine", "CUSTOM_WEIGHTS")
+    persisted = isolated_cache_home / "model" / "v2" / "llm"
+    os.makedirs(persisted)
+    for name in ("qwen2_5-instruct", "my-qwen"):
+        family = _custom_family(name, _pytorch_spec(model_uri=mine))
+        (persisted / f"{name}.json").write_text(family.json())
+
+    with pytest.warns(UserWarning, match="qwen2_5-instruct.json has error.*cache"):
+        register_custom_model()
+    names = {family.model_name for family in get_user_defined_llm_families()}
+    assert "my-qwen" in names
+    assert "qwen2_5-instruct" not in names
+    assert (persisted / "qwen2_5-instruct.json").exists()
+
+
+@pytest.mark.parametrize("ignores_case", [True, False])
+def test_custom_llm_named_like_a_builtin_up_to_case(
+    isolated_cache_home, monkeypatch, ignores_case
+):
+    from .. import custom
+    from ..custom import get_user_defined_llm_families, register_llm
+
+    # stands in for the cache volume, so the result does not depend on the host
+    monkeypatch.setattr(custom, "_volume_ignores_case", lambda path: ignores_case)
+    builtin = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none", "huggingface")
+    assert builtin is not None
+    mine = _weights_dir(isolated_cache_home / "mine", "CUSTOM_WEIGHTS")
+    twin = _custom_family("Qwen2_5-instruct", _pytorch_spec(model_uri=mine))
+    builtin_name = os.path.basename(CacheManager(builtin).get_cache_dir())
+    twin_name = os.path.basename(CacheManager(twin).get_cache_dir())
+    assert twin_name != builtin_name and twin_name.lower() == builtin_name
+
+    if ignores_case:  # one directory on such a volume
+        with pytest.raises(ValueError, match="qwen2.5-instruct.*cache directory"):
+            register_llm(twin, persist=True)
+        assert twin not in get_user_defined_llm_families()
+    else:
+        register_llm(twin, persist=False)
+        assert twin in get_user_defined_llm_families()
+
+
+@pytest.mark.parametrize("remove_parent", [False, True], ids=["empty", "missing"])
+def test_startup_reloads_a_case_distinct_registration_after_cache_cleanup(
+    isolated_cache_home, monkeypatch, remove_parent
+):
+    from .. import register_custom_model
+    from ..custom import get_user_defined_llm_families, register_llm
+
+    parent = isolated_cache_home / "cache" / "v2"
+    parent.mkdir(parents=True)
+    if _directory_ignores_case(parent):
+        pytest.skip("This regression requires a case-sensitive cache directory")
+
+    builtin = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none", "huggingface")
+    assert builtin is not None
+    twin = _custom_family("Qwen2_5-instruct", _pytorch_spec(model_id="org/custom"))
+    builtin_dir = CacheManager.get_cache_dir_for_spec(
+        builtin.model_name, builtin.model_specs[0]
+    )
+    twin_dir = CacheManager.get_cache_dir_for_spec(twin.model_name, twin.model_specs[0])
+    assert builtin_dir != twin_dir and builtin_dir.casefold() == twin_dir.casefold()
+    _weights_dir(builtin_dir, "BUILTIN_WEIGHTS")
+    _weights_dir(twin_dir, "CUSTOM_WEIGHTS")
+    assert not os.path.samefile(builtin_dir, twin_dir)
+
+    register_llm(twin, persist=True)
+    persisted = isolated_cache_home / "model" / "v2" / "llm" / f"{twin.model_name}.json"
+    definition = persisted.read_text()
+
+    # Establish that the persisted definition reloads while both caches exist.
+    _isolate_cache_home(isolated_cache_home, monkeypatch)
+    register_custom_model()
+    assert get_user_defined_llm_families() == [twin]
+
+    shutil.rmtree(builtin_dir)
+    shutil.rmtree(twin_dir)
+    assert list(parent.iterdir()) == []
+    if remove_parent:
+        parent.rmdir()
+    assert parent.exists() == (not remove_parent)
+
+    # A fresh startup must load the same JSON without either model's cache.
+    _isolate_cache_home(isolated_cache_home, monkeypatch)
+    register_custom_model()
+    assert get_user_defined_llm_families() == [twin]
+    assert persisted.read_text() == definition
+    assert list(parent.iterdir()) == []
+
+
+def _directory_ignores_case(path) -> bool:
+    """Ground truth from two exclusive mkdir calls, independent of the probe."""
+    original = path / "Probe"
+    alternate = path / "pROBE"
+    original.mkdir()
+    try:
+        try:
+            alternate.mkdir()
+        except FileExistsError:
+            return True
+        alternate.rmdir()
+        return False
+    finally:
+        original.rmdir()
+
+
+def test_volume_case_probe_matches_what_the_volume_does(tmp_path):
+    from ..custom import _volume_ignores_case
+
+    # The ground truth concerns entries inside tmp_path, not its own name.
+    (tmp_path / "Probe").mkdir()
+    try:
+        (tmp_path / "pROBE").mkdir()
+        expected = False
+    except FileExistsError:
+        expected = True
+
+    for name in ("Probe", "Missing"):
+        assert _volume_ignores_case(str(tmp_path / name)) is expected
+
+
+@pytest.mark.parametrize("ignores_case", [True, False])
+def test_volume_case_probe_uses_the_cache_parent(tmp_path, ignores_case):
+    from .. import custom
+
+    parent = str(tmp_path / "v2")
+    probe = os.path.join(parent, "Probe")
+    alternate = os.path.join(parent, "pROBE")
+    stat = os.stat_result((0, 1, 1, 0, 0, 0, 0, 0, 0, 0))
+
+    def lstat(path):
+        if path == probe or (ignores_case and path == alternate):
+            return stat
+        raise FileNotFoundError(path)
+
+    # Model a mount, symlink target or NTFS directory whose rules differ
+    # from the directory containing its name.
+    with patch.object(custom, "os", wraps=os) as filesystem:
+        filesystem.path.isdir.side_effect = lambda path: path == parent or (
+            not ignores_case and path == str(tmp_path / "V2")
+        )
+        filesystem.path.samefile.return_value = True
+        filesystem.scandir.return_value = nullcontext(
+            [SimpleNamespace(name="Probe", path=probe)]
+        )
+        filesystem.lstat.side_effect = lstat
+        assert (
+            custom._volume_ignores_case(os.path.join(parent, "Missing")) is ignores_case
+        )
+        filesystem.scandir.assert_called_once_with(parent)
+        filesystem.makedirs.assert_not_called()
+
+
+@pytest.mark.parametrize("state", ["empty", "missing", "no-case-entry"])
+def test_volume_case_probe_without_a_usable_entry(tmp_path, state):
+    from ..custom import _volume_ignores_case
+
+    parent = tmp_path / "v2"
+    if state != "missing":
+        parent.mkdir()
+    if state == "no-case-entry":
+        (parent / "1234").mkdir()
+    before = {"1234"} if state == "no-case-entry" else set()
+
+    observed = _volume_ignores_case(str(parent / "Missing"))
+    assert {entry.name for entry in parent.iterdir()} == before
+    assert observed is _directory_ignores_case(parent)
+
+
+def test_volume_case_probe_can_write_without_listing(tmp_path):
+    from .. import custom
+
+    expected = _directory_ignores_case(tmp_path)
+    with patch.object(custom, "os", wraps=os) as filesystem:
+        filesystem.scandir.side_effect = PermissionError("denied")
+        assert custom._volume_ignores_case(str(tmp_path / "Missing")) is expected
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("operation", ["makedirs", "mkdtemp", "lstat", "rmdir"])
+def test_volume_case_probe_errors_are_conservative(tmp_path, operation):
+    from .. import custom
+
+    with (
+        patch.object(custom, "os", wraps=os) as filesystem,
+        patch.object(custom, "tempfile", wraps=tempfile) as temporary,
+    ):
+        owner = temporary if operation == "mkdtemp" else filesystem
+        getattr(owner, operation).side_effect = PermissionError("denied")
+        assert custom._volume_ignores_case(str(tmp_path / "Missing")) is True
+        if operation in ("lstat", "rmdir"):
+            filesystem.rmdir.assert_called_once()
+
+    remaining = list(tmp_path.iterdir())
+    if operation == "rmdir":
+        # The simulated cleanup failure leaves only the directory we own.
+        assert len(remaining) == 1
+        assert remaining[0].name.startswith(".xinference-CaseProbe-")
+        remaining[0].rmdir()
+    else:
+        assert remaining == []
+
+
+def test_volume_case_probe_disappearing_entry_is_not_case_evidence(tmp_path):
+    from .. import custom
+
+    probe = str(tmp_path / "Probe")
+    stat = os.stat_result((0, 1, 1, 0, 0, 0, 0, 0, 0, 0))
+    with (
+        patch.object(custom, "os", wraps=os) as filesystem,
+        patch.object(custom.tempfile, "mkdtemp", side_effect=PermissionError("denied")),
+    ):
+        filesystem.scandir.return_value = nullcontext(
+            [SimpleNamespace(name="Probe", path=probe)]
+        )
+        filesystem.lstat.side_effect = [stat, FileNotFoundError(), FileNotFoundError()]
+        assert custom._volume_ignores_case(str(tmp_path / "Missing")) is True
+        assert filesystem.lstat.call_count == 3
+
+
+def test_volume_case_probe_distinguishes_hard_linked_entries(tmp_path):
+    from .. import custom
+
+    stat = os.stat_result((0, 1, 1, 0, 0, 0, 0, 0, 0, 0))
+    with patch.object(custom, "os", wraps=os) as filesystem:
+        filesystem.scandir.return_value = nullcontext(
+            [
+                SimpleNamespace(name=name, path=str(tmp_path / name))
+                for name in ("Probe", "pROBE")
+            ]
+        )
+        filesystem.lstat.return_value = stat
+        assert custom._volume_ignores_case(str(tmp_path / "Missing")) is False
+        filesystem.makedirs.assert_not_called()
+
+
+def test_unknown_cache_case_rules_reject_new_and_persisted_aliases(
+    isolated_cache_home, monkeypatch
+):
+    from .. import custom, register_custom_model
+    from ..custom import get_user_defined_llm_families, register_llm
+
+    def denied(*args, **kwargs):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(custom.tempfile, "mkdtemp", denied)
+    twin = _custom_family("Qwen2_5-instruct", _pytorch_spec(model_id="org/custom"))
+    persisted = isolated_cache_home / "model" / "v2" / "llm" / f"{twin.model_name}.json"
+    with pytest.raises(ValueError, match="qwen2.5-instruct.*cache directory"):
+        register_llm(twin, persist=True)
+    assert get_user_defined_llm_families() == []
+    assert not persisted.exists()
+
+    # An existing JSON is not proof that case-only paths are distinct here.
+    persisted.parent.mkdir(parents=True)
+    persisted.write_text(twin.json())
+    definition = persisted.read_text()
+    with pytest.warns(UserWarning, match="Qwen2_5-instruct.json has error.*cache"):
+        register_custom_model()
+    assert get_user_defined_llm_families() == []
+    assert persisted.read_text() == definition
+
+    independent = _custom_family("my-qwen", _pytorch_spec(model_id="org/custom"))
+    register_llm(independent, persist=False)
+    assert get_user_defined_llm_families() == [independent]
+
+
+def test_models_registered_before_the_fixture_do_not_reach_the_test(
+    isolated_cache_home, monkeypatch
+):
+    from ... import llm
+    from ...custom import RegistryManager
+    from .. import custom, llm_family
+    from ..custom import get_user_defined_llm_families, register_llm
+
+    # Seed a disposable outer registry, never the developer's startup registry.
+    family = _custom_family("registered-at-startup", _pytorch_spec(model_id="org/m"))
+    register_llm(family, persist=False)
+    registry = RegistryManager.get_registry("llm")
+    engines = llm.LLM_ENGINES
+    with monkeypatch.context() as isolated:
+        _isolate_cache_home(isolated_cache_home, isolated)
+        assert get_user_defined_llm_families() == []
+        same_name = _custom_family(family.model_name, _pytorch_spec("1"))
+        register_llm(same_name, persist=False)
+        assert get_user_defined_llm_families() == [same_name]
+
+    assert RegistryManager.get_registry("llm") is registry
+    assert custom.UD_LLM_FAMILIES is registry.models
+    assert llm.LLM_ENGINES is engines
+    assert llm_family.LLM_ENGINES is engines
+    assert get_user_defined_llm_families() == [family]
 
 
 def test_is_locale_chinese_simplified():
