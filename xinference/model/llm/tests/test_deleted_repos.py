@@ -70,3 +70,49 @@ def test_specs_only_on_modelscope_keep_their_modelscope_source():
         "Skywork/Skywork-OR1-32B-Preview",
         "Skywork/Skywork-OR1-7B-Preview",
     } <= ms_ids
+
+
+def test_specs_only_on_modelscope_still_get_a_cache_version_entry():
+    from ..core import generate_llm_version_info
+    from ..llm_family import get_llm_family_by_name
+
+    qwen = generate_llm_version_info(get_llm_family_by_name("qwen-chat"))["qwen-chat"]
+    skywork = generate_llm_version_info(get_llm_family_by_name("skywork-or1-preview"))[
+        "skywork-or1-preview"
+    ]
+    versions = [v["model_version"] for v in qwen + skywork]
+    assert {
+        "qwen-chat--1_8B--pytorch--none",
+        "skywork-or1-preview--7B--pytorch--none",
+        "skywork-or1-preview--32B--pytorch--none",
+    } <= set(versions)
+    # A variant hosted on several hubs is still listed once.
+    assert len(versions) == len(set(versions))
+
+
+def test_every_builtin_variant_gets_a_cache_version_entry():
+    from .. import BUILTIN_LLM_FAMILIES
+    from ..core import generate_llm_version_info
+    from ..utils import get_model_version
+
+    assert BUILTIN_LLM_FAMILIES
+    missing = []
+    for family in BUILTIN_LLM_FAMILIES:
+        recorded = {
+            v["model_version"]
+            for v in generate_llm_version_info(family)[family.model_name]
+        }
+        missing += [
+            version
+            for version in (
+                get_model_version(
+                    family.model_name,
+                    s.model_format,
+                    s.model_size_in_billions,
+                    s.quantization,
+                )
+                for s in family.model_specs
+            )
+            if version not in recorded
+        ]
+    assert missing == []
