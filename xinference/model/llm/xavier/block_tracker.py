@@ -44,6 +44,30 @@ class BlockTracker(xo.StatelessActor):
         self._rank_snapshots: Dict[int, Dict[int, Dict[int, None]]] = {}
         self._snapshot_directories: Dict[int, "SharedBlockDirectory"] = {}
         self._snapshot_directory_disabled: Set[int] = set()
+        # At most one resident checkpoint per rank and prefix hash. These
+        # entries are offers; the transfer actor authorizes each actual read.
+        self._gpu_prefixes: Dict[int, dict] = {}
+
+    def publish_gpu_prefix(self, rank, key, ticket, tokens, groups):
+        self._gpu_prefixes.setdefault(rank, {})[key] = (ticket, tokens, groups)
+
+    def remove_gpu_prefix(self, rank, key, ticket):
+        offers = self._gpu_prefixes.get(rank, {})
+        if key in offers and offers[key][0] == ticket:
+            del offers[key]
+
+    def query_gpu_prefix(self, rank, keys):
+        best = None
+        for peer, offers in self._gpu_prefixes.items():
+            if peer == rank or peer in self._unavailable_ranks:
+                continue
+            for key in keys:
+                if key in offers:
+                    ticket, tokens, groups = offers[key]
+                    if best is None or tokens > best[2]:
+                        best = peer, ticket, tokens, groups
+                    break
+        return best
 
     def get_snapshot_directory(self, virtual_engine: int):
         if (
@@ -223,6 +247,7 @@ class BlockTracker(xo.StatelessActor):
                     hashes.pop(content_hash, None)
 
     def unregister_rank(self, rank: int):
+        self._gpu_prefixes.pop(rank, None)
         """
         This rank is in the recovery process, and its query results will be excluded.
         """

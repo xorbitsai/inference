@@ -497,9 +497,13 @@ msgid "Hybrid attention replicas"
 msgstr "混合注意力模型副本"
 
 #: ../../source/user_guide/vllm_enhancement.rst:91
-msgid "For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True`` and a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode=\"align\"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding."
-msgstr "对于 Qwen3.5 等混合注意力模型，vLLM >= ``0.32.0`` 的普通副本可共享注意力 KV 和循环状态。启动多个副本时，设置 ``enable_xavier=True`` 和正整数 ``xavier_cache_bytes``。多模态检查点需设置 ``language_model_only=True``。此模式使用 ``mamba_cache_mode=\"align\"``，要求开启前缀缓存、每个副本使用一张 GPU，并禁用 LoRA 和推测解码。"
+msgid "For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True``. For CPU-only sharing, set a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode=\"align\"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding."
+msgstr "对于 Qwen3.5 等混合注意力模型，vLLM >= ``0.32.0`` 的普通副本可共享注意力 KV 和循环状态。启动多个副本时，设置 ``enable_xavier=True``。若仅使用 CPU 共享，请设置正整数 ``xavier_cache_bytes``。多模态检查点需设置 ``language_model_only=True``。此模式使用 ``mamba_cache_mode=\"align\"``，要求开启前缀缓存、每个副本使用一张 GPU，并禁用 LoRA 和推测解码。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:93
 msgid "``xavier_cache_bytes`` sets the shared CPU cache capacity and the CPU staging capacity of each replica. Size the budget for the prefix you want to reuse, including recurrent state. A cache miss or failed import triggers local prefill."
 msgstr "``xavier_cache_bytes`` 同时设置共享 CPU 缓存和各副本 CPU 暂存区的容量。请按需要复用的前缀及其循环状态确定预算。缓存未命中或导入失败时，副本会在本地预填充。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:95
+msgid "Set ``xavier_gpu_cache_bytes=0`` to share aligned prefixes directly from resident GPU cache blocks. Add ``xavier_cache_bytes`` to enable CPU fallback. Direct GPU sharing requires NVIDIA GPUs, ``xoscar[nixl]>=0.11.1`` and ``async_scheduling=False``."
+msgstr "设置 ``xavier_gpu_cache_bytes=0`` 后，副本可直接共享 GPU 缓存中对齐的前缀。加上 ``xavier_cache_bytes`` 可启用 CPU 回退。GPU 直传需要 NVIDIA GPU、``xoscar[nixl]>=0.11.1`` 和 ``async_scheduling=False``。"

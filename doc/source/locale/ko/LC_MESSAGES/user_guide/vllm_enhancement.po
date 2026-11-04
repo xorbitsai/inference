@@ -514,9 +514,13 @@ msgid "Hybrid attention replicas"
 msgstr "하이브리드 어텐션 복제본"
 
 #: ../../source/user_guide/vllm_enhancement.rst:91
-msgid "For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True`` and a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode=\"align\"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding."
-msgstr "Qwen3.5와 같은 하이브리드 어텐션 모델의 일반 vLLM 복제본은 vLLM >= ``0.32.0``에서 어텐션 KV와 순환 상태를 공유할 수 있습니다. ``enable_xavier=True``와 양수 ``xavier_cache_bytes``를 지정해 여러 복제본을 실행합니다. 멀티모달 체크포인트에는 ``language_model_only=True``를 사용합니다. 이 방식은 ``mamba_cache_mode=\"align\"``을 사용하며 접두사 캐싱과 복제본당 GPU 1개가 필요합니다. LoRA와 추측 디코딩은 사용할 수 없습니다."
+msgid "For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True``. For CPU-only sharing, set a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode=\"align\"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding."
+msgstr "Qwen3.5와 같은 하이브리드 어텐션 모델의 일반 vLLM 복제본은 vLLM >= ``0.32.0``에서 어텐션 KV와 순환 상태를 공유할 수 있습니다. ``enable_xavier=True``를 지정해 여러 복제본을 실행합니다. CPU에서만 공유하려면 ``xavier_cache_bytes``에 양수를 지정합니다. 멀티모달 체크포인트에는 ``language_model_only=True``를 사용합니다. 이 방식은 ``mamba_cache_mode=\"align\"``을 사용하며 접두사 캐싱과 복제본당 GPU 1개가 필요합니다. LoRA와 추측 디코딩은 사용할 수 없습니다."
 
 #: ../../source/user_guide/vllm_enhancement.rst:93
 msgid "``xavier_cache_bytes`` sets the shared CPU cache capacity and the CPU staging capacity of each replica. Size the budget for the prefix you want to reuse, including recurrent state. A cache miss or failed import triggers local prefill."
 msgstr "``xavier_cache_bytes``는 공유 CPU 캐시와 각 복제본의 CPU 스테이징 용량을 설정합니다. 순환 상태를 포함하여 재사용하려는 접두사에 맞춰 용량을 정합니다. 캐시 미스가 발생하거나 가져오기에 실패하면 로컬에서 프리필을 수행합니다."
+
+#: ../../source/user_guide/vllm_enhancement.rst:95
+msgid "Set ``xavier_gpu_cache_bytes=0`` to share aligned prefixes directly from resident GPU cache blocks. Add ``xavier_cache_bytes`` to enable CPU fallback. Direct GPU sharing requires NVIDIA GPUs, ``xoscar[nixl]>=0.11.1`` and ``async_scheduling=False``."
+msgstr "``xavier_gpu_cache_bytes=0``으로 설정하면 GPU에 있는 캐시 블록에서 정렬된 접두사를 직접 공유합니다. ``xavier_cache_bytes``를 추가하면 CPU 폴백을 활성화합니다. GPU 직접 공유에는 NVIDIA GPU, ``xoscar[nixl]>=0.11.1``, ``async_scheduling=False``가 필요합니다."

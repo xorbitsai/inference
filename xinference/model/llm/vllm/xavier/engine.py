@@ -41,9 +41,12 @@ class XavierEngine:
     def _patch_hybrid_prefix_args(
         engine_args: AsyncEngineArgs,
         model_config: "ModelConfig",
-        cache_config: Dict[str, Any],
+        xavier_config: Dict[str, Any],
+        gpu_prefix: bool = False,
     ) -> None:
         from vllm.config import KVTransferConfig
+
+        cache_config = xavier_config.get("cpu_prefix_cache")
 
         if not model_config.is_hybrid:
             raise ValueError("vLLM Xavier xavier_cache_bytes requires a hybrid model")
@@ -84,28 +87,61 @@ class XavierEngine:
             )
         engine_args.enable_prefix_caching = True
         engine_args.mamba_cache_mode = "align"
-        engine_args.kv_transfer_config = KVTransferConfig(
-            kv_connector="OffloadingConnector",
-            kv_connector_module_path=None,
-            kv_role="kv_both",
-            kv_load_failure_policy="recompute",
-            kv_connector_extra_config={
-                "spec_name": "TieringOffloadingSpec",
-                "cpu_bytes_to_use": cache_config["capacity_bytes"],
-                "secondary_tiers": [
-                    {
-                        "type": "XavierOffloadTier",
-                        "module_path": "xinference.model.llm.vllm.xavier.offload_tier",
-                        "address": cache_config["address"],
-                        "uid": cache_config["uid"],
-                        "model_hash": model_config.compute_hash(),
-                        "state_dtypes": [
-                            getattr(engine_args, name, "auto")
-                            for name in ("mamba_cache_dtype", "mamba_ssm_cache_dtype")
+        connectors: list[dict[str, Any]] = []
+        if gpu_prefix:
+            if getattr(engine_args, "async_scheduling", None):
+                raise ValueError(
+                    "Xavier GPU hybrid prefixes require async_scheduling=False"
+                )
+            engine_args.async_scheduling = False
+            connectors.append(
+                dict(
+                    kv_connector="XavierHybridGPUConnector",
+                    kv_connector_module_path="xinference.model.llm.vllm.xavier.hybrid_gpu",
+                    kv_role="kv_both",
+                    kv_connector_extra_config={"xavier_config": xavier_config},
+                )
+            )
+        if cache_config is not None:
+            connectors.append(
+                dict(
+                    kv_connector="OffloadingConnector",
+                    kv_connector_module_path=None,
+                    kv_role="kv_both",
+                    kv_connector_extra_config={
+                        "spec_name": "TieringOffloadingSpec",
+                        "cpu_bytes_to_use": cache_config["capacity_bytes"],
+                        "secondary_tiers": [
+                            {
+                                "type": "XavierOffloadTier",
+                                "module_path": "xinference.model.llm.vllm.xavier.offload_tier",
+                                "address": cache_config["address"],
+                                "uid": cache_config["uid"],
+                                "model_hash": model_config.compute_hash(),
+                                "state_dtypes": [
+                                    getattr(engine_args, name, "auto")
+                                    for name in (
+                                        "mamba_cache_dtype",
+                                        "mamba_ssm_cache_dtype",
+                                    )
+                                ],
+                            }
                         ],
-                    }
-                ],
-            },
+                    },
+                )
+            )
+        config = (
+            connectors[0]
+            if len(connectors) == 1
+            else dict(
+                kv_connector="XavierHybridTieredConnector",
+                kv_connector_module_path="xinference.model.llm.vllm.xavier.hybrid_gpu",
+                kv_role="kv_both",
+                kv_connector_extra_config={"connectors": connectors},
+            )
+        )
+        engine_args.kv_transfer_config = KVTransferConfig(
+            **config, kv_load_failure_policy="recompute"
         )
 
     @classmethod
@@ -147,10 +183,19 @@ class XavierEngine:
         extra_config["xavier_config"] = xavier_config
 
         model_config = engine_args.create_model_config()
-        if cache_config := xavier_config.get("cpu_prefix_cache"):
-            cls._patch_hybrid_prefix_args(engine_args, model_config, cache_config)
-            return
         recurrent = model_config.is_hybrid
+        gpu_prefix = (
+            recurrent
+            and role not in {"prefill", "decode"}
+            and xavier_config.get("gpu_cache_bytes") == 0
+        )
+        if gpu_prefix and version.parse(VLLM_VERSION) < version.parse("0.32.0"):
+            raise ValueError("Xavier GPU hybrid prefix sharing requires vLLM >= 0.32.0")
+        if gpu_prefix or xavier_config.get("cpu_prefix_cache"):
+            cls._patch_hybrid_prefix_args(
+                engine_args, model_config, xavier_config, gpu_prefix
+            )
+            return
         if xavier_config.get("enforce_eager", recurrent) and not getattr(
             engine_args, "enforce_eager", False
         ):

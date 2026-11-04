@@ -361,3 +361,34 @@ def test_hybrid_prefix_rejects_incompatible_args(
     with pytest.raises(ValueError, match=error):
         module.XavierEngine.from_engine_args(args, xavier_config=hybrid_prefix_config)
     factory.assert_not_called()
+
+
+@pytest.mark.parametrize("cpu_fallback", [False, True])
+def test_hybrid_prefix_prefers_gpu(engine, hybrid_prefix_config, cpu_fallback):
+    module, factory = engine
+    module.VLLM_VERSION = "0.32.0"
+    args = SimpleNamespace(
+        create_model_config=lambda: SimpleNamespace(
+            is_hybrid=True,
+            is_multimodal_model=False,
+            compute_hash=lambda: "model",
+        )
+    )
+    config = {"role": "hybrid", "gpu_cache_bytes": 0}
+    if cpu_fallback:
+        config.update(hybrid_prefix_config)
+    module.XavierEngine.from_engine_args(args, xavier_config=config)
+    transfer = args.kv_transfer_config
+    assert args.async_scheduling is False
+    assert args.enable_prefix_caching is True
+    assert args.mamba_cache_mode == "align"
+    if cpu_fallback:
+        assert transfer.kv_connector == "XavierHybridTieredConnector"
+        assert [
+            entry["kv_connector"]
+            for entry in transfer.kv_connector_extra_config["connectors"]
+        ] == ["XavierHybridGPUConnector", "OffloadingConnector"]
+    else:
+        assert transfer.kv_connector == "XavierHybridGPUConnector"
+    assert transfer.kv_load_failure_policy == "recompute"
+    factory.assert_called_once()

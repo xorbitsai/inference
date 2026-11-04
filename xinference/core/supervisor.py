@@ -3693,8 +3693,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 if heterogeneous_pd
                 else f"{model_engine} Xavier GPU PD does not yet support retained GPU history"
             )
-        if vllm_cpu_prefix and gpu_cache_bytes is not None:
-            raise ValueError("vLLM Xavier CPU and GPU cache budgets cannot be combined")
+        if vllm_cpu_prefix and gpu_cache_bytes not in (None, 0):
+            raise ValueError(
+                "vLLM hybrid CPU caching can only be combined with xavier_gpu_cache_bytes=0"
+            )
         if pd_enabled and enable_xavier and gpu_cache_bytes is None:
             gpu_cache_bytes = 256 * 1024 * 1024
         store_address = None
@@ -3703,7 +3705,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if enable_xavier and replica <= 1:
             logger.warning("Enabling xavier when replica<=1 is meaningless.")
             enable_xavier = False
-        use_xavier_collective = enable_xavier and not vllm_cpu_prefix
+        use_xavier_collective = enable_xavier and (
+            not vllm_cpu_prefix or gpu_cache_bytes == 0
+        )
         if use_xavier_collective:
             world_size = replica + 1
 
@@ -3782,12 +3786,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
             if vllm_cpu_prefix:
                 cache_ref = self._xavier_cache_mapping[model_uid]
-                xavier_config = {
-                    "cpu_prefix_cache": {
-                        "address": cache_ref.address,
-                        "uid": cache_ref.uid,
-                        "capacity_bytes": cache_bytes,
-                    },
+                xavier_config = xavier_config or {}
+                xavier_config["cpu_prefix_cache"] = {
+                    "address": cache_ref.address,
+                    "uid": cache_ref.uid,
+                    "capacity_bytes": cache_bytes,
                 }
 
             if xavier_config is not None and cache_backend != "native":

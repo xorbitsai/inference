@@ -1,5 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+# CI: linux
 """Hybrid attention needs position-correct state and independent cache groups."""
 import sys
 from types import SimpleNamespace
@@ -106,6 +107,16 @@ def test_logical_blocks_are_zero_copy_views(recurrent, kv_first):
     assert (physical[6:8] == -1).all() and (physical[5] != -1).all()
     state = torch.zeros(8, 2, 4)
     assert recurrent._cache_block_view("linear", state) is state
+
+
+def test_register_split_attention_cache_skips_cpu_export_size(recurrent):
+    attention = torch.zeros(16, 2, 4, 8)
+    state = (torch.zeros(8, 3), torch.zeros(8, 4))
+    recurrent.register_kv_caches({"attention": attention, "linear": state})
+
+    assert recurrent._kv_schema.layers["attention"][0] == (2, 2, 4, 8)
+    assert recurrent._kv_schema.layers["linear#0"][0] == (3,)
+    assert recurrent._cpu_export_block_bytes is None
 
 
 def test_ticket_owns_blocks_per_layer(monkeypatch):

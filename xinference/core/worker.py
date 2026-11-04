@@ -8085,8 +8085,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         rep_model_uid = launch_args.get("model_uid")
         origin_uid, _ = parse_replica_model_uid(rep_model_uid)
         xavier_config: Optional[Dict[str, Any]] = launch_args.get("xavier_config", None)
-        uses_xavier_collective = xavier_config is not None and not xavier_config.get(
-            "cpu_prefix_cache"
+        uses_xavier_collective = xavier_config is not None and (
+            not xavier_config.get("cpu_prefix_cache")
+            or xavier_config.get("gpu_cache_bytes") is not None
         )
         supervisor_ref = await self.get_supervisor_ref(add_worker=False)
         if uses_xavier_collective:
