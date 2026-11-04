@@ -83,8 +83,8 @@ msgid "MLX replicas"
 msgstr "MLX 副本"
 
 #: source/user_guide/vllm_enhancement.rst:18
-msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
-msgstr "對於 vLLM V1 上僅使用注意力層的模型，Xavier 保留模型的 ``enforce_eager`` 設定，允許使用 CUDA Graph 執行。若要使用 eager 執行，請在啟動模型時設定 ``enforce_eager=True``。循環模型仍預設使用 eager 執行。"
+msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent handoff uses eager execution by default. Ordinary hybrid attention replicas preserve vLLM's ``enforce_eager`` setting."
+msgstr "對於 vLLM V1 上僅使用注意力層的模型，Xavier 保留模型的 ``enforce_eager`` 設定，允許使用 CUDA Graph 執行。若要使用 eager 執行，請在啟動模型時設定 ``enforce_eager=True``。循環狀態交接預設使用 eager 執行。一般混合注意力副本會保留 vLLM 的 ``enforce_eager`` 設定。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:52
 msgid "Request-scoped cache isolation"
