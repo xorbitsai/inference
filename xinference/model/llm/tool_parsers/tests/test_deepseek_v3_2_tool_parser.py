@@ -1,5 +1,13 @@
+# CI: linux
+
+import contextvars
+import json
+import re
+
 import pytest
 
+from ...llm_family import match_llm
+from ...transformers.core import PytorchChatModel
 from ..deepseek_v3_2_tool_parser import DeepseekV3_2ToolParser
 
 _WEATHER_CALL = (
@@ -633,4 +641,158 @@ def test_streaming_long_invoke_in_small_deltas():
     assert _stream_calls(parser, deltas) == [
         (None, "write_file", {"path": "main.py", "content": code}),
         (None, "write_file", {"path": "b.py", "content": "x = 1"}),
+    ]
+
+
+_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the weather of a city.",
+            "parameters": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}, "days": {"type": "integer"}},
+                "required": ["city"],
+            },
+        },
+    }
+]
+_CALL_BLOCK = re.compile(
+    r"<｜DSML｜function_calls>.*?</｜DSML｜function_calls>", re.DOTALL
+)
+
+
+def _catalog_model(name):
+    # The catalog's own chat template and tool parser, rendered offline.
+    family = match_llm(
+        name, model_format="pytorch", quantization="none", download_hub="huggingface"
+    )
+    assert family is not None
+    model = PytorchChatModel("tool-grammar", family, "unused")
+    model._tokenizer = None
+    model.prepare_parse_tool_calls()
+    assert model.tool_parser is not None
+    return model
+
+
+def _prompt(model, messages, tools=_TOOLS, **template_kwargs):
+    config = {"chat_template_kwargs": template_kwargs} if template_kwargs else {}
+    # _get_full_prompt sets the request's chat context; keep it out of other tests.
+    return contextvars.copy_context().run(
+        model._get_full_prompt, messages, tools, config
+    )
+
+
+def test_v32_prompt_names_a_call_block_its_parser_reads():
+    model = _catalog_model("DeepSeek-V3.2")
+    prompt = _prompt(model, [{"role": "user", "content": "Weather in Paris?"}])
+    assert any(token in prompt for token in model.tool_parser.tool_call_start_tokens)
+
+
+def test_v31_prompt_example_still_parses_with_its_parser():
+    # V3.1 keeps the token grammar its own parser reads.
+    model = _catalog_model("Deepseek-V3.1")
+    prompt = _prompt(model, [{"role": "user", "content": "Weather in Paris?"}])
+    shown = re.search(
+        r"<｜tool▁calls▁begin｜>.*?<｜tool▁calls▁end｜>", prompt, re.DOTALL
+    )
+    assert shown is not None
+    example = shown.group(0).replace("tool_call_arguments", '{"city": "Paris"}')
+    example = example.replace("{{additional_tool_calls}}", "")
+    assert model.tool_parser.extract_tool_calls(example) == [
+        (None, "tool_call_name", {"city": "Paris"})
+    ]
+
+
+@pytest.mark.parametrize("thinking", [False, True])
+def test_v32_prompt_example_parses_with_its_parser(thinking):
+    model = _catalog_model("DeepSeek-V3.2")
+    messages = [{"role": "user", "content": "Weather in Paris?"}]
+    prompt = _prompt(model, messages, thinking=thinking)
+    assert "<｜tool▁call▁begin｜>" not in prompt
+    shown = _CALL_BLOCK.search(prompt)
+    assert shown is not None
+    # Fill in the placeholders of the call the prompt shows, then parse it.
+    example = re.sub(r'string="[^"]*"', 'string="true"', shown.group(0))
+    name = re.search(r'invoke name="([^"]+)"', example).group(1)
+    param = re.search(r'parameter name="([^"]+)"', example).group(1)
+    value = re.search(r'string="true">(.*?)</', example, re.DOTALL).group(1)
+    assert model.tool_parser.extract_tool_calls(example) == [
+        (None, name, {param: value})
+    ]
+
+
+def _history(arguments, content=None):
+    calls = [
+        {
+            "id": f"call_{i}",
+            "type": "function",
+            "function": {"name": name, "arguments": arguments},
+        }
+        for i, name in enumerate(("get_weather", "get_time"))
+    ]
+    return [
+        {"role": "user", "content": "Weather and time in Paris?"},
+        {"role": "assistant", "content": content, "tool_calls": calls},
+        {"role": "tool", "tool_call_id": "call_0", "content": "sunny"},
+        {"role": "tool", "tool_call_id": "call_1", "content": "noon"},
+    ]
+
+
+def _history_calls(prompt):
+    history = prompt.split("<｜User｜>", 1)[1]
+    shown = _CALL_BLOCK.search(history)
+    assert shown is not None
+    return history, DeepseekV3_2ToolParser().extract_tool_calls(shown.group(0))
+
+
+@pytest.mark.parametrize("content", [None, "Checking."])
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"city": "Paris"},
+        {"city": "上海", "days": 3, "units": ["c", "k"], "opts": {"a": 1}, "on": True},
+        {"nothing": None},
+        {},
+    ],
+)
+def test_v32_history_tool_calls_round_trip_through_its_parser(arguments, content):
+    model = _catalog_model("DeepSeek-V3.2")
+    prompt = _prompt(model, _history(json.dumps(arguments), content))
+    history, calls = _history_calls(prompt)
+    assert calls == [
+        (None, "get_weather", arguments),
+        (None, "get_time", arguments),
+    ]
+    if content:
+        assert history.index(content) < history.index("<｜DSML｜function_calls>")
+    # Tool results keep their wrapper.
+    assert "<｜tool▁output▁begin｜>sunny<｜tool▁output▁end｜>" in history
+
+
+@pytest.mark.parametrize(
+    "arguments, expected",
+    [
+        ({"city": "Paris"}, {"city": "Paris"}),
+        ("", {}),
+        (None, {}),
+        ("not json", {"arguments": "not json"}),
+    ],
+)
+def test_v32_history_tool_calls_with_unusual_arguments(arguments, expected):
+    model = _catalog_model("DeepSeek-V3.2")
+    _, calls = _history_calls(_prompt(model, _history(arguments)))
+    assert calls == [(None, "get_weather", expected), (None, "get_time", expected)]
+
+
+def test_v32_history_tool_calls_without_request_tools():
+    # A follow-up request can carry the earlier calls without sending tools again.
+    model = _catalog_model("DeepSeek-V3.2")
+    prompt = _prompt(model, _history('{"city": "Paris"}'), tools=None)
+    assert "## Tools" not in prompt
+    _, calls = _history_calls(prompt)
+    assert calls == [
+        (None, "get_weather", {"city": "Paris"}),
+        (None, "get_time", {"city": "Paris"}),
     ]
