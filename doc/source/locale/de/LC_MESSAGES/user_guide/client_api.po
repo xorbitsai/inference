@@ -250,3 +250,15 @@ msgstr "Bei Anfragen ohne Streaming führen erkannte Überschreitungen der Konte
 #: ../../source/user_guide/client_api.rst
 msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
 msgstr "Nach Beginn einer Streaming-Antwort bleibt der HTTP-Status 200. Fehler werden in einer SSE-``error``-Nutzlast gesendet. Erkannte Kontextlängen- und Ratenbegrenzungsfehler behalten unterschiedliche sichere Meldungen; unerwartete Fehler verwenden die allgemeine Meldung."
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Chat replica affinity"
+msgstr "Affinität für Chat-Replikate"
+
+#: ../../source/user_guide/client_api.rst:108
+msgid "For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation."
+msgstr "Senden Sie für ein Modell mit regulären Chat-Replikaten bei jeder Anfrage einer Sitzung denselben optionalen ``routing_key``. Xinference bevorzugt das zuletzt für dieses Modell, diese Anmeldedaten und diesen Schlüssel gewählte Replikat. Ist es nicht verfügbar oder hat es sein konfiguriertes Anfragelimit erreicht, versucht Xinference ein anderes Replikat. Anfragen ohne Schlüssel werden im Round-Robin-Verfahren verteilt. Der Schlüssel darf nicht leer sein oder nur aus Leerraum bestehen und darf höchstens 128 Zeichen umfassen. Er steuert die Cache-Isolation nicht."
+
+#: ../../source/user_guide/client_api.rst:110
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client."
+msgstr "Setzen Sie ``routing_key`` beim OpenAI-Client in ``extra_body`` und beim Xinference-Client in ``generate_config``."

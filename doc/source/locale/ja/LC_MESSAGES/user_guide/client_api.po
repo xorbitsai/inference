@@ -231,3 +231,15 @@ msgstr "非ストリーミング要求では、認識されたコンテキスト
 #: ../../source/user_guide/client_api.rst
 msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
 msgstr "ストリーミング応答の開始後は、HTTP ステータスは 200 のままです。障害は SSE の ``error`` ペイロードで送信されます。認識されたコンテキスト長とレート制限のエラーには、それぞれ異なる安全なメッセージを返し、予期しない障害には汎用メッセージを使用します。"
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Chat replica affinity"
+msgstr "チャットレプリカのアフィニティ"
+
+#: ../../source/user_guide/client_api.rst:108
+msgid "For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation."
+msgstr "通常のチャットレプリカを持つモデルでは、セッション内の各リクエストに同じ任意の ``routing_key`` を指定します。Xinference は、モデル、認証情報、キーの組み合わせに対して前回選択したレプリカを優先します。レプリカが利用できない場合や設定されたリクエスト上限に達した場合は、別のレプリカを試します。キーを指定しないリクエストはラウンドロビンで振り分けます。キーは空白以外の文字を含む 128 文字以下の文字列で、キャッシュの分離には影響しません。"
+
+#: ../../source/user_guide/client_api.rst:110
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client."
+msgstr "OpenAI クライアントでは ``extra_body`` に、Xinference クライアントでは ``generate_config`` に ``routing_key`` を設定します。"

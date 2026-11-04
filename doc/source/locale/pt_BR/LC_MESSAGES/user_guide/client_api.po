@@ -247,3 +247,15 @@ msgstr "Em solicitações sem streaming, excessos reconhecidos de comprimento de
 #: ../../source/user_guide/client_api.rst
 msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
 msgstr "Após o início de uma resposta em streaming, o status HTTP permanece 200. As falhas são enviadas em um payload SSE ``error``. Erros reconhecidos de comprimento de contexto e de limite de taxa mantêm mensagens seguras distintas; falhas inesperadas usam a mensagem genérica."
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Chat replica affinity"
+msgstr "Afinidade de réplicas de chat"
+
+#: ../../source/user_guide/client_api.rst:108
+msgid "For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation."
+msgstr "Para um modelo com réplicas de chat comuns, envie o mesmo ``routing_key`` opcional em cada solicitação de uma sessão. O Xinference prefere a última réplica selecionada para aquele modelo, credencial e chave. Se a réplica estiver indisponível ou no limite de solicitações configurado, o Xinference tenta outra réplica. Solicitações sem chave são distribuídas em rodízio. A chave deve ser uma string de até 128 caracteres com pelo menos um caractere que não seja espaço em branco e não controla o isolamento do cache."
+
+#: ../../source/user_guide/client_api.rst:110
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client."
+msgstr "Defina ``routing_key`` em ``extra_body`` no cliente OpenAI ou em ``generate_config`` no cliente Xinference."

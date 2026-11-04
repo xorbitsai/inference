@@ -21,9 +21,76 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from ..exceptions import ModelNotReadyError
 from ..replica_config import DeviceConfig, ReplicaConfig
 from ..supervisor import ReplicaInfo, SupervisorActor
 from ..utils import build_replica_model_uid
+
+
+@pytest.mark.asyncio
+async def test_chat_affinity_keeps_the_replica_and_reassigns_after_failure():
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    info = supervisor._build_replica_info(3)
+    supervisor._model_uid_to_replica_info = {"demo": info}
+    models = [
+        SimpleNamespace(can_accept_chat_request=AsyncMock(return_value=True))
+        for _ in range(3)
+    ]
+    workers = [SimpleNamespace(get_model=AsyncMock(return_value=m)) for m in models]
+    supervisor._replica_model_uid_to_worker = {
+        build_replica_model_uid("demo", i): worker for i, worker in enumerate(workers)
+    }
+
+    assert await supervisor.get_model("demo", routing_key="task-1") is models[0]
+    assert await supervisor.get_model("demo", routing_key="task-2") is models[1]
+    assert await supervisor.get_model("demo", routing_key="task-1") is models[0]
+    assert await supervisor.get_model("demo") is models[2]
+    assert await supervisor.get_model("demo") is models[0]
+    models[0].can_accept_chat_request.return_value = False
+    assert await supervisor.get_model("demo", routing_key="task-1") is models[1]
+    workers[1].describe_model = AsyncMock(return_value={"model_family": "test"})
+    assert await supervisor.describe_model(
+        "demo", selected_replica_uid=build_replica_model_uid("demo", 1)
+    ) == {"model_family": "test", "replica": 3}
+    models[0].can_accept_chat_request.return_value = True
+    assert await supervisor.get_model("demo", routing_key="task-1") is models[1]
+    workers[1].get_model.side_effect = ModelNotReadyError("loading")
+    assert await supervisor.get_model("demo", routing_key="task-1") is models[0]
+    info.active_replica_ids.remove(0)
+    supervisor._refresh_replica_scheduler(info)
+    assert await supervisor.get_model("demo", routing_key="task-1") is models[2]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_first_calls_with_the_same_routing_key_share_a_replica():
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    supervisor._model_uid_to_replica_info = {"demo": supervisor._build_replica_info(2)}
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    model = SimpleNamespace(can_accept_chat_request=AsyncMock(return_value=True))
+
+    async def get_model(**kwargs):
+        entered.set()
+        await release.wait()
+        return model
+
+    other = SimpleNamespace(can_accept_chat_request=AsyncMock(return_value=True))
+    supervisor._replica_model_uid_to_worker = {
+        build_replica_model_uid("demo", 0): SimpleNamespace(get_model=get_model),
+        build_replica_model_uid("demo", 1): SimpleNamespace(
+            get_model=AsyncMock(return_value=other)
+        ),
+    }
+    first = asyncio.create_task(supervisor.get_model("demo", routing_key="shared"))
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        second = asyncio.create_task(supervisor.get_model("demo", routing_key="shared"))
+        await asyncio.sleep(0)
+    finally:
+        release.set()
+    assert await asyncio.gather(first, second) == [model, model]
 
 
 class _FakeStatusGuard:

@@ -15,6 +15,7 @@
 import asyncio
 import base64
 import gc
+import hashlib
 import inspect
 import ipaddress
 import json
@@ -5056,6 +5057,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_chat_completion(self, request: Request) -> Response:
         raw_body = await request.json()
+        routing_key = raw_body.pop("routing_key", None)
         # Resolve/validate the raw salt after authorization, allowing provider overrides.
         body = CreateChatCompletion.parse_obj(
             {key: value for key, value in raw_body.items() if key != "cache_salt"}
@@ -5123,6 +5125,19 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model_type("llm")
         self._check_model_access(request, model_uid, "LLM")
         self._apply_cache_salt(request, raw_body, kwargs, raw_kwargs)
+        routing_options = {}
+        if routing_key is not None:
+            if (
+                not isinstance(routing_key, str)
+                or len(routing_key) > 128
+                or not routing_key.strip()
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="routing_key must be a non-blank string of at most 128 characters",
+                )
+            scope = json.dumps([_request_credential(request), routing_key])
+            routing_options["routing_key"] = hashlib.sha256(scope.encode()).hexdigest()
 
         supervisor_ref = await self._get_supervisor_ref()
         token_router_runtime = None
@@ -5161,7 +5176,10 @@ class RESTfulAPI(CancelMixin):
             )
 
         model = await require_model(
-            self._get_supervisor_ref, model_uid, self._report_error_event
+            self._get_supervisor_ref,
+            model_uid,
+            self._report_error_event,
+            **routing_options,
         )
         is_vllm_backend = await model.is_vllm_backend()
         model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
@@ -5173,7 +5191,10 @@ class RESTfulAPI(CancelMixin):
             model_call_kwargs["request_id"] = request_id
 
         try:
-            desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
+            description_options = (
+                {"selected_replica_uid": model.uid.decode()} if routing_options else {}
+            )
+            desc = await supervisor_ref.describe_model(model_uid, **description_options)
         except ModelNotReadyError as e:
             raise HTTPException(
                 status_code=503,
