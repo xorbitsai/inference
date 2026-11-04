@@ -421,6 +421,12 @@ Both engines accept ``max_new_tokens`` (default 1024), ``temperature`` (0.8),
 accepts ``seed``. Xinference currently returns complete audio for both engines;
 Omni SSE streaming is not exposed. Realistic has no official ONNX export.
 
+Custom Audio8 models and explicit ``model_path`` values require
+``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup for either
+engine, because these loaders execute Python code from the model snapshot.
+Enable this only for model sources you trust. The registered built-in model
+uses the normal built-in trust policy when downloaded through Xinference.
+
 .. code-block:: python
 
     from pathlib import Path

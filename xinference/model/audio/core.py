@@ -353,13 +353,16 @@ def create_audio_model_instance(
                     model_spec.model_name,
                 )
 
-    if model_spec.model_family == "CosyVoice":
+    if model_spec.model_family in {"CosyVoice", "audio8_tts"}:
         if model_path is not None:
             # A built-in name does not establish the provenance of an explicit
             # caller-supplied path. Keep the registered family unchanged.
             model_spec = model_spec.copy(deep=True)
             model_spec.is_builtin = False
-        CosyVoiceModel._check_model_trust(model_spec)
+        if model_spec.model_family == "CosyVoice":
+            CosyVoiceModel._check_model_trust(model_spec)
+        else:
+            Audio8TTSModel._check_model_trust(model_spec)
 
     if model_path is None:
         cache_manager = CacheManager(model_spec)

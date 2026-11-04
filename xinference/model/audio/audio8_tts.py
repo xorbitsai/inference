@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from ...core.exceptions import InvalidModelRequestError
+from ..utils import allow_trust_remote_code
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
@@ -59,7 +60,19 @@ class Audio8TTSModel:
     def model_ability(self):
         return self._model_spec.model_ability
 
+    @staticmethod
+    def _check_model_trust(model_spec: "AudioModelFamilyV2") -> None:
+        if not allow_trust_remote_code(model_spec):
+            raise ValueError(
+                "Loading a custom Audio8-TTS model or an explicit model_path can "
+                "execute Python code from its snapshot. Set "
+                "XINFERENCE_TRUST_REMOTE_CODE=1 on the worker before startup "
+                "only if you trust this model source."
+            )
+
     def load(self):
+        self._check_model_trust(self.model_family)
+
         import torch
         from transformers import AutoModel, AutoProcessor
 

@@ -184,6 +184,70 @@ def test_generate_package_lists_from_docker_sources(tmp_path, platform):
     assert "extra_index_urls" not in next(
         pin for pin in pins if pin["spec"] == "vllm>=0.32.0"
     )
+    omni_torch = next(pin for pin in pins if pin["spec"] == "torch==2.9.1+cu128")
+    assert omni_torch["extra_index_urls"] == ["https://download.pytorch.org/whl/cu128"]
+    assert any(
+        "Audio8-TTS-Realistic-0.6b (SGLang-Omni)" in source
+        for source in omni_torch["sources"]
+    )
+
+
+@pytest.mark.parametrize("model_index", [None, [], "https://private.example/simple"])
+def test_model_pins_inherit_engine_indexes_unless_overridden(
+    monkeypatch, tmp_path, model_index
+):
+    generator = _load_script("generate_package_lists")
+    modules = generator.load_xinference_modules(REPO_ROOT)
+    monkeypatch.setattr(generator, "load_xinference_modules", lambda _root: modules)
+    model_dir = tmp_path / "xinference" / "model"
+    model_dir.mkdir(parents=True)
+    settings = {
+        "packages": [
+            'omni-pin==1.0 ; #engine# == "SGLang-Omni"',
+            'transformers-pin==1.0 ; #engine# == "transformers"',
+        ]
+    }
+    if model_index is not None:
+        settings["extra_index_url"] = model_index
+    (model_dir / "model.json").write_text(
+        json.dumps(
+            {
+                "model_name": "test-model",
+                "virtualenv": settings,
+            }
+        )
+    )
+    out = tmp_path / "out"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_package_lists.py",
+            "--platform",
+            "amd64",
+            "--src-root",
+            str(tmp_path),
+            "--out",
+            str(out),
+        ],
+    )
+    original_machine = generator._platform.machine
+    try:
+        generator.main()
+    finally:
+        generator._platform.machine = original_machine
+    pins = {pin["spec"]: pin for pin in json.loads((out / "pins.json").read_text())}
+    expected = (
+        ["https://download.pytorch.org/whl/cu128"]
+        if model_index is None
+        else [model_index] if isinstance(model_index, str) else model_index
+    )
+    assert pins["omni-pin==1.0"].get("extra_index_urls", []) == expected
+    expected_transformers = [model_index] if isinstance(model_index, str) else []
+    assert (
+        pins["transformers-pin==1.0"].get("extra_index_urls", [])
+        == expected_transformers
+    )
 
 
 def test_load_xinference_modules_restores_sys_modules():

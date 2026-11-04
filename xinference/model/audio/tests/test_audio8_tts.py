@@ -18,18 +18,21 @@ import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import numpy as np
 import pytest
 import torch
 
+from .... import constants
 from ....core.utils import (
     apply_engine_virtualenv_settings,
     filter_virtualenv_packages_by_markers,
 )
 from ...cache_manager import CacheManager
-from .. import audio8_tts, audio8_tts_sglang, engine, utils
+from .. import audio8_tts, audio8_tts_sglang
+from .. import core as audio_core
+from .. import engine, utils
 from ..audio8_tts import Audio8TTSModel
 from ..audio8_tts_sglang import SGLangOmniAudio8TTSModel
 from ..core import create_audio_model_instance, match_audio
@@ -41,6 +44,7 @@ MODEL = "Audio8-TTS-Realistic-0.6b"
 
 @pytest.mark.parametrize("backend", ["transformers", "SGLang-Omni"])
 def test_catalog_and_dispatch(monkeypatch, tmp_path, backend):
+    monkeypatch.setattr(constants, "XINFERENCE_TRUST_REMOTE_CODE", True)
     hub, revision = "huggingface", "main"
     monkeypatch.setattr(engine, "has_cuda_device", lambda: True)
     monkeypatch.setattr(engine.platform, "system", lambda: "Linux")
@@ -85,6 +89,101 @@ def test_catalog_and_dispatch(monkeypatch, tmp_path, backend):
         enable_virtual_env=False,
     )
     assert isinstance(default, TransformersAudio8TTSAudioModel)
+
+
+@pytest.fixture
+def audio8_spec(monkeypatch):
+    monkeypatch.setattr(constants, "XINFERENCE_TRUST_REMOTE_CODE", False)
+    monkeypatch.setattr(engine, "has_cuda_device", lambda: True)
+    monkeypatch.setattr(engine.platform, "system", lambda: "Linux")
+    monkeypatch.setitem(AUDIO_ENGINES, MODEL, {})
+    spec = match_audio(MODEL, "huggingface").copy(deep=True)
+    generate_engine_config_by_model_name(spec)
+    monkeypatch.setattr(audio_core, "match_audio", Mock(return_value=spec))
+    return spec
+
+
+@pytest.mark.parametrize("backend", ["transformers", "SGLang-Omni"])
+@pytest.mark.parametrize("builtin", [False, True])
+def test_explicit_audio8_path_requires_operator_trust(
+    audio8_spec, monkeypatch, tmp_path, backend, builtin
+):
+    audio8_spec.is_builtin = builtin
+    cache = Mock()
+    monkeypatch.setattr(CacheManager, "cache", cache)
+    with pytest.raises(ValueError, match="XINFERENCE_TRUST_REMOTE_CODE=1"):
+        create_audio_model_instance(
+            "audio8",
+            MODEL,
+            model_path=str(tmp_path),
+            model_engine=backend,
+            enable_virtual_env=False,
+            trust_remote_code=True,
+            is_builtin=True,
+        )
+    cache.assert_not_called()
+    assert audio8_spec.is_builtin is builtin
+
+
+@pytest.mark.parametrize("backend", ["transformers", "SGLang-Omni"])
+def test_custom_audio8_rejected_before_download(audio8_spec, monkeypatch, backend):
+    audio8_spec.is_builtin = False
+    cache = Mock()
+    monkeypatch.setattr(CacheManager, "cache", cache)
+    with pytest.raises(ValueError, match="XINFERENCE_TRUST_REMOTE_CODE=1"):
+        create_audio_model_instance(
+            "audio8", MODEL, model_engine=backend, enable_virtual_env=False
+        )
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("model_class", [Audio8TTSModel, SGLangOmniAudio8TTSModel])
+def test_untrusted_audio8_load_rejected_before_model_code(
+    audio8_spec, monkeypatch, tmp_path, model_class
+):
+    audio8_spec.is_builtin = False
+    check_version = Mock(side_effect=AssertionError("loader must not run"))
+    monkeypatch.setattr(audio8_tts, "_check_transformers_version", check_version)
+    monkeypatch.setattr(audio8_tts_sglang, "_check_transformers_version", check_version)
+    model = model_class("audio8", str(tmp_path), audio8_spec)
+    with pytest.raises(ValueError, match="XINFERENCE_TRUST_REMOTE_CODE=1"):
+        model.load()
+    check_version.assert_not_called()
+    if isinstance(model, SGLangOmniAudio8TTSModel):
+        assert model._loop is None
+        assert model._thread is None
+
+
+@pytest.mark.parametrize("backend", ["transformers", "SGLang-Omni"])
+@pytest.mark.parametrize("builtin", [False, True])
+def test_operator_can_use_audio8_explicit_path(
+    audio8_spec, monkeypatch, tmp_path, backend, builtin
+):
+    audio8_spec.is_builtin = builtin
+    monkeypatch.setattr(constants, "XINFERENCE_TRUST_REMOTE_CODE", True)
+    model = create_audio_model_instance(
+        "audio8",
+        MODEL,
+        model_path=str(tmp_path),
+        model_engine=backend,
+        enable_virtual_env=False,
+    )
+    assert model.model_family.is_builtin is False
+    assert audio8_spec.is_builtin is builtin
+
+
+@pytest.mark.parametrize("backend", ["transformers", "SGLang-Omni"])
+def test_builtin_audio8_cache_requires_no_opt_in(
+    audio8_spec, monkeypatch, tmp_path, backend
+):
+    assert audio8_spec.is_builtin is True
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(CacheManager, "cache", cache)
+    model = create_audio_model_instance(
+        "audio8", MODEL, model_engine=backend, enable_virtual_env=False
+    )
+    cache.assert_called_once()
+    assert model.model_family.is_builtin is True
 
 
 def test_single_spec_and_engine_dependency_isolation():

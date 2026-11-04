@@ -29,6 +29,8 @@ class SGLangOmniAudio8TTSModel(Audio8TTSModel):
         self._runner = None
 
     def load(self):
+        self._check_model_trust(self.model_family)
+
         import torch
 
         _check_transformers_version()
