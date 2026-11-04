@@ -149,8 +149,8 @@ Model Spec 9 (mlx, 300 Billion)
 - **Model Size (in billions):** 300
 - **Quantizations:** 4bit
 - **Engines**: MLX
-- **Model ID:** mlx-community/ERNIE-4.5-300B-47B-PT-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/ERNIE-4.5-300B-47B-PT-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/ERNIE-4.5-300B-47B-PT-{quantization}>`__
+- **Model ID:** mlx-community/ERNIE-4.5-300B-A47B-PT-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/ERNIE-4.5-300B-A47B-PT-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/ERNIE-4.5-300B-A47B-PT-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

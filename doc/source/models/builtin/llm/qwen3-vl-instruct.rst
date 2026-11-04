@@ -291,7 +291,7 @@ Model Spec 18 (mlx, 235 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 235
-- **Quantizations:** 4bit, 8bit
+- **Quantizations:** 4bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Qwen3-VL-235B-A22B-Instruct-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3-VL-235B-A22B-Instruct-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3-VL-235B-A22B-Instruct-{quantization}>`__
