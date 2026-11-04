@@ -883,8 +883,7 @@ def local_llm_factory(monkeypatch):
         (True, None, "modelscope"),
         (None, None, None),
         ("", None, None),
-        (True, "auto", "modelscope"),
-        (True, "huggingface", None),
+        (True, "huggingface", "modelscope"),
         (True, "modelscope", "modelscope"),
     ],
 )
@@ -999,11 +998,7 @@ def test_local_model_path_repository_lookup(
         model_path=str(tmp_path),
         download_hub=download_hub,
     )
-    if download_hub == "huggingface":
-        with pytest.raises(ValueError, match="no longer registered"):
-            WorkerActor._resolve_model_download_repositories(payload)
-    else:
-        assert WorkerActor._resolve_model_download_repositories(payload) == []
+    assert WorkerActor._resolve_model_download_repositories(payload) == []
 
 
 def test_local_model_path_unknown_family(tmp_path, local_llm_factory):

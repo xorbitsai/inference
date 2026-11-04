@@ -217,21 +217,21 @@ def test_default_launch_reuses_the_cache_of_a_variant_on_another_hub(
     assert model.model_family.model_specs[0].model_hub == "modelscope"
 
 
-@pytest.mark.parametrize("model_src", [None, "auto", "huggingface"])
+@pytest.mark.parametrize("download_hub", [None, "auto", "huggingface"])
 @pytest.mark.parametrize("name,size", ONLY_ON_OTHER_HUBS)
-def test_auto_launch_from_a_local_path_uses_that_path(
+def test_local_launch_of_a_variant_on_another_hub_uses_the_supplied_path(
     monkeypatch,
     empty_cache,
     default_hub_is_huggingface,
     stub_engine_without_downloads,
     tmp_path,
-    model_src,
+    download_hub,
     name,
     size,
 ):
     from ...core import create_model_instance
 
-    _set_model_src(monkeypatch, model_src)
+    _set_model_src(monkeypatch, None)
     local_path = tmp_path / "weights"
     local_path.mkdir()
 
@@ -243,7 +243,7 @@ def test_auto_launch_from_a_local_path_uses_that_path(
         "pytorch",
         size,
         "none",
-        download_hub="auto",
+        download_hub=download_hub,
         model_path=str(local_path),
         enable_virtual_env=False,
     )
@@ -251,6 +251,54 @@ def test_auto_launch_from_a_local_path_uses_that_path(
     assert model.model_path == str(local_path)
     assert model.model_family.model_specs[0].model_hub == "modelscope"
     assert os.listdir(tmp_path) == ["weights"]
+
+
+@pytest.mark.parametrize("detected_hub", ["modelscope", "huggingface"])
+def test_auto_launch_of_a_local_gguf_takes_its_tokenizer_from_the_detected_hub(
+    monkeypatch, empty_cache, stub_engine_without_downloads, tmp_path, detected_hub
+):
+    from ...core import create_model_instance
+    from .. import llm_family
+    from ..vllm import core as vllm_core
+
+    tokenizer_specs = []
+
+    def fetch_tokenizer(family):
+        tokenizer_specs.append(family.model_specs[0])
+        return "tokenizer-dir"
+
+    _set_model_src(monkeypatch, None)
+    monkeypatch.setattr(
+        "xinference.model.utils.is_locale_chinese_simplified", lambda: False
+    )
+    monkeypatch.setattr(
+        "xinference.model.utils.auto_detect_download_hub", lambda: detected_hub
+    )
+    monkeypatch.setattr(vllm_core, "cache_model_tokenizer_and_config", fetch_tokenizer)
+    monkeypatch.setattr(
+        llm_family, "check_engine_by_spec_parameters", lambda *args: vllm_core.VLLMModel
+    )
+    gguf_file = tmp_path / "model.gguf"
+    gguf_file.touch()
+
+    model = create_model_instance(
+        "uid",
+        "LLM",
+        "qwen2.5-instruct",
+        "vLLM",
+        "ggufv2",
+        7,
+        "q4_k_m",
+        download_hub="auto",
+        model_path=str(gguf_file),
+        enable_virtual_env=False,
+    )
+    model._preprocess_load_gguf()
+
+    assert model.model_path == str(gguf_file)
+    assert [spec.model_hub for spec in tokenizer_specs] == [detected_hub]
+    assert model._model_config["tokenizer"] == "tokenizer-dir"
+    assert model._model_config["hf_config_path"] == "tokenizer-dir"
 
 
 @pytest.mark.parametrize("name,size", ONLY_ON_OTHER_HUBS)

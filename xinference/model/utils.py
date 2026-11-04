@@ -849,13 +849,13 @@ def resolve_download_hub(
     """
     Resolve the "auto" download hub to a concrete hub before matching specs.
 
-    Explicit "auto" triggers connectivity detection unless a local ``model_path``
-    was provided (in which case no download is needed). When no hub is specified
-    at all, a concrete source pinned via ``XINFERENCE_MODEL_SRC`` is returned
-    directly; otherwise detection runs under the same condition.
+    Explicit "auto" always triggers connectivity detection. When no hub is
+    specified at all, a concrete source pinned via ``XINFERENCE_MODEL_SRC`` is
+    returned directly; otherwise detection runs unless a local ``model_path``
+    was provided (in which case no download is needed).
     """
     if download_hub == "auto":
-        return None if model_path else auto_detect_download_hub()
+        return auto_detect_download_hub()
     if download_hub is None and model_path is None:
         model_src = os.environ.get(XINFERENCE_ENV_MODEL_SRC)
         if not model_src or model_src == "auto":
