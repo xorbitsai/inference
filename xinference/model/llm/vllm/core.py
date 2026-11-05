@@ -1030,7 +1030,22 @@ class VLLMModel(WeightCachedModel, LLM):
 
     def get_max_concurrent_requests(self) -> Optional[int]:
         """Expose configured sequence capacity as an advisory routing limit."""
-        return (self._model_config or {}).get("max_num_seqs")
+        config = self._model_config or {}
+        capacity = config.get("max_num_seqs")
+        if type(capacity) is not int or capacity <= 0:
+            return None
+        parallel_size = config.get("data_parallel_size", 1)
+        if (
+            config.get("data_parallel_external_lb")
+            or config.get("data_parallel_rank") is not None
+        ):
+            # An external-LB client serves only its own rank.
+            parallel_size = 1
+        elif config.get("data_parallel_hybrid_lb"):
+            parallel_size = config.get("data_parallel_size_local")
+        if type(parallel_size) is not int or parallel_size <= 0:
+            return None
+        return capacity * parallel_size
 
     def set_xavier_config(self, value: Optional[Dict]):
         if (

@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from packaging.version import Version
 
 from ...model.llm.vllm.core import VLLMModel
 from ..model import ModelActor
@@ -25,9 +26,9 @@ from ..supervisor import SupervisorActor
 from ..utils import build_replica_model_uid
 
 
-def _chat_actor(slots, active=0, request_limit=float("inf")):
+def _chat_actor(slots, active=0, request_limit=float("inf"), **engine_config):
     backend = VLLMModel.__new__(VLLMModel)
-    backend._model_config = {"max_num_seqs": slots}
+    backend._model_config = {"max_num_seqs": slots, **engine_config}
     actor = ModelActor.__new__(ModelActor)
     actor._model = backend
     actor._model_state = "ready"
@@ -35,6 +36,59 @@ def _chat_actor(slots, active=0, request_limit=float("inf")):
     actor._request_limits = request_limit
     actor._realtime_runtime = None
     return actor
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "capacity", [None, "32", "bad", 0, -1, True, False, 1.5, [], {}]
+)
+async def test_invalid_engine_capacity_preserves_normal_admission(capacity):
+    actor = _chat_actor(capacity, active=3)
+    assert actor._model.get_max_concurrent_requests() is None
+    assert await actor.can_accept_chat_request()
+    actor._request_limits = 3
+    assert not await actor.can_accept_chat_request()
+
+
+@pytest.mark.parametrize(
+    "options,expected",
+    [
+        ({"data_parallel_size": 2}, 8),
+        ({"data_parallel_size": 4, "data_parallel_size_local": 2}, 16),
+        ({"data_parallel_size": 4, "data_parallel_rank": 0}, 4),
+        ({"data_parallel_size": 4, "data_parallel_external_lb": True}, 4),
+        (
+            {
+                "data_parallel_size": 4,
+                "data_parallel_hybrid_lb": True,
+                "data_parallel_size_local": 2,
+            },
+            8,
+        ),
+        ({"data_parallel_size": 4, "data_parallel_hybrid_lb": True}, None),
+        ({"data_parallel_size": "2"}, None),
+        ({"data_parallel_size": 0}, None),
+        ({"data_parallel_size": -1}, None),
+        ({"data_parallel_size": True}, None),
+        ({"data_parallel_size": []}, None),
+    ],
+)
+def test_engine_capacity_counts_only_ranks_served_by_this_replica(options, expected):
+    assert _chat_actor(4, **options)._model.get_max_concurrent_requests() == expected
+
+
+def test_default_sanitized_model_config_exposes_sequence_capacity(monkeypatch):
+    monkeypatch.setattr(
+        "xinference.model.llm.vllm.core.VLLM_VERSION", Version("0.32.0")
+    )
+    backend = VLLMModel.__new__(VLLMModel)
+    backend.model_family = SimpleNamespace(
+        architectures=[], has_architecture=lambda _: False
+    )
+    backend.model_spec = SimpleNamespace(model_format="pytorch")
+    backend._device_count = backend._n_worker = 1
+    backend._model_config = backend._sanitize_model_config({})
+    assert backend.get_max_concurrent_requests() == 256
 
 
 @pytest.mark.asyncio
@@ -73,15 +127,28 @@ async def test_chat_capacity_preserves_other_backends_and_readiness():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("slots,active,target", [(1, 1, 1), (4, 1, 0), (4, 4, 1)])
+@pytest.mark.parametrize(
+    "slots,active,target,dp",
+    [
+        (1, 1, 1, 1),
+        (4, 1, 0, 1),
+        (4, 4, 1, 1),
+        (4, 4, 0, 2),
+        (4, 7, 0, 2),
+        (4, 8, 1, 2),
+    ],
+)
 async def test_affinity_avoids_saturated_engines_and_preserves_batching(
-    slots, active, target
+    slots, active, target, dp
 ):
     supervisor = SupervisorActor.__new__(SupervisorActor)
     supervisor._pd_model_mapping = {}
     info = supervisor._build_replica_info(2)
     supervisor._model_uid_to_replica_info = {"demo": info}
-    models = [_chat_actor(slots), _chat_actor(slots)]
+    models = [
+        _chat_actor(slots, data_parallel_size=dp),
+        _chat_actor(slots, data_parallel_size=dp),
+    ]
     supervisor._replica_model_uid_to_worker = {
         build_replica_model_uid("demo", index): SimpleNamespace(
             get_model=AsyncMock(return_value=model)
