@@ -1985,6 +1985,39 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
+    @staticmethod
+    def _cache_session_tag(request: Request, value: Any, *, control: bool = False):
+        from ..model.llm.xavier.cache_lifecycle import (
+            CacheSessionTag,
+            validate_cache_session,
+        )
+
+        try:
+            data = validate_cache_session(value, control=control)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+        scope = json.dumps([_request_credential(request), data["id"]])
+        data["id"] = hashlib.sha256(scope.encode()).hexdigest()
+        return CacheSessionTag(**data)
+
+    async def update_cache_session(
+        self, model_uid: str, request: Request
+    ) -> JSONResponse:
+        self._check_model_access(request, model_uid, "LLM")
+        session = self._cache_session_tag(request, await request.json(), control=True)
+        supervisor = await self._get_supervisor_ref()
+        try:
+            accepted = await asyncio.wait_for(
+                supervisor.update_cache_session(model_uid, session.to_dict()), timeout=1
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+        except asyncio.TimeoutError:
+            raise HTTPException(
+                503, "Cache lifecycle hints are temporarily unavailable"
+            ) from None
+        return JSONResponse({"accepted": accepted})
+
     async def launch_model(
         self, request: Request, wait_ready: bool = Query(True)
     ) -> JSONResponse:
@@ -5058,6 +5091,7 @@ class RESTfulAPI(CancelMixin):
     async def create_chat_completion(self, request: Request) -> Response:
         raw_body = await request.json()
         routing_key = raw_body.pop("routing_key", None)
+        cache_session = raw_body.pop("cache_session", None)
         # Resolve/validate the raw salt after authorization, allowing provider overrides.
         body = CreateChatCompletion.parse_obj(
             {key: value for key, value in raw_body.items() if key != "cache_salt"}
@@ -5175,6 +5209,10 @@ class RESTfulAPI(CancelMixin):
                 request, raw_body, token_router_runtime
             )
 
+        from ..model.llm.xavier.cache_lifecycle import CACHE_SESSION_ARG
+
+        for config in (kwargs, raw_kwargs):
+            config.pop(CACHE_SESSION_ARG, None)
         model = await require_model(
             self._get_supervisor_ref,
             model_uid,
@@ -5182,6 +5220,21 @@ class RESTfulAPI(CancelMixin):
             **routing_options,
         )
         is_vllm_backend = await model.is_vllm_backend()
+        if cache_session is not None:
+            tag = self._cache_session_tag(request, cache_session)
+            if is_vllm_backend:
+                try:
+                    await asyncio.wait_for(
+                        supervisor_ref.update_cache_session(model_uid, tag.to_dict()),
+                        timeout=1,
+                    )
+                except Exception:
+                    logger.debug(
+                        "Agent cache hint unavailable; continuing chat", exc_info=True
+                    )
+                else:
+                    for config in (kwargs, raw_kwargs):
+                        config[CACHE_SESSION_ARG] = tag
         model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
         if is_vllm_backend:
             kwargs.pop("request_id", None)

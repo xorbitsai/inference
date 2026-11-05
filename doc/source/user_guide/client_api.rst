@@ -93,6 +93,17 @@ More details refer to: https://platform.openai.com/docs/api-reference/chat?lang=
         max_tokens=1024
     )
 
+Agent cache lifecycle
+=====================
+
+Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={"id": "run-1", "revision": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``.
+
+A single replica can use ``enable_xavier=True`` and ``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes.
+
+Send updates to ``POST /v1/models/{model_uid}/cache_sessions`` with the same ``id``, an increasing integer ``revision``, and ``phase`` set to ``waiting``, ``active``, or ``finished``. Chat requests also mark the session active. Older revisions are ignored. Capable Xagent deployments send these hints automatically, including tool waits and execution cleanup.
+
+Waiting prefixes are placed later in the engine's eviction order; prefixes owned only by finished sessions are reclaimed first. Blocks remain available for allocation, and active requests and transfer leases retain their ownership. Hints expire after 300 seconds, with at most 4096 sessions per model. This policy changes resident-cache eviction order; capacity limits and normal recomputation still apply.
+
 Cache hit token counts
 ======================
 

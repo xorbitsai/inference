@@ -47,6 +47,15 @@ class BlockTracker(xo.StatelessActor):
         # At most one resident checkpoint per rank and prefix hash. These
         # entries are offers; the transfer actor authorizes each actual read.
         self._gpu_prefixes: Dict[int, dict] = {}
+        from .cache_lifecycle import CacheSessionRegistry
+
+        self._cache_sessions = CacheSessionRegistry()
+
+    def update_cache_session(self, session):
+        return self._cache_sessions.update(session)
+
+    def get_cache_sessions(self, session_ids):
+        return self._cache_sessions.get(session_ids)
 
     def publish_gpu_prefix(self, rank, key, ticket, tokens, groups):
         self._gpu_prefixes.setdefault(rank, {})[key] = (ticket, tokens, groups)

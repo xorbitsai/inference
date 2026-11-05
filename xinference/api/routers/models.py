@@ -170,6 +170,12 @@ def register_routes(api: "RESTfulAPI") -> None:
         dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
     router.add_api_route(
+        "/v1/models/{model_uid}/cache_sessions",
+        api.update_cache_session,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+    router.add_api_route(
         "/v1/models/{model_uid}/reload",
         api.reload_model,
         methods=["POST"],

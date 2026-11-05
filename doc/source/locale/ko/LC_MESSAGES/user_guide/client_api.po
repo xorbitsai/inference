@@ -272,3 +272,23 @@ msgid ""
 msgstr ""
 "Xinference는 모델별로 최대 4096개의 라우팅 키를 자격 증명 간에 공유되는 LRU 테이블에 보관합니다. 한 자격 증명에서 새 "
 "키를 대량으로 사용하면 다른 자격 증명의 친화성 항목이 제거될 수 있으며, 이는 선호 복제본 선택에만 영향을 줍니다."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Agent cache lifecycle"
+msgstr "에이전트 캐시 수명 주기"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "지원되는 vLLM Xavier 하이브리드 GPU 접두사 모델은 ``supports_agent_cache_lifecycle: true`` 를 알립니다. OpenAI 클라이언트의 ``extra_body`` 또는 Xinference 클라이언트의 ``generate_config`` 를 통해 채팅 요청에 ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` 을 추가합니다. 세션 ID는 요청 자격 증명별로 분리됩니다. 캐시 격리는 계속 ``cache_salt`` 를 사용합니다."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Send updates to ``POST /v1/models/{model_uid}/cache_sessions`` with the same ``id``, an increasing integer ``revision``, and ``phase`` set to ``waiting``, ``active``, or ``finished``. Chat requests also mark the session active. Older revisions are ignored. Capable Xagent deployments send these hints automatically, including tool waits and execution cleanup."
+msgstr "``POST /v1/models/{model_uid}/cache_sessions`` 에 동일한 ``id``, 증가하는 정수 ``revision``, 그리고 ``waiting``, ``active``, ``finished`` 중 하나인 ``phase`` 를 전송합니다. 채팅 요청도 세션을 활성 상태로 표시합니다. 이전 리비전은 무시됩니다. 이 기능을 지원하는 Xagent 배포는 도구 대기와 실행 정리를 포함한 힌트를 자동으로 전송합니다."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Waiting prefixes are placed later in the engine's eviction order; prefixes owned only by finished sessions are reclaimed first. Blocks remain available for allocation, and active requests and transfer leases retain their ownership. Hints expire after 300 seconds, with at most 4096 sessions per model. This policy changes resident-cache eviction order; capacity limits and normal recomputation still apply."
+msgstr "대기 중인 접두사는 엔진 제거 순서의 뒤쪽으로 이동하고, 종료된 세션만 소유한 접두사는 먼저 회수됩니다. 블록은 계속 할당할 수 있으며 활성 요청과 전송 리스의 소유권은 유지됩니다. 힌트는 300초 후 만료되며 모델당 최대 4096개 세션을 저장합니다. 이 정책은 상주 캐시의 제거 순서를 조정하며 용량 제한과 정상적인 재계산은 계속 적용됩니다."
+
+#: ../../source/user_guide/client_api.rst
+msgid "A single replica can use ``enable_xavier=True`` and ``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes."
+msgstr "단일 복제본도 ``enable_xavier=True`` 와 ``xavier_gpu_cache_bytes=0`` 을 사용하여 상주 접두사의 수명 주기를 관리할 수 있습니다."

@@ -286,3 +286,23 @@ msgid ""
 msgstr ""
 "Xinference 为每个模型最多保留 4096 "
 "个路由键，存储在所有凭证共享的最近最少使用（LRU）表中。某个凭证频繁使用新键，可能挤出其他凭证的亲和记录；这只影响副本选择偏好。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Agent cache lifecycle"
+msgstr "Agent 缓存生命周期"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "受支持的 vLLM Xavier 混合架构 GPU 前缀模型会声明 ``supports_agent_cache_lifecycle: true``。通过 OpenAI 客户端的 ``extra_body`` 或 Xinference 客户端的 ``generate_config``，为聊天请求附加 ``cache_session={\"id\": \"run-1\", \"revision\": 0}``。会话 ID 按请求凭证隔离。缓存隔离仍使用 ``cache_salt``。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Send updates to ``POST /v1/models/{model_uid}/cache_sessions`` with the same ``id``, an increasing integer ``revision``, and ``phase`` set to ``waiting``, ``active``, or ``finished``. Chat requests also mark the session active. Older revisions are ignored. Capable Xagent deployments send these hints automatically, including tool waits and execution cleanup."
+msgstr "向 ``POST /v1/models/{model_uid}/cache_sessions`` 发送更新，提供相同的 ``id``、递增的整数 ``revision``，以及值为 ``waiting``、``active`` 或 ``finished`` 的 ``phase``。聊天请求也会将会话标记为活跃。较旧的修订会被忽略。支持此能力的 Xagent 部署会自动发送这些提示，涵盖工具等待和执行清理。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Waiting prefixes are placed later in the engine's eviction order; prefixes owned only by finished sessions are reclaimed first. Blocks remain available for allocation, and active requests and transfer leases retain their ownership. Hints expire after 300 seconds, with at most 4096 sessions per model. This policy changes resident-cache eviction order; capacity limits and normal recomputation still apply."
+msgstr "等待中的前缀会被移至引擎淘汰顺序的后部；仅属于已结束会话的前缀会优先回收。缓存块仍可用于分配，活跃请求和传输租约保留其所有权。提示在 300 秒后过期，每个模型最多保存 4096 个会话。该策略调整常驻缓存的淘汰顺序；容量限制和正常的重新计算仍然适用。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "A single replica can use ``enable_xavier=True`` and ``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes."
+msgstr "单副本可使用 ``enable_xavier=True`` 和 ``xavier_gpu_cache_bytes=0``，让常驻前缀缓存感知执行生命周期。"

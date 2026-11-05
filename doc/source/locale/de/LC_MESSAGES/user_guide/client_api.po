@@ -274,3 +274,23 @@ msgstr ""
 "gemeinsam genutzt wird. Häufig wechselnde Schlüssel eines Zugangsdaten-"
 "Satzes können die Affinität eines anderen verdrängen; dies betrifft nur die "
 "Präferenz bei der Replikatauswahl."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Agent cache lifecycle"
+msgstr "Cache-Lebenszyklus von Agenten"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "Unterstützte vLLM-Xavier-Modelle mit hybriden GPU-Präfixen melden ``supports_agent_cache_lifecycle: true``. Fügen Sie Chat-Anfragen über ``extra_body`` des OpenAI-Clients oder ``generate_config`` des Xinference-Clients die Metadaten ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` hinzu. Sitzungs-IDs sind auf die Anmeldedaten der Anfrage beschränkt. Die Cache-Isolation verwendet weiterhin ``cache_salt``."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Send updates to ``POST /v1/models/{model_uid}/cache_sessions`` with the same ``id``, an increasing integer ``revision``, and ``phase`` set to ``waiting``, ``active``, or ``finished``. Chat requests also mark the session active. Older revisions are ignored. Capable Xagent deployments send these hints automatically, including tool waits and execution cleanup."
+msgstr "Senden Sie Aktualisierungen an ``POST /v1/models/{model_uid}/cache_sessions`` mit derselben ``id``, einer steigenden ganzzahligen ``revision`` und ``phase`` mit dem Wert ``waiting``, ``active`` oder ``finished``. Chat-Anfragen markieren die Sitzung ebenfalls als aktiv. Ältere Revisionen werden ignoriert. Unterstützende Xagent-Installationen senden diese Hinweise automatisch, einschließlich Werkzeugwartezeiten und Ausführungsbereinigung."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Waiting prefixes are placed later in the engine's eviction order; prefixes owned only by finished sessions are reclaimed first. Blocks remain available for allocation, and active requests and transfer leases retain their ownership. Hints expire after 300 seconds, with at most 4096 sessions per model. This policy changes resident-cache eviction order; capacity limits and normal recomputation still apply."
+msgstr "Wartende Präfixe werden in der Verdrängungsreihenfolge der Engine nach hinten verschoben; Präfixe, die ausschließlich beendeten Sitzungen gehören, werden zuerst freigegeben. Blöcke bleiben zuweisbar; aktive Anfragen und Übertragungs-Leases behalten ihre Besitzrechte. Hinweise laufen nach 300 Sekunden ab, mit höchstens 4096 Sitzungen pro Modell. Diese Richtlinie ändert die Verdrängungsreihenfolge des residenten Caches; Kapazitätsgrenzen und normale Neuberechnung gelten weiterhin."
+
+#: ../../source/user_guide/client_api.rst
+msgid "A single replica can use ``enable_xavier=True`` and ``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes."
+msgstr "Ein einzelnes Replikat kann mit ``enable_xavier=True`` und ``xavier_gpu_cache_bytes=0`` den Lebenszyklus residenter Präfixe berücksichtigen."

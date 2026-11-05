@@ -3707,8 +3707,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         store_address = None
         store_port = None
         world_size = None
-        if enable_xavier and replica <= 1:
-            logger.warning("Enabling xavier when replica<=1 is meaningless.")
+        if enable_xavier and replica <= 1 and gpu_cache_bytes != 0:
+            logger.warning("Disabling single-replica Xavier without GPU prefix mode.")
             enable_xavier = False
         use_xavier_collective = enable_xavier and (
             not vllm_cpu_prefix or gpu_cache_bytes == 0
@@ -7735,12 +7735,60 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             description["supports_thinking_budget"] = (
                 await self._supports_thinking_budget(model_uid)
             )
+            if model_uid in getattr(self, "_block_tracker_mapping", {}) and (
+                await self._supports_agent_cache_lifecycle(model_uid)
+            ):
+                description["supports_agent_cache_lifecycle"] = True
             if (
                 "chat" in description.get("model_ability", [])
                 and model_uid not in self._pd_model_mapping
             ):
                 description["supports_chat_session_affinity"] = True
         return description
+
+    async def _supports_agent_cache_lifecycle(self, model_uid: str) -> bool:
+        if model_uid in self._pd_model_mapping:
+            return False
+
+        async def probe(replica_uid):
+            worker = self._replica_model_uid_to_worker.get(replica_uid)
+            if isinstance(worker, (list, tuple)):
+                worker = worker[0] if worker else None
+            if worker is None:
+                return False
+            model = await call_worker_route(
+                self, replica_uid, worker, "get_model", model_uid=replica_uid
+            )
+            return await model.supports_agent_cache_lifecycle()
+
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(
+                    self._block_tracker_mapping[model_uid].get_cache_sessions([]),
+                    *(
+                        probe(uid)
+                        for uid in self._iter_active_replica_model_uids(model_uid)
+                    ),
+                    return_exceptions=True,
+                ),
+                timeout=1,
+            )
+            return (
+                len(results) > 1
+                and isinstance(results[0], dict)
+                and all(result is True for result in results[1:])
+            )
+        except Exception:
+            logger.debug(
+                "Agent cache capabilities unavailable for %s", model_uid, exc_info=True
+            )
+            return False
+
+    async def update_cache_session(self, model_uid: str, session: dict) -> bool:
+        tracker = self._block_tracker_mapping.get(model_uid)
+        if tracker is None or model_uid in self._pd_model_mapping:
+            raise ValueError("This model does not support agent cache lifecycle hints")
+        return await tracker.update_cache_session(session)
 
     async def _supports_thinking_budget(self, model_uid: str) -> bool:
         async def probe(model: Any) -> bool:
