@@ -93,6 +93,8 @@ def streaming_response_iterator(
 
 async def async_streaming_response_iterator(
     response_or_lines: Any,
+    *,
+    _prime: bool = False,
 ) -> AsyncIterator[Any]:
     """
     Create an AsyncIterator to handle the streaming type of generation.
@@ -122,6 +124,9 @@ async def async_streaming_response_iterator(
     )
     response_lines = response.content if response is not None else response_or_lines
     try:
+        if _prime:
+            # Enter the cleanup scope before handing the stream to the caller.
+            yield None
         async for line in response_lines:
             line = line.strip()
             if line.startswith(b"data:"):

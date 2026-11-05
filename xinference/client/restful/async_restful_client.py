@@ -74,6 +74,12 @@ async def _release_response(response: aiohttp.ClientResponse):
     await response.wait_for_close()
 
 
+async def _streaming_response(response: aiohttp.ClientResponse) -> AsyncIterator[Any]:
+    stream = async_streaming_response_iterator(response, _prime=True)
+    await anext(stream)
+    return stream
+
+
 def _schedule_session_close(client: Any) -> None:
     if not getattr(client, "session", None):
         return
@@ -967,7 +973,7 @@ class AsyncRESTfulGenerateModelHandle(AsyncRESTfulModelHandle):
             )
 
         if stream:
-            return async_streaming_response_iterator(response)
+            return await _streaming_response(response)
         response_data = await response.json()
         await _release_response(response)
         return response_data
@@ -1048,7 +1054,7 @@ class AsyncRESTfulChatModelHandle(AsyncRESTfulGenerateModelHandle):
             )
 
         if stream:
-            return async_streaming_response_iterator(response)
+            return await _streaming_response(response)
 
         response_data = await response.json()
         await _release_response(response)

@@ -53,6 +53,20 @@ def _get_error_string(response: requests.Response) -> str:
     return "Unknown error"
 
 
+def _streaming_response(response: requests.Response) -> Iterator[Any]:
+    def iterate():
+        try:
+            # Enter the cleanup scope before returning an unconsumed stream.
+            yield None
+            yield from streaming_response_iterator(response.iter_lines())
+        finally:
+            response.close()
+
+    stream = iterate()
+    next(stream)
+    return stream
+
+
 class RESTfulModelHandle:
     """
     A sync model interface (for RESTful client) which provides type hints that makes it much easier to use xinference
@@ -840,7 +854,7 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
             )
 
         if stream:
-            return streaming_response_iterator(response.iter_lines())
+            return _streaming_response(response)
 
         response_data = response.json()
         return response_data
@@ -921,7 +935,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             )
 
         if stream:
-            return streaming_response_iterator(response.iter_lines())
+            return _streaming_response(response)
 
         response_data = response.json()
         return response_data
