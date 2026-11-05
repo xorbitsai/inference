@@ -564,7 +564,6 @@ jobs:
             xinference/deploy/test
             xinference/model/llm/llama_cpp/tests/test_gguf.py
             xinference/model/llm/tests/test_cache_download_lock.py
-            xinference/model/llm/tests/test_llm_family.py::test_gguf_concurrent_case_aliases_share_destination_lock_through_download
             xinference/model/llm/tests/test_media.py
             xinference/model/tests/test_llmman.py
             xinference/model/tests/test_oci_utils.py
