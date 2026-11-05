@@ -26,7 +26,6 @@ MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
 # Repos that no longer exist on Hugging Face. The last three are still on
 # ModelScope, so their specs keep their ModelScope source.
 DELETED = {
-    "cpatonn/DeepSeek-V3.1-GPTQ-4bit",
     "mlx-community/Meta-Llama-3.1-8B-Instruct",
     "Qwen/Qwen-1_8B-Chat",
     "Skywork/Skywork-OR1-32B-Preview",
@@ -146,14 +145,14 @@ def test_every_builtin_variant_gets_a_cache_version_entry():
     assert missing == []
 
 
-def _cache_variant(name, size):
+def _cache_variant(name, size, model_format="pytorch"):
     from ..cache_manager import LLMCacheManager
     from ..llm_family import get_llm_family_by_name
 
     spec = next(
         s
         for s in get_llm_family_by_name(name).model_specs
-        if s.model_format == "pytorch" and str(s.model_size_in_billions) == str(size)
+        if s.model_format == model_format and str(s.model_size_in_billions) == str(size)
     )
     cache_dir = LLMCacheManager.get_cache_dir_for_spec(name, spec)
     os.makedirs(cache_dir)
@@ -215,6 +214,39 @@ def test_default_launch_reuses_the_cache_of_a_variant_on_another_hub(
 
     assert model.model_path == cache_dir
     assert model.model_family.model_specs[0].model_hub == "modelscope"
+
+
+@pytest.mark.parametrize("model_src", [None, "auto", "huggingface", "modelscope"])
+def test_cached_deepseek_v3_1_gptq_is_still_launched_listed_and_deleted(
+    monkeypatch,
+    empty_cache,
+    default_hub_is_huggingface,
+    stub_engine_without_downloads,
+    model_src,
+):
+    # Its repo is gone from both hubs, so a cold launch fails at download as it
+    # did before. The spec stays so that caches people already have keep working.
+    from ...core import create_model_instance
+    from ..utils import get_model_version
+
+    _set_model_src(monkeypatch, model_src)
+    cache_dir = _cache_variant("Deepseek-V3.1", 671, "gptq")
+
+    model = create_model_instance(
+        "uid",
+        "LLM",
+        "Deepseek-V3.1",
+        "Transformers",
+        "gptq",
+        671,
+        "Int4",
+        enable_virtual_env=False,
+    )
+
+    assert model.model_path == cache_dir
+    _assert_listed_and_deletable(
+        "Deepseek-V3.1", get_model_version("Deepseek-V3.1", "gptq", 671, "Int4")
+    )
 
 
 @pytest.mark.parametrize("download_hub", [None, "auto", "huggingface"])
@@ -358,19 +390,16 @@ def test_the_selected_hub_wins_over_a_cached_copy(
     assert match_llm("qwen-chat").model_specs[0].model_hub == "huggingface"
 
 
-@pytest.mark.parametrize("name,size", ONLY_ON_OTHER_HUBS)
-def test_download_from_another_hub_is_listed_and_deletable(name, size):
+def _assert_listed_and_deletable(name, version):
     from ....core.cache_tracker import CacheTrackerActor
     from ..core import generate_llm_version_info
     from ..llm_family import get_llm_family_by_name
-    from ..utils import get_model_version
 
     tracker = CacheTrackerActor.__new__(CacheTrackerActor)
     tracker._model_name_to_version_info = {}
     tracker.record_model_version(
         generate_llm_version_info(get_llm_family_by_name(name)), "worker"
     )
-    version = get_model_version(name, "pytorch", size, "none")
 
     tracker.update_cache_status("worker", name, version, "/cache/path")
 
@@ -378,3 +407,10 @@ def test_download_from_another_hub_is_listed_and_deletable(name, size):
         v["model_version"] for v in tracker.list_cached_models("worker", name)
     }
     assert tracker.list_deletable_models(version, "worker") == "/cache/path"
+
+
+@pytest.mark.parametrize("name,size", ONLY_ON_OTHER_HUBS)
+def test_download_from_another_hub_is_listed_and_deletable(name, size):
+    from ..utils import get_model_version
+
+    _assert_listed_and_deletable(name, get_model_version(name, "pytorch", size, "none"))
