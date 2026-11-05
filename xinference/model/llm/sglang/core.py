@@ -1396,7 +1396,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                 prefix_keys(
                     tokens,
                     self._xavier_cache_config["contract"]["block_size"],
-                    config.get("cache_salt"),
+                    sanitized_generate_config.get("cache_salt"),
                 ),
             )
             cast(Dict[str, Any], sanitized_generate_config)[
