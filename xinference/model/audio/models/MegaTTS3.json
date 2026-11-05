@@ -14,7 +14,7 @@
         "model_revision": "409a7002b006d80f0730fca6f80441b08c10e738"
       },
       "modelscope": {
-        "model_id": "ByteDance/MegaTTS3",
+        "model_id": "bytedance-community/MegaTTS3",
         "model_revision": "master"
       }
     },

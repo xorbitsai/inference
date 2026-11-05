@@ -24,7 +24,7 @@
             ]
           },
           "modelscope": {
-            "model_id": "Tencent-Hunyuan/WeMM-Embedding-9B",
+            "model_id": "tencent-community/WeMM-Embedding-9B",
             "model_revision": "master",
             "quantizations": [
               "none"

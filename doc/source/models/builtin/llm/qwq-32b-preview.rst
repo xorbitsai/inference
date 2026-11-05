@@ -7,7 +7,7 @@ QwQ-32B-Preview
 - **Context Length:** 32768
 - **Model Name:** QwQ-32B-Preview
 - **Languages:** en, zh
-- **Abilities:** chat
+- **Abilities:** chat, tools
 - **Description:** QwQ-32B-Preview is an experimental research model developed by the Qwen Team, focused on advancing AI reasoning capabilities.
 
 Specifications

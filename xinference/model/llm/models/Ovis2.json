@@ -38,7 +38,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "AIDC-AI/Ovis2-1B"
+            "model_id": "ATH-MaaS/Ovis2-1B"
           }
         }
       },
@@ -67,7 +67,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "AIDC-AI/Ovis2-2B"
+            "model_id": "ATH-MaaS/Ovis2-2B"
           }
         }
       },
@@ -96,7 +96,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "AIDC-AI/Ovis2-4B"
+            "model_id": "ATH-MaaS/Ovis2-4B"
           }
         }
       },
@@ -125,7 +125,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "AIDC-AI/Ovis2-8B"
+            "model_id": "ATH-MaaS/Ovis2-8B"
           }
         }
       },
@@ -154,7 +154,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "AIDC-AI/Ovis2-16B"
+            "model_id": "ATH-MaaS/Ovis2-16B"
           }
         }
       },
@@ -183,7 +183,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "AIDC-AI/Ovis2-34B"
+            "model_id": "ATH-MaaS/Ovis2-34B"
           }
         }
       },
@@ -212,7 +212,7 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "AIDC-AI/Ovis2-2B-GPTQ-{quantization}"
+            "model_id": "ATH-MaaS/Ovis2-2B-GPTQ-{quantization}"
           }
         }
       },
@@ -241,7 +241,7 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "AIDC-AI/Ovis2-4B-GPTQ-{quantization}"
+            "model_id": "ATH-MaaS/Ovis2-4B-GPTQ-{quantization}"
           }
         }
       },
@@ -270,7 +270,7 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "AIDC-AI/Ovis2-8B-GPTQ-{quantization}"
+            "model_id": "ATH-MaaS/Ovis2-8B-GPTQ-{quantization}"
           }
         }
       },
@@ -299,7 +299,7 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "AIDC-AI/Ovis2-16B-GPTQ-{quantization}"
+            "model_id": "ATH-MaaS/Ovis2-16B-GPTQ-{quantization}"
           }
         }
       },
@@ -343,7 +343,7 @@
               "Int4",
               "Int8"
             ],
-            "model_id": "AIDC-AI/Ovis2-34B-GPTQ-{quantization}"
+            "model_id": "ATH-MaaS/Ovis2-34B-GPTQ-{quantization}"
           }
         }
       }

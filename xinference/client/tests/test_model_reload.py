@@ -48,6 +48,7 @@ async def test_async_reload_client_releases_responses():
     client = AsyncClient.__new__(AsyncClient)
     client.base_url = "http://localhost:9997"
     client._headers = {"Authorization": "Bearer test"}
+    client._cluster_authed = True
     client.session = MagicMock()
     client.session.closed = True
     response = MagicMock(status=202)

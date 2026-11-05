@@ -519,6 +519,13 @@
               "hidden_size": 5120,
               "intermediate_size": 27648,
               "num_hidden_layers": 64
+            },
+            "model_file_name_split_template": "DeepSeek-R1-Distill-Qwen-32B-{quantization}/DeepSeek-R1-Distill-Qwen-32B-{quantization}-{part}.gguf",
+            "quantization_parts": {
+              "F16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
             }
           },
           "modelscope": {
@@ -543,6 +550,13 @@
               "hidden_size": 5120,
               "intermediate_size": 27648,
               "num_hidden_layers": 64
+            },
+            "model_file_name_split_template": "DeepSeek-R1-Distill-Qwen-32B-{quantization}/DeepSeek-R1-Distill-Qwen-32B-{quantization}-{part}.gguf",
+            "quantization_parts": {
+              "F16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
             }
           }
         }

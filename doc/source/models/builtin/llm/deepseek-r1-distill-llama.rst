@@ -38,7 +38,7 @@ Model Spec 2 (mlx, 8 Billion)
 - **Quantizations:** 3bit, 4bit, 6bit, 8bit, bf16
 - **Engines**: MLX
 - **Model ID:** mlx-community/DeepSeek-R1-Distill-Llama-8B-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Llama-8B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Llama-8B-MLX-{quantization}>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Llama-8B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/DeepSeek-R1-Distill-Llama-8B-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

@@ -13,8 +13,10 @@
 # limitations under the License.
 
 import logging
+import os
+import tempfile
 import threading
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, cast
 
 from ..custom import ModelRegistry
 
@@ -26,6 +28,54 @@ logger = logging.getLogger(__name__)
 
 
 UD_LLM_FAMILIES: List["LLMFamilyV2"] = []
+
+
+def _volume_ignores_case(path: str) -> bool:
+    """Check case aliases inside the cache parent, conservatively on errors.
+
+    Use existing entries when possible. Otherwise create the parent and a
+    temporary probe inside it: looking up the parent's own name could test
+    another filesystem or directory's case rules.
+    """
+    parent = os.path.dirname(os.path.abspath(path))
+
+    def entry_ignores_case(name: str) -> bool:
+        original_path = os.path.join(parent, name)
+        original = os.lstat(original_path)
+        try:
+            alternate = os.lstat(os.path.join(parent, name.swapcase()))
+        except FileNotFoundError:
+            # A disappearing original is not evidence of sensitivity.
+            os.lstat(original_path)
+            return False
+        return os.path.samestat(original, alternate)
+
+    try:
+        with os.scandir(parent) as entries:
+            names = {entry.name for entry in entries}
+        for name in names:
+            if not name.isascii() or name.swapcase() == name:
+                continue
+            if name.swapcase() in names:
+                # Distinct entries prove sensitivity, even if hard-linked.
+                return False
+            return entry_ignores_case(name)
+    except OSError:
+        pass
+
+    try:
+        os.makedirs(parent, exist_ok=True)
+        probe = tempfile.mkdtemp(prefix=".xinference-CaseProbe-", dir=parent)
+        try:
+            return entry_ignores_case(os.path.basename(probe))
+        finally:
+            # Remove only our entry; the cache manager also needs the parent.
+            os.rmdir(probe)
+    except OSError as exc:
+        logger.debug(
+            "Cannot probe case sensitivity of cache parent %s: %s", parent, exc
+        )
+        return True
 
 
 class LLMModelRegistry(ModelRegistry):
@@ -40,6 +90,40 @@ class LLMModelRegistry(ModelRegistry):
         self.lock = threading.RLock()
         self.models = UD_LLM_FAMILIES
         self.builtin_models = [x.model_name for x in BUILTIN_LLM_FAMILIES]
+
+    def check_cache_identity(self, llm_family: "LLMFamilyV2"):
+        from .cache_manager import LLMCacheManager
+        from .llm_family import BUILTIN_LLM_FAMILIES
+
+        # The cache directory replaces "." with "_" in the model name, so
+        # "qwen2_5-instruct" would be served the files cached for the built-in
+        # "qwen2.5-instruct". Compare the directories themselves: specs of one
+        # family (e.g. its Hugging Face and ModelScope entries) share one by design.
+        def cache_dirs(family: "LLMFamilyV2"):
+            return {
+                LLMCacheManager.get_cache_dir_for_spec(family.model_name, spec)
+                for spec in family.model_specs
+            }
+
+        wanted = cache_dirs(llm_family)
+        if not wanted:
+            return
+        # Keep case-only variants apart only when the cache parent supplies
+        # evidence that its entries are case-sensitive.
+        ignores_case = _volume_ignores_case(min(wanted))
+
+        def key(path: str) -> str:
+            return path.casefold() if ignores_case else path
+
+        wanted_keys = {key(path) for path in wanted}
+        for family in [*BUILTIN_LLM_FAMILIES, *cast(List["LLMFamilyV2"], self.models)]:
+            shared = {path for path in cache_dirs(family) if key(path) in wanted_keys}
+            if shared:
+                raise ValueError(
+                    f"Model name conflicts with existing model {family.model_name}: "
+                    f"{llm_family.model_name} would use the same cache directory, "
+                    f"{os.path.basename(min(shared))}."
+                )
 
     def add_ud_model(self, model_spec):
         from . import generate_engine_config_by_model_family

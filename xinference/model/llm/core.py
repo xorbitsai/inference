@@ -54,6 +54,8 @@ class LLM(abc.ABC):
     supports_tool_controls = False
     # whether the engine can run speculative decoding with a paired drafter
     support_draft_model = False
+    # whether the engine can load a GGUF quantization uploaded as split files
+    support_split_gguf = True
 
     def __init__(
         self,
@@ -481,7 +483,12 @@ class LLM(abc.ABC):
                 reasoning_content
             )
             return
-        auto_insert_start_tag = "hybrid" not in abilities
+        # Seed-OSS writes its own start tag, and thinking_budget=0 closes reasoning
+        # in the prompt, so a missing tag means there is no reasoning.
+        auto_insert_start_tag = (
+            "hybrid" not in abilities
+            and self.model_family.reasoning_start_tag != "<seed:think>"
+        )
         # Initialize reasoning parser if model has reasoning ability
         self.reasoning_parser = ReasoningParser(  # type: ignore
             reasoning_content,
@@ -518,11 +525,17 @@ chat_context_var: ContextVar[dict] = ContextVar("chat_context_var", default={})
 
 def generate_llm_version_info(llm_family: "LLMFamilyV2") -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    # Use model_specs from huggingface, as HuggingFace is the most comprehensive.
-    hf_specs = [
-        spec for spec in llm_family.model_specs if spec.model_hub == "huggingface"
-    ]
-    for spec in hf_specs:
+    # Prefer model_specs from huggingface, as HuggingFace is the most comprehensive.
+    # A variant that only another hub hosts still needs an entry: the cache tracker
+    # only updates existing entries, so its downloads would stay untracked otherwise.
+    seen = set()
+    for spec in sorted(
+        llm_family.model_specs, key=lambda spec: spec.model_hub != "huggingface"
+    ):
+        variant = (spec.model_format, spec.model_size_in_billions, spec.quantization)
+        if spec.model_hub != "huggingface" and variant in seen:
+            continue
+        seen.add(variant)
         _llm_family = llm_family.copy()
         _llm_family.model_specs = [spec]
         multimodal_projectors = getattr(spec, "multimodal_projectors", None)
@@ -606,6 +619,7 @@ def create_llm_model_instance(
 ) -> LLM:
     from .cache_manager import LLMCacheManager
     from .llm_family import (
+        LlamaCppLLMSpecV2,
         check_engine_by_spec_parameters,
         check_engine_by_spec_parameters_with_virtual_env,
         match_llm,
@@ -659,6 +673,18 @@ def create_llm_model_instance(
 
     multimodal_projector = kwargs.get("multimodal_projector")
     if not model_path:
+        spec = llm_family.model_specs[0]
+        if (
+            isinstance(spec, LlamaCppLLMSpecV2)
+            and spec.quantization in (spec.quantization_parts or {})
+            and not llm_cls.support_split_gguf
+        ):
+            # Fail before downloading shards that the engine cannot load.
+            raise ValueError(
+                f"Engine {model_engine} does not support the split GGUF files of "
+                f"model {model_name} {spec.quantization}. Please merge them first "
+                "and provide `model_path` with the merged file."
+            )
         cache_manager = LLMCacheManager(llm_family, multimodal_projector)
         model_path = cache_manager.cache()
 

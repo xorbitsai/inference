@@ -11,6 +11,7 @@ from ..minicpm5_tool_parser import MiniCPM5ToolParser
 from ..minimax_m3_tool_parser import MiniMaxM3ToolParser
 from ..minimax_tool_parser import MiniMaxToolParser
 from ..qwen_tool_parser import QwenToolParser
+from ..seed_oss_tool_parser import SeedOssToolParser
 
 # The raw text each argument has in the model output. These formats write
 # string values unquoted, so the parser needs the tool schema to tell them
@@ -88,12 +89,18 @@ def _minicpm5(args):
     return f'<function name="save">{body}</function>'
 
 
+def _seed_oss(args):
+    body = "".join(f"<parameter={k}>{v}</parameter>" for k, v in args)
+    return f"<seed:tool_call><function=save>{body}</function></seed:tool_call>"
+
+
 PARSERS = {
     "qwen": (QwenToolParser, _qwen),
     "glm5": (Glm5ToolParser, _glm5),
     "minimax": (MiniMaxToolParser, _minimax),
     "minimax-m3": (MiniMaxM3ToolParser, _minimax),
     "minicpm5": (MiniCPM5ToolParser, _minicpm5),
+    "seed-oss": (SeedOssToolParser, _seed_oss),
 }
 
 

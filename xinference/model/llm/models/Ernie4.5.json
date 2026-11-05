@@ -583,13 +583,13 @@
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/ERNIE-4.5-300B-47B-PT-{quantization}"
+            "model_id": "mlx-community/ERNIE-4.5-300B-A47B-PT-{quantization}"
           },
           "modelscope": {
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/ERNIE-4.5-300B-47B-PT-{quantization}"
+            "model_id": "mlx-community/ERNIE-4.5-300B-A47B-PT-{quantization}"
           }
         }
       }

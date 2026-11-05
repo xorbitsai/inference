@@ -1,12 +1,16 @@
 from contextlib import AsyncExitStack, closing
 from typing import AsyncIterator
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, call
 
 import aiohttp
 import pytest
 import requests
 
-from ..common import async_streaming_response_iterator, streaming_response_iterator
+from ..common import (
+    async_streaming_response_iterator,
+    is_http_url,
+    streaming_response_iterator,
+)
 from ..restful.async_restful_client import AsyncClient
 from ..restful.restful_client import Client
 
@@ -18,6 +22,22 @@ _ENDPOINTS = [
     ("http://localhost:9997/proxy/path/", "http://localhost:9997/proxy/path"),
     ("http://localhost:9997/proxy/path//", "http://localhost:9997/proxy/path"),
 ]
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("http://example.com/a.png", True),
+        ("HTTPS://example.com/a.png", True),
+        ("a.png", False),
+        ("/tmp/a.png", False),
+        ("C:\\images\\a.png", False),
+        ("file:///tmp/a.png", False),
+        ("ftp://example.com/a.png", False),
+    ],
+)
+def test_is_http_url(value, expected):
+    assert is_http_url(value) is expected
 
 
 @pytest.mark.parametrize("endpoint, base_url", _ENDPOINTS)
@@ -52,14 +72,13 @@ def test_client_normalizes_endpoint(monkeypatch, endpoint, base_url):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("endpoint, base_url", _ENDPOINTS)
 async def test_async_client_normalizes_endpoint(monkeypatch, endpoint, base_url):
-    auth_session = MagicMock()
-    auth_session.get.return_value.status_code = 200
-    auth_session.get.return_value.json.return_value = {"auth": True}
-    monkeypatch.setattr(requests, "Session", lambda: auth_session)
+    auth = MagicMock(status=200)
+    auth.json = AsyncMock(return_value={"auth": True})
+    auth.wait_for_close = AsyncMock()
     response = MagicMock(status=200)
     response.json = AsyncMock(return_value={"model_type": "embedding"})
     response.wait_for_close = AsyncMock()
-    get = AsyncMock(return_value=response)
+    get = AsyncMock(side_effect=[auth, response])
     post = AsyncMock(return_value=response)
     monkeypatch.setattr(aiohttp.ClientSession, "get", get)
     monkeypatch.setattr(aiohttp.ClientSession, "post", post)
@@ -68,12 +87,15 @@ async def test_async_client_normalizes_endpoint(monkeypatch, endpoint, base_url)
     async with AsyncExitStack() as stack:
         client = AsyncClient(endpoint, api_key="test-key")
         stack.push_async_callback(client.close)
-        auth_session.get.assert_called_once_with(f"{base_url}/v1/cluster/auth")
         assert client.base_url == base_url
-        assert client._cluster_authed is True
+        get.assert_not_called()  # the cluster is probed on the first request
         handle = await client.get_model("model")
         stack.push_async_callback(handle.close)
-        get.assert_awaited_once_with(f"{base_url}/v1/models/model", headers=headers)
+        assert get.await_args_list == [
+            call(f"{base_url}/v1/cluster/auth"),
+            call(f"{base_url}/v1/models/model", headers=headers),
+        ]
+        assert client._cluster_authed is True
         assert handle._base_url == base_url
         await handle.create_embedding("hello")
         post.assert_awaited_once_with(

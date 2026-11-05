@@ -114,6 +114,29 @@ class MiniMaxToolParser(ToolParser):
             text, [self.tool_call_start_token]
         )
 
+    def _tool_markup(self, text: str) -> str:
+        """Return ``text``, at the same offsets, as tool tags should be read from it."""
+        return text
+
+    def _settled_events(
+        self, text: str, markup: str, start: int, end: int
+    ) -> List[ToolEvent]:
+        """Return the plain text and every invoke of each closed block in a range."""
+        events: List[ToolEvent] = []
+        position = start
+        for match in self.tool_call_complete_regex.finditer(markup, start, end):
+            if match.start() > position:
+                events.append((text[position : match.start()], None, None))
+            invokes = self._parse_invoke_calls(match.group(0))
+            if invokes:
+                events.extend((None, name, args) for name, args in invokes)
+            else:
+                events.append((match.group(0), None, None))
+            position = match.end()
+        if position < end:
+            events.append((text[position:end], None, None))
+        return events
+
     def extract_tool_calls(
         self, model_output: str
     ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
@@ -152,40 +175,24 @@ class MiniMaxToolParser(ToolParser):
         self, previous_text: List[str], current_text: str, delta_text: str
     ) -> Optional[Union[ToolEvent, List[ToolEvent]]]:
         try:
-            if self.tool_call_start_token not in current_text:
+            markup = self._tool_markup(current_text)
+            previous = current_text[: len(current_text) - len(delta_text)]
+            start = self._settled_length(self._tool_markup(previous))
+            end = self._settled_length(markup)
+            if self.tool_call_start_token not in markup:
                 # Hold back a trailing piece that may start the tool call tag,
                 # and release it once it turns out to be text.
-                content = self._plain_text_delta(
-                    current_text, delta_text, [self.tool_call_start_token]
-                )
-                if content is None:
+                if end <= start:
                     return None if delta_text else (delta_text, None, None)
-                return (content, None, None)
+                return (current_text[start:end], None, None)
 
             # Text after an unclosed start tag belongs to a tool call block
             # that is still streaming. Emit only what became settled in this
             # chunk: plain text, and every invoke of each block that closed.
-            previous = current_text[: len(current_text) - len(delta_text)]
-            start = self._settled_length(previous)
-            end = self._settled_length(current_text)
             if end <= start:
                 return None
 
-            events: List[ToolEvent] = []
-            position = start
-            for match in self.tool_call_complete_regex.finditer(
-                current_text, start, end
-            ):
-                if match.start() > position:
-                    events.append((current_text[position : match.start()], None, None))
-                invokes = self._parse_invoke_calls(match.group(0))
-                if invokes:
-                    events.extend((None, name, args) for name, args in invokes)
-                else:
-                    events.append((match.group(0), None, None))
-                position = match.end()
-            if position < end:
-                events.append((current_text[position:end], None, None))
+            events = self._settled_events(current_text, markup, start, end)
             return events[0] if len(events) == 1 else events
         except Exception as e:
             logger.error("Error in MiniMax streaming tool call extraction: %s", e)

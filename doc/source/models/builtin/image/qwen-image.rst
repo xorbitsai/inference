@@ -14,7 +14,7 @@ Specifications
 
 - **Model ID:** Qwen/Qwen-Image
 - **GGUF Model ID**: city96/Qwen-Image-gguf
-- **GGUF Quantizations**: F16, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, Q5_K_S, Q6_K, Q8_0
+- **GGUF Quantizations**: BF16, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, Q5_K_S, Q6_K, Q8_0
 
 - **Lightning Model ID**: lightx2v/Qwen-Image-Lightning
 - **Lightning Versions**: 4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0, 8steps-V1.1-bf16, 8steps-V1.1

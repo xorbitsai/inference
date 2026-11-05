@@ -79,11 +79,20 @@ The vLLM GPU transfer path requires NVIDIA GPUs.
 
 .. versionchanged:: v4.0.0
 
-   For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default.
+   For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent handoff uses eager execution by default. Ordinary hybrid attention replicas preserve vLLM's ``enforce_eager`` setting.
 
 .. versionadded:: v4.0.0
 
    Retained vLLM GPU history, configured with ``xavier_gpu_cache_bytes``.
+
+Hybrid attention replicas
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True``. For CPU-only sharing, set a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode="align"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding.
+
+``xavier_cache_bytes`` sets the shared CPU cache capacity and the CPU staging capacity of each replica. Size the budget for the prefix you want to reuse, including recurrent state. A cache miss or failed import triggers local prefill.
+
+Set ``xavier_gpu_cache_bytes=0`` to share aligned prefixes directly from resident GPU cache blocks. Add ``xavier_cache_bytes`` to enable CPU fallback. Direct GPU sharing requires NVIDIA GPUs, ``xoscar[nixl]>=0.11.1`` and ``async_scheduling=False``.
 
 Legacy V0 adapter
 ^^^^^^^^^^^^^^^^^

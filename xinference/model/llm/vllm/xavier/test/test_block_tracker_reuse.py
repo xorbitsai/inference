@@ -149,3 +149,22 @@ class TestSnapshotDirectory:
         tracker.register_blocks(0, [(303, 101)], 1)
         assert _query_rank_block(tracker, 101) == set()
         assert _query_rank_block(tracker, 303) == {(1, 101)}
+
+
+def test_gpu_prefix_directory_prefers_longest_and_invalidates_exact_ticket():
+    tracker = VLLMBlockTracker()
+    head, tail = ("layout", b"head"), ("layout", b"tail")
+    tracker.publish_gpu_prefix(1, head, "short", 16, [[1], [2]])
+    tracker.publish_gpu_prefix(2, tail, "long", 32, [[3, 4], [0, 5]])
+    assert tracker.query_gpu_prefix(0, [tail, head]) == (
+        2,
+        "long",
+        32,
+        [[3, 4], [0, 5]],
+    )
+    assert tracker.query_gpu_prefix(2, [tail, head]) == (1, "short", 16, [[1], [2]])
+    assert tracker.query_gpu_prefix(0, [("other-layout", b"tail")]) is None
+    tracker.remove_gpu_prefix(2, tail, "stale")
+    assert tracker.query_gpu_prefix(0, [tail])[1] == "long"
+    tracker.unregister_rank(2)
+    assert tracker.query_gpu_prefix(0, [tail]) is None

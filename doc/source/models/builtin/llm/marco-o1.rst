@@ -22,7 +22,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** AIDC-AI/Marco-o1
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Marco-o1>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Marco-o1>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Marco-o1>`__, `ModelScope <https://modelscope.cn/models/ATH-MaaS/Marco-o1>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
