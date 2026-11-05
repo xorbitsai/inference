@@ -1143,6 +1143,7 @@ async def test_v32_parallel_results_follow_call_ids_in_each_round(
 @pytest.mark.parametrize("use_tokenizer", [False, True])
 @pytest.mark.parametrize("reasoning_content", [False, True])
 @pytest.mark.parametrize("current_turn", [False, True])
+@pytest.mark.parametrize("reply", ["tool_call", "after_results", "plain"])
 @pytest.mark.parametrize(
     "reasoning, answer",
     [
@@ -1152,14 +1153,15 @@ async def test_v32_parallel_results_follow_call_ids_in_each_round(
     ],
 )
 async def test_v32_inline_reasoning_round_trips_the_vllm_assistant_message(
-    thinking, use_tokenizer, reasoning_content, current_turn, reasoning, answer
+    thinking, use_tokenizer, reasoning_content, current_turn, reply, reasoning, answer
 ):
     family = _catalog_model("DeepSeek-V3.2").model_family
     model = VLLMChatModel("round-trip", family, "unused", {})
     model.prepare_parse_tool_calls()
     model.prepare_parse_reasoning_content(reasoning_content)
     text = f"{reasoning}</think>{answer}"
-    text += _function_calls("get_weather").replace("杭州", "Paris")
+    if reply == "tool_call":
+        text += _function_calls("get_weather").replace("杭州", "Paris")
     # Use vLLM's returned message verbatim, including its generated call ID.
     completion = contextvars.Context().run(
         model._post_process_completion,
@@ -1175,23 +1177,89 @@ async def test_v32_inline_reasoning_round_trips_the_vllm_assistant_message(
     assert assistant.get("reasoning_content") == (
         reasoning if reasoning_content else None
     )
-    result = {
-        "role": "tool",
-        "tool_call_id": assistant["tool_calls"][0]["id"],
-        "content": "sunny",
-    }
-    messages = [_ASKING, assistant, result]
     in_turn = thinking and current_turn
-    expected = _ASK + (f"<think>{reasoning}</think>" if in_turn else "</think>")
-    expected += answer + _WEATHER_BLOCK + _SUNNY
-    expected += "<think>" if in_turn else "</think>"
+    messages = [_ASKING]
+    expected = _ASK
+    if reply == "after_results":
+        messages.extend(
+            [_assistant(_GET_WEATHER, reasoning="First."), _result("sunny")]
+        )
+        expected += (
+            ("<think>First.</think>" if in_turn else "</think>")
+            + _WEATHER_BLOCK
+            + _SUNNY
+        )
+    expected += f"<think>{reasoning}</think>" if in_turn else "</think>"
+    expected += answer
+    messages.append(assistant)
+    if reply == "tool_call":
+        messages.append(
+            {
+                "role": "tool",
+                "tool_call_id": assistant["tool_calls"][0]["id"],
+                "content": "sunny",
+            }
+        )
+        expected += _WEATHER_BLOCK + _SUNNY
+        expected += "<think>" if in_turn else "</think>"
+    else:
+        expected += _EOS
     if not current_turn:
         messages.append({"role": "user", "content": "Again"})
         expected += "<｜User｜>Again<｜Assistant｜>" + (
             "<think>" if thinking else "</think>"
         )
     tokenizer = _stub_tokenizer() if use_tokenizer else None
-    assert await _replay(messages, thinking, tokenizer=tokenizer) == expected
+    assert (
+        await _replay(
+            messages,
+            thinking,
+            tokenizer=tokenizer,
+            generation=messages[-1]["role"] != "assistant",
+        )
+        == expected
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("thinking", [False, True])
+@pytest.mark.parametrize("use_tokenizer", [False, True])
+@pytest.mark.parametrize("current_turn", [False, True])
+@pytest.mark.parametrize("with_call", [False, True])
+async def test_v32_null_reasoning_splits_at_the_first_closing_tag(
+    thinking, use_tokenizer, current_turn, with_call
+):
+    messages = [
+        _ASKING,
+        _assistant(
+            *([_GET_WEATHER] if with_call else []),
+            content="<think>Checked.</think>Keep </think> in the answer.",
+        ),
+    ]
+    messages[-1]["reasoning_content"] = None
+    in_turn = thinking and current_turn
+    expected = _ASK + ("<think>Checked.</think>" if in_turn else "</think>")
+    expected += "Keep </think> in the answer."
+    if with_call:
+        messages.append(_result("sunny"))
+        expected += _WEATHER_BLOCK + _SUNNY + ("<think>" if in_turn else "</think>")
+    else:
+        expected += _EOS
+    if not current_turn:
+        messages.append({"role": "user", "content": "Again"})
+        expected += "<｜User｜>Again<｜Assistant｜>" + (
+            "<think>" if thinking else "</think>"
+        )
+    tokenizer = _stub_tokenizer() if use_tokenizer else None
+    assert (
+        await _replay(
+            messages,
+            thinking,
+            tokenizer=tokenizer,
+            generation=messages[-1]["role"] != "assistant",
+        )
+        == expected
+    )
 
 
 @pytest.mark.asyncio
