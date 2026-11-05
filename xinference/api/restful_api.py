@@ -5225,19 +5225,18 @@ class RESTfulAPI(CancelMixin):
         is_vllm_backend = await model.is_vllm_backend()
         if cache_session is not None:
             tag = self._cache_session_tag(request, cache_session)
-            if is_vllm_backend:
-                try:
-                    await asyncio.wait_for(
-                        supervisor_ref.update_cache_session(model_uid, tag.to_dict()),
-                        timeout=1,
-                    )
-                except Exception:
-                    logger.debug(
-                        "Agent cache hint unavailable; continuing chat", exc_info=True
-                    )
-                else:
-                    for config in (kwargs, raw_kwargs):
-                        config[CACHE_SESSION_ARG] = tag
+            try:
+                await asyncio.wait_for(
+                    supervisor_ref.update_cache_session(model_uid, tag.to_dict()),
+                    timeout=1,
+                )
+            except Exception:
+                logger.debug(
+                    "Agent cache hint unavailable; continuing chat", exc_info=True
+                )
+            else:
+                for config in (kwargs, raw_kwargs):
+                    config[CACHE_SESSION_ARG] = tag
         model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
         if is_vllm_backend:
             kwargs.pop("request_id", None)

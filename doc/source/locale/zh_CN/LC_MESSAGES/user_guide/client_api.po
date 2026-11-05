@@ -292,8 +292,8 @@ msgid "Agent cache lifecycle"
 msgstr "Agent 缓存生命周期"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
-msgstr "受支持的 vLLM Xavier 混合架构 GPU 前缀模型会声明 ``supports_agent_cache_lifecycle: true``。通过 OpenAI 客户端的 ``extra_body`` 或 Xinference 客户端的 ``generate_config``，为聊天请求附加 ``cache_session={\"id\": \"run-1\", \"revision\": 0}``。会话 ID 按请求凭证隔离。缓存隔离仍使用 ``cache_salt``。"
+msgid "Supported Xavier adapters for vLLM hybrid models, SGLang, TRT-LLM and MLX advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "支持生命周期的 vLLM 混合模型、SGLang、TRT-LLM 和 MLX Xavier 适配器会声明 ``supports_agent_cache_lifecycle: true``。通过 OpenAI 客户端的 ``extra_body`` 或 Xinference 客户端的 ``generate_config``，为聊天请求附加 ``cache_session={\"id\": \"run-1\", \"revision\": 0}``。会话 ID 按请求凭证隔离。缓存隔离仍使用 ``cache_salt``。"
 
 #: ../../source/user_guide/client_api.rst:103
 msgid ""
@@ -311,15 +311,8 @@ msgstr ""
 "前必须增加版本号。重复发送相同版本和阶段可刷新 300 秒的有效期。Xagent 自动发送阶段变更；等待超过五分钟时需要显式刷新提示。"
 
 #: ../../source/user_guide/client_api.rst:105
-msgid ""
-"Waiting prefixes are placed later in the engine's eviction order, with chain"
-" tails evicted before heads. Finished sessions follow normal LRU eviction. "
-"Blocks remain available for allocation, and active requests and transfer "
-"leases retain their ownership. Capacity limits and normal recomputation "
-"still apply."
-msgstr ""
-"等待中的前缀会在淘汰顺序中靠后，块链尾部先于头部被淘汰。结束的会话按普通 LRU "
-"策略淘汰。所有块仍可用于分配，活跃请求和传输租约保持其所有权。容量限制和正常重算仍然适用。"
+msgid "Waiting prefixes receive a soft retention preference: vLLM reorders free hybrid GPU blocks; all four adapters refresh shared CPU prefixes, and LMCache can prefetch a bounded prefix from disk. Finished or expired sessions lose this preference without deleting shared pages. Blocks remain allocatable; active requests and transfer leases keep ownership. Storage failures fall back to prefill. P/D lifecycle hints are not supported."
+msgstr "等待中的前缀获得软保留优先级：vLLM 调整空闲混合架构 GPU 块的顺序；四种适配器都会刷新共享 CPU 前缀，LMCache 还可从磁盘预取有界前缀。会话结束或过期后取消优先级，不删除共享页面。块始终可供分配，活跃请求和传输租约保持所有权。存储失败时回退到预填充。P/D 暂不支持生命周期提示。"
 
 #: ../../source/user_guide/client_api.rst:101
 msgid ""

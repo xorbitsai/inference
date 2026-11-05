@@ -276,8 +276,8 @@ msgid "Agent cache lifecycle"
 msgstr "Ciclo de vida do cache de agentes"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
-msgstr "Os modelos vLLM Xavier compatíveis com prefixos híbridos na GPU anunciam ``supports_agent_cache_lifecycle: true``. Adicione ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` às solicitações de chat por meio de ``extra_body`` do cliente OpenAI ou ``generate_config`` do cliente Xinference. Os IDs de sessão são limitados às credenciais da solicitação. O isolamento do cache continua usando ``cache_salt``."
+msgid "Supported Xavier adapters for vLLM hybrid models, SGLang, TRT-LLM and MLX advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "Os adaptadores Xavier compatíveis com modelos híbridos vLLM, SGLang, TRT-LLM e MLX anunciam ``supports_agent_cache_lifecycle: true``. Adicione ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` às solicitações de chat por meio de ``extra_body`` do cliente OpenAI ou ``generate_config`` do cliente Xinference. Os IDs de sessão são limitados às credenciais da solicitação. O isolamento do cache continua usando ``cache_salt``."
 
 #: ../../source/user_guide/client_api.rst:103
 msgid ""
@@ -298,18 +298,8 @@ msgstr ""
 "minutos exigem renovações explícitas."
 
 #: ../../source/user_guide/client_api.rst:105
-msgid ""
-"Waiting prefixes are placed later in the engine's eviction order, with chain"
-" tails evicted before heads. Finished sessions follow normal LRU eviction. "
-"Blocks remain available for allocation, and active requests and transfer "
-"leases retain their ownership. Capacity limits and normal recomputation "
-"still apply."
-msgstr ""
-"Os prefixos em espera são removidos mais tarde, descartando as caudas das "
-"cadeias antes das cabeças. Sessões finalizadas seguem a remoção LRU normal. "
-"Os blocos continuam disponíveis para alocação e as solicitações ativas e os "
-"leases de transferência mantêm sua propriedade. Os limites de capacidade e o"
-" recálculo normal continuam aplicáveis."
+msgid "Waiting prefixes receive a soft retention preference: vLLM reorders free hybrid GPU blocks; all four adapters refresh shared CPU prefixes, and LMCache can prefetch a bounded prefix from disk. Finished or expired sessions lose this preference without deleting shared pages. Blocks remain allocatable; active requests and transfer leases keep ownership. Storage failures fall back to prefill. P/D lifecycle hints are not supported."
+msgstr "Os prefixos em espera recebem preferência de retenção: o vLLM reordena os blocos híbridos livres na GPU; os quatro adaptadores atualizam os prefixos compartilhados na CPU, e o LMCache pode pré-carregar um prefixo limitado do disco. Sessões encerradas ou expiradas perdem essa preferência sem excluir páginas compartilhadas. Os blocos continuam alocáveis; solicitações ativas e concessões de transferência mantêm a propriedade. Falhas de armazenamento recorrem ao prefill. Indicações de ciclo de vida P/D não são suportadas."
 
 #: ../../source/user_guide/client_api.rst:101
 msgid ""

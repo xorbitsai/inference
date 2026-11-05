@@ -19,8 +19,9 @@ from vllm.v1.kv_cache_interface import FullAttentionSpec, MambaSpec
 from vllm.v1.metrics.cache_hit_source import CacheHitSource
 from vllm.v1.request import RequestStatus
 
-from ...xavier.cache_lifecycle import CACHE_SESSION_ARG, order_free_session_blocks
+from ...xavier.cache_lifecycle import CACHE_SESSION_ARG
 from ...xavier.contract import fingerprint_metadata
+from .cache_lifecycle import order_free_session_blocks
 from .v1_connector import XavierConnector, XavierConnectorMetadata, XavierLoadRequest
 
 logger = logging.getLogger(__name__)

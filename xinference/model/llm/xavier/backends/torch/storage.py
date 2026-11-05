@@ -2,7 +2,9 @@
 # Licensed under the Apache License, Version 2.0.
 """Supervisor-owned shared pages using native CPU or LMCache storage."""
 
+import asyncio
 import hashlib
+import logging
 import time
 import uuid
 from typing import Optional
@@ -10,12 +12,17 @@ from typing import Optional
 import torch
 import xoscar as xo
 
+from ...cache_lifecycle import SessionPrefixPolicy
 from ...contract import KVCacheContract, fingerprint_metadata
 from ..config import normalize_cache_backend
 from .backend import SnapshotBackend, create_snapshot_backend, read_page_snapshots
 
 
 class XavierCacheActor(xo.StatelessActor):
+    _namespace: Optional[str]
+    _page_elements: int
+    _store: Optional[SnapshotBackend]
+
     @classmethod
     def default_uid(cls):
         return "xavier-cache"
@@ -46,6 +53,52 @@ class XavierCacheActor(xo.StatelessActor):
             imported_pages=0,
         )
         self._handoffs: dict[str, tuple[list[int], float, bool]] = {}
+        self._sessions = SessionPrefixPolicy()
+        self._session_warmup = None
+
+    def get_cache_sessions(self, session_ids):
+        return self._sessions.registry.get(session_ids)
+
+    def bind_cache_session(self, session, keys):
+        return self._sessions.bind(session, keys)
+
+    def update_cache_session(self, session):
+        accepted = self._sessions.registry.update(session)
+        self._order_waiting_prefixes()
+        if (
+            accepted
+            and session["phase"] == "waiting"
+            and self._backend_name == "lmcache"
+            and self._store is not None
+            and (self._session_warmup is None or self._session_warmup.done())
+        ):
+            self._session_warmup = asyncio.create_task(self._warm_waiting_prefix())
+        return accepted
+
+    def _waiting_storage_keys(self):
+        if self._namespace is None:
+            return []
+        return XavierCacheActor._keys(
+            self, self._namespace, self._sessions.waiting_keys(), limit=4096
+        )
+
+    def _order_waiting_prefixes(self):
+        if self._store is not None:
+            self._store.ready_keys(self._waiting_storage_keys())
+
+    async def _warm_waiting_prefix(self):
+        # Refresh a bounded set through real reads: an LMCache directory hit
+        # alone does not establish residency after independent disk eviction.
+        keys = self._waiting_storage_keys()
+        limit = max(
+            1, min(self._store.capacity, 16 * 1024**2 // (self._page_elements * 2))
+        )
+        try:
+            await read_page_snapshots(self._store, list(reversed(keys))[:limit])
+        except Exception:
+            logging.getLogger(__name__).debug(
+                "Agent cache warmup missed", exc_info=True
+            )
 
     def configure(self, contract: dict, storage_format: dict) -> str:
         contract_obj = KVCacheContract.from_dict(contract)
@@ -172,6 +225,7 @@ class XavierCacheActor(xo.StatelessActor):
                 )
         results = []
         for key, page in zip(storage_keys, pages):
+            self._order_waiting_prefixes()
             self._store.stage("page", [key], page.view(torch.float16).unsqueeze(0))
             results.append(bool(self._store.publish([key], {"page"})))
         self._counts["stored_pages"] += sum(results)
@@ -235,5 +289,8 @@ class XavierCacheActor(xo.StatelessActor):
         }
 
     async def __pre_destroy__(self):
+        if self._session_warmup is not None:
+            self._session_warmup.cancel()
+            await asyncio.gather(self._session_warmup, return_exceptions=True)
         if self._store is not None:
             await self._store.close()

@@ -1658,3 +1658,35 @@ async def test_shared_prefix_metal_imports_and_exports_foreign_canonical_pages(d
             await actor.get(c.fingerprint, prefix_keys(tokens[:-1], cache_salt="b"))
             == pages
         )
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_binds_mlx_salted_pages_before_fetch(monkeypatch):
+    from ...xavier.cache_lifecycle import CACHE_SESSION_ARG, CacheSessionTag
+    from ..core import MLXModel
+
+    model = MLXModel.__new__(MLXModel)
+    model.model_uid = "model"
+    model._model = object()
+    model._tokenizer = SimpleNamespace(encode=lambda p: list(range(129)))
+    model._model_generation_config = {}
+    model._batch_model = SimpleNamespace(generate_stream=MagicMock())
+    model._xavier = MLXXavierCache(contract(), {"address": "storage", "uid": "cache"})
+    model._xavier.fetch = AsyncMock(return_value=([], 0))
+    actor = SimpleNamespace(bind_cache_session=AsyncMock(return_value=True))
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=actor))
+    session = CacheSessionTag("scoped", 0)
+    stream = await model.async_generate(
+        "prompt",
+        {
+            CACHE_SESSION_ARG: session,
+            "cache_salt": "tenant",
+            "stream": True,
+            "max_tokens": 2,
+        },
+    )
+    actor.bind_cache_session.assert_awaited_once_with(
+        session.to_dict(), model._xavier.keys(list(range(129)), "tenant")
+    )
+    model._xavier.fetch.assert_awaited_once()
+    await stream.aclose()
