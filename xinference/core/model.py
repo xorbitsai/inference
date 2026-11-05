@@ -119,6 +119,12 @@ def register_batching_multimodal_models(*model_names: str):
     return decorator
 
 
+def _has_request_capacity(model: "ModelActor") -> bool:
+    realtime = getattr(model, "_realtime_runtime", None)
+    realtime_count = realtime.active_count if realtime is not None else 0
+    return 1 + model._serve_count + realtime_count <= model._request_limits
+
+
 def request_limit(fn):
     """
     Used by ModelActor.
@@ -136,9 +142,7 @@ def request_limit(fn):
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
-        realtime = getattr(self, "_realtime_runtime", None)
-        realtime_count = realtime.active_count if realtime is not None else 0
-        if 1 + self._serve_count + realtime_count <= self._request_limits:
+        if _has_request_capacity(self):
             self._serve_count += 1
         else:
             await self.record_metrics(
@@ -2202,6 +2206,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     async def get_pending_requests_count(self):
         return self._pending_requests.qsize()
+
+    async def can_accept_chat_request(self) -> bool:
+        return self._model_state == "ready" and _has_request_capacity(self)
 
     @log_async(logger=logger)
     async def free_model_cache(self, request_id: str):

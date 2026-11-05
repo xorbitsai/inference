@@ -22,7 +22,7 @@ import signal
 import time
 import typing
 import weakref
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from logging import getLogger
@@ -237,11 +237,16 @@ class WorkerStatus:
 @dataclass
 class ReplicaInfo:
     replica: int
-    scheduler: Iterator
+    scheduler: Iterator[int]
     replica_to_worker_refs: DefaultDict[int, List[xo.ActorRefType["WorkerActor"]]] = (
         field(default_factory=lambda: defaultdict(list))
     )
     active_replica_ids: List[int] = field(default_factory=list)
+    routing_keys: OrderedDict[str, int] = field(default_factory=OrderedDict)
+
+
+_MAX_ROUTING_KEYS_PER_MODEL = 4096
+_AFFINITY_CAPACITY_TIMEOUT = 1
 
 
 @dataclass
@@ -6426,7 +6431,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self._schedule_autostart()
 
     @log_async(logger=logger)
-    async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
+    async def get_model(
+        self, model_uid: str, routing_key: Optional[str] = None
+    ) -> xo.ActorRefType["ModelActor"]:
         if model_uid in self._pd_model_mapping:
             if model_uid not in self._pd_roles:
                 raise ModelNotReadyError(f"PD model {model_uid} is not ready")
@@ -6442,10 +6449,127 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if not replica_info.active_replica_ids:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        replica_model_uid = build_replica_model_uid(
-            model_uid, next(replica_info.scheduler)
+        if routing_key is not None:
+            return await self._get_affinity_model(model_uid, replica_info, routing_key)
+        return await self._get_replica_model(model_uid, next(replica_info.scheduler))
+
+    async def _get_affinity_model(
+        self, model_uid: str, info: ReplicaInfo, routing_key: str
+    ) -> xo.ActorRefType["ModelActor"]:
+        routes = info.routing_keys
+        preferred = routes.get(routing_key)
+        if preferred is None or preferred not in info.active_replica_ids:
+            preferred = next(info.scheduler)
+            # Publish the first choice before awaiting a worker so concurrent
+            # requests for a new key start with the same replica.
+            routes[routing_key] = preferred
+        routes.move_to_end(routing_key)
+        if len(routes) > _MAX_ROUTING_KEYS_PER_MODEL:
+            routes.popitem(last=False)
+        # Consume the scheduler only when falling back, so displaced sessions
+        # spread across replicas without disturbing ordinary sticky requests.
+        candidates = itertools.chain(
+            (preferred,),
+            (
+                replica
+                for replica in itertools.islice(
+                    info.scheduler, len(info.active_replica_ids)
+                )
+                if replica != preferred
+            ),
+        )
+        busy = None
+        last_error: Optional[Exception] = None
+        preserve_route = False
+        for replica in candidates:
+            try:
+                try:
+                    model = await self._get_replica_model(model_uid, replica)
+                except Exception as exc:
+                    cause = getattr(exc, "__wrapped__", exc)
+                    if type(cause) is not Exception:
+                        raise
+                    # Retained Workers report last_error as a plain Exception.
+                    # Confirm the diagnostic, or its removal during cleanup.
+                    status = await xo.wait_for(
+                        self.get_model_status(
+                            build_replica_model_uid(model_uid, replica)
+                        ),
+                        _AFFINITY_CAPACITY_TIMEOUT,
+                    )
+                    if status is not None and (
+                        not status.last_error or status.last_error not in str(exc)
+                    ):
+                        raise
+                    logger.warning(
+                        "Skipping unavailable chat replica %s",
+                        build_replica_model_uid(model_uid, replica),
+                        exc_info=True,
+                    )
+                    last_error = exc
+                    continue
+                available = True
+                if len(info.active_replica_ids) > 1:
+                    try:
+                        available = await xo.wait_for(
+                            model.can_accept_chat_request(), _AFFINITY_CAPACITY_TIMEOUT
+                        )
+                    except asyncio.TimeoutError:
+                        # A slow probe does not establish that a live actor is
+                        # unavailable. Keep it as a fallback and retain affinity.
+                        available = False
+                        if replica == preferred:
+                            preserve_route = True
+                    except AttributeError as exc:
+                        # Supervisor upgrades retain actors from older versions.
+                        if "has no attribute 'can_accept_chat_request'" not in str(exc):
+                            raise
+            except ModelNotReadyError:
+                continue
+            except (
+                RuntimeError,
+                ValueError,
+                ConnectionError,
+                asyncio.TimeoutError,
+                xo.ActorNotExist,
+                xo.ServerClosed,
+            ) as exc:
+                logger.warning(
+                    "Skipping unavailable chat replica %s",
+                    build_replica_model_uid(model_uid, replica),
+                    exc_info=True,
+                )
+                last_error = exc
+                continue
+            if self._model_uid_to_replica_info.get(model_uid) is not info:
+                break
+            if replica not in info.active_replica_ids:
+                continue
+            if available:
+                # A concurrent request may already have moved or evicted this key.
+                if not preserve_route and routes.get(routing_key) == preferred:
+                    routes[routing_key] = replica
+                return model
+            if busy is None:
+                busy = (replica, model)
+        if (
+            busy is not None
+            and self._model_uid_to_replica_info.get(model_uid) is info
+            and busy[0] in info.active_replica_ids
+        ):
+            # Preserve the model's normal admission/error handling when every
+            # reachable replica is at its limit or reloading.
+            return busy[1]
+        if last_error is not None:
+            raise last_error
+        raise ModelNotReadyError(
+            f"Model {model_uid} has no ready replica, please retry later"
         )
 
+    async def _get_replica_model(
+        self, model_uid: str, replica_id: int
+    ) -> xo.ActorRefType["ModelActor"]:
+        replica_model_uid = build_replica_model_uid(model_uid, replica_id)
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
             # replica_info exists but worker route not yet registered —
@@ -6492,7 +6616,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     @log_async(logger=logger)
     async def describe_model(
-        self, model_uid: str, for_recovery: bool = False
+        self,
+        model_uid: str,
+        for_recovery: bool = False,
+        *,
+        selected_replica_uid: Optional[str] = None,
     ) -> Dict[str, Any]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if for_recovery and (
@@ -6506,10 +6634,23 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
         if not replica_info.active_replica_ids:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        # Use the first live replica to avoid consuming the scheduler.
-        replica_model_uid = build_replica_model_uid(
-            model_uid, replica_info.active_replica_ids[0]
-        )
+        if selected_replica_uid is not None and model_uid not in self._pd_model_mapping:
+            selected_model_uid, replica_id = parse_replica_model_uid(
+                selected_replica_uid
+            )
+            if (
+                selected_model_uid != model_uid
+                or replica_id not in replica_info.active_replica_ids
+            ):
+                raise ModelNotReadyError(
+                    f"Model {model_uid}'s selected replica is no longer ready"
+                )
+            replica_model_uid = selected_replica_uid
+        else:
+            # Use the first live replica to avoid consuming the scheduler.
+            replica_model_uid = build_replica_model_uid(
+                model_uid, replica_info.active_replica_ids[0]
+            )
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
             raise ModelNotReadyError(
@@ -7594,6 +7735,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             description["supports_thinking_budget"] = (
                 await self._supports_thinking_budget(model_uid)
             )
+            if (
+                "chat" in description.get("model_ability", [])
+                and model_uid not in self._pd_model_mapping
+            ):
+                description["supports_chat_session_affinity"] = True
         return description
 
     async def _supports_thinking_budget(self, model_uid: str) -> bool:

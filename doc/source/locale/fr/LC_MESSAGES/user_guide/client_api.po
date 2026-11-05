@@ -252,3 +252,27 @@ msgstr "Pour les requêtes sans streaming, les dépassements reconnus de longueu
 #: ../../source/user_guide/client_api.rst
 msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
 msgstr "Après le début d’une réponse en streaming, son statut HTTP reste 200. Les défaillances sont transmises dans une charge utile SSE ``error``. Les erreurs reconnues de longueur de contexte et de limite de débit conservent des messages sûrs distincts ; les défaillances inattendues utilisent le message générique."
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Chat replica affinity"
+msgstr "Affinité des répliques de chat"
+
+#: ../../source/user_guide/client_api.rst:108
+msgid "For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation."
+msgstr "Pour un modèle doté de répliques de chat ordinaires, transmettez la même valeur facultative de ``routing_key`` à chaque requête d’une session. Xinference privilégie la dernière réplique sélectionnée pour ce modèle, cet identifiant d’authentification et cette clé. Si la réplique est indisponible ou a atteint la limite de requêtes configurée, Xinference en essaie une autre. Les requêtes sans clé sont distribuées à tour de rôle. La clé doit comporter au plus 128 caractères et contenir au moins un caractère autre qu’un espace blanc. Elle ne détermine pas l’isolation du cache."
+
+#: ../../source/user_guide/client_api.rst:110
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
+msgstr "Renseignez ``routing_key`` dans ``extra_body`` avec le client OpenAI ou dans ``generate_config`` avec le client Xinference. Pour les modèles compatibles, la réponse de ``GET /v1/models/{model_uid}`` contient ``supports_chat_session_affinity: true``."
+
+#: ../../source/user_guide/client_api.rst:112
+msgid ""
+"Xinference retains at most 4096 routing keys per model in a least-recently-"
+"used table shared across credentials. High key churn from one credential can"
+" evict another credential's affinity; this affects replica preference only."
+msgstr ""
+"Xinference conserve au maximum 4096 clés de routage par modèle dans une "
+"table partagée entre les identifiants, qui évince les entrées les moins "
+"récemment utilisées. Un renouvellement fréquent des clés par un identifiant "
+"peut évincer l’affinité d’un autre ; seule la préférence de réplique est "
+"affectée."

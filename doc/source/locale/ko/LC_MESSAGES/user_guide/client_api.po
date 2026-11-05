@@ -251,3 +251,24 @@ msgstr "비스트리밍 요청에서 인식된 컨텍스트 길이 초과와 알
 #: ../../source/user_guide/client_api.rst
 msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
 msgstr "스트리밍 응답이 시작된 후에는 HTTP 상태가 200으로 유지됩니다. 오류는 SSE ``error`` 페이로드로 전송됩니다. 인식된 컨텍스트 길이 및 요청 속도 제한 오류에는 서로 다른 안전한 메시지를 사용하고, 예기치 않은 오류에는 일반 메시지를 사용합니다."
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Chat replica affinity"
+msgstr "채팅 복제본 세션 선호도"
+
+#: ../../source/user_guide/client_api.rst:108
+msgid "For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation."
+msgstr "일반 채팅 복제본을 사용하는 모델에서는 같은 세션의 모든 요청에 동일한 선택적 ``routing_key`` 값을 보냅니다. Xinference는 모델, 인증 정보, 키 조합에 대해 마지막으로 선택한 복제본을 우선 사용합니다. 해당 복제본을 사용할 수 없거나 설정된 요청 한도에 도달하면 다른 복제본을 시도합니다. 키가 없는 요청은 라운드 로빈으로 분배합니다. 키는 공백이 아닌 문자를 하나 이상 포함하는 최대 128자의 문자열이며 캐시 격리를 제어하지 않습니다."
+
+#: ../../source/user_guide/client_api.rst:110
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
+msgstr "OpenAI 클라이언트에서는 ``extra_body`` 필드에, Xinference 클라이언트에서는 ``generate_config`` 필드에 ``routing_key`` 값을 설정합니다. 이 기능을 지원하는 모델의 경우 ``GET /v1/models/{model_uid}`` 응답에 ``supports_chat_session_affinity: true`` 값이 포함됩니다."
+
+#: ../../source/user_guide/client_api.rst:112
+msgid ""
+"Xinference retains at most 4096 routing keys per model in a least-recently-"
+"used table shared across credentials. High key churn from one credential can"
+" evict another credential's affinity; this affects replica preference only."
+msgstr ""
+"Xinference는 모델별로 최대 4096개의 라우팅 키를 자격 증명 간에 공유되는 LRU 테이블에 보관합니다. 한 자격 증명에서 새 "
+"키를 대량으로 사용하면 다른 자격 증명의 친화성 항목이 제거될 수 있으며, 이는 선호 복제본 선택에만 영향을 줍니다."

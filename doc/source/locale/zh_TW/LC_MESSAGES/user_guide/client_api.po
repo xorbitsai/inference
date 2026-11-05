@@ -226,3 +226,24 @@ msgstr "非串流請求中，已識別的上下文長度超限，以及已知的
 #: ../../source/user_guide/client_api.rst
 msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
 msgstr "串流回應開始後，HTTP 狀態維持為 200。錯誤透過 SSE 的 ``error`` 負載傳送。已識別的上下文長度與限流錯誤保留各自不同的安全提示；非預期錯誤使用通用訊息。"
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Chat replica affinity"
+msgstr "聊天副本工作階段親和路由"
+
+#: ../../source/user_guide/client_api.rst:108
+msgid "For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation."
+msgstr "模型使用一般聊天副本時，可在同一工作階段的每個請求中傳送相同的 ``routing_key``。Xinference 會優先使用該模型、憑證與路由鍵上次選取的副本。副本無法使用或已達設定的請求上限時，Xinference 會嘗試其他副本。未提供路由鍵的請求會輪流分配。路由鍵必須是長度不超過 128 個字元的非空白字串，只用於選取副本。快取隔離由快取設定決定。"
+
+#: ../../source/user_guide/client_api.rst:110
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
+msgstr "使用 OpenAI 用戶端時，在 ``extra_body`` 中設定 ``routing_key``。使用 Xinference 用戶端時，在 ``generate_config`` 中設定。 對於支援此功能的模型，``GET /v1/models/{model_uid}`` 的回應包含 ``supports_chat_session_affinity: true``。"
+
+#: ../../source/user_guide/client_api.rst:112
+msgid ""
+"Xinference retains at most 4096 routing keys per model in a least-recently-"
+"used table shared across credentials. High key churn from one credential can"
+" evict another credential's affinity; this affects replica preference only."
+msgstr ""
+"Xinference 為每個模型最多保留 4096 "
+"個路由鍵，儲存在所有憑證共用的最近最少使用（LRU）表中。某個憑證頻繁使用新鍵，可能擠出其他憑證的親和記錄；這只影響副本選擇偏好。"
