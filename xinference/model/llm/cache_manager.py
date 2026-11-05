@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ..cache_manager import CacheManager
@@ -354,15 +355,22 @@ class LLMCacheManager(CacheManager):
         # A missing main file does not authorize replacing another recorded
         # source's shards or projector, even when both hubs are declared.
         allowed = [source] if downloading and may_record else declared
+        used_sources = [
+            value
+            for key, value in records.items()
+            if any(refers_to_file(key, name) for name in files)
+        ]
         recorded = next(
-            (
-                value
-                for key, value in records.items()
-                if any(refers_to_file(key, name) for name in files)
-                and value not in allowed
-            ),
+            (value for value in used_sources if value not in allowed),
             None,
         )
+        if recorded is None and any(value != used_sources[0] for value in used_sources):
+            raise ValueError(
+                f"Cannot reuse cache directory {self._cache_dir} for model "
+                f"{self._model_name}: files used together were downloaded from "
+                f"different sources. Remove that directory if the old files are "
+                f"no longer needed, or register the model under another name."
+            )
         if recorded is None:
             if downloading and may_record:
                 if self._model_format == "ggufv2" and self._gguf_file_names()[2]:
@@ -699,6 +707,30 @@ class LLMCacheManager(CacheManager):
 
         return cache_dir
 
+    def _cache_lock_key(self, lock_dir: str) -> str:
+        # Parent identity plus filename stays stable before the destination exists.
+        parent, name = os.path.split(os.path.realpath(self._cache_dir))
+        insensitive = True  # Conservatively serialize aliases if probing fails.
+        try:
+            with contextlib.ExitStack() as stack:
+                # The permanent lock directory is an entry inside the parent whose
+                # case sensitivity governs the destination's name, even on macOS.
+                probe = lock_dir
+                if not os.path.samefile(parent, os.path.dirname(lock_dir)):
+                    probe = stack.enter_context(
+                        tempfile.TemporaryDirectory(prefix=".case-", dir=parent)
+                    )
+                alias = os.path.join(parent, os.path.basename(probe).swapcase())
+                insensitive = os.path.exists(alias) and os.path.samefile(probe, alias)
+        except OSError:
+            pass
+        if insensitive:
+            name = name.casefold()
+        identity = os.stat(parent)
+        return hashlib.sha256(
+            f"{identity.st_dev}:{identity.st_ino}:{name}".encode()
+        ).hexdigest()
+
     def cache(self) -> str:
         if self._model_uri is not None:
             self._check_source(may_record=False)
@@ -709,11 +741,9 @@ class LLMCacheManager(CacheManager):
         from filelock import FileLock
 
         key = hashlib.sha256(f"{self._model_hub}:{self._model_id}".encode()).hexdigest()
-        cache_key = hashlib.sha256(
-            os.path.normcase(os.path.abspath(self._cache_dir)).encode()
-        ).hexdigest()
         lock_dir = os.path.join(self._v2_cache_dir_prefix, ".download-locks")
         os.makedirs(lock_dir, exist_ok=True)
+        cache_key = self._cache_lock_key(lock_dir)
         # Different repositories can share a destination. Keep its record and
         # cache-status check serialized through the entire download as well.
         with (
