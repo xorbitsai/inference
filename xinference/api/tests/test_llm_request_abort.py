@@ -87,6 +87,60 @@ async def test_chat_routing_key_is_scoped_to_the_credential(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("peer_ready", [True, False])
+async def test_chat_describes_live_peer_when_selected_replica_was_removed(
+    monkeypatch, peer_ready
+):
+    from ...core.supervisor import SupervisorActor
+    from ...core.utils import build_replica_model_uid
+
+    model = SimpleNamespace(
+        uid=b"affinity-race-rep1",
+        chat=AsyncMock(return_value=b'{"choices": []}'),
+        is_vllm_backend=AsyncMock(return_value=False),
+        is_transformers_batching_enabled=AsyncMock(return_value=False),
+    )
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    info = supervisor._build_replica_info(2)
+    supervisor._model_uid_to_replica_info = {"affinity-race": info}
+    worker = SimpleNamespace(
+        describe_model=AsyncMock(return_value={"model_family": "test-family"})
+    )
+    supervisor._replica_model_uid_to_worker = (
+        {build_replica_model_uid("affinity-race", 0): worker} if peer_ready else {}
+    )
+
+    async def get_model(*args, **kwargs):
+        info.active_replica_ids.remove(1)
+        return model
+
+    supervisor.get_model = AsyncMock(side_effect=get_model)
+    api = _new_api()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    request = _Request(
+        {
+            "model": "affinity-race",
+            "messages": [{"role": "user", "content": "hello"}],
+            "routing_key": "task",
+        }
+    )
+    if peer_ready:
+        response = await api.create_chat_completion(request)
+        assert response.body == b'{"choices": []}'
+        worker.describe_model.assert_awaited_once_with(model_uid="affinity-race-rep0")
+        model.chat.assert_awaited_once()
+    else:
+        with pytest.raises(HTTPException) as caught:
+            await api.create_chat_completion(request)
+        assert caught.value.status_code == 503
+        assert caught.value.headers["Retry-After"] == "30"
+        model.chat.assert_not_awaited()
+    api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("key", [False, 42, "", " ", "a" * 129])
 async def test_chat_rejects_invalid_routing_keys_before_dispatch(key):
     api = _new_api()

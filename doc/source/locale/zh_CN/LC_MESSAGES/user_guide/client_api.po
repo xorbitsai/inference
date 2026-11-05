@@ -276,4 +276,13 @@ msgstr "模型使用普通聊天副本时，可在同一会话的每个请求中
 
 #: ../../source/user_guide/client_api.rst:110
 msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
-msgstr "使用 OpenAI 客户端时，在 ``extra_body`` 中设置 ``routing_key``。使用 Xinference 客户端时，在 ``generate_config`` 中设置。 对于支持此功能的模型，``GET /v1/models/{model_uid}`` 的响应包含 ``supports_chat_session_affinity: true``。"
+msgstr "使用 OpenAI 客户端时，在 ``extra_body`` 中设置 ``routing_key``。使用 Xinference 客户端时，在 ``generate_config`` 中设置。对于支持此功能的模型，``GET /v1/models/{model_uid}`` 的响应包含 ``supports_chat_session_affinity: true``。"
+
+#: ../../source/user_guide/client_api.rst:112
+msgid ""
+"Xinference retains at most 4096 routing keys per model in a least-recently-"
+"used table shared across credentials. High key churn from one credential can"
+" evict another credential's affinity; this affects replica preference only."
+msgstr ""
+"Xinference 为每个模型最多保留 4096 "
+"个路由键，存储在所有凭证共享的最近最少使用（LRU）表中。某个凭证频繁使用新键，可能挤出其他凭证的亲和记录；这只影响副本选择偏好。"

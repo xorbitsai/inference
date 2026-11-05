@@ -6465,11 +6465,21 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         routes.move_to_end(routing_key)
         if len(routes) > _MAX_ROUTING_KEYS_PER_MODEL:
             routes.popitem(last=False)
-        candidates = [
-            preferred,
-            *(replica for replica in info.active_replica_ids if replica != preferred),
-        ]
+        # Consume the scheduler only when falling back, so displaced sessions
+        # spread across replicas without disturbing ordinary sticky requests.
+        candidates = itertools.chain(
+            (preferred,),
+            (
+                replica
+                for replica in itertools.islice(
+                    info.scheduler, len(info.active_replica_ids)
+                )
+                if replica != preferred
+            ),
+        )
         busy = None
+        last_error: Optional[Exception] = None
+        preserve_route = False
         for replica in candidates:
             try:
                 try:
@@ -6490,26 +6500,45 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         not status.last_error or status.last_error not in str(exc)
                     ):
                         raise
+                    logger.warning(
+                        "Skipping unavailable chat replica %s",
+                        build_replica_model_uid(model_uid, replica),
+                        exc_info=True,
+                    )
+                    last_error = exc
                     continue
                 available = True
-                if len(candidates) > 1:
+                if len(info.active_replica_ids) > 1:
                     try:
                         available = await xo.wait_for(
                             model.can_accept_chat_request(), _AFFINITY_CAPACITY_TIMEOUT
                         )
+                    except asyncio.TimeoutError:
+                        # A slow probe does not establish that a live actor is
+                        # unavailable. Keep it as a fallback and retain affinity.
+                        available = False
+                        if replica == preferred:
+                            preserve_route = True
                     except AttributeError as exc:
                         # Supervisor upgrades retain actors from older versions.
                         if "has no attribute 'can_accept_chat_request'" not in str(exc):
                             raise
+            except ModelNotReadyError:
+                continue
             except (
-                ModelNotReadyError,
                 RuntimeError,
                 ValueError,
                 ConnectionError,
                 asyncio.TimeoutError,
                 xo.ActorNotExist,
                 xo.ServerClosed,
-            ):
+            ) as exc:
+                logger.warning(
+                    "Skipping unavailable chat replica %s",
+                    build_replica_model_uid(model_uid, replica),
+                    exc_info=True,
+                )
+                last_error = exc
                 continue
             if self._model_uid_to_replica_info.get(model_uid) is not info:
                 break
@@ -6517,7 +6546,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 continue
             if available:
                 # A concurrent request may already have moved or evicted this key.
-                if routes.get(routing_key) == preferred:
+                if not preserve_route and routes.get(routing_key) == preferred:
                     routes[routing_key] = replica
                 return model
             if busy is None:
@@ -6530,6 +6559,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             # Preserve the model's normal admission/error handling when every
             # reachable replica is at its limit or reloading.
             return busy[1]
+        if last_error is not None:
+            raise last_error
         raise ModelNotReadyError(
             f"Model {model_uid} has no ready replica, please retry later"
         )

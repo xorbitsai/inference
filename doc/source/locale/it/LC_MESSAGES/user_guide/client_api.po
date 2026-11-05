@@ -262,3 +262,15 @@ msgstr "Per un modello con repliche di chat ordinarie, inviare lo stesso valore 
 #: ../../source/user_guide/client_api.rst:110
 msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
 msgstr "Impostare ``routing_key`` in ``extra_body`` con il client OpenAI o in ``generate_config`` con il client Xinference. Per i modelli compatibili, la risposta di ``GET /v1/models/{model_uid}`` include ``supports_chat_session_affinity: true``."
+
+#: ../../source/user_guide/client_api.rst:112
+msgid ""
+"Xinference retains at most 4096 routing keys per model in a least-recently-"
+"used table shared across credentials. High key churn from one credential can"
+" evict another credential's affinity; this affects replica preference only."
+msgstr ""
+"Xinference conserva al massimo 4096 chiavi di instradamento per modello in "
+"una tabella condivisa tra le credenziali, eliminando prima le voci usate "
+"meno di recente. Un elevato ricambio di chiavi da parte di una credenziale "
+"può eliminare l’affinità di un’altra; questo influisce solo sulla preferenza"
+" della replica."

@@ -263,3 +263,12 @@ msgstr "일반 채팅 복제본을 사용하는 모델에서는 같은 세션의
 #: ../../source/user_guide/client_api.rst:110
 msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
 msgstr "OpenAI 클라이언트에서는 ``extra_body`` 필드에, Xinference 클라이언트에서는 ``generate_config`` 필드에 ``routing_key`` 값을 설정합니다. 이 기능을 지원하는 모델의 경우 ``GET /v1/models/{model_uid}`` 응답에 ``supports_chat_session_affinity: true`` 값이 포함됩니다."
+
+#: ../../source/user_guide/client_api.rst:112
+msgid ""
+"Xinference retains at most 4096 routing keys per model in a least-recently-"
+"used table shared across credentials. High key churn from one credential can"
+" evict another credential's affinity; this affects replica preference only."
+msgstr ""
+"Xinference는 모델별로 최대 4096개의 라우팅 키를 자격 증명 간에 공유되는 LRU 테이블에 보관합니다. 한 자격 증명에서 새 "
+"키를 대량으로 사용하면 다른 자격 증명의 친화성 항목이 제거될 수 있으며, 이는 선호 복제본 선택에만 영향을 줍니다."

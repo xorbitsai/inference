@@ -5194,7 +5194,16 @@ class RESTfulAPI(CancelMixin):
             description_options = (
                 {"selected_replica_uid": model.uid.decode()} if routing_options else {}
             )
-            desc = await supervisor_ref.describe_model(model_uid, **description_options)
+            try:
+                desc = await supervisor_ref.describe_model(
+                    model_uid, **description_options
+                )
+            except ModelNotReadyError:
+                if not description_options:
+                    raise
+                # Scaling may remove the selected replica after lookup. Model
+                # metadata is still available from another live replica.
+                desc = await supervisor_ref.describe_model(model_uid)
         except ModelNotReadyError as e:
             raise HTTPException(
                 status_code=503,

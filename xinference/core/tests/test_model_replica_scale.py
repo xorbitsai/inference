@@ -215,10 +215,127 @@ async def test_chat_affinity_keeps_the_replica_and_reassigns_after_failure():
     models[0].can_accept_chat_request.return_value = True
     assert await supervisor.get_model("demo", routing_key="task-1") is models[1]
     workers[1].get_model.side_effect = ModelNotReadyError("loading")
-    assert await supervisor.get_model("demo", routing_key="task-1") is models[0]
-    info.active_replica_ids.remove(0)
-    supervisor._refresh_replica_scheduler(info)
     assert await supervisor.get_model("demo", routing_key="task-1") is models[2]
+    info.active_replica_ids.remove(2)
+    supervisor._refresh_replica_scheduler(info)
+    assert await supervisor.get_model("demo", routing_key="task-1") is models[0]
+
+
+def _affinity_supervisor(replicas=2, model_uid="demo"):
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    info = supervisor._build_replica_info(replicas)
+    supervisor._model_uid_to_replica_info = {model_uid: info}
+    models = [
+        SimpleNamespace(can_accept_chat_request=AsyncMock(return_value=True))
+        for _ in range(replicas)
+    ]
+    workers = [SimpleNamespace(get_model=AsyncMock(return_value=m)) for m in models]
+    supervisor._replica_model_uid_to_worker = {
+        build_replica_model_uid(model_uid, i): worker
+        for i, worker in enumerate(workers)
+    }
+    return supervisor, info, models, workers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("peer_times_out", [False, True])
+async def test_chat_affinity_probe_timeout_preserves_route(monkeypatch, peer_times_out):
+    from .. import supervisor as supervisor_module
+
+    monkeypatch.setattr(supervisor_module, "_AFFINITY_CAPACITY_TIMEOUT", 0.01)
+    supervisor, info, models, _ = _affinity_supervisor()
+
+    async def slow_probe():
+        await asyncio.sleep(60)
+        return True
+
+    assert await supervisor.get_model("demo", routing_key="task") is models[0]
+    models[0].can_accept_chat_request.side_effect = slow_probe
+    if peer_times_out:
+        models[1].can_accept_chat_request.side_effect = slow_probe
+    expected = models[0] if peer_times_out else models[1]
+    assert await supervisor.get_model("demo", routing_key="task") is expected
+    assert info.routing_keys["task"] == 0
+    models[0].can_accept_chat_request.side_effect = None
+    assert await supervisor.get_model("demo", routing_key="task") is models[0]
+
+
+@pytest.mark.asyncio
+async def test_chat_affinity_all_busy_preserves_model_admission():
+    supervisor, info, models, _ = _affinity_supervisor()
+    for model in models:
+        model.can_accept_chat_request.return_value = False
+    assert await supervisor.get_model("demo", routing_key="task") is models[0]
+    assert info.routing_keys["task"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("replicas", [1, 2])
+@pytest.mark.parametrize(
+    "error,expected_status",
+    [
+        (ModelNotReadyError("loading"), 503),
+        (RuntimeError("model stopped after failure"), 500),
+        (ValueError("model is missing"), 404),
+        (Exception("worker OOM diagnostic"), 500),
+    ],
+)
+async def test_chat_affinity_all_unavailable_preserves_error(
+    replicas, error, expected_status, caplog
+):
+    from fastapi import HTTPException
+
+    from ...api.utils import require_model
+
+    model_uid = f"affinity-{replicas}-{type(error).__name__}"
+    supervisor, _, _, workers = _affinity_supervisor(replicas, model_uid)
+    for worker in workers:
+        worker.get_model.side_effect = error
+    supervisor.get_model_status = AsyncMock(
+        return_value=ModelStatus(last_error=str(error))
+    )
+    report_error = AsyncMock()
+    with pytest.raises(HTTPException) as caught:
+        await require_model(
+            AsyncMock(return_value=supervisor),
+            model_uid,
+            report_error,
+            routing_key="task",
+        )
+    assert caught.value.status_code == expected_status
+    if isinstance(error, ModelNotReadyError):
+        report_error.assert_not_awaited()
+    else:
+        assert str(error) in caught.value.detail
+        report_error.assert_awaited_once_with(model_uid, str(error))
+        assert "Skipping unavailable chat replica" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_chat_affinity_spreads_displaced_sessions():
+    supervisor, info, models, workers = _affinity_supervisor(3)
+    info.routing_keys.update((f"task-{index}", 0) for index in range(6))
+    workers[0].get_model.side_effect = ModelNotReadyError("reloading")
+    selected = [
+        await supervisor.get_model("demo", routing_key=f"task-{index}")
+        for index in range(6)
+    ]
+    assert selected == [models[1], models[2]] * 3
+    assert list(info.routing_keys.values()) == [1, 2] * 3
+
+
+@pytest.mark.asyncio
+async def test_chat_affinity_evicts_least_recently_used_key(monkeypatch):
+    from .. import supervisor as supervisor_module
+
+    monkeypatch.setattr(supervisor_module, "_MAX_ROUTING_KEYS_PER_MODEL", 3)
+    supervisor, info, models, _ = _affinity_supervisor()
+    for key in ("a", "b", "c", "a", "d"):
+        await supervisor.get_model("demo", routing_key=key)
+    assert list(info.routing_keys) == ["c", "a", "d"]
+    assert await supervisor.get_model("demo", routing_key="b") is models[0]
+    assert list(info.routing_keys) == ["a", "d", "b"]
 
 
 @pytest.mark.asyncio
