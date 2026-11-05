@@ -261,8 +261,8 @@ Model Spec 16 (mlx, 8 Billion)
 - **Model Size (in billions):** 8
 - **Quantizations:** none
 - **Engines**: MLX
-- **Model ID:** mlx-community/Meta-Llama-3.1-8B-Instruct
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3.1-8B-Instruct>`__
+- **Model ID:** mlx-community/Meta-Llama-3.1-8B-Instruct-bf16
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3.1-8B-Instruct-bf16>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

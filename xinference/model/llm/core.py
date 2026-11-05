@@ -525,11 +525,17 @@ chat_context_var: ContextVar[dict] = ContextVar("chat_context_var", default={})
 
 def generate_llm_version_info(llm_family: "LLMFamilyV2") -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    # Use model_specs from huggingface, as HuggingFace is the most comprehensive.
-    hf_specs = [
-        spec for spec in llm_family.model_specs if spec.model_hub == "huggingface"
-    ]
-    for spec in hf_specs:
+    # Prefer model_specs from huggingface, as HuggingFace is the most comprehensive.
+    # A variant that only another hub hosts still needs an entry: the cache tracker
+    # only updates existing entries, so its downloads would stay untracked otherwise.
+    seen = set()
+    for spec in sorted(
+        llm_family.model_specs, key=lambda spec: spec.model_hub != "huggingface"
+    ):
+        variant = (spec.model_format, spec.model_size_in_billions, spec.quantization)
+        if spec.model_hub != "huggingface" and variant in seen:
+            continue
+        seen.add(variant)
         _llm_family = llm_family.copy()
         _llm_family.model_specs = [spec]
         multimodal_projectors = getattr(spec, "multimodal_projectors", None)
