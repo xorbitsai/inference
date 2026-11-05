@@ -3,6 +3,7 @@ import type { AxiosRequestConfig } from 'axios';
 import { RequestEvents, NO_AUTH } from '@/constants';
 import { eventBus } from '@/lib/event-bus';
 import { requestManager } from '@/lib/request-manager';
+import { requestErrorExtensions } from '@/lib/request-extensions';
 import { getApiUrl } from '@/lib/utils';
 import {
   getAccessToken,
@@ -138,6 +139,15 @@ requestInstance.interceptors.response.use(
       response.data?.msg ||
       error.message ||
       'Unknown error';
+
+    const extension = requestErrorExtensions.find((rule) => rule.statuses.includes(status));
+    if (extension) {
+      const release = requestManager.acquireErrorLock(extension.event);
+      if (release) {
+        eventBus.emit(extension.event, { status, message: errorMessage, error, release });
+      }
+      return Promise.reject(error);
+    }
 
     switch (status) {
       case 401: {

@@ -1,12 +1,47 @@
 'use client';
 
-import { PropsWithChildren, useEffect } from 'react';
+import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { eventBus } from '@/lib/event-bus';
 import { RequestEvents } from '@/constants';
 import { requestManager } from '@/lib/request-manager';
 import { removeAuthTokens } from '@/lib/auth-storage';
+import { requestErrorExtensions } from '@/lib/request-extensions';
+import type { RequestErrorEvent, RequestErrorExtension } from '@/lib/request-extension-types';
+
+function ExtensionListener({ extension }: { extension: RequestErrorExtension }) {
+  const [error, setError] = useState<RequestErrorEvent | null>(null);
+  const active = useRef<RequestErrorEvent | null>(null);
+
+  useEffect(() => {
+    const handle = (payload?: RequestErrorEvent) => {
+      if (!payload) return;
+      const current = {
+        ...payload,
+        release: () => {
+          payload.release();
+          if (active.current === current) {
+            active.current = null;
+            setError(null);
+          }
+        },
+      };
+      active.current = current;
+      setError(current);
+    };
+    eventBus.on(extension.event, handle);
+    return () => {
+      eventBus.off(extension.event, handle);
+      const pending = active.current;
+      active.current = null;
+      pending?.release();
+    };
+  }, [extension.event]);
+
+  const Handler = extension.Handler;
+  return <Handler error={error} />;
+}
 
 export default function RequestProvider({ children }: PropsWithChildren) {
   const router = useRouter();
@@ -54,5 +89,12 @@ export default function RequestProvider({ children }: PropsWithChildren) {
     };
   }, [router]);
 
-  return <>{children}</>;
+  return (
+    <>
+      {requestErrorExtensions.map((extension) => (
+        <ExtensionListener key={extension.event} extension={extension} />
+      ))}
+      {children}
+    </>
+  );
 }
