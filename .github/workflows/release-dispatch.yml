@@ -1,0 +1,120 @@
+name: Release
+
+# Tags a commit and publishes a GitHub release with regrouped notes. This
+# replaces the manual "inference: release version <v>" flow of the internal
+# xprobebot. Run it from the Actions tab or with:
+#   gh workflow run release-dispatch.yml -f version=v4.2.0
+#
+# The tag and the release are created with the RELEASE_BOT_TOKEN secret instead
+# of GITHUB_TOKEN on purpose: events created with GITHUB_TOKEN do not trigger
+# other workflows, and release.yaml (PyPI), docker-cd.yaml and
+# build-pypiserver-image.yaml (all on tag push) must fire.
+# RELEASE_BOT_TOKEN needs contents:write on this repository.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag, e.g. v4.2.0 (also v4.2.0.rc1, v4.2.0.post1)'
+        required: true
+        type: string
+      ref:
+        description: 'Branch, tag or commit to release'
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release ${{ inputs.version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ inputs.version }}
+      REF: ${{ inputs.ref }}
+    steps:
+      - name: Check inputs and secret
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::The RELEASE_BOT_TOKEN secret is not set. Add a bot PAT or GitHub App token with contents:write as a repository secret; GITHUB_TOKEN cannot be used because the publish workflows would not fire."
+            exit 1
+          fi
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+((\.?rc|a|b|\.post|\.dev)[0-9]+)?$ ]]; then
+            echo "::error::Invalid version '$VERSION'. Expected e.g. v4.2.0, v4.2.0.rc1, v4.2.0.post1."
+            exit 1
+          fi
+          if ! [[ "$REF" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "::error::Invalid ref '$REF'."
+            exit 1
+          fi
+
+      - name: Resolve ref and ensure the tag and release are new
+        run: |
+          exists() {
+            local out
+            if out=$(gh api "$1" 2>&1); then return 0; fi
+            if grep -q "HTTP 404" <<<"$out"; then return 1; fi
+            echo "::error::GitHub API call failed for $1: $out"
+            exit 1
+          }
+          if exists "repos/$GH_REPO/git/ref/tags/$VERSION"; then
+            echo "::error::Tag $VERSION already exists."
+            exit 1
+          fi
+          if exists "repos/$GH_REPO/releases/tags/$VERSION"; then
+            echo "::error::A release for $VERSION already exists."
+            exit 1
+          fi
+          sha=$(gh api "repos/$GH_REPO/commits/$REF" --jq .sha)
+          if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Could not resolve ref '$REF' to a commit."
+            exit 1
+          fi
+          echo "SHA=$sha" >> "$GITHUB_ENV"
+          echo "Releasing $VERSION at $sha ($REF)"
+
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Create tag and release
+        run: |
+          gh api -X POST "repos/$GH_REPO/git/refs" \
+            -f ref="refs/tags/$VERSION" -f sha="$SHA" --silent
+          gh api -X POST "repos/$GH_REPO/releases" \
+            -f tag_name="$VERSION" -f name="$VERSION" -f body="" \
+            -F generate_release_notes=true > release.json
+          echo "RELEASE_ID=$(jq -r .id release.json)" >> "$GITHUB_ENV"
+          echo "RELEASE_URL=$(jq -r .html_url release.json)" >> "$GITHUB_ENV"
+          jq -r .body release.json > notes.md
+
+      - name: Regroup release notes
+        run: |
+          python3 .github/scripts/format_release_notes.py \
+            --repo-name "${GH_REPO#*/}" --date "$(date -u +%F)" notes.md > body.md
+          gh api -X PATCH "repos/$GH_REPO/releases/$RELEASE_ID" \
+            -F body=@body.md --silent
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Release $VERSION"
+            echo
+            echo "- Commit: \`${SHA:-unresolved}\` (\`$REF\`)"
+            if [ -n "${RELEASE_URL:-}" ]; then
+              echo "- Release: $RELEASE_URL"
+            else
+              echo "- Release was not created, see the failed step."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
