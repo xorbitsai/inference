@@ -374,7 +374,7 @@ def test_hybrid_prefix_prefers_gpu(engine, hybrid_prefix_config, cpu_fallback):
             compute_hash=lambda: "model",
         )
     )
-    config = {"role": "hybrid", "gpu_cache_bytes": 0}
+    config = {"role": "hybrid", "gpu_cache_bytes": 0, "world_size": 2}
     if cpu_fallback:
         config.update(hybrid_prefix_config)
     module.XavierEngine.from_engine_args(args, xavier_config=config)
@@ -392,3 +392,15 @@ def test_hybrid_prefix_prefers_gpu(engine, hybrid_prefix_config, cpu_fallback):
         assert transfer.kv_connector == "XavierHybridGPUConnector"
     assert transfer.kv_load_failure_policy == "recompute"
     factory.assert_called_once()
+
+
+def test_single_replica_resident_mode_rejects_non_hybrid_before_engine_start(engine):
+    module, factory = engine
+    module.VLLM_VERSION = "0.32.0"
+    args = SimpleNamespace(create_model_config=lambda: SimpleNamespace(is_hybrid=False))
+    with pytest.raises(ValueError, match="Single-replica.*recurrent-hybrid"):
+        module.XavierEngine.from_engine_args(
+            args,
+            xavier_config={"role": "hybrid", "gpu_cache_bytes": 0, "world_size": 2},
+        )
+    factory.assert_not_called()

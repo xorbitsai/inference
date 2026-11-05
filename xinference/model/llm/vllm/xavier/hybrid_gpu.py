@@ -19,6 +19,7 @@ from vllm.v1.kv_cache_interface import FullAttentionSpec, MambaSpec
 from vllm.v1.metrics.cache_hit_source import CacheHitSource
 from vllm.v1.request import RequestStatus
 
+from ...xavier.cache_lifecycle import CACHE_SESSION_ARG, order_free_session_blocks
 from ...xavier.contract import fingerprint_metadata
 from .v1_connector import XavierConnector, XavierConnectorMetadata, XavierLoadRequest
 
@@ -30,7 +31,8 @@ _LOOKUP_TIMEOUT = 0.5
 @dataclass
 class _PublishedPrefix:
     key: tuple[str, bytes]
-    block_ids: set[int]
+    block_ids: list[int]
+    session_id: str | None = None
 
 
 class XavierHybridTieredConnector(MultiConnector):
@@ -63,6 +65,8 @@ class XavierHybridGPUConnector(XavierConnector):
         self._offers_by_block: dict[int, set[str]] = {}
         self._attempted: set[str] = set()
         self._mappings: dict[str, XavierLoadRequest] = {}
+        self._session_admissions: set[str] = set()
+        self._session_phases: dict[str, str] = {}
 
         if role == KVConnectorRole.SCHEDULER:
             groups = kv_cache_config.kv_cache_groups
@@ -95,9 +99,20 @@ class XavierHybridGPUConnector(XavierConnector):
         return self._identity, request.block_hashes[tokens // hash_size - 1]
 
     def get_num_new_matched_tokens(self, request, num_computed_tokens):
+        first_admission = request.request_id not in self._session_admissions
+        self._session_admissions.add(request.request_id)
+        sessions = (
+            list(
+                {
+                    offer.session_id
+                    for offer in self._offers.values()
+                    if offer.session_id
+                }
+            )
+            if first_admission
+            else []
+        )
         self._requests_need_load.pop(request.request_id, None)
-        if request.request_id in self._attempted or request.skip_reading_prefix_cache:
-            return 0, False
         keys = [
             self._prefix_key(request, tokens)
             for tokens in range(
@@ -106,12 +121,18 @@ class XavierHybridGPUConnector(XavierConnector):
                 -self._block_size,
             )
             if tokens >= self._block_size
+            and request.request_id not in self._attempted
+            and not request.skip_reading_prefix_cache
         ]
-        if not keys:
+        if not keys and not sessions:
             return 0, False
 
         async def lookup():
             tracker = await self._get_tracker_ref()
+            if sessions:
+                return await tracker.query_gpu_prefix(
+                    self._rank, keys, session_ids=sessions
+                )
             return await tracker.query_gpu_prefix(self._rank, keys)
 
         try:
@@ -119,6 +140,9 @@ class XavierHybridGPUConnector(XavierConnector):
         except Exception:
             logger.debug("Xavier GPU prefix lookup unavailable", exc_info=True)
             return 0, False
+        if sessions:
+            offer, phases = offer
+            self._order_session_prefixes(phases)
         if offer is None:
             return 0, False
         rank, ticket, tokens, groups = offer
@@ -169,6 +193,7 @@ class XavierHybridGPUConnector(XavierConnector):
         return metadata
 
     def request_finished_all_groups(self, request, block_ids):
+        self._session_admissions.discard(request.request_id)
         self._requests_need_load.pop(request.request_id, None)
         self._attempted.discard(request.request_id)
         if (
@@ -221,10 +246,31 @@ class XavierHybridGPUConnector(XavierConnector):
             name: [block.block_id for block in groups[group_id] if not block.is_null]
             for name, group_id in self._layer_group_ids.items()
         }
+        extra_args = (
+            getattr(getattr(request, "sampling_params", None), "extra_args", None) or {}
+        )
+        session = extra_args.get(CACHE_SESSION_ARG)
+        session_id = session["id"] if session is not None else None
+        if session_id is not None:
+            for previous, offer in tuple(self._offers.items()):
+                if offer.session_id == session_id:
+                    self._revoke(previous)
         if len(self._offers) >= _MAX_OFFERS:
-            self._revoke(next(iter(self._offers)))
+            victim = next(
+                (
+                    ticket
+                    for ticket, offer in self._offers.items()
+                    if self._session_phases.get(offer.session_id) != "waiting"
+                ),
+                next(iter(self._offers)),
+            )
+            self._revoke(victim)
 
-        offer = _PublishedPrefix(key, {block.block_id for block in owned})
+        offer = _PublishedPrefix(
+            key,
+            list(dict.fromkeys(block.block_id for block in owned)),
+            session_id,
+        )
         self._offers[ticket] = offer
         for block_id in offer.block_ids:
             self._offers_by_block.setdefault(block_id, set()).add(ticket)
@@ -248,6 +294,21 @@ class XavierHybridGPUConnector(XavierConnector):
     def _on_reuse(self, block):
         for ticket in tuple(self._offers_by_block.get(block.block_id, ())):
             self._revoke(ticket)
+
+    def _order_session_prefixes(self, phases):
+        self._session_phases = phases
+        try:
+            waiting = order_free_session_blocks(
+                self._kv_cache_manager.block_pool, self._offers.values(), phases
+            )
+        except Exception:
+            logger.debug("Xavier cache lifecycle ordering unavailable", exc_info=True)
+            return
+        if waiting:
+            logger.debug(
+                "Xavier cache lifecycle ordering: waiting_blocks=%d",
+                waiting,
+            )
 
     def _revoke(self, ticket):
         offer = self._offers[ticket]

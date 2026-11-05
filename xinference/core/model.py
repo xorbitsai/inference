@@ -1662,6 +1662,11 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             return {"supports_thinking_budget": False}
         return await self._call_wrapper_json(self._model.get_reasoning_capabilities)
 
+    def supports_agent_cache_lifecycle(self) -> bool:
+        self._require_ready()
+        supports = getattr(self._model, "supports_agent_cache_lifecycle", None)
+        return supports is not None and supports() is True
+
     @request_limit
     @log_async(logger=logger)
     async def prepare_reasoning_request(self, generate_config: Dict):

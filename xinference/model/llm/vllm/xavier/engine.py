@@ -184,6 +184,15 @@ class XavierEngine:
 
         model_config = engine_args.create_model_config()
         recurrent = model_config.is_hybrid
+        if (
+            xavier_config.get("world_size") == 2
+            and role not in {"prefill", "decode"}
+            and xavier_config.get("gpu_cache_bytes") == 0
+            and not recurrent
+        ):
+            raise ValueError(
+                "Single-replica Xavier resident prefixes require a recurrent-hybrid model"
+            )
         gpu_prefix = (
             recurrent
             and role not in {"prefill", "decode"}

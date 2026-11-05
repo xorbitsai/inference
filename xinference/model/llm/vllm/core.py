@@ -1016,6 +1016,18 @@ class VLLMModel(WeightCachedModel, LLM):
         self._loop = None
         self._init_weight_cache(model_config or {})
 
+    def supports_agent_cache_lifecycle(self) -> bool:
+        config = self._xavier_config or {}
+        model_config = getattr(self._engine, "model_config", None)
+        return bool(
+            config.get("gpu_cache_bytes") == 0
+            and config.get("block_tracker_uid")
+            and config.get("role") == "hybrid"
+            and getattr(model_config, "is_hybrid", False)
+            and VLLM_VERSION is not None
+            and VLLM_VERSION >= version.parse("0.32.0")
+        )
+
     def set_xavier_config(self, value: Optional[Dict]):
         if (
             value is None
@@ -2719,6 +2731,15 @@ class VLLMModel(WeightCachedModel, LLM):
                     unsupported_keys,
                 )
             sampling_params = SamplingParams(**sanitized_generate_config)
+
+        from ..xavier.cache_lifecycle import CACHE_SESSION_ARG, CacheSessionTag
+
+        session = (generate_config or {}).get(CACHE_SESSION_ARG)
+        if (
+            isinstance(session, CacheSessionTag)
+            and self.supports_agent_cache_lifecycle()
+        ):
+            sampling_params.extra_args = {CACHE_SESSION_ARG: session.to_dict()}
 
         if generate_config and "_pd_kv_transfer_params" in generate_config:
             from .xavier.transport import uses_direct_handoff

@@ -252,3 +252,60 @@ msgid ""
 msgstr ""
 "Xinference はモデルごとに最大 4096 個のルーティングキーを、認証情報間で共有する最終使用時刻に基づく LRU "
 "テーブルに保持します。ある認証情報で多数の新しいキーを使用すると、別の認証情報のアフィニティが削除される場合があります。影響するのはレプリカの優先選択のみです。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Agent cache lifecycle"
+msgstr "エージェントのキャッシュライフサイクル"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "対応する vLLM Xavier ハイブリッド GPU プレフィックスモデルは ``supports_agent_cache_lifecycle: true`` を公開します。OpenAI クライアントの ``extra_body`` または Xinference クライアントの ``generate_config`` を通じて、チャットリクエストに ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` を追加します。セッション ID はリクエストの認証情報ごとに分離されます。キャッシュの分離には引き続き ``cache_salt`` を使用します。"
+
+#: ../../source/user_guide/client_api.rst:103
+msgid ""
+"Send ``id``, an integer ``revision``, and ``phase`` (``waiting``, ``active``"
+" or ``finished``) to ``POST /v1/models/{model_uid}/cache_sessions``. Chat "
+"marks the session active. Older revisions and phase changes at the same "
+"revision are rejected. Increase the revision after chat before sending "
+"``waiting``. Repeating the same revision and phase refreshes the 300-second "
+"TTL. Xagent sends phase changes automatically; waits longer than five "
+"minutes require explicit refreshes."
+msgstr ""
+"``id``、整数の ``revision``、``phase``（``waiting``、``active``、``finished``）を "
+"``POST /v1/models/{model_uid}/cache_sessions`` "
+"に送信します。チャットはセッションをアクティブにします。古いリビジョンと同じリビジョンでのフェーズ変更は拒否されます。チャット後に "
+"``waiting`` を送る際はリビジョンを増やしてください。同じリビジョンとフェーズの再送信で 300 秒の TTL が更新されます。Xagent "
+"はフェーズ変更を自動送信しますが、5 分を超える待機では明示的な更新が必要です。"
+
+#: ../../source/user_guide/client_api.rst:105
+msgid ""
+"Waiting prefixes are placed later in the engine's eviction order, with chain"
+" tails evicted before heads. Finished sessions follow normal LRU eviction. "
+"Blocks remain available for allocation, and active requests and transfer "
+"leases retain their ownership. Capacity limits and normal recomputation "
+"still apply."
+msgstr ""
+"待機中のプレフィックスは後から削除され、ブロック列の末尾が先頭より先に削除されます。終了したセッションには通常の LRU "
+"削除が適用されます。ブロックは引き続き割り当て可能で、アクティブなリクエストと転送リースは所有権を保持します。容量制限と通常の再計算も引き続き適用されます。"
+
+#: ../../source/user_guide/client_api.rst:101
+msgid ""
+"A single replica can use ``enable_xavier=True`` and "
+"``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes. This "
+"mode requires vLLM >= 0.32 and a recurrent-hybrid model combining attention "
+"with recurrent state. Non-hybrid single-replica launches are rejected."
+msgstr ""
+"単一レプリカでも ``enable_xavier=True`` と ``xavier_gpu_cache_bytes=0`` "
+"を使用して、ライフサイクルに応じた常駐プレフィックスを利用できます。このモードには vLLM >= 0.32 と、Attention "
+"および再帰状態を組み合わせた再帰ハイブリッドモデルが必要です。非ハイブリッドモデルの単一レプリカ起動は拒否されます。"
+
+#: ../../source/user_guide/client_api.rst:107
+msgid ""
+"The registry holds at most 4096 sessions per model and 1024 per credential "
+"scope. Requests without credentials share one anonymous scope. Lifecycle IDs"
+" are independent of ``cache_salt``; use distinct session IDs for independent"
+" workflows, including workflows with different salts."
+msgstr ""
+"レジストリはモデルごとに最大 4096 セッション、認証情報のスコープごとに最大 1024 "
+"セッションを保持します。認証情報のないリクエストは単一の匿名スコープを共有します。ライフサイクル ID は ``cache_salt`` "
+"とは独立しています。異なる salt を使う場合を含め、独立したワークフローには異なるセッション ID を使用してください。"

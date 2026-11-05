@@ -47,6 +47,15 @@ class BlockTracker(xo.StatelessActor):
         # At most one resident checkpoint per rank and prefix hash. These
         # entries are offers; the transfer actor authorizes each actual read.
         self._gpu_prefixes: Dict[int, dict] = {}
+        from .cache_lifecycle import CacheSessionRegistry
+
+        self._cache_sessions = CacheSessionRegistry()
+
+    def update_cache_session(self, session):
+        return self._cache_sessions.update(session)
+
+    def get_cache_sessions(self, session_ids):
+        return self._cache_sessions.get(session_ids)
 
     def publish_gpu_prefix(self, rank, key, ticket, tokens, groups):
         self._gpu_prefixes.setdefault(rank, {})[key] = (ticket, tokens, groups)
@@ -56,7 +65,7 @@ class BlockTracker(xo.StatelessActor):
         if key in offers and offers[key][0] == ticket:
             del offers[key]
 
-    def query_gpu_prefix(self, rank, keys):
+    def query_gpu_prefix(self, rank, keys, session_ids=None):
         best = None
         for peer, offers in self._gpu_prefixes.items():
             if peer == rank or peer in self._unavailable_ranks:
@@ -67,6 +76,8 @@ class BlockTracker(xo.StatelessActor):
                     if best is None or tokens > best[2]:
                         best = peer, ticket, tokens, groups
                     break
+        if session_ids is not None:
+            return best, self.get_cache_sessions(session_ids)
         return best
 
     def get_snapshot_directory(self, virtual_engine: int):

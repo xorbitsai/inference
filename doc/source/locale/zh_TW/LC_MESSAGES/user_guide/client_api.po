@@ -247,3 +247,58 @@ msgid ""
 msgstr ""
 "Xinference 為每個模型最多保留 4096 "
 "個路由鍵，儲存在所有憑證共用的最近最少使用（LRU）表中。某個憑證頻繁使用新鍵，可能擠出其他憑證的親和記錄；這只影響副本選擇偏好。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Agent cache lifecycle"
+msgstr "Agent 快取生命週期"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "受支援的 vLLM Xavier 混合架構 GPU 前綴模型會宣告 ``supports_agent_cache_lifecycle: true``。透過 OpenAI 用戶端的 ``extra_body`` 或 Xinference 用戶端的 ``generate_config``，為聊天請求附加 ``cache_session={\"id\": \"run-1\", \"revision\": 0}``。工作階段 ID 依請求憑證隔離。快取隔離仍使用 ``cache_salt``。"
+
+#: ../../source/user_guide/client_api.rst:103
+msgid ""
+"Send ``id``, an integer ``revision``, and ``phase`` (``waiting``, ``active``"
+" or ``finished``) to ``POST /v1/models/{model_uid}/cache_sessions``. Chat "
+"marks the session active. Older revisions and phase changes at the same "
+"revision are rejected. Increase the revision after chat before sending "
+"``waiting``. Repeating the same revision and phase refreshes the 300-second "
+"TTL. Xagent sends phase changes automatically; waits longer than five "
+"minutes require explicit refreshes."
+msgstr ""
+"向 ``POST /v1/models/{model_uid}/cache_sessions`` 傳送 ``id``、整數 ``revision`` 和"
+" ``phase``（``waiting``、``active`` 或 "
+"``finished``）。聊天請求會將工作階段標記為活躍狀態。舊版本以及同一版本下的階段變更會被拒絕。聊天後傳送 ``waiting`` "
+"前必須增加版本號。重複傳送相同版本和階段可重新整理 300 秒的有效期。Xagent 自動傳送階段變更；等待超過五分鐘時需要明確重新整理提示。"
+
+#: ../../source/user_guide/client_api.rst:105
+msgid ""
+"Waiting prefixes are placed later in the engine's eviction order, with chain"
+" tails evicted before heads. Finished sessions follow normal LRU eviction. "
+"Blocks remain available for allocation, and active requests and transfer "
+"leases retain their ownership. Capacity limits and normal recomputation "
+"still apply."
+msgstr ""
+"等待中的前綴會在淘汰順序中靠後，區塊鏈尾部先於頭部被淘汰。結束的工作階段按一般 LRU "
+"策略淘汰。所有區塊仍可用於配置，活躍請求和傳輸租約保持其所有權。容量限制和正常重新計算仍然適用。"
+
+#: ../../source/user_guide/client_api.rst:101
+msgid ""
+"A single replica can use ``enable_xavier=True`` and "
+"``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes. This "
+"mode requires vLLM >= 0.32 and a recurrent-hybrid model combining attention "
+"with recurrent state. Non-hybrid single-replica launches are rejected."
+msgstr ""
+"單一副本也可使用 ``enable_xavier=True`` 和 "
+"``xavier_gpu_cache_bytes=0``，根據生命週期管理常駐前綴。此模式要求 vLLM >= "
+"0.32，以及結合注意力與循環狀態的循環混合模型。非混合模型的單副本啟動會被拒絕。"
+
+#: ../../source/user_guide/client_api.rst:107
+msgid ""
+"The registry holds at most 4096 sessions per model and 1024 per credential "
+"scope. Requests without credentials share one anonymous scope. Lifecycle IDs"
+" are independent of ``cache_salt``; use distinct session IDs for independent"
+" workflows, including workflows with different salts."
+msgstr ""
+"登錄表為每個模型最多保留 4096 個工作階段，每個憑證作用域最多保留 1024 個工作階段。未提供憑證的請求共用一個匿名作用域。生命週期 ID 獨立於"
+" ``cache_salt``；獨立工作流程應使用不同的工作階段 ID，使用不同 salt 的工作流程也不例外。"

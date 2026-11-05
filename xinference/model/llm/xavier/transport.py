@@ -12,9 +12,9 @@ def validate_gpu_cache_budget(value, enabled: bool, replicas: int):
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError("xavier_gpu_cache_bytes must be a non-negative integer")
-    if not enabled or replicas <= 1:
+    if not enabled or replicas < 1 or (replicas == 1 and value != 0):
         raise ValueError(
-            "xavier_gpu_cache_bytes requires Xavier with multiple replicas"
+            "xavier_gpu_cache_bytes requires Xavier; nonzero budgets require multiple replicas"
         )
     return value
 
