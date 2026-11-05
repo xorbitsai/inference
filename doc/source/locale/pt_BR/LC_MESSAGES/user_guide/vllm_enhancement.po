@@ -571,3 +571,7 @@ msgstr "``xavier_cache_bytes`` define a capacidade do cache compartilhado na CPU
 #: ../../source/user_guide/vllm_enhancement.rst:95
 msgid "Set ``xavier_gpu_cache_bytes=0`` to share aligned prefixes directly from resident GPU cache blocks. Add ``xavier_cache_bytes`` to enable CPU fallback. Direct GPU sharing requires NVIDIA GPUs, ``xoscar[nixl]>=0.11.1`` and ``async_scheduling=False``."
 msgstr "Defina ``xavier_gpu_cache_bytes=0`` para compartilhar prefixos alinhados diretamente dos blocos de cache residentes na GPU. Adicione ``xavier_cache_bytes`` para habilitar o fallback em CPU. O compartilhamento direto requer GPUs NVIDIA, ``xoscar[nixl]>=0.11.1`` e ``async_scheduling=False``."
+
+#: ../../source/user_guide/vllm_enhancement.rst:215
+msgid "Hybrid vLLM offload also requires ``xinference[xavier-lmcache]`` on the shared storage host (model-service/supervisor) when it uses a separate environment from the transfer actors. Install the extra in both environments; the per-transfer-actor requirement above also applies to legacy vLLM."
+msgstr "O offload do vLLM híbrido também exige ``xinference[xavier-lmcache]`` no host de armazenamento compartilhado (model-service/supervisor) quando ele usa um ambiente separado dos atores de transferência. Instale o extra nos dois ambientes; a exigência acima para cada ator de transferência também se aplica ao vLLM legado."

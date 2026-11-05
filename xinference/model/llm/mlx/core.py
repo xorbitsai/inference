@@ -2194,7 +2194,7 @@ class MLXModel(LLM, ChatModelMixin):
                 await bind_cache_session(
                     xavier.config,
                     cache_session,
-                    xavier.keys(tokens, generate_config.get("cache_salt")),
+                    xavier.keys(tokens[:-1], generate_config.get("cache_salt")),
                 )
             # Claim/copy/release the lease before returning a lazy stream. Even
             # an unconsumed or disconnected response cannot strand the handoff.

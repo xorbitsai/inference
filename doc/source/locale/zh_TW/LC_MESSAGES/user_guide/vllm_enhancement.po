@@ -507,3 +507,7 @@ msgstr "``xavier_cache_bytes`` 同時設定共享 CPU 快取和各副本 CPU 暫
 #: ../../source/user_guide/vllm_enhancement.rst:95
 msgid "Set ``xavier_gpu_cache_bytes=0`` to share aligned prefixes directly from resident GPU cache blocks. Add ``xavier_cache_bytes`` to enable CPU fallback. Direct GPU sharing requires NVIDIA GPUs, ``xoscar[nixl]>=0.11.1`` and ``async_scheduling=False``."
 msgstr "設定 ``xavier_gpu_cache_bytes=0`` 後，副本可直接共享 GPU 快取中對齊的前綴。加上 ``xavier_cache_bytes`` 可啟用 CPU 後備路徑。GPU 直傳需要 NVIDIA GPU、``xoscar[nixl]>=0.11.1`` 和 ``async_scheduling=False``。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:215
+msgid "Hybrid vLLM offload also requires ``xinference[xavier-lmcache]`` on the shared storage host (model-service/supervisor) when it uses a separate environment from the transfer actors. Install the extra in both environments; the per-transfer-actor requirement above also applies to legacy vLLM."
+msgstr "混合模型 vLLM 卸載的共用儲存主機（model-service/supervisor）若與傳輸 actor 使用不同環境，也必須安裝 ``xinference[xavier-lmcache]``。兩側環境都需安裝此擴充；上文逐個傳輸 actor 安裝的要求同樣適用於舊版 vLLM。"

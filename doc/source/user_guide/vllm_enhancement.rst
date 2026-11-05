@@ -212,6 +212,8 @@ LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas.
 
 ``xavier_cache_backend="native"`` is the default and keeps the existing CPU and GPU cache behavior. The optional ``lmcache`` backend adds external prefix-cache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas. Install ``xinference[xavier-lmcache]`` in the Linux environment hosting storage: each vLLM transfer actor's environment, or the supervisor environment for SGLang and TRT-LLM. Model environments can remain separate. This adapter targets LMCache >= ``0.5.6`` and < ``0.6`` with the native extension for the selected L2 backend, and Python 3.10 through 3.13.
 
+Hybrid vLLM offload also requires ``xinference[xavier-lmcache]`` on the shared storage host (model-service/supervisor) when it uses a separate environment from the transfer actors. Install the extra in both environments; the per-transfer-actor requirement above also applies to legacy vLLM.
+
 Select the backend when launching the model:
 
 .. code-block:: python
