@@ -6472,10 +6472,35 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         busy = None
         for replica in candidates:
             try:
-                model = await self._get_replica_model(model_uid, replica)
-                available = len(candidates) == 1 or await xo.wait_for(
-                    model.can_accept_chat_request(), _AFFINITY_CAPACITY_TIMEOUT
-                )
+                try:
+                    model = await self._get_replica_model(model_uid, replica)
+                except Exception as exc:
+                    cause = getattr(exc, "__wrapped__", exc)
+                    if type(cause) is not Exception:
+                        raise
+                    # Retained Workers report last_error as a plain Exception.
+                    # Confirm the diagnostic, or its removal during cleanup.
+                    status = await xo.wait_for(
+                        self.get_model_status(
+                            build_replica_model_uid(model_uid, replica)
+                        ),
+                        _AFFINITY_CAPACITY_TIMEOUT,
+                    )
+                    if status is not None and (
+                        not status.last_error or status.last_error not in str(exc)
+                    ):
+                        raise
+                    continue
+                available = True
+                if len(candidates) > 1:
+                    try:
+                        available = await xo.wait_for(
+                            model.can_accept_chat_request(), _AFFINITY_CAPACITY_TIMEOUT
+                        )
+                    except AttributeError as exc:
+                        # Supervisor upgrades retain actors from older versions.
+                        if "has no attribute 'can_accept_chat_request'" not in str(exc):
+                            raise
             except (
                 ModelNotReadyError,
                 RuntimeError,

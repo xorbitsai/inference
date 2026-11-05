@@ -20,11 +20,170 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+import xoscar as xo
+from xoscar.backends.router import Router
 
 from ..exceptions import ModelNotReadyError
 from ..replica_config import DeviceConfig, ReplicaConfig
 from ..supervisor import ReplicaInfo, SupervisorActor
 from ..utils import build_replica_model_uid
+from ..worker import ModelStatus, WorkerActor
+
+
+class _LegacyChatReplica(xo.Actor):
+    def __init__(self, reply):
+        self.reply = reply
+
+    async def chat(self):
+        return self.reply
+
+
+class _CapacityChatReplica(_LegacyChatReplica):
+    async def can_accept_chat_request(self):
+        return True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("legacy_peer", [True, False])
+async def test_chat_affinity_preserves_retained_legacy_actors(monkeypatch, legacy_peer):
+    from .. import supervisor as supervisor_module
+
+    monkeypatch.setattr(supervisor_module, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        supervisor = SupervisorActor.__new__(SupervisorActor)
+        supervisor._pd_model_mapping = {}
+        info = supervisor._build_replica_info(2)
+        supervisor._model_uid_to_replica_info = {"demo": info}
+        models = [
+            await xo.create_actor(
+                replica_type,
+                str(index),
+                uid=f"chat-{index}",
+                address=pool.external_address,
+            )
+            for index, replica_type in enumerate(
+                (
+                    _LegacyChatReplica,
+                    _LegacyChatReplica if legacy_peer else _CapacityChatReplica,
+                )
+            )
+        ]
+        supervisor._replica_model_uid_to_worker = {
+            build_replica_model_uid("demo", index): SimpleNamespace(
+                get_model=AsyncMock(return_value=model)
+            )
+            for index, model in enumerate(models)
+        }
+        supervisor.describe_model = AsyncMock(
+            return_value={"model_type": "LLM", "model_ability": ["chat"]}
+        )
+        assert (await supervisor.describe_running_model("demo"))[
+            "supports_chat_session_affinity"
+        ]
+        for key, expected in (("retained", "0"), ("other", "1"), ("retained", "0")):
+            model = await supervisor.get_model("demo", routing_key=key)
+            assert await model.chat() == expected
+        assert info.routing_keys["retained"] == 0
+    finally:
+        await pool.stop()
+        pool._actors.clear()
+        Router.set_instance(None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status_removed", [False, True])
+async def test_chat_affinity_fails_over_after_worker_reports_oom(
+    monkeypatch, status_removed
+):
+    async def post_create(self):
+        pass
+
+    monkeypatch.setattr(WorkerActor, "__post_create__", post_create)
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    try:
+        supervisor = SupervisorActor.__new__(SupervisorActor)
+        supervisor._pd_model_mapping = {}
+        info = supervisor._build_replica_info(2)
+        supervisor._model_uid_to_replica_info = {"demo": info}
+        workers = []
+        for index in range(2):
+            uid = build_replica_model_uid("demo", index)
+            model = await xo.create_actor(
+                _CapacityChatReplica, str(index), uid=uid, address=pool.external_address
+            )
+            worker_ref = await xo.create_actor(
+                WorkerActor,
+                "supervisor",
+                None,
+                pool,
+                [],
+                uid=f"worker-{index}",
+                address=pool.external_address,
+            )
+            worker = pool._actors[worker_ref.uid]
+            worker._model_uid_to_model[uid] = model
+            worker._model_uid_to_model_status[uid] = ModelStatus(model_state="ready")
+            worker._model_uid_to_status_token[uid] = "1" * 32
+            workers.append(worker_ref)
+        supervisor._replica_model_uid_to_worker = {
+            build_replica_model_uid("demo", index): worker
+            for index, worker in enumerate(workers)
+        }
+        assert (
+            await (await supervisor.get_model("demo", routing_key="task")).chat() == "0"
+        )
+        uid = build_replica_model_uid("demo", 0)
+        assert await workers[0].report_model_oom(
+            uid, "1" * 32, f"Model actor is out of memory, model id: {uid}, error: test"
+        )
+        assert (await workers[0].get_model_status(uid)).model_state == "ready"
+        if status_removed:
+            supervisor.get_model_status = AsyncMock(return_value=None)
+        assert (
+            await (await supervisor.get_model("demo", routing_key="task")).chat() == "1"
+        )
+        assert info.routing_keys["task"] == 1
+        pool._actors[workers[0].uid]._model_uid_to_model_status[uid].last_error = ""
+        assert (
+            await (await supervisor.get_model("demo", routing_key="task")).chat() == "1"
+        )
+    finally:
+        await pool.stop()
+        pool._actors.clear()
+        Router.set_instance(None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "source,error,last_error",
+    [
+        ("lookup", Exception("unexpected worker fault"), ""),
+        ("lookup", Exception("unexpected worker fault"), "another diagnostic"),
+        ("lookup", TypeError("unexpected worker fault"), "unexpected worker fault"),
+        ("probe", AttributeError("missing internal field"), ""),
+        ("lookup", asyncio.CancelledError(), ""),
+        ("probe", asyncio.CancelledError(), ""),
+    ],
+)
+async def test_chat_affinity_preserves_unrelated_errors(source, error, last_error):
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    supervisor._model_uid_to_replica_info = {"demo": supervisor._build_replica_info(2)}
+    model = SimpleNamespace(can_accept_chat_request=AsyncMock(return_value=True))
+    worker = SimpleNamespace(get_model=AsyncMock(return_value=model))
+    if source == "lookup":
+        worker.get_model.side_effect = error
+    else:
+        model.can_accept_chat_request.side_effect = error
+    supervisor._replica_model_uid_to_worker = {
+        build_replica_model_uid("demo", 0): worker
+    }
+    supervisor.get_model_status = AsyncMock(
+        return_value=ModelStatus(last_error=last_error)
+    )
+    with pytest.raises(type(error)):
+        await supervisor.get_model("demo", routing_key="task")
 
 
 @pytest.mark.asyncio
