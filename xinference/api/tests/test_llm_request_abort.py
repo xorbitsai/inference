@@ -535,7 +535,7 @@ async def test_non_vllm_chat_keeps_request_id_in_generation_config(monkeypatch):
     assert response.body == b'{"choices": []}'
     call = model.chat.await_args
     assert call.args[1]["request_id"] == "chat-request"
-    assert "request_id" not in call.kwargs
+    assert call.kwargs["request_id"] == "chat-request"
 
 
 @pytest.mark.asyncio

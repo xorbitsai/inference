@@ -1317,8 +1317,13 @@ class RESTfulAPI(CancelMixin):
             CONTEXT_LENGTH_EXCEEDED_DETAIL,
             ContextLengthExceeded,
         )
+        from ..request_priority import PRIORITY_ERROR_MESSAGES
 
         message = str(e)
+        if isinstance(e, ValueError):
+            for detail in PRIORITY_ERROR_MESSAGES:
+                if message.endswith(detail):
+                    raise HTTPException(status_code=400, detail=detail)
         context_error = isinstance(e, ContextLengthExceeded)
         if sanitize and RESTfulAPI._is_context_length_error(e):
             context_error = True
@@ -2692,9 +2697,14 @@ class RESTfulAPI(CancelMixin):
     async def create_completion(self, request: Request) -> Response:
         raw_body = await request.json()
         # Resolve/validate the raw salt after authorization, allowing provider overrides.
-        body = CreateCompletionRequest.parse_obj(
-            {key: value for key, value in raw_body.items() if key != "cache_salt"}
-        )
+        from .._compat import ValidationError
+
+        try:
+            body = CreateCompletionRequest.parse_obj(
+                {key: value for key, value in raw_body.items() if key != "cache_salt"}
+            )
+        except ValidationError as exc:
+            raise HTTPException(status_code=422, detail=exc.errors()) from exc
         exclude = {
             "prompt",
             "model",
@@ -2737,7 +2747,10 @@ class RESTfulAPI(CancelMixin):
             is_vllm_backend,
             stream=bool(body.stream),
         )
-        model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
+        model_call_kwargs: Dict[str, Any] = {
+            "raw_params": raw_kwargs,
+            "request_id": request_id,
+        }
         if is_vllm_backend:
             kwargs.pop("request_id", None)
             raw_kwargs.pop("request_id", None)
@@ -5096,9 +5109,14 @@ class RESTfulAPI(CancelMixin):
         routing_key = raw_body.pop("routing_key", None)
         cache_session = raw_body.pop("cache_session", None)
         # Resolve/validate the raw salt after authorization, allowing provider overrides.
-        body = CreateChatCompletion.parse_obj(
-            {key: value for key, value in raw_body.items() if key != "cache_salt"}
-        )
+        from .._compat import ValidationError
+
+        try:
+            body = CreateChatCompletion.parse_obj(
+                {key: value for key, value in raw_body.items() if key != "cache_salt"}
+            )
+        except ValidationError as exc:
+            raise HTTPException(status_code=422, detail=exc.errors()) from exc
         raw_body = _normalize_token_router_chat_payload(raw_body)
         exclude = {
             "prompt",
@@ -5238,7 +5256,10 @@ class RESTfulAPI(CancelMixin):
                 else:
                     for config in (kwargs, raw_kwargs):
                         config[CACHE_SESSION_ARG] = tag
-        model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
+        model_call_kwargs: Dict[str, Any] = {
+            "raw_params": raw_kwargs,
+            "request_id": request_id,
+        }
         if is_vllm_backend:
             kwargs.pop("request_id", None)
             raw_kwargs.pop("request_id", None)

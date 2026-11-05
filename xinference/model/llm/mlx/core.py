@@ -894,6 +894,11 @@ class _CachedTextVisionModel:
 
 
 class MLXModel(LLM, ChatModelMixin):
+    def get_request_priority_capacity(self) -> int:
+        if getattr(self, "_batch_model", None) is not None:
+            return self._model_config.get("batch_size", 4)
+        return 1
+
     supports_cache_salt = True
     supports_tool_controls = True
     _rank_to_addresses: Optional[Dict[int, str]]

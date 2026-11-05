@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""TRT-LLM 1.2.1 connector for prefix sharing and Xavier P/D handoffs.
+"""TRT-LLM connector for prefix sharing and Xavier P/D handoffs.
 
 Reads acquire owned CPU snapshots before reporting a hit. Eviction between
 lookup and GPU load therefore cannot turn an admitted prefix into missing KV.
@@ -19,10 +19,25 @@ from dataclasses import dataclass, field
 
 import torch
 import xoscar as xo
-from tensorrt_llm._torch.pyexecutor.kv_cache_connector import (
-    KvCacheConnectorScheduler,
-    KvCacheConnectorWorker,
-)
+
+try:
+    from tensorrt_llm._torch.pyexecutor.connectors.kv_cache_connector import (
+        KvCacheConnectorScheduler,
+        KvCacheConnectorWorker,
+    )
+except ModuleNotFoundError as exc:
+    if exc.name not in {
+        "tensorrt_llm",
+        "tensorrt_llm._torch",
+        "tensorrt_llm._torch.pyexecutor",
+        "tensorrt_llm._torch.pyexecutor.connectors",
+        "tensorrt_llm._torch.pyexecutor.connectors.kv_cache_connector",
+    }:
+        raise
+    from tensorrt_llm._torch.pyexecutor.kv_cache_connector import (
+        KvCacheConnectorScheduler,
+        KvCacheConnectorWorker,
+    )
 
 from ..xavier.actor_loop import acquire_actor_loop, release_actor_loop
 from ..xavier.contract import KVCacheContract, build_prefix_keys, fingerprint_metadata
@@ -62,7 +77,7 @@ class XavierClient:
                     dict(
                         contract=self.contract.to_dict(),
                         engine="trt-llm",
-                        version="1.2.1",
+                        version=self.config.get("engine_version", "1.2.1"),
                         layout="trt-block-layer-kv-packed-gpu-v1",
                     )
                 )
@@ -83,7 +98,7 @@ class XavierClient:
                     self.contract.to_dict(),
                     {
                         "engine": "trt-llm",
-                        "version": "1.2.1",
+                        "version": self.config.get("engine_version", "1.2.1"),
                         "layout": "layer_first",
                         "physical_layout": "block-layer-kv-packed",
                         "hash_format": "xavier-prefix-v1",

@@ -1,6 +1,7 @@
 # CI: linux
 
 import json
+from concurrent.futures import Future
 
 import pytest
 
@@ -10,7 +11,9 @@ from xinference.model.llm.llama_cpp.core import XllamaCppModel, _annotate_stop_s
 
 class _InlineExecutor:
     def submit(self, fn):
-        fn()
+        future = Future()
+        future.set_result(fn())
+        return future
 
 
 class _FakeLlamaCppServer:

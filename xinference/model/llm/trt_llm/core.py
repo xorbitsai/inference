@@ -3,6 +3,7 @@
 """TensorRT-LLM's Python LLM API, owned by a Xinference model process."""
 
 import importlib.metadata
+import inspect
 import json
 import logging
 import sys
@@ -12,6 +13,12 @@ from copy import deepcopy
 from typing import Any, AsyncGenerator, Dict, Optional, Union, cast
 
 from ....constants import XINFERENCE_MAX_TOKENS
+from ....request_priority import (
+    TRT_PRIORITY_DISABLED,
+    TRT_PRIORITY_VERSION,
+    to_trt_request_priority,
+    validate_request_priority,
+)
 from ....types import Completion, CompletionChunk, CompletionUsage
 from ...utils import check_dependency_available
 from ..context_length import ContextLengthExceeded, validate_context_length
@@ -25,6 +32,7 @@ logger = logging.getLogger(__name__)
 class TRTLLMModel(LLM, ChatModelMixin):
     allow_batch = True
     support_draft_model = True
+    supports_request_priority_fallback = False
 
     def __init__(self, model_uid, model_family, model_path, model_config=None):
         super().__init__(model_uid, model_family, model_path)
@@ -34,6 +42,7 @@ class TRTLLMModel(LLM, ChatModelMixin):
         self._requests: Dict[str, Any] = {}
         self._cache_enabled = False
         self._pd = None
+        self.supports_native_request_priority = False
 
     @classmethod
     def check_lib(cls):
@@ -46,8 +55,10 @@ class TRTLLMModel(LLM, ChatModelMixin):
         return match_model(llm_family, llm_spec, quantization)
 
     def load(self):
-        if importlib.metadata.version("tensorrt-llm") != "1.2.1":
-            raise ValueError("The TRT-LLM adapter requires tensorrt-llm==1.2.1")
+        from .compat import prepare_runtime, validate_runtime_version
+
+        runtime_version = importlib.metadata.version("tensorrt-llm")
+        validate_runtime_version(self._model_config, runtime_version)
         from tensorrt_llm import LLM as Engine
 
         config = dict(self._model_config)
@@ -78,6 +89,21 @@ class TRTLLMModel(LLM, ChatModelMixin):
         if "_mpi_session" in config or "mpi_session" in config:
             raise ValueError("The TRT-LLM MPI session is managed by Xinference")
         config["backend"] = "pytorch"
+        try:
+            native_priority = (
+                "priority"
+                in inspect.signature(getattr(Engine, "generate_async", None)).parameters
+            )
+        except (TypeError, ValueError):
+            native_priority = False
+        if native_priority:
+            scheduler = config.get("scheduler_config") or {}
+            if isinstance(scheduler, str):
+                scheduler = json.loads(scheduler)
+            if not isinstance(scheduler, dict):
+                raise ValueError("scheduler_config must be a JSON object")
+            config["scheduler_config"] = dict(scheduler)
+            config["scheduler_config"].setdefault("waiting_queue_policy", "priority")
         pd_contract = None
         if native_pd is not None:
             from .pd import configure_native
@@ -86,26 +112,42 @@ class TRTLLMModel(LLM, ChatModelMixin):
         if cache_config is not None:
             from .xavier import configure_xavier
 
-            configure_xavier(self.model_path, config, cache_config)
+            configure_xavier(
+                self.model_path, config, cache_config, engine_version=runtime_version
+            )
             self._cache_enabled = True
         try:
-            from .compat import prepare_runtime
-
-            prepare_runtime(config)
+            prepare_runtime(config, engine_version=runtime_version)
             if isinstance(config.get("speculative_config"), dict):
                 from tensorrt_llm.llmapi.llm_args import DecodingBaseConfig
 
-                config["speculative_config"] = DecodingBaseConfig.from_dict(
-                    config["speculative_config"]
-                )
+                speculation = config["speculative_config"]
+                decoding_type = speculation.get("decoding_type")
+                try:
+                    config["speculative_config"] = DecodingBaseConfig.from_dict(
+                        speculation
+                    )
+                except (TypeError, ValueError, KeyError) as exc:
+                    if decoding_type == "DraftTarget":
+                        raise ValueError(
+                            "The installed TRT-LLM version does not support this Draft/Target configuration"
+                        ) from exc
+                    raise
             self._engine = Engine(model=self.model_path, **config)
+            self.supports_native_request_priority = native_priority
+            self._priority_waiting_queue_policy = (
+                config.get("scheduler_config") or {}
+            ).get("waiting_queue_policy", "fcfs")
             self._tokenizer = self._engine.tokenizer
             role = (native_pd or cache_config or {}).get("role")
             if role is not None:
                 from .pd import TRTLLMPD
 
                 self._pd = TRTLLMPD(
-                    role, "nixl" if native_pd is not None else "xavier", pd_contract
+                    role,
+                    "nixl" if native_pd is not None else "xavier",
+                    pd_contract,
+                    engine_version=runtime_version,
                 )
                 self._pd.bind_engine(self._engine)
         except BaseException:
@@ -256,6 +298,14 @@ class TRTLLMModel(LLM, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         config = dict(generate_config or {})
+        if "priority" in config and not self.supports_native_request_priority:
+            raise ValueError(TRT_PRIORITY_VERSION)
+        priority = validate_request_priority(config.pop("priority", 0))
+        priority_options = {}
+        if self.supports_native_request_priority:
+            if priority and self._priority_waiting_queue_policy != "priority":
+                raise ValueError(TRT_PRIORITY_DISABLED)
+            priority_options["priority"] = to_trt_request_priority(priority)
         tokens, params = self._sampling_params(prompt, config)
         request_id = request_id or str(uuid.uuid4())
         created = int(time.time())
@@ -276,9 +326,13 @@ class TRTLLMModel(LLM, ChatModelMixin):
             if request_id in self._requests:
                 raise ValueError("A TRT-LLM request with this ID is already active")
             request = (
-                self._pd.submit(self._engine, tokens, params, pd_state)
+                self._pd.submit(
+                    self._engine, tokens, params, pd_state, **priority_options
+                )
                 if self._pd is not None
-                else self._engine.generate_async(tokens, params, streaming=True)
+                else self._engine.generate_async(
+                    tokens, params, streaming=True, **priority_options
+                )
             )
             self._requests[request_id] = request
             return request

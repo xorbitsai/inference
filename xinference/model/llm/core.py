@@ -52,10 +52,16 @@ class LLM(abc.ABC):
     supports_cache_salt = False
     allow_batch = False
     supports_tool_controls = False
+    supports_native_request_priority = False
+    supports_request_priority_fallback = True
     # whether the engine can run speculative decoding with a paired drafter
     support_draft_model = False
     # whether the engine can load a GGUF quantization uploaded as split files
     support_split_gguf = True
+
+    def get_request_priority_capacity(self) -> int:
+        """Maximum requests admitted to engines without native priority queues."""
+        return 1
 
     def __init__(
         self,

@@ -217,7 +217,24 @@ def request_limit(fn):
             return ret
         finally:
             if not released and not stream_transferred:
-                self._serve_count = max(0, self._serve_count - 1)
+                try:
+                    # Metrics can fail after generator registration but before
+                    # the API receives the iterator and can clean it up.
+                    if isinstance(ret, IteratorWrapper):
+                        ret._gc_destroy = False
+                        await _await_owned_task(
+                            asyncio.create_task(
+                                self.__xoscar_destroy_generator__(ret._uid)
+                            )
+                        )
+                    elif inspect.isasyncgen(ret):
+                        await _await_owned_task(asyncio.create_task(ret.aclose()))
+                    elif inspect.isgenerator(ret):
+                        await _await_owned_task(
+                            asyncio.create_task(asyncio.to_thread(ret.close))
+                        )
+                finally:
+                    self._serve_count = max(0, self._serve_count - 1)
 
     return wrapped_func
 
@@ -259,6 +276,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     _model_state: str
 
     async def __pre_destroy__(self):
+        scheduler = self.__dict__.get("_request_priority_scheduler")
+        if scheduler is not None:
+            scheduler.close()
         await ModelActor._drain_realtime(self)
         await self.close_model_generations()
         for cache in self.__dict__.get("_generation_caches", {}).values():
@@ -456,10 +476,13 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         return getattr(self._model, attr)
 
     async def __xoscar_next__(self, generator_uid: str):
-        if not getattr(self._model, "realtime_native_async", False):
+        if (
+            not getattr(self._model, "realtime_native_async", False)
+            and self.__dict__.get("_request_priority_scheduler") is None
+        ):
             return await super().__xoscar_next__(generator_uid)
         if generator_uid in self._native_stream_next:
-            raise RuntimeError("Concurrent reads of one native audio stream")
+            raise RuntimeError("Concurrent reads of one model stream")
         task = asyncio.create_task(super().__xoscar_next__(generator_uid))
         self._native_stream_next[generator_uid] = task
         try:
@@ -468,7 +491,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             self._native_stream_next.pop(generator_uid, None)
 
     async def __xoscar_destroy_generator__(self, generator_uid: str):
-        if not getattr(self._model, "realtime_native_async", False):
+        if (
+            not getattr(self._model, "realtime_native_async", False)
+            and self.__dict__.get("_request_priority_scheduler") is None
+        ):
             return await super().__xoscar_destroy_generator__(generator_uid)
         caller = asyncio.current_task()
 
@@ -958,6 +984,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     async def stop(self):
         self._model_state = "stopping"
+        scheduler = self.__dict__.get("_request_priority_scheduler")
+        if scheduler is not None:
+            scheduler.close()
         # WorkerActor calls stop() before destroy_actor(), so teardown alone is
         # too late to protect resources released by the model's stop()/close().
         await ModelActor._drain_realtime(self)
@@ -1035,11 +1064,15 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         )
         os._exit(1)
 
-    def _to_generator(self, output_type: str, gen: types.GeneratorType):
+    def _to_generator(
+        self, output_type: str, gen: types.GeneratorType, close_on_exit: bool = False
+    ):
         start_time = time.time()
         time_to_first_token = None
         final_usage = None
         try:
+            if close_on_exit:
+                yield None  # Enter ownership before returning the stream.
             if XINFERENCE_TEST_OUT_OF_MEMORY_ERROR:
                 raise OutOfMemoryError("Test Out of Memory Error")
             for v in gen:
@@ -1059,6 +1092,8 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 self._handle_oom_error(ex), loop=self._loop
             )
         finally:
+            if close_on_exit:
+                gen.close()
             if self._loop is not None and time_to_first_token is not None:
                 coro = self.record_metrics(
                     "time_to_first_token_seconds",
@@ -1077,11 +1112,18 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 )
                 asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
 
-    async def _to_async_gen(self, output_type: str, gen: types.AsyncGeneratorType):
+    async def _to_async_gen(
+        self,
+        output_type: str,
+        gen: types.AsyncGeneratorType,
+        close_on_exit: bool = False,
+    ):
         start_time = time.time()
         time_to_first_token = None
         final_usage = None
         try:
+            if close_on_exit:
+                yield None  # Enter ownership before returning the stream.
             if XINFERENCE_TEST_OUT_OF_MEMORY_ERROR:
                 raise OutOfMemoryError("Test Out of Memory Error")
             async for v in gen:
@@ -1099,7 +1141,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         except OutOfMemoryError as ex:
             await self._handle_oom_error(ex)
         finally:
-            if getattr(self._model, "realtime_native_async", False):
+            if close_on_exit or getattr(self._model, "realtime_native_async", False):
                 # Closing an Actor stream while suspended at yield must abort
                 # the native request before the API releases its admission slot.
                 await _await_owned_task(asyncio.create_task(gen.aclose()))
@@ -1294,8 +1336,91 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     @oom_check
     async def _call_wrapper(self, output_type: str, fn: Callable, *args, **kwargs):
-        wait_for_sync_on_cancel = kwargs.pop("_wait_for_sync_on_cancel", False) or (
-            getattr(self, "_realtime_runtime", None) is not None
+        from ..request_priority import PriorityScheduler
+
+        priority = kwargs.pop("_request_priority", None)
+        request_id = kwargs.pop("_priority_request_id", None) or kwargs.get(
+            "request_id"
+        )
+        self._add_running_task(request_id)
+        if priority is None:
+            return await self._call_wrapper_inner(output_type, fn, *args, **kwargs)
+
+        scheduler = self.__dict__.get("_request_priority_scheduler")
+        if scheduler is None:
+            scheduler = self._request_priority_scheduler = PriorityScheduler(
+                self._model.get_request_priority_capacity()
+            )
+        await scheduler.acquire(priority)
+        transferred = False
+        try:
+            self._require_ready()
+            result = await self._call_wrapper_inner(
+                output_type, fn, *args, _priority_managed=True, **kwargs
+            )
+            if inspect.isgenerator(result) or inspect.isasyncgen(result):
+                stream = self._priority_stream(result, scheduler, request_id)
+                # Enter the finally block before handing ownership to xoscar,
+                # including streams closed before their first client read.
+                await stream.__anext__()
+                transferred = True
+                return stream
+            return result
+        finally:
+            if not transferred:
+                scheduler.release()
+
+    async def _priority_stream(self, iterator, scheduler, request_id):
+        def advance():
+            try:
+                return True, next(iterator)
+            except StopIteration:
+                return False, None
+
+        completed = False
+        try:
+            yield None  # Ownership handshake, consumed by _call_wrapper.
+            if inspect.isasyncgen(iterator):
+                async for item in iterator:
+                    yield item
+            else:
+                while True:
+                    present, item = await _await_owned_task(
+                        asyncio.create_task(asyncio.to_thread(advance))
+                    )
+                    if not present:
+                        break
+                    yield item
+            completed = True
+        finally:
+            try:
+                abort = getattr(self._model, "abort_request", None)
+                if not completed and abort is not None:
+                    if inspect.iscoroutinefunction(abort):
+                        await _await_owned_task(asyncio.create_task(abort(request_id)))
+                    else:
+                        await _await_owned_task(
+                            asyncio.create_task(asyncio.to_thread(abort, request_id))
+                        )
+            finally:
+                try:
+                    if inspect.isasyncgen(iterator):
+                        await _await_owned_task(asyncio.create_task(iterator.aclose()))
+                    else:
+                        await _await_owned_task(
+                            asyncio.create_task(asyncio.to_thread(iterator.close))
+                        )
+                finally:
+                    scheduler.release()
+
+    async def _call_wrapper_inner(
+        self, output_type: str, fn: Callable, *args, **kwargs
+    ):
+        priority_managed = kwargs.pop("_priority_managed", False)
+        wait_for_sync_on_cancel = (
+            kwargs.pop("_wait_for_sync_on_cancel", False)
+            or priority_managed
+            or (getattr(self, "_realtime_runtime", None) is not None)
         )
 
         async def _invoke():
@@ -1310,7 +1435,6 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             thread_task = asyncio.create_task(asyncio.to_thread(fn, *args, **kwargs))
             return await _await_owned_task(thread_task)
 
-        self._add_running_task(kwargs.get("request_id"))
         if (
             getattr(self, "_realtime_runtime", None) is not None
             and self._lock is not None
@@ -1329,14 +1453,22 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             finally:
                 if not transferred:
                     self._lock.release()
-        elif self._lock is None:
+        elif self._lock is None or priority_managed:
             ret = await _invoke()
 
             if inspect.isgenerator(ret):
-                gen = self._to_generator(output_type, ret)
+                gen = self._to_generator(
+                    output_type, ret, close_on_exit=priority_managed
+                )
+                if priority_managed:
+                    next(gen)
                 return gen
             if inspect.isasyncgen(ret):
-                gen = self._to_async_gen(output_type, ret)
+                gen = self._to_async_gen(
+                    output_type, ret, close_on_exit=priority_managed
+                )
+                if priority_managed:
+                    await gen.__anext__()
                 return gen
         else:
             async with self._lock:
@@ -1400,6 +1532,8 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     def _get_async_request_id(self, args: tuple, kwargs: dict) -> str:
         if "request_id" in kwargs:
             return str(kwargs["request_id"])
+        if "_priority_request_id" in kwargs:
+            return str(kwargs["_priority_request_id"])
         from ..model.llm.trt_llm.core import TRTLLMModel
 
         if isinstance(self._model, TRTLLMModel):
@@ -1410,12 +1544,38 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 return str(config["request_id"])
         return str(uuid.uuid1())
 
+    def _prepare_request_priority(self, args, kwargs):
+        from ..model.llm.core import LLM
+        from ..request_priority import validate_request_priority
+
+        if not isinstance(self._model, LLM):
+            return args, kwargs
+        config = args[0] if args else kwargs.get("generate_config")
+        priority = validate_request_priority((config or {}).get("priority", 0))
+        if (
+            self._model.supports_native_request_priority
+            or not self._model.supports_request_priority_fallback
+        ):
+            return args, kwargs
+        config = dict(config or {})
+        config.pop("priority", None)
+        if args:
+            args = (config, *args[1:])
+        else:
+            kwargs["generate_config"] = config
+        kwargs["_request_priority"] = priority
+        kwargs["_priority_request_id"] = str(
+            kwargs.get("request_id") or config.get("request_id") or uuid.uuid4().hex
+        )
+        return args, kwargs
+
     @request_limit
     @xo.generator
     @log_async(logger=logger)
     async def generate(self, prompt: str, *args, **kwargs):
         self._require_ready()
         self._validate_cache_salt(args, kwargs)
+        args, kwargs = self._prepare_request_priority(args, kwargs)
         start_time = time.time()
         # Directly delegate to model, let model decide how to handle (batching or not)
         kwargs.pop("raw_params", None)
@@ -1457,6 +1617,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def chat(self, messages: List[Dict], *args, **kwargs):
         self._require_ready()
         self._validate_cache_salt(args, kwargs)
+        args, kwargs = self._prepare_request_priority(args, kwargs)
         start_time = time.time()
         response = None
         try:

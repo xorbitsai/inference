@@ -26,7 +26,7 @@ def test_qwen3_virtualenv_selects_trt_without_installed_engine(monkeypatch):
     packages = filter_virtualenv_packages_by_markers(packages, "TRT-LLM", None)
     requirements = {package.split(";", 1)[0].strip() for package in packages}
     assert {
-        "tensorrt_llm==1.2.1",
+        "tensorrt_llm>=1.2.1,<1.4",
         "pyarrow==20.0.0",
         "xoscar[nixl]>=0.11.1",
     } <= requirements
@@ -63,7 +63,7 @@ def test_architecture_support_is_available_in_virtualenv_without_engine(
     )
     packages = get_engine_virtualenv_packages("TRT-LLM")
     packages = filter_virtualenv_packages_by_markers(packages, "TRT-LLM", None)
-    assert any(package.startswith("tensorrt_llm==1.2.1") for package in packages)
+    assert any(package.startswith("tensorrt_llm>=1.2.1,<1.4") for package in packages)
 
 
 @pytest.mark.parametrize(

@@ -40,6 +40,7 @@ from xoscar.utils import get_next_port
 
 from ....cache_isolation import redact_cache_salt, validate_cache_salt
 from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
+from ....request_priority import SGLANG_PRIORITY_DISABLED, validate_request_priority
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -79,6 +80,9 @@ logger = logging.getLogger(__name__)
 
 
 class SGLANGModelConfig(TypedDict, total=False):
+    enable_priority_scheduling: bool
+    schedule_low_priority_values_first: bool
+    default_priority_value: int
     page_size: int
     mamba_scheduler_strategy: str
     mamba_track_interval: int
@@ -111,6 +115,7 @@ class SGLANGModelConfig(TypedDict, total=False):
 
 
 class SGLANGGenerateConfig(TypedDict, total=False):
+    priority: int
     presence_penalty: float
     frequency_penalty: float
     temperature: float
@@ -211,6 +216,7 @@ def _get_sglang_version() -> Optional[Version]:
 
 
 class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
+    supports_native_request_priority = True
     supports_cache_salt = True
     _weight_cache_engine = "sglang"
     allow_batch = True
@@ -884,13 +890,14 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
     @staticmethod
     def _lift_logprob_request_params(sampling_params: dict) -> dict:
-        """Pop sglang's top-level GenerateReqInput logprob fields out of the
+        """Pop sglang's top-level GenerateReqInput fields out of the
         sampling_params dict. sglang reads them off GenerateReqInput, not
         SamplingParams; leaving them in sampling_params crashes the msgspec
         SamplingParams with unknown kwargs (#3553).
         """
         top: Dict = {}
         for k in (
+            "priority",
             "return_logprob",
             "top_logprobs_num",
             "return_text_in_logprobs",
@@ -1334,6 +1341,21 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         config = dict(generate_config or {})
+        priority = validate_request_priority(config.get("priority", 0))
+        priority_enabled = (getattr(self, "_model_config", None) or {}).get(
+            "enable_priority_scheduling", False
+        )
+        if priority and not priority_enabled:
+            raise ValueError(SGLANG_PRIORITY_DISABLED)
+        if priority_enabled:
+            # Xinference uses lower values first, regardless of SGLang's
+            # native scheduling direction (higher values first by default).
+            lower_first = (self._model_config or {}).get(
+                "schedule_low_priority_values_first", False
+            )
+            config["priority"] = priority if lower_first else -priority
+        else:
+            config.pop("priority", None)
         anthropic = config.pop("_anthropic_request", False)
         transfer = config.pop("_pd_kv_transfer_params", None)
         pd: Any = getattr(self, "_xavier_handoff", None) or getattr(

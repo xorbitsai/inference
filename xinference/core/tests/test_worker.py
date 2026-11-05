@@ -1086,7 +1086,9 @@ def test_prepare_virtual_env_trt_defaults_are_selected_at_launch(
     if engine == "TRT-LLM":
         assert len(manager.calls) == 1
         packages, _ = manager.calls[0]
-        assert any(package.startswith("tensorrt_llm==1.2.1") for package in packages)
+        assert any(
+            package.startswith("tensorrt_llm>=1.2.1,<1.4") for package in packages
+        )
     else:
         assert not manager.calls
     if settings is not None:

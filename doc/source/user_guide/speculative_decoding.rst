@@ -98,6 +98,8 @@ formats follow :ref:`trt_llm_backend`, with TP=PP=CP=1. Xavier shared caching, n
 P/D do not support speculation through this adapter; see
 :ref:`user_guide_pd_separation` for their supported configurations.
 
+NGram can also use the ordinary-replica version range documented in :ref:`trt_llm_backend`. Draft/Target availability depends on the installed native API; later 1.3 pre-releases removed it. TensorRT-LLM 1.2.1 remains the GPU-validated speculative-decoding baseline.
+
 NGram reuses token patterns from the prompt and generated text without loading
 a draft model. For a workload with repeated text, pass the native
 ``speculative_config`` at launch:

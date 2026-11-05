@@ -302,3 +302,31 @@ msgid ""
 msgstr ""
 "登錄表為每個模型最多保留 4096 個工作階段，每個憑證作用域最多保留 1024 個工作階段。未提供憑證的請求共用一個匿名作用域。生命週期 ID 獨立於"
 " ``cache_salt``；獨立工作流程應使用不同的工作階段 ID，使用不同 salt 的工作流程也不例外。"
+
+#: source/user_guide/client_api.rst:509
+msgid "Request priority"
+msgstr "請求優先順序"
+
+#: source/user_guide/client_api.rst:511
+msgid "All LLM engines (vLLM, SGLang, Transformers, MLX, MLX-VLM, llama.cpp, and TensorRT-LLM) support an integer ``priority`` from ``-10000`` to ``10000`` on ``/v1/chat/completions`` and ``/v1/completions``, including streaming requests. The default is ``0``; lower values have higher priority. Priority applies within a model replica; it does not select a replica or bypass request limits."
+msgstr "使用 vLLM、SGLang、Transformers、MLX、MLX-VLM、llama.cpp 和 TensorRT-LLM 時，``/v1/chat/completions`` 和 ``/v1/completions`` 的大型語言模型請求支援整數參數 ``priority``，包括串流請求。預設值為 ``0``，數值越小，優先順序越高。優先順序影響單一模型副本內的排程，不用於選擇副本，也不會略過請求數量限制。 ``priority`` 的有效範圍為 ``[-10000, 10000]``。"
+
+#: source/user_guide/client_api.rst:513
+msgid "vLLM and SGLang use native priority scheduling. Enable it at model launch with ``scheduling_policy=\"priority\"`` for vLLM (0.6.3 or later), or ``enable_priority_scheduling=True`` for a SGLang version that supports priority scheduling. Xinference converts SGLang priorities to its configured ordering, so lower values always mean higher priority in the Xinference API, regardless of ``schedule_low_priority_values_first``."
+msgstr "vLLM 和 SGLang 使用原生優先順序排程。啟動模型時啟用優先順序排程：vLLM（0.6.3 或更新版本）設定 ``scheduling_policy=\"priority\"``；支援優先順序排程的 SGLang 版本設定 ``enable_priority_scheduling=True``。Xinference 會依 SGLang 設定的排序方向轉換優先順序，因此無論 ``schedule_low_priority_values_first`` 如何設定，Xinference API 都是數值越小，優先順序越高。"
+
+#: source/user_guide/client_api.rst:515
+msgid "Other engines use a per-replica priority queue before engine submission. Active requests are bounded by the engine's configured batch or parallel capacity; serial paths run one request at a time. Waiting requests run in priority order, with FIFO for equal priorities. This queue does not preempt running requests."
+msgstr "其他引擎在請求提交給引擎前，使用每個副本獨立的優先順序佇列。活動請求數量不超過引擎設定的批次處理或平行容量；循序路徑一次執行一個請求。等待請求依優先順序執行，相同優先順序依到達順序執行。此佇列不會搶占正在執行的請求。"
+
+#: source/user_guide/client_api.rst:517
+msgid "With the Xinference Python client, pass ``generate_config={\"priority\": -10}`` to ``model.chat()`` or ``model.generate()``. With the OpenAI Python client, use ``extra_body``:"
+msgstr "使用 Xinference Python 用戶端時，向 ``model.chat()`` 或 ``model.generate()`` 傳入 ``generate_config={\"priority\": -10}``。使用 OpenAI Python 用戶端時，透過 ``extra_body`` 傳入："
+
+#: source/user_guide/client_api.rst:532
+msgid "Invalid priority types or values outside ``[-10000, 10000]`` return HTTP 422; strings, booleans, and fractional numbers are not converted to integers. Nonzero priorities require native priority scheduling to be enabled for vLLM, SGLang, and TRT-LLM versions with a native priority API; otherwise the request fails with HTTP 400. After streaming starts, errors are reported in the SSE stream."
+msgstr "無效的優先順序型別傳回 HTTP 422；字串、布林值和小數不會轉換成整數。vLLM 和 SGLang 使用非零優先順序時必須啟用原生優先順序排程，否則請求傳回 HTTP 400。串流回應開始後，錯誤透過 SSE 串流傳回。 超出 ``[-10000, 10000]`` 的值也傳回 HTTP 422；具有原生優先順序介面的 TRT-LLM 版本同樣要求啟用原生優先順序排程。"
+
+#: source/user_guide/client_api.rst:515
+msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
+msgstr "具有原生 ``priority`` 參數的 TRT-LLM 版本在一般副本和 P/D 副本上都使用原生排程。Xinference 預設將 ``scheduler_config.waiting_queue_policy`` 設為 ``\"priority\"``，並線性轉換整數範圍：``-10000`` 對應 ``1.0``，``0`` 對應 ``0.5``，``10000`` 對應 ``0.0``。包括 1.2.1 在內的舊版本會對明確傳入的 ``priority`` 傳回 HTTP 400，即使值為 ``0``。省略此欄位可繼續使用舊版本；TRT-LLM 不使用共用佇列作為後備。"

@@ -121,7 +121,7 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     "trt-llm": [
         "xoscar[nixl]>=0.11.1 ; sys_platform=='linux'",
         # Match the distribution's metadata name for xoscar's skip-installed path.
-        "tensorrt_llm==1.2.1 ; sys_platform=='linux'",
+        "tensorrt_llm>=1.2.1,<1.4 ; sys_platform=='linux'",
         "pyarrow==20.0.0 ; sys_platform=='linux'",
     ],
     "sglang": [

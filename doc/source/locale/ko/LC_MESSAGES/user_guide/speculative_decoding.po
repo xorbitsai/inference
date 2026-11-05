@@ -363,3 +363,7 @@ msgid ""
 "token one on either model."
 msgstr ""
 "항상 켜기 전에 측정하세요. 검증 자체는 문제가 아닙니다. 두 모델 모두 4토큰 forward는 1토큰보다 약 40%만 더 비쌉니다."
+
+#: source/user_guide/speculative_decoding.rst:101
+msgid "NGram can also use the ordinary-replica version range documented in :ref:`trt_llm_backend`. Draft/Target availability depends on the installed native API; later 1.3 pre-releases removed it. TensorRT-LLM 1.2.1 remains the GPU-validated speculative-decoding baseline."
+msgstr "NGram은 :ref:`trt_llm_backend` 에 설명된 일반 복제본 버전 범위도 사용할 수 있습니다. Draft/Target의 사용 가능 여부는 설치된 네이티브 API에 따라 달라지며 이후 1.3 사전 릴리스에서 제거되었습니다. GPU에서 검증된 추측 디코딩 기준 버전은 여전히 TensorRT-LLM 1.2.1입니다."
