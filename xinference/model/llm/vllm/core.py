@@ -1028,6 +1028,10 @@ class VLLMModel(WeightCachedModel, LLM):
             and VLLM_VERSION >= version.parse("0.32.0")
         )
 
+    def get_max_concurrent_requests(self) -> Optional[int]:
+        """Expose configured sequence capacity as an advisory routing limit."""
+        return (self._model_config or {}).get("max_num_seqs")
+
     def set_xavier_config(self, value: Optional[Dict]):
         if (
             value is None
