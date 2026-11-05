@@ -61,10 +61,10 @@ def test_gguf_concurrent_case_aliases_share_destination_lock_through_download(
 
     import huggingface_hub
 
+    from ..custom import unregister_llm
+
     _register_gguf("my-llm", ("huggingface", "org/model-a", "model.gguf"))
-    _register_gguf("MY-LLM", ("modelscope", "org-ms/model-b", "model.gguf"))
     first = _gguf_manager("my-llm")
-    second = _gguf_manager("MY-LLM", "modelscope")
     cache_dir = first.get_cache_dir()
     parent = os.path.dirname(cache_dir)
     with tempfile.TemporaryDirectory(prefix="CaseProbe", dir=parent) as probe:
@@ -99,6 +99,11 @@ def test_gguf_concurrent_case_aliases_share_destination_lock_through_download(
         try:
             assert recorded.wait(10)
             assert os.path.isdir(cache_dir) == existing_directory
+            # Colliding registrations cannot coexist, but unregistering does not
+            # cancel an in-flight launch or remove its downloaded directory.
+            unregister_llm("my-llm")
+            _register_gguf("MY-LLM", ("modelscope", "org-ms/model-b", "model.gguf"))
+            second = _gguf_manager("MY-LLM", "modelscope")
             second_result = pool.submit(launch_second)
             assert second_started.wait(10)
             if shared:
