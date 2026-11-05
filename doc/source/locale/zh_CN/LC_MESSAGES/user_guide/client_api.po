@@ -295,14 +295,49 @@ msgstr "Agent 缓存生命周期"
 msgid "Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
 msgstr "受支持的 vLLM Xavier 混合架构 GPU 前缀模型会声明 ``supports_agent_cache_lifecycle: true``。通过 OpenAI 客户端的 ``extra_body`` 或 Xinference 客户端的 ``generate_config``，为聊天请求附加 ``cache_session={\"id\": \"run-1\", \"revision\": 0}``。会话 ID 按请求凭证隔离。缓存隔离仍使用 ``cache_salt``。"
 
-#: ../../source/user_guide/client_api.rst
-msgid "Send updates to ``POST /v1/models/{model_uid}/cache_sessions`` with the same ``id``, an increasing integer ``revision``, and ``phase`` set to ``waiting``, ``active``, or ``finished``. Chat requests also mark the session active. Older revisions are ignored. Capable Xagent deployments send these hints automatically, including tool waits and execution cleanup."
-msgstr "向 ``POST /v1/models/{model_uid}/cache_sessions`` 发送更新，提供相同的 ``id``、递增的整数 ``revision``，以及值为 ``waiting``、``active`` 或 ``finished`` 的 ``phase``。聊天请求也会将会话标记为活跃。较旧的修订会被忽略。支持此能力的 Xagent 部署会自动发送这些提示，涵盖工具等待和执行清理。"
+#: ../../source/user_guide/client_api.rst:103
+msgid ""
+"Send ``id``, an integer ``revision``, and ``phase`` (``waiting``, ``active``"
+" or ``finished``) to ``POST /v1/models/{model_uid}/cache_sessions``. Chat "
+"marks the session active. Older revisions and phase changes at the same "
+"revision are rejected. Increase the revision after chat before sending "
+"``waiting``. Repeating the same revision and phase refreshes the 300-second "
+"TTL. Xagent sends phase changes automatically; waits longer than five "
+"minutes require explicit refreshes."
+msgstr ""
+"向 ``POST /v1/models/{model_uid}/cache_sessions`` 发送 ``id``、整数 ``revision`` 和"
+" ``phase``（``waiting``、``active`` 或 "
+"``finished``）。聊天请求会将会话标记为活跃状态。旧版本以及同一版本下的阶段变更会被拒绝。聊天后发送 ``waiting`` "
+"前必须增加版本号。重复发送相同版本和阶段可刷新 300 秒的有效期。Xagent 自动发送阶段变更；等待超过五分钟时需要显式刷新提示。"
 
-#: ../../source/user_guide/client_api.rst
-msgid "Waiting prefixes are placed later in the engine's eviction order; prefixes owned only by finished sessions are reclaimed first. Blocks remain available for allocation, and active requests and transfer leases retain their ownership. Hints expire after 300 seconds, with at most 4096 sessions per model. This policy changes resident-cache eviction order; capacity limits and normal recomputation still apply."
-msgstr "等待中的前缀会被移至引擎淘汰顺序的后部；仅属于已结束会话的前缀会优先回收。缓存块仍可用于分配，活跃请求和传输租约保留其所有权。提示在 300 秒后过期，每个模型最多保存 4096 个会话。该策略调整常驻缓存的淘汰顺序；容量限制和正常的重新计算仍然适用。"
+#: ../../source/user_guide/client_api.rst:105
+msgid ""
+"Waiting prefixes are placed later in the engine's eviction order, with chain"
+" tails evicted before heads. Finished sessions follow normal LRU eviction. "
+"Blocks remain available for allocation, and active requests and transfer "
+"leases retain their ownership. Capacity limits and normal recomputation "
+"still apply."
+msgstr ""
+"等待中的前缀会在淘汰顺序中靠后，块链尾部先于头部被淘汰。结束的会话按普通 LRU "
+"策略淘汰。所有块仍可用于分配，活跃请求和传输租约保持其所有权。容量限制和正常重算仍然适用。"
 
-#: ../../source/user_guide/client_api.rst
-msgid "A single replica can use ``enable_xavier=True`` and ``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes."
-msgstr "单副本可使用 ``enable_xavier=True`` 和 ``xavier_gpu_cache_bytes=0``，让常驻前缀缓存感知执行生命周期。"
+#: ../../source/user_guide/client_api.rst:101
+msgid ""
+"A single replica can use ``enable_xavier=True`` and "
+"``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes. This "
+"mode requires vLLM >= 0.32 and a recurrent-hybrid model combining attention "
+"with recurrent state. Non-hybrid single-replica launches are rejected."
+msgstr ""
+"单个副本也可使用 ``enable_xavier=True`` 和 "
+"``xavier_gpu_cache_bytes=0``，根据生命周期管理常驻前缀。此模式要求 vLLM >= "
+"0.32，以及结合注意力与循环状态的循环混合模型。非混合模型的单副本启动会被拒绝。"
+
+#: ../../source/user_guide/client_api.rst:107
+msgid ""
+"The registry holds at most 4096 sessions per model and 1024 per credential "
+"scope. Requests without credentials share one anonymous scope. Lifecycle IDs"
+" are independent of ``cache_salt``; use distinct session IDs for independent"
+" workflows, including workflows with different salts."
+msgstr ""
+"注册表为每个模型最多保留 4096 个会话，每个凭证作用域最多保留 1024 个会话。未提供凭证的请求共享一个匿名作用域。生命周期 ID 独立于 "
+"``cache_salt``；独立工作流应使用不同的会话 ID，使用不同 salt 的工作流也不例外。"

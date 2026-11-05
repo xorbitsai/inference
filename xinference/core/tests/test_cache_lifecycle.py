@@ -65,3 +65,57 @@ def test_only_supported_gpu_prefix_models_advertise_lifecycle(
     model._engine = SimpleNamespace(model_config=SimpleNamespace(is_hybrid=hybrid))
     monkeypatch.setattr(vllm_core, "VLLM_VERSION", parse(engine_version))
     assert model.supports_agent_cache_lifecycle() is expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["supported", "non-hybrid", "pd", "no-tracker"])
+async def test_cache_updates_require_actual_model_support(monkeypatch, mode):
+    owner = SupervisorActor.__new__(SupervisorActor)
+    owner._pd_model_mapping = {"model": object()} if mode == "pd" else {}
+    tracker = SimpleNamespace(
+        get_cache_sessions=AsyncMock(return_value={}),
+        update_cache_session=AsyncMock(return_value=True),
+    )
+    owner._block_tracker_mapping = {} if mode == "no-tracker" else {"model": tracker}
+    owner._iter_active_replica_model_uids = lambda _: ["rep0"]
+    owner._replica_model_uid_to_worker = {"rep0": object()}
+    model = SimpleNamespace(
+        supports_agent_cache_lifecycle=AsyncMock(return_value=mode == "supported")
+    )
+    monkeypatch.setattr(
+        supervisor_module, "call_worker_route", AsyncMock(return_value=model)
+    )
+    session = {"id": "agent", "revision": 0, "phase": "active"}
+    if mode == "supported":
+        assert await owner.update_cache_session("model", session)
+        tracker.update_cache_session.assert_awaited_once_with(session)
+    else:
+        with pytest.raises(ValueError, match="does not support"):
+            await owner.update_cache_session("model", session)
+        tracker.update_cache_session.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_discovery_probes_independent_capabilities_concurrently(monkeypatch):
+    import asyncio
+
+    monkeypatch.setattr(supervisor_module, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    owner = SupervisorActor.__new__(SupervisorActor)
+    owner.describe_model = AsyncMock(return_value={"model_type": "LLM"})
+    thinking_started, lifecycle_started = asyncio.Event(), asyncio.Event()
+
+    async def thinking(uid):
+        thinking_started.set()
+        await lifecycle_started.wait()
+        return True
+
+    async def lifecycle(uid):
+        lifecycle_started.set()
+        await thinking_started.wait()
+        return True
+
+    owner._supports_thinking_budget = thinking
+    owner._supports_agent_cache_lifecycle = lifecycle
+    description = await asyncio.wait_for(owner.describe_running_model("model"), 1)
+    assert description["supports_thinking_budget"]
+    assert description["supports_agent_cache_lifecycle"]

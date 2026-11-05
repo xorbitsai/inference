@@ -5,11 +5,12 @@
 import time
 from collections import OrderedDict
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable
 
 CACHE_SESSION_ARG = "_xinference_cache_session"
 CACHE_SESSION_TTL = 300.0
 MAX_CACHE_SESSIONS = 4096
+MAX_CACHE_SESSIONS_PER_SCOPE = 1024
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,7 @@ class CacheSessionTag:
     id: str
     revision: int
     phase: str = "active"
+    scope: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -55,16 +57,28 @@ class CacheSessionRegistry:
         capacity: int = MAX_CACHE_SESSIONS,
         ttl: float = CACHE_SESSION_TTL,
         clock: Callable[[], float] = time.monotonic,
+        scope_capacity: int = MAX_CACHE_SESSIONS_PER_SCOPE,
     ):
         self.capacity = capacity
         self.ttl = ttl
         self.clock = clock
         self.states: OrderedDict[str, tuple[int, str, float]] = OrderedDict()
+        self.scope_capacity = min(scope_capacity, capacity)
+        self.scopes: Dict[str, OrderedDict[str, None]] = {}
+        self.session_scopes: Dict[str, str] = {}
+
+    def _remove(self, session_id: str) -> None:
+        self.states.pop(session_id)
+        scope = self.session_scopes.pop(session_id)
+        sessions = self.scopes[scope]
+        sessions.pop(session_id)
+        if not sessions:
+            del self.scopes[scope]
 
     def update(self, session: dict) -> bool:
         now = self.clock()
         while self.states and next(iter(self.states.values()))[2] <= now:
-            self.states.popitem(last=False)
+            self._remove(next(iter(self.states)))
         session_id, revision, phase = (
             session["id"],
             session["revision"],
@@ -80,8 +94,15 @@ class CacheSessionRegistry:
                 return False
         self.states[session_id] = revision, phase, now + self.ttl
         self.states.move_to_end(session_id)
+        scope = session.get("scope", "")
+        sessions = self.scopes.setdefault(scope, OrderedDict())
+        sessions[session_id] = None
+        sessions.move_to_end(session_id)
+        self.session_scopes[session_id] = scope
+        if len(sessions) > self.scope_capacity:
+            self._remove(next(iter(sessions)))
         if len(self.states) > self.capacity:
-            self.states.popitem(last=False)
+            self._remove(next(iter(self.states)))
         return True
 
     def get(self, session_ids: Iterable[str]) -> Dict[str, str]:
@@ -95,31 +116,31 @@ class CacheSessionRegistry:
 
 def order_free_session_blocks(
     pool: Any, offers: Iterable[Any], phases: Dict[str, str]
-) -> tuple[int, int]:
-    """Move waiting blocks to the tail and exclusively finished blocks to the head.
+) -> int:
+    """Move waiting chains to the tail, ordered so their heads survive longest.
 
     All blocks remain free. Active requests and in-progress transfers retain
-    their existing ownership and reuse fences; shared live prefixes win over
-    finished owners. Missing/expired hints follow ordinary engine eviction.
+    their existing ownership and reuse fences. Active, finished and expired
+    hints leave blocks in their ordinary engine eviction order.
     """
-    owners: Dict[int, set[Optional[str]]] = {}
+    positions: Dict[int, int] = {}
     for offer in offers:
-        phase = phases.get(offer.session_id)
-        for block_id in offer.block_ids:
-            owners.setdefault(block_id, set()).add(phase)
-    waiting = []
-    finished = []
-    for block_id, states in owners.items():
-        block = pool.blocks[block_id]
-        if block.ref_cnt or block.is_null:
+        if phases.get(offer.session_id) != "waiting":
             continue
-        if "waiting" in states:
-            waiting.append(block)
-        elif states == {"finished"}:
-            finished.append(block)
+        for position, block_id in enumerate(offer.block_ids):
+            positions[block_id] = max(positions.get(block_id, -1), position)
     queue = pool.free_block_queue
-    for block in (*finished, *waiting):
+    moved = 0
+    for block_id in sorted(positions, key=positions.__getitem__, reverse=True):
+        block = pool.blocks[block_id]
+        if (
+            block.ref_cnt
+            or block.is_null
+            or block.prev_free_block is None
+            or block.next_free_block is None
+        ):
+            continue
         queue.remove(block)
-    queue.prepend_n(finished)
-    queue.append_n(waiting)
-    return len(waiting), len(finished)
+        queue.append_n([block])
+        moved += 1
+    return moved

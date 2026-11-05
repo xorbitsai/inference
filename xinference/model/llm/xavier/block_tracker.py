@@ -65,7 +65,7 @@ class BlockTracker(xo.StatelessActor):
         if key in offers and offers[key][0] == ticket:
             del offers[key]
 
-    def query_gpu_prefix(self, rank, keys):
+    def query_gpu_prefix(self, rank, keys, session_ids=None):
         best = None
         for peer, offers in self._gpu_prefixes.items():
             if peer == rank or peer in self._unavailable_ranks:
@@ -76,6 +76,8 @@ class BlockTracker(xo.StatelessActor):
                     if best is None or tokens > best[2]:
                         best = peer, ticket, tokens, groups
                     break
+        if session_ids is not None:
+            return best, self.get_cache_sessions(session_ids)
         return best
 
     def get_snapshot_directory(self, virtual_engine: int):

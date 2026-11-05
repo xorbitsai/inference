@@ -98,11 +98,13 @@ Agent cache lifecycle
 
 Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={"id": "run-1", "revision": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``.
 
-A single replica can use ``enable_xavier=True`` and ``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes.
+A single replica can use ``enable_xavier=True`` and ``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes. This mode requires vLLM >= 0.32 and a recurrent-hybrid model combining attention with recurrent state. Non-hybrid single-replica launches are rejected.
 
-Send updates to ``POST /v1/models/{model_uid}/cache_sessions`` with the same ``id``, an increasing integer ``revision``, and ``phase`` set to ``waiting``, ``active``, or ``finished``. Chat requests also mark the session active. Older revisions are ignored. Capable Xagent deployments send these hints automatically, including tool waits and execution cleanup.
+Send ``id``, an integer ``revision``, and ``phase`` (``waiting``, ``active`` or ``finished``) to ``POST /v1/models/{model_uid}/cache_sessions``. Chat marks the session active. Older revisions and phase changes at the same revision are rejected. Increase the revision after chat before sending ``waiting``. Repeating the same revision and phase refreshes the 300-second TTL. Xagent sends phase changes automatically; waits longer than five minutes require explicit refreshes.
 
-Waiting prefixes are placed later in the engine's eviction order; prefixes owned only by finished sessions are reclaimed first. Blocks remain available for allocation, and active requests and transfer leases retain their ownership. Hints expire after 300 seconds, with at most 4096 sessions per model. This policy changes resident-cache eviction order; capacity limits and normal recomputation still apply.
+Waiting prefixes are placed later in the engine's eviction order, with chain tails evicted before heads. Finished sessions follow normal LRU eviction. Blocks remain available for allocation, and active requests and transfer leases retain their ownership. Capacity limits and normal recomputation still apply.
+
+The registry holds at most 4096 sessions per model and 1024 per credential scope. Requests without credentials share one anonymous scope. Lifecycle IDs are independent of ``cache_salt``; use distinct session IDs for independent workflows, including workflows with different salts.
 
 Cache hit token counts
 ======================

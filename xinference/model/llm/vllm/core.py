@@ -2735,18 +2735,11 @@ class VLLMModel(WeightCachedModel, LLM):
         from ..xavier.cache_lifecycle import CACHE_SESSION_ARG, CacheSessionTag
 
         session = (generate_config or {}).get(CACHE_SESSION_ARG)
-        original_extra = getattr(sampling_params, "extra_args", None)
-        extra_args = dict(original_extra or {})
-        extra_args.pop(CACHE_SESSION_ARG, None)
         if (
             isinstance(session, CacheSessionTag)
             and self.supports_agent_cache_lifecycle()
         ):
-            extra_args[CACHE_SESSION_ARG] = session.to_dict()
-        if hasattr(sampling_params, "extra_args") and (
-            original_extra is not None or isinstance(session, CacheSessionTag)
-        ):
-            sampling_params.extra_args = extra_args or None
+            sampling_params.extra_args = {CACHE_SESSION_ARG: session.to_dict()}
 
         if generate_config and "_pd_kv_transfer_params" in generate_config:
             from .xavier.transport import uses_direct_handoff

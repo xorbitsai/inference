@@ -7732,12 +7732,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 return self._build_token_router_model_info(config)
         description = await self.describe_model(model_uid)
         if description.get("model_type") == "LLM":
-            description["supports_thinking_budget"] = (
-                await self._supports_thinking_budget(model_uid)
+            thinking, lifecycle = await asyncio.gather(
+                self._supports_thinking_budget(model_uid),
+                self._supports_agent_cache_lifecycle(model_uid),
             )
-            if model_uid in getattr(self, "_block_tracker_mapping", {}) and (
-                await self._supports_agent_cache_lifecycle(model_uid)
-            ):
+            description["supports_thinking_budget"] = thinking
+            if lifecycle:
                 description["supports_agent_cache_lifecycle"] = True
             if (
                 "chat" in description.get("model_ability", [])
@@ -7747,37 +7747,23 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         return description
 
     async def _supports_agent_cache_lifecycle(self, model_uid: str) -> bool:
-        if model_uid in self._pd_model_mapping:
+        tracker = getattr(self, "_block_tracker_mapping", {}).get(model_uid)
+        if tracker is None or model_uid in self._pd_model_mapping:
             return False
 
-        async def probe(replica_uid):
-            worker = self._replica_model_uid_to_worker.get(replica_uid)
-            if isinstance(worker, (list, tuple)):
-                worker = worker[0] if worker else None
-            if worker is None:
-                return False
-            model = await call_worker_route(
-                self, replica_uid, worker, "get_model", model_uid=replica_uid
-            )
+        async def probe(model):
             return await model.supports_agent_cache_lifecycle()
 
         try:
             results = await asyncio.wait_for(
                 asyncio.gather(
-                    self._block_tracker_mapping[model_uid].get_cache_sessions([]),
-                    *(
-                        probe(uid)
-                        for uid in self._iter_active_replica_model_uids(model_uid)
-                    ),
+                    tracker.get_cache_sessions([]),
+                    self._all_replicas_support(model_uid, probe, timeout=1),
                     return_exceptions=True,
                 ),
                 timeout=1,
             )
-            return (
-                len(results) > 1
-                and isinstance(results[0], dict)
-                and all(result is True for result in results[1:])
-            )
+            return isinstance(results[0], dict) and results[1] is True
         except Exception:
             logger.debug(
                 "Agent cache capabilities unavailable for %s", model_uid, exc_info=True
@@ -7785,9 +7771,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             return False
 
     async def update_cache_session(self, model_uid: str, session: dict) -> bool:
-        tracker = self._block_tracker_mapping.get(model_uid)
-        if tracker is None or model_uid in self._pd_model_mapping:
+        if not await self._supports_agent_cache_lifecycle(model_uid):
             raise ValueError("This model does not support agent cache lifecycle hints")
+        tracker = self._block_tracker_mapping[model_uid]
         return await tracker.update_cache_session(session)
 
     async def _supports_thinking_budget(self, model_uid: str) -> bool:
@@ -7800,6 +7786,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 and result.get("supports_thinking_budget") is True
             )
 
+        return await self._all_replicas_support(model_uid, probe, timeout=3)
+
+    async def _all_replicas_support(
+        self,
+        model_uid: str,
+        probe: Callable[[Any], Coroutine[Any, Any, bool]],
+        timeout: float,
+    ) -> bool:
         async def probe_replica(replica_uid: str) -> bool:
             worker = self._replica_model_uid_to_worker.get(replica_uid)
             if isinstance(worker, (list, tuple)):
@@ -7814,7 +7808,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         try:
             if model_uid in self._pd_model_mapping:
                 return await asyncio.wait_for(
-                    probe(self._pd_model_mapping[model_uid]), timeout=3
+                    probe(self._pd_model_mapping[model_uid]), timeout=timeout
                 )
             results = await asyncio.wait_for(
                 asyncio.gather(
@@ -7824,13 +7818,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     ),
                     return_exceptions=True,
                 ),
-                timeout=3,
+                timeout=timeout,
             )
             return bool(results) and all(result is True for result in results)
         except Exception:
             # Older/unavailable workers must not prevent the details page loading.
             logger.debug(
-                "Reasoning capabilities are unavailable for %s",
+                "Model capabilities are unavailable for %s",
                 model_uid,
                 exc_info=True,
             )

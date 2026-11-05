@@ -1996,8 +1996,11 @@ class RESTfulAPI(CancelMixin):
             data = validate_cache_session(value, control=control)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from None
-        scope = json.dumps([_request_credential(request), data["id"]])
-        data["id"] = hashlib.sha256(scope.encode()).hexdigest()
+        credential = _request_credential(request)
+        data["id"] = hashlib.sha256(
+            json.dumps([credential, data["id"]]).encode()
+        ).hexdigest()
+        data["scope"] = hashlib.sha256(credential.encode()).hexdigest()
         return CacheSessionTag(**data)
 
     async def update_cache_session(
