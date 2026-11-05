@@ -483,7 +483,12 @@ class LLM(abc.ABC):
                 reasoning_content
             )
             return
-        auto_insert_start_tag = "hybrid" not in abilities
+        # Seed-OSS writes its own start tag, and thinking_budget=0 closes reasoning
+        # in the prompt, so a missing tag means there is no reasoning.
+        auto_insert_start_tag = (
+            "hybrid" not in abilities
+            and self.model_family.reasoning_start_tag != "<seed:think>"
+        )
         # Initialize reasoning parser if model has reasoning ability
         self.reasoning_parser = ReasoningParser(  # type: ignore
             reasoning_content,

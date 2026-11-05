@@ -65,4 +65,5 @@ from . import (
     minimax_m3_tool_parser,
     minimax_tool_parser,
     qwen_tool_parser,
+    seed_oss_tool_parser,
 )
